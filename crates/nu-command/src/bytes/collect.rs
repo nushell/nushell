@@ -3,7 +3,7 @@ use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
     Category, Example, IntoPipelineData, PipelineData, ShellError, Signature, Span, SyntaxShape,
-    Value,
+    Type, Value,
 };
 
 #[derive(Clone, Copy)]
@@ -16,6 +16,7 @@ impl Command for BytesCollect {
 
     fn signature(&self) -> Signature {
         Signature::build("bytes collect")
+            .input_output_types(vec![(Type::List(Box::new(Type::Binary)), Type::Binary)])
             .optional(
                 "separator",
                 SyntaxShape::Binary,

@@ -2,7 +2,7 @@ use nu_engine::CallExt;
 use nu_protocol::ast::{Call, CellPath};
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
-    Category, Example, IntoPipelineData, PipelineData, Signature, Span, SyntaxShape, Value,
+    Category, Example, IntoPipelineData, PipelineData, Signature, Span, SyntaxShape, Type, Value,
 };
 
 #[derive(Clone)]
@@ -15,6 +15,7 @@ impl Command for Empty {
 
     fn signature(&self) -> Signature {
         Signature::build("is-empty")
+            .input_output_types(vec![(Type::Any, Type::Bool)])
             .rest(
                 "rest",
                 SyntaxShape::CellPath,

@@ -1,9 +1,9 @@
 use nu_engine::{eval_block, CallExt};
 use nu_protocol::{
     ast::Call,
-    engine::{CaptureBlock, Command, EngineState, Stack},
+    engine::{Closure, Command, EngineState, Stack},
     Category, Example, IntoInterruptiblePipelineData, PipelineData, ShellError, Signature, Span,
-    SyntaxShape, Value,
+    SyntaxShape, Type, Value,
 };
 
 #[derive(Clone)]
@@ -16,6 +16,13 @@ impl Command for TakeUntil {
 
     fn signature(&self) -> Signature {
         Signature::build(self.name())
+            .input_output_types(vec![
+                (Type::Table(vec![]), Type::Table(vec![])),
+                (
+                    Type::List(Box::new(Type::Any)),
+                    Type::List(Box::new(Type::Any)),
+                ),
+            ])
             .required(
                 "predicate",
                 SyntaxShape::RowCondition,
@@ -29,14 +36,27 @@ impl Command for TakeUntil {
     }
 
     fn examples(&self) -> Vec<Example> {
-        vec![Example {
-            description: "Take until the element is positive",
-            example: "echo [-1 -2 9 1] | take until $it > 0",
-            result: Some(Value::List {
-                vals: vec![Value::test_int(-1), Value::test_int(-2)],
-                span: Span::test_data(),
-            }),
-        }]
+        vec![
+            Example {
+                description: "Take until the element is positive",
+                example: "[-1 -2 9 1] | take until $it > 0",
+                result: Some(Value::List {
+                    vals: vec![Value::test_int(-1), Value::test_int(-2)],
+                    span: Span::test_data(),
+                }),
+            },
+            Example {
+                description: "Take until the field value is positive",
+                example: "[{a: -1} {a: -2} {a: 9} {a: 1}] | take until $it.a > 0",
+                result: Some(Value::List {
+                    vals: vec![
+                        Value::test_record(vec!["a"], vec![Value::test_int(-1)]),
+                        Value::test_record(vec!["a"], vec![Value::test_int(-2)]),
+                    ],
+                    span: Span::test_data(),
+                }),
+            },
+        ]
     }
 
     fn run(
@@ -48,7 +68,7 @@ impl Command for TakeUntil {
     ) -> Result<PipelineData, ShellError> {
         let span = call.head;
 
-        let capture_block: CaptureBlock = call.req(engine_state, stack, 0)?;
+        let capture_block: Closure = call.req(engine_state, stack, 0)?;
 
         let block = engine_state.get_block(capture_block.block_id).clone();
         let var_id = block.signature.get_positional(0).and_then(|arg| arg.var_id);

@@ -937,7 +937,7 @@ mod input_types {
                 .required("cond", SyntaxShape::Expression, "condition to check")
                 .required(
                     "then_block",
-                    SyntaxShape::Block(Some(vec![])),
+                    SyntaxShape::Block,
                     "block to run if check succeeds",
                 )
                 .optional(
@@ -968,7 +968,6 @@ mod input_types {
             working_set.add_decl(Box::new(GroupBy));
             working_set.add_decl(Box::new(LsTest));
             working_set.add_decl(Box::new(ToCustom));
-            working_set.add_decl(Box::new(Let));
             working_set.add_decl(Box::new(AggMin));
             working_set.add_decl(Box::new(Collect));
             working_set.add_decl(Box::new(WithColumn));

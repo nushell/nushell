@@ -1,9 +1,9 @@
 use nu_engine::{eval_block, CallExt};
 use nu_protocol::ast::Call;
-use nu_protocol::engine::{CaptureBlock, Command, EngineState, Stack};
+use nu_protocol::engine::{Closure, Command, EngineState, Stack};
 use nu_protocol::{
     Category, Example, FromValue, IntoInterruptiblePipelineData, IntoPipelineData, PipelineData,
-    ShellError, Signature, Span, SyntaxShape, Value,
+    ShellError, Signature, Span, SyntaxShape, Type, Value,
 };
 
 #[derive(Clone)]
@@ -29,6 +29,10 @@ repeating this process with row 1, and so on."#
 
     fn signature(&self) -> nu_protocol::Signature {
         Signature::build("merge")
+            .input_output_types(vec![
+                (Type::Record(vec![]), Type::Record(vec![])),
+                (Type::Table(vec![]), Type::Table(vec![])),
+            ])
             .required(
                 "block",
                 // Both this and `update` should have a shape more like <record> | <table> | <block> than just <any>. -Leon 2022-10-27
@@ -64,10 +68,11 @@ repeating this process with row 1, and so on."#
             Example {
                 example: "{a: 1, b: 2} | merge {c: 3}",
                 description: "Merge two records",
-                result: Some(Value::test_record(
-                    vec!["a", "b", "c"],
-                    vec![Value::test_int(1), Value::test_int(2), Value::test_int(3)],
-                )),
+                result: Some(Value::Record {
+                    cols: vec!["a".to_string(), "b".to_string(), "c".to_string()],
+                    vals: vec![Value::test_int(1), Value::test_int(2), Value::test_int(3)],
+                    span: Span::test_data(),
+                }),
             },
             Example {
                 example: "{a: 1, b: 3} | merge { { b: 2 } | merge { c: 4 } }",
@@ -76,6 +81,17 @@ repeating this process with row 1, and so on."#
                     vec!["a", "b", "c"],
                     vec![Value::test_int(1), Value::test_int(2), Value::test_int(4)],
                 )),
+            },
+            Example {
+                example: "[{columnA: A0 columnB: B0}] | merge [{columnA: 'A0*'}]",
+                description: "Merge two tables, overwriting overlapping columns",
+                result: Some(Value::List {
+                    vals: vec![Value::test_record(
+                        vec!["columnA", "columnB"],
+                        vec![Value::test_string("A0*"), Value::test_string("B0")],
+                    )],
+                    span: Span::test_data(),
+                }),
             },
         ]
     }
@@ -97,7 +113,7 @@ repeating this process with row 1, and so on."#
 
         let merge_value: Value = if argument_was_block {
             // When given a block, run it to obtain the matching value.
-            let capture_block: CaptureBlock = FromValue::from_value(&replacement)?;
+            let capture_block: Closure = FromValue::from_value(&replacement)?;
 
             let mut stack = stack.captures_to_stack(&capture_block.captures);
             stack.with_env(&stack.env_vars.clone(), &stack.env_hidden.clone());

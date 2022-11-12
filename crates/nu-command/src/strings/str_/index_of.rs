@@ -5,7 +5,7 @@ use nu_protocol::ast::CellPath;
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::Category;
 use nu_protocol::Spanned;
-use nu_protocol::{Example, PipelineData, ShellError, Signature, Span, SyntaxShape, Value};
+use nu_protocol::{Example, PipelineData, ShellError, Signature, Span, SyntaxShape, Type, Value};
 
 struct Arguments {
     end: bool,
@@ -33,11 +33,13 @@ impl Command for SubCommand {
 
     fn signature(&self) -> Signature {
         Signature::build("str index-of")
+            .input_output_types(vec![(Type::String, Type::Int)])
+            .vectorizes_over_list(true) // TODO: no test coverage
             .required("string", SyntaxShape::String, "the string to find index of")
             .rest(
                 "rest",
                 SyntaxShape::CellPath,
-                "optionally returns index of string in input by column paths",
+                "For a data structure input, search strings at the given cell paths, and replace with result",
             )
             .named(
                 "range",

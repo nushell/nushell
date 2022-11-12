@@ -74,3 +74,15 @@ fn into_filesize_filesize() {
 
     assert!(actual.out.contains("3.0 KiB"));
 }
+
+#[test]
+fn into_filesize_negative_filesize() {
+    let actual = nu!(
+        cwd: ".", pipeline(
+        r#"
+        -3kib | into filesize
+        "#
+    ));
+
+    assert!(actual.out.contains("-3.0 KiB"));
+}

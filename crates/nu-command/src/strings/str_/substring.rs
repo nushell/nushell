@@ -3,7 +3,7 @@ use nu_engine::CallExt;
 use nu_protocol::ast::Call;
 use nu_protocol::ast::CellPath;
 use nu_protocol::engine::{Command, EngineState, Stack};
-use nu_protocol::{Example, PipelineData, ShellError, Signature, Span, SyntaxShape, Value};
+use nu_protocol::{Example, PipelineData, ShellError, Signature, Span, SyntaxShape, Type, Value};
 use std::cmp::Ordering;
 
 #[derive(Clone)]
@@ -38,6 +38,8 @@ impl Command for SubCommand {
 
     fn signature(&self) -> Signature {
         Signature::build("str substring")
+            .input_output_types(vec![(Type::String, Type::String)])
+            .vectorizes_over_list(true)
             .required(
                 "range",
                 SyntaxShape::Any,
@@ -46,7 +48,7 @@ impl Command for SubCommand {
             .rest(
                 "rest",
                 SyntaxShape::CellPath,
-                "optionally substring text by column paths",
+                "For a data structure input, turn strings at the given cell paths into substrings",
             )
     }
 

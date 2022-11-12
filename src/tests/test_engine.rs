@@ -107,7 +107,7 @@ fn missing_flags_are_nothing4() -> TestResult {
 #[test]
 fn proper_variable_captures() -> TestResult {
     run_test(
-        r#"def foo [x] { let y = 100; { $y + $x } }; do (foo 23)"#,
+        r#"def foo [x] { let y = 100; { || $y + $x } }; do (foo 23)"#,
         "123",
     )
 }
@@ -126,11 +126,6 @@ fn proper_variable_captures_with_nesting() -> TestResult {
         r#"def foo [x] { let z = 100; def bar [y] { $y - $x + $z } ; { |z| bar $z } }; do (foo 11) 13"#,
         "102",
     )
-}
-
-#[test]
-fn proper_variable_for() -> TestResult {
-    run_test(r#"for x in 1..3 { if $x == 2 { "bob" } } | get 0"#, "bob")
 }
 
 #[test]

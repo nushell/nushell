@@ -15,6 +15,8 @@ impl Command for EncodeBase64 {
 
     fn signature(&self) -> Signature {
         Signature::build("encode base64")
+            .input_output_types(vec![(Type::String, Type::String)])
+            .vectorizes_over_list(true)
             .named(
                 "character-set",
                 SyntaxShape::String,
@@ -24,7 +26,7 @@ impl Command for EncodeBase64 {
             .rest(
                 "rest",
                 SyntaxShape::CellPath,
-                "optionally base64 encode data by column paths",
+                "For a data structure input, encode data at the given cell paths",
             )
             .output_type(Type::String)
             .category(Category::Hash)

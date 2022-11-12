@@ -332,7 +332,7 @@ fn get_converted_value(
             },
         ];
 
-        if let Ok(Value::Block {
+        if let Ok(Value::Closure {
             val: block_id,
             span: from_span,
             ..

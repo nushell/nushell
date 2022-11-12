@@ -743,6 +743,11 @@ pub fn eval_hook(
                             val: block_id,
                             span: block_span,
                             ..
+                        }
+                        | Value::Closure {
+                            val: block_id,
+                            span: block_span,
+                            ..
                         } => {
                             match run_hook_block(
                                 engine_state,
@@ -796,6 +801,7 @@ pub fn eval_hook(
                                     name.as_bytes().to_vec(),
                                     val.span()?,
                                     Type::Any,
+                                    false,
                                 );
 
                                 vars.push((var_id, val));
@@ -854,6 +860,20 @@ pub fn eval_hook(
                             block_span,
                         )?;
                     }
+                    Value::Closure {
+                        val: block_id,
+                        span: block_span,
+                        ..
+                    } => {
+                        run_hook_block(
+                            engine_state,
+                            stack,
+                            block_id,
+                            input,
+                            arguments,
+                            block_span,
+                        )?;
+                    }
                     other => {
                         return Err(ShellError::UnsupportedConfigValue(
                             "block or string".to_string(),
@@ -865,6 +885,23 @@ pub fn eval_hook(
             }
         }
         Value::Block {
+            val: block_id,
+            span: block_span,
+            ..
+        } => {
+            output = PipelineData::Value(
+                run_hook_block(
+                    engine_state,
+                    stack,
+                    *block_id,
+                    input,
+                    arguments,
+                    *block_span,
+                )?,
+                None,
+            );
+        }
+        Value::Closure {
             val: block_id,
             span: block_span,
             ..

@@ -3,7 +3,7 @@ use chrono::{DateTime, FixedOffset, Local};
 use chrono_humanize::HumanTime;
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
-use nu_protocol::{Category, Example, PipelineData, ShellError, Signature, Span, Value};
+use nu_protocol::{Category, Example, PipelineData, ShellError, Signature, Span, Type, Value};
 #[derive(Clone)]
 pub struct SubCommand;
 
@@ -13,7 +13,13 @@ impl Command for SubCommand {
     }
 
     fn signature(&self) -> Signature {
-        Signature::build("date humanize").category(Category::Date)
+        Signature::build("date humanize")
+            .input_output_types(vec![
+                (Type::Date, Type::String),
+                (Type::String, Type::String),
+            ])
+            .allow_variants_without_examples(true)
+            .category(Category::Date)
     }
 
     fn usage(&self) -> &str {
@@ -45,21 +51,11 @@ impl Command for SubCommand {
     }
 
     fn examples(&self) -> Vec<Example> {
-        vec![
-            Example {
-                description: "Print a 'humanized' format for the date, relative to now.",
-                example: "date humanize",
-                result: Some(Value::String {
-                    val: "now".to_string(),
-                    span: Span::test_data(),
-                }),
-            },
-            Example {
-                description: "Print a 'humanized' format for the date, relative to now.",
-                example: r#""2021-10-22 20:00:12 +01:00" | date humanize"#,
-                result: None,
-            },
-        ]
+        vec![Example {
+            description: "Print a 'humanized' format for the date, relative to now.",
+            example: r#""2021-10-22 20:00:12 +01:00" | date humanize"#,
+            result: None,
+        }]
     }
 }
 

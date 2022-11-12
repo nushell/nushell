@@ -1,6 +1,6 @@
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
-use nu_protocol::{Category, Example, PipelineData, ShellError, Signature, Span, Value};
+use nu_protocol::{Category, Example, PipelineData, ShellError, Signature, Span, Type, Value};
 
 #[derive(Clone)]
 pub struct Debug;
@@ -15,11 +15,17 @@ impl Command for Debug {
     }
 
     fn signature(&self) -> Signature {
-        Signature::build("debug").category(Category::Core).switch(
-            "raw",
-            "Prints the raw value representation",
-            Some('r'),
-        )
+        Signature::build("debug")
+            .input_output_types(vec![
+                (
+                    Type::List(Box::new(Type::Any)),
+                    Type::List(Box::new(Type::String)),
+                ),
+                (Type::Table(vec![]), Type::List(Box::new(Type::String))),
+                (Type::Any, Type::String),
+            ])
+            .category(Category::Core)
+            .switch("raw", "Prints the raw value representation", Some('r'))
     }
 
     fn run(
@@ -54,12 +60,20 @@ impl Command for Debug {
     fn examples(&self) -> Vec<Example> {
         vec![
             Example {
-                description: "Print the value of a string",
+                description: "Debug print a string",
                 example: "'hello' | debug",
                 result: Some(Value::test_string("hello")),
             },
             Example {
-                description: "Print the value of a table",
+                description: "Debug print a list",
+                example: "['hello'] | debug",
+                result: Some(Value::List {
+                    vals: vec![Value::test_string("hello")],
+                    span: Span::test_data(),
+                }),
+            },
+            Example {
+                description: "Debug print a table",
                 example: "echo [[version patch]; [0.1.0 false] [0.1.1 true] [0.2.0 false]] | debug",
                 result: Some(Value::List {
                     vals: vec![

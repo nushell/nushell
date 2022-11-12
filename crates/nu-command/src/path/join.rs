@@ -6,7 +6,7 @@ use std::{
 use nu_engine::CallExt;
 use nu_protocol::{
     engine::Command, Example, PipelineData, ShellError, Signature, Span, Spanned, SyntaxShape,
-    Value,
+    Type, Value,
 };
 
 use super::PathSubcommandArguments;
@@ -32,10 +32,15 @@ impl Command for SubCommand {
 
     fn signature(&self) -> Signature {
         Signature::build("path join")
+            .input_output_types(vec![
+                (Type::String, Type::String),
+                (Type::List(Box::new(Type::String)), Type::String),
+                (Type::Table(vec![]), Type::List(Box::new(Type::String))),
+            ])
             .named(
                 "columns",
                 SyntaxShape::Table,
-                "Optionally operate by column path",
+                "For a record or table input, join strings at the given columns",
                 Some('c'),
             )
             .rest("append", SyntaxShape::String, "Path to append to the input")

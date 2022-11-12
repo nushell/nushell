@@ -3,7 +3,8 @@ use nu_parser::parse;
 use nu_protocol::{
     ast::Call,
     engine::{Command, EngineState, Stack, StateWorkingSet},
-    Category, Example, PipelineData, ShellError, Signature, Spanned, SyntaxShape,
+    Category, Example, PipelineData, ShellError, Signature, Span, Spanned, SyntaxShape, Type,
+    Value,
 };
 
 #[derive(Clone)]
@@ -20,6 +21,7 @@ impl Command for Ast {
 
     fn signature(&self) -> Signature {
         Signature::build("ast")
+            .input_output_types(vec![(Type::Nothing, Type::Nothing)])
             .required(
                 "pipeline",
                 SyntaxShape::String,
@@ -50,17 +52,17 @@ impl Command for Ast {
             Example {
                 description: "Print the ast of a string",
                 example: "ast 'hello'",
-                result: None,
+                result: Some(Value::nothing(Span::test_data())),
             },
             Example {
                 description: "Print the ast of a pipeline",
                 example: "ast 'ls | where name =~ README'",
-                result: None,
+                result: Some(Value::nothing(Span::test_data())),
             },
             Example {
                 description: "Print the ast of a pipeline with an error",
                 example: "ast 'for x in 1..10 { echo $x '",
-                result: None,
+                result: Some(Value::nothing(Span::test_data())),
             },
         ]
     }

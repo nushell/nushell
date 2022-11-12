@@ -22,7 +22,7 @@ impl Command for SchemaDb {
     }
 
     fn usage(&self) -> &str {
-        "Show sqlite database information, including its schema."
+        "Show SQLite database information, including its schema."
     }
 
     fn examples(&self) -> Vec<Example> {
@@ -54,7 +54,7 @@ impl Command for SchemaDb {
 
         cols.push("db_filename".into());
         vals.push(Value::String {
-            val: sqlite_db.connection.to_string(),
+            val: sqlite_db.path.to_string_lossy().into(),
             span,
         });
 

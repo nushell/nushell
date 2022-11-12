@@ -1,9 +1,9 @@
 use nu_engine::{eval_block, CallExt};
 use nu_protocol::ast::Call;
-use nu_protocol::engine::{CaptureBlock, Command, EngineState, Stack};
+use nu_protocol::engine::{Closure, Command, EngineState, Stack};
 use nu_protocol::{
     Category, Example, IntoInterruptiblePipelineData, IntoPipelineData, PipelineData, Signature,
-    Span, SyntaxShape, Value,
+    Span, SyntaxShape, Type, Value,
 };
 
 #[derive(Clone)]
@@ -24,10 +24,14 @@ impl Command for EachWhile {
 
     fn signature(&self) -> nu_protocol::Signature {
         Signature::build(self.name())
+            .input_output_types(vec![(
+                Type::List(Box::new(Type::Any)),
+                Type::List(Box::new(Type::Any)),
+            )])
             .required(
-                "block",
-                SyntaxShape::Block(Some(vec![SyntaxShape::Any])),
-                "the block to run",
+                "closure",
+                SyntaxShape::Closure(Some(vec![SyntaxShape::Any])),
+                "the closure to run",
             )
             .switch("numbered", "iterate with an index", Some('n'))
             .category(Category::Filters)
@@ -93,7 +97,7 @@ impl Command for EachWhile {
         call: &Call,
         input: PipelineData,
     ) -> Result<nu_protocol::PipelineData, nu_protocol::ShellError> {
-        let capture_block: CaptureBlock = call.req(engine_state, stack, 0)?;
+        let capture_block: Closure = call.req(engine_state, stack, 0)?;
         let numbered = call.has_flag("numbered");
 
         let metadata = input.metadata();
@@ -114,6 +118,9 @@ impl Command for EachWhile {
                 .into_iter()
                 .enumerate()
                 .map_while(move |(idx, x)| {
+                    // with_env() is used here to ensure that each iteration uses
+                    // a different set of environment variables.
+                    // Hence, a 'cd' in the first loop won't affect the next loop.
                     stack.with_env(&orig_env_vars, &orig_env_hidden);
 
                     if let Some(var) = block.signature.get_positional(0) {
@@ -168,6 +175,9 @@ impl Command for EachWhile {
                 .into_iter()
                 .enumerate()
                 .map_while(move |(idx, x)| {
+                    // with_env() is used here to ensure that each iteration uses
+                    // a different set of environment variables.
+                    // Hence, a 'cd' in the first loop won't affect the next loop.
                     stack.with_env(&orig_env_vars, &orig_env_hidden);
 
                     let x = match x {

@@ -1,14 +1,15 @@
-use crate::{current_dir_str, get_full_help};
+use crate::{current_dir_str, get_full_help, scope::create_scope};
 use nu_path::expand_path_with;
 use nu_protocol::{
-    ast::{Block, Call, Expr, Expression, Operator},
-    engine::{EngineState, Stack, Visibility},
+    ast::{
+        Assignment, Bits, Block, Boolean, Call, Comparison, Expr, Expression, Math, Operator,
+        PathMember,
+    },
+    engine::{EngineState, Stack},
     Config, HistoryFileFormat, IntoInterruptiblePipelineData, IntoPipelineData, ListStream,
-    PipelineData, Range, RawStream, ShellError, Span, Spanned, SyntaxShape, Unit, Value, VarId,
-    ENV_VARIABLE_ID,
+    PipelineData, Range, RawStream, ShellError, Span, Spanned, Unit, Value, VarId, ENV_VARIABLE_ID,
 };
 use nu_utils::stdout_write_all_and_flush;
-use std::cmp::Ordering;
 use std::collections::HashMap;
 use sysinfo::SystemExt;
 
@@ -355,131 +356,147 @@ pub fn eval_expression(
         }
         Expr::BinaryOp(lhs, op, rhs) => {
             let op_span = op.span;
-            let lhs = eval_expression(engine_state, stack, lhs)?;
             let op = eval_operator(op)?;
 
             match op {
-                Operator::And => {
-                    if lhs.is_false() {
-                        Ok(Value::Bool {
-                            val: false,
-                            span: expr.span,
-                        })
-                    } else {
-                        let rhs = eval_expression(engine_state, stack, rhs)?;
-                        lhs.and(op_span, &rhs, expr.span)
+                Operator::Boolean(boolean) => {
+                    let lhs = eval_expression(engine_state, stack, lhs)?;
+                    match boolean {
+                        Boolean::And => {
+                            if lhs.is_false() {
+                                Ok(Value::Bool {
+                                    val: false,
+                                    span: expr.span,
+                                })
+                            } else {
+                                let rhs = eval_expression(engine_state, stack, rhs)?;
+                                lhs.and(op_span, &rhs, expr.span)
+                            }
+                        }
+                        Boolean::Or => {
+                            if lhs.is_true() {
+                                Ok(Value::Bool {
+                                    val: true,
+                                    span: expr.span,
+                                })
+                            } else {
+                                let rhs = eval_expression(engine_state, stack, rhs)?;
+                                lhs.or(op_span, &rhs, expr.span)
+                            }
+                        }
                     }
                 }
-                Operator::Or => {
-                    if lhs.is_true() {
-                        Ok(Value::Bool {
-                            val: true,
-                            span: expr.span,
-                        })
-                    } else {
-                        let rhs = eval_expression(engine_state, stack, rhs)?;
-                        lhs.or(op_span, &rhs, expr.span)
+                Operator::Math(math) => {
+                    let lhs = eval_expression(engine_state, stack, lhs)?;
+                    let rhs = eval_expression(engine_state, stack, rhs)?;
+
+                    match math {
+                        Math::Plus => lhs.add(op_span, &rhs, expr.span),
+                        Math::Minus => lhs.sub(op_span, &rhs, expr.span),
+                        Math::Multiply => lhs.mul(op_span, &rhs, expr.span),
+                        Math::Divide => lhs.div(op_span, &rhs, expr.span),
+                        Math::Append => lhs.append(op_span, &rhs, expr.span),
+                        Math::Modulo => lhs.modulo(op_span, &rhs, expr.span),
+                        Math::FloorDivision => lhs.floor_div(op_span, &rhs, expr.span),
+                        Math::Pow => lhs.pow(op_span, &rhs, expr.span),
                     }
                 }
-                Operator::Plus => {
+                Operator::Comparison(comparison) => {
+                    let lhs = eval_expression(engine_state, stack, lhs)?;
                     let rhs = eval_expression(engine_state, stack, rhs)?;
-                    lhs.add(op_span, &rhs, expr.span)
+                    match comparison {
+                        Comparison::LessThan => lhs.lt(op_span, &rhs, expr.span),
+                        Comparison::LessThanOrEqual => lhs.lte(op_span, &rhs, expr.span),
+                        Comparison::GreaterThan => lhs.gt(op_span, &rhs, expr.span),
+                        Comparison::GreaterThanOrEqual => lhs.gte(op_span, &rhs, expr.span),
+                        Comparison::Equal => lhs.eq(op_span, &rhs, expr.span),
+                        Comparison::NotEqual => lhs.ne(op_span, &rhs, expr.span),
+                        Comparison::In => lhs.r#in(op_span, &rhs, expr.span),
+                        Comparison::NotIn => lhs.not_in(op_span, &rhs, expr.span),
+                        Comparison::RegexMatch => lhs.regex_match(op_span, &rhs, false, expr.span),
+                        Comparison::NotRegexMatch => {
+                            lhs.regex_match(op_span, &rhs, true, expr.span)
+                        }
+                        Comparison::StartsWith => lhs.starts_with(op_span, &rhs, expr.span),
+                        Comparison::EndsWith => lhs.ends_with(op_span, &rhs, expr.span),
+                    }
                 }
-                Operator::Append => {
+                Operator::Bits(bits) => {
+                    let lhs = eval_expression(engine_state, stack, lhs)?;
                     let rhs = eval_expression(engine_state, stack, rhs)?;
-                    lhs.append(op_span, &rhs, expr.span)
+                    match bits {
+                        Bits::BitAnd => lhs.bit_and(op_span, &rhs, expr.span),
+                        Bits::BitOr => lhs.bit_or(op_span, &rhs, expr.span),
+                        Bits::BitXor => lhs.bit_xor(op_span, &rhs, expr.span),
+                        Bits::ShiftLeft => lhs.bit_shl(op_span, &rhs, expr.span),
+                        Bits::ShiftRight => lhs.bit_shr(op_span, &rhs, expr.span),
+                    }
                 }
-                Operator::Minus => {
+                Operator::Assignment(assignment) => {
                     let rhs = eval_expression(engine_state, stack, rhs)?;
-                    lhs.sub(op_span, &rhs, expr.span)
-                }
-                Operator::Multiply => {
-                    let rhs = eval_expression(engine_state, stack, rhs)?;
-                    lhs.mul(op_span, &rhs, expr.span)
-                }
-                Operator::Divide => {
-                    let rhs = eval_expression(engine_state, stack, rhs)?;
-                    lhs.div(op_span, &rhs, expr.span)
-                }
-                Operator::LessThan => {
-                    let rhs = eval_expression(engine_state, stack, rhs)?;
-                    lhs.lt(op_span, &rhs, expr.span)
-                }
-                Operator::LessThanOrEqual => {
-                    let rhs = eval_expression(engine_state, stack, rhs)?;
-                    lhs.lte(op_span, &rhs, expr.span)
-                }
-                Operator::GreaterThan => {
-                    let rhs = eval_expression(engine_state, stack, rhs)?;
-                    lhs.gt(op_span, &rhs, expr.span)
-                }
-                Operator::GreaterThanOrEqual => {
-                    let rhs = eval_expression(engine_state, stack, rhs)?;
-                    lhs.gte(op_span, &rhs, expr.span)
-                }
-                Operator::Equal => {
-                    let rhs = eval_expression(engine_state, stack, rhs)?;
-                    lhs.eq(op_span, &rhs, expr.span)
-                }
-                Operator::NotEqual => {
-                    let rhs = eval_expression(engine_state, stack, rhs)?;
-                    lhs.ne(op_span, &rhs, expr.span)
-                }
-                Operator::In => {
-                    let rhs = eval_expression(engine_state, stack, rhs)?;
-                    lhs.r#in(op_span, &rhs, expr.span)
-                }
-                Operator::NotIn => {
-                    let rhs = eval_expression(engine_state, stack, rhs)?;
-                    lhs.not_in(op_span, &rhs, expr.span)
-                }
-                Operator::RegexMatch => {
-                    let rhs = eval_expression(engine_state, stack, rhs)?;
-                    lhs.regex_match(op_span, &rhs, false, expr.span)
-                }
-                Operator::NotRegexMatch => {
-                    let rhs = eval_expression(engine_state, stack, rhs)?;
-                    lhs.regex_match(op_span, &rhs, true, expr.span)
-                }
-                Operator::Modulo => {
-                    let rhs = eval_expression(engine_state, stack, rhs)?;
-                    lhs.modulo(op_span, &rhs, expr.span)
-                }
-                Operator::FloorDivision => {
-                    let rhs = eval_expression(engine_state, stack, rhs)?;
-                    lhs.floor_div(op_span, &rhs, expr.span)
-                }
-                Operator::Pow => {
-                    let rhs = eval_expression(engine_state, stack, rhs)?;
-                    lhs.pow(op_span, &rhs, expr.span)
-                }
-                Operator::StartsWith => {
-                    let rhs = eval_expression(engine_state, stack, rhs)?;
-                    lhs.starts_with(op_span, &rhs, expr.span)
-                }
-                Operator::EndsWith => {
-                    let rhs = eval_expression(engine_state, stack, rhs)?;
-                    lhs.ends_with(op_span, &rhs, expr.span)
-                }
-                Operator::BitOr => {
-                    let rhs = eval_expression(engine_state, stack, rhs)?;
-                    lhs.bit_or(op_span, &rhs, expr.span)
-                }
-                Operator::BitXor => {
-                    let rhs = eval_expression(engine_state, stack, rhs)?;
-                    lhs.bit_xor(op_span, &rhs, expr.span)
-                }
-                Operator::BitAnd => {
-                    let rhs = eval_expression(engine_state, stack, rhs)?;
-                    lhs.bit_and(op_span, &rhs, expr.span)
-                }
-                Operator::ShiftRight => {
-                    let rhs = eval_expression(engine_state, stack, rhs)?;
-                    lhs.bit_shr(op_span, &rhs, expr.span)
-                }
-                Operator::ShiftLeft => {
-                    let rhs = eval_expression(engine_state, stack, rhs)?;
-                    lhs.bit_shl(op_span, &rhs, expr.span)
+
+                    let rhs = match assignment {
+                        Assignment::Assign => rhs,
+                        Assignment::PlusAssign => {
+                            let lhs = eval_expression(engine_state, stack, lhs)?;
+                            lhs.add(op_span, &rhs, op_span)?
+                        }
+                        Assignment::MinusAssign => {
+                            let lhs = eval_expression(engine_state, stack, lhs)?;
+                            lhs.sub(op_span, &rhs, op_span)?
+                        }
+                        Assignment::MultiplyAssign => {
+                            let lhs = eval_expression(engine_state, stack, lhs)?;
+                            lhs.mul(op_span, &rhs, op_span)?
+                        }
+                        Assignment::DivideAssign => {
+                            let lhs = eval_expression(engine_state, stack, lhs)?;
+                            lhs.div(op_span, &rhs, op_span)?
+                        }
+                    };
+
+                    match &lhs.expr {
+                        Expr::Var(var_id) | Expr::VarDecl(var_id) => {
+                            let var_info = engine_state.get_var(*var_id);
+                            if var_info.mutable {
+                                stack.vars.insert(*var_id, rhs);
+                                Ok(Value::nothing(lhs.span))
+                            } else {
+                                Err(ShellError::AssignmentRequiresMutableVar(lhs.span))
+                            }
+                        }
+                        Expr::FullCellPath(cell_path) => match &cell_path.head.expr {
+                            Expr::Var(var_id) | Expr::VarDecl(var_id) => {
+                                if var_id == &ENV_VARIABLE_ID {
+                                    // let mut lhs =
+                                    //     eval_expression(engine_state, stack, &cell_path.head)?;
+                                    //lhs.update_data_at_cell_path(&cell_path.tail, rhs)?;
+                                    match &cell_path.tail[0] {
+                                        PathMember::String { val, .. } => {
+                                            stack.add_env_var(val.to_string(), rhs);
+                                        }
+                                        PathMember::Int { val, .. } => {
+                                            stack.add_env_var(val.to_string(), rhs);
+                                        }
+                                    }
+                                    Ok(Value::nothing(cell_path.head.span))
+                                } else {
+                                    let var_info = engine_state.get_var(*var_id);
+                                    if var_info.mutable {
+                                        let mut lhs =
+                                            eval_expression(engine_state, stack, &cell_path.head)?;
+                                        lhs.update_data_at_cell_path(&cell_path.tail, rhs)?;
+                                        stack.vars.insert(*var_id, lhs);
+                                        Ok(Value::nothing(cell_path.head.span))
+                                    } else {
+                                        Err(ShellError::AssignmentRequiresMutableVar(lhs.span))
+                                    }
+                                }
+                            }
+                            _ => Err(ShellError::AssignmentRequiresVar(lhs.span)),
+                        },
+                        _ => Err(ShellError::AssignmentRequiresVar(lhs.span)),
+                    }
                 }
             }
         }
@@ -492,19 +509,23 @@ pub fn eval_expression(
                     .into_value(expr.span),
             )
         }
-        Expr::RowCondition(block_id) | Expr::Block(block_id) => {
+        Expr::RowCondition(block_id) | Expr::Closure(block_id) => {
             let mut captures = HashMap::new();
             let block = engine_state.get_block(*block_id);
 
             for var_id in &block.captures {
                 captures.insert(*var_id, stack.get_var(*var_id, expr.span)?);
             }
-            Ok(Value::Block {
+            Ok(Value::Closure {
                 val: *block_id,
                 captures,
                 span: expr.span,
             })
         }
+        Expr::Block(block_id) => Ok(Value::Block {
+            val: *block_id,
+            span: expr.span,
+        }),
         Expr::List(x) => {
             let mut output = vec![];
             for expr in x {
@@ -886,443 +907,6 @@ pub fn eval_subexpression(
     }
 
     Ok(input)
-}
-
-fn extract_custom_completion_from_arg(engine_state: &EngineState, shape: &SyntaxShape) -> String {
-    return match shape {
-        SyntaxShape::Custom(_, custom_completion_decl_id) => {
-            let custom_completion_command = engine_state.get_decl(*custom_completion_decl_id);
-            let custom_completion_command_name: &str = custom_completion_command.name();
-            custom_completion_command_name.to_string()
-        }
-        _ => "".to_string(),
-    };
-}
-
-pub fn create_scope(
-    engine_state: &EngineState,
-    stack: &Stack,
-    span: Span,
-) -> Result<Value, ShellError> {
-    let mut output_cols = vec![];
-    let mut output_vals = vec![];
-
-    let mut vars = vec![];
-    let mut commands = vec![];
-    let mut aliases = vec![];
-    let mut modules = vec![];
-
-    let mut vars_map = HashMap::new();
-    let mut commands_map = HashMap::new();
-    let mut aliases_map = HashMap::new();
-    let mut modules_map = HashMap::new();
-    let mut visibility = Visibility::new();
-
-    for overlay_frame in engine_state.active_overlays(&[]) {
-        vars_map.extend(&overlay_frame.vars);
-        commands_map.extend(&overlay_frame.decls);
-        aliases_map.extend(&overlay_frame.aliases);
-        modules_map.extend(&overlay_frame.modules);
-
-        visibility.merge_with(overlay_frame.visibility.clone());
-    }
-
-    for var in vars_map {
-        let var_name = Value::string(String::from_utf8_lossy(var.0).to_string(), span);
-
-        let var_type = Value::string(engine_state.get_var(*var.1).ty.to_string(), span);
-
-        let var_value = if let Ok(val) = stack.get_var(*var.1, span) {
-            val
-        } else {
-            Value::nothing(span)
-        };
-
-        vars.push(Value::Record {
-            cols: vec!["name".to_string(), "type".to_string(), "value".to_string()],
-            vals: vec![var_name, var_type, var_value],
-            span,
-        })
-    }
-
-    for ((command_name, _), decl_id) in commands_map {
-        if visibility.is_decl_id_visible(decl_id) {
-            let mut cols = vec![];
-            let mut vals = vec![];
-
-            let mut module_commands = vec![];
-            for module in &modules_map {
-                let module_name = String::from_utf8_lossy(module.0).to_string();
-                let module_id = engine_state.find_module(module.0, &[]);
-                if let Some(module_id) = module_id {
-                    let module = engine_state.get_module(module_id);
-                    if module.has_decl(command_name) {
-                        module_commands.push(module_name);
-                    }
-                }
-            }
-
-            cols.push("name".into());
-            vals.push(Value::String {
-                val: String::from_utf8_lossy(command_name).to_string(),
-                span,
-            });
-
-            cols.push("module_name".into());
-            vals.push(Value::string(module_commands.join(", "), span));
-
-            let decl = engine_state.get_decl(*decl_id);
-            let signature = decl.signature();
-
-            cols.push("category".to_string());
-            vals.push(Value::String {
-                val: signature.category.to_string(),
-                span,
-            });
-
-            // signature
-            let mut sig_records = vec![];
-            {
-                let sig_cols = vec![
-                    "command".to_string(),
-                    "parameter_name".to_string(),
-                    "parameter_type".to_string(),
-                    "syntax_shape".to_string(),
-                    "is_optional".to_string(),
-                    "short_flag".to_string(),
-                    "description".to_string(),
-                    "custom_completion".to_string(),
-                ];
-
-                // required_positional
-                for req in signature.required_positional {
-                    let sig_vals = vec![
-                        Value::string(&signature.name, span),
-                        Value::string(req.name, span),
-                        Value::string("positional", span),
-                        Value::string(req.shape.to_string(), span),
-                        Value::boolean(false, span),
-                        Value::nothing(span),
-                        Value::string(req.desc, span),
-                        Value::string(
-                            extract_custom_completion_from_arg(engine_state, &req.shape),
-                            span,
-                        ),
-                    ];
-
-                    sig_records.push(Value::Record {
-                        cols: sig_cols.clone(),
-                        vals: sig_vals,
-                        span,
-                    });
-                }
-
-                // optional_positional
-                for opt in signature.optional_positional {
-                    let sig_vals = vec![
-                        Value::string(&signature.name, span),
-                        Value::string(opt.name, span),
-                        Value::string("positional", span),
-                        Value::string(opt.shape.to_string(), span),
-                        Value::boolean(true, span),
-                        Value::nothing(span),
-                        Value::string(opt.desc, span),
-                        Value::string(
-                            extract_custom_completion_from_arg(engine_state, &opt.shape),
-                            span,
-                        ),
-                    ];
-
-                    sig_records.push(Value::Record {
-                        cols: sig_cols.clone(),
-                        vals: sig_vals,
-                        span,
-                    });
-                }
-
-                {
-                    // rest_positional
-                    if let Some(rest) = signature.rest_positional {
-                        let sig_vals = vec![
-                            Value::string(&signature.name, span),
-                            Value::string(rest.name, span),
-                            Value::string("rest", span),
-                            Value::string(rest.shape.to_string(), span),
-                            Value::boolean(true, span),
-                            Value::nothing(span),
-                            Value::string(rest.desc, span),
-                            Value::string(
-                                extract_custom_completion_from_arg(engine_state, &rest.shape),
-                                span,
-                            ),
-                        ];
-
-                        sig_records.push(Value::Record {
-                            cols: sig_cols.clone(),
-                            vals: sig_vals,
-                            span,
-                        });
-                    }
-                }
-
-                // named flags
-                for named in signature.named {
-                    let flag_type;
-
-                    // Skip the help flag
-                    if named.long == "help" {
-                        continue;
-                    }
-
-                    let mut custom_completion_command_name: String = "".to_string();
-                    let shape = if let Some(arg) = named.arg {
-                        flag_type = Value::string("named", span);
-                        custom_completion_command_name =
-                            extract_custom_completion_from_arg(engine_state, &arg);
-                        Value::string(arg.to_string(), span)
-                    } else {
-                        flag_type = Value::string("switch", span);
-                        Value::nothing(span)
-                    };
-
-                    let short_flag = if let Some(c) = named.short {
-                        Value::string(c, span)
-                    } else {
-                        Value::nothing(span)
-                    };
-
-                    let sig_vals = vec![
-                        Value::string(&signature.name, span),
-                        Value::string(named.long, span),
-                        flag_type,
-                        shape,
-                        Value::boolean(!named.required, span),
-                        short_flag,
-                        Value::string(named.desc, span),
-                        Value::string(custom_completion_command_name, span),
-                    ];
-
-                    sig_records.push(Value::Record {
-                        cols: sig_cols.clone(),
-                        vals: sig_vals,
-                        span,
-                    });
-                }
-            }
-
-            cols.push("signature".to_string());
-            vals.push(Value::List {
-                vals: sig_records,
-                span,
-            });
-
-            cols.push("usage".to_string());
-            vals.push(Value::String {
-                val: decl.usage().into(),
-                span,
-            });
-
-            cols.push("examples".to_string());
-            vals.push(Value::List {
-                vals: decl
-                    .examples()
-                    .into_iter()
-                    .map(|x| Value::Record {
-                        cols: vec!["description".into(), "example".into()],
-                        vals: vec![
-                            Value::String {
-                                val: x.description.to_string(),
-                                span,
-                            },
-                            Value::String {
-                                val: x.example.to_string(),
-                                span,
-                            },
-                        ],
-                        span,
-                    })
-                    .collect(),
-                span,
-            });
-
-            cols.push("is_builtin".to_string());
-            // we can only be a is_builtin or is_custom, not both
-            vals.push(Value::Bool {
-                val: !decl.is_custom_command(),
-                span,
-            });
-
-            cols.push("is_sub".to_string());
-            vals.push(Value::Bool {
-                val: decl.is_sub(),
-                span,
-            });
-
-            cols.push("is_plugin".to_string());
-            vals.push(Value::Bool {
-                val: decl.is_plugin().is_some(),
-                span,
-            });
-
-            cols.push("is_custom".to_string());
-            vals.push(Value::Bool {
-                val: decl.is_custom_command(),
-                span,
-            });
-
-            cols.push("is_keyword".into());
-            vals.push(Value::Bool {
-                val: decl.is_parser_keyword(),
-                span,
-            });
-
-            cols.push("is_extern".to_string());
-            vals.push(Value::Bool {
-                val: decl.is_known_external(),
-                span,
-            });
-
-            cols.push("creates_scope".to_string());
-            vals.push(Value::Bool {
-                val: signature.creates_scope,
-                span,
-            });
-
-            cols.push("extra_usage".to_string());
-            vals.push(Value::String {
-                val: decl.extra_usage().into(),
-                span,
-            });
-
-            let search_terms = decl.search_terms();
-            cols.push("search_terms".to_string());
-            vals.push(if search_terms.is_empty() {
-                Value::nothing(span)
-            } else {
-                Value::String {
-                    val: search_terms.join(", "),
-                    span,
-                }
-            });
-
-            commands.push(Value::Record { cols, vals, span })
-        }
-    }
-
-    for (alias_name, alias_id) in aliases_map {
-        if visibility.is_alias_id_visible(alias_id) {
-            let alias = engine_state.get_alias(*alias_id);
-            let mut alias_text = String::new();
-            for span in alias {
-                let contents = engine_state.get_span_contents(span);
-                if !alias_text.is_empty() {
-                    alias_text.push(' ');
-                }
-                alias_text.push_str(&String::from_utf8_lossy(contents));
-            }
-            aliases.push((
-                Value::String {
-                    val: String::from_utf8_lossy(alias_name).to_string(),
-                    span,
-                },
-                Value::string(alias_text, span),
-            ));
-        }
-    }
-
-    for module in modules_map {
-        modules.push(Value::String {
-            val: String::from_utf8_lossy(module.0).to_string(),
-            span,
-        });
-    }
-
-    output_cols.push("vars".to_string());
-    output_vals.push(Value::List { vals: vars, span });
-
-    commands.sort_by(|a, b| match (a, b) {
-        (Value::Record { vals: rec_a, .. }, Value::Record { vals: rec_b, .. }) => {
-            // Comparing the first value from the record
-            // It is expected that the first value is the name of the column
-            // The names of the commands should be a value string
-            match (rec_a.get(0), rec_b.get(0)) {
-                (Some(val_a), Some(val_b)) => match (val_a, val_b) {
-                    (Value::String { val: str_a, .. }, Value::String { val: str_b, .. }) => {
-                        str_a.cmp(str_b)
-                    }
-                    _ => Ordering::Equal,
-                },
-                _ => Ordering::Equal,
-            }
-        }
-        _ => Ordering::Equal,
-    });
-    output_cols.push("commands".to_string());
-    output_vals.push(Value::List {
-        vals: commands,
-        span,
-    });
-
-    aliases.sort_by(|a, b| a.partial_cmp(b).unwrap_or(Ordering::Equal));
-    output_cols.push("aliases".to_string());
-    output_vals.push(Value::List {
-        vals: aliases
-            .into_iter()
-            .map(|(alias, value)| Value::Record {
-                cols: vec!["alias".into(), "expansion".into()],
-                vals: vec![alias, value],
-                span,
-            })
-            .collect(),
-        span,
-    });
-
-    modules.sort_by(|a, b| a.partial_cmp(b).unwrap_or(Ordering::Equal));
-    output_cols.push("modules".to_string());
-    output_vals.push(Value::List {
-        vals: modules,
-        span,
-    });
-
-    let engine_state_cols = vec![
-        "source_bytes".to_string(),
-        "num_vars".to_string(),
-        "num_commands".to_string(),
-        "num_aliases".to_string(),
-        "num_blocks".to_string(),
-        "num_modules".to_string(),
-        "num_env_vars".to_string(),
-    ];
-
-    let engine_state_vals = vec![
-        Value::int(engine_state.next_span_start() as i64, span),
-        Value::int(engine_state.num_vars() as i64, span),
-        Value::int(engine_state.num_decls() as i64, span),
-        Value::int(engine_state.num_aliases() as i64, span),
-        Value::int(engine_state.num_blocks() as i64, span),
-        Value::int(engine_state.num_modules() as i64, span),
-        Value::int(
-            engine_state
-                .env_vars
-                .values()
-                .map(|overlay| overlay.len() as i64)
-                .sum(),
-            span,
-        ),
-    ];
-
-    output_cols.push("engine_state".to_string());
-    output_vals.push(Value::Record {
-        cols: engine_state_cols,
-        vals: engine_state_vals,
-        span,
-    });
-
-    Ok(Value::Record {
-        cols: output_cols,
-        vals: output_vals,
-        span,
-    })
 }
 
 pub fn eval_variable(

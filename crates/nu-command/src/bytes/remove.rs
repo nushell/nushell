@@ -3,7 +3,8 @@ use nu_engine::CallExt;
 use nu_protocol::{
     ast::{Call, CellPath},
     engine::{Command, EngineState, Stack},
-    Category, Example, PipelineData, ShellError, Signature, Span, Spanned, SyntaxShape, Value,
+    Category, Example, PipelineData, ShellError, Signature, Span, Spanned, SyntaxShape, Type,
+    Value,
 };
 
 struct Arguments {
@@ -29,11 +30,12 @@ impl Command for BytesRemove {
 
     fn signature(&self) -> Signature {
         Signature::build("bytes remove")
+            .input_output_types(vec![(Type::Binary, Type::Binary)])
             .required("pattern", SyntaxShape::Binary, "the pattern to find")
             .rest(
                 "rest",
                 SyntaxShape::CellPath,
-                "optionally remove bytes by column paths",
+                "for a data structure input, remove bytes from data at the given cell paths",
             )
             .switch("end", "remove from end of binary", Some('e'))
             .switch("all", "remove occurrences of finding binary", Some('a'))

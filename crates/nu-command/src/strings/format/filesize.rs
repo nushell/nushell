@@ -4,7 +4,7 @@ use nu_protocol::ast::{Call, CellPath};
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
     format_filesize, Category, Example, PipelineData, ShellError, Signature, Span, SyntaxShape,
-    Value,
+    Type, Value,
 };
 
 struct Arguments {
@@ -28,6 +28,7 @@ impl Command for FileSize {
 
     fn signature(&self) -> Signature {
         Signature::build("format filesize")
+            .input_output_types(vec![(Type::Filesize, Type::String)])
             .required(
                 "format value",
                 SyntaxShape::String,
@@ -36,7 +37,7 @@ impl Command for FileSize {
             .rest(
                 "rest",
                 SyntaxShape::CellPath,
-                "optinally find and replace text by column paths",
+                "For a data structure input, format filesizes at the given cell paths",
             )
             .category(Category::Strings)
     }
@@ -78,19 +79,19 @@ impl Command for FileSize {
     fn examples(&self) -> Vec<Example> {
         vec![
             Example {
-                description: "Convert the size row to KB",
+                description: "Convert the size column to KB",
                 example: "ls | format filesize KB size",
                 result: None,
             },
             Example {
-                description: "Convert the apparent row to B",
+                description: "Convert the apparent column to B",
                 example: "du | format filesize B apparent",
                 result: None,
             },
             Example {
                 description: "Convert the size data to MB",
                 example: "4Gb | format filesize MB",
-                result: None,
+                result: Some(Value::test_string("4000.0 MB")),
             },
         ]
     }

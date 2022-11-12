@@ -2,7 +2,7 @@ use nu_engine::{eval_block, find_in_dirs_env, redirect_env};
 use nu_protocol::ast::{Call, Expr, Expression};
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
-    Category, Example, PipelineData, ShellError, Signature, Span, SyntaxShape, Value,
+    Category, Example, PipelineData, ShellError, Signature, Span, SyntaxShape, Type, Value,
 };
 
 #[derive(Clone)]
@@ -19,6 +19,7 @@ impl Command for Use {
 
     fn signature(&self) -> nu_protocol::Signature {
         Signature::build("use")
+            .input_output_types(vec![(Type::Nothing, Type::Nothing)])
             .required("pattern", SyntaxShape::ImportPattern, "import pattern")
             .category(Category::Core)
     }

@@ -1,9 +1,9 @@
 use nu_engine::{eval_block, CallExt};
 use nu_protocol::ast::Call;
-use nu_protocol::engine::{CaptureBlock, Command, EngineState, Stack};
+use nu_protocol::engine::{Closure, Command, EngineState, Stack};
 use nu_protocol::{
     Category, Example, IntoInterruptiblePipelineData, IntoPipelineData, PipelineData, Signature,
-    Span, SyntaxShape, Value,
+    Span, SyntaxShape, Type, Value,
 };
 use rayon::prelude::*;
 
@@ -18,15 +18,19 @@ impl Command for ParEach {
     }
 
     fn usage(&self) -> &str {
-        "Run a block on each element of input in parallel"
+        "Run a closure on each element of input in parallel"
     }
 
     fn signature(&self) -> nu_protocol::Signature {
         Signature::build("par-each")
+            .input_output_types(vec![(
+                Type::List(Box::new(Type::Any)),
+                Type::List(Box::new(Type::Any)),
+            )])
             .required(
-                "block",
-                SyntaxShape::Block(Some(vec![SyntaxShape::Any])),
-                "the block to run",
+                "closure",
+                SyntaxShape::Closure(Some(vec![SyntaxShape::Any])),
+                "the closure to run",
             )
             .switch("numbered", "iterate with an index", Some('n'))
             .category(Category::Filters)
@@ -60,7 +64,7 @@ impl Command for ParEach {
         call: &Call,
         input: PipelineData,
     ) -> Result<nu_protocol::PipelineData, nu_protocol::ShellError> {
-        let capture_block: CaptureBlock = call.req(engine_state, stack, 0)?;
+        let capture_block: Closure = call.req(engine_state, stack, 0)?;
 
         let numbered = call.has_flag("numbered");
         let metadata = input.metadata();

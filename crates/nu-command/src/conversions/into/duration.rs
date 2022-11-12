@@ -3,7 +3,7 @@ use nu_parser::parse_duration_bytes;
 use nu_protocol::{
     ast::{Call, CellPath, Expr},
     engine::{Command, EngineState, Stack},
-    Category, Example, PipelineData, ShellError, Signature, Span, Spanned, SyntaxShape, Unit,
+    Category, Example, PipelineData, ShellError, Signature, Span, Spanned, SyntaxShape, Type, Unit,
     Value,
 };
 
@@ -17,6 +17,13 @@ impl Command for SubCommand {
 
     fn signature(&self) -> Signature {
         Signature::build("into duration")
+            .input_output_types(vec![
+                (Type::String, Type::Duration),
+                (Type::Duration, Type::Duration),
+                // TODO: --convert option should be implemented as `format duration`
+                (Type::String, Type::String),
+                (Type::Duration, Type::String),
+            ])
             .named(
                 "convert",
                 SyntaxShape::String,
@@ -26,7 +33,7 @@ impl Command for SubCommand {
             .rest(
                 "rest",
                 SyntaxShape::CellPath,
-                "column paths to convert to duration (for table input)",
+                "for a data structure input, convert data at the given cell paths",
             )
             .category(Category::Conversions)
     }
@@ -36,7 +43,7 @@ impl Command for SubCommand {
     }
 
     fn extra_usage(&self) -> &str {
-        "into duration does not take leap years into account and every month is calculated with 30 days"
+        "This command does not take leap years into account, and every month is assumed to have 30 days."
     }
 
     fn search_terms(&self) -> Vec<&str> {
@@ -122,10 +129,18 @@ impl Command for SubCommand {
                 }),
             },
             Example {
+                description: "Convert duration to duration",
+                example: "420sec | into duration",
+                result: Some(Value::Duration {
+                    val: 7 * 60 * 1000 * 1000 * 1000,
+                    span,
+                }),
+            },
+            Example {
                 description: "Convert duration to the requested duration as a string",
-                example: "420sec | into duration --convert min",
+                example: "420sec | into duration --convert ms",
                 result: Some(Value::String {
-                    val: "7 min".to_string(),
+                    val: "420000 ms".to_string(),
                     span,
                 }),
             },

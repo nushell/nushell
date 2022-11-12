@@ -1,10 +1,10 @@
 use super::utils::chain_error_with_input;
 use nu_engine::{eval_block, CallExt};
 use nu_protocol::ast::Call;
-use nu_protocol::engine::{CaptureBlock, Command, EngineState, Stack};
+use nu_protocol::engine::{Closure, Command, EngineState, Stack};
 use nu_protocol::{
     Category, Example, IntoInterruptiblePipelineData, IntoPipelineData, PipelineData, ShellError,
-    Signature, Span, SyntaxShape, Value,
+    Signature, Span, SyntaxShape, Type, Value,
 };
 
 #[derive(Clone)]
@@ -21,11 +21,18 @@ impl Command for Where {
 
     fn signature(&self) -> nu_protocol::Signature {
         Signature::build("where")
+            .input_output_types(vec![
+                (
+                    Type::List(Box::new(Type::Any)),
+                    Type::List(Box::new(Type::Any)),
+                ),
+                (Type::Table(vec![]), Type::Table(vec![])),
+            ])
             .optional("cond", SyntaxShape::RowCondition, "condition")
             .named(
-                "block",
-                SyntaxShape::Block(Some(vec![SyntaxShape::Any])),
-                "use where with a block or variable instead",
+                "closure",
+                SyntaxShape::Closure(Some(vec![SyntaxShape::Any])),
+                "use where with a closure",
                 Some('b'),
             )
             .category(Category::Filters)
@@ -42,8 +49,7 @@ impl Command for Where {
         call: &Call,
         input: PipelineData,
     ) -> Result<nu_protocol::PipelineData, nu_protocol::ShellError> {
-        if let Ok(Some(capture_block)) = call.get_flag::<CaptureBlock>(engine_state, stack, "block")
-        {
+        if let Ok(Some(capture_block)) = call.get_flag::<Closure>(engine_state, stack, "block") {
             let metadata = input.metadata();
             let ctrlc = engine_state.ctrlc.clone();
             let engine_state = engine_state.clone();
@@ -61,6 +67,9 @@ impl Command for Where {
                 | PipelineData::ListStream { .. } => Ok(input
                     .into_iter()
                     .filter_map(move |x| {
+                        // with_env() is used here to ensure that each iteration uses
+                        // a different set of environment variables.
+                        // Hence, a 'cd' in the first loop won't affect the next loop.
                         stack.with_env(&orig_env_vars, &orig_env_hidden);
 
                         if let Some(var) = block.signature.get_positional(0) {
@@ -73,6 +82,7 @@ impl Command for Where {
                             &engine_state,
                             &mut stack,
                             &block,
+                            // clone() is used here because x is given to Ok() below.
                             x.clone().into_pipeline_data(),
                             redirect_stdout,
                             redirect_stderr,
@@ -99,6 +109,7 @@ impl Command for Where {
                 } => Ok(stream
                     .into_iter()
                     .filter_map(move |x| {
+                        // see note above about with_env()
                         stack.with_env(&orig_env_vars, &orig_env_hidden);
 
                         let x = match x {
@@ -116,6 +127,7 @@ impl Command for Where {
                             &engine_state,
                             &mut stack,
                             &block,
+                            // clone() is used here because x is given to Ok() below.
                             x.clone().into_pipeline_data(),
                             redirect_stdout,
                             redirect_stderr,
@@ -134,6 +146,9 @@ impl Command for Where {
                     })
                     .into_pipeline_data(ctrlc)),
                 PipelineData::Value(x, ..) => {
+                    // see note above about with_env()
+                    stack.with_env(&orig_env_vars, &orig_env_hidden);
+
                     if let Some(var) = block.signature.get_positional(0) {
                         if let Some(var_id) = &var.var_id {
                             stack.add_var(*var_id, x.clone());
@@ -143,6 +158,7 @@ impl Command for Where {
                         &engine_state,
                         &mut stack,
                         &block,
+                        // clone() is used here because x is given to Ok() below.
                         x.clone().into_pipeline_data(),
                         redirect_stdout,
                         redirect_stderr,
@@ -163,13 +179,16 @@ impl Command for Where {
             }
             .map(|x| x.set_metadata(metadata))
         } else {
-            let capture_block: Option<CaptureBlock> = call.opt(engine_state, stack, 0)?;
+            let capture_block: Option<Closure> = call.opt(engine_state, stack, 0)?;
             if let Some(block) = capture_block {
                 let span = call.head;
 
                 let metadata = input.metadata();
                 let mut stack = stack.captures_to_stack(&block.captures);
                 let block = engine_state.get_block(block.block_id).clone();
+
+                let orig_env_vars = stack.env_vars.clone();
+                let orig_env_hidden = stack.env_hidden.clone();
 
                 let ctrlc = engine_state.ctrlc.clone();
                 let engine_state = engine_state.clone();
@@ -179,6 +198,8 @@ impl Command for Where {
                 Ok(input
                     .into_iter()
                     .filter_map(move |value| {
+                        stack.with_env(&orig_env_vars, &orig_env_hidden);
+
                         if let Some(var) = block.signature.get_positional(0) {
                             if let Some(var_id) = &var.var_id {
                                 stack.add_var(*var_id, value.clone());
@@ -188,7 +209,8 @@ impl Command for Where {
                             &engine_state,
                             &mut stack,
                             &block,
-                            PipelineData::new(span),
+                            // clone() is used here because x is given to Ok() below.
+                            value.clone().into_pipeline_data(),
                             redirect_stdout,
                             redirect_stderr,
                         );
@@ -219,6 +241,26 @@ impl Command for Where {
     fn examples(&self) -> Vec<Example> {
         vec![
             Example {
+                description: "Filter rows of a table according to a condition",
+                example: "[{a: 1} {a: 2}] | where a > 1",
+                result: Some(Value::List {
+                    vals: vec![Value::Record {
+                        cols: vec!["a".to_string()],
+                        vals: vec![Value::test_int(2)],
+                        span: Span::test_data(),
+                    }],
+                    span: Span::test_data(),
+                }),
+            },
+            Example {
+                description: "Filter items of a list according to a condition",
+                example: "[1 2] | where {|x| $x > 1}",
+                result: Some(Value::List {
+                    vals: vec![Value::test_int(2)],
+                    span: Span::test_data(),
+                }),
+            },
+            Example {
                 description: "List all files in the current directory with sizes greater than 2kb",
                 example: "ls | where size > 2kb",
                 result: None,
@@ -238,23 +280,37 @@ impl Command for Where {
                 example: "ls | where modified >= (date now) - 2wk",
                 result: None,
             },
-            Example {
-                description: "Get all numbers above 3 with an existing block condition",
-                example: "let a = {$in > 3}; [1, 2, 5, 6] | where -b $a",
-                result: Some(Value::List {
-                    vals: vec![
-                        Value::Int {
-                            val: 5,
-                            span: Span::test_data(),
-                        },
-                        Value::Int {
-                            val: 6,
-                            span: Span::test_data(),
-                        },
-                    ],
-                    span: Span::test_data(),
-                }),
-            },
+            // TODO: This should work but does not. (Note that `Let` must be present in the working_set in `example_test.rs`).
+            // See https://github.com/nushell/nushell/issues/7034
+            // Example {
+            //     description: "Get all numbers above 3 with an existing block condition",
+            //     example: "let a = {$in > 3}; [1, 2, 5, 6] | where -b $a",
+            //     result: Some(Value::List {
+            //         vals: vec![
+            //             Value::Int {
+            //                 val: 5,
+            //                 span: Span::test_data(),
+            //             },
+            //             Value::Int {
+            //                 val: 6,
+            //                 span: Span::test_data(),
+            //             },
+            //         ],
+            //         span: Span::test_data(),
+            //     }),
+            // },
         ]
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use super::*;
+
+    #[test]
+    fn test_examples() {
+        use crate::test_examples;
+
+        test_examples(Where {})
     }
 }

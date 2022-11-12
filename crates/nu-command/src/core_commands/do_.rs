@@ -1,9 +1,9 @@
 use nu_engine::{eval_block, CallExt};
 use nu_protocol::ast::Call;
-use nu_protocol::engine::{CaptureBlock, Command, EngineState, Stack};
+use nu_protocol::engine::{Closure, Command, EngineState, Stack};
 use nu_protocol::{
     Category, Example, ListStream, PipelineData, RawStream, ShellError, Signature, SyntaxShape,
-    Value,
+    Type, Value,
 };
 
 #[derive(Clone)]
@@ -20,7 +20,8 @@ impl Command for Do {
 
     fn signature(&self) -> nu_protocol::Signature {
         Signature::build("do")
-            .required("block", SyntaxShape::Any, "the block to run")
+            .required("closure", SyntaxShape::Any, "the closure to run")
+            .input_output_types(vec![(Type::Any, Type::Any)])
             .switch(
                 "ignore-errors",
                 "ignore shell errors as the block runs",
@@ -42,7 +43,7 @@ impl Command for Do {
         call: &Call,
         input: PipelineData,
     ) -> Result<nu_protocol::PipelineData, nu_protocol::ShellError> {
-        let block: CaptureBlock = call.req(engine_state, stack, 0)?;
+        let block: Closure = call.req(engine_state, stack, 0)?;
         let rest: Vec<Value> = call.rest(engine_state, stack, 1)?;
         let ignore_errors = call.has_flag("ignore-errors");
         let capture_errors = call.has_flag("capture-errors");
@@ -197,8 +198,13 @@ impl Command for Do {
             },
             Example {
                 description: "Run the block, with a positional parameter",
-                example: r#"do {|x| 100 + $x } 50"#,
-                result: Some(Value::test_int(150)),
+                example: r#"do {|x| 100 + $x } 77"#,
+                result: Some(Value::test_int(177)),
+            },
+            Example {
+                description: "Run the block, with input",
+                example: r#"77 | do {|x| 100 + $in }"#,
+                result: None, // TODO: returns 177
             },
         ]
     }

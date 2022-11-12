@@ -4,7 +4,7 @@ use nu_protocol::ast::Call;
 use nu_protocol::ast::CellPath;
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::Category;
-use nu_protocol::{Example, PipelineData, ShellError, Signature, Span, SyntaxShape, Value};
+use nu_protocol::{Example, PipelineData, ShellError, Signature, Span, SyntaxShape, Type, Value};
 
 struct Arguments {
     pattern: Vec<u8>,
@@ -28,11 +28,12 @@ impl Command for BytesEndsWith {
 
     fn signature(&self) -> Signature {
         Signature::build("bytes ends-with")
+            .input_output_types(vec![(Type::Binary, Type::Bool)])
             .required("pattern", SyntaxShape::Binary, "the pattern to match")
             .rest(
                 "rest",
                 SyntaxShape::CellPath,
-                "optionally matches prefix of text by column paths",
+                "for a data structure input, check if bytes at the given cell paths end with the pattern",
             )
             .category(Category::Bytes)
     }

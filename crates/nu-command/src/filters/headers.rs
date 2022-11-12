@@ -1,7 +1,8 @@
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
-    Category, Config, Example, IntoPipelineData, PipelineData, ShellError, Signature, Span, Value,
+    Category, Config, Example, IntoPipelineData, PipelineData, ShellError, Signature, Span, Type,
+    Value,
 };
 
 #[derive(Clone)]
@@ -13,7 +14,16 @@ impl Command for Headers {
     }
 
     fn signature(&self) -> Signature {
-        Signature::build(self.name()).category(Category::Filters)
+        Signature::build(self.name())
+            .input_output_types(vec![
+                (Type::Table(vec![]), Type::Table(vec![])),
+                (
+                    // Tables with missing values are List<Any>
+                    Type::List(Box::new(Type::Any)),
+                    Type::Table(vec![]),
+                ),
+            ])
+            .category(Category::Filters)
     }
 
     fn usage(&self) -> &str {
@@ -112,20 +122,42 @@ fn replace_headers(value: Value, headers: &[String]) -> Result<Value, ShellError
     }
 }
 
+fn is_valid_header(value: &Value) -> bool {
+    matches!(
+        value,
+        Value::Nothing { span: _ }
+            | Value::String { val: _, span: _ }
+            | Value::Bool { val: _, span: _ }
+            | Value::Float { val: _, span: _ }
+            | Value::Int { val: _, span: _ }
+    )
+}
+
 fn extract_headers(value: &Value, config: &Config) -> Result<Vec<String>, ShellError> {
     match value {
-        Value::Record { vals, .. } => Ok(vals
-            .iter()
-            .enumerate()
-            .map(|(idx, value)| {
-                let col = value.into_string("", config);
-                if col.is_empty() {
-                    format!("column{}", idx)
-                } else {
-                    col
+        Value::Record { vals, .. } => {
+            for v in vals {
+                if !is_valid_header(v) {
+                    return Err(ShellError::TypeMismatch(
+                        "compatible type: Null, String, Bool, Float, Int".to_string(),
+                        v.span()?,
+                    ));
                 }
-            })
-            .collect::<Vec<String>>()),
+            }
+
+            Ok(vals
+                .iter()
+                .enumerate()
+                .map(|(idx, value)| {
+                    let col = value.into_string("", config);
+                    if col.is_empty() {
+                        format!("column{}", idx)
+                    } else {
+                        col
+                    }
+                })
+                .collect::<Vec<String>>())
+        }
         Value::List { vals, span } => vals
             .iter()
             .map(|value| extract_headers(value, config))

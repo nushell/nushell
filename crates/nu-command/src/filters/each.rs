@@ -1,10 +1,10 @@
 use super::utils::chain_error_with_input;
 use nu_engine::{eval_block, CallExt};
 use nu_protocol::ast::Call;
-use nu_protocol::engine::{CaptureBlock, Command, EngineState, Stack};
+use nu_protocol::engine::{Closure, Command, EngineState, Stack};
 use nu_protocol::{
     Category, Example, IntoInterruptiblePipelineData, IntoPipelineData, PipelineData, Signature,
-    Span, SyntaxShape, Value,
+    Span, SyntaxShape, Type, Value,
 };
 
 #[derive(Clone)]
@@ -16,7 +16,7 @@ impl Command for Each {
     }
 
     fn usage(&self) -> &str {
-        "Run a block on each row of input"
+        "Run a closure on each row of input"
     }
 
     fn extra_usage(&self) -> &str {
@@ -35,10 +35,14 @@ with 'transpose' first."#
 
     fn signature(&self) -> nu_protocol::Signature {
         Signature::build("each")
+            .input_output_types(vec![(
+                Type::List(Box::new(Type::Any)),
+                Type::List(Box::new(Type::Any)),
+            )])
             .required(
-                "block",
-                SyntaxShape::Block(Some(vec![SyntaxShape::Any])),
-                "the block to run",
+                "closure",
+                SyntaxShape::Closure(Some(vec![SyntaxShape::Any])),
+                "the closure to run",
             )
             .switch("keep-empty", "keep empty result cells", Some('k'))
             .switch("numbered", "iterate with an index", Some('n'))
@@ -123,7 +127,7 @@ with 'transpose' first."#
         call: &Call,
         input: PipelineData,
     ) -> Result<nu_protocol::PipelineData, nu_protocol::ShellError> {
-        let capture_block: CaptureBlock = call.req(engine_state, stack, 0)?;
+        let capture_block: Closure = call.req(engine_state, stack, 0)?;
 
         let numbered = call.has_flag("numbered");
         let keep_empty = call.has_flag("keep-empty");
@@ -147,6 +151,9 @@ with 'transpose' first."#
                 .into_iter()
                 .enumerate()
                 .map(move |(idx, x)| {
+                    // with_env() is used here to ensure that each iteration uses
+                    // a different set of environment variables.
+                    // Hence, a 'cd' in the first loop won't affect the next loop.
                     stack.with_env(&orig_env_vars, &orig_env_hidden);
 
                     if let Some(var) = block.signature.get_positional(0) {
@@ -197,6 +204,9 @@ with 'transpose' first."#
                 .into_iter()
                 .enumerate()
                 .map(move |(idx, x)| {
+                    // with_env() is used here to ensure that each iteration uses
+                    // a different set of environment variables.
+                    // Hence, a 'cd' in the first loop won't affect the next loop.
                     stack.with_env(&orig_env_vars, &orig_env_hidden);
 
                     let x = match x {

@@ -2,7 +2,7 @@ use nu_engine::CallExt;
 use nu_protocol::ast::Call;
 use nu_protocol::ast::CellPath;
 use nu_protocol::engine::{Command, EngineState, Stack};
-use nu_protocol::{Example, PipelineData, ShellError, Signature, Span, SyntaxShape, Value};
+use nu_protocol::{Example, PipelineData, ShellError, Signature, Span, SyntaxShape, Type, Value};
 
 #[derive(Clone)]
 pub struct SubCommand;
@@ -13,11 +13,14 @@ impl Command for SubCommand {
     }
 
     fn signature(&self) -> Signature {
-        Signature::build("str upcase").rest(
-            "rest",
-            SyntaxShape::CellPath,
-            "optionally upcase text by column paths",
-        )
+        Signature::build("str upcase")
+            .input_output_types(vec![(Type::String, Type::String)])
+            .vectorizes_over_list(true)
+            .rest(
+                "rest",
+                SyntaxShape::CellPath,
+                "For a data structure input, convert strings at the given cell paths",
+            )
     }
 
     fn usage(&self) -> &str {

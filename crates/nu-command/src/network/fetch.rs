@@ -297,18 +297,18 @@ impl Command for SubCommand {
     fn examples(&self) -> Vec<Example> {
         vec![
             Example {
-                description: "Fetch content from url.com",
-                example: "fetch url.com",
+                description: "Fetch content from example.com",
+                example: "fetch https://www.example.com",
                 result: None,
             },
             Example {
-                description: "Fetch content from url.com, with username and password",
-                example: "fetch -u myuser -p mypass url.com",
+                description: "Fetch content from example.com, with username and password",
+                example: "fetch -u myuser -p mypass https://www.example.com",
                 result: None,
             },
             Example {
-                description: "Fetch content from url.com, with custom header",
-                example: "fetch -H [my-header-key my-header-value] url.com",
+                description: "Fetch content from example.com, with custom header",
+                example: "fetch -H [my-header-key my-header-value] https://www.example.com",
                 result: None,
             },
         ]

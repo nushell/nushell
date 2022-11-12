@@ -5,7 +5,7 @@ use nu_protocol::ast::CellPath;
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::Category;
 use nu_protocol::Spanned;
-use nu_protocol::{Example, PipelineData, ShellError, Signature, Span, SyntaxShape, Value};
+use nu_protocol::{Example, PipelineData, ShellError, Signature, Span, SyntaxShape, Type, Value};
 
 struct Arguments {
     substring: String,
@@ -29,11 +29,13 @@ impl Command for SubCommand {
 
     fn signature(&self) -> Signature {
         Signature::build("str starts-with")
+            .input_output_types(vec![(Type::String, Type::Bool)])
+            .vectorizes_over_list(true)
             .required("string", SyntaxShape::String, "the string to match")
             .rest(
                 "rest",
                 SyntaxShape::CellPath,
-                "optionally matches prefix of text by column paths",
+                "For a data structure input, check strings at the given cell paths, and replace with result",
             )
             .category(Category::Strings)
     }

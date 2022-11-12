@@ -2,7 +2,7 @@ use super::base64::{operate, ActionType, CHARACTER_SET_DESC};
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
-    Category, Example, PipelineData, ShellError, Signature, Span, SyntaxShape, Value,
+    Category, Example, PipelineData, ShellError, Signature, Span, SyntaxShape, Type, Value,
 };
 
 #[derive(Clone)]
@@ -15,6 +15,11 @@ impl Command for DecodeBase64 {
 
     fn signature(&self) -> Signature {
         Signature::build("decode base64")
+            .input_output_types(vec![
+                (Type::String, Type::String),
+                (Type::String, Type::Binary),
+            ])
+            .vectorizes_over_list(true)
             .named(
                 "character-set",
                 SyntaxShape::String,
@@ -29,7 +34,7 @@ impl Command for DecodeBase64 {
             .rest(
                 "rest",
                 SyntaxShape::CellPath,
-                "optionally base64 decode data by column paths",
+                "For a data structure input, decode data at the given cell paths",
             )
             .category(Category::Hash)
     }

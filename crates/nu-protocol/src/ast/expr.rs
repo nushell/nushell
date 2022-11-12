@@ -26,6 +26,7 @@ pub enum Expr {
     BinaryOp(Box<Expression>, Box<Expression>, Box<Expression>), //lhs, op, rhs
     Subexpression(BlockId),
     Block(BlockId),
+    Closure(BlockId),
     List(Vec<Expression>),
     Table(Vec<Expression>, Vec<Vec<Expression>>),
     Record(Vec<(Expression, Expression)>),

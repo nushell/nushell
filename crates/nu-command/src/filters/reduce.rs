@@ -3,9 +3,9 @@ use std::sync::atomic::Ordering;
 use nu_engine::{eval_block, CallExt};
 
 use nu_protocol::ast::Call;
-use nu_protocol::engine::{CaptureBlock, Command, EngineState, Stack};
+use nu_protocol::engine::{Closure, Command, EngineState, Stack};
 use nu_protocol::{
-    Example, IntoPipelineData, PipelineData, ShellError, Signature, Span, SyntaxShape, Value,
+    Example, IntoPipelineData, PipelineData, ShellError, Signature, Span, SyntaxShape, Type, Value,
 };
 
 #[derive(Clone)]
@@ -18,6 +18,7 @@ impl Command for Reduce {
 
     fn signature(&self) -> Signature {
         Signature::build("reduce")
+            .input_output_types(vec![(Type::List(Box::new(Type::Any)), Type::Any)])
             .named(
                 "fold",
                 SyntaxShape::Any,
@@ -25,8 +26,8 @@ impl Command for Reduce {
                 Some('f'),
             )
             .required(
-                "block",
-                SyntaxShape::Block(Some(vec![SyntaxShape::Any, SyntaxShape::Any])),
+                "closure",
+                SyntaxShape::Closure(Some(vec![SyntaxShape::Any, SyntaxShape::Any])),
                 "reducing function",
             )
             .switch("numbered", "iterate with an index", Some('n'))
@@ -102,7 +103,7 @@ impl Command for Reduce {
 
         let fold: Option<Value> = call.get_flag(engine_state, stack, "fold")?;
         let numbered = call.has_flag("numbered");
-        let capture_block: CaptureBlock = call.req(engine_state, stack, 0)?;
+        let capture_block: Closure = call.req(engine_state, stack, 0)?;
         let mut stack = stack.captures_to_stack(&capture_block.captures);
         let block = engine_state.get_block(capture_block.block_id);
         let ctrlc = engine_state.ctrlc.clone();
@@ -164,6 +165,9 @@ impl Command for Reduce {
             .peekable();
 
         while let Some((idx, x)) = input_iter.next() {
+            // with_env() is used here to ensure that each iteration uses
+            // a different set of environment variables.
+            // Hence, a 'cd' in the first loop won't affect the next loop.
             stack.with_env(&orig_env_vars, &orig_env_hidden);
 
             if let Some(var) = block.signature.get_positional(0) {

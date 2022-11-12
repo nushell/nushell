@@ -3,7 +3,8 @@ use indexmap::map::IndexMap;
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
-    Category, Config, Example, IntoPipelineData, PipelineData, ShellError, Signature, Span, Value,
+    Category, Config, Example, IntoPipelineData, PipelineData, ShellError, Signature, Span, Type,
+    Value,
 };
 
 #[derive(Clone)]
@@ -16,6 +17,7 @@ impl Command for ToMd {
 
     fn signature(&self) -> Signature {
         Signature::build("to md")
+            .input_output_types(vec![(Type::Any, Type::String)])
             .switch(
                 "pretty",
                 "Formats the Markdown table to vertically align items",

@@ -2,7 +2,8 @@ use indexmap::map::IndexMap;
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
-    Category, Config, Example, IntoPipelineData, PipelineData, ShellError, Signature, Span, Value,
+    Category, Config, Example, IntoPipelineData, PipelineData, ShellError, Signature, Span, Type,
+    Value,
 };
 
 #[derive(Clone)]
@@ -14,11 +15,13 @@ impl Command for FromIni {
     }
 
     fn signature(&self) -> Signature {
-        Signature::build("from ini").category(Category::Formats)
+        Signature::build("from ini")
+            .input_output_types(vec![(Type::String, Type::Record(vec![]))])
+            .category(Category::Formats)
     }
 
     fn usage(&self) -> &str {
-        "Parse text as .ini and create table"
+        "Parse text as .ini and create record"
     }
 
     fn examples(&self) -> Vec<Example> {
@@ -26,7 +29,7 @@ impl Command for FromIni {
             example: "'[foo]
 a=1
 b=2' | from ini",
-            description: "Converts ini formatted string to table",
+            description: "Converts ini formatted string to record",
             result: Some(Value::Record {
                 cols: vec!["foo".to_string()],
                 vals: vec![Value::Record {

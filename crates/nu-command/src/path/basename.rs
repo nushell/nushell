@@ -1,7 +1,7 @@
 use std::path::Path;
 
 use nu_engine::CallExt;
-use nu_protocol::{engine::Command, Example, Signature, Span, Spanned, SyntaxShape, Value};
+use nu_protocol::{engine::Command, Example, Signature, Span, Spanned, SyntaxShape, Type, Value};
 
 use super::PathSubcommandArguments;
 
@@ -26,10 +26,15 @@ impl Command for SubCommand {
 
     fn signature(&self) -> Signature {
         Signature::build("path basename")
+            .input_output_types(vec![
+                (Type::String, Type::String),
+                // TODO: Why do these commands not use CellPaths in a standard way?
+                (Type::Table(vec![]), Type::Table(vec![])),
+            ])
             .named(
                 "columns",
                 SyntaxShape::Table,
-                "Optionally operate by column path",
+                "For a record or table input, convert strings in the given columns to their basename",
                 Some('c'),
             )
             .named(

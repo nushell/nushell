@@ -1,7 +1,7 @@
 use nu_engine::CallExt;
 use nu_protocol::{
     ast::Call, ast::CellPath, engine::Command, engine::EngineState, engine::Stack, Category,
-    Example, PipelineData, ShellError, Signature, Span, SyntaxShape, Value,
+    Example, PipelineData, ShellError, Signature, Span, SyntaxShape, Type, Value,
 };
 
 #[derive(Clone)]
@@ -14,10 +14,11 @@ impl Command for SubCommand {
 
     fn signature(&self) -> Signature {
         Signature::build("ansi strip")
+            .input_output_types(vec![(Type::String, Type::String)])
             .rest(
-                "column path",
+                "cell path",
                 SyntaxShape::CellPath,
-                "optionally, remove ANSI sequences by column paths",
+                "for a data structure input, remove ANSI sequences from strings at the given cell paths",
             )
             .category(Category::Platform)
     }

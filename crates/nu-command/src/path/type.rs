@@ -1,7 +1,9 @@
 use std::path::Path;
 
 use nu_engine::CallExt;
-use nu_protocol::{engine::Command, Example, ShellError, Signature, Span, SyntaxShape, Value};
+use nu_protocol::{
+    engine::Command, Example, ShellError, Signature, Span, SyntaxShape, Type, Value,
+};
 
 use super::PathSubcommandArguments;
 
@@ -24,16 +26,23 @@ impl Command for SubCommand {
     }
 
     fn signature(&self) -> Signature {
-        Signature::build("path type").named(
-            "columns",
-            SyntaxShape::Table,
-            "Optionally operate by column path",
-            Some('c'),
-        )
+        Signature::build("path type")
+            .input_output_types(vec![(Type::String, Type::String)])
+            .named(
+                "columns",
+                SyntaxShape::Table,
+                "For a record or table input, check strings at the given columns, and replace with result",
+                Some('c'),
+            )
     }
 
     fn usage(&self) -> &str {
         "Get the type of the object a path refers to (e.g., file, dir, symlink)"
+    }
+
+    fn extra_usage(&self) -> &str {
+        r#"This checks the file system to confirm the path's object type.
+If nothing is found, an empty string will be returned."#
     }
 
     fn run(

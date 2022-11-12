@@ -5,7 +5,7 @@ use nu_protocol::{
     ast::Call,
     engine::{Command, EngineState, Stack},
     Category, Example, IntoInterruptiblePipelineData, IntoPipelineData, PipelineData, ShellError,
-    Signature, Span, SyntaxShape, Value,
+    Signature, Span, SyntaxShape, Type, Value,
 };
 
 #[derive(Clone)]
@@ -18,6 +18,13 @@ impl Command for Skip {
 
     fn signature(&self) -> Signature {
         Signature::build(self.name())
+            .input_output_types(vec![
+                (Type::Table(vec![]), Type::Table(vec![])),
+                (
+                    Type::List(Box::new(Type::Any)),
+                    Type::List(Box::new(Type::Any)),
+                ),
+            ])
             .optional("n", SyntaxShape::Int, "the number of elements to skip")
             .category(Category::Filters)
     }
@@ -31,13 +38,21 @@ impl Command for Skip {
     }
 
     fn search_terms(&self) -> Vec<&str> {
-        vec!["ignore", "remove"]
+        vec!["ignore", "remove", "last", "slice", "tail"]
     }
 
     fn examples(&self) -> Vec<Example> {
         vec![
             Example {
-                description: "Skip two elements",
+                description: "Skip the first value of a list",
+                example: "echo [2 4 6 8] | skip 1",
+                result: Some(Value::List {
+                    vals: vec![Value::test_int(4), Value::test_int(6), Value::test_int(8)],
+                    span: Span::test_data(),
+                }),
+            },
+            Example {
+                description: "Skip two rows of a table",
                 example: "echo [[editions]; [2015] [2018] [2021]] | skip 2",
                 result: Some(Value::List {
                     vals: vec![Value::Record {
@@ -45,14 +60,6 @@ impl Command for Skip {
                         vals: vec![Value::test_int(2021)],
                         span: Span::test_data(),
                     }],
-                    span: Span::test_data(),
-                }),
-            },
-            Example {
-                description: "Skip the first value",
-                example: "echo [2 4 6 8] | skip",
-                result: Some(Value::List {
-                    vals: vec![Value::test_int(4), Value::test_int(6), Value::test_int(8)],
                     span: Span::test_data(),
                 }),
             },

@@ -3,7 +3,7 @@ use nu_protocol::{
     ast::Call,
     engine::{Command, EngineState, Stack},
     format_duration, format_filesize_from_conf, Category, Config, Example, IntoPipelineData,
-    PipelineData, ShellError, Signature, Value,
+    PipelineData, ShellError, Signature, Type, Value,
 };
 
 #[derive(Clone)]
@@ -15,7 +15,9 @@ impl Command for ToText {
     }
 
     fn signature(&self) -> Signature {
-        Signature::build("to text").category(Category::Formats)
+        Signature::build("to text")
+            .input_output_types(vec![(Type::Any, Type::String)])
+            .category(Category::Formats)
     }
 
     fn usage(&self) -> &str {
@@ -98,6 +100,7 @@ fn local_into_string(value: Value, separator: &str, config: &Config) -> String {
             .collect::<Vec<_>>()
             .join(separator),
         Value::Block { val, .. } => format!("<Block {}>", val),
+        Value::Closure { val, .. } => format!("<Closure {}>", val),
         Value::Nothing { .. } => String::new(),
         Value::Error { error } => format!("{:?}", error),
         Value::Binary { val, .. } => format!("{:?}", val),

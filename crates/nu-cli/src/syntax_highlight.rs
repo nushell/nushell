@@ -372,6 +372,7 @@ fn find_matching_block_end_in_expr(
             }
 
             Expr::Block(block_id)
+            | Expr::Closure(block_id)
             | Expr::RowCondition(block_id)
             | Expr::Subexpression(block_id) => {
                 if expr_last == global_cursor_offset {

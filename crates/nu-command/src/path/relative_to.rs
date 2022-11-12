@@ -3,7 +3,7 @@ use std::path::Path;
 use nu_engine::CallExt;
 use nu_path::expand_to_real_path;
 use nu_protocol::{
-    engine::Command, Example, ShellError, Signature, Span, Spanned, SyntaxShape, Value,
+    engine::Command, Example, ShellError, Signature, Span, Spanned, SyntaxShape, Type, Value,
 };
 
 use super::PathSubcommandArguments;
@@ -29,6 +29,7 @@ impl Command for SubCommand {
 
     fn signature(&self) -> Signature {
         Signature::build("path relative-to")
+            .input_output_types(vec![(Type::String, Type::String)])
             .required(
                 "path",
                 SyntaxShape::String,
@@ -37,13 +38,13 @@ impl Command for SubCommand {
             .named(
                 "columns",
                 SyntaxShape::Table,
-                "Optionally operate by column path",
+                "For a record or table input, convert strings at the given columns",
                 Some('c'),
             )
     }
 
     fn usage(&self) -> &str {
-        "Get a path as relative to another path."
+        "Express a path as relative to another path."
     }
 
     fn extra_usage(&self) -> &str {

@@ -4,7 +4,7 @@ use nu_protocol::ast::Call;
 use nu_protocol::ast::CellPath;
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::Category;
-use nu_protocol::{Example, PipelineData, ShellError, Signature, Span, SyntaxShape, Value};
+use nu_protocol::{Example, PipelineData, ShellError, Signature, Span, SyntaxShape, Type, Value};
 
 struct Arguments {
     added_data: Vec<u8>,
@@ -30,6 +30,8 @@ impl Command for BytesAdd {
 
     fn signature(&self) -> Signature {
         Signature::build("bytes add")
+            .input_output_types(vec![(Type::Binary, Type::Binary)])
+            .vectorizes_over_list(true)
             .required("data", SyntaxShape::Binary, "the binary to add")
             .named(
                 "index",
@@ -41,7 +43,7 @@ impl Command for BytesAdd {
             .rest(
                 "rest",
                 SyntaxShape::CellPath,
-                "optionally matches prefix of text by column paths",
+                "for a data structure input, add bytes to the data at the given cell paths",
             )
             .category(Category::Bytes)
     }

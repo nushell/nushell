@@ -4,7 +4,7 @@ use nu_protocol::ast::Call;
 use nu_protocol::ast::CellPath;
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::Category;
-use nu_protocol::{Example, PipelineData, ShellError, Signature, Span, SyntaxShape, Value};
+use nu_protocol::{Example, PipelineData, ShellError, Signature, Span, SyntaxShape, Type, Value};
 
 #[derive(Clone)]
 pub struct BytesLen;
@@ -16,10 +16,12 @@ impl Command for BytesLen {
 
     fn signature(&self) -> Signature {
         Signature::build("bytes length")
+            .input_output_types(vec![(Type::Binary, Type::Int)])
+            .vectorizes_over_list(true)
             .rest(
                 "rest",
                 SyntaxShape::CellPath,
-                "optionally find length of binary by column paths",
+                "for a data structure input, find the length of data at the given cell paths",
             )
             .category(Category::Bytes)
     }

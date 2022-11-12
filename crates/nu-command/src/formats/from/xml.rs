@@ -3,7 +3,7 @@ use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
     Category, Config, Example, IntoPipelineData, PipelineData, ShellError, Signature, Span,
-    Spanned, Value,
+    Spanned, Type, Value,
 };
 
 #[derive(Clone)]
@@ -15,11 +15,13 @@ impl Command for FromXml {
     }
 
     fn signature(&self) -> Signature {
-        Signature::build("from xml").category(Category::Formats)
+        Signature::build("from xml")
+            .input_output_types(vec![(Type::String, Type::Record(vec![]))])
+            .category(Category::Formats)
     }
 
     fn usage(&self) -> &str {
-        "Parse text as .xml and create table."
+        "Parse text as .xml and create record."
     }
 
     fn run(
@@ -40,7 +42,7 @@ impl Command for FromXml {
 <note>
   <remember>Event</remember>
 </note>' | from xml"#,
-            description: "Converts xml formatted string to table",
+            description: "Converts xml formatted string to record",
             result: Some(Value::Record {
                 cols: vec!["note".to_string()],
                 vals: vec![Value::Record {

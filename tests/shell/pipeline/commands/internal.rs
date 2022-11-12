@@ -84,6 +84,18 @@ fn argument_subexpression() {
 }
 
 #[test]
+fn for_loop() {
+    let actual = nu!(
+        cwd: ".",
+        r#"
+            for i in 1..3 { print $i }
+        "#
+    );
+
+    assert_eq!(actual.out, "123");
+}
+
+#[test]
 fn subexpression_handles_dot() {
     Playground::setup("subexpression_handles_dot", |dirs, sandbox| {
         sandbox.with_files(vec![FileWithContentToBeTrimmed(

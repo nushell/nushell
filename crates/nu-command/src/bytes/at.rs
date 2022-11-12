@@ -4,7 +4,7 @@ use nu_protocol::ast::Call;
 use nu_protocol::ast::CellPath;
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
-    Category, Example, PipelineData, ShellError, Signature, Span, SyntaxShape, Value,
+    Category, Example, PipelineData, ShellError, Signature, Span, SyntaxShape, Type, Value,
 };
 use std::cmp::Ordering;
 
@@ -115,11 +115,13 @@ impl Command for BytesAt {
 
     fn signature(&self) -> Signature {
         Signature::build("bytes at")
+            .input_output_types(vec![(Type::Binary, Type::Binary)])
+            .vectorizes_over_list(true)
             .required("range", SyntaxShape::Any, "the indexes to get bytes")
             .rest(
                 "rest",
                 SyntaxShape::CellPath,
-                "optionally get bytes by column paths",
+                "for a data structure input, get bytes from data at the given cell paths",
             )
             .category(Category::Bytes)
     }
