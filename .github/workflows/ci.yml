@@ -98,7 +98,7 @@ jobs:
         uses: actions-rs/cargo@v1.0.1
         with:
           command: install
-          args: --path=. --profile ci --no-default-features
+          args: --locked --path=. --profile ci --no-default-features
 
       - name: Setup Python
         uses: actions/setup-python@v4
