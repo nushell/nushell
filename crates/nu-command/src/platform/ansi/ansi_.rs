@@ -382,7 +382,7 @@ Format: #
         } else if osc && param_is_valid_string {
             // Operating system command aka osc  ESC ] <- note the right brace, not left brace for osc
             // OCS's need to end with a bell '\x07' char
-            format!("\x1b]{};", code_string)
+            format!("\x1b]{}", code_string)
         } else if param_is_valid_string {
             // parse hex colors like #00FF00
             if code_string.starts_with('#') {
