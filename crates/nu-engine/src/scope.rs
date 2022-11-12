@@ -147,11 +147,8 @@ impl<'e, 's> ScopeData<'e, 's> {
                     span,
                 });
 
-                cols.push("signature".to_string());
-                vals.push(Value::List {
-                    vals: self.collect_signature_entries(&signature, span),
-                    span,
-                });
+                cols.push("signatures".to_string());
+                vals.push(self.collect_signatures(&signature, span));
 
                 cols.push("usage".to_string());
                 vals.push(Value::String {
@@ -266,11 +263,49 @@ impl<'e, 's> ScopeData<'e, 's> {
         commands
     }
 
-    fn collect_signature_entries(&self, signature: &Signature, span: Span) -> Vec<Value> {
+    fn collect_signatures(&self, signature: &Signature, span: Span) -> Value {
+        let mut sigs = signature
+            .input_output_types
+            .iter()
+            .map(|(input_type, output_type)| {
+                (
+                    input_type.to_shape().to_string(),
+                    Value::List {
+                        vals: self.collect_signature_entries(
+                            input_type,
+                            output_type,
+                            signature,
+                            span,
+                        ),
+                        span,
+                    },
+                )
+            })
+            .collect::<Vec<(String, Value)>>();
+        sigs.sort_unstable_by(|(k1, _), (k2, _)| k1.cmp(k2));
+        // For most commands, input types are not repeated in
+        // `input_output_types`, i.e. each input type has only one associated
+        // output type. Furthermore, we want this to always be true. However,
+        // there are currently some exceptions, such as `hash sha256` which
+        // takes in string but may output string or binary depending on the
+        // presence of the --binary flag. In such cases, the "special case"
+        // signature usually comes later in the input_output_types, so this will
+        // remove them from the record.
+        sigs.dedup_by(|(k1, _), (k2, _)| k1 == k2);
+        let (cols, vals) = sigs.into_iter().unzip();
+        Value::Record { cols, vals, span }
+    }
+
+    fn collect_signature_entries(
+        &self,
+        input_type: &Type,
+        output_type: &Type,
+        signature: &Signature,
+        span: Span,
+    ) -> Vec<Value> {
         let mut sig_records = vec![];
 
         let sig_cols = vec![
-            "command".to_string(),
             "parameter_name".to_string(),
             "parameter_type".to_string(),
             "syntax_shape".to_string(),
@@ -280,10 +315,24 @@ impl<'e, 's> ScopeData<'e, 's> {
             "custom_completion".to_string(),
         ];
 
+        // input
+        sig_records.push(Value::Record {
+            cols: sig_cols.clone(),
+            vals: vec![
+                Value::nothing(span),
+                Value::string("input", span),
+                Value::string(input_type.to_shape().to_string(), span),
+                Value::boolean(false, span),
+                Value::nothing(span),
+                Value::nothing(span),
+                Value::nothing(span),
+            ],
+            span,
+        });
+
         // required_positional
         for req in &signature.required_positional {
             let sig_vals = vec![
-                Value::string(&signature.name, span),
                 Value::string(&req.name, span),
                 Value::string("positional", span),
                 Value::string(req.shape.to_string(), span),
@@ -306,7 +355,6 @@ impl<'e, 's> ScopeData<'e, 's> {
         // optional_positional
         for opt in &signature.optional_positional {
             let sig_vals = vec![
-                Value::string(&signature.name, span),
                 Value::string(&opt.name, span),
                 Value::string("positional", span),
                 Value::string(opt.shape.to_string(), span),
@@ -329,8 +377,7 @@ impl<'e, 's> ScopeData<'e, 's> {
         // rest_positional
         if let Some(rest) = &signature.rest_positional {
             let sig_vals = vec![
-                Value::string(&signature.name, span),
-                Value::string(&rest.name, span),
+                Value::string(if rest.name == "rest" { "" } else { &rest.name }, span),
                 Value::string("rest", span),
                 Value::string(rest.shape.to_string(), span),
                 Value::boolean(true, span),
@@ -376,7 +423,6 @@ impl<'e, 's> ScopeData<'e, 's> {
             };
 
             let sig_vals = vec![
-                Value::string(&signature.name, span),
                 Value::string(&named.long, span),
                 flag_type,
                 shape,
@@ -392,6 +438,22 @@ impl<'e, 's> ScopeData<'e, 's> {
                 span,
             });
         }
+
+        // output
+        sig_records.push(Value::Record {
+            cols: sig_cols,
+            vals: vec![
+                Value::nothing(span),
+                Value::string("output", span),
+                Value::string(output_type.to_shape().to_string(), span),
+                Value::boolean(false, span),
+                Value::nothing(span),
+                Value::nothing(span),
+                Value::nothing(span),
+            ],
+            span,
+        });
+
         sig_records
     }
 
