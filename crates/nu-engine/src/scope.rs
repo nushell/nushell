@@ -264,7 +264,7 @@ impl<'e, 's> ScopeData<'e, 's> {
     }
 
     fn collect_signatures(&self, signature: &Signature, span: Span) -> Value {
-        let (cols, vals) = signature
+        let mut sigs = signature
             .input_output_types
             .iter()
             // For most commands, input types are not repeated in
@@ -291,7 +291,9 @@ impl<'e, 's> ScopeData<'e, 's> {
                     },
                 )
             })
-            .unzip();
+            .collect::<Vec<(String, Value)>>();
+        sigs.sort_unstable_by(|(k1, _), (k2, _)| k1.cmp(k2));
+        let (cols, vals) = sigs.into_iter().unzip();
         Value::Record { cols, vals, span }
     }
 
