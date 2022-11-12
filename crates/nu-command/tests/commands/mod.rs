@@ -84,6 +84,7 @@ mod transpose;
 mod uniq;
 mod update;
 mod upsert;
+mod url;
 mod use_;
 mod where_;
 #[cfg(feature = "which-support")]
