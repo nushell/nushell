@@ -2666,6 +2666,7 @@ dependencies = [
  "nu-path",
  "nu-protocol",
  "nu-utils",
+ "strip-ansi-escapes",
  "sysinfo",
 ]
 
