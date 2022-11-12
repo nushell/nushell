@@ -8,28 +8,6 @@ use nu_protocol::{
 };
 use std::path::Path;
 
-// when the file under the fold executeable
-#[cfg(unix)]
-mod permission_mods {
-    pub type Mode = u32;
-    pub mod unix {
-        use super::Mode;
-        pub const USER_EXECUTE: Mode = libc::S_IXUSR as Mode;
-        pub const GROUP_EXECUTE: Mode = libc::S_IXGRP as Mode;
-        pub const OTHER_EXECUTE: Mode = libc::S_IXOTH as Mode;
-    }
-}
-
-// use to return the message of the result of change director
-// TODO: windows, maybe should use file_attributes function in https://doc.rust-lang.org/std/os/windows/fs/trait.MetadataExt.html
-// TODO: the meaning of the result of the function can be found in https://learn.microsoft.com/en-us/windows/win32/fileio/file-attribute-constants
-// TODO: if have realize the logic on windows, remove the cfg
-#[derive(Debug)]
-enum PermissionResult<'a> {
-    PermissionOk,
-    PermissionDenied(&'a str),
-}
-
 #[derive(Clone)]
 pub struct Cd;
 
@@ -63,7 +41,6 @@ impl Command for Cd {
         let cwd = current_dir(engine_state, stack)?;
         let config = engine_state.get_config();
         let use_abbrev = config.cd_with_abbreviations;
-
         let path_val = {
             if let Some(path) = path_val {
                 Some(Spanned {
@@ -193,15 +170,15 @@ impl Command for Cd {
 
         //FIXME: this only changes the current scope, but instead this environment variable
         //should probably be a block that loads the information from the state in the overlay
-        match have_permission(&path_tointo) {
-            PermissionResult::PermissionOk => {
-                stack.add_env_var("PWD".into(), path_value);
-                Ok(PipelineData::new(call.head))
-            }
-            PermissionResult::PermissionDenied(reason) => Err(ShellError::IOError(format!(
-                "Cannot change directory to {}: {}",
-                path_tointo, reason
-            ))),
+        let newpath = std::path::Path::new(&path_tointo).join("tryexits.txt");
+        if nu_try_exists(&newpath).is_ok() {
+            stack.add_env_var("PWD".into(), path_value);
+            Ok(PipelineData::new(call.head))
+        } else {
+            Err(ShellError::IOError(format!(
+                "Cannot change directory to {}",
+                path_tointo
+            )))
         }
     }
 
@@ -225,65 +202,12 @@ impl Command for Cd {
         ]
     }
 }
-#[cfg(windows)]
-fn have_permission(dir: impl AsRef<Path>) -> PermissionResult<'static> {
-    match dir.as_ref().read_dir() {
-        Err(e) => {
-            if matches!(e.kind(), std::io::ErrorKind::PermissionDenied) {
-                PermissionResult::PermissionDenied("Folder is unable to be read")
-            } else {
-                PermissionResult::PermissionOk
-            }
-        }
-        Ok(_) => PermissionResult::PermissionOk,
-    }
-}
 
-#[cfg(unix)]
-fn have_permission(dir: impl AsRef<Path>) -> PermissionResult<'static> {
-    match dir.as_ref().metadata() {
-        Ok(metadata) => {
-            use std::os::unix::fs::MetadataExt;
-            let bits = metadata.mode();
-            let has_bit = |bit| bits & bit == bit;
-            let current_user = users::get_current_uid();
-            if current_user == 0 {
-                return PermissionResult::PermissionOk;
-            }
-            let current_group = users::get_current_gid();
-            let owner_user = metadata.uid();
-            let owner_group = metadata.gid();
-            match (current_user == owner_user, current_group == owner_group) {
-                (true, _) => {
-                    if has_bit(permission_mods::unix::USER_EXECUTE) {
-                        PermissionResult::PermissionOk
-                    } else {
-                        PermissionResult::PermissionDenied(
-                            "You are the owner but do not have the execute permission",
-                        )
-                    }
-                }
-                (false, true) => {
-                    if has_bit(permission_mods::unix::GROUP_EXECUTE) {
-                        PermissionResult::PermissionOk
-                    } else {
-                        PermissionResult::PermissionDenied(
-                            "You are in the group but do not have the execute permission",
-                        )
-                    }
-                }
-                // other_user or root
-                (false, false) => {
-                    if has_bit(permission_mods::unix::OTHER_EXECUTE) {
-                        PermissionResult::PermissionOk
-                    } else {
-                        PermissionResult::PermissionDenied(
-                            "You are neither the owner, in the group, nor the super user and do not have permission",
-                        )
-                    }
-                }
-            }
-        }
-        Err(_) => PermissionResult::PermissionDenied("Could not retrieve the metadata"),
+// TODO: it tryexits is stable can change to tryexits in std
+fn nu_try_exists(input: &Path) -> std::io::Result<bool> {
+    match std::fs::metadata(input) {
+        Ok(_) => Ok(true),
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => Ok(false),
+        Err(error) => Err(error),
     }
 }

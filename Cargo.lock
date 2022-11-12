@@ -2593,7 +2593,6 @@ dependencies = [
  "is-root",
  "itertools",
  "lazy_static",
- "libc",
  "log",
  "lscolors",
  "md-5",
