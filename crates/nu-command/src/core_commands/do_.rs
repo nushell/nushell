@@ -2,8 +2,7 @@ use nu_engine::{eval_block, CallExt};
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Closure, Command, EngineState, Stack};
 use nu_protocol::{
-    Category, Example, ListStream, PipelineData, RawStream, ShellError, Signature, SyntaxShape,
-    Type, Value,
+    Category, Example, ListStream, PipelineData, ShellError, Signature, SyntaxShape, Type, Value,
 };
 
 #[derive(Clone)]
@@ -118,25 +117,6 @@ impl Command for Do {
                 span,
                 metadata,
             }) if capture_errors => {
-                // collect all output first.
-                let mut stderr_ctrlc = None;
-                let stderr_msg = match stderr {
-                    None => "".to_string(),
-                    Some(stderr_stream) => {
-                        stderr_ctrlc = stderr_stream.ctrlc.clone();
-                        stderr_stream.into_string().map(|s| s.item)?
-                    }
-                };
-
-                let mut stdout_ctrlc = None;
-                let stdout_msg = match stdout {
-                    None => "".to_string(),
-                    Some(stdout_stream) => {
-                        stdout_ctrlc = stdout_stream.ctrlc.clone();
-                        stdout_stream.into_string().map(|s| s.item)?
-                    }
-                };
-
                 let mut exit_code_ctrlc = None;
                 let exit_code: Vec<Value> = match exit_code {
                     None => vec![],
@@ -146,8 +126,12 @@ impl Command for Do {
                     }
                 };
                 if let Some(Value::Int { val: code, .. }) = exit_code.last() {
-                    // if exit_code is not 0, it indicates error occured, return back Err.
                     if *code != 0 {
+                        let stderr_msg = match stderr {
+                            None => "".to_string(),
+                            Some(stderr_stream) => stderr_stream.into_string().map(|s| s.item)?,
+                        };
+
                         return Err(ShellError::ExternalCommand(
                             "External command failed".to_string(),
                             stderr_msg,
@@ -155,18 +139,10 @@ impl Command for Do {
                         ));
                     }
                 }
-                // construct pipeline data to our caller
+
                 Ok(PipelineData::ExternalStream {
-                    stdout: Some(RawStream::new(
-                        Box::new(vec![Ok(stdout_msg.into_bytes())].into_iter()),
-                        stdout_ctrlc,
-                        span,
-                    )),
-                    stderr: Some(RawStream::new(
-                        Box::new(vec![Ok(stderr_msg.into_bytes())].into_iter()),
-                        stderr_ctrlc,
-                        span,
-                    )),
+                    stdout,
+                    stderr,
                     exit_code: Some(ListStream::from_stream(
                         exit_code.into_iter(),
                         exit_code_ctrlc,
