@@ -44,6 +44,7 @@ pub struct TableConfig {
     pub(crate) show_index: bool,
     pub(crate) show_head: bool,
     pub(crate) reverse: bool,
+    pub(crate) peek_value: bool,
 }
 
 pub fn pager(
@@ -70,6 +71,7 @@ pub fn pager(
         &color_hm,
         table.show_head,
         table.show_index,
+        table.peek_value,
         style,
     );
 
@@ -145,45 +147,8 @@ where
 
             let exited = handle_events(&events, state, &layout, terminal);
             if exited {
-                let last_value = if state.mode == UIMode::Cursor {
-                    let Position { x: column, y: row } = state.cursor;
-                    let info = layout
-                        .get(row as usize, column as usize)
-                        .expect("must never happen");
-                    let pos = info.data_pos;
-                    let value = &state.data[pos.0][pos.1];
-                    value.clone()
-                } else {
-                    if state.count_rows() < 2 {
-                        let cols = state.columns.to_vec();
-                        let vals = state.data.get(0).map_or(Vec::new(), |row| row.clone());
-
-                        Value::Record {
-                            cols,
-                            vals,
-                            span: NuSpan::unknown(),
-                        }
-                    } else {
-                        let headers = state.columns.to_vec();
-                        let vals = state
-                            .data
-                            .iter()
-                            .cloned()
-                            .map(|vals| Value::Record {
-                                cols: headers.clone(),
-                                vals,
-                                span: NuSpan::unknown(),
-                            })
-                            .collect();
-
-                        Value::List {
-                            vals,
-                            span: NuSpan::unknown(),
-                        }
-                    }
-                };
-
-                break Ok(Some(last_value));
+                let val = state.peek_value.then(|| get_last_used_value(state, layout));
+                break Ok(val);
             }
         }
 
@@ -201,6 +166,7 @@ where
                     state.color_hm,
                     state.show_header,
                     state.show_index,
+                    state.peek_value,
                     state.style.clone(),
                 );
                 state.mode = UIMode::Cursor;
@@ -219,6 +185,56 @@ where
                 latest_state.render_inner = false;
             }
         }
+    }
+}
+
+fn get_last_used_value(state: &UIState, layout: Layout) -> Value {
+    if state.mode == UIMode::Cursor {
+        peak_current_value(state, layout)
+    } else if state.count_rows() < 2 {
+        build_table_as_record(state)
+    } else {
+        build_table_as_list(state)
+    }
+}
+
+fn peak_current_value(state: &UIState, layout: Layout) -> Value {
+    let Position { x: column, y: row } = state.cursor;
+    let info = layout
+        .get(row as usize, column as usize)
+        .expect("must never happen");
+    let pos = info.data_pos;
+    let value = &state.data[pos.0][pos.1];
+    value.clone()
+}
+
+fn build_table_as_list(state: &UIState) -> Value {
+    let headers = state.columns.to_vec();
+    let vals = state
+        .data
+        .iter()
+        .cloned()
+        .map(|vals| Value::Record {
+            cols: headers.clone(),
+            vals,
+            span: NuSpan::unknown(),
+        })
+        .collect();
+
+    Value::List {
+        vals,
+        span: NuSpan::unknown(),
+    }
+}
+
+fn build_table_as_record(state: &UIState) -> Value {
+    let cols = state.columns.to_vec();
+    let vals = state.data.get(0).map_or(Vec::new(), |row| row.clone());
+
+    Value::Record {
+        cols,
+        vals,
+        span: NuSpan::unknown(),
     }
 }
 
@@ -701,6 +717,7 @@ struct UIState<'a> {
     // only applicable for rev-SEARCH input
     is_search_rev: bool,
     style: StyleConfig,
+    peek_value: bool,
 }
 
 #[derive(Debug, Default, Clone)]
@@ -716,6 +733,7 @@ pub struct StyleConfig {
 }
 
 impl<'a> UIState<'a> {
+    #[allow(clippy::too_many_arguments)]
     fn new(
         columns: Cow<'a, [String]>,
         data: Cow<'a, [Vec<Value>]>,
@@ -723,6 +741,7 @@ impl<'a> UIState<'a> {
         color_hm: &'a NuStyleTable,
         show_header: bool,
         show_index: bool,
+        ret_value: bool,
         style: StyleConfig,
     ) -> Self {
         let data_text = data
@@ -765,6 +784,7 @@ impl<'a> UIState<'a> {
             is_search_rev: false,
             data_text,
             style,
+            peek_value: ret_value,
         }
     }
 

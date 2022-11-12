@@ -29,7 +29,7 @@ impl Command for Scroll {
         // todo: Fix error message when it's empty
         // if we set h i short flags it panics????
 
-        Signature::build("tabless")
+        Signature::build("scroll")
             .named(
                 "head",
                 SyntaxShape::Boolean,
@@ -42,6 +42,7 @@ impl Command for Scroll {
                 "Makes it start from the end. (like `more`)",
                 Some('r'),
             )
+            .switch("peek", "Return a last seen cell content", Some('p'))
             .category(Category::Viewers)
     }
 
@@ -61,9 +62,11 @@ Press <ESC> to get out of the mode and the inner view.
         let show_head: bool = call.get_flag(engine_state, stack, "head")?.unwrap_or(true);
         let show_index: bool = call.has_flag("index");
         let is_reverse: bool = call.has_flag("reverse");
+        let peek_value: bool = call.has_flag("peek");
         let table_config = TableConfig {
             show_index,
             show_head,
+            peek_value,
             reverse: is_reverse,
         };
 
@@ -101,6 +104,11 @@ Press <ESC> to get out of the mode and the inner view.
             Example {
                 description: "Inspect $nu information (scroll with no column names).",
                 example: r#"$nu | scroll --head false"#,
+                result: None,
+            },
+            Example {
+                description: "Inspect $nu information and return an entity where you've stopped.",
+                example: r#"$nu | scroll --peek"#,
                 result: None,
             },
         ]
