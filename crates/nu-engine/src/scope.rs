@@ -378,7 +378,7 @@ impl<'e, 's> ScopeData<'e, 's> {
         // rest_positional
         if let Some(rest) = &signature.rest_positional {
             let sig_vals = vec![
-                Value::string(&rest.name, span),
+                Value::string(if rest.name == "rest" { "" } else { &rest.name }, span),
                 Value::string("rest", span),
                 Value::string(rest.shape.to_string(), span),
                 Value::boolean(true, span),
