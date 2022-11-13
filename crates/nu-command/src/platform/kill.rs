@@ -43,6 +43,10 @@ impl Command for Kill {
         )
     }
 
+    fn search_terms(&self) -> Vec<&str> {
+        vec!["stop", "end", "close"]
+    }
+
     fn run(
         &self,
         engine_state: &EngineState,

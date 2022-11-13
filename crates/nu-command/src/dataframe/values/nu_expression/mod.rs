@@ -174,16 +174,6 @@ pub fn expr_to_value(expr: &Expr, span: Span) -> Value {
     let cols = vec!["expr".to_string(), "value".to_string()];
 
     match expr {
-        Expr::Not(expr) => {
-            let expr = expr_to_value(expr.as_ref(), span);
-            let cols = vec!["expr".into()];
-
-            Value::Record {
-                cols,
-                vals: vec![expr],
-                span,
-            }
-        }
         Expr::Alias(expr, alias) => {
             let expr = expr_to_value(expr.as_ref(), span);
             let alias = Value::String {
@@ -280,8 +270,8 @@ pub fn expr_to_value(expr: &Expr, span: Span) -> Value {
         }
         Expr::Agg(agg_expr) => {
             let value = match agg_expr {
-                AggExpr::Min(expr)
-                | AggExpr::Max(expr)
+                AggExpr::Min { input: expr, .. }
+                | AggExpr::Max { input: expr, .. }
                 | AggExpr::Median(expr)
                 | AggExpr::NUnique(expr)
                 | AggExpr::First(expr)
@@ -291,8 +281,8 @@ pub fn expr_to_value(expr: &Expr, span: Span) -> Value {
                 | AggExpr::Count(expr)
                 | AggExpr::Sum(expr)
                 | AggExpr::AggGroups(expr)
-                | AggExpr::Std(expr)
-                | AggExpr::Var(expr) => expr_to_value(expr.as_ref(), span),
+                | AggExpr::Std(expr, _)
+                | AggExpr::Var(expr, _) => expr_to_value(expr.as_ref(), span),
                 AggExpr::Quantile {
                     expr,
                     quantile,
@@ -326,26 +316,6 @@ pub fn expr_to_value(expr: &Expr, span: Span) -> Value {
             let vals = vec![expr_type, value];
             Value::Record { cols, vals, span }
         }
-        Expr::IsNotNull(expr) => {
-            let expr = expr_to_value(expr.as_ref(), span);
-            let cols = vec!["expr".into()];
-
-            Value::Record {
-                cols,
-                vals: vec![expr],
-                span,
-            }
-        }
-        Expr::IsNull(expr) => {
-            let expr = expr_to_value(expr.as_ref(), span);
-            let cols = vec!["expr".into()];
-
-            Value::Record {
-                cols,
-                vals: vec![expr],
-                span,
-            }
-        }
         Expr::Count => {
             let expr = Value::String {
                 val: "count".into(),
@@ -364,36 +334,6 @@ pub fn expr_to_value(expr: &Expr, span: Span) -> Value {
                 val: "wildcard".into(),
                 span,
             };
-            let cols = vec!["expr".into()];
-
-            Value::Record {
-                cols,
-                vals: vec![expr],
-                span,
-            }
-        }
-        Expr::Reverse(expr) => {
-            let expr = expr_to_value(expr.as_ref(), span);
-            let cols = vec!["expr".into()];
-
-            Value::Record {
-                cols,
-                vals: vec![expr],
-                span,
-            }
-        }
-        Expr::Duplicated(expr) => {
-            let expr = expr_to_value(expr.as_ref(), span);
-            let cols = vec!["expr".into()];
-
-            Value::Record {
-                cols,
-                vals: vec![expr],
-                span,
-            }
-        }
-        Expr::IsUnique(expr) => {
-            let expr = expr_to_value(expr.as_ref(), span);
             let cols = vec!["expr".into()];
 
             Value::Record {
@@ -508,21 +448,6 @@ pub fn expr_to_value(expr: &Expr, span: Span) -> Value {
             Value::Record {
                 cols,
                 vals: vec![expr, by, reverse],
-                span,
-            }
-        }
-        Expr::Shift { input, periods } => {
-            let expr = expr_to_value(input.as_ref(), span);
-            let periods = Value::Int {
-                val: *periods,
-                span,
-            };
-
-            let cols = vec!["expr".into(), "periods".into()];
-
-            Value::Record {
-                cols,
-                vals: vec![expr, periods],
                 span,
             }
         }

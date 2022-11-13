@@ -32,6 +32,7 @@ pub struct Hooks {
     pub pre_prompt: Option<Value>,
     pub pre_execution: Option<Value>,
     pub env_change: Option<Value>,
+    pub display_output: Option<Value>,
 }
 
 impl Hooks {
@@ -40,6 +41,7 @@ impl Hooks {
             pre_prompt: None,
             pre_execution: None,
             env_change: None,
+            display_output: None,
         }
     }
 }
@@ -347,14 +349,14 @@ impl Value {
                             eprintln!("$config.log_level is not a string")
                         }
                     }
-                    "menus" => match create_menus(value, &config) {
+                    "menus" => match create_menus(value) {
                         Ok(map) => config.menus = map,
                         Err(e) => {
                             eprintln!("$config.menus is not a valid list of menus");
                             eprintln!("{:?}", e);
                         }
                     },
-                    "keybindings" => match create_keybindings(value, &config) {
+                    "keybindings" => match create_keybindings(value) {
                         Ok(keybindings) => config.keybindings = keybindings,
                         Err(e) => {
                             eprintln!("$config.keybindings is not a valid keybindings list");
@@ -571,9 +573,10 @@ fn create_hooks(value: &Value) -> Result<Hooks, ShellError> {
                     "pre_prompt" => hooks.pre_prompt = Some(vals[idx].clone()),
                     "pre_execution" => hooks.pre_execution = Some(vals[idx].clone()),
                     "env_change" => hooks.env_change = Some(vals[idx].clone()),
+                    "display_output" => hooks.display_output = Some(vals[idx].clone()),
                     x => {
                         return Err(ShellError::UnsupportedConfigValue(
-                            "'pre_prompt', 'pre_execution', or 'env_change'".to_string(),
+                            "'pre_prompt', 'pre_execution', 'env_change'".to_string(),
                             x.to_string(),
                             *span,
                         ));
@@ -599,7 +602,7 @@ fn create_hooks(value: &Value) -> Result<Hooks, ShellError> {
 }
 
 // Parses the config object to extract the strings that will compose a keybinding for reedline
-fn create_keybindings(value: &Value, config: &Config) -> Result<Vec<ParsedKeybinding>, ShellError> {
+fn create_keybindings(value: &Value) -> Result<Vec<ParsedKeybinding>, ShellError> {
     match value {
         Value::Record { cols, vals, span } => {
             // Finding the modifier value in the record
@@ -621,7 +624,7 @@ fn create_keybindings(value: &Value, config: &Config) -> Result<Vec<ParsedKeybin
         Value::List { vals, .. } => {
             let res = vals
                 .iter()
-                .map(|inner_value| create_keybindings(inner_value, config))
+                .map(create_keybindings)
                 .collect::<Result<Vec<Vec<ParsedKeybinding>>, ShellError>>();
 
             let res = res?
@@ -636,7 +639,7 @@ fn create_keybindings(value: &Value, config: &Config) -> Result<Vec<ParsedKeybin
 }
 
 // Parses the config object to extract the strings that will compose a keybinding for reedline
-pub fn create_menus(value: &Value, config: &Config) -> Result<Vec<ParsedMenu>, ShellError> {
+pub fn create_menus(value: &Value) -> Result<Vec<ParsedMenu>, ShellError> {
     match value {
         Value::Record { cols, vals, span } => {
             // Finding the modifier value in the record
@@ -667,7 +670,7 @@ pub fn create_menus(value: &Value, config: &Config) -> Result<Vec<ParsedMenu>, S
         Value::List { vals, .. } => {
             let res = vals
                 .iter()
-                .map(|inner_value| create_menus(inner_value, config))
+                .map(create_menus)
                 .collect::<Result<Vec<Vec<ParsedMenu>>, ShellError>>();
 
             let res = res?.into_iter().flatten().collect::<Vec<ParsedMenu>>();

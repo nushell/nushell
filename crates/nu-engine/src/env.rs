@@ -279,7 +279,7 @@ pub fn find_in_dirs_env(
                     for lib_dir in dirs {
                         if let Ok(dir) = lib_dir.as_path() {
                             // make sure the dir is absolute path
-                            if let Ok(dir_abs) = canonicalize_with(&dir, &cwd) {
+                            if let Ok(dir_abs) = canonicalize_with(dir, &cwd) {
                                 if let Ok(path) = canonicalize_with(filename, dir_abs) {
                                     return Ok(Some(path));
                                 }
@@ -332,7 +332,7 @@ fn get_converted_value(
             },
         ];
 
-        if let Ok(Value::Block {
+        if let Ok(Value::Closure {
             val: block_id,
             span: from_span,
             ..

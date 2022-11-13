@@ -1,9 +1,9 @@
 use nu_engine::{eval_block, CallExt};
 use nu_protocol::ast::{Call, CellPath, PathMember};
-use nu_protocol::engine::{CaptureBlock, Command, EngineState, Stack};
+use nu_protocol::engine::{Closure, Command, EngineState, Stack};
 use nu_protocol::{
     Category, Example, FromValue, IntoInterruptiblePipelineData, IntoPipelineData, PipelineData,
-    ShellError, Signature, Span, SyntaxShape, Value,
+    ShellError, Signature, Span, SyntaxShape, Type, Value,
 };
 
 #[derive(Clone)]
@@ -16,6 +16,7 @@ impl Command for Upsert {
 
     fn signature(&self) -> Signature {
         Signature::build("upsert")
+            .input_output_types(vec![(Type::Table(vec![]), Type::Table(vec![]))])
             .required(
                 "field",
                 SyntaxShape::CellPath,
@@ -50,19 +51,19 @@ impl Command for Upsert {
     fn examples(&self) -> Vec<Example> {
         vec![Example {
             description: "Update a column value",
-            example: "echo {'name': 'nu', 'stars': 5} | upsert name 'Nushell'",
+            example: "{'name': 'nu', 'stars': 5} | upsert name 'Nushell'",
             result: Some(Value::Record { cols: vec!["name".into(), "stars".into()], vals: vec![Value::test_string("Nushell"), Value::test_int(5)], span: Span::test_data()}),
         }, Example {
             description: "Insert a new column",
-            example: "echo {'name': 'nu', 'stars': 5} | upsert language 'Rust'",
+            example: "{'name': 'nu', 'stars': 5} | upsert language 'Rust'",
             result: Some(Value::Record { cols: vec!["name".into(), "stars".into(), "language".into()], vals: vec![Value::test_string("nu"), Value::test_int(5), Value::test_string("Rust")], span: Span::test_data()}),
         }, Example {
             description: "Use in block form for more involved updating logic",
-            example: "echo [[count fruit]; [1 'apple']] | upsert count {|f| $f.count + 1}",
+            example: "[[count fruit]; [1 'apple']] | upsert count {|f| $f.count + 1}",
             result: Some(Value::List { vals: vec![Value::Record { cols: vec!["count".into(), "fruit".into()], vals: vec![Value::test_int(2), Value::test_string("apple")], span: Span::test_data()}], span: Span::test_data()}),
         }, Example {
             description: "Use in block form for more involved updating logic",
-            example: "echo [[project, authors]; ['nu', ['Andrés', 'JT', 'Yehuda']]] | upsert authors {|a| $a.authors | str join ','}",
+            example: "[[project, authors]; ['nu', ['Andrés', 'JT', 'Yehuda']]] | upsert authors {|a| $a.authors | str join ','}",
             result: Some(Value::List { vals: vec![Value::Record { cols: vec!["project".into(), "authors".into()], vals: vec![Value::test_string("nu"), Value::test_string("Andrés,JT,Yehuda")], span: Span::test_data()}], span: Span::test_data()}),
         },
         Example {
@@ -109,7 +110,7 @@ fn upsert(
 
     // Replace is a block, so set it up and run it instead of using it as the replacement
     if replacement.as_block().is_ok() {
-        let capture_block: CaptureBlock = FromValue::from_value(&replacement)?;
+        let capture_block: Closure = FromValue::from_value(&replacement)?;
         let block = engine_state.get_block(capture_block.block_id).clone();
 
         let mut stack = stack.captures_to_stack(&capture_block.captures);
@@ -118,6 +119,9 @@ fn upsert(
 
         input.map(
             move |mut input| {
+                // with_env() is used here to ensure that each iteration uses
+                // a different set of environment variables.
+                // Hence, a 'cd' in the first loop won't affect the next loop.
                 stack.with_env(&orig_env_vars, &orig_env_hidden);
 
                 if let Some(var) = block.signature.get_positional(0) {

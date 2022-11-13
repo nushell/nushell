@@ -17,7 +17,9 @@ impl Command for FromNuon {
     }
 
     fn signature(&self) -> nu_protocol::Signature {
-        Signature::build("from nuon").category(Category::Experimental)
+        Signature::build("from nuon")
+            .input_output_types(vec![(Type::String, Type::Any)])
+            .category(Category::Experimental)
     }
 
     fn examples(&self) -> Vec<Example> {
@@ -213,6 +215,12 @@ fn convert_to_value(
             original_text.to_string(),
             "Error when loading".into(),
             "blocks not supported in nuon".into(),
+            expr.span,
+        )),
+        Expr::Closure(..) => Err(ShellError::OutsideSpannedLabeledError(
+            original_text.to_string(),
+            "Error when loading".into(),
+            "closures not supported in nuon".into(),
             expr.span,
         )),
         Expr::Binary(val) => Ok(Value::Binary { val, span }),

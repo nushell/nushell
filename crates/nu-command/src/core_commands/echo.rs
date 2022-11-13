@@ -2,7 +2,8 @@ use nu_engine::CallExt;
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
-    Category, Example, ListStream, PipelineData, ShellError, Signature, Span, SyntaxShape, Value,
+    Category, Example, ListStream, PipelineData, ShellError, Signature, Span, SyntaxShape, Type,
+    Value,
 };
 
 #[derive(Clone)]
@@ -19,6 +20,7 @@ impl Command for Echo {
 
     fn signature(&self) -> Signature {
         Signature::build("echo")
+            .input_output_types(vec![(Type::Nothing, Type::Any)])
             .rest("rest", SyntaxShape::Any, "the values to echo")
             .category(Category::Core)
     }

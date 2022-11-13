@@ -7,7 +7,7 @@ use nu_protocol::ast::CellPath;
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
     Category, Example, IntoPipelineData, PipelineData, ShellError, Signature, Span, Spanned,
-    SyntaxShape, Value,
+    SyntaxShape, Type, Value,
 };
 
 struct Arguments {
@@ -64,7 +64,11 @@ impl Command for SubCommand {
 
     fn signature(&self) -> Signature {
         Signature::build("into datetime")
-            .named(
+        .input_output_types(vec![
+            (Type::Int, Type::Date),
+            (Type::String, Type::Date),
+        ])
+        .named(
                 "timezone",
                 SyntaxShape::String,
                 "Specify timezone if the input is a Unix timestamp. Valid options: 'UTC' ('u') or 'LOCAL' ('l')",
@@ -90,7 +94,7 @@ impl Command for SubCommand {
             .rest(
             "rest",
                 SyntaxShape::CellPath,
-                "optionally convert text into datetime by column paths",
+                "for a data structure input, convert data at the given cell paths",
             )
             .category(Category::Conversions)
     }
@@ -106,7 +110,7 @@ impl Command for SubCommand {
             Ok(generate_strftime_list(call.head, true).into_pipeline_data())
         } else {
             let cell_paths = call.rest(engine_state, stack, 0)?;
-            let cell_paths = (!cell_paths.is_empty()).then(|| cell_paths);
+            let cell_paths = (!cell_paths.is_empty()).then_some(cell_paths);
 
             // if zone-offset is specified, then zone will be neglected
             let timezone = call.get_flag::<Spanned<String>>(engine_state, stack, "timezone")?;

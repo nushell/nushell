@@ -3,7 +3,7 @@ use nu_engine::CallExt;
 use nu_protocol::{
     ast::Call,
     engine::{Command, EngineState, Stack},
-    Category, Example, PipelineData, ShellError, Signature, Span, SyntaxShape, Value,
+    Category, Example, PipelineData, ShellError, Signature, Span, SyntaxShape, Type, Value,
 };
 
 #[derive(Clone)]
@@ -16,6 +16,8 @@ impl Command for SubCommand {
 
     fn signature(&self) -> Signature {
         Signature::build("split words")
+            .input_output_types(vec![(Type::String, Type::List(Box::new(Type::String)))])
+            .vectorizes_over_list(true)
             .category(Category::Strings)
             // .switch(
             //     "ignore-hyphenated",

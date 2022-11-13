@@ -3,7 +3,7 @@ use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
     Category, Example, IntoInterruptiblePipelineData, IntoPipelineData, PipelineData, ShellError,
-    Signature, Span, Value,
+    Signature, Span, Type, Value,
 };
 
 #[derive(Clone)]
@@ -20,6 +20,10 @@ impl Command for Length {
 
     fn signature(&self) -> nu_protocol::Signature {
         Signature::build("length")
+            .input_output_types(vec![
+                (Type::List(Box::new(Type::Any)), Type::Int),
+                (Type::Table(vec![]), Type::Int),
+            ])
             .switch("column", "Show the number of columns in a table", Some('c'))
             .category(Category::Filters)
     }
@@ -46,14 +50,14 @@ impl Command for Length {
     fn examples(&self) -> Vec<Example> {
         vec![
             Example {
-                description: "Count the number of entries in a list",
-                example: "echo [1 2 3 4 5] | length",
+                description: "Count the number of items in a list",
+                example: "[1 2 3 4 5] | length",
                 result: Some(Value::test_int(5)),
             },
             Example {
-                description: "Count the number of columns in the calendar table",
-                example: "cal | length -c",
-                result: Some(Value::test_int(7)),
+                description: "Count the number of columns in a table",
+                example: "[{columnA: A0 columnB: B0}] | length -c",
+                result: Some(Value::test_int(2)),
             },
         ]
     }
@@ -120,5 +124,17 @@ fn getcol(
             let vals = vec![];
             Ok(Value::Record { cols, vals, span }.into_pipeline_data())
         }
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use super::*;
+
+    #[test]
+    fn test_examples() {
+        use crate::test_examples;
+
+        test_examples(Length {})
     }
 }

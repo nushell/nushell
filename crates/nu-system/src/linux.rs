@@ -157,7 +157,7 @@ impl ProcessInfo {
     pub fn command(&self) -> String {
         if let Ok(cmd) = &self.curr_proc.cmdline() {
             if !cmd.is_empty() {
-                cmd.join(" ").replace('\n', " ").replace('\t', " ")
+                cmd.join(" ").replace(['\n', '\t'], " ")
             } else {
                 match self.curr_proc.stat() {
                     Ok(p) => p.comm,
@@ -200,8 +200,8 @@ impl ProcessInfo {
                 let curr_time = cs.utime + cs.stime;
                 let prev_time = ps.utime + ps.stime;
 
-                let usage_ms = (curr_time - prev_time) * 1000
-                    / procfs::ticks_per_second().unwrap_or(100) as u64;
+                let usage_ms =
+                    (curr_time - prev_time) * 1000 / procfs::ticks_per_second().unwrap_or(100);
                 let interval_ms =
                     self.interval.as_secs() * 1000 + u64::from(self.interval.subsec_millis());
                 usage_ms as f64 * 100.0 / interval_ms as f64

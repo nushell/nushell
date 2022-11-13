@@ -4,7 +4,7 @@ use nu_parser::escape_quote_string;
 use nu_protocol::ast::{Call, RangeInclusion};
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
-    Category, Example, IntoPipelineData, PipelineData, ShellError, Signature, Span, Value,
+    Category, Example, IntoPipelineData, PipelineData, ShellError, Signature, Span, Type, Value,
 };
 
 #[derive(Clone)]
@@ -16,7 +16,9 @@ impl Command for ToNuon {
     }
 
     fn signature(&self) -> Signature {
-        Signature::build("to nuon").category(Category::Experimental)
+        Signature::build("to nuon")
+            .input_output_types(vec![(Type::Any, Type::String)])
+            .category(Category::Experimental)
     }
 
     fn usage(&self) -> &str {
@@ -62,6 +64,10 @@ fn value_to_string(v: &Value, span: Span) -> Result<String, ShellError> {
         }
         Value::Block { .. } => Err(ShellError::UnsupportedInput(
             "block not supported".into(),
+            span,
+        )),
+        Value::Closure { .. } => Err(ShellError::UnsupportedInput(
+            "closure not supported".into(),
             span,
         )),
         Value::Bool { val, .. } => {

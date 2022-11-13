@@ -170,17 +170,11 @@ fn get_documentation(
 
     long_desc.push('\n');
 
-    let stripped_string = if config.no_color {
-        if let Ok(bytes) = strip_ansi_escapes::strip(&long_desc) {
-            String::from_utf8_lossy(&bytes).to_string()
-        } else {
-            long_desc
-        }
+    if config.no_color {
+        nu_utils::strip_ansi_string_likely(long_desc)
     } else {
         long_desc
-    };
-
-    stripped_string
+    }
 }
 
 // document shape helps showing more useful information

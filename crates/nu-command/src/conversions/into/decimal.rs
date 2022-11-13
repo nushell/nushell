@@ -3,7 +3,7 @@ use nu_engine::CallExt;
 use nu_protocol::{
     ast::{Call, CellPath},
     engine::{Command, EngineState, Stack},
-    Example, PipelineData, ShellError, Signature, Span, SyntaxShape, Value,
+    Example, PipelineData, ShellError, Signature, Span, SyntaxShape, Type, Value,
 };
 
 #[derive(Clone)]
@@ -15,11 +15,16 @@ impl Command for SubCommand {
     }
 
     fn signature(&self) -> Signature {
-        Signature::build("into decimal").rest(
-            "rest",
-            SyntaxShape::CellPath,
-            "optionally convert text into decimal by column paths",
-        )
+        Signature::build("into decimal")
+            .input_output_types(vec![
+                (Type::String, Type::Number),
+                (Type::Bool, Type::Number),
+            ])
+            .rest(
+                "rest",
+                SyntaxShape::CellPath,
+                "for a data structure input, convert data at the given cell paths",
+            )
     }
 
     fn usage(&self) -> &str {

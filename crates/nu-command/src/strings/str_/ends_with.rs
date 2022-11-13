@@ -4,7 +4,7 @@ use nu_protocol::ast::Call;
 use nu_protocol::ast::CellPath;
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::Category;
-use nu_protocol::{Example, PipelineData, ShellError, Signature, Span, SyntaxShape, Value};
+use nu_protocol::{Example, PipelineData, ShellError, Signature, Span, SyntaxShape, Type, Value};
 
 struct Arguments {
     substring: String,
@@ -27,11 +27,13 @@ impl Command for SubCommand {
 
     fn signature(&self) -> Signature {
         Signature::build("str ends-with")
+            .input_output_types(vec![(Type::String, Type::Bool)])
+            .vectorizes_over_list(true)
             .required("string", SyntaxShape::String, "the string to match")
             .rest(
                 "rest",
                 SyntaxShape::CellPath,
-                "optionally matches suffix of text by column paths",
+                "For a data structure input, check strings at the given cell paths, and replace with result",
             )
             .category(Category::Strings)
     }
@@ -52,7 +54,7 @@ impl Command for SubCommand {
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
         let cell_paths: Vec<CellPath> = call.rest(engine_state, stack, 1)?;
-        let cell_paths = (!cell_paths.is_empty()).then(|| cell_paths);
+        let cell_paths = (!cell_paths.is_empty()).then_some(cell_paths);
         let args = Arguments {
             substring: call.req::<String>(engine_state, stack, 0)?,
             cell_paths,

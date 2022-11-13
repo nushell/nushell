@@ -45,7 +45,7 @@ impl Command for IntoSqliteDb {
     }
 
     fn usage(&self) -> &str {
-        "Convert table into a sqlite database"
+        "Convert table into a SQLite database"
     }
 
     fn search_terms(&self) -> Vec<&str> {
@@ -54,22 +54,22 @@ impl Command for IntoSqliteDb {
 
     fn examples(&self) -> Vec<Example> {
         vec![Example {
-            description: "Convert ls entries into a sqlite database with 'main' as the table name",
+            description: "Convert ls entries into a SQLite database with 'main' as the table name",
             example: "ls | into sqlite my_ls.db",
             result: None,
         },
         Example {
-            description: "Convert ls entries into a sqlite database with 'my_table' as the table name",
+            description: "Convert ls entries into a SQLite database with 'my_table' as the table name",
             example: "ls | into sqlite my_ls.db -t my_table",
             result: None,
         },
         Example {
-            description: "Convert table literal into a sqlite database with 'main' as the table name",
+            description: "Convert table literal into a SQLite database with 'main' as the table name",
             example: "[[name]; [-----] [someone] [=====] [somename] ['(((((']] | into sqlite filename.db",
             result: None,
         },
         Example {
-            description: "Convert a variety of values in table literal form into a sqlite database",
+            description: "Convert a variety of values in table literal form into a SQLite database",
             example: "[one 2 5.2 six true 100mib 25sec] | into sqlite variety.db",
             result: None,
         }]
@@ -248,14 +248,8 @@ fn nu_value_to_string(value: Value, separator: &str, config: &Config) -> String 
         }
         Value::String { val, .. } => {
             // don't store ansi escape sequences in the database
-            let stripped = {
-                match strip_ansi_escapes::strip(&val) {
-                    Ok(item) => String::from_utf8(item).unwrap_or(val),
-                    Err(_) => val,
-                }
-            };
             // escape single quotes
-            stripped.replace('\'', "''")
+            nu_utils::strip_ansi_unlikely(&val).replace('\'', "''")
         }
         Value::List { vals: val, .. } => val
             .iter()
@@ -269,6 +263,7 @@ fn nu_value_to_string(value: Value, separator: &str, config: &Config) -> String 
             .collect::<Vec<_>>()
             .join(separator),
         Value::Block { val, .. } => format!("<Block {}>", val),
+        Value::Closure { val, .. } => format!("<Closure {}>", val),
         Value::Nothing { .. } => String::new(),
         Value::Error { error } => format!("{:?}", error),
         Value::Binary { val, .. } => format!("{:?}", val),

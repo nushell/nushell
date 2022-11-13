@@ -5,7 +5,7 @@ use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
     Category, Config, Example, IntoPipelineData, PipelineData, ShellError, Signature, Spanned,
-    SyntaxShape, Value,
+    SyntaxShape, Type, Value,
 };
 use rust_embed::RustEmbed;
 use serde::{Deserialize, Serialize};
@@ -90,6 +90,7 @@ impl Command for ToHtml {
 
     fn signature(&self) -> Signature {
         Signature::build("to html")
+            .input_output_types(vec![(Type::Any, Type::String)])
             .switch("html-color", "change ansi colors to html colors", Some('c'))
             .switch("no-color", "remove all ansi colors in output", Some('n'))
             .switch(

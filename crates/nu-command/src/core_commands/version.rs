@@ -1,6 +1,6 @@
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
-use nu_protocol::{Example, IntoPipelineData, PipelineData, ShellError, Signature, Value};
+use nu_protocol::{Example, IntoPipelineData, PipelineData, ShellError, Signature, Type, Value};
 
 pub mod shadow {
     include!(concat!(env!("OUT_DIR"), "/shadow.rs"));
@@ -16,6 +16,8 @@ impl Command for Version {
 
     fn signature(&self) -> Signature {
         Signature::build("version")
+            .input_output_types(vec![(Type::Nothing, Type::Record(vec![]))])
+            .allow_variants_without_examples(true)
     }
 
     fn usage(&self) -> &str {
@@ -214,4 +216,14 @@ fn features_enabled() -> Vec<String> {
     names.sort();
 
     names
+}
+
+#[cfg(test)]
+mod test {
+    #[test]
+    fn test_examples() {
+        use super::Version;
+        use crate::test_examples;
+        test_examples(Version {})
+    }
 }

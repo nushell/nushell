@@ -4,7 +4,7 @@ use crate::math::avg::average;
 use crate::math::utils::run_with_function;
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
-use nu_protocol::{Category, Example, PipelineData, ShellError, Signature, Span, Value};
+use nu_protocol::{Category, Example, PipelineData, ShellError, Signature, Span, Type, Value};
 
 #[derive(Clone)]
 pub struct SubCommand;
@@ -15,11 +15,16 @@ impl Command for SubCommand {
     }
 
     fn signature(&self) -> Signature {
-        Signature::build("math median").category(Category::Math)
+        Signature::build("math median")
+            .input_output_types(vec![
+                (Type::List(Box::new(Type::Number)), Type::Number),
+                (Type::Table(vec![]), Type::Record(vec![])),
+            ])
+            .category(Category::Math)
     }
 
     fn usage(&self) -> &str {
-        "Gets the median of a list of numbers"
+        "Computes the median of a list of numbers"
     }
 
     fn search_terms(&self) -> Vec<&str> {
@@ -37,14 +42,25 @@ impl Command for SubCommand {
     }
 
     fn examples(&self) -> Vec<Example> {
-        vec![Example {
-            description: "Get the median of a list of numbers",
-            example: "[3 8 9 12 12 15] | math median",
-            result: Some(Value::Float {
-                val: 10.5,
-                span: Span::test_data(),
-            }),
-        }]
+        vec![
+            Example {
+                description: "Compute the median of a list of numbers",
+                example: "[3 8 9 12 12 15] | math median",
+                result: Some(Value::Float {
+                    val: 10.5,
+                    span: Span::test_data(),
+                }),
+            },
+            Example {
+                description: "Compute the medians of the columns of a table",
+                example: "[{a: 1 b: 3} {a: 2 b: -1} {a: -3 b: 5}] | math median",
+                result: Some(Value::Record {
+                    cols: vec!["a".to_string(), "b".to_string()],
+                    vals: vec![Value::test_int(1), Value::test_int(3)],
+                    span: Span::test_data(),
+                }),
+            },
+        ]
     }
 }
 
@@ -96,7 +112,7 @@ pub fn median(values: &[Value], head: &Span) -> Result<Value, ShellError> {
             Ok(out.clone())
         }
         Pick::MedianAverage => {
-            let idx_end = (values.len() / 2) as usize;
+            let idx_end = values.len() / 2;
             let idx_start = idx_end - 1;
 
             let left = sorted

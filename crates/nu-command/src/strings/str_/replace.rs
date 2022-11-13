@@ -4,7 +4,8 @@ use nu_engine::CallExt;
 use nu_protocol::{
     ast::{Call, CellPath},
     engine::{Command, EngineState, Stack},
-    Category, Example, PipelineData, ShellError, Signature, Span, Spanned, SyntaxShape, Value,
+    Category, Example, PipelineData, ShellError, Signature, Span, Spanned, SyntaxShape, Type,
+    Value,
 };
 
 struct Arguments {
@@ -32,12 +33,14 @@ impl Command for SubCommand {
 
     fn signature(&self) -> Signature {
         Signature::build("str replace")
+            .input_output_types(vec![(Type::String, Type::String)])
+            .vectorizes_over_list(true)
             .required("find", SyntaxShape::String, "the pattern to find")
             .required("replace", SyntaxShape::String, "the replacement pattern")
             .rest(
                 "rest",
                 SyntaxShape::CellPath,
-                "optionally find and replace text by column paths",
+                "For a data structure input, operate on strings at the given cell paths",
             )
             .switch("all", "replace all occurrences of find string", Some('a'))
             .switch(
@@ -71,7 +74,7 @@ impl Command for SubCommand {
         let find: Spanned<String> = call.req(engine_state, stack, 0)?;
         let replace: Spanned<String> = call.req(engine_state, stack, 1)?;
         let cell_paths: Vec<CellPath> = call.rest(engine_state, stack, 2)?;
-        let cell_paths = (!cell_paths.is_empty()).then(|| cell_paths);
+        let cell_paths = (!cell_paths.is_empty()).then_some(cell_paths);
         let literal_replace = call.has_flag("no-expand");
         let no_regex = call.has_flag("string");
 

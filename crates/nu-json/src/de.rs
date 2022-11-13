@@ -469,7 +469,7 @@ where
                                     let n = (((n1 - 0xD800) as u32) << 10 | (n2 - 0xDC00) as u32)
                                         + 0x1_0000;
 
-                                    match char::from_u32(n as u32) {
+                                    match char::from_u32(n) {
                                         Some(c) => c,
                                         None => {
                                             return Err(self

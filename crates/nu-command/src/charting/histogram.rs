@@ -1,10 +1,11 @@
 use super::hashable_value::HashableValue;
+use itertools::Itertools;
 use nu_engine::CallExt;
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
     Example, IntoPipelineData, PipelineData, ShellError, Signature, Span, Spanned, SyntaxShape,
-    Value,
+    Type, Value,
 };
 use std::collections::HashMap;
 use std::iter;
@@ -24,6 +25,7 @@ impl Command for Histogram {
 
     fn signature(&self) -> Signature {
         Signature::build("histogram")
+            .input_output_types(vec![(Type::List(Box::new(Type::Any)), Type::Table(vec![])),])
             .optional("column-name", SyntaxShape::String, "column name to calc frequency, no need to provide if input is just a list")
             .optional("frequency-column-name", SyntaxShape::String, "histogram's frequency column, default to be frequency column output")
             .named("percentage-type", SyntaxShape::String, "percentage calculate method, can be 'normalize' or 'relative', in 'normalize', defaults to be 'normalize'", Some('t'))
@@ -36,23 +38,48 @@ impl Command for Histogram {
     fn examples(&self) -> Vec<Example> {
         vec![
             Example {
-                description: "Get a histogram for the types of files",
+                description: "Compute a histogram of file types",
                 example: "ls | histogram type",
                 result: None,
             },
             Example {
                 description:
-                    "Get a histogram for the types of files, with frequency column named freq",
+                    "Compute a histogram for the types of files, with frequency column named freq",
                 example: "ls | histogram type freq",
                 result: None,
             },
             Example {
-                description: "Get a histogram for a list of numbers",
-                example: "echo [1 2 3 1 1 1 2 2 1 1] | histogram",
-                result: None,
+                description: "Compute a histogram for a list of numbers",
+                example: "echo [1 2 1] | histogram",
+                result: Some(Value::List {
+                        vals: vec![Value::Record {
+                            cols: vec!["value".to_string(), "count".to_string(), "quantile".to_string(), "percentage".to_string(), "frequency".to_string()],
+                            vals: vec![
+                                Value::test_int(1),
+                                Value::test_int(2),
+                                Value::test_float(0.6666666666666666),
+                                Value::test_string("66.67%"),
+                                Value::test_string("******************************************************************"),
+                            ],
+                            span: Span::test_data(),
+                        },
+                        Value::Record {
+                            cols: vec!["value".to_string(), "count".to_string(), "quantile".to_string(), "percentage".to_string(), "frequency".to_string()],
+                            vals: vec![
+                                Value::test_int(2),
+                                Value::test_int(1),
+                                Value::test_float(0.3333333333333333),
+                                Value::test_string("33.33%"),
+                                Value::test_string("*********************************"),
+                            ],
+                            span: Span::test_data(),
+                        }],
+                        span: Span::test_data(),
+                    }
+                 ),
             },
             Example {
-                description: "Get a histogram for a list of numbers, and percentage is based on the maximum value",
+                description: "Compute a histogram for a list of numbers, and percentage is based on the maximum value",
                 example: "echo [1 2 3 1 1 1 2 2 1 1] | histogram --percentage-type relative",
                 result: None,
             }
@@ -213,7 +240,7 @@ fn histogram_impl(
         freq_column.to_string(),
     ];
     const MAX_FREQ_COUNT: f64 = 100.0;
-    for (val, count) in counter.into_iter() {
+    for (val, count) in counter.into_iter().sorted() {
         let quantile = match calc_method {
             PercentageCalcMethod::Normalize => count as f64 / total_cnt as f64,
             PercentageCalcMethod::Relative => count as f64 / max_cnt as f64,

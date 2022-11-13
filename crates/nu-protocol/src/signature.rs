@@ -110,9 +110,12 @@ pub struct Signature {
     pub required_positional: Vec<PositionalArg>,
     pub optional_positional: Vec<PositionalArg>,
     pub rest_positional: Option<PositionalArg>,
+    pub vectorizes_over_list: bool,
     pub named: Vec<Flag>,
     pub input_type: Type,
     pub output_type: Type,
+    pub input_output_types: Vec<(Type, Type)>,
+    pub allow_variants_without_examples: bool,
     pub is_filter: bool,
     pub creates_scope: bool,
     // Signature category used to classify commands stored in the list of declarations
@@ -142,8 +145,11 @@ impl Signature {
             required_positional: vec![],
             optional_positional: vec![],
             rest_positional: None,
+            vectorizes_over_list: false,
             input_type: Type::Any,
             output_type: Type::Any,
+            input_output_types: vec![],
+            allow_variants_without_examples: false,
             named: vec![],
             is_filter: false,
             creates_scope: false,
@@ -255,6 +261,22 @@ impl Signature {
         self
     }
 
+    /// Is this command capable of operating on its input via cell paths?
+    pub fn operates_on_cell_paths(&self) -> bool {
+        self.required_positional
+            .iter()
+            .chain(self.rest_positional.iter())
+            .any(|pos| {
+                matches!(
+                    pos,
+                    PositionalArg {
+                        shape: SyntaxShape::CellPath,
+                        ..
+                    }
+                )
+            })
+    }
+
     /// Add an optional named flag argument to the signature
     pub fn named(
         mut self,
@@ -335,6 +357,17 @@ impl Signature {
         self
     }
 
+    pub fn vectorizes_over_list(mut self, vectorizes_over_list: bool) -> Signature {
+        self.vectorizes_over_list = vectorizes_over_list;
+        self
+    }
+
+    /// Set the input-output type signature variants of the command
+    pub fn input_output_types(mut self, input_output_types: Vec<(Type, Type)>) -> Signature {
+        self.input_output_types = input_output_types;
+        self
+    }
+
     /// Changes the signature category
     pub fn category(mut self, category: Category) -> Signature {
         self.category = category;
@@ -345,6 +378,12 @@ impl Signature {
     /// Sets that signature will create a scope as it parses
     pub fn creates_scope(mut self) -> Signature {
         self.creates_scope = true;
+        self
+    }
+
+    // Is it allowed for the type signature to feature a variant that has no corresponding example?
+    pub fn allow_variants_without_examples(mut self, allow: bool) -> Signature {
+        self.allow_variants_without_examples = allow;
         self
     }
 

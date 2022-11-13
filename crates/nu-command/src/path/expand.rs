@@ -3,7 +3,9 @@ use std::path::Path;
 use nu_engine::env::current_dir_str;
 use nu_engine::CallExt;
 use nu_path::{canonicalize_with, expand_path_with};
-use nu_protocol::{engine::Command, Example, ShellError, Signature, Span, SyntaxShape, Value};
+use nu_protocol::{
+    engine::Command, Example, ShellError, Signature, Span, SyntaxShape, Type, Value,
+};
 
 use super::PathSubcommandArguments;
 
@@ -30,6 +32,7 @@ impl Command for SubCommand {
 
     fn signature(&self) -> Signature {
         Signature::build("path expand")
+            .input_output_types(vec![(Type::String, Type::String)])
             .switch(
                 "strict",
                 "Throw an error if the path could not be expanded",
@@ -39,7 +42,7 @@ impl Command for SubCommand {
             .named(
                 "columns",
                 SyntaxShape::Table,
-                "Optionally operate by column path",
+                "For a record or table input, expand strings at the given columns",
                 Some('c'),
             )
     }

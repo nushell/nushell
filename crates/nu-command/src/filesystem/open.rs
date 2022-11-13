@@ -1,15 +1,17 @@
 use crate::filesystem::util::BufferedReader;
-use nu_engine::{eval_block, get_full_help, CallExt};
+use nu_engine::{eval_block, CallExt};
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
-    Category, Example, IntoPipelineData, PipelineData, RawStream, ShellError, Signature, Spanned,
-    SyntaxShape, Value,
+    Category, Example, PipelineData, RawStream, ShellError, Signature, Spanned, SyntaxShape, Value,
 };
 use std::io::BufReader;
 
 #[cfg(feature = "database")]
 use crate::database::SQLiteDatabase;
+
+#[cfg(feature = "database")]
+use nu_protocol::IntoPipelineData;
 
 #[cfg(unix)]
 use std::os::unix::fs::PermissionsExt;
@@ -53,10 +55,7 @@ impl Command for Open {
         let path = {
             if let Some(path_val) = path {
                 Some(Spanned {
-                    item: match strip_ansi_escapes::strip(&path_val.item) {
-                        Ok(item) => String::from_utf8(item).unwrap_or(path_val.item),
-                        Err(_) => path_val.item,
-                    },
+                    item: nu_utils::strip_ansi_string_unlikely(path_val.item),
                     span: path_val.span,
                 })
             } else {
@@ -70,29 +69,17 @@ impl Command for Open {
             // Collect a filename from the input
             match input {
                 PipelineData::Value(Value::Nothing { .. }, ..) => {
-                    return Ok(Value::String {
-                        val: get_full_help(
-                            &Open.signature(),
-                            &Open.examples(),
-                            engine_state,
-                            stack,
-                        ),
-                        span: call.head,
-                    }
-                    .into_pipeline_data())
+                    return Err(ShellError::MissingParameter(
+                        "needs filename".to_string(),
+                        call.head,
+                    ))
                 }
                 PipelineData::Value(val, ..) => val.as_spanned_string()?,
                 _ => {
-                    return Ok(Value::String {
-                        val: get_full_help(
-                            &Open.signature(),
-                            &Open.examples(),
-                            engine_state,
-                            stack,
-                        ),
-                        span: call.head,
-                    }
-                    .into_pipeline_data())
+                    return Err(ShellError::MissingParameter(
+                        "needs filename".to_string(),
+                        call.head,
+                    ));
                 }
             }
         };
@@ -100,7 +87,7 @@ impl Command for Open {
         let path_no_whitespace = &path.item.trim_end_matches(|x| matches!(x, '\x09'..='\x0d'));
         let path = Path::new(path_no_whitespace);
 
-        if permission_denied(&path) {
+        if permission_denied(path) {
             #[cfg(unix)]
             let error_msg = match path.metadata() {
                 Ok(md) => format!(

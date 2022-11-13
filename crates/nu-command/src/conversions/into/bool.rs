@@ -3,7 +3,7 @@ use nu_engine::CallExt;
 use nu_protocol::{
     ast::{Call, CellPath},
     engine::{Command, EngineState, Stack},
-    Category, Example, PipelineData, ShellError, Signature, Span, SyntaxShape, Value,
+    Category, Example, PipelineData, ShellError, Signature, Span, SyntaxShape, Type, Value,
 };
 
 #[derive(Clone)]
@@ -16,10 +16,17 @@ impl Command for SubCommand {
 
     fn signature(&self) -> Signature {
         Signature::build("into bool")
+            .input_output_types(vec![
+                (Type::Int, Type::Bool),
+                (Type::Number, Type::Bool),
+                (Type::String, Type::Bool),
+                (Type::Bool, Type::Bool),
+                (Type::List(Box::new(Type::Any)), Type::Table(vec![])),
+            ])
             .rest(
                 "rest",
                 SyntaxShape::CellPath,
-                "column paths to convert to boolean (for table input)",
+                "for a data structure input, convert data at the given cell paths",
             )
             .category(Category::Conversions)
     }
@@ -87,6 +94,11 @@ impl Command for SubCommand {
             Example {
                 description: "convert integer to boolean",
                 example: "1 | into bool",
+                result: Some(Value::boolean(true, span)),
+            },
+            Example {
+                description: "convert decimal to boolean",
+                example: "0.3 | into bool",
                 result: Some(Value::boolean(true, span)),
             },
             Example {

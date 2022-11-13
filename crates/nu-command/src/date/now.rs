@@ -1,7 +1,7 @@
 use chrono::Local;
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
-use nu_protocol::{Category, Example, IntoPipelineData, PipelineData, Signature, Value};
+use nu_protocol::{Category, Example, IntoPipelineData, PipelineData, Signature, Type, Value};
 #[derive(Clone)]
 pub struct SubCommand;
 
@@ -11,7 +11,9 @@ impl Command for SubCommand {
     }
 
     fn signature(&self) -> Signature {
-        Signature::build("date now").category(Category::Date)
+        Signature::build("date now")
+            .input_output_types(vec![(Type::Nothing, Type::Date)])
+            .category(Category::Date)
     }
 
     fn usage(&self) -> &str {

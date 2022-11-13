@@ -2,7 +2,9 @@ use std::collections::VecDeque;
 
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
-use nu_protocol::{Category, Example, IntoPipelineData, PipelineData, Signature, Span, Value};
+use nu_protocol::{
+    Category, Example, IntoPipelineData, PipelineData, Signature, Span, Type, Value,
+};
 
 #[derive(Clone)]
 pub struct Uniq;
@@ -14,6 +16,17 @@ impl Command for Uniq {
 
     fn signature(&self) -> Signature {
         Signature::build("uniq")
+            .input_output_types(vec![
+                (
+                    Type::List(Box::new(Type::Any)),
+                    Type::List(Box::new(Type::Any)),
+                ),
+                (
+                    // -c
+                    Type::List(Box::new(Type::Any)),
+                    Type::Table(vec![]),
+                ),
+            ])
             .switch(
                 "count",
                 "Return a table containing the distinct input values together with their counts",

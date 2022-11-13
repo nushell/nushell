@@ -1,9 +1,9 @@
 use nu_engine::{eval_block, CallExt};
 use nu_protocol::ast::{Call, CellPath, PathMember};
-use nu_protocol::engine::{CaptureBlock, Command, EngineState, Stack};
+use nu_protocol::engine::{Closure, Command, EngineState, Stack};
 use nu_protocol::{
     Category, Example, FromValue, IntoInterruptiblePipelineData, IntoPipelineData, PipelineData,
-    ShellError, Signature, Span, SyntaxShape, Value,
+    ShellError, Signature, Span, SyntaxShape, Type, Value,
 };
 
 #[derive(Clone)]
@@ -16,6 +16,14 @@ impl Command for Insert {
 
     fn signature(&self) -> Signature {
         Signature::build("insert")
+            .input_output_types(vec![
+                (Type::Record(vec![]), Type::Record(vec![])),
+                // TODO: It accepts table input also (in which case it repeats
+                // the value across all table rows) but currently there is no
+                // example of the table variant so it cannot be in the
+                // signature.
+                // (Type::Table(vec![]), Type::Table(vec![])),
+            ])
             .required(
                 "field",
                 SyntaxShape::CellPath,
@@ -49,8 +57,8 @@ impl Command for Insert {
 
     fn examples(&self) -> Vec<Example> {
         vec![Example {
-            description: "Insert a new value",
-            example: "echo {'name': 'nu', 'stars': 5} | insert alias 'Nushell'",
+            description: "Insert a new entry into a record",
+            example: "{'name': 'nu', 'stars': 5} | insert alias 'Nushell'",
             result: Some(Value::Record {
                 cols: vec!["name".into(), "stars".into(), "alias".into()],
                 vals: vec![
@@ -83,7 +91,7 @@ fn insert(
 
     // Replace is a block, so set it up and run it instead of using it as the replacement
     if replacement.as_block().is_ok() {
-        let capture_block: CaptureBlock = FromValue::from_value(&replacement)?;
+        let capture_block: Closure = FromValue::from_value(&replacement)?;
         let block = engine_state.get_block(capture_block.block_id).clone();
 
         let mut stack = stack.captures_to_stack(&capture_block.captures);
@@ -92,6 +100,9 @@ fn insert(
 
         input.map(
             move |mut input| {
+                // with_env() is used here to ensure that each iteration uses
+                // a different set of environment variables.
+                // Hence, a 'cd' in the first loop won't affect the next loop.
                 stack.with_env(&orig_env_vars, &orig_env_hidden);
 
                 if let Some(var) = block.signature.get_positional(0) {

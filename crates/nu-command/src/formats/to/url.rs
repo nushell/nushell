@@ -1,7 +1,7 @@
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
-    Category, Example, IntoPipelineData, PipelineData, ShellError, Signature, Span, Value,
+    Category, Example, IntoPipelineData, PipelineData, ShellError, Signature, Span, Type, Value,
 };
 
 #[derive(Clone)]
@@ -13,7 +13,9 @@ impl Command for ToUrl {
     }
 
     fn signature(&self) -> Signature {
-        Signature::build("to url").category(Category::Formats)
+        Signature::build("to url")
+            .input_output_types(vec![(Type::Table(vec![]), Type::String)])
+            .category(Category::Formats)
     }
 
     fn usage(&self) -> &str {

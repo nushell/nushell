@@ -199,7 +199,7 @@ fn command(
                 _ => None,
             };
 
-            let std = match col.std_as_series().get(0) {
+            let std = match col.std_as_series(0).get(0) {
                 AnyValue::Float64(v) => Some(v),
                 _ => None,
             };

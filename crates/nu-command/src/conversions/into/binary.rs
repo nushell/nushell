@@ -4,7 +4,7 @@ use nu_protocol::{
     ast::{Call, CellPath},
     engine::{Command, EngineState, Stack},
     Category, Example, IntoPipelineData, PipelineData, ShellError, Signature, Span, SyntaxShape,
-    Value,
+    Type, Value,
 };
 
 #[derive(Clone)]
@@ -17,10 +17,20 @@ impl Command for SubCommand {
 
     fn signature(&self) -> Signature {
         Signature::build("into binary")
+            .input_output_types(vec![
+                (Type::Binary, Type::Binary),
+                (Type::Int, Type::Binary),
+                (Type::Number, Type::Binary),
+                (Type::String, Type::Binary),
+                (Type::Bool, Type::Binary),
+                (Type::Filesize, Type::Binary),
+                (Type::Date, Type::Binary),
+            ])
+            .allow_variants_without_examples(true) // TODO: supply exhaustive examples
             .rest(
                 "rest",
                 SyntaxShape::CellPath,
-                "column paths to convert to binary (for table input)",
+                "for a data structure input, convert data at the given cell paths",
             )
             .category(Category::Conversions)
     }
@@ -164,7 +174,7 @@ pub fn action(input: &Value, _args: &CellPathOnlyArgs, span: Span) -> Value {
             span,
         },
         Value::Bool { val, .. } => Value::Binary {
-            val: int_to_endian(if *val { 1i64 } else { 0 }),
+            val: int_to_endian(i64::from(*val)),
             span,
         },
         Value::Date { val, .. } => Value::Binary {

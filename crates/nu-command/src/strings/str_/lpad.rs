@@ -4,7 +4,7 @@ use nu_protocol::ast::Call;
 use nu_protocol::ast::CellPath;
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::Category;
-use nu_protocol::{Example, PipelineData, ShellError, Signature, Span, SyntaxShape, Value};
+use nu_protocol::{Example, PipelineData, ShellError, Signature, Span, SyntaxShape, Type, Value};
 
 struct Arguments {
     length: Option<i64>,
@@ -28,6 +28,8 @@ impl Command for SubCommand {
 
     fn signature(&self) -> Signature {
         Signature::build("str lpad")
+            .input_output_types(vec![(Type::String, Type::String)])
+            .vectorizes_over_list(true)
             .required_named("length", SyntaxShape::Int, "length to pad to", Some('l'))
             .required_named(
                 "character",
@@ -38,7 +40,7 @@ impl Command for SubCommand {
             .rest(
                 "rest",
                 SyntaxShape::CellPath,
-                "optionally check if string contains pattern by column paths",
+                "For a data structure input, pad strings at the given cell paths",
             )
             .category(Category::Strings)
     }
@@ -59,7 +61,7 @@ impl Command for SubCommand {
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
         let cell_paths: Vec<CellPath> = call.rest(engine_state, stack, 0)?;
-        let cell_paths = (!cell_paths.is_empty()).then(|| cell_paths);
+        let cell_paths = (!cell_paths.is_empty()).then_some(cell_paths);
         let args = Arguments {
             length: call.get_flag(engine_state, stack, "length")?,
             character: call.get_flag(engine_state, stack, "character")?,

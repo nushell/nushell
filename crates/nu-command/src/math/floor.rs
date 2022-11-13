@@ -1,6 +1,6 @@
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
-use nu_protocol::{Category, Example, PipelineData, ShellError, Signature, Span, Value};
+use nu_protocol::{Category, Example, PipelineData, ShellError, Signature, Span, Type, Value};
 
 #[derive(Clone)]
 pub struct SubCommand;
@@ -11,11 +11,14 @@ impl Command for SubCommand {
     }
 
     fn signature(&self) -> Signature {
-        Signature::build("math floor").category(Category::Math)
+        Signature::build("math floor")
+            .input_output_types(vec![(Type::Number, Type::Int)])
+            .vectorizes_over_list(true)
+            .category(Category::Math)
     }
 
     fn usage(&self) -> &str {
-        "Applies the floor function to a list of numbers"
+        "Returns the floor of a number (largest integer less than or equal to that number)"
     }
 
     fn search_terms(&self) -> Vec<&str> {

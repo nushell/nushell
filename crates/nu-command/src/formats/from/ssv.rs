@@ -4,7 +4,7 @@ use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
     Category, Example, IntoPipelineData, PipelineData, ShellError, Signature, Span, Spanned,
-    SyntaxShape, Value,
+    SyntaxShape, Type, Value,
 };
 
 #[derive(Clone)]
@@ -19,6 +19,7 @@ impl Command for FromSsv {
 
     fn signature(&self) -> Signature {
         Signature::build("from ssv")
+            .input_output_types(vec![(Type::String, Type::Table(vec![]))])
             .switch(
                 "noheaders",
                 "don't treat the first row as column names",
@@ -141,7 +142,7 @@ fn parse_aligned_columns<'a>(
     let parse_without_headers = |ls: Vec<&str>| {
         let mut indices = ls
             .iter()
-            .flat_map(|s| find_indices(*s))
+            .flat_map(|s| find_indices(s))
             .collect::<Vec<usize>>();
 
         indices.sort_unstable();

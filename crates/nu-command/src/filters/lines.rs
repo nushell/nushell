@@ -2,7 +2,7 @@ use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
     Category, Example, IntoInterruptiblePipelineData, PipelineData, RawStream, ShellError,
-    Signature, Span, Value,
+    Signature, Span, Type, Value,
 };
 
 #[derive(Clone)]
@@ -19,6 +19,7 @@ impl Command for Lines {
 
     fn signature(&self) -> nu_protocol::Signature {
         Signature::build("lines")
+            .input_output_types(vec![(Type::String, Type::List(Box::new(Type::String)))])
             .switch("skip-empty", "skip empty lines", Some('s'))
             .category(Category::Filters)
     }
@@ -129,7 +130,7 @@ impl Command for Lines {
     fn examples(&self) -> Vec<Example> {
         vec![Example {
             description: "Split multi-line string into lines",
-            example: "echo $'two(char nl)lines' | lines",
+            example: r#"echo $"two\nlines" | lines"#,
             result: Some(Value::List {
                 vals: vec![Value::test_string("two"), Value::test_string("lines")],
                 span: Span::test_data(),
@@ -250,5 +251,17 @@ impl RawStreamLinesAdapter {
             queue: Vec::<String>::new(),
             inner_complete: false,
         }
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use super::*;
+
+    #[test]
+    fn test_examples() {
+        use crate::test_examples;
+
+        test_examples(Lines {})
     }
 }

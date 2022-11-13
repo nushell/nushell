@@ -4,7 +4,7 @@ use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
     Category, Example, IntoInterruptiblePipelineData, IntoPipelineData, PipelineData, ShellError,
-    Signature, Span, SyntaxShape, Value,
+    Signature, Span, SyntaxShape, Type, Value,
 };
 
 #[derive(Clone)]
@@ -17,6 +17,23 @@ impl Command for Last {
 
     fn signature(&self) -> Signature {
         Signature::build("last")
+            .input_output_types(vec![
+                (
+                    // TODO: This variant duplicates the functionality of
+                    // `take`. See #6611, #6611, #6893
+                    // TODO: This is too permissive; if we could express this
+                    // using a type parameter style it would be List<T> ->
+                    // List<T>.
+                    Type::List(Box::new(Type::Any)),
+                    Type::List(Box::new(Type::Any)),
+                ),
+                (
+                    // TODO: This is too permissive; if we could express this
+                    // using a type parameter it would be List<T> -> T.
+                    Type::List(Box::new(Type::Any)),
+                    Type::Any,
+                ),
+            ])
             .optional(
                 "rows",
                 SyntaxShape::Int,

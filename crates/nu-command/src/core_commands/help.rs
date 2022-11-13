@@ -1,4 +1,5 @@
 use fancy_regex::Regex;
+use itertools::Itertools;
 use nu_ansi_term::{
     Color::{Default, Red, White},
     Style,
@@ -9,7 +10,7 @@ use nu_protocol::{
     ast::Call,
     engine::{Command, EngineState, Stack},
     span, Category, Example, IntoInterruptiblePipelineData, IntoPipelineData, PipelineData,
-    ShellError, Signature, Span, Spanned, SyntaxShape, Value,
+    ShellError, Signature, Span, Spanned, SyntaxShape, Type, Value,
 };
 use std::borrow::Borrow;
 #[derive(Clone)]
@@ -22,6 +23,7 @@ impl Command for Help {
 
     fn signature(&self) -> Signature {
         Signature::build("help")
+            .input_output_types(vec![(Type::Nothing, Type::String)])
             .rest(
                 "rest",
                 SyntaxShape::String,
@@ -134,21 +136,9 @@ fn help(
                     span: head,
                 });
 
-                cols.push("is_plugin".into());
-                vals.push(Value::Bool {
-                    val: decl.is_plugin().is_some(),
-                    span: head,
-                });
-
-                cols.push("is_custom".into());
-                vals.push(Value::Bool {
-                    val: decl.is_custom_command(),
-                    span: head,
-                });
-
-                cols.push("is_keyword".into());
-                vals.push(Value::Bool {
-                    val: decl.is_parser_keyword(),
+                cols.push("command_type".into());
+                vals.push(Value::String {
+                    val: format!("{:?}", decl.command_type()).to_lowercase(),
                     span: head,
                 });
 
@@ -159,6 +149,16 @@ fn help(
                     } else {
                         usage
                     },
+                    span: head,
+                });
+
+                cols.push("signatures".into());
+                vals.push(Value::String {
+                    val: sig
+                        .input_output_types
+                        .iter()
+                        .map(|(i, o)| format!("{:?} => {:?}", i.to_shape(), o.to_shape()))
+                        .join("\n"),
                     span: head,
                 });
 
@@ -235,27 +235,25 @@ fn help(
                     span: head,
                 });
 
-                cols.push("is_plugin".into());
-                vals.push(Value::Bool {
-                    val: decl.is_plugin().is_some(),
-                    span: head,
-                });
-
-                cols.push("is_custom".into());
-                vals.push(Value::Bool {
-                    val: decl.is_custom_command(),
-                    span: head,
-                });
-
-                cols.push("is_keyword".into());
-                vals.push(Value::Bool {
-                    val: decl.is_parser_keyword(),
+                cols.push("command_type".into());
+                vals.push(Value::String {
+                    val: format!("{:?}", decl.command_type()).to_lowercase(),
                     span: head,
                 });
 
                 cols.push("usage".into());
                 vals.push(Value::String {
                     val: usage,
+                    span: head,
+                });
+
+                cols.push("signatures".into());
+                vals.push(Value::String {
+                    val: sig
+                        .input_output_types
+                        .iter()
+                        .map(|(i, o)| format!("{:?} => {:?}", i.to_shape(), o.to_shape()))
+                        .join("\n"),
                     span: head,
                 });
 
@@ -363,15 +361,12 @@ pub fn highlight_search_string(
         }
     };
     // strip haystack to remove existing ansi style
-    let stripped_haystack: String = match strip_ansi_escapes::strip(haystack) {
-        Ok(i) => String::from_utf8(i).unwrap_or_else(|_| String::from(haystack)),
-        Err(_) => String::from(haystack),
-    };
+    let stripped_haystack = nu_utils::strip_ansi_likely(haystack);
     let mut last_match_end = 0;
     let style = Style::new().fg(White).on(Red);
     let mut highlighted = String::new();
 
-    for cap in regex.captures_iter(stripped_haystack.as_str()) {
+    for cap in regex.captures_iter(stripped_haystack.as_ref()) {
         match cap {
             Ok(capture) => {
                 let start = match capture.get(0) {

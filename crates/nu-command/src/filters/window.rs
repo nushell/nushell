@@ -3,7 +3,7 @@ use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
     Category, Example, IntoInterruptiblePipelineData, PipelineData, Signature, Span, Spanned,
-    SyntaxShape, Value,
+    SyntaxShape, Type, Value,
 };
 
 #[derive(Clone)]
@@ -16,6 +16,10 @@ impl Command for Window {
 
     fn signature(&self) -> Signature {
         Signature::build("window")
+            .input_output_types(vec![(
+                Type::List(Box::new(Type::Any)),
+                Type::List(Box::new(Type::List(Box::new(Type::Any)))),
+            )])
             .required("window_size", SyntaxShape::Int, "the size of each window")
             .named(
                 "stride",
@@ -155,7 +159,7 @@ impl Command for Window {
 
         vec![
             Example {
-                example: "echo [1 2 3 4] | window 2",
+                example: "[1 2 3 4] | window 2",
                 description: "A sliding window of two elements",
                 result: Some(Value::List {
                     vals: stream_test_1,

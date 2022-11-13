@@ -6,7 +6,7 @@ use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
     Category, Example, IntoInterruptiblePipelineData, PipelineData, ShellError, Signature, Span,
-    Spanned, SyntaxShape, Value,
+    Spanned, SyntaxShape, Type, Value,
 };
 
 type Input<'t> = Peekable<CharIndices<'t>>;
@@ -27,6 +27,7 @@ impl Command for DetectColumns {
                 "number of rows to skip before detecting",
                 Some('s'),
             )
+            .input_output_types(vec![(Type::String, Type::Table(vec![]))])
             .switch("no-headers", "don't detect headers", Some('n'))
             .category(Category::Strings)
     }

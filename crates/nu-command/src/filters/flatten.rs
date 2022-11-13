@@ -4,7 +4,7 @@ use nu_protocol::ast::{Call, CellPath, PathMember};
 
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
-    Category, Example, PipelineData, ShellError, Signature, Span, SyntaxShape, Value,
+    Category, Example, PipelineData, ShellError, Signature, Span, SyntaxShape, Type, Value,
 };
 
 #[derive(Clone)]
@@ -17,6 +17,13 @@ impl Command for Flatten {
 
     fn signature(&self) -> Signature {
         Signature::build("flatten")
+            .input_output_types(vec![
+                (
+                    Type::List(Box::new(Type::Any)),
+                    Type::List(Box::new(Type::Any)),
+                ),
+                (Type::Record(vec![]), Type::Table(vec![])),
+            ])
             .rest(
                 "rest",
                 SyntaxShape::String,

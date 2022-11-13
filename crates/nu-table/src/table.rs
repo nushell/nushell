@@ -164,7 +164,7 @@ fn draw_table(
     }
 
     let with_header = table.with_header;
-    let with_footer = with_header && need_footer(config, (&table.data).size().0 as u64);
+    let with_footer = with_header && need_footer(config, (table.data).size().0 as u64);
     let with_index = table.with_index;
 
     if with_footer {
@@ -195,10 +195,7 @@ fn print_table(table: tabled::Table<Data>, config: &Config) -> String {
     // the atty is for when people do ls from vim, there should be no coloring there
     if !config.use_ansi_coloring || !atty::is(atty::Stream::Stdout) {
         // Draw the table without ansi colors
-        match strip_ansi_escapes::strip(&output) {
-            Ok(bytes) => String::from_utf8_lossy(&bytes).to_string(),
-            Err(_) => output, // we did our best; so return at least something
-        }
+        nu_utils::strip_ansi_string_likely(output)
     } else {
         // Draw the table with ansi colors
         output
@@ -247,7 +244,7 @@ fn override_alignments(
     index_present: bool,
     alignments: Alignments,
 ) {
-    let offset = if header_present { 1 } else { 0 };
+    let offset = usize::from(header_present);
     let (count_rows, count_columns) = table.shape();
     for row in offset..count_rows {
         for col in 0..count_columns {

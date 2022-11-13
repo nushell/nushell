@@ -1,8 +1,9 @@
+use std::collections::HashMap;
 use std::path::PathBuf;
 use std::str::FromStr;
 
 use crate::ast::{CellPath, PathMember};
-use crate::engine::CaptureBlock;
+use crate::engine::{Block, Closure};
 use crate::ShellError;
 use crate::{Range, Spanned, Value};
 use chrono::{DateTime, FixedOffset};
@@ -25,11 +26,11 @@ impl FromValue for Spanned<i64> {
                 span: *span,
             }),
             Value::Filesize { val, span } => Ok(Spanned {
-                item: *val as i64,
+                item: *val,
                 span: *span,
             }),
             Value::Duration { val, span } => Ok(Spanned {
-                item: *val as i64,
+                item: *val,
                 span: *span,
             }),
 
@@ -47,8 +48,8 @@ impl FromValue for i64 {
     fn from_value(v: &Value) -> Result<Self, ShellError> {
         match v {
             Value::Int { val, .. } => Ok(*val),
-            Value::Filesize { val, .. } => Ok(*val as i64),
-            Value::Duration { val, .. } => Ok(*val as i64),
+            Value::Filesize { val, .. } => Ok(*val),
+            Value::Duration { val, .. } => Ok(*val),
 
             v => Err(ShellError::CantConvert(
                 "integer".into(),
@@ -502,13 +503,31 @@ impl FromValue for (Vec<String>, Vec<Value>) {
     }
 }
 
-impl FromValue for CaptureBlock {
+impl FromValue for Closure {
     fn from_value(v: &Value) -> Result<Self, ShellError> {
         match v {
-            Value::Block { val, captures, .. } => Ok(CaptureBlock {
+            Value::Closure { val, captures, .. } => Ok(Closure {
                 block_id: *val,
                 captures: captures.clone(),
             }),
+            Value::Block { val, .. } => Ok(Closure {
+                block_id: *val,
+                captures: HashMap::new(),
+            }),
+            v => Err(ShellError::CantConvert(
+                "Closure".into(),
+                v.get_type().to_string(),
+                v.span()?,
+                None,
+            )),
+        }
+    }
+}
+
+impl FromValue for Block {
+    fn from_value(v: &Value) -> Result<Self, ShellError> {
+        match v {
+            Value::Block { val, .. } => Ok(Block { block_id: *val }),
             v => Err(ShellError::CantConvert(
                 "Block".into(),
                 v.get_type().to_string(),
@@ -519,22 +538,22 @@ impl FromValue for CaptureBlock {
     }
 }
 
-impl FromValue for Spanned<CaptureBlock> {
+impl FromValue for Spanned<Closure> {
     fn from_value(v: &Value) -> Result<Self, ShellError> {
         match v {
-            Value::Block {
+            Value::Closure {
                 val,
                 captures,
                 span,
             } => Ok(Spanned {
-                item: CaptureBlock {
+                item: Closure {
                     block_id: *val,
                     captures: captures.clone(),
                 },
                 span: *span,
             }),
             v => Err(ShellError::CantConvert(
-                "Block".into(),
+                "Closure".into(),
                 v.get_type().to_string(),
                 v.span()?,
                 None,

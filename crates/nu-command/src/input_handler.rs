@@ -24,7 +24,7 @@ impl CmdArgument for CellPathOnlyArgs {
 impl From<Vec<CellPath>> for CellPathOnlyArgs {
     fn from(cell_paths: Vec<CellPath>) -> Self {
         Self {
-            cell_paths: (!cell_paths.is_empty()).then(|| cell_paths),
+            cell_paths: (!cell_paths.is_empty()).then_some(cell_paths),
         }
     }
 }
@@ -33,7 +33,7 @@ impl From<Vec<CellPath>> for CellPathOnlyArgs {
 ///
 /// In detail, for each elements, invoking relative `cmd` with `arg`.
 ///
-/// If `arg` tell us that it's column path is not None, only map over data under these columns.
+/// If `arg` tell us that its cell path is not None, only map over data under these columns.
 /// Else it will apply each column inside a table.
 ///
 /// The validation of input element should be handle by `cmd` itself.

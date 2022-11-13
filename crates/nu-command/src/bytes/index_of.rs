@@ -3,7 +3,7 @@ use nu_engine::CallExt;
 use nu_protocol::ast::{Call, CellPath};
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
-    Category, Example, PipelineData, ShellError, Signature, Span, SyntaxShape, Value,
+    Category, Example, PipelineData, ShellError, Signature, Span, SyntaxShape, Type, Value,
 };
 
 struct Arguments {
@@ -29,6 +29,10 @@ impl Command for BytesIndexOf {
 
     fn signature(&self) -> Signature {
         Signature::build("bytes index-of")
+            .input_output_types(vec![
+                (Type::Binary, Type::Int),
+                (Type::Binary, Type::List(Box::new(Type::Int))),
+            ])
             .required(
                 "pattern",
                 SyntaxShape::Binary,
@@ -37,7 +41,7 @@ impl Command for BytesIndexOf {
             .rest(
                 "rest",
                 SyntaxShape::CellPath,
-                "optionally returns index of pattern in string by column paths",
+                "for a data structure input, find the indexes at the given cell paths",
             )
             .switch("all", "returns all matched index", Some('a'))
             .switch("end", "search from the end of the binary", Some('e'))
@@ -61,7 +65,7 @@ impl Command for BytesIndexOf {
     ) -> Result<PipelineData, ShellError> {
         let pattern: Vec<u8> = call.req(engine_state, stack, 0)?;
         let cell_paths: Vec<CellPath> = call.rest(engine_state, stack, 1)?;
-        let cell_paths = (!cell_paths.is_empty()).then(|| cell_paths);
+        let cell_paths = (!cell_paths.is_empty()).then_some(cell_paths);
         let arg = Arguments {
             pattern,
             end: call.has_flag("end"),

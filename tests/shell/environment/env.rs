@@ -78,6 +78,14 @@ fn env_shorthand_multi() {
 }
 
 #[test]
+fn env_assignment() {
+    let actual = nu!(cwd: ".", r#"
+        $env.FOOBAR = "barbaz"; $env.FOOBAR
+    "#);
+    assert_eq!(actual.out, "barbaz");
+}
+
+#[test]
 fn let_env_file_pwd_env_var_fails() {
     let actual = nu!(cwd: ".", r#"let-env FILE_PWD = 'foo'"#);
 

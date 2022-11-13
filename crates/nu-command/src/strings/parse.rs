@@ -4,7 +4,7 @@ use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
     Category, Example, ListStream, PipelineData, ShellError, Signature, Span, Spanned, SyntaxShape,
-    Value,
+    Type, Value,
 };
 
 #[derive(Clone)]
@@ -30,6 +30,7 @@ impl Command for Parse {
                 SyntaxShape::String,
                 "the pattern to match. Eg) \"{foo}: {bar}\"",
             )
+            .input_output_types(vec![(Type::String, Type::Table(vec![]))])
             .switch("regex", "use full regex syntax for patterns", Some('r'))
             .category(Category::Strings)
     }

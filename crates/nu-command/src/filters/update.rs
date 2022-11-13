@@ -1,9 +1,9 @@
 use nu_engine::{eval_block, CallExt};
 use nu_protocol::ast::{Call, CellPath, PathMember};
-use nu_protocol::engine::{CaptureBlock, Command, EngineState, Stack};
+use nu_protocol::engine::{Closure, Command, EngineState, Stack};
 use nu_protocol::{
     Category, Example, FromValue, IntoInterruptiblePipelineData, IntoPipelineData, PipelineData,
-    ShellError, Signature, Span, SyntaxShape, Value,
+    ShellError, Signature, Span, SyntaxShape, Type, Value,
 };
 
 #[derive(Clone)]
@@ -16,6 +16,7 @@ impl Command for Update {
 
     fn signature(&self) -> Signature {
         Signature::build("update")
+            .input_output_types(vec![(Type::Table(vec![]), Type::Table(vec![]))])
             .required(
                 "field",
                 SyntaxShape::CellPath,
@@ -89,7 +90,7 @@ fn update(
 
     // Replace is a block, so set it up and run it instead of using it as the replacement
     if replacement.as_block().is_ok() {
-        let capture_block: CaptureBlock = FromValue::from_value(&replacement)?;
+        let capture_block: Closure = FromValue::from_value(&replacement)?;
         let block = engine_state.get_block(capture_block.block_id).clone();
 
         let mut stack = stack.captures_to_stack(&capture_block.captures);
@@ -98,6 +99,9 @@ fn update(
 
         input.map(
             move |mut input| {
+                // with_env() is used here to ensure that each iteration uses
+                // a different set of environment variables.
+                // Hence, a 'cd' in the first loop won't affect the next loop.
                 stack.with_env(&orig_env_vars, &orig_env_hidden);
 
                 if let Some(var) = block.signature.get_positional(0) {

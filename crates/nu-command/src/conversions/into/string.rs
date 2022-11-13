@@ -4,7 +4,7 @@ use nu_protocol::{
     ast::{Call, CellPath},
     engine::{Command, EngineState, Stack},
     into_code, Category, Config, Example, IntoPipelineData, PipelineData, ShellError, Signature,
-    Span, SyntaxShape, Value,
+    Span, SyntaxShape, Type, Value,
 };
 use nu_utils::get_system_locale;
 use num_format::ToFormattedString;
@@ -32,11 +32,20 @@ impl Command for SubCommand {
 
     fn signature(&self) -> Signature {
         Signature::build("into string")
-            // FIXME - need to support column paths
+            .input_output_types(vec![
+                (Type::Binary, Type::String),
+                (Type::Int, Type::String),
+                (Type::Number, Type::String),
+                (Type::String, Type::String),
+                (Type::Bool, Type::String),
+                (Type::Filesize, Type::String),
+                (Type::Date, Type::String),
+            ])
+            .allow_variants_without_examples(true) // https://github.com/nushell/nushell/issues/7032
             .rest(
                 "rest",
                 SyntaxShape::CellPath,
-                "column paths to convert to string (for table input)",
+                "for a data structure input, convert data at the given cell paths",
             )
             .named(
                 "decimals",
@@ -135,11 +144,12 @@ impl Command for SubCommand {
                     span: Span::test_data(),
                 }),
             },
-            Example {
-                description: "convert date to string",
-                example: "date now | into string",
-                result: None,
-            },
+            // TODO: This should work but does not; see https://github.com/nushell/nushell/issues/7032
+            // Example {
+            //     description: "convert date to string",
+            //     example: "'2020-10-10 10:00:00 +02:00' | into datetime | into string",
+            //     result: Some(Value::test_string("Sat Oct 10 10:00:00 2020")),
+            // },
             Example {
                 description: "convert filepath to string",
                 example: "ls Cargo.toml | get name | into string",
@@ -147,8 +157,8 @@ impl Command for SubCommand {
             },
             Example {
                 description: "convert filesize to string",
-                example: "ls Cargo.toml | get size | into string",
-                result: None,
+                example: "1KiB | into string",
+                result: Some(Value::test_string("1,024 B")),
             },
         ]
     }
@@ -172,7 +182,7 @@ fn string_helper(
         }
     }
     let cell_paths = call.rest(engine_state, stack, 0)?;
-    let cell_paths = (!cell_paths.is_empty()).then(|| cell_paths);
+    let cell_paths = (!cell_paths.is_empty()).then_some(cell_paths);
     let config = engine_state.get_config().clone();
     let args = Arguments {
         decimals_value,

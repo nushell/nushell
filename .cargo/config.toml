@@ -12,3 +12,17 @@ rustflags = ["-C", "link-args=-stack:10000000", "-C", "target-feature=+crt-stati
 # set a 2 gb stack size (0x80000000 = 2147483648 bytes = 2 GB)
 # [target.x86_64-apple-darwin]
 # rustflags = ["-C", "link-args=-Wl,-stack_size,0x80000000"]
+
+# How to use mold in linux and mac
+
+# [target.x86_64-unknown-linux-gnu]
+# linker = "clang"
+# rustflags = ["-C", "link-arg=-fuse-ld=/usr/local/bin/mold"]
+
+# [target.x86_64-apple-darwin]
+# linker = "clang"
+# rustflags = ["-C", "link-arg=-fuse-ld=mold"]
+
+# [target.aarch64-apple-darwin]
+# linker = "clang"
+# rustflags = ["-C", "link-arg=-fuse-ld=mold"]

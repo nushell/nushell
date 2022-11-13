@@ -1,6 +1,8 @@
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
-use nu_protocol::{Category, Config, Example, PipelineData, ShellError, Signature, Span, Value};
+use nu_protocol::{
+    Category, Config, Example, PipelineData, ShellError, Signature, Span, Type, Value,
+};
 
 #[derive(Clone)]
 pub struct FromUrl;
@@ -11,11 +13,13 @@ impl Command for FromUrl {
     }
 
     fn signature(&self) -> Signature {
-        Signature::build("from url").category(Category::Formats)
+        Signature::build("from url")
+            .input_output_types(vec![(Type::String, Type::Record(vec![]))])
+            .category(Category::Formats)
     }
 
     fn usage(&self) -> &str {
-        "Parse url-encoded string as a table."
+        "Parse url-encoded string as a record."
     }
 
     fn run(
@@ -33,7 +37,7 @@ impl Command for FromUrl {
     fn examples(&self) -> Vec<Example> {
         vec![Example {
             example: "'bread=baguette&cheese=comt%C3%A9&meat=ham&fat=butter' | from url",
-            description: "Convert url encoded string into a table",
+            description: "Convert url encoded string into a record",
             result: Some(Value::Record {
                 cols: vec![
                     "bread".to_string(),

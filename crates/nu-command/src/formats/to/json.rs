@@ -2,7 +2,8 @@ use nu_engine::CallExt;
 use nu_protocol::ast::{Call, PathMember};
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
-    Category, Example, IntoPipelineData, PipelineData, ShellError, Signature, SyntaxShape, Value,
+    Category, Example, IntoPipelineData, PipelineData, ShellError, Signature, SyntaxShape, Type,
+    Value,
 };
 
 #[derive(Clone)]
@@ -15,6 +16,7 @@ impl Command for ToJson {
 
     fn signature(&self) -> Signature {
         Signature::build("to json")
+            .input_output_types(vec![(Type::Any, Type::String)])
             .switch("raw", "remove all of the whitespace", Some('r'))
             .named(
                 "indent",
@@ -123,7 +125,7 @@ pub fn value_to_json_value(v: &Value) -> Result<nu_json::Value, ShellError> {
 
         Value::List { vals, .. } => nu_json::Value::Array(json_list(vals)?),
         Value::Error { error } => return Err(error.clone()),
-        Value::Block { .. } | Value::Range { .. } => nu_json::Value::Null,
+        Value::Closure { .. } | Value::Block { .. } | Value::Range { .. } => nu_json::Value::Null,
         Value::Binary { val, .. } => {
             nu_json::Value::Array(val.iter().map(|x| nu_json::Value::U64(*x as u64)).collect())
         }
