@@ -155,30 +155,48 @@ where
                     }
                 }
 
-                {
-                    // set a cursor to cmd bar
-                    if state.is_cmd_input {
-                        // todo: deal with a situation where we exeed the bar width
-                        let next_pos = (state.buf_cmd2.len() + 1) as u16;
-                        // 1 skips a ':' char
-                        if next_pos < area.width {
-                            f.set_cursor(next_pos as u16, area.height - 1);
-                        }
-                    } else if state.is_search_input {
-                        // todo: deal with a situation where we exeed the bar width
-                        let next_pos = (state.buf_cmd_input.len() + 1) as u16;
-                        // 1 skips a ':' char
-                        if next_pos < area.width {
-                            f.set_cursor(next_pos as u16, area.height - 1);
-                        }
-                    }
-                }
+                // {
+                //     // set a cursor to cmd bar
+                //     if state.is_cmd_input {
+                //         // todo: deal with a situation where we exeed the bar width
+                //         let next_pos = (state.buf_cmd2.len() + 1) as u16;
+                //         // 1 skips a ':' char
+                //         if next_pos < area.width {
+                //             f.set_cursor(next_pos as u16, area.height - 1);
+                //         }
+                //     } else if state.is_search_input {
+                //         // todo: deal with a situation where we exeed the bar width
+                //         let next_pos = (state.buf_cmd_input.len() + 1) as u16;
+                //         // 1 skips a ':' char
+                //         if next_pos < area.width {
+                //             f.set_cursor(next_pos as u16, area.height - 1);
+                //         }
+                //     }
+                // }
             })?;
 
             let exited = handle_events(&events, state, &layout, terminal);
             if exited {
                 let val = state.peek_value.then(|| get_last_used_value(state, layout));
                 break Ok(val);
+            }
+
+            // don't ask
+            if state.is_cmd_input {
+                state.is_cmd_input = false;
+
+                let result = read_input(":");
+                match result {
+                    Some(command) => {
+                        state.buf_cmd2 = command;
+                        state.run_cmd = true;
+                    }
+                    None => {}
+                }
+
+                // to make it work...
+                enable_raw_mode()?;
+                terminal.clear()?;
             }
         }
 
@@ -324,7 +342,10 @@ fn render_status_bar<B>(f: &mut Frame<B>, area: Rect, state: &UIState<'_>, layou
 where
     B: Backend,
 {
+    // fixme: it exeends a max value in a few scenarious
     let seen_rows = state.row_index + layout.count_rows();
+    let seen_rows = min(seen_rows, state.count_rows());
+
     let cursor = (state.mode == UIMode::Cursor).then(|| state.cursor);
     let status_bar = StatusBar::new(
         state.section_name.as_deref(),
@@ -1312,7 +1333,100 @@ fn nu_style_to_tui(style: NuStyle) -> tui::style::Style {
         out.fg = nu_ansi_color_to_tui_color(clr);
     }
 
+    if style.is_blink {
+        out.add_modifier |= Modifier::SLOW_BLINK;
+    }
+
+    if style.is_bold {
+        out.add_modifier |= Modifier::BOLD;
+    }
+
+    if style.is_dimmed {
+        out.add_modifier |= Modifier::DIM;
+    }
+
+    if style.is_hidden {
+        out.add_modifier |= Modifier::HIDDEN;
+    }
+
+    if style.is_italic {
+        out.add_modifier |= Modifier::ITALIC;
+    }
+
+    if style.is_reverse {
+        out.add_modifier |= Modifier::REVERSED;
+    }
+
+    if style.is_underline {
+        out.add_modifier |= Modifier::UNDERLINED;
+    }
+
     out
+}
+
+fn read_input(prompt: &str) -> Option<String> {
+    use reedline::{
+        DefaultCompleter, EditCommand, Emacs, ExampleHighlighter, Keybindings, Reedline,
+        ReedlineEvent, Signal,
+    };
+
+    struct TextPrompt<'a>(&'a str);
+
+    impl reedline::Prompt for TextPrompt<'_> {
+        fn render_prompt_left(&self) -> Cow<str> {
+            Cow::Borrowed(self.0)
+        }
+
+        fn render_prompt_right(&self) -> Cow<str> {
+            Cow::Borrowed("")
+        }
+
+        fn render_prompt_indicator(&self, _: reedline::PromptEditMode) -> Cow<str> {
+            Cow::Borrowed("")
+        }
+
+        fn render_prompt_multiline_indicator(&self) -> Cow<str> {
+            Cow::Borrowed("")
+        }
+
+        fn render_prompt_history_search_indicator(
+            &self,
+            _: reedline::PromptHistorySearch,
+        ) -> Cow<str> {
+            Cow::Borrowed("")
+        }
+    }
+
+    let commands = vec!["nu".into()];
+
+    let completer = Box::new(DefaultCompleter::new_with_wordlen(commands.clone(), 2));
+
+    // Use the interactive menu to select options from the completer
+    let highlighter = Box::new(ExampleHighlighter::new(commands));
+
+    // let mut keybindings = Keybindings::default();
+    // keybindings.add_binding(KeyModifiers::NONE, KeyCode::Esc, ReedlineEvent::CtrlD);
+    // keybindings.add_binding(
+    //     KeyModifiers::NONE,
+    //     KeyCode::Backspace,
+    //     ReedlineEvent::Edit(vec![EditCommand::Backspace]),
+    // );
+
+    // let edit_mode = Box::new(Emacs::new(keybindings));
+
+    let mut line_editor = Reedline::create()
+        .with_completer(completer)
+        .with_highlighter(highlighter)
+        // .with_edit_mode(edit_mode)
+        ;
+
+    let sig = line_editor.read_line(&TextPrompt(prompt));
+
+    match sig {
+        Ok(Signal::Success(buffer)) => Some(buffer),
+        Ok(Signal::CtrlD) | Ok(Signal::CtrlC) => None,
+        Err(_) => None,
+    }
 }
 
 fn render_index(buf: &mut Buffer, area: Rect, color_hm: &NuStyleTable, start_index: usize) -> u16 {
@@ -1653,8 +1767,8 @@ fn calculate_column_width(column: &[NuText]) -> usize {
 
 fn render_column(
     buf: &mut tui::buffer::Buffer,
-    x_offset: u16,
-    y_offset: u16,
+    x: u16,
+    y: u16,
     available_width: u16,
     rows: &[NuText],
 ) -> u16 {
@@ -1662,7 +1776,7 @@ fn render_column(
         let text = strip_string(text);
         let style = text_style_to_tui_style(*style);
         let span = Span::styled(text, style);
-        buf.set_span(x_offset, y_offset + row as u16, &span, available_width);
+        buf.set_span(x, y + row as u16, &span, available_width);
     }
 
     available_width
