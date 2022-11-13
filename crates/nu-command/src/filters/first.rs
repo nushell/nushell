@@ -106,12 +106,12 @@ fn first_helper(
 
     let input_span = input.span();
     let input_not_supported_error = || -> ShellError {
-        // can't always get a span for input, so try our best and fall back on the span for the `take` call if needed
+        // can't always get a span for input, so try our best and fall back on the span for the `first` call if needed
         if let Some(span) = input_span {
-            ShellError::UnsupportedInput("take does not support this input type".into(), span)
+            ShellError::UnsupportedInput("first does not support this input type".into(), span)
         } else {
             ShellError::UnsupportedInput(
-                "take was given an unsupported input type".into(),
+                "first was given an unsupported input type".into(),
                 call.span(),
             )
         }
