@@ -89,6 +89,15 @@ impl PipelineData {
         matches!(self, PipelineData::Value(Value::Nothing { .. }, ..))
     }
 
+    /// PipelineData doesn't always have a Span, but we can try!
+    pub fn span(&self) -> Option<Span> {
+        match self {
+            PipelineData::ListStream(..) => None,
+            PipelineData::ExternalStream { span, .. } => Some(*span),
+            PipelineData::Value(v, _) => v.span().ok(),
+        }
+    }
+
     pub fn into_value(self, span: Span) -> Value {
         match self {
             PipelineData::Value(Value::Nothing { .. }, ..) => Value::nothing(span),
