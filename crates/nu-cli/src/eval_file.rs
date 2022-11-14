@@ -29,6 +29,8 @@ pub fn evaluate_file(
 
     let file = std::fs::read(&path).into_diagnostic()?;
 
+    engine_state.start_in_file(Some(&path));
+
     let mut working_set = StateWorkingSet::new(engine_state);
     trace!("parsing file: {}", path);
 

@@ -92,6 +92,8 @@ pub struct EngineState {
     sig_quit: Option<Arc<AtomicBool>>,
     config_path: HashMap<String, PathBuf>,
     pub history_session_id: i64,
+    // If Nushell was started, e.g., with `nu spam.nu`, the file's parent is stored here
+    pub currently_parsed_cwd: Option<PathBuf>,
 }
 
 pub const NU_VARIABLE_ID: usize = 0;
@@ -134,6 +136,7 @@ impl EngineState {
             sig_quit: None,
             config_path: HashMap::new(),
             history_session_id: 0,
+            currently_parsed_cwd: None,
         }
     }
 
@@ -249,6 +252,15 @@ impl EngineState {
         std::env::set_current_dir(cwd)?;
 
         Ok(())
+    }
+
+    /// Mark a starting point if it is a script (e.g., nu spam.nu)
+    pub fn start_in_file(&mut self, file_path: Option<&str>) {
+        self.currently_parsed_cwd = if let Some(path) = file_path {
+            Path::new(path).parent().map(PathBuf::from)
+        } else {
+            None
+        };
     }
 
     pub fn has_overlay(&self, name: &[u8]) -> bool {
@@ -987,7 +999,7 @@ impl<'a> StateWorkingSet<'a> {
             permanent_state,
             external_commands: vec![],
             type_scope: TypeScope::default(),
-            currently_parsed_cwd: None,
+            currently_parsed_cwd: permanent_state.currently_parsed_cwd.clone(),
             parsed_module_files: vec![],
         }
     }
