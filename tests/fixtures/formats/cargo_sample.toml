@@ -11,7 +11,7 @@ edition = "2018"
 [dependencies]
 rustyline = "4.1.0"
 sysinfo = "0.8.4"
-chrono = { version = "0.4.21", features = ["serde"] }
+chrono = { version = "0.4.23", features = ["serde"] }
 chrono-tz = "0.6.3"
 derive-new = "0.5.6"
 prettytable-rs = "0.8.0"

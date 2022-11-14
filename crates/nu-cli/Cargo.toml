@@ -23,7 +23,7 @@ nu-color-config = { path = "../nu-color-config", version = "0.71.1"  }
 reedline = { version = "0.14.0", features = ["bashisms", "sqlite"]}
 
 atty = "0.2.14"
-chrono = { default-features = false, features = ["std"], version = "0.4.21" }
+chrono = { default-features = false, features = ["std"], version = "0.4.23" }
 crossterm = "0.24.0"
 fancy-regex = "0.10.0"
 fuzzy-matcher = "0.3.7"

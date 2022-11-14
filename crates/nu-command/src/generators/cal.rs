@@ -184,12 +184,12 @@ impl MonthHelper {
         let next_month_naive_date =
             NaiveDate::from_ymd_opt(selected_year, selected_month, 1).ok_or(())?;
 
-        Ok(next_month_naive_date.pred().day())
+        Ok(next_month_naive_date.pred_opt().unwrap_or_default().day())
     }
 }
 
 fn get_current_date() -> (i32, u32, u32) {
-    let local_now_date = Local::now().date();
+    let local_now_date = Local::now().date_naive();
 
     let current_year: i32 = local_now_date.year();
     let current_month: u32 = local_now_date.month();
