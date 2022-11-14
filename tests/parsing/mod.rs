@@ -3,6 +3,15 @@ use nu_test_support::playground::Playground;
 use nu_test_support::{nu, pipeline};
 
 #[test]
+fn source_file_relative_to_file() {
+    let actual = nu!(cwd: "tests/parsing/samples", r#"
+        nu source_file_relative.nu
+        "#);
+
+    assert_eq!(actual.out, "5");
+}
+
+#[test]
 fn run_nu_script_single_line() {
     let actual = nu!(cwd: "tests/parsing/samples", r#"
         nu single_line.nu
