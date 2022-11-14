@@ -31,6 +31,18 @@ cd nushell
 cargo build
 ```
 
+### Tests
+
+It is a good practice to cover your changes with a test. Also, try to think about corner cases and various ways how your changes could break. Cover those in the tests as well.
+
+Tests can be found in different places:
+* `/tests`
+* `src/tests`
+* command examples
+* crate-specific tests
+
+The most comprehensive test suite we have is the `nu-test-support` crate. For testing specific features, such as running Nushell in a REPL mode, we have so called "testbins". For simple tests, you can find `run_test()` and `fail_test()` functions.
+
 ### Useful Commands
 
 - Build and run Nushell:
