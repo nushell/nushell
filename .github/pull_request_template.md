@@ -1,19 +1,17 @@
+
 # Description
 
-(Description of your pull request goes here. **Provide examples and/or screenshots** if your changes affect the user experience.)
+_(Thank you for improving Nushell. Please, check our [contributing guide](../CONTRIBUTING.md) and talk to the core team before making major changes.)_
 
-# Major Changes
+_(Description of your pull request goes here. **Provide examples and/or screenshots** if your changes affect the user experience.)_
 
-If you're considering making any major change to nushell, before starting work on it, seek feedback from regular contributors and get approval for the idea from the core team either on [Discord](https://discordapp.com/invite/NtAbbGn) or [GitHub issue](https://github.com/nushell/nushell/issues/new/choose).
-Making sure we're all on board with the change saves everybody's time.
-Thanks!
+# User-Facing Changes
+
+_(List of all changes that impact the user experience here. This helps us keep track of breaking changes.)_
 
 # Tests + Formatting
 
-Make sure you've done the following, if applicable:
-
-- Add tests that cover your changes (either in the command examples, the crate/tests folder, or in the /tests folder)
-  - Try to think about corner cases and various ways how your changes could break. Cover those in the tests
+Don't forget to add tests that cover your changes.
 
 Make sure you've run and fixed any issues with these commands:
 
@@ -23,4 +21,4 @@ Make sure you've run and fixed any issues with these commands:
 
 # After Submitting
 
-* Help us keep the docs up to date: If your PR affects the user experience of Nushell (adding/removing a command, changing an input/output type, etc.), make sure the changes are reflected in the documentation (https://github.com/nushell/nushell.github.io) after the PR is merged.
+If your PR had any user-facing changes, update [the documentation](https://github.com/nushell/nushell.github.io) after the PR is merged, if necessary. This will help us keep the docs up to date.
