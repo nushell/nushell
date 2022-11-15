@@ -396,7 +396,7 @@ fn build_general_table2(
         Alignments::default(),
         &theme,
         term_width,
-        true,
+        false,
     );
 
     Ok(table)
@@ -543,14 +543,7 @@ fn build_expanded_table(
             key.insert(0, '\n');
         }
 
-        let key = Value::String {
-            val: key,
-            span: Span::new(0, 0),
-        };
-
-        let key = value_to_styled_string(&key, 0, config, &color_hm);
-
-        let key = NuTable::create_cell(key.0, key.1);
+        let key = NuTable::create_cell(key, TextStyle::default_field());
         let val = NuTable::create_cell(value, TextStyle::default());
 
         let row = vec![key, val];
@@ -937,7 +930,7 @@ fn convert_to_table2<'a>(
                 config,
                 &ctrlc,
                 color_hm,
-                0,
+                1,
                 theme,
                 with_index,
                 deep,
@@ -962,7 +955,7 @@ fn convert_to_table2<'a>(
         count_columns += 1;
     }
 
-    for (col, header) in headers.into_iter().enumerate() {
+    for header in headers.into_iter() {
         let mut column_width = nu_table::string_width(&header);
 
         data[0].push(NuTable::create_cell(&header, header_style(color_hm)));
@@ -996,7 +989,7 @@ fn convert_to_table2<'a>(
                 config,
                 &ctrlc,
                 color_hm,
-                col,
+                1,
                 theme,
                 with_index,
                 deep,
@@ -1015,7 +1008,7 @@ fn convert_to_table2<'a>(
                     header.as_ref(),
                     head,
                     config,
-                    col,
+                    1,
                     with_index,
                     color_hm,
                     float_precision,
