@@ -201,7 +201,7 @@ where
                         Ok(pipeline_data) => {
                             let (columns, values) = collect_pipeline(pipeline_data);
 
-                            let state = UIState::new(
+                            let mut new_state = UIState::new(
                                 Cow::from(columns),
                                 Cow::from(values),
                                 state.config,
@@ -211,13 +211,17 @@ where
                                 state.peek_value,
                                 state.style.clone(),
                             );
+                            new_state.cmd_history = state.cmd_history.clone();
+                            new_state.cmd_history_pos = state.cmd_history_pos;
 
-                            state_stack.push(state);
+                            state_stack.push(new_state);
                         }
                         Err(_) => {
                             // todo: ignore for now
                         }
                     }
+                } else {
+                    state.cmd_exec_info = Some(String::from("A command was not recognized"))
                 }
 
                 continue;
@@ -346,6 +350,17 @@ fn render_cmd_bar<B>(f: &mut Frame<B>, area: Rect, _state: &UIState<'_>, _layout
 where
     B: Backend,
 {
+    if let Some(info) = &_state.cmd_exec_info {
+        let style = NuStyle {
+            background: Some(NuColor::Red),
+            foreground: Some(NuColor::White),
+            ..Default::default()
+        };
+
+        f.render_widget(CmdBar::new(info, "", style), area);
+        return;
+    }
+
     if _state.is_cmd_input {
         let prefix = ':';
         let text = format!("{}{}", prefix, _state.buf_cmd2);
@@ -581,6 +596,7 @@ fn view_mode_key_event<B>(
             state.buf_cmd_input = String::new();
             state.is_search_input = true;
             state.is_search_rev = true;
+            state.cmd_exec_info = None;
         }
         KeyEvent {
             code: KeyCode::Char('/'),
@@ -588,6 +604,7 @@ fn view_mode_key_event<B>(
         } => {
             state.buf_cmd_input = String::new();
             state.is_search_input = true;
+            state.cmd_exec_info = None;
         }
         KeyEvent {
             code: KeyCode::Char(':'),
@@ -595,6 +612,7 @@ fn view_mode_key_event<B>(
         } => {
             state.buf_cmd2 = String::new();
             state.is_cmd_input = true;
+            state.cmd_exec_info = None;
         }
         KeyEvent {
             code: KeyCode::Char('n'),
@@ -845,7 +863,7 @@ fn cmd_input_key_event(key: &KeyEvent, state: &mut UIState<'_>, _layout: &Layout
 
             true
         }
-        _ => false,
+        _ => true,
     }
 }
 
@@ -889,6 +907,7 @@ struct UIState<'a> {
     cmd_history: Vec<String>,
     cmd_history_allow: bool,
     cmd_history_pos: usize,
+    cmd_exec_info: Option<String>,
 }
 
 #[derive(Debug, Default, Clone)]
@@ -962,6 +981,7 @@ impl<'a> UIState<'a> {
             cmd_history: Vec::new(),
             cmd_history_allow: false,
             cmd_history_pos: 0,
+            cmd_exec_info: None,
         }
     }
 
