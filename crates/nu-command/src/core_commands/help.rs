@@ -219,6 +219,7 @@ fn help(
                 let decl = engine_state.get_decl(decl_id);
                 let sig = decl.signature().update_from_command(decl.borrow());
 
+                let signatures = sig.to_string();
                 let key = sig.name;
                 let usage = sig.usage;
                 let search_terms = sig.search_terms;
@@ -249,11 +250,7 @@ fn help(
 
                 cols.push("signatures".into());
                 vals.push(Value::String {
-                    val: sig
-                        .input_output_types
-                        .iter()
-                        .map(|(i, o)| format!("{:?} => {:?}", i.to_shape(), o.to_shape()))
-                        .join("\n"),
+                    val: signatures,
                     span: head,
                 });
 

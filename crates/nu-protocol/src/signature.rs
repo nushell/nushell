@@ -122,6 +122,43 @@ pub struct Signature {
     pub category: Category,
 }
 
+// in general, a commands signature should looks like this:
+//
+// string, string, int?, {flags}, ...rest => string
+//
+// More detail explaination:
+// the first one is the input from previous command, aka, pipeline input
+// then positional arguments type
+// then optional arguments type, which ends with `?`
+// Then followed by `=>`
+// Finally output type.
+//
+// If a command contains multiple input/output types, separate them.
+impl std::fmt::Display for Signature {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let mut args = self
+            .required_positional
+            .iter()
+            .map(|p| p.shape.to_string())
+            .collect::<Vec<String>>();
+        args.append(
+            &mut self
+                .optional_positional
+                .iter()
+                .map(|p| format!("{}?", p.shape))
+                .collect::<Vec<String>>(),
+        );
+        let args = args.join(", ");
+
+        let mut signatures = vec![];
+        for (input_type, output_type) in self.input_output_types.iter() {
+            // ident with two spaces for user friendly output.
+            signatures.push(format!("  {input_type}, {args} => {output_type}"))
+        }
+        write!(f, "{}", signatures.join("\n"))
+    }
+}
+
 impl PartialEq for Signature {
     fn eq(&self, other: &Self) -> bool {
         self.name == other.name

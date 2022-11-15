@@ -89,6 +89,19 @@ fn get_documentation(
         long_desc.push_str(&get_flags_section(sig))
     }
 
+    if !sig.input_output_types.is_empty() {
+        let support_on_cell_paths = sig.operates_on_cell_paths();
+        if support_on_cell_paths {
+            let _ = writeln!(
+                long_desc,
+                "\n{}Signatures(Cell paths are supported){}:\n{}",
+                G, RESET, sig
+            );
+        } else {
+            let _ = writeln!(long_desc, "\n{}Signatures{}:\n{}", G, RESET, sig);
+        }
+    }
+
     if !sig.required_positional.is_empty()
         || !sig.optional_positional.is_empty()
         || sig.rest_positional.is_some()
@@ -122,18 +135,6 @@ fn get_documentation(
             );
             let _ = writeln!(long_desc, "{}", text);
         }
-    }
-
-    if !sig.input_output_types.is_empty() {
-        let _ = writeln!(long_desc, "\n{}Signatures{}:", G, RESET);
-    }
-    for (input_type, output_type) in sig.input_output_types.iter() {
-        let _ = writeln!(
-            long_desc,
-            "  {:?} => {:?}",
-            input_type.to_shape(),
-            output_type.to_shape()
-        );
     }
 
     if !examples.is_empty() {
