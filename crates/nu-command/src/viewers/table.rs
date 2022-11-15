@@ -8,7 +8,7 @@ use nu_protocol::{
     PipelineData, PipelineMetadata, RawStream, ShellError, Signature, Span, SyntaxShape,
     TableIndexMode, Value,
 };
-use nu_table::{Alignment, Alignments, Table as NuTable, TableTheme, TextStyle};
+use nu_table::{string_width, Alignment, Alignments, Table as NuTable, TableTheme, TextStyle};
 use nu_utils::get_ls_colors;
 use std::sync::Arc;
 use std::time::Instant;
@@ -553,7 +553,26 @@ fn build_expanded_table(
     let data_len = data.len();
     let table = NuTable::new(data, (data_len, 2), term_width, false, false);
 
-    let table = table.draw_table(config, &color_hm, alignments, &theme, term_width, true);
+    let table_s = table
+        .clone()
+        .draw_table(config, &color_hm, alignments, &theme, term_width, false);
+
+    let table = match table_s {
+        Some(s) => {
+            // check whether we need to expand table or not,
+            // todo: we can make it more effitient if
+
+            const EXPAND_TREASHHOLD: usize = 10;
+
+            let width = string_width(&s);
+            if width < term_width && width + EXPAND_TREASHHOLD >= term_width {
+                table.draw_table(config, &color_hm, alignments, &theme, term_width, true)
+            } else {
+                Some(s)
+            }
+        }
+        None => None,
+    };
 
     Ok(table)
 }
@@ -1436,14 +1455,38 @@ impl PagingTableCreator {
 
         table.truncate(term_width, &theme);
 
-        let table = table.draw_table(
+        let table_s = table.clone().draw_table(
             &self.config,
             &color_hm,
             Alignments::default(),
             &theme,
             term_width,
-            true,
+            false,
         );
+
+        let table = match table_s {
+            Some(s) => {
+                // check whether we need to expand table or not,
+                // todo: we can make it more effitient if
+
+                const EXPAND_TREASHHOLD: usize = 10;
+
+                let width = string_width(&s);
+                if width < term_width && width + EXPAND_TREASHHOLD >= term_width {
+                    table.draw_table(
+                        &self.config,
+                        &color_hm,
+                        Alignments::default(),
+                        &theme,
+                        term_width,
+                        true,
+                    )
+                } else {
+                    Some(s)
+                }
+            }
+            None => None,
+        };
 
         Ok(table)
     }
