@@ -90,8 +90,7 @@ fn get_documentation(
     }
 
     if !sig.input_output_types.is_empty() {
-        let support_on_cell_paths = sig.operates_on_cell_paths();
-        if support_on_cell_paths {
+        if sig.operates_on_cell_paths() {
             let _ = writeln!(
                 long_desc,
                 "\n{}Signatures(Cell paths are supported){}:\n{}",
