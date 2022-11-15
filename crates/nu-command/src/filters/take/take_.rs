@@ -1,9 +1,10 @@
+use itertools::Itertools;
 use nu_engine::CallExt;
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
     Category, Example, IntoInterruptiblePipelineData, PipelineData, ShellError, Signature, Span,
-    SyntaxShape, Type, Value,
+    Spanned, SyntaxShape, Type, Value,
 };
 
 #[derive(Clone)]
@@ -28,13 +29,13 @@ impl Command for Take {
             .required(
                 "n",
                 SyntaxShape::Int,
-                "starting from the front, the number of elements to return",
+                "the number of elements to return from the front (if positive) or the back (if negative) of the input",
             )
             .category(Category::Filters)
     }
 
     fn usage(&self) -> &str {
-        "Take only the first n elements of a list, or the first n bytes of a binary value."
+        "Take only the first (or optionally last) n elements of the input"
     }
 
     fn search_terms(&self) -> Vec<&str> {
@@ -48,7 +49,18 @@ impl Command for Take {
         call: &Call,
         input: PipelineData,
     ) -> Result<nu_protocol::PipelineData, nu_protocol::ShellError> {
-        let rows_desired: usize = call.req(engine_state, stack, 0)?;
+        let rows_desired: Spanned<i64> = call.req(engine_state, stack, 0)?;
+        let take_last = rows_desired.item < 0;
+
+        let rows_desired: usize = match rows_desired.item.abs().try_into() {
+            Ok(r) => r,
+            Err(_) => {
+                return Err(ShellError::OperatorOverflow(
+                    "converting rows parameter overflowed".into(),
+                    rows_desired.span,
+                ))
+            }
+        };
 
         let ctrlc = engine_state.ctrlc.clone();
         let metadata = input.metadata();
@@ -68,29 +80,73 @@ impl Command for Take {
 
         match input {
             PipelineData::Value(val, _) => match val {
-                Value::List { vals, .. } => Ok(vals
-                    .into_iter()
-                    .take(rows_desired)
-                    .into_pipeline_data(ctrlc)
-                    .set_metadata(metadata)),
+                Value::List { vals, .. } => {
+                    if take_last {
+                        Ok(vals
+                            .into_iter()
+                            .rev()
+                            .take(rows_desired)
+                            .rev()
+                            .into_pipeline_data(ctrlc)
+                            .set_metadata(metadata))
+                    } else {
+                        Ok(vals
+                            .into_iter()
+                            .take(rows_desired)
+                            .into_pipeline_data(ctrlc)
+                            .set_metadata(metadata))
+                    }
+                }
                 Value::Binary { val, span } => {
-                    let slice: Vec<u8> = val.into_iter().take(rows_desired).collect();
+                    let slice: Vec<u8> = if take_last {
+                        val.into_iter().rev().take(rows_desired).rev().collect()
+                    } else {
+                        val.into_iter().take(rows_desired).collect()
+                    };
                     Ok(PipelineData::Value(
                         Value::Binary { val: slice, span },
                         metadata,
                     ))
                 }
-                Value::Range { val, .. } => Ok(val
-                    .into_range_iter(ctrlc.clone())?
-                    .take(rows_desired)
-                    .into_pipeline_data(ctrlc)
-                    .set_metadata(metadata)),
+                Value::Range { val, .. } => {
+                    if take_last {
+                        // TODO: implement DoubleEndedIterator for RangeIterator so we can use .rev().take(n).rev()
+                        // without collecting here
+                        let collected = val.into_range_iter(ctrlc.clone())?.collect_vec();
+                        Ok(collected
+                            .into_iter()
+                            .rev()
+                            .take(rows_desired)
+                            .rev()
+                            .into_pipeline_data(ctrlc)
+                            .set_metadata(metadata))
+                    } else {
+                        Ok(val
+                            .into_range_iter(ctrlc.clone())?
+                            .take(rows_desired)
+                            .into_pipeline_data(ctrlc)
+                            .set_metadata(metadata))
+                    }
+                }
                 _ => Err(input_not_supported_error()),
             },
-            PipelineData::ListStream(ls, metadata) => Ok(ls
-                .take(rows_desired)
-                .into_pipeline_data(ctrlc)
-                .set_metadata(metadata)),
+            PipelineData::ListStream(ls, metadata) => {
+                if take_last {
+                    let collected = ls.collect_vec();
+                    Ok(collected
+                        .into_iter()
+                        .rev()
+                        .take(rows_desired)
+                        .rev()
+                        .into_pipeline_data(ctrlc)
+                        .set_metadata(metadata))
+                } else {
+                    Ok(ls
+                        .take(rows_desired)
+                        .into_pipeline_data(ctrlc)
+                        .set_metadata(metadata))
+                }
+            }
             _ => Err(input_not_supported_error()),
         }
     }
@@ -98,18 +154,18 @@ impl Command for Take {
     fn examples(&self) -> Vec<Example> {
         vec![
             Example {
-                description: "Return the first item of a list/table",
-                example: "[1 2 3] | take 1",
-                result: Some(Value::List {
-                    vals: vec![Value::test_int(1)],
-                    span: Span::test_data(),
-                }),
-            },
-            Example {
                 description: "Return the first 2 items of a list/table",
                 example: "[1 2 3] | take 2",
                 result: Some(Value::List {
                     vals: vec![Value::test_int(1), Value::test_int(2)],
+                    span: Span::test_data(),
+                }),
+            },
+            Example {
+                description: "Return the last 2 items of a list/table",
+                example: "[1 2 3] | take -2",
+                result: Some(Value::List {
+                    vals: vec![Value::test_int(2), Value::test_int(3)],
                     span: Span::test_data(),
                 }),
             },
@@ -133,10 +189,26 @@ impl Command for Take {
                 }),
             },
             Example {
+                description: "Return the last 2 bytes of a binary value",
+                example: "0x[01 23 45] | take -2",
+                result: Some(Value::Binary {
+                    val: vec![0x23, 0x45],
+                    span: Span::test_data(),
+                }),
+            },
+            Example {
                 description: "Return the first 3 elements of a range",
                 example: "1..10 | take 3",
                 result: Some(Value::List {
                     vals: vec![Value::test_int(1), Value::test_int(2), Value::test_int(3)],
+                    span: Span::test_data(),
+                }),
+            },
+            Example {
+                description: "Return the last 3 elements of a range",
+                example: "1..10 | take -3",
+                result: Some(Value::List {
+                    vals: vec![Value::test_int(8), Value::test_int(9), Value::test_int(10)],
                     span: Span::test_data(),
                 }),
             },
