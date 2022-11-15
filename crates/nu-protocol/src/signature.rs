@@ -122,6 +122,28 @@ pub struct Signature {
     pub category: Category,
 }
 
+/// Fromat argumet type for user readable output.
+///
+/// In general:
+/// if argument type is a simple type(like string), we'll wrapped with `<>`, the result will be `<string>`
+/// if argument type is already contains `<>`, like `list<any>`, the result will be `list<any>`.
+fn fmt_type(arg_type: &Type, optional: bool) -> String {
+    let arg_type = arg_type.to_string();
+    if arg_type.contains("<") && arg_type.contains(">") {
+        if optional {
+            format!("{arg_type}?")
+        } else {
+            arg_type
+        }
+    } else {
+        if optional {
+            format!("<{arg_type}?>")
+        } else {
+            format!("<{arg_type}>")
+        }
+    }
+}
+
 // in general, a commands signature should looks like this:
 //
 // <string> | <string>, <int?> => string
@@ -139,13 +161,13 @@ impl std::fmt::Display for Signature {
         let mut args = self
             .required_positional
             .iter()
-            .map(|p| format!("<{}>", p.shape.to_type()))
+            .map(|p| fmt_type(&p.shape.to_type(), false))
             .collect::<Vec<String>>();
         args.append(
             &mut self
                 .optional_positional
                 .iter()
-                .map(|p| format!("<{}?>", p.shape.to_type()))
+                .map(|p| fmt_type(&p.shape.to_type(), true))
                 .collect::<Vec<String>>(),
         );
         let args = args.join(", ");
@@ -153,14 +175,13 @@ impl std::fmt::Display for Signature {
         let mut signatures = vec![];
         for (input_type, output_type) in self.input_output_types.iter() {
             // ident with two spaces for user friendly output.
+            let input_type = fmt_type(input_type, false);
+            let output_type = fmt_type(output_type, false);
             if args.is_empty() {
-                signatures.push(format!(
-                    "  <{input_type}> | {} -> <{output_type}>",
-                    self.name
-                ))
+                signatures.push(format!("  {input_type} | {} -> {output_type}", self.name))
             } else {
                 signatures.push(format!(
-                    "  <{input_type}> | {} {args} -> <{output_type}>",
+                    "  {input_type} | {} {args} -> {output_type}",
                     self.name
                 ))
             }
