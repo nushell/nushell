@@ -139,13 +139,13 @@ impl std::fmt::Display for Signature {
         let mut args = self
             .required_positional
             .iter()
-            .map(|p| p.shape.to_string())
+            .map(|p| p.shape.to_type().to_string())
             .collect::<Vec<String>>();
         args.append(
             &mut self
                 .optional_positional
                 .iter()
-                .map(|p| format!("{}?", p.shape))
+                .map(|p| format!("{}?", p.shape.to_type()))
                 .collect::<Vec<String>>(),
         );
         let args = args.join(", ");
