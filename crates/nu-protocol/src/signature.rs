@@ -145,7 +145,7 @@ impl std::fmt::Display for Signature {
             &mut self
                 .optional_positional
                 .iter()
-                .map(|p| format!("<{}>?", p.shape.to_type()))
+                .map(|p| format!("<{}?>", p.shape.to_type()))
                 .collect::<Vec<String>>(),
         );
         let args = args.join(", ");
