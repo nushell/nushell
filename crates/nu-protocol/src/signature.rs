@@ -153,7 +153,11 @@ impl std::fmt::Display for Signature {
         let mut signatures = vec![];
         for (input_type, output_type) in self.input_output_types.iter() {
             // ident with two spaces for user friendly output.
-            signatures.push(format!("  {input_type}, {args} => {output_type}"))
+            if args.is_empty() {
+                signatures.push(format!("  {input_type} => {output_type}"))
+            } else {
+                signatures.push(format!("  {input_type}, {args} => {output_type}"))
+            }
         }
         write!(f, "{}", signatures.join("\n"))
     }
