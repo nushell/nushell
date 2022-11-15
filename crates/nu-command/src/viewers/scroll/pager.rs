@@ -155,48 +155,30 @@ where
                     }
                 }
 
-                // {
-                //     // set a cursor to cmd bar
-                //     if state.is_cmd_input {
-                //         // todo: deal with a situation where we exeed the bar width
-                //         let next_pos = (state.buf_cmd2.len() + 1) as u16;
-                //         // 1 skips a ':' char
-                //         if next_pos < area.width {
-                //             f.set_cursor(next_pos as u16, area.height - 1);
-                //         }
-                //     } else if state.is_search_input {
-                //         // todo: deal with a situation where we exeed the bar width
-                //         let next_pos = (state.buf_cmd_input.len() + 1) as u16;
-                //         // 1 skips a ':' char
-                //         if next_pos < area.width {
-                //             f.set_cursor(next_pos as u16, area.height - 1);
-                //         }
-                //     }
-                // }
+                {
+                    // set a cursor to cmd bar
+                    if state.is_cmd_input {
+                        // todo: deal with a situation where we exeed the bar width
+                        let next_pos = (state.buf_cmd2.len() + 1) as u16;
+                        // 1 skips a ':' char
+                        if next_pos < area.width {
+                            f.set_cursor(next_pos as u16, area.height - 1);
+                        }
+                    } else if state.is_search_input {
+                        // todo: deal with a situation where we exeed the bar width
+                        let next_pos = (state.buf_cmd_input.len() + 1) as u16;
+                        // 1 skips a ':' char
+                        if next_pos < area.width {
+                            f.set_cursor(next_pos as u16, area.height - 1);
+                        }
+                    }
+                }
             })?;
 
             let exited = handle_events(&events, state, &layout, terminal);
             if exited {
                 let val = state.peek_value.then(|| get_last_used_value(state, layout));
                 break Ok(val);
-            }
-
-            // don't ask
-            if state.is_cmd_input {
-                state.is_cmd_input = false;
-
-                let result = read_input(":");
-                match result {
-                    Some(command) => {
-                        state.buf_cmd2 = command;
-                        state.run_cmd = true;
-                    }
-                    None => {}
-                }
-
-                // to make it work...
-                enable_raw_mode()?;
-                terminal.clear()?;
             }
         }
 
@@ -823,6 +805,8 @@ fn cmd_input_key_event(key: &KeyEvent, state: &mut UIState<'_>, _layout: &Layout
         KeyCode::Enter => {
             state.is_cmd_input = false;
             state.run_cmd = true;
+            state.cmd_history.push(state.buf_cmd2.clone());
+            state.cmd_history_pos = state.cmd_history.len();
             true
         }
         KeyCode::Backspace => {
@@ -830,12 +814,35 @@ fn cmd_input_key_event(key: &KeyEvent, state: &mut UIState<'_>, _layout: &Layout
                 state.is_cmd_input = false;
             } else {
                 state.buf_cmd2.pop();
+                state.cmd_history_allow = false;
             }
 
             true
         }
         KeyCode::Char(c) => {
             state.buf_cmd2.push(*c);
+            state.cmd_history_allow = false;
+            true
+        }
+        KeyCode::Down if state.buf_cmd2.is_empty() || state.cmd_history_allow => {
+            if !state.cmd_history.is_empty() {
+                state.cmd_history_allow = true;
+                state.cmd_history_pos = min(
+                    state.cmd_history_pos + 1,
+                    state.cmd_history.len().saturating_sub(1),
+                );
+                state.buf_cmd2 = state.cmd_history[state.cmd_history_pos].clone();
+            }
+
+            true
+        }
+        KeyCode::Up if state.buf_cmd2.is_empty() || state.cmd_history_allow => {
+            if !state.cmd_history.is_empty() {
+                state.cmd_history_allow = true;
+                state.cmd_history_pos = state.cmd_history_pos.saturating_sub(1);
+                state.buf_cmd2 = state.cmd_history[state.cmd_history_pos].clone();
+            }
+
             true
         }
         _ => false,
@@ -879,6 +886,9 @@ struct UIState<'a> {
     is_cmd_input: bool,
     run_cmd: bool,
     buf_cmd2: String,
+    cmd_history: Vec<String>,
+    cmd_history_allow: bool,
+    cmd_history_pos: usize,
 }
 
 #[derive(Debug, Default, Clone)]
@@ -949,6 +959,9 @@ impl<'a> UIState<'a> {
             is_cmd_input: false,
             run_cmd: false,
             buf_cmd2: String::new(),
+            cmd_history: Vec::new(),
+            cmd_history_allow: false,
+            cmd_history_pos: 0,
         }
     }
 
@@ -1362,71 +1375,6 @@ fn nu_style_to_tui(style: NuStyle) -> tui::style::Style {
     }
 
     out
-}
-
-fn read_input(prompt: &str) -> Option<String> {
-    use reedline::{
-        DefaultCompleter, EditCommand, Emacs, ExampleHighlighter, Keybindings, Reedline,
-        ReedlineEvent, Signal,
-    };
-
-    struct TextPrompt<'a>(&'a str);
-
-    impl reedline::Prompt for TextPrompt<'_> {
-        fn render_prompt_left(&self) -> Cow<str> {
-            Cow::Borrowed(self.0)
-        }
-
-        fn render_prompt_right(&self) -> Cow<str> {
-            Cow::Borrowed("")
-        }
-
-        fn render_prompt_indicator(&self, _: reedline::PromptEditMode) -> Cow<str> {
-            Cow::Borrowed("")
-        }
-
-        fn render_prompt_multiline_indicator(&self) -> Cow<str> {
-            Cow::Borrowed("")
-        }
-
-        fn render_prompt_history_search_indicator(
-            &self,
-            _: reedline::PromptHistorySearch,
-        ) -> Cow<str> {
-            Cow::Borrowed("")
-        }
-    }
-
-    let commands = vec!["nu".into()];
-
-    let completer = Box::new(DefaultCompleter::new_with_wordlen(commands.clone(), 2));
-
-    // Use the interactive menu to select options from the completer
-    let highlighter = Box::new(ExampleHighlighter::new(commands));
-
-    // let mut keybindings = Keybindings::default();
-    // keybindings.add_binding(KeyModifiers::NONE, KeyCode::Esc, ReedlineEvent::CtrlD);
-    // keybindings.add_binding(
-    //     KeyModifiers::NONE,
-    //     KeyCode::Backspace,
-    //     ReedlineEvent::Edit(vec![EditCommand::Backspace]),
-    // );
-
-    // let edit_mode = Box::new(Emacs::new(keybindings));
-
-    let mut line_editor = Reedline::create()
-        .with_completer(completer)
-        .with_highlighter(highlighter)
-        // .with_edit_mode(edit_mode)
-        ;
-
-    let sig = line_editor.read_line(&TextPrompt(prompt));
-
-    match sig {
-        Ok(Signal::Success(buffer)) => Some(buffer),
-        Ok(Signal::CtrlD) | Ok(Signal::CtrlC) => None,
-        Err(_) => None,
-    }
 }
 
 fn render_index(buf: &mut Buffer, area: Rect, color_hm: &NuStyleTable, start_index: usize) -> u16 {
