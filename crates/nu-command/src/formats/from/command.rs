@@ -27,7 +27,13 @@ impl Command for From {
         _input: PipelineData,
     ) -> Result<nu_protocol::PipelineData, ShellError> {
         Ok(Value::String {
-            val: get_full_help(&From.signature(), &From.examples(), engine_state, stack),
+            val: get_full_help(
+                &From.signature(),
+                &From.examples(),
+                engine_state,
+                stack,
+                self.is_parser_keyword(),
+            ),
             span: call.head,
         }
         .into_pipeline_data())

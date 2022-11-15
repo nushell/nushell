@@ -10,6 +10,7 @@ pub fn get_full_help(
     examples: &[Example],
     engine_state: &EngineState,
     stack: &mut Stack,
+    is_parser_keyword: bool,
 ) -> String {
     let config = engine_state.get_config();
     let doc_config = DocumentationConfig {
@@ -17,7 +18,14 @@ pub fn get_full_help(
         no_color: !config.use_ansi_coloring,
         brief: false,
     };
-    get_documentation(sig, examples, engine_state, stack, &doc_config)
+    get_documentation(
+        sig,
+        examples,
+        engine_state,
+        stack,
+        &doc_config,
+        is_parser_keyword,
+    )
 }
 
 #[derive(Default)]
@@ -34,6 +42,7 @@ fn get_documentation(
     engine_state: &EngineState,
     stack: &mut Stack,
     config: &DocumentationConfig,
+    is_parser_keyword: bool,
 ) -> String {
     // Create ansi colors
     const G: &str = "\x1b[32m"; // green
@@ -89,7 +98,7 @@ fn get_documentation(
         long_desc.push_str(&get_flags_section(sig))
     }
 
-    if !sig.input_output_types.is_empty() {
+    if !is_parser_keyword && !sig.input_output_types.is_empty() {
         if sig.operates_on_cell_paths() {
             let _ = writeln!(
                 long_desc,
