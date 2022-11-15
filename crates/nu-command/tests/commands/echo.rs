@@ -5,7 +5,7 @@ fn echo_range_is_lazy() {
     let actual = nu!(
         cwd: "tests/fixtures/formats", pipeline(
         r#"
-        echo 1..10000000000 | first 3 | to json --raw
+        echo 1..10000000000 | take 3 | to json --raw
         "#
     ));
 

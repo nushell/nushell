@@ -8,7 +8,7 @@ fn by_column() {
             open cargo_sample.toml --raw
             | lines
             | skip 1
-            | first 4
+            | take 4
             | split column "="
             | sort-by column1
             | skip 1
@@ -29,7 +29,7 @@ fn by_invalid_column() {
             open cargo_sample.toml --raw
             | lines
             | skip 1
-            | first 4
+            | take 4
             | split column "="
             | sort-by ColumnThatDoesNotExist
             | skip 1

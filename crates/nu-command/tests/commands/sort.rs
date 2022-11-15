@@ -25,7 +25,7 @@ fn sort_primitive_values() {
             open cargo_sample.toml --raw
             | lines
             | skip 1
-            | first 6
+            | take 6
             | sort
             | first
         "#

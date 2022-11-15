@@ -248,7 +248,7 @@ fn shortcircuiting_or() -> TestResult {
 
 #[test]
 fn open_ended_range() -> TestResult {
-    run_test(r#"1.. | first 100000 | length"#, "100000")
+    run_test(r#"1.. | take 100000 | length"#, "100000")
 }
 
 #[test]

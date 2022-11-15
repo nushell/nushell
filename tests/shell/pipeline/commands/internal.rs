@@ -927,7 +927,7 @@ fn range_with_open_right() {
     let actual = nu!(
         cwd: ".",
         r#"
-        echo 5.. | first 10 | math sum
+        echo 5.. | take 10 | math sum
         "#
     );
 
@@ -939,7 +939,7 @@ fn exclusive_range_with_open_right() {
     let actual = nu!(
         cwd: ".",
         r#"
-        echo 5..< | first 10 | math sum
+        echo 5..< | take 10 | math sum
         "#
     );
 

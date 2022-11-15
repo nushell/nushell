@@ -44,7 +44,7 @@ fn sets_the_column_from_a_block_full_stream_output() {
         cwd: "tests/fixtures/formats", pipeline(
         r#"
             wrap content
-            | update content { open --raw cargo_sample.toml | lines | first 5 }
+            | update content { open --raw cargo_sample.toml | lines | take 5 }
             | get content.1
             | str contains "nu"
         "#
@@ -59,7 +59,7 @@ fn sets_the_column_from_a_subexpression() {
         cwd: "tests/fixtures/formats", pipeline(
         r#"
             wrap content
-            | update content (open --raw cargo_sample.toml | lines | first 5)
+            | update content (open --raw cargo_sample.toml | lines | take 5)
             | get content.1
             | str contains "nu"
         "#
