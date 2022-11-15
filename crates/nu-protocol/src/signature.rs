@@ -124,13 +124,13 @@ pub struct Signature {
 
 // in general, a commands signature should looks like this:
 //
-// string, string, int? => string
+// <string> | <string>, <int?> => string
 //
 // More detail explaination:
 // the first one is the input from previous command, aka, pipeline input
-// then positional arguments type
+// then followed by `|`, then positional arguments type
 // then optional arguments type, which ends with `?`
-// Then followed by `=>`
+// Then followed by `->`
 // Finally output type.
 //
 // If a command contains multiple input/output types, separate them.
@@ -139,13 +139,13 @@ impl std::fmt::Display for Signature {
         let mut args = self
             .required_positional
             .iter()
-            .map(|p| p.shape.to_type().to_string())
+            .map(|p| format!("<{}>", p.shape.to_type()))
             .collect::<Vec<String>>();
         args.append(
             &mut self
                 .optional_positional
                 .iter()
-                .map(|p| format!("{}?", p.shape.to_type()))
+                .map(|p| format!("<{}>?", p.shape.to_type()))
                 .collect::<Vec<String>>(),
         );
         let args = args.join(", ");
@@ -154,9 +154,15 @@ impl std::fmt::Display for Signature {
         for (input_type, output_type) in self.input_output_types.iter() {
             // ident with two spaces for user friendly output.
             if args.is_empty() {
-                signatures.push(format!("  {input_type} => {output_type}"))
+                signatures.push(format!(
+                    "  <{input_type}> | {} -> <{output_type}>",
+                    self.name
+                ))
             } else {
-                signatures.push(format!("  {input_type}, {args} => {output_type}"))
+                signatures.push(format!(
+                    "  <{input_type}> | {} {args} -> <{output_type}>",
+                    self.name
+                ))
             }
         }
         write!(f, "{}", signatures.join("\n"))
