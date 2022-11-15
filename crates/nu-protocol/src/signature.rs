@@ -124,7 +124,7 @@ pub struct Signature {
 
 // in general, a commands signature should looks like this:
 //
-// string, string, int?, {flags}, ...rest => string
+// string, string, int? => string
 //
 // More detail explaination:
 // the first one is the input from previous command, aka, pipeline input
