@@ -129,18 +129,16 @@ pub struct Signature {
 /// if argument type is already contains `<>`, like `list<any>`, the result will be `list<any>`.
 fn fmt_type(arg_type: &Type, optional: bool) -> String {
     let arg_type = arg_type.to_string();
-    if arg_type.contains("<") && arg_type.contains(">") {
+    if arg_type.contains('<') && arg_type.contains('>') {
         if optional {
             format!("{arg_type}?")
         } else {
             arg_type
         }
+    } else if optional {
+        format!("<{arg_type}?>")
     } else {
-        if optional {
-            format!("<{arg_type}?>")
-        } else {
-            format!("<{arg_type}>")
-        }
+        format!("<{arg_type}>")
     }
 }
 
