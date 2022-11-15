@@ -220,6 +220,23 @@ where
                             // todo: ignore for now
                         }
                     }
+                } else if cmd.starts_with("help") {
+                    let (headers, data) = help_frame_data();
+
+                    let mut new_state = UIState::new(
+                        Cow::from(headers),
+                        Cow::from(data),
+                        state.config,
+                        state.color_hm,
+                        state.show_header,
+                        state.show_index,
+                        state.peek_value,
+                        state.style.clone(),
+                    );
+                    new_state.cmd_history = state.cmd_history.clone();
+                    new_state.cmd_history_pos = state.cmd_history_pos;
+
+                    state_stack.push(new_state);
                 } else {
                     state.cmd_exec_info = Some(String::from("A command was not recognized"))
                 }
@@ -262,6 +279,74 @@ where
             }
         }
     }
+}
+
+fn help_frame_data() -> (Vec<String>, Vec<Vec<Value>>) {
+    macro_rules! null {
+        () => {
+            Value::Nothing {
+                span: NuSpan::unknown(),
+            }
+        };
+    }
+
+    macro_rules! nu_str {
+        ($text:expr) => {
+            Value::String {
+                val: $text.to_string(),
+                span: NuSpan::unknown(),
+            }
+        };
+    }
+
+    let commands_headers = [String::from("name"), String::from("description")];
+
+    #[rustfmt::skip]
+    let supported_commands = [
+        ("nu",   "Run a custom `nu` command with showed table as an input"),
+        ("help", "Print a help menu")
+    ];
+
+    let commands = Value::List {
+        vals: supported_commands
+            .iter()
+            .map(|(name, description)| Value::Record {
+                cols: commands_headers.to_vec(),
+                vals: vec![nu_str!(name), nu_str!(description)],
+                span: NuSpan::unknown(),
+            })
+            .collect(),
+        span: NuSpan::unknown(),
+    };
+
+    let headers = vec!["name", "mode", "information", "description"];
+
+    #[rustfmt::skip]
+    let shortcuts = [
+        ("i",      "view",    null!(),   "Turn on a cursor mode so you can inspect values"),
+        (":",      "view",    commands,  "Run a command"),
+        ("/",      "view",    null!(),   "Search via pattern"),
+        ("?",      "view",    null!(),   "Search via pattern but results will be reversed when you press <n>"),
+        ("n",      "view",    null!(),   "Gets to the next found element in search"),
+        ("Up",     "",        null!(),   "Moves to an element above"),
+        ("Down",   "",        null!(),   "Moves to an element bellow"),
+        ("Left",   "",        null!(),   "Moves to an element to the left"),
+        ("Right",  "",        null!(),   "Moves to an element to the right"),
+        ("PgDown", "view",    null!(),   "Moves to an a bunch of elements bellow"),
+        ("PgUp",   "view",    null!(),   "Moves to an a bunch of elements above"),
+        ("Esc",    "cursor",  null!(),   "Exits a cursor mode. Exists an expected element."),
+        ("Enter",  "cursor",  null!(),   "Inspect a chosen element"),
+    ];
+
+    let headers = headers.iter().map(|s| s.to_string()).collect();
+    let data = shortcuts
+        .iter()
+        .map(|(name, mode, info, desc)| {
+            vec![nu_str!(name), nu_str!(mode), info.clone(), nu_str!(desc)]
+        })
+        .collect();
+
+    (headers, data)
 }
 
 fn run_nu_command(
