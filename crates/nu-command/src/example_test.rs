@@ -9,8 +9,8 @@ pub fn test_examples(cmd: impl Command + 'static) {
 #[cfg(test)]
 mod test_examples {
     use super::super::{
-        Ansi, BuildString, Date, Echo, From, If, Into, LetEnv, Math, Path, Random, Split,
-        SplitColumn, SplitRow, Str, StrJoin, StrLength, StrReplace, Url, Wrap,
+        Ansi, Date, Echo, From, If, Into, LetEnv, Math, Path, Random, Split, SplitColumn, SplitRow,
+        Str, StrJoin, StrLength, StrReplace, Url, Wrap,
     };
     use crate::To;
     use itertools::Itertools;
@@ -64,7 +64,6 @@ mod test_examples {
             working_set.add_decl(Box::new(StrJoin));
             working_set.add_decl(Box::new(StrLength));
             working_set.add_decl(Box::new(StrReplace));
-            working_set.add_decl(Box::new(BuildString));
             working_set.add_decl(Box::new(From));
             working_set.add_decl(Box::new(If));
             working_set.add_decl(Box::new(To));
