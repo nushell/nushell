@@ -1014,7 +1014,7 @@ fn convert_to_table2<'a>(
                 let value = NuTable::create_cell(value.0, value.1);
 
                 let row = row + 1;
-                *data[row].last_mut().unwrap() = value;
+                *data[row].last_mut().expect("unwrap") = value;
             }
         }
 
@@ -1039,7 +1039,7 @@ fn convert_to_table2<'a>(
                 let value = NuTable::create_cell(value.0, value.1);
 
                 let row = row + 1;
-                *data[row].last_mut().unwrap() = value;
+                *data[row].last_mut().expect("unwrap") = value;
             }
         }
 
