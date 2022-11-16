@@ -991,6 +991,7 @@ fn convert_to_table2<'a>(
 
         if available_width == 0 || available_width <= nessary_space {
             // we don't do truncate here or anything like it cause we know that
+            truncate = true;
             break;
         }
 
