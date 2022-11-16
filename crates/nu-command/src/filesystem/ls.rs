@@ -165,8 +165,8 @@ impl Command for Ls {
         if paths_peek.peek().is_none() {
             return Err(ShellError::GenericError(
                 format!("No matches found for {}", &path.display().to_string()),
-                "".to_string(),
-                None,
+                "Pattern, file or folder not found".to_string(),
+                Some(p_tag),
                 Some("no matches found".to_string()),
                 Vec::new(),
             ));
