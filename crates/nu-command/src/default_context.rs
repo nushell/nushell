@@ -184,7 +184,6 @@ pub fn create_default_context() -> EngineState {
 
         // Strings
         bind_command! {
-            BuildString,
             Char,
             Decode,
             Encode,
