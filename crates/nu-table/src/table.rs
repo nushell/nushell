@@ -20,7 +20,7 @@ use tabled::{
 use crate::{table_theme::TableTheme, TextStyle};
 
 /// Table represent a table view.
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Table {
     data: Data,
     is_empty: bool,
@@ -63,8 +63,11 @@ impl Table {
         }
     }
 
-    pub fn create_cell(text: String, style: TextStyle) -> TCell<CellInfo<'static>, TextStyle> {
-        TCell::new(CellInfo::new(text, CfgWidthFunction::new(4)), style)
+    pub fn create_cell(
+        text: impl Into<String>,
+        style: TextStyle,
+    ) -> TCell<CellInfo<'static>, TextStyle> {
+        TCell::new(CellInfo::new(text.into(), CfgWidthFunction::new(4)), style)
     }
 
     pub fn is_empty(&self) -> bool {
@@ -85,6 +88,10 @@ impl Table {
             let mut table = Builder::custom(self.data.clone()).build();
             load_theme(&mut table, &HashMap::new(), theme, false, false);
             let total = table.total_width();
+
+            // println!("{}", table);
+            // println!("width={:?} total={:?}", width, total);
+
             drop(table);
 
             if total > width {
@@ -120,8 +127,9 @@ impl Table {
         alignments: Alignments,
         theme: &TableTheme,
         termwidth: usize,
+        expand: bool,
     ) -> Option<String> {
-        draw_table(self, config, color_hm, alignments, theme, termwidth)
+        draw_table(self, config, color_hm, alignments, theme, termwidth, expand)
     }
 }
 
@@ -149,6 +157,7 @@ fn draw_table(
     alignments: Alignments,
     theme: &TableTheme,
     termwidth: usize,
+    expand: bool,
 ) -> Option<String> {
     if table.is_empty {
         return None;
@@ -165,6 +174,11 @@ fn draw_table(
     let mut table = Builder::custom(table.data).build();
     load_theme(&mut table, color_hm, theme, with_footer, with_header);
     align_table(&mut table, alignments, with_index, with_header, with_footer);
+
+    if expand {
+        table.with(Width::increase(termwidth));
+    }
+
     table_trim_columns(&mut table, termwidth, &config.trim_strategy);
 
     let table = print_table(table, config);

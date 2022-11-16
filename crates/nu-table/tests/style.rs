@@ -464,7 +464,7 @@ fn draw_table(
     let styles = HashMap::default();
     let alignments = Alignments::default();
     table
-        .draw_table(&cfg, &styles, alignments, &theme, std::usize::MAX)
+        .draw_table(&cfg, &styles, alignments, &theme, std::usize::MAX, false)
         .expect("Unexpectdly got no table")
 }
 
