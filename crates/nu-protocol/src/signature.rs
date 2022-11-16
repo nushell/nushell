@@ -153,7 +153,7 @@ fn fmt_type(arg_type: &Type, optional: bool) -> String {
 // Then followed by `->`
 // Finally output type.
 //
-// If a command contains multiple input/output types, separate them.
+// If a command contains multiple input/output types, separate them in different lines.
 impl std::fmt::Display for Signature {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let mut args = self
