@@ -113,6 +113,7 @@ impl Command for Do {
                     exit_code,
                     span,
                     metadata,
+                    trim_end_newline,
                 }) => {
                     // collect all output first.
                     let mut stderr_ctrlc = None;
@@ -169,6 +170,7 @@ impl Command for Do {
                         )),
                         span,
                         metadata,
+                        trim_end_newline,
                     })
                 }
                 Ok(other) => Ok(other),

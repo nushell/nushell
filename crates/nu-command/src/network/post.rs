@@ -430,6 +430,7 @@ fn response_to_buffer(
         exit_code: None,
         span,
         metadata: None,
+        trim_end_newline: false,
     }
 }
 // Only panics if the user agent is invalid but we define it statically so either

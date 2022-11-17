@@ -36,6 +36,7 @@ impl Command for External {
         Signature::build(self.name())
             .switch("redirect-stdout", "redirect stdout to the pipeline", None)
             .switch("redirect-stderr", "redirect stderr to the pipeline", None)
+            .switch("trim-end-newline", "trimming end newlines", None)
             .required("command", SyntaxShape::Any, "external command to run")
             .rest("args", SyntaxShape::Any, "arguments for external command")
             .category(Category::System)
@@ -52,6 +53,7 @@ impl Command for External {
         let args: Vec<Value> = call.rest(engine_state, stack, 1)?;
         let redirect_stdout = call.has_flag("redirect-stdout");
         let redirect_stderr = call.has_flag("redirect-stderr");
+        let trim_end_newline = call.has_flag("trim-end-newline");
 
         // Translate environment variables from Values to Strings
         let env_vars_str = env_to_strings(engine_state, stack)?;
@@ -109,6 +111,7 @@ impl Command for External {
             redirect_stdout,
             redirect_stderr,
             env_vars: env_vars_str,
+            trim_end_newline,
         };
         command.run_with_input(engine_state, stack, input, false)
     }
@@ -137,6 +140,7 @@ pub struct ExternalCommand {
     pub redirect_stdout: bool,
     pub redirect_stderr: bool,
     pub env_vars: HashMap<String, String>,
+    pub trim_end_newline: bool,
 }
 
 impl ExternalCommand {
@@ -466,6 +470,7 @@ impl ExternalCommand {
                     )),
                     span: head,
                     metadata: None,
+                    trim_end_newline: self.trim_end_newline,
                 })
             }
         }

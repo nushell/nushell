@@ -240,6 +240,17 @@ fn eval_external(
         ))
     }
 
+    if is_subexpression {
+        call.add_named((
+            Spanned {
+                item: "trim-end-newline".into(),
+                span: head.span,
+            },
+            None,
+            None,
+        ))
+    }
+
     command.run(engine_state, stack, &call, input)
 }
 
@@ -724,6 +735,7 @@ fn might_consume_external_result(input: PipelineData) -> (PipelineData, bool) {
         mut exit_code,
         span,
         metadata,
+        trim_end_newline,
     } = input
     {
         let exit_code = exit_code.take();
@@ -769,6 +781,7 @@ fn might_consume_external_result(input: PipelineData) -> (PipelineData, bool) {
                         exit_code: Some(ListStream::from_stream(exit_code.into_iter(), ctrlc)),
                         span,
                         metadata,
+                        trim_end_newline,
                     },
                     runs_to_failed,
                 )
@@ -780,6 +793,7 @@ fn might_consume_external_result(input: PipelineData) -> (PipelineData, bool) {
                     exit_code: None,
                     span,
                     metadata,
+                    trim_end_newline,
                 },
                 runs_to_failed,
             ),

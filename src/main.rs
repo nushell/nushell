@@ -320,6 +320,7 @@ fn main() -> Result<()> {
                     exit_code: None,
                     span: redirect_stdin.span,
                     metadata: None,
+                    trim_end_newline: false,
                 }
             } else {
                 PipelineData::new(Span::new(0, 0))
