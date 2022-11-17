@@ -1,5 +1,5 @@
 use lscolors::{LsColors, Style};
-use nu_color_config::{color_from_hex, get_color_config, style_primitive};
+use nu_color_config::color_from_hex;
 use nu_engine::{column::get_columns, env_to_string, CallExt};
 use nu_protocol::{
     ast::{Call, PathMember},
@@ -8,11 +8,17 @@ use nu_protocol::{
     PipelineData, PipelineMetadata, RawStream, ShellError, Signature, Span, SyntaxShape,
     TableIndexMode, Value,
 };
-use nu_table::{string_width, Alignment, Table as NuTable, TableConfig, TableTheme, TextStyle};
+use nu_table::{
+    string_width, Alignment, StyleComputer, Table as NuTable, TableConfig, TableTheme, TextStyle,
+};
 use nu_utils::get_ls_colors;
 use std::sync::Arc;
 use std::time::Instant;
-use std::{cmp::max, collections::HashMap, path::PathBuf, sync::atomic::AtomicBool};
+use std::{
+    cmp::max,
+    path::PathBuf,
+    sync::atomic::{AtomicBool, Ordering},
+};
 use terminal_size::{Height, Width};
 use url::Url;
 
@@ -21,7 +27,6 @@ const STREAM_TIMEOUT_CHECK_INTERVAL: usize = 100;
 const INDEX_COLUMN_NAME: &str = "index";
 
 type NuText = (String, TextStyle);
-type NuColorMap = HashMap<String, nu_ansi_term::Style>;
 
 fn get_width_param(width_param: Option<i64>) -> usize {
     if let Some(col) = width_param {
@@ -253,6 +258,7 @@ fn handle_table_command(
             metadata: None,
             trim_end_newline: false,
         }),
+        // None of these two receive a StyleComputer because handle_row_stream() can produce it by itself using engine_state and stack.
         PipelineData::Value(Value::List { vals, .. }, metadata) => handle_row_stream(
             engine_state,
             stack,
@@ -272,9 +278,11 @@ fn handle_table_command(
             metadata,
         ),
         PipelineData::Value(Value::Record { cols, vals, span }, ..) => {
+            // Create a StyleComputer to compute styles for each value in the table.
+            let style_computer = &StyleComputer::from_config(engine_state, stack);
             let result = match table_view {
                 TableView::General => {
-                    build_general_table2(cols, vals, ctrlc.clone(), config, term_width)
+                    build_general_table2(style_computer, cols, vals, ctrlc.clone(), config, term_width)
                 }
                 TableView::Expanded {
                     limit,
@@ -283,6 +291,7 @@ fn handle_table_command(
                 } => {
                     let sep = flatten_separator.as_deref().unwrap_or(" ");
                     build_expanded_table(
+                        style_computer,
                         cols,
                         vals,
                         span,
@@ -294,7 +303,9 @@ fn handle_table_command(
                         sep,
                     )
                 }
-                TableView::Collapsed => build_collapsed_table(cols, vals, config, term_width),
+                TableView::Collapsed => {
+                    build_collapsed_table(style_computer, cols, vals, config, term_width)
+                }
             }?;
 
             let result = strip_output_color(result, config);
@@ -358,6 +369,7 @@ fn supported_table_modes() -> Vec<Value> {
 }
 
 fn build_collapsed_table(
+    style_computer: &StyleComputer,
     cols: Vec<String>,
     vals: Vec<Value>,
     config: &Config,
@@ -369,9 +381,16 @@ fn build_collapsed_table(
         span: Span::new(0, 0),
     };
 
-    let color_hm = get_color_config(config);
     let theme = load_theme_from_config(config);
-    let table = nu_table::NuTable::new(value, true, term_width, config, &color_hm, &theme, false);
+    let table = nu_table::NuTable::new(
+        value,
+        true,
+        term_width,
+        config,
+        style_computer,
+        &theme,
+        false,
+    );
 
     let table = table.draw();
 
@@ -379,6 +398,7 @@ fn build_collapsed_table(
 }
 
 fn build_general_table2(
+    style_computer: &StyleComputer,
     cols: Vec<String>,
     vals: Vec<Value>,
     ctrlc: Option<Arc<AtomicBool>>,
@@ -401,7 +421,7 @@ fn build_general_table2(
 
     let data_len = data.len();
     let color_hm = get_color_config(config);
-    let table_config = create_table_config(config, &color_hm, data_len, false, false, false);
+    let table_config = create_table_config(config, style_computer, data_len, false, false, false);
 
     let table = NuTable::new(data, (data_len, 2));
 
@@ -410,8 +430,10 @@ fn build_general_table2(
     Ok(table)
 }
 
+// The table produced by `table -e`
 #[allow(clippy::too_many_arguments)]
 fn build_expanded_table(
+    style_computer: &StyleComputer,
     cols: Vec<String>,
     vals: Vec<Value>,
     span: Span,
@@ -430,9 +452,13 @@ fn build_expanded_table(
     let key = NuTable::create_cell(" ".repeat(key_width), TextStyle::default());
     let key_table = NuTable::new(vec![vec![key]], (1, 2));
     let key_width = key_table
-        .draw(
-            create_table_config(config, &color_hm, 1, false, false, false),
+        .draw_table(
+            config,
+            style_computer,
+            alignments,
+            &theme,
             usize::MAX,
+            false,
         )
         .map(|table| string_width(&table))
         .unwrap_or(0);
@@ -454,7 +480,7 @@ fn build_expanded_table(
         let is_limited = matches!(expand_limit, Some(0));
         let mut is_expanded = false;
         let value = if is_limited {
-            value_to_styled_string(&value, config, &color_hm).0
+            value_to_styled_string(&value, config, style_computer).0
         } else {
             let deep = expand_limit.map(|i| i - 1);
 
@@ -466,7 +492,7 @@ fn build_expanded_table(
                         ctrlc.clone(),
                         config,
                         span,
-                        &color_hm,
+                        style_computer,
                         deep,
                         flatten,
                         flatten_sep,
@@ -476,14 +502,13 @@ fn build_expanded_table(
                     match table {
                         Some((mut table, with_header, with_index)) => {
                             // controll width via removing table columns.
-                            let theme = load_theme_from_config(config);
                             table.truncate(remaining_width, &theme);
 
                             is_expanded = true;
 
                             let table_config = create_table_config(
                                 config,
-                                &color_hm,
+                                &style_computer,
                                 table.count_rows(),
                                 with_header,
                                 with_index,
@@ -499,12 +524,13 @@ fn build_expanded_table(
                         None => {
                             // it means that the list is empty
                             let value = Value::List { vals, span };
-                            value_to_styled_string(&value, config, &color_hm).0
+                            value_to_styled_string(&value, config, style_computer).0
                         }
                     }
                 }
                 Value::Record { cols, vals, span } => {
                     let result = build_expanded_table(
+                        style_computer,
                         cols.clone(),
                         vals.clone(),
                         span,
@@ -525,7 +551,7 @@ fn build_expanded_table(
                             let failed_value = value_to_styled_string(
                                 &Value::Record { cols, vals, span },
                                 config,
-                                &color_hm,
+                                style_computer,
                             );
 
                             nu_table::wrap_string(&failed_value.0, remaining_width)
@@ -533,7 +559,7 @@ fn build_expanded_table(
                     }
                 }
                 val => {
-                    let text = value_to_styled_string(&val, config, &color_hm).0;
+                    let text = value_to_styled_string(&val, config, style_computer).0;
                     nu_table::wrap_string(&text, remaining_width)
                 }
             }
@@ -700,7 +726,10 @@ fn handle_row_stream(
         stdout: Some(RawStream::new(
             Box::new(PagingTableCreator {
                 row_offset,
-                config: engine_state.get_config().clone(),
+                // These are passed in as a way to have PagingTable create StyleComputers
+                // for the values it outputs. Because engine_state is passed in, config doesn't need to.
+                engine_state: engine_state.clone(),
+                stack: stack.clone(),
                 ctrlc: ctrlc.clone(),
                 head,
                 stream,
@@ -749,7 +778,7 @@ fn convert_to_table(
     ctrlc: Option<Arc<AtomicBool>>,
     config: &Config,
     head: Span,
-    color_hm: &NuColorMap,
+    style_computer: &StyleComputer,
 ) -> Result<Option<(NuTable, bool, bool)>, ShellError> {
     let mut headers = get_columns(input);
     let mut input = input.iter().peekable();
@@ -774,11 +803,12 @@ fn convert_to_table(
         .into_iter()
         .filter(|header| header != INDEX_COLUMN_NAME)
         .map(|text| {
+            let style = style_computer.compute("header", &Value::string(text.as_str(), head));
             NuTable::create_cell(
                 text,
                 TextStyle {
                     alignment: Alignment::Center,
-                    color_style: Some(color_hm["header"]),
+                    color_style: Some(style),
                 },
             )
         })
@@ -812,7 +842,7 @@ fn convert_to_table(
             }
             .unwrap_or_else(|| (row_num + row_offset).to_string());
 
-            let value = make_index_string(text, color_hm);
+            let value = make_index_string(text, style_computer);
             let value = NuTable::create_cell(value.0, value.1);
 
             row.push(value);
@@ -820,8 +850,7 @@ fn convert_to_table(
 
         if !with_header {
             let text = item.into_abbreviated_string(config);
-            let text_type = item.get_type().to_string();
-            let value = make_styled_string(text, &text_type, color_hm, float_precision);
+            let value = make_styled_string(style_computer, text, Some(item), float_precision);
             let value = NuTable::create_cell(value.0, value.1);
 
             row.push(value);
@@ -829,7 +858,7 @@ fn convert_to_table(
             let skip_num = usize::from(with_index);
             for header in data[0].iter().skip(skip_num) {
                 let value =
-                    create_table2_entry_basic(item, header.as_ref(), head, config, color_hm);
+                    create_table2_entry_basic(item, header.as_ref(), head, config, style_computer);
                 let value = NuTable::create_cell(value.0, value.1);
                 row.push(value);
             }
@@ -854,7 +883,7 @@ fn convert_to_table2<'a>(
     ctrlc: Option<Arc<AtomicBool>>,
     config: &Config,
     head: Span,
-    color_hm: &NuColorMap,
+    style_computer: &StyleComputer,
     deep: Option<usize>,
     flatten: bool,
     flatten_sep: &str,
@@ -903,7 +932,10 @@ fn convert_to_table2<'a>(
         let mut column_width = 0;
 
         if with_header {
-            data[0].push(NuTable::create_cell("#", header_style(color_hm)));
+            data[0].push(NuTable::create_cell(
+                "#",
+                header_style(style_computer, String::from("#")),
+            ));
         }
 
         for (row, item) in input.clone().into_iter().enumerate() {
@@ -920,7 +952,7 @@ fn convert_to_table2<'a>(
                 .then(|| lookup_index_value(item, config).unwrap_or_else(|| index.to_string()))
                 .unwrap_or_else(|| index.to_string());
 
-            let value = make_index_string(text, color_hm);
+            let value = make_index_string(text, style_computer);
 
             let width = string_width(&value.0);
             column_width = max(column_width, width);
@@ -949,10 +981,10 @@ fn convert_to_table2<'a>(
             }
 
             let value = convert_to_table2_entry(
+                style_computer,
                 item,
                 config,
                 &ctrlc,
-                color_hm,
                 deep,
                 flatten,
                 flatten_sep,
@@ -994,7 +1026,10 @@ fn convert_to_table2<'a>(
 
         let mut column_width = string_width(&header);
 
-        data[0].push(NuTable::create_cell(&header, header_style(color_hm)));
+        data[0].push(NuTable::create_cell(
+            header.clone(),
+            header_style(style_computer, header.clone()),
+        ));
 
         for (row, item) in input.clone().into_iter().enumerate() {
             if nu_utils::ctrl_c::was_pressed(&ctrlc) {
@@ -1007,11 +1042,11 @@ fn convert_to_table2<'a>(
 
             let value = create_table2_entry(
                 item,
-                &header,
+                header.as_str(),
                 head,
                 config,
                 &ctrlc,
-                color_hm,
+                style_computer,
                 deep,
                 flatten,
                 flatten_sep,
@@ -1039,7 +1074,7 @@ fn convert_to_table2<'a>(
                     return Ok(None);
                 }
 
-                let value = create_table2_entry_basic(item, &header, head, config, color_hm);
+                let value = create_table2_entry_basic(item, &header, head, config, style_computer);
                 let value = wrap_nu_text(value, available_width);
 
                 let value_width = string_width(&value.0);
@@ -1064,7 +1099,7 @@ fn convert_to_table2<'a>(
                     return Ok(None);
                 }
 
-                let value = create_table2_entry_basic(item, &header, head, config, color_hm);
+                let value = create_table2_entry_basic(item, &header, head, config, style_computer);
                 let value = wrap_nu_text(value, OK_CELL_CONTENT_WIDTH);
 
                 let value = NuTable::create_cell(value.0, value.1);
@@ -1134,10 +1169,11 @@ fn lookup_index_value(item: &Value, config: &Config) -> Option<String> {
         .map(|value| value.into_string("", config))
 }
 
-fn header_style(color_hm: &NuColorMap) -> TextStyle {
+fn header_style(style_computer: &StyleComputer, header: String) -> TextStyle {
+    let style = style_computer.compute("header", &Value::string(header.as_str(), Span::unknown()));
     TextStyle {
-        alignment: Alignment::Center,
-        color_style: Some(color_hm["header"]),
+        alignment: Alignment::Right,
+        color_style: Some(style),
     }
 }
 
@@ -1147,7 +1183,7 @@ fn create_table2_entry_basic(
     header: &str,
     head: Span,
     config: &Config,
-    color_hm: &NuColorMap,
+    style_computer: &StyleComputer,
 ) -> NuText {
     match item {
         Value::Record { .. } => {
@@ -1156,11 +1192,11 @@ fn create_table2_entry_basic(
             let val = item.clone().follow_cell_path(&[path], false);
 
             match val {
-                Ok(val) => value_to_styled_string(&val, config, color_hm),
-                Err(_) => error_sign(color_hm),
+                Ok(val) => value_to_styled_string(&val, config, style_computer),
+                Err(_) => error_sign(style_computer),
             }
         }
-        _ => value_to_styled_string(item, config, color_hm),
+        _ => value_to_styled_string(item, config, style_computer),
     }
 }
 
@@ -1171,7 +1207,7 @@ fn create_table2_entry(
     head: Span,
     config: &Config,
     ctrlc: &Option<Arc<AtomicBool>>,
-    color_hm: &NuColorMap,
+    style_computer: &StyleComputer,
     deep: Option<usize>,
     flatten: bool,
     flatten_sep: &str,
@@ -1185,23 +1221,23 @@ fn create_table2_entry(
 
             match val {
                 Ok(val) => convert_to_table2_entry(
+                    style_computer,
                     &val,
                     config,
                     ctrlc,
-                    color_hm,
                     deep,
                     flatten,
                     flatten_sep,
                     width,
                 ),
-                Err(_) => wrap_nu_text(error_sign(color_hm), width),
+                Err(_) => wrap_nu_text(error_sign(style_computer), width),
             }
         }
         _ => convert_to_table2_entry(
+            style_computer,
             item,
             config,
             ctrlc,
-            color_hm,
             deep,
             flatten,
             flatten_sep,
@@ -1210,8 +1246,8 @@ fn create_table2_entry(
     }
 }
 
-fn error_sign(color_hm: &HashMap<String, nu_ansi_term::Style>) -> (String, TextStyle) {
-    make_styled_string(String::from("❎"), "empty", color_hm, 0)
+fn error_sign(style_computer: &StyleComputer) -> (String, TextStyle) {
+    make_styled_string(style_computer, String::from("❎"), None, 0)
 }
 
 fn wrap_nu_text(mut text: NuText, width: usize) -> NuText {
@@ -1221,10 +1257,10 @@ fn wrap_nu_text(mut text: NuText, width: usize) -> NuText {
 
 #[allow(clippy::too_many_arguments)]
 fn convert_to_table2_entry(
+    style_computer: &StyleComputer,
     item: &Value,
     config: &Config,
     ctrlc: &Option<Arc<AtomicBool>>,
-    color_hm: &NuColorMap,
     deep: Option<usize>,
     flatten: bool,
     flatten_sep: &str,
@@ -1232,13 +1268,13 @@ fn convert_to_table2_entry(
 ) -> NuText {
     let is_limit_reached = matches!(deep, Some(0));
     if is_limit_reached {
-        return wrap_nu_text(value_to_styled_string(item, config, color_hm), width);
+        return wrap_nu_text(value_to_styled_string(item, config, style_computer), width);
     }
 
     match &item {
         Value::Record { span, cols, vals } => {
             if cols.is_empty() && vals.is_empty() {
-                wrap_nu_text(value_to_styled_string(item, config, color_hm), width)
+                wrap_nu_text(value_to_styled_string(item, config, style_computer), width)
             } else {
                 let table = convert_to_table2(
                     0,
@@ -1246,7 +1282,7 @@ fn convert_to_table2_entry(
                     ctrlc.clone(),
                     config,
                     *span,
-                    color_hm,
+                    style_computer,
                     deep.map(|i| i - 1),
                     flatten,
                     flatten_sep,
@@ -1257,7 +1293,7 @@ fn convert_to_table2_entry(
                     table.and_then(|(table, with_header, with_index)| {
                         let table_config = create_table_config(
                             config,
-                            color_hm,
+                            style_computer,
                             table.count_rows(),
                             with_header,
                             with_index,
@@ -1272,7 +1308,7 @@ fn convert_to_table2_entry(
                     (table, TextStyle::default())
                 } else {
                     // error so back down to the default
-                    wrap_nu_text(value_to_styled_string(item, config, color_hm), width)
+                    wrap_nu_text(value_to_styled_string(item, config, style_computer), width)
                 }
             }
         }
@@ -1283,7 +1319,7 @@ fn convert_to_table2_entry(
 
             if flatten && is_simple_list {
                 wrap_nu_text(
-                    convert_value_list_to_string(vals, config, color_hm, flatten_sep),
+                    convert_value_list_to_string(vals, config, style_computer, flatten_sep),
                     width,
                 )
             } else {
@@ -1293,7 +1329,7 @@ fn convert_to_table2_entry(
                     ctrlc.clone(),
                     config,
                     *span,
-                    color_hm,
+                    style_computer,
                     deep.map(|i| i - 1),
                     flatten,
                     flatten_sep,
@@ -1304,7 +1340,7 @@ fn convert_to_table2_entry(
                     table.and_then(|(table, with_header, with_index)| {
                         let table_config = create_table_config(
                             config,
-                            color_hm,
+                            style_computer,
                             table.count_rows(),
                             with_header,
                             with_index,
@@ -1320,23 +1356,23 @@ fn convert_to_table2_entry(
                 } else {
                     // error so back down to the default
 
-                    wrap_nu_text(value_to_styled_string(item, config, color_hm), width)
+                    wrap_nu_text(value_to_styled_string(item, config, style_computer), width)
                 }
             }
         }
-        _ => wrap_nu_text(value_to_styled_string(item, config, color_hm), width), // unknown type.
+        _ => wrap_nu_text(value_to_styled_string(item, config, style_computer), width), // unknown type.
     }
 }
 
 fn convert_value_list_to_string(
     vals: &[Value],
     config: &Config,
-    color_hm: &NuColorMap,
+    style_computer: &StyleComputer,
     flatten_sep: &str,
 ) -> NuText {
     let mut buf = Vec::new();
     for value in vals {
-        let (text, _) = value_to_styled_string(value, config, color_hm);
+        let (text, _) = value_to_styled_string(value, config, style_computer);
 
         buf.push(text);
     }
@@ -1344,39 +1380,62 @@ fn convert_value_list_to_string(
     (text, TextStyle::default())
 }
 
-fn value_to_styled_string(value: &Value, config: &Config, color_hm: &NuColorMap) -> NuText {
+fn value_to_styled_string(
+    value: &Value,
+    config: &Config,
+    style_computer: &StyleComputer,
+) -> NuText {
     let float_precision = config.float_precision as usize;
     make_styled_string(
+        style_computer,
         value.into_abbreviated_string(config),
-        &value.get_type().to_string(),
-        color_hm,
+        Some(value),
         float_precision,
     )
 }
 
 fn make_styled_string(
+    style_computer: &StyleComputer,
     text: String,
-    text_type: &str,
-    color_hm: &NuColorMap,
+    value: Option<&Value>, // None represents table holes.
     float_precision: usize,
-) -> NuText {
-    if text_type == "float" {
-        // set dynamic precision from config
-        let precise_number = match convert_with_precision(&text, float_precision) {
-            Ok(num) => num,
-            Err(e) => e.to_string(),
-        };
-        (precise_number, style_primitive(text_type, color_hm))
-    } else {
-        (text, style_primitive(text_type, color_hm))
+) -> (String, TextStyle) {
+    match value {
+        Some(value) => {
+            match value {
+                Value::Float { .. } => {
+                    // set dynamic precision from config
+                    let precise_number = match convert_with_precision(&text, float_precision) {
+                        Ok(num) => num,
+                        Err(e) => e.to_string(),
+                    };
+                    (precise_number, style_computer.style_primitive(value))
+                }
+                _ => (text, style_computer.style_primitive(value)),
+            }
+        }
+        None => {
+            // Though holes are not the same as null, the closure for "empty" is passed a null anyway.
+            (
+                text,
+                TextStyle::with_style(
+                    Alignment::Center,
+                    style_computer.compute("empty", &Value::nothing(Span::unknown())),
+                ),
+            )
+        }
     }
 }
 
-fn make_index_string(text: String, color_hm: &NuColorMap) -> NuText {
-    let style = TextStyle::new()
-        .alignment(Alignment::Right)
-        .style(color_hm["row_index"]);
-    (text, style)
+fn make_index_string(text: String, style_computer: &StyleComputer) -> NuText {
+    let style = style_computer.compute("row_index", &Value::string(text.as_str(), Span::unknown()));
+    (
+        text,
+        TextStyle {
+            alignment: Alignment::Right,
+            color_style: Some(style),
+        },
+    )
 }
 
 fn convert_with_precision(val: &str, precision: usize) -> Result<String, ShellError> {
@@ -1399,8 +1458,9 @@ fn convert_with_precision(val: &str, precision: usize) -> Result<String, ShellEr
 struct PagingTableCreator {
     head: Span,
     stream: ListStream,
+    engine_state: EngineState,
+    stack: Stack,
     ctrlc: Option<Arc<AtomicBool>>,
-    config: Config,
     row_offset: usize,
     width_param: Option<i64>,
     view: TableView,
@@ -1408,7 +1468,7 @@ struct PagingTableCreator {
 
 impl PagingTableCreator {
     fn build_extended(
-        &self,
+        &mut self,
         batch: &[Value],
         limit: Option<usize>,
         flatten: bool,
@@ -1418,17 +1478,18 @@ impl PagingTableCreator {
             return Ok(None);
         }
 
+        let config = self.engine_state.get_config();
+        let style_computer = StyleComputer::from_config(&self.engine_state, &self.stack);
         let term_width = get_width_param(self.width_param);
-        let color_hm = get_color_config(&self.config);
         let theme = load_theme_from_config(&self.config);
 
         let table = convert_to_table2(
             self.row_offset,
             batch.iter(),
             self.ctrlc.clone(),
-            &self.config,
+            config,
             self.head,
-            &color_hm,
+            &style_computer,
             limit,
             flatten,
             flatten_separator.as_deref().unwrap_or(" "),
@@ -1443,8 +1504,8 @@ impl PagingTableCreator {
         table.truncate(term_width, &theme);
 
         let table_config = create_table_config(
-            &self.config,
-            &color_hm,
+            config,
+            &style_computer,
             table.count_rows(),
             with_header,
             with_index,
@@ -1476,16 +1537,17 @@ impl PagingTableCreator {
         Ok(table)
     }
 
-    fn build_collapsed(&self, batch: Vec<Value>) -> Result<Option<String>, ShellError> {
+    fn build_collapsed(&mut self, batch: Vec<Value>) -> Result<Option<String>, ShellError> {
         if batch.is_empty() {
             return Ok(None);
         }
 
-        let color_hm = get_color_config(&self.config);
-        let theme = load_theme_from_config(&self.config);
+        let config = self.engine_state.get_config();
+        let style_computer = StyleComputer::from_config(&self.engine_state, &self.stack);
+        let theme = load_theme_from_config(config);
         let term_width = get_width_param(self.width_param);
-        let need_footer = matches!(self.config.footer_mode, FooterMode::RowCount(limit) if batch.len() as u64 > limit)
-            || matches!(self.config.footer_mode, FooterMode::Always);
+        let need_footer = matches!(config.footer_mode, FooterMode::RowCount(limit) if batch.len() as u64 > limit)
+            || matches!(config.footer_mode, FooterMode::Always);
         let value = Value::List {
             vals: batch,
             span: Span::new(0, 0),
@@ -1495,8 +1557,8 @@ impl PagingTableCreator {
             value,
             true,
             term_width,
-            &self.config,
-            &color_hm,
+            config,
+            &style_computer,
             &theme,
             need_footer,
         );
@@ -1504,17 +1566,19 @@ impl PagingTableCreator {
         Ok(table.draw())
     }
 
-    fn build_general(&self, batch: &[Value]) -> Result<Option<String>, ShellError> {
+    fn build_general(&mut self, batch: &[Value]) -> Result<Option<String>, ShellError> {
         let term_width = get_width_param(self.width_param);
-        let color_hm = get_color_config(&self.config);
+        let config = &self.engine_state.get_config();
+        let style_computer = StyleComputer::from_config(&self.engine_state, &self.stack);
+        let theme = load_theme_from_config(config);
 
         let table = convert_to_table(
             self.row_offset,
             batch,
             self.ctrlc.clone(),
-            &self.config,
+            config,
             self.head,
-            &color_hm,
+            &style_computer,
         )?;
 
         let (table, with_header, with_index) = match table {
@@ -1523,8 +1587,8 @@ impl PagingTableCreator {
         };
 
         let table_config = create_table_config(
-            &self.config,
-            &color_hm,
+            config,
+            &style_computer,
             table.count_rows(),
             with_header,
             with_index,
@@ -1686,7 +1750,7 @@ fn strip_output_color(output: Option<String>, config: &Config) -> Option<String>
 
 fn create_table_config(
     config: &Config,
-    color_hm: &HashMap<String, nu_ansi_term::Style>,
+    style_computer: &StyleComputer,
     count_records: usize,
     with_header: bool,
     with_index: bool,
@@ -1697,10 +1761,7 @@ fn create_table_config(
 
     let mut table_cfg = TableConfig::new(theme, with_header, with_index, append_footer);
 
-    let sep_color = lookup_separator_color(color_hm);
-    if let Some(color) = sep_color {
-        table_cfg = table_cfg.splitline_style(color);
-    }
+    table_cfg = table_cfg.splitline_style(lookup_separator_color(style_computer));
 
     if expand {
         table_cfg = table_cfg.expand();
@@ -1710,9 +1771,9 @@ fn create_table_config(
 }
 
 fn lookup_separator_color(
-    color_hm: &HashMap<String, nu_ansi_term::Style>,
-) -> Option<nu_ansi_term::Style> {
-    color_hm.get("separator").cloned()
+    style_computer: &StyleComputer,
+) -> nu_ansi_term::Style {
+    style_computer.compute("separator", &Value::nothing(Span::unknown()))
 }
 
 fn with_footer(config: &Config, with_header: bool, count_records: usize) -> bool {

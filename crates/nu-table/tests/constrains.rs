@@ -1,9 +1,12 @@
 mod common;
 
-use nu_protocol::TrimStrategy;
-use nu_table::{Table, TableConfig, TableTheme as theme};
-
+use nu_protocol::{
+    engine::{EngineState, Stack},
+    Config, TrimStrategy,
+};
+use nu_table::{Alignments, Table, TableConfig, TableTheme as theme, TextStyle};
 use common::{create_row, styled_str, test_table, TestCase, VecCells};
+use tabled::papergrid::records::{cell_info::CellInfo, tcell::TCell};
 
 #[test]
 fn data_and_header_has_different_size() {

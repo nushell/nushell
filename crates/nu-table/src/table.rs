@@ -1,4 +1,5 @@
 use std::{cmp::min, collections::HashMap, fmt::Display};
+use nu_protocol::{Config, FooterMode, Span, TrimStrategy, Value};
 
 use nu_ansi_term::Style;
 use nu_protocol::TrimStrategy;
@@ -21,7 +22,7 @@ use tabled::{
     Alignment, Modify, ModifyObject, TableOption, Width,
 };
 
-use crate::{table_theme::TableTheme, TextStyle};
+use crate::{style_computer::StyleComputer, table_theme::TableTheme, TextStyle};
 
 /// Table represent a table view.
 #[derive(Debug, Clone)]
@@ -306,7 +307,9 @@ fn load_theme<R>(
 
     table.with(theme);
 
-    if let Some(color) = separator_color {
+    if let Some(style_computer) = style_computer {
+        let color = style_computer.compute("separator", &Value::nothing(Span::unknown()));
+        // Attempt to use the given color(?)
         let color = color.paint(" ").to_string();
         if let Ok(color) = Color::try_from(color) {
             table.with(color);

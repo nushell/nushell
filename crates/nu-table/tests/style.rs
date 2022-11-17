@@ -1,8 +1,11 @@
 mod common;
 
-use nu_table::{TableConfig, TableTheme as theme};
-
-use common::{create_row as row, VecCells};
+use nu_protocol::{
+    engine::{EngineState, Stack},
+    Config,
+};
+use nu_table::{Alignments, StyleComputer, Table, TableConfig, TableTheme as theme, TextStyle};
+use tabled::papergrid::records::{cell_info::CellInfo, tcell::TCell};
 
 #[test]
 fn test_rounded() {

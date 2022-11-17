@@ -1,4 +1,5 @@
 use nu_ansi_term::{Color, Style};
+use nu_protocol::Value;
 use serde::{Deserialize, Serialize};
 
 #[derive(Deserialize, Serialize, PartialEq, Eq, Debug)]
@@ -83,22 +84,29 @@ pub fn parse_nustyle(nu_style: NuStyle) -> Style {
     style
 }
 
-pub fn color_string_to_nustyle(color_string: String) -> Style {
-    // eprintln!("color_string: {}", &color_string);
-    if color_string.chars().count() < 1 {
-        Style::default()
-    } else {
-        let nu_style = match nu_json::from_str::<NuStyle>(&color_string) {
-            Ok(s) => s,
-            Err(_) => NuStyle {
-                fg: None,
-                bg: None,
-                attr: None,
-            },
-        };
+// Converts the color_config records, { fg, bg, attr }, into a Style.
+pub fn color_record_to_nustyle(value: &Value) -> Style {
+    let mut fg = None;
+    let mut bg = None;
+    let mut attr = None;
+    let v = value.as_record();
+    if let Ok((cols, inner_vals)) = v {
+        for (k, v) in cols.iter().zip(inner_vals) {
+            // Because config already type-checked the color_config records, this doesn't bother giving errors
+            // if there are unrecognised keys or bad values.
+            if let Ok(v) = v.as_string() {
+                match k.as_str() {
+                    "fg" => fg = Some(v),
 
-        parse_nustyle(nu_style)
+                    "bg" => bg = Some(v),
+
+                    "attr" => attr = Some(v),
+                    _ => (),
+                }
+            }
+        }
     }
+    parse_nustyle(NuStyle { fg, bg, attr })
 }
 
 pub fn color_from_hex(

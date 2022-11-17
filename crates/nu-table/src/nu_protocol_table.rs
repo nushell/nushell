@@ -1,16 +1,15 @@
 use std::collections::HashMap;
 
+use crate::{style_computer::StyleComputer, table::TrimStrategyModifier, Alignments, TableTheme};
 use nu_protocol::{Config, Span, Value};
 use tabled::{
     color::Color, formatting::AlignmentStrategy, object::Segment, papergrid::records::Records,
     Alignment, Modify, Table,
 };
 
-use crate::{table::TrimStrategyModifier, Alignments, TableTheme};
-
-/// NuTable has a recursive table representation of nu_prorocol::Value.
+/// NuTable has a recursive table representation of nu_protocol::Value.
 ///
-/// It doesn't support alignement and a proper width controll.
+/// It doesn't support alignement and a proper width control.
 pub struct NuTable {
     inner: tabled::Table,
 }
@@ -21,12 +20,12 @@ impl NuTable {
         collapse: bool,
         termwidth: usize,
         config: &Config,
-        color_hm: &HashMap<String, nu_ansi_term::Style>,
+        style_computer: &StyleComputer,
         theme: &TableTheme,
         with_footer: bool,
     ) -> Self {
         let mut table = tabled::Table::new([""]);
-        load_theme(&mut table, color_hm, theme);
+        load_theme(&mut table, style_computer, theme);
         let cfg = table.get_config().clone();
 
         let val = nu_protocol_value_to_json(value, config, with_footer);
@@ -200,11 +199,9 @@ fn connect_maps(map: &mut serde_json::Map<String, serde_json::Value>, value: ser
     }
 }
 
-fn load_theme<R>(
-    table: &mut tabled::Table<R>,
-    color_hm: &HashMap<String, nu_ansi_term::Style>,
-    theme: &TableTheme,
-) where
+//
+fn load_theme<R>(table: &mut tabled::Table<R>, style_computer: &StyleComputer, theme: &TableTheme)
+where
     R: Records,
 {
     let mut theme = theme.theme.clone();
@@ -212,11 +209,11 @@ fn load_theme<R>(
 
     table.with(theme);
 
-    if let Some(color) = color_hm.get("separator") {
-        let color = color.paint(" ").to_string();
-        if let Ok(color) = Color::try_from(color) {
-            table.with(color);
-        }
+    // color_config closures for "separator" are just given a null.
+    let color = style_computer.compute("separator", &Value::nothing(Span::unknown()));
+    let color = color.paint(" ").to_string();
+    if let Ok(color) = Color::try_from(color) {
+        table.with(color);
     }
 
     table.with(
