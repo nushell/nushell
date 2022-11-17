@@ -20,7 +20,10 @@ impl Command for Wrap {
 
     fn signature(&self) -> nu_protocol::Signature {
         Signature::build("wrap")
-            .input_output_types(vec![(Type::List(Box::new(Type::Any)), Type::Table(vec![]))])
+            .input_output_types(vec![
+                (Type::List(Box::new(Type::Any)), Type::Table(vec![])),
+                (Type::Range, Type::Table(vec![])),
+            ])
             .required("name", SyntaxShape::String, "the name of the column")
             .category(Category::Filters)
     }
