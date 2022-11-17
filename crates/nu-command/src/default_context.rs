@@ -132,6 +132,7 @@ pub fn create_default_context() -> EngineState {
             SplitList,
             Transpose,
             Uniq,
+            UniqBy,
             Upsert,
             Update,
             UpdateCells,
