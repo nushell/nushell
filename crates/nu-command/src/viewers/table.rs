@@ -1172,7 +1172,7 @@ fn lookup_index_value(item: &Value, config: &Config) -> Option<String> {
 fn header_style(style_computer: &StyleComputer, header: String) -> TextStyle {
     let style = style_computer.compute("header", &Value::string(header.as_str(), Span::unknown()));
     TextStyle {
-        alignment: Alignment::Right,
+        alignment: Alignment::Center,
         color_style: Some(style),
     }
 }
@@ -1431,10 +1431,9 @@ fn make_index_string(text: String, style_computer: &StyleComputer) -> NuText {
     let style = style_computer.compute("row_index", &Value::string(text.as_str(), Span::unknown()));
     (
         text,
-        TextStyle {
-            alignment: Alignment::Right,
-            color_style: Some(style),
-        },
+        TextStyle::new()
+            .alignment(Alignment::Right)
+            .style(style)
     )
 }
 
