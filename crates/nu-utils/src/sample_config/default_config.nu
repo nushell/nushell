@@ -292,6 +292,9 @@ let-env config = {
         $nothing  # replace with source code to run if the PWD environment is different since the last repl input
       }]
     }
+    display_output: {
+      $nothing
+    }
   }
   menus: [
       # Configuration for default nushell menus
