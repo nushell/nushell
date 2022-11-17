@@ -115,8 +115,6 @@ impl Command for EachWhile {
         let redirect_stdout = call.redirect_stdout;
         let redirect_stderr = call.redirect_stderr;
 
-        // Q: Does this have to use a match expression, as compared to
-        // other loop commands like `any` or `all`, which also operate on lists or single values?
         match input {
             PipelineData::Value(Value::Range { .. }, ..)
             | PipelineData::Value(Value::List { .. }, ..)
@@ -250,6 +248,8 @@ impl Command for EachWhile {
                 })
                 .fuse()
                 .into_pipeline_data(ctrlc)),
+            // This match allows non-iterables to be accepted,
+            // which is currently considered undesirable (Nov 2022).
             PipelineData::Value(x, ..) => {
                 if let Some(var) = block.signature.get_positional(0) {
                     if let Some(var_id) = &var.var_id {

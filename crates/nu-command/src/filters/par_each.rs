@@ -80,8 +80,6 @@ impl Command for ParEach {
         let redirect_stdout = call.redirect_stdout;
         let redirect_stderr = call.redirect_stderr;
 
-        // Q: Does this have to use a match expression, as compared to
-        // other loop commands like `any` or `all`, which also operate on lists or single values?
         match input {
             PipelineData::Value(Value::Range { val, .. }, ..) => Ok(val
                 .into_range_iter(ctrlc.clone())?
@@ -342,6 +340,8 @@ impl Command for ParEach {
                 .into_iter()
                 .flatten()
                 .into_pipeline_data(ctrlc)),
+            // This match allows non-iterables to be accepted,
+            // which is currently considered undesirable (Nov 2022).
             PipelineData::Value(x, ..) => {
                 let block = engine_state.get_block(block_id);
 

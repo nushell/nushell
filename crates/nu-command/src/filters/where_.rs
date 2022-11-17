@@ -61,8 +61,6 @@ impl Command for Where {
             let redirect_stdout = call.redirect_stdout;
             let redirect_stderr = call.redirect_stderr;
 
-            // Q: Does this have to use a match expression, as compared to
-            // other loop commands like `any` or `all`, which also operate on lists or single values?
             match input {
                 PipelineData::Value(Value::Range { .. }, ..)
                 | PipelineData::Value(Value::List { .. }, ..)
@@ -175,6 +173,8 @@ impl Command for Where {
                         }
                     })
                     .into_pipeline_data(ctrlc)),
+                // This match allows non-iterables to be accepted,
+                // which is currently considered undesirable (Nov 2022).
                 PipelineData::Value(x, ..) => {
                     // see note above about with_env()
                     stack.with_env(&orig_env_vars, &orig_env_hidden);
