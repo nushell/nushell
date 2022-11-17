@@ -36,15 +36,10 @@ impl Command for Wrap {
         let name: String = call.req(engine_state, stack, 0)?;
 
         match input {
-            PipelineData::Value(Value::List { vals, .. }, ..) => Ok(vals
+            PipelineData::Value(Value::Range { .. }, ..)
+            | PipelineData::Value(Value::List { .. }, ..)
+            | PipelineData::ListStream { .. } => Ok(input
                 .into_iter()
-                .map(move |x| Value::Record {
-                    cols: vec![name.clone()],
-                    vals: vec![x],
-                    span,
-                })
-                .into_pipeline_data(engine_state.ctrlc.clone())),
-            PipelineData::ListStream(stream, ..) => Ok(stream
                 .map(move |x| Value::Record {
                     cols: vec![name.clone()],
                     vals: vec![x],
@@ -67,30 +62,56 @@ impl Command for Wrap {
     }
 
     fn examples(&self) -> Vec<Example> {
-        vec![Example {
-            description: "Wrap a list into a table with a given column name",
-            example: "[1 2 3] | wrap num",
-            result: Some(Value::List {
-                vals: vec![
-                    Value::Record {
-                        cols: vec!["num".into()],
-                        vals: vec![Value::test_int(1)],
-                        span: Span::test_data(),
-                    },
-                    Value::Record {
-                        cols: vec!["num".into()],
-                        vals: vec![Value::test_int(2)],
-                        span: Span::test_data(),
-                    },
-                    Value::Record {
-                        cols: vec!["num".into()],
-                        vals: vec![Value::test_int(3)],
-                        span: Span::test_data(),
-                    },
-                ],
-                span: Span::test_data(),
-            }),
-        }]
+        vec![
+            Example {
+                description: "Wrap a list into a table with a given column name",
+                example: "[1 2 3] | wrap num",
+                result: Some(Value::List {
+                    vals: vec![
+                        Value::Record {
+                            cols: vec!["num".into()],
+                            vals: vec![Value::test_int(1)],
+                            span: Span::test_data(),
+                        },
+                        Value::Record {
+                            cols: vec!["num".into()],
+                            vals: vec![Value::test_int(2)],
+                            span: Span::test_data(),
+                        },
+                        Value::Record {
+                            cols: vec!["num".into()],
+                            vals: vec![Value::test_int(3)],
+                            span: Span::test_data(),
+                        },
+                    ],
+                    span: Span::test_data(),
+                }),
+            },
+            Example {
+                description: "Wrap a range into a table with a given column name",
+                example: "1..3 | wrap num",
+                result: Some(Value::List {
+                    vals: vec![
+                        Value::Record {
+                            cols: vec!["num".into()],
+                            vals: vec![Value::test_int(1)],
+                            span: Span::test_data(),
+                        },
+                        Value::Record {
+                            cols: vec!["num".into()],
+                            vals: vec![Value::test_int(2)],
+                            span: Span::test_data(),
+                        },
+                        Value::Record {
+                            cols: vec!["num".into()],
+                            vals: vec![Value::test_int(3)],
+                            span: Span::test_data(),
+                        },
+                    ],
+                    span: Span::test_data(),
+                }),
+            },
+        ]
     }
 }
 
