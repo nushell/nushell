@@ -165,7 +165,7 @@ pub fn flatten_expression(
             output.extend(args);
             output
         }
-        Expr::ExternalCall(head, args) => {
+        Expr::ExternalCall(head, args, _) => {
             let mut output = vec![];
 
             match **head {

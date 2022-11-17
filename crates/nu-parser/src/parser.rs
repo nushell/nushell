@@ -278,6 +278,7 @@ pub fn parse_external_call(
     working_set: &mut StateWorkingSet,
     spans: &[Span],
     expand_aliases_denylist: &[usize],
+    is_subexpression: bool,
 ) -> (Expression, Option<ParseError>) {
     trace!("parse external");
 
@@ -299,7 +300,8 @@ pub fn parse_external_call(
     let mut error = None;
 
     let head = if head_contents.starts_with(b"$") || head_contents.starts_with(b"(") {
-        let (arg, err) = parse_expression(working_set, &[head_span], expand_aliases_denylist);
+        // the expression is inside external_call, so it's a subexpression
+        let (arg, err) = parse_expression(working_set, &[head_span], expand_aliases_denylist, true);
         error = error.or(err);
         Box::new(arg)
     } else {
@@ -350,7 +352,7 @@ pub fn parse_external_call(
     }
     (
         Expression {
-            expr: Expr::ExternalCall(head, args),
+            expr: Expr::ExternalCall(head, args, is_subexpression),
             span: span(spans),
             ty: Type::Any,
             custom_completion: None,
@@ -665,8 +667,12 @@ pub fn parse_multispan_value(
         SyntaxShape::Expression => {
             trace!("parsing: expression");
 
-            let (arg, err) =
-                parse_expression(working_set, &spans[*spans_idx..], expand_aliases_denylist);
+            let (arg, err) = parse_expression(
+                working_set,
+                &spans[*spans_idx..],
+                expand_aliases_denylist,
+                false, // not sure, make it to false to keep behavior unchanged
+            );
             error = error.or(err);
             *spans_idx = spans.len() - 1;
 
@@ -988,6 +994,7 @@ pub fn parse_call(
     spans: &[Span],
     head: Span,
     expand_aliases_denylist: &[usize],
+    is_subexpression: bool,
 ) -> (Expression, Option<ParseError>) {
     trace!("parsing: call");
 
@@ -1052,8 +1059,12 @@ pub fn parse_call(
                     parts: new_spans.clone(),
                 };
 
-                let (mut result, err) =
-                    parse_builtin_commands(working_set, &lite_command, &expand_aliases_denylist);
+                let (mut result, err) = parse_builtin_commands(
+                    working_set,
+                    &lite_command,
+                    &expand_aliases_denylist,
+                    is_subexpression,
+                );
 
                 let mut result = result.expressions.remove(0);
 
@@ -1147,7 +1158,12 @@ pub fn parse_call(
         trace!("parsing: external call");
 
         // Otherwise, try external command
-        parse_external_call(working_set, spans, expand_aliases_denylist)
+        parse_external_call(
+            working_set,
+            spans,
+            expand_aliases_denylist,
+            is_subexpression,
+        )
     }
 }
 
@@ -4653,6 +4669,7 @@ pub fn parse_expression(
     working_set: &mut StateWorkingSet,
     spans: &[Span],
     expand_aliases_denylist: &[usize],
+    is_subexpression: bool,
 ) -> (Expression, Option<ParseError>) {
     let mut pos = 0;
     let mut shorthand = vec![];
@@ -4728,6 +4745,7 @@ pub fn parse_expression(
                     &spans[pos..],
                     spans[0],
                     expand_aliases_denylist,
+                    is_subexpression,
                 )
                 .0,
                 Some(ParseError::BuiltinCommandInPipeline("def".into(), spans[0])),
@@ -4738,6 +4756,7 @@ pub fn parse_expression(
                     &spans[pos..],
                     spans[0],
                     expand_aliases_denylist,
+                    is_subexpression,
                 )
                 .0,
                 Some(ParseError::BuiltinCommandInPipeline(
@@ -4751,6 +4770,7 @@ pub fn parse_expression(
                     &spans[pos..],
                     spans[0],
                     expand_aliases_denylist,
+                    is_subexpression,
                 )
                 .0,
                 Some(ParseError::BuiltinCommandInPipeline("for".into(), spans[0])),
@@ -4761,6 +4781,7 @@ pub fn parse_expression(
                     &spans[pos..],
                     spans[0],
                     expand_aliases_denylist,
+                    is_subexpression,
                 )
                 .0,
                 Some(ParseError::LetInPipeline(
@@ -4783,6 +4804,7 @@ pub fn parse_expression(
                     &spans[pos..],
                     spans[0],
                     expand_aliases_denylist,
+                    is_subexpression,
                 )
                 .0,
                 Some(ParseError::MutInPipeline(
@@ -4805,6 +4827,7 @@ pub fn parse_expression(
                     &spans[pos..],
                     spans[0],
                     expand_aliases_denylist,
+                    is_subexpression,
                 )
                 .0,
                 Some(ParseError::BuiltinCommandInPipeline(
@@ -4818,6 +4841,7 @@ pub fn parse_expression(
                     &spans[pos..],
                     spans[0],
                     expand_aliases_denylist,
+                    is_subexpression,
                 )
                 .0,
                 Some(ParseError::BuiltinCommandInPipeline(
@@ -4831,6 +4855,7 @@ pub fn parse_expression(
                     &spans[pos..],
                     spans[0],
                     expand_aliases_denylist,
+                    is_subexpression,
                 )
                 .0,
                 Some(ParseError::BuiltinCommandInPipeline("use".into(), spans[0])),
@@ -4843,6 +4868,7 @@ pub fn parse_expression(
                         &spans[pos..],
                         spans[0],
                         expand_aliases_denylist,
+                        is_subexpression,
                     )
                 } else {
                     (
@@ -4851,6 +4877,7 @@ pub fn parse_expression(
                             &spans[pos..],
                             spans[0],
                             expand_aliases_denylist,
+                            is_subexpression,
                         )
                         .0,
                         Some(ParseError::BuiltinCommandInPipeline(
@@ -4866,6 +4893,7 @@ pub fn parse_expression(
                     &spans[pos..],
                     spans[0],
                     expand_aliases_denylist,
+                    is_subexpression,
                 )
                 .0,
                 Some(ParseError::BuiltinCommandInPipeline(
@@ -4879,6 +4907,7 @@ pub fn parse_expression(
                     &spans[pos..],
                     spans[0],
                     expand_aliases_denylist,
+                    is_subexpression,
                 )
                 .0,
                 Some(ParseError::UnexpectedKeyword("export".into(), spans[0])),
@@ -4889,6 +4918,7 @@ pub fn parse_expression(
                     &spans[pos..],
                     spans[0],
                     expand_aliases_denylist,
+                    is_subexpression,
                 )
                 .0,
                 Some(ParseError::BuiltinCommandInPipeline(
@@ -4903,6 +4933,7 @@ pub fn parse_expression(
                     &spans[pos..],
                     spans[0],
                     expand_aliases_denylist,
+                    is_subexpression,
                 )
                 .0,
                 Some(ParseError::BuiltinCommandInPipeline(
@@ -4916,6 +4947,7 @@ pub fn parse_expression(
                 &spans[pos..],
                 spans[0],
                 expand_aliases_denylist,
+                is_subexpression,
             ),
         }
     };
@@ -5005,6 +5037,7 @@ pub fn parse_builtin_commands(
     working_set: &mut StateWorkingSet,
     lite_command: &LiteCommand,
     expand_aliases_denylist: &[usize],
+    is_subexpression: bool,
 ) -> (Pipeline, Option<ParseError>) {
     let name = working_set.get_span_contents(lite_command.parts[0]);
 
@@ -5033,8 +5066,12 @@ pub fn parse_builtin_commands(
         #[cfg(feature = "plugin")]
         b"register" => parse_register(working_set, &lite_command.parts, expand_aliases_denylist),
         _ => {
-            let (expr, err) =
-                parse_expression(working_set, &lite_command.parts, expand_aliases_denylist);
+            let (expr, err) = parse_expression(
+                working_set,
+                &lite_command.parts,
+                expand_aliases_denylist,
+                is_subexpression,
+            );
             (Pipeline::from_vec(vec![expr]), err)
         }
     }
@@ -5168,8 +5205,12 @@ pub fn parse_block(
                     .commands
                     .iter()
                     .map(|command| {
-                        let (expr, err) =
-                            parse_expression(working_set, &command.parts, expand_aliases_denylist);
+                        let (expr, err) = parse_expression(
+                            working_set,
+                            &command.parts,
+                            expand_aliases_denylist,
+                            is_subexpression,
+                        );
 
                         working_set.type_scope.add_type(expr.ty.clone());
 
@@ -5203,6 +5244,7 @@ pub fn parse_block(
                     working_set,
                     &pipeline.commands[0],
                     expand_aliases_denylist,
+                    is_subexpression,
                 );
 
                 if idx == 0 {
@@ -5418,7 +5460,7 @@ pub fn discover_captures_in_expr(
         }
         Expr::CellPath(_) => {}
         Expr::DateTime(_) => {}
-        Expr::ExternalCall(head, exprs) => {
+        Expr::ExternalCall(head, exprs, _) => {
             let result = discover_captures_in_expr(working_set, head, seen, seen_blocks)?;
             output.extend(&result);
 

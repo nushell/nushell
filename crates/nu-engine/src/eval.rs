@@ -202,6 +202,7 @@ fn eval_external(
     input: PipelineData,
     redirect_stdout: bool,
     redirect_stderr: bool,
+    is_subexpression: bool,
 ) -> Result<PipelineData, ShellError> {
     let decl_id = engine_state
         .find_decl("run-external".as_bytes(), &[])
@@ -325,7 +326,7 @@ pub fn eval_expression(
                     .into_value(call.head),
             )
         }
-        Expr::ExternalCall(head, args) => {
+        Expr::ExternalCall(head, args, is_subexpression) => {
             let span = head.span;
             // FIXME: protect this collect with ctrl-c
             Ok(eval_external(
@@ -336,6 +337,7 @@ pub fn eval_expression(
                 PipelineData::new(span),
                 false,
                 false,
+                *is_subexpression,
             )?
             .into_value(span))
         }
@@ -675,7 +677,7 @@ pub fn eval_expression_with_input(
             }
         }
         Expression {
-            expr: Expr::ExternalCall(head, args),
+            expr: Expr::ExternalCall(head, args, is_subexpression),
             ..
         } => {
             input = eval_external(
@@ -686,6 +688,7 @@ pub fn eval_expression_with_input(
                 input,
                 redirect_stdout,
                 redirect_stderr,
+                *is_subexpression,
             )?;
         }
 
