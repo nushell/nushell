@@ -359,22 +359,58 @@ fn list_all_columns() {
         let expected = {
             #[cfg(unix)]
             {
-                [
-                    "name",
-                    "type",
-                    "target",
-                    "readonly",
-                    "mode",
-                    "num_links",
-                    "inode",
-                    "uid",
-                    "group",
-                    "size",
-                    "created",
-                    "accessed",
-                    "modified",
-                ]
-                .join("")
+                #[cfg(any(
+                    target_os = "android",
+                    target_os = "linux",
+                    target_os = "macos",
+                    target_os = "freebsd",
+                    target_os = "netbsd"
+                ))]
+                {
+                    [
+                        "name",
+                        "type",
+                        "target",
+                        "readonly",
+                        "mode",
+                        "num_links",
+                        "inode",
+                        "uid",
+                        "group",
+                        "extended_attributes",
+                        "size",
+                        "created",
+                        "accessed",
+                        "modified",
+                    ]
+                    .join("")
+                }
+
+                #[cfg(not(any(
+                    target_os = "android",
+                    target_os = "linux",
+                    target_os = "macos",
+                    target_os = "freebsd",
+                    target_os = "netbsd"
+                )))]
+                {
+                    [
+                        "name",
+                        "type",
+                        "target",
+                        "readonly",
+                        "mode",
+                        "num_links",
+                        "inode",
+                        "uid",
+                        "group",
+                        "size",
+                        "created",
+                        "accessed",
+                        "modified",
+                    ]
+                    .join("")
+                }
             }
 
             #[cfg(windows)]
@@ -557,5 +593,37 @@ fn list_ignores_ansi() {
         ));
 
         assert!(actual.err.is_empty());
+    })
+}
+
+#[cfg(any(
+    target_os = "android",
+    target_os = "linux",
+    target_os = "macos",
+    target_os = "freebsd",
+    target_os = "netbsd"
+))]
+#[test]
+fn long_shows_extended_attributes() {
+    Playground::setup("ls_test_extended_attributes", |dirs, sandbox| {
+        sandbox.with_files(vec![EmptyFile("beaker.txt"), EmptyFile("cup.txt")]);
+
+        xattr::set(
+            dirs.test().to_owned().join("cup.txt"),
+            "user.nushell.potion",
+            &[0xc0, 0xff, 0xee],
+        )
+        .expect("Setting extended attribute in test failed");
+
+        // Only testing if the set attribute exists because an OS might have set
+        // its own xattrs upon file creation
+        let actual = nu!(
+            cwd: dirs.test(), pipeline(
+            r#"
+                ls -l | sort-by name | each { |it| 'user.nushell.potion' in $it.extended_attributes } | to csv
+            "#
+        ));
+
+        assert!(actual.out.contains("false,true"));
     })
 }

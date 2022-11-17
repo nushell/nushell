@@ -509,6 +509,31 @@ pub(crate) fn dir_entry_dict(
         }
     }
 
+    if long {
+        #[cfg(any(
+            target_os = "android",
+            target_os = "linux",
+            target_os = "macos",
+            target_os = "freebsd",
+            target_os = "netbsd"
+        ))]
+        {
+            // Caveat as documented in the xattr crate:
+            // This may not list all attributes. Speficially, it definitely won't list any trusted attributes unless you are root and it may not list system attributes.
+            let xattr_list = xattr::list(filename)?;
+
+            cols.push("extended_attributes".into());
+
+            vals.push(Value::List {
+                vals: xattr_list
+                    .filter_map(|attr| attr.into_string().ok())
+                    .map(|key| Value::String { val: key, span })
+                    .collect(),
+                span,
+            })
+        }
+    }
+
     cols.push("size".to_string());
     if let Some(md) = metadata {
         let zero_sized = file_type == "pipe"
