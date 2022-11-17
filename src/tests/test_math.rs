@@ -107,5 +107,5 @@ fn precedence_of_or_groups() -> TestResult {
 
 #[test]
 fn test_filesize_op() -> TestResult {
-    run_test("-5kb + 4kb", "-1,000 B")
+    run_test("-5kb + 4.5kb", "-500 B")
 }

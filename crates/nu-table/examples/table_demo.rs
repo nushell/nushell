@@ -40,6 +40,7 @@ fn main() {
             Alignments::default(),
             &TableTheme::rounded(),
             width,
+            false,
         )
         .unwrap_or_else(|| format!("Couldn't fit table into {} columns!", width));
     // Draw the table

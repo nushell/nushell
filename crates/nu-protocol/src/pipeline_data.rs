@@ -56,6 +56,7 @@ pub struct PipelineMetadata {
 #[derive(Debug, Clone)]
 pub enum DataSource {
     Ls,
+    HtmlThemes,
 }
 
 impl PipelineData {
@@ -595,6 +596,7 @@ impl Iterator for PipelineIterator {
 
 pub trait IntoPipelineData {
     fn into_pipeline_data(self) -> PipelineData;
+    fn into_pipeline_data_with_metadata(self, metadata: PipelineMetadata) -> PipelineData;
 }
 
 impl<V> IntoPipelineData for V
@@ -603,6 +605,9 @@ where
 {
     fn into_pipeline_data(self) -> PipelineData {
         PipelineData::Value(self.into(), None)
+    }
+    fn into_pipeline_data_with_metadata(self, metadata: PipelineMetadata) -> PipelineData {
+        PipelineData::Value(self.into(), Some(metadata))
     }
 }
 
