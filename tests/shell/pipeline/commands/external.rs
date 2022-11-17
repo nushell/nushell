@@ -128,18 +128,15 @@ fn command_substitution_wont_output_extra_newline() {
         with-env [FOO "bar"] { echo $"prefix (nu --testbin echo_env FOO) suffix" }
         "#
     );
-    assert!(actual.out.eq("prefix bar suffix"));
-}
+    assert_eq!(actual.out, "prefix bar suffix");
 
-#[test]
-fn external_command_wont_trim_end_newline() {
     let actual = nu!(
         cwd: ".",
         r#"
-        with-env [FOO "bar\n"] { nu --testbin echo_env FOO " }
+        with-env [FOO "bar"] { (nu --testbin echo_env FOO) }
         "#
     );
-    assert!(actual.out.eq("bar\n"));
+    assert_eq!(actual.out, "bar");
 }
 
 mod it_evaluation {
