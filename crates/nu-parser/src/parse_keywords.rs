@@ -2,7 +2,7 @@ use nu_path::canonicalize_with;
 use nu_protocol::{
     ast::{
         Argument, Block, Call, Expr, Expression, ImportPattern, ImportPatternHead,
-        ImportPatternMember, PathMember, Pipeline,
+        ImportPatternMember, PathMember, Pipeline, PipelineElement,
     },
     engine::{StateWorkingSet, DEFAULT_OVERLAY_NAME},
     span, BlockId, Exportable, Module, PositionalArg, Span, Spanned, SyntaxShape, Type,
@@ -16,12 +16,11 @@ static PLUGIN_DIRS_ENV: &str = "NU_PLUGIN_DIRS";
 
 use crate::{
     known_external::KnownExternal,
-    lex, lite_parse,
-    lite_parse::LiteCommand,
+    lex,
     parser::{
-        check_call, check_name, garbage, garbage_pipeline, parse, parse_internal_call,
+        check_call, check_name, garbage, garbage_pipeline, lite_parse, parse, parse_internal_call,
         parse_multispan_value, parse_signature, parse_string, parse_var_with_opt_type, trim_quotes,
-        ParsedInternalCall,
+        LiteCommand, LiteElement, ParsedInternalCall,
     },
     unescape_unquote_string, ParseError,
 };
@@ -866,10 +865,10 @@ pub fn parse_export_in_module(
                     };
 
                 // Trying to warp the 'def' call into the 'export def' in a very clumsy way
-                if let Some(Expression {
+                if let Some(PipelineElement::Expression(Expression {
                     expr: Expr::Call(ref def_call),
                     ..
-                }) = pipeline.expressions.get(0)
+                })) = pipeline.elements.get(0)
                 {
                     call = def_call.clone();
 
@@ -931,10 +930,10 @@ pub fn parse_export_in_module(
                     };
 
                 // Trying to warp the 'def' call into the 'export def' in a very clumsy way
-                if let Some(Expression {
+                if let Some(PipelineElement::Expression(Expression {
                     expr: Expr::Call(ref def_call),
                     ..
-                }) = pipeline.expressions.get(0)
+                })) = pipeline.elements.get(0)
                 {
                     call = def_call.clone();
 
@@ -997,10 +996,10 @@ pub fn parse_export_in_module(
                     };
 
                 // Trying to warp the 'def' call into the 'export def' in a very clumsy way
-                if let Some(Expression {
+                if let Some(PipelineElement::Expression(Expression {
                     expr: Expr::Call(ref def_call),
                     ..
-                }) = pipeline.expressions.get(0)
+                })) = pipeline.elements.get(0)
                 {
                     call = def_call.clone();
 
@@ -1063,10 +1062,10 @@ pub fn parse_export_in_module(
                     };
 
                 // Trying to warp the 'alias' call into the 'export alias' in a very clumsy way
-                if let Some(Expression {
+                if let Some(PipelineElement::Expression(Expression {
                     expr: Expr::Call(ref alias_call),
                     ..
-                }) = pipeline.expressions.get(0)
+                })) = pipeline.elements.get(0)
                 {
                     call = alias_call.clone();
 
@@ -1129,10 +1128,10 @@ pub fn parse_export_in_module(
                     };
 
                 // Trying to warp the 'use' call into the 'export use' in a very clumsy way
-                if let Some(Expression {
+                if let Some(PipelineElement::Expression(Expression {
                     expr: Expr::Call(ref use_call),
                     ..
-                }) = pipeline.expressions.get(0)
+                })) = pipeline.elements.get(0)
                 {
                     call = use_call.clone();
 
@@ -1314,11 +1313,9 @@ pub fn parse_module_block(
 
     for pipeline in &output.block {
         if pipeline.commands.len() == 1 {
-            parse_def_predecl(
-                working_set,
-                &pipeline.commands[0].parts,
-                expand_aliases_denylist,
-            );
+            if let LiteElement::Command(command) = &pipeline.commands[0] {
+                parse_def_predecl(working_set, &command.parts, expand_aliases_denylist);
+            }
         }
     }
 
@@ -1329,91 +1326,91 @@ pub fn parse_module_block(
         .iter()
         .map(|pipeline| {
             if pipeline.commands.len() == 1 {
-                let name = working_set.get_span_contents(pipeline.commands[0].parts[0]);
+                match &pipeline.commands[0] {
+                    LiteElement::Command(command) => {
+                        let name = working_set.get_span_contents(command.parts[0]);
 
-                let (pipeline, err) = match name {
-                    b"def" | b"def-env" => {
-                        let (pipeline, err) =
-                            parse_def(working_set, &pipeline.commands[0], expand_aliases_denylist);
+                        let (pipeline, err) = match name {
+                            b"def" | b"def-env" => {
+                                let (pipeline, err) =
+                                    parse_def(working_set, command, expand_aliases_denylist);
 
-                        (pipeline, err)
-                    }
-                    b"extern" => {
-                        let (pipeline, err) = parse_extern(
-                            working_set,
-                            &pipeline.commands[0],
-                            expand_aliases_denylist,
-                        );
+                                (pipeline, err)
+                            }
+                            b"extern" => {
+                                let (pipeline, err) =
+                                    parse_extern(working_set, command, expand_aliases_denylist);
 
-                        (pipeline, err)
-                    }
-                    b"alias" => {
-                        let (pipeline, err) = parse_alias(
-                            working_set,
-                            &pipeline.commands[0].parts,
-                            expand_aliases_denylist,
-                        );
+                                (pipeline, err)
+                            }
+                            b"alias" => {
+                                let (pipeline, err) = parse_alias(
+                                    working_set,
+                                    &command.parts,
+                                    expand_aliases_denylist,
+                                );
 
-                        (pipeline, err)
-                    }
-                    b"use" => {
-                        let (pipeline, _, err) = parse_use(
-                            working_set,
-                            &pipeline.commands[0].parts,
-                            expand_aliases_denylist,
-                        );
+                                (pipeline, err)
+                            }
+                            b"use" => {
+                                let (pipeline, _, err) =
+                                    parse_use(working_set, &command.parts, expand_aliases_denylist);
 
-                        (pipeline, err)
-                    }
-                    b"export" => {
-                        let (pipe, exportables, err) = parse_export_in_module(
-                            working_set,
-                            &pipeline.commands[0],
-                            expand_aliases_denylist,
-                        );
+                                (pipeline, err)
+                            }
+                            b"export" => {
+                                let (pipe, exportables, err) = parse_export_in_module(
+                                    working_set,
+                                    command,
+                                    expand_aliases_denylist,
+                                );
 
-                        if err.is_none() {
-                            for exportable in exportables {
-                                match exportable {
-                                    Exportable::Decl { name, id } => {
-                                        module.add_decl(name, id);
-                                    }
-                                    Exportable::Alias { name, id } => {
-                                        module.add_alias(name, id);
+                                if err.is_none() {
+                                    for exportable in exportables {
+                                        match exportable {
+                                            Exportable::Decl { name, id } => {
+                                                module.add_decl(name, id);
+                                            }
+                                            Exportable::Alias { name, id } => {
+                                                module.add_alias(name, id);
+                                            }
+                                        }
                                     }
                                 }
+
+                                (pipe, err)
                             }
+                            b"export-env" => {
+                                let (pipe, maybe_env_block, err) = parse_export_env(
+                                    working_set,
+                                    &command.parts,
+                                    expand_aliases_denylist,
+                                );
+
+                                if let Some(block_id) = maybe_env_block {
+                                    module.add_env_block(block_id);
+                                }
+
+                                (pipe, err)
+                            }
+                            _ => (
+                                garbage_pipeline(&command.parts),
+                                Some(ParseError::ExpectedKeyword(
+                                    "def or export keyword".into(),
+                                    command.parts[0],
+                                )),
+                            ),
+                        };
+                        if error.is_none() {
+                            error = err;
                         }
 
-                        (pipe, err)
+                        pipeline
                     }
-                    b"export-env" => {
-                        let (pipe, maybe_env_block, err) = parse_export_env(
-                            working_set,
-                            &pipeline.commands[0].parts,
-                            expand_aliases_denylist,
-                        );
-
-                        if let Some(block_id) = maybe_env_block {
-                            module.add_env_block(block_id);
-                        }
-
-                        (pipe, err)
-                    }
-                    _ => (
-                        garbage_pipeline(&pipeline.commands[0].parts),
-                        Some(ParseError::ExpectedKeyword(
-                            "def or export keyword".into(),
-                            pipeline.commands[0].parts[0],
-                        )),
-                    ),
-                };
-
-                if error.is_none() {
-                    error = err;
+                    LiteElement::Or(command)
+                    | LiteElement::And(command)
+                    | LiteElement::Redirection(command) => garbage_pipeline(&command.parts),
                 }
-
-                pipeline
             } else {
                 error = Some(ParseError::Expected("not a pipeline".into(), span));
                 garbage_pipeline(&[span])
@@ -2841,14 +2838,12 @@ pub fn parse_let(
             );
 
             return (
-                Pipeline {
-                    expressions: vec![Expression {
-                        expr: Expr::Call(call),
-                        span: nu_protocol::span(spans),
-                        ty: output,
-                        custom_completion: None,
-                    }],
-                },
+                Pipeline::from_vec(vec![Expression {
+                    expr: Expr::Call(call),
+                    span: nu_protocol::span(spans),
+                    ty: output,
+                    custom_completion: None,
+                }]),
                 err,
             );
         }
@@ -2964,14 +2959,12 @@ pub fn parse_mut(
             );
 
             return (
-                Pipeline {
-                    expressions: vec![Expression {
-                        expr: Expr::Call(call),
-                        span: nu_protocol::span(spans),
-                        ty: output,
-                        custom_completion: None,
-                    }],
-                },
+                Pipeline::from_vec(vec![Expression {
+                    expr: Expr::Call(call),
+                    span: nu_protocol::span(spans),
+                    ty: output,
+                    custom_completion: None,
+                }]),
                 err,
             );
         }

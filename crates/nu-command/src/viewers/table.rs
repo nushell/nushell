@@ -992,11 +992,14 @@ fn convert_to_table2<'a>(
         }
 
         if available_width == 0 || available_width <= nessary_space {
-            // we don't do truncate here or anything like it cause we know that
+            // MUST NEVER HAPPEN (ideally)
+            // but it does...
+
+            truncate = true;
             break;
         }
 
-        available_width = available_width.saturating_sub(nessary_space);
+        available_width -= nessary_space;
 
         let mut column_width = string_width(&header);
 
@@ -1032,11 +1035,12 @@ fn convert_to_table2<'a>(
 
             let value = NuTable::create_cell(value.0, value.1);
 
-            let row = row + 1;
-            data[row].push(value);
+            data[row + 1].push(value);
         }
 
-        if column_width >= available_width {
+        if column_width >= available_width
+            || (!is_last_col && column_width + nessary_space >= available_width)
+        {
             // so we try to do soft landing
             // by doing a truncating in case there will be enough space for it.
 
@@ -1057,8 +1061,7 @@ fn convert_to_table2<'a>(
 
                 let value = NuTable::create_cell(value.0, value.1);
 
-                let row = row + 1;
-                *data[row].last_mut().expect("unwrap") = value;
+                *data[row + 1].last_mut().expect("unwrap") = value;
             }
         }
 
@@ -1082,22 +1085,28 @@ fn convert_to_table2<'a>(
 
                 let value = NuTable::create_cell(value.0, value.1);
 
-                let row = row + 1;
-                *data[row].last_mut().expect("unwrap") = value;
+                *data[row + 1].last_mut().expect("unwrap") = value;
             }
         }
 
         if column_width > available_width {
+            // remove just added column
+            for row in &mut data {
+                row.pop();
+            }
+
+            available_width += nessary_space;
+
             truncate = true;
             break;
         }
 
-        available_width = available_width.saturating_sub(column_width);
+        available_width -= column_width;
         widths.push(column_width);
     }
 
     if truncate {
-        if available_width > TRUNCATE_CELL_WIDTH + PADDING_SPACE {
+        if available_width <= TRUNCATE_CELL_WIDTH + PADDING_SPACE {
             // back up by removing last column.
             // it's ALWAYS MUST has us enough space for a shift column
             while let Some(width) = widths.pop() {
@@ -1105,9 +1114,9 @@ fn convert_to_table2<'a>(
                     row.pop();
                 }
 
-                available_width += width;
+                available_width += width + PADDING_SPACE + SPLIT_LINE_SPACE;
 
-                if available_width >= TRUNCATE_CELL_WIDTH + PADDING_SPACE {
+                if available_width > TRUNCATE_CELL_WIDTH + PADDING_SPACE {
                     break;
                 }
             }

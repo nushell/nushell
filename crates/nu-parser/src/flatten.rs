@@ -1,4 +1,6 @@
-use nu_protocol::ast::{Block, Expr, Expression, ImportPatternMember, PathMember, Pipeline};
+use nu_protocol::ast::{
+    Block, Expr, Expression, ImportPatternMember, PathMember, Pipeline, PipelineElement,
+};
 use nu_protocol::DeclId;
 use nu_protocol::{engine::StateWorkingSet, Span};
 use std::fmt::{Display, Formatter, Result};
@@ -495,13 +497,25 @@ pub fn flatten_expression(
     }
 }
 
+pub fn flatten_pipeline_element(
+    working_set: &StateWorkingSet,
+    pipeline_element: &PipelineElement,
+) -> Vec<(Span, FlatShape)> {
+    match pipeline_element {
+        PipelineElement::Expression(expr)
+        | PipelineElement::Redirect(expr)
+        | PipelineElement::And(expr)
+        | PipelineElement::Or(expr) => flatten_expression(working_set, expr),
+    }
+}
+
 pub fn flatten_pipeline(
     working_set: &StateWorkingSet,
     pipeline: &Pipeline,
 ) -> Vec<(Span, FlatShape)> {
     let mut output = vec![];
-    for expr in &pipeline.expressions {
-        output.extend(flatten_expression(working_set, expr))
+    for expr in &pipeline.elements {
+        output.extend(flatten_pipeline_element(working_set, expr))
     }
     output
 }
