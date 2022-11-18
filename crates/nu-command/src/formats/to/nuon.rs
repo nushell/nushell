@@ -202,12 +202,13 @@ fn to_nuon(call: &Call, input: PipelineData) -> Result<String, ShellError> {
     value_to_string(&v, call.head)
 }
 
-// This hits:
-// • Any character of []:`{}#"';()|$,
+// This hits, in order:
+// • Any character of []:`{}#'";()|$,
 // • Any digit (\d)
 // • Any whitespace (\s)
+// • Case-insensitive sign-insensitive float "keywords" inf, infinity and nan.
 static NEEDS_QUOTES_REGEX: Lazy<Regex> = Lazy::new(|| {
-    Regex::new(r#"[\[\]:`\{\}#'";\(\)\|\$,\s\d]"#)
+    Regex::new(r#"[\[\]:`\{\}#'";\(\)\|\$,\d\s]|(?i)^[+\-]?(inf(inity)?|nan)$"#)
         .expect("internal error: NEEDS_QUOTES_REGEX didn't compile")
 });
 
@@ -215,12 +216,6 @@ fn needs_quotes(string: &str) -> bool {
     // These are case-sensitive keywords
     match string {
         "true" | "false" | "null" => return true,
-        _ => (),
-    };
-    // These are case-insensitive keywords
-    match string.to_lowercase().as_str() {
-        "inf" | "infinity" | "nan" | "+inf" | "+infinity" | "+nan" | "-inf" | "-infinity"
-        | "-nan" => return true,
         _ => (),
     };
     // All other cases are handled here
