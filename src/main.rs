@@ -20,7 +20,7 @@ use nu_engine::{get_full_help, CallExt};
 use nu_parser::{escape_for_script_arg, escape_quote_string, parse};
 use nu_path::canonicalize_with;
 use nu_protocol::{
-    ast::{Call, Expr, Expression},
+    ast::{Call, Expr, Expression, PipelineElement},
     engine::{Command, EngineState, Stack, StateWorkingSet},
     Category, Example, IntoPipelineData, PipelineData, RawStream, ShellError, Signature, Span,
     Spanned, SyntaxShape, Value,
@@ -511,10 +511,10 @@ fn parse_commandline_args(
 
     // We should have a successful parse now
     if let Some(pipeline) = block.pipelines.get(0) {
-        if let Some(Expression {
+        if let Some(PipelineElement::Expression(Expression {
             expr: Expr::Call(call),
             ..
-        }) = pipeline.expressions.get(0)
+        })) = pipeline.elements.get(0)
         {
             let redirect_stdin = call.get_named_arg("stdin");
             let login_shell = call.get_named_arg("login");

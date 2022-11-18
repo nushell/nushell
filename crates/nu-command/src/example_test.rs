@@ -310,10 +310,10 @@ mod test_examples {
         let (mut block, delta) = parse(src, engine_state);
         match block.pipelines.len() {
             1 => {
-                let n_expressions = block.pipelines[0].expressions.len();
-                block.pipelines[0].expressions.truncate(&n_expressions - 1);
+                let n_expressions = block.pipelines[0].elements.len();
+                block.pipelines[0].elements.truncate(&n_expressions - 1);
 
-                if !block.pipelines[0].expressions.is_empty() {
+                if !block.pipelines[0].elements.is_empty() {
                     let empty_input = PipelineData::new(Span::test_data());
                     Some(eval_block(block, empty_input, cwd, engine_state, delta))
                 } else {

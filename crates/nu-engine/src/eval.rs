@@ -3,7 +3,7 @@ use nu_path::expand_path_with;
 use nu_protocol::{
     ast::{
         Assignment, Bits, Block, Boolean, Call, Comparison, Expr, Expression, Math, Operator,
-        PathMember,
+        PathMember, PipelineElement,
     },
     engine::{EngineState, Stack},
     Config, HistoryFileFormat, IntoInterruptiblePipelineData, IntoPipelineData, ListStream,
@@ -792,6 +792,50 @@ fn might_consume_external_result(input: PipelineData) -> (PipelineData, bool) {
     }
 }
 
+pub fn eval_element_with_input(
+    engine_state: &EngineState,
+    stack: &mut Stack,
+    element: &PipelineElement,
+    input: PipelineData,
+    redirect_stdout: bool,
+    redirect_stderr: bool,
+) -> Result<(PipelineData, bool), ShellError> {
+    match element {
+        PipelineElement::Expression(expr) => eval_expression_with_input(
+            engine_state,
+            stack,
+            expr,
+            input,
+            redirect_stdout,
+            redirect_stderr,
+        ),
+        PipelineElement::Redirect(expr) => eval_expression_with_input(
+            engine_state,
+            stack,
+            expr,
+            input,
+            redirect_stdout,
+            redirect_stderr,
+        ),
+        PipelineElement::And(expr) => eval_expression_with_input(
+            engine_state,
+            stack,
+            expr,
+            input,
+            redirect_stdout,
+            redirect_stderr,
+        ),
+        PipelineElement::Or(expr) => eval_expression_with_input(
+            engine_state,
+            stack,
+            expr,
+            input,
+            redirect_stdout,
+            redirect_stderr,
+        ),
+    }
+}
+
 pub fn eval_block(
     engine_state: &EngineState,
     stack: &mut Stack,
@@ -802,14 +846,14 @@ pub fn eval_block(
 ) -> Result<PipelineData, ShellError> {
     let num_pipelines = block.len();
     for (pipeline_idx, pipeline) in block.pipelines.iter().enumerate() {
-        for (i, elem) in pipeline.expressions.iter().enumerate() {
+        for (i, elem) in pipeline.elements.iter().enumerate() {
             // if eval internal command failed, it can just make early return with `Err(ShellError)`.
-            let eval_result = eval_expression_with_input(
+            let eval_result = eval_element_with_input(
                 engine_state,
                 stack,
                 elem,
                 input,
-                redirect_stdout || (i != pipeline.expressions.len() - 1),
+                redirect_stdout || (i != pipeline.elements.len() - 1),
                 redirect_stderr,
             )?;
             input = eval_result.0;
@@ -907,8 +951,8 @@ pub fn eval_subexpression(
     mut input: PipelineData,
 ) -> Result<PipelineData, ShellError> {
     for pipeline in block.pipelines.iter() {
-        for expr in pipeline.expressions.iter() {
-            input = eval_expression_with_input(engine_state, stack, expr, input, true, false)?.0
+        for expr in pipeline.elements.iter() {
+            input = eval_element_with_input(engine_state, stack, expr, input, true, false)?.0
         }
     }
 

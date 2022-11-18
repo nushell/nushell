@@ -1,10 +1,64 @@
 use std::ops::{Index, IndexMut};
 
-use crate::ast::Expression;
+use crate::{ast::Expression, engine::StateWorkingSet, Span, VarId};
+
+#[derive(Debug, Clone)]
+pub enum PipelineElement {
+    Expression(Expression),
+    Redirect(Expression),
+    And(Expression),
+    Or(Expression),
+}
+
+impl PipelineElement {
+    pub fn span(&self) -> Span {
+        match self {
+            PipelineElement::Expression(expression)
+            | PipelineElement::Redirect(expression)
+            | PipelineElement::And(expression)
+            | PipelineElement::Or(expression) => expression.span,
+        }
+    }
+    pub fn has_in_variable(&self, working_set: &StateWorkingSet) -> bool {
+        match self {
+            PipelineElement::Expression(expression)
+            | PipelineElement::Redirect(expression)
+            | PipelineElement::And(expression)
+            | PipelineElement::Or(expression) => expression.has_in_variable(working_set),
+        }
+    }
+
+    pub fn replace_in_variable(&mut self, working_set: &mut StateWorkingSet, new_var_id: VarId) {
+        match self {
+            PipelineElement::Expression(expression)
+            | PipelineElement::Redirect(expression)
+            | PipelineElement::And(expression)
+            | PipelineElement::Or(expression) => {
+                expression.replace_in_variable(working_set, new_var_id)
+            }
+        }
+    }
+
+    pub fn replace_span(
+        &mut self,
+        working_set: &mut StateWorkingSet,
+        replaced: Span,
+        new_span: Span,
+    ) {
+        match self {
+            PipelineElement::Expression(expression)
+            | PipelineElement::Redirect(expression)
+            | PipelineElement::And(expression)
+            | PipelineElement::Or(expression) => {
+                expression.replace_span(working_set, replaced, new_span)
+            }
+        }
+    }
+}
 
 #[derive(Debug, Clone)]
 pub struct Pipeline {
-    pub expressions: Vec<Expression>,
+    pub elements: Vec<PipelineElement>,
 }
 
 impl Default for Pipeline {
@@ -15,34 +69,37 @@ impl Default for Pipeline {
 
 impl Pipeline {
     pub fn new() -> Self {
-        Self {
-            expressions: vec![],
-        }
+        Self { elements: vec![] }
     }
 
     pub fn from_vec(expressions: Vec<Expression>) -> Pipeline {
-        Self { expressions }
+        Self {
+            elements: expressions
+                .into_iter()
+                .map(PipelineElement::Expression)
+                .collect(),
+        }
     }
 
     pub fn len(&self) -> usize {
-        self.expressions.len()
+        self.elements.len()
     }
 
     pub fn is_empty(&self) -> bool {
-        self.expressions.is_empty()
+        self.elements.is_empty()
     }
 }
 
 impl Index<usize> for Pipeline {
-    type Output = Expression;
+    type Output = PipelineElement;
 
     fn index(&self, index: usize) -> &Self::Output {
-        &self.expressions[index]
+        &self.elements[index]
     }
 }
 
 impl IndexMut<usize> for Pipeline {
     fn index_mut(&mut self, index: usize) -> &mut Self::Output {
-        &mut self.expressions[index]
+        &mut self.elements[index]
     }
 }

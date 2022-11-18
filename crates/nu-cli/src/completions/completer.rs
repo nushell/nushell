@@ -5,6 +5,7 @@ use crate::completions::{
 use nu_engine::eval_block;
 use nu_parser::{flatten_expression, parse, FlatShape};
 use nu_protocol::{
+    ast::PipelineElement,
     engine::{EngineState, Stack, StateWorkingSet},
     BlockId, PipelineData, Span, Value,
 };
@@ -131,139 +132,62 @@ impl NuCompleter {
         let (output, _err) = parse(&mut working_set, Some("completer"), &new_line, false, &[]);
 
         for pipeline in output.pipelines.into_iter() {
-            for expr in pipeline.expressions {
-                let flattened: Vec<_> = flatten_expression(&working_set, &expr);
-                let span_offset: usize = alias_offset.iter().sum();
-                let mut spans: Vec<String> = vec![];
+            for pipeline_element in pipeline.elements {
+                match pipeline_element {
+                    PipelineElement::Expression(expr)
+                    | PipelineElement::Redirect(expr)
+                    | PipelineElement::And(expr)
+                    | PipelineElement::Or(expr) => {
+                        let flattened: Vec<_> = flatten_expression(&working_set, &expr);
+                        let span_offset: usize = alias_offset.iter().sum();
+                        let mut spans: Vec<String> = vec![];
 
-                for (flat_idx, flat) in flattened.iter().enumerate() {
-                    // Read the current spam to string
-                    let current_span = working_set.get_span_contents(flat.0).to_vec();
-                    let current_span_str = String::from_utf8_lossy(&current_span);
+                        for (flat_idx, flat) in flattened.iter().enumerate() {
+                            // Read the current spam to string
+                            let current_span = working_set.get_span_contents(flat.0).to_vec();
+                            let current_span_str = String::from_utf8_lossy(&current_span);
 
-                    // Skip the last 'a' as span item
-                    if flat_idx == flattened.len() - 1 {
-                        let mut chars = current_span_str.chars();
-                        chars.next_back();
-                        let current_span_str = chars.as_str().to_owned();
-                        spans.push(current_span_str.to_string());
-                    } else {
-                        spans.push(current_span_str.to_string());
-                    }
-
-                    // Complete based on the last span
-                    if pos + span_offset >= flat.0.start && pos + span_offset < flat.0.end {
-                        // Context variables
-                        let most_left_var =
-                            most_left_variable(flat_idx, &working_set, flattened.clone());
-
-                        // Create a new span
-                        let new_span = if flat_idx == 0 {
-                            Span {
-                                start: flat.0.start,
-                                end: flat.0.end - 1 - span_offset,
-                            }
-                        } else {
-                            Span {
-                                start: flat.0.start - span_offset,
-                                end: flat.0.end - 1 - span_offset,
-                            }
-                        };
-
-                        // Parses the prefix. Completion should look up to the cursor position, not after.
-                        let mut prefix = working_set.get_span_contents(flat.0).to_vec();
-                        let index = pos - (flat.0.start - span_offset);
-                        prefix.drain(index..);
-
-                        // Variables completion
-                        if prefix.starts_with(b"$") || most_left_var.is_some() {
-                            let mut completer = VariableCompletion::new(
-                                self.engine_state.clone(),
-                                self.stack.clone(),
-                                most_left_var.unwrap_or((vec![], vec![])),
-                            );
-
-                            return self.process_completion(
-                                &mut completer,
-                                &working_set,
-                                prefix,
-                                new_span,
-                                offset,
-                                pos,
-                            );
-                        }
-
-                        // Flags completion
-                        if prefix.starts_with(b"-") {
-                            // Try to complete flag internally
-                            let mut completer = FlagCompletion::new(expr.clone());
-                            let result = self.process_completion(
-                                &mut completer,
-                                &working_set,
-                                prefix.clone(),
-                                new_span,
-                                offset,
-                                pos,
-                            );
-
-                            if !result.is_empty() {
-                                return result;
+                            // Skip the last 'a' as span item
+                            if flat_idx == flattened.len() - 1 {
+                                let mut chars = current_span_str.chars();
+                                chars.next_back();
+                                let current_span_str = chars.as_str().to_owned();
+                                spans.push(current_span_str.to_string());
+                            } else {
+                                spans.push(current_span_str.to_string());
                             }
 
-                            // We got no results for internal completion
-                            // now we can check if external completer is set and use it
-                            if let Some(block_id) = config.external_completer {
-                                if let Some(external_result) =
-                                    self.external_completion(block_id, &spans, offset, new_span)
-                                {
-                                    return external_result;
-                                }
-                            }
-                        }
+                            // Complete based on the last span
+                            if pos + span_offset >= flat.0.start && pos + span_offset < flat.0.end {
+                                // Context variables
+                                let most_left_var =
+                                    most_left_variable(flat_idx, &working_set, flattened.clone());
 
-                        // specially check if it is currently empty - always complete commands
-                        if flat_idx == 0 && working_set.get_span_contents(new_span).is_empty() {
-                            let mut completer = CommandCompletion::new(
-                                self.engine_state.clone(),
-                                &working_set,
-                                flattened.clone(),
-                                // flat_idx,
-                                FlatShape::String,
-                                true,
-                            );
-                            return self.process_completion(
-                                &mut completer,
-                                &working_set,
-                                prefix,
-                                new_span,
-                                offset,
-                                pos,
-                            );
-                        }
+                                // Create a new span
+                                let new_span = if flat_idx == 0 {
+                                    Span {
+                                        start: flat.0.start,
+                                        end: flat.0.end - 1 - span_offset,
+                                    }
+                                } else {
+                                    Span {
+                                        start: flat.0.start - span_offset,
+                                        end: flat.0.end - 1 - span_offset,
+                                    }
+                                };
 
-                        // Completions that depends on the previous expression (e.g: use, source-env)
-                        if flat_idx > 0 {
-                            if let Some(previous_expr) = flattened.get(flat_idx - 1) {
-                                // Read the content for the previous expression
-                                let prev_expr_str =
-                                    working_set.get_span_contents(previous_expr.0).to_vec();
+                                // Parses the prefix. Completion should look up to the cursor position, not after.
+                                let mut prefix = working_set.get_span_contents(flat.0).to_vec();
+                                let index = pos - (flat.0.start - span_offset);
+                                prefix.drain(index..);
 
-                                // Completion for .nu files
-                                if prev_expr_str == b"use" || prev_expr_str == b"source-env" {
-                                    let mut completer =
-                                        DotNuCompletion::new(self.engine_state.clone());
-
-                                    return self.process_completion(
-                                        &mut completer,
-                                        &working_set,
-                                        prefix,
-                                        new_span,
-                                        offset,
-                                        pos,
+                                // Variables completion
+                                if prefix.starts_with(b"$") || most_left_var.is_some() {
+                                    let mut completer = VariableCompletion::new(
+                                        self.engine_state.clone(),
+                                        self.stack.clone(),
+                                        most_left_var.unwrap_or((vec![], vec![])),
                                     );
-                                } else if prev_expr_str == b"ls" {
-                                    let mut completer =
-                                        FileCompletion::new(self.engine_state.clone());
 
                                     return self.process_completion(
                                         &mut completer,
@@ -274,101 +198,190 @@ impl NuCompleter {
                                         pos,
                                     );
                                 }
-                            }
-                        }
 
-                        // Match other types
-                        match &flat.1 {
-                            FlatShape::Custom(decl_id) => {
-                                let mut completer = CustomCompletion::new(
-                                    self.engine_state.clone(),
-                                    self.stack.clone(),
-                                    *decl_id,
-                                    initial_line,
-                                );
+                                // Flags completion
+                                if prefix.starts_with(b"-") {
+                                    // Try to complete flag internally
+                                    let mut completer = FlagCompletion::new(expr.clone());
+                                    let result = self.process_completion(
+                                        &mut completer,
+                                        &working_set,
+                                        prefix.clone(),
+                                        new_span,
+                                        offset,
+                                        pos,
+                                    );
 
-                                return self.process_completion(
-                                    &mut completer,
-                                    &working_set,
-                                    prefix,
-                                    new_span,
-                                    offset,
-                                    pos,
-                                );
-                            }
-                            FlatShape::Directory => {
-                                let mut completer =
-                                    DirectoryCompletion::new(self.engine_state.clone());
+                                    if !result.is_empty() {
+                                        return result;
+                                    }
 
-                                return self.process_completion(
-                                    &mut completer,
-                                    &working_set,
-                                    prefix,
-                                    new_span,
-                                    offset,
-                                    pos,
-                                );
-                            }
-                            FlatShape::Filepath | FlatShape::GlobPattern => {
-                                let mut completer = FileCompletion::new(self.engine_state.clone());
-
-                                return self.process_completion(
-                                    &mut completer,
-                                    &working_set,
-                                    prefix,
-                                    new_span,
-                                    offset,
-                                    pos,
-                                );
-                            }
-                            flat_shape => {
-                                let mut completer = CommandCompletion::new(
-                                    self.engine_state.clone(),
-                                    &working_set,
-                                    flattened.clone(),
-                                    // flat_idx,
-                                    flat_shape.clone(),
-                                    false,
-                                );
-
-                                let mut out: Vec<_> = self.process_completion(
-                                    &mut completer,
-                                    &working_set,
-                                    prefix.clone(),
-                                    new_span,
-                                    offset,
-                                    pos,
-                                );
-
-                                if !out.is_empty() {
-                                    return out;
-                                }
-
-                                // Try to complete using an external completer (if set)
-                                if let Some(block_id) = config.external_completer {
-                                    if let Some(external_result) =
-                                        self.external_completion(block_id, &spans, offset, new_span)
-                                    {
-                                        return external_result;
+                                    // We got no results for internal completion
+                                    // now we can check if external completer is set and use it
+                                    if let Some(block_id) = config.external_completer {
+                                        if let Some(external_result) = self
+                                            .external_completion(block_id, &spans, offset, new_span)
+                                        {
+                                            return external_result;
+                                        }
                                     }
                                 }
 
-                                // Check for file completion
-                                let mut completer = FileCompletion::new(self.engine_state.clone());
-                                out = self.process_completion(
-                                    &mut completer,
-                                    &working_set,
-                                    prefix,
-                                    new_span,
-                                    offset,
-                                    pos,
-                                );
-
-                                if !out.is_empty() {
-                                    return out;
+                                // specially check if it is currently empty - always complete commands
+                                if flat_idx == 0
+                                    && working_set.get_span_contents(new_span).is_empty()
+                                {
+                                    let mut completer = CommandCompletion::new(
+                                        self.engine_state.clone(),
+                                        &working_set,
+                                        flattened.clone(),
+                                        // flat_idx,
+                                        FlatShape::String,
+                                        true,
+                                    );
+                                    return self.process_completion(
+                                        &mut completer,
+                                        &working_set,
+                                        prefix,
+                                        new_span,
+                                        offset,
+                                        pos,
+                                    );
                                 }
+
+                                // Completions that depends on the previous expression (e.g: use, source-env)
+                                if flat_idx > 0 {
+                                    if let Some(previous_expr) = flattened.get(flat_idx - 1) {
+                                        // Read the content for the previous expression
+                                        let prev_expr_str =
+                                            working_set.get_span_contents(previous_expr.0).to_vec();
+
+                                        // Completion for .nu files
+                                        if prev_expr_str == b"use" || prev_expr_str == b"source-env"
+                                        {
+                                            let mut completer =
+                                                DotNuCompletion::new(self.engine_state.clone());
+
+                                            return self.process_completion(
+                                                &mut completer,
+                                                &working_set,
+                                                prefix,
+                                                new_span,
+                                                offset,
+                                                pos,
+                                            );
+                                        } else if prev_expr_str == b"ls" {
+                                            let mut completer =
+                                                FileCompletion::new(self.engine_state.clone());
+
+                                            return self.process_completion(
+                                                &mut completer,
+                                                &working_set,
+                                                prefix,
+                                                new_span,
+                                                offset,
+                                                pos,
+                                            );
+                                        }
+                                    }
+                                }
+
+                                // Match other types
+                                match &flat.1 {
+                                    FlatShape::Custom(decl_id) => {
+                                        let mut completer = CustomCompletion::new(
+                                            self.engine_state.clone(),
+                                            self.stack.clone(),
+                                            *decl_id,
+                                            initial_line,
+                                        );
+
+                                        return self.process_completion(
+                                            &mut completer,
+                                            &working_set,
+                                            prefix,
+                                            new_span,
+                                            offset,
+                                            pos,
+                                        );
+                                    }
+                                    FlatShape::Directory => {
+                                        let mut completer =
+                                            DirectoryCompletion::new(self.engine_state.clone());
+
+                                        return self.process_completion(
+                                            &mut completer,
+                                            &working_set,
+                                            prefix,
+                                            new_span,
+                                            offset,
+                                            pos,
+                                        );
+                                    }
+                                    FlatShape::Filepath | FlatShape::GlobPattern => {
+                                        let mut completer =
+                                            FileCompletion::new(self.engine_state.clone());
+
+                                        return self.process_completion(
+                                            &mut completer,
+                                            &working_set,
+                                            prefix,
+                                            new_span,
+                                            offset,
+                                            pos,
+                                        );
+                                    }
+                                    flat_shape => {
+                                        let mut completer = CommandCompletion::new(
+                                            self.engine_state.clone(),
+                                            &working_set,
+                                            flattened.clone(),
+                                            // flat_idx,
+                                            flat_shape.clone(),
+                                            false,
+                                        );
+
+                                        let mut out: Vec<_> = self.process_completion(
+                                            &mut completer,
+                                            &working_set,
+                                            prefix.clone(),
+                                            new_span,
+                                            offset,
+                                            pos,
+                                        );
+
+                                        if !out.is_empty() {
+                                            return out;
+                                        }
+
+                                        // Try to complete using an external completer (if set)
+                                        if let Some(block_id) = config.external_completer {
+                                            if let Some(external_result) = self.external_completion(
+                                                block_id, &spans, offset, new_span,
+                                            ) {
+                                                return external_result;
+                                            }
+                                        }
+
+                                        // Check for file completion
+                                        let mut completer =
+                                            FileCompletion::new(self.engine_state.clone());
+                                        out = self.process_completion(
+                                            &mut completer,
+                                            &working_set,
+                                            prefix,
+                                            new_span,
+                                            offset,
+                                            pos,
+                                        );
+
+                                        if !out.is_empty() {
+                                            return out;
+                                        }
+                                    }
+                                };
                             }
-                        };
+                        }
                     }
                 }
             }
