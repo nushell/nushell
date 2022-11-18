@@ -64,7 +64,7 @@ impl Command for External {
                 .map(|item| Spanned { item, span })
                 .map_err(|_| {
                     ShellError::ExternalCommand(
-                        "Cannot convert argument to a string".into(),
+                        format!("Cannot convert {} to a string", value.get_type()),
                         "All arguments to an external command need to be string-compatible".into(),
                         span,
                     )
@@ -267,7 +267,7 @@ impl ExternalCommand {
                             Some(s) => {
                                 if reconfirm_command_name {
                                     format!(
-                                        "'{}' was not found, did you mean '{s}'?",
+                                        "'{}' was not found; did you mean '{s}'?",
                                         self.name.item
                                     )
                                 } else if self.name.item == s {
