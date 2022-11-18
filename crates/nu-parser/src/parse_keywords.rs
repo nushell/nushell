@@ -16,12 +16,11 @@ static PLUGIN_DIRS_ENV: &str = "NU_PLUGIN_DIRS";
 
 use crate::{
     known_external::KnownExternal,
-    lex, lite_parse,
-    lite_parse::LiteCommand,
+    lex,
     parser::{
-        check_call, check_name, garbage, garbage_pipeline, parse, parse_internal_call,
+        check_call, check_name, garbage, garbage_pipeline, lite_parse, parse, parse_internal_call,
         parse_multispan_value, parse_signature, parse_string, parse_var_with_opt_type, trim_quotes,
-        ParsedInternalCall,
+        LiteCommand, ParsedInternalCall,
     },
     unescape_unquote_string, ParseError,
 };

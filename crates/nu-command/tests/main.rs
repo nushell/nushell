@@ -10,15 +10,14 @@ mod format_conversions;
 #[quickcheck]
 fn quickcheck_parse(data: String) -> bool {
     let (tokens, err) = nu_parser::lex(data.as_bytes(), 0, b"", b"", true);
-    let (lite_block, err2) = nu_parser::lite_parse(&tokens);
 
-    if err.is_none() && err2.is_none() {
+    if err.is_none() {
         let context = create_default_context();
         {
             let mut working_set = StateWorkingSet::new(&context);
             working_set.add_file("quickcheck".into(), data.as_bytes());
 
-            let _ = nu_parser::parse_block(&mut working_set, &lite_block, false, &[], false);
+            let _ = nu_parser::parse_block(&mut working_set, &tokens, false, &[], false);
         }
     }
     true
