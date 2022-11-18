@@ -1,4 +1,4 @@
-use nu_parser::{lex, lite_parse, LiteBlock, ParseError};
+use nu_parser::{lex, lite_parse, LiteBlock, LiteElement, ParseError};
 use nu_protocol::Span;
 
 fn lite_parse_helper(input: &[u8]) -> Result<LiteBlock, ParseError> {
@@ -26,13 +26,15 @@ fn comment_before() -> Result<(), ParseError> {
 
     assert_eq!(lite_block.block.len(), 1);
     assert_eq!(lite_block.block[0].commands.len(), 1);
-    assert_eq!(lite_block.block[0].commands[0].comments.len(), 1);
-    assert_eq!(lite_block.block[0].commands[0].parts.len(), 3);
 
-    assert_eq!(
-        lite_block.block[0].commands[0].comments[0],
-        Span { start: 0, end: 19 }
-    );
+    if let LiteElement::Command(command) = &lite_block.block[0].commands[0] {
+        assert_eq!(command.comments.len(), 1);
+        assert_eq!(command.parts.len(), 3);
+
+        assert_eq!(command.comments[0], Span { start: 0, end: 19 });
+    } else {
+        panic!("not a command");
+    }
 
     Ok(())
 }
@@ -47,13 +49,14 @@ fn comment_beside() -> Result<(), ParseError> {
 
     assert_eq!(lite_block.block.len(), 1);
     assert_eq!(lite_block.block[0].commands.len(), 1);
-    assert_eq!(lite_block.block[0].commands[0].comments.len(), 1);
-    assert_eq!(lite_block.block[0].commands[0].parts.len(), 3);
+    if let LiteElement::Command(command) = &lite_block.block[0].commands[0] {
+        assert_eq!(command.comments.len(), 1);
+        assert_eq!(command.parts.len(), 3);
 
-    assert_eq!(
-        lite_block.block[0].commands[0].comments[0],
-        Span { start: 12, end: 31 }
-    );
+        assert_eq!(command.comments[0], Span { start: 12, end: 31 });
+    } else {
+        panic!("not a command")
+    }
 
     Ok(())
 }
@@ -69,18 +72,16 @@ fn comments_stack() -> Result<(), ParseError> {
     let lite_block = lite_parse_helper(input)?;
 
     assert_eq!(lite_block.block.len(), 1);
-    assert_eq!(lite_block.block[0].commands[0].comments.len(), 2);
-    assert_eq!(lite_block.block[0].commands[0].parts.len(), 3);
+    if let LiteElement::Command(command) = &lite_block.block[0].commands[0] {
+        assert_eq!(command.comments.len(), 2);
+        assert_eq!(command.parts.len(), 3);
 
-    assert_eq!(
-        lite_block.block[0].commands[0].comments[0],
-        Span { start: 0, end: 19 }
-    );
+        assert_eq!(command.comments[0], Span { start: 0, end: 19 });
 
-    assert_eq!(
-        lite_block.block[0].commands[0].comments[1],
-        Span { start: 20, end: 37 }
-    );
+        assert_eq!(command.comments[1], Span { start: 20, end: 37 });
+    } else {
+        panic!("not a command")
+    }
 
     Ok(())
 }
@@ -97,13 +98,14 @@ fn separated_comments_dont_stack() -> Result<(), ParseError> {
     let lite_block = lite_parse_helper(input)?;
 
     assert_eq!(lite_block.block.len(), 1);
-    assert_eq!(lite_block.block[0].commands[0].comments.len(), 1);
-    assert_eq!(lite_block.block[0].commands[0].parts.len(), 3);
+    if let LiteElement::Command(command) = &lite_block.block[0].commands[0] {
+        assert_eq!(command.comments.len(), 1);
+        assert_eq!(command.parts.len(), 3);
 
-    assert_eq!(
-        lite_block.block[0].commands[0].comments[0],
-        Span { start: 21, end: 38 }
-    );
+        assert_eq!(command.comments[0], Span { start: 21, end: 38 });
+    } else {
+        panic!("not a command")
+    }
 
     Ok(())
 }
@@ -121,20 +123,21 @@ fn multiple_pipelines() -> Result<(), ParseError> {
     let lite_block = lite_parse_helper(input)?;
 
     assert_eq!(lite_block.block.len(), 2);
-    assert_eq!(lite_block.block[0].commands[0].comments.len(), 1);
-    assert_eq!(lite_block.block[0].commands[0].parts.len(), 4);
-    assert_eq!(
-        lite_block.block[0].commands[0].comments[0],
-        Span { start: 0, end: 10 }
-    );
+    if let LiteElement::Command(command) = &lite_block.block[0].commands[0] {
+        assert_eq!(command.comments.len(), 1);
+        assert_eq!(command.parts.len(), 4);
+        assert_eq!(command.comments[0], Span { start: 0, end: 10 });
+    } else {
+        panic!("not a command")
+    }
 
-    assert_eq!(lite_block.block[1].commands[0].comments.len(), 1);
-    assert_eq!(lite_block.block[1].commands[0].parts.len(), 4);
-    assert_eq!(
-        lite_block.block[1].commands[0].comments[0],
-        Span { start: 52, end: 61 }
-    );
-
+    if let LiteElement::Command(command) = &lite_block.block[1].commands[0] {
+        assert_eq!(command.comments.len(), 1);
+        assert_eq!(command.parts.len(), 4);
+        assert_eq!(command.comments[0], Span { start: 52, end: 61 });
+    } else {
+        panic!("not a command")
+    }
     Ok(())
 }
 
@@ -152,10 +155,11 @@ fn multiple_commands() -> Result<(), ParseError> {
     assert_eq!(lite_block.block[0].commands.len(), 2);
     assert_eq!(lite_block.block[1].commands.len(), 1);
 
-    assert_eq!(
-        lite_block.block[1].commands[0].comments[0],
-        Span { start: 41, end: 50 }
-    );
+    if let LiteElement::Command(command) = &lite_block.block[1].commands[0] {
+        assert_eq!(command.comments[0], Span { start: 41, end: 50 });
+    } else {
+        panic!("not a command")
+    }
 
     Ok(())
 }
@@ -176,10 +180,11 @@ fn multiple_commands_with_comment() -> Result<(), ParseError> {
     assert_eq!(lite_block.block[0].commands.len(), 2);
     assert_eq!(lite_block.block[1].commands.len(), 1);
 
-    assert_eq!(
-        lite_block.block[0].commands[1].comments[0],
-        Span { start: 29, end: 38 }
-    );
+    if let LiteElement::Command(command) = &lite_block.block[0].commands[1] {
+        assert_eq!(command.comments[0], Span { start: 29, end: 38 });
+    } else {
+        panic!("not a command")
+    }
 
     Ok(())
 }
@@ -208,35 +213,43 @@ let b = 0
     let lite_block = lite_parse_helper(input)?;
 
     assert_eq!(lite_block.block.len(), 2);
-    assert_eq!(lite_block.block[0].commands[0].comments.len(), 3);
-    assert_eq!(lite_block.block[0].commands[0].parts.len(), 4);
+    if let LiteElement::Command(command) = &lite_block.block[0].commands[0] {
+        assert_eq!(command.comments.len(), 3);
+        assert_eq!(command.parts.len(), 4);
 
-    assert_eq!(
-        lite_block.block[0].commands[0].parts[3],
-        Span {
-            start: 32,
-            end: 107
-        }
-    );
+        assert_eq!(
+            command.parts[3],
+            Span {
+                start: 32,
+                end: 107
+            }
+        );
 
-    assert_eq!(
-        lite_block.block[0].commands[0].comments[2],
-        Span {
-            start: 108,
-            end: 123
-        }
-    );
+        assert_eq!(
+            command.comments[2],
+            Span {
+                start: 108,
+                end: 123
+            }
+        );
+    } else {
+        panic!("not a command")
+    }
 
-    assert_eq!(lite_block.block[1].commands[0].comments.len(), 1);
-    assert_eq!(lite_block.block[1].commands[0].parts.len(), 4);
+    if let LiteElement::Command(command) = &lite_block.block[1].commands[0] {
+        assert_eq!(command.comments.len(), 1);
+        assert_eq!(command.parts.len(), 4);
 
-    assert_eq!(
-        lite_block.block[1].commands[0].comments[0],
-        Span {
-            start: 124,
-            end: 135
-        }
-    );
+        assert_eq!(
+            command.comments[0],
+            Span {
+                start: 124,
+                end: 135
+            }
+        );
+    } else {
+        panic!("not a command")
+    }
 
     Ok(())
 }
