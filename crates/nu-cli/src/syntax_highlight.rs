@@ -2,7 +2,7 @@ use log::trace;
 use nu_ansi_term::Style;
 use nu_color_config::{get_matching_brackets_style, get_shape_color};
 use nu_parser::{flatten_block, parse, FlatShape};
-use nu_protocol::ast::{Argument, Block, Expr, Expression};
+use nu_protocol::ast::{Argument, Block, Expr, Expression, PipelineElement};
 use nu_protocol::engine::{EngineState, StateWorkingSet};
 use nu_protocol::{Config, Span};
 use reedline::{Highlighter, StyledText};
@@ -230,16 +230,23 @@ fn find_matching_block_end_in_block(
     global_cursor_offset: usize,
 ) -> Option<usize> {
     for p in &block.pipelines {
-        for e in &p.expressions {
-            if e.span.contains(global_cursor_offset) {
-                if let Some(pos) = find_matching_block_end_in_expr(
-                    line,
-                    working_set,
-                    e,
-                    global_span_offset,
-                    global_cursor_offset,
-                ) {
-                    return Some(pos);
+        for e in &p.elements {
+            match e {
+                PipelineElement::Expression(e)
+                | PipelineElement::Redirect(e)
+                | PipelineElement::And(e)
+                | PipelineElement::Or(e) => {
+                    if e.span.contains(global_cursor_offset) {
+                        if let Some(pos) = find_matching_block_end_in_expr(
+                            line,
+                            working_set,
+                            e,
+                            global_span_offset,
+                            global_cursor_offset,
+                        ) {
+                            return Some(pos);
+                        }
+                    }
                 }
             }
         }

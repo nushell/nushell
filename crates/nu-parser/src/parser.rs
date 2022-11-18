@@ -8,7 +8,7 @@ use nu_protocol::{
     ast::{
         Argument, Assignment, Bits, Block, Boolean, Call, CellPath, Comparison, Expr, Expression,
         FullCellPath, ImportPattern, ImportPatternHead, ImportPatternMember, Math, Operator,
-        PathMember, Pipeline, RangeInclusion, RangeOperator,
+        PathMember, Pipeline, PipelineElement, RangeInclusion, RangeOperator,
     },
     engine::StateWorkingSet,
     span, BlockId, Flag, PositionalArg, Signature, Span, Spanned, SyntaxShape, Type, Unit, VarId,
@@ -1053,11 +1053,16 @@ pub fn parse_call(
                 let (mut result, err) =
                     parse_builtin_commands(working_set, &lite_command, &expand_aliases_denylist);
 
-                let mut result = result.expressions.remove(0);
+                let result = result.elements.remove(0);
 
-                result.replace_span(working_set, expansion_span, orig_span);
+                // If this is the first element in a pipeline, we know it has to be an expression
+                if let PipelineElement::Expression(mut result) = result {
+                    result.replace_span(working_set, expansion_span, orig_span);
 
-                return (result, err);
+                    return (result, err);
+                } else {
+                    panic!("Internal error: first element of pipeline not an expression")
+                }
             }
         }
 
@@ -1917,9 +1922,19 @@ pub fn parse_full_cell_path(
             let ty = output
                 .pipelines
                 .last()
-                .and_then(|Pipeline { expressions, .. }| expressions.last())
-                .map(|expr| match expr.expr {
-                    Expr::BinaryOp(..) => expr.ty.clone(),
+                .and_then(|Pipeline { elements, .. }| elements.last())
+                .map(|element| match element {
+                    PipelineElement::Expression(expr)
+                        if matches!(
+                            expr,
+                            Expression {
+                                expr: Expr::BinaryOp(..),
+                                ..
+                            }
+                        ) =>
+                    {
+                        expr.ty.clone()
+                    }
                     _ => working_set.type_scope.get_last_output(),
                 })
                 .unwrap_or_else(|| working_set.type_scope.get_last_output());
@@ -3054,7 +3069,9 @@ pub fn parse_row_condition(
             // We have an expression, so let's convert this into a block.
             let mut block = Block::new();
             let mut pipeline = Pipeline::new();
-            pipeline.expressions.push(expression);
+            pipeline
+                .elements
+                .push(PipelineElement::Expression(expression));
 
             block.pipelines.push(pipeline);
 
@@ -4943,9 +4960,7 @@ pub fn parse_expression(
         if let Some(decl_id) = with_env {
             let mut block = Block::default();
             let ty = output.ty.clone();
-            block.pipelines = vec![Pipeline {
-                expressions: vec![output],
-            }];
+            block.pipelines = vec![Pipeline::from_vec(vec![output])];
 
             let block_id = working_set.add_block(block);
 
@@ -5193,10 +5208,7 @@ pub fn parse_block(
                     .commands
                     .iter()
                     .map(|command| match command {
-                        LiteElement::Command(command)
-                        | LiteElement::Redirection(command)
-                        | LiteElement::And(command)
-                        | LiteElement::Or(command) => {
+                        LiteElement::Command(command) => {
                             let (expr, err) = parse_expression(
                                 working_set,
                                 &command.parts,
@@ -5209,28 +5221,71 @@ pub fn parse_block(
                                 error = err;
                             }
 
-                            expr
+                            PipelineElement::Expression(expr)
+                        }
+                        LiteElement::Redirection(command) => {
+                            let (expr, err) = parse_expression(
+                                working_set,
+                                &command.parts,
+                                expand_aliases_denylist,
+                            );
+
+                            working_set.type_scope.add_type(expr.ty.clone());
+
+                            if error.is_none() {
+                                error = err;
+                            }
+
+                            PipelineElement::Redirect(expr)
+                        }
+                        LiteElement::And(command) => {
+                            let (expr, err) = parse_expression(
+                                working_set,
+                                &command.parts,
+                                expand_aliases_denylist,
+                            );
+
+                            working_set.type_scope.add_type(expr.ty.clone());
+
+                            if error.is_none() {
+                                error = err;
+                            }
+
+                            PipelineElement::And(expr)
+                        }
+                        LiteElement::Or(command) => {
+                            let (expr, err) = parse_expression(
+                                working_set,
+                                &command.parts,
+                                expand_aliases_denylist,
+                            );
+
+                            working_set.type_scope.add_type(expr.ty.clone());
+
+                            if error.is_none() {
+                                error = err;
+                            }
+
+                            PipelineElement::Or(expr)
                         }
                     })
-                    .collect::<Vec<Expression>>();
+                    .collect::<Vec<PipelineElement>>();
 
                 if is_subexpression {
-                    for expr in output.iter_mut().skip(1) {
-                        if expr.has_in_variable(working_set) {
-                            *expr = wrap_expr_with_collect(working_set, expr);
+                    for element in output.iter_mut().skip(1) {
+                        if element.has_in_variable(working_set) {
+                            *element = wrap_element_with_collect(working_set, element);
                         }
                     }
                 } else {
-                    for expr in output.iter_mut() {
-                        if expr.has_in_variable(working_set) {
-                            *expr = wrap_expr_with_collect(working_set, expr);
+                    for element in output.iter_mut() {
+                        if element.has_in_variable(working_set) {
+                            *element = wrap_element_with_collect(working_set, element);
                         }
                     }
                 }
 
-                Pipeline {
-                    expressions: output,
-                }
+                Pipeline { elements: output }
             } else {
                 match &pipeline.commands[0] {
                     LiteElement::Command(command)
@@ -5245,11 +5300,11 @@ pub fn parse_block(
                                 if let Some(let_env_decl_id) =
                                     working_set.find_decl(b"let-env", &Type::Any)
                                 {
-                                    for expr in pipeline.expressions.iter_mut() {
-                                        if let Expression {
+                                    for element in pipeline.elements.iter_mut() {
+                                        if let PipelineElement::Expression(Expression {
                                             expr: Expr::Call(call),
                                             ..
-                                        } = expr
+                                        }) = element
                                         {
                                             if call.decl_id == let_decl_id
                                                 || call.decl_id == let_env_decl_id
@@ -5268,15 +5323,17 @@ pub fn parse_block(
                                                     }
                                                 }
                                                 continue;
-                                            } else if expr.has_in_variable(working_set)
+                                            } else if element.has_in_variable(working_set)
                                                 && !is_subexpression
                                             {
-                                                *expr = wrap_expr_with_collect(working_set, expr);
+                                                *element =
+                                                    wrap_element_with_collect(working_set, element);
                                             }
-                                        } else if expr.has_in_variable(working_set)
+                                        } else if element.has_in_variable(working_set)
                                             && !is_subexpression
                                         {
-                                            *expr = wrap_expr_with_collect(working_set, expr);
+                                            *element =
+                                                wrap_element_with_collect(working_set, element);
                                         }
                                     }
                                 }
@@ -5347,12 +5404,30 @@ fn discover_captures_in_pipeline(
     seen_blocks: &mut HashMap<BlockId, Vec<(VarId, Span)>>,
 ) -> Result<Vec<(VarId, Span)>, ParseError> {
     let mut output = vec![];
-    for expr in &pipeline.expressions {
-        let result = discover_captures_in_expr(working_set, expr, seen, seen_blocks)?;
+    for element in &pipeline.elements {
+        let result =
+            discover_captures_in_pipeline_element(working_set, element, seen, seen_blocks)?;
         output.extend(&result);
     }
 
     Ok(output)
+}
+
+// Closes over captured variables
+pub fn discover_captures_in_pipeline_element(
+    working_set: &StateWorkingSet,
+    element: &PipelineElement,
+    seen: &mut Vec<VarId>,
+    seen_blocks: &mut HashMap<BlockId, Vec<(VarId, Span)>>,
+) -> Result<Vec<(VarId, Span)>, ParseError> {
+    match element {
+        PipelineElement::Expression(expression)
+        | PipelineElement::Redirect(expression)
+        | PipelineElement::And(expression)
+        | PipelineElement::Or(expression) => {
+            discover_captures_in_expr(working_set, expression, seen, seen_blocks)
+        }
+    }
 }
 
 // Closes over captured variables
@@ -5594,6 +5669,26 @@ pub fn discover_captures_in_expr(
     Ok(output)
 }
 
+fn wrap_element_with_collect(
+    working_set: &mut StateWorkingSet,
+    element: &PipelineElement,
+) -> PipelineElement {
+    match element {
+        PipelineElement::Expression(expression) => {
+            PipelineElement::Expression(wrap_expr_with_collect(working_set, expression))
+        }
+        PipelineElement::Redirect(expression) => {
+            PipelineElement::Redirect(wrap_expr_with_collect(working_set, expression))
+        }
+        PipelineElement::And(expression) => {
+            PipelineElement::And(wrap_expr_with_collect(working_set, expression))
+        }
+        PipelineElement::Or(expression) => {
+            PipelineElement::Or(wrap_expr_with_collect(working_set, expression))
+        }
+    }
+}
+
 fn wrap_expr_with_collect(working_set: &mut StateWorkingSet, expr: &Expression) -> Expression {
     let span = expr.span;
 
@@ -5614,9 +5709,7 @@ fn wrap_expr_with_collect(working_set: &mut StateWorkingSet, expr: &Expression) 
         expr.replace_in_variable(working_set, var_id);
 
         let block = Block {
-            pipelines: vec![Pipeline {
-                expressions: vec![expr],
-            }],
+            pipelines: vec![Pipeline::from_vec(vec![expr])],
             signature: Box::new(signature),
             ..Default::default()
         };

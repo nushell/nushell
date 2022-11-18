@@ -2,7 +2,7 @@ use nu_path::canonicalize_with;
 use nu_protocol::{
     ast::{
         Argument, Block, Call, Expr, Expression, ImportPattern, ImportPatternHead,
-        ImportPatternMember, PathMember, Pipeline,
+        ImportPatternMember, PathMember, Pipeline, PipelineElement,
     },
     engine::{StateWorkingSet, DEFAULT_OVERLAY_NAME},
     span, BlockId, Exportable, Module, PositionalArg, Span, Spanned, SyntaxShape, Type,
@@ -865,10 +865,10 @@ pub fn parse_export_in_module(
                     };
 
                 // Trying to warp the 'def' call into the 'export def' in a very clumsy way
-                if let Some(Expression {
+                if let Some(PipelineElement::Expression(Expression {
                     expr: Expr::Call(ref def_call),
                     ..
-                }) = pipeline.expressions.get(0)
+                })) = pipeline.elements.get(0)
                 {
                     call = def_call.clone();
 
@@ -930,10 +930,10 @@ pub fn parse_export_in_module(
                     };
 
                 // Trying to warp the 'def' call into the 'export def' in a very clumsy way
-                if let Some(Expression {
+                if let Some(PipelineElement::Expression(Expression {
                     expr: Expr::Call(ref def_call),
                     ..
-                }) = pipeline.expressions.get(0)
+                })) = pipeline.elements.get(0)
                 {
                     call = def_call.clone();
 
@@ -996,10 +996,10 @@ pub fn parse_export_in_module(
                     };
 
                 // Trying to warp the 'def' call into the 'export def' in a very clumsy way
-                if let Some(Expression {
+                if let Some(PipelineElement::Expression(Expression {
                     expr: Expr::Call(ref def_call),
                     ..
-                }) = pipeline.expressions.get(0)
+                })) = pipeline.elements.get(0)
                 {
                     call = def_call.clone();
 
@@ -1062,10 +1062,10 @@ pub fn parse_export_in_module(
                     };
 
                 // Trying to warp the 'alias' call into the 'export alias' in a very clumsy way
-                if let Some(Expression {
+                if let Some(PipelineElement::Expression(Expression {
                     expr: Expr::Call(ref alias_call),
                     ..
-                }) = pipeline.expressions.get(0)
+                })) = pipeline.elements.get(0)
                 {
                     call = alias_call.clone();
 
@@ -1128,10 +1128,10 @@ pub fn parse_export_in_module(
                     };
 
                 // Trying to warp the 'use' call into the 'export use' in a very clumsy way
-                if let Some(Expression {
+                if let Some(PipelineElement::Expression(Expression {
                     expr: Expr::Call(ref use_call),
                     ..
-                }) = pipeline.expressions.get(0)
+                })) = pipeline.elements.get(0)
                 {
                     call = use_call.clone();
 
@@ -2838,14 +2838,12 @@ pub fn parse_let(
             );
 
             return (
-                Pipeline {
-                    expressions: vec![Expression {
-                        expr: Expr::Call(call),
-                        span: nu_protocol::span(spans),
-                        ty: output,
-                        custom_completion: None,
-                    }],
-                },
+                Pipeline::from_vec(vec![Expression {
+                    expr: Expr::Call(call),
+                    span: nu_protocol::span(spans),
+                    ty: output,
+                    custom_completion: None,
+                }]),
                 err,
             );
         }
@@ -2961,14 +2959,12 @@ pub fn parse_mut(
             );
 
             return (
-                Pipeline {
-                    expressions: vec![Expression {
-                        expr: Expr::Call(call),
-                        span: nu_protocol::span(spans),
-                        ty: output,
-                        custom_completion: None,
-                    }],
-                },
+                Pipeline::from_vec(vec![Expression {
+                    expr: Expr::Call(call),
+                    span: nu_protocol::span(spans),
+                    ty: output,
+                    custom_completion: None,
+                }]),
                 err,
             );
         }
