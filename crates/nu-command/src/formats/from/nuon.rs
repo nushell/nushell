@@ -85,6 +85,7 @@ impl Command for FromNuon {
 
         let mut error = None;
 
+        // Most of the 'work' in converting from Nuon is simply pushing it through the Nu parser.
         let (lexed, err) = nu_parser::lex(string_input.as_bytes(), 0, &[b'\n', b'\r'], &[], true);
         error = error.or(err);
 
