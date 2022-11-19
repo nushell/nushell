@@ -187,6 +187,8 @@ impl Value {
 
         let mut config = Config::default();
 
+        let mut legacy_options_used = false;
+
         if let Ok(v) = v {
             for (key, value) in v.0.iter().zip(v.1) {
                 let key = key.as_str();
@@ -625,6 +627,7 @@ impl Value {
                     }
                     // Legacy config options (deprecated as of 2022-11-02)
                     "use_ls_colors" => {
+                        legacy_options_used = true;
                         if let Ok(b) = value.as_bool() {
                             config.use_ls_colors = b;
                         } else {
@@ -632,6 +635,7 @@ impl Value {
                         }
                     }
                     "rm_always_trash" => {
+                        legacy_options_used = true;
                         if let Ok(b) = value.as_bool() {
                             config.rm_always_trash = b;
                         } else {
@@ -639,6 +643,7 @@ impl Value {
                         }
                     }
                     "history_file_format" => {
+                        legacy_options_used = true;
                         if let Ok(b) = value.as_string() {
                             let val_str = b.to_lowercase();
                             config.history_file_format = match val_str.as_ref() {
@@ -656,6 +661,7 @@ impl Value {
                         }
                     }
                     "sync_history_on_enter" => {
+                        legacy_options_used = true;
                         if let Ok(b) = value.as_bool() {
                             config.sync_history_on_enter = b;
                         } else {
@@ -663,6 +669,7 @@ impl Value {
                         }
                     }
                     "max_history_size" => {
+                        legacy_options_used = true;
                         if let Ok(i) = value.as_i64() {
                             config.max_history_size = i;
                         } else {
@@ -670,6 +677,7 @@ impl Value {
                         }
                     }
                     "quick_completions" => {
+                        legacy_options_used = true;
                         if let Ok(b) = value.as_bool() {
                             config.quick_completions = b;
                         } else {
@@ -677,6 +685,7 @@ impl Value {
                         }
                     }
                     "partial_completions" => {
+                        legacy_options_used = true;
                         if let Ok(b) = value.as_bool() {
                             config.partial_completions = b;
                         } else {
@@ -684,6 +693,7 @@ impl Value {
                         }
                     }
                     "max_external_completion_results" => {
+                        legacy_options_used = true;
                         if let Ok(i) = value.as_integer() {
                             config.max_external_completion_results = i;
                         } else {
@@ -693,6 +703,7 @@ impl Value {
                         }
                     }
                     "completion_algorithm" => {
+                        legacy_options_used = true;
                         if let Ok(v) = value.as_string() {
                             let val_str = v.to_lowercase();
                             config.completion_algorithm = match val_str.as_ref() {
@@ -711,6 +722,7 @@ impl Value {
                         }
                     }
                     "case_sensitive_completions" => {
+                        legacy_options_used = true;
                         if let Ok(b) = value.as_bool() {
                             config.case_sensitive_completions = b;
                         } else {
@@ -718,6 +730,7 @@ impl Value {
                         }
                     }
                     "enable_external_completion" => {
+                        legacy_options_used = true;
                         if let Ok(b) = value.as_bool() {
                             config.enable_external_completion = b;
                         } else {
@@ -726,19 +739,25 @@ impl Value {
                     }
 
                     "external_completer" => {
+                        legacy_options_used = true;
                         if let Ok(v) = value.as_block() {
                             config.external_completer = Some(v)
                         }
                     }
                     "table_mode" => {
+                        legacy_options_used = true;
                         if let Ok(v) = value.as_string() {
                             config.table_mode = v;
                         } else {
                             eprintln!("$env.config.table_mode is not a string")
                         }
                     }
-                    "table_trim" => config.trim_strategy = try_parse_trim_strategy(value, &config)?,
+                    "table_trim" => {
+                        legacy_options_used = true;
+                        config.trim_strategy = try_parse_trim_strategy(value, &config)?
+                    }
                     "show_clickable_links_in_ls" => {
+                        legacy_options_used = true;
                         if let Ok(b) = value.as_bool() {
                             config.show_clickable_links_in_ls = b;
                         } else {
@@ -746,6 +765,7 @@ impl Value {
                         }
                     }
                     "cd_with_abbreviations" => {
+                        legacy_options_used = true;
                         if let Ok(b) = value.as_bool() {
                             config.cd_with_abbreviations = b;
                         } else {
@@ -753,6 +773,7 @@ impl Value {
                         }
                     }
                     "filesize_metric" => {
+                        legacy_options_used = true;
                         if let Ok(b) = value.as_bool() {
                             config.filesize_metric = b;
                         } else {
@@ -760,6 +781,7 @@ impl Value {
                         }
                     }
                     "filesize_format" => {
+                        legacy_options_used = true;
                         if let Ok(v) = value.as_string() {
                             config.filesize_format = v.to_lowercase();
                         } else {
@@ -774,6 +796,13 @@ impl Value {
             }
         } else {
             eprintln!("$env.config is not a record");
+        }
+
+        if legacy_options_used {
+            eprintln!(
+                r#"The format of $env.config has recently changed, and several options have been grouped into sub-records. You may need to update your config.nu file.
+Please consult https://www.nushell.sh/blog/2022-11-29-nushell-0.72.html for details. Support for the old format will be removed in version 0.80."#
+            );
         }
 
         Ok(config)
