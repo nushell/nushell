@@ -90,7 +90,7 @@ impl Command for Rm {
     fn examples(&self) -> Vec<Example> {
         let mut examples = vec![Example {
             description:
-                "Delete, or move a file to the trash (based on the 'always_trash' config option)",
+                "Delete or move a file to the trash (depending on 'always_trash' config option)",
             example: "rm file.txt",
             result: None,
         }];
@@ -106,8 +106,7 @@ impl Command for Rm {
                 result: None,
             },
             Example {
-                description:
-                    "Delete a file permanently, even if the 'always_trash' config option is true",
+                description: "Delete a file permanently",
                 example: "rm --permanent file.txt",
                 result: None,
             },
@@ -115,11 +114,6 @@ impl Command for Rm {
         examples.push(Example {
             description: "Delete a file, and suppress errors if no file is found",
             example: "rm --force file.txt",
-            result: None,
-        });
-        examples.push(Example {
-            description: "Delete all 0KB files in the current directory",
-            example: "ls | where size == 0KB && type == file | each { rm $in.name } | null",
             result: None,
         });
         examples
