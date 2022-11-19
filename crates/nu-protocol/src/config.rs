@@ -801,7 +801,7 @@ impl Value {
         if legacy_options_used {
             eprintln!(
                 r#"The format of $env.config has recently changed, and several options have been grouped into sub-records. You may need to update your config.nu file.
-Please consult https://www.nushell.sh/blog/2022-11-29-nushell-0.72.html for details. Support for the old format will be removed in version 0.80."#
+Please consult https://www.nushell.sh/blog/2022-11-29-nushell-0.72.html for details. Support for the old format will be removed in an upcoming Nu release."#
             );
         }
 
