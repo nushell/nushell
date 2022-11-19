@@ -36,7 +36,7 @@ impl Command for Rm {
     }
 
     fn usage(&self) -> &str {
-        "Remove files and directories."
+        "Remove file(s)."
     }
 
     fn search_terms(&self) -> Vec<&str> {
@@ -53,17 +53,17 @@ impl Command for Rm {
         let sig = sig
             .switch(
                 "trash",
-                "move to the platform's trash instead of permanently deleting",
+                "use the platform's recycle bin instead of permanently deleting",
                 Some('t'),
             )
             .switch(
                 "permanent",
-                "delete permanently, ignoring the 'always_trash' config option",
+                "don't use recycle bin, delete permanently",
                 Some('p'),
             );
         sig.switch("recursive", "delete subdirectories recursively", Some('r'))
             .switch("force", "suppress error when no file", Some('f'))
-            .switch("verbose", "print names of deleted files", Some('v'))
+            .switch("verbose", "make rm to be verbose, showing files been deleted", Some('v'))
             .switch("interactive", "ask user to confirm action", Some('i'))
             .rest(
                 "rest",
@@ -97,7 +97,7 @@ impl Command for Rm {
         ))]
         examples.append(&mut vec![
             Example {
-                description: "Move a file to the trash",
+                description: "Move a file to the system trash",
                 example: "rm --trash file.txt",
                 result: None,
             },
@@ -109,7 +109,7 @@ impl Command for Rm {
             },
         ]);
         examples.push(Example {
-            description: "Delete a file, ignoring 'file not found' errors",
+            description: "Delete a file, and suppress errors if no file is found",
             example: "rm --force file.txt",
             result: None,
         });
