@@ -411,7 +411,8 @@ Either make sure {0} is a string, or add a 'to_string' entry for it in ENV_CONVE
     #[error("Cannot find column")]
     #[diagnostic(code(nu::shell::column_not_found), url(docsrs))]
     CantFindColumn(
-        #[label = "cannot find column"] Span,
+        String,
+        #[label = "cannot find column '{0}'"] Span,
         #[label = "value originates here"] Span,
     ),
 
@@ -423,7 +424,8 @@ Either make sure {0} is a string, or add a 'to_string' entry for it in ENV_CONVE
     #[error("Column already exists")]
     #[diagnostic(code(nu::shell::column_already_exists), url(docsrs))]
     ColumnAlreadyExists(
-        #[label = "column already exists"] Span,
+        String,
+        #[label = "column '{0}' already exists"] Span,
         #[label = "value originates here"] Span,
     ),
 

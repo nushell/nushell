@@ -24,7 +24,9 @@ fn insert_the_column_conflict() {
         "#
     ));
 
-    assert!(actual.err.contains("column already exists"));
+    assert!(actual
+        .err
+        .contains("column 'pretty_assertions' already exists"));
 }
 
 #[test]
