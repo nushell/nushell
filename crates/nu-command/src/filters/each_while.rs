@@ -81,7 +81,7 @@ impl Command for EachWhile {
                 }),
             },
             Example {
-                example: r#"[1 2 3] | each while {|e i| if $e < 2 { $"value ($e) at ($i)!"} }"#,
+                example: r#"[1 2 3] | each while {|el ind| if $el < 2 { $"value ($el) at ($ind)!"} }"#,
                 description: "Iterate over each element, printing the matching value and its index",
                 result: Some(Value::List {
                     vals: vec![Value::String {
@@ -280,7 +280,7 @@ mod test {
     fn uses_optional_index_argument() {
         let actual = nu!(
             cwd: ".", pipeline(
-            r#"[7 8 9 10] | each while {|e i| $e + $i } | to nuon"#
+            r#"[7 8 9 10] | each while {|el ind| $e + $i } | to nuon"#
         ));
 
         assert_eq!(actual.out, "[7, 9, 11, 13]");

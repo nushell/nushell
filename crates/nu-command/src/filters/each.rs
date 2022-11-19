@@ -109,7 +109,7 @@ with 'transpose' first."#
                 }),
             },
             Example {
-                example: r#"[1 2 3] | each {|e i| if $e == 2 { $"found 2 at ($i)!"} }"#,
+                example: r#"[1 2 3] | each {|el ind| if $el == 2 { $"found 2 at ($ind)!"} }"#,
                 description:
                     "Iterate over each element, producing a list showing indexes of any 2s",
                 result: Some(Value::List {

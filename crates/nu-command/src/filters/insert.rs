@@ -70,7 +70,7 @@ impl Command for Insert {
             }),
         }, Example {
             description: "Insert a column with values equal to their row index, plus the value of 'foo' in each row",
-            example: "[[foo]; [7] [8] [9]] | insert bar {|e i| $e.foo + $i }",
+            example: "[[foo]; [7] [8] [9]] | insert bar {|el ind| $el.foo + $ind }",
             result: Some(Value::List {
                 vals: vec![Value::Record {
                     cols: vec!["foo".into(), "bar".into()],

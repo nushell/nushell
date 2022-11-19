@@ -88,7 +88,7 @@ fn early_exits_with_0_param_blocks() {
 fn uses_optional_index_argument() {
     let actual = nu!(
         cwd: ".", pipeline(
-        r#"[7 8 9] | any {|e i| print $i | false }"#
+        r#"[7 8 9] | any {|el ind| print $ind | false }"#
     ));
 
     assert_eq!(actual.out, "012false");

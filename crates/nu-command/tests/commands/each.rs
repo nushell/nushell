@@ -76,7 +76,7 @@ fn each_implicit_it_in_block() {
 fn uses_optional_index_argument() {
     let actual = nu!(
         cwd: ".", pipeline(
-        r#"[7 8 9 10] | each {|e i| $i } | to nuon"#
+        r#"[7 8 9 10] | each {|el ind| $ind } | to nuon"#
     ));
 
     assert_eq!(actual.out, "[0, 1, 2, 3]");
@@ -86,7 +86,7 @@ fn uses_optional_index_argument() {
 fn each_while_uses_optional_index_argument() {
     let actual = nu!(
         cwd: ".", pipeline(
-        r#"[7 8 9 10] | each while {|e i| $i } | to nuon"#
+        r#"[7 8 9 10] | each while {|el ind| $ind } | to nuon"#
     ));
 
     assert_eq!(actual.out, "[0, 1, 2, 3]");
@@ -96,7 +96,7 @@ fn each_while_uses_optional_index_argument() {
 fn par_each_uses_optional_index_argument() {
     let actual = nu!(
         cwd: ".", pipeline(
-        r#"[7 8 9 10] | par-each {|e i| $i } | to nuon"#
+        r#"[7 8 9 10] | par-each {|el ind| $ind } | to nuon"#
     ));
 
     assert_eq!(actual.out, "[0, 1, 2, 3]");
