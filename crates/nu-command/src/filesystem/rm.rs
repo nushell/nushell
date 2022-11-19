@@ -63,7 +63,11 @@ impl Command for Rm {
             );
         sig.switch("recursive", "delete subdirectories recursively", Some('r'))
             .switch("force", "suppress error when no file", Some('f'))
-            .switch("verbose", "make rm to be verbose, showing files been deleted", Some('v'))
+            .switch(
+                "verbose",
+                "make rm to be verbose, showing files been deleted",
+                Some('v'),
+            )
             .switch("interactive", "ask user to confirm action", Some('i'))
             .rest(
                 "rest",
