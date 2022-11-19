@@ -199,10 +199,24 @@ fn rm(
         ));
     }
 
+    let targets_span = Span {
+        start: targets
+            .iter()
+            .map(|x| x.span.start)
+            .min()
+            .expect("targets were empty"),
+        end: targets
+            .iter()
+            .map(|x| x.span.end)
+            .max()
+            .expect("targets were empty"),
+    };
+
     let path = current_dir(engine_state, stack)?;
 
     let (mut target_exists, mut empty_span) = (false, call.head);
     let mut all_targets: HashMap<PathBuf, Span> = HashMap::new();
+
     for target in targets {
         if path.to_string_lossy() == target.item
             || path.as_os_str().to_string_lossy().starts_with(&format!(
@@ -277,9 +291,9 @@ fn rm(
 
     if all_targets.is_empty() && !force {
         return Err(ShellError::GenericError(
-            "No valid paths".into(),
-            "no valid paths".into(),
-            Some(empty_span),
+            "File(s) not found".into(),
+            "File(s) not found".into(),
+            Some(targets_span),
             None,
             Vec::new(),
         ));
