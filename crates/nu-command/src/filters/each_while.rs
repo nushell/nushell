@@ -280,7 +280,7 @@ mod test {
     fn uses_optional_index_argument() {
         let actual = nu!(
             cwd: ".", pipeline(
-            r#"[7 8 9 10] | each while {|el ind| $e + $i } | to nuon"#
+            r#"[7 8 9 10] | each while {|el ind| $el + $ind } | to nuon"#
         ));
 
         assert_eq!(actual.out, "[7, 9, 11, 13]");
