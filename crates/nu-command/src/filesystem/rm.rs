@@ -88,12 +88,12 @@ impl Command for Rm {
     }
 
     fn examples(&self) -> Vec<Example> {
-        let mut examples = vec![
-            Example {
-                description: "Delete or move a file to the system trash (depending on 'rm_always_trash' config option)",
-                example: "rm file.txt",
-                result: None,
-            }];
+        let mut examples = vec![Example {
+            description:
+                "Delete or move a file to the trash (depending on 'always_trash' config option)",
+            example: "rm file.txt",
+            result: None,
+        }];
         #[cfg(all(
             feature = "trash-support",
             not(target_os = "android"),
@@ -164,7 +164,7 @@ fn rm(
         if rm_always_trash {
             return Err(ShellError::GenericError(
                 "Cannot execute `rm`; the current configuration specifies \
-                    `rm_always_trash = true`, but the current nu executable was not \
+                    `always_trash = true`, but the current nu executable was not \
                     built with feature `trash_support` or trash is not supported on \
                     your platform."
                     .into(),
