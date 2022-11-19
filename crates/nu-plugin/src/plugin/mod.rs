@@ -7,7 +7,7 @@ use crate::protocol::{CallInput, LabeledError, PluginCall, PluginData, PluginRes
 use crate::EncodingType;
 use std::env;
 use std::fmt::Write;
-use std::io::{BufReader, Read, Write as WriteTrait};
+use std::io::{BufReader, ErrorKind, Read, Write as WriteTrait};
 use std::path::{Path, PathBuf};
 use std::process::{Child, ChildStdout, Command as CommandSys, Stdio};
 
@@ -120,10 +120,25 @@ pub fn get_signature(
     current_envs: &HashMap<String, String>,
 ) -> Result<Vec<Signature>, ShellError> {
     let mut plugin_cmd = create_command(path, shell);
+    let program_name = plugin_cmd.get_program().to_os_string().into_string();
 
     plugin_cmd.envs(current_envs);
     let mut child = plugin_cmd.spawn().map_err(|err| {
-        ShellError::PluginFailedToLoad(format!("Error spawning child process: {}", err))
+        let error_msg = match err.kind() {
+            ErrorKind::NotFound => match program_name {
+                Ok(prog_name) => {
+                    format!("Can't find {prog_name}, please make sure that {prog_name} is in PATH.")
+                }
+                _ => {
+                    format!("Error spawning child process: {}", err)
+                }
+            },
+            _ => {
+                format!("Error spawning child process: {}", err)
+            }
+        };
+
+        ShellError::PluginFailedToLoad(error_msg)
     })?;
 
     let mut stdin_writer = child
