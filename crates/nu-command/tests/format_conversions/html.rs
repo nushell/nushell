@@ -84,6 +84,6 @@ fn test_list() {
     );
     assert_eq!(
         actual.out,
-        r##"{name: C64, black: "#090300", red: "#883932", green: "#55a049", yellow: "#bfce72", blue: "#40318d", purple: "#8b3f96", cyan: "#67b6bd", white: "#ffffff", brightBlack: "#000000", brightRed: "#883932", brightGreen: "#55a049", brightYellow: "#bfce72", brightBlue: "#40318d", brightPurple: "#8b3f96", brightCyan: "#67b6bd", brightWhite: "#f7f7f7", background: "#40318d", foreground: "#7869c4"}"##
+        r##"{name: "C64", black: "#090300", red: "#883932", green: "#55a049", yellow: "#bfce72", blue: "#40318d", purple: "#8b3f96", cyan: "#67b6bd", white: "#ffffff", brightBlack: "#000000", brightRed: "#883932", brightGreen: "#55a049", brightYellow: "#bfce72", brightBlue: "#40318d", brightPurple: "#8b3f96", brightCyan: "#67b6bd", brightWhite: "#f7f7f7", background: "#40318d", foreground: "#7869c4"}"##
     );
 }
