@@ -34,6 +34,7 @@ impl Command for MathCommand {
                 &MathCommand.examples(),
                 engine_state,
                 stack,
+                self.is_parser_keyword(),
             ),
             span: call.head,
         }

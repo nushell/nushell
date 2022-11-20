@@ -49,6 +49,7 @@ the path literal."#
                 &PathCommand.examples(),
                 engine_state,
                 stack,
+                self.is_parser_keyword(),
             ),
             span: call.head,
         }

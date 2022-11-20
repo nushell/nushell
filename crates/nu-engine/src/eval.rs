@@ -43,7 +43,13 @@ pub fn eval_call(
         signature.usage = decl.usage().to_string();
         signature.extra_usage = decl.extra_usage().to_string();
 
-        let full_help = get_full_help(&signature, &decl.examples(), engine_state, caller_stack);
+        let full_help = get_full_help(
+            &signature,
+            &decl.examples(),
+            engine_state,
+            caller_stack,
+            decl.is_parser_keyword(),
+        );
         Ok(Value::String {
             val: full_help,
             span: call.head,

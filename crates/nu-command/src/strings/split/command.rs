@@ -34,6 +34,7 @@ impl Command for SplitCommand {
                 &SplitCommand.examples(),
                 engine_state,
                 stack,
+                self.is_parser_keyword(),
             ),
             span: call.head,
         }
