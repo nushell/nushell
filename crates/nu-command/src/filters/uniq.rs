@@ -1,5 +1,3 @@
-use std::collections::VecDeque;
-
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
@@ -159,37 +157,38 @@ fn uniq(
     input: PipelineData,
 ) -> Result<nu_protocol::PipelineData, nu_protocol::ShellError> {
     let head = call.head;
-    let should_show_count = call.has_flag("count");
-    let show_repeated = call.has_flag("repeated");
-    let ignore_case = call.has_flag("ignore-case");
-    let only_uniques = call.has_flag("unique");
+    let flag_show_count = call.has_flag("count");
+    let flag_show_repeated = call.has_flag("repeated");
+    let flag_ignore_case = call.has_flag("ignore-case");
+    let flag_only_uniques = call.has_flag("unique");
     let metadata = input.metadata();
 
-    let uniq_values = {
-        input
-            .into_iter()
-            .map(|item| {
-                if ignore_case {
-                    to_lowercase(item)
-                } else {
-                    item
-                }
-            })
-            .fold(Vec::<(Value, i64)>::new(), |mut counter, item| {
-                match counter.iter_mut().find(|x| x.0 == item) {
-                    Some(x) => x.1 += 1,
-                    None => counter.push((item, 1)),
-                };
-                counter
-            })
-            .into_iter()
-            //Trusting the compiler to optimize loop invariants. If not, CPU branch predictor will skip around
-            .filter(|value| show_repeated && (value.1 > 1))
-            .filter(|value| only_uniques && (value.1 == 1))
-            .collect::<Vec<(nu_protocol::Value, i64)>>()
-    };
+    let mut uniq_values = input
+        .into_iter()
+        .map(|item| {
+            if flag_ignore_case {
+                to_lowercase(item)
+            } else {
+                item
+            }
+        })
+        .fold(Vec::<(Value, i64)>::new(), |mut counter, item| {
+            match counter.iter_mut().find(|x| x.0 == item) {
+                Some(x) => x.1 += 1,
+                None => counter.push((item, 1)),
+            };
+            counter
+        });
 
-    let result = if should_show_count {
+    if flag_show_repeated {
+        uniq_values.retain(|value_count_pair| value_count_pair.1 > 1);
+    }
+
+    if flag_only_uniques {
+        uniq_values.retain(|value_count_pair| value_count_pair.1 == 1);
+    }
+
+    let result = if flag_show_count {
         generate_results_with_count(head, uniq_values)
     } else {
         uniq_values.into_iter().map(|v| v.0).collect()
