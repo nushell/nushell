@@ -305,7 +305,7 @@ let-env config = {
       }]
     }
     display_output: {
-      $nothing
+      if (term size).columns >= 100 { table -e } else { table }
     }
   }
   menus: [
