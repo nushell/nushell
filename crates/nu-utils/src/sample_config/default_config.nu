@@ -304,9 +304,11 @@ let-env config = {
         $nothing  # replace with source code to run if the PWD environment is different since the last repl input
       }]
     }
-    display_output: {
-      $nothing
-    }
+    # if display_output is set to $nothing, it changes the output. So, let's comment it out
+    # and show an example one type of display_output
+    # display_output: {
+    #     if (term size).columns > 100 { table -e } else { table }
+    # }
   }
   menus: [
       # Configuration for default nushell menus
