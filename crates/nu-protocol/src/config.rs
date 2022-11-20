@@ -754,6 +754,22 @@ impl Value {
                             eprintln!("$env.config.table_mode is not a string")
                         }
                     }
+                    "table_index_mode" => {
+                        legacy_options_used = true;
+                        if let Ok(b) = value.as_string() {
+                            let val_str = b.to_lowercase();
+                            match val_str.as_ref() {
+                                "always" => config.table_index_mode = TableIndexMode::Always,
+                                "never" => config.table_index_mode = TableIndexMode::Never,
+                                "auto" => config.table_index_mode = TableIndexMode::Auto,
+                                _ => eprintln!(
+                                    "unrecognized $env.config.table_index_mode '{val_str}'; expected either 'never', 'always' or 'auto'"
+                                ),
+                            }
+                        } else {
+                            eprintln!("$env.config.table_index_mode is not a string")
+                        }
+                    }
                     "table_trim" => {
                         legacy_options_used = true;
                         config.trim_strategy = try_parse_trim_strategy(value, &config)?
