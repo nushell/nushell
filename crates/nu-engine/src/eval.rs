@@ -803,14 +803,18 @@ pub fn eval_element_with_input(
             redirect_stdout,
             redirect_stderr,
         ),
-        PipelineElement::Redirect(expr) => eval_expression_with_input(
-            engine_state,
-            stack,
-            expr,
-            input,
-            redirect_stdout,
-            redirect_stderr,
-        ),
+        PipelineElement::Redirect(expr) => {
+            match &expr.expr {
+                Expr::String(name) => {
+                    println!("Redirecting into {}", name)
+                }
+                x => {
+                    println!("Found {:?}", x)
+                }
+            }
+
+            Ok((PipelineData::new(expr.span), false))
+        }
         PipelineElement::And(expr) => eval_expression_with_input(
             engine_state,
             stack,

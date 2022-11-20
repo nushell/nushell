@@ -1203,7 +1203,11 @@ fn parse_binary_with_base(
                             Some(ParseError::Expected("binary".into(), span)),
                         );
                     }
-                    TokenContents::Comment | TokenContents::Semicolon | TokenContents::Eol => {}
+                    TokenContents::Comment
+                    | TokenContents::Semicolon
+                    | TokenContents::Eol
+                    | TokenContents::LessThan
+                    | TokenContents::GreaterThan => {}
                 }
             }
 
@@ -3710,7 +3714,7 @@ pub fn parse_list_expression(
     let (output, err) = lex(source, inner_span.start, &[b'\n', b'\r', b','], &[], true);
     error = error.or(err);
 
-    let (output, err) = lite_parse(&output);
+    let (output, err) = lite_parse(working_set, &output);
     error = error.or(err);
 
     let mut args = vec![];
@@ -3790,7 +3794,7 @@ pub fn parse_table_expression(
     let (output, err) = lex(source, start, &[b'\n', b'\r', b','], &[], true);
     error = error.or(err);
 
-    let (output, err) = lite_parse(&output);
+    let (output, err) = lite_parse(working_set, &output);
     error = error.or(err);
 
     match output.block.len() {
@@ -5169,7 +5173,7 @@ pub fn parse_block(
 ) -> (Block, Option<ParseError>) {
     let mut error = None;
 
-    let (lite_block, err) = lite_parse(tokens);
+    let (lite_block, err) = lite_parse(working_set, tokens);
     error = error.or(err);
 
     trace!("parsing block: {:?}", lite_block);
@@ -5224,9 +5228,9 @@ pub fn parse_block(
                             PipelineElement::Expression(expr)
                         }
                         LiteElement::Redirection(command) => {
-                            let (expr, err) = parse_expression(
+                            let (expr, err) = parse_string(
                                 working_set,
-                                &command.parts,
+                                command.parts[0],
                                 expand_aliases_denylist,
                             );
 
@@ -5839,12 +5843,23 @@ impl LiteBlock {
     }
 }
 
-pub fn lite_parse(tokens: &[Token]) -> (LiteBlock, Option<ParseError>) {
+pub fn lite_parse(
+    working_set: &mut StateWorkingSet,
+    tokens: &[Token],
+) -> (LiteBlock, Option<ParseError>) {
     let mut block = LiteBlock::new();
     let mut curr_pipeline = LitePipeline::new();
     let mut curr_command = LiteCommand::new();
 
     let mut last_token = TokenContents::Eol;
+
+    let mut last_connector = TokenContents::Pipe;
+
+    if tokens.is_empty() {
+        return (LiteBlock::new(), None);
+    }
+
+    let is_math = is_math_expression_like(working_set, tokens[0].span, &[]);
 
     let mut curr_comment: Option<Vec<Span>> = None;
 
@@ -5858,17 +5873,47 @@ pub fn lite_parse(tokens: &[Token]) -> (LiteBlock, Option<ParseError>) {
                 curr_command.push(token.span);
                 last_token = TokenContents::Item;
             }
+            TokenContents::GreaterThan if is_math => {
+                curr_command.push(token.span);
+                last_token = TokenContents::GreaterThan;
+            }
+            TokenContents::GreaterThan => {
+                // Not a math less than, so it's a redirection
+                if !curr_command.is_empty() {
+                    if last_connector == TokenContents::GreaterThan {
+                        curr_pipeline.push(LiteElement::Redirection(curr_command));
+                    } else {
+                        curr_pipeline.push(LiteElement::Command(curr_command));
+                    }
+                    curr_command = LiteCommand::new();
+                }
+                last_token = TokenContents::GreaterThan;
+                last_connector = TokenContents::GreaterThan;
+            }
+            TokenContents::LessThan => {
+                curr_command.push(token.span);
+                last_token = TokenContents::LessThan;
+            }
             TokenContents::Pipe => {
                 if !curr_command.is_empty() {
-                    curr_pipeline.push(LiteElement::Command(curr_command));
+                    if last_connector == TokenContents::GreaterThan {
+                        curr_pipeline.push(LiteElement::Redirection(curr_command));
+                    } else {
+                        curr_pipeline.push(LiteElement::Command(curr_command));
+                    }
                     curr_command = LiteCommand::new();
                 }
                 last_token = TokenContents::Pipe;
+                last_connector = TokenContents::Pipe;
             }
             TokenContents::Eol => {
-                if last_token != TokenContents::Pipe {
+                if last_token != TokenContents::Pipe && last_token != TokenContents::GreaterThan {
                     if !curr_command.is_empty() {
-                        curr_pipeline.push(LiteElement::Command(curr_command));
+                        if last_connector == TokenContents::GreaterThan {
+                            curr_pipeline.push(LiteElement::Redirection(curr_command));
+                        } else {
+                            curr_pipeline.push(LiteElement::Command(curr_command));
+                        }
 
                         curr_command = LiteCommand::new();
                     }
@@ -5889,7 +5934,11 @@ pub fn lite_parse(tokens: &[Token]) -> (LiteBlock, Option<ParseError>) {
             }
             TokenContents::Semicolon => {
                 if !curr_command.is_empty() {
-                    curr_pipeline.push(LiteElement::Command(curr_command));
+                    if last_connector == TokenContents::GreaterThan {
+                        curr_pipeline.push(LiteElement::Redirection(curr_command));
+                    } else {
+                        curr_pipeline.push(LiteElement::Command(curr_command));
+                    }
 
                     curr_command = LiteCommand::new();
                 }
@@ -5922,7 +5971,11 @@ pub fn lite_parse(tokens: &[Token]) -> (LiteBlock, Option<ParseError>) {
     }
 
     if !curr_command.is_empty() {
-        curr_pipeline.push(LiteElement::Command(curr_command));
+        if last_connector == TokenContents::GreaterThan {
+            curr_pipeline.push(LiteElement::Redirection(curr_command));
+        } else {
+            curr_pipeline.push(LiteElement::Command(curr_command));
+        }
     }
 
     if !curr_pipeline.is_empty() {

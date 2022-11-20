@@ -1308,7 +1308,7 @@ pub fn parse_module_block(
     let (output, err) = lex(source, span.start, &[], &[], false);
     error = error.or(err);
 
-    let (output, err) = lite_parse(&output);
+    let (output, err) = lite_parse(working_set, &output);
     error = error.or(err);
 
     for pipeline in &output.block {
