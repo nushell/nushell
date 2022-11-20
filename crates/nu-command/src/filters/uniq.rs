@@ -135,6 +135,23 @@ fn to_lowercase(value: nu_protocol::Value) -> nu_protocol::Value {
     }
 }
 
+fn generate_results_with_count(head: Span, uniq_values: Vec<(Value, i64)>) -> Vec<Value> {
+    uniq_values
+        .into_iter()
+        .map(|item| Value::Record {
+            cols: vec!["value".to_string(), "count".to_string()],
+            vals: vec![
+                item.0,
+                Value::Int {
+                    val: item.1,
+                    span: head,
+                },
+            ],
+            span: head,
+        })
+        .collect()
+}
+
 fn uniq(
     _engine_state: &EngineState,
     _stack: &mut Stack,
@@ -149,66 +166,37 @@ fn uniq(
     let metadata = input.metadata();
 
     let uniq_values = {
-        let counter = &mut Vec::new();
-        for line in input.into_iter() {
-            let item = if ignore_case {
-                to_lowercase(line)
-            } else {
-                line
-            };
-
-            if counter.is_empty() {
-                counter.push((item, 1));
-            } else {
-                // check if the value item already exists in our collection. if it does, increase counter, otherwise add it to the collection
+        input
+            .into_iter()
+            .map(|item| {
+                if ignore_case {
+                    to_lowercase(item)
+                } else {
+                    item
+                }
+            })
+            .fold(Vec::<(Value, i64)>::new(), |mut counter, item| {
                 match counter.iter_mut().find(|x| x.0 == item) {
                     Some(x) => x.1 += 1,
                     None => counter.push((item, 1)),
-                }
-            }
-        }
-        counter.to_vec()
+                };
+                counter
+            })
+            .into_iter()
+            //Trusting the compiler to optimize loop invariants. If not, CPU branch predictor will skip around
+            .filter(|value| show_repeated && (value.1 > 1))
+            .filter(|value| only_uniques && (value.1 == 1))
+            .collect::<Vec<(nu_protocol::Value, i64)>>()
     };
 
-    let uv = uniq_values.to_vec();
-    let mut values = if show_repeated {
-        uv.into_iter().filter(|i| i.1 > 1).collect()
+    let result = if should_show_count {
+        generate_results_with_count(head, uniq_values)
     } else {
-        uv
+        uniq_values.into_iter().map(|v| v.0).collect()
     };
-
-    if only_uniques {
-        values = values.into_iter().filter(|i| i.1 == 1).collect::<_>()
-    }
-
-    let mut values_vec_deque = VecDeque::new();
-
-    if should_show_count {
-        for item in values {
-            values_vec_deque.push_back({
-                let cols = vec!["value".to_string(), "count".to_string()];
-                let vals = vec![
-                    item.0,
-                    Value::Int {
-                        val: item.1,
-                        span: head,
-                    },
-                ];
-                Value::Record {
-                    cols,
-                    vals,
-                    span: head,
-                }
-            });
-        }
-    } else {
-        for item in values {
-            values_vec_deque.push_back(item.0);
-        }
-    }
 
     Ok(Value::List {
-        vals: values_vec_deque.into_iter().collect(),
+        vals: result,
         span: head,
     }
     .into_pipeline_data()
