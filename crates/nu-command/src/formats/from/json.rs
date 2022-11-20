@@ -1,8 +1,8 @@
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
-    Category, Example, IntoInterruptiblePipelineData, PipelineData, ShellError, Signature, Span,
-    Type, Value,
+    Category, Example, IntoInterruptiblePipelineData, IntoPipelineData, PipelineData, ShellError,
+    Signature, Span, Type, Value,
 };
 
 #[derive(Clone)]
@@ -97,16 +97,11 @@ impl Command for FromJson {
                     }
                 })
                 .collect();
-            match metadata {
-                Some(metadata) => Ok(converted_lines
-                    .into_pipeline_data_with_metadata(metadata, engine_state.ctrlc.clone())),
-                None => Ok(converted_lines.into_pipeline_data(engine_state.ctrlc.clone())),
-            }
+            Ok(converted_lines
+                .into_pipeline_data_with_metadata(metadata, engine_state.ctrlc.clone()))
         } else {
-            Ok(PipelineData::Value(
-                convert_string_to_value(string_input, span)?,
-                metadata,
-            ))
+            Ok(convert_string_to_value(string_input, span)?
+                .into_pipeline_data_with_metadata(metadata))
         }
     }
 }
