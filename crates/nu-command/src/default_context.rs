@@ -405,10 +405,7 @@ pub fn create_default_context() -> EngineState {
             Fetch,
             Post,
             Url,
-            UrlHost,
-            UrlPath,
-            UrlQuery,
-            UrlScheme,
+            UrlParse,
             Port,
         }
 

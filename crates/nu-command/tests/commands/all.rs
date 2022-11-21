@@ -109,6 +109,16 @@ fn early_exits_with_0_param_blocks() {
 }
 
 #[test]
+fn uses_optional_index_argument() {
+    let actual = nu!(
+        cwd: ".", pipeline(
+        r#"[7 8 9] | all {|el ind| print $ind | true }"#
+    ));
+
+    assert_eq!(actual.out, "012true");
+}
+
+#[test]
 fn unique_env_each_iteration() {
     let actual = nu!(
         cwd: "tests/fixtures/formats",

@@ -563,8 +563,13 @@ fn parse_commandline_args(
             let help = call.has_flag("help");
 
             if help {
-                let full_help =
-                    get_full_help(&Nu.signature(), &Nu.examples(), engine_state, &mut stack);
+                let full_help = get_full_help(
+                    &Nu.signature(),
+                    &Nu.examples(),
+                    engine_state,
+                    &mut stack,
+                    true,
+                );
 
                 let _ = std::panic::catch_unwind(move || stdout_write_all_and_flush(full_help));
 
@@ -600,7 +605,13 @@ fn parse_commandline_args(
     }
 
     // Just give the help and exit if the above fails
-    let full_help = get_full_help(&Nu.signature(), &Nu.examples(), engine_state, &mut stack);
+    let full_help = get_full_help(
+        &Nu.signature(),
+        &Nu.examples(),
+        engine_state,
+        &mut stack,
+        true,
+    );
     print!("{}", full_help);
     std::process::exit(1);
 }
@@ -731,7 +742,7 @@ impl Command for Nu {
         _input: PipelineData,
     ) -> Result<nu_protocol::PipelineData, nu_protocol::ShellError> {
         Ok(Value::String {
-            val: get_full_help(&Nu.signature(), &Nu.examples(), engine_state, stack),
+            val: get_full_help(&Nu.signature(), &Nu.examples(), engine_state, stack, true),
             span: call.head,
         }
         .into_pipeline_data())

@@ -27,7 +27,13 @@ impl Command for Hash {
         _input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
         Ok(Value::String {
-            val: get_full_help(&Self.signature(), &Self.examples(), engine_state, stack),
+            val: get_full_help(
+                &Self.signature(),
+                &Self.examples(),
+                engine_state,
+                stack,
+                self.is_parser_keyword(),
+            ),
             span: call.head,
         }
         .into_pipeline_data())

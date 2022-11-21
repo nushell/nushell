@@ -15,6 +15,15 @@ fn insert_the_column() {
 }
 
 #[test]
+fn doesnt_convert_record_to_table() {
+    let actual = nu!(
+        cwd: ".", r#"{a:1} | insert b 2 | to nuon"#
+    );
+
+    assert_eq!(actual.out, "{a: 1, b: 2}");
+}
+
+#[test]
 fn insert_the_column_conflict() {
     let actual = nu!(
         cwd: "tests/fixtures/formats", pipeline(
@@ -24,7 +33,9 @@ fn insert_the_column_conflict() {
         "#
     ));
 
-    assert!(actual.err.contains("column already exists"));
+    assert!(actual
+        .err
+        .contains("column 'pretty_assertions' already exists"));
 }
 
 #[test]
@@ -73,4 +84,14 @@ fn insert_past_end_list() {
     ));
 
     assert_eq!(actual.out, r#"[1,2,3,null,null,"abc"]"#);
+}
+
+#[test]
+fn uses_optional_index_argument() {
+    let actual = nu!(
+        cwd: ".", pipeline(
+        r#"[[a]; [7] [6]] | insert b {|el ind| $ind + 1 + $el.a } | to nuon"#
+    ));
+
+    assert_eq!(actual.out, "[[a, b]; [7, 8], [6, 8]]");
 }

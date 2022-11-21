@@ -250,6 +250,7 @@ pub fn group(
                     move |_, row: &Value| match row.get_data_by_key(&column_name.item) {
                         Some(group_key) => Ok(group_key.as_string()?),
                         None => Err(ShellError::CantFindColumn(
+                            column_name.item.to_string(),
                             column_name.span,
                             row.span().unwrap_or(column_name.span),
                         )),

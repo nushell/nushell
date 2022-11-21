@@ -137,6 +137,7 @@ pub fn split_by(
             });
             Ok(split(&splitter, input, name)?)
         }
+        // This uses the same format as the 'requires a column name' error in sort_utils.rs
         None => Err(ShellError::GenericError(
             "expected name".into(),
             "requires a column name for splitting".into(),
@@ -165,6 +166,7 @@ pub fn split(
                     move |_, row: &Value| match row.get_data_by_key(&column_name.item) {
                         Some(group_key) => Ok(group_key.as_string()?),
                         None => Err(ShellError::CantFindColumn(
+                            column_name.item.to_string(),
                             column_name.span,
                             row.span().unwrap_or(column_name.span),
                         )),

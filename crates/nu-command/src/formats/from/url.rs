@@ -1,8 +1,6 @@
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
-use nu_protocol::{
-    Category, Config, Example, PipelineData, ShellError, Signature, Span, Type, Value,
-};
+use nu_protocol::{Category, Example, PipelineData, ShellError, Signature, Span, Type, Value};
 
 #[derive(Clone)]
 pub struct FromUrl;
@@ -24,14 +22,13 @@ impl Command for FromUrl {
 
     fn run(
         &self,
-        engine_state: &EngineState,
+        _engine_state: &EngineState,
         _stack: &mut Stack,
         call: &Call,
         input: PipelineData,
     ) -> Result<nu_protocol::PipelineData, ShellError> {
         let head = call.head;
-        let config = engine_state.get_config();
-        from_url(input, head, config)
+        from_url(input, head)
     }
 
     fn examples(&self) -> Vec<Example> {
@@ -57,8 +54,8 @@ impl Command for FromUrl {
     }
 }
 
-fn from_url(input: PipelineData, head: Span, config: &Config) -> Result<PipelineData, ShellError> {
-    let concat_string = input.collect_string("", config)?;
+fn from_url(input: PipelineData, head: Span) -> Result<PipelineData, ShellError> {
+    let (concat_string, metadata) = input.collect_string_strict(head)?;
 
     let result = serde_urlencoded::from_str::<Vec<(String, String)>>(&concat_string);
 
@@ -77,7 +74,7 @@ fn from_url(input: PipelineData, head: Span, config: &Config) -> Result<Pipeline
                     vals,
                     span: head,
                 },
-                None,
+                metadata,
             ))
         }
         _ => Err(ShellError::UnsupportedInput(
