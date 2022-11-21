@@ -7,8 +7,7 @@ pub enum TokenContents {
     Comment,
     Pipe,
     Semicolon,
-    LessThan,
-    GreaterThan,
+    OutGreaterThan,
     Eol,
 }
 
@@ -240,16 +239,9 @@ pub fn lex_item(
     }
 
     match &input[(span.start - span_offset)..(span.end - span_offset)] {
-        b"<" => (
+        b"out>" => (
             Token {
-                contents: TokenContents::LessThan,
-                span,
-            },
-            None,
-        ),
-        b">" => (
-            Token {
-                contents: TokenContents::GreaterThan,
+                contents: TokenContents::OutGreaterThan,
                 span,
             },
             None,

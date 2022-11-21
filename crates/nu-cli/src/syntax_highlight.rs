@@ -120,6 +120,10 @@ impl Highlighter for NuHighlighter {
                 FlatShape::GlobPattern => add_colored_token!(shape.1, next_token),
                 FlatShape::Variable => add_colored_token!(shape.1, next_token),
                 FlatShape::Flag => add_colored_token!(shape.1, next_token),
+                FlatShape::Pipe => add_colored_token!(shape.1, next_token),
+                FlatShape::And => add_colored_token!(shape.1, next_token),
+                FlatShape::Or => add_colored_token!(shape.1, next_token),
+                FlatShape::Redirection => add_colored_token!(shape.1, next_token),
                 FlatShape::Custom(..) => add_colored_token!(shape.1, next_token),
             }
             last_seen_span = shape.0.end;
@@ -232,10 +236,10 @@ fn find_matching_block_end_in_block(
     for p in &block.pipelines {
         for e in &p.elements {
             match e {
-                PipelineElement::Expression(e)
-                | PipelineElement::Redirect(e)
-                | PipelineElement::And(e)
-                | PipelineElement::Or(e) => {
+                PipelineElement::Expression(_, e)
+                | PipelineElement::Redirection(_, _, e)
+                | PipelineElement::And(_, e)
+                | PipelineElement::Or(_, e) => {
                     if e.span.contains(global_cursor_offset) {
                         if let Some(pos) = find_matching_block_end_in_expr(
                             line,
