@@ -665,11 +665,13 @@ pub fn parse_multispan_value(
         SyntaxShape::Expression => {
             trace!("parsing: expression");
 
+            // is it subexpression?
+            // Not sure, but let's make it not, so the behavior is the same as previous version of nushell.
             let (arg, err) = parse_expression(
                 working_set,
                 &spans[*spans_idx..],
                 expand_aliases_denylist,
-                false, // not sure, make it to false to keep behavior unchanged
+                false,
             );
             error = error.or(err);
             *spans_idx = spans.len() - 1;
