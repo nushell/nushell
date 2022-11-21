@@ -1,3 +1,5 @@
+use std::collections::VecDeque;
+
 use nu_engine::CallExt;
 
 use nu_protocol::ast::Call;
@@ -75,18 +77,31 @@ impl Command for Last {
         let span = call.head;
 
         let rows: Option<i64> = call.opt(engine_state, stack, 0)?;
-        let v: Vec<_> = input.into_iter().collect();
-        let vlen: i64 = v.len() as i64;
-        let beginning_rows_to_skip = rows_to_skip(vlen, rows);
+        let to_keep = rows.unwrap_or(1).try_into().unwrap_or(0);
+
+        // early exit for `last 0`
+        if to_keep == 0 {
+            return Ok(Vec::<Value>::new()
+                .into_pipeline_data(engine_state.ctrlc.clone())
+                .set_metadata(metadata));
+        }
+
+        // only keep last `to_keep` rows in memory
+        let mut buf = VecDeque::<_>::new();
+        for row in input.into_iter() {
+            if buf.len() == to_keep {
+                buf.pop_front();
+            }
+
+            buf.push_back(row);
+        }
 
         if rows.is_some() {
-            let iter = v.into_iter().skip(beginning_rows_to_skip as usize);
-
-            Ok(iter
+            Ok(buf
                 .into_pipeline_data(engine_state.ctrlc.clone())
                 .set_metadata(metadata))
         } else {
-            let last = v.into_iter().nth(beginning_rows_to_skip as usize);
+            let last = buf.pop_back();
 
             if let Some(last) = last {
                 Ok(last.into_pipeline_data().set_metadata(metadata))
@@ -94,20 +109,6 @@ impl Command for Last {
                 Ok(PipelineData::new(span).set_metadata(metadata))
             }
         }
-    }
-}
-
-fn rows_to_skip(count: i64, rows: Option<i64>) -> i64 {
-    let end_rows_desired = if let Some(quantity) = rows {
-        quantity
-    } else {
-        1
-    };
-
-    if end_rows_desired < count {
-        count - end_rows_desired
-    } else {
-        0
     }
 }
 
