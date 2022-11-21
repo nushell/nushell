@@ -2,8 +2,8 @@ use crate::{current_dir_str, get_full_help, scope::create_scope};
 use nu_path::expand_path_with;
 use nu_protocol::{
     ast::{
-        Assignment, Bits, Block, Boolean, Call, Comparison, Expr, Expression, Math, Operator,
-        PathMember, PipelineElement,
+        Argument, Assignment, Bits, Block, Boolean, Call, Comparison, Expr, Expression, Math,
+        Operator, PathMember, PipelineElement, Redirection,
     },
     engine::{EngineState, Stack},
     Config, HistoryFileFormat, IntoInterruptiblePipelineData, IntoPipelineData, ListStream,
@@ -809,18 +809,58 @@ pub fn eval_element_with_input(
             redirect_stdout,
             redirect_stderr,
         ),
-        PipelineElement::Redirection(_, redirection, expr) => {
-            match &expr.expr {
-                Expr::String(name) => {
-                    println!("Redirecting {:?} into {}", redirection, name)
-                }
-                x => {
-                    println!("Found {:?}", x)
+        PipelineElement::Redirection(span, redirection, expr) => match &expr.expr {
+            Expr::String(_) => {
+                let input = match (redirection, input) {
+                    (
+                        Redirection::Stderr,
+                        PipelineData::ExternalStream {
+                            stderr,
+                            exit_code,
+                            span,
+                            metadata,
+                            ..
+                        },
+                    ) => PipelineData::ExternalStream {
+                        stdout: stderr,
+                        stderr: None,
+                        exit_code,
+                        span,
+                        metadata,
+                    },
+                    (_, input) => input,
+                };
+
+                if let Some(save_command) = engine_state.find_decl(b"save", &[]) {
+                    eval_call(
+                        engine_state,
+                        stack,
+                        &Call {
+                            decl_id: save_command,
+                            head: *span,
+                            arguments: vec![
+                                Argument::Positional(expr.clone()),
+                                Argument::Named((
+                                    Spanned {
+                                        item: "--raw".into(),
+                                        span: *span,
+                                    },
+                                    None,
+                                    None,
+                                )),
+                            ],
+                            redirect_stdout: false,
+                            redirect_stderr: false,
+                        },
+                        input,
+                    )
+                    .map(|x| (x, false))
+                } else {
+                    Err(ShellError::CommandNotFound(*span))
                 }
             }
-
-            Ok((PipelineData::new(expr.span), false))
-        }
+            _ => Err(ShellError::CommandNotFound(*span)),
+        },
         PipelineElement::And(_, expr) => eval_expression_with_input(
             engine_state,
             stack,
@@ -850,15 +890,22 @@ pub fn eval_block(
 ) -> Result<PipelineData, ShellError> {
     let num_pipelines = block.len();
     for (pipeline_idx, pipeline) in block.pipelines.iter().enumerate() {
-        for (i, elem) in pipeline.elements.iter().enumerate() {
+        let mut i = 0;
+
+        while i < pipeline.elements.len() {
             // if eval internal command failed, it can just make early return with `Err(ShellError)`.
             let eval_result = eval_element_with_input(
                 engine_state,
                 stack,
-                elem,
+                &pipeline.elements[i],
                 input,
                 redirect_stdout || (i != pipeline.elements.len() - 1),
-                redirect_stderr,
+                redirect_stderr
+                    || ((i < pipeline.elements.len() - 1)
+                        && (matches!(
+                            pipeline.elements[i + 1],
+                            PipelineElement::Redirection(_, Redirection::Stderr, _)
+                        ))),
             )?;
             input = eval_result.0;
             // external command may runs to failed
@@ -867,6 +914,8 @@ pub fn eval_block(
             if eval_result.1 {
                 return Ok(input);
             }
+
+            i += 1;
         }
 
         if pipeline_idx < (num_pipelines) - 1 {
