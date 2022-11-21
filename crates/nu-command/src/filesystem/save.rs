@@ -121,6 +121,11 @@ impl Command for Save {
 
         let ext = if raw {
             None
+        // if is extern stream , in other words , not value
+        } else if let PipelineData::ExternalStream { .. } = input {
+            None
+        } else if let PipelineData::Value(Value::String { .. }, ..) = input {
+            None
         } else {
             path.extension()
                 .map(|name| name.to_string_lossy().to_string())
