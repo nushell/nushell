@@ -1,6 +1,6 @@
 mod append;
 mod columns;
-mod describe;
+mod descriptives;
 mod drop;
 mod drop_duplicates;
 mod drop_nulls;
@@ -32,7 +32,7 @@ use nu_protocol::engine::StateWorkingSet;
 
 pub use append::AppendDF;
 pub use columns::ColumnsDF;
-pub use describe::DescribeDF;
+pub use descriptives::Descriptives;
 pub use drop::DropDF;
 pub use drop_duplicates::DropDuplicates;
 pub use drop_nulls::DropNulls;
@@ -75,7 +75,7 @@ pub fn add_eager_decls(working_set: &mut StateWorkingSet) {
         AppendDF,
         ColumnsDF,
         DataTypes,
-        DescribeDF,
+        Descriptives,
         DropDF,
         DropDuplicates,
         DropNulls,
