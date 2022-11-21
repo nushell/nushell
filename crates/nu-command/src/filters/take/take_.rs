@@ -1,4 +1,3 @@
-use itertools::Itertools;
 use nu_engine::CallExt;
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
@@ -6,6 +5,7 @@ use nu_protocol::{
     Category, Example, IntoInterruptiblePipelineData, PipelineData, ShellError, Signature, Span,
     Spanned, SyntaxShape, Type, Value,
 };
+use std::collections::VecDeque;
 
 #[derive(Clone)]
 pub struct Take;
@@ -82,13 +82,17 @@ impl Command for Take {
             PipelineData::Value(val, _) => match val {
                 Value::List { vals, .. } => {
                     if take_last {
-                        Ok(vals
-                            .into_iter()
-                            .rev()
-                            .take(rows_desired)
-                            .rev()
-                            .into_pipeline_data(ctrlc)
-                            .set_metadata(metadata))
+                        // only keep last `rows_desired` rows in memory
+                        let mut buf = VecDeque::<_>::new();
+                        for row in vals.into_iter() {
+                            if buf.len() == rows_desired {
+                                buf.pop_front();
+                            }
+
+                            buf.push_back(row);
+                        }
+
+                        Ok(buf.into_pipeline_data(ctrlc).set_metadata(metadata))
                     } else {
                         Ok(vals
                             .into_iter()
@@ -110,16 +114,17 @@ impl Command for Take {
                 }
                 Value::Range { val, .. } => {
                     if take_last {
-                        // TODO: implement DoubleEndedIterator for RangeIterator so we can use .rev().take(n).rev()
-                        // without collecting here
-                        let collected = val.into_range_iter(ctrlc.clone())?.collect_vec();
-                        Ok(collected
-                            .into_iter()
-                            .rev()
-                            .take(rows_desired)
-                            .rev()
-                            .into_pipeline_data(ctrlc)
-                            .set_metadata(metadata))
+                        // only keep last `rows_desired` rows in memory
+                        let mut buf = VecDeque::<_>::new();
+                        for row in val.into_range_iter(ctrlc.clone())? {
+                            if buf.len() == rows_desired {
+                                buf.pop_front();
+                            }
+
+                            buf.push_back(row);
+                        }
+
+                        Ok(buf.into_pipeline_data(ctrlc).set_metadata(metadata))
                     } else {
                         Ok(val
                             .into_range_iter(ctrlc.clone())?
@@ -132,14 +137,17 @@ impl Command for Take {
             },
             PipelineData::ListStream(ls, metadata) => {
                 if take_last {
-                    let collected = ls.collect_vec();
-                    Ok(collected
-                        .into_iter()
-                        .rev()
-                        .take(rows_desired)
-                        .rev()
-                        .into_pipeline_data(ctrlc)
-                        .set_metadata(metadata))
+                    // only keep last `rows_desired` rows in memory
+                    let mut buf = VecDeque::<_>::new();
+                    for row in ls {
+                        if buf.len() == rows_desired {
+                            buf.pop_front();
+                        }
+
+                        buf.push_back(row);
+                    }
+
+                    Ok(buf.into_pipeline_data(ctrlc).set_metadata(metadata))
                 } else {
                     Ok(ls
                         .take(rows_desired)
