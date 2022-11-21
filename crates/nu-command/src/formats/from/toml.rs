@@ -69,16 +69,15 @@ b = [1, 2]' | from toml",
 
     fn run(
         &self,
-        engine_state: &EngineState,
+        __engine_state: &EngineState,
         _stack: &mut Stack,
         call: &Call,
         input: PipelineData,
     ) -> Result<nu_protocol::PipelineData, ShellError> {
         let span = call.head;
-        let config = engine_state.get_config();
-        let mut string_input = input.collect_string("", config)?;
+        let (mut string_input, metadata) = input.collect_string_strict(span)?;
         string_input.push('\n');
-        Ok(convert_string_to_value(string_input, span)?.into_pipeline_data())
+        Ok(convert_string_to_value(string_input, span)?.into_pipeline_data_with_metadata(metadata))
     }
 }
 

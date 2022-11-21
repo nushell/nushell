@@ -1,5 +1,5 @@
 use csv::{ReaderBuilder, Trim};
-use nu_protocol::{Config, IntoPipelineData, PipelineData, ShellError, Span, Value};
+use nu_protocol::{IntoPipelineData, PipelineData, ShellError, Span, Value};
 
 fn from_delimited_string_to_value(
     s: String,
@@ -63,14 +63,13 @@ pub fn from_delimited_data(
     trim: Trim,
     input: PipelineData,
     name: Span,
-    config: &Config,
 ) -> Result<PipelineData, ShellError> {
-    let concat_string = input.collect_string("", config)?;
+    let (concat_string, metadata) = input.collect_string_strict(name)?;
 
     Ok(
         from_delimited_string_to_value(concat_string, noheaders, no_infer, sep, trim, name)
             .map_err(|x| ShellError::DelimiterError(x.to_string(), name))?
-            .into_pipeline_data(),
+            .into_pipeline_data_with_metadata(metadata),
     )
 }
 

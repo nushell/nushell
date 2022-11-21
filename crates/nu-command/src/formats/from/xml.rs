@@ -2,8 +2,8 @@ use indexmap::map::IndexMap;
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
-    Category, Config, Example, IntoPipelineData, PipelineData, ShellError, Signature, Span,
-    Spanned, Type, Value,
+    Category, Example, IntoPipelineData, PipelineData, ShellError, Signature, Span, Spanned, Type,
+    Value,
 };
 
 #[derive(Clone)]
@@ -26,14 +26,13 @@ impl Command for FromXml {
 
     fn run(
         &self,
-        engine_state: &EngineState,
+        _engine_state: &EngineState,
         _stack: &mut Stack,
         call: &Call,
         input: PipelineData,
     ) -> Result<nu_protocol::PipelineData, ShellError> {
         let head = call.head;
-        let config = engine_state.get_config();
-        from_xml(input, head, config)
+        from_xml(input, head)
     }
 
     fn examples(&self) -> Vec<Example> {
@@ -180,11 +179,11 @@ pub fn from_xml_string_to_value(s: String, span: Span) -> Result<Value, roxmltre
     Ok(from_document_to_value(&parsed, span))
 }
 
-fn from_xml(input: PipelineData, head: Span, config: &Config) -> Result<PipelineData, ShellError> {
-    let concat_string = input.collect_string("", config)?;
+fn from_xml(input: PipelineData, head: Span) -> Result<PipelineData, ShellError> {
+    let (concat_string, metadata) = input.collect_string_strict(head)?;
 
     match from_xml_string_to_value(concat_string, head) {
-        Ok(x) => Ok(x.into_pipeline_data()),
+        Ok(x) => Ok(x.into_pipeline_data_with_metadata(metadata)),
         _ => Err(ShellError::UnsupportedInput(
             "Could not parse string as xml".to_string(),
             head,
