@@ -297,7 +297,7 @@ fn to_nuon_converts_columns_with_spaces() {
 }
 
 #[test]
-fn to_nuon_does_not_quote_unnecessarily() {
+fn does_not_quote_strings_unnecessarily() {
     let actual = nu!(
         cwd: "tests/fixtures/formats", pipeline(
             r#"
@@ -312,6 +312,30 @@ fn to_nuon_does_not_quote_unnecessarily() {
     "#
     ));
     assert_eq!(actual.out, "{\"ro name\": sam, rank: 10}");
+}
+
+#[test]
+fn quotes_some_strings_necessarily() {
+    let actual = nu!(
+        cwd: "tests/fixtures/formats", pipeline(
+        r#"
+            ['true','false','null',
+            'NaN','NAN','nan','+nan','-nan',
+            'inf','+inf','-inf','INF',
+            'Infinity','+Infinity','-Infinity','INFINITY',
+            '+19.99','-19.99', '19.99b',
+            '19.99kb','19.99mb','19.99gb','19.99tb','19.99pb','19.99eb','19.99zb',
+            '19.99kib','19.99mib','19.99gib','19.99tib','19.99pib','19.99eib','19.99zib',
+            '19ns', '19us', '19ms', '19sec', '19min', '19hr', '19day', '19wk',
+            '-11.0..-15.0', '11.0..-15.0', '-11.0..15.0',
+            '-11.0..<-15.0', '11.0..<-15.0', '-11.0..<15.0',
+            '-11.0..', '11.0..', '..15.0', '..-15.0', '..<15.0', '..<-15.0',
+            '2000-01-01', '2022-02-02T14:30:00', '2022-02-02T14:30:00+05:00'
+            ] | to nuon | from nuon | describe
+        "#
+    ));
+
+    assert_eq!(actual.out, "list<string>");
 }
 
 proptest! {

@@ -186,7 +186,7 @@ fn helper(
         Ok(u) => u,
         Err(_e) => {
             return Err(ShellError::UnsupportedInput(
-                "Incomplete or incorrect URL. Expected a full URL, e.g., https://www.example.com"
+                "Incomplete or incorrect url. Expected a full url, e.g., https://www.example.com"
                     .to_string(),
                 span,
             ));

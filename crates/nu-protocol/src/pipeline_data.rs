@@ -231,6 +231,33 @@ impl PipelineData {
         }
     }
 
+    /// Retrieves string from pipline data.
+    ///
+    /// As opposed to `collect_string` this raises error rather than converting non-string values.
+    /// The `span` will be used if `ListStream` is encountered since it doesn't carry a span.
+    pub fn collect_string_strict(
+        self,
+        span: Span,
+    ) -> Result<(String, Option<PipelineMetadata>), ShellError> {
+        match self {
+            PipelineData::Value(Value::String { val, .. }, metadata) => Ok((val, metadata)),
+            PipelineData::Value(val, _) => {
+                Err(ShellError::TypeMismatch("string".into(), val.span()?))
+            }
+            PipelineData::ListStream(_, _) => Err(ShellError::TypeMismatch("string".into(), span)),
+            PipelineData::ExternalStream {
+                stdout: None,
+                metadata,
+                ..
+            } => Ok((String::new(), metadata)),
+            PipelineData::ExternalStream {
+                stdout: Some(stdout),
+                metadata,
+                ..
+            } => Ok((stdout.into_string()?.item, metadata)),
+        }
+    }
+
     pub fn follow_cell_path(
         self,
         cell_path: &[PathMember],
@@ -631,7 +658,10 @@ impl Iterator for PipelineIterator {
 
 pub trait IntoPipelineData {
     fn into_pipeline_data(self) -> PipelineData;
-    fn into_pipeline_data_with_metadata(self, metadata: PipelineMetadata) -> PipelineData;
+    fn into_pipeline_data_with_metadata(
+        self,
+        metadata: impl Into<Option<PipelineMetadata>>,
+    ) -> PipelineData;
 }
 
 impl<V> IntoPipelineData for V
@@ -641,8 +671,11 @@ where
     fn into_pipeline_data(self) -> PipelineData {
         PipelineData::Value(self.into(), None)
     }
-    fn into_pipeline_data_with_metadata(self, metadata: PipelineMetadata) -> PipelineData {
-        PipelineData::Value(self.into(), Some(metadata))
+    fn into_pipeline_data_with_metadata(
+        self,
+        metadata: impl Into<Option<PipelineMetadata>>,
+    ) -> PipelineData {
+        PipelineData::Value(self.into(), metadata.into())
     }
 }
 
@@ -650,7 +683,7 @@ pub trait IntoInterruptiblePipelineData {
     fn into_pipeline_data(self, ctrlc: Option<Arc<AtomicBool>>) -> PipelineData;
     fn into_pipeline_data_with_metadata(
         self,
-        metadata: PipelineMetadata,
+        metadata: impl Into<Option<PipelineMetadata>>,
         ctrlc: Option<Arc<AtomicBool>>,
     ) -> PipelineData;
 }
@@ -673,7 +706,7 @@ where
 
     fn into_pipeline_data_with_metadata(
         self,
-        metadata: PipelineMetadata,
+        metadata: impl Into<Option<PipelineMetadata>>,
         ctrlc: Option<Arc<AtomicBool>>,
     ) -> PipelineData {
         PipelineData::ListStream(
@@ -681,7 +714,7 @@ where
                 stream: Box::new(self.into_iter().map(Into::into)),
                 ctrlc,
             },
-            Some(metadata),
+            metadata.into(),
         )
     }
 }

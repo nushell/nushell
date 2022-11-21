@@ -92,7 +92,7 @@ fn reject_record_from_raw_eval() {
         )
     );
 
-    assert!(actual.out.contains("record<>"));
+    assert!(actual.out.contains("record"));
 }
 
 #[test]

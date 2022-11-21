@@ -95,3 +95,13 @@ fn update_past_end_list() {
 
     assert!(actual.err.contains("too large"));
 }
+
+#[test]
+fn update_nonexistent_column() {
+    let actual = nu!(
+        cwd: ".", pipeline(
+        r#"{a:1} | update b 2"#
+    ));
+
+    assert!(actual.err.contains("cannot find column 'b'"));
+}

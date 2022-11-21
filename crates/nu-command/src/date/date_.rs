@@ -53,7 +53,13 @@ fn date(
     let head = call.head;
 
     Ok(Value::String {
-        val: get_full_help(&Date.signature(), &Date.examples(), engine_state, stack),
+        val: get_full_help(
+            &Date.signature(),
+            &Date.examples(),
+            engine_state,
+            stack,
+            false,
+        ),
         span: head,
     }
     .into_pipeline_data())

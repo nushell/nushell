@@ -38,6 +38,7 @@ impl Command for RandomCommand {
                 &RandomCommand.examples(),
                 engine_state,
                 stack,
+                self.is_parser_keyword(),
             ),
             span: call.head,
         }

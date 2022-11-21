@@ -107,24 +107,36 @@ impl Display for Type {
             Type::Float => write!(f, "float"),
             Type::Int => write!(f, "int"),
             Type::Range => write!(f, "range"),
-            Type::Record(fields) => write!(
-                f,
-                "record<{}>",
-                fields
-                    .iter()
-                    .map(|(x, y)| format!("{}: {}", x, y))
-                    .collect::<Vec<String>>()
-                    .join(", "),
-            ),
-            Type::Table(columns) => write!(
-                f,
-                "table<{}>",
-                columns
-                    .iter()
-                    .map(|(x, y)| format!("{}: {}", x, y))
-                    .collect::<Vec<String>>()
-                    .join(", ")
-            ),
+            Type::Record(fields) => {
+                if fields.is_empty() {
+                    write!(f, "record")
+                } else {
+                    write!(
+                        f,
+                        "record<{}>",
+                        fields
+                            .iter()
+                            .map(|(x, y)| format!("{}: {}", x, y))
+                            .collect::<Vec<String>>()
+                            .join(", "),
+                    )
+                }
+            }
+            Type::Table(columns) => {
+                if columns.is_empty() {
+                    write!(f, "table")
+                } else {
+                    write!(
+                        f,
+                        "table<{}>",
+                        columns
+                            .iter()
+                            .map(|(x, y)| format!("{}: {}", x, y))
+                            .collect::<Vec<String>>()
+                            .join(", ")
+                    )
+                }
+            }
             Type::List(l) => write!(f, "list<{}>", l),
             Type::Nothing => write!(f, "nothing"),
             Type::Number => write!(f, "number"),

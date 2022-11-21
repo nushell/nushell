@@ -68,14 +68,13 @@ impl Command for FromNuon {
 
     fn run(
         &self,
-        engine_state: &EngineState,
+        _engine_state: &EngineState,
         _stack: &mut Stack,
         call: &Call,
         input: PipelineData,
     ) -> Result<nu_protocol::PipelineData, ShellError> {
         let head = call.head;
-        let config = engine_state.get_config();
-        let string_input = input.collect_string("", config)?;
+        let (string_input, metadata) = input.collect_string_strict(head)?;
 
         let engine_state = EngineState::new();
 
@@ -85,6 +84,7 @@ impl Command for FromNuon {
 
         let mut error = None;
 
+        // Most of the 'work' in converting from Nuon is simply pushing it through the Nu parser.
         let (lexed, err) = nu_parser::lex(string_input.as_bytes(), 0, &[b'\n', b'\r'], &[], true);
         error = error.or(err);
 
@@ -182,7 +182,7 @@ impl Command for FromNuon {
         let result = convert_to_value(expr, head, &string_input);
 
         match result {
-            Ok(result) => Ok(result.into_pipeline_data()),
+            Ok(result) => Ok(result.into_pipeline_data_with_metadata(metadata)),
             Err(err) => Err(ShellError::GenericError(
                 "error when loading nuon text".into(),
                 "could not load nuon text".into(),
