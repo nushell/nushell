@@ -92,3 +92,16 @@ fn works_with_binary_list() {
 
     assert_eq!(actual.out, "true");
 }
+
+#[test]
+fn errors_on_negative_rows() {
+    let actual = nu!(
+        cwd: ".", pipeline(
+        r#"
+                [1, 2, 3]
+                | first -10
+            "#
+    ));
+
+    assert!(actual.err.contains("use a positive value"));
+}
