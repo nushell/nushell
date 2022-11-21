@@ -44,7 +44,8 @@ where
     }
 
     pub fn eof(&mut self) -> Result<bool> {
-        Ok(self.peek()?.is_none())
+        let ch = self.peek()?;
+        Ok(matches!(ch, None | Some(b'\x00')))
     }
 
     pub fn peek_next(&mut self, idx: usize) -> Result<Option<u8>> {
