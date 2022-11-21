@@ -178,12 +178,11 @@ impl PipelineData {
                             }
                         }
                     }
+                    if trim_end_newline {
+                        output.truncate(output.trim_end_matches(LINE_ENDING).len())
+                    }
                     Value::String {
-                        val: if trim_end_newline {
-                            output.trim_end_matches(LINE_ENDING).to_string()
-                        } else {
-                            output
-                        },
+                        val: output,
                         span, // FIXME?
                     }
                 }
@@ -222,11 +221,10 @@ impl PipelineData {
                         Err(e) => return Err(e),
                     }
                 }
-                Ok(if trim_end_newline {
-                    output.trim_end_matches(LINE_ENDING).to_string()
-                } else {
-                    output
-                })
+                if trim_end_newline {
+                    output.truncate(output.trim_end_matches(LINE_ENDING).len());
+                }
+                Ok(output)
             }
         }
     }
@@ -319,13 +317,12 @@ impl PipelineData {
             } => {
                 let collected = stream.into_bytes()?;
 
-                if let Ok(st) = String::from_utf8(collected.clone().item) {
+                if let Ok(mut st) = String::from_utf8(collected.clone().item) {
+                    if trim_end_newline {
+                        st.truncate(st.trim_end_matches(LINE_ENDING).len());
+                    }
                     Ok(f(Value::String {
-                        val: if trim_end_newline {
-                            st.trim_end_matches(LINE_ENDING).to_string()
-                        } else {
-                            st
-                        },
+                        val: st,
                         span: collected.span,
                     })
                     .into_pipeline_data())
@@ -378,13 +375,12 @@ impl PipelineData {
             } => {
                 let collected = stream.into_bytes()?;
 
-                if let Ok(st) = String::from_utf8(collected.clone().item) {
+                if let Ok(mut st) = String::from_utf8(collected.clone().item) {
+                    if trim_end_newline {
+                        st.truncate(st.trim_end_matches(LINE_ENDING).len())
+                    }
                     Ok(f(Value::String {
-                        val: if trim_end_newline {
-                            st.trim_end_matches(LINE_ENDING).to_string()
-                        } else {
-                            st
-                        },
+                        val: st,
                         span: collected.span,
                     })
                     .into_iter()
@@ -432,13 +428,12 @@ impl PipelineData {
             } => {
                 let collected = stream.into_bytes()?;
 
-                if let Ok(st) = String::from_utf8(collected.clone().item) {
+                if let Ok(mut st) = String::from_utf8(collected.clone().item) {
+                    if trim_end_newline {
+                        st.truncate(st.trim_end_matches(LINE_ENDING).len())
+                    }
                     let v = Value::String {
-                        val: if trim_end_newline {
-                            st.trim_end_matches(LINE_ENDING).to_string()
-                        } else {
-                            st
-                        },
+                        val: st,
                         span: collected.span,
                     };
 
