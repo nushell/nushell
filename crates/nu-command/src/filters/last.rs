@@ -77,14 +77,18 @@ impl Command for Last {
         let span = call.head;
 
         let rows: Option<i64> = call.opt(engine_state, stack, 0)?;
-        let to_keep = rows.unwrap_or(1).try_into().unwrap_or(0);
-
-        // early exit for `last 0`
-        if to_keep == 0 {
-            return Ok(Vec::<Value>::new()
-                .into_pipeline_data(engine_state.ctrlc.clone())
-                .set_metadata(metadata));
-        }
+        let to_keep = match rows.unwrap_or(1) {
+            0 => {
+                // early exit for `last 0`
+                return Ok(Vec::<Value>::new()
+                    .into_pipeline_data(engine_state.ctrlc.clone())
+                    .set_metadata(metadata));
+            }
+            i if i < 0 => {
+                return Err(ShellError::NeedsPositiveValue(span));
+            }
+            i => i as usize,
+        };
 
         // only keep last `to_keep` rows in memory
         let mut buf = VecDeque::<_>::new();
