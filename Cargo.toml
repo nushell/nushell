@@ -83,11 +83,12 @@ rstest = {version = "0.15.0", default-features = false}
 itertools = "0.10.3"
 
 [features]
-plugin = ["nu-plugin", "nu-cli/plugin", "nu-parser/plugin", "nu-command/plugin", "nu-protocol/plugin", "nu-engine/plugin"]
-extra = ["default", "dataframe", "database"]
+plugin = ["nu-plugin", "nu-cli/plugin", "nu-parser/plugin", "nu-command/plugin", "nu-protocol/plugin", "nu-engine/plugin", "database"]
+extra = ["default"]
 default = ["plugin", "which-support", "trash-support"]
 stable = ["default"]
 wasi = []
+
 # Enable to statically link OpenSSL; otherwise the system version will be used. Not enabled by default because it takes a while to build
 static-link-openssl = ["dep:openssl"]
 
