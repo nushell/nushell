@@ -91,13 +91,3 @@ fn each_while_uses_optional_index_argument() {
 
     assert_eq!(actual.out, "[0, 1, 2, 3]");
 }
-
-#[test]
-fn par_each_uses_optional_index_argument() {
-    let actual = nu!(
-        cwd: ".", pipeline(
-        r#"[7 8 9 10] | par-each {|el ind| $ind } | to nuon"#
-    ));
-
-    assert_eq!(actual.out, "[0, 1, 2, 3]");
-}
