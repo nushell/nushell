@@ -40,7 +40,7 @@ fn table_to_tsv_text() {
                 open tsv_text_sample.txt
                 | lines
                 | split column "\t" a b c d origin
-                | last 1
+                | last
                 | to tsv
                 | lines
                 | select 1
@@ -69,7 +69,7 @@ fn table_to_tsv_text_skipping_headers_after_conversion() {
                 open tsv_text_sample.txt
                 | lines
                 | split column "\t" a b c d origin
-                | last 1
+                | last
                 | to tsv --noheaders
             "#
         ));

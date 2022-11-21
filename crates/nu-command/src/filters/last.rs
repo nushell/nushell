@@ -1,12 +1,7 @@
-use std::collections::VecDeque;
-
-use nu_engine::CallExt;
-
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
-    Category, Example, IntoInterruptiblePipelineData, IntoPipelineData, PipelineData, ShellError,
-    Signature, Span, SyntaxShape, Type, Value,
+    Category, Example, IntoPipelineData, PipelineData, ShellError, Signature, Span, Type, Value,
 };
 
 #[derive(Clone)]
@@ -21,93 +16,99 @@ impl Command for Last {
         Signature::build("last")
             .input_output_types(vec![
                 (
-                    // TODO: This variant duplicates the functionality of
-                    // `take`. See #6611, #6611, #6893
-                    // TODO: This is too permissive; if we could express this
-                    // using a type parameter style it would be List<T> ->
-                    // List<T>.
-                    Type::List(Box::new(Type::Any)),
-                    Type::List(Box::new(Type::Any)),
-                ),
-                (
                     // TODO: This is too permissive; if we could express this
                     // using a type parameter it would be List<T> -> T.
                     Type::List(Box::new(Type::Any)),
                     Type::Any,
                 ),
+                (Type::Binary, Type::Binary),
+                (Type::Range, Type::Int),
             ])
-            .optional(
-                "rows",
-                SyntaxShape::Int,
-                "starting from the back, the number of rows to return",
-            )
             .category(Category::Filters)
     }
 
     fn usage(&self) -> &str {
-        "Return only the last several rows of the input. Counterpart of 'first'. Opposite of 'drop'."
+        "Return only the last element of the input. Counterpart of 'first'."
     }
 
     fn examples(&self) -> Vec<Example> {
         vec![
             Example {
-                example: "[1,2,3] | last 2",
-                description: "Get the last 2 items",
-                result: Some(Value::List {
-                    vals: vec![Value::test_int(2), Value::test_int(3)],
+                example: "[1,2,3] | last",
+                description: "Get the last item",
+                result: Some(Value::test_int(3)),
+            },
+            Example {
+                description: "Return the last byte of a binary value",
+                example: "0x[01 23 45] | last",
+                result: Some(Value::Binary {
+                    val: vec![0x45],
                     span: Span::test_data(),
                 }),
             },
             Example {
-                example: "[1,2,3] | last",
-                description: "Get the last item",
-                result: Some(Value::test_int(3)),
+                description: "Return the last number of a range",
+                example: "3..5 | last",
+                result: Some(Value::test_int(5)),
             },
         ]
     }
 
     fn run(
         &self,
-        engine_state: &EngineState,
-        stack: &mut Stack,
+        _engine_state: &EngineState,
+        _stack: &mut Stack,
         call: &Call,
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
+        let head = call.head;
         let metadata = input.metadata();
-        let span = call.head;
-
-        let rows: Option<i64> = call.opt(engine_state, stack, 0)?;
-        let to_keep = rows.unwrap_or(1).try_into().unwrap_or(0);
-
-        // early exit for `last 0`
-        if to_keep == 0 {
-            return Ok(Vec::<Value>::new()
-                .into_pipeline_data(engine_state.ctrlc.clone())
-                .set_metadata(metadata));
-        }
-
-        // only keep last `to_keep` rows in memory
-        let mut buf = VecDeque::<_>::new();
-        for row in input.into_iter() {
-            if buf.len() == to_keep {
-                buf.pop_front();
-            }
-
-            buf.push_back(row);
-        }
-
-        if rows.is_some() {
-            Ok(buf
-                .into_pipeline_data(engine_state.ctrlc.clone())
-                .set_metadata(metadata))
-        } else {
-            let last = buf.pop_back();
-
-            if let Some(last) = last {
-                Ok(last.into_pipeline_data().set_metadata(metadata))
+        let input_span = input.span();
+        let input_not_supported_error = || -> ShellError {
+            // can't always get a span for input, so try our best and fall back on the span for the `first` call if needed
+            if let Some(span) = input_span {
+                ShellError::UnsupportedInput("first does not support this input type".into(), span)
             } else {
-                Ok(PipelineData::new(span).set_metadata(metadata))
+                ShellError::UnsupportedInput(
+                    "first was given an unsupported input type".into(),
+                    call.span(),
+                )
             }
+        };
+
+        match input {
+            PipelineData::Value(val, _) => match val {
+                Value::List { vals, .. } => {
+                    if let Some(last) = vals.last() {
+                        Ok(last.clone().into_pipeline_data())
+                    } else {
+                        Err(ShellError::AccessEmptyContent(head))
+                    }
+                }
+                Value::Binary { val, span } => {
+                    if let Some(last) = val.last() {
+                        Ok(PipelineData::Value(
+                            Value::Binary {
+                                val: vec![*last],
+                                span,
+                            },
+                            metadata,
+                        ))
+                    } else {
+                        Err(ShellError::AccessEmptyContent(head))
+                    }
+                }
+                Value::Range { val, .. } => Ok(val.to.into_pipeline_data()),
+                _ => Err(input_not_supported_error()),
+            },
+            PipelineData::ListStream(ls, ..) => {
+                if let Some(last) = ls.last() {
+                    Ok(last.into_pipeline_data())
+                } else {
+                    Err(ShellError::AccessEmptyContent(head))
+                }
+            }
+            _ => Err(input_not_supported_error()),
         }
     }
 }

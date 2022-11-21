@@ -31,7 +31,7 @@ fn table_to_csv_text() {
                 | lines
                 | str trim
                 | split column "," a b c d origin
-                | last 1
+                | last
                 | to csv
                 | lines
                 | get 1
@@ -63,7 +63,7 @@ fn table_to_csv_text_skipping_headers_after_conversion() {
                 | lines
                 | str trim
                 | split column "," a b c d origin
-                | last 1
+                | last
                 | to csv --noheaders
             "#
         ));
