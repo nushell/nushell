@@ -1,10 +1,10 @@
 echo '-------------------------------------------------------------------'
-echo 'Building nushell (nu) with --features=extra and all the plugins'
+echo 'Building nushell (nu) with and all the plugins'
 echo '-------------------------------------------------------------------'
 
 echo $'(char nl)Building nushell'
 echo '----------------------------'
-cargo build --features=extra
+cargo build
 
 let plugins = [
     nu_plugin_inc,

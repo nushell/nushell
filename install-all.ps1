@@ -2,13 +2,13 @@
 # Usage: Just run `powershell install-all.ps1` in nushell root directory
 
 Write-Output "-----------------------------------------------------------------"
-Write-Output "Installing nushell (nu) with --features=extra and all the plugins"
+Write-Output "Installing nushell (nu) with all the plugins"
 Write-Output "-----------------------------------------------------------------"
 Write-Output ""
 
 Write-Output "Install nushell from local..."
 Write-Output "----------------------------------------------"
-cargo install --path . --features=extra
+cargo install --path .
 
 $NU_PLUGINS = @(
     'nu_plugin_example',

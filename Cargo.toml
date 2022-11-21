@@ -84,6 +84,7 @@ itertools = "0.10.3"
 
 [features]
 plugin = ["nu-plugin", "nu-cli/plugin", "nu-parser/plugin", "nu-command/plugin", "nu-protocol/plugin", "nu-engine/plugin"]
+# extra used to be more useful but now it's the same as default. Leaving it in for backcompat with existing build scripts
 extra = ["default"]
 default = ["plugin", "which-support", "trash-support", "sqlite"]
 stable = ["default"]

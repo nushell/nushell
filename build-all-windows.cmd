@@ -1,11 +1,11 @@
 @echo off
 @echo -------------------------------------------------------------------
-@echo Building nushell (nu.exe) with --features=extra and all the plugins
+@echo Building nushell (nu.exe) with all the plugins
 @echo -------------------------------------------------------------------
 @echo.
 
 echo Building nushell.exe
-cargo build --features=extra
+cargo build
 @echo.
 
 @cd crates\nu_plugin_example
