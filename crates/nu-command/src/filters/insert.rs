@@ -38,7 +38,7 @@ impl Command for Insert {
     }
 
     fn usage(&self) -> &str {
-        "Insert a new column."
+        "Insert a new column, using an expression or block to create each row's values."
     }
 
     fn search_terms(&self) -> Vec<&str> {
@@ -57,7 +57,7 @@ impl Command for Insert {
 
     fn examples(&self) -> Vec<Example> {
         vec![Example {
-            description: "Insert a new entry into a record",
+            description: "Insert a new entry into a single record",
             example: "{'name': 'nu', 'stars': 5} | insert alias 'Nushell'",
             result: Some(Value::Record {
                 cols: vec!["name".into(), "stars".into(), "alias".into()],
@@ -66,6 +66,34 @@ impl Command for Insert {
                     Value::test_int(5),
                     Value::test_string("Nushell"),
                 ],
+                span: Span::test_data(),
+            }),
+        }, Example {
+            description: "Insert a column with values equal to their row index, plus the value of 'foo' in each row",
+            example: "[[foo]; [7] [8] [9]] | insert bar {|el ind| $el.foo + $ind }",
+            result: Some(Value::List {
+                vals: vec![Value::Record {
+                    cols: vec!["foo".into(), "bar".into()],
+                    vals: vec![
+                        Value::test_int(7),
+                        Value::test_int(7),
+                    ],
+                    span: Span::test_data(),
+                }, Value::Record {
+                    cols: vec!["foo".into(), "bar".into()],
+                    vals: vec![
+                        Value::test_int(8),
+                        Value::test_int(9),
+                    ],
+                    span: Span::test_data(),
+                }, Value::Record {
+                    cols: vec!["foo".into(), "bar".into()],
+                    vals: vec![
+                        Value::test_int(9),
+                        Value::test_int(11),
+                    ],
+                    span: Span::test_data(),
+                }],
                 span: Span::test_data(),
             }),
         }]
@@ -98,6 +126,9 @@ fn insert(
         let orig_env_vars = stack.env_vars.clone();
         let orig_env_hidden = stack.env_hidden.clone();
 
+        // enumerate() can't be used here because it converts records into tables
+        // when combined with into_pipeline_data(). Hence, the index is tracked manually like so.
+        let mut idx: i64 = 0;
         input.map(
             move |mut input| {
                 // with_env() is used here to ensure that each iteration uses
@@ -105,10 +136,18 @@ fn insert(
                 // Hence, a 'cd' in the first loop won't affect the next loop.
                 stack.with_env(&orig_env_vars, &orig_env_hidden);
 
+                // Element argument
                 if let Some(var) = block.signature.get_positional(0) {
                     if let Some(var_id) = &var.var_id {
                         stack.add_var(*var_id, input.clone())
                     }
+                }
+                // Optional index argument
+                if let Some(var) = block.signature.get_positional(1) {
+                    if let Some(var_id) = &var.var_id {
+                        stack.add_var(*var_id, Value::Int { val: idx, span });
+                    }
+                    idx += 1;
                 }
 
                 let output = eval_block(
