@@ -2,7 +2,7 @@ mod pager;
 
 use std::collections::HashMap;
 
-use self::pager::{Pager, StyleConfig, TableConfig, ViewConfig};
+use self::pager::{InformationView, Pager, RecordView, StyleConfig, TableConfig, ViewConfig};
 use nu_ansi_term::{Color, Style};
 use nu_color_config::{get_color_config, get_color_map};
 use nu_engine::{get_columns, CallExt};
@@ -82,15 +82,27 @@ Press <ESC> to get out of the mode and the inner view.
 
         let view_cfg = ViewConfig::new(config, &color_hm, &style);
 
-        let mut p = Pager::new(table_cfg, view_cfg);
+        let mut p = Pager::new(table_cfg.clone(), view_cfg);
 
-        if columns.is_empty() && data.is_empty() {
-            p.show_help();
+        let result = if columns.is_empty() && data.is_empty() {
+            p.run(engine_state, stack, ctrlc, Some(InformationView))
         } else {
-            p.set_records(&columns, &data);
-        }
+            let view = RecordView::new(columns, data, table_cfg);
 
-        let result = p.run(engine_state, stack, ctrlc);
+            // todo: Set index_row to usize::MAX or a flag and then fix it when data available
+            // 
+            // if table_cfg.reverse {
+            //     if let Some(view) = &mut pager.records_view {
+            //         if let Ok(size) = terminal.size() {
+            //             let size = estimate_page_size(size, pager.table_cfg.show_head);
+            //             state_reverse_data(view, size as usize);
+            //         }
+            //     }
+            // }
+
+            p.run(engine_state, stack, ctrlc, Some(view))
+        };
+
         match result {
             Ok(Some(value)) => Ok(PipelineData::Value(value, None)),
             Ok(None) => Ok(PipelineData::Value(Value::default(), None)),

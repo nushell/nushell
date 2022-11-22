@@ -33,7 +33,7 @@ use tui::{
     layout::Rect,
     style::{Color, Modifier, Style},
     text::{Span, Spans},
-    widgets::{Block, Borders, Paragraph, StatefulWidget, Widget},
+    widgets::{Block, BorderType, Borders, Paragraph, StatefulWidget, Widget},
     Frame, Terminal,
 };
 
@@ -59,6 +59,8 @@ pub trait View {
 
     fn handle_input(
         &mut self,
+        engine_state: &EngineState,
+        stack: &mut Stack,
         layout: &Layout<Self::State>,
         info: &mut ViewInfo,
         key: KeyEvent,
@@ -103,7 +105,7 @@ impl<'a> ViewConfig<'a> {
 }
 
 #[derive(Debug, Clone)]
-struct RecordView<'a> {
+pub struct RecordView<'a> {
     layer_stack: Vec<RecordLayer<'a>>,
     mode: UIMode,
     cfg: TableConfig,
@@ -115,15 +117,15 @@ pub struct TableTheme {
     pub splitline: NuStyle,
 }
 
-#[derive(Debug, Default)]
-struct RecordViewState {
+#[derive(Debug, Default, Clone)]
+pub struct RecordViewState {
     count_rows: usize,
     count_columns: usize,
     data_index: HashMap<(usize, usize), ElementInfo>,
 }
 
 impl<'a> RecordView<'a> {
-    fn new(
+    pub fn new(
         columns: impl Into<Cow<'a, [String]>>,
         records: impl Into<Cow<'a, [Vec<Value>]>>,
         table_cfg: TableConfig,
@@ -194,6 +196,8 @@ impl View for RecordView<'_> {
 
     fn handle_input(
         &mut self,
+        _: &EngineState,
+        _: &mut Stack,
         layout: &Layout<Self::State>,
         info: &mut ViewInfo,
         key: KeyEvent,
@@ -429,9 +433,10 @@ fn handle_key_event_view_mode(
         KeyCode::Esc => {
             if view.layer_stack.len() > 1 {
                 view.layer_stack.pop();
+                Some(Transition::Ok)
+            } else {
+                Some(Transition::Exit)
             }
-
-            Some(Transition::Ok)
         }
         KeyCode::Char('i') => {
             view.mode = UIMode::Cursor;
@@ -597,12 +602,17 @@ pub struct TableConfig {
     pub(crate) show_help: bool,
 }
 
-pub fn run_pager(
-    pager: &mut Pager,
+pub fn run_pager<V>(
     engine_state: &EngineState,
     stack: &mut Stack,
     ctrlc: CtrlC,
-) -> Result<Option<Value>> {
+    pager: &mut Pager,
+    mut view: Option<V>,
+) -> Result<Option<Value>>
+where
+    V: View,
+    V::State: Default,
+{
     // setup terminal
     enable_raw_mode()?;
     let mut stdout = io::stdout();
@@ -611,76 +621,68 @@ pub fn run_pager(
     let backend = CrosstermBackend::new(stdout);
     let mut terminal = Terminal::new(backend)?;
 
-    // todo: find a better place for it
-    if pager.table_cfg.reverse {
-        if let Some(view) = &mut pager.records_view {
-            if let Ok(size) = terminal.size() {
-                let size = estimate_page_size(size, pager.table_cfg.show_head);
-                state_reverse_data(view, size as usize);
-            }
-        }
-    }
+    let mut info = ViewInfo {
+        status: Some(Report::default()),
+        ..Default::default()
+    };
 
-    let result = render_ui(&mut terminal, ctrlc, engine_state, stack, pager);
+    let result = loop {
+        let result = render_ui(
+            &mut terminal,
+            engine_state,
+            stack,
+            ctrlc.clone(),
+            pager,
+            &mut info,
+            view.as_mut(),
+        )?;
+
+        if let CommandOutput::Exit(v) = result {
+            break v;
+        }
+    };
 
     // restore terminal
     disable_raw_mode()?;
     execute!(io::stdout(), LeaveAlternateScreen)?;
 
-    result
+    Ok(result)
 }
 
-fn render_ui<B>(
-    terminal: &mut Terminal<B>,
-    ctrlc: CtrlC,
+fn render_ui<B, V>(
+    term: &mut Terminal<B>,
     engine_state: &EngineState,
     stack: &mut Stack,
+    ctrlc: CtrlC,
     pager: &mut Pager<'_>,
-) -> Result<Option<Value>>
+    info: &mut ViewInfo,
+    mut view: Option<&mut V>,
+) -> Result<CommandOutput>
 where
     B: Backend,
+    V: View,
+    V::State: Default,
 {
     let events = UIEvents::new();
-
-    let mut info = ViewInfo {
-        status: Some(Report::default()),
-        ..Default::default()
-    };
 
     // let mut command_view = None;
     loop {
         // handle CTRLC event
         if let Some(ctrlc) = ctrlc.clone() {
             if ctrlc.load(Ordering::SeqCst) {
-                break Ok(None);
+                break Ok(CommandOutput::Exit(None));
             }
         }
 
         let mut layout = Layout::default();
         {
             let info = info.clone();
-            terminal.draw(|f| {
+            term.draw(|f| {
                 let area = f.size();
+                let available_area =
+                    Rect::new(area.x, area.y, area.width, area.height.saturating_sub(2));
 
-                if pager.table_cfg.show_help {
-                    let height = area.height.saturating_sub(2);
-
-                    if height > InformationView::LENGTH {
-                        let y = (height / 2).saturating_sub(InformationView::LENGTH);
-                        let area = Rect::new(area.x, y, area.width, InformationView::LENGTH);
-
-                        InformationView.draw(f, area, &pager.view_cfg, &mut Layout::default());
-                    }
-                }
-
-                // todo: delete it?
-                // f.render_widget(tui::widgets::Clear, area);
-
-                // if let Some(view) = &mut command_view {}
-
-                if let Some(view) = &mut pager.records_view {
-                    let available_area =
-                        Rect::new(area.x, area.y, area.width, area.height.saturating_sub(2));
+                if let Some(view) = &mut view {
                     view.draw(f, available_area, &pager.view_cfg, &mut layout);
 
                     if pager.table_cfg.show_help {
@@ -701,38 +703,29 @@ where
                 }
 
                 highlight_search_results(f, pager, &layout, pager.view_cfg.theme.highlight);
-
-                {
-                    // set a cursor to cmd bar
-                    if pager.cmd_buf.is_cmd_input {
-                        // todo: deal with a situation where we exeed the bar width
-                        let next_pos = (pager.cmd_buf.buf_cmd2.len() + 1) as u16;
-                        // 1 skips a ':' char
-                        if next_pos < area.width {
-                            f.set_cursor(next_pos as u16, area.height - 1);
-                        }
-                    } else if pager.search_buf.is_search_input {
-                        // todo: deal with a situation where we exeed the bar width
-                        let next_pos = (pager.search_buf.buf_cmd_input.len() + 1) as u16;
-                        // 1 skips a ':' char
-                        if next_pos < area.width {
-                            f.set_cursor(next_pos as u16, area.height - 1);
-                        }
-                    }
-                }
+                set_cursor_cmd_bar(f, area, pager);
             })?;
         }
 
-        let exited = handle_events(
+        let (exited, force) = handle_events(
+            engine_state,
+            stack,
             &events,
             &layout,
-            &mut info,
+            info,
             &mut pager.search_buf,
             &mut pager.cmd_buf,
-            pager.records_view.as_mut(),
+            view.as_deref_mut(),
         );
         if exited {
-            break Ok(try_to_peek_value(pager));
+            if force {
+                break Ok(CommandOutput::Exit(try_to_peek_value(
+                    pager,
+                    view.as_deref_mut(),
+                )));
+            } else {
+                break Ok(CommandOutput::Continue);
+            }
         }
 
         if pager.cmd_buf.run_cmd {
@@ -740,56 +733,103 @@ where
             pager.cmd_buf.run_cmd = false;
             pager.cmd_buf.buf_cmd2 = String::new();
 
-            let exited = run_command(engine_state, stack, pager, &mut info, &cmd);
-            if exited {
-                break Ok(try_to_peek_value(pager));
+            // to elimate a recursion depth we return from the function and run the command outside.
+            let result = run_command(
+                term,
+                engine_state,
+                stack,
+                ctrlc.clone(),
+                pager,
+                info,
+                view.as_deref_mut(),
+                &cmd,
+            )?;
+
+            match result {
+                CommandOutput::Exit(v) => break Ok(CommandOutput::Exit(v)),
+                CommandOutput::Continue => {}
             }
         }
     }
 }
 
-fn try_to_peek_value(pager: &mut Pager) -> Option<Value> {
+fn set_cursor_cmd_bar<B>(f: &mut Frame<B>, area: Rect, pager: &Pager)
+where
+    B: Backend,
+{
+    if pager.cmd_buf.is_cmd_input {
+        // todo: deal with a situation where we exeed the bar width
+        let next_pos = (pager.cmd_buf.buf_cmd2.len() + 1) as u16;
+        // 1 skips a ':' char
+        if next_pos < area.width {
+            f.set_cursor(next_pos as u16, area.height - 1);
+        }
+    } else if pager.search_buf.is_search_input {
+        // todo: deal with a situation where we exeed the bar width
+        let next_pos = (pager.search_buf.buf_cmd_input.len() + 1) as u16;
+        // 1 skips a ':' char
+        if next_pos < area.width {
+            f.set_cursor(next_pos as u16, area.height - 1);
+        }
+    }
+}
+
+fn try_to_peek_value<V>(pager: &mut Pager, view: Option<&mut V>) -> Option<Value>
+where
+    V: View,
+{
     if pager.table_cfg.peek_value {
-        pager.records_view.as_mut().and_then(|v| v.exit())
+        view.and_then(|v| v.exit())
     } else {
         None
     }
 }
 
-fn run_command(
+enum CommandOutput {
+    Exit(Option<Value>),
+    Continue,
+}
+
+#[allow(clippy::too_many_arguments)]
+fn run_command<B, V>(
+    term: &mut Terminal<B>,
     engine_state: &EngineState,
     stack: &mut Stack,
+    ctrlc: CtrlC,
     pager: &mut Pager,
     info: &mut ViewInfo,
+    view: Option<&mut V>,
     cmd: &str,
-) -> bool {
+) -> Result<CommandOutput>
+where
+    B: Backend,
+    V: View,
+{
     match cmd {
         _ if cmd.starts_with("nu") => {
             let cmd = cmd.strip_prefix("nu").unwrap();
 
-            let value = if let Some(view) = &pager.records_view {
-                build_last_value(view)
-            } else {
-                Value::default()
-            };
+            let value = view.and_then(|view| view.exit()).unwrap_or_default();
 
             let pipeline = PipelineData::Value(value, None);
-
             let pipeline = run_nu_command(engine_state, stack, cmd, pipeline);
 
             #[allow(clippy::single_match)]
             match pipeline {
                 Ok(pipeline_data) => {
                     let (columns, values) = collect_pipeline(pipeline_data);
+                    let mut new_view = RecordView::new(columns, values, pager.table_cfg.clone());
+                    let res = render_ui(
+                        term,
+                        engine_state,
+                        stack,
+                        ctrlc,
+                        pager,
+                        info,
+                        Some(&mut new_view),
+                    );
 
-                    match &mut pager.records_view {
-                        Some(view) => {
-                            push_values_to_layer(view, columns, values);
-                        }
-                        None => {
-                            pager.set_records(columns, values);
-                        }
-                    }
+                    res
                 }
                 Err(err) => {
                     info.report = Some(Report::new(
@@ -797,22 +837,40 @@ fn run_command(
                         Severentity::Err,
                         String::new(),
                         String::new(),
-                    ))
+                    ));
+
+                    Ok(CommandOutput::Continue)
                 }
             }
         }
         "help" => {
             let (headers, data) = help_frame_data();
-            match &mut pager.records_view {
-                Some(view) => {
-                    push_values_to_layer(view, headers, data);
-                }
-                None => {
-                    pager.set_records(headers, data);
-                }
-            }
+            let mut new_view = RecordView::new(headers, data, pager.table_cfg.clone());
+            render_ui(
+                term,
+                engine_state,
+                stack,
+                ctrlc,
+                pager,
+                info,
+                Some(&mut new_view),
+            )
         }
-        "q" => return true,
+        "try" => {
+            let value = view.and_then(|view| view.exit()).unwrap_or_default();
+
+            let mut new_view = InteractiveView::new(value, pager.table_cfg.clone());
+            render_ui(
+                term,
+                engine_state,
+                stack,
+                ctrlc,
+                pager,
+                info,
+                Some(&mut new_view),
+            )
+        }
+        "q" => Ok(CommandOutput::Exit(try_to_peek_value(pager, view))),
         command => {
             info.report = Some(Report::new(
                 format!("Error: A command {:?} was not recognized", command),
@@ -820,10 +878,10 @@ fn run_command(
                 String::new(),
                 String::new(),
             ));
+
+            Ok(CommandOutput::Continue)
         }
     }
-
-    false
 }
 
 fn help_frame_data() -> (Vec<String>, Vec<Vec<Value>>) {
@@ -1070,38 +1128,40 @@ fn get_cursor(state: &RecordView<'_>, layout: &Layout<RecordViewState>) -> Posit
 }
 
 fn handle_events<V>(
+    engine_state: &EngineState,
+    stack: &mut Stack,
     events: &UIEvents,
     layout: &Layout<V::State>,
     info: &mut ViewInfo,
     search: &mut SearchBuf,
     command: &mut CommandBuf,
     mut view: Option<&mut V>,
-) -> bool
+) -> (bool, bool)
 where
     V: View,
 {
     let key = match events.next() {
         Ok(Some(key)) => key,
-        _ => return false,
+        _ => return (false, false),
     };
 
     if handle_exit_key_event(&key) {
-        return true;
+        return (true, true);
     }
 
     if handle_general_key_events1(&key, search, command, view.as_deref_mut()) {
-        return false;
+        return (false, false);
     }
 
     if let Some(view) = &mut view {
-        let t = view.handle_input(layout, info, key);
+        let t = view.handle_input(engine_state, stack, layout, info, key);
         match t {
-            Some(Transition::Exit) => return true,
+            Some(Transition::Exit) => return (true, false),
             Some(Transition::Cmd(..)) => {
                 // todo: handle it
-                return false;
+                return (false, false);
             }
-            Some(Transition::Ok) => return false,
+            Some(Transition::Ok) => return (false, false),
             None => {}
         }
     }
@@ -1110,7 +1170,7 @@ where
 
     handle_general_key_events2(&key, search, command, view, info);
 
-    false
+    (false, false)
 }
 
 fn handle_exit_key_event(key: &KeyEvent) -> bool {
@@ -1345,7 +1405,6 @@ fn cmd_input_key_event(buf: &mut CommandBuf, key: &KeyEvent) -> bool {
 
 #[derive(Debug, Clone)]
 pub struct Pager<'a> {
-    records_view: Option<RecordView<'a>>,
     cmd_buf: CommandBuf,
     search_buf: SearchBuf,
     table_cfg: TableConfig,
@@ -1391,7 +1450,6 @@ pub struct StyleConfig {
 impl<'a> Pager<'a> {
     pub fn new(table_cfg: TableConfig, view_cfg: ViewConfig<'a>) -> Self {
         Self {
-            records_view: None,
             cmd_buf: CommandBuf::default(),
             search_buf: SearchBuf::default(),
             table_cfg,
@@ -1399,26 +1457,18 @@ impl<'a> Pager<'a> {
         }
     }
 
-    pub fn set_records(
-        &mut self,
-        columns: impl Into<Cow<'a, [String]>>,
-        records: impl Into<Cow<'a, [Vec<Value>]>>,
-    ) {
-        let view = RecordView::new(columns, records, self.table_cfg.clone());
-        self.records_view = Some(view);
-    }
-
-    pub fn show_help(&mut self) {
-        self.table_cfg.show_help = true;
-    }
-
-    pub fn run(
+    pub fn run<V>(
         &mut self,
         engine_state: &EngineState,
         stack: &mut Stack,
         ctrlc: CtrlC,
-    ) -> Result<Option<Value>> {
-        run_pager(self, engine_state, stack, ctrlc)
+        view: Option<V>,
+    ) -> Result<Option<Value>>
+    where
+        V: View,
+        V::State: Default,
+    {
+        run_pager(engine_state, stack, ctrlc, self, view)
     }
 }
 
@@ -2338,11 +2388,7 @@ impl UIEvents {
     }
 }
 
-struct InformationView;
-
-impl InformationView {
-    const LENGTH: u16 = 6;
-}
+pub struct InformationView;
 
 impl View for InformationView {
     type State = ();
@@ -2359,6 +2405,11 @@ impl View for InformationView {
             "type :help<Enter> for help",
             "type :q<Enter> to exit",
         ];
+        let count_lines = message.len() as u16;
+
+        if area.height < count_lines {
+            return;
+        }
 
         let spans = message
             .into_iter()
@@ -2368,15 +2419,154 @@ impl View for InformationView {
         let paragraph =
             tui::widgets::Paragraph::new(spans).alignment(tui::layout::Alignment::Center);
 
+        let y = (area.height / 2).saturating_sub(count_lines);
+        let area = Rect::new(area.x, y, area.width, count_lines);
+
         f.render_widget(paragraph, area);
     }
 
     fn handle_input(
         &mut self,
+        _: &EngineState,
+        _: &mut Stack,
         _: &Layout<Self::State>,
         _: &mut ViewInfo,
         _: KeyEvent,
     ) -> Option<Transition> {
         None
     }
+}
+
+struct InteractiveView<'a> {
+    input: Value,
+    command: String,
+    table: Option<RecordView<'a>>,
+    view_mode: bool,
+    // todo: impl Debug for it
+    table_cfg: TableConfig,
+}
+
+impl<'a> InteractiveView<'a> {
+    fn new(input: Value, table_cfg: TableConfig) -> Self {
+        Self {
+            input,
+            table_cfg,
+            table: None,
+            view_mode: false,
+            command: String::new(),
+        }
+    }
+}
+
+impl View for InteractiveView<'_> {
+    type State = RecordViewState;
+
+    fn draw<B>(
+        &self,
+        f: &mut Frame<B>,
+        area: Rect,
+        cfg: &ViewConfig,
+        layout: &mut Layout<Self::State>,
+    ) where
+        B: Backend,
+    {
+        let cmd_block = tui::widgets::Block::default()
+            .borders(Borders::ALL)
+            .border_type(BorderType::Rounded);
+        let cmd_area = Rect::new(area.x + 1, area.y, area.width - 2, 3);
+
+        f.render_widget(cmd_block, cmd_area);
+
+        let cmd = Paragraph::new(self.command.clone());
+        let cmd_area = Rect::new(area.x + 1 + 1, area.y + 1, area.width - 2 - 1, 1);
+        f.render_widget(cmd, cmd_area);
+
+        let table_block = tui::widgets::Block::default()
+            .borders(Borders::ALL)
+            .border_type(BorderType::Rounded);
+        let table_area = Rect::new(area.x + 1, area.y + 3, area.width - 2, area.height - 3 - 1);
+        f.render_widget(table_block, table_area);
+
+        if let Some(table) = &self.table {
+            let area = Rect::new(
+                area.x + 2,
+                area.y + 4,
+                area.width - 3 - 1,
+                area.height - 3 - 1 - 1 - 1,
+            );
+
+            table.draw(f, area, cfg, layout);
+        }
+    }
+
+    fn handle_input(
+        &mut self,
+        engine_state: &EngineState,
+        stack: &mut Stack,
+        layout: &Layout<Self::State>,
+        info: &mut ViewInfo,
+        key: KeyEvent,
+    ) -> Option<Transition> {
+        if self.view_mode {
+            let table = self.table.as_mut().unwrap();
+            let result = table.handle_input(engine_state, stack, layout, info, key);
+
+            match result {
+                Some(Transition::Ok | Transition::Cmd(..)) => return Some(Transition::Ok),
+                Some(Transition::Exit) => {
+                    self.view_mode = false;
+                    return Some(Transition::Ok);
+                }
+                None => return None,
+            }
+        }
+
+        match &key.code {
+            KeyCode::Esc => Some(Transition::Exit),
+            KeyCode::Backspace => {
+                if !self.command.is_empty() {
+                    self.command.pop();
+                }
+
+                Some(Transition::Ok)
+            }
+            KeyCode::Char(c) => {
+                self.command.push(*c);
+                Some(Transition::Ok)
+            }
+            KeyCode::Down => {
+                if self.table.is_some() {
+                    self.view_mode = true;
+                }
+
+                Some(Transition::Ok)
+            }
+            KeyCode::Enter => {
+                let pipeline = PipelineData::Value(self.input.clone(), None);
+                let pipeline = run_nu_command(engine_state, stack, &self.command, pipeline);
+
+                match pipeline {
+                    Ok(pipeline_data) => {
+                        let (columns, values) = collect_pipeline(pipeline_data);
+                        let view = RecordView::new(columns, values, self.table_cfg.clone());
+
+                        self.table = Some(view);
+                    }
+                    Err(err) => {
+                        info.report = Some(Report::new(
+                            format!("Error: {}", err),
+                            Severentity::Err,
+                            String::new(),
+                            String::new(),
+                        ));
+                    }
+                }
+
+                Some(Transition::Ok)
+            }
+            _ => None,
+        }
+    }
+
+    // todo: impl more methods
 }
