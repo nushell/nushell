@@ -971,7 +971,7 @@ fn convert_to_table2<'a>(
             data[row].push(value);
         }
 
-        let count_columns = with_index.then(|| 2).unwrap_or(1);
+        let count_columns = if with_index { 2 } else { 1 };
         let size = (data.len(), count_columns);
         let table = NuTable::new(data, size, usize::MAX, with_header, with_index);
 
