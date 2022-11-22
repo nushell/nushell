@@ -84,7 +84,7 @@ impl Command for Glob {
     }
 
     fn extra_usage(&self) -> &str {
-        r#"For more glob pattern help please refer to https://github.com/olson-sean-k/wax"#
+        r#"For more glob pattern help, please refer to https://github.com/olson-sean-k/wax"#
     }
 
     fn run(
@@ -102,7 +102,7 @@ impl Command for Glob {
         if glob_pattern.item.is_empty() {
             return Err(ShellError::GenericError(
                 "glob pattern must not be empty".to_string(),
-                "".to_string(),
+                "glob pattern is empty".to_string(),
                 Some(glob_pattern.span),
                 Some("add characters to the glob pattern".to_string()),
                 Vec::new(),
@@ -120,9 +120,9 @@ impl Command for Glob {
             Err(e) => {
                 return Err(ShellError::GenericError(
                     "error with glob pattern".to_string(),
-                    "".to_string(),
+                    format!("{}", e),
+                    Some(glob_pattern.span),
                     None,
-                    Some(format!("{}", e)),
                     Vec::new(),
                 ))
             }
