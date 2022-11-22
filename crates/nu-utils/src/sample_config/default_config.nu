@@ -126,7 +126,7 @@ module completions {
   # This is a simplified version of completions for make targets in a Makefile
   def 'nu-complete make targets' [] {
     if ("Makefile" | path exists) {
-      open Makefile | lines | where ($it | $it =~ '^\S+:') | each { |it| $it | str substring  0..($it | str index-of  ':')  }
+      open Makefile | lines | where ($it | $it =~ '^\w\S*:') | each { |it| $it | str substring  0..($it | str index-of  ':')  }
     } else {
         []
     }
