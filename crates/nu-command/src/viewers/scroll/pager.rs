@@ -32,7 +32,7 @@ use tui::{
     buffer::Buffer,
     layout::Rect,
     style::{Color, Modifier, Style},
-    text::Span,
+    text::{Span, Spans},
     widgets::{Block, Borders, Paragraph, StatefulWidget, Widget},
     Frame, Terminal,
 };
@@ -594,6 +594,7 @@ pub struct TableConfig {
     pub(crate) show_head: bool,
     pub(crate) reverse: bool,
     pub(crate) peek_value: bool,
+    pub(crate) show_help: bool,
 }
 
 pub fn run_pager(
@@ -661,6 +662,17 @@ where
             terminal.draw(|f| {
                 let area = f.size();
 
+                if pager.table_cfg.show_help {
+                    let height = area.height.saturating_sub(2);
+
+                    if height > InformationView::LENGTH {
+                        let y = (height / 2).saturating_sub(InformationView::LENGTH);
+                        let area = Rect::new(area.x, y, area.width, InformationView::LENGTH);
+
+                        InformationView.draw(f, area, &pager.view_cfg, &mut Layout::default());
+                    }
+                }
+
                 // todo: delete it?
                 // f.render_widget(tui::widgets::Clear, area);
 
@@ -670,6 +682,10 @@ where
                     let available_area =
                         Rect::new(area.x, area.y, area.width, area.height.saturating_sub(2));
                     view.draw(f, available_area, &pager.view_cfg, &mut layout);
+
+                    if pager.table_cfg.show_help {
+                        pager.table_cfg.show_help = false;
+                    }
                 }
 
                 if let Some(report) = info.status {
@@ -716,13 +732,7 @@ where
             pager.records_view.as_mut(),
         );
         if exited {
-            let val = if pager.table_cfg.peek_value {
-                pager.records_view.as_mut().and_then(|v| v.exit())
-            } else {
-                None
-            };
-
-            break Ok(val);
+            break Ok(try_to_peek_value(pager));
         }
 
         if pager.cmd_buf.run_cmd {
@@ -730,8 +740,19 @@ where
             pager.cmd_buf.run_cmd = false;
             pager.cmd_buf.buf_cmd2 = String::new();
 
-            run_command(engine_state, stack, pager, &mut info, &cmd);
+            let exited = run_command(engine_state, stack, pager, &mut info, &cmd);
+            if exited {
+                break Ok(try_to_peek_value(pager));
+            }
         }
+    }
+}
+
+fn try_to_peek_value(pager: &mut Pager) -> Option<Value> {
+    if pager.table_cfg.peek_value {
+        pager.records_view.as_mut().and_then(|v| v.exit())
+    } else {
+        None
     }
 }
 
@@ -1385,6 +1406,10 @@ impl<'a> Pager<'a> {
     ) {
         let view = RecordView::new(columns, records, self.table_cfg.clone());
         self.records_view = Some(view);
+    }
+
+    pub fn show_help(&mut self) {
+        self.table_cfg.show_help = true;
     }
 
     pub fn run(
@@ -2310,5 +2335,48 @@ impl UIEvents {
             Ok(false) => Ok(None),
             Err(err) => Err(err),
         }
+    }
+}
+
+struct InformationView;
+
+impl InformationView {
+    const LENGTH: u16 = 6;
+}
+
+impl View for InformationView {
+    type State = ();
+
+    fn draw<B>(&self, f: &mut Frame<B>, area: Rect, _: &ViewConfig, _: &mut Layout<Self::State>)
+    where
+        B: Backend,
+    {
+        let message = [
+            "Scroll",
+            "",
+            "Scroll helps you dynamically navigate through your data",
+            "",
+            "type :help<Enter> for help",
+            "type :q<Enter> to exit",
+        ];
+
+        let spans = message
+            .into_iter()
+            .map(|line| Spans::from(vec![Span::raw(line)]))
+            .collect::<Vec<_>>();
+
+        let paragraph =
+            tui::widgets::Paragraph::new(spans).alignment(tui::layout::Alignment::Center);
+
+        f.render_widget(paragraph, area);
+    }
+
+    fn handle_input(
+        &mut self,
+        _: &Layout<Self::State>,
+        _: &mut ViewInfo,
+        _: KeyEvent,
+    ) -> Option<Transition> {
+        None
     }
 }

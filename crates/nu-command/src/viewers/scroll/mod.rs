@@ -68,6 +68,7 @@ Press <ESC> to get out of the mode and the inner view.
             show_head,
             peek_value,
             reverse: is_reverse,
+            show_help: false,
         };
 
         let ctrlc = engine_state.ctrlc.clone();
@@ -76,12 +77,18 @@ Press <ESC> to get out of the mode and the inner view.
         let color_hm = get_color_config(config);
         let scroll_colors = get_color_map(&config.scroll_config);
         let style = style_from_colors(&config.scroll_config, &scroll_colors);
+
         let (columns, data) = collect_pipeline(input);
 
         let view_cfg = ViewConfig::new(config, &color_hm, &style);
 
         let mut p = Pager::new(table_cfg, view_cfg);
-        p.set_records(&columns, &data);
+
+        if columns.is_empty() && data.is_empty() {
+            p.show_help();
+        } else {
+            p.set_records(&columns, &data);
+        }
 
         let result = p.run(engine_state, stack, ctrlc);
         match result {
@@ -222,6 +229,7 @@ pub(crate) fn collect_input(value: Value) -> (Vec<String>, Vec<Vec<Value>>) {
 
             (vec![String::from("")], lines)
         }
+        Value::Nothing { .. } => (vec![], vec![]),
         value => (vec![String::from("")], vec![vec![value]]),
     }
 }
