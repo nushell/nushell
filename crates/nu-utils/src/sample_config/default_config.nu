@@ -122,6 +122,22 @@ module completions {
     --verbose(-v)                                   # be more verbose
     --help                                          # Display the help message for this command
   ]
+
+  # This is a simplified version of completions for make targets in a Makefile
+  def 'nu-complete make targets' [] {
+    if ("Makefile" | path exists) {
+      open Makefile | lines | where ($it | $it =~ '^\S+:') | each { |it| $it | str substring  0..($it | str index-of  ':')  }
+    } else {
+        []
+    }
+    
+  }
+
+  # Execute make target
+  export extern "make" [
+    target?: string@"nu-complete make targets"
+  ]
+
 }
 
 # Get just the extern definitions without the custom completion commands
