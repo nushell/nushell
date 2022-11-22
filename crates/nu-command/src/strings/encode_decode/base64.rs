@@ -100,7 +100,7 @@ fn action(
     match input {
         Value::Binary { val, .. } => match base64_config.action_type {
             ActionType::Encode => {
-                Value::string(encode_config(&val, base64_config_enum), command_span)
+                Value::string(encode_config(val, base64_config_enum), command_span)
             }
             ActionType::Decode => Value::Error {
                 error: ShellError::UnsupportedInput(
