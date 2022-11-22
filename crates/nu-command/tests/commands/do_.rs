@@ -100,7 +100,7 @@ fn ignore_error_should_work_for_external_command() {
 
 #[test]
 #[cfg(not(windows))]
-fn ignore_error_with_too_much_stderr_not_hang_nushell() {
+fn capture_error_with_too_much_stderr_not_hang_nushell() {
     use nu_test_support::fs::Stub::FileWithContent;
     use nu_test_support::pipeline;
     use nu_test_support::playground::Playground;
@@ -115,8 +115,8 @@ fn ignore_error_with_too_much_stderr_not_hang_nushell() {
         let actual = nu!(
             cwd: dirs.test(), pipeline(
             r#"
-                do -i {sh -c "cat a_large_file.txt 1>&2"} | complete | get stderr
-            "#
+            do -c {sh -c "cat a_large_file.txt 1>&2"} | complete | get stderr
+            "#,
         ));
 
         assert_eq!(actual.out, large_file_body);
@@ -125,7 +125,7 @@ fn ignore_error_with_too_much_stderr_not_hang_nushell() {
 
 #[test]
 #[cfg(not(windows))]
-fn ignore_error_with_too_much_stdout_not_hang_nushell() {
+fn capture_error_with_too_much_stdout_not_hang_nushell() {
     use nu_test_support::fs::Stub::FileWithContent;
     use nu_test_support::pipeline;
     use nu_test_support::playground::Playground;
@@ -140,8 +140,8 @@ fn ignore_error_with_too_much_stdout_not_hang_nushell() {
         let actual = nu!(
             cwd: dirs.test(), pipeline(
             r#"
-                do -i {sh -c "cat a_large_file.txt"} | complete | get stdout
-            "#
+            do -c {sh -c "cat a_large_file.txt"} | complete | get stdout
+            "#,
         ));
 
         assert_eq!(actual.out, large_file_body);
@@ -150,7 +150,7 @@ fn ignore_error_with_too_much_stdout_not_hang_nushell() {
 
 #[test]
 #[cfg(not(windows))]
-fn ignore_error_with_both_stdout_stderr_messages_not_hang_nushell() {
+fn capture_error_with_both_stdout_stderr_messages_not_hang_nushell() {
     use nu_test_support::fs::Stub::FileWithContent;
     use nu_test_support::playground::Playground;
     Playground::setup(
@@ -172,16 +172,16 @@ fn ignore_error_with_both_stdout_stderr_messages_not_hang_nushell() {
             let actual = nu!(
                 cwd: dirs.test(), pipeline(
                 r#"
-                do -i {bash test.sh} | complete | get stdout | str trim
-            "#
+                do -c {bash test.sh} | complete | get stdout | str trim
+                "#,
             ));
             assert_eq!(actual.out, expect_body);
             // check for stderr
             let actual = nu!(
                 cwd: dirs.test(), pipeline(
                 r#"
-                do -i {bash test.sh} | complete | get stderr | str trim
-            "#
+                do -c {bash test.sh} | complete | get stderr | str trim
+                "#,
             ));
             assert_eq!(actual.out, expect_body);
         },
