@@ -96,9 +96,9 @@ impl Command for Uniq {
             },
             Example {
                 description: "Ignore differences in case when comparing input values",
-                example: "['Hello' 'goodbye' 'HELLO'] | uniq -i",
+                example: "['hello' 'goodbye' 'Hello'] | uniq -i",
                 result: Some(Value::List {
-                    vals: vec![Value::test_string("Hello"), Value::test_string("goodbye")],
+                    vals: vec![Value::test_string("hello"), Value::test_string("goodbye")],
                     span: Span::test_data(),
                 }),
             },
