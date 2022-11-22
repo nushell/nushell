@@ -39,7 +39,7 @@ impl Command for Uniq {
             )
             .switch(
                 "ignore-case",
-                "Ignore differences in case when comparing input values",
+                "Compare input values case-insensitively",
                 Some('i'),
             )
             .switch(
