@@ -3,13 +3,13 @@
 # Usage: Just run `sh install-all.sh` in nushell root directory
 
 echo "-----------------------------------------------------------------"
-echo "Installing nushell (nu) with all the plugins"
+echo "Installing nushell (nu) with dataframes and all the plugins"
 echo "-----------------------------------------------------------------"
 echo ""
 
 echo "Install nushell from local..."
 echo "----------------------------------------------"
-cargo install --path .
+cargo install --path . --features=dataframe
 
 NU_PLUGINS=(
     'nu_plugin_inc'

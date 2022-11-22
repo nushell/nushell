@@ -1,7 +1,7 @@
 #!/bin/sh
 
 echo "---------------------------------------------------------------"
-echo "Building nushell (nu) with all the plugins"
+echo "Building nushell (nu) with dataframes and all the plugins"
 echo "---------------------------------------------------------------"
 echo ""
 
@@ -14,7 +14,7 @@ NU_PLUGINS=(
 )
 
 echo "Building nushell"
-cargo build
+cargo build --features=dataframe
 for plugin in "${NU_PLUGINS[@]}"
 do
     echo '' && cd crates/$plugin

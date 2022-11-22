@@ -1,10 +1,10 @@
 echo '-------------------------------------------------------------------'
-echo 'Building nushell (nu) with and all the plugins'
+echo 'Building nushell (nu) with dataframes and all the plugins'
 echo '-------------------------------------------------------------------'
 
 echo $'(char nl)Building nushell'
 echo '----------------------------'
-cargo build
+cargo build --features=dataframe
 
 let plugins = [
     nu_plugin_inc,
