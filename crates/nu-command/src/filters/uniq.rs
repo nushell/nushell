@@ -123,25 +123,68 @@ impl Command for Uniq {
     }
 }
 
-fn to_lowercase(value: nu_protocol::Value) -> nu_protocol::Value {
-    match value {
-        Value::String { val: s, span } => Value::String {
-            val: s.to_lowercase(),
-            span,
-        },
-        other => other,
+struct ValueCounter {
+    val: Value,
+    val_to_compare: Value,
+    count: i64,
+}
+
+impl PartialEq<Self> for ValueCounter {
+    fn eq(&self, other: &Self) -> bool {
+        self.val == other.val
     }
 }
 
-fn generate_results_with_count(head: Span, uniq_values: Vec<(Value, i64)>) -> Vec<Value> {
+impl ValueCounter {
+    fn new(val: Value, flag_ignore_case: bool) -> Self {
+        ValueCounter {
+            val: val.clone(),
+            val_to_compare: if flag_ignore_case {
+                clone_to_lowercase(&val)
+            } else {
+                val
+            },
+            count: 1,
+        }
+    }
+}
+
+fn clone_to_lowercase(value: &Value) -> Value {
+    match value {
+        Value::String { val: s, span } => Value::String {
+            val: s.clone().to_lowercase(),
+            span: *span,
+        },
+        Value::List { vals: vec, span } => Value::List {
+            vals: vec
+                .clone()
+                .into_iter()
+                .map(|v| clone_to_lowercase(&v))
+                .collect(),
+            span: *span,
+        },
+        Value::Record { cols, vals, span } => Value::Record {
+            cols: cols.clone(),
+            vals: vals
+                .clone()
+                .into_iter()
+                .map(|v| clone_to_lowercase(&v))
+                .collect(),
+            span: *span,
+        },
+        other => other.clone(),
+    }
+}
+
+fn generate_results_with_count(head: Span, uniq_values: Vec<ValueCounter>) -> Vec<Value> {
     uniq_values
         .into_iter()
         .map(|item| Value::Record {
             cols: vec!["value".to_string(), "count".to_string()],
             vals: vec![
-                item.0,
+                item.val,
                 Value::Int {
-                    val: item.1,
+                    val: item.count,
                     span: head,
                 },
             ],
@@ -165,33 +208,30 @@ fn uniq(
 
     let mut uniq_values = input
         .into_iter()
-        .map(|item| {
-            if flag_ignore_case {
-                to_lowercase(item)
-            } else {
-                item
-            }
-        })
-        .fold(Vec::<(Value, i64)>::new(), |mut counter, item| {
-            match counter.iter_mut().find(|x| x.0 == item) {
-                Some(x) => x.1 += 1,
-                None => counter.push((item, 1)),
+        .map(|item| ValueCounter::new(item, flag_ignore_case))
+        .fold(Vec::<ValueCounter>::new(), |mut counter, item| {
+            match counter
+                .iter_mut()
+                .find(|x| x.val_to_compare == item.val_to_compare)
+            {
+                Some(x) => x.count += 1,
+                None => counter.push(item),
             };
             counter
         });
 
     if flag_show_repeated {
-        uniq_values.retain(|value_count_pair| value_count_pair.1 > 1);
+        uniq_values.retain(|value_count_pair| value_count_pair.count > 1);
     }
 
     if flag_only_uniques {
-        uniq_values.retain(|value_count_pair| value_count_pair.1 == 1);
+        uniq_values.retain(|value_count_pair| value_count_pair.count == 1);
     }
 
     let result = if flag_show_count {
         generate_results_with_count(head, uniq_values)
     } else {
-        uniq_values.into_iter().map(|v| v.0).collect()
+        uniq_values.into_iter().map(|v| v.val).collect()
     };
 
     Ok(Value::List {
