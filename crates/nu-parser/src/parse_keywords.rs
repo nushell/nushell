@@ -1409,7 +1409,7 @@ pub fn parse_module_block(
                     }
                     LiteElement::Or(command)
                     | LiteElement::And(command)
-                    | LiteElement::Redirection(command) => (garbage_pipeline(&command.parts)),
+                    | LiteElement::Redirection(command) => garbage_pipeline(&command.parts),
                 }
             } else {
                 error = Some(ParseError::Expected("not a pipeline".into(), span));
