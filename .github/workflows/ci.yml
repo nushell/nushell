@@ -45,6 +45,20 @@ jobs:
       fail-fast: true
       matrix:
         platform: [windows-latest, macos-latest, ubuntu-latest]
+        style: [default, dataframe]
+        rust:
+          - stable
+        include:
+          - style: default
+            flags: ""
+          - style: dataframe
+            flags: "--features=dataframe"
+        exclude:
+          # only test dataframes on Ubuntu (the fastest platform)
+          - platform: windows-latest
+            style: dataframe
+          - platform: macos-latest
+            style: dataframe
 
     runs-on: ${{ matrix.platform }}
 
