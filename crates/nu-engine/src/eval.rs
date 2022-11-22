@@ -828,6 +828,45 @@ pub fn eval_element_with_input(
                         span,
                         metadata,
                     },
+                    (
+                        Redirection::StdoutAndStderr,
+                        PipelineData::ExternalStream {
+                            stdout,
+                            stderr,
+                            exit_code,
+                            span,
+                            metadata,
+                        },
+                    ) => match (stdout, stderr) {
+                        (Some(stdout), Some(stderr)) => PipelineData::ExternalStream {
+                            stdout: Some(stdout.chain(stderr)),
+                            stderr: None,
+                            exit_code,
+                            span,
+                            metadata,
+                        },
+                        (None, Some(stderr)) => PipelineData::ExternalStream {
+                            stdout: Some(stderr),
+                            stderr: None,
+                            exit_code,
+                            span,
+                            metadata,
+                        },
+                        (Some(stdout), None) => PipelineData::ExternalStream {
+                            stdout: Some(stdout),
+                            stderr: None,
+                            exit_code,
+                            span,
+                            metadata,
+                        },
+                        (None, None) => PipelineData::ExternalStream {
+                            stdout: None,
+                            stderr: None,
+                            exit_code,
+                            span,
+                            metadata,
+                        },
+                    },
                     (_, input) => input,
                 };
 
@@ -905,6 +944,7 @@ pub fn eval_block(
                         && (matches!(
                             pipeline.elements[i + 1],
                             PipelineElement::Redirection(_, Redirection::Stderr, _)
+                                | PipelineElement::Redirection(_, Redirection::StdoutAndStderr, _)
                         ))),
             )?;
             input = eval_result.0;

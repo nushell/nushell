@@ -1207,7 +1207,8 @@ fn parse_binary_with_base(
                     | TokenContents::Semicolon
                     | TokenContents::Eol
                     | TokenContents::OutGreaterThan
-                    | TokenContents::ErrGreaterThan => {}
+                    | TokenContents::ErrGreaterThan
+                    | TokenContents::OutErrGreaterThan => {}
                 }
             }
 
@@ -5877,68 +5878,71 @@ pub fn lite_parse(tokens: &[Token]) -> (LiteBlock, Option<ParseError>) {
                 curr_command.push(token.span);
                 last_token = TokenContents::Item;
             }
-            TokenContents::OutGreaterThan => {
+            TokenContents::OutGreaterThan
+            | TokenContents::ErrGreaterThan
+            | TokenContents::OutErrGreaterThan => {
                 if !curr_command.is_empty() {
-                    if last_connector == TokenContents::ErrGreaterThan {
-                        curr_pipeline.push(LiteElement::Redirection(
-                            token.span,
-                            Redirection::Stderr,
-                            curr_command,
-                        ));
-                    } else if last_connector == TokenContents::OutGreaterThan {
-                        curr_pipeline.push(LiteElement::Redirection(
-                            token.span,
-                            Redirection::Stdout,
-                            curr_command,
-                        ));
-                    } else {
-                        curr_pipeline.push(LiteElement::Command(last_connector_span, curr_command));
+                    match last_connector {
+                        TokenContents::OutGreaterThan => {
+                            curr_pipeline.push(LiteElement::Redirection(
+                                token.span,
+                                Redirection::Stdout,
+                                curr_command,
+                            ));
+                        }
+                        TokenContents::ErrGreaterThan => {
+                            curr_pipeline.push(LiteElement::Redirection(
+                                token.span,
+                                Redirection::Stderr,
+                                curr_command,
+                            ));
+                        }
+                        TokenContents::OutErrGreaterThan => {
+                            curr_pipeline.push(LiteElement::Redirection(
+                                token.span,
+                                Redirection::StdoutAndStderr,
+                                curr_command,
+                            ));
+                        }
+                        _ => {
+                            curr_pipeline
+                                .push(LiteElement::Command(last_connector_span, curr_command));
+                        }
                     }
                     curr_command = LiteCommand::new();
                 }
-                last_token = TokenContents::OutGreaterThan;
-                last_connector = TokenContents::OutGreaterThan;
-                last_connector_span = Some(token.span);
-            }
-            TokenContents::ErrGreaterThan => {
-                if !curr_command.is_empty() {
-                    if last_connector == TokenContents::ErrGreaterThan {
-                        curr_pipeline.push(LiteElement::Redirection(
-                            token.span,
-                            Redirection::Stderr,
-                            curr_command,
-                        ));
-                    } else if last_connector == TokenContents::OutGreaterThan {
-                        curr_pipeline.push(LiteElement::Redirection(
-                            token.span,
-                            Redirection::Stdout,
-                            curr_command,
-                        ));
-                    } else {
-                        curr_pipeline.push(LiteElement::Command(last_connector_span, curr_command));
-                    }
-                    curr_command = LiteCommand::new();
-                }
-                last_token = TokenContents::ErrGreaterThan;
-                last_connector = TokenContents::ErrGreaterThan;
+                last_token = token.contents;
+                last_connector = token.contents;
                 last_connector_span = Some(token.span);
             }
             TokenContents::Pipe => {
                 if !curr_command.is_empty() {
-                    if last_connector == TokenContents::ErrGreaterThan {
-                        curr_pipeline.push(LiteElement::Redirection(
-                            token.span,
-                            Redirection::Stderr,
-                            curr_command,
-                        ));
-                    } else if last_connector == TokenContents::OutGreaterThan {
-                        curr_pipeline.push(LiteElement::Redirection(
-                            token.span,
-                            Redirection::Stdout,
-                            curr_command,
-                        ));
-                    } else {
-                        curr_pipeline.push(LiteElement::Command(last_connector_span, curr_command));
+                    match last_connector {
+                        TokenContents::OutGreaterThan => {
+                            curr_pipeline.push(LiteElement::Redirection(
+                                token.span,
+                                Redirection::Stdout,
+                                curr_command,
+                            ));
+                        }
+                        TokenContents::ErrGreaterThan => {
+                            curr_pipeline.push(LiteElement::Redirection(
+                                token.span,
+                                Redirection::Stderr,
+                                curr_command,
+                            ));
+                        }
+                        TokenContents::OutErrGreaterThan => {
+                            curr_pipeline.push(LiteElement::Redirection(
+                                token.span,
+                                Redirection::StdoutAndStderr,
+                                curr_command,
+                            ));
+                        }
+                        _ => {
+                            curr_pipeline
+                                .push(LiteElement::Command(last_connector_span, curr_command));
+                        }
                     }
                     curr_command = LiteCommand::new();
                 }
@@ -5950,7 +5954,10 @@ pub fn lite_parse(tokens: &[Token]) -> (LiteBlock, Option<ParseError>) {
                 if last_token != TokenContents::Pipe && last_token != TokenContents::OutGreaterThan
                 {
                     if !curr_command.is_empty() {
-                        if last_connector == TokenContents::OutGreaterThan {
+                        if last_connector == TokenContents::OutGreaterThan
+                            || last_connector == TokenContents::ErrGreaterThan
+                            || last_connector == TokenContents::OutErrGreaterThan
+                        {
                             curr_pipeline.push(LiteElement::Redirection(
                                 last_connector_span
                                     .expect("internal error: redirection missing span information"),
@@ -5981,7 +5988,10 @@ pub fn lite_parse(tokens: &[Token]) -> (LiteBlock, Option<ParseError>) {
             }
             TokenContents::Semicolon => {
                 if !curr_command.is_empty() {
-                    if last_connector == TokenContents::OutGreaterThan {
+                    if last_connector == TokenContents::OutGreaterThan
+                        || last_connector == TokenContents::ErrGreaterThan
+                        || last_connector == TokenContents::OutErrGreaterThan
+                    {
                         curr_pipeline.push(LiteElement::Redirection(
                             last_connector_span
                                 .expect("internal error: redirection missing span information"),
@@ -6023,20 +6033,34 @@ pub fn lite_parse(tokens: &[Token]) -> (LiteBlock, Option<ParseError>) {
     }
 
     if !curr_command.is_empty() {
-        if last_connector == TokenContents::ErrGreaterThan {
-            curr_pipeline.push(LiteElement::Redirection(
-                last_connector_span.expect("internal error: redirection missing span information"),
-                Redirection::Stderr,
-                curr_command,
-            ));
-        } else if last_connector == TokenContents::OutGreaterThan {
-            curr_pipeline.push(LiteElement::Redirection(
-                last_connector_span.expect("internal error: redirection missing span information"),
-                Redirection::Stdout,
-                curr_command,
-            ));
-        } else {
-            curr_pipeline.push(LiteElement::Command(last_connector_span, curr_command));
+        match last_connector {
+            TokenContents::OutGreaterThan => {
+                curr_pipeline.push(LiteElement::Redirection(
+                    last_connector_span
+                        .expect("internal error: redirection missing span information"),
+                    Redirection::Stdout,
+                    curr_command,
+                ));
+            }
+            TokenContents::ErrGreaterThan => {
+                curr_pipeline.push(LiteElement::Redirection(
+                    last_connector_span
+                        .expect("internal error: redirection missing span information"),
+                    Redirection::Stderr,
+                    curr_command,
+                ));
+            }
+            TokenContents::OutErrGreaterThan => {
+                curr_pipeline.push(LiteElement::Redirection(
+                    last_connector_span
+                        .expect("internal error: redirection missing span information"),
+                    Redirection::StdoutAndStderr,
+                    curr_command,
+                ));
+            }
+            _ => {
+                curr_pipeline.push(LiteElement::Command(last_connector_span, curr_command));
+            }
         }
     }
 

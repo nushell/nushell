@@ -6,6 +6,7 @@ use crate::{ast::Expression, engine::StateWorkingSet, Span, VarId};
 pub enum Redirection {
     Stdout,
     Stderr,
+    StdoutAndStderr,
 }
 
 // Note: Span in the below is for the span of the connector not the whole element

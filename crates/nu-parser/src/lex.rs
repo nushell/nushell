@@ -1,7 +1,7 @@
 use crate::ParseError;
 use nu_protocol::Span;
 
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Debug, PartialEq, Eq, Clone, Copy)]
 pub enum TokenContents {
     Item,
     Comment,
@@ -9,6 +9,7 @@ pub enum TokenContents {
     Semicolon,
     OutGreaterThan,
     ErrGreaterThan,
+    OutErrGreaterThan,
     Eol,
 }
 
@@ -250,6 +251,13 @@ pub fn lex_item(
         b"err>" => (
             Token {
                 contents: TokenContents::ErrGreaterThan,
+                span,
+            },
+            None,
+        ),
+        b"out+err>" | b"err+out>" => (
+            Token {
+                contents: TokenContents::OutErrGreaterThan,
                 span,
             },
             None,
