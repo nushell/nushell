@@ -2,9 +2,9 @@ mod pager;
 
 use std::collections::HashMap;
 
-use self::pager::{pager, StyleConfig, TableConfig};
+use self::pager::{Pager, StyleConfig, TableConfig, ViewConfig};
 use nu_ansi_term::{Color, Style};
-use nu_color_config::get_color_map;
+use nu_color_config::{get_color_config, get_color_map};
 use nu_engine::{get_columns, CallExt};
 use nu_protocol::{
     ast::{Call, PathMember},
@@ -63,7 +63,7 @@ Press <ESC> to get out of the mode and the inner view.
         let show_index: bool = call.has_flag("index");
         let is_reverse: bool = call.has_flag("reverse");
         let peek_value: bool = call.has_flag("peek");
-        let table_config = TableConfig {
+        let table_cfg = TableConfig {
             show_index,
             show_head,
             peek_value,
@@ -73,21 +73,17 @@ Press <ESC> to get out of the mode and the inner view.
         let ctrlc = engine_state.ctrlc.clone();
 
         let config = engine_state.get_config();
-        let colors = get_color_map(&config.scroll_config);
-        let style = style_from_colors(&config.scroll_config, &colors);
-
+        let color_hm = get_color_config(config);
+        let scroll_colors = get_color_map(&config.scroll_config);
+        let style = style_from_colors(&config.scroll_config, &scroll_colors);
         let (columns, data) = collect_pipeline(input);
 
-        let result = pager(
-            &columns,
-            &data,
-            config,
-            ctrlc,
-            table_config,
-            style,
-            engine_state,
-            stack,
-        );
+        let view_cfg = ViewConfig::new(config, &color_hm, &style);
+
+        let mut p = Pager::new(table_cfg, view_cfg);
+        p.set_records(&columns, &data);
+
+        let result = p.run(engine_state, stack, ctrlc);
         match result {
             Ok(Some(value)) => Ok(PipelineData::Value(value, None)),
             Ok(None) => Ok(PipelineData::Value(Value::default(), None)),
@@ -349,6 +345,13 @@ fn default_style() -> StyleConfig {
             foreground: Some(Color::Rgb(196, 201, 198)),
             ..Default::default()
         },
+        status_error: Style {
+            background: Some(Color::Red),
+            foreground: Some(Color::White),
+            ..Default::default()
+        },
+        status_info: Style::default(),
+        status_warn: Style::default(),
         selected_cell: None,
         selected_column: None,
         selected_row: None,

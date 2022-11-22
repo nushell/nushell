@@ -20,10 +20,10 @@ use crossterm::{
 };
 use nu_ansi_term::{Color as NuColor, Style as NuStyle};
 use nu_cli::eval_source2;
-use nu_color_config::{get_color_config, style_primitive};
+use nu_color_config::style_primitive;
 use nu_protocol::{
     engine::{EngineState, Stack},
-    Config, PipelineData, ShellError, Span as NuSpan, Value,
+    Config as NuConfig, PipelineData, ShellError, Span as NuSpan, Value,
 };
 use nu_table::{string_width, Alignment, TextStyle};
 use reedline::KeyModifiers;
@@ -45,6 +45,549 @@ type CtrlC = Option<Arc<AtomicBool>>;
 
 type NuStyleTable = HashMap<String, NuStyle>;
 
+pub trait View {
+    type State;
+
+    fn draw<B>(
+        &self,
+        f: &mut Frame<B>,
+        area: Rect,
+        cfg: &ViewConfig,
+        layout: &mut Layout<Self::State>,
+    ) where
+        B: Backend;
+
+    fn handle_input(
+        &mut self,
+        layout: &Layout<Self::State>,
+        info: &mut ViewInfo,
+        key: KeyEvent,
+    ) -> Option<Transition>;
+
+    fn show_data(&mut self, _: usize) -> bool {
+        false
+    }
+
+    fn collect_data(&self) -> Vec<NuText> {
+        Vec::new()
+    }
+
+    fn exit(&mut self) -> Option<Value> {
+        None
+    }
+}
+
+#[derive(Debug, Clone)]
+#[allow(dead_code)]
+pub enum Transition {
+    Ok,
+    Exit,
+    Cmd(String),
+}
+
+#[derive(Debug, Clone)]
+pub struct ViewConfig<'a> {
+    pub config: &'a NuConfig,
+    pub color_hm: &'a NuStyleTable,
+    pub theme: &'a StyleConfig,
+}
+
+impl<'a> ViewConfig<'a> {
+    pub fn new(config: &'a NuConfig, color_hm: &'a NuStyleTable, theme: &'a StyleConfig) -> Self {
+        Self {
+            config,
+            color_hm,
+            theme,
+        }
+    }
+}
+
+#[derive(Debug, Clone)]
+struct RecordView<'a> {
+    layer_stack: Vec<RecordLayer<'a>>,
+    mode: UIMode,
+    cfg: TableConfig,
+    cursor: Position,
+}
+
+#[derive(Debug, Clone)]
+pub struct TableTheme {
+    pub splitline: NuStyle,
+}
+
+#[derive(Debug, Default)]
+struct RecordViewState {
+    count_rows: usize,
+    count_columns: usize,
+    data_index: HashMap<(usize, usize), ElementInfo>,
+}
+
+impl<'a> RecordView<'a> {
+    fn new(
+        columns: impl Into<Cow<'a, [String]>>,
+        records: impl Into<Cow<'a, [Vec<Value>]>>,
+        table_cfg: TableConfig,
+    ) -> Self {
+        Self {
+            layer_stack: vec![RecordLayer::new(columns, records)],
+            mode: UIMode::View,
+            cursor: Position::new(0, 0),
+            cfg: table_cfg,
+        }
+    }
+
+    // todo: rename to get_layer
+    fn get_layer_last(&self) -> &RecordLayer<'a> {
+        self.layer_stack.last().unwrap()
+    }
+
+    fn get_layer_last_mut(&mut self) -> &mut RecordLayer<'a> {
+        self.layer_stack.last_mut().unwrap()
+    }
+
+    fn create_tablew<'b>(&self, layer: &'b RecordLayer, view_cfg: &'b ViewConfig) -> TableW<'b> {
+        let data = convert_records_to_string(&layer.records, view_cfg.config, view_cfg.color_hm);
+
+        TableW::new(
+            layer.columns.as_ref(),
+            data,
+            self.cfg.show_index,
+            self.cfg.show_head,
+            view_cfg.theme.split_line,
+            view_cfg.color_hm,
+            layer.index_row,
+            layer.index_column,
+        )
+    }
+}
+
+impl View for RecordView<'_> {
+    type State = RecordViewState;
+
+    fn draw<B>(
+        &self,
+        f: &mut Frame<B>,
+        area: Rect,
+        cfg: &ViewConfig,
+        layout: &mut Layout<Self::State>,
+    ) where
+        B: Backend,
+    {
+        let layer = self.get_layer_last();
+        let table = self.create_tablew(layer, cfg);
+
+        let mut table_layout = Layout::default();
+        f.render_stateful_widget(table, area, &mut table_layout);
+
+        layout.data = table_layout.data;
+        layout.state = RecordViewState {
+            count_rows: table_layout.state.count_rows,
+            count_columns: table_layout.state.count_columns,
+            data_index: table_layout.state.data_index,
+        };
+
+        if self.mode == UIMode::Cursor {
+            let cursor = get_cursor(self, layout);
+            highlight_cell(f, layout, area, cursor, cfg.theme);
+        }
+    }
+
+    fn handle_input(
+        &mut self,
+        layout: &Layout<Self::State>,
+        info: &mut ViewInfo,
+        key: KeyEvent,
+    ) -> Option<Transition> {
+        let result = match self.mode {
+            UIMode::View => handle_key_event_view_mode(self, layout, &key),
+            UIMode::Cursor => {
+                // we handle a situation where we got resized and the old cursor is no longer valid
+                self.cursor = get_cursor(self, layout);
+
+                handle_key_event_cursor_mode(self, layout, &key)
+            }
+        };
+
+        if matches!(&result, Some(Transition::Ok) | Some(Transition::Cmd(..))) {
+            // update status bar
+            let report =
+                create_records_report(self.get_layer_last(), self.mode, self.cursor, layout);
+            info.status = Some(report);
+        }
+
+        result
+    }
+
+    fn collect_data(&self) -> Vec<NuText> {
+        let data = convert_records_to_string(
+            &self.get_layer_last().records,
+            &NuConfig::default(),
+            &HashMap::default(),
+        );
+
+        data.iter().flatten().cloned().collect()
+    }
+
+    fn show_data(&mut self, pos: usize) -> bool {
+        let data = &self.get_layer_last().records;
+
+        let mut i = 0;
+        for (row, cells) in data.iter().enumerate() {
+            if pos > i + cells.len() {
+                i += cells.len();
+                continue;
+            }
+
+            for (column, _) in cells.iter().enumerate() {
+                if i == pos {
+                    let layer = self.get_layer_last_mut();
+                    layer.index_column = column;
+                    layer.index_row = row;
+
+                    return true;
+                }
+
+                i += 1;
+            }
+        }
+
+        false
+    }
+
+    fn exit(&mut self) -> Option<Value> {
+        Some(build_last_value(self))
+    }
+}
+
+fn create_records_report(
+    layer: &RecordLayer,
+    mode: UIMode,
+    cursor: Position,
+    layout: &Layout<RecordViewState>,
+) -> Report {
+    let seen_rows = layer.index_row + layout.state.count_rows;
+    let seen_rows = min(seen_rows, layer.count_rows());
+    let percent_rows = get_percentage(seen_rows, layer.count_rows());
+    let covered_percent = match percent_rows {
+        100 => String::from("All"),
+        _ if layer.index_row == 0 => String::from("Top"),
+        value => format!("{}%", value),
+    };
+    let title = if let Some(name) = &layer.name {
+        name.clone()
+    } else {
+        String::new()
+    };
+    let cursor = {
+        if mode == UIMode::Cursor {
+            let row = layer.index_row + cursor.y as usize;
+            let column = layer.index_column + cursor.x as usize;
+            format!("{},{}", row, column)
+        } else {
+            format!("{},{}", layer.index_row, layer.index_column)
+        }
+    };
+
+    Report {
+        message: title,
+        context: covered_percent,
+        context2: cursor,
+        level: Severentity::Info,
+    }
+}
+
+fn build_last_value(v: &RecordView) -> Value {
+    if v.mode == UIMode::Cursor {
+        peak_current_value(v)
+    } else if v.get_layer_last().count_rows() < 2 {
+        build_table_as_record(v)
+    } else {
+        build_table_as_list(v)
+    }
+}
+
+fn peak_current_value(v: &RecordView) -> Value {
+    let layer = v.get_layer_last();
+    let Position { x: column, y: row } = v.cursor;
+    let row = row as usize + layer.index_row;
+    let column = column as usize + layer.index_column;
+    let value = &layer.records[row][column];
+    value.clone()
+}
+
+fn build_table_as_list(v: &RecordView) -> Value {
+    let layer = v.get_layer_last();
+
+    let headers = layer.columns.to_vec();
+    let vals = layer
+        .records
+        .iter()
+        .cloned()
+        .map(|vals| Value::Record {
+            cols: headers.clone(),
+            vals,
+            span: NuSpan::unknown(),
+        })
+        .collect();
+
+    Value::List {
+        vals,
+        span: NuSpan::unknown(),
+    }
+}
+
+fn build_table_as_record(v: &RecordView) -> Value {
+    let layer = v.get_layer_last();
+
+    let cols = layer.columns.to_vec();
+    let vals = layer.records.get(0).map_or(Vec::new(), |row| row.clone());
+
+    Value::Record {
+        cols,
+        vals,
+        span: NuSpan::unknown(),
+    }
+}
+
+#[derive(Debug, Clone)]
+struct RecordLayer<'a> {
+    columns: Cow<'a, [String]>,
+    records: Cow<'a, [Vec<Value>]>,
+    index_row: usize,
+    index_column: usize,
+    name: Option<String>,
+}
+
+impl<'a> RecordLayer<'a> {
+    fn new(
+        columns: impl Into<Cow<'a, [String]>>,
+        records: impl Into<Cow<'a, [Vec<Value>]>>,
+    ) -> Self {
+        Self {
+            columns: columns.into(),
+            records: records.into(),
+            index_row: 0,
+            index_column: 0,
+            name: None,
+        }
+    }
+
+    fn set_name(&mut self, name: impl Into<String>) {
+        self.name = Some(name.into());
+    }
+
+    fn count_rows(&self) -> usize {
+        self.records.len()
+    }
+
+    fn count_columns(&self) -> usize {
+        self.columns.len()
+    }
+
+    fn get_current_value(&self, Position { x, y }: Position) -> Value {
+        let current_row = y as usize + self.index_row;
+        let current_column = x as usize + self.index_column;
+
+        let row = self.records[current_row].clone();
+        row[current_column].clone()
+    }
+
+    fn get_current_header(&self, Position { x, .. }: Position) -> Option<String> {
+        let col = x as usize + self.index_column;
+
+        self.columns.get(col).map(|header| header.to_string())
+    }
+}
+
+fn convert_records_to_string(
+    records: &[Vec<Value>],
+    cfg: &NuConfig,
+    color_hm: &NuStyleTable,
+) -> Vec<Vec<NuText>> {
+    records
+        .iter()
+        .map(|row| {
+            row.iter()
+                .map(|value| {
+                    let text = value.clone().into_abbreviated_string(cfg);
+                    let tp = value.get_type().to_string();
+                    let float_precision = cfg.float_precision as usize;
+
+                    make_styled_string(text, &tp, 0, false, color_hm, float_precision)
+                })
+                .collect::<Vec<_>>()
+        })
+        .collect::<Vec<_>>()
+}
+
+fn handle_key_event_view_mode(
+    view: &mut RecordView,
+    layout: &Layout<RecordViewState>,
+    key: &KeyEvent,
+) -> Option<Transition> {
+    match key.code {
+        KeyCode::Esc => {
+            if view.layer_stack.len() > 1 {
+                view.layer_stack.pop();
+            }
+
+            Some(Transition::Ok)
+        }
+        KeyCode::Char('i') => {
+            view.mode = UIMode::Cursor;
+            view.cursor = Position::default();
+
+            Some(Transition::Ok)
+        }
+        KeyCode::Up => {
+            let layer = view.get_layer_last_mut();
+            layer.index_row = layer.index_row.saturating_sub(1);
+
+            Some(Transition::Ok)
+        }
+        KeyCode::Down => {
+            let layer = view.get_layer_last_mut();
+            let max_index = layer.count_rows().saturating_sub(1);
+            layer.index_row = min(layer.index_row + 1, max_index);
+
+            Some(Transition::Ok)
+        }
+        KeyCode::Left => {
+            let layer = view.get_layer_last_mut();
+            layer.index_column = layer.index_column.saturating_sub(1);
+
+            Some(Transition::Ok)
+        }
+        KeyCode::Right => {
+            let layer = view.get_layer_last_mut();
+            let max_index = layer.count_columns().saturating_sub(1);
+            layer.index_column = min(layer.index_column + 1, max_index);
+
+            Some(Transition::Ok)
+        }
+        KeyCode::PageUp => {
+            let layer = view.get_layer_last_mut();
+            let count_rows = layout.state.count_rows;
+            layer.index_row = layer.index_row.saturating_sub(count_rows as usize);
+
+            Some(Transition::Ok)
+        }
+        KeyCode::PageDown => {
+            let layer = view.get_layer_last_mut();
+            let count_rows = layout.state.count_rows;
+            let max_index = layer.count_rows().saturating_sub(1);
+            layer.index_row = min(layer.index_row + count_rows as usize, max_index);
+
+            Some(Transition::Ok)
+        }
+        _ => None,
+    }
+}
+
+fn handle_key_event_cursor_mode(
+    view: &mut RecordView,
+    layout: &Layout<RecordViewState>,
+    key: &KeyEvent,
+) -> Option<Transition> {
+    match key.code {
+        KeyCode::Esc => {
+            view.mode = UIMode::View;
+            view.cursor = Position::default();
+
+            Some(Transition::Ok)
+        }
+        KeyCode::Up => {
+            if view.cursor.y == 0 {
+                let layer = view.get_layer_last_mut();
+                layer.index_row = layer.index_row.saturating_sub(1);
+            } else {
+                view.cursor.y -= 1
+            }
+
+            Some(Transition::Ok)
+        }
+        KeyCode::Down => {
+            let cursor = view.cursor;
+            let layer = view.get_layer_last_mut();
+
+            let showed_rows = layout.state.count_rows;
+            let total_rows = layer.count_rows();
+            let row_index = layer.index_row + cursor.y as usize + 1;
+
+            if row_index < total_rows {
+                if cursor.y as usize + 1 == showed_rows {
+                    layer.index_row += 1;
+                } else {
+                    view.cursor.y += 1;
+                }
+            }
+
+            Some(Transition::Ok)
+        }
+        KeyCode::Left => {
+            let cursor = view.cursor;
+            let layer = view.get_layer_last_mut();
+
+            if cursor.x == 0 {
+                layer.index_column = layer.index_column.saturating_sub(1);
+            } else {
+                view.cursor.x -= 1
+            }
+
+            Some(Transition::Ok)
+        }
+        KeyCode::Right => {
+            let cursor = view.cursor;
+            let layer = view.get_layer_last_mut();
+
+            let showed_columns = layout.state.count_columns;
+            let total_columns = layer.count_columns();
+            let column_index = layer.index_column + cursor.x as usize + 1;
+
+            if column_index < total_columns {
+                if cursor.x as usize + 1 == showed_columns {
+                    layer.index_column += 1;
+                } else {
+                    view.cursor.x += 1;
+                }
+            }
+
+            Some(Transition::Ok)
+        }
+        KeyCode::Enter => {
+            push_current_value_to_layer(view);
+            Some(Transition::Ok)
+        }
+        _ => None,
+    }
+}
+
+fn push_current_value_to_layer(view: &mut RecordView) {
+    let layer = view.get_layer_last();
+
+    let value = layer.get_current_value(view.cursor);
+    let header = layer.get_current_header(view.cursor);
+
+    let (columns, values) = super::collect_input(value);
+
+    let mut next_layer = RecordLayer::new(columns, values);
+    if let Some(header) = header {
+        next_layer.set_name(header);
+    }
+
+    view.layer_stack.push(next_layer);
+
+    view.mode = UIMode::View;
+    view.cursor = Position::default();
+}
+
+fn push_values_to_layer(view: &mut RecordView, columns: Vec<String>, values: Vec<Vec<Value>>) {
+    let next_layer = RecordLayer::new(columns, values);
+    view.layer_stack.push(next_layer);
+    view.mode = UIMode::View;
+    view.cursor = Position::default();
+}
+
 #[derive(Debug, Default, Clone)]
 pub struct TableConfig {
     pub(crate) show_index: bool,
@@ -53,16 +596,11 @@ pub struct TableConfig {
     pub(crate) peek_value: bool,
 }
 
-#[allow(clippy::too_many_arguments)]
-pub fn pager(
-    cols: &[String],
-    data: &[Vec<Value>],
-    config: &Config,
-    ctrlc: CtrlC,
-    table: TableConfig,
-    style: StyleConfig,
+pub fn run_pager(
+    pager: &mut Pager,
     engine_state: &EngineState,
     stack: &mut Stack,
+    ctrlc: CtrlC,
 ) -> Result<Option<Value>> {
     // setup terminal
     enable_raw_mode()?;
@@ -72,26 +610,17 @@ pub fn pager(
     let backend = CrosstermBackend::new(stdout);
     let mut terminal = Terminal::new(backend)?;
 
-    let color_hm = get_color_config(config);
-    let mut state = UIState::new(
-        Cow::from(cols),
-        Cow::from(data),
-        config,
-        &color_hm,
-        table.show_head,
-        table.show_index,
-        table.peek_value,
-        style,
-    );
-
-    if table.reverse {
-        if let Ok(size) = terminal.size() {
-            let page_size = estimate_page_size(size, table.show_head);
-            state_reverse_data(&mut state, page_size as usize)
+    // todo: find a better place for it
+    if pager.table_cfg.reverse {
+        if let Some(view) = &mut pager.records_view {
+            if let Ok(size) = terminal.size() {
+                let size = estimate_page_size(size, pager.table_cfg.show_head);
+                state_reverse_data(view, size as usize);
+            }
         }
     }
 
-    let result = render_ui(&mut terminal, ctrlc, engine_state, stack, state);
+    let result = render_ui(&mut terminal, ctrlc, engine_state, stack, pager);
 
     // restore terminal
     disable_raw_mode()?;
@@ -105,15 +634,19 @@ fn render_ui<B>(
     ctrlc: CtrlC,
     engine_state: &EngineState,
     stack: &mut Stack,
-    mut state: UIState<'_>,
+    pager: &mut Pager<'_>,
 ) -> Result<Option<Value>>
 where
     B: Backend,
 {
     let events = UIEvents::new();
 
-    let mut state_stack: Vec<UIState<'_>> = Vec::new();
+    let mut info = ViewInfo {
+        status: Some(Report::default()),
+        ..Default::default()
+    };
 
+    // let mut command_view = None;
     loop {
         // handle CTRLC event
         if let Some(ctrlc) = ctrlc.clone() {
@@ -122,51 +655,49 @@ where
             }
         }
 
+        let mut layout = Layout::default();
         {
-            let state = state_stack.last_mut().unwrap_or(&mut state);
-            let mut layout = Layout::default();
-
+            let info = info.clone();
             terminal.draw(|f| {
                 let area = f.size();
 
-                f.render_widget(tui::widgets::Clear, area);
+                // todo: delete it?
+                // f.render_widget(tui::widgets::Clear, area);
 
-                let table = Table::from(&*state);
-                let table_area =
-                    Rect::new(area.x, area.y, area.width, area.height.saturating_sub(2));
-                f.render_stateful_widget(table, table_area, &mut layout);
+                // if let Some(view) = &mut command_view {}
 
-                let status_area =
-                    Rect::new(area.left(), area.bottom().saturating_sub(2), area.width, 1);
-                render_status_bar(f, status_area, state, &layout);
+                if let Some(view) = &mut pager.records_view {
+                    let available_area =
+                        Rect::new(area.x, area.y, area.width, area.height.saturating_sub(2));
+                    view.draw(f, available_area, &pager.view_cfg, &mut layout);
+                }
 
-                let cmd_area =
-                    Rect::new(area.left(), area.bottom().saturating_sub(1), area.width, 1);
-                render_cmd_bar(f, cmd_area, state, &layout);
-
-                highlight_search_results(f, state, &layout);
-
-                if state.mode == UIMode::Cursor {
-                    update_cursor(state, &layout);
-                    highlight_cell(f, state, &layout, table_area);
-
-                    if state.style.show_cursow {
-                        set_cursor(f, state, &layout);
-                    }
+                if let Some(report) = info.status {
+                    let last_2nd_line = area.bottom().saturating_sub(2);
+                    let area = Rect::new(area.left(), last_2nd_line, area.width, 1);
+                    render_status_bar(f, area, report, pager.view_cfg.theme);
                 }
 
                 {
+                    let last_line = area.bottom().saturating_sub(1);
+                    let area = Rect::new(area.left(), last_line, area.width, 1);
+                    render_cmd_bar(f, area, pager, info.report, pager.view_cfg.theme);
+                }
+
+                highlight_search_results(f, pager, &layout, pager.view_cfg.theme.highlight);
+
+                {
                     // set a cursor to cmd bar
-                    if state.is_cmd_input {
+                    if pager.cmd_buf.is_cmd_input {
                         // todo: deal with a situation where we exeed the bar width
-                        let next_pos = (state.buf_cmd2.len() + 1) as u16;
+                        let next_pos = (pager.cmd_buf.buf_cmd2.len() + 1) as u16;
                         // 1 skips a ':' char
                         if next_pos < area.width {
                             f.set_cursor(next_pos as u16, area.height - 1);
                         }
-                    } else if state.is_search_input {
+                    } else if pager.search_buf.is_search_input {
                         // todo: deal with a situation where we exeed the bar width
-                        let next_pos = (state.buf_cmd_input.len() + 1) as u16;
+                        let next_pos = (pager.search_buf.buf_cmd_input.len() + 1) as u16;
                         // 1 skips a ':' char
                         if next_pos < area.width {
                             f.set_cursor(next_pos as u16, area.height - 1);
@@ -174,111 +705,104 @@ where
                     }
                 }
             })?;
-
-            let exited = handle_events(&events, state, &layout, terminal);
-            if exited {
-                let val = state.peek_value.then(|| get_last_used_value(state, layout));
-                break Ok(val);
-            }
         }
 
-        {
-            let state = state_stack.last_mut().unwrap_or(&mut state);
-            if state.run_cmd {
-                let cmd = state.buf_cmd2.clone();
+        let exited = handle_events(
+            &events,
+            &layout,
+            &mut info,
+            &mut pager.search_buf,
+            &mut pager.cmd_buf,
+            pager.records_view.as_mut(),
+        );
+        if exited {
+            let val = if pager.table_cfg.peek_value {
+                pager.records_view.as_mut().and_then(|v| v.exit())
+            } else {
+                None
+            };
 
-                state.run_cmd = false;
-                state.buf_cmd2 = String::new();
-
-                if let Some(cmd) = cmd.strip_prefix("nu ") {
-                    let value = get_last_used_value(state, Layout::default());
-                    let pipeline = PipelineData::Value(value, None);
-
-                    let pipeline = run_nu_command(engine_state, stack, cmd, pipeline);
-
-                    #[allow(clippy::single_match)]
-                    match pipeline {
-                        Ok(pipeline_data) => {
-                            let (columns, values) = collect_pipeline(pipeline_data);
-
-                            let mut new_state = UIState::new(
-                                Cow::from(columns),
-                                Cow::from(values),
-                                state.config,
-                                state.color_hm,
-                                state.show_header,
-                                state.show_index,
-                                state.peek_value,
-                                state.style.clone(),
-                            );
-                            new_state.cmd_history = state.cmd_history.clone();
-                            new_state.cmd_history_pos = state.cmd_history_pos;
-
-                            state_stack.push(new_state);
-                        }
-                        Err(_) => {
-                            // todo: ignore for now
-                        }
-                    }
-                } else if cmd.starts_with("help") {
-                    let (headers, data) = help_frame_data();
-
-                    let mut new_state = UIState::new(
-                        Cow::from(headers),
-                        Cow::from(data),
-                        state.config,
-                        state.color_hm,
-                        state.show_header,
-                        state.show_index,
-                        state.peek_value,
-                        state.style.clone(),
-                    );
-                    new_state.cmd_history = state.cmd_history.clone();
-                    new_state.cmd_history_pos = state.cmd_history_pos;
-
-                    state_stack.push(new_state);
-                } else {
-                    state.cmd_exec_info = Some(String::from("A command was not recognized"))
-                }
-
-                continue;
-            }
+            break Ok(val);
         }
 
-        {
-            let state = state_stack.last().unwrap_or(&state);
-            if state.render_inner {
-                let current_value = get_current_value(state);
-                let current_header = get_header(state);
-                let (columns, values) = super::collect_input(current_value);
+        if pager.cmd_buf.run_cmd {
+            let cmd = pager.cmd_buf.buf_cmd2.clone();
+            pager.cmd_buf.run_cmd = false;
+            pager.cmd_buf.buf_cmd2 = String::new();
 
-                let mut state = UIState::new(
-                    Cow::from(columns),
-                    Cow::from(values),
-                    state.config,
-                    state.color_hm,
-                    state.show_header,
-                    state.show_index,
-                    state.peek_value,
-                    state.style.clone(),
-                );
-                state.mode = UIMode::Cursor;
-                state.section_name = current_header;
-
-                state_stack.push(state);
-            }
-        }
-
-        {
-            let is_main_state = !state_stack.is_empty();
-            if is_main_state && state_stack.last().unwrap_or(&state).render_close {
-                state_stack.pop();
-
-                let latest_state = state_stack.last_mut().unwrap_or(&mut state);
-                latest_state.render_inner = false;
-            }
+            run_command(engine_state, stack, pager, &mut info, &cmd);
         }
     }
+}
+
+fn run_command(
+    engine_state: &EngineState,
+    stack: &mut Stack,
+    pager: &mut Pager,
+    info: &mut ViewInfo,
+    cmd: &str,
+) -> bool {
+    match cmd {
+        _ if cmd.starts_with("nu") => {
+            let cmd = cmd.strip_prefix("nu").unwrap();
+
+            let value = if let Some(view) = &pager.records_view {
+                build_last_value(view)
+            } else {
+                Value::default()
+            };
+
+            let pipeline = PipelineData::Value(value, None);
+
+            let pipeline = run_nu_command(engine_state, stack, cmd, pipeline);
+
+            #[allow(clippy::single_match)]
+            match pipeline {
+                Ok(pipeline_data) => {
+                    let (columns, values) = collect_pipeline(pipeline_data);
+
+                    match &mut pager.records_view {
+                        Some(view) => {
+                            push_values_to_layer(view, columns, values);
+                        }
+                        None => {
+                            pager.set_records(columns, values);
+                        }
+                    }
+                }
+                Err(err) => {
+                    info.report = Some(Report::new(
+                        format!("Error: {}", err),
+                        Severentity::Err,
+                        String::new(),
+                        String::new(),
+                    ))
+                }
+            }
+        }
+        "help" => {
+            let (headers, data) = help_frame_data();
+            match &mut pager.records_view {
+                Some(view) => {
+                    push_values_to_layer(view, headers, data);
+                }
+                None => {
+                    pager.set_records(headers, data);
+                }
+            }
+        }
+        "q" => return true,
+        command => {
+            info.report = Some(Report::new(
+                format!("Error: A command {:?} was not recognized", command),
+                Severentity::Err,
+                String::new(),
+                String::new(),
+            ));
+        }
+    }
+
+    false
 }
 
 fn help_frame_data() -> (Vec<String>, Vec<Vec<Value>>) {
@@ -359,237 +883,181 @@ fn run_nu_command(
     eval_source2(&mut engine_state, stack, cmd.as_bytes(), "", current)
 }
 
-fn get_last_used_value(state: &UIState, layout: Layout) -> Value {
-    if state.mode == UIMode::Cursor {
-        peak_current_value(state, layout)
-    } else if state.count_rows() < 2 {
-        build_table_as_record(state)
-    } else {
-        build_table_as_list(state)
-    }
-}
-
-fn peak_current_value(state: &UIState, layout: Layout) -> Value {
-    let Position { x: column, y: row } = state.cursor;
-    let info = layout
-        .get(row as usize, column as usize)
-        .expect("must never happen");
-    let pos = info.data_pos;
-    let value = &state.data[pos.0][pos.1];
-    value.clone()
-}
-
-fn build_table_as_list(state: &UIState) -> Value {
-    let headers = state.columns.to_vec();
-    let vals = state
-        .data
-        .iter()
-        .cloned()
-        .map(|vals| Value::Record {
-            cols: headers.clone(),
-            vals,
-            span: NuSpan::unknown(),
-        })
-        .collect();
-
-    Value::List {
-        vals,
-        span: NuSpan::unknown(),
-    }
-}
-
-fn build_table_as_record(state: &UIState) -> Value {
-    let cols = state.columns.to_vec();
-    let vals = state.data.get(0).map_or(Vec::new(), |row| row.clone());
-
-    Value::Record {
-        cols,
-        vals,
-        span: NuSpan::unknown(),
-    }
-}
-
-fn render_status_bar<B>(f: &mut Frame<B>, area: Rect, state: &UIState<'_>, layout: &Layout)
+fn render_status_bar<B>(f: &mut Frame<B>, area: Rect, report: Report, theme: &StyleConfig)
 where
     B: Backend,
 {
-    // fixme: it exeends a max value in a few scenarious
-    let seen_rows = state.row_index + layout.count_rows();
-    let seen_rows = min(seen_rows, state.count_rows());
-
-    let cursor = (state.mode == UIMode::Cursor).then(|| state.cursor);
-    let status_bar = StatusBar::new(
-        state.section_name.as_deref(),
-        cursor,
-        state.row_index,
-        state.column_index,
-        seen_rows,
-        state.count_rows(),
-        state.style.status_bar,
-    );
-
+    let msg_style = report_msg_style(&report, theme, theme.status_bar);
+    let status_bar = StatusBar::new(report, theme.status_bar, msg_style);
     f.render_widget(status_bar, area);
 }
 
-fn render_cmd_bar<B>(f: &mut Frame<B>, area: Rect, _state: &UIState<'_>, _layout: &Layout)
+fn report_msg_style(report: &Report, theme: &StyleConfig, style: NuStyle) -> NuStyle {
+    if matches!(report.level, Severentity::Info) {
+        style
+    } else {
+        report_level_style(report.level, theme)
+    }
+}
+
+fn render_cmd_bar<B>(
+    f: &mut Frame<B>,
+    area: Rect,
+    pager: &Pager,
+    report: Option<Report>,
+    theme: &StyleConfig,
+) where
+    B: Backend,
+{
+    if let Some(report) = report {
+        let style = report_msg_style(&report, theme, theme.cmd_bar);
+        f.render_widget(CmdBar::new(&report.message, &report.context, style), area);
+        return;
+    }
+
+    if pager.cmd_buf.is_cmd_input {
+        render_cmd_bar_cmd(f, area, pager, theme);
+        return;
+    }
+
+    if pager.search_buf.is_search_input || !pager.search_buf.buf_cmd_input.is_empty() {
+        render_cmd_bar_search(f, area, pager, theme);
+    }
+}
+
+fn render_cmd_bar_search<B>(f: &mut Frame<B>, area: Rect, pager: &Pager<'_>, theme: &StyleConfig)
 where
     B: Backend,
 {
-    if let Some(info) = &_state.cmd_exec_info {
+    if pager.search_buf.search_results.is_empty() && !pager.search_buf.is_search_input {
+        let message = format!("Pattern not found: {}", pager.search_buf.buf_cmd_input);
         let style = NuStyle {
             background: Some(NuColor::Red),
             foreground: Some(NuColor::White),
             ..Default::default()
         };
 
-        f.render_widget(CmdBar::new(info, "", style), area);
+        f.render_widget(CmdBar::new(&message, "", style), area);
         return;
     }
 
-    if _state.is_cmd_input {
-        let prefix = ':';
-        let text = format!("{}{}", prefix, _state.buf_cmd2);
-        let info = String::new();
+    let prefix = if pager.search_buf.is_reversed {
+        '?'
+    } else {
+        '/'
+    };
+    let text = format!("{}{}", prefix, pager.search_buf.buf_cmd_input);
+    let info = if pager.search_buf.search_results.is_empty() {
+        String::from("[0/0]")
+    } else {
+        let index = pager.search_buf.search_index + 1;
+        let total = pager.search_buf.search_results.len();
+        format!("[{}/{}]", index, total)
+    };
 
-        f.render_widget(CmdBar::new(&text, &info, _state.style.cmd_bar), area);
+    f.render_widget(CmdBar::new(&text, &info, theme.cmd_bar), area);
+}
+
+fn render_cmd_bar_cmd<B>(f: &mut Frame<B>, area: Rect, pager: &Pager, theme: &StyleConfig)
+where
+    B: Backend,
+{
+    let prefix = ':';
+    let text = format!("{}{}", prefix, pager.cmd_buf.buf_cmd2);
+    f.render_widget(CmdBar::new(&text, "", theme.cmd_bar), area);
+}
+
+fn highlight_search_results<B, S>(
+    f: &mut Frame<B>,
+    pager: &Pager,
+    layout: &Layout<S>,
+    style: NuStyle,
+) where
+    B: Backend,
+{
+    if pager.search_buf.search_results.is_empty() {
         return;
     }
 
-    if _state.is_search_input || !_state.buf_cmd_input.is_empty() {
-        if _state.search_results.is_empty() && !_state.is_search_input {
-            let message = format!("Pattern not found: {}", _state.buf_cmd_input);
-            let style = NuStyle {
-                background: Some(NuColor::Red),
-                foreground: Some(NuColor::White),
-                ..Default::default()
-            };
-            f.render_widget(CmdBar::new(&message, "", style), area);
+    let hightlight_block = Block::default().style(nu_style_to_tui(style));
 
-            return;
-        }
+    for e in &layout.data {
+        if let Some(p) = e.text.find(&pager.search_buf.buf_cmd_input) {
+            // if p > e.width as usize {
+            //     // we probably need to handle it somehow
+            //     break;
+            // }
 
-        let prefix = if _state.is_search_rev { '?' } else { '/' };
-
-        let text = format!("{}{}", prefix, _state.buf_cmd_input);
-        let info = if _state.search_results.is_empty() {
-            String::from("[0/0]")
-        } else {
-            let index = _state.search_index + 1;
-            let total = _state.search_results.len();
-            format!("[{}/{}]", index, total)
-        };
-
-        f.render_widget(CmdBar::new(&text, &info, _state.style.cmd_bar), area);
-    }
-}
-
-fn highlight_search_results<B>(f: &mut Frame<B>, _state: &UIState<'_>, _layout: &Layout)
-where
-    B: Backend,
-{
-    let hightlight_block = Block::default().style(nu_style_to_tui(_state.style.highlight));
-
-    if !_state.search_results.is_empty() {
-        for row in 0.._layout.count_rows() {
-            for column in 0.._layout.count_columns() {
-                if let Some(e) = _layout.get(row, column) {
-                    let pos = e.data_pos;
-                    let text = &_state.data_text[pos.0][pos.1].0;
-                    if let Some(p) = text.find(&_state.buf_cmd_input) {
-                        if p > e.width as usize {
-                            break;
-                        }
-
-                        // todo: might be not UTF-8 friendly
-                        let area = Rect::new(
-                            e.position.x + p as u16,
-                            e.position.y,
-                            _state.buf_cmd_input.len() as u16,
-                            1,
-                        );
-                        f.render_widget(hightlight_block.clone(), area);
-                    }
-                }
-            }
+            // todo: might be not UTF-8 friendly
+            let w = pager.search_buf.buf_cmd_input.len() as u16;
+            let area = Rect::new(e.area.x + p as u16, e.area.y, w, 1);
+            f.render_widget(hightlight_block.clone(), area);
         }
     }
 }
 
-fn highlight_cell<B>(f: &mut Frame<B>, state: &UIState<'_>, layout: &Layout, area: Rect)
-where
+fn highlight_cell<B>(
+    f: &mut Frame<B>,
+    layout: &Layout<RecordViewState>,
+    area: Rect,
+    cursor: Position,
+    theme: &StyleConfig,
+) where
     B: Backend,
 {
-    let Position { x: column, y: row } = state.cursor;
-    let info = layout.get(row as usize, column as usize);
+    let Position { x: column, y: row } = cursor;
+
+    let info = layout
+        .state
+        .data_index
+        .get(&(row as usize, column as usize));
+
     if let Some(info) = info {
-        if let Some(style) = state.style.selected_column {
+        if let Some(style) = theme.selected_column {
             let hightlight_block = Block::default().style(nu_style_to_tui(style));
-            let area = Rect::new(info.position.x, area.y, info.width, area.height);
+            let area = Rect::new(info.area.x, area.y, info.area.width, area.height);
             f.render_widget(hightlight_block.clone(), area);
         }
 
-        if let Some(style) = state.style.selected_row {
+        if let Some(style) = theme.selected_row {
             let hightlight_block = Block::default().style(nu_style_to_tui(style));
-            let area = Rect::new(area.x, info.position.y, area.width, 1);
+            let area = Rect::new(area.x, info.area.y, area.width, 1);
             f.render_widget(hightlight_block.clone(), area);
         }
 
-        if let Some(style) = state.style.selected_cell {
+        if let Some(style) = theme.selected_cell {
             let hightlight_block = Block::default().style(nu_style_to_tui(style));
-            let area = Rect::new(info.position.x, info.position.y, info.width, 1);
+            let area = Rect::new(info.area.x, info.area.y, info.area.width, 1);
             f.render_widget(hightlight_block.clone(), area);
+        }
+
+        if theme.show_cursow {
+            f.set_cursor(info.area.x, info.area.y);
         }
     }
 }
 
-fn get_current_value(state: &UIState<'_>) -> Value {
-    let current_row = state.cursor.y as usize + state.row_index;
-    let current_column = state.cursor.x as usize + state.column_index;
+fn get_cursor(state: &RecordView<'_>, layout: &Layout<RecordViewState>) -> Position {
+    let count_rows = layout.state.count_rows as u16;
+    let count_columns = layout.state.count_columns as u16;
 
-    let row = state.data[current_row].clone();
-    row[current_column].clone()
+    let mut cursor = state.cursor;
+    cursor.y = min(cursor.y, count_rows.saturating_sub(1) as u16);
+    cursor.x = min(cursor.x, count_columns.saturating_sub(1) as u16);
+
+    cursor
 }
 
-fn get_header(state: &UIState<'_>) -> Option<String> {
-    let current_column = state.cursor.x as usize + state.column_index;
-
-    state
-        .columns
-        .get(current_column)
-        .map(|header| header.to_string())
-}
-
-fn update_cursor(state: &mut UIState<'_>, layout: &Layout) {
-    let count_rows = layout.count_rows() as u16;
-    if state.cursor.y >= count_rows {
-        state.cursor.y = count_rows.saturating_sub(1) as u16;
-    }
-
-    let count_columns = layout.count_columns() as u16;
-    if state.cursor.x >= count_columns {
-        state.cursor.x = count_columns.saturating_sub(1) as u16;
-    }
-}
-
-fn set_cursor<B>(f: &mut Frame<B>, state: &UIState<'_>, layout: &Layout)
-where
-    B: Backend,
-{
-    let Position { x: column, y: row } = state.cursor;
-    let info = layout.get(row as usize, column as usize);
-    if let Some(info) = info {
-        f.set_cursor(info.position.x, info.position.y);
-    }
-}
-
-fn handle_events<B>(
+fn handle_events<V>(
     events: &UIEvents,
-    state: &mut UIState,
-    layout: &Layout,
-    term: &mut Terminal<B>,
+    layout: &Layout<V::State>,
+    info: &mut ViewInfo,
+    search: &mut SearchBuf,
+    command: &mut CommandBuf,
+    mut view: Option<&mut V>,
 ) -> bool
 where
-    B: Backend,
+    V: View,
 {
     let key = match events.next() {
         Ok(Some(key)) => key,
@@ -600,10 +1068,26 @@ where
         return true;
     }
 
-    match state.mode {
-        UIMode::View => view_mode_key_event(&key, state, layout, term),
-        UIMode::Cursor => cursor_mode_key_event(&key, state, layout, term),
+    if handle_general_key_events1(&key, search, command, view.as_deref_mut()) {
+        return false;
     }
+
+    if let Some(view) = &mut view {
+        let t = view.handle_input(layout, info, key);
+        match t {
+            Some(Transition::Exit) => return true,
+            Some(Transition::Cmd(..)) => {
+                // todo: handle it
+                return false;
+            }
+            Some(Transition::Ok) => return false,
+            None => {}
+        }
+    }
+
+    // was not handled so we must check our default controlls
+
+    handle_general_key_events2(&key, search, command, view, info);
 
     false
 }
@@ -621,237 +1105,124 @@ fn handle_exit_key_event(key: &KeyEvent) -> bool {
     )
 }
 
-fn init_cursor_mode<B>(term: &mut Terminal<B>)
-where
-    B: Backend,
-{
-    let _ = term.show_cursor();
-}
-
-fn end_cursor_mode<B>(term: &mut Terminal<B>)
-where
-    B: Backend,
-{
-    let _ = term.hide_cursor();
-}
-
-// eval_source
-
-fn view_mode_key_event<B>(
+fn handle_general_key_events1<V>(
     key: &KeyEvent,
-    state: &mut UIState<'_>,
-    layout: &Layout,
-    term: &mut Terminal<B>,
-) where
-    B: Backend,
+    search: &mut SearchBuf,
+    command: &mut CommandBuf,
+    view: Option<&mut V>,
+) -> bool
+where
+    V: View,
 {
-    if state.is_search_input {
-        let exit = search_input_key_event(key, state, layout);
-        if exit {
-            return;
-        }
+    if search.is_search_input {
+        return search_input_key_event(search, view, key);
     }
 
-    if state.is_cmd_input {
-        let exit = cmd_input_key_event(key, state, layout);
-        if exit {
-            return;
-        }
+    if command.is_cmd_input {
+        return cmd_input_key_event(command, key);
     }
 
-    match key {
-        KeyEvent {
-            code: KeyCode::Esc, ..
-        } => {
-            // if state.render_inner {
-            state.render_close = true;
-            // }
-        }
-        KeyEvent {
-            code: KeyCode::Char('i'),
-            ..
-        } => {
-            init_cursor_mode(term);
-            state.mode = UIMode::Cursor
-        }
-        KeyEvent {
-            code: KeyCode::Char('?'),
-            ..
-        } => {
-            state.buf_cmd_input = String::new();
-            state.is_search_input = true;
-            state.is_search_rev = true;
-            state.cmd_exec_info = None;
-        }
-        KeyEvent {
-            code: KeyCode::Char('/'),
-            ..
-        } => {
-            state.buf_cmd_input = String::new();
-            state.is_search_input = true;
-            state.cmd_exec_info = None;
-        }
-        KeyEvent {
-            code: KeyCode::Char(':'),
-            ..
-        } => {
-            state.buf_cmd2 = String::new();
-            state.is_cmd_input = true;
-            state.cmd_exec_info = None;
-        }
-        KeyEvent {
-            code: KeyCode::Char('n'),
-            ..
-        } => {
-            if !state.search_results.is_empty() {
-                if state.buf_cmd_input.is_empty() {
-                    state.buf_cmd_input = state.buf_cmd.clone();
-                }
-
-                if state.search_index == 0 {
-                    state.search_index = state.search_results.len() - 1
-                } else {
-                    state.search_index -= 1;
-                }
-
-                let pos = state.search_results[state.search_index];
-                state.row_index = pos.0;
-                state.column_index = pos.1;
-            }
-        }
-        KeyEvent { code, .. } => match code {
-            KeyCode::Up => state.row_index = state.row_index.saturating_sub(1),
-            KeyCode::Down => {
-                let max_index = state.count_rows().saturating_sub(1);
-                state.row_index = min(state.row_index + 1, max_index);
-            }
-            KeyCode::Left => state.column_index = state.column_index.saturating_sub(1),
-            KeyCode::Right => {
-                let max_index = state.count_columns().saturating_sub(1);
-                state.column_index = min(state.column_index + 1, max_index);
-            }
-            KeyCode::PageUp => {
-                let count_rows = layout.count_rows();
-                state.row_index = state.row_index.saturating_sub(count_rows as usize);
-            }
-            KeyCode::PageDown => {
-                let count_rows = layout.count_rows();
-                let max_index = state.count_rows().saturating_sub(1);
-                state.row_index = min(state.row_index + count_rows as usize, max_index);
-            }
-            _ => {}
-        },
-    }
+    false
 }
 
-fn cursor_mode_key_event<B>(
+fn handle_general_key_events2<V>(
     key: &KeyEvent,
-    state: &mut UIState<'_>,
-    layout: &Layout,
-    term: &mut Terminal<B>,
+    search: &mut SearchBuf,
+    command: &mut CommandBuf,
+    view: Option<&mut V>,
+    info: &mut ViewInfo,
 ) where
-    B: Backend,
+    V: View,
 {
-    match key {
-        KeyEvent {
-            code: KeyCode::Esc, ..
-        } => {
-            if state.render_inner {
-                state.render_close = true;
-            } else {
-                end_cursor_mode(term);
+    match key.code {
+        KeyCode::Char('?') => {
+            search.buf_cmd_input = String::new();
+            search.is_search_input = true;
+            search.is_reversed = true;
 
-                state.mode = UIMode::View;
-                state.cursor = Position::default();
+            info.report = None;
+        }
+        KeyCode::Char('/') => {
+            search.buf_cmd_input = String::new();
+            search.is_search_input = true;
+            search.is_reversed = false;
+
+            info.report = None;
+        }
+        KeyCode::Char(':') => {
+            command.buf_cmd2 = String::new();
+            command.is_cmd_input = true;
+            command.cmd_exec_info = None;
+
+            info.report = None;
+        }
+        KeyCode::Char('n') => {
+            if !search.search_results.is_empty() {
+                if search.buf_cmd_input.is_empty() {
+                    search.buf_cmd_input = search.buf_cmd.clone();
+                }
+
+                if search.search_index + 1 == search.search_results.len() {
+                    search.search_index = 0
+                } else {
+                    search.search_index += 1;
+                }
+
+                let pos = search.search_results[search.search_index];
+                if let Some(view) = view {
+                    view.show_data(pos);
+                }
             }
         }
-        KeyEvent { code, .. } => match code {
-            KeyCode::Up => {
-                if state.cursor.y == 0 {
-                    state.row_index = state.row_index.saturating_sub(1);
-                } else {
-                    state.cursor.y -= 1
-                }
-            }
-            KeyCode::Down => {
-                let showed_rows = layout.count_rows();
-                let total_rows = state.count_rows();
-                let row_index = state.row_index + state.cursor.y as usize + 1;
-
-                if row_index < total_rows {
-                    if state.cursor.y as usize + 1 == showed_rows {
-                        state.row_index += 1;
-                    } else {
-                        state.cursor.y += 1;
-                    }
-                }
-            }
-            KeyCode::Left => {
-                if state.cursor.x == 0 {
-                    state.column_index = state.column_index.saturating_sub(1);
-                } else {
-                    state.cursor.x -= 1
-                }
-            }
-            KeyCode::Right => {
-                let showed_columns = layout.count_columns();
-                let total_columns = state.count_columns();
-                let column_index = state.column_index + state.cursor.x as usize + 1;
-
-                if column_index < total_columns {
-                    if state.cursor.x as usize + 1 == showed_columns {
-                        state.column_index += 1;
-                    } else {
-                        state.cursor.x += 1;
-                    }
-                }
-            }
-            KeyCode::Enter => {
-                state.render_inner = true;
-            }
-            _ => {}
-        },
+        _ => {}
     }
 }
 
-fn search_input_key_event(key: &KeyEvent, state: &mut UIState<'_>, _layout: &Layout) -> bool {
+fn search_input_key_event(
+    buf: &mut SearchBuf,
+    view: Option<&mut impl View>,
+    key: &KeyEvent,
+) -> bool {
     match &key.code {
         KeyCode::Esc => {
-            state.buf_cmd_input = String::new();
-            if !state.buf_cmd.is_empty() {
-                state.search_results =
-                    search_pattern(&state.data_text, &state.buf_cmd, state.is_search_rev);
-                state.search_index = 0;
+            buf.buf_cmd_input = String::new();
+
+            if let Some(view) = view {
+                if !buf.buf_cmd.is_empty() {
+                    let data = view.collect_data().into_iter().map(|(text, _)| text);
+                    buf.search_results = search_pattern(data, &buf.buf_cmd, buf.is_reversed);
+                    buf.search_index = 0;
+                }
             }
 
-            state.is_search_input = false;
-            state.is_search_rev = false;
+            buf.is_search_input = false;
 
             true
         }
         KeyCode::Enter => {
-            state.is_search_input = false;
-            state.buf_cmd = state.buf_cmd_input.clone();
-            state.is_search_rev = false;
+            buf.buf_cmd = buf.buf_cmd_input.clone();
+            buf.is_search_input = false;
 
             true
         }
         KeyCode::Backspace => {
-            if state.buf_cmd_input.is_empty() {
-                state.is_search_input = false;
-                state.is_search_rev = false;
+            if buf.buf_cmd_input.is_empty() {
+                buf.is_search_input = false;
+                buf.is_reversed = false;
             } else {
-                state.buf_cmd_input.pop();
+                buf.buf_cmd_input.pop();
 
-                if !state.buf_cmd_input.is_empty() {
-                    state.search_results =
-                        search_pattern(&state.data_text, &state.buf_cmd_input, state.is_search_rev);
-                    state.search_index = 0;
+                if let Some(view) = view {
+                    if !buf.buf_cmd_input.is_empty() {
+                        let data = view.collect_data().into_iter().map(|(text, _)| text);
+                        buf.search_results =
+                            search_pattern(data, &buf.buf_cmd_input, buf.is_reversed);
+                        buf.search_index = 0;
 
-                    if !state.search_results.is_empty() {
-                        let pos = state.search_results[state.search_index];
-                        state.row_index = pos.0;
-                        state.column_index = pos.1;
+                        if !buf.search_results.is_empty() {
+                            let pos = buf.search_results[buf.search_index];
+                            view.show_data(pos);
+                        }
                     }
                 }
             }
@@ -859,17 +1230,18 @@ fn search_input_key_event(key: &KeyEvent, state: &mut UIState<'_>, _layout: &Lay
             true
         }
         KeyCode::Char(c) => {
-            state.buf_cmd_input.push(*c);
+            buf.buf_cmd_input.push(*c);
 
-            if !state.buf_cmd_input.is_empty() {
-                state.search_results =
-                    search_pattern(&state.data_text, &state.buf_cmd_input, state.is_search_rev);
-                state.search_index = 0;
+            if let Some(view) = view {
+                if !buf.buf_cmd_input.is_empty() {
+                    let data = view.collect_data().into_iter().map(|(text, _)| text);
+                    buf.search_results = search_pattern(data, &buf.buf_cmd_input, buf.is_reversed);
+                    buf.search_index = 0;
 
-                if !state.search_results.is_empty() {
-                    let pos = state.search_results[state.search_index];
-                    state.row_index = pos.0;
-                    state.column_index = pos.1;
+                    if !buf.search_results.is_empty() {
+                        let pos = buf.search_results[buf.search_index];
+                        view.show_data(pos);
+                    }
                 }
             }
 
@@ -879,13 +1251,11 @@ fn search_input_key_event(key: &KeyEvent, state: &mut UIState<'_>, _layout: &Lay
     }
 }
 
-fn search_pattern(data: &[Vec<NuText>], pat: &str, rev: bool) -> Vec<(usize, usize)> {
+fn search_pattern(data: impl Iterator<Item = String>, pat: &str, rev: bool) -> Vec<usize> {
     let mut matches = Vec::new();
-    for (row, columns) in data.iter().enumerate() {
-        for (col, (text, _)) in columns.iter().enumerate() {
-            if text.contains(pat) {
-                matches.push((row, col));
-            }
+    for (row, text) in data.enumerate() {
+        if text.contains(pat) {
+            matches.push(row);
         }
     }
 
@@ -898,52 +1268,52 @@ fn search_pattern(data: &[Vec<NuText>], pat: &str, rev: bool) -> Vec<(usize, usi
     matches
 }
 
-fn cmd_input_key_event(key: &KeyEvent, state: &mut UIState<'_>, _layout: &Layout) -> bool {
+fn cmd_input_key_event(buf: &mut CommandBuf, key: &KeyEvent) -> bool {
     match &key.code {
         KeyCode::Esc => {
-            state.is_cmd_input = false;
-            state.buf_cmd2 = String::new();
+            buf.is_cmd_input = false;
+            buf.buf_cmd2 = String::new();
             true
         }
         KeyCode::Enter => {
-            state.is_cmd_input = false;
-            state.run_cmd = true;
-            state.cmd_history.push(state.buf_cmd2.clone());
-            state.cmd_history_pos = state.cmd_history.len();
+            buf.is_cmd_input = false;
+            buf.run_cmd = true;
+            buf.cmd_history.push(buf.buf_cmd2.clone());
+            buf.cmd_history_pos = buf.cmd_history.len();
             true
         }
         KeyCode::Backspace => {
-            if state.buf_cmd2.is_empty() {
-                state.is_cmd_input = false;
+            if buf.buf_cmd2.is_empty() {
+                buf.is_cmd_input = false;
             } else {
-                state.buf_cmd2.pop();
-                state.cmd_history_allow = false;
+                buf.buf_cmd2.pop();
+                buf.cmd_history_allow = false;
             }
 
             true
         }
         KeyCode::Char(c) => {
-            state.buf_cmd2.push(*c);
-            state.cmd_history_allow = false;
+            buf.buf_cmd2.push(*c);
+            buf.cmd_history_allow = false;
             true
         }
-        KeyCode::Down if state.buf_cmd2.is_empty() || state.cmd_history_allow => {
-            if !state.cmd_history.is_empty() {
-                state.cmd_history_allow = true;
-                state.cmd_history_pos = min(
-                    state.cmd_history_pos + 1,
-                    state.cmd_history.len().saturating_sub(1),
+        KeyCode::Down if buf.buf_cmd2.is_empty() || buf.cmd_history_allow => {
+            if !buf.cmd_history.is_empty() {
+                buf.cmd_history_allow = true;
+                buf.cmd_history_pos = min(
+                    buf.cmd_history_pos + 1,
+                    buf.cmd_history.len().saturating_sub(1),
                 );
-                state.buf_cmd2 = state.cmd_history[state.cmd_history_pos].clone();
+                buf.buf_cmd2 = buf.cmd_history[buf.cmd_history_pos].clone();
             }
 
             true
         }
-        KeyCode::Up if state.buf_cmd2.is_empty() || state.cmd_history_allow => {
-            if !state.cmd_history.is_empty() {
-                state.cmd_history_allow = true;
-                state.cmd_history_pos = state.cmd_history_pos.saturating_sub(1);
-                state.buf_cmd2 = state.cmd_history[state.cmd_history_pos].clone();
+        KeyCode::Up if buf.buf_cmd2.is_empty() || buf.cmd_history_allow => {
+            if !buf.cmd_history.is_empty() {
+                buf.cmd_history_allow = true;
+                buf.cmd_history_pos = buf.cmd_history_pos.saturating_sub(1);
+                buf.buf_cmd2 = buf.cmd_history[buf.cmd_history_pos].clone();
             }
 
             true
@@ -953,39 +1323,26 @@ fn cmd_input_key_event(key: &KeyEvent, state: &mut UIState<'_>, _layout: &Layout
 }
 
 #[derive(Debug, Clone)]
-struct UIState<'a> {
-    columns: Cow<'a, [String]>,
-    data: Cow<'a, [Vec<Value>]>,
-    data_text: Vec<Vec<NuText>>,
-    config: &'a Config,
-    color_hm: &'a NuStyleTable,
-    column_index: usize,
-    row_index: usize,
-    show_index: bool,
-    show_header: bool,
-    mode: UIMode,
-    // only applicable for CusorMode
-    cursor: Position,
-    // only applicable for CusorMode
-    render_inner: bool,
-    // only applicable for CusorMode
-    render_close: bool,
-    // only applicable for CusorMode
-    section_name: Option<String>,
-    // only applicable for SEARCH input
-    is_search_input: bool,
-    // only applicable for SEARCH input
+pub struct Pager<'a> {
+    records_view: Option<RecordView<'a>>,
+    cmd_buf: CommandBuf,
+    search_buf: SearchBuf,
+    table_cfg: TableConfig,
+    view_cfg: ViewConfig<'a>,
+}
+
+#[derive(Debug, Clone, Default)]
+struct SearchBuf {
     buf_cmd: String,
-    // only applicable for SEARCH input
     buf_cmd_input: String,
-    // only applicable for SEARCH input
-    search_results: Vec<(usize, usize)>,
+    search_results: Vec<usize>,
     search_index: usize,
-    // only applicable for rev-SEARCH input
-    is_search_rev: bool,
-    style: StyleConfig,
-    peek_value: bool,
-    // only applicable for SEARCH input
+    is_reversed: bool,
+    is_search_input: bool,
+}
+
+#[derive(Debug, Clone, Default)]
+struct CommandBuf {
     is_cmd_input: bool,
     run_cmd: bool,
     buf_cmd2: String,
@@ -997,6 +1354,9 @@ struct UIState<'a> {
 
 #[derive(Debug, Default, Clone)]
 pub struct StyleConfig {
+    pub status_info: NuStyle,
+    pub status_warn: NuStyle,
+    pub status_error: NuStyle,
     pub status_bar: NuStyle,
     pub cmd_bar: NuStyle,
     pub split_line: NuStyle,
@@ -1007,75 +1367,33 @@ pub struct StyleConfig {
     pub show_cursow: bool,
 }
 
-impl<'a> UIState<'a> {
-    #[allow(clippy::too_many_arguments)]
-    fn new(
-        columns: Cow<'a, [String]>,
-        data: Cow<'a, [Vec<Value>]>,
-        config: &'a Config,
-        color_hm: &'a NuStyleTable,
-        show_header: bool,
-        show_index: bool,
-        ret_value: bool,
-        style: StyleConfig,
-    ) -> Self {
-        let data_text = data
-            .iter()
-            .map(|row| {
-                row.iter()
-                    .map(|value| {
-                        make_styled_string(
-                            value.clone().into_abbreviated_string(config),
-                            &value.get_type().to_string(),
-                            0,
-                            false,
-                            color_hm,
-                            config.float_precision as usize,
-                        )
-                    })
-                    .collect::<Vec<_>>()
-            })
-            .collect::<Vec<_>>();
-
+impl<'a> Pager<'a> {
+    pub fn new(table_cfg: TableConfig, view_cfg: ViewConfig<'a>) -> Self {
         Self {
-            columns,
-            data,
-            config,
-            color_hm,
-            column_index: 0,
-            row_index: 0,
-            show_header,
-            show_index,
-            mode: UIMode::View,
-            cursor: Position::new(0, 0),
-            render_inner: false,
-            render_close: false,
-            section_name: None,
-            buf_cmd: String::new(),
-            buf_cmd_input: String::new(),
-            is_search_input: false,
-            search_results: Vec::new(),
-            search_index: 0,
-            is_search_rev: false,
-            data_text,
-            style,
-            peek_value: ret_value,
-            is_cmd_input: false,
-            run_cmd: false,
-            buf_cmd2: String::new(),
-            cmd_history: Vec::new(),
-            cmd_history_allow: false,
-            cmd_history_pos: 0,
-            cmd_exec_info: None,
+            records_view: None,
+            cmd_buf: CommandBuf::default(),
+            search_buf: SearchBuf::default(),
+            table_cfg,
+            view_cfg,
         }
     }
 
-    fn count_rows(&self) -> usize {
-        self.data.len()
+    pub fn set_records(
+        &mut self,
+        columns: impl Into<Cow<'a, [String]>>,
+        records: impl Into<Cow<'a, [Vec<Value>]>>,
+    ) {
+        let view = RecordView::new(columns, records, self.table_cfg.clone());
+        self.records_view = Some(view);
     }
 
-    fn count_columns(&self) -> usize {
-        self.columns.len()
+    pub fn run(
+        &mut self,
+        engine_state: &EngineState,
+        stack: &mut Stack,
+        ctrlc: CtrlC,
+    ) -> Result<Option<Value>> {
+        run_pager(self, engine_state, stack, ctrlc)
     }
 }
 
@@ -1085,42 +1403,27 @@ enum UIMode {
     View,
 }
 
-struct StatusBar<'a> {
-    section: Option<&'a str>,
-    cursor: Option<Position>,
-    row: usize,
-    column: usize,
-    seen_rows: usize,
-    total_rows: usize,
+struct StatusBar {
+    report: Report,
     style: NuStyle,
+    message_style: NuStyle,
 }
 
-impl<'a> StatusBar<'a> {
-    fn new(
-        section: Option<&'a str>,
-        cursor: Option<Position>,
-        row: usize,
-        column: usize,
-        seen_rows: usize,
-        total_rows: usize,
-        style: NuStyle,
-    ) -> Self {
+impl StatusBar {
+    fn new(report: Report, style: NuStyle, message_style: NuStyle) -> Self {
         Self {
-            section,
-            cursor,
-            row,
-            column,
-            seen_rows,
-            total_rows,
+            report,
             style,
+            message_style,
         }
     }
 }
 
-impl Widget for StatusBar<'_> {
+impl Widget for StatusBar {
     fn render(self, area: Rect, buf: &mut Buffer) {
         let block_style = nu_style_to_tui(self.style);
         let text_style = nu_style_to_tui(self.style).add_modifier(Modifier::BOLD);
+        let message_style = nu_style_to_tui(self.message_style).add_modifier(Modifier::BOLD);
 
         // colorize the line
         let block = Block::default()
@@ -1128,33 +1431,34 @@ impl Widget for StatusBar<'_> {
             .style(block_style);
         block.render(area, buf);
 
-        let percent_rows = get_percentage(self.seen_rows, self.total_rows);
-
-        let covered_percent = match percent_rows {
-            100 => String::from("All"),
-            _ if self.row == 0 => String::from("Top"),
-            value => format!("{}%", value),
-        };
-
-        let span = Span::styled(&covered_percent, text_style);
-        let covered_percent_w = covered_percent.len() as u16;
-        buf.set_span(
-            area.right().saturating_sub(covered_percent_w),
-            area.y,
-            &span,
-            covered_percent_w,
-        );
-
-        if let Some(name) = self.section {
+        if !self.report.message.is_empty() {
             let width = area.width.saturating_sub(3 + 12 + 12 + 12);
-            let name = nu_table::string_truncate(name, width as usize);
-            let span = Span::styled(name, text_style);
+            let name = nu_table::string_truncate(&self.report.message, width as usize);
+            let span = Span::styled(name, message_style);
             buf.set_span(area.left(), area.y, &span, width);
         }
 
-        if let Some(pos) = self.cursor {
-            render_cursor_position(buf, area, text_style, pos, self.row, self.column);
+        if !self.report.context2.is_empty() {
+            let span = Span::styled(&self.report.context2, text_style);
+            let span_w = self.report.context2.len() as u16;
+            let span_x = area.right().saturating_sub(3 + 12 + span_w);
+            buf.set_span(span_x, area.y, &span, span_w);
         }
+
+        if !self.report.context.is_empty() {
+            let span = Span::styled(&self.report.context, text_style);
+            let span_w = self.report.context.len() as u16;
+            let span_x = area.right().saturating_sub(span_w);
+            buf.set_span(span_x, area.y, &span, span_w);
+        }
+    }
+}
+
+fn report_level_style(level: Severentity, theme: &StyleConfig) -> NuStyle {
+    match level {
+        Severentity::Info => theme.status_info,
+        Severentity::Warn => theme.status_warn,
+        Severentity::Err => theme.status_error,
     }
 }
 
@@ -1200,57 +1504,51 @@ impl Widget for CmdBar<'_> {
     }
 }
 
-fn render_cursor_position(
-    buf: &mut Buffer,
-    area: Rect,
-    text_style: Style,
-    pos: Position,
-    row: usize,
-    column: usize,
-) {
-    let actual_row = row + pos.y as usize;
-    let actual_column = column + pos.x as usize;
-
-    let text = format!("{},{}", actual_row, actual_column);
-    let width = text.len() as u16;
-
-    let span = Span::styled(text, text_style);
-    buf.set_span(
-        area.right().saturating_sub(3 + 12 + width),
-        area.y,
-        &span,
-        width,
-    );
-}
-
-struct Table<'a> {
-    columns: &'a [String],
-    data: &'a [Vec<NuText>],
-    color_hm: &'a NuStyleTable,
-    column_index: usize,
-    row_index: usize,
+struct TableW<'a> {
+    columns: Cow<'a, [String]>,
+    data: Cow<'a, [Vec<NuText>]>,
     show_index: bool,
     show_header: bool,
+    index_row: usize,
+    index_column: usize,
     splitline_style: NuStyle,
+    color_hm: &'a NuStyleTable,
 }
 
-impl<'a> From<&'a UIState<'_>> for Table<'a> {
-    fn from(state: &'a UIState<'_>) -> Self {
+impl<'a> TableW<'a> {
+    #[allow(clippy::too_many_arguments)]
+    fn new(
+        columns: impl Into<Cow<'a, [String]>>,
+        data: impl Into<Cow<'a, [Vec<NuText>]>>,
+        show_index: bool,
+        show_header: bool,
+        splitline_style: NuStyle,
+        color_hm: &'a NuStyleTable,
+        index_row: usize,
+        index_column: usize,
+    ) -> Self {
         Self {
-            columns: &state.columns,
-            data: &state.data_text,
-            color_hm: state.color_hm,
-            column_index: state.column_index,
-            row_index: state.row_index,
-            show_index: state.show_index,
-            show_header: state.show_header,
-            splitline_style: state.style.split_line,
+            columns: columns.into(),
+            data: data.into(),
+            color_hm,
+            show_index,
+            show_header,
+            splitline_style,
+            index_row,
+            index_column,
         }
     }
 }
 
-impl StatefulWidget for Table<'_> {
-    type State = Layout;
+#[derive(Debug, Default)]
+struct TableWState {
+    count_rows: usize,
+    count_columns: usize,
+    data_index: HashMap<(usize, usize), ElementInfo>,
+}
+
+impl StatefulWidget for TableW<'_> {
+    type State = Layout<TableWState>;
 
     fn render(
         self,
@@ -1282,7 +1580,7 @@ impl StatefulWidget for Table<'_> {
 
         let mut width = area.x;
 
-        let mut data = &self.data[self.row_index..];
+        let mut data = &self.data[self.index_row..];
         if data.len() > data_height as usize {
             data = &data[..data_height as usize];
         }
@@ -1294,7 +1592,7 @@ impl StatefulWidget for Table<'_> {
 
         if show_index {
             let area = Rect::new(width, data_y, area.width, data_height);
-            width += render_index(buf, area, self.color_hm, self.row_index);
+            width += render_index(buf, area, self.color_hm, self.index_row);
             width += render_vertical(
                 buf,
                 width,
@@ -1308,7 +1606,10 @@ impl StatefulWidget for Table<'_> {
         let mut do_render_split_line = true;
         let mut do_render_shift_column = false;
 
-        for col in self.column_index..self.columns.len() {
+        state.state.count_rows = data.len();
+        state.state.count_columns = 0;
+
+        for (i, col) in (self.index_column..self.columns.len()).enumerate() {
             let mut head = String::from(&self.columns[col]);
 
             let mut column = create_column(data, col);
@@ -1354,19 +1655,27 @@ impl StatefulWidget for Table<'_> {
                 w += render_column(buf, w, head_y, use_space, header);
                 render_space(buf, w, head_y, 1, CELL_PADDING_RIGHT);
 
-                state.push_head(w - CELL_PADDING_RIGHT - use_space, use_space, (0, col));
+                let x = w - CELL_PADDING_RIGHT - use_space;
+                state.push(&header[0].0, x, head_y, use_space, 1);
+
+                // it would be nice to add it so it would be available on search
+                // state.state.data_index.insert((i, col), ElementInfo::new(text, x, data_y, use_space, 1));
             }
 
             width += render_space(buf, width, data_y, data_height, CELL_PADDING_LEFT);
             width += render_column(buf, width, data_y, use_space, &column);
             width += render_space(buf, width, data_y, data_height, CELL_PADDING_RIGHT);
 
-            state.push_column(
-                width - CELL_PADDING_RIGHT - use_space,
-                data_y,
-                use_space,
-                (0..column.len()).map(|i| (i + self.row_index, col)),
-            );
+            for (row, (text, _)) in column.iter().enumerate() {
+                let x = width - CELL_PADDING_RIGHT - use_space;
+                let y = data_y + row as u16;
+                state.push(text, x, y, use_space, 1);
+
+                let e = ElementInfo::new(text, x, y, use_space, 1);
+                state.state.data_index.insert((row, i), e);
+            }
+
+            state.state.count_columns += 1;
 
             if do_render_shift_column {
                 break;
@@ -1500,72 +1809,83 @@ fn render_index(buf: &mut Buffer, area: Rect, color_hm: &NuStyleTable, start_ind
     width
 }
 
+// todo: Change layout so it's not dependent on 2x2 grid structure
 #[derive(Debug, Default)]
-struct Layout {
-    headers: Vec<ElementInfo>,
-    data: Vec<Vec<ElementInfo>>,
-    count_columns: usize,
-    // todo: add Vec<width> of columns so data would contain actual width of a content
+pub struct Layout<S> {
+    data: Vec<ElementInfo>,
+    state: S,
 }
 
-impl Layout {
-    fn count_columns(&self) -> usize {
-        self.count_columns
+#[derive(Debug, Default, Clone)]
+pub struct ViewInfo {
+    #[allow(dead_code)]
+    cursor: Option<Position>,
+    status: Option<Report>,
+    report: Option<Report>,
+}
+
+#[derive(Debug, Clone)]
+struct Report {
+    message: String,
+    level: Severentity,
+    context: String,
+    context2: String,
+}
+
+impl Report {
+    fn new(message: String, level: Severentity, context: String, context2: String) -> Self {
+        Self {
+            message,
+            level,
+            context,
+            context2,
+        }
     }
+}
 
-    fn count_rows(&self) -> usize {
-        self.data.first().map_or(0, |col| col.len())
+impl Default for Report {
+    fn default() -> Self {
+        Self::new(
+            String::new(),
+            Severentity::Info,
+            String::new(),
+            String::new(),
+        )
     }
+}
 
-    fn push_head(&mut self, x: u16, width: u16, value: (usize, usize)) {
-        self.headers
-            .push(ElementInfo::new(Position::new(x, 1), width, 1, value));
-    }
+#[derive(Debug, Clone, Copy)]
+enum Severentity {
+    Info,
+    #[allow(dead_code)]
+    Warn,
+    Err,
+}
 
-    fn push_column(
-        &mut self,
-        x: u16,
-        y: u16,
-        width: u16,
-        values: impl Iterator<Item = (usize, usize)>,
-    ) {
-        self.count_columns += 1;
-
-        let columns = values
-            .enumerate()
-            .map(|(i, value)| ElementInfo::new(Position::new(x, y + i as u16), width, 1, value))
-            .collect();
-
-        self.data.push(columns);
-    }
-
-    fn get(&self, row: usize, column: usize) -> Option<ElementInfo> {
-        self.data.get(column).and_then(|col| col.get(row)).cloned()
+impl<S> Layout<S> {
+    fn push(&mut self, text: &str, x: u16, y: u16, width: u16, height: u16) {
+        self.data.push(ElementInfo::new(text, x, y, width, height));
     }
 }
 
 #[allow(dead_code)]
 #[derive(Debug, Default, Clone)]
 struct ElementInfo {
-    data_pos: (usize, usize),
-    // todo: change to area: Rect
-    position: Position,
-    width: u16,
-    height: u16,
+    // todo: make it a Cow
+    text: String,
+    area: Rect,
 }
 
 impl ElementInfo {
-    fn new(position: Position, width: u16, height: u16, data_pos: (usize, usize)) -> Self {
+    fn new(text: impl Into<String>, x: u16, y: u16, width: u16, height: u16) -> Self {
         Self {
-            position,
-            width,
-            height,
-            data_pos,
+            text: text.into(),
+            area: Rect::new(x, y, width, height),
         }
     }
 }
 
-#[derive(Debug, Default, Clone, Copy)]
+#[derive(Debug, Default, Clone, Copy, Eq, PartialEq, Ord, PartialOrd, Hash)]
 struct Position {
     x: u16,
     y: u16,
@@ -1577,9 +1897,11 @@ impl Position {
     }
 }
 
-fn state_reverse_data(state: &mut UIState<'_>, page_size: usize) {
-    if state.data.len() > page_size as usize {
-        state.row_index = state.data.len() - page_size as usize;
+fn state_reverse_data(state: &mut RecordView<'_>, page_size: usize) {
+    let layer = state.get_layer_last_mut();
+    let count_rows = layer.records.len();
+    if count_rows > page_size as usize {
+        layer.index_row = count_rows - page_size as usize;
     }
 }
 
