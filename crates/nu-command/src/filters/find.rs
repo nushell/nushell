@@ -45,17 +45,17 @@ impl Command for Find {
             )
             .switch(
                 "insensitive",
-                "case-insensitive search for regex (?i)",
+                "case-insensitive regex mode; equivalent to (?i)",
                 Some('i'),
             )
             .switch(
                 "multiline",
-                "multi-line mode: ^ and $ match begin/end of line for regex (?m)",
+                "multi-line regex mode: ^ and $ match begin/end of line; equivalent to (?m)",
                 Some('m'),
             )
             .switch(
                 "dotall",
-                "dotall mode: allow a dot . to match newline character \\n for regex (?s)",
+                "dotall regex mode: allow a dot . to match newlines \\n; equivalent to (?s)",
                 Some('s'),
             )
             .switch("invert", "invert the match", Some('v'))

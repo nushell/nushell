@@ -230,3 +230,12 @@ fn uniq_simple_vals_strs() {
     print!("{}", expected.out);
     assert_eq!(actual.out, expected.out);
 }
+
+#[test]
+fn uniq_insensitive_long_flag() {
+    let actual = nu!(
+        cwd: ".", pipeline(
+        "[aaa aAa bbb BBB] | uniq --insensitive | to nuon"
+    ));
+    assert_eq!(actual.out, "[aaa Bbb]");
+}

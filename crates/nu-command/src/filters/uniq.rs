@@ -38,8 +38,8 @@ impl Command for Uniq {
                 Some('d'),
             )
             .switch(
-                "ignore-case",
-                "Ignore differences in case when comparing input values",
+                "insensitive",
+                "Compare input values case-insensitively",
                 Some('i'),
             )
             .switch(
@@ -96,9 +96,9 @@ impl Command for Uniq {
             },
             Example {
                 description: "Ignore differences in case when comparing input values",
-                example: "['hello' 'goodbye' 'Hello'] | uniq -i",
+                example: "['Hello' 'goodbye' 'HELLO'] | uniq -i",
                 result: Some(Value::List {
-                    vals: vec![Value::test_string("hello"), Value::test_string("goodbye")],
+                    vals: vec![Value::test_string("Hello"), Value::test_string("goodbye")],
                     span: Span::test_data(),
                 }),
             },
@@ -144,7 +144,7 @@ fn uniq(
     let head = call.head;
     let should_show_count = call.has_flag("count");
     let show_repeated = call.has_flag("repeated");
-    let ignore_case = call.has_flag("ignore-case");
+    let ignore_case = call.has_flag("insensitive");
     let only_uniques = call.has_flag("unique");
     let metadata = input.metadata();
 
