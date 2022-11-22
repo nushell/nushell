@@ -165,7 +165,11 @@ fn size(
         move |v| match v.as_string() {
             Ok(s) => counter(&s, span),
             Err(_) => Value::Error {
-                error: ShellError::PipelineMismatch("string".into(), span, span),
+                error: ShellError::PipelineMismatch(
+                    "string".into(),
+                    span,
+                    v.span().unwrap_or_else(|_| Span::new(0, 0)),
+                ),
             },
         },
         engine_state.ctrlc.clone(),
