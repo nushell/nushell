@@ -57,6 +57,7 @@ mod print;
 mod query;
 mod random;
 mod range;
+mod redirection;
 mod reduce;
 mod reject;
 mod rename;
