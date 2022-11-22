@@ -156,10 +156,10 @@ impl Command for FromNuon {
                 }
             } else {
                 match pipeline.elements.remove(0) {
-                    PipelineElement::Expression(expression)
-                    | PipelineElement::Redirect(expression)
-                    | PipelineElement::And(expression)
-                    | PipelineElement::Or(expression) => expression,
+                    PipelineElement::Expression(_, expression)
+                    | PipelineElement::Redirection(_, _, expression)
+                    | PipelineElement::And(_, expression)
+                    | PipelineElement::Or(_, expression) => expression,
                 }
             }
         };
