@@ -2404,6 +2404,7 @@ impl View for InformationView {
             "",
             "type :help<Enter> for help",
             "type :q<Enter> to exit",
+            "type :try<Enter> to enter a REPL",
         ];
         let count_lines = message.len() as u16;
 
