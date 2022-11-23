@@ -938,7 +938,14 @@ pub fn eval_block(
                 stack,
                 &pipeline.elements[i],
                 input,
-                redirect_stdout || (i != pipeline.elements.len() - 1),
+                redirect_stdout
+                    || (i != pipeline.elements.len() - 1)
+                        && (matches!(
+                            pipeline.elements[i + 1],
+                            PipelineElement::Redirection(_, Redirection::Stdout, _)
+                                | PipelineElement::Redirection(_, Redirection::StdoutAndStderr, _)
+                                | PipelineElement::Expression(..)
+                        )),
                 redirect_stderr
                     || ((i < pipeline.elements.len() - 1)
                         && (matches!(
