@@ -15,15 +15,15 @@ use polars::{
 };
 
 #[derive(Clone)]
-pub struct Descriptives;
+pub struct Summary;
 
-impl Command for Descriptives {
+impl Command for Summary {
     fn name(&self) -> &str {
-        "descriptives"
+        "summary"
     }
 
     fn usage(&self) -> &str {
-        "For a dataframe, produces descriptive statistics (descriptives) for its numeric columns."
+        "For a dataframe, produces descriptive statistics (summary statistics) for its numeric columns."
     }
 
     fn signature(&self) -> Signature {
@@ -42,7 +42,7 @@ impl Command for Descriptives {
     fn examples(&self) -> Vec<Example> {
         vec![Example {
             description: "list dataframe descriptives",
-            example: "[[a b]; [1 1] [1 1]] | into df | descriptives",
+            example: "[[a b]; [1 1] [1 1]] | into df | summary",
             result: Some(
                 NuDataFrame::try_from_columns(vec![
                     Column::new(
@@ -266,6 +266,6 @@ mod test {
 
     #[test]
     fn test_examples() {
-        test_dataframe(vec![Box::new(Descriptives {})])
+        test_dataframe(vec![Box::new(Summary {})])
     }
 }
