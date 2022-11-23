@@ -247,6 +247,15 @@ fn handle_key_event_view_mode(view: &mut RecordView, key: &KeyEvent) -> Option<T
 
             Some(Transition::Ok)
         }
+        KeyCode::Char('t') => {
+            let layer = view.get_layer_last_mut();
+            layer.index_column = 0;
+            layer.index_row = 0;
+
+            transpose_table(layer);
+
+            Some(Transition::Ok)
+        }
         KeyCode::Up => {
             let layer = view.get_layer_last_mut();
             layer.index_row = layer.index_row.saturating_sub(1);
@@ -566,4 +575,36 @@ fn get_percentage(value: usize, max: usize) -> usize {
     debug_assert!(value <= max, "{:?} {:?}", value, max);
 
     ((value as f32 / max as f32) * 100.0).floor() as usize
+}
+
+fn transpose_table(layer: &mut RecordLayer<'_>) {
+    let count_rows = layer.count_rows();
+
+    let data = _transpose_table(layer);
+    layer.records = Cow::Owned(data);
+    layer.columns = (1..count_rows + 1 + 1).map(|i| i.to_string()).collect();
+}
+
+fn _transpose_table(layer: &RecordLayer<'_>) -> Vec<Vec<Value>> {
+    let count_rows = layer.count_rows();
+    let count_columns = layer.count_columns();
+
+    let mut data = vec![vec![Value::default(); count_rows + 1]; count_columns];
+    // first column will contains column names
+    for (column, column_name) in layer.columns.iter().enumerate() {
+        let value = Value::String {
+            val: column_name.to_string(),
+            span: NuSpan::unknown(),
+        };
+
+        data[column][0] = value;
+    }
+
+    for (row, values) in layer.records.iter().enumerate() {
+        for (column, value) in values.iter().enumerate() {
+            data[column][row + 1] = value.to_owned();
+        }
+    }
+
+    data
 }

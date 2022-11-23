@@ -132,18 +132,19 @@ fn help_frame_data(supported_commands: &[HelpManual]) -> (Vec<String>, Vec<Vec<V
 
     #[rustfmt::skip]
     let shortcuts = [
-        ("i",      "view",    null!(),   "Turn on a cursor mode so you can inspect values"),
         (":",      "view",    commands,  "Run a command"),
         ("/",      "view",    null!(),   "Search via pattern"),
         ("?",      "view",    null!(),   "Search via pattern but results will be reversed when you press <n>"),
         ("n",      "view",    null!(),   "Gets to the next found element in search"),
+        ("i",      "view",    null!(),   "Turn on a cursor mode so you can inspect values"),
+        ("t",      "view",    null!(),   "Transpose table, so columns became rows and vice versa"),
         ("Up",     "",        null!(),   "Moves to an element above"),
         ("Down",   "",        null!(),   "Moves to an element bellow"),
         ("Left",   "",        null!(),   "Moves to an element to the left"),
         ("Right",  "",        null!(),   "Moves to an element to the right"),
         ("PgDown", "view",    null!(),   "Moves to an a bunch of elements bellow"),
         ("PgUp",   "view",    null!(),   "Moves to an a bunch of elements above"),
-        ("Esc",    "cursor",  null!(),   "Exits a cursor mode. Exists an expected element."),
+        ("Esc",    "",        null!(),   "Exits a cursor mode. Exists an expected element."),
         ("Enter",  "cursor",  null!(),   "Inspect a chosen element"),
     ];
 
