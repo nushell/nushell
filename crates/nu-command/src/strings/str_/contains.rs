@@ -37,7 +37,7 @@ impl Command for SubCommand {
                 SyntaxShape::CellPath,
                 "For a data structure input, check strings at the given cell paths, and replace with result",
             )
-            .switch("insensitive", "search is case insensitive", Some('i'))
+            .switch("ignore-case", "search is case insensitive", Some('i'))
             .switch("not", "does not contain", Some('n'))
             .category(Category::Strings)
     }
@@ -62,7 +62,7 @@ impl Command for SubCommand {
         let args = Arguments {
             substring: call.req::<String>(engine_state, stack, 0)?,
             cell_paths,
-            case_insensitive: call.has_flag("insensitive"),
+            case_insensitive: call.has_flag("ignore-case"),
             not_contain: call.has_flag("not"),
         };
         operate(action, args, input, call.head, engine_state.ctrlc.clone())

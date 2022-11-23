@@ -51,9 +51,9 @@ if $os in ['ubuntu-latest', 'macos-latest'] {
 # ----------------------------------------------------------------------------
 if $os in ['windows-latest'] {
     if ($flags | str trim | is-empty) {
-        cargo build --release --all --target $target --features=extra
+        cargo build --release --all --target $target
     } else {
-        cargo build --release --all --target $target --features=extra $flags
+        cargo build --release --all --target $target $flags
     }
 }
 
@@ -138,9 +138,9 @@ if $os in ['ubuntu-latest', 'macos-latest'] {
 
 def 'cargo-build-nu' [ options: string ] {
     if ($options | str trim | is-empty) {
-        cargo build --release --all --target $target --features=extra,static-link-openssl
+        cargo build --release --all --target $target --features=static-link-openssl
     } else {
-        cargo build --release --all --target $target --features=extra,static-link-openssl $options
+        cargo build --release --all --target $target --features=static-link-openssl $options
     }
 }
 

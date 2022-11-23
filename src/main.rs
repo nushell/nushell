@@ -20,7 +20,7 @@ use nu_engine::{get_full_help, CallExt};
 use nu_parser::{escape_for_script_arg, escape_quote_string, parse};
 use nu_path::canonicalize_with;
 use nu_protocol::{
-    ast::{Call, Expr, Expression},
+    ast::{Call, Expr, Expression, PipelineElement},
     engine::{Command, EngineState, Stack, StateWorkingSet},
     Category, Example, IntoPipelineData, PipelineData, RawStream, ShellError, Signature, Span,
     Spanned, SyntaxShape, Value,
@@ -320,6 +320,7 @@ fn main() -> Result<()> {
                     exit_code: None,
                     span: redirect_stdin.span,
                     metadata: None,
+                    trim_end_newline: false,
                 }
             } else {
                 PipelineData::new(Span::new(0, 0))
@@ -511,10 +512,13 @@ fn parse_commandline_args(
 
     // We should have a successful parse now
     if let Some(pipeline) = block.pipelines.get(0) {
-        if let Some(Expression {
-            expr: Expr::Call(call),
-            ..
-        }) = pipeline.expressions.get(0)
+        if let Some(PipelineElement::Expression(
+            _,
+            Expression {
+                expr: Expr::Call(call),
+                ..
+            },
+        )) = pipeline.elements.get(0)
         {
             let redirect_stdin = call.get_named_arg("stdin");
             let login_shell = call.get_named_arg("login");
@@ -563,8 +567,13 @@ fn parse_commandline_args(
             let help = call.has_flag("help");
 
             if help {
-                let full_help =
-                    get_full_help(&Nu.signature(), &Nu.examples(), engine_state, &mut stack);
+                let full_help = get_full_help(
+                    &Nu.signature(),
+                    &Nu.examples(),
+                    engine_state,
+                    &mut stack,
+                    true,
+                );
 
                 let _ = std::panic::catch_unwind(move || stdout_write_all_and_flush(full_help));
 
@@ -600,7 +609,13 @@ fn parse_commandline_args(
     }
 
     // Just give the help and exit if the above fails
-    let full_help = get_full_help(&Nu.signature(), &Nu.examples(), engine_state, &mut stack);
+    let full_help = get_full_help(
+        &Nu.signature(),
+        &Nu.examples(),
+        engine_state,
+        &mut stack,
+        true,
+    );
     print!("{}", full_help);
     std::process::exit(1);
 }
@@ -731,7 +746,7 @@ impl Command for Nu {
         _input: PipelineData,
     ) -> Result<nu_protocol::PipelineData, nu_protocol::ShellError> {
         Ok(Value::String {
-            val: get_full_help(&Nu.signature(), &Nu.examples(), engine_state, stack),
+            val: get_full_help(&Nu.signature(), &Nu.examples(), engine_state, stack, true),
             span: call.head,
         }
         .into_pipeline_data())

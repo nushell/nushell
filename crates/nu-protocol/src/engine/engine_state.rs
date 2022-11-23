@@ -700,7 +700,7 @@ impl EngineState {
     pub fn get_signatures_with_examples(
         &self,
         include_hidden: bool,
-    ) -> Vec<(Signature, Vec<Example>, bool, bool)> {
+    ) -> Vec<(Signature, Vec<Example>, bool, bool, bool)> {
         self.get_decl_ids_sorted(include_hidden)
             .map(|id| {
                 let decl = self.get_decl(id);
@@ -712,6 +712,7 @@ impl EngineState {
                     decl.examples(),
                     decl.is_plugin().is_some(),
                     decl.get_block_id().is_some(),
+                    decl.is_parser_keyword(),
                 )
             })
             .collect()

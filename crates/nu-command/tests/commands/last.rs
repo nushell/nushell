@@ -78,3 +78,16 @@ fn gets_last_row_as_list_when_amount_given() {
 
     assert_eq!(actual.out, "list<int>");
 }
+
+#[test]
+fn last_errors_on_negative_index() {
+    let actual = nu!(
+        cwd: ".", pipeline(
+        r#"
+                [1, 2, 3]
+                | last -2
+            "#
+    ));
+
+    assert!(actual.err.contains("use a positive value"));
+}

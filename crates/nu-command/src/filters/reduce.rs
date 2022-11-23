@@ -27,14 +27,22 @@ impl Command for Reduce {
             )
             .required(
                 "closure",
-                SyntaxShape::Closure(Some(vec![SyntaxShape::Any, SyntaxShape::Any])),
+                SyntaxShape::Closure(Some(vec![
+                    SyntaxShape::Any,
+                    SyntaxShape::Any,
+                    SyntaxShape::Int,
+                ])),
                 "reducing function",
             )
-            .switch("numbered", "iterate with an index", Some('n'))
+            .switch(
+                "numbered",
+                "iterate with an index (deprecated; use a 3-parameter block instead)",
+                Some('n'),
+            )
     }
 
     fn usage(&self) -> &str {
-        "Aggregate a list table to a single value using an accumulator block."
+        "Aggregate a list to a single value using an accumulator block."
     }
 
     fn search_terms(&self) -> Vec<&str> {
@@ -52,10 +60,10 @@ impl Command for Reduce {
                 }),
             },
             Example {
-                example: "[ 1 2 3 ] | reduce -n {|it, acc| $acc.item + $it.item }",
-                description: "Sum values of a list (same as 'math sum')",
+                example: "[ 8 7 6 ] | reduce {|it, acc, ind| $acc + $it + $ind }",
+                description: "Sum values of a list, plus their indexes",
                 result: Some(Value::Int {
-                    val: 6,
+                    val: 22,
                     span: Span::test_data(),
                 }),
             },
@@ -70,24 +78,13 @@ impl Command for Reduce {
             Example {
                 example: r#"[ i o t ] | reduce -f "Arthur, King of the Britons" {|it, acc| $acc | str replace -a $it "X" }"#,
                 description: "Replace selected characters in a string with 'X'",
-                result: Some(Value::String {
-                    val: "ArXhur, KXng Xf Xhe BrXXXns".to_string(),
-                    span: Span::test_data(),
-                }),
+                result: Some(Value::test_string("ArXhur, KXng Xf Xhe BrXXXns")),
             },
             Example {
-                example: r#"[ one longest three bar ] | reduce -n { |it, acc|
-                    if ($it.item | str length) > ($acc.item | str length) {
-                        $it.item
-                    } else {
-                        $acc.item
-                    }
-                }"#,
-                description: "Find the longest string and its index",
-                result: Some(Value::String {
-                    val: "longest".to_string(),
-                    span: Span::test_data(),
-                }),
+                example: r#"['foo.gz', 'bar.gz', 'baz.gz'] | reduce -f '' {|str all ind| $"($all)(if $ind != 0 {'; '})($ind + 1)-($str)" }"#,
+                description:
+                    "Add ascending numbers to each of the filenames, and join with semicolons.",
+                result: Some(Value::test_string("1-foo.gz; 2-bar.gz; 3-baz.gz")),
             },
         ]
     }
@@ -114,6 +111,8 @@ impl Command for Reduce {
         let redirect_stdout = call.redirect_stdout;
         let redirect_stderr = call.redirect_stderr;
 
+        // To enumerate over the input (for the index argument),
+        // it must be converted into an iterator using into_iter().
         let mut input_iter = input.into_iter();
 
         let (off, start_val) = if let Some(val) = fold {
@@ -170,12 +169,14 @@ impl Command for Reduce {
             // Hence, a 'cd' in the first loop won't affect the next loop.
             stack.with_env(&orig_env_vars, &orig_env_hidden);
 
+            // Element argument
             if let Some(var) = block.signature.get_positional(0) {
                 if let Some(var_id) = &var.var_id {
                     stack.add_var(*var_id, x);
                 }
             }
 
+            // Accumulator argument
             if let Some(var) = block.signature.get_positional(1) {
                 if let Some(var_id) = &var.var_id {
                     acc = if numbered {
@@ -199,6 +200,18 @@ impl Command for Reduce {
                     };
 
                     stack.add_var(*var_id, acc);
+                }
+            }
+            // Optional third index argument
+            if let Some(var) = block.signature.get_positional(2) {
+                if let Some(var_id) = &var.var_id {
+                    stack.add_var(
+                        *var_id,
+                        Value::Int {
+                            val: idx as i64,
+                            span,
+                        },
+                    );
                 }
             }
 

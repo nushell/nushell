@@ -1,5 +1,5 @@
 use nu_test_support::nu;
-#[cfg(feature = "database")]
+#[cfg(feature = "sqlite")]
 use nu_test_support::pipeline;
 
 #[test]
@@ -72,7 +72,17 @@ fn where_not_in_table() {
     assert_eq!(actual.out, "4");
 }
 
-#[cfg(feature = "database")]
+#[test]
+fn uses_optional_index_argument() {
+    let actual = nu!(
+        cwd: ".",
+        r#"[7 8 9 10] | where {|el ind| $ind < 2 } | to nuon"#
+    );
+
+    assert_eq!(actual.out, "[7, 8]");
+}
+
+#[cfg(feature = "sqlite")]
 #[test]
 fn binary_operator_comparisons() {
     let actual = nu!(
@@ -141,7 +151,7 @@ fn binary_operator_comparisons() {
     assert_eq!(actual.out, "42");
 }
 
-#[cfg(feature = "database")]
+#[cfg(feature = "sqlite")]
 #[test]
 fn contains_operator() {
     let actual = nu!(

@@ -1,4 +1,4 @@
-use nu_protocol::ast::{Call, Expr, Expression};
+use nu_protocol::ast::{Call, Expr, Expression, PipelineElement};
 use nu_protocol::engine::{Command, EngineState, Stack, StateWorkingSet};
 use nu_protocol::{
     Category, Example, IntoPipelineData, PipelineData, Range, ShellError, Signature, Span, Type,
@@ -68,14 +68,13 @@ impl Command for FromNuon {
 
     fn run(
         &self,
-        engine_state: &EngineState,
+        _engine_state: &EngineState,
         _stack: &mut Stack,
         call: &Call,
         input: PipelineData,
     ) -> Result<nu_protocol::PipelineData, ShellError> {
         let head = call.head;
-        let config = engine_state.get_config();
-        let string_input = input.collect_string("", config)?;
+        let (string_input, metadata) = input.collect_string_strict(head)?;
 
         let engine_state = EngineState::new();
 
@@ -85,18 +84,15 @@ impl Command for FromNuon {
 
         let mut error = None;
 
+        // Most of the 'work' in converting from Nuon is simply pushing it through the Nu parser.
         let (lexed, err) = nu_parser::lex(string_input.as_bytes(), 0, &[b'\n', b'\r'], &[], true);
         error = error.or(err);
 
-        let (lite_block, err) = nu_parser::lite_parse(&lexed);
-        error = error.or(err);
-
-        let (mut block, err) =
-            nu_parser::parse_block(&mut working_set, &lite_block, true, &[], false);
+        let (mut block, err) = nu_parser::parse_block(&mut working_set, &lexed, true, &[], false);
         error = error.or(err);
 
         if let Some(pipeline) = block.pipelines.get(1) {
-            if let Some(expr) = pipeline.expressions.get(0) {
+            if let Some(element) = pipeline.elements.get(0) {
                 return Err(ShellError::GenericError(
                     "error when loading nuon text".into(),
                     "could not load nuon text".into(),
@@ -106,7 +102,7 @@ impl Command for FromNuon {
                         string_input,
                         "error when loading".into(),
                         "excess values when loading".into(),
-                        expr.span,
+                        element.span(),
                     )],
                 ));
             } else {
@@ -136,7 +132,7 @@ impl Command for FromNuon {
         } else {
             let mut pipeline = block.pipelines.remove(0);
 
-            if let Some(expr) = pipeline.expressions.get(1) {
+            if let Some(expr) = pipeline.elements.get(1) {
                 return Err(ShellError::GenericError(
                     "error when loading nuon text".into(),
                     "could not load nuon text".into(),
@@ -146,12 +142,12 @@ impl Command for FromNuon {
                         string_input,
                         "error when loading".into(),
                         "detected a pipeline in nuon file".into(),
-                        expr.span,
+                        expr.span(),
                     )],
                 ));
             }
 
-            if pipeline.expressions.is_empty() {
+            if pipeline.elements.is_empty() {
                 Expression {
                     expr: Expr::Nothing,
                     span: head,
@@ -159,7 +155,12 @@ impl Command for FromNuon {
                     ty: Type::Nothing,
                 }
             } else {
-                pipeline.expressions.remove(0)
+                match pipeline.elements.remove(0) {
+                    PipelineElement::Expression(_, expression)
+                    | PipelineElement::Redirection(_, _, expression)
+                    | PipelineElement::And(_, expression)
+                    | PipelineElement::Or(_, expression) => expression,
+                }
             }
         };
 
@@ -181,7 +182,7 @@ impl Command for FromNuon {
         let result = convert_to_value(expr, head, &string_input);
 
         match result {
-            Ok(result) => Ok(result.into_pipeline_data()),
+            Ok(result) => Ok(result.into_pipeline_data_with_metadata(metadata)),
             Err(err) => Err(ShellError::GenericError(
                 "error when loading nuon text".into(),
                 "could not load nuon text".into(),

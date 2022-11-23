@@ -19,22 +19,15 @@ pub fn get_columns<'a>(input: impl IntoIterator<Item = &'a Value>) -> Vec<String
     columns
 }
 
-/*
-*  Check to see if any of the columns inside the input
-*  does not exist in a vec of columns
-*/
-
-pub fn column_does_not_exist(inputs: Vec<String>, columns: Vec<String>) -> bool {
-    let mut set = HashSet::new();
-    for column in columns {
-        set.insert(column);
-    }
+// If a column doesn't exist in the input, return it.
+pub fn nonexistent_column(inputs: Vec<String>, columns: Vec<String>) -> Option<String> {
+    let set: HashSet<String> = HashSet::from_iter(columns.iter().cloned());
 
     for input in &inputs {
         if set.contains(input) {
             continue;
         }
-        return true;
+        return Some(input.clone());
     }
-    false
+    None
 }

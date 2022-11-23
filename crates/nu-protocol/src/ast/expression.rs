@@ -134,8 +134,8 @@ impl Expression {
                 }
 
                 if let Some(pipeline) = block.pipelines.get(0) {
-                    match pipeline.expressions.get(0) {
-                        Some(expr) => expr.has_in_variable(working_set),
+                    match pipeline.elements.get(0) {
+                        Some(element) => element.has_in_variable(working_set),
                         None => false,
                     }
                 } else {
@@ -150,8 +150,8 @@ impl Expression {
                 }
 
                 if let Some(pipeline) = block.pipelines.get(0) {
-                    match pipeline.expressions.get(0) {
-                        Some(expr) => expr.has_in_variable(working_set),
+                    match pipeline.elements.get(0) {
+                        Some(element) => element.has_in_variable(working_set),
                         None => false,
                     }
                 } else {
@@ -177,7 +177,7 @@ impl Expression {
             }
             Expr::CellPath(_) => false,
             Expr::DateTime(_) => false,
-            Expr::ExternalCall(head, args) => {
+            Expr::ExternalCall(head, args, _) => {
                 if head.has_in_variable(working_set) {
                     return true;
                 }
@@ -256,7 +256,7 @@ impl Expression {
                 let block = working_set.get_block(*block_id);
 
                 if let Some(pipeline) = block.pipelines.get(0) {
-                    if let Some(expr) = pipeline.expressions.get(0) {
+                    if let Some(expr) = pipeline.elements.get(0) {
                         expr.has_in_variable(working_set)
                     } else {
                         false
@@ -302,10 +302,10 @@ impl Expression {
                 let block = working_set.get_block(*block_id);
 
                 let new_expr = if let Some(pipeline) = block.pipelines.get(0) {
-                    if let Some(expr) = pipeline.expressions.get(0) {
-                        let mut new_expr = expr.clone();
-                        new_expr.replace_in_variable(working_set, new_var_id);
-                        Some(new_expr)
+                    if let Some(element) = pipeline.elements.get(0) {
+                        let mut new_element = element.clone();
+                        new_element.replace_in_variable(working_set, new_var_id);
+                        Some(new_element)
                     } else {
                         None
                     }
@@ -317,7 +317,7 @@ impl Expression {
 
                 if let Some(new_expr) = new_expr {
                     if let Some(pipeline) = block.pipelines.get_mut(0) {
-                        if let Some(expr) = pipeline.expressions.get_mut(0) {
+                        if let Some(expr) = pipeline.elements.get_mut(0) {
                             *expr = new_expr
                         }
                     }
@@ -332,11 +332,11 @@ impl Expression {
             Expr::Closure(block_id) => {
                 let block = working_set.get_block(*block_id);
 
-                let new_expr = if let Some(pipeline) = block.pipelines.get(0) {
-                    if let Some(expr) = pipeline.expressions.get(0) {
-                        let mut new_expr = expr.clone();
-                        new_expr.replace_in_variable(working_set, new_var_id);
-                        Some(new_expr)
+                let new_element = if let Some(pipeline) = block.pipelines.get(0) {
+                    if let Some(element) = pipeline.elements.get(0) {
+                        let mut new_element = element.clone();
+                        new_element.replace_in_variable(working_set, new_var_id);
+                        Some(new_element)
                     } else {
                         None
                     }
@@ -346,10 +346,10 @@ impl Expression {
 
                 let block = working_set.get_block_mut(*block_id);
 
-                if let Some(new_expr) = new_expr {
+                if let Some(new_element) = new_element {
                     if let Some(pipeline) = block.pipelines.get_mut(0) {
-                        if let Some(expr) = pipeline.expressions.get_mut(0) {
-                            *expr = new_expr
+                        if let Some(element) = pipeline.elements.get_mut(0) {
+                            *element = new_element
                         }
                     }
                 }
@@ -374,7 +374,7 @@ impl Expression {
             }
             Expr::CellPath(_) => {}
             Expr::DateTime(_) => {}
-            Expr::ExternalCall(head, args) => {
+            Expr::ExternalCall(head, args, _) => {
                 head.replace_in_variable(working_set, new_var_id);
                 for arg in args {
                     arg.replace_in_variable(working_set, new_var_id)
@@ -428,11 +428,11 @@ impl Expression {
             Expr::RowCondition(block_id) | Expr::Subexpression(block_id) => {
                 let block = working_set.get_block(*block_id);
 
-                let new_expr = if let Some(pipeline) = block.pipelines.get(0) {
-                    if let Some(expr) = pipeline.expressions.get(0) {
-                        let mut new_expr = expr.clone();
-                        new_expr.replace_in_variable(working_set, new_var_id);
-                        Some(new_expr)
+                let new_element = if let Some(pipeline) = block.pipelines.get(0) {
+                    if let Some(element) = pipeline.elements.get(0) {
+                        let mut new_element = element.clone();
+                        new_element.replace_in_variable(working_set, new_var_id);
+                        Some(new_element)
                     } else {
                         None
                     }
@@ -442,10 +442,10 @@ impl Expression {
 
                 let block = working_set.get_block_mut(*block_id);
 
-                if let Some(new_expr) = new_expr {
+                if let Some(new_element) = new_element {
                     if let Some(pipeline) = block.pipelines.get_mut(0) {
-                        if let Some(expr) = pipeline.expressions.get_mut(0) {
-                            *expr = new_expr
+                        if let Some(element) = pipeline.elements.get_mut(0) {
+                            *element = new_element
                         }
                     }
                 }
@@ -499,8 +499,8 @@ impl Expression {
                 let mut block = working_set.get_block(*block_id).clone();
 
                 for pipeline in block.pipelines.iter_mut() {
-                    for expr in pipeline.expressions.iter_mut() {
-                        expr.replace_span(working_set, replaced, new_span)
+                    for element in pipeline.elements.iter_mut() {
+                        element.replace_span(working_set, replaced, new_span)
                     }
                 }
 
@@ -510,8 +510,8 @@ impl Expression {
                 let mut block = working_set.get_block(*block_id).clone();
 
                 for pipeline in block.pipelines.iter_mut() {
-                    for expr in pipeline.expressions.iter_mut() {
-                        expr.replace_span(working_set, replaced, new_span)
+                    for element in pipeline.elements.iter_mut() {
+                        element.replace_span(working_set, replaced, new_span)
                     }
                 }
 
@@ -534,7 +534,7 @@ impl Expression {
             }
             Expr::CellPath(_) => {}
             Expr::DateTime(_) => {}
-            Expr::ExternalCall(head, args) => {
+            Expr::ExternalCall(head, args, _) => {
                 head.replace_span(working_set, replaced, new_span);
                 for arg in args {
                     arg.replace_span(working_set, replaced, new_span)
@@ -589,8 +589,8 @@ impl Expression {
                 let mut block = working_set.get_block(*block_id).clone();
 
                 for pipeline in block.pipelines.iter_mut() {
-                    for expr in pipeline.expressions.iter_mut() {
-                        expr.replace_span(working_set, replaced, new_span)
+                    for element in pipeline.elements.iter_mut() {
+                        element.replace_span(working_set, replaced, new_span)
                     }
                 }
 

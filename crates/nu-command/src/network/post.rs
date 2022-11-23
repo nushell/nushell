@@ -186,7 +186,7 @@ fn helper(
         Ok(u) => u,
         Err(_e) => {
             return Err(ShellError::UnsupportedInput(
-                "Incomplete or incorrect URL. Expected a full URL, e.g., https://www.example.com"
+                "Incomplete or incorrect url. Expected a full url, e.g., https://www.example.com"
                     .to_string(),
                 span,
             ));
@@ -430,6 +430,7 @@ fn response_to_buffer(
         exit_code: None,
         span,
         metadata: None,
+        trim_end_newline: false,
     }
 }
 // Only panics if the user agent is invalid but we define it statically so either

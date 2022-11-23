@@ -1,5 +1,5 @@
 use alphanumeric_sort::compare_str;
-use nu_engine::column::column_does_not_exist;
+use nu_engine::column::nonexistent_column;
 use nu_protocol::{ShellError, Span, Value};
 use std::cmp::Ordering;
 
@@ -78,15 +78,21 @@ pub fn sort(
         Value::Record {
             cols,
             vals: _input_vals,
-            ..
+            span: val_span,
         } => {
             if sort_columns.is_empty() {
-                println!("sort-by requires a column name to sort table data");
-                return Err(ShellError::CantFindColumn(span, span));
+                // This uses the same format as the 'requires a column name' error in split_by.rs
+                return Err(ShellError::GenericError(
+                    "expected name".into(),
+                    "requires a column name to sort table data".into(),
+                    Some(span),
+                    None,
+                    Vec::new(),
+                ));
             }
 
-            if column_does_not_exist(sort_columns.clone(), cols.to_vec()) {
-                return Err(ShellError::CantFindColumn(span, span));
+            if let Some(nonexistent) = nonexistent_column(sort_columns.clone(), cols.to_vec()) {
+                return Err(ShellError::CantFindColumn(nonexistent, span, *val_span));
             }
 
             // check to make sure each value in each column in the record

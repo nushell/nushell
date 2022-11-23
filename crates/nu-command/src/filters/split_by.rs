@@ -1,3 +1,4 @@
+use indexmap::IndexMap;
 use nu_engine::CallExt;
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
@@ -137,6 +138,7 @@ pub fn split_by(
             });
             Ok(split(&splitter, input, name)?)
         }
+        // This uses the same format as the 'requires a column name' error in sort_utils.rs
         None => Err(ShellError::GenericError(
             "expected name".into(),
             "requires a column name for splitting".into(),
@@ -165,6 +167,7 @@ pub fn split(
                     move |_, row: &Value| match row.get_data_by_key(&column_name.item) {
                         Some(group_key) => Ok(group_key.as_string()?),
                         None => Err(ShellError::CantFindColumn(
+                            column_name.item.to_string(),
                             column_name.span,
                             row.span().unwrap_or(column_name.span),
                         )),
@@ -211,9 +214,8 @@ pub fn data_split(
                         } = grouped
                         {
                             for (inner_idx, subset) in li.iter().enumerate() {
-                                let s = splits
-                                    .entry(sub_cols[inner_idx].clone())
-                                    .or_insert(indexmap::IndexMap::new());
+                                let s: &mut IndexMap<String, Value> =
+                                    splits.entry(sub_cols[inner_idx].clone()).or_default();
 
                                 s.insert(cols[idx].clone(), subset.clone());
                             }
