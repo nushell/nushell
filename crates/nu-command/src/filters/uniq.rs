@@ -1,5 +1,3 @@
-use std::collections::VecDeque;
-
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
@@ -135,6 +133,23 @@ fn to_lowercase(value: nu_protocol::Value) -> nu_protocol::Value {
     }
 }
 
+fn generate_results_with_count(head: Span, uniq_values: Vec<(Value, i64)>) -> Vec<Value> {
+    uniq_values
+        .into_iter()
+        .map(|item| Value::Record {
+            cols: vec!["value".to_string(), "count".to_string()],
+            vals: vec![
+                item.0,
+                Value::Int {
+                    val: item.1,
+                    span: head,
+                },
+            ],
+            span: head,
+        })
+        .collect()
+}
+
 fn uniq(
     _engine_state: &EngineState,
     _stack: &mut Stack,
@@ -142,73 +157,45 @@ fn uniq(
     input: PipelineData,
 ) -> Result<nu_protocol::PipelineData, nu_protocol::ShellError> {
     let head = call.head;
-    let should_show_count = call.has_flag("count");
-    let show_repeated = call.has_flag("repeated");
-    let ignore_case = call.has_flag("ignore-case");
-    let only_uniques = call.has_flag("unique");
+    let flag_show_count = call.has_flag("count");
+    let flag_show_repeated = call.has_flag("repeated");
+    let flag_ignore_case = call.has_flag("ignore-case");
+    let flag_only_uniques = call.has_flag("unique");
     let metadata = input.metadata();
 
-    let uniq_values = {
-        let counter = &mut Vec::new();
-        for line in input.into_iter() {
-            let item = if ignore_case {
-                to_lowercase(line)
+    let mut uniq_values = input
+        .into_iter()
+        .map(|item| {
+            if flag_ignore_case {
+                to_lowercase(item)
             } else {
-                line
-            };
-
-            if counter.is_empty() {
-                counter.push((item, 1));
-            } else {
-                // check if the value item already exists in our collection. if it does, increase counter, otherwise add it to the collection
-                match counter.iter_mut().find(|x| x.0 == item) {
-                    Some(x) => x.1 += 1,
-                    None => counter.push((item, 1)),
-                }
+                item
             }
-        }
-        counter.to_vec()
-    };
+        })
+        .fold(Vec::<(Value, i64)>::new(), |mut counter, item| {
+            match counter.iter_mut().find(|x| x.0 == item) {
+                Some(x) => x.1 += 1,
+                None => counter.push((item, 1)),
+            };
+            counter
+        });
 
-    let uv = uniq_values.to_vec();
-    let mut values = if show_repeated {
-        uv.into_iter().filter(|i| i.1 > 1).collect()
-    } else {
-        uv
-    };
-
-    if only_uniques {
-        values = values.into_iter().filter(|i| i.1 == 1).collect::<_>()
+    if flag_show_repeated {
+        uniq_values.retain(|value_count_pair| value_count_pair.1 > 1);
     }
 
-    let mut values_vec_deque = VecDeque::new();
-
-    if should_show_count {
-        for item in values {
-            values_vec_deque.push_back({
-                let cols = vec!["value".to_string(), "count".to_string()];
-                let vals = vec![
-                    item.0,
-                    Value::Int {
-                        val: item.1,
-                        span: head,
-                    },
-                ];
-                Value::Record {
-                    cols,
-                    vals,
-                    span: head,
-                }
-            });
-        }
-    } else {
-        for item in values {
-            values_vec_deque.push_back(item.0);
-        }
+    if flag_only_uniques {
+        uniq_values.retain(|value_count_pair| value_count_pair.1 == 1);
     }
+
+    let result = if flag_show_count {
+        generate_results_with_count(head, uniq_values)
+    } else {
+        uniq_values.into_iter().map(|v| v.0).collect()
+    };
 
     Ok(Value::List {
-        vals: values_vec_deque.into_iter().collect(),
+        vals: result,
         span: head,
     }
     .into_pipeline_data()
