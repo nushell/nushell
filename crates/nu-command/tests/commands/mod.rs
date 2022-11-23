@@ -53,10 +53,11 @@ mod path;
 mod platform;
 mod prepend;
 mod print;
-#[cfg(feature = "database")]
+#[cfg(feature = "sqlite")]
 mod query;
 mod random;
 mod range;
+mod redirection;
 mod reduce;
 mod reject;
 mod rename;

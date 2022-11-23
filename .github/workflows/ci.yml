@@ -35,7 +35,7 @@ jobs:
         uses: actions-rs/cargo@v1.0.1
         with:
           command: clippy
-          args: --features=extra --workspace --exclude nu_plugin_* -- -D warnings -D clippy::unwrap_used -A clippy::needless_collect
+          args: --workspace --exclude nu_plugin_* -- -D warnings -D clippy::unwrap_used -A clippy::needless_collect
 
   nu-tests:
     env:
@@ -45,19 +45,20 @@ jobs:
       fail-fast: true
       matrix:
         platform: [windows-latest, macos-latest, ubuntu-latest]
-        style: [extra, default]
+        style: [default, dataframe]
         rust:
           - stable
         include:
-          - style: extra
-            flags: "--features=extra"
           - style: default
             flags: ""
+          - style: dataframe
+            flags: "--features=dataframe"
         exclude:
+          # only test dataframes on Ubuntu (the fastest platform)
           - platform: windows-latest
-            style: default
+            style: dataframe
           - platform: macos-latest
-            style: default
+            style: dataframe
 
     runs-on: ${{ matrix.platform }}
 

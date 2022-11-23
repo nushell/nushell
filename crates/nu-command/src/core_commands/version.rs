@@ -193,7 +193,7 @@ fn features_enabled() -> Vec<String> {
         names.push("trash".to_string());
     }
 
-    #[cfg(feature = "database")]
+    #[cfg(feature = "sqlite")]
     {
         names.push("database".to_string());
     }
