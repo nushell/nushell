@@ -179,18 +179,27 @@ fn action(input: &Value, _args: &CellPathOnlyArgs, span: Span) -> Value {
         //     }],
         //     span,
         // },
+        // Value::List { vals, .. } => {
+        //     let mut values = vec![];
+        //     for (idx, val) in vals.iter().enumerate() {
+        //         values.push(Value::Record {
+        //             cols: vec![format!("col{}", idx)],
+        //             vals: vec![*val],
+        //             span,
+        //         })
+        //     }
+        //     values
+        // }
         Value::List { vals, .. } => {
             eprintln!("vals: {:?}", &vals);
             let mut cols = vec![];
             let mut values = vec![];
-            let mut idx = 0;
-            for val in vals {
-                cols.push(format!("col{}", idx.to_string()));
-                values.push(action(val, &CellPathOnlyArgs::from(vec![]), span));
-                idx += 1;
+            for (idx, val) in vals.iter().enumerate() {
+                cols.push(format!("col{}", idx));
+                values.push(val.clone());
             }
             Value::Record {
-                cols: cols,
+                cols,
                 vals: values,
                 span,
             }
