@@ -736,7 +736,6 @@ fn make_clickable_link(
     }
 }
 
-#[allow(clippy::bool_to_int_with_if)]
 fn convert_to_table(
     row_offset: usize,
     input: &[Value],
