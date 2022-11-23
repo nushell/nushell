@@ -30,7 +30,7 @@ fn row() {
             cwd: dirs.test(), pipeline(
             r#"
                 open caballeros.csv
-                | merge { open new_caballeros.csv }
+                | merge (open new_caballeros.csv)
                 | where country in ["Guayaquil Ecuador" "New Zealand"]
                 | get luck
                 | math sum
