@@ -54,16 +54,3 @@ fn fails_on_int() {
 
     assert!(actual.err.contains("unsupported_input"));
 }
-
-#[test]
-fn last_errors_on_negative_index() {
-    let actual = nu!(
-        cwd: ".", pipeline(
-        r#"
-                [1, 2, 3]
-                | last -2
-            "#
-    ));
-
-    assert!(actual.err.contains("use a positive value"));
-}
