@@ -450,7 +450,8 @@ fn helper(
         }
     }
 
-    match request.send() {
+    // Explicitly turn 4xx and 5xx statuses into errors.
+    match request.send().and_then(|r| r.error_for_status()) {
         Ok(resp) => match resp.headers().get("content-type") {
             Some(content_type) => {
                 let content_type = content_type.to_str().map_err(|e| {
