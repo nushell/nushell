@@ -736,6 +736,7 @@ fn make_clickable_link(
     }
 }
 
+#[allow(clippy::bool_to_int_with_if)]
 fn convert_to_table(
     row_offset: usize,
     input: &[Value],
@@ -822,7 +823,7 @@ fn convert_to_table(
 
             row.push(value);
         } else {
-            let skip_num = usize::from(with_index);
+            let skip_num = if with_index { 1 } else { 0 };
             for header in data[0].iter().skip(skip_num) {
                 let value =
                     create_table2_entry_basic(item, header.as_ref(), head, config, color_hm);
