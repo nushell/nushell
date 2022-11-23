@@ -1,8 +1,14 @@
+mod commands;
+mod events;
 mod pager;
+mod views;
 
 use std::collections::HashMap;
 
-use self::pager::{InformationView, Pager, RecordView, StyleConfig, TableConfig, ViewConfig};
+use self::{
+    pager::{Pager, StyleConfig, TableConfig, ViewConfig},
+    views::{InformationView, RecordView},
+};
 use nu_ansi_term::{Color, Style};
 use nu_color_config::{get_color_config, get_color_map};
 use nu_engine::{get_columns, CallExt};
