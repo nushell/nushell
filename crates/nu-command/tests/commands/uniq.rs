@@ -230,3 +230,24 @@ fn uniq_simple_vals_strs() {
     print!("{}", expected.out);
     assert_eq!(actual.out, expected.out);
 }
+
+#[test]
+fn with_table() {
+    let actual = nu!(
+        cwd: "tests/fixtures/formats", pipeline(
+        r#"
+            [[fruit day]; [apple monday] [apple friday] [apple monday] [pear monday] [orange tuesday]]
+            | uniq
+        "#
+    ));
+
+    let expected = nu!(
+        cwd: "tests/fixtures/formats", pipeline(
+        r#"
+        echo [[fruit day]; [apple monday] [apple friday] [pear monday] [orange tuesday]]
+        "#
+    ));
+    print!("{}", actual.out);
+    print!("{}", expected.out);
+    assert_eq!(actual.out, expected.out);
+}

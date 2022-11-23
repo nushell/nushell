@@ -162,11 +162,19 @@ fn size(
 ) -> Result<PipelineData, ShellError> {
     let span = call.head;
     input.map(
-        move |v| match v.as_string() {
-            Ok(s) => counter(&s, span),
-            Err(_) => Value::Error {
-                error: ShellError::PipelineMismatch("string".into(), span, span),
-            },
+        move |v| {
+            // First, obtain the span. If this fails, propagate the error that results.
+            let value_span = match v.span() {
+                Err(v) => return Value::Error { error: v },
+                Ok(v) => v,
+            };
+            // Now, check if it's a string.
+            match v.as_string() {
+                Ok(s) => counter(&s, span),
+                Err(_) => Value::Error {
+                    error: ShellError::PipelineMismatch("string".into(), span, value_span),
+                },
+            }
         },
         engine_state.ctrlc.clone(),
     )

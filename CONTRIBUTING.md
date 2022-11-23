@@ -51,21 +51,21 @@ The most comprehensive test suite we have is the `nu-test-support` crate. For te
   cargo run
   ```
 
-- Build and run with extra features. Currently extra features include dataframes and sqlite database support.
+- Build and run with dataframe support.
   ```shell
-  cargo run --features=extra
+  cargo run --features=dataframe
   ```
 
 - Run Clippy on Nushell:
 
   ```shell
-  cargo clippy --workspace --features=extra -- -D warnings -D clippy::unwrap_used -A clippy::needless_collect
+  cargo clippy --workspace -- -D warnings -D clippy::unwrap_used -A clippy::needless_collect
   ```
 
 - Run all tests:
 
   ```shell
-  cargo test --workspace --features=extra
+  cargo test --workspace
   ```
 
 - Run all tests for a specific command
@@ -91,11 +91,11 @@ The most comprehensive test suite we have is the `nu-test-support` crate. For te
 - To view verbose logs when developing, enable the `trace` log level.
 
   ```shell
-  cargo run --release --features=extra -- --log-level trace
+  cargo run --release -- --log-level trace
   ```
 
 - To redirect trace logs to a file, enable the `--log-target file` switch.
   ```shell
-  cargo run --release --features=extra -- --log-level trace --log-target file
+  cargo run --release -- --log-level trace --log-target file
   open $"($nu.temp-path)/nu-($nu.pid).log"
   ```

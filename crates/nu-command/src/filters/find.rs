@@ -44,18 +44,18 @@ impl Command for Find {
                 Some('r'),
             )
             .switch(
-                "insensitive",
-                "case-insensitive search for regex (?i)",
+                "ignore-case",
+                "case-insensitive regex mode; equivalent to (?i)",
                 Some('i'),
             )
             .switch(
                 "multiline",
-                "multi-line mode: ^ and $ match begin/end of line for regex (?m)",
+                "multi-line regex mode: ^ and $ match begin/end of line; equivalent to (?m)",
                 Some('m'),
             )
             .switch(
                 "dotall",
-                "dotall mode: allow a dot . to match newline character \\n for regex (?s)",
+                "dotall regex mode: allow a dot . to match newlines \\n; equivalent to (?s)",
                 Some('s'),
             )
             .switch("invert", "invert the match", Some('v'))
@@ -166,7 +166,7 @@ fn find_with_regex(
     let ctrlc = engine_state.ctrlc.clone();
     let config = engine_state.get_config().clone();
 
-    let insensitive = call.has_flag("insensitive");
+    let insensitive = call.has_flag("ignore-case");
     let multiline = call.has_flag("multiline");
     let dotall = call.has_flag("dotall");
     let invert = call.has_flag("invert");

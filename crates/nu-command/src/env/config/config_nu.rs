@@ -74,6 +74,7 @@ impl Command for ConfigNu {
             redirect_stdout: false,
             redirect_stderr: false,
             env_vars: env_vars_str,
+            trim_end_newline: false,
         };
 
         command.run_with_input(engine_state, stack, input, true)

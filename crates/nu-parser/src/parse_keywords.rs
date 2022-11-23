@@ -865,10 +865,13 @@ pub fn parse_export_in_module(
                     };
 
                 // Trying to warp the 'def' call into the 'export def' in a very clumsy way
-                if let Some(PipelineElement::Expression(Expression {
-                    expr: Expr::Call(ref def_call),
-                    ..
-                })) = pipeline.elements.get(0)
+                if let Some(PipelineElement::Expression(
+                    _,
+                    Expression {
+                        expr: Expr::Call(ref def_call),
+                        ..
+                    },
+                )) = pipeline.elements.get(0)
                 {
                     call = def_call.clone();
 
@@ -930,10 +933,13 @@ pub fn parse_export_in_module(
                     };
 
                 // Trying to warp the 'def' call into the 'export def' in a very clumsy way
-                if let Some(PipelineElement::Expression(Expression {
-                    expr: Expr::Call(ref def_call),
-                    ..
-                })) = pipeline.elements.get(0)
+                if let Some(PipelineElement::Expression(
+                    _,
+                    Expression {
+                        expr: Expr::Call(ref def_call),
+                        ..
+                    },
+                )) = pipeline.elements.get(0)
                 {
                     call = def_call.clone();
 
@@ -996,10 +1002,13 @@ pub fn parse_export_in_module(
                     };
 
                 // Trying to warp the 'def' call into the 'export def' in a very clumsy way
-                if let Some(PipelineElement::Expression(Expression {
-                    expr: Expr::Call(ref def_call),
-                    ..
-                })) = pipeline.elements.get(0)
+                if let Some(PipelineElement::Expression(
+                    _,
+                    Expression {
+                        expr: Expr::Call(ref def_call),
+                        ..
+                    },
+                )) = pipeline.elements.get(0)
                 {
                     call = def_call.clone();
 
@@ -1062,10 +1071,13 @@ pub fn parse_export_in_module(
                     };
 
                 // Trying to warp the 'alias' call into the 'export alias' in a very clumsy way
-                if let Some(PipelineElement::Expression(Expression {
-                    expr: Expr::Call(ref alias_call),
-                    ..
-                })) = pipeline.elements.get(0)
+                if let Some(PipelineElement::Expression(
+                    _,
+                    Expression {
+                        expr: Expr::Call(ref alias_call),
+                        ..
+                    },
+                )) = pipeline.elements.get(0)
                 {
                     call = alias_call.clone();
 
@@ -1128,10 +1140,13 @@ pub fn parse_export_in_module(
                     };
 
                 // Trying to warp the 'use' call into the 'export use' in a very clumsy way
-                if let Some(PipelineElement::Expression(Expression {
-                    expr: Expr::Call(ref use_call),
-                    ..
-                })) = pipeline.elements.get(0)
+                if let Some(PipelineElement::Expression(
+                    _,
+                    Expression {
+                        expr: Expr::Call(ref use_call),
+                        ..
+                    },
+                )) = pipeline.elements.get(0)
                 {
                     call = use_call.clone();
 
@@ -1313,7 +1328,7 @@ pub fn parse_module_block(
 
     for pipeline in &output.block {
         if pipeline.commands.len() == 1 {
-            if let LiteElement::Command(command) = &pipeline.commands[0] {
+            if let LiteElement::Command(_, command) = &pipeline.commands[0] {
                 parse_def_predecl(working_set, &command.parts, expand_aliases_denylist);
             }
         }
@@ -1327,7 +1342,7 @@ pub fn parse_module_block(
         .map(|pipeline| {
             if pipeline.commands.len() == 1 {
                 match &pipeline.commands[0] {
-                    LiteElement::Command(command) => {
+                    LiteElement::Command(_, command) => {
                         let name = working_set.get_span_contents(command.parts[0]);
 
                         let (pipeline, err) = match name {
@@ -1407,9 +1422,9 @@ pub fn parse_module_block(
 
                         pipeline
                     }
-                    LiteElement::Or(command)
-                    | LiteElement::And(command)
-                    | LiteElement::Redirection(command) => (garbage_pipeline(&command.parts)),
+                    LiteElement::Or(_, command)
+                    | LiteElement::And(_, command)
+                    | LiteElement::Redirection(_, _, command) => garbage_pipeline(&command.parts),
                 }
             } else {
                 error = Some(ParseError::Expected("not a pipeline".into(), span));

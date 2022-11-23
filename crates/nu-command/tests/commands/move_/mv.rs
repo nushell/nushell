@@ -403,7 +403,7 @@ fn mv_directory_with_same_name() {
             "#
         );
 
-        assert!(actual.err.contains("Directory not empty"));
+        assert!(actual.err.contains("is not empty"));
     })
 }
 

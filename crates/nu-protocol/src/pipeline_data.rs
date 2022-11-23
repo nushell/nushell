@@ -6,6 +6,12 @@ use crate::{
 use nu_utils::{stderr_write_all_and_flush, stdout_write_all_and_flush};
 use std::sync::{atomic::AtomicBool, Arc};
 
+const LINE_ENDING: &str = if cfg!(target_os = "windows") {
+    "\r\n"
+} else {
+    "\n"
+};
+
 /// The foundational abstraction for input and output to commands
 ///
 /// This represents either a single Value or a stream of values coming into the command or leaving a command.
@@ -45,6 +51,7 @@ pub enum PipelineData {
         exit_code: Option<ListStream>,
         span: Span,
         metadata: Option<PipelineMetadata>,
+        trim_end_newline: bool,
     },
 }
 
@@ -121,6 +128,7 @@ impl PipelineData {
             PipelineData::ExternalStream {
                 stdout: Some(mut s),
                 exit_code,
+                trim_end_newline,
                 ..
             } => {
                 let mut items = vec![];
@@ -141,6 +149,8 @@ impl PipelineData {
                     let _: Vec<_> = exit_code.into_iter().collect();
                 }
 
+                // NOTE: currently trim-end-newline only handles for string output.
+                // For binary, user might need origin data.
                 if s.is_binary {
                     let mut output = vec![];
                     for item in items {
@@ -168,6 +178,9 @@ impl PipelineData {
                             }
                         }
                     }
+                    if trim_end_newline {
+                        output.truncate(output.trim_end_matches(LINE_ENDING).len())
+                    }
                     Value::String {
                         val: output,
                         span, // FIXME?
@@ -193,7 +206,9 @@ impl PipelineData {
             PipelineData::ListStream(s, ..) => Ok(s.into_string(separator, config)),
             PipelineData::ExternalStream { stdout: None, .. } => Ok(String::new()),
             PipelineData::ExternalStream {
-                stdout: Some(s), ..
+                stdout: Some(s),
+                trim_end_newline,
+                ..
             } => {
                 let mut output = String::new();
 
@@ -205,6 +220,9 @@ impl PipelineData {
                         },
                         Err(e) => return Err(e),
                     }
+                }
+                if trim_end_newline {
+                    output.truncate(output.trim_end_matches(LINE_ENDING).len());
                 }
                 Ok(output)
             }
@@ -294,11 +312,15 @@ impl PipelineData {
             }
             PipelineData::ExternalStream {
                 stdout: Some(stream),
+                trim_end_newline,
                 ..
             } => {
                 let collected = stream.into_bytes()?;
 
-                if let Ok(st) = String::from_utf8(collected.clone().item) {
+                if let Ok(mut st) = String::from_utf8(collected.clone().item) {
+                    if trim_end_newline {
+                        st.truncate(st.trim_end_matches(LINE_ENDING).len());
+                    }
                     Ok(f(Value::String {
                         val: st,
                         span: collected.span,
@@ -348,11 +370,15 @@ impl PipelineData {
             }
             PipelineData::ExternalStream {
                 stdout: Some(stream),
+                trim_end_newline,
                 ..
             } => {
                 let collected = stream.into_bytes()?;
 
-                if let Ok(st) = String::from_utf8(collected.clone().item) {
+                if let Ok(mut st) = String::from_utf8(collected.clone().item) {
+                    if trim_end_newline {
+                        st.truncate(st.trim_end_matches(LINE_ENDING).len())
+                    }
                     Ok(f(Value::String {
                         val: st,
                         span: collected.span,
@@ -397,11 +423,15 @@ impl PipelineData {
             }
             PipelineData::ExternalStream {
                 stdout: Some(stream),
+                trim_end_newline,
                 ..
             } => {
                 let collected = stream.into_bytes()?;
 
-                if let Ok(st) = String::from_utf8(collected.clone().item) {
+                if let Ok(mut st) = String::from_utf8(collected.clone().item) {
+                    if trim_end_newline {
+                        st.truncate(st.trim_end_matches(LINE_ENDING).len())
+                    }
                     let v = Value::String {
                         val: st,
                         span: collected.span,

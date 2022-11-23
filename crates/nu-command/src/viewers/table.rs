@@ -256,6 +256,7 @@ fn handle_table_command(
             exit_code: None,
             span: call.head,
             metadata: None,
+            trim_end_newline: false,
         }),
         PipelineData::Value(Value::List { vals, .. }, metadata) => handle_row_stream(
             engine_state,
@@ -709,6 +710,7 @@ fn handle_row_stream(
         exit_code: None,
         span: head,
         metadata: None,
+        trim_end_newline: false,
     })
 }
 
@@ -971,7 +973,7 @@ fn convert_to_table2<'a>(
             data[row].push(value);
         }
 
-        let count_columns = with_index.then(|| 2).unwrap_or(1);
+        let count_columns = if with_index { 2 } else { 1 };
         let size = (data.len(), count_columns);
         let table = NuTable::new(data, size, usize::MAX, with_header, with_index);
 

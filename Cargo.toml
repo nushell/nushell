@@ -14,6 +14,13 @@ version = "0.71.1"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
+[package.metadata.binstall]
+pkg-url = "{ repo }/releases/download/{ version }/{ name }-{ version }-{ target }.{ archive-format }"
+pkg-fmt = "tgz"
+
+[package.metadata.binstall.overrides.x86_64-pc-windows-msvc]
+pkg-fmt = "zip"
+
 [workspace]
 members = [
 	"crates/nu-cli",
@@ -84,10 +91,12 @@ itertools = "0.10.3"
 
 [features]
 plugin = ["nu-plugin", "nu-cli/plugin", "nu-parser/plugin", "nu-command/plugin", "nu-protocol/plugin", "nu-engine/plugin"]
-extra = ["default", "dataframe", "database"]
-default = ["plugin", "which-support", "trash-support"]
+# extra used to be more useful but now it's the same as default. Leaving it in for backcompat with existing build scripts
+extra = ["default"]
+default = ["plugin", "which-support", "trash-support", "sqlite"]
 stable = ["default"]
 wasi = []
+
 # Enable to statically link OpenSSL; otherwise the system version will be used. Not enabled by default because it takes a while to build
 static-link-openssl = ["dep:openssl"]
 
@@ -100,8 +109,8 @@ trash-support = ["nu-command/trash-support"]
 # Dataframe feature for nushell
 dataframe = ["nu-command/dataframe"]
 
-# Database commands for nushell
-database = ["nu-command/database"]
+# SQLite commands for nushell
+sqlite = ["nu-command/sqlite"]
 
 [profile.release]
 opt-level = "s" # Optimize for size

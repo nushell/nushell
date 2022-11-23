@@ -1,9 +1,9 @@
-use nu_engine::{eval_block, CallExt};
+use nu_engine::CallExt;
 use nu_protocol::ast::Call;
-use nu_protocol::engine::{Closure, Command, EngineState, Stack};
+use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
-    Category, Example, FromValue, IntoInterruptiblePipelineData, IntoPipelineData, PipelineData,
-    ShellError, Signature, Span, SyntaxShape, Type, Value,
+    Category, Example, IntoInterruptiblePipelineData, IntoPipelineData, PipelineData, ShellError,
+    Signature, Span, SyntaxShape, Type, Value,
 };
 
 #[derive(Clone)]
@@ -19,8 +19,7 @@ impl Command for Merge {
     }
 
     fn extra_usage(&self) -> &str {
-        r#"You may provide a column structure to merge, or a block
-that generates a column structure.
+        r#"You may provide a column structure to merge
 
 When merging tables, row 0 of the input table is overwritten
 with values from row 0 of the provided table, then
@@ -35,7 +34,7 @@ repeating this process with row 1, and so on."#
             ])
             .required(
                 "block",
-                // Both this and `update` should have a shape more like <record> | <table> | <block> than just <any>. -Leon 2022-10-27
+                // Both this and `update` should have a shape more like <record> | <table> than just <any>. -Leon 2022-10-27
                 SyntaxShape::Any,
                 "the new value to merge with, or a block that produces it",
             )
@@ -45,7 +44,7 @@ repeating this process with row 1, and so on."#
     fn examples(&self) -> Vec<Example> {
         vec![
             Example {
-                example: "[a b c] | wrap name | merge { [1 2 3] | wrap index }",
+                example: "[a b c] | wrap name | merge ( [1 2 3] | wrap index )",
                 description: "Add an 'index' column to the input table",
                 result: Some(Value::List {
                     vals: vec![
@@ -75,14 +74,6 @@ repeating this process with row 1, and so on."#
                 }),
             },
             Example {
-                example: "{a: 1, b: 3} | merge { { b: 2 } | merge { c: 4 } }",
-                description: "Merge records, overwriting overlapping values",
-                result: Some(Value::test_record(
-                    vec!["a", "b", "c"],
-                    vec![Value::test_int(1), Value::test_int(2), Value::test_int(4)],
-                )),
-            },
-            Example {
                 example: "[{columnA: A0 columnB: B0}] | merge [{columnA: 'A0*'}]",
                 description: "Merge two tables, overwriting overlapping columns",
                 result: Some(Value::List {
@@ -103,39 +94,11 @@ repeating this process with row 1, and so on."#
         call: &Call,
         input: PipelineData,
     ) -> Result<nu_protocol::PipelineData, nu_protocol::ShellError> {
-        let replacement: Value = call.req(engine_state, stack, 0)?;
+        let merge_value: Value = call.req(engine_state, stack, 0)?;
 
         let metadata = input.metadata();
         let ctrlc = engine_state.ctrlc.clone();
         let call = call.clone();
-
-        let argument_was_block = replacement.as_block().is_ok();
-
-        let merge_value: Value = if argument_was_block {
-            // When given a block, run it to obtain the matching value.
-            let capture_block: Closure = FromValue::from_value(&replacement)?;
-
-            let mut stack = stack.captures_to_stack(&capture_block.captures);
-            stack.with_env(&stack.env_vars.clone(), &stack.env_hidden.clone());
-
-            let block = engine_state.get_block(capture_block.block_id);
-            let result = eval_block(
-                engine_state,
-                &mut stack,
-                block,
-                PipelineData::new(call.head),
-                call.redirect_stdout,
-                call.redirect_stderr,
-            );
-
-            match result {
-                Ok(res) => res.into_value(call.head),
-                Err(e) => return Err(e),
-            }
-        } else {
-            // Otherwise, just use the passed-in value as-is.
-            replacement
-        };
 
         match (&input, merge_value) {
             // table (list of records)
@@ -202,16 +165,10 @@ repeating this process with row 1, and so on."#
                 }
                 .into_pipeline_data())
             }
-            (PipelineData::Value(val, ..), merge_value) => {
+            (PipelineData::Value(val, ..), ..) => {
                 // Only point the "value originates here" arrow at the merge value
                 // if it was generated from a block. Otherwise, point at the pipeline value. -Leon 2022-10-27
-                let span = if argument_was_block {
-                    if merge_value.span()? == Span::test_data() {
-                        Span::new(call.head.start, call.head.start)
-                    } else {
-                        merge_value.span()?
-                    }
-                } else if val.span()? == Span::test_data() {
+                let span = if val.span()? == Span::test_data() {
                     Span::new(call.head.start, call.head.start)
                 } else {
                     val.span()?
