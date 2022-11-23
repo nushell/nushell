@@ -83,9 +83,10 @@ rstest = {version = "0.15.0", default-features = false}
 itertools = "0.10.3"
 
 [features]
-plugin = ["nu-plugin", "nu-cli/plugin", "nu-parser/plugin", "nu-command/plugin", "nu-protocol/plugin", "nu-engine/plugin", "database"]
+plugin = ["nu-plugin", "nu-cli/plugin", "nu-parser/plugin", "nu-command/plugin", "nu-protocol/plugin", "nu-engine/plugin"]
+# extra used to be more useful but now it's the same as default. Leaving it in for backcompat with existing build scripts
 extra = ["default"]
-default = ["plugin", "which-support", "trash-support"]
+default = ["plugin", "which-support", "trash-support", "sqlite"]
 stable = ["default"]
 wasi = []
 
@@ -101,8 +102,8 @@ trash-support = ["nu-command/trash-support"]
 # Dataframe feature for nushell
 dataframe = ["nu-command/dataframe"]
 
-# Database commands for nushell
-database = ["nu-command/database"]
+# SQLite commands for nushell
+sqlite = ["nu-command/sqlite"]
 
 [profile.release]
 opt-level = "s" # Optimize for size

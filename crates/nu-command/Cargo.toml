@@ -148,7 +148,7 @@ trash-support = ["trash"]
 which-support = ["which"]
 plugin = ["nu-parser/plugin"]
 dataframe = ["polars", "num", "sqlparser"]
-database = ["rusqlite"] # TODO: given that rusqlite is included in reedline, should we just always include it?
+sqlite = ["rusqlite"] # TODO: given that rusqlite is included in reedline, should we just always include it?
 
 [build-dependencies]
 shadow-rs = { version = "0.16.1", default-features = false }

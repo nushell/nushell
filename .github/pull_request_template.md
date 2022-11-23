@@ -16,8 +16,8 @@ Don't forget to add tests that cover your changes.
 Make sure you've run and fixed any issues with these commands:
 
 - `cargo fmt --all -- --check` to check standard code formatting (`cargo fmt --all` applies these changes)
-- `cargo clippy --workspace --features=extra -- -D warnings -D clippy::unwrap_used -A clippy::needless_collect` to check that you're using the standard code style
-- `cargo test --workspace --features=extra` to check that all tests pass
+- `cargo clippy --workspace -- -D warnings -D clippy::unwrap_used -A clippy::needless_collect` to check that you're using the standard code style
+- `cargo test --workspace` to check that all tests pass
 
 # After Submitting
 
