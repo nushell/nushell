@@ -181,6 +181,7 @@ struct RecordLayer<'a> {
     index_row: usize,
     index_column: usize,
     name: Option<String>,
+    was_transposed: bool,
 }
 
 impl<'a> RecordLayer<'a> {
@@ -194,6 +195,7 @@ impl<'a> RecordLayer<'a> {
             index_row: 0,
             index_column: 0,
             name: None,
+            was_transposed: false,
         }
     }
 
@@ -579,30 +581,64 @@ fn get_percentage(value: usize, max: usize) -> usize {
 
 fn transpose_table(layer: &mut RecordLayer<'_>) {
     let count_rows = layer.count_rows();
-
-    let data = _transpose_table(layer);
-    layer.records = Cow::Owned(data);
-    layer.columns = (1..count_rows + 1 + 1).map(|i| i.to_string()).collect();
-}
-
-fn _transpose_table(layer: &RecordLayer<'_>) -> Vec<Vec<Value>> {
-    let count_rows = layer.count_rows();
     let count_columns = layer.count_columns();
 
-    let mut data = vec![vec![Value::default(); count_rows + 1]; count_columns];
-    // first column will contains column names
-    for (column, column_name) in layer.columns.iter().enumerate() {
-        let value = Value::String {
-            val: column_name.to_string(),
-            span: NuSpan::unknown(),
+    if layer.was_transposed {
+        let data = match &mut layer.records {
+            Cow::Owned(data) => data,
+            Cow::Borrowed(_) => unreachable!("must never happen"),
         };
 
-        data[column][0] = value;
+        let headers = pop_first_column(data);
+        let headers = headers
+            .into_iter()
+            .map(|value| match value {
+                Value::String { val, .. } => val,
+                _ => unreachable!("must never happen"),
+            })
+            .collect();
+
+        let data = _transpose_table(data, count_rows, count_columns - 1);
+
+        layer.records = Cow::Owned(data);
+        layer.columns = Cow::Owned(headers);
+    } else {
+        let mut data = _transpose_table(&layer.records, count_rows, count_columns);
+
+        for (column, column_name) in layer.columns.iter().enumerate() {
+            let value = Value::String {
+                val: column_name.to_string(),
+                span: NuSpan::unknown(),
+            };
+
+            data[column].insert(0, value);
+        }
+
+        layer.records = Cow::Owned(data);
+        layer.columns = (1..count_rows + 1 + 1).map(|i| i.to_string()).collect();
     }
 
-    for (row, values) in layer.records.iter().enumerate() {
+    layer.was_transposed = !layer.was_transposed;
+}
+
+fn pop_first_column(values: &mut [Vec<Value>]) -> Vec<Value> {
+    let mut data = vec![Value::default(); values.len()];
+    for (row, values) in values.iter_mut().enumerate() {
+        data[row] = values.remove(0);
+    }
+
+    data
+}
+
+fn _transpose_table(
+    values: &[Vec<Value>],
+    count_rows: usize,
+    count_columns: usize,
+) -> Vec<Vec<Value>> {
+    let mut data = vec![vec![Value::default(); count_rows]; count_columns];
+    for (row, values) in values.iter().enumerate() {
         for (column, value) in values.iter().enumerate() {
-            data[column][row + 1] = value.to_owned();
+            data[column][row] = value.to_owned();
         }
     }
 
