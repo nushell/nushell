@@ -57,16 +57,18 @@ pub trait ViewCommand {
     ) -> Result<Self::View>;
 }
 
+#[derive(Debug, Default)]
 pub struct HelpManual {
-    name: &'static str,
-    description: &'static str,
-    arguments: Vec<HelpExample>,
-    examples: Vec<HelpExample>,
+    pub name: &'static str,
+    pub description: &'static str,
+    pub arguments: Vec<HelpExample>,
+    pub examples: Vec<HelpExample>,
 }
 
+#[derive(Debug, Default)]
 pub struct HelpExample {
-    example: &'static str,
-    description: &'static str,
+    pub example: &'static str,
+    pub description: &'static str,
 }
 
 pub enum Command {

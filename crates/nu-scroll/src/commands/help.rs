@@ -7,25 +7,25 @@ use nu_protocol::{
 
 use crate::{nu_common::NuSpan, pager::TableConfig, views::RecordView};
 
-use super::{
-    nu::NuCmd, quit::QuitCmd, r#try::TryCmd, HelpExample, HelpManual, SimpleCommand, ViewCommand,
-};
+use super::{HelpExample, HelpManual, ViewCommand};
 
 #[derive(Debug, Default)]
 pub struct HelpCmd {
-    command: String,
+    input_command: String,
     table_cfg: TableConfig,
+    supported_commands: Vec<HelpManual>,
 }
 
 impl HelpCmd {
-    pub fn new(table_cfg: TableConfig) -> Self {
+    pub const NAME: &'static str = "help";
+
+    pub fn new(commands: Vec<HelpManual>, table_cfg: TableConfig) -> Self {
         Self {
-            command: String::new(),
+            input_command: String::new(),
+            supported_commands: commands,
             table_cfg,
         }
     }
-
-    pub const NAME: &'static str = "help";
 }
 
 impl ViewCommand for HelpCmd {
@@ -68,40 +68,23 @@ impl ViewCommand for HelpCmd {
 
         let cmd = cmd.trim();
 
-        self.command = cmd.to_owned();
+        self.input_command = cmd.to_owned();
 
         Ok(())
     }
 
     fn spawn(&mut self, _: &EngineState, _: &mut Stack, _: Option<Value>) -> Result<Self::View> {
-        if self.command.is_empty() {
-            let (headers, data) = help_frame_data();
+        if self.input_command.is_empty() {
+            let (headers, data) = help_frame_data(&self.supported_commands);
             let view = RecordView::new(headers, data, self.table_cfg.clone());
             return Ok(view);
         }
 
-        let manual = match self.command.as_str() {
-            NuCmd::NAME => NuCmd::default().help(),
-            TryCmd::NAME => TryCmd::default().help(),
-            HelpCmd::NAME => HelpCmd::default().help(),
-            QuitCmd::NAME => QuitCmd::default().help(),
-            _ => {
-                return Err(io::Error::new(
-                    io::ErrorKind::Other,
-                    "a given command was not found",
-                ))
-            }
-        };
-
-        let manual = match manual {
-            Some(manual) => manual,
-            None => {
-                return Err(io::Error::new(
-                    io::ErrorKind::Other,
-                    "a given command doesn't have a manual",
-                ))
-            }
-        };
+        let manual = self
+            .supported_commands
+            .iter()
+            .find(|manual| manual.name == self.input_command)
+            .ok_or_else(|| io::Error::new(io::ErrorKind::Other, "a given command was not found"))?;
 
         let (headers, data) = help_manual_data(manual);
         let view = RecordView::new(headers, data, self.table_cfg.clone());
@@ -110,7 +93,7 @@ impl ViewCommand for HelpCmd {
     }
 }
 
-fn help_frame_data() -> (Vec<String>, Vec<Vec<Value>>) {
+fn help_frame_data(supported_commands: &[HelpManual]) -> (Vec<String>, Vec<Vec<Value>>) {
     macro_rules! null {
         () => {
             Value::Nothing {
@@ -128,23 +111,20 @@ fn help_frame_data() -> (Vec<String>, Vec<Vec<Value>>) {
         };
     }
 
-    let commands_headers = [String::from("name"), String::from("description")];
-
-    #[rustfmt::skip]
-    let supported_commands = [
-        ("nu",   "Run a custom `nu` command with showed table as an input"),
-        ("help", "Print a help menu")
-    ];
-
-    let commands = Value::List {
-        vals: supported_commands
-            .iter()
-            .map(|(name, description)| Value::Record {
-                cols: commands_headers.to_vec(),
-                vals: vec![nu_str!(name), nu_str!(description)],
+    let commands = supported_commands
+        .iter()
+        .map(|manual| {
+            let (cols, mut vals) = help_manual_data(manual);
+            let vals = vals.remove(0);
+            Value::Record {
+                cols,
+                vals,
                 span: NuSpan::unknown(),
-            })
-            .collect(),
+            }
+        })
+        .collect();
+    let commands = Value::List {
+        vals: commands,
         span: NuSpan::unknown(),
     };
 
@@ -178,7 +158,7 @@ fn help_frame_data() -> (Vec<String>, Vec<Vec<Value>>) {
     (headers, data)
 }
 
-fn help_manual_data(manual: HelpManual) -> (Vec<String>, Vec<Vec<Value>>) {
+fn help_manual_data(manual: &HelpManual) -> (Vec<String>, Vec<Vec<Value>>) {
     macro_rules! nu_str {
         ($text:expr) => {
             Value::String {

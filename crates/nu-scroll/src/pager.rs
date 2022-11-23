@@ -1101,11 +1101,40 @@ fn find_command(args: &str, table_cfg: &TableConfig) -> Option<Command> {
         };
     }
 
+    macro_rules! manual {
+        ($name:tt) => {
+            create_help_manual($name::NAME, $name::default().help())
+        };
+    }
+
     cmd_view!(NuCmd::NAME, NuCmd::new(table_cfg.clone()));
     cmd_view!(TryCmd::NAME, TryCmd::new(table_cfg.clone()));
-    cmd_view!(HelpCmd::NAME, HelpCmd::new(table_cfg.clone()));
+    cmd_view!(
+        HelpCmd::NAME,
+        HelpCmd::new(
+            vec![
+                manual!(NuCmd),
+                manual!(TryCmd),
+                manual!(QuitCmd),
+                manual!(HelpCmd),
+            ],
+            table_cfg.clone()
+        )
+    );
 
     cmd_react!(QuitCmd::NAME, QuitCmd::default());
 
     None
+}
+
+fn create_help_manual(name: &'static str, manual: Option<HelpManual>) -> HelpManual {
+    match manual {
+        Some(manual) => manual,
+        None => HelpManual {
+            name,
+            description: "",
+            arguments: Vec::new(),
+            examples: Vec::new(),
+        },
+    }
 }
