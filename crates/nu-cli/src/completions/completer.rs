@@ -134,10 +134,10 @@ impl NuCompleter {
         for pipeline in output.pipelines.into_iter() {
             for pipeline_element in pipeline.elements {
                 match pipeline_element {
-                    PipelineElement::Expression(expr)
-                    | PipelineElement::Redirect(expr)
-                    | PipelineElement::And(expr)
-                    | PipelineElement::Or(expr) => {
+                    PipelineElement::Expression(_, expr)
+                    | PipelineElement::Redirection(_, _, expr)
+                    | PipelineElement::And(_, expr)
+                    | PipelineElement::Or(_, expr) => {
                         let flattened: Vec<_> = flatten_expression(&working_set, &expr);
                         let span_offset: usize = alias_offset.iter().sum();
                         let mut spans: Vec<String> = vec![];

@@ -1,12 +1,15 @@
 use crate::ParseError;
 use nu_protocol::Span;
 
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Debug, PartialEq, Eq, Clone, Copy)]
 pub enum TokenContents {
     Item,
     Comment,
     Pipe,
     Semicolon,
+    OutGreaterThan,
+    ErrGreaterThan,
+    OutErrGreaterThan,
     Eol,
 }
 
@@ -74,7 +77,7 @@ pub fn lex_item(
     span_offset: usize,
     additional_whitespace: &[u8],
     special_tokens: &[u8],
-) -> (Span, Option<ParseError>) {
+) -> (Token, Option<ParseError>) {
     // This variable tracks the starting character of a string literal, so that
     // we remain inside the string literal lexer mode until we encounter the
     // closing quote.
@@ -113,7 +116,10 @@ pub fn lex_item(
                     let span = Span::new(span_offset + token_start, span_offset + *curr_offset);
 
                     return (
-                        span,
+                        Token {
+                            contents: TokenContents::Item,
+                            span,
+                        },
                         Some(ParseError::UnexpectedEof(
                             (start as char).to_string(),
                             Span {
@@ -195,7 +201,13 @@ pub fn lex_item(
             },
         );
 
-        return (span, Some(cause));
+        return (
+            Token {
+                contents: TokenContents::Item,
+                span,
+            },
+            Some(cause),
+        );
     }
 
     if let Some(delim) = quote_start {
@@ -203,7 +215,10 @@ pub fn lex_item(
         // anyone wanting to consume this partial parse (e.g., completions) will be able to get
         // correct information from the non-lite parse.
         return (
-            span,
+            Token {
+                contents: TokenContents::Item,
+                span,
+            },
             Some(ParseError::UnexpectedEof(
                 (delim as char).to_string(),
                 Span {
@@ -217,12 +232,44 @@ pub fn lex_item(
     // If we didn't accumulate any characters, it's an unexpected error.
     if *curr_offset - token_start == 0 {
         return (
-            span,
+            Token {
+                contents: TokenContents::Item,
+                span,
+            },
             Some(ParseError::UnexpectedEof("command".to_string(), span)),
         );
     }
 
-    (span, None)
+    match &input[(span.start - span_offset)..(span.end - span_offset)] {
+        b"out>" => (
+            Token {
+                contents: TokenContents::OutGreaterThan,
+                span,
+            },
+            None,
+        ),
+        b"err>" => (
+            Token {
+                contents: TokenContents::ErrGreaterThan,
+                span,
+            },
+            None,
+        ),
+        b"out+err>" | b"err+out>" => (
+            Token {
+                contents: TokenContents::OutErrGreaterThan,
+                span,
+            },
+            None,
+        ),
+        _ => (
+            Token {
+                contents: TokenContents::Item,
+                span,
+            },
+            None,
+        ),
+    }
 }
 
 pub fn lex(
@@ -347,7 +394,7 @@ pub fn lex(
         } else {
             // Otherwise, try to consume an unclassified token.
 
-            let (span, err) = lex_item(
+            let (token, err) = lex_item(
                 input,
                 &mut curr_offset,
                 span_offset,
@@ -358,7 +405,7 @@ pub fn lex(
                 error = err;
             }
             is_complete = true;
-            output.push(Token::new(TokenContents::Item, span));
+            output.push(token);
         }
     }
     (output, error)

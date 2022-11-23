@@ -22,7 +22,7 @@ impl Command for Sort {
         ), (Type::Record(vec![]), Type::Record(vec![])),])
     .switch("reverse", "Sort in reverse order", Some('r'))
             .switch(
-                "insensitive",
+                "ignore-case",
                 "Sort string-based columns case-insensitively",
                 Some('i'),
             )
@@ -133,7 +133,7 @@ impl Command for Sort {
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
         let reverse = call.has_flag("reverse");
-        let insensitive = call.has_flag("insensitive");
+        let insensitive = call.has_flag("ignore-case");
         let metadata = &input.metadata();
 
         match input {

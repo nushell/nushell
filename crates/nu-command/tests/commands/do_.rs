@@ -20,7 +20,7 @@ fn capture_errors_works_for_external() {
         do -c {nu --testbin fail}
         "#
     ));
-    assert!(actual.err.contains("External command runs to failed"));
+    assert!(actual.err.contains("External command failed"));
     assert_eq!(actual.out, "");
 }
 
@@ -32,7 +32,7 @@ fn capture_errors_works_for_external_with_pipeline() {
         do -c {nu --testbin fail} | echo `text`
         "#
     ));
-    assert!(actual.err.contains("External command runs to failed"));
+    assert!(actual.err.contains("External command failed"));
     assert_eq!(actual.out, "");
 }
 
@@ -44,7 +44,7 @@ fn capture_errors_works_for_external_with_semicolon() {
         do -c {nu --testbin fail}; echo `text`
         "#
     ));
-    assert!(actual.err.contains("External command runs to failed"));
+    assert!(actual.err.contains("External command failed"));
     assert_eq!(actual.out, "");
 }
 
@@ -58,6 +58,42 @@ fn do_with_semicolon_break_on_failed_external() {
     ));
 
     assert_eq!(actual.out, "");
+}
+
+#[test]
+fn ignore_shell_errors_works_for_external_with_semicolon() {
+    let actual = nu!(
+        cwd: ".", pipeline(
+        r#"
+        do -s { fail }; `text`
+        "#
+    ));
+
+    assert_eq!(actual.err, "");
+    assert_eq!(actual.out, "text");
+}
+
+#[test]
+fn ignore_program_errors_works_for_external_with_semicolon() {
+    let actual = nu!(
+        cwd: ".", pipeline(
+        r#"
+        do -p { nu -c 'exit 1' }; `text`
+        "#
+    ));
+
+    assert_eq!(actual.err, "");
+    assert_eq!(actual.out, "text");
+}
+
+#[test]
+fn ignore_error_should_work_for_external_command() {
+    let actual = nu!(cwd: ".", pipeline(
+        r#"do -i { nu --testbin fail asdf }; echo post"#
+    ));
+
+    assert_eq!(actual.err, "");
+    assert_eq!(actual.out, "post");
 }
 
 #[test]

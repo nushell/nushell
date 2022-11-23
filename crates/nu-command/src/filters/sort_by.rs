@@ -20,7 +20,7 @@ impl Command for SortBy {
             .rest("columns", SyntaxShape::Any, "the column(s) to sort by")
             .switch("reverse", "Sort in reverse order", Some('r'))
             .switch(
-                "insensitive",
+                "ignore-case",
                 "Sort string-based columns case-insensitively",
                 Some('i'),
             )
@@ -81,7 +81,7 @@ impl Command for SortBy {
     ) -> Result<PipelineData, ShellError> {
         let columns: Vec<String> = call.rest(engine_state, stack, 0)?;
         let reverse = call.has_flag("reverse");
-        let insensitive = call.has_flag("insensitive");
+        let insensitive = call.has_flag("ignore-case");
         let natural = call.has_flag("natural");
         let metadata = &input.metadata();
         let mut vec: Vec<_> = input.into_iter().collect();
