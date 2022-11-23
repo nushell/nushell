@@ -7,12 +7,11 @@ use nu_protocol::{
 
 use crate::viewers::scroll::{
     collect_pipeline,
-    pager::NuSpan,
-    pager::{run_nu_command, Pager, TableConfig, Transition},
-    views::{InteractiveView, RecordView},
+    pager::{run_nu_command, TableConfig},
+    views::RecordView,
 };
 
-use super::{HelpExample, HelpManual, SimpleCommand, ViewCommand};
+use super::{HelpExample, HelpManual, ViewCommand};
 
 #[derive(Debug, Default)]
 pub struct NuCmd {

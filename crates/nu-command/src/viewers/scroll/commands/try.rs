@@ -5,14 +5,9 @@ use nu_protocol::{
     Value,
 };
 
-use crate::viewers::scroll::{
-    pager::NuSpan,
-    pager::{Pager, TableConfig, Transition},
-    views::{RecordView, InteractiveView},
-};
+use crate::viewers::scroll::{pager::TableConfig, views::InteractiveView};
 
-use super::{HelpManual, SimpleCommand, ViewCommand, HelpExample};
-
+use super::{HelpExample, HelpManual, ViewCommand};
 
 #[derive(Debug, Default)]
 pub struct TryCmd {

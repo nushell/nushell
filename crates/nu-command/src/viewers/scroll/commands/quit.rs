@@ -1,15 +1,11 @@
-use std::io::{self, Result};
+use std::io::Result;
 
 use nu_protocol::{
     engine::{EngineState, Stack},
     Value,
 };
 
-use crate::viewers::scroll::{
-    pager::NuSpan,
-    pager::{Pager, TableConfig, Transition},
-    views::RecordView,
-};
+use crate::viewers::scroll::pager::{Pager, Transition};
 
 use super::{HelpManual, SimpleCommand};
 

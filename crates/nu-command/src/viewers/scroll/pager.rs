@@ -1,17 +1,15 @@
 use std::{
-    borrow::Cow,
-    cmp::{max, min},
+    cmp::min,
     collections::HashMap,
     io::{self, Result, Stdout},
     sync::{
         atomic::{AtomicBool, Ordering},
         Arc,
     },
-    time::{Duration, Instant},
 };
 
 use crossterm::{
-    event::{poll, read, Event, KeyCode, KeyEvent},
+    event::{KeyCode, KeyEvent},
     execute,
     terminal::{
         disable_raw_mode, enable_raw_mode, Clear, ClearType, EnterAlternateScreen,
@@ -31,8 +29,8 @@ use tui::{
     buffer::Buffer,
     layout::Rect,
     style::{Color, Modifier, Style},
-    text::{Span, Spans},
-    widgets::{Block, BorderType, Borders, Paragraph, StatefulWidget, Widget},
+    text::Span,
+    widgets::{Block, Borders, Widget},
 };
 
 use crate::viewers::scroll::commands::{
@@ -40,7 +38,6 @@ use crate::viewers::scroll::commands::{
 };
 
 use super::{
-    collect_pipeline,
     commands::Command,
     events::UIEvents,
     views::{Layout, View},

@@ -11,9 +11,9 @@ mod information;
 mod interative;
 mod record;
 
-pub use record::{RecordView, RecordViewState};
-pub use interative::InteractiveView;
 pub use information::InformationView;
+pub use interative::InteractiveView;
+pub use record::{RecordView, RecordViewState};
 
 #[derive(Debug, Default)]
 pub struct Layout {
