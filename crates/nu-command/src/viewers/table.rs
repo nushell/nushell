@@ -256,6 +256,7 @@ fn handle_table_command(
             exit_code: None,
             span: call.head,
             metadata: None,
+            trim_end_newline: false,
         }),
         PipelineData::Value(Value::List { vals, .. }, metadata) => handle_row_stream(
             engine_state,
@@ -709,6 +710,7 @@ fn handle_row_stream(
         exit_code: None,
         span: head,
         metadata: None,
+        trim_end_newline: false,
     })
 }
 

@@ -142,6 +142,7 @@ impl Command for Open {
                 exit_code: None,
                 span: call_span,
                 metadata: None,
+                trim_end_newline: false,
             };
 
             let ext = if raw {

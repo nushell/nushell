@@ -116,6 +116,7 @@ impl Command for Do {
                 exit_code,
                 span,
                 metadata,
+                trim_end_newline,
             }) if capture_errors => {
                 let mut exit_code_ctrlc = None;
                 let exit_code: Vec<Value> = match exit_code {
@@ -149,6 +150,7 @@ impl Command for Do {
                     )),
                     span,
                     metadata,
+                    trim_end_newline,
                 })
             }
             Ok(PipelineData::ExternalStream {
@@ -157,12 +159,14 @@ impl Command for Do {
                 exit_code: _,
                 span,
                 metadata,
+                trim_end_newline,
             }) if ignore_program_errors => Ok(PipelineData::ExternalStream {
                 stdout,
                 stderr,
                 exit_code: None,
                 span,
                 metadata,
+                trim_end_newline,
             }),
             Err(_) if ignore_shell_errors => Ok(PipelineData::new(call.head)),
             r => r,

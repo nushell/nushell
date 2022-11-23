@@ -582,6 +582,7 @@ fn response_to_buffer(
         exit_code: None,
         span,
         metadata: None,
+        trim_end_newline: false,
     }
 }
 

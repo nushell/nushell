@@ -120,6 +120,25 @@ fn command_not_found_error_suggests_typo_fix() {
     assert!(actual.err.contains("benchmark"));
 }
 
+#[test]
+fn command_substitution_wont_output_extra_newline() {
+    let actual = nu!(
+        cwd: ".",
+        r#"
+        with-env [FOO "bar"] { echo $"prefix (nu --testbin echo_env FOO) suffix" }
+        "#
+    );
+    assert_eq!(actual.out, "prefix bar suffix");
+
+    let actual = nu!(
+        cwd: ".",
+        r#"
+        with-env [FOO "bar"] { (nu --testbin echo_env FOO) }
+        "#
+    );
+    assert_eq!(actual.out, "bar");
+}
+
 mod it_evaluation {
     use super::nu;
     use nu_test_support::fs::Stub::{EmptyFile, FileWithContent, FileWithContentToBeTrimmed};

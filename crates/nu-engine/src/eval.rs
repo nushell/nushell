@@ -200,6 +200,7 @@ pub fn redirect_env(engine_state: &EngineState, caller_stack: &mut Stack, callee
 /// Eval extarnal expression
 ///
 /// It returns PipelineData with a boolean flag, indicate that if the external runs to failed.
+#[allow(clippy::too_many_arguments)]
 fn eval_external(
     engine_state: &EngineState,
     stack: &mut Stack,
@@ -208,6 +209,7 @@ fn eval_external(
     input: PipelineData,
     redirect_stdout: bool,
     redirect_stderr: bool,
+    is_subexpression: bool,
 ) -> Result<PipelineData, ShellError> {
     let decl_id = engine_state
         .find_decl("run-external".as_bytes(), &[])
@@ -238,6 +240,17 @@ fn eval_external(
         call.add_named((
             Spanned {
                 item: "redirect-stderr".into(),
+                span: head.span,
+            },
+            None,
+            None,
+        ))
+    }
+
+    if is_subexpression {
+        call.add_named((
+            Spanned {
+                item: "trim-end-newline".into(),
                 span: head.span,
             },
             None,
@@ -331,7 +344,7 @@ pub fn eval_expression(
                     .into_value(call.head),
             )
         }
-        Expr::ExternalCall(head, args) => {
+        Expr::ExternalCall(head, args, is_subexpression) => {
             let span = head.span;
             // FIXME: protect this collect with ctrl-c
             Ok(eval_external(
@@ -342,6 +355,7 @@ pub fn eval_expression(
                 PipelineData::new(span),
                 false,
                 false,
+                *is_subexpression,
             )?
             .into_value(span))
         }
@@ -681,7 +695,7 @@ pub fn eval_expression_with_input(
             }
         }
         Expression {
-            expr: Expr::ExternalCall(head, args),
+            expr: Expr::ExternalCall(head, args, is_subexpression),
             ..
         } => {
             input = eval_external(
@@ -692,6 +706,7 @@ pub fn eval_expression_with_input(
                 input,
                 redirect_stdout,
                 redirect_stderr,
+                *is_subexpression,
             )?;
         }
 
@@ -727,6 +742,7 @@ fn might_consume_external_result(input: PipelineData) -> (PipelineData, bool) {
         mut exit_code,
         span,
         metadata,
+        trim_end_newline,
     } = input
     {
         let exit_code = exit_code.take();
@@ -772,6 +788,7 @@ fn might_consume_external_result(input: PipelineData) -> (PipelineData, bool) {
                         exit_code: Some(ListStream::from_stream(exit_code.into_iter(), ctrlc)),
                         span,
                         metadata,
+                        trim_end_newline,
                     },
                     runs_to_failed,
                 )
@@ -783,6 +800,7 @@ fn might_consume_external_result(input: PipelineData) -> (PipelineData, bool) {
                     exit_code: None,
                     span,
                     metadata,
+                    trim_end_newline,
                 },
                 runs_to_failed,
             ),
@@ -819,6 +837,7 @@ pub fn eval_element_with_input(
                             exit_code,
                             span,
                             metadata,
+                            trim_end_newline,
                             ..
                         },
                     ) => PipelineData::ExternalStream {
@@ -827,6 +846,7 @@ pub fn eval_element_with_input(
                         exit_code,
                         span,
                         metadata,
+                        trim_end_newline,
                     },
                     (
                         Redirection::StdoutAndStderr,
@@ -836,6 +856,7 @@ pub fn eval_element_with_input(
                             exit_code,
                             span,
                             metadata,
+                            trim_end_newline,
                         },
                     ) => match (stdout, stderr) {
                         (Some(stdout), Some(stderr)) => PipelineData::ExternalStream {
@@ -844,6 +865,7 @@ pub fn eval_element_with_input(
                             exit_code,
                             span,
                             metadata,
+                            trim_end_newline,
                         },
                         (None, Some(stderr)) => PipelineData::ExternalStream {
                             stdout: Some(stderr),
@@ -851,6 +873,7 @@ pub fn eval_element_with_input(
                             exit_code,
                             span,
                             metadata,
+                            trim_end_newline,
                         },
                         (Some(stdout), None) => PipelineData::ExternalStream {
                             stdout: Some(stdout),
@@ -858,6 +881,7 @@ pub fn eval_element_with_input(
                             exit_code,
                             span,
                             metadata,
+                            trim_end_newline,
                         },
                         (None, None) => PipelineData::ExternalStream {
                             stdout: None,
@@ -865,6 +889,7 @@ pub fn eval_element_with_input(
                             exit_code,
                             span,
                             metadata,
+                            trim_end_newline,
                         },
                     },
                     (_, input) => input,
