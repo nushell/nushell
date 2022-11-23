@@ -9,8 +9,9 @@ use tui::{
     widgets::{Block, Borders, Paragraph, StatefulWidget, Widget},
 };
 
-use crate::viewers::scroll::{
-    pager::{nu_style_to_tui, text_style_to_tui_style, NuStyle, NuStyleTable, NuText},
+use crate::{
+    nu_common::{NuStyle, NuStyleTable, NuText},
+    pager::{nu_style_to_tui, text_style_to_tui_style},
     views::ElementInfo,
 };
 

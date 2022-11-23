@@ -6,7 +6,7 @@ use tui::{
     widgets::Paragraph,
 };
 
-use crate::viewers::scroll::pager::{Frame, Transition, ViewConfig, ViewInfo};
+use crate::pager::{Frame, Transition, ViewConfig, ViewInfo};
 
 use super::{Layout, View};
 

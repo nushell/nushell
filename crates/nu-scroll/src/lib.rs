@@ -1,0 +1,46 @@
+mod commands;
+mod events;
+mod nu_common;
+mod pager;
+mod views;
+
+use std::io;
+
+use nu_common::{collect_pipeline, CtrlC};
+use nu_protocol::{
+    engine::{EngineState, Stack},
+    PipelineData, Value,
+};
+use pager::Pager;
+use views::{InformationView, RecordView};
+
+pub use pager::{StyleConfig, TableConfig, ViewConfig};
+
+pub fn run_pager(
+    engine_state: &EngineState,
+    stack: &mut Stack,
+    ctrlc: CtrlC,
+    table_cfg: TableConfig,
+    view_cfg: ViewConfig,
+    input: PipelineData,
+) -> io::Result<Option<Value>> {
+    let (columns, data) = collect_pipeline(input);
+
+    let mut p = Pager::new(table_cfg.clone(), view_cfg);
+
+    if columns.is_empty() && data.is_empty() {
+        p.run(engine_state, stack, ctrlc, Some(InformationView))
+    } else {
+        let mut view = RecordView::new(columns, data, table_cfg.clone());
+
+        if table_cfg.reverse {
+            if let Some((terminal_size::Width(w), terminal_size::Height(h))) =
+                terminal_size::terminal_size()
+            {
+                view.reverse(w, h);
+            }
+        }
+
+        p.run(engine_state, stack, ctrlc, Some(view))
+    }
+}

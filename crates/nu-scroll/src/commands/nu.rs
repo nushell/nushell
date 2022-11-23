@@ -5,9 +5,9 @@ use nu_protocol::{
     PipelineData, Value,
 };
 
-use crate::viewers::scroll::{
-    collect_pipeline,
-    pager::{run_nu_command, TableConfig},
+use crate::{
+    nu_common::{collect_pipeline, run_nu_command},
+    pager::TableConfig,
     views::RecordView,
 };
 

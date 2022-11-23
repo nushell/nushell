@@ -11,9 +11,9 @@ use tui::{
     widgets::{BorderType, Borders, Paragraph},
 };
 
-use crate::viewers::scroll::{
-    collect_pipeline,
-    pager::{run_nu_command, Frame, Report, TableConfig, Transition, ViewConfig, ViewInfo},
+use crate::{
+    nu_common::{collect_pipeline, run_nu_command},
+    pager::{Frame, Report, TableConfig, Transition, ViewConfig, ViewInfo},
 };
 
 use super::{record::RecordView, Layout, View};

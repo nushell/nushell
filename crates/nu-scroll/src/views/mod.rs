@@ -5,7 +5,10 @@ use nu_protocol::{
 };
 use tui::layout::Rect;
 
-use super::pager::{Frame, NuText, Transition, ViewConfig, ViewInfo};
+use super::{
+    nu_common::NuText,
+    pager::{Frame, Transition, ViewConfig, ViewInfo},
+};
 
 mod information;
 mod interative;

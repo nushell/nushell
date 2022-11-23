@@ -2722,6 +2722,7 @@ dependencies = [
  "nu-path",
  "nu-pretty-hex",
  "nu-protocol",
+ "nu-scroll",
  "nu-system",
  "nu-table",
  "nu-term-grid",
@@ -2760,7 +2761,6 @@ dependencies = [
  "titlecase",
  "toml",
  "trash",
- "tui",
  "umask",
  "unicode-segmentation",
  "url",
@@ -2876,6 +2876,23 @@ dependencies = [
  "sys-locale",
  "thiserror",
  "typetag",
+]
+
+[[package]]
+name = "nu-scroll"
+version = "0.70.1"
+dependencies = [
+ "crossterm 0.24.0",
+ "nu-ansi-term",
+ "nu-cli",
+ "nu-color-config",
+ "nu-engine",
+ "nu-protocol",
+ "nu-table",
+ "reedline",
+ "strip-ansi-escapes",
+ "terminal_size 0.2.1",
+ "tui",
 ]
 
 [[package]]

@@ -5,7 +5,7 @@ use nu_protocol::{
     Value,
 };
 
-use crate::viewers::scroll::pager::{Pager, Transition};
+use crate::pager::{Pager, Transition};
 
 use super::{HelpManual, SimpleCommand};
 

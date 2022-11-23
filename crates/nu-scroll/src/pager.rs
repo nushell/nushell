@@ -1,11 +1,7 @@
 use std::{
     cmp::min,
-    collections::HashMap,
     io::{self, Result, Stdout},
-    sync::{
-        atomic::{AtomicBool, Ordering},
-        Arc,
-    },
+    sync::atomic::Ordering,
 };
 
 use crossterm::{
@@ -16,11 +12,10 @@ use crossterm::{
         LeaveAlternateScreen,
     },
 };
-use nu_cli::eval_source2;
 use nu_color_config::style_primitive;
 use nu_protocol::{
     engine::{EngineState, Stack},
-    PipelineData, ShellError, Value,
+    Value,
 };
 use nu_table::{string_width, Alignment, TextStyle};
 use reedline::KeyModifiers;
@@ -33,8 +28,9 @@ use tui::{
     widgets::{Block, Borders, Widget},
 };
 
-use crate::viewers::scroll::commands::{
-    HelpCmd, HelpManual, NuCmd, QuitCmd, SimpleCommand, TryCmd, ViewCommand,
+use crate::{
+    commands::{HelpCmd, HelpManual, NuCmd, QuitCmd, SimpleCommand, TryCmd, ViewCommand},
+    nu_common::{CtrlC, NuColor, NuConfig, NuStyle, NuStyleTable, NuText},
 };
 
 use super::{
@@ -43,12 +39,6 @@ use super::{
     views::{Layout, View},
 };
 
-pub use nu_ansi_term::{Color as NuColor, Style as NuStyle};
-pub use nu_protocol::{Config as NuConfig, Span as NuSpan};
-
-pub type NuText = (String, TextStyle);
-pub type CtrlC = Option<Arc<AtomicBool>>;
-pub type NuStyleTable = HashMap<String, NuStyle>;
 pub type Frame<'a> = tui::Frame<'a, CrosstermBackend<Stdout>>;
 pub type Terminal = tui::Terminal<CrosstermBackend<Stdout>>;
 
@@ -79,11 +69,11 @@ impl<'a> ViewConfig<'a> {
 
 #[derive(Debug, Default, Clone)]
 pub struct TableConfig {
-    pub(crate) show_index: bool,
-    pub(crate) show_head: bool,
-    pub(crate) reverse: bool,
-    pub(crate) peek_value: bool,
-    pub(crate) show_help: bool,
+    pub show_index: bool,
+    pub show_head: bool,
+    pub reverse: bool,
+    pub peek_value: bool,
+    pub show_help: bool,
 }
 
 pub fn run_pager<V>(
@@ -319,16 +309,6 @@ where
     } else {
         None
     }
-}
-
-pub fn run_nu_command(
-    engine_state: &EngineState,
-    stack: &mut Stack,
-    cmd: &str,
-    current: PipelineData,
-) -> std::result::Result<PipelineData, ShellError> {
-    let mut engine_state = engine_state.clone();
-    eval_source2(&mut engine_state, stack, cmd.as_bytes(), "", current)
 }
 
 fn render_status_bar(f: &mut Frame, area: Rect, report: Report, theme: &StyleConfig) {

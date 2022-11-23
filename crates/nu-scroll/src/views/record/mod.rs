@@ -10,11 +10,11 @@ use nu_protocol::{
 use reedline::KeyCode;
 use tui::{layout::Rect, widgets::Block};
 
-use crate::viewers::scroll::{
-    collect_input,
+use crate::{
+    nu_common::{collect_input, NuConfig, NuSpan, NuStyleTable, NuText},
     pager::{
-        make_styled_string, nu_style_to_tui, Frame, NuConfig, NuSpan, NuStyleTable, NuText,
-        Position, Report, Severentity, StyleConfig, TableConfig, Transition, ViewConfig, ViewInfo,
+        make_styled_string, nu_style_to_tui, Frame, Position, Report, Severentity, StyleConfig,
+        TableConfig, Transition, ViewConfig, ViewInfo,
     },
     views::ElementInfo,
 };

@@ -5,7 +5,7 @@ use nu_protocol::{
     Value,
 };
 
-use crate::viewers::scroll::{pager::NuSpan, pager::TableConfig, views::RecordView};
+use crate::{nu_common::NuSpan, pager::TableConfig, views::RecordView};
 
 use super::{
     nu::NuCmd, quit::QuitCmd, r#try::TryCmd, HelpExample, HelpManual, SimpleCommand, ViewCommand,
