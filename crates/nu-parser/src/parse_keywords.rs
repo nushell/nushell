@@ -1424,7 +1424,7 @@ pub fn parse_module_block(
                     }
                     LiteElement::Or(_, command)
                     | LiteElement::And(_, command)
-                    | LiteElement::Redirection(_, _, command) => (garbage_pipeline(&command.parts)),
+                    | LiteElement::Redirection(_, _, command) => garbage_pipeline(&command.parts),
                 }
             } else {
                 error = Some(ParseError::Expected("not a pipeline".into(), span));

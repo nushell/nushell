@@ -593,8 +593,8 @@ impl ExternalCommand {
                     for m in matches {
                         if let Ok(arg) = m {
                             let arg = if let Some(prefix) = &prefix {
-                                if let Ok(remainder) = arg.strip_prefix(&prefix) {
-                                    let new_prefix = if let Some(pfx) = diff_paths(&prefix, &cwd) {
+                                if let Ok(remainder) = arg.strip_prefix(prefix) {
+                                    let new_prefix = if let Some(pfx) = diff_paths(prefix, &cwd) {
                                         pfx
                                     } else {
                                         prefix.to_path_buf()

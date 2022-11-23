@@ -1,3 +1,4 @@
+use indexmap::IndexMap;
 use nu_engine::CallExt;
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
@@ -213,9 +214,8 @@ pub fn data_split(
                         } = grouped
                         {
                             for (inner_idx, subset) in li.iter().enumerate() {
-                                let s = splits
-                                    .entry(sub_cols[inner_idx].clone())
-                                    .or_insert(indexmap::IndexMap::new());
+                                let s: &mut IndexMap<String, Value> =
+                                    splits.entry(sub_cols[inner_idx].clone()).or_default();
 
                                 s.insert(cols[idx].clone(), subset.clone());
                             }
