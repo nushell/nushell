@@ -87,18 +87,15 @@ Press <ESC> to get out of the mode and the inner view.
         let result = if columns.is_empty() && data.is_empty() {
             p.run(engine_state, stack, ctrlc, Some(InformationView))
         } else {
-            let view = RecordView::new(columns, data, table_cfg);
+            let mut view = RecordView::new(columns, data, table_cfg.clone());
 
-            // todo: Set index_row to usize::MAX or a flag and then fix it when data available
-            // 
-            // if table_cfg.reverse {
-            //     if let Some(view) = &mut pager.records_view {
-            //         if let Ok(size) = terminal.size() {
-            //             let size = estimate_page_size(size, pager.table_cfg.show_head);
-            //             state_reverse_data(view, size as usize);
-            //         }
-            //     }
-            // }
+            if table_cfg.reverse {
+                if let Some((terminal_size::Width(w), terminal_size::Height(h))) =
+                    terminal_size::terminal_size()
+                {
+                    view.reverse(w, h);
+                }
+            }
 
             p.run(engine_state, stack, ctrlc, Some(view))
         };

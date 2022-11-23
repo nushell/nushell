@@ -2,7 +2,7 @@ use std::{
     borrow::Cow,
     cmp::{max, min},
     collections::HashMap,
-    io::{self, Result},
+    io::{self, Result, Stdout},
     sync::{
         atomic::{AtomicBool, Ordering},
         Arc,
@@ -28,13 +28,12 @@ use nu_protocol::{
 use nu_table::{string_width, Alignment, TextStyle};
 use reedline::KeyModifiers;
 use tui::{
-    backend::{Backend, CrosstermBackend},
+    backend::CrosstermBackend,
     buffer::Buffer,
     layout::Rect,
     style::{Color, Modifier, Style},
     text::{Span, Spans},
     widgets::{Block, BorderType, Borders, Paragraph, StatefulWidget, Widget},
-    Frame, Terminal,
 };
 
 use super::collect_pipeline;
@@ -45,23 +44,17 @@ type CtrlC = Option<Arc<AtomicBool>>;
 
 type NuStyleTable = HashMap<String, NuStyle>;
 
-pub trait View {
-    type State;
+type Frame<'a> = tui::Frame<'a, CrosstermBackend<Stdout>>;
+type Terminal = tui::Terminal<CrosstermBackend<Stdout>>;
 
-    fn draw<B>(
-        &self,
-        f: &mut Frame<B>,
-        area: Rect,
-        cfg: &ViewConfig,
-        layout: &mut Layout<Self::State>,
-    ) where
-        B: Backend;
+pub trait View {
+    fn draw(&mut self, f: &mut Frame, area: Rect, cfg: &ViewConfig, layout: &mut Layout);
 
     fn handle_input(
         &mut self,
         engine_state: &EngineState,
         stack: &mut Stack,
-        layout: &Layout<Self::State>,
+        layout: &Layout,
         info: &mut ViewInfo,
         key: KeyEvent,
     ) -> Option<Transition>;
@@ -76,6 +69,36 @@ pub trait View {
 
     fn exit(&mut self) -> Option<Value> {
         None
+    }
+}
+
+impl View for Box<dyn View> {
+    fn draw(&mut self, f: &mut Frame, area: Rect, cfg: &ViewConfig, layout: &mut Layout) {
+        self.as_mut().draw(f, area, cfg, layout)
+    }
+
+    fn handle_input(
+        &mut self,
+        engine_state: &EngineState,
+        stack: &mut Stack,
+        layout: &Layout,
+        info: &mut ViewInfo,
+        key: KeyEvent,
+    ) -> Option<Transition> {
+        self.as_mut()
+            .handle_input(engine_state, stack, layout, info, key)
+    }
+
+    fn collect_data(&self) -> Vec<NuText> {
+        self.as_ref().collect_data()
+    }
+
+    fn exit(&mut self) -> Option<Value> {
+        self.as_mut().exit()
+    }
+
+    fn show_data(&mut self, i: usize) -> bool {
+        self.as_mut().show_data(i)
     }
 }
 
@@ -110,6 +133,7 @@ pub struct RecordView<'a> {
     mode: UIMode,
     cfg: TableConfig,
     cursor: Position,
+    state: RecordViewState,
 }
 
 #[derive(Debug, Clone)]
@@ -135,7 +159,13 @@ impl<'a> RecordView<'a> {
             mode: UIMode::View,
             cursor: Position::new(0, 0),
             cfg: table_cfg,
+            state: RecordViewState::default(),
         }
+    }
+
+    pub fn reverse(&mut self, width: u16, height: u16) {
+        let page_size = estimate_page_size(Rect::new(0, 0, width, height), self.cfg.show_head);
+        state_reverse_data(self, page_size as usize);
     }
 
     // todo: rename to get_layer
@@ -164,33 +194,23 @@ impl<'a> RecordView<'a> {
 }
 
 impl View for RecordView<'_> {
-    type State = RecordViewState;
-
-    fn draw<B>(
-        &self,
-        f: &mut Frame<B>,
-        area: Rect,
-        cfg: &ViewConfig,
-        layout: &mut Layout<Self::State>,
-    ) where
-        B: Backend,
-    {
+    fn draw(&mut self, f: &mut Frame, area: Rect, cfg: &ViewConfig, layout: &mut Layout) {
         let layer = self.get_layer_last();
         let table = self.create_tablew(layer, cfg);
 
-        let mut table_layout = Layout::default();
+        let mut table_layout = TableWState::default();
         f.render_stateful_widget(table, area, &mut table_layout);
 
-        layout.data = table_layout.data;
-        layout.state = RecordViewState {
-            count_rows: table_layout.state.count_rows,
-            count_columns: table_layout.state.count_columns,
-            data_index: table_layout.state.data_index,
+        *layout = table_layout.layout;
+        self.state = RecordViewState {
+            count_rows: table_layout.count_rows,
+            count_columns: table_layout.count_columns,
+            data_index: table_layout.data_index,
         };
 
         if self.mode == UIMode::Cursor {
-            let cursor = get_cursor(self, layout);
-            highlight_cell(f, layout, area, cursor, cfg.theme);
+            let cursor = get_cursor(self);
+            highlight_cell(f, area, &self.state, cursor, cfg.theme);
         }
     }
 
@@ -198,24 +218,25 @@ impl View for RecordView<'_> {
         &mut self,
         _: &EngineState,
         _: &mut Stack,
-        layout: &Layout<Self::State>,
+        _: &Layout,
         info: &mut ViewInfo,
         key: KeyEvent,
     ) -> Option<Transition> {
         let result = match self.mode {
-            UIMode::View => handle_key_event_view_mode(self, layout, &key),
+            UIMode::View => handle_key_event_view_mode(self, &key),
             UIMode::Cursor => {
                 // we handle a situation where we got resized and the old cursor is no longer valid
-                self.cursor = get_cursor(self, layout);
+                self.cursor = get_cursor(self);
 
-                handle_key_event_cursor_mode(self, layout, &key)
+                handle_key_event_cursor_mode(self, &key)
             }
         };
 
         if matches!(&result, Some(Transition::Ok) | Some(Transition::Cmd(..))) {
             // update status bar
             let report =
-                create_records_report(self.get_layer_last(), self.mode, self.cursor, layout);
+                create_records_report(self.get_layer_last(), &self.state, self.mode, self.cursor);
+
             info.status = Some(report);
         }
 
@@ -265,11 +286,11 @@ impl View for RecordView<'_> {
 
 fn create_records_report(
     layer: &RecordLayer,
+    state: &RecordViewState,
     mode: UIMode,
     cursor: Position,
-    layout: &Layout<RecordViewState>,
 ) -> Report {
-    let seen_rows = layer.index_row + layout.state.count_rows;
+    let seen_rows = layer.index_row + state.count_rows;
     let seen_rows = min(seen_rows, layer.count_rows());
     let percent_rows = get_percentage(seen_rows, layer.count_rows());
     let covered_percent = match percent_rows {
@@ -424,11 +445,7 @@ fn convert_records_to_string(
         .collect::<Vec<_>>()
 }
 
-fn handle_key_event_view_mode(
-    view: &mut RecordView,
-    layout: &Layout<RecordViewState>,
-    key: &KeyEvent,
-) -> Option<Transition> {
+fn handle_key_event_view_mode(view: &mut RecordView, key: &KeyEvent) -> Option<Transition> {
     match key.code {
         KeyCode::Esc => {
             if view.layer_stack.len() > 1 {
@@ -471,15 +488,15 @@ fn handle_key_event_view_mode(
             Some(Transition::Ok)
         }
         KeyCode::PageUp => {
+            let count_rows = view.state.count_rows;
             let layer = view.get_layer_last_mut();
-            let count_rows = layout.state.count_rows;
             layer.index_row = layer.index_row.saturating_sub(count_rows as usize);
 
             Some(Transition::Ok)
         }
         KeyCode::PageDown => {
+            let count_rows = view.state.count_rows;
             let layer = view.get_layer_last_mut();
-            let count_rows = layout.state.count_rows;
             let max_index = layer.count_rows().saturating_sub(1);
             layer.index_row = min(layer.index_row + count_rows as usize, max_index);
 
@@ -489,11 +506,7 @@ fn handle_key_event_view_mode(
     }
 }
 
-fn handle_key_event_cursor_mode(
-    view: &mut RecordView,
-    layout: &Layout<RecordViewState>,
-    key: &KeyEvent,
-) -> Option<Transition> {
+fn handle_key_event_cursor_mode(view: &mut RecordView, key: &KeyEvent) -> Option<Transition> {
     match key.code {
         KeyCode::Esc => {
             view.mode = UIMode::View;
@@ -513,9 +526,9 @@ fn handle_key_event_cursor_mode(
         }
         KeyCode::Down => {
             let cursor = view.cursor;
+            let showed_rows = view.state.count_rows;
             let layer = view.get_layer_last_mut();
 
-            let showed_rows = layout.state.count_rows;
             let total_rows = layer.count_rows();
             let row_index = layer.index_row + cursor.y as usize + 1;
 
@@ -543,9 +556,9 @@ fn handle_key_event_cursor_mode(
         }
         KeyCode::Right => {
             let cursor = view.cursor;
+            let showed_columns = view.state.count_columns;
             let layer = view.get_layer_last_mut();
 
-            let showed_columns = layout.state.count_columns;
             let total_columns = layer.count_columns();
             let column_index = layer.index_column + cursor.x as usize + 1;
 
@@ -586,13 +599,6 @@ fn push_current_value_to_layer(view: &mut RecordView) {
     view.cursor = Position::default();
 }
 
-fn push_values_to_layer(view: &mut RecordView, columns: Vec<String>, values: Vec<Vec<Value>>) {
-    let next_layer = RecordLayer::new(columns, values);
-    view.layer_stack.push(next_layer);
-    view.mode = UIMode::View;
-    view.cursor = Position::default();
-}
-
 #[derive(Debug, Default, Clone)]
 pub struct TableConfig {
     pub(crate) show_index: bool,
@@ -607,11 +613,10 @@ pub fn run_pager<V>(
     stack: &mut Stack,
     ctrlc: CtrlC,
     pager: &mut Pager,
-    mut view: Option<V>,
+    view: Option<V>,
 ) -> Result<Option<Value>>
 where
-    V: View,
-    V::State: Default,
+    V: View + 'static,
 {
     // setup terminal
     enable_raw_mode()?;
@@ -626,21 +631,15 @@ where
         ..Default::default()
     };
 
-    let result = loop {
-        let result = render_ui(
-            &mut terminal,
-            engine_state,
-            stack,
-            ctrlc.clone(),
-            pager,
-            &mut info,
-            view.as_mut(),
-        )?;
-
-        if let CommandOutput::Exit(v) = result {
-            break v;
-        }
-    };
+    let result = render_ui(
+        &mut terminal,
+        engine_state,
+        stack,
+        ctrlc,
+        pager,
+        &mut info,
+        view,
+    )?;
 
     // restore terminal
     disable_raw_mode()?;
@@ -649,28 +648,29 @@ where
     Ok(result)
 }
 
-fn render_ui<B, V>(
-    term: &mut Terminal<B>,
+fn render_ui<V>(
+    term: &mut Terminal,
     engine_state: &EngineState,
     stack: &mut Stack,
     ctrlc: CtrlC,
     pager: &mut Pager<'_>,
     info: &mut ViewInfo,
-    mut view: Option<&mut V>,
-) -> Result<CommandOutput>
+    view: Option<V>,
+) -> Result<Option<Value>>
 where
-    B: Backend,
-    V: View,
-    V::State: Default,
+    V: View + 'static,
 {
+    let mut view = view.map(|v| Box::new(v) as Box<dyn View>);
+
     let events = UIEvents::new();
+    let mut view_stack = Vec::new();
 
     // let mut command_view = None;
     loop {
         // handle CTRLC event
         if let Some(ctrlc) = ctrlc.clone() {
             if ctrlc.load(Ordering::SeqCst) {
-                break Ok(CommandOutput::Exit(None));
+                break Ok(None);
             }
         }
 
@@ -715,48 +715,106 @@ where
             info,
             &mut pager.search_buf,
             &mut pager.cmd_buf,
-            view.as_deref_mut(),
+            view.as_mut(),
         );
         if exited {
             if force {
-                break Ok(CommandOutput::Exit(try_to_peek_value(
-                    pager,
-                    view.as_deref_mut(),
-                )));
+                break Ok(try_to_peek_value(pager, view.as_mut()));
             } else {
-                break Ok(CommandOutput::Continue);
+                // try to pop the view stack
+                if let Some(v) = view_stack.pop() {
+                    view = Some(v);
+                }
             }
         }
 
         if pager.cmd_buf.run_cmd {
-            let cmd = pager.cmd_buf.buf_cmd2.clone();
+            let args = pager.cmd_buf.buf_cmd2.clone();
             pager.cmd_buf.run_cmd = false;
             pager.cmd_buf.buf_cmd2 = String::new();
 
-            // to elimate a recursion depth we return from the function and run the command outside.
-            let result = run_command(
-                term,
-                engine_state,
-                stack,
-                ctrlc.clone(),
-                pager,
-                info,
-                view.as_deref_mut(),
-                &cmd,
-            )?;
+            let command = find_command(&args, &pager.table_cfg);
+            match command {
+                Some(command) => {
+                    match command {
+                        Command::Reactive(mut command) => {
+                            let result = command.parse(&args);
 
-            match result {
-                CommandOutput::Exit(v) => break Ok(CommandOutput::Exit(v)),
-                CommandOutput::Continue => {}
+                            match result {
+                                Ok(()) => {
+                                    // what we do we just replace the view.
+                                    let value = view.as_mut().and_then(|view| view.exit());
+                                    let result = command.react(engine_state, stack, pager, value);
+                                    match result {
+                                        Ok(transition) => match transition {
+                                            Transition::Ok => {}
+                                            Transition::Exit => {
+                                                break Ok(try_to_peek_value(pager, view.as_mut()))
+                                            }
+                                            Transition::Cmd(_) => todo!("not used so far"),
+                                        },
+                                        Err(err) => {
+                                            info.report = Some(Report::error(format!(
+                                                "Error: command {:?} failed: {}",
+                                                args, err
+                                            )));
+                                        }
+                                    }
+                                }
+                                Err(err) => {
+                                    info.report = Some(Report::error(format!(
+                                "Error: command {:?} was not provided with correct arguments: {}",
+                                args, err
+                            )));
+                                }
+                            }
+                        }
+                        Command::View(mut command) => {
+                            let result = command.parse(&args);
+
+                            match result {
+                                Ok(()) => {
+                                    // what we do we just replace the view.
+                                    let value = view.as_mut().and_then(|view| view.exit());
+                                    let result = command.spawn(engine_state, stack, value);
+                                    match result {
+                                        Ok(new_view) => {
+                                            if let Some(view) = view {
+                                                view_stack.push(view);
+                                            }
+
+                                            view = Some(new_view);
+                                        }
+                                        Err(err) => {
+                                            info.report = Some(Report::error(format!(
+                                                "Error: command {:?} failed: {}",
+                                                args, err
+                                            )));
+                                        }
+                                    }
+                                }
+                                Err(err) => {
+                                    info.report = Some(Report::error(format!(
+                                "Error: command {:?} was not provided with correct arguments: {}",
+                                args, err
+                            )));
+                                }
+                            }
+                        }
+                    }
+                }
+                None => {
+                    info.report = Some(Report::error(format!(
+                        "Error: command {:?} was not recognized",
+                        args
+                    )));
+                }
             }
         }
     }
 }
 
-fn set_cursor_cmd_bar<B>(f: &mut Frame<B>, area: Rect, pager: &Pager)
-where
-    B: Backend,
-{
+fn set_cursor_cmd_bar(f: &mut Frame, area: Rect, pager: &Pager) {
     if pager.cmd_buf.is_cmd_input {
         // todo: deal with a situation where we exeed the bar width
         let next_pos = (pager.cmd_buf.buf_cmd2.len() + 1) as u16;
@@ -785,104 +843,78 @@ where
     }
 }
 
-enum CommandOutput {
-    Exit(Option<Value>),
-    Continue,
-}
+// #[allow(clippy::too_many_arguments)]
+// fn run_command<V>(
+//     term: &mut Terminal,
+//     engine_state: &EngineState,
+//     stack: &mut Stack,
+//     ctrlc: CtrlC,
+//     pager: &mut Pager,
+//     info: &mut ViewInfo,
+//     view: Option<&mut V>,
+//     cmd: &str,
+// ) -> Result<CommandOutput>
+// where
+//     V: View,
+// {
+//     match cmd {
+//         _ if cmd.starts_with("nu") => {
+//             let cmd = cmd.strip_prefix("nu").unwrap();
 
-#[allow(clippy::too_many_arguments)]
-fn run_command<B, V>(
-    term: &mut Terminal<B>,
-    engine_state: &EngineState,
-    stack: &mut Stack,
-    ctrlc: CtrlC,
-    pager: &mut Pager,
-    info: &mut ViewInfo,
-    view: Option<&mut V>,
-    cmd: &str,
-) -> Result<CommandOutput>
-where
-    B: Backend,
-    V: View,
-{
-    match cmd {
-        _ if cmd.starts_with("nu") => {
-            let cmd = cmd.strip_prefix("nu").unwrap();
+//             let value = view.and_then(|view| view.exit()).unwrap_or_default();
 
-            let value = view.and_then(|view| view.exit()).unwrap_or_default();
+//             let pipeline = PipelineData::Value(value, None);
+//             let pipeline = run_nu_command(engine_state, stack, cmd, pipeline);
 
-            let pipeline = PipelineData::Value(value, None);
-            let pipeline = run_nu_command(engine_state, stack, cmd, pipeline);
+//             #[allow(clippy::single_match)]
+//             match pipeline {
+//                 Ok(pipeline_data) => {
+//                     let (columns, values) = collect_pipeline(pipeline_data);
+//                     let mut new_view = RecordView::new(columns, values, pager.table_cfg.clone());
+//                     render_ui(
+//                         term,
+//                         engine_state,
+//                         stack,
+//                         ctrlc,
+//                         pager,
+//                         info,
+//                         Some(&mut new_view),
+//                     )
+//                 }
+//                 Err(err) => {
+//                     info.report = Some(Report::error(format!("Error: {}", err)));
 
-            #[allow(clippy::single_match)]
-            match pipeline {
-                Ok(pipeline_data) => {
-                    let (columns, values) = collect_pipeline(pipeline_data);
-                    let mut new_view = RecordView::new(columns, values, pager.table_cfg.clone());
-                    let res = render_ui(
-                        term,
-                        engine_state,
-                        stack,
-                        ctrlc,
-                        pager,
-                        info,
-                        Some(&mut new_view),
-                    );
+//                     Ok(CommandOutput::Continue)
+//                 }
+//             }
+//         }
+//         "help" => {
+//             let (headers, data) = help_frame_data();
+//             let mut new_view = RecordView::new(headers, data, pager.table_cfg.clone());
+//             render_ui(
+//                 term,
+//                 engine_state,
+//                 stack,
+//                 ctrlc,
+//                 pager,
+//                 info,
+//                 Some(&mut new_view),
+//             )
+//         }
+//         "try" => {
 
-                    res
-                }
-                Err(err) => {
-                    info.report = Some(Report::new(
-                        format!("Error: {}", err),
-                        Severentity::Err,
-                        String::new(),
-                        String::new(),
-                    ));
+//         }
+//         "q" => Ok(CommandOutput::Exit(try_to_peek_value(pager, view))),
+//         command => {
+//             info.report = Some(Report::error(format!(
+//                 "Error: A command {:?} was not recognized",
+//                 command
+//             )));
 
-                    Ok(CommandOutput::Continue)
-                }
-            }
-        }
-        "help" => {
-            let (headers, data) = help_frame_data();
-            let mut new_view = RecordView::new(headers, data, pager.table_cfg.clone());
-            render_ui(
-                term,
-                engine_state,
-                stack,
-                ctrlc,
-                pager,
-                info,
-                Some(&mut new_view),
-            )
-        }
-        "try" => {
-            let value = view.and_then(|view| view.exit()).unwrap_or_default();
-
-            let mut new_view = InteractiveView::new(value, pager.table_cfg.clone());
-            render_ui(
-                term,
-                engine_state,
-                stack,
-                ctrlc,
-                pager,
-                info,
-                Some(&mut new_view),
-            )
-        }
-        "q" => Ok(CommandOutput::Exit(try_to_peek_value(pager, view))),
-        command => {
-            info.report = Some(Report::new(
-                format!("Error: A command {:?} was not recognized", command),
-                Severentity::Err,
-                String::new(),
-                String::new(),
-            ));
-
-            Ok(CommandOutput::Continue)
-        }
-    }
-}
+//             Ok(CommandOutput::Continue)
+//         }
+//     }
+// }
 
 fn help_frame_data() -> (Vec<String>, Vec<Vec<Value>>) {
     macro_rules! null {
@@ -952,6 +984,62 @@ fn help_frame_data() -> (Vec<String>, Vec<Vec<Value>>) {
     (headers, data)
 }
 
+fn help_manual_data(manual: HelpManual) -> (Vec<String>, Vec<Vec<Value>>) {
+    macro_rules! nu_str {
+        ($text:expr) => {
+            Value::String {
+                val: $text.to_string(),
+                span: NuSpan::unknown(),
+            }
+        };
+    }
+
+    let arguments = manual
+        .arguments
+        .iter()
+        .map(|e| Value::Record {
+            cols: vec![String::from("example"), String::from("description")],
+            vals: vec![nu_str!(e.example), nu_str!(e.description)],
+            span: NuSpan::unknown(),
+        })
+        .collect();
+
+    let arguments = Value::List {
+        vals: arguments,
+        span: NuSpan::unknown(),
+    };
+
+    let examples = manual
+        .examples
+        .iter()
+        .map(|e| Value::Record {
+            cols: vec![String::from("example"), String::from("description")],
+            vals: vec![nu_str!(e.example), nu_str!(e.description)],
+            span: NuSpan::unknown(),
+        })
+        .collect();
+
+    let examples = Value::List {
+        vals: examples,
+        span: NuSpan::unknown(),
+    };
+
+    let headers = vec![
+        String::from("name"),
+        String::from("arguments"),
+        String::from("examples"),
+        String::from("description"),
+    ];
+    let data = vec![vec![
+        nu_str!(manual.name),
+        arguments,
+        examples,
+        nu_str!(manual.description),
+    ]];
+
+    (headers, data)
+}
+
 fn run_nu_command(
     engine_state: &EngineState,
     stack: &mut Stack,
@@ -962,10 +1050,7 @@ fn run_nu_command(
     eval_source2(&mut engine_state, stack, cmd.as_bytes(), "", current)
 }
 
-fn render_status_bar<B>(f: &mut Frame<B>, area: Rect, report: Report, theme: &StyleConfig)
-where
-    B: Backend,
-{
+fn render_status_bar(f: &mut Frame, area: Rect, report: Report, theme: &StyleConfig) {
     let msg_style = report_msg_style(&report, theme, theme.status_bar);
     let status_bar = StatusBar::new(report, theme.status_bar, msg_style);
     f.render_widget(status_bar, area);
@@ -979,15 +1064,13 @@ fn report_msg_style(report: &Report, theme: &StyleConfig, style: NuStyle) -> NuS
     }
 }
 
-fn render_cmd_bar<B>(
-    f: &mut Frame<B>,
+fn render_cmd_bar(
+    f: &mut Frame,
     area: Rect,
     pager: &Pager,
     report: Option<Report>,
     theme: &StyleConfig,
-) where
-    B: Backend,
-{
+) {
     if let Some(report) = report {
         let style = report_msg_style(&report, theme, theme.cmd_bar);
         f.render_widget(CmdBar::new(&report.message, &report.context, style), area);
@@ -1004,10 +1087,7 @@ fn render_cmd_bar<B>(
     }
 }
 
-fn render_cmd_bar_search<B>(f: &mut Frame<B>, area: Rect, pager: &Pager<'_>, theme: &StyleConfig)
-where
-    B: Backend,
-{
+fn render_cmd_bar_search(f: &mut Frame, area: Rect, pager: &Pager<'_>, theme: &StyleConfig) {
     if pager.search_buf.search_results.is_empty() && !pager.search_buf.is_search_input {
         let message = format!("Pattern not found: {}", pager.search_buf.buf_cmd_input);
         let style = NuStyle {
@@ -1037,23 +1117,13 @@ where
     f.render_widget(CmdBar::new(&text, &info, theme.cmd_bar), area);
 }
 
-fn render_cmd_bar_cmd<B>(f: &mut Frame<B>, area: Rect, pager: &Pager, theme: &StyleConfig)
-where
-    B: Backend,
-{
+fn render_cmd_bar_cmd(f: &mut Frame, area: Rect, pager: &Pager, theme: &StyleConfig) {
     let prefix = ':';
     let text = format!("{}{}", prefix, pager.cmd_buf.buf_cmd2);
     f.render_widget(CmdBar::new(&text, "", theme.cmd_bar), area);
 }
 
-fn highlight_search_results<B, S>(
-    f: &mut Frame<B>,
-    pager: &Pager,
-    layout: &Layout<S>,
-    style: NuStyle,
-) where
-    B: Backend,
-{
+fn highlight_search_results(f: &mut Frame, pager: &Pager, layout: &Layout, style: NuStyle) {
     if pager.search_buf.search_results.is_empty() {
         return;
     }
@@ -1075,21 +1145,16 @@ fn highlight_search_results<B, S>(
     }
 }
 
-fn highlight_cell<B>(
-    f: &mut Frame<B>,
-    layout: &Layout<RecordViewState>,
+fn highlight_cell(
+    f: &mut Frame,
     area: Rect,
+    state: &RecordViewState,
     cursor: Position,
     theme: &StyleConfig,
-) where
-    B: Backend,
-{
+) {
     let Position { x: column, y: row } = cursor;
 
-    let info = layout
-        .state
-        .data_index
-        .get(&(row as usize, column as usize));
+    let info = state.data_index.get(&(row as usize, column as usize));
 
     if let Some(info) = info {
         if let Some(style) = theme.selected_column {
@@ -1116,22 +1181,23 @@ fn highlight_cell<B>(
     }
 }
 
-fn get_cursor(state: &RecordView<'_>, layout: &Layout<RecordViewState>) -> Position {
-    let count_rows = layout.state.count_rows as u16;
-    let count_columns = layout.state.count_columns as u16;
+fn get_cursor(v: &RecordView<'_>) -> Position {
+    let count_rows = v.state.count_rows as u16;
+    let count_columns = v.state.count_columns as u16;
 
-    let mut cursor = state.cursor;
+    let mut cursor = v.cursor;
     cursor.y = min(cursor.y, count_rows.saturating_sub(1) as u16);
     cursor.x = min(cursor.x, count_columns.saturating_sub(1) as u16);
 
     cursor
 }
 
+#[allow(clippy::too_many_arguments)]
 fn handle_events<V>(
     engine_state: &EngineState,
     stack: &mut Stack,
     events: &UIEvents,
-    layout: &Layout<V::State>,
+    layout: &Layout,
     info: &mut ViewInfo,
     search: &mut SearchBuf,
     command: &mut CommandBuf,
@@ -1465,8 +1531,7 @@ impl<'a> Pager<'a> {
         view: Option<V>,
     ) -> Result<Option<Value>>
     where
-        V: View,
-        V::State: Default,
+        V: View + 'static,
     {
         run_pager(engine_state, stack, ctrlc, self, view)
     }
@@ -1617,13 +1682,14 @@ impl<'a> TableW<'a> {
 
 #[derive(Debug, Default)]
 struct TableWState {
+    layout: Layout,
     count_rows: usize,
     count_columns: usize,
     data_index: HashMap<(usize, usize), ElementInfo>,
 }
 
 impl StatefulWidget for TableW<'_> {
-    type State = Layout<TableWState>;
+    type State = TableWState;
 
     fn render(
         self,
@@ -1681,8 +1747,8 @@ impl StatefulWidget for TableW<'_> {
         let mut do_render_split_line = true;
         let mut do_render_shift_column = false;
 
-        state.state.count_rows = data.len();
-        state.state.count_columns = 0;
+        state.count_rows = data.len();
+        state.count_columns = 0;
 
         for (i, col) in (self.index_column..self.columns.len()).enumerate() {
             let mut head = String::from(&self.columns[col]);
@@ -1731,7 +1797,7 @@ impl StatefulWidget for TableW<'_> {
                 render_space(buf, w, head_y, 1, CELL_PADDING_RIGHT);
 
                 let x = w - CELL_PADDING_RIGHT - use_space;
-                state.push(&header[0].0, x, head_y, use_space, 1);
+                state.layout.push(&header[0].0, x, head_y, use_space, 1);
 
                 // it would be nice to add it so it would be available on search
                 // state.state.data_index.insert((i, col), ElementInfo::new(text, x, data_y, use_space, 1));
@@ -1744,13 +1810,13 @@ impl StatefulWidget for TableW<'_> {
             for (row, (text, _)) in column.iter().enumerate() {
                 let x = width - CELL_PADDING_RIGHT - use_space;
                 let y = data_y + row as u16;
-                state.push(text, x, y, use_space, 1);
+                state.layout.push(text, x, y, use_space, 1);
 
                 let e = ElementInfo::new(text, x, y, use_space, 1);
-                state.state.data_index.insert((row, i), e);
+                state.data_index.insert((row, i), e);
             }
 
-            state.state.count_columns += 1;
+            state.count_columns += 1;
 
             if do_render_shift_column {
                 break;
@@ -1886,9 +1952,8 @@ fn render_index(buf: &mut Buffer, area: Rect, color_hm: &NuStyleTable, start_ind
 
 // todo: Change layout so it's not dependent on 2x2 grid structure
 #[derive(Debug, Default)]
-pub struct Layout<S> {
+pub struct Layout {
     data: Vec<ElementInfo>,
-    state: S,
 }
 
 #[derive(Debug, Default, Clone)]
@@ -1916,6 +1981,15 @@ impl Report {
             context2,
         }
     }
+
+    fn error(message: impl Into<String>) -> Self {
+        Self::new(
+            message.into(),
+            Severentity::Err,
+            String::new(),
+            String::new(),
+        )
+    }
 }
 
 impl Default for Report {
@@ -1937,7 +2011,7 @@ enum Severentity {
     Err,
 }
 
-impl<S> Layout<S> {
+impl Layout {
     fn push(&mut self, text: &str, x: u16, y: u16, width: u16, height: u16) {
         self.data.push(ElementInfo::new(text, x, y, width, height));
     }
@@ -2391,12 +2465,7 @@ impl UIEvents {
 pub struct InformationView;
 
 impl View for InformationView {
-    type State = ();
-
-    fn draw<B>(&self, f: &mut Frame<B>, area: Rect, _: &ViewConfig, _: &mut Layout<Self::State>)
-    where
-        B: Backend,
-    {
+    fn draw(&mut self, f: &mut Frame, area: Rect, _: &ViewConfig, _: &mut Layout) {
         let message = [
             "Scroll",
             "",
@@ -2430,7 +2499,7 @@ impl View for InformationView {
         &mut self,
         _: &EngineState,
         _: &mut Stack,
-        _: &Layout<Self::State>,
+        _: &Layout,
         _: &mut ViewInfo,
         _: KeyEvent,
     ) -> Option<Transition> {
@@ -2457,20 +2526,14 @@ impl<'a> InteractiveView<'a> {
             command: String::new(),
         }
     }
+
+    fn init(&mut self, command: String) {
+        self.command = command;
+    }
 }
 
 impl View for InteractiveView<'_> {
-    type State = RecordViewState;
-
-    fn draw<B>(
-        &self,
-        f: &mut Frame<B>,
-        area: Rect,
-        cfg: &ViewConfig,
-        layout: &mut Layout<Self::State>,
-    ) where
-        B: Backend,
-    {
+    fn draw(&mut self, f: &mut Frame, area: Rect, cfg: &ViewConfig, layout: &mut Layout) {
         let cmd_block = tui::widgets::Block::default()
             .borders(Borders::ALL)
             .border_type(BorderType::Rounded);
@@ -2479,21 +2542,36 @@ impl View for InteractiveView<'_> {
         f.render_widget(cmd_block, cmd_area);
 
         let cmd = Paragraph::new(self.command.clone());
-        let cmd_area = Rect::new(area.x + 1 + 1, area.y + 1, area.width - 2 - 1, 1);
+        let cmd_area = Rect::new(
+            area.x + 1 + 1 + 1,
+            area.y + 1,
+            area.width - 2 - 1 - 1 - 1 - 1 - 1,
+            1,
+        );
         f.render_widget(cmd, cmd_area);
+
+        let max_cmd_len = min(
+            self.command.len() as u16,
+            area.width - 2 - 1 - 1 - 1 - 1 - 1,
+        );
+        let cur_w = area.x + 1 + 1 + 1 + max_cmd_len as u16;
+        let cur_w_max = area.x + 1 + 1 + 1 + area.width - 2 - 1 - 1 - 1 - 1;
+        if cur_w < cur_w_max {
+            f.set_cursor(area.x + 1 + 1 + 1 + max_cmd_len as u16, area.y + 1);
+        }
 
         let table_block = tui::widgets::Block::default()
             .borders(Borders::ALL)
             .border_type(BorderType::Rounded);
-        let table_area = Rect::new(area.x + 1, area.y + 3, area.width - 2, area.height - 3 - 1);
+        let table_area = Rect::new(area.x + 1, area.y + 3, area.width - 2, area.height - 3);
         f.render_widget(table_block, table_area);
 
-        if let Some(table) = &self.table {
+        if let Some(table) = &mut self.table {
             let area = Rect::new(
                 area.x + 2,
                 area.y + 4,
                 area.width - 3 - 1,
-                area.height - 3 - 1 - 1 - 1,
+                area.height - 3 - 1 - 1,
             );
 
             table.draw(f, area, cfg, layout);
@@ -2504,7 +2582,7 @@ impl View for InteractiveView<'_> {
         &mut self,
         engine_state: &EngineState,
         stack: &mut Stack,
-        layout: &Layout<Self::State>,
+        layout: &Layout,
         info: &mut ViewInfo,
         key: KeyEvent,
     ) -> Option<Transition> {
@@ -2554,12 +2632,7 @@ impl View for InteractiveView<'_> {
                         self.table = Some(view);
                     }
                     Err(err) => {
-                        info.report = Some(Report::new(
-                            format!("Error: {}", err),
-                            Severentity::Err,
-                            String::new(),
-                            String::new(),
-                        ));
+                        info.report = Some(Report::error(format!("Error: {}", err)));
                     }
                 }
 
@@ -2570,4 +2643,412 @@ impl View for InteractiveView<'_> {
     }
 
     // todo: impl more methods
+}
+
+pub trait SimpleCommand {
+    fn name(&self) -> &'static str;
+
+    fn usage(&self) -> &'static str;
+
+    fn help(&self) -> Option<HelpManual>;
+
+    fn parse(&mut self, args: &str) -> Result<()>;
+
+    fn react(
+        &mut self,
+        engine_state: &EngineState,
+        stack: &mut Stack,
+        pager: &mut Pager<'_>,
+        value: Option<Value>,
+    ) -> Result<Transition>;
+}
+
+#[derive(Default)]
+pub struct QuitCmd;
+
+impl QuitCmd {
+    pub const NAME: &'static str = "q";
+}
+
+impl SimpleCommand for QuitCmd {
+    fn name(&self) -> &'static str {
+        Self::NAME
+    }
+
+    fn usage(&self) -> &'static str {
+        ""
+    }
+
+    fn help(&self) -> Option<HelpManual> {
+        Some(HelpManual {
+            name: "q",
+            description: "Quite a programm",
+            arguments: vec![],
+            examples: vec![],
+        })
+    }
+
+    fn parse(&mut self, _: &str) -> Result<()> {
+        Ok(())
+    }
+
+    fn react(
+        &mut self,
+        _: &EngineState,
+        _: &mut Stack,
+        _: &mut Pager<'_>,
+        _: Option<Value>,
+    ) -> Result<Transition> {
+        Ok(Transition::Exit)
+    }
+}
+
+pub trait ViewCommand {
+    type View;
+
+    fn name(&self) -> &'static str;
+
+    fn usage(&self) -> &'static str;
+
+    fn help(&self) -> Option<HelpManual>;
+
+    fn parse(&mut self, args: &str) -> Result<()>;
+
+    fn spawn(
+        &mut self,
+        engine_state: &EngineState,
+        stack: &mut Stack,
+        value: Option<Value>,
+    ) -> Result<Self::View>;
+}
+
+pub struct HelpManual {
+    name: &'static str,
+    description: &'static str,
+    arguments: Vec<HelpExample>,
+    examples: Vec<HelpExample>,
+}
+
+pub struct HelpExample {
+    example: &'static str,
+    description: &'static str,
+}
+
+#[derive(Debug, Default)]
+struct NuCmd {
+    command: String,
+    table_cfg: TableConfig,
+}
+
+impl NuCmd {
+    fn new(table_cfg: TableConfig) -> Self {
+        Self {
+            command: String::new(),
+            table_cfg,
+        }
+    }
+
+    const NAME: &'static str = "nu";
+}
+
+impl ViewCommand for NuCmd {
+    type View = RecordView<'static>;
+
+    fn name(&self) -> &'static str {
+        Self::NAME
+    }
+
+    fn usage(&self) -> &'static str {
+        ""
+    }
+
+    fn help(&self) -> Option<HelpManual> {
+        Some(HelpManual {
+            name: "nu",
+            description: "Run a nu command. You can use a presented table as an input",
+            arguments: vec![],
+            examples: vec![
+                HelpExample {
+                    example: "where type == 'file'",
+                    description: "Filter data to get only entries with a type being a 'file'",
+                },
+                HelpExample {
+                    example: "get scope | get examples",
+                    description: "Get a inner values",
+                },
+                HelpExample {
+                    example: "open Cargo.toml",
+                    description: "Open a Cargo.toml file",
+                },
+            ],
+        })
+    }
+
+    fn parse(&mut self, args: &str) -> Result<()> {
+        let cmd = args
+            .strip_prefix(Self::NAME)
+            .ok_or_else(|| io::Error::new(io::ErrorKind::Other, "failed to parse"))?;
+
+        let cmd = cmd.trim();
+
+        self.command = cmd.to_owned();
+
+        Ok(())
+    }
+
+    fn spawn(
+        &mut self,
+        engine_state: &EngineState,
+        stack: &mut Stack,
+        value: Option<Value>,
+    ) -> Result<Self::View> {
+        let value = value.unwrap_or_default();
+
+        let pipeline = PipelineData::Value(value, None);
+        let pipeline = run_nu_command(engine_state, stack, &self.command, pipeline)
+            .map_err(|e| io::Error::new(io::ErrorKind::Other, e))?;
+
+        let (columns, values) = collect_pipeline(pipeline);
+
+        let view = RecordView::new(columns, values, self.table_cfg.clone());
+
+        Ok(view)
+    }
+}
+
+#[derive(Debug, Default)]
+struct HelpCmd {
+    command: String,
+    table_cfg: TableConfig,
+}
+
+impl HelpCmd {
+    fn new(table_cfg: TableConfig) -> Self {
+        Self {
+            command: String::new(),
+            table_cfg,
+        }
+    }
+
+    const NAME: &'static str = "help";
+}
+
+impl ViewCommand for HelpCmd {
+    type View = RecordView<'static>;
+
+    fn name(&self) -> &'static str {
+        Self::NAME
+    }
+
+    fn usage(&self) -> &'static str {
+        ""
+    }
+
+    fn help(&self) -> Option<HelpManual> {
+        Some(HelpManual {
+            name: "help",
+            description: "Looks up a help information about a command or a `scroll`",
+            arguments: vec![],
+            examples: vec![
+                HelpExample {
+                    example: "help",
+                    description: "Open a help information about the `scroll`",
+                },
+                HelpExample {
+                    example: "help nu",
+                    description: "Find a help list of `nu` command",
+                },
+                HelpExample {
+                    example: "help help",
+                    description: "...It was supposed to be hidden....until...now...",
+                },
+            ],
+        })
+    }
+
+    fn parse(&mut self, args: &str) -> Result<()> {
+        let cmd = args
+            .strip_prefix(Self::NAME)
+            .ok_or_else(|| io::Error::new(io::ErrorKind::Other, "failed to parse"))?;
+
+        let cmd = cmd.trim();
+
+        self.command = cmd.to_owned();
+
+        Ok(())
+    }
+
+    fn spawn(&mut self, _: &EngineState, _: &mut Stack, _: Option<Value>) -> Result<Self::View> {
+        if self.command.is_empty() {
+            let (headers, data) = help_frame_data();
+            let view = RecordView::new(headers, data, self.table_cfg.clone());
+            return Ok(view);
+        }
+
+        let manual = match self.command.as_str() {
+            NuCmd::NAME => NuCmd::default().help(),
+            TryCmd::NAME => TryCmd::default().help(),
+            HelpCmd::NAME => HelpCmd::default().help(),
+            QuitCmd::NAME => QuitCmd::default().help(),
+            _ => {
+                return Err(io::Error::new(
+                    io::ErrorKind::Other,
+                    "a given command was not found",
+                ))
+            }
+        };
+
+        let manual = match manual {
+            Some(manual) => manual,
+            None => {
+                return Err(io::Error::new(
+                    io::ErrorKind::Other,
+                    "a given command doesn't have a manual",
+                ))
+            }
+        };
+
+        let (headers, data) = help_manual_data(manual);
+        let view = RecordView::new(headers, data, self.table_cfg.clone());
+
+        Ok(view)
+    }
+}
+
+#[derive(Debug, Default)]
+struct TryCmd {
+    command: String,
+    table_cfg: TableConfig,
+}
+
+impl TryCmd {
+    fn new(table_cfg: TableConfig) -> Self {
+        Self {
+            command: String::new(),
+            table_cfg,
+        }
+    }
+
+    const NAME: &'static str = "try";
+}
+
+impl ViewCommand for TryCmd {
+    type View = InteractiveView<'static>;
+
+    fn name(&self) -> &'static str {
+        Self::NAME
+    }
+
+    fn usage(&self) -> &'static str {
+        ""
+    }
+
+    fn help(&self) -> Option<HelpManual> {
+        Some(HelpManual {
+            name: "try",
+            description: "Opens a dynamic REPL to run nu commands",
+            arguments: vec![],
+            examples: vec![HelpExample {
+                example: "try open Cargo.toml",
+                description: "Optionally you can provide a command which will be run right away",
+            }],
+        })
+    }
+
+    fn parse(&mut self, args: &str) -> Result<()> {
+        let cmd = args
+            .strip_prefix(Self::NAME)
+            .ok_or_else(|| io::Error::new(io::ErrorKind::Other, "failed to parse"))?;
+
+        let cmd = cmd.trim();
+
+        self.command = cmd.to_owned();
+
+        Ok(())
+    }
+
+    fn spawn(
+        &mut self,
+        _: &EngineState,
+        _: &mut Stack,
+        value: Option<Value>,
+    ) -> Result<Self::View> {
+        let value = value.unwrap_or_default();
+        let mut view = InteractiveView::new(value, self.table_cfg.clone());
+        view.init(self.command.clone());
+
+        Ok(view)
+    }
+}
+
+pub enum Command {
+    Reactive(Box<dyn SimpleCommand>),
+    View(Box<dyn ViewCommand<View = Box<dyn View>>>),
+}
+
+fn find_command(args: &str, table_cfg: &TableConfig) -> Option<Command> {
+    // type helper to deal with `Box`es
+    struct ViewCmd<C>(C);
+
+    impl<C> ViewCommand for ViewCmd<C>
+    where
+        C: ViewCommand,
+        C::View: View + 'static,
+    {
+        type View = Box<dyn View>;
+
+        fn name(&self) -> &'static str {
+            self.0.name()
+        }
+
+        fn usage(&self) -> &'static str {
+            self.0.usage()
+        }
+
+        fn help(&self) -> Option<HelpManual> {
+            self.0.help()
+        }
+
+        fn parse(&mut self, args: &str) -> Result<()> {
+            self.0.parse(args)
+        }
+
+        fn spawn(
+            &mut self,
+            engine_state: &EngineState,
+            stack: &mut Stack,
+            value: Option<Value>,
+        ) -> Result<Self::View> {
+            let view = self.0.spawn(engine_state, stack, value)?;
+            Ok(Box::new(view) as Box<dyn View>)
+        }
+    }
+
+    macro_rules! cmd_view {
+        ($name:expr, $object:expr) => {
+            if args.starts_with($name) {
+                return Some(Command::View(
+                    Box::new(ViewCmd($object)) as Box<dyn ViewCommand<View = Box<dyn View>>>
+                ));
+            }
+        };
+    }
+
+    macro_rules! cmd_react {
+        ($name:expr, $object:expr) => {
+            if args.starts_with($name) {
+                return Some(Command::Reactive(
+                    Box::new($object) as Box<dyn SimpleCommand>
+                ));
+            }
+        };
+    }
+
+    cmd_view!(NuCmd::NAME, NuCmd::new(table_cfg.clone()));
+    cmd_view!(TryCmd::NAME, TryCmd::new(table_cfg.clone()));
+    cmd_view!(HelpCmd::NAME, HelpCmd::new(table_cfg.clone()));
+
+    cmd_react!(QuitCmd::NAME, QuitCmd::default());
+
+    None
 }
