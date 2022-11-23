@@ -60,6 +60,8 @@ impl Command for SubCommand {
             if let Some(val) = number_bytes {
                 return Err(ShellError::UnsupportedInput(
                     "Only 1, 2, 4, 8, or 'auto' bytes are supported as word sizes".to_string(),
+                    "value originates from here".to_string(),
+                    head,
                     val.span,
                 ));
             }
@@ -134,13 +136,15 @@ fn operate(value: Value, bits: usize, head: Span, signed: bool, number_size: Num
                 SignedEight => get_rotate_right(val as i64, bits, span),
             }
         }
+        // Propagate errors by explicitly matching them before the final case.
+        Value::Error { .. } => value,
         other => Value::Error {
-            error: ShellError::UnsupportedInput(
-                format!(
-                    "Only integer values are supported, input type: {:?}",
-                    other.get_type()
-                ),
-                other.span().unwrap_or(head),
+            error: ShellError::OnlySupportsThisInputType(
+                "integer".into(),
+                other.get_type().to_string(),
+                head,
+                // This line requires the Value::Error match above.
+                other.span().unwrap(),
             ),
         },
     }

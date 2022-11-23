@@ -43,7 +43,7 @@ impl Command for SubCommand {
         call: &Call,
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
-        parse(input.into_value(call.head), engine_state)
+        parse(input.into_value(call.head), call.head, engine_state)
     }
 
     fn examples(&self) -> Vec<Example> {
@@ -91,12 +91,13 @@ fn get_url_string(value: &Value, engine_state: &EngineState) -> String {
     value.into_string("", engine_state.get_config())
 }
 
-fn parse(value: Value, engine_state: &EngineState) -> Result<PipelineData, ShellError> {
+fn parse(value: Value, head: Span, engine_state: &EngineState) -> Result<PipelineData, ShellError> {
     let url_string = get_url_string(&value, engine_state);
 
     let result_url = Url::parse(url_string.as_str());
 
-    let head = value.span()?;
+    // This is the span of the original string, not the call head.
+    let span = value.span()?;
 
     match result_url {
         Ok(url) => {
@@ -176,14 +177,18 @@ fn parse(value: Value, engine_state: &EngineState) -> Result<PipelineData, Shell
 
                 _ => Err(ShellError::UnsupportedInput(
                     "String not compatible with url-encoding".to_string(),
+                    "value originates from here".into(),
                     head,
+                    span,
                 )),
             }
         }
         Err(_e) => Err(ShellError::UnsupportedInput(
-            "Incomplete or incorrect url. Expected a full url, e.g., https://www.example.com"
+            "Incomplete or incorrect URL. Expected a full URL, e.g., https://www.example.com"
                 .to_string(),
+            "value originates from here".into(),
             head,
+            span,
         )),
     }
 }

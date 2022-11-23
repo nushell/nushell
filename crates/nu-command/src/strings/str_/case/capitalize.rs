@@ -108,13 +108,13 @@ fn action(input: &Value, head: Span) -> Value {
             val: uppercase_helper(val),
             span: head,
         },
-        other => Value::Error {
-            error: ShellError::UnsupportedInput(
-                format!(
-                    "Input's type is {}. This command only works with strings.",
-                    other.get_type()
-                ),
+        Value::Error { .. } => input.clone(),
+        _ => Value::Error {
+            error: ShellError::OnlySupportsThisInputType(
+                "string".into(),
+                input.get_type().to_string(),
                 head,
+                input.span().unwrap(),
             ),
         },
     }

@@ -208,6 +208,7 @@ pub fn rotate(
 ) -> Result<PipelineData, ShellError> {
     let metadata = input.metadata();
     let col_given_names: Vec<String> = call.rest(engine_state, stack, 0)?;
+    let span = input.span().unwrap();
     let mut values = input.into_iter().collect::<Vec<_>>();
     let mut old_column_names = vec![];
     let mut new_values = vec![];
@@ -250,8 +251,10 @@ pub fn rotate(
         }
     } else {
         return Err(ShellError::UnsupportedInput(
-            "Rotate command requires a Nu value as input".to_string(),
+            "list input is empty".to_string(),
+            "value originates from here".into(),
             call.head,
+            span,
         ));
     }
 

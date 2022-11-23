@@ -58,7 +58,7 @@ pub enum ShellError {
     /// Convert the argument type before passing it in, or change the command to accept the type.
     #[error("Type mismatch")]
     #[diagnostic(code(nu::shell::type_mismatch), url(docsrs))]
-    TypeMismatch(String, #[label = "needs {0}"] Span),
+    TypeMismatch(String, #[label = "{0}"] Span),
 
     /// A command received an argument of the wrong type.
     ///
@@ -469,7 +469,21 @@ Either make sure {0} is a string, or add a 'to_string' entry for it in ENV_CONVE
     /// This error is fairly generic. Refer to the specific error message for further details.
     #[error("Unsupported input")]
     #[diagnostic(code(nu::shell::unsupported_input), url(docsrs))]
-    UnsupportedInput(String, #[label("{0}")] Span),
+    UnsupportedInput(
+        String,
+        String,
+        #[label("{0}")] Span,
+        #[label("input type: {1}")] Span,
+    ),
+
+    #[error("Unsupported input")]
+    #[diagnostic(code(nu::shell::unsupported_input), url(docsrs))]
+    OnlySupportsThisInputType(
+        String,
+        String,
+        #[label("only {0} input data is supported")] Span,
+        #[label("input type: {1}")] Span,
+    ),
 
     /// Failed to parse an input into a datetime value.
     ///

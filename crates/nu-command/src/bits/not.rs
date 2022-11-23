@@ -56,6 +56,8 @@ impl Command for SubCommand {
             if let Some(val) = number_bytes {
                 return Err(ShellError::UnsupportedInput(
                     "Only 1, 2, 4, 8, or 'auto' bytes are supported as word sizes".to_string(),
+                    "value originates from here".to_string(),
+                    head,
                     val.span,
                 ));
             }
@@ -140,14 +142,17 @@ fn operate(value: Value, head: Span, signed: bool, number_size: NumberBytes) -> 
                 Value::Int { val: out_val, span }
             }
         }
-        other => Value::Error {
-            error: ShellError::UnsupportedInput(
-                format!(
-                    "Only numerical values are supported, input type: {:?}",
-                    other.get_type()
+        other => match other {
+            // Propagate errors inside the value
+            Value::Error { .. } => other,
+            _ => Value::Error {
+                error: ShellError::OnlySupportsThisInputType(
+                    "numeric".into(),
+                    other.get_type().to_string(),
+                    head,
+                    other.span().unwrap(),
                 ),
-                other.span().unwrap_or(head),
-            ),
+            },
         },
     }
 }

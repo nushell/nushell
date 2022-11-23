@@ -74,13 +74,15 @@ fn operate(value: Value, target: i64, head: Span) -> Value {
             val: val ^ target,
             span,
         },
+        // Propagate errors by explicitly matching them before the final case.
+        Value::Error { .. } => value,
         other => Value::Error {
-            error: ShellError::UnsupportedInput(
-                format!(
-                    "Only integer values are supported, input type: {:?}",
-                    other.get_type()
-                ),
-                other.span().unwrap_or(head),
+            error: ShellError::OnlySupportsThisInputType(
+                "integer".into(),
+                other.get_type().to_string(),
+                head,
+                // This line requires the Value::Error match above.
+                other.span().unwrap(),
             ),
         },
     }

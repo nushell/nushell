@@ -231,11 +231,16 @@ fn action(input: &Value, args: &Arguments, head: Span) -> Value {
     let timestamp = match input {
         Value::Int { val, .. } => Ok(*val),
         Value::String { val, .. } => val.parse::<i64>(),
+        // Propagate errors by explicitly matching them before the final case.
+        Value::Error { .. } => return input.clone(),
         other => {
             return Value::Error {
-                error: ShellError::UnsupportedInput(
-                    format!("Expected string or int, got {} instead", other.get_type()),
+                error: ShellError::OnlySupportsThisInputType(
+                    "string and integer".into(),
+                    other.get_type().to_string(),
                     head,
+                    // This line requires the Value::Error match above.
+                    other.span().unwrap(),
                 ),
             };
         }
@@ -248,9 +253,11 @@ fn action(input: &Value, args: &Arguments, head: Span) -> Value {
         if ts.abs() > TIMESTAMP_BOUND {
             return Value::Error {
                 error: ShellError::UnsupportedInput(
-                    "Given timestamp is out of range, it should between -8e+12 and 8e+12"
-                        .to_string(),
+                    "timestamp is out of range; it should between -8e+12 and 8e+12".to_string(),
+                    format!("timestamp is {:?}", ts),
                     head,
+                    // Again, can safely unwrap this from here on
+                    input.span().unwrap(),
                 ),
             };
         }
@@ -353,8 +360,9 @@ fn action(input: &Value, args: &Arguments, head: Span) -> Value {
                     },
                 },
                 Zone::Error => Value::Error {
-                    error: ShellError::UnsupportedInput(
-                        "Cannot convert given timezone or offset to timestamp".to_string(),
+                    // This is an argument error, not an input error
+                    error: ShellError::TypeMismatch(
+                        "Invalid timezone or offset".to_string(),
                         *span,
                     ),
                 },
@@ -391,10 +399,15 @@ fn action(input: &Value, args: &Arguments, head: Span) -> Value {
                 },
             }
         }
+        // Propagate errors by explicitly matching them before the final case.
+        Value::Error { .. } => input.clone(),
         other => Value::Error {
-            error: ShellError::UnsupportedInput(
-                format!("Expected string, got {} instead", other.get_type()),
+            error: ShellError::OnlySupportsThisInputType(
+                "string".into(),
+                other.get_type().to_string(),
                 head,
+                // This line requires the Value::Error match above.
+                other.span().unwrap(),
             ),
         },
     }

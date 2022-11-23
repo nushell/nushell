@@ -105,17 +105,18 @@ fn action(input: &Value, _args: &CellPathOnlyArgs, head: Span) -> Value {
             },
             span: *span,
         },
+        // Propagate errors by explicitly matching them before the final case.
+        Value::Error { .. } => return input.clone(),
         other => {
-            let span = other.span();
-            match span {
-                Ok(s) => {
-                    let got = format!("Expected a string, got {} instead", other.get_type());
-                    Value::Error {
-                        error: ShellError::UnsupportedInput(got, s),
-                    }
-                }
-                Err(e) => Value::Error { error: e },
-            }
+            return Value::Error {
+                error: ShellError::OnlySupportsThisInputType(
+                    "string, integer or bool".into(),
+                    other.get_type().to_string(),
+                    head,
+                    // This line requires the Value::Error match above.
+                    other.span().unwrap(),
+                ),
+            };
         }
     }
 }

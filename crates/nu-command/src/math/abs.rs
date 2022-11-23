@@ -66,13 +66,13 @@ fn abs_helper(val: Value, head: Span) -> Value {
             val: val.abs(),
             span,
         },
+        Value::Error { .. } => val,
         other => Value::Error {
-            error: ShellError::UnsupportedInput(
-                format!(
-                    "Only numerical values are supported, input type: {:?}",
-                    other.get_type()
-                ),
+            error: ShellError::OnlySupportsThisInputType(
+                "numeric".into(),
+                other.get_type().to_string(),
                 head,
+                other.span().unwrap(),
             ),
         },
     }

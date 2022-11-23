@@ -188,9 +188,14 @@ impl Command for Save {
 
                     Ok(PipelineData::empty())
                 }
-                v => Err(ShellError::UnsupportedInput(
-                    format!("{:?} not supported", v.get_type()),
+                // Propagate errors by explicitly matching them before the final case.
+                Value::Error { error } => Err(error),
+                other => Err(ShellError::OnlySupportsThisInputType(
+                    "string, binary or list".into(),
+                    other.get_type().to_string(),
                     span,
+                    // This line requires the Value::Error match above.
+                    other.span().unwrap(),
                 )),
             }
         } else {
@@ -264,9 +269,14 @@ impl Command for Save {
 
                         Ok(PipelineData::empty())
                     }
-                    v => Err(ShellError::UnsupportedInput(
-                        format!("{:?} not supported", v.get_type()),
+                    // Propagate errors by explicitly matching them before the final case.
+                    Value::Error { error } => Err(error),
+                    other => Err(ShellError::OnlySupportsThisInputType(
+                        "string, binary or list".into(),
+                        other.get_type().to_string(),
                         span,
+                        // This line requires the Value::Error match above.
+                        other.span().unwrap(),
                     )),
                 },
             }
@@ -313,10 +323,15 @@ fn stream_to_file(mut stream: RawStream, file: File) -> Result<PipelineData, She
                 Ok(v) => match v {
                     Value::String { val, .. } => val.into_bytes(),
                     Value::Binary { val, .. } => val,
-                    _ => {
-                        return Err(ShellError::UnsupportedInput(
-                            format!("{:?} not supported", v.get_type()),
-                            v.span()?,
+                    // Propagate errors by explicitly matching them before the final case.
+                    Value::Error { error } => return Err(error),
+                    other => {
+                        return Err(ShellError::OnlySupportsThisInputType(
+                            "string or binary".into(),
+                            other.get_type().to_string(),
+                            span,
+                            // This line requires the Value::Error match above.
+                            other.span().unwrap(),
                         ));
                     }
                 },

@@ -41,7 +41,7 @@ pub fn operate<C, A>(
     cmd: C,
     mut arg: A,
     input: PipelineData,
-    span: Span,
+    _span: Span,
     ctrlc: Option<Arc<AtomicBool>>,
 ) -> Result<PipelineData, ShellError>
 where
@@ -49,7 +49,16 @@ where
     C: Fn(&Value, &A, Span) -> Value + Send + Sync + 'static + Clone + Copy,
 {
     match arg.take_cell_paths() {
-        None => input.map(move |v| cmd(&v, &arg, v.span().unwrap_or(span)), ctrlc),
+        None => input.map(
+            move |v| {
+                // Propagate errors inside the input
+                match v {
+                    Value::Error { .. } => v,
+                    _ => cmd(&v, &arg, v.span().unwrap()),
+                }
+            },
+            ctrlc,
+        ),
         Some(column_paths) => {
             let arg = Arc::new(arg);
             input.map(
@@ -58,7 +67,13 @@ where
                         let opt = arg.clone();
                         let r = v.update_cell_path(
                             &path.members,
-                            Box::new(move |old| cmd(old, &opt, old.span().unwrap_or(span))),
+                            Box::new(move |old| {
+                                // Propagate errors inside the input
+                                match old {
+                                    Value::Error { .. } => old.clone(),
+                                    _ => cmd(old, &opt, old.span().unwrap()),
+                                }
+                            }),
                         );
                         if let Err(error) = r {
                             return Value::Error { error };

@@ -55,7 +55,7 @@ impl Command for FromUrl {
 }
 
 fn from_url(input: PipelineData, head: Span) -> Result<PipelineData, ShellError> {
-    let (concat_string, metadata) = input.collect_string_strict(head)?;
+    let (concat_string, span, metadata) = input.collect_string_strict(head)?;
 
     let result = serde_urlencoded::from_str::<Vec<(String, String)>>(&concat_string);
 
@@ -78,8 +78,10 @@ fn from_url(input: PipelineData, head: Span) -> Result<PipelineData, ShellError>
             ))
         }
         _ => Err(ShellError::UnsupportedInput(
-            "String not compatible with url-encoding".to_string(),
+            "String not compatible with URL encoding".to_string(),
+            "value originates from here".into(),
             head,
+            span,
         )),
     }
 }

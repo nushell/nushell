@@ -98,12 +98,11 @@ impl Command for Histogram {
         let frequency_name_arg = call.opt::<Spanned<String>>(engine_state, stack, 1)?;
         let frequency_column_name = match frequency_name_arg {
             Some(inner) => {
-                let span = inner.span;
                 if ["value", "count", "quantile", "percentage"].contains(&inner.item.as_str()) {
-                    return Err(ShellError::UnsupportedInput(
+                    return Err(ShellError::TypeMismatch(
                         "frequency-column-name can't be 'value', 'count' or 'percentage'"
                             .to_string(),
-                        span,
+                        inner.span,
                     ));
                 }
                 inner.item
@@ -119,7 +118,7 @@ impl Command for Histogram {
                 "normalize" => PercentageCalcMethod::Normalize,
                 "relative" => PercentageCalcMethod::Relative,
                 _ => {
-                    return Err(ShellError::UnsupportedInput(
+                    return Err(ShellError::TypeMismatch(
                         "calc method can only be 'normalize' or 'relative'".to_string(),
                         inner.span,
                     ))
@@ -157,14 +156,24 @@ fn run_histogram(
             // some invalid input scenario needs to handle:
             // Expect input is a list of hashable value, if one value is not hashable, throw out error.
             for v in values {
-                let current_span = v.span().unwrap_or(head_span);
-                inputs.push(HashableValue::from_value(v, head_span).map_err(|_| {
-                    ShellError::UnsupportedInput(
-                        "--column-name is not provided, can only support a list of simple value."
-                            .to_string(),
-                        current_span,
-                    )
-                })?);
+                match v {
+                    // Propagate existing errors.
+                    Value::Error { error } => return Err(error),
+                    _ => {
+                        let t = v.get_type();
+                        let span = v.span().unwrap();
+                        inputs.push(HashableValue::from_value(v, head_span).map_err(|_| {
+                        ShellError::UnsupportedInput(
+                            "Since --column-name was not provided, only lists of hashable values are supported.".to_string(),
+                            format!(
+                                "input type: {:?}", t
+                            ),
+                            head_span,
+                            span,
+                        )
+                    })?)
+                    }
+                }
             }
         }
         Some(ref col) => {
@@ -186,13 +195,17 @@ fn run_histogram(
                             }
                         }
                     }
+                    // Propagate existing errors.
+                    Value::Error { error } => return Err(error),
                     _ => continue,
                 }
             }
 
             if inputs.is_empty() {
                 return Err(ShellError::UnsupportedInput(
-                    format!("expect input is table, and inputs doesn't contain any value which has {col_name} column"),
+                    format!("none of the input values had a '{col_name}' column"),
+                    "".into(),
+                    head_span, // MUSTFIX
                     head_span,
                 ));
             }

@@ -78,13 +78,14 @@ impl HashableValue {
             Value::String { val, span } => Ok(HashableValue::String { val, span }),
             Value::Binary { val, span } => Ok(HashableValue::Binary { val, span }),
 
-            _ => {
-                let input_span = value.span().unwrap_or(span);
-                Err(ShellError::UnsupportedInput(
-                    format!("input value {value:?} is not hashable"),
-                    input_span,
-                ))
-            }
+            // Explictly propagate errors instead of dropping them.
+            Value::Error { error } => Err(error),
+            _ => Err(ShellError::UnsupportedInput(
+                format!("input value is not hashable"),
+                format!("input type: {:?}", value.get_type()),
+                span,
+                value.span().unwrap(),
+            )),
         }
     }
 

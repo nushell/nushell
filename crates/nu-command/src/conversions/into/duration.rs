@@ -468,9 +468,11 @@ fn action(
                     }
                 } else {
                     Value::Error {
-                        error: ShellError::UnsupportedInput(
-                            "'into duration' does not support this string input".into(),
+                        error: ShellError::CantConvert(
+                            "string".into(),
+                            "duration".into(),
                             span,
+                            None,
                         ),
                     }
                 }
@@ -481,12 +483,19 @@ fn action(
                 }
             }
         }
-        _ => Value::Error {
-            error: ShellError::UnsupportedInput(
-                "'into duration' does not support this input".into(),
-                span,
-            ),
-        },
+        // Propagate errors by explicitly matching them before the final case.
+        Value::Error { .. } => return input.clone(),
+        other => {
+            return Value::Error {
+                error: ShellError::OnlySupportsThisInputType(
+                    "string or duration".into(),
+                    other.get_type().to_string(),
+                    span,
+                    // This line requires the Value::Error match above.
+                    other.span().unwrap(),
+                ),
+            };
+        }
     }
 }
 

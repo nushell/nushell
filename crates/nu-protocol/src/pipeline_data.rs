@@ -243,10 +243,10 @@ impl PipelineData {
     pub fn collect_string_strict(
         self,
         span: Span,
-    ) -> Result<(String, Option<PipelineMetadata>), ShellError> {
+    ) -> Result<(String, Span, Option<PipelineMetadata>), ShellError> {
         match self {
             PipelineData::Empty => Ok((String::new(), None)),
-            PipelineData::Value(Value::String { val, .. }, metadata) => Ok((val, metadata)),
+            PipelineData::Value(Value::String { val, span }, metadata) => Ok((val, span, metadata)),
             PipelineData::Value(val, _) => {
                 Err(ShellError::TypeMismatch("string".into(), val.span()?))
             }
@@ -254,13 +254,15 @@ impl PipelineData {
             PipelineData::ExternalStream {
                 stdout: None,
                 metadata,
+                span,
                 ..
-            } => Ok((String::new(), metadata)),
+            } => Ok((String::new(), span, metadata)),
             PipelineData::ExternalStream {
                 stdout: Some(stdout),
                 metadata,
+                span,
                 ..
-            } => Ok((stdout.into_string()?.item, metadata)),
+            } => Ok((stdout.into_string()?.item, span, metadata)),
         }
     }
 

@@ -181,6 +181,8 @@ fn action(input: &Value, arg: &Arguments, head: Span) -> Value {
             val: trim(s, char_, closure_flags),
             span: head,
         },
+        // Propagate errors by explicitly matching them before the final case.
+        Value::Error { .. } => input.clone(),
         other => match mode {
             ActionMode::Global => match other {
                 Value::Record { cols, vals, span } => {
@@ -203,9 +205,14 @@ fn action(input: &Value, arg: &Arguments, head: Span) -> Value {
                 _ => input.clone(),
             },
             ActionMode::Local => {
-                let got = format!("Input must be a string. Found {}", other.get_type());
                 Value::Error {
-                    error: ShellError::UnsupportedInput(got, head),
+                    error: ShellError::UnsupportedInput(
+                        "Only string values are supported".into(),
+                        format!("input type: {:?}", other.get_type()),
+                        head,
+                        // This line requires the Value::Error match above.
+                        other.span().unwrap(),
+                    ),
                 }
             }
         },

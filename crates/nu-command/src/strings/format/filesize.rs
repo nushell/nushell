@@ -104,13 +104,13 @@ fn format_value_impl(val: &Value, arg: &Arguments, span: Span) -> Value {
             val: format_filesize(*val, &arg.format_value, false),
             span: *span,
         },
-        other => Value::Error {
-            error: ShellError::UnsupportedInput(
-                format!(
-                    "Input's type is not supported, support type: <filesize>, current_type: {}",
-                    other.get_type()
-                ),
+        Value::Error { .. } => val.clone(),
+        _ => Value::Error {
+            error: ShellError::OnlySupportsThisInputType(
+                "filesize".into(),
+                val.get_type().to_string(),
                 span,
+                val.span().unwrap(),
             ),
         },
     }

@@ -63,14 +63,15 @@ fn sum_of_squares(values: &[Value], span: &Span) -> Result<Value, ShellError> {
     let mut sum_x2 = Value::int(0, *span);
     for value in values {
         let v = match &value {
-            Value::Int { .. }
-            | Value::Float { .. } => {
-                Ok(value)
-            },
+            Value::Int { .. } | Value::Float { .. } => Ok(value),
+            Value::Error { error } => Err(error.clone()),
             _ => Err(ShellError::UnsupportedInput(
-                    "Attempted to compute the sum of squared values of a value that cannot be summed or squared.".to_string(),
-                    value.span().unwrap_or(*span),
-                ))
+                "Attempted to compute the sum of squares of a non-integer, non-float value"
+                    .to_string(),
+                "value originates from here".into(),
+                *span,
+                value.span().unwrap(),
+            )),
         }?;
         let v_squared = &v.mul(*span, v, *span)?;
         sum_x2 = sum_x2.add(*span, v_squared, *span)?;
@@ -85,24 +86,19 @@ fn sum_of_squares(values: &[Value], span: &Span) -> Result<Value, ShellError> {
     Ok(ss)
 }
 
-pub fn compute_variance(sample: bool) -> impl Fn(&[Value], &Span) -> Result<Value, ShellError> {
-    move |values: &[Value], span: &Span| {
+pub fn compute_variance(
+    sample: bool,
+) -> impl Fn(&[Value], Span, &Span) -> Result<Value, ShellError> {
+    move |values: &[Value], span: Span, head: &Span| {
         let n = if sample {
             values.len() - 1
         } else {
             values.len()
         };
-        let sum_of_squares = sum_of_squares(values, span);
-        let ss = match sum_of_squares {
-            Err(ShellError::UnsupportedInput(_, err_span)) => Err(ShellError::UnsupportedInput(
-                "Attempted to compute the variance with an item that cannot be used for that."
-                    .to_string(),
-                err_span,
-            )),
-            other => other,
-        }?;
-        let n = Value::int(n as i64, *span);
-        ss.div(*span, &n, *span)
+        // sum_of_squares() needs the span of the original value, not the call head.
+        let ss = sum_of_squares(values, &span)?;
+        let n = Value::int(n as i64, *head);
+        ss.div(*head, &n, *head)
     }
 }
 

@@ -76,9 +76,17 @@ impl Command for FromYml {
     }
 }
 
-fn convert_yaml_value_to_nu_value(v: &serde_yaml::Value, span: Span) -> Result<Value, ShellError> {
-    let err_not_compatible_number =
-        ShellError::UnsupportedInput("Expected a compatible number".to_string(), span);
+fn convert_yaml_value_to_nu_value(
+    v: &serde_yaml::Value,
+    span: Span,
+    val_span: Span,
+) -> Result<Value, ShellError> {
+    let err_not_compatible_number = ShellError::UnsupportedInput(
+        "Expected a nu-compatible number in YAML input".to_string(),
+        "value originates from here".into(),
+        span,
+        val_span,
+    );
     Ok(match v {
         serde_yaml::Value::Bool(b) => Value::Bool { val: *b, span },
         serde_yaml::Value::Number(n) if n.is_i64() => Value::Int {
@@ -96,7 +104,7 @@ fn convert_yaml_value_to_nu_value(v: &serde_yaml::Value, span: Span) -> Result<V
         serde_yaml::Value::Sequence(a) => {
             let result: Result<Vec<Value>, ShellError> = a
                 .iter()
-                .map(|x| convert_yaml_value_to_nu_value(x, span))
+                .map(|x| convert_yaml_value_to_nu_value(x, span, val_span))
                 .collect();
             Value::List {
                 vals: result?,
@@ -113,13 +121,16 @@ fn convert_yaml_value_to_nu_value(v: &serde_yaml::Value, span: Span) -> Result<V
                 // A ShellError that we re-use multiple times in the Mapping scenario
                 let err_unexpected_map = ShellError::UnsupportedInput(
                     format!("Unexpected YAML:\nKey: {:?}\nValue: {:?}", k, v),
+                    "value originates from here".into(),
                     span,
+                    val_span,
                 );
                 match (k, v) {
                     (serde_yaml::Value::String(k), _) => {
-                        collected
-                            .item
-                            .insert(k.clone(), convert_yaml_value_to_nu_value(v, span)?);
+                        collected.item.insert(
+                            k.clone(),
+                            convert_yaml_value_to_nu_value(v, span, val_span)?,
+                        );
                     }
                     // Hard-code fix for cases where "v" is a string without quotations with double curly braces
                     // e.g. k = value
@@ -152,18 +163,27 @@ fn convert_yaml_value_to_nu_value(v: &serde_yaml::Value, span: Span) -> Result<V
             Value::from(collected)
         }
         serde_yaml::Value::Null => Value::nothing(span),
-        x => unimplemented!("Unsupported yaml case: {:?}", x),
+        x => unimplemented!("Unsupported YAML case: {:?}", x),
     })
 }
 
-pub fn from_yaml_string_to_value(s: String, span: Span) -> Result<Value, ShellError> {
+pub fn from_yaml_string_to_value(
+    s: String,
+    span: Span,
+    val_span: Span,
+) -> Result<Value, ShellError> {
     let mut documents = vec![];
 
     for document in serde_yaml::Deserializer::from_str(&s) {
         let v: serde_yaml::Value = serde_yaml::Value::deserialize(document).map_err(|x| {
-            ShellError::UnsupportedInput(format!("Could not load yaml: {}", x), span)
+            ShellError::UnsupportedInput(
+                format!("Could not load YAML: {}", x),
+                "value originates from here".into(),
+                span,
+                val_span,
+            )
         })?;
-        documents.push(convert_yaml_value_to_nu_value(&v, span)?);
+        documents.push(convert_yaml_value_to_nu_value(&v, span, val_span)?);
     }
 
     match documents.len() {
@@ -213,9 +233,9 @@ pub fn get_examples() -> Vec<Example> {
 }
 
 fn from_yaml(input: PipelineData, head: Span) -> Result<PipelineData, ShellError> {
-    let (concat_string, metadata) = input.collect_string_strict(head)?;
+    let (concat_string, span, metadata) = input.collect_string_strict(head)?;
 
-    match from_yaml_string_to_value(concat_string, head) {
+    match from_yaml_string_to_value(concat_string, head, span) {
         Ok(x) => Ok(x.into_pipeline_data_with_metadata(metadata)),
         Err(other) => Err(other),
     }
@@ -255,7 +275,11 @@ mod test {
         ];
         let config = Config::default();
         for tc in tt {
-            let actual = from_yaml_string_to_value(tc.input.to_owned(), Span::test_data());
+            let actual = from_yaml_string_to_value(
+                tc.input.to_owned(),
+                Span::test_data(),
+                Span::test_data(),
+            );
             if actual.is_err() {
                 assert!(
                     tc.expected.is_err(),

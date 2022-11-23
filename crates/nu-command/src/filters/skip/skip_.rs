@@ -79,7 +79,7 @@ impl Command for Skip {
 
         let n: usize = match n {
             Some(Value::Int { val, span }) => val.try_into().map_err(|err| {
-                ShellError::UnsupportedInput(
+                ShellError::TypeMismatch(
                     format!("Could not convert {} to unsigned integer: {}", val, err),
                     span,
                 )

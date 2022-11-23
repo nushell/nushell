@@ -163,12 +163,19 @@ fn action(input: &Value, _args: &CellPathOnlyArgs, span: Span) -> Value {
             Ok(val) => Value::Bool { val, span },
             Err(error) => Value::Error { error },
         },
-        _ => Value::Error {
-            error: ShellError::UnsupportedInput(
-                "'into bool' does not support this input".into(),
-                span,
-            ),
-        },
+        // Propagate errors by explicitly matching them before the final case.
+        Value::Error { .. } => return input.clone(),
+        other => {
+            return Value::Error {
+                error: ShellError::OnlySupportsThisInputType(
+                    "bool, integer, float or string".into(),
+                    other.get_type().to_string(),
+                    span,
+                    // This line requires the Value::Error match above.
+                    other.span().unwrap(),
+                ),
+            };
+        }
     }
 }
 

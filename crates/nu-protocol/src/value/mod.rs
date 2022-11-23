@@ -1180,6 +1180,7 @@ impl Value {
         &mut self,
         cell_path: &[PathMember],
         new_val: Value,
+        head_span: Span,
     ) -> Result<(), ShellError> {
         match cell_path.first() {
             Some(path_member) => match path_member {
@@ -1207,6 +1208,7 @@ impl Value {
                                                 return col.1.insert_data_at_cell_path(
                                                     &cell_path[1..],
                                                     new_val,
+                                                    head_span,
                                                 );
                                             }
                                         }
@@ -1215,9 +1217,13 @@ impl Value {
                                     cols.push(col_name.clone());
                                     vals.push(new_val.clone());
                                 }
+                                // SIGH...
+                                Value::Error { error } => return Err(error.clone()),
                                 _ => {
                                     return Err(ShellError::UnsupportedInput(
-                                        "table or record".into(),
+                                        "expected table or record".into(),
+                                        format!("input type: {:?}", val.get_type()),
+                                        head_span,
                                         *span,
                                     ))
                                 }
@@ -1238,9 +1244,11 @@ impl Value {
                                         *v_span,
                                     ));
                                 } else {
-                                    return col
-                                        .1
-                                        .insert_data_at_cell_path(&cell_path[1..], new_val);
+                                    return col.1.insert_data_at_cell_path(
+                                        &cell_path[1..],
+                                        new_val,
+                                        head_span,
+                                    );
                                 }
                             }
                         }
@@ -1248,9 +1256,11 @@ impl Value {
                         cols.push(col_name.clone());
                         vals.push(new_val);
                     }
-                    _ => {
+                    other => {
                         return Err(ShellError::UnsupportedInput(
                             "table or record".into(),
+                            format!("input type: {:?}", other.get_type()),
+                            head_span,
                             *span,
                         ))
                     }
@@ -1258,7 +1268,7 @@ impl Value {
                 PathMember::Int { val: row_num, span } => match self {
                     Value::List { vals, .. } => {
                         if let Some(v) = vals.get_mut(*row_num) {
-                            v.insert_data_at_cell_path(&cell_path[1..], new_val)?
+                            v.insert_data_at_cell_path(&cell_path[1..], new_val, head_span)?
                         } else if vals.len() == *row_num && cell_path.len() == 1 {
                             // If the insert is at 1 + the end of the list, it's OK.
                             // Otherwise, it's prohibited.
@@ -2626,8 +2636,14 @@ impl Value {
                 // We are leaving some performance on the table by compiling the regex every time.
                 // Small regexes compile in microseconds, and the simplicity of this approach currently
                 // outweighs the performance costs. Revisit this if it ever becomes a bottleneck.
-                let regex = Regex::new(rhs)
-                    .map_err(|e| ShellError::UnsupportedInput(format!("{e}"), *rhs_span))?;
+                let regex = Regex::new(rhs).map_err(|e| {
+                    ShellError::UnsupportedInput(
+                        format!("{e}"),
+                        "value originated from here".into(),
+                        span,
+                        *rhs_span,
+                    )
+                })?;
                 let is_match = regex.is_match(lhs);
                 Ok(Value::Bool {
                     val: if invert {

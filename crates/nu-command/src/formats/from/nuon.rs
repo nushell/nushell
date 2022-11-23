@@ -62,7 +62,7 @@ impl Command for FromNuon {
         input: PipelineData,
     ) -> Result<nu_protocol::PipelineData, ShellError> {
         let head = call.head;
-        let (string_input, metadata) = input.collect_string_strict(head)?;
+        let (string_input, _span, metadata) = input.collect_string_strict(head)?;
 
         let engine_state = engine_state.clone();
 

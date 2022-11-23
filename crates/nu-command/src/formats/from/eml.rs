@@ -178,7 +178,7 @@ fn from_eml(
     preview_body: Option<Spanned<i64>>,
     head: Span,
 ) -> Result<PipelineData, ShellError> {
-    let (value, metadata) = input.collect_string_strict(head)?;
+    let (value, _span, metadata, ..) = input.collect_string_strict(head)?;
 
     let body_preview = preview_body
         .map(|b| b.item as usize)

@@ -94,7 +94,7 @@ END:VCALENDAR' | from ics",
 }
 
 fn from_ics(input: PipelineData, head: Span) -> Result<PipelineData, ShellError> {
-    let (input_string, metadata) = input.collect_string_strict(head)?;
+    let (input_string, span, metadata) = input.collect_string_strict(head)?;
 
     let input_string = input_string
         .lines()
@@ -114,7 +114,9 @@ fn from_ics(input: PipelineData, head: Span) -> Result<PipelineData, ShellError>
             Err(e) => output.push(Value::Error {
                 error: ShellError::UnsupportedInput(
                     format!("input cannot be parsed as .ics ({})", e),
+                    "value originates from here".into(),
                     head,
+                    span,
                 ),
             }),
         }

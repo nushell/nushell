@@ -98,14 +98,18 @@ fn action(
         )}
     };
     match input {
+        // Propagate existing errors.
+        Value::Error { .. } => return input.clone(),
         Value::Binary { val, .. } => match base64_config.action_type {
             ActionType::Encode => {
                 Value::string(encode_config(val, base64_config_enum), command_span)
             }
             ActionType::Decode => Value::Error {
                 error: ShellError::UnsupportedInput(
-                    "Binary data can only support encoding".to_string(),
+                    "Binary data can only be encoded".to_string(),
+                    "value originates from here".into(),
                     command_span,
+                    input.span().unwrap(),
                 ),
             },
         },

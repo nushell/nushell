@@ -90,13 +90,15 @@ fn ends_with(val: &Value, args: &Arguments, span: Span) -> Value {
             val,
             span: val_span,
         } => Value::boolean(val.ends_with(&args.pattern), *val_span),
+        // Propagate errors by explicitly matching them before the final case.
+        Value::Error { .. } => val.clone(),
         other => Value::Error {
             error: ShellError::UnsupportedInput(
-                format!(
-                    "Input's type is {}. This command only works with bytes.",
-                    other.get_type()
-                ),
+                "Only binary values are supported".into(),
+                format!("input type: {:?}", other.get_type()),
                 span,
+                // This line requires the Value::Error match above.
+                other.span().unwrap(),
             ),
         },
     }
