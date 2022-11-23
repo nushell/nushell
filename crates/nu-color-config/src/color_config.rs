@@ -217,15 +217,10 @@ pub fn get_color_config(config: &Config) -> HashMap<String, Style> {
     hm.insert("hints".to_string(), Color::DarkGray.normal());
 
     for (key, value) in &config.color_config {
-        let value = value
-            .as_string()
-            .expect("the only values for config color must be strings");
-        update_hashmap(key, &value, &mut hm);
-
-        // eprintln!(
-        //     "config: {}:{}\t\t\thashmap: {}:{:?}",
-        //     &key, &value, &key, &hm[key]
-        // );
+        match value.as_string() {
+            Ok(value) => update_hashmap(key, &value, &mut hm),
+            Err(_) => continue,
+        }
     }
 
     hm
