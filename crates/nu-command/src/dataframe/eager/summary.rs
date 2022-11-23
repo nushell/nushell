@@ -15,15 +15,15 @@ use polars::{
 };
 
 #[derive(Clone)]
-pub struct DescribeDF;
+pub struct Summary;
 
-impl Command for DescribeDF {
+impl Command for Summary {
     fn name(&self) -> &str {
-        "describe"
+        "summary"
     }
 
     fn usage(&self) -> &str {
-        "Describes dataframes numeric columns"
+        "For a dataframe, produces descriptive statistics (summary statistics) for its numeric columns."
     }
 
     fn signature(&self) -> Signature {
@@ -34,15 +34,15 @@ impl Command for DescribeDF {
             .named(
                 "quantiles",
                 SyntaxShape::Table,
-                "optional quantiles for describe",
+                "provide optional quantiles",
                 Some('q'),
             )
     }
 
     fn examples(&self) -> Vec<Example> {
         vec![Example {
-            description: "dataframe description",
-            example: "[[a b]; [1 1] [1 1]] | into df | describe",
+            description: "list dataframe descriptives",
+            example: "[[a b]; [1 1] [1 1]] | into df | summary",
             result: Some(
                 NuDataFrame::try_from_columns(vec![
                     Column::new(
@@ -266,6 +266,6 @@ mod test {
 
     #[test]
     fn test_examples() {
-        test_dataframe(vec![Box::new(DescribeDF {})])
+        test_dataframe(vec![Box::new(Summary {})])
     }
 }
