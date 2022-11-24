@@ -23,3 +23,15 @@ fn break_while_loop() {
 
     assert_eq!(actual.out, r#"hello"#);
 }
+
+#[test]
+fn break_each() {
+    let actual = nu!(
+        cwd: ".", pipeline(
+        r#"
+        [1, 2, 3, 4, 5] | each {|x| if $x > 3 { break }; $x} | math sum
+        "#
+    ));
+
+    assert_eq!(actual.out, r#"6"#);
+}
