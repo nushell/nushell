@@ -20,10 +20,10 @@ fn redirect_err() {
     Playground::setup("redirect_err_test", |dirs, _sandbox| {
         let output = nu!(
             cwd: dirs.test(),
-            "type asdfasdfasdf.txt err> a; type a"
+            "missingapplication err> a; type a"
         );
 
-        assert!(output.out.contains("asdfasdfasdf.txt"));
+        assert!(output.out.contains("not found"));
     })
 }
 
@@ -46,10 +46,10 @@ fn redirect_outerr() {
     Playground::setup("redirect_outerr_test", |dirs, _sandbox| {
         let output = nu!(
             cwd: dirs.test(),
-            "type asdfasdfasdf.txt out+err> a; type a"
+            "missingapplication out+err> a; type a"
         );
 
-        assert!(output.err.contains("asdfasdfasdf.txt"));
+        assert!(output.out.contains("not found"));
     })
 }
 
