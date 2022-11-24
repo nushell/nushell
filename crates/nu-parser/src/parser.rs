@@ -3837,10 +3837,7 @@ pub fn parse_table_expression(
         }
         _ => {
             match &output.block[0].commands[0] {
-                LiteElement::Command(_, command)
-                | LiteElement::Redirection(_, _, command)
-                | LiteElement::And(_, command)
-                | LiteElement::Or(_, command) => {
+                LiteElement::Command(_, command) | LiteElement::Redirection(_, _, command) => {
                     let mut table_headers = vec![];
 
                     let (headers, err) = parse_value(
@@ -3861,9 +3858,7 @@ pub fn parse_table_expression(
 
                     match &output.block[1].commands[0] {
                         LiteElement::Command(_, command)
-                        | LiteElement::Redirection(_, _, command)
-                        | LiteElement::And(_, command)
-                        | LiteElement::Or(_, command) => {
+                        | LiteElement::Redirection(_, _, command) => {
                             let mut rows = vec![];
                             for part in &command.parts {
                                 let (values, err) = parse_value(
@@ -5228,10 +5223,7 @@ pub fn parse_block(
     for pipeline in &lite_block.block {
         if pipeline.commands.len() == 1 {
             match &pipeline.commands[0] {
-                LiteElement::Command(_, command)
-                | LiteElement::Redirection(_, _, command)
-                | LiteElement::And(_, command)
-                | LiteElement::Or(_, command) => {
+                LiteElement::Command(_, command) | LiteElement::Redirection(_, _, command) => {
                     if let Some(err) =
                         parse_def_predecl(working_set, &command.parts, expand_aliases_denylist)
                     {
@@ -5282,38 +5274,6 @@ pub fn parse_block(
 
                             PipelineElement::Redirection(*span, redirection.clone(), expr)
                         }
-                        LiteElement::And(span, command) => {
-                            let (expr, err) = parse_expression(
-                                working_set,
-                                &command.parts,
-                                expand_aliases_denylist,
-                                is_subexpression,
-                            );
-
-                            working_set.type_scope.add_type(expr.ty.clone());
-
-                            if error.is_none() {
-                                error = err;
-                            }
-
-                            PipelineElement::And(*span, expr)
-                        }
-                        LiteElement::Or(span, command) => {
-                            let (expr, err) = parse_expression(
-                                working_set,
-                                &command.parts,
-                                expand_aliases_denylist,
-                                is_subexpression,
-                            );
-
-                            working_set.type_scope.add_type(expr.ty.clone());
-
-                            if error.is_none() {
-                                error = err;
-                            }
-
-                            PipelineElement::Or(*span, expr)
-                        }
                     })
                     .collect::<Vec<PipelineElement>>();
 
@@ -5334,10 +5294,7 @@ pub fn parse_block(
                 Pipeline { elements: output }
             } else {
                 match &pipeline.commands[0] {
-                    LiteElement::Command(_, command)
-                    | LiteElement::Redirection(_, _, command)
-                    | LiteElement::And(_, command)
-                    | LiteElement::Or(_, command) => {
+                    LiteElement::Command(_, command) | LiteElement::Redirection(_, _, command) => {
                         let (mut pipeline, err) = parse_builtin_commands(
                             working_set,
                             command,
@@ -5843,8 +5800,6 @@ impl LiteCommand {
 pub enum LiteElement {
     Command(Option<Span>, LiteCommand),
     Redirection(Span, Redirection, LiteCommand),
-    And(Span, LiteCommand),
-    Or(Span, LiteCommand),
 }
 
 #[derive(Debug)]
