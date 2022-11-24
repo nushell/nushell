@@ -1,3 +1,4 @@
+mod command;
 mod commands;
 mod events;
 mod nu_common;
@@ -26,10 +27,12 @@ pub fn run_pager(
 ) -> io::Result<Option<Value>> {
     let (columns, data) = collect_pipeline(input);
 
+    let commands = command::CommandList::new(&table_cfg);
+
     let mut p = Pager::new(table_cfg.clone(), view_cfg);
 
     if columns.is_empty() && data.is_empty() {
-        p.run(engine_state, stack, ctrlc, Some(InformationView))
+        p.run(engine_state, stack, ctrlc, Some(InformationView), commands)
     } else {
         let mut view = RecordView::new(columns, data, table_cfg.clone());
 
@@ -41,6 +44,6 @@ pub fn run_pager(
             }
         }
 
-        p.run(engine_state, stack, ctrlc, Some(view))
+        p.run(engine_state, stack, ctrlc, Some(view), commands)
     }
 }

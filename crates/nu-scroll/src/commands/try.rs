@@ -9,7 +9,7 @@ use crate::{pager::TableConfig, views::InteractiveView};
 
 use super::{HelpExample, HelpManual, ViewCommand};
 
-#[derive(Debug, Default)]
+#[derive(Debug, Default, Clone)]
 pub struct TryCmd {
     command: String,
     table_cfg: TableConfig,

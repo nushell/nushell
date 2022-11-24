@@ -9,7 +9,7 @@ use crate::{nu_common::NuSpan, pager::TableConfig, views::RecordView};
 
 use super::{HelpExample, HelpManual, ViewCommand};
 
-#[derive(Debug, Default)]
+#[derive(Debug, Default, Clone)]
 pub struct HelpCmd {
     input_command: String,
     table_cfg: TableConfig,

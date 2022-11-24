@@ -3,10 +3,7 @@ use nu_protocol::{
     Value,
 };
 
-use super::{
-    pager::{Pager, Transition},
-    views::View,
-};
+use super::pager::{Pager, Transition};
 
 use std::io::Result;
 
@@ -57,7 +54,7 @@ pub trait ViewCommand {
     ) -> Result<Self::View>;
 }
 
-#[derive(Debug, Default)]
+#[derive(Debug, Default, Clone)]
 pub struct HelpManual {
     pub name: &'static str,
     pub description: &'static str,
@@ -65,13 +62,8 @@ pub struct HelpManual {
     pub examples: Vec<HelpExample>,
 }
 
-#[derive(Debug, Default)]
+#[derive(Debug, Default, Clone)]
 pub struct HelpExample {
     pub example: &'static str,
     pub description: &'static str,
-}
-
-pub enum Command {
-    Reactive(Box<dyn SimpleCommand>),
-    View(Box<dyn ViewCommand<View = Box<dyn View>>>),
 }

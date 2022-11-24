@@ -9,7 +9,7 @@ use crate::pager::{Pager, Transition};
 
 use super::{HelpManual, SimpleCommand};
 
-#[derive(Default)]
+#[derive(Default, Clone)]
 pub struct QuitCmd;
 
 impl QuitCmd {

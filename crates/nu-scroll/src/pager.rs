@@ -29,12 +29,11 @@ use tui::{
 };
 
 use crate::{
-    commands::{HelpCmd, HelpManual, NuCmd, QuitCmd, SimpleCommand, TryCmd, ViewCommand},
+    command::{Command, CommandList},
     nu_common::{CtrlC, NuColor, NuConfig, NuStyle, NuStyleTable, NuText},
 };
 
 use super::{
-    commands::Command,
     events::UIEvents,
     views::{Layout, View},
 };
@@ -82,6 +81,7 @@ pub fn run_pager<V>(
     ctrlc: CtrlC,
     pager: &mut Pager,
     view: Option<V>,
+    commands: CommandList,
 ) -> Result<Option<Value>>
 where
     V: View + 'static,
@@ -107,6 +107,7 @@ where
         pager,
         &mut info,
         view,
+        commands,
     )?;
 
     // restore terminal
@@ -116,6 +117,7 @@ where
     Ok(result)
 }
 
+#[allow(clippy::too_many_arguments)]
 fn render_ui<V>(
     term: &mut Terminal,
     engine_state: &EngineState,
@@ -124,6 +126,7 @@ fn render_ui<V>(
     pager: &mut Pager<'_>,
     info: &mut ViewInfo,
     view: Option<V>,
+    commands: CommandList,
 ) -> Result<Option<Value>>
 where
     V: View + 'static,
@@ -201,82 +204,98 @@ where
             pager.cmd_buf.run_cmd = false;
             pager.cmd_buf.buf_cmd2 = String::new();
 
-            let command = find_command(&args, &pager.table_cfg);
-            match command {
-                Some(command) => {
-                    match command {
-                        Command::Reactive(mut command) => {
-                            let result = command.parse(&args);
+            let command = commands.find(&args);
+            let result = handle_command(
+                engine_state,
+                stack,
+                pager,
+                &mut view,
+                &mut view_stack,
+                command,
+                &args,
+            );
 
-                            match result {
-                                Ok(()) => {
-                                    // what we do we just replace the view.
-                                    let value = view.as_mut().and_then(|view| view.exit());
-                                    let result = command.react(engine_state, stack, pager, value);
-                                    match result {
-                                        Ok(transition) => match transition {
-                                            Transition::Ok => {}
-                                            Transition::Exit => {
-                                                break Ok(try_to_peek_value(pager, view.as_mut()))
-                                            }
-                                            Transition::Cmd(_) => todo!("not used so far"),
-                                        },
-                                        Err(err) => {
-                                            info.report = Some(Report::error(format!(
-                                                "Error: command {:?} failed: {}",
-                                                args, err
-                                            )));
-                                        }
-                                    }
-                                }
-                                Err(err) => {
-                                    info.report = Some(Report::error(format!(
-                                "Error: command {:?} was not provided with correct arguments: {}",
-                                args, err
-                            )));
-                                }
-                            }
-                        }
-                        Command::View(mut command) => {
-                            let result = command.parse(&args);
+            match result {
+                Ok(false) => {}
+                Ok(true) => break Ok(try_to_peek_value(pager, view.as_mut())),
+                Err(err) => info.report = Some(Report::error(err)),
+            }
+        }
+    }
+}
 
-                            match result {
-                                Ok(()) => {
-                                    // what we do we just replace the view.
-                                    let value = view.as_mut().and_then(|view| view.exit());
-                                    let result = command.spawn(engine_state, stack, value);
-                                    match result {
-                                        Ok(new_view) => {
-                                            if let Some(view) = view {
-                                                view_stack.push(view);
-                                            }
+fn handle_command(
+    engine_state: &EngineState,
+    stack: &mut Stack,
+    pager: &mut Pager,
+    view: &mut Option<Box<dyn View>>,
+    view_stack: &mut Vec<Box<dyn View>>,
+    command: Option<Command>,
+    args: &str,
+) -> std::result::Result<bool, String> {
+    match command {
+        Some(command) => run_command(engine_state, stack, pager, view, view_stack, command, args),
+        None => Err(format!("Error: command {:?} was not recognized", args)),
+    }
+}
 
-                                            view = Some(new_view);
-                                        }
-                                        Err(err) => {
-                                            info.report = Some(Report::error(format!(
-                                                "Error: command {:?} failed: {}",
-                                                args, err
-                                            )));
-                                        }
-                                    }
-                                }
-                                Err(err) => {
-                                    info.report = Some(Report::error(format!(
-                                "Error: command {:?} was not provided with correct arguments: {}",
-                                args, err
-                            )));
-                                }
-                            }
-                        }
+fn run_command(
+    engine_state: &EngineState,
+    stack: &mut Stack,
+    pager: &mut Pager,
+    view: &mut Option<Box<dyn View>>,
+    view_stack: &mut Vec<Box<dyn View>>,
+    command: Command,
+    args: &str,
+) -> std::result::Result<bool, String> {
+    match command {
+        Command::Reactive(mut command) => {
+            let result = command.parse(args);
+
+            match result {
+                Ok(()) => {
+                    // what we do we just replace the view.
+                    let value = view.as_mut().and_then(|view| view.exit());
+                    let result = command.react(engine_state, stack, pager, value);
+                    match result {
+                        Ok(transition) => match transition {
+                            Transition::Ok => Ok(false),
+                            Transition::Exit => Ok(true),
+                            Transition::Cmd(_) => todo!("not used so far"),
+                        },
+                        Err(err) => Err(format!("Error: command {:?} failed: {}", args, err)),
                     }
                 }
-                None => {
-                    info.report = Some(Report::error(format!(
-                        "Error: command {:?} was not recognized",
-                        args
-                    )));
+                Err(err) => Err(format!(
+                    "Error: command {:?} was not provided with correct arguments: {}",
+                    args, err
+                )),
+            }
+        }
+        Command::View(mut command) => {
+            let result = command.parse(args);
+
+            match result {
+                Ok(()) => {
+                    // what we do we just replace the view.
+                    let value = view.as_mut().and_then(|view| view.exit());
+                    let result = command.spawn(engine_state, stack, value);
+                    match result {
+                        Ok(new_view) => {
+                            if let Some(view) = view.take() {
+                                view_stack.push(view);
+                            }
+
+                            *view = Some(new_view);
+                            Ok(false)
+                        }
+                        Err(err) => Err(format!("Error: command {:?} failed: {}", args, err)),
+                    }
                 }
+                Err(err) => Err(format!(
+                    "Error: command {:?} was not provided with correct arguments: {}",
+                    args, err
+                )),
             }
         }
     }
@@ -743,11 +762,12 @@ impl<'a> Pager<'a> {
         stack: &mut Stack,
         ctrlc: CtrlC,
         view: Option<V>,
+        commands: CommandList,
     ) -> Result<Option<Value>>
     where
         V: View + 'static,
     {
-        run_pager(engine_state, stack, ctrlc, self, view)
+        run_pager(engine_state, stack, ctrlc, self, view, commands)
     }
 }
 
@@ -1040,101 +1060,5 @@ fn convert_with_precision(val: &str, precision: usize) -> Result<String> {
             let message = format!("error converting string [{}] to f64; {}", &val, err);
             Err(io::Error::new(io::ErrorKind::Other, message))
         }
-    }
-}
-
-fn find_command(args: &str, table_cfg: &TableConfig) -> Option<Command> {
-    // type helper to deal with `Box`es
-    struct ViewCmd<C>(C);
-
-    impl<C> ViewCommand for ViewCmd<C>
-    where
-        C: ViewCommand,
-        C::View: View + 'static,
-    {
-        type View = Box<dyn View>;
-
-        fn name(&self) -> &'static str {
-            self.0.name()
-        }
-
-        fn usage(&self) -> &'static str {
-            self.0.usage()
-        }
-
-        fn help(&self) -> Option<HelpManual> {
-            self.0.help()
-        }
-
-        fn parse(&mut self, args: &str) -> Result<()> {
-            self.0.parse(args)
-        }
-
-        fn spawn(
-            &mut self,
-            engine_state: &EngineState,
-            stack: &mut Stack,
-            value: Option<Value>,
-        ) -> Result<Self::View> {
-            let view = self.0.spawn(engine_state, stack, value)?;
-            Ok(Box::new(view) as Box<dyn View>)
-        }
-    }
-
-    macro_rules! cmd_view {
-        ($name:expr, $object:expr) => {
-            if args.starts_with($name) {
-                return Some(Command::View(
-                    Box::new(ViewCmd($object)) as Box<dyn ViewCommand<View = Box<dyn View>>>
-                ));
-            }
-        };
-    }
-
-    macro_rules! cmd_react {
-        ($name:expr, $object:expr) => {
-            if args.starts_with($name) {
-                return Some(Command::Reactive(
-                    Box::new($object) as Box<dyn SimpleCommand>
-                ));
-            }
-        };
-    }
-
-    macro_rules! manual {
-        ($name:tt) => {
-            create_help_manual($name::NAME, $name::default().help())
-        };
-    }
-
-    cmd_view!(NuCmd::NAME, NuCmd::new(table_cfg.clone()));
-    cmd_view!(TryCmd::NAME, TryCmd::new(table_cfg.clone()));
-    cmd_view!(
-        HelpCmd::NAME,
-        HelpCmd::new(
-            vec![
-                manual!(NuCmd),
-                manual!(TryCmd),
-                manual!(QuitCmd),
-                manual!(HelpCmd),
-            ],
-            table_cfg.clone()
-        )
-    );
-
-    cmd_react!(QuitCmd::NAME, QuitCmd::default());
-
-    None
-}
-
-fn create_help_manual(name: &'static str, manual: Option<HelpManual>) -> HelpManual {
-    match manual {
-        Some(manual) => manual,
-        None => HelpManual {
-            name,
-            description: "",
-            arguments: Vec::new(),
-            examples: Vec::new(),
-        },
     }
 }

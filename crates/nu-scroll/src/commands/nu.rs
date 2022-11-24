@@ -13,7 +13,7 @@ use crate::{
 
 use super::{HelpExample, HelpManual, ViewCommand};
 
-#[derive(Debug, Default)]
+#[derive(Debug, Default, Clone)]
 pub struct NuCmd {
     command: String,
     table_cfg: TableConfig,
