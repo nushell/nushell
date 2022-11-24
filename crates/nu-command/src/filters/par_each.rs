@@ -1,4 +1,4 @@
-use nu_engine::{eval_block, CallExt};
+use nu_engine::{eval_block_with_early_return, CallExt};
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Closure, Command, EngineState, Stack};
 use nu_protocol::{
@@ -126,7 +126,7 @@ impl Command for ParEach {
                     }
 
                     let val_span = x.span();
-                    match eval_block(
+                    match eval_block_with_early_return(
                         engine_state,
                         &mut stack,
                         block,
@@ -190,7 +190,7 @@ impl Command for ParEach {
                     }
 
                     let val_span = x.span();
-                    match eval_block(
+                    match eval_block_with_early_return(
                         engine_state,
                         &mut stack,
                         block,
@@ -253,7 +253,7 @@ impl Command for ParEach {
                     }
 
                     let val_span = x.span();
-                    match eval_block(
+                    match eval_block_with_early_return(
                         engine_state,
                         &mut stack,
                         block,
@@ -324,7 +324,7 @@ impl Command for ParEach {
                         }
                     }
 
-                    match eval_block(
+                    match eval_block_with_early_return(
                         engine_state,
                         &mut stack,
                         block,
@@ -351,7 +351,7 @@ impl Command for ParEach {
                     }
                 }
 
-                eval_block(
+                eval_block_with_early_return(
                     engine_state,
                     &mut stack,
                     block,

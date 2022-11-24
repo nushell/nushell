@@ -836,6 +836,10 @@ Either make sure {0} is a string, or add a 'to_string' entry for it in ENV_CONVE
     /// Continue event, which may become an error if used outside of a loop
     #[error("Continue used outside of loop")]
     Continue(#[label = "used outside of loop"] Span),
+
+    /// Return event, which may become an error if used outside of a function
+    #[error("Return used outside of function")]
+    Return(#[label = "used outside of function"] Span, Box<Value>),
 }
 
 impl From<std::io::Error> for ShellError {

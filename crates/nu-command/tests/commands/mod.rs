@@ -63,6 +63,7 @@ mod redirection;
 mod reduce;
 mod reject;
 mod rename;
+mod return_;
 mod reverse;
 mod rm;
 mod roll;
