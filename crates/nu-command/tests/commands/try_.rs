@@ -24,3 +24,15 @@ fn try_catch() {
         assert!(output.out.contains("hello"));
     })
 }
+
+#[test]
+fn catch_can_access_error() {
+    Playground::setup("try_catch_test", |dirs, _sandbox| {
+        let output = nu!(
+            cwd: dirs.test(),
+            "try { foobarbaz } catch { |err| $err }"
+        );
+
+        assert!(output.err.contains("External command failed"));
+    })
+}
