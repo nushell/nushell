@@ -323,7 +323,7 @@ fn parse_string_as_script() {
             "#
         ));
 
-        println!("the out put is {}", actual.err);
+        println!("the output is {}", actual.err);
         assert!(actual.err.contains("Failed to parse content"));
     })
 }

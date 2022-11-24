@@ -7,10 +7,10 @@ fn redirect_err() {
     Playground::setup("redirect_err_test", |dirs, _sandbox| {
         let output = nu!(
             cwd: dirs.test(),
-            "cat asdfasdfasdf.txt err> a; cat a"
+            "cat asdfasdfasdf.txt err> a.txt; cat a.txt"
         );
 
-        assert!(output.err.contains("asdfasdfasdf.txt"));
+        assert!(output.out.contains("asdfasdfasdf.txt"));
     })
 }
 
@@ -20,10 +20,10 @@ fn redirect_err() {
     Playground::setup("redirect_err_test", |dirs, _sandbox| {
         let output = nu!(
             cwd: dirs.test(),
-            "type asdfasdfasdf.txt err> a; type a"
+            "dir missingapplication err> a; (open a | size).bytes >= 16"
         );
 
-        assert!(output.err.contains("asdfasdfasdf.txt"));
+        assert!(output.out.contains("true"));
     })
 }
 
@@ -36,7 +36,7 @@ fn redirect_outerr() {
             "cat asdfasdfasdf.txt out+err> a; cat a"
         );
 
-        assert!(output.err.contains("asdfasdfasdf.txt"));
+        assert!(output.out.contains("asdfasdfasdf.txt"));
     })
 }
 
@@ -46,10 +46,10 @@ fn redirect_outerr() {
     Playground::setup("redirect_outerr_test", |dirs, _sandbox| {
         let output = nu!(
             cwd: dirs.test(),
-            "type asdfasdfasdf.txt out+err> a; type a"
+            "dir missingapplication out+err> a; (open a | size).bytes >= 16"
         );
 
-        assert!(output.err.contains("asdfasdfasdf.txt"));
+        assert!(output.out.contains("true"));
     })
 }
 

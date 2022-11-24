@@ -74,6 +74,14 @@ pub fn print_table_or_error(
     // Change the engine_state config to use the passed in configuration
     engine_state.set_config(config);
 
+    if let PipelineData::Value(Value::Error { error }, ..) = &pipeline_data {
+        let working_set = StateWorkingSet::new(engine_state);
+
+        report_error(&working_set, error);
+
+        std::process::exit(1);
+    }
+
     match engine_state.find_decl("table".as_bytes(), &[]) {
         Some(decl_id) => {
             let command = engine_state.get_decl(decl_id);

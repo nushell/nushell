@@ -669,7 +669,7 @@ pub fn eval_expression(
 /// into the call and gets out the result
 /// Otherwise, invokes the expression
 ///
-/// It returns PipelineData with a boolean flag, indicate that if the external runs to failed.
+/// It returns PipelineData with a boolean flag, indicating if the external failed to run.
 /// The boolean flag **may only be true** for external calls, for internal calls, it always to be false.
 pub fn eval_expression_with_input(
     engine_state: &EngineState,
@@ -957,6 +957,14 @@ pub fn eval_block(
         let mut i = 0;
 
         while i < pipeline.elements.len() {
+            let redirect_stderr = redirect_stderr
+                || ((i < pipeline.elements.len() - 1)
+                    && (matches!(
+                        pipeline.elements[i + 1],
+                        PipelineElement::Redirection(_, Redirection::Stderr, _)
+                            | PipelineElement::Redirection(_, Redirection::StdoutAndStderr, _)
+                    )));
+
             // if eval internal command failed, it can just make early return with `Err(ShellError)`.
             let eval_result = eval_element_with_input(
                 engine_state,
@@ -971,20 +979,28 @@ pub fn eval_block(
                                 | PipelineElement::Redirection(_, Redirection::StdoutAndStderr, _)
                                 | PipelineElement::Expression(..)
                         )),
-                redirect_stderr
-                    || ((i < pipeline.elements.len() - 1)
-                        && (matches!(
-                            pipeline.elements[i + 1],
-                            PipelineElement::Redirection(_, Redirection::Stderr, _)
-                                | PipelineElement::Redirection(_, Redirection::StdoutAndStderr, _)
-                        ))),
-            )?;
-            input = eval_result.0;
-            // external command may runs to failed
-            // make early return so remaining commands will not be executed.
-            // don't return `Err(ShellError)`, so nushell wouldn't show extra error message.
-            if eval_result.1 {
-                return Ok(input);
+                redirect_stderr,
+            );
+
+            match (eval_result, redirect_stderr) {
+                (Ok((pipeline_data, _)), true) => {
+                    input = pipeline_data;
+
+                    // external command may runs to failed
+                    // make early return so remaining commands will not be executed.
+                    // don't return `Err(ShellError)`, so nushell wouldn't show extra error message.
+                }
+                (Err(error), true) => input = PipelineData::Value(Value::Error { error }, None),
+                (output, false) => {
+                    let output = output?;
+                    input = output.0;
+                    // external command may runs to failed
+                    // make early return so remaining commands will not be executed.
+                    // don't return `Err(ShellError)`, so nushell wouldn't show extra error message.
+                    if output.1 {
+                        return Ok(input);
+                    }
+                }
             }
 
             i += 1;
