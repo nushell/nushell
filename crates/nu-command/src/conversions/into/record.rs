@@ -16,12 +16,18 @@ impl Command for SubCommand {
     fn signature(&self) -> Signature {
         Signature::build("into record")
             .input_output_types(vec![
-                (Type::Int, Type::Record(vec![])),
-                (Type::Number, Type::Record(vec![])),
-                (Type::String, Type::Record(vec![])),
                 (Type::Bool, Type::Record(vec![])),
-                (Type::Table(vec![]), Type::Record(vec![])),
+                // (Type::Date, Type::Record(vec![])),
+                (Type::Duration, Type::Record(vec![])),
+                (Type::Filesize, Type::Record(vec![])),
+                (Type::Float, Type::Record(vec![])),
+                (Type::Int, Type::Record(vec![])),
                 (Type::List(Box::new(Type::Any)), Type::Record(vec![])),
+                (Type::Range, Type::Record(vec![])),
+                (Type::Record(vec![]), Type::Record(vec![])),
+                // (Type::Number, Type::Record(vec![])),
+                (Type::String, Type::Record(vec![])),
+                (Type::Table(vec![]), Type::Record(vec![])),
             ])
             .category(Category::Conversions)
     }
@@ -108,6 +114,78 @@ impl Command for SubCommand {
                     span,
                 }),
             },
+            Example {
+                description: "Convert from range to record",
+                example: "0..2 | into record",
+                result: Some(Value::Record {
+                    cols: vec!["0".to_string(), "1".to_string(), "2".to_string()],
+                    vals: vec![
+                        Value::Int { val: 0, span },
+                        Value::Int { val: 1, span },
+                        Value::Int { val: 2, span },
+                    ],
+                    span,
+                }),
+            },
+            Example {
+                description: "convert duration to record",
+                example: "1sec | into record",
+                result: Some(Value::Record {
+                    cols: vec!["value".to_string()],
+                    vals: vec![Value::Duration {
+                        val: 1000 * 1000 * 1000,
+                        span,
+                    }],
+                    span,
+                }),
+            },
+            Example {
+                description: "convert filesize to record",
+                example: "10b | into record",
+                result: Some(Value::Record {
+                    cols: vec!["value".to_string()],
+                    vals: vec![Value::Filesize { val: 10, span }],
+                    span,
+                }),
+            },
+            Example {
+                description: "convert record to record",
+                example: "{a: 1, b: 2} | into record",
+                result: Some(Value::Record {
+                    cols: vec!["a".to_string(), "b".to_string()],
+                    vals: vec![Value::Int { val: 1, span }, Value::Int { val: 2, span }],
+                    span,
+                }),
+            },
+            // Couldn't get test harness to accept this
+            // Example {
+            //     description: "convert date to record",
+            //     example: "2020-04-12T22:10:57+0200 | into record",
+            //     result: Some(Value::Record {
+            //         cols: vec![
+            //             "year".into(),
+            //             "month".into(),
+            //             "day".into(),
+            //             "hour".into(),
+            //             "minute".into(),
+            //             "second".into(),
+            //             "timezone".into(),
+            //         ],
+            //         vals: vec![
+            //             Value::Int { val: 2020, span },
+            //             Value::Int { val: 4, span },
+            //             Value::Int { val: 12, span },
+            //             Value::Int { val: 22, span },
+            //             Value::Int { val: 10, span },
+            //             Value::Int { val: 57, span },
+            //             Value::String {
+            //                 val: "+02:00".to_string(),
+            //                 span,
+            //             },
+            //         ],
+            //         span,
+            //     }),
+            // },
         ]
     }
 }
