@@ -2656,6 +2656,7 @@ dependencies = [
  "which",
  "windows 0.42.0",
  "winreg",
+ "zstd-sys",
 ]
 
 [[package]]
