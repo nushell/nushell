@@ -12,7 +12,7 @@ mod test_examples {
         Ansi, Date, Echo, From, If, Into, LetEnv, Math, Path, Random, Split, SplitColumn, SplitRow,
         Str, StrJoin, StrLength, StrReplace, Url, Wrap,
     };
-    use crate::To;
+    use crate::{Break, Mut, To};
     use itertools::Itertools;
     use nu_protocol::{
         ast::Block,
@@ -80,6 +80,8 @@ mod test_examples {
             working_set.add_decl(Box::new(Wrap));
             working_set.add_decl(Box::new(LetEnv));
             working_set.add_decl(Box::new(Echo));
+            working_set.add_decl(Box::new(Break));
+            working_set.add_decl(Box::new(Mut));
             // Adding the command that is being tested to the working set
             working_set.add_decl(cmd);
 

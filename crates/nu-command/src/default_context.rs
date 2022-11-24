@@ -59,6 +59,7 @@ pub fn create_default_context() -> EngineState {
             OverlayNew,
             OverlayHide,
             Let,
+            Loop,
             Metadata,
             Module,
             Mut,
