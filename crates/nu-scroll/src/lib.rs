@@ -12,7 +12,7 @@ use nu_protocol::{
     engine::{EngineState, Stack},
     PipelineData, Value,
 };
-use pager::Pager;
+use pager::{Page, Pager};
 use views::{InformationView, RecordView};
 
 pub use pager::{StyleConfig, TableConfig, ViewConfig};
@@ -32,7 +32,13 @@ pub fn run_pager(
     let mut p = Pager::new(table_cfg.clone(), view_cfg);
 
     if columns.is_empty() && data.is_empty() {
-        p.run(engine_state, stack, ctrlc, Some(InformationView), commands)
+        p.run(
+            engine_state,
+            stack,
+            ctrlc,
+            Some(Page::new(InformationView, true)),
+            commands,
+        )
     } else {
         let mut view = RecordView::new(columns, data, table_cfg.clone());
 
@@ -44,6 +50,12 @@ pub fn run_pager(
             }
         }
 
-        p.run(engine_state, stack, ctrlc, Some(view), commands)
+        p.run(
+            engine_state,
+            stack,
+            ctrlc,
+            Some(Page::new(view, false)),
+            commands,
+        )
     }
 }

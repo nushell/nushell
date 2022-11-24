@@ -9,7 +9,10 @@ use crate::{
 #[derive(Clone)]
 pub enum Command {
     Reactive(Box<dyn SCommand>),
-    View(Box<dyn VCommand>),
+    View {
+        cmd: Box<dyn VCommand>,
+        is_light: bool,
+    },
 }
 
 pub struct CommandList {
@@ -20,14 +23,22 @@ pub struct CommandList {
 impl CommandList {
     pub fn new(table_cfg: &TableConfig) -> Self {
         macro_rules! cmd_view {
-            ($object:expr) => {{
+            ($object:expr, $light:expr) => {{
                 let object = $object;
 
                 let name = object.name();
-                let cmd = Command::View(Box::new(ViewCmd(object)) as Box<dyn VCommand>);
+
+                let cmd = Box::new(ViewCmd(object)) as Box<dyn VCommand>;
+                let cmd = Command::View {
+                    cmd,
+                    is_light: $light,
+                };
 
                 (name, cmd)
             }};
+            ($object:expr) => {
+                cmd_view!($object, false)
+            };
         }
 
         macro_rules! cmd_react {
@@ -43,12 +54,12 @@ impl CommandList {
 
         let mut cmd_list = vec![
             cmd_view!(NuCmd::new(table_cfg.clone())),
-            cmd_view!(TryCmd::new(table_cfg.clone())),
+            cmd_view!(TryCmd::new(table_cfg.clone()), true),
             cmd_react!(QuitCmd::default()),
         ];
 
         let help_manuals = create_help_manuals(&cmd_list);
-        let help_cmd = cmd_view!(HelpCmd::new(help_manuals, table_cfg.clone()));
+        let help_cmd = cmd_view!(HelpCmd::new(help_manuals, table_cfg.clone()), true);
 
         cmd_list.push(help_cmd);
 
@@ -83,8 +94,8 @@ fn parse_command(command: Option<Command>, args: &str) -> Option<std::io::Result
     match command {
         Some(mut cmd) => {
             let result = match &mut cmd {
-                Command::Reactive(c) => c.parse(args),
-                Command::View(c) => c.parse(args),
+                Command::Reactive(cmd) => cmd.parse(args),
+                Command::View { cmd, .. } => cmd.parse(args),
             };
 
             Some(result.map(|_| cmd))
@@ -105,13 +116,13 @@ fn create_help_manuals(cmd_list: &[(&str, Command)]) -> Vec<HelpManual> {
 
 fn create_help_manual(cmd: &Command) -> HelpManual {
     let name = match cmd {
-        Command::Reactive(c) => c.name(),
-        Command::View(c) => c.name(),
+        Command::Reactive(cmd) => cmd.name(),
+        Command::View { cmd, .. } => cmd.name(),
     };
 
     let manual = match cmd {
-        Command::Reactive(c) => c.help(),
-        Command::View(c) => c.help(),
+        Command::Reactive(cmd) => cmd.help(),
+        Command::View { cmd, .. } => cmd.help(),
     };
 
     match manual {

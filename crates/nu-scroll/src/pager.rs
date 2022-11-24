@@ -75,17 +75,14 @@ pub struct TableConfig {
     pub show_help: bool,
 }
 
-pub fn run_pager<V>(
+pub fn run_pager(
     engine_state: &EngineState,
     stack: &mut Stack,
     ctrlc: CtrlC,
     pager: &mut Pager,
-    view: Option<V>,
+    view: Option<Page>,
     commands: CommandList,
-) -> Result<Option<Value>>
-where
-    V: View + 'static,
-{
+) -> Result<Option<Value>> {
     // setup terminal
     enable_raw_mode()?;
     let mut stdout = io::stdout();
@@ -118,21 +115,16 @@ where
 }
 
 #[allow(clippy::too_many_arguments)]
-fn render_ui<V>(
+fn render_ui(
     term: &mut Terminal,
     engine_state: &EngineState,
     stack: &mut Stack,
     ctrlc: CtrlC,
     pager: &mut Pager<'_>,
     info: &mut ViewInfo,
-    view: Option<V>,
+    mut view: Option<Page>,
     commands: CommandList,
-) -> Result<Option<Value>>
-where
-    V: View + 'static,
-{
-    let mut view = view.map(|v| Box::new(v) as Box<dyn View>);
-
+) -> Result<Option<Value>> {
     let events = UIEvents::new();
     let mut view_stack = Vec::new();
 
@@ -153,8 +145,8 @@ where
                 let available_area =
                     Rect::new(area.x, area.y, area.width, area.height.saturating_sub(2));
 
-                if let Some(view) = &mut view {
-                    view.draw(f, available_area, &pager.view_cfg, &mut layout);
+                if let Some(p) = &mut view {
+                    p.view.draw(f, available_area, &pager.view_cfg, &mut layout);
 
                     if pager.table_cfg.show_help {
                         pager.table_cfg.show_help = false;
@@ -186,11 +178,11 @@ where
             info,
             &mut pager.search_buf,
             &mut pager.cmd_buf,
-            view.as_mut(),
+            view.as_mut().map(|p| &mut p.view),
         );
         if exited {
             if force {
-                break Ok(try_to_peek_value(pager, view.as_mut()));
+                break Ok(try_to_peek_value(pager, view.as_mut().map(|p| &mut p.view)));
             } else {
                 // try to pop the view stack
                 if let Some(v) = view_stack.pop() {
@@ -217,7 +209,7 @@ where
 
             match result {
                 Ok(false) => {}
-                Ok(true) => break Ok(try_to_peek_value(pager, view.as_mut())),
+                Ok(true) => break Ok(try_to_peek_value(pager, view.as_mut().map(|p| &mut p.view))),
                 Err(err) => info.report = Some(Report::error(err)),
             }
         }
@@ -228,8 +220,8 @@ fn handle_command(
     engine_state: &EngineState,
     stack: &mut Stack,
     pager: &mut Pager,
-    view: &mut Option<Box<dyn View>>,
-    view_stack: &mut Vec<Box<dyn View>>,
+    view: &mut Option<Page>,
+    view_stack: &mut Vec<Page>,
     command: Option<Result<Command>>,
     args: &str,
 ) -> std::result::Result<bool, String> {
@@ -249,15 +241,15 @@ fn run_command(
     engine_state: &EngineState,
     stack: &mut Stack,
     pager: &mut Pager,
-    view: &mut Option<Box<dyn View>>,
-    view_stack: &mut Vec<Box<dyn View>>,
+    view: &mut Option<Page>,
+    view_stack: &mut Vec<Page>,
     command: Command,
     args: &str,
 ) -> std::result::Result<bool, String> {
     match command {
         Command::Reactive(mut command) => {
             // what we do we just replace the view.
-            let value = view.as_mut().and_then(|view| view.exit());
+            let value = view.as_mut().and_then(|p| p.view.exit());
             let result = command.react(engine_state, stack, pager, value);
             match result {
                 Ok(transition) => match transition {
@@ -268,17 +260,19 @@ fn run_command(
                 Err(err) => Err(format!("Error: command {:?} failed: {}", args, err)),
             }
         }
-        Command::View(mut command) => {
+        Command::View { mut cmd, is_light } => {
             // what we do we just replace the view.
-            let value = view.as_mut().and_then(|view| view.exit());
-            let result = command.spawn(engine_state, stack, value);
+            let value = view.as_mut().and_then(|p| p.view.exit());
+            let result = cmd.spawn(engine_state, stack, value);
             match result {
                 Ok(new_view) => {
                     if let Some(view) = view.take() {
-                        view_stack.push(view);
+                        if !view.is_light {
+                            view_stack.push(view);
+                        }
                     }
 
-                    *view = Some(new_view);
+                    *view = Some(Page::raw(new_view, is_light));
                     Ok(false)
                 }
                 Err(err) => Err(format!("Error: command {:?} failed: {}", args, err)),
@@ -742,17 +736,14 @@ impl<'a> Pager<'a> {
         }
     }
 
-    pub fn run<V>(
+    pub fn run(
         &mut self,
         engine_state: &EngineState,
         stack: &mut Stack,
         ctrlc: CtrlC,
-        view: Option<V>,
+        view: Option<Page>,
         commands: CommandList,
-    ) -> Result<Option<Value>>
-    where
-        V: View + 'static,
-    {
+    ) -> Result<Option<Value>> {
         run_pager(engine_state, stack, ctrlc, self, view, commands)
     }
 }
@@ -1046,5 +1037,23 @@ fn convert_with_precision(val: &str, precision: usize) -> Result<String> {
             let message = format!("error converting string [{}] to f64; {}", &val, err);
             Err(io::Error::new(io::ErrorKind::Other, message))
         }
+    }
+}
+
+pub struct Page {
+    pub view: Box<dyn View>,
+    pub is_light: bool,
+}
+
+impl Page {
+    pub fn raw(view: Box<dyn View>, is_light: bool) -> Self {
+        Self { view, is_light }
+    }
+
+    pub fn new<V>(view: V, is_light: bool) -> Self
+    where
+        V: View + 'static,
+    {
+        Self::raw(Box::new(view), is_light)
     }
 }
