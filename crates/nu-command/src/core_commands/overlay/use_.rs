@@ -38,8 +38,8 @@ impl Command for OverlayUse {
                 Some('p'),
             )
             .switch(
-                "reset",
-                "If the overlay already exists, reset its definitions and reload its environment.",
+                "reload",
+                "If the overlay already exists, reload its definitions and environment.",
                 Some('r'),
             )
             .category(Category::Core)

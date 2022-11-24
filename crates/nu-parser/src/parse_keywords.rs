@@ -2443,7 +2443,7 @@ pub fn parse_overlay_use(
     };
 
     let has_prefix = call.has_flag("prefix");
-    let do_reset = call.has_flag("reset");
+    let do_reload = call.has_flag("reload");
 
     let pipeline = Pipeline::from_vec(vec![Expression {
         expr: Expr::Call(call.clone()),
@@ -2501,7 +2501,7 @@ pub fn parse_overlay_use(
         let module_id = overlay_frame.origin;
 
         if let Some(new_module_id) = working_set.find_module(overlay_name.as_bytes()) {
-            if !do_reset && (module_id == new_module_id) {
+            if !do_reload && (module_id == new_module_id) {
                 (overlay_name, Module::new(), module_id, false)
             } else {
                 // The origin module of an overlay changed => update it

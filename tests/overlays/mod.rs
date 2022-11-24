@@ -1069,7 +1069,7 @@ fn overlay_use_and_restore_older_env_vars() {
         r#"overlay use spam"#,
         r#"overlay hide spam"#,
         r#"let-env BAZ = 'new-baz'"#,
-        r#"overlay use --reset spam"#,
+        r#"overlay use --reload spam"#,
         r#"$env.BAZ"#,
     ];
 
@@ -1081,7 +1081,7 @@ fn overlay_use_and_restore_older_env_vars() {
 }
 
 #[test]
-fn overlay_use_and_reset() {
+fn overlay_use_and_reload() {
     let inp = &[
         r#"module spam {
             export def foo [] { 'foo' };
@@ -1094,7 +1094,7 @@ fn overlay_use_and_reset() {
         r#"def foo [] { 'newfoo' }"#,
         r#"alias fooalias = 'newfoo'"#,
         r#"let-env FOO = 'newfoo'"#,
-        r#"overlay use --reset spam"#,
+        r#"overlay use --reload spam"#,
         r#"$'(foo)(fooalias)($env.FOO)'"#,
     ];
 
@@ -1105,15 +1105,14 @@ fn overlay_use_and_reset() {
     assert_eq!(actual_repl.out, "foofoofoo");
 }
 
-
 #[test]
-fn overlay_use_and_reset_keep_custom() {
+fn overlay_use_and_reolad_keep_custom() {
     let inp = &[
         r#"overlay new spam"#,
         r#"def foo [] { 'newfoo' }"#,
         r#"alias fooalias = 'newfoo'"#,
         r#"let-env FOO = 'newfoo'"#,
-        r#"overlay use --reset spam"#,
+        r#"overlay use --reload spam"#,
         r#"$'(foo)(fooalias)($env.FOO)'"#,
     ];
 
