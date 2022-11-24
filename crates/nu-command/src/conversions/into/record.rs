@@ -86,9 +86,9 @@ impl Command for SubCommand {
                 example: "-500day | into record",
                 result: Some(Value::Record {
                     cols: vec![
-                        "yr".into(),
+                        "year".into(),
                         "month".into(),
-                        "wk".into(),
+                        "week".into(),
                         "day".into(),
                         "sign".into(),
                     ],
@@ -249,7 +249,20 @@ fn parse_duration_into_record(duration: i64, span: Span) -> Value {
     for p in periods {
         let num_with_unit = p.to_text().to_string();
         let split = num_with_unit.split(' ').collect::<Vec<&str>>();
-        cols.push(split[1].to_string());
+        cols.push(match split[1] {
+            "ns" => "nanosecond".into(),
+            "µs" => "microsecond".into(),
+            "ms" => "millisecond".into(),
+            "sec" => "second".into(),
+            "min" => "minute".into(),
+            "hr" => "hour".into(),
+            "day" => "day".into(),
+            "wk" => "week".into(),
+            "month" => "month".into(),
+            "yr" => "year".into(),
+            _ => "unknown".into(),
+        });
+
         vals.push(Value::Int {
             val: split[0].parse::<i64>().unwrap_or(0),
             span,
