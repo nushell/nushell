@@ -37,7 +37,7 @@ impl Command for OverlayUse {
                 "Prepend module name to the imported commands and aliases",
                 Some('p'),
             )
-            .switch("reset", "If the overlay already exists, reset it to its initial state and reload its definitions and environment", Some('r'))
+            .switch("reset", "If the overlay already exists, reset its definitions and reload its environment.", Some('r'))
             .category(Category::Core)
     }
 
