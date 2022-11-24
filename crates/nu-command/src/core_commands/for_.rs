@@ -1,7 +1,9 @@
 use nu_engine::{eval_block, eval_expression, CallExt};
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Block, Command, EngineState, Stack};
-use nu_protocol::{Category, Example, ListStream, PipelineData, Signature, SyntaxShape, Value};
+use nu_protocol::{
+    Category, Example, ListStream, PipelineData, ShellError, Signature, SyntaxShape, Value,
+};
 
 #[derive(Clone)]
 pub struct For;
@@ -104,15 +106,27 @@ impl Command for For {
                     );
 
                     //let block = engine_state.get_block(block_id);
-                    eval_block(
+                    match eval_block(
                         &engine_state,
                         stack,
                         &block,
                         PipelineData::new(head),
                         redirect_stdout,
                         redirect_stderr,
-                    )?
-                    .into_value(head);
+                    ) {
+                        Err(ShellError::Break(_)) => {
+                            break;
+                        }
+                        Err(ShellError::Continue(_)) => {
+                            continue;
+                        }
+                        Err(err) => {
+                            return Err(err);
+                        }
+                        Ok(pipeline) => {
+                            pipeline.into_value(head);
+                        }
+                    }
                 }
             }
             Value::Range { val, .. } => {
@@ -137,15 +151,27 @@ impl Command for For {
                     );
 
                     //let block = engine_state.get_block(block_id);
-                    eval_block(
+                    match eval_block(
                         &engine_state,
                         stack,
                         &block,
                         PipelineData::new(head),
                         redirect_stdout,
                         redirect_stderr,
-                    )?
-                    .into_value(head);
+                    ) {
+                        Err(ShellError::Break(_)) => {
+                            break;
+                        }
+                        Err(ShellError::Continue(_)) => {
+                            continue;
+                        }
+                        Err(err) => {
+                            return Err(err);
+                        }
+                        Ok(pipeline) => {
+                            pipeline.into_value(head);
+                        }
+                    }
                 }
             }
             x => {

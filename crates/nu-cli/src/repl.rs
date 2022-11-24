@@ -10,7 +10,7 @@ use lazy_static::lazy_static;
 use log::{info, trace, warn};
 use miette::{IntoDiagnostic, Result};
 use nu_color_config::get_color_config;
-use nu_engine::{convert_env_values, eval_block};
+use nu_engine::{convert_env_values, eval_block, eval_block_with_early_return};
 use nu_parser::{lex, parse, trim_quotes_str};
 use nu_protocol::{
     ast::PathMember,
@@ -962,7 +962,8 @@ pub fn run_hook_block(
         }
     }
 
-    match eval_block(engine_state, &mut callee_stack, block, input, false, false) {
+    match eval_block_with_early_return(engine_state, &mut callee_stack, block, input, false, false)
+    {
         Ok(pipeline_data) => match pipeline_data.into_value(span) {
             Value::Error { error } => Err(error),
             val => {

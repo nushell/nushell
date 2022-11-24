@@ -156,7 +156,7 @@ pub fn eval_call(
             }
         }
 
-        let result = eval_block(
+        let result = eval_block_with_early_return(
             engine_state,
             &mut callee_stack,
             block,
@@ -941,6 +941,27 @@ pub fn eval_element_with_input(
             redirect_stdout,
             redirect_stderr,
         ),
+    }
+}
+
+pub fn eval_block_with_early_return(
+    engine_state: &EngineState,
+    stack: &mut Stack,
+    block: &Block,
+    input: PipelineData,
+    redirect_stdout: bool,
+    redirect_stderr: bool,
+) -> Result<PipelineData, ShellError> {
+    match eval_block(
+        engine_state,
+        stack,
+        block,
+        input,
+        redirect_stdout,
+        redirect_stderr,
+    ) {
+        Err(ShellError::Return(_, value)) => Ok(PipelineData::Value(*value, None)),
+        x => x,
     }
 }
 

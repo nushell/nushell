@@ -1,10 +1,10 @@
 use super::utils::chain_error_with_input;
-use nu_engine::{eval_block, CallExt};
+use nu_engine::{eval_block_with_early_return, CallExt};
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Closure, Command, EngineState, Stack};
 use nu_protocol::{
-    Category, Example, IntoInterruptiblePipelineData, IntoPipelineData, PipelineData, Signature,
-    Span, SyntaxShape, Type, Value,
+    Category, Example, IntoInterruptiblePipelineData, IntoPipelineData, PipelineData, ShellError,
+    Signature, Span, SyntaxShape, Type, Value,
 };
 
 #[derive(Clone)]
@@ -163,7 +163,7 @@ with 'transpose' first."#
                 // it must be converted into an iterator using into_iter().
                 .into_iter()
                 .enumerate()
-                .map(move |(idx, x)| {
+                .map_while(move |(idx, x)| {
                     // with_env() is used here to ensure that each iteration uses
                     // a different set of environment variables.
                     // Hence, a 'cd' in the first loop won't affect the next loop.
@@ -206,7 +206,7 @@ with 'transpose' first."#
                     }
 
                     let input_span = x.span();
-                    match eval_block(
+                    match eval_block_with_early_return(
                         &engine_state,
                         &mut stack,
                         &block,
@@ -214,10 +214,11 @@ with 'transpose' first."#
                         redirect_stdout,
                         redirect_stderr,
                     ) {
-                        Ok(v) => v.into_value(span),
+                        Ok(v) => Some(v.into_value(span)),
+                        Err(ShellError::Break(_)) => None,
                         Err(error) => {
                             let error = chain_error_with_input(error, input_span);
-                            Value::Error { error }
+                            Some(Value::Error { error })
                         }
                     }
                 })
@@ -229,7 +230,7 @@ with 'transpose' first."#
             } => Ok(stream
                 .into_iter()
                 .enumerate()
-                .map(move |(idx, x)| {
+                .map_while(move |(idx, x)| {
                     // with_env() is used here to ensure that each iteration uses
                     // a different set of environment variables.
                     // Hence, a 'cd' in the first loop won't affect the next loop.
@@ -237,7 +238,8 @@ with 'transpose' first."#
 
                     let x = match x {
                         Ok(x) => x,
-                        Err(err) => return Value::Error { error: err },
+                        Err(ShellError::Break(_)) => return None,
+                        Err(err) => return Some(Value::Error { error: err }),
                     };
 
                     if let Some(var) = block.signature.get_positional(0) {
@@ -264,7 +266,7 @@ with 'transpose' first."#
                     }
 
                     let input_span = x.span();
-                    match eval_block(
+                    match eval_block_with_early_return(
                         &engine_state,
                         &mut stack,
                         &block,
@@ -272,10 +274,11 @@ with 'transpose' first."#
                         redirect_stdout,
                         redirect_stderr,
                     ) {
-                        Ok(v) => v.into_value(span),
+                        Ok(v) => Some(v.into_value(span)),
+                        Err(ShellError::Break(_)) => None,
                         Err(error) => {
                             let error = chain_error_with_input(error, input_span);
-                            Value::Error { error }
+                            Some(Value::Error { error })
                         }
                     }
                 })
@@ -289,7 +292,7 @@ with 'transpose' first."#
                     }
                 }
 
-                eval_block(
+                eval_block_with_early_return(
                     &engine_state,
                     &mut stack,
                     &block,

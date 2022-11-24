@@ -1,4 +1,4 @@
-use nu_engine::{eval_block, CallExt};
+use nu_engine::{eval_block_with_early_return, CallExt};
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Closure, Command, EngineState, Stack};
 use nu_protocol::{
@@ -165,7 +165,7 @@ impl Command for EachWhile {
                         }
                     }
 
-                    match eval_block(
+                    match eval_block_with_early_return(
                         &engine_state,
                         &mut stack,
                         &block,
@@ -227,7 +227,7 @@ impl Command for EachWhile {
                         }
                     }
 
-                    match eval_block(
+                    match eval_block_with_early_return(
                         &engine_state,
                         &mut stack,
                         &block,
@@ -257,7 +257,7 @@ impl Command for EachWhile {
                     }
                 }
 
-                eval_block(
+                eval_block_with_early_return(
                     &engine_state,
                     &mut stack,
                     &block,

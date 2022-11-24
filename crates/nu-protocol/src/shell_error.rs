@@ -2,7 +2,7 @@ use miette::Diagnostic;
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
-use crate::{ast::Operator, Span, Type};
+use crate::{ast::Operator, Span, Type, Value};
 
 /// The fundamental error type for the evaluation engine. These cases represent different kinds of errors
 /// the evaluator might face, along with helpful spans to label. An error renderer will take this error value
@@ -828,6 +828,18 @@ Either make sure {0} is a string, or add a 'to_string' entry for it in ENV_CONVE
     #[error("Eval block failed with pipeline input")]
     #[diagnostic(code(nu::shell::eval_block_with_input), url(docsrs))]
     EvalBlockWithInput(#[label("source value")] Span, #[related] Vec<ShellError>),
+
+    /// Break event, which may become an error if used outside of a loop
+    #[error("Break used outside of loop")]
+    Break(#[label = "used outside of loop"] Span),
+
+    /// Continue event, which may become an error if used outside of a loop
+    #[error("Continue used outside of loop")]
+    Continue(#[label = "used outside of loop"] Span),
+
+    /// Return event, which may become an error if used outside of a function
+    #[error("Return used outside of function")]
+    Return(#[label = "used outside of function"] Span, Box<Value>),
 }
 
 impl From<std::io::Error> for ShellError {
