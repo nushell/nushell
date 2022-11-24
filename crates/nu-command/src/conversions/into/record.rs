@@ -211,13 +211,13 @@ fn into_record(
         Value::Date { val, span } => parse_date_into_record(Ok(val), span),
         Value::Duration { val, span } => Value::Record {
             cols: vec!["value".into()],
-            vals: vec![Value::Duration { val: val, span }],
+            vals: vec![Value::Duration { val, span }],
             span,
         },
         // Value::Error
         Value::Filesize { val, span } => Value::Record {
             cols: vec!["value".into()],
-            vals: vec![Value::Filesize { val: val, span }],
+            vals: vec![Value::Filesize { val, span }],
             span,
         },
         Value::Float { val, span } => Value::Record {
@@ -231,10 +231,7 @@ fn into_record(
             span,
         },
         Value::List { mut vals, span } => match input_type {
-            Type::Table(..) if vals.len() == 1 => {
-                let item = vals.pop().expect("already checked 1 item");
-                item
-            }
+            Type::Table(..) if vals.len() == 1 => vals.pop().expect("already checked 1 item"),
             _ => {
                 let mut cols = vec![];
                 let mut values = vec![];
