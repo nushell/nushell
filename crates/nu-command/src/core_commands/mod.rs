@@ -1,6 +1,8 @@
 mod alias;
 mod ast;
+mod break_;
 mod commandline;
+mod continue_;
 mod debug;
 mod def;
 mod def_env;
@@ -33,7 +35,9 @@ mod while_;
 
 pub use alias::Alias;
 pub use ast::Ast;
+pub use break_::Break;
 pub use commandline::Commandline;
+pub use continue_::Continue;
 pub use debug::Debug;
 pub use def::Def;
 pub use def_env::DefEnv;
