@@ -1104,3 +1104,22 @@ fn overlay_use_and_reset() {
     assert_eq!(actual.out, "foofoofoo");
     assert_eq!(actual_repl.out, "foofoofoo");
 }
+
+
+#[test]
+fn overlay_use_and_reset_keep_custom() {
+    let inp = &[
+        r#"overlay new spam"#,
+        r#"def foo [] { 'newfoo' }"#,
+        r#"alias fooalias = 'newfoo'"#,
+        r#"let-env FOO = 'newfoo'"#,
+        r#"overlay use --reset spam"#,
+        r#"$'(foo)(fooalias)($env.FOO)'"#,
+    ];
+
+    let actual = nu!(cwd: "tests/overlays", pipeline(&inp.join("; ")));
+    let actual_repl = nu!(cwd: "tests/overlays", nu_repl_code(inp));
+
+    assert_eq!(actual.out, "newfoonewfoonewfoo");
+    assert_eq!(actual_repl.out, "newfoonewfoonewfoo");
+}
