@@ -14,6 +14,7 @@ pub enum Command {
 
 pub struct CommandList {
     commands: HashMap<&'static str, Command>,
+    aliases: HashMap<&'static str, &'static str>,
 }
 
 impl CommandList {
@@ -51,14 +52,44 @@ impl CommandList {
 
         cmd_list.push(help_cmd);
 
+        let aliases = [("h", HelpCmd::NAME)];
+
         Self {
             commands: HashMap::from_iter(cmd_list),
+            aliases: HashMap::from_iter(aliases),
         }
     }
 
-    pub fn find(&self, args: &str) -> Option<Command> {
+    pub fn find(&self, args: &str) -> Option<std::io::Result<Command>> {
         let cmd = args.split_once(' ').map_or(args, |(cmd, _)| cmd);
-        self.commands.get(cmd).cloned()
+        let args = &args[cmd.len()..];
+
+        let command = self.find_command(cmd);
+        parse_command(command, args)
+    }
+
+    fn find_command(&self, cmd: &str) -> Option<Command> {
+        match self.commands.get(cmd).cloned() {
+            None => self
+                .aliases
+                .get(cmd)
+                .and_then(|cmd| self.commands.get(cmd).cloned()),
+            cmd => cmd,
+        }
+    }
+}
+
+fn parse_command(command: Option<Command>, args: &str) -> Option<std::io::Result<Command>> {
+    match command {
+        Some(mut cmd) => {
+            let result = match &mut cmd {
+                Command::Reactive(c) => c.parse(args),
+                Command::View(c) => c.parse(args),
+            };
+
+            Some(result.map(|_| cmd))
+        }
+        None => None,
     }
 }
 

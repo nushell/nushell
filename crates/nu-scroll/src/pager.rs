@@ -230,11 +230,17 @@ fn handle_command(
     pager: &mut Pager,
     view: &mut Option<Box<dyn View>>,
     view_stack: &mut Vec<Box<dyn View>>,
-    command: Option<Command>,
+    command: Option<Result<Command>>,
     args: &str,
 ) -> std::result::Result<bool, String> {
     match command {
-        Some(command) => run_command(engine_state, stack, pager, view, view_stack, command, args),
+        Some(Ok(command)) => {
+            run_command(engine_state, stack, pager, view, view_stack, command, args)
+        }
+        Some(Err(err)) => Err(format!(
+            "Error: command {:?} was not provided with correct arguments: {}",
+            args, err
+        )),
         None => Err(format!("Error: command {:?} was not recognized", args)),
     }
 }
@@ -250,52 +256,32 @@ fn run_command(
 ) -> std::result::Result<bool, String> {
     match command {
         Command::Reactive(mut command) => {
-            let result = command.parse(args);
-
+            // what we do we just replace the view.
+            let value = view.as_mut().and_then(|view| view.exit());
+            let result = command.react(engine_state, stack, pager, value);
             match result {
-                Ok(()) => {
-                    // what we do we just replace the view.
-                    let value = view.as_mut().and_then(|view| view.exit());
-                    let result = command.react(engine_state, stack, pager, value);
-                    match result {
-                        Ok(transition) => match transition {
-                            Transition::Ok => Ok(false),
-                            Transition::Exit => Ok(true),
-                            Transition::Cmd(_) => todo!("not used so far"),
-                        },
-                        Err(err) => Err(format!("Error: command {:?} failed: {}", args, err)),
-                    }
-                }
-                Err(err) => Err(format!(
-                    "Error: command {:?} was not provided with correct arguments: {}",
-                    args, err
-                )),
+                Ok(transition) => match transition {
+                    Transition::Ok => Ok(false),
+                    Transition::Exit => Ok(true),
+                    Transition::Cmd(_) => todo!("not used so far"),
+                },
+                Err(err) => Err(format!("Error: command {:?} failed: {}", args, err)),
             }
         }
         Command::View(mut command) => {
-            let result = command.parse(args);
-
+            // what we do we just replace the view.
+            let value = view.as_mut().and_then(|view| view.exit());
+            let result = command.spawn(engine_state, stack, value);
             match result {
-                Ok(()) => {
-                    // what we do we just replace the view.
-                    let value = view.as_mut().and_then(|view| view.exit());
-                    let result = command.spawn(engine_state, stack, value);
-                    match result {
-                        Ok(new_view) => {
-                            if let Some(view) = view.take() {
-                                view_stack.push(view);
-                            }
-
-                            *view = Some(new_view);
-                            Ok(false)
-                        }
-                        Err(err) => Err(format!("Error: command {:?} failed: {}", args, err)),
+                Ok(new_view) => {
+                    if let Some(view) = view.take() {
+                        view_stack.push(view);
                     }
+
+                    *view = Some(new_view);
+                    Ok(false)
                 }
-                Err(err) => Err(format!(
-                    "Error: command {:?} was not provided with correct arguments: {}",
-                    args, err
-                )),
+                Err(err) => Err(format!("Error: command {:?} failed: {}", args, err)),
             }
         }
     }

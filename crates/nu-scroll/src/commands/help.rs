@@ -62,13 +62,7 @@ impl ViewCommand for HelpCmd {
     }
 
     fn parse(&mut self, args: &str) -> Result<()> {
-        let cmd = args
-            .strip_prefix(Self::NAME)
-            .ok_or_else(|| io::Error::new(io::ErrorKind::Other, "failed to parse"))?;
-
-        let cmd = cmd.trim();
-
-        self.input_command = cmd.to_owned();
+        self.input_command = args.trim().to_owned();
 
         Ok(())
     }
