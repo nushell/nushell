@@ -9,6 +9,8 @@ fn capture_errors_works() {
         "#
     ));
 
+    eprintln!("actual.err: {:?}", actual.err);
+
     assert!(actual.err.contains("column_not_found"));
 }
 
@@ -65,7 +67,7 @@ fn ignore_shell_errors_works_for_external_with_semicolon() {
     let actual = nu!(
         cwd: ".", pipeline(
         r#"
-        do -s { fail }; `text`
+        do -s { open asdfasdf.txt }; "text"
         "#
     ));
 

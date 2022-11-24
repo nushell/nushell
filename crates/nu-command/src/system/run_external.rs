@@ -390,7 +390,7 @@ impl ExternalCommand {
                                 use std::os::unix::process::ExitStatusExt;
                                 if x.core_dumped() {
                                     let style = Style::new().bold().on(Color::Red);
-                                    println!(
+                                    eprintln!(
                                         "{}",
                                         style.paint(format!(
                                             "nushell: oops, process '{commandname}' core dumped"

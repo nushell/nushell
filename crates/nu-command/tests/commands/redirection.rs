@@ -7,10 +7,10 @@ fn redirect_err() {
     Playground::setup("redirect_err_test", |dirs, _sandbox| {
         let output = nu!(
             cwd: dirs.test(),
-            "cat asdfasdfasdf.txt err> a; cat a"
+            "cat asdfasdfasdf.txt err> a.txt; cat a.txt"
         );
 
-        assert!(output.err.contains("asdfasdfasdf.txt"));
+        assert!(output.out.contains("asdfasdfasdf.txt"));
     })
 }
 
@@ -23,7 +23,7 @@ fn redirect_err() {
             "type asdfasdfasdf.txt err> a; type a"
         );
 
-        assert!(output.err.contains("asdfasdfasdf.txt"));
+        assert!(output.out.contains("asdfasdfasdf.txt"));
     })
 }
 
@@ -36,7 +36,7 @@ fn redirect_outerr() {
             "cat asdfasdfasdf.txt out+err> a; cat a"
         );
 
-        assert!(output.err.contains("asdfasdfasdf.txt"));
+        assert!(output.out.contains("asdfasdfasdf.txt"));
     })
 }
 

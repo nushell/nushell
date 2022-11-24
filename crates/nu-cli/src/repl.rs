@@ -528,7 +528,7 @@ pub fn evaluate_repl(
             Err(err) => {
                 let message = err.to_string();
                 if !message.contains("duration") {
-                    println!("Error: {:?}", err);
+                    eprintln!("Error: {:?}", err);
                     // TODO: Identify possible error cases where a hard failure is preferable
                     // Ignoring and reporting could hide bigger problems
                     // e.g. https://github.com/nushell/nushell/issues/6452
