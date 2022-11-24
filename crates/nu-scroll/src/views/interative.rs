@@ -153,5 +153,17 @@ impl View for InteractiveView<'_> {
         }
     }
 
-    // todo: impl more methods
+    fn exit(&mut self) -> Option<Value> {
+        self.table.as_mut().and_then(|v| v.exit())
+    }
+
+    fn collect_data(&self) -> Vec<crate::nu_common::NuText> {
+        self.table
+            .as_ref()
+            .map_or_else(Vec::new, |v| v.collect_data())
+    }
+
+    fn show_data(&mut self, i: usize) -> bool {
+        self.table.as_mut().map_or(false, |v| v.show_data(i))
+    }
 }
