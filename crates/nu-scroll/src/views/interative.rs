@@ -52,19 +52,33 @@ impl View for InteractiveView<'_> {
 
         f.render_widget(cmd_block, cmd_area);
 
-        let cmd = Paragraph::new(self.command.clone());
-        let cmd_area = Rect::new(
-            area.x + 1 + 1 + 1,
-            area.y + 1,
-            area.width - 2 - 1 - 1 - 1 - 1 - 1,
+        let cmd_input_area = Rect::new(
+            cmd_area.x + 2,
+            cmd_area.y + 1,
+            cmd_area.width - 2 - 2 - 1,
             1,
         );
-        f.render_widget(cmd, cmd_area);
 
-        let max_cmd_len = min(
-            self.command.len() as u16,
-            area.width - 2 - 1 - 1 - 1 - 1 - 1,
-        );
+        let mut input = self.command.as_str();
+
+        let max_cmd_len = min(input.len() as u16, cmd_input_area.width);
+        if input.len() as u16 > max_cmd_len {
+            // in such case we take last max_cmd_len chars
+            let take_bytes = input
+                .chars()
+                .rev()
+                .take(max_cmd_len as usize)
+                .map(|c| c.len_utf8())
+                .sum::<usize>();
+            let skip = input.len() - take_bytes;
+
+            input = &input[skip..];
+        }
+
+        let cmd_input = Paragraph::new(input);
+
+        f.render_widget(cmd_input, cmd_input_area);
+
         let cur_w = area.x + 1 + 1 + 1 + max_cmd_len as u16;
         let cur_w_max = area.x + 1 + 1 + 1 + area.width - 2 - 1 - 1 - 1 - 1;
         if cur_w < cur_w_max {

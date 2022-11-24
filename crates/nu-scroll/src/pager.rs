@@ -378,8 +378,22 @@ fn render_cmd_bar_search(f: &mut Frame, area: Rect, pager: &Pager<'_>, theme: &S
 }
 
 fn render_cmd_bar_cmd(f: &mut Frame, area: Rect, pager: &Pager, theme: &StyleConfig) {
+    let mut input = pager.cmd_buf.buf_cmd2.as_str();
+    if input.len() > area.width as usize + 1 {
+        // in such case we take last max_cmd_len chars
+        let take_bytes = input
+            .chars()
+            .rev()
+            .take(area.width.saturating_sub(1) as usize)
+            .map(|c| c.len_utf8())
+            .sum::<usize>();
+        let skip = input.len() - take_bytes;
+
+        input = &input[skip..];
+    }
+
     let prefix = ':';
-    let text = format!("{}{}", prefix, pager.cmd_buf.buf_cmd2);
+    let text = format!("{}{}", prefix, input);
     f.render_widget(CmdBar::new(&text, "", theme.cmd_bar), area);
 }
 

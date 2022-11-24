@@ -4,7 +4,6 @@ use nu_table::{string_width, Alignment, TextStyle};
 use tui::{
     buffer::Buffer,
     layout::Rect,
-    style::{Color, Style},
     text::Span,
     widgets::{Block, Borders, Paragraph, StatefulWidget, Widget},
 };
@@ -102,7 +101,7 @@ impl StatefulWidget for TableW<'_> {
         // header lines
         if show_head {
             // fixme: color from config
-            render_header_borders(buf, area, 0, 1);
+            render_header_borders(buf, area, 0, 1, self.splitline_style);
         }
 
         if show_index {
@@ -265,10 +264,16 @@ impl Widget for IndexColumn<'_> {
     }
 }
 
-fn render_header_borders(buf: &mut Buffer, area: Rect, y: u16, span: u16) -> (u16, u16) {
+fn render_header_borders(
+    buf: &mut Buffer,
+    area: Rect,
+    y: u16,
+    span: u16,
+    style: NuStyle,
+) -> (u16, u16) {
     let block = Block::default()
         .borders(Borders::TOP | Borders::BOTTOM)
-        .border_style(Style::default().fg(Color::Rgb(64, 64, 64)));
+        .border_style(nu_style_to_tui(style));
     let height = 2 + span;
     let area = Rect::new(area.x, area.y + y, area.width, height);
     block.render(area, buf);
