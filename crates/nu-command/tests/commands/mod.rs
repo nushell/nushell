@@ -82,6 +82,7 @@ mod table;
 mod take;
 mod touch;
 mod transpose;
+mod try_;
 mod uniq;
 mod update;
 mod upsert;
