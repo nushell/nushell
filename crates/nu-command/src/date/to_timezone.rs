@@ -79,7 +79,7 @@ impl Command for SubCommand {
                 }),
                 None => Some(Value::Error {
                     error: ShellError::UnsupportedInput(
-                        "Maybe something is wrong with your time.\nThis can occur when, for example, the positive timezone transition."
+                        "The given datetime representation is unsupported."
                             .to_string(),
                         Span::test_data(),
                     ),
