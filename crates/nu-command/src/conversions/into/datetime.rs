@@ -159,7 +159,7 @@ impl Command for SubCommand {
                 }),
                 None => Some(Value::Error {
                     error: ShellError::UnsupportedInput(
-                        "Their given datetime representation is unsupported.".to_string(),
+                        "The given datetime representation is unsupported.".to_string(),
                         Span::test_data(),
                     ),
                 }),
@@ -177,7 +177,7 @@ impl Command for SubCommand {
                 }),
                 None => Some(Value::Error {
                     error: ShellError::UnsupportedInput(
-                        "Their given datetime representation is unsupported.".to_string(),
+                        "The given datetime representation is unsupported.".to_string(),
                         Span::test_data(),
                     ),
                 }),
