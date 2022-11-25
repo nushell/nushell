@@ -712,7 +712,7 @@ impl Value {
                                         }
                                     }
                                     "trim" => {
-                                        match try_parse_trim_strategy(value, &config, &mut errors) {
+                                        match try_parse_trim_strategy(value, &mut errors) {
                                             Ok(v) => config.trim_strategy = v,
                                             Err(e) => {
                                                 // try_parse_trim_strategy() already adds its own errors
@@ -1118,7 +1118,7 @@ impl Value {
                     }
                     "table_trim" => {
                         legacy_options_used = true;
-                        match try_parse_trim_strategy(value, &config, &mut errors) {
+                        match try_parse_trim_strategy(value, &mut errors) {
                             Ok(v) => config.trim_strategy = v,
                             Err(e) => {
                                 // try_parse_trim_strategy() already calls eprintln!() on error
@@ -1205,7 +1205,6 @@ Please consult https://www.nushell.sh/blog/2022-11-29-nushell-0.72.html for deta
 
 fn try_parse_trim_strategy(
     value: &Value,
-    config: &Config,
     errors: &mut Vec<ShellError>,
 ) -> Result<TrimStrategy, ShellError> {
     let map = create_map(value).map_err(|e| {

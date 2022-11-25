@@ -12,6 +12,7 @@ use nu_table::{
     string_width, Alignment, StyleComputer, Table as NuTable, TableConfig, TableTheme, TextStyle,
 };
 use nu_utils::get_ls_colors;
+use rayon::prelude::*;
 use std::sync::Arc;
 use std::time::Instant;
 use std::{
@@ -771,7 +772,61 @@ fn make_clickable_link(
     }
 }
 
-#[allow(clippy::too_many_arguments)]
+// convert_to_table() defers all its style computations so that they can be run in parallel using par_extend().
+// This structure holds the intermediate computations.
+// Currently, the other table forms don't use this.
+// Because of how table-specific this is, I don't think this can be pushed into StyleComputer itself.
+enum DeferredStyleComputation {
+    Value { value: Value },
+    Header { text: String },
+    RowIndex { text: String },
+    Empty {},
+}
+
+impl DeferredStyleComputation {
+    // This is only run inside a par_extend().
+    fn compute(&self, config: &Config, style_computer: &StyleComputer) -> NuText {
+        match self {
+            DeferredStyleComputation::Value { value } => {
+                match value {
+                    // Float precision is required here.
+                    Value::Float { val, .. } => (
+                        format!("{:.prec$}", val, prec = config.float_precision as usize),
+                        style_computer.style_primitive(value),
+                    ),
+                    _ => (
+                        value.into_abbreviated_string(config),
+                        style_computer.style_primitive(value),
+                    ),
+                }
+            }
+            DeferredStyleComputation::Header { text } => (
+                text.clone(),
+                TextStyle::with_style(
+                    Alignment::Center,
+                    style_computer
+                        .compute("header", &Value::string(text.as_str(), Span::unknown())),
+                ),
+            ),
+            DeferredStyleComputation::RowIndex { text } => (
+                text.clone(),
+                TextStyle::with_style(
+                    Alignment::Right,
+                    style_computer
+                        .compute("row_index", &Value::string(text.as_str(), Span::unknown())),
+                ),
+            ),
+            DeferredStyleComputation::Empty {} => (
+                "❎".into(),
+                TextStyle::with_style(
+                    Alignment::Right,
+                    style_computer.compute("empty", &Value::nothing(Span::unknown())),
+                ),
+            ),
+        }
+    }
+}
+
 fn convert_to_table(
     row_offset: usize,
     input: &[Value],
@@ -782,7 +837,6 @@ fn convert_to_table(
 ) -> Result<Option<(NuTable, bool, bool)>, ShellError> {
     let mut headers = get_columns(input);
     let mut input = input.iter().peekable();
-    let float_precision = config.float_precision as usize;
     let with_index = match config.table_index_mode {
         TableIndexMode::Always => true,
         TableIndexMode::Never => false,
@@ -793,7 +847,9 @@ fn convert_to_table(
         return Ok(None);
     }
 
-    if !headers.is_empty() && with_index {
+    let with_header = !headers.is_empty();
+
+    if with_header && with_index {
         headers.insert(0, "#".into());
     }
 
@@ -802,27 +858,18 @@ fn convert_to_table(
     let headers: Vec<_> = headers
         .into_iter()
         .filter(|header| header != INDEX_COLUMN_NAME)
-        .map(|text| {
-            let style = style_computer.compute("header", &Value::string(text.as_str(), head));
-            NuTable::create_cell(
-                text,
-                TextStyle {
-                    alignment: Alignment::Center,
-                    color_style: Some(style),
-                },
-            )
-        })
+        .map(|text| DeferredStyleComputation::Header { text })
         .collect();
 
-    let with_header = !headers.is_empty();
     let mut count_columns = headers.len();
 
-    let mut data: Vec<Vec<_>> = if headers.is_empty() {
+    let mut data: Vec<Vec<_>> = if !with_header {
         Vec::new()
     } else {
         vec![headers]
     };
 
+    // Turn each item of each row into a DeferredStyleComputation for that item.
     for (row_num, item) in input.enumerate() {
         if nu_utils::ctrl_c::was_pressed(&ctrlc) {
             return Ok(None);
@@ -842,25 +889,36 @@ fn convert_to_table(
             }
             .unwrap_or_else(|| (row_num + row_offset).to_string());
 
-            let value = make_index_string(text, style_computer);
-            let value = NuTable::create_cell(value.0, value.1);
-
-            row.push(value);
+            row.push(DeferredStyleComputation::RowIndex { text });
         }
 
         if !with_header {
-            let text = item.into_abbreviated_string(config);
-            let value = make_styled_string(style_computer, text, Some(item), float_precision);
-            let value = NuTable::create_cell(value.0, value.1);
-
-            row.push(value);
+            row.push(DeferredStyleComputation::Value {
+                value: item.clone(),
+            });
         } else {
             let skip_num = usize::from(with_index);
+            // data[0] is used here because headers (the direct reference to it) has been moved.
             for header in data[0].iter().skip(skip_num) {
-                let value =
-                    create_table2_entry_basic(item, header.as_ref(), head, config, style_computer);
-                let value = NuTable::create_cell(value.0, value.1);
-                row.push(value);
+                if let DeferredStyleComputation::Header { text } = header {
+                    row.push(match item {
+                        Value::Record { .. } => {
+                            let path = PathMember::String {
+                                val: text.clone(),
+                                span: head,
+                            };
+                            let val = item.clone().follow_cell_path(&[path], false);
+
+                            match val {
+                                Ok(val) => DeferredStyleComputation::Value { value: val },
+                                Err(_) => DeferredStyleComputation::Empty {},
+                            }
+                        }
+                        _ => DeferredStyleComputation::Value {
+                            value: item.clone(),
+                        },
+                    });
+                }
             }
         }
 
@@ -869,8 +927,21 @@ fn convert_to_table(
         data.push(row);
     }
 
-    let count_rows = data.len();
-    let table = NuTable::new(data, (count_rows, count_columns));
+    // All the computations are parallelised here.
+    // NOTE: It's currently not possible to Ctrl-C out of this...
+    let mut cells: Vec<Vec<_>> = Vec::new();
+    cells.par_extend(data.into_par_iter().map(|row| {
+        let mut new_row = Vec::new();
+        new_row.par_extend(row.into_par_iter().map(|deferred| {
+            let pair = deferred.compute(config, style_computer);
+
+            NuTable::create_cell(pair.0, pair.1)
+        }));
+        new_row
+    }));
+
+    let count_rows = cells.len();
+    let table = NuTable::new(cells, (count_rows, count_columns));
 
     Ok(Some((table, with_header, with_index)))
 }
@@ -1399,7 +1470,7 @@ fn make_styled_string(
     text: String,
     value: Option<&Value>, // None represents table holes.
     float_precision: usize,
-) -> (String, TextStyle) {
+) -> NuText {
     match value {
         Some(value) => {
             match value {
@@ -1431,9 +1502,7 @@ fn make_index_string(text: String, style_computer: &StyleComputer) -> NuText {
     let style = style_computer.compute("row_index", &Value::string(text.as_str(), Span::unknown()));
     (
         text,
-        TextStyle::new()
-            .alignment(Alignment::Right)
-            .style(style)
+        TextStyle::with_style(Alignment::Right, style),
     )
 }
 

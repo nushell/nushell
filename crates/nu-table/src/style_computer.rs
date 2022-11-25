@@ -89,7 +89,7 @@ impl<'a> StyleComputer<'a> {
                 ) {
                     Ok(v) => {
                         let value = v.into_value(*span);
-                        // TBW
+                        // These should be the same color data forms supported by color_config.
                         match value {
                             Value::Record { .. } => color_record_to_nustyle(&value),
                             Value::String { val, .. } => lookup_ansi_color_style(&val),
