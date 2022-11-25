@@ -16,6 +16,7 @@ impl Command for SubCommand {
     fn signature(&self) -> Signature {
         Signature::build("into record")
             .input_output_types(vec![
+                (Type::Date, Type::Record(vec![])),
                 (Type::Duration, Type::Record(vec![])),
                 (Type::List(Box::new(Type::Any)), Type::Record(vec![])),
                 (Type::Range, Type::Record(vec![])),
@@ -114,35 +115,34 @@ impl Command for SubCommand {
                     span,
                 }),
             },
-            // Couldn't get test harness to accept this
-            // Example {
-            //     description: "convert date to record",
-            //     example: "2020-04-12T22:10:57+0200 | into record",
-            //     result: Some(Value::Record {
-            //         cols: vec![
-            //             "year".into(),
-            //             "month".into(),
-            //             "day".into(),
-            //             "hour".into(),
-            //             "minute".into(),
-            //             "second".into(),
-            //             "timezone".into(),
-            //         ],
-            //         vals: vec![
-            //             Value::Int { val: 2020, span },
-            //             Value::Int { val: 4, span },
-            //             Value::Int { val: 12, span },
-            //             Value::Int { val: 22, span },
-            //             Value::Int { val: 10, span },
-            //             Value::Int { val: 57, span },
-            //             Value::String {
-            //                 val: "+02:00".to_string(),
-            //                 span,
-            //             },
-            //         ],
-            //         span,
-            //     }),
-            // },
+            Example {
+                description: "convert date to record",
+                example: "2020-04-12T22:10:57+02:00 | into record",
+                result: Some(Value::Record {
+                    cols: vec![
+                        "year".into(),
+                        "month".into(),
+                        "day".into(),
+                        "hour".into(),
+                        "minute".into(),
+                        "second".into(),
+                        "timezone".into(),
+                    ],
+                    vals: vec![
+                        Value::Int { val: 2020, span },
+                        Value::Int { val: 4, span },
+                        Value::Int { val: 12, span },
+                        Value::Int { val: 22, span },
+                        Value::Int { val: 10, span },
+                        Value::Int { val: 57, span },
+                        Value::String {
+                            val: "+02:00".to_string(),
+                            span,
+                        },
+                    ],
+                    span,
+                }),
+            },
         ]
     }
 }
