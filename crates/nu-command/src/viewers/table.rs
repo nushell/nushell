@@ -1500,10 +1500,7 @@ fn make_styled_string(
 
 fn make_index_string(text: String, style_computer: &StyleComputer) -> NuText {
     let style = style_computer.compute("row_index", &Value::string(text.as_str(), Span::unknown()));
-    (
-        text,
-        TextStyle::with_style(Alignment::Right, style),
-    )
+    (text, TextStyle::with_style(Alignment::Right, style))
 }
 
 fn convert_with_precision(val: &str, precision: usize) -> Result<String, ShellError> {
