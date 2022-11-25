@@ -110,7 +110,12 @@ fn create_help_manuals(cmd_list: &[(&str, Command)]) -> Vec<HelpManual> {
         .map(|(_, cmd)| cmd)
         .map(create_help_manual)
         .collect();
-    help_manuals.push(HelpCmd::default().help().unwrap());
+
+    help_manuals.push(__create_help_manual(
+        HelpCmd::default().help(),
+        HelpCmd::NAME,
+    ));
+
     help_manuals
 }
 
@@ -125,6 +130,10 @@ fn create_help_manual(cmd: &Command) -> HelpManual {
         Command::View { cmd, .. } => cmd.help(),
     };
 
+    __create_help_manual(manual, name)
+}
+
+fn __create_help_manual(manual: Option<HelpManual>, name: &'static str) -> HelpManual {
     match manual {
         Some(manual) => manual,
         None => HelpManual {

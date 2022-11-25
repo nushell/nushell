@@ -112,7 +112,10 @@ impl View for InteractiveView<'_> {
         key: KeyEvent,
     ) -> Option<Transition> {
         if self.view_mode {
-            let table = self.table.as_mut().unwrap();
+            let table = self
+                .table
+                .as_mut()
+                .expect("we know that we have a table cause of a flag");
             let result = table.handle_input(engine_state, stack, layout, info, key);
 
             match result {

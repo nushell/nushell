@@ -54,11 +54,15 @@ impl<'a> RecordView<'a> {
 
     // todo: rename to get_layer
     fn get_layer_last(&self) -> &RecordLayer<'a> {
-        self.layer_stack.last().unwrap()
+        self.layer_stack
+            .last()
+            .expect("we guarantee that 1 entry is always in a list")
     }
 
     fn get_layer_last_mut(&mut self) -> &mut RecordLayer<'a> {
-        self.layer_stack.last_mut().unwrap()
+        self.layer_stack
+            .last_mut()
+            .expect("we guarantee that 1 entry is always in a list")
     }
 
     fn create_tablew<'b>(&self, layer: &'b RecordLayer, view_cfg: &'b ViewConfig) -> TableW<'b> {
