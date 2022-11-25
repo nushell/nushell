@@ -1,7 +1,7 @@
 use nu_protocol::ast::{Call, PathMember};
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
-    Category, Example, IntoPipelineData, PipelineData, ShellError, Signature, Span, Value,
+    Category, Example, IntoPipelineData, PipelineData, ShellError, Signature, Span, Type, Value,
 };
 
 #[derive(Clone)]
@@ -13,7 +13,9 @@ impl Command for ToYaml {
     }
 
     fn signature(&self) -> Signature {
-        Signature::build("to yaml").category(Category::Formats)
+        Signature::build("to yaml")
+            .input_output_types(vec![(Type::Any, Type::String)])
+            .category(Category::Formats)
     }
 
     fn usage(&self) -> &str {
@@ -70,6 +72,7 @@ pub fn value_to_yaml_value(v: &Value) -> Result<serde_yaml::Value, ShellError> {
             serde_yaml::Value::Sequence(out)
         }
         Value::Block { .. } => serde_yaml::Value::Null,
+        Value::Closure { .. } => serde_yaml::Value::Null,
         Value::Nothing { .. } => serde_yaml::Value::Null,
         Value::Error { error } => return Err(error.clone()),
         Value::Binary { val, .. } => serde_yaml::Value::Sequence(

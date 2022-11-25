@@ -110,13 +110,82 @@ pub struct Signature {
     pub required_positional: Vec<PositionalArg>,
     pub optional_positional: Vec<PositionalArg>,
     pub rest_positional: Option<PositionalArg>,
+    pub vectorizes_over_list: bool,
     pub named: Vec<Flag>,
     pub input_type: Type,
     pub output_type: Type,
+    pub input_output_types: Vec<(Type, Type)>,
+    pub allow_variants_without_examples: bool,
     pub is_filter: bool,
     pub creates_scope: bool,
     // Signature category used to classify commands stored in the list of declarations
     pub category: Category,
+}
+
+/// Fromat argumet type for user readable output.
+///
+/// In general:
+/// if argument type is a simple type(like string), we'll wrapped with `<>`, the result will be `<string>`
+/// if argument type is already contains `<>`, like `list<any>`, the result will be `list<any>`.
+fn fmt_type(arg_type: &Type, optional: bool) -> String {
+    let arg_type = arg_type.to_string();
+    if arg_type.contains('<') && arg_type.contains('>') {
+        if optional {
+            format!("{arg_type}?")
+        } else {
+            arg_type
+        }
+    } else if optional {
+        format!("<{arg_type}?>")
+    } else {
+        format!("<{arg_type}>")
+    }
+}
+
+// in general, a commands signature should looks like this:
+//
+// <string> | <string>, <int?> => string
+//
+// More detail explaination:
+// the first one is the input from previous command, aka, pipeline input
+// then followed by `|`, then positional arguments type
+// then optional arguments type, which ends with `?`
+// Then followed by `->`
+// Finally output type.
+//
+// If a command contains multiple input/output types, separate them in different lines.
+impl std::fmt::Display for Signature {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let mut args = self
+            .required_positional
+            .iter()
+            .map(|p| fmt_type(&p.shape.to_type(), false))
+            .collect::<Vec<String>>();
+        args.append(
+            &mut self
+                .optional_positional
+                .iter()
+                .map(|p| fmt_type(&p.shape.to_type(), true))
+                .collect::<Vec<String>>(),
+        );
+        let args = args.join(", ");
+
+        let mut signatures = vec![];
+        for (input_type, output_type) in self.input_output_types.iter() {
+            // ident with two spaces for user friendly output.
+            let input_type = fmt_type(input_type, false);
+            let output_type = fmt_type(output_type, false);
+            if args.is_empty() {
+                signatures.push(format!("  {input_type} | {} -> {output_type}", self.name))
+            } else {
+                signatures.push(format!(
+                    "  {input_type} | {} {args} -> {output_type}",
+                    self.name
+                ))
+            }
+        }
+        write!(f, "{}", signatures.join("\n"))
+    }
 }
 
 impl PartialEq for Signature {
@@ -142,8 +211,11 @@ impl Signature {
             required_positional: vec![],
             optional_positional: vec![],
             rest_positional: None,
+            vectorizes_over_list: false,
             input_type: Type::Any,
             output_type: Type::Any,
+            input_output_types: vec![],
+            allow_variants_without_examples: false,
             named: vec![],
             is_filter: false,
             creates_scope: false,
@@ -158,7 +230,7 @@ impl Signature {
             long: "help".into(),
             short: Some('h'),
             arg: None,
-            desc: "Display this help message".into(),
+            desc: "Display the help message for this command".into(),
             required: false,
             var_id: None,
             default_value: None,
@@ -255,6 +327,22 @@ impl Signature {
         self
     }
 
+    /// Is this command capable of operating on its input via cell paths?
+    pub fn operates_on_cell_paths(&self) -> bool {
+        self.required_positional
+            .iter()
+            .chain(self.rest_positional.iter())
+            .any(|pos| {
+                matches!(
+                    pos,
+                    PositionalArg {
+                        shape: SyntaxShape::CellPath,
+                        ..
+                    }
+                )
+            })
+    }
+
     /// Add an optional named flag argument to the signature
     pub fn named(
         mut self,
@@ -335,6 +423,17 @@ impl Signature {
         self
     }
 
+    pub fn vectorizes_over_list(mut self, vectorizes_over_list: bool) -> Signature {
+        self.vectorizes_over_list = vectorizes_over_list;
+        self
+    }
+
+    /// Set the input-output type signature variants of the command
+    pub fn input_output_types(mut self, input_output_types: Vec<(Type, Type)>) -> Signature {
+        self.input_output_types = input_output_types;
+        self
+    }
+
     /// Changes the signature category
     pub fn category(mut self, category: Category) -> Signature {
         self.category = category;
@@ -345,6 +444,12 @@ impl Signature {
     /// Sets that signature will create a scope as it parses
     pub fn creates_scope(mut self) -> Signature {
         self.creates_scope = true;
+        self
+    }
+
+    // Is it allowed for the type signature to feature a variant that has no corresponding example?
+    pub fn allow_variants_without_examples(mut self, allow: bool) -> Signature {
+        self.allow_variants_without_examples = allow;
         self
     }
 

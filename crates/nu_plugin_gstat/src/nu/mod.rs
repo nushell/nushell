@@ -7,7 +7,7 @@ impl Plugin for GStat {
         vec![Signature::build("gstat")
             .usage("Get the git status of a repo")
             .optional("path", SyntaxShape::Filepath, "path to repo")
-            .category(Category::Custom("Prompt".to_string()))]
+            .category(Category::Custom("prompt".to_string()))]
     }
 
     fn run(

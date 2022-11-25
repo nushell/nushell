@@ -335,7 +335,7 @@ impl Iterator for Paths {
         if let Some(scope) = self.scope.take() {
             if !self.dir_patterns.is_empty() {
                 // Shouldn't happen, but we're using -1 as a special index.
-                assert!(self.dir_patterns.len() < !0 as usize);
+                assert!(self.dir_patterns.len() < !0);
 
                 fill_todo(&mut self.todo, &self.dir_patterns, 0, &scope, self.options);
             }
@@ -357,7 +357,7 @@ impl Iterator for Paths {
 
             // idx -1: was already checked by fill_todo, maybe path was '.' or
             // '..' that we can't match here because of normalization.
-            if idx == !0 as usize {
+            if idx == !0 {
                 if self.require_dir && !is_dir(&path) {
                     continue;
                 }
@@ -771,7 +771,7 @@ fn fill_todo(
             // We know it's good, so don't make the iterator match this path
             // against the pattern again. In particular, it can't match
             // . or .. globs since these never show up as path components.
-            todo.push(Ok((next_path, !0 as usize)));
+            todo.push(Ok((next_path, !0)));
         } else {
             fill_todo(todo, patterns, idx + 1, &next_path, options);
         }
@@ -863,7 +863,6 @@ fn chars_eq(a: char, b: char, case_sensitive: bool) -> bool {
 }
 
 /// Configuration options to modify the behaviour of `Pattern::matches_with(..)`.
-#[allow(missing_copy_implementations)]
 #[derive(Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Default)]
 pub struct MatchOptions {
     /// Whether or not patterns should be matched in a case-sensitive manner.
@@ -1223,7 +1222,7 @@ mod test {
 
     #[test]
     fn test_path_join() {
-        let pattern = Path::new("one").join(&Path::new("**/*.rs"));
+        let pattern = Path::new("one").join(Path::new("**/*.rs"));
         assert!(Pattern::new(pattern.to_str().unwrap()).is_ok());
     }
 }

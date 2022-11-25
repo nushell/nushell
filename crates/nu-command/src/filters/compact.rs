@@ -1,7 +1,7 @@
 use nu_engine::CallExt;
 use nu_protocol::{
     ast::Call, engine::Command, engine::EngineState, engine::Stack, Category, Example,
-    PipelineData, ShellError, Signature, Span, SyntaxShape, Value,
+    PipelineData, ShellError, Signature, Span, SyntaxShape, Type, Value,
 };
 
 #[derive(Clone)]
@@ -14,6 +14,19 @@ impl Command for Compact {
 
     fn signature(&self) -> Signature {
         Signature::build("compact")
+            .input_output_types(vec![
+                (
+                    Type::List(Box::new(Type::Any)),
+                    Type::List(Box::new(Type::Any)),
+                ),
+                (Type::Table(vec![]), Type::Table(vec![])),
+                (
+                    // TODO: Should table be a subtype of List<Any>? If so then this
+                    // entry would be unnecessary.
+                    Type::Table(vec![]),
+                    Type::List(Box::new(Type::Any)),
+                ),
+            ])
             .rest(
                 "columns",
                 SyntaxShape::Any,
@@ -40,7 +53,7 @@ impl Command for Compact {
         vec![
             Example {
                 description: "Filter out all records where 'Hello' is null (returns nothing)",
-                example: r#"echo [["Hello" "World"]; [$nothing 3]]| compact Hello"#,
+                example: r#"[["Hello" "World"]; [null 3]]| compact Hello"#,
                 result: Some(Value::List {
                     vals: vec![],
                     span: Span::test_data(),
@@ -48,7 +61,7 @@ impl Command for Compact {
             },
             Example {
                 description: "Filter out all records where 'World' is null (Returns the table)",
-                example: r#"echo [["Hello" "World"]; [$nothing 3]]| compact World"#,
+                example: r#"[["Hello" "World"]; [null 3]]| compact World"#,
                 result: Some(Value::List {
                     vals: vec![Value::Record {
                         cols: vec!["Hello".into(), "World".into()],
@@ -60,7 +73,7 @@ impl Command for Compact {
             },
             Example {
                 description: "Filter out all instances of nothing from a list (Returns [1,2])",
-                example: r#"echo [1, $nothing, 2] | compact"#,
+                example: r#"[1, null, 2] | compact"#,
                 result: Some(Value::List {
                     vals: vec![Value::test_int(1), Value::test_int(2)],
                     span: Span::test_data(),

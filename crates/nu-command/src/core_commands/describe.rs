@@ -1,7 +1,7 @@
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
-    Category, Example, IntoPipelineData, PipelineData, ShellError, Signature, Value,
+    Category, Example, IntoPipelineData, PipelineData, ShellError, Signature, Type, Value,
 };
 
 #[derive(Clone)]
@@ -17,7 +17,9 @@ impl Command for Describe {
     }
 
     fn signature(&self) -> Signature {
-        Signature::build("describe").category(Category::Core)
+        Signature::build("describe")
+            .input_output_types(vec![(Type::Any, Type::String)])
+            .category(Category::Core)
     }
 
     fn run(

@@ -41,7 +41,7 @@ pub fn glob_from(
         }
         (Some(p), path)
     } else {
-        let path = if let Ok(p) = canonicalize_with(path, &cwd) {
+        let path = if let Ok(p) = canonicalize_with(path, cwd) {
             p
         } else {
             return Err(ShellError::DirectoryNotFound(pattern.span, None));

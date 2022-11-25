@@ -104,3 +104,8 @@ fn floating_add() -> TestResult {
 fn precedence_of_or_groups() -> TestResult {
     run_test(r#"4 mod 3 == 0 || 5 mod 5 == 0"#, "true")
 }
+
+#[test]
+fn test_filesize_op() -> TestResult {
+    run_test("-5kb + 4.5kb", "-500 B")
+}

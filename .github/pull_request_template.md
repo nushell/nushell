@@ -1,21 +1,24 @@
+
 # Description
 
-(description of your pull request here)
+_(Thank you for improving Nushell. Please, check our [contributing guide](../CONTRIBUTING.md) and talk to the core team before making major changes.)_
 
-# Tests
+_(Description of your pull request goes here. **Provide examples and/or screenshots** if your changes affect the user experience.)_
 
-Make sure you've done the following:
+# User-Facing Changes
 
-- [ ] Add tests that cover your changes, either in the command examples, the crate/tests folder, or in the /tests folder.
-- [ ] Try to think about corner cases and various ways how your changes could break. Cover them with tests.
-- [ ] If adding tests is not possible, please document in the PR body a minimal example with steps on how to reproduce so one can verify your change works.
+_(List of all changes that impact the user experience here. This helps us keep track of breaking changes.)_
+
+# Tests + Formatting
+
+Don't forget to add tests that cover your changes.
 
 Make sure you've run and fixed any issues with these commands:
 
-- [ ] `cargo fmt --all -- --check` to check standard code formatting (`cargo fmt --all` applies these changes)
-- [ ] `cargo clippy --workspace --features=extra -- -D warnings -D clippy::unwrap_used -A clippy::needless_collect` to check that you're using the standard code style
-- [ ] `cargo test --workspace --features=extra` to check that all the tests pass
+- `cargo fmt --all -- --check` to check standard code formatting (`cargo fmt --all` applies these changes)
+- `cargo clippy --workspace -- -D warnings -D clippy::unwrap_used -A clippy::needless_collect` to check that you're using the standard code style
+- `cargo test --workspace` to check that all tests pass
 
-# Documentation
+# After Submitting
 
-- [ ] If your PR touches a user-facing nushell feature then make sure that there is an entry in the documentation (https://github.com/nushell/nushell.github.io) for the feature, and update it if necessary.
+If your PR had any user-facing changes, update [the documentation](https://github.com/nushell/nushell.github.io) after the PR is merged, if necessary. This will help us keep the docs up to date.

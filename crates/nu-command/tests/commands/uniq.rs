@@ -230,3 +230,73 @@ fn uniq_simple_vals_strs() {
     print!("{}", expected.out);
     assert_eq!(actual.out, expected.out);
 }
+
+#[test]
+fn table() {
+    let actual = nu!(
+        cwd: "tests/fixtures/formats", pipeline(
+        r#"
+            [[fruit day]; [apple monday] [apple friday] [Apple friday] [apple monday] [pear monday] [orange tuesday]]
+            | uniq
+        "#
+    ));
+
+    let expected = nu!(
+        cwd: "tests/fixtures/formats", pipeline(
+        r#"
+        echo [[fruit day]; [apple monday] [apple friday] [Apple friday] [pear monday] [orange tuesday]]
+        "#
+    ));
+    print!("{}", actual.out);
+    print!("{}", expected.out);
+    assert_eq!(actual.out, expected.out);
+}
+
+#[test]
+fn table_with_ignore_case() {
+    let actual = nu!(
+        cwd: "tests/fixtures/formats", pipeline(
+        r#"
+            [[origin, people];
+                [World, (
+                    [[name, meal];
+                        ['Geremias', {plate: 'bitoque', carbs: 100}]
+                    ]
+                )],
+                [World, (
+                    [[name, meal];
+                        ['Martin', {plate: 'bitoque', carbs: 100}]
+                    ]
+                )],
+                [World, (
+                    [[name, meal];
+                        ['Geremias', {plate: 'Bitoque', carbs: 100}]
+                    ]
+                )],
+            ] | uniq -i
+        "#
+    ));
+
+    let expected = nu!(
+        cwd: "tests/fixtures/formats", pipeline(
+        r#"
+        echo [[origin, people];
+                [World, (
+                    [[name, meal];
+                        ['Geremias', {plate: 'bitoque', carbs: 100}]
+                    ]
+                )],
+                [World, (
+                    [[name, meal];
+                        ['Martin', {plate: 'bitoque', carbs: 100}]
+                    ]
+                )],
+            ]
+        "#
+    ));
+
+    print!("{}", actual.out);
+    print!("{}", expected.out);
+    assert_eq!(actual.out, expected.out);
+    assert_eq!(actual.out, expected.out);
+}

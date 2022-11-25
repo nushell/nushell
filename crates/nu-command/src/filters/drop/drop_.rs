@@ -4,7 +4,7 @@ use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
     Category, Example, IntoInterruptiblePipelineData, PipelineData, ShellError, Signature, Span,
-    SyntaxShape, Value,
+    SyntaxShape, Type, Value,
 };
 
 #[derive(Clone)]
@@ -17,16 +17,19 @@ impl Command for Drop {
 
     fn signature(&self) -> Signature {
         Signature::build("drop")
-            .optional(
-                "rows",
-                SyntaxShape::Int,
-                "starting from the back, the number of rows to remove",
-            )
+            .input_output_types(vec![
+                (Type::Table(vec![]), Type::Table(vec![])),
+                (
+                    Type::List(Box::new(Type::Any)),
+                    Type::List(Box::new(Type::Any)),
+                ),
+            ])
+            .optional("rows", SyntaxShape::Int, "The number of items to remove")
             .category(Category::Filters)
     }
 
     fn usage(&self) -> &str {
-        "Remove the last several rows of the input. Counterpart of 'skip'. Opposite of 'last'."
+        "Remove items/rows from the end of the input list/table. Counterpart of 'skip'. Opposite of 'last'."
     }
 
     fn search_terms(&self) -> Vec<&str> {
@@ -37,7 +40,7 @@ impl Command for Drop {
         vec![
             Example {
                 example: "[0,1,2,3] | drop",
-                description: "Remove the last item of a list/table",
+                description: "Remove the last item of a list",
                 result: Some(Value::List {
                     vals: vec![Value::test_int(0), Value::test_int(1), Value::test_int(2)],
                     span: Span::test_data(),
@@ -45,7 +48,7 @@ impl Command for Drop {
             },
             Example {
                 example: "[0,1,2,3] | drop 0",
-                description: "Remove zero item of a list/table",
+                description: "Remove zero item of a list",
                 result: Some(Value::List {
                     vals: vec![
                         Value::test_int(0),
@@ -58,9 +61,21 @@ impl Command for Drop {
             },
             Example {
                 example: "[0,1,2,3] | drop 2",
-                description: "Remove the last two items of a list/table",
+                description: "Remove the last two items of a list",
                 result: Some(Value::List {
                     vals: vec![Value::test_int(0), Value::test_int(1)],
+                    span: Span::test_data(),
+                }),
+            },
+            Example {
+                description: "Remove the last row in a table",
+                example: "[[a, b]; [1, 2] [3, 4]] | drop 1",
+                result: Some(Value::List {
+                    vals: vec![Value::Record {
+                        cols: vec!["a".to_string(), "b".to_string()],
+                        vals: vec![Value::test_int(1), Value::test_int(2)],
+                        span: Span::test_data(),
+                    }],
                     span: Span::test_data(),
                 }),
             },

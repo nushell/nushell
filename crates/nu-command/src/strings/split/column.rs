@@ -2,7 +2,8 @@ use nu_engine::CallExt;
 use nu_protocol::{
     ast::Call,
     engine::{Command, EngineState, Stack},
-    Category, Example, PipelineData, ShellError, Signature, Span, Spanned, SyntaxShape, Value,
+    Category, Example, PipelineData, ShellError, Signature, Span, Spanned, SyntaxShape, Type,
+    Value,
 };
 
 #[derive(Clone)]
@@ -15,6 +16,14 @@ impl Command for SubCommand {
 
     fn signature(&self) -> Signature {
         Signature::build("split column")
+            .input_output_types(vec![
+                (Type::String, Type::Table(vec![])),
+                (
+                    // TODO: no test coverage (is this behavior a bug or a feature?)
+                    Type::List(Box::new(Type::String)),
+                    Type::Table(vec![]),
+                ),
+            ])
             .required(
                 "separator",
                 SyntaxShape::String,
@@ -71,7 +80,7 @@ impl Command for SubCommand {
             },
             Example {
                 description: "Split a string into columns of char and remove the empty columns",
-                example: "echo 'abc' | split column -c ''",
+                example: "'abc' | split column -c ''",
                 result: Some(Value::List {
                     vals: vec![Value::Record {
                         cols: vec![
@@ -86,6 +95,25 @@ impl Command for SubCommand {
                         ],
                         span: Span::test_data(),
                     }],
+                    span: Span::test_data(),
+                }),
+            },
+            Example {
+                description: "Split a list of strings into a table",
+                example: "['a-b' 'c-d'] | split column -",
+                result: Some(Value::List {
+                    vals: vec![
+                        Value::Record {
+                            cols: vec!["column1".to_string(), "column2".to_string()],
+                            vals: vec![Value::test_string("a"), Value::test_string("b")],
+                            span: Span::test_data(),
+                        },
+                        Value::Record {
+                            cols: vec!["column1".to_string(), "column2".to_string()],
+                            vals: vec![Value::test_string("c"), Value::test_string("d")],
+                            span: Span::test_data(),
+                        },
+                    ],
                     span: Span::test_data(),
                 }),
             },
@@ -161,15 +189,14 @@ fn split_column_helper(
     }
 }
 
-// #[cfg(test)]
-// mod tests {
-//     use super::ShellError;
-//     use super::SubCommand;
+#[cfg(test)]
+mod test {
+    use super::*;
 
-//     #[test]
-//     fn examples_work_as_expected() -> Result<(), ShellError> {
-//         use crate::examples::test as test_examples;
+    #[test]
+    fn test_examples() {
+        use crate::test_examples;
 
-//         test_examples(SubCommand {})
-//     }
-// }
+        test_examples(SubCommand {})
+    }
+}

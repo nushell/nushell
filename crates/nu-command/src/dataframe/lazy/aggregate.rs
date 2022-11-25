@@ -153,8 +153,8 @@ fn get_col_name(expr: &Expr) -> Option<String> {
     match expr {
         Expr::Column(column) => Some(column.to_string()),
         Expr::Agg(agg) => match agg {
-            polars::prelude::AggExpr::Min(e)
-            | polars::prelude::AggExpr::Max(e)
+            polars::prelude::AggExpr::Min { input: e, .. }
+            | polars::prelude::AggExpr::Max { input: e, .. }
             | polars::prelude::AggExpr::Median(e)
             | polars::prelude::AggExpr::NUnique(e)
             | polars::prelude::AggExpr::First(e)
@@ -164,13 +164,11 @@ fn get_col_name(expr: &Expr) -> Option<String> {
             | polars::prelude::AggExpr::Count(e)
             | polars::prelude::AggExpr::Sum(e)
             | polars::prelude::AggExpr::AggGroups(e)
-            | polars::prelude::AggExpr::Std(e)
-            | polars::prelude::AggExpr::Var(e) => get_col_name(e.as_ref()),
+            | polars::prelude::AggExpr::Std(e, _)
+            | polars::prelude::AggExpr::Var(e, _) => get_col_name(e.as_ref()),
             polars::prelude::AggExpr::Quantile { expr, .. } => get_col_name(expr.as_ref()),
         },
-        Expr::Reverse(expr)
-        | Expr::Shift { input: expr, .. }
-        | Expr::Filter { input: expr, .. }
+        Expr::Filter { input: expr, .. }
         | Expr::Slice { input: expr, .. }
         | Expr::Cast { expr, .. }
         | Expr::Sort { expr, .. }
@@ -179,11 +177,6 @@ fn get_col_name(expr: &Expr) -> Option<String> {
         | Expr::Exclude(expr, _)
         | Expr::Alias(expr, _)
         | Expr::KeepName(expr)
-        | Expr::Not(expr)
-        | Expr::IsNotNull(expr)
-        | Expr::IsNull(expr)
-        | Expr::Duplicated(expr)
-        | Expr::IsUnique(expr)
         | Expr::Explode(expr) => get_col_name(expr.as_ref()),
         Expr::Ternary { .. }
         | Expr::AnonymousFunction { .. }

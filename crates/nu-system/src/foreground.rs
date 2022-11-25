@@ -79,7 +79,8 @@ impl Drop for ForegroundChild {
 }
 
 // It's a simpler version of fish shell's external process handling.
-#[cfg(target_family = "unix")]
+// Note: we exclude macos because the techniques below seem to have issues in macos 13 currently.
+#[cfg(all(target_family = "unix", not(target_os = "macos")))]
 mod fg_process_setup {
     use nix::{
         sys::signal,
@@ -170,7 +171,7 @@ mod fg_process_setup {
     }
 }
 
-#[cfg(not(target_family = "unix"))]
+#[cfg(any(not(target_family = "unix"), target_os = "macos"))]
 mod fg_process_setup {
     pub(super) fn prepare_to_foreground(_: &mut std::process::Command, _: u32) {}
 

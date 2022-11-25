@@ -57,6 +57,7 @@ pub(crate) fn collect_pipeline(input: PipelineData) -> (Vec<String>, Vec<Vec<Val
             exit_code,
             metadata,
             span,
+            ..
         } => {
             let mut columns = vec![];
             let mut data = vec![];

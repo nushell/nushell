@@ -2,7 +2,8 @@ use nu_engine::CallExt;
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
-    Category, Example, ListStream, PipelineData, ShellError, Signature, SyntaxShape, Value,
+    Category, Example, ListStream, PipelineData, ShellError, Signature, Span, SyntaxShape, Type,
+    Value,
 };
 
 #[derive(Clone)]
@@ -14,17 +15,20 @@ impl Command for Echo {
     }
 
     fn usage(&self) -> &str {
-        "Echo the arguments back to the user."
+        "Returns its arguments, ignoring the piped-in value."
     }
 
     fn signature(&self) -> Signature {
         Signature::build("echo")
+            .input_output_types(vec![(Type::Nothing, Type::Any)])
             .rest("rest", SyntaxShape::Any, "the values to echo")
             .category(Category::Core)
     }
 
     fn extra_usage(&self) -> &str {
-        "Unlike `print`, this command returns an actual value that will be passed to the next command of the pipeline."
+        r#"When given no arguments, it returns an empty string. When given one argument,
+it returns it. Otherwise, it returns a list of the arguments. There is usually
+little reason to use this over just writing the values as-is."#
     }
 
     fn run(
@@ -61,13 +65,17 @@ impl Command for Echo {
     fn examples(&self) -> Vec<Example> {
         vec![
             Example {
-                description: "Put a hello message in the pipeline",
-                example: "echo 'hello'",
-                result: Some(Value::test_string("hello")),
+                description: "Put a list of numbers in the pipeline. This is the same as [1 2 3].",
+                example: "echo 1 2 3",
+                result: Some(Value::List {
+                    vals: vec![Value::test_int(1), Value::test_int(2), Value::test_int(3)],
+                    span: Span::test_data(),
+                }),
             },
             Example {
-                description: "Print the value of the special '$nu' variable",
-                example: "echo $nu",
+                description:
+                    "Returns the piped-in value, by using the special $in variable to obtain it.",
+                example: "echo $in",
                 result: None,
             },
         ]

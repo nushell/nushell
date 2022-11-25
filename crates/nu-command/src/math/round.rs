@@ -2,7 +2,7 @@ use nu_engine::CallExt;
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
-    Category, Example, PipelineData, ShellError, Signature, Span, SyntaxShape, Value,
+    Category, Example, PipelineData, ShellError, Signature, Span, SyntaxShape, Type, Value,
 };
 
 #[derive(Clone)]
@@ -15,6 +15,8 @@ impl Command for SubCommand {
 
     fn signature(&self) -> Signature {
         Signature::build("math round")
+            .input_output_types(vec![(Type::Number, Type::Number)])
+            .vectorizes_over_list(true)
             .named(
                 "precision",
                 SyntaxShape::Number,
@@ -25,11 +27,11 @@ impl Command for SubCommand {
     }
 
     fn usage(&self) -> &str {
-        "Applies the round function to a list of numbers"
+        "Returns the input number rounded to the specified precision"
     }
 
     fn search_terms(&self) -> Vec<&str> {
-        vec!["approx", "rough"]
+        vec!["approx", "closest", "nearest"]
     }
 
     fn run(

@@ -121,7 +121,10 @@ fn allow_missing_optional_params() -> TestResult {
 
 #[test]
 fn help_present_in_def() -> TestResult {
-    run_test_contains("def foo [] {}; help foo;", "Display this help message")
+    run_test_contains(
+        "def foo [] {}; help foo;",
+        "Display the help message for this command",
+    )
 }
 
 #[test]

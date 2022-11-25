@@ -1,9 +1,9 @@
 use nu_engine::{eval_block, CallExt};
 use nu_protocol::ast::Call;
-use nu_protocol::engine::{CaptureBlock, Command, EngineState, Stack};
+use nu_protocol::engine::{Closure, Command, EngineState, Stack};
 use nu_protocol::{
     Example, IntoPipelineData, PipelineData, ShellError, Signature, Span, Spanned, SyntaxShape,
-    Value,
+    Type, Value,
 };
 
 use indexmap::IndexMap;
@@ -17,15 +17,20 @@ impl Command for GroupBy {
     }
 
     fn signature(&self) -> Signature {
-        Signature::build("group-by").optional(
-            "grouper",
-            SyntaxShape::Any,
-            "the grouper value to use",
-        )
+        Signature::build("group-by")
+            // TODO: It accepts Table also, but currently there is no Table
+            // example. Perhaps Table should be a subtype of List, in which case
+            // the current signature would suffice even when a Table example
+            // exists.
+            .input_output_types(vec![(
+                Type::List(Box::new(Type::Any)),
+                Type::Record(vec![]),
+            )])
+            .optional("grouper", SyntaxShape::Any, "the grouper value to use")
     }
 
     fn usage(&self) -> &str {
-        "Split a table into groups based on one column's values, and return a record with those groups."
+        "Splits a list or table into groups, and returns a record containing those groups."
     }
 
     fn run(
@@ -38,7 +43,6 @@ impl Command for GroupBy {
         group_by(engine_state, stack, call, input)
     }
 
-    #[allow(clippy::unwrap_used)]
     fn examples(&self) -> Vec<Example> {
         vec![
             Example {
@@ -48,7 +52,7 @@ impl Command for GroupBy {
             },
             Example {
                 description: "You can also group by raw values by leaving out the argument",
-                example: "echo ['1' '3' '1' '3' '2' '1' '1'] | group-by",
+                example: "['1' '3' '1' '3' '2' '1' '1'] | group-by",
                 result: Some(Value::Record {
                     cols: vec!["1".to_string(), "3".to_string(), "2".to_string()],
                     vals: vec![
@@ -113,8 +117,8 @@ pub fn group_by(
     };
 
     match grouper {
-        Some(Value::Block { .. }) => {
-            let block: Option<CaptureBlock> = call.opt(engine_state, stack, 0)?;
+        Some(Value::Block { .. }) | Some(Value::Closure { .. }) => {
+            let block: Option<Closure> = call.opt(engine_state, stack, 0)?;
             let error_key = "error";
 
             for value in values {
@@ -211,7 +215,7 @@ pub fn data_group(
             value.as_string()
         };
 
-        let group = groups.entry(group_key?).or_insert(vec![]);
+        let group = groups.entry(group_key?).or_default();
         group.push(value);
     }
 
@@ -246,6 +250,7 @@ pub fn group(
                     move |_, row: &Value| match row.get_data_by_key(&column_name.item) {
                         Some(group_key) => Ok(group_key.as_string()?),
                         None => Err(ShellError::CantFindColumn(
+                            column_name.item.to_string(),
                             column_name.span,
                             row.span().unwrap_or(column_name.span),
                         )),

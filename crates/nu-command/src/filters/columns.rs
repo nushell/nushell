@@ -3,7 +3,7 @@ use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
     Category, Example, IntoInterruptiblePipelineData, IntoPipelineData, PipelineData, ShellError,
-    Signature, Span, Value,
+    Signature, Span, Type, Value,
 };
 
 #[derive(Clone)]
@@ -15,7 +15,12 @@ impl Command for Columns {
     }
 
     fn signature(&self) -> Signature {
-        Signature::build(self.name()).category(Category::Filters)
+        Signature::build(self.name())
+            .input_output_types(vec![(
+                Type::Table(vec![]),
+                Type::List(Box::new(Type::String)),
+            )])
+            .category(Category::Filters)
     }
 
     fn usage(&self) -> &str {

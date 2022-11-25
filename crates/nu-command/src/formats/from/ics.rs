@@ -5,8 +5,8 @@ use indexmap::map::IndexMap;
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
-    Category, Config, Example, IntoPipelineData, PipelineData, ShellError, Signature, Span,
-    Spanned, Value,
+    Category, Example, IntoPipelineData, PipelineData, ShellError, Signature, Span, Spanned, Type,
+    Value,
 };
 use std::io::BufReader;
 
@@ -19,7 +19,9 @@ impl Command for FromIcs {
     }
 
     fn signature(&self) -> Signature {
-        Signature::build("from ics").category(Category::Formats)
+        Signature::build("from ics")
+            .input_output_types(vec![(Type::String, Type::Table(vec![]))])
+            .category(Category::Formats)
     }
 
     fn usage(&self) -> &str {
@@ -28,14 +30,13 @@ impl Command for FromIcs {
 
     fn run(
         &self,
-        engine_state: &EngineState,
+        _engine_state: &EngineState,
         _stack: &mut Stack,
         call: &Call,
         input: PipelineData,
     ) -> Result<nu_protocol::PipelineData, ShellError> {
         let head = call.head;
-        let config = engine_state.get_config();
-        from_ics(input, head, config)
+        from_ics(input, head)
     }
 
     fn examples(&self) -> Vec<Example> {
@@ -92,8 +93,8 @@ END:VCALENDAR' | from ics",
     }
 }
 
-fn from_ics(input: PipelineData, head: Span, config: &Config) -> Result<PipelineData, ShellError> {
-    let input_string = input.collect_string("", config)?;
+fn from_ics(input: PipelineData, head: Span) -> Result<PipelineData, ShellError> {
+    let (input_string, metadata) = input.collect_string_strict(head)?;
 
     let input_string = input_string
         .lines()
@@ -122,7 +123,7 @@ fn from_ics(input: PipelineData, head: Span, config: &Config) -> Result<Pipeline
         vals: output,
         span: head,
     }
-    .into_pipeline_data())
+    .into_pipeline_data_with_metadata(metadata))
 }
 
 fn calendar_to_value(calendar: IcalCalendar, span: Span) -> Value {

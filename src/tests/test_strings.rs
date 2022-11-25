@@ -1,40 +1,6 @@
 use crate::tests::{fail_test, run_test, TestResult};
 
 #[test]
-fn build_string1() -> TestResult {
-    run_test("build-string 'nu' 'shell'", "nushell")
-}
-
-#[test]
-fn build_string2() -> TestResult {
-    run_test("'nu' | each { |it| build-string $it 'shell'}", "nushell")
-}
-
-#[test]
-fn build_string3() -> TestResult {
-    run_test(
-        "build-string 'nu' 'shell' | each { |it| build-string $it ' rocks'}",
-        "nushell rocks",
-    )
-}
-
-#[test]
-fn build_string4() -> TestResult {
-    run_test(
-        "['sam','rick','pete'] | each { |it| build-string $it ' is studying'} | get 2",
-        "pete is studying",
-    )
-}
-
-#[test]
-fn build_string5() -> TestResult {
-    run_test(
-        "['sam','rick','pete'] | each { |x| build-string $x ' is studying'} | get 1",
-        "rick is studying",
-    )
-}
-
-#[test]
 fn cjk_in_substrings() -> TestResult {
     run_test(
         r#"let s = '[Rust 程序设计语言](title-page.md)'; let start = ($s | str index-of '('); let end = ($s | str index-of ')'); echo ($s | str substring $"($start + 1),($end)")"#,
@@ -93,7 +59,7 @@ fn detect_newlines() -> TestResult {
 #[test]
 fn case_insensitive_sort() -> TestResult {
     run_test(
-        r#"[a, B, d, C, f] | sort-by -i | to json --raw"#,
+        r#"[a, B, d, C, f] | sort -i | to json --raw"#,
         "[\"a\",\"B\",\"C\",\"d\",\"f\"]",
     )
 }

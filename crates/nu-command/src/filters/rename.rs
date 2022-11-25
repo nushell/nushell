@@ -2,7 +2,7 @@ use nu_engine::CallExt;
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
-    Category, Example, PipelineData, ShellError, Signature, Span, SyntaxShape, Value,
+    Category, Example, PipelineData, ShellError, Signature, Span, SyntaxShape, Type, Value,
 };
 
 #[derive(Clone)]
@@ -15,6 +15,10 @@ impl Command for Rename {
 
     fn signature(&self) -> Signature {
         Signature::build("rename")
+            .input_output_types(vec![
+                (Type::Record(vec![]), Type::Record(vec![])),
+                (Type::Table(vec![]), Type::Table(vec![])),
+            ])
             .named(
                 "column",
                 SyntaxShape::List(Box::new(SyntaxShape::String)),
@@ -74,6 +78,15 @@ impl Command for Rename {
                         vals: vec![Value::test_int(1), Value::test_int(2), Value::test_int(3)],
                         span: Span::test_data(),
                     }],
+                    span: Span::test_data(),
+                }),
+            },
+            Example {
+                description: "Rename the fields of a record",
+                example: "{a: 1 b: 2} | rename x y",
+                result: Some(Value::Record {
+                    cols: vec!["x".to_string(), "y".to_string()],
+                    vals: vec![Value::test_int(1), Value::test_int(2)],
                     span: Span::test_data(),
                 }),
             },

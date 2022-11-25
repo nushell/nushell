@@ -2,7 +2,7 @@ use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
     Category, Example, IntoInterruptiblePipelineData, IntoPipelineData, PipelineData, ShellError,
-    Signature, Span, Value,
+    Signature, Span, Type, Value,
 };
 
 #[derive(Clone)]
@@ -19,6 +19,7 @@ impl Command for FromJson {
 
     fn signature(&self) -> nu_protocol::Signature {
         Signature::build("from json")
+            .input_output_types(vec![(Type::String, Type::Any)])
             .switch("objects", "treat each line as a separate value", Some('o'))
             .category(Category::Formats)
     }
@@ -75,32 +76,32 @@ impl Command for FromJson {
         input: PipelineData,
     ) -> Result<nu_protocol::PipelineData, ShellError> {
         let span = call.head;
-        let config = engine_state.get_config();
-        let string_input = input.collect_string("", config)?;
+        let (string_input, metadata) = input.collect_string_strict(span)?;
 
         if string_input.is_empty() {
-            return Ok(PipelineData::new(span));
+            return Ok(PipelineData::new_with_metadata(metadata, span));
         }
 
         // TODO: turn this into a structured underline of the nu_json error
         if call.has_flag("objects") {
-            #[allow(clippy::needless_collect)]
-            let lines: Vec<String> = string_input.lines().map(|x| x.to_string()).collect();
-            Ok(lines
-                .into_iter()
+            let converted_lines: Vec<Value> = string_input
+                .lines()
                 .filter_map(move |x| {
                     if x.trim() == "" {
                         None
                     } else {
-                        match convert_string_to_value(x, span) {
+                        match convert_string_to_value(x.to_string(), span) {
                             Ok(v) => Some(v),
                             Err(error) => Some(Value::Error { error }),
                         }
                     }
                 })
-                .into_pipeline_data(engine_state.ctrlc.clone()))
+                .collect();
+            Ok(converted_lines
+                .into_pipeline_data_with_metadata(metadata, engine_state.ctrlc.clone()))
         } else {
-            Ok(convert_string_to_value(string_input, span)?.into_pipeline_data())
+            Ok(convert_string_to_value(string_input, span)?
+                .into_pipeline_data_with_metadata(metadata))
         }
     }
 }

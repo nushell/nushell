@@ -5,27 +5,25 @@ repository = "https://github.com/nushell/nushell/tree/main/crates/nu-command"
 edition = "2021"
 license = "MIT"
 name = "nu-command"
-version = "0.70.1"
+version = "0.71.1"
 build = "build.rs"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-nu-color-config = { path = "../nu-color-config", version = "0.70.1"  }
-nu-engine = { path = "../nu-engine", version = "0.70.1"  }
-nu-glob = { path = "../nu-glob", version = "0.70.1" }
-nu-json = { path = "../nu-json", version = "0.70.1"  }
-nu-parser = { path = "../nu-parser", version = "0.70.1"  }
-nu-path = { path = "../nu-path", version = "0.70.1"  }
-nu-pretty-hex = { path = "../nu-pretty-hex", version = "0.70.1"  }
-nu-protocol = { path = "../nu-protocol", version = "0.70.1"  }
-nu-system = { path = "../nu-system", version = "0.70.1"  }
-nu-table = { path = "../nu-table", version = "0.70.1"  }
-nu-term-grid = { path = "../nu-term-grid", version = "0.70.1"  }
-nu-test-support = { path = "../nu-test-support", version = "0.70.1"  }
-nu-utils = { path = "../nu-utils", version = "0.70.1" }
-nu-cli = { path = "../nu-cli", version = "0.70.1" }
-nu-scroll = { path = "../nu-scroll", version = "0.70.1" }
+nu-color-config = { path = "../nu-color-config", version = "0.71.1"  }
+nu-engine = { path = "../nu-engine", version = "0.71.1"  }
+nu-glob = { path = "../nu-glob", version = "0.71.1" }
+nu-json = { path = "../nu-json", version = "0.71.1"  }
+nu-parser = { path = "../nu-parser", version = "0.71.1"  }
+nu-path = { path = "../nu-path", version = "0.71.1"  }
+nu-pretty-hex = { path = "../nu-pretty-hex", version = "0.71.1"  }
+nu-protocol = { path = "../nu-protocol", version = "0.71.1"  }
+nu-system = { path = "../nu-system", version = "0.71.1"  }
+nu-table = { path = "../nu-table", version = "0.71.1"  }
+nu-term-grid = { path = "../nu-term-grid", version = "0.71.1"  }
+nu-utils = { path = "../nu-utils", version = "0.71.1" }
+nu-scroll = { path = "../nu-scroll", version = "0.71.1" }
 nu-ansi-term = "0.46.0"
 num-format = { version = "0.4.3" }
 
@@ -35,13 +33,13 @@ base64 = "0.13.0"
 byteorder = "1.4.3"
 bytesize = "1.1.0"
 calamine = "0.18.0"
-chrono = { version = "0.4.21", features = ["serde", "unstable-locales"] }
+chrono = { version = "0.4.21", features = ["unstable-locales", "std"], default-features = false }
 chrono-humanize = "0.2.1"
 chrono-tz = "0.6.3"
 crossterm = "0.24.0"
 csv = "1.1.6"
-dialoguer = "0.9.0"
-digest = "0.10.0"
+dialoguer = { default-features = false, version = "0.9.0" }
+digest = { default-features = false, version = "0.10.0" }
 dtparse = "1.2.0"
 eml-parser = "0.1.0"
 encoding_rs = "0.8.30"
@@ -57,13 +55,14 @@ is-root = "0.1.2"
 itertools = "0.10.0"
 lazy_static = "1.4.0"
 log = "0.4.14"
-lscolors = { version = "0.12.0", features = ["crossterm"]}
+lscolors = { version = "0.12.0", features = ["crossterm"], default-features = false }
 md5 = { package = "md-5", version = "0.10.0" }
 meval = "0.2.0"
 mime = "0.3.16"
 notify = "4.0.17"
 num = { version = "0.4.0", optional = true }
 num-traits = "0.2.14"
+once_cell = "1.0"
 pathdiff = "0.2.1"
 powierza-coefficient = "1.0.1"
 quick-xml = "0.23.0"
@@ -80,7 +79,6 @@ serde_yaml = "0.9.4"
 sha2 = "0.10.0"
 # Disable default features b/c the default features build Git (very slow to compile)
 shadow-rs = { version = "0.16.1", default-features = false }
-strip-ansi-escapes = "0.1.1"
 sysinfo = "0.26.2"
 terminal_size = "0.2.1"
 thiserror = "1.0.31"
@@ -90,10 +88,11 @@ unicode-segmentation = "1.8.0"
 url = "2.2.1"
 uuid = { version = "1.1.2", features = ["v4"] }
 which = { version = "4.3.0", optional = true }
-reedline = { version = "0.13.0", features = ["bashisms", "sqlite"]}
-wax = { version =  "0.5.0", features = ["diagnostics"] }
+reedline = { version = "0.14.0", features = ["bashisms", "sqlite"]}
+wax = { version =  "0.5.0" }
 rusqlite = { version = "0.28.0", features = ["bundled"], optional = true }
 sqlparser = { version = "0.23.0", features = ["serde"], optional = true }
+zstd-sys = "=2.0.1+zstd.1.5.2"
 
 [target.'cfg(windows)'.dependencies]
 winreg = "0.10.1"
@@ -101,13 +100,14 @@ winreg = "0.10.1"
 [target.'cfg(unix)'.dependencies]
 umask = "2.0.0"
 users = "0.11.0"
+libc = "0.2"
 
 [target.'cfg(not(any(target_os = "android", target_os = "ios")))'.dependencies.trash]
 version = "2.1.3"
 optional = true
 
 [dependencies.polars]
-version = "0.23.2"
+version = "0.25.0"
 optional = true
 features = [
 	"arg_where",
@@ -149,13 +149,15 @@ features = [
 trash-support = ["trash"]
 which-support = ["which"]
 plugin = ["nu-parser/plugin"]
-dataframe = ["polars", "num"]
-database = ["sqlparser", "rusqlite"]
+dataframe = ["polars", "num", "sqlparser"]
+sqlite = ["rusqlite"] # TODO: given that rusqlite is included in reedline, should we just always include it?
 
 [build-dependencies]
 shadow-rs = { version = "0.16.1", default-features = false }
 
 [dev-dependencies]
+nu-test-support = { path = "../nu-test-support", version = "0.71.1"  }
+
 hamcrest2 = "0.3.0"
 dirs-next = "2.0.0"
 proptest = "1.0.0"

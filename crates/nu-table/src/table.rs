@@ -20,7 +20,7 @@ use tabled::{
 use crate::{table_theme::TableTheme, TextStyle};
 
 /// Table represent a table view.
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Table {
     data: Data,
     is_empty: bool,
@@ -63,12 +63,23 @@ impl Table {
         }
     }
 
-    pub fn create_cell(text: String, style: TextStyle) -> TCell<CellInfo<'static>, TextStyle> {
-        TCell::new(CellInfo::new(text, CfgWidthFunction::new(4)), style)
+    pub fn create_cell(
+        text: impl Into<String>,
+        style: TextStyle,
+    ) -> TCell<CellInfo<'static>, TextStyle> {
+        TCell::new(CellInfo::new(text.into(), CfgWidthFunction::new(4)), style)
     }
 
     pub fn is_empty(&self) -> bool {
         self.is_empty
+    }
+
+    pub fn size(&self) -> (usize, usize) {
+        (self.data.count_rows(), self.data.count_columns())
+    }
+
+    pub fn is_with_index(&self) -> bool {
+        self.with_index
     }
 
     pub fn truncate(&mut self, width: usize, theme: &TableTheme) -> bool {
@@ -77,6 +88,10 @@ impl Table {
             let mut table = Builder::custom(self.data.clone()).build();
             load_theme(&mut table, &HashMap::new(), theme, false, false);
             let total = table.total_width();
+
+            // println!("{}", table);
+            // println!("width={:?} total={:?}", width, total);
+
             drop(table);
 
             if total > width {
@@ -112,8 +127,9 @@ impl Table {
         alignments: Alignments,
         theme: &TableTheme,
         termwidth: usize,
+        expand: bool,
     ) -> Option<String> {
-        draw_table(self, config, color_hm, alignments, theme, termwidth)
+        draw_table(self, config, color_hm, alignments, theme, termwidth, expand)
     }
 }
 
@@ -141,13 +157,14 @@ fn draw_table(
     alignments: Alignments,
     theme: &TableTheme,
     termwidth: usize,
+    expand: bool,
 ) -> Option<String> {
     if table.is_empty {
         return None;
     }
 
     let with_header = table.with_header;
-    let with_footer = with_header && need_footer(config, (&table.data).size().0 as u64);
+    let with_footer = with_header && need_footer(config, (table.data).size().0 as u64);
     let with_index = table.with_index;
 
     if with_footer {
@@ -157,6 +174,11 @@ fn draw_table(
     let mut table = Builder::custom(table.data).build();
     load_theme(&mut table, color_hm, theme, with_footer, with_header);
     align_table(&mut table, alignments, with_index, with_header, with_footer);
+
+    if expand {
+        table.with(Width::increase(termwidth));
+    }
+
     table_trim_columns(&mut table, termwidth, &config.trim_strategy);
 
     let table = print_table(table, config);
@@ -173,10 +195,7 @@ fn print_table(table: tabled::Table<Data>, config: &Config) -> String {
     // the atty is for when people do ls from vim, there should be no coloring there
     if !config.use_ansi_coloring || !atty::is(atty::Stream::Stdout) {
         // Draw the table without ansi colors
-        match strip_ansi_escapes::strip(&output) {
-            Ok(bytes) => String::from_utf8_lossy(&bytes).to_string(),
-            Err(_) => output, // we did our best; so return at least something
-        }
+        nu_utils::strip_ansi_string_likely(output)
     } else {
         // Draw the table with ansi colors
         output
@@ -225,7 +244,7 @@ fn override_alignments(
     index_present: bool,
     alignments: Alignments,
 ) {
-    let offset = if header_present { 1 } else { 0 };
+    let offset = usize::from(header_present);
     let (count_rows, count_columns) = table.shape();
     for row in offset..count_rows {
         for col in 0..count_columns {

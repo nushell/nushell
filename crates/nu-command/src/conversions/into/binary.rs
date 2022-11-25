@@ -1,9 +1,10 @@
+use crate::input_handler::{operate, CellPathOnlyArgs};
 use nu_engine::CallExt;
 use nu_protocol::{
     ast::{Call, CellPath},
     engine::{Command, EngineState, Stack},
     Category, Example, IntoPipelineData, PipelineData, ShellError, Signature, Span, SyntaxShape,
-    Value,
+    Type, Value,
 };
 
 #[derive(Clone)]
@@ -16,10 +17,20 @@ impl Command for SubCommand {
 
     fn signature(&self) -> Signature {
         Signature::build("into binary")
+            .input_output_types(vec![
+                (Type::Binary, Type::Binary),
+                (Type::Int, Type::Binary),
+                (Type::Number, Type::Binary),
+                (Type::String, Type::Binary),
+                (Type::Bool, Type::Binary),
+                (Type::Filesize, Type::Binary),
+                (Type::Date, Type::Binary),
+            ])
+            .allow_variants_without_examples(true) // TODO: supply exhaustive examples
             .rest(
                 "rest",
                 SyntaxShape::CellPath,
-                "column paths to convert to binary (for table input)",
+                "for a data structure input, convert data at the given cell paths",
             )
             .category(Category::Conversions)
     }
@@ -100,7 +111,7 @@ fn into_binary(
     input: PipelineData,
 ) -> Result<nu_protocol::PipelineData, nu_protocol::ShellError> {
     let head = call.head;
-    let column_paths: Vec<CellPath> = call.rest(engine_state, stack, 0)?;
+    let cell_paths: Vec<CellPath> = call.rest(engine_state, stack, 0)?;
 
     match input {
         PipelineData::ExternalStream { stdout: None, .. } => Ok(Value::Binary {
@@ -120,27 +131,10 @@ fn into_binary(
             }
             .into_pipeline_data())
         }
-        _ => input.map(
-            move |v| {
-                if column_paths.is_empty() {
-                    action(&v, head)
-                } else {
-                    let mut ret = v;
-                    for path in &column_paths {
-                        let r = ret.update_cell_path(
-                            &path.members,
-                            Box::new(move |old| action(old, head)),
-                        );
-                        if let Err(error) = r {
-                            return Value::Error { error };
-                        }
-                    }
-
-                    ret
-                }
-            },
-            engine_state.ctrlc.clone(),
-        ),
+        _ => {
+            let arg = CellPathOnlyArgs::from(cell_paths);
+            operate(action, arg, input, call.head, engine_state.ctrlc.clone())
+        }
     }
 }
 
@@ -160,7 +154,7 @@ fn float_to_endian(n: f64) -> Vec<u8> {
     }
 }
 
-pub fn action(input: &Value, span: Span) -> Value {
+pub fn action(input: &Value, _args: &CellPathOnlyArgs, span: Span) -> Value {
     match input {
         Value::Binary { .. } => input.clone(),
         Value::Int { val, .. } => Value::Binary {
@@ -180,7 +174,7 @@ pub fn action(input: &Value, span: Span) -> Value {
             span,
         },
         Value::Bool { val, .. } => Value::Binary {
-            val: int_to_endian(if *val { 1i64 } else { 0 }),
+            val: int_to_endian(i64::from(*val)),
             span,
         },
         Value::Date { val, .. } => Value::Binary {

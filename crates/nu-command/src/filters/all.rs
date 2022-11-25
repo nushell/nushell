@@ -1,8 +1,9 @@
 use nu_engine::{eval_block, CallExt};
 use nu_protocol::{
     ast::Call,
-    engine::{CaptureBlock, Command, EngineState, Stack},
-    Category, Example, IntoPipelineData, PipelineData, ShellError, Signature, SyntaxShape, Value,
+    engine::{Closure, Command, EngineState, Stack},
+    Category, Example, IntoPipelineData, PipelineData, ShellError, Signature, SyntaxShape, Type,
+    Value,
 };
 
 #[derive(Clone)]
@@ -15,10 +16,14 @@ impl Command for All {
 
     fn signature(&self) -> Signature {
         Signature::build(self.name())
+            .input_output_types(vec![
+                (Type::List(Box::new(Type::Any)), Type::Bool),
+                (Type::Table(vec![]), Type::Bool),
+            ])
             .required(
                 "predicate",
                 SyntaxShape::RowCondition,
-                "the predicate expression that must evaluate to a boolean",
+                "the expression, or block, that must evaluate to a boolean",
             )
             .category(Category::Filters)
     }
@@ -34,18 +39,31 @@ impl Command for All {
     fn examples(&self) -> Vec<Example> {
         vec![
             Example {
-                description: "Find if services are running",
-                example: "echo [[status]; [UP] [UP]] | all status == UP",
+                description: "Check if each row's status is the string 'UP'",
+                example: "[[status]; [UP] [UP]] | all status == UP",
                 result: Some(Value::test_bool(true)),
             },
             Example {
-                description: "Check that all values are even",
-                example: "echo [2 4 6 8] | all ($it mod 2) == 0",
+                description:
+                    "Check that all of the values are even, using the built-in $it variable",
+                example: "[2 4 6 8] | all ($it mod 2) == 0",
+                result: Some(Value::test_bool(true)),
+            },
+            Example {
+                description: "Check that all of the values are even, using a block",
+                example: "[2 4 6 8] | all {|e| $e mod 2 == 0 }",
+                result: Some(Value::test_bool(true)),
+            },
+            Example {
+                description: "Check that all values are equal to twice their index",
+                example: "[0 2 4 6] | all {|el ind| $el == $ind * 2 }",
                 result: Some(Value::test_bool(true)),
             },
         ]
     }
-
+    // This is almost entirely a copy-paste of `any`'s run(), so make sure any changes to this are
+    // reflected in the other!! (Or, you could figure out a way for both of them to use
+    // the same function...)
     fn run(
         &self,
         engine_state: &EngineState,
@@ -53,29 +71,48 @@ impl Command for All {
         call: &Call,
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
-        // let predicate = &call.positional[0];
         let span = call.head;
 
-        let capture_block: CaptureBlock = call.req(engine_state, stack, 0)?;
+        let capture_block: Closure = call.req(engine_state, stack, 0)?;
         let block_id = capture_block.block_id;
 
         let block = engine_state.get_block(block_id);
         let var_id = block.signature.get_positional(0).and_then(|arg| arg.var_id);
         let mut stack = stack.captures_to_stack(&capture_block.captures);
 
+        let orig_env_vars = stack.env_vars.clone();
+        let orig_env_hidden = stack.env_hidden.clone();
+
         let ctrlc = engine_state.ctrlc.clone();
         let engine_state = engine_state.clone();
 
-        for value in input.into_interruptible_iter(ctrlc) {
+        for (idx, value) in input.into_interruptible_iter(ctrlc).enumerate() {
+            // with_env() is used here to ensure that each iteration uses
+            // a different set of environment variables.
+            // Hence, a 'cd' in the first loop won't affect the next loop.
+            stack.with_env(&orig_env_vars, &orig_env_hidden);
+
             if let Some(var_id) = var_id {
-                stack.add_var(var_id, value);
+                stack.add_var(var_id, value.clone());
+            }
+            // Optional index argument
+            if let Some(var) = block.signature.get_positional(1) {
+                if let Some(var_id) = &var.var_id {
+                    stack.add_var(
+                        *var_id,
+                        Value::Int {
+                            val: idx as i64,
+                            span,
+                        },
+                    );
+                }
             }
 
             let eval = eval_block(
                 &engine_state,
                 &mut stack,
                 block,
-                PipelineData::new(span),
+                value.into_pipeline_data(),
                 call.redirect_stdout,
                 call.redirect_stderr,
             );

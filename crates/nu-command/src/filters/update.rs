@@ -1,9 +1,9 @@
 use nu_engine::{eval_block, CallExt};
 use nu_protocol::ast::{Call, CellPath, PathMember};
-use nu_protocol::engine::{CaptureBlock, Command, EngineState, Stack};
+use nu_protocol::engine::{Closure, Command, EngineState, Stack};
 use nu_protocol::{
     Category, Example, FromValue, IntoInterruptiblePipelineData, IntoPipelineData, PipelineData,
-    ShellError, Signature, Span, SyntaxShape, Value,
+    ShellError, Signature, Span, SyntaxShape, Type, Value,
 };
 
 #[derive(Clone)]
@@ -16,6 +16,7 @@ impl Command for Update {
 
     fn signature(&self) -> Signature {
         Signature::build("update")
+            .input_output_types(vec![(Type::Table(vec![]), Type::Table(vec![]))])
             .required(
                 "field",
                 SyntaxShape::CellPath,
@@ -24,7 +25,7 @@ impl Command for Update {
             .required(
                 "replacement value",
                 SyntaxShape::Any,
-                "the new value to give the cell(s)",
+                "the new value to give the cell(s), or a block to create the value",
             )
             .category(Category::Filters)
     }
@@ -40,14 +41,14 @@ impl Command for Update {
         call: &Call,
         input: PipelineData,
     ) -> Result<nu_protocol::PipelineData, nu_protocol::ShellError> {
-        upsert(engine_state, stack, call, input)
+        update(engine_state, stack, call, input)
     }
 
     fn examples(&self) -> Vec<Example> {
         vec![
             Example {
                 description: "Update a column value",
-                example: "echo {'name': 'nu', 'stars': 5} | update name 'Nushell'",
+                example: "{'name': 'nu', 'stars': 5} | update name 'Nushell'",
                 result: Some(Value::Record {
                     cols: vec!["name".into(), "stars".into()],
                     vals: vec![Value::test_string("Nushell"), Value::test_int(5)],
@@ -56,21 +57,26 @@ impl Command for Update {
             },
             Example {
                 description: "Use in block form for more involved updating logic",
-                example: "echo [[count fruit]; [1 'apple']] | update count {|f| $f.count + 1}",
+                example: "[[count fruit]; [1 'apple']] | update count {|row index| ($row.fruit | str length) + $index }",
                 result: Some(Value::List {
                     vals: vec![Value::Record {
                         cols: vec!["count".into(), "fruit".into()],
-                        vals: vec![Value::test_int(2), Value::test_string("apple")],
+                        vals: vec![Value::test_int(5), Value::test_string("apple")],
                         span: Span::test_data(),
                     }],
                     span: Span::test_data(),
                 }),
             },
+            Example {
+                description: "Alter each value in the 'authors' column to use a single string instead of a list",
+                example: "[[project, authors]; ['nu', ['Andrés', 'JT', 'Yehuda']]] | update authors {|row| $row.authors | str join ','}",
+                result: Some(Value::List { vals: vec![Value::Record { cols: vec!["project".into(), "authors".into()], vals: vec![Value::test_string("nu"), Value::test_string("Andrés,JT,Yehuda")], span: Span::test_data()}], span: Span::test_data()}),
+            },
         ]
     }
 }
 
-fn upsert(
+fn update(
     engine_state: &EngineState,
     stack: &mut Stack,
     call: &Call,
@@ -89,21 +95,34 @@ fn upsert(
 
     // Replace is a block, so set it up and run it instead of using it as the replacement
     if replacement.as_block().is_ok() {
-        let capture_block: CaptureBlock = FromValue::from_value(&replacement)?;
+        let capture_block: Closure = FromValue::from_value(&replacement)?;
         let block = engine_state.get_block(capture_block.block_id).clone();
 
         let mut stack = stack.captures_to_stack(&capture_block.captures);
         let orig_env_vars = stack.env_vars.clone();
         let orig_env_hidden = stack.env_hidden.clone();
 
+        // enumerate() can't be used here because it converts records into tables
+        // when combined with into_pipeline_data(). Hence, the index is tracked manually like so.
+        let mut idx: i64 = 0;
         input.map(
             move |mut input| {
+                // with_env() is used here to ensure that each iteration uses
+                // a different set of environment variables.
+                // Hence, a 'cd' in the first loop won't affect the next loop.
                 stack.with_env(&orig_env_vars, &orig_env_hidden);
 
                 if let Some(var) = block.signature.get_positional(0) {
                     if let Some(var_id) = &var.var_id {
                         stack.add_var(*var_id, input.clone())
                     }
+                }
+                // Optional index argument
+                if let Some(var) = block.signature.get_positional(1) {
+                    if let Some(var_id) = &var.var_id {
+                        stack.add_var(*var_id, Value::Int { val: idx, span });
+                    }
+                    idx += 1;
                 }
 
                 let output = eval_block(
@@ -138,6 +157,8 @@ fn upsert(
             for idx in 0..*val {
                 if let Some(v) = input.next() {
                     pre_elems.push(v);
+                } else if idx == 0 {
+                    return Err(ShellError::AccessEmptyContent(*span));
                 } else {
                     return Err(ShellError::AccessBeyondEnd(idx - 1, *span));
                 }

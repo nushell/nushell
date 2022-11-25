@@ -1,8 +1,9 @@
+use indexmap::IndexMap;
 use nu_engine::CallExt;
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
-    Example, PipelineData, ShellError, Signature, Span, Spanned, SyntaxShape, Value,
+    Example, PipelineData, ShellError, Signature, Span, Spanned, SyntaxShape, Type, Value,
 };
 
 #[derive(Clone)]
@@ -14,11 +15,9 @@ impl Command for SplitBy {
     }
 
     fn signature(&self) -> Signature {
-        Signature::build("split-by").optional(
-            "splitter",
-            SyntaxShape::Any,
-            "the splitter value to use",
-        )
+        Signature::build("split-by")
+            .input_output_types(vec![(Type::Record(vec![]), Type::Record(vec![]))])
+            .optional("splitter", SyntaxShape::Any, "the splitter value to use")
     }
 
     fn usage(&self) -> &str {
@@ -35,7 +34,6 @@ impl Command for SplitBy {
         split_by(engine_state, stack, call, input)
     }
 
-    #[allow(clippy::unwrap_used)]
     fn examples(&self) -> Vec<Example> {
         vec![Example {
             description: "split items by column named \"lang\"",
@@ -140,6 +138,7 @@ pub fn split_by(
             });
             Ok(split(&splitter, input, name)?)
         }
+        // This uses the same format as the 'requires a column name' error in sort_utils.rs
         None => Err(ShellError::GenericError(
             "expected name".into(),
             "requires a column name for splitting".into(),
@@ -168,6 +167,7 @@ pub fn split(
                     move |_, row: &Value| match row.get_data_by_key(&column_name.item) {
                         Some(group_key) => Ok(group_key.as_string()?),
                         None => Err(ShellError::CantFindColumn(
+                            column_name.item.to_string(),
                             column_name.span,
                             row.span().unwrap_or(column_name.span),
                         )),
@@ -214,9 +214,8 @@ pub fn data_split(
                         } = grouped
                         {
                             for (inner_idx, subset) in li.iter().enumerate() {
-                                let s = splits
-                                    .entry(sub_cols[inner_idx].clone())
-                                    .or_insert(indexmap::IndexMap::new());
+                                let s: &mut IndexMap<String, Value> =
+                                    splits.entry(sub_cols[inner_idx].clone()).or_default();
 
                                 s.insert(cols[idx].clone(), subset.clone());
                             }

@@ -176,12 +176,7 @@ fn errors_fetching_by_column_using_a_number() {
             "#
         ));
 
-        assert!(actual
-            .err
-            .contains("Data cannot be accessed with a cell path"),);
-        assert!(actual
-            .err
-            .contains("record<0: string> doesn't support cell paths"),);
+        assert!(actual.err.contains("Type mismatch"),);
     })
 }
 
@@ -204,16 +199,22 @@ fn errors_fetching_by_index_out_of_bounds() {
             "#
         ));
 
-        assert!(actual.err.contains("Row number too large (max: 3)"),);
+        assert!(actual.err.contains("Row number too large (max: 2)"),);
         assert!(actual.err.contains("too large"),);
     })
+}
+
+#[test]
+fn errors_fetching_by_accessing_empty_list() {
+    let actual = nu!(cwd: ".", pipeline(r#"[] | get 3"#));
+    assert!(actual.err.contains("Row number too large (empty content)"),);
 }
 
 #[test]
 fn quoted_column_access() {
     let actual = nu!(
         cwd: "tests/fixtures/formats",
-        r#"echo '[{"foo bar": {"baz": 4}}]' | from json | get "foo bar".baz.0 "#
+        r#"'[{"foo bar": {"baz": 4}}]' | from json | get "foo bar".baz.0 "#
     );
 
     assert_eq!(actual.out, "4");

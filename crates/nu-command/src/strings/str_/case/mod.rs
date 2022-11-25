@@ -22,9 +22,21 @@ pub use upcase::SubCommand as StrUpcase;
 
 use nu_engine::CallExt;
 
+use crate::input_handler::{operate as general_operate, CmdArgument};
 use nu_protocol::ast::{Call, CellPath};
 use nu_protocol::engine::{EngineState, Stack};
 use nu_protocol::{PipelineData, ShellError, Span, Value};
+
+struct Arguments<F: Fn(&str) -> String + Send + Sync + 'static> {
+    case_operation: &'static F,
+    cell_paths: Option<Vec<CellPath>>,
+}
+
+impl<F: Fn(&str) -> String + Send + Sync + 'static> CmdArgument for Arguments<F> {
+    fn take_cell_paths(&mut self) -> Option<Vec<CellPath>> {
+        self.cell_paths.take()
+    }
+}
 
 pub fn operate<F>(
     engine_state: &EngineState,
@@ -36,35 +48,20 @@ pub fn operate<F>(
 where
     F: Fn(&str) -> String + Send + Sync + 'static,
 {
-    let head = call.head;
-    let column_paths: Vec<CellPath> = call.rest(engine_state, stack, 0)?;
-
-    input.map(
-        move |v| {
-            if column_paths.is_empty() {
-                action(&v, case_operation, head)
-            } else {
-                let mut ret = v;
-                for path in &column_paths {
-                    let r = ret.update_cell_path(
-                        &path.members,
-                        Box::new(move |old| action(old, case_operation, head)),
-                    );
-                    if let Err(error) = r {
-                        return Value::Error { error };
-                    }
-                }
-                ret
-            }
-        },
-        engine_state.ctrlc.clone(),
-    )
+    let cell_paths: Vec<CellPath> = call.rest(engine_state, stack, 0)?;
+    let cell_paths = (!cell_paths.is_empty()).then_some(cell_paths);
+    let args = Arguments {
+        case_operation,
+        cell_paths,
+    };
+    general_operate(action, args, input, call.head, engine_state.ctrlc.clone())
 }
 
-pub fn action<F>(input: &Value, case_operation: &F, head: Span) -> Value
+fn action<F>(input: &Value, args: &Arguments<F>, head: Span) -> Value
 where
     F: Fn(&str) -> String + Send + Sync + 'static,
 {
+    let case_operation = args.case_operation;
     match input {
         Value::String { val, .. } => Value::String {
             val: case_operation(val),

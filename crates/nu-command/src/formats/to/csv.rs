@@ -4,7 +4,7 @@ use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
     Category, Config, Example, PipelineData, ShellError, Signature, Span, Spanned, SyntaxShape,
-    Value,
+    Type, Value,
 };
 
 #[derive(Clone)]
@@ -17,6 +17,7 @@ impl Command for ToCsv {
 
     fn signature(&self) -> Signature {
         Signature::build("to csv")
+            .input_output_types(vec![(Type::Any, Type::String)])
             .named(
                 "separator",
                 SyntaxShape::String,

@@ -37,6 +37,11 @@ impl Command for OverlayUse {
                 "Prepend module name to the imported commands and aliases",
                 Some('p'),
             )
+            .switch(
+                "reload",
+                "If the overlay already exists, reload its definitions and environment.",
+                Some('r'),
+            )
             .category(Category::Core)
     }
 
@@ -59,7 +64,7 @@ impl Command for OverlayUse {
         let mut name_arg: Spanned<String> = call.req(engine_state, caller_stack, 0)?;
         name_arg.item = trim_quotes_str(&name_arg.item).to_string();
 
-        let origin_module_id = if let Some(overlay_expr) = call.positional_nth(0) {
+        let maybe_origin_module_id = if let Some(overlay_expr) = call.positional_nth(0) {
             if let Expr::Overlay(module_id) = overlay_expr.expr {
                 module_id
             } else {
@@ -114,9 +119,7 @@ impl Command for OverlayUse {
             ));
         };
 
-        caller_stack.add_overlay(overlay_name);
-
-        if let Some(module_id) = origin_module_id {
+        if let Some(module_id) = maybe_origin_module_id {
             // Add environment variables only if:
             // a) adding a new overlay
             // b) refreshing an active overlay (the origin module changed)
@@ -152,6 +155,9 @@ impl Command for OverlayUse {
                     call.redirect_stderr,
                 );
 
+                // The export-env block should see the env vars *before* activating this overlay
+                caller_stack.add_overlay(overlay_name);
+
                 // Merge the block's environment to the current stack
                 redirect_env(engine_state, caller_stack, &callee_stack);
 
@@ -159,7 +165,11 @@ impl Command for OverlayUse {
                     // Remove the file-relative PWD, if the argument is a valid path
                     caller_stack.remove_env_var(engine_state, "FILE_PWD");
                 }
+            } else {
+                caller_stack.add_overlay(overlay_name);
             }
+        } else {
+            caller_stack.add_overlay(overlay_name);
         }
 
         Ok(PipelineData::new(call.head))
@@ -183,14 +193,14 @@ impl Command for OverlayUse {
             },
             Example {
                 description: "Create an overlay with a prefix",
-                example: r#"echo 'export def foo { "foo" }'
+                example: r#"'export def foo { "foo" }'
     overlay use --prefix spam
     spam foo"#,
                 result: None,
             },
             Example {
                 description: "Create an overlay from a file",
-                example: r#"echo 'export-env { let-env FOO = "foo" }' | save spam.nu
+                example: r#"'export-env { let-env FOO = "foo" }' | save spam.nu
     overlay use spam.nu
     $env.FOO"#,
                 result: None,

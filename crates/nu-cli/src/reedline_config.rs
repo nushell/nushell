@@ -114,7 +114,7 @@ pub(crate) fn add_menus(
             let res = eval_block(&engine_state, &mut temp_stack, &block, input, false, false)?;
 
             if let PipelineData::Value(value, None) = res {
-                for menu in create_menus(&value, config)? {
+                for menu in create_menus(&value)? {
                     line_editor =
                         add_menu(line_editor, &menu, engine_state.clone(), stack, config)?;
                 }
@@ -251,7 +251,7 @@ pub(crate) fn add_columnar_menu(
         Value::Nothing { .. } => {
             Ok(line_editor.with_menu(ReedlineMenu::EngineCompleter(Box::new(columnar_menu))))
         }
-        Value::Block {
+        Value::Closure {
             val,
             captures,
             span,
@@ -337,7 +337,7 @@ pub(crate) fn add_list_menu(
         Value::Nothing { .. } => {
             Ok(line_editor.with_menu(ReedlineMenu::HistoryMenu(Box::new(list_menu))))
         }
-        Value::Block {
+        Value::Closure {
             val,
             captures,
             span,
@@ -459,7 +459,7 @@ pub(crate) fn add_description_menu(
                 completer,
             }))
         }
-        Value::Block {
+        Value::Closure {
             val,
             captures,
             span,
@@ -477,7 +477,7 @@ pub(crate) fn add_description_menu(
             }))
         }
         _ => Err(ShellError::UnsupportedConfigValue(
-            "block or omitted value".to_string(),
+            "closure or omitted value".to_string(),
             menu.source.into_abbreviated_string(config),
             menu.source.span()?,
         )),

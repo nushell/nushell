@@ -1,8 +1,8 @@
 use nu_engine::{eval_block, eval_expression, eval_expression_with_input, CallExt};
 use nu_protocol::ast::Call;
-use nu_protocol::engine::{CaptureBlock, Command, EngineState, Stack};
+use nu_protocol::engine::{Block, Command, EngineState, Stack};
 use nu_protocol::{
-    Category, Example, FromValue, PipelineData, ShellError, Signature, SyntaxShape, Value,
+    Category, Example, PipelineData, ShellError, Signature, SyntaxShape, Type, Value,
 };
 
 #[derive(Clone)]
@@ -19,10 +19,11 @@ impl Command for If {
 
     fn signature(&self) -> nu_protocol::Signature {
         Signature::build("if")
+            .input_output_types(vec![(Type::Any, Type::Any)])
             .required("cond", SyntaxShape::Expression, "condition to check")
             .required(
                 "then_block",
-                SyntaxShape::Block(Some(vec![])),
+                SyntaxShape::Block,
                 "block to run if check succeeds",
             )
             .optional(
@@ -50,7 +51,7 @@ impl Command for If {
         input: PipelineData,
     ) -> Result<nu_protocol::PipelineData, nu_protocol::ShellError> {
         let cond = call.positional_nth(0).expect("checked through parser");
-        let then_block: CaptureBlock = call.req(engine_state, stack, 1)?;
+        let then_block: Block = call.req(engine_state, stack, 1)?;
         let else_case = call.positional_nth(2);
 
         let result = eval_expression(engine_state, stack, cond)?;
@@ -58,10 +59,9 @@ impl Command for If {
             Value::Bool { val, .. } => {
                 if *val {
                     let block = engine_state.get_block(then_block.block_id);
-                    let mut stack = stack.captures_to_stack(&then_block.captures);
                     eval_block(
                         engine_state,
-                        &mut stack,
+                        stack,
                         block,
                         input,
                         call.redirect_stdout,
@@ -70,14 +70,10 @@ impl Command for If {
                 } else if let Some(else_case) = else_case {
                     if let Some(else_expr) = else_case.as_keyword() {
                         if let Some(block_id) = else_expr.as_block() {
-                            let result = eval_expression(engine_state, stack, else_expr)?;
-                            let else_block: CaptureBlock = FromValue::from_value(&result)?;
-
-                            let mut stack = stack.captures_to_stack(&else_block.captures);
                             let block = engine_state.get_block(block_id);
                             eval_block(
                                 engine_state,
-                                &mut stack,
+                                stack,
                                 block,
                                 input,
                                 call.redirect_stdout,

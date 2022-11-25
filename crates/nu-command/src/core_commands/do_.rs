@@ -1,9 +1,8 @@
-use nu_engine::{eval_block, CallExt};
+use nu_engine::{eval_block_with_early_return, CallExt};
 use nu_protocol::ast::Call;
-use nu_protocol::engine::{CaptureBlock, Command, EngineState, Stack};
+use nu_protocol::engine::{Closure, Command, EngineState, Stack};
 use nu_protocol::{
-    Category, Example, ListStream, PipelineData, RawStream, ShellError, Signature, SyntaxShape,
-    Value,
+    Category, Example, ListStream, PipelineData, ShellError, Signature, SyntaxShape, Type, Value,
 };
 
 #[derive(Clone)]
@@ -18,13 +17,24 @@ impl Command for Do {
         "Run a block"
     }
 
-    fn signature(&self) -> nu_protocol::Signature {
+    fn signature(&self) -> Signature {
         Signature::build("do")
-            .required("block", SyntaxShape::Any, "the block to run")
+            .required("closure", SyntaxShape::Any, "the closure to run")
+            .input_output_types(vec![(Type::Any, Type::Any)])
             .switch(
                 "ignore-errors",
                 "ignore errors as the block runs",
                 Some('i'),
+            )
+            .switch(
+                "ignore-shell-errors",
+                "ignore shell errors as the block runs",
+                Some('s'),
+            )
+            .switch(
+                "ignore-program-errors",
+                "ignore program errors as the block runs",
+                Some('p'),
             )
             .switch(
                 "capture-errors",
@@ -41,10 +51,12 @@ impl Command for Do {
         stack: &mut Stack,
         call: &Call,
         input: PipelineData,
-    ) -> Result<nu_protocol::PipelineData, nu_protocol::ShellError> {
-        let block: CaptureBlock = call.req(engine_state, stack, 0)?;
+    ) -> Result<PipelineData, ShellError> {
+        let block: Closure = call.req(engine_state, stack, 0)?;
         let rest: Vec<Value> = call.rest(engine_state, stack, 1)?;
-        let ignore_errors = call.has_flag("ignore-errors");
+        let ignore_all_errors = call.has_flag("ignore-errors");
+        let ignore_shell_errors = ignore_all_errors || call.has_flag("ignore-shell-errors");
+        let ignore_program_errors = ignore_all_errors || call.has_flag("ignore-program-errors");
         let capture_errors = call.has_flag("capture-errors");
 
         let mut stack = stack.captures_to_stack(&block.captures);
@@ -88,93 +100,79 @@ impl Command for Do {
                 )
             }
         }
-        let result = eval_block(
+        let result = eval_block_with_early_return(
             engine_state,
             &mut stack,
             block,
             input,
             call.redirect_stdout,
-            ignore_errors || capture_errors,
+            capture_errors || ignore_shell_errors || ignore_program_errors,
         );
 
-        if ignore_errors {
-            match result {
-                Ok(x) => Ok(x),
-                Err(_) => Ok(PipelineData::new(call.head)),
-            }
-        } else if capture_errors {
-            // collect stdout and stderr and check exit code.
-            // if exit code is not 0, return back ShellError.
-            match result {
+        match result {
+            Ok(PipelineData::ExternalStream {
+                stdout,
+                stderr,
+                exit_code,
+                span,
+                metadata,
+                trim_end_newline,
+            }) if capture_errors => {
+                let mut exit_code_ctrlc = None;
+                let exit_code: Vec<Value> = match exit_code {
+                    None => vec![],
+                    Some(exit_code_stream) => {
+                        exit_code_ctrlc = exit_code_stream.ctrlc.clone();
+                        exit_code_stream.into_iter().collect()
+                    }
+                };
+                if let Some(Value::Int { val: code, .. }) = exit_code.last() {
+                    if *code != 0 {
+                        let stderr_msg = match stderr {
+                            None => "".to_string(),
+                            Some(stderr_stream) => stderr_stream.into_string().map(|s| s.item)?,
+                        };
+
+                        return Err(ShellError::ExternalCommand(
+                            "External command failed".to_string(),
+                            stderr_msg,
+                            span,
+                        ));
+                    }
+                }
+
                 Ok(PipelineData::ExternalStream {
                     stdout,
                     stderr,
-                    exit_code,
+                    exit_code: Some(ListStream::from_stream(
+                        exit_code.into_iter(),
+                        exit_code_ctrlc,
+                    )),
                     span,
                     metadata,
-                }) => {
-                    // collect all output first.
-                    let mut stderr_ctrlc = None;
-                    let stderr_msg = match stderr {
-                        None => "".to_string(),
-                        Some(stderr_stream) => {
-                            stderr_ctrlc = stderr_stream.ctrlc.clone();
-                            stderr_stream.into_string().map(|s| s.item)?
-                        }
-                    };
-
-                    let mut stdout_ctrlc = None;
-                    let stdout_msg = match stdout {
-                        None => "".to_string(),
-                        Some(stdout_stream) => {
-                            stdout_ctrlc = stdout_stream.ctrlc.clone();
-                            stdout_stream.into_string().map(|s| s.item)?
-                        }
-                    };
-
-                    let mut exit_code_ctrlc = None;
-                    let exit_code: Vec<Value> = match exit_code {
-                        None => vec![],
-                        Some(exit_code_stream) => {
-                            exit_code_ctrlc = exit_code_stream.ctrlc.clone();
-                            exit_code_stream.into_iter().collect()
-                        }
-                    };
-                    if let Some(Value::Int { val: code, .. }) = exit_code.last() {
-                        // if exit_code is not 0, it indicates error occured, return back Err.
-                        if *code != 0 {
-                            return Err(ShellError::ExternalCommand(
-                                "External command runs to failed".to_string(),
-                                stderr_msg,
-                                span,
-                            ));
-                        }
-                    }
-                    // construct pipeline data to our caller
-                    Ok(PipelineData::ExternalStream {
-                        stdout: Some(RawStream::new(
-                            Box::new(vec![Ok(stdout_msg.into_bytes())].into_iter()),
-                            stdout_ctrlc,
-                            span,
-                        )),
-                        stderr: Some(RawStream::new(
-                            Box::new(vec![Ok(stderr_msg.into_bytes())].into_iter()),
-                            stderr_ctrlc,
-                            span,
-                        )),
-                        exit_code: Some(ListStream::from_stream(
-                            exit_code.into_iter(),
-                            exit_code_ctrlc,
-                        )),
-                        span,
-                        metadata,
-                    })
-                }
-                Ok(other) => Ok(other),
-                Err(e) => Err(e),
+                    trim_end_newline,
+                })
             }
-        } else {
-            result
+            Ok(PipelineData::ExternalStream {
+                stdout,
+                stderr,
+                exit_code: _,
+                span,
+                metadata,
+                trim_end_newline,
+            }) if ignore_program_errors => Ok(PipelineData::ExternalStream {
+                stdout,
+                stderr,
+                exit_code: None,
+                span,
+                metadata,
+                trim_end_newline,
+            }),
+            Ok(PipelineData::Value(Value::Error { .. }, ..)) if ignore_shell_errors => {
+                Ok(PipelineData::new(call.head))
+            }
+            Err(_) if ignore_shell_errors => Ok(PipelineData::new(call.head)),
+            r => r,
         }
     }
 
@@ -186,14 +184,34 @@ impl Command for Do {
                 result: Some(Value::test_string("hello")),
             },
             Example {
-                description: "Run the block and ignore errors",
+                description: "Run the block and ignore both shell and program errors",
                 example: r#"do -i { thisisnotarealcommand }"#,
                 result: None,
             },
             Example {
+                description: "Run the block and ignore shell errors",
+                example: r#"do -s { thisisnotarealcommand }"#,
+                result: None,
+            },
+            Example {
+                description: "Run the block and ignore program errors",
+                example: r#"do -p { nu -c 'exit 1' }; echo "I'll still run""#,
+                result: None,
+            },
+            Example {
+                description: "Abort the pipeline if a program returns a non-zero exit code",
+                example: r#"do -c { nu -c 'exit 1' } | myscarycommand"#,
+                result: None,
+            },
+            Example {
                 description: "Run the block, with a positional parameter",
-                example: r#"do {|x| 100 + $x } 50"#,
-                result: Some(Value::test_int(150)),
+                example: r#"do {|x| 100 + $x } 77"#,
+                result: Some(Value::test_int(177)),
+            },
+            Example {
+                description: "Run the block, with input",
+                example: r#"77 | do {|x| 100 + $in }"#,
+                result: None, // TODO: returns 177
             },
         ]
     }

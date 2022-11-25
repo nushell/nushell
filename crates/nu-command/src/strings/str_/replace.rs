@@ -1,19 +1,26 @@
+use crate::input_handler::{operate, CmdArgument};
 use fancy_regex::{NoExpand, Regex};
 use nu_engine::CallExt;
 use nu_protocol::{
     ast::{Call, CellPath},
     engine::{Command, EngineState, Stack},
-    Category, Example, PipelineData, ShellError, Signature, Span, Spanned, SyntaxShape, Value,
+    Category, Example, PipelineData, ShellError, Signature, Span, Spanned, SyntaxShape, Type,
+    Value,
 };
-use std::sync::Arc;
 
 struct Arguments {
     all: bool,
     find: Spanned<String>,
     replace: Spanned<String>,
-    column_paths: Vec<CellPath>,
+    cell_paths: Option<Vec<CellPath>>,
     literal_replace: bool,
     no_regex: bool,
+}
+
+impl CmdArgument for Arguments {
+    fn take_cell_paths(&mut self) -> Option<Vec<CellPath>> {
+        self.cell_paths.take()
+    }
 }
 
 #[derive(Clone)]
@@ -26,12 +33,14 @@ impl Command for SubCommand {
 
     fn signature(&self) -> Signature {
         Signature::build("str replace")
+            .input_output_types(vec![(Type::String, Type::String)])
+            .vectorizes_over_list(true)
             .required("find", SyntaxShape::String, "the pattern to find")
             .required("replace", SyntaxShape::String, "the replacement pattern")
             .rest(
                 "rest",
                 SyntaxShape::CellPath,
-                "optionally find and replace text by column paths",
+                "For a data structure input, operate on strings at the given cell paths",
             )
             .switch("all", "replace all occurrences of find string", Some('a'))
             .switch(
@@ -62,7 +71,22 @@ impl Command for SubCommand {
         call: &Call,
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
-        operate(engine_state, stack, call, input)
+        let find: Spanned<String> = call.req(engine_state, stack, 0)?;
+        let replace: Spanned<String> = call.req(engine_state, stack, 1)?;
+        let cell_paths: Vec<CellPath> = call.rest(engine_state, stack, 2)?;
+        let cell_paths = (!cell_paths.is_empty()).then_some(cell_paths);
+        let literal_replace = call.has_flag("no-expand");
+        let no_regex = call.has_flag("string");
+
+        let args = Arguments {
+            all: call.has_flag("all"),
+            find,
+            replace,
+            cell_paths,
+            literal_replace,
+            no_regex,
+        };
+        operate(action, args, input, call.head, engine_state.ctrlc.clone())
     }
 
     fn examples(&self) -> Vec<Example> {
@@ -152,50 +176,6 @@ impl Command for SubCommand {
 
         ]
     }
-}
-
-fn operate(
-    engine_state: &EngineState,
-    stack: &mut Stack,
-    call: &Call,
-    input: PipelineData,
-) -> Result<PipelineData, ShellError> {
-    let head = call.head;
-    let find: Spanned<String> = call.req(engine_state, stack, 0)?;
-    let replace: Spanned<String> = call.req(engine_state, stack, 1)?;
-    let literal_replace = call.has_flag("no-expand");
-    let no_regex = call.has_flag("string");
-
-    let options = Arc::new(Arguments {
-        all: call.has_flag("all"),
-        find,
-        replace,
-        column_paths: call.rest(engine_state, stack, 2)?,
-        literal_replace,
-        no_regex,
-    });
-
-    input.map(
-        move |v| {
-            if options.column_paths.is_empty() {
-                action(&v, &options, head)
-            } else {
-                let mut ret = v;
-                for path in &options.column_paths {
-                    let opt = options.clone();
-                    let r = ret.update_cell_path(
-                        &path.members,
-                        Box::new(move |old| action(old, &opt, head)),
-                    );
-                    if let Err(error) = r {
-                        return Value::Error { error };
-                    }
-                }
-                ret
-            }
-        },
-        engine_state.ctrlc.clone(),
-    )
 }
 
 struct FindReplace<'a>(&'a str, &'a str);
@@ -305,7 +285,7 @@ mod tests {
         let options = Arguments {
             find: test_spanned_string("Cargo.(.+)"),
             replace: test_spanned_string("Carga.$1"),
-            column_paths: vec![],
+            cell_paths: None,
             literal_replace: false,
             all: false,
             no_regex: false,

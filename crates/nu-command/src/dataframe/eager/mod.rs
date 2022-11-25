@@ -1,6 +1,5 @@
 mod append;
 mod columns;
-mod describe;
 mod drop;
 mod drop_duplicates;
 mod drop_nulls;
@@ -20,6 +19,7 @@ mod shape;
 mod slice;
 mod sql_context;
 mod sql_expr;
+mod summary;
 mod take;
 mod to_arrow;
 mod to_csv;
@@ -32,7 +32,6 @@ use nu_protocol::engine::StateWorkingSet;
 
 pub use append::AppendDF;
 pub use columns::ColumnsDF;
-pub use describe::DescribeDF;
 pub use drop::DropDF;
 pub use drop_duplicates::DropDuplicates;
 pub use drop_nulls::DropNulls;
@@ -52,6 +51,7 @@ pub use shape::ShapeDF;
 pub use slice::SliceDF;
 pub use sql_context::SQLContext;
 pub use sql_expr::parse_sql_expr;
+pub use summary::Summary;
 pub use take::TakeDF;
 pub use to_arrow::ToArrow;
 pub use to_csv::ToCSV;
@@ -75,7 +75,7 @@ pub fn add_eager_decls(working_set: &mut StateWorkingSet) {
         AppendDF,
         ColumnsDF,
         DataTypes,
-        DescribeDF,
+        Summary,
         DropDF,
         DropDuplicates,
         DropNulls,

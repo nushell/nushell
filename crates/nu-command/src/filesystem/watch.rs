@@ -6,7 +6,7 @@ use std::time::Duration;
 use notify::{DebouncedEvent, RecommendedWatcher, RecursiveMode, Watcher};
 use nu_engine::{current_dir, eval_block, CallExt};
 use nu_protocol::ast::Call;
-use nu_protocol::engine::{CaptureBlock, Command, EngineState, Stack, StateWorkingSet};
+use nu_protocol::engine::{Closure, Command, EngineState, Stack, StateWorkingSet};
 use nu_protocol::{
     format_error, Category, Example, IntoPipelineData, PipelineData, ShellError, Signature,
     Spanned, SyntaxShape, Value,
@@ -35,7 +35,7 @@ impl Command for Watch {
     fn signature(&self) -> nu_protocol::Signature {
         Signature::build("watch")
             .required("path", SyntaxShape::Filepath, "the path to watch. Can be a file or directory")
-            .required("block", SyntaxShape::Block(None), "A Nu block of code to run whenever a file changes. The block will be passed `operation`, `path`, and `new_path` (for renames only) arguments in that order")
+            .required("block", SyntaxShape::Block, "A Nu block of code to run whenever a file changes. The block will be passed `operation`, `path`, and `new_path` (for renames only) arguments in that order")
             .named(
                 "debounce-ms",
                 SyntaxShape::Int,
@@ -72,7 +72,7 @@ impl Command for Watch {
             .item
             .trim_end_matches(|x| matches!(x, '\x09'..='\x0d'));
 
-        let path = match nu_path::canonicalize_with(path_no_whitespace, &cwd) {
+        let path = match nu_path::canonicalize_with(path_no_whitespace, cwd) {
             Ok(p) => p,
             Err(e) => {
                 return Err(ShellError::DirectoryNotFound(
@@ -82,7 +82,7 @@ impl Command for Watch {
             }
         };
 
-        let capture_block: CaptureBlock = call.req(engine_state, stack, 1)?;
+        let capture_block: Closure = call.req(engine_state, stack, 1)?;
         let block = engine_state
             .clone()
             .get_block(capture_block.block_id)

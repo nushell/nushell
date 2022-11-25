@@ -1,15 +1,21 @@
+use crate::input_handler::{operate, CmdArgument};
 use nu_engine::CallExt;
 use nu_protocol::ast::Call;
 use nu_protocol::ast::CellPath;
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::Category;
 use nu_protocol::Spanned;
-use nu_protocol::{Example, PipelineData, ShellError, Signature, Span, SyntaxShape, Value};
-use std::sync::Arc;
+use nu_protocol::{Example, PipelineData, ShellError, Signature, Span, SyntaxShape, Type, Value};
 
 struct Arguments {
     substring: String,
-    column_paths: Vec<CellPath>,
+    cell_paths: Option<Vec<CellPath>>,
+}
+
+impl CmdArgument for Arguments {
+    fn take_cell_paths(&mut self) -> Option<Vec<CellPath>> {
+        self.cell_paths.take()
+    }
 }
 
 #[derive(Clone)]
@@ -23,11 +29,13 @@ impl Command for SubCommand {
 
     fn signature(&self) -> Signature {
         Signature::build("str starts-with")
+            .input_output_types(vec![(Type::String, Type::Bool)])
+            .vectorizes_over_list(true)
             .required("string", SyntaxShape::String, "the string to match")
             .rest(
                 "rest",
                 SyntaxShape::CellPath,
-                "optionally matches prefix of text by column paths",
+                "For a data structure input, check strings at the given cell paths, and replace with result",
             )
             .category(Category::Strings)
     }
@@ -47,7 +55,14 @@ impl Command for SubCommand {
         call: &Call,
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
-        operate(engine_state, stack, call, input)
+        let substring: Spanned<String> = call.req(engine_state, stack, 0)?;
+        let cell_paths: Vec<CellPath> = call.rest(engine_state, stack, 1)?;
+        let cell_paths = (!cell_paths.is_empty()).then_some(cell_paths);
+        let args = Arguments {
+            substring: substring.item,
+            cell_paths,
+        };
+        operate(action, args, input, call.head, engine_state.ctrlc.clone())
     }
 
     fn examples(&self) -> Vec<Example> {
@@ -78,42 +93,6 @@ impl Command for SubCommand {
             },
         ]
     }
-}
-
-fn operate(
-    engine_state: &EngineState,
-    stack: &mut Stack,
-    call: &Call,
-    input: PipelineData,
-) -> Result<PipelineData, ShellError> {
-    let substring: Spanned<String> = call.req(engine_state, stack, 0)?;
-
-    let options = Arc::new(Arguments {
-        substring: substring.item,
-        column_paths: call.rest(engine_state, stack, 1)?,
-    });
-    let head = call.head;
-    input.map(
-        move |v| {
-            if options.column_paths.is_empty() {
-                action(&v, &options, head)
-            } else {
-                let mut ret = v;
-                for path in &options.column_paths {
-                    let opt = options.clone();
-                    let r = ret.update_cell_path(
-                        &path.members,
-                        Box::new(move |old| action(old, &opt, head)),
-                    );
-                    if let Err(error) = r {
-                        return Value::Error { error };
-                    }
-                }
-                ret
-            }
-        },
-        engine_state.ctrlc.clone(),
-    )
 }
 
 fn action(input: &Value, Arguments { substring, .. }: &Arguments, head: Span) -> Value {

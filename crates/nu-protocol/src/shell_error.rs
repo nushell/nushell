@@ -2,7 +2,7 @@ use miette::Diagnostic;
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
-use crate::{ast::Operator, Span, Type};
+use crate::{ast::Operator, Span, Type, Value};
 
 /// The fundamental error type for the evaluation engine. These cases represent different kinds of errors
 /// the evaluator might face, along with helpful spans to label. An error renderer will take this error value
@@ -60,6 +60,19 @@ pub enum ShellError {
     #[diagnostic(code(nu::shell::type_mismatch), url(docsrs))]
     TypeMismatch(String, #[label = "needs {0}"] Span),
 
+    /// A command received an argument of the wrong type.
+    ///
+    /// ## Resolution
+    ///
+    /// Convert the argument type before passing it in, or change the command to accept the type.
+    #[error("Type mismatch")]
+    #[diagnostic(code(nu::shell::type_mismatch), url(docsrs))]
+    TypeMismatchGenericMessage {
+        err_message: String,
+        #[label = "{err_message}"]
+        span: Span,
+    },
+
     /// This value cannot be used with this operator.
     ///
     /// ## Resolution
@@ -69,6 +82,24 @@ pub enum ShellError {
     #[error("Unsupported operator: {0}.")]
     #[diagnostic(code(nu::shell::unsupported_operator), url(docsrs))]
     UnsupportedOperator(Operator, #[label = "unsupported operator"] Span),
+
+    /// This value cannot be used with this operator.
+    ///
+    /// ## Resolution
+    ///
+    /// Assignment requires that you assign to a variable or variable cell path.
+    #[error("Assignment operations require a variable.")]
+    #[diagnostic(code(nu::shell::assignment_requires_variable), url(docsrs))]
+    AssignmentRequiresVar(#[label = "needs to be a variable"] Span),
+
+    /// This value cannot be used with this operator.
+    ///
+    /// ## Resolution
+    ///
+    /// Assignment requires that you assign to a mutable variable or cell path.
+    #[error("Assignment to an immutable variable.")]
+    #[diagnostic(code(nu::shell::assignment_requires_mutable_variable), url(docsrs))]
+    AssignmentRequiresMutableVar(#[label = "needs to be a mutable variable"] Span),
 
     /// An operator was not recognized during evaluation.
     ///
@@ -345,6 +376,15 @@ Either make sure {0} is a string, or add a 'to_string' entry for it in ENV_CONVE
     #[diagnostic(code(nu::shell::access_beyond_end), url(docsrs))]
     AccessBeyondEnd(usize, #[label = "index too large (max: {0})"] Span),
 
+    /// You attempted to access an index when it's empty.
+    ///
+    /// ## Resolution
+    ///
+    /// Check your lengths and try again.
+    #[error("Row number too large (empty content).")]
+    #[diagnostic(code(nu::shell::access_beyond_end), url(docsrs))]
+    AccessEmptyContent(#[label = "index too large (empty content)"] Span),
+
     /// You attempted to access an index beyond the available length of a stream.
     ///
     /// ## Resolution
@@ -371,7 +411,8 @@ Either make sure {0} is a string, or add a 'to_string' entry for it in ENV_CONVE
     #[error("Cannot find column")]
     #[diagnostic(code(nu::shell::column_not_found), url(docsrs))]
     CantFindColumn(
-        #[label = "cannot find column"] Span,
+        String,
+        #[label = "cannot find column '{0}'"] Span,
         #[label = "value originates here"] Span,
     ),
 
@@ -383,7 +424,8 @@ Either make sure {0} is a string, or add a 'to_string' entry for it in ENV_CONVE
     #[error("Column already exists")]
     #[diagnostic(code(nu::shell::column_already_exists), url(docsrs))]
     ColumnAlreadyExists(
-        #[label = "column already exists"] Span,
+        String,
+        #[label = "column '{0}' already exists"] Span,
         #[label = "value originates here"] Span,
     ),
 
@@ -786,6 +828,18 @@ Either make sure {0} is a string, or add a 'to_string' entry for it in ENV_CONVE
     #[error("Eval block failed with pipeline input")]
     #[diagnostic(code(nu::shell::eval_block_with_input), url(docsrs))]
     EvalBlockWithInput(#[label("source value")] Span, #[related] Vec<ShellError>),
+
+    /// Break event, which may become an error if used outside of a loop
+    #[error("Break used outside of loop")]
+    Break(#[label = "used outside of loop"] Span),
+
+    /// Continue event, which may become an error if used outside of a loop
+    #[error("Continue used outside of loop")]
+    Continue(#[label = "used outside of loop"] Span),
+
+    /// Return event, which may become an error if used outside of a function
+    #[error("Return used outside of function")]
+    Return(#[label = "used outside of function"] Span, Box<Value>),
 }
 
 impl From<std::io::Error> for ShellError {

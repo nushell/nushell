@@ -1,8 +1,9 @@
+use crate::input_handler::{operate, CellPathOnlyArgs};
 use nu_engine::CallExt;
 use nu_protocol::{
     ast::{Call, CellPath},
     engine::{Command, EngineState, Stack},
-    Category, Example, PipelineData, ShellError, Signature, Span, SyntaxShape, Value,
+    Category, Example, PipelineData, ShellError, Signature, Span, SyntaxShape, Type, Value,
 };
 
 #[derive(Clone)]
@@ -15,10 +16,16 @@ impl Command for SubCommand {
 
     fn signature(&self) -> Signature {
         Signature::build("into filesize")
+            .input_output_types(vec![
+                (Type::Int, Type::Filesize),
+                (Type::Number, Type::Filesize),
+                (Type::String, Type::Filesize),
+                (Type::Filesize, Type::Filesize),
+            ])
             .rest(
                 "rest",
                 SyntaxShape::CellPath,
-                "column paths to convert to filesize (for table input)",
+                "for a data structure input, convert data at the given cell paths",
             )
             .category(Category::Conversions)
     }
@@ -38,7 +45,9 @@ impl Command for SubCommand {
         call: &Call,
         input: PipelineData,
     ) -> Result<nu_protocol::PipelineData, nu_protocol::ShellError> {
-        into_filesize(engine_state, stack, call, input)
+        let cell_paths: Vec<CellPath> = call.rest(engine_state, stack, 0)?;
+        let args = CellPathOnlyArgs::from(cell_paths);
+        operate(action, args, input, call.head, engine_state.ctrlc.clone())
     }
 
     fn examples(&self) -> Vec<Example> {
@@ -84,37 +93,7 @@ impl Command for SubCommand {
     }
 }
 
-fn into_filesize(
-    engine_state: &EngineState,
-    stack: &mut Stack,
-    call: &Call,
-    input: PipelineData,
-) -> Result<nu_protocol::PipelineData, nu_protocol::ShellError> {
-    let head = call.head;
-    let column_paths: Vec<CellPath> = call.rest(engine_state, stack, 0)?;
-
-    input.map(
-        move |v| {
-            if column_paths.is_empty() {
-                action(&v, head)
-            } else {
-                let mut ret = v;
-                for path in &column_paths {
-                    let r =
-                        ret.update_cell_path(&path.members, Box::new(move |old| action(old, head)));
-                    if let Err(error) = r {
-                        return Value::Error { error };
-                    }
-                }
-
-                ret
-            }
-        },
-        engine_state.ctrlc.clone(),
-    )
-}
-
-pub fn action(input: &Value, span: Span) -> Value {
+pub fn action(input: &Value, _args: &CellPathOnlyArgs, span: Span) -> Value {
     if let Ok(value_span) = input.span() {
         match input {
             Value::Filesize { .. } => input.clone(),

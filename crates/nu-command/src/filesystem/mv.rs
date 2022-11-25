@@ -20,7 +20,6 @@ const GLOB_PARAMS: nu_glob::MatchOptions = nu_glob::MatchOptions {
 #[derive(Clone)]
 pub struct Mv;
 
-#[allow(unused_must_use)]
 impl Command for Mv {
     fn name(&self) -> &str {
         "mv"
@@ -51,8 +50,8 @@ impl Command for Mv {
                 "make mv to be verbose, showing files been moved.",
                 Some('v'),
             )
+            .switch("force", "overwrite the destination.", Some('f'))
             .switch("interactive", "ask user to confirm action", Some('i'))
-            // .switch("force", "suppress error when no file", Some('f'))
             .category(Category::FileSystem)
     }
 
@@ -67,17 +66,14 @@ impl Command for Mv {
         let spanned_source: Spanned<String> = call.req(engine_state, stack, 0)?;
         let spanned_source = {
             Spanned {
-                item: match strip_ansi_escapes::strip(&spanned_source.item) {
-                    Ok(item) => String::from_utf8(item).unwrap_or(spanned_source.item),
-                    Err(_) => spanned_source.item,
-                },
+                item: nu_utils::strip_ansi_string_unlikely(spanned_source.item),
                 span: spanned_source.span,
             }
         };
         let spanned_destination: Spanned<String> = call.req(engine_state, stack, 1)?;
         let verbose = call.has_flag("verbose");
         let interactive = call.has_flag("interactive");
-        // let force = call.has_flag("force");
+        let force = call.has_flag("force");
 
         let ctrlc = engine_state.ctrlc.clone();
 
@@ -102,31 +98,53 @@ impl Command for Mv {
         //
         // First, the destination exists.
         //  - If a directory, move everything into that directory, otherwise
-        //  - if only a single source, overwrite the file, otherwise
-        //  - error.
+        //  - if only a single source, and --force (or -f) is provided overwrite the file,
+        //  - otherwise error.
         //
         // Second, the destination doesn't exist, so we can only rename a single source. Otherwise
         // it's an error.
+
+        if destination.exists() && !force && !destination.is_dir() && !source.is_dir() {
+            return Err(ShellError::GenericError(
+                "Destination file already exists".into(),
+                // These messages all use to_string_lossy() because
+                // showing the full path reduces misinterpretation of the message.
+                // Also, this is preferable to {:?} because that renders Windows paths incorrectly.
+                format!(
+                    "Destination file '{}' already exists",
+                    destination.to_string_lossy()
+                ),
+                Some(spanned_destination.span),
+                Some("you can use -f, --force to force overwriting the destination".into()),
+                Vec::new(),
+            ));
+        }
 
         if (destination.exists() && !destination.is_dir() && sources.len() > 1)
             || (!destination.exists() && sources.len() > 1)
         {
             return Err(ShellError::GenericError(
                 "Can only move multiple sources if destination is a directory".into(),
-                "destination must be a directory when multiple sources".into(),
+                "destination must be a directory when moving multiple sources".into(),
                 Some(spanned_destination.span),
                 None,
                 Vec::new(),
             ));
         }
 
+        // This is the case where you move a directory A to the interior of directory B, but directory B
+        // already has a non-empty directory named A.
         if source.is_dir() && destination.is_dir() {
             if let Some(name) = source.file_name() {
                 let dst = destination.join(name);
                 if dst.is_dir() {
                     return Err(ShellError::GenericError(
-                        format!("Can't move {:?} to {:?}", source, dst),
-                        "Directory not empty".into(),
+                        format!(
+                            "Can't move '{}' to '{}'",
+                            source.to_string_lossy(),
+                            dst.to_string_lossy()
+                        ),
+                        format!("Directory '{}' is not empty", destination.to_string_lossy()),
                         Some(spanned_destination.span),
                         None,
                         Vec::new(),
@@ -142,8 +160,8 @@ impl Command for Mv {
             if let Some(Ok(filename)) = some_if_source_is_destination {
                 return Err(ShellError::GenericError(
                     format!(
-                        "Not possible to move {:?} to itself",
-                        filename.file_name().unwrap_or(filename.as_os_str())
+                        "Not possible to move '{}' to itself",
+                        filename.to_string_lossy()
                     ),
                     "cannot move to itself".into(),
                     Some(spanned_destination.span),
@@ -289,7 +307,7 @@ fn move_file(
 fn move_item(from: &Path, from_span: Span, to: &Path) -> Result<(), ShellError> {
     // We first try a rename, which is a quick operation. If that doesn't work, we'll try a copy
     // and remove the old file/folder. This is necessary if we're moving across filesystems or devices.
-    std::fs::rename(&from, &to).or_else(|_| {
+    std::fs::rename(from, to).or_else(|_| {
         match if from.is_file() {
             let mut options = fs_extra::file::CopyOptions::new();
             options.overwrite = true;

@@ -10,6 +10,7 @@ pub fn get_full_help(
     examples: &[Example],
     engine_state: &EngineState,
     stack: &mut Stack,
+    is_parser_keyword: bool,
 ) -> String {
     let config = engine_state.get_config();
     let doc_config = DocumentationConfig {
@@ -17,7 +18,14 @@ pub fn get_full_help(
         no_color: !config.use_ansi_coloring,
         brief: false,
     };
-    get_documentation(sig, examples, engine_state, stack, &doc_config)
+    get_documentation(
+        sig,
+        examples,
+        engine_state,
+        stack,
+        &doc_config,
+        is_parser_keyword,
+    )
 }
 
 #[derive(Default)]
@@ -34,6 +42,7 @@ fn get_documentation(
     engine_state: &EngineState,
     stack: &mut Stack,
     config: &DocumentationConfig,
+    is_parser_keyword: bool,
 ) -> String {
     // Create ansi colors
     const G: &str = "\x1b[32m"; // green
@@ -87,6 +96,18 @@ fn get_documentation(
 
     if !sig.named.is_empty() {
         long_desc.push_str(&get_flags_section(sig))
+    }
+
+    if !is_parser_keyword && !sig.input_output_types.is_empty() {
+        if sig.operates_on_cell_paths() {
+            let _ = writeln!(
+                long_desc,
+                "\n{}Signatures(Cell paths are supported){}:\n{}",
+                G, RESET, sig
+            );
+        } else {
+            let _ = writeln!(long_desc, "\n{}Signatures{}:\n{}", G, RESET, sig);
+        }
     }
 
     if !sig.required_positional.is_empty()
@@ -170,17 +191,11 @@ fn get_documentation(
 
     long_desc.push('\n');
 
-    let stripped_string = if config.no_color {
-        if let Ok(bytes) = strip_ansi_escapes::strip(&long_desc) {
-            String::from_utf8_lossy(&bytes).to_string()
-        } else {
-            long_desc
-        }
+    if config.no_color {
+        nu_utils::strip_ansi_string_likely(long_desc)
     } else {
         long_desc
-    };
-
-    stripped_string
+    }
 }
 
 // document shape helps showing more useful information

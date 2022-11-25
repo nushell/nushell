@@ -4,8 +4,8 @@ use nu_engine::CallExt;
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
-    Category, Config, Example, IntoPipelineData, PipelineData, ShellError, Signature, Spanned,
-    SyntaxShape, Value,
+    Category, Config, DataSource, Example, IntoPipelineData, PipelineData, PipelineMetadata,
+    ShellError, Signature, Spanned, SyntaxShape, Type, Value,
 };
 use rust_embed::RustEmbed;
 use serde::{Deserialize, Serialize};
@@ -90,6 +90,7 @@ impl Command for ToHtml {
 
     fn signature(&self) -> Signature {
         Signature::build("to html")
+            .input_output_types(vec![(Type::Any, Type::String)])
             .switch("html-color", "change ansi colors to html colors", Some('c'))
             .switch("no-color", "remove all ansi colors in output", Some('n'))
             .switch(
@@ -108,7 +109,11 @@ impl Command for ToHtml {
                 "the name of the theme to use (github, blulocolight, ...)",
                 Some('t'),
             )
-            .switch("list", "list the names of all available themes", Some('l'))
+            .switch(
+                "list",
+                "produce a color table of all available themes",
+                Some('l'),
+            )
             .category(Category::Formats)
     }
 
@@ -140,6 +145,10 @@ impl Command for ToHtml {
 
     fn usage(&self) -> &str {
         "Convert table into simple HTML"
+    }
+
+    fn extra_usage(&self) -> &str {
+        "Screenshots of the themes can be browsed here: https://github.com/mbadolato/iTerm2-Color-Schemes"
     }
 
     fn run(
@@ -222,12 +231,6 @@ fn get_html_themes(json_name: &str) -> Result<HtmlThemes, Box<dyn Error>> {
     }
 }
 
-fn get_list_of_theme_names() -> Vec<String> {
-    // If asset doesn't work, make sure to return the default theme
-    let html_themes = get_html_themes("228_themes.json").unwrap_or_default();
-    html_themes.themes.into_iter().map(|n| n.name).collect()
-}
-
 fn to_html(
     input: PipelineData,
     call: &Call,
@@ -250,17 +253,76 @@ fn to_html(
     let mut output_string = String::new();
     let mut regex_hm: HashMap<u32, (&str, String)> = HashMap::with_capacity(17);
 
+    // Being essentially a 'help' option, this can afford to be relatively unoptimised
     if list {
-        // Get the list of theme names
-        let theme_names = get_list_of_theme_names();
+        // If asset doesn't work, make sure to return the default theme
+        let html_themes = get_html_themes("228_themes.json").unwrap_or_default();
 
-        // Put that list into the output string
-        for s in &theme_names {
-            writeln!(&mut output_string, "{}", s).unwrap();
+        let cols = vec![
+            "name".into(),
+            "black".into(),
+            "red".into(),
+            "green".into(),
+            "yellow".into(),
+            "blue".into(),
+            "purple".into(),
+            "cyan".into(),
+            "white".into(),
+            "brightBlack".into(),
+            "brightRed".into(),
+            "brightGreen".into(),
+            "brightYellow".into(),
+            "brightBlue".into(),
+            "brightPurple".into(),
+            "brightCyan".into(),
+            "brightWhite".into(),
+            "background".into(),
+            "foreground".into(),
+        ];
+
+        let result: Vec<Value> = html_themes
+            .themes
+            .into_iter()
+            .map(|n| {
+                let vals = vec![
+                    n.name,
+                    n.black,
+                    n.red,
+                    n.green,
+                    n.yellow,
+                    n.blue,
+                    n.purple,
+                    n.cyan,
+                    n.white,
+                    n.brightBlack,
+                    n.brightRed,
+                    n.brightGreen,
+                    n.brightYellow,
+                    n.brightBlue,
+                    n.brightPurple,
+                    n.brightCyan,
+                    n.brightWhite,
+                    n.background,
+                    n.foreground,
+                ]
+                .into_iter()
+                .map(|val| Value::String { val, span: head })
+                .collect();
+
+                Value::Record {
+                    cols: cols.clone(),
+                    vals,
+                    span: head,
+                }
+            })
+            .collect();
+        return Ok(Value::List {
+            vals: result,
+            span: head,
         }
-
-        output_string.push_str("\nScreenshots of themes can be found here:\n");
-        output_string.push_str("https://github.com/mbadolato/iTerm2-Color-Schemes\n");
+        .into_pipeline_data_with_metadata(PipelineMetadata {
+            data_source: DataSource::HtmlThemes,
+        }));
     } else {
         let theme_span = match &theme {
             Some(v) => v.span,

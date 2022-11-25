@@ -6,7 +6,7 @@ use std::{
 use nu_engine::CallExt;
 use nu_protocol::{
     engine::Command, Example, PipelineData, ShellError, Signature, Span, Spanned, SyntaxShape,
-    Value,
+    Type, Value,
 };
 
 use super::PathSubcommandArguments;
@@ -32,10 +32,15 @@ impl Command for SubCommand {
 
     fn signature(&self) -> Signature {
         Signature::build("path join")
+            .input_output_types(vec![
+                (Type::String, Type::String),
+                (Type::List(Box::new(Type::String)), Type::String),
+                (Type::Table(vec![]), Type::List(Box::new(Type::String))),
+            ])
             .named(
                 "columns",
                 SyntaxShape::Table,
-                "Optionally operate by column path",
+                "For a record or table input, join strings at the given columns",
                 Some('c'),
             )
             .rest("append", SyntaxShape::String, "Path to append to the input")
@@ -153,7 +158,7 @@ fn handle_value(v: Value, args: &Arguments, head: Span) -> Value {
     match v {
         Value::String { ref val, span } => join_single(Path::new(val), span, args),
         Value::Record { cols, vals, span } => join_record(&cols, &vals, span, args),
-        Value::List { vals, span } => join_list(&vals, span, args),
+        Value::List { vals, span } => join_list(&vals, span, head, args),
 
         _ => super::handle_invalid_values(v, head),
     }
@@ -168,7 +173,7 @@ fn join_single(path: &Path, span: Span, args: &Arguments) -> Value {
     Value::string(result.to_string_lossy(), span)
 }
 
-fn join_list(parts: &[Value], span: Span, args: &Arguments) -> Value {
+fn join_list(parts: &[Value], span: Span, head: Span, args: &Arguments) -> Value {
     let path: Result<PathBuf, ShellError> = parts.iter().map(Value::as_string).collect();
 
     match path {
@@ -185,7 +190,7 @@ fn join_list(parts: &[Value], span: Span, args: &Arguments) -> Value {
                     Value::List { vals, span }
                 }
                 Err(_) => Value::Error {
-                    error: ShellError::PipelineMismatch("string or record".into(), span, span),
+                    error: ShellError::PipelineMismatch("string or record".into(), head, span),
                 },
             }
         }

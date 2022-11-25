@@ -1,7 +1,9 @@
 use nu_engine::CallExt;
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
-use nu_protocol::{Category, Example, PipelineData, Signature, Span, Spanned, SyntaxShape, Value};
+use nu_protocol::{
+    Category, Example, PipelineData, Signature, Span, Spanned, SyntaxShape, Type, Value,
+};
 
 #[derive(Clone)]
 pub struct Default;
@@ -13,6 +15,9 @@ impl Command for Default {
 
     fn signature(&self) -> Signature {
         Signature::build("default")
+            // TODO: Give more specific type signature?
+            // TODO: Declare usage of cell paths in signature? (It seems to behave as if it uses cell paths)
+            .input_output_types(vec![(Type::Any, Type::Any)])
             .required(
                 "default value",
                 SyntaxShape::Any,
@@ -50,8 +55,8 @@ impl Command for Default {
                 result: None, // Some(Value::test_string("abc")),
             },
             Example {
-                description: "Default the `$nothing` value in a list",
-                example: "[1, 2, $nothing, 4] | default 3",
+                description: "Replace the `null` value in a list",
+                example: "[1, 2, null, 4] | default 3",
                 result: Some(Value::List {
                     vals: vec![
                         Value::test_int(1),

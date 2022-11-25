@@ -1,21 +1,22 @@
-use super::{operate, BytesArgument};
+use crate::input_handler::{operate, CmdArgument};
 use nu_engine::CallExt;
 use nu_protocol::{
     ast::{Call, CellPath},
     engine::{Command, EngineState, Stack},
-    Category, Example, PipelineData, ShellError, Signature, Span, Spanned, SyntaxShape, Value,
+    Category, Example, PipelineData, ShellError, Signature, Span, Spanned, SyntaxShape, Type,
+    Value,
 };
 
 struct Arguments {
     find: Vec<u8>,
     replace: Vec<u8>,
-    column_paths: Option<Vec<CellPath>>,
+    cell_paths: Option<Vec<CellPath>>,
     all: bool,
 }
 
-impl BytesArgument for Arguments {
-    fn take_column_paths(&mut self) -> Option<Vec<CellPath>> {
-        self.column_paths.take()
+impl CmdArgument for Arguments {
+    fn take_cell_paths(&mut self) -> Option<Vec<CellPath>> {
+        self.cell_paths.take()
     }
 }
 
@@ -29,12 +30,13 @@ impl Command for BytesReplace {
 
     fn signature(&self) -> Signature {
         Signature::build("bytes replace")
+            .input_output_types(vec![(Type::Binary, Type::Binary)])
             .required("find", SyntaxShape::Binary, "the pattern to find")
             .required("replace", SyntaxShape::Binary, "the replacement pattern")
             .rest(
                 "rest",
                 SyntaxShape::CellPath,
-                "optionally find and replace text by column paths",
+                "for a data structure input, replace bytes in data at the given cell paths",
             )
             .switch("all", "replace all occurrences of find binary", Some('a'))
             .category(Category::Bytes)
@@ -55,12 +57,8 @@ impl Command for BytesReplace {
         call: &Call,
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
-        let column_paths: Vec<CellPath> = call.rest(engine_state, stack, 2)?;
-        let column_paths = if column_paths.is_empty() {
-            None
-        } else {
-            Some(column_paths)
-        };
+        let cell_paths: Vec<CellPath> = call.rest(engine_state, stack, 2)?;
+        let cell_paths = (!cell_paths.is_empty()).then_some(cell_paths);
         let find = call.req::<Spanned<Vec<u8>>>(engine_state, stack, 0)?;
         if find.item.is_empty() {
             return Err(ShellError::UnsupportedInput(
@@ -72,7 +70,7 @@ impl Command for BytesReplace {
         let arg = Arguments {
             find: find.item,
             replace: call.req::<Vec<u8>>(engine_state, stack, 1)?,
-            column_paths,
+            cell_paths,
             all: call.has_flag("all"),
         };
 
@@ -126,7 +124,25 @@ impl Command for BytesReplace {
     }
 }
 
-fn replace(input: &[u8], arg: &Arguments, span: Span) -> Value {
+fn replace(val: &Value, args: &Arguments, span: Span) -> Value {
+    match val {
+        Value::Binary {
+            val,
+            span: val_span,
+        } => replace_impl(val, args, *val_span),
+        other => Value::Error {
+            error: ShellError::UnsupportedInput(
+                format!(
+                    "Input's type is {}. This command only works with bytes.",
+                    other.get_type()
+                ),
+                span,
+            ),
+        },
+    }
+}
+
+fn replace_impl(input: &[u8], arg: &Arguments, span: Span) -> Value {
     let mut replaced = vec![];
     let replace_all = arg.all;
 

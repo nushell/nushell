@@ -3,9 +3,9 @@ use std::sync::atomic::Ordering;
 use nu_engine::{eval_block, CallExt};
 
 use nu_protocol::ast::Call;
-use nu_protocol::engine::{CaptureBlock, Command, EngineState, Stack};
+use nu_protocol::engine::{Closure, Command, EngineState, Stack};
 use nu_protocol::{
-    Example, IntoPipelineData, PipelineData, ShellError, Signature, Span, SyntaxShape, Value,
+    Example, IntoPipelineData, PipelineData, ShellError, Signature, Span, SyntaxShape, Type, Value,
 };
 
 #[derive(Clone)]
@@ -18,6 +18,7 @@ impl Command for Reduce {
 
     fn signature(&self) -> Signature {
         Signature::build("reduce")
+            .input_output_types(vec![(Type::List(Box::new(Type::Any)), Type::Any)])
             .named(
                 "fold",
                 SyntaxShape::Any,
@@ -25,15 +26,23 @@ impl Command for Reduce {
                 Some('f'),
             )
             .required(
-                "block",
-                SyntaxShape::Block(Some(vec![SyntaxShape::Any, SyntaxShape::Any])),
+                "closure",
+                SyntaxShape::Closure(Some(vec![
+                    SyntaxShape::Any,
+                    SyntaxShape::Any,
+                    SyntaxShape::Int,
+                ])),
                 "reducing function",
             )
-            .switch("numbered", "iterate with an index", Some('n'))
+            .switch(
+                "numbered",
+                "iterate with an index (deprecated; use a 3-parameter block instead)",
+                Some('n'),
+            )
     }
 
     fn usage(&self) -> &str {
-        "Aggregate a list table to a single value using an accumulator block."
+        "Aggregate a list to a single value using an accumulator block."
     }
 
     fn search_terms(&self) -> Vec<&str> {
@@ -51,10 +60,10 @@ impl Command for Reduce {
                 }),
             },
             Example {
-                example: "[ 1 2 3 ] | reduce -n {|it, acc| $acc.item + $it.item }",
-                description: "Sum values of a list (same as 'math sum')",
+                example: "[ 8 7 6 ] | reduce {|it, acc, ind| $acc + $it + $ind }",
+                description: "Sum values of a list, plus their indexes",
                 result: Some(Value::Int {
-                    val: 6,
+                    val: 22,
                     span: Span::test_data(),
                 }),
             },
@@ -69,24 +78,13 @@ impl Command for Reduce {
             Example {
                 example: r#"[ i o t ] | reduce -f "Arthur, King of the Britons" {|it, acc| $acc | str replace -a $it "X" }"#,
                 description: "Replace selected characters in a string with 'X'",
-                result: Some(Value::String {
-                    val: "ArXhur, KXng Xf Xhe BrXXXns".to_string(),
-                    span: Span::test_data(),
-                }),
+                result: Some(Value::test_string("ArXhur, KXng Xf Xhe BrXXXns")),
             },
             Example {
-                example: r#"[ one longest three bar ] | reduce -n { |it, acc|
-                    if ($it.item | str length) > ($acc.item | str length) {
-                        $it.item
-                    } else {
-                        $acc.item
-                    }
-                }"#,
-                description: "Find the longest string and its index",
-                result: Some(Value::String {
-                    val: "longest".to_string(),
-                    span: Span::test_data(),
-                }),
+                example: r#"['foo.gz', 'bar.gz', 'baz.gz'] | reduce -f '' {|str all ind| $"($all)(if $ind != 0 {'; '})($ind + 1)-($str)" }"#,
+                description:
+                    "Add ascending numbers to each of the filenames, and join with semicolons.",
+                result: Some(Value::test_string("1-foo.gz; 2-bar.gz; 3-baz.gz")),
             },
         ]
     }
@@ -102,7 +100,7 @@ impl Command for Reduce {
 
         let fold: Option<Value> = call.get_flag(engine_state, stack, "fold")?;
         let numbered = call.has_flag("numbered");
-        let capture_block: CaptureBlock = call.req(engine_state, stack, 0)?;
+        let capture_block: Closure = call.req(engine_state, stack, 0)?;
         let mut stack = stack.captures_to_stack(&capture_block.captures);
         let block = engine_state.get_block(capture_block.block_id);
         let ctrlc = engine_state.ctrlc.clone();
@@ -113,6 +111,8 @@ impl Command for Reduce {
         let redirect_stdout = call.redirect_stdout;
         let redirect_stderr = call.redirect_stderr;
 
+        // To enumerate over the input (for the index argument),
+        // it must be converted into an iterator using into_iter().
         let mut input_iter = input.into_iter();
 
         let (off, start_val) = if let Some(val) = fold {
@@ -164,14 +164,19 @@ impl Command for Reduce {
             .peekable();
 
         while let Some((idx, x)) = input_iter.next() {
+            // with_env() is used here to ensure that each iteration uses
+            // a different set of environment variables.
+            // Hence, a 'cd' in the first loop won't affect the next loop.
             stack.with_env(&orig_env_vars, &orig_env_hidden);
 
+            // Element argument
             if let Some(var) = block.signature.get_positional(0) {
                 if let Some(var_id) = &var.var_id {
                     stack.add_var(*var_id, x);
                 }
             }
 
+            // Accumulator argument
             if let Some(var) = block.signature.get_positional(1) {
                 if let Some(var_id) = &var.var_id {
                     acc = if numbered {
@@ -195,6 +200,18 @@ impl Command for Reduce {
                     };
 
                     stack.add_var(*var_id, acc);
+                }
+            }
+            // Optional third index argument
+            if let Some(var) = block.signature.get_positional(2) {
+                if let Some(var_id) = &var.var_id {
+                    stack.add_var(
+                        *var_id,
+                        Value::Int {
+                            val: idx as i64,
+                            span,
+                        },
+                    );
                 }
             }
 

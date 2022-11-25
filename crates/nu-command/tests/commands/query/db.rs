@@ -1,6 +1,6 @@
 use nu_test_support::{nu, pipeline};
 
-#[cfg(feature = "database")]
+#[cfg(feature = "sqlite")]
 #[test]
 fn can_query_single_table() {
     let actual = nu!(
@@ -16,7 +16,7 @@ fn can_query_single_table() {
     assert_eq!(actual.out, "4");
 }
 
-#[cfg(feature = "database")]
+#[cfg(feature = "sqlite")]
 #[test]
 fn invalid_sql_fails() {
     let actual = nu!(
@@ -30,7 +30,7 @@ fn invalid_sql_fails() {
     assert!(actual.err.contains("syntax error"));
 }
 
-#[cfg(feature = "database")]
+#[cfg(feature = "sqlite")]
 #[test]
 fn invalid_input_fails() {
     let actual = nu!(

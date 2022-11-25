@@ -251,7 +251,7 @@ fn length_for_rows() -> TestResult {
 #[test]
 fn length_defaulted_columns() -> TestResult {
     run_test(
-        r#"echo [[name, age]; [test, 10]] | default 11 age | get 0 | columns | length"#,
+        r#"[[name, age]; [test, 10]] | default 11 age | get 0 | columns | length"#,
         "2",
     )
 }

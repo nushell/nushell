@@ -188,7 +188,7 @@ fn truncate_with_suffix_test() {
 fn draw_table(table: Table, limit: usize, cfg: &Config) -> Option<String> {
     let styles = HashMap::default();
     let alignments = Alignments::default();
-    table.draw_table(cfg, &styles, alignments, &theme::heavy(), limit)
+    table.draw_table(cfg, &styles, alignments, &theme::heavy(), limit, false)
 }
 
 fn row(count_columns: usize) -> Vec<TCell<CellInfo<'static>, TextStyle>> {

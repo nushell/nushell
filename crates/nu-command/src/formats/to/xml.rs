@@ -4,7 +4,7 @@ use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
     Category, Config, Example, IntoPipelineData, PipelineData, ShellError, Signature, Span,
-    Spanned, SyntaxShape, Value,
+    Spanned, SyntaxShape, Type, Value,
 };
 use quick_xml::events::{BytesEnd, BytesStart, BytesText, Event};
 use std::collections::HashSet;
@@ -21,6 +21,7 @@ impl Command for ToXml {
 
     fn signature(&self) -> Signature {
         Signature::build("to xml")
+            .input_output_types(vec![(Type::Record(vec![]), Type::String)])
             .named(
                 "pretty",
                 SyntaxShape::Int,

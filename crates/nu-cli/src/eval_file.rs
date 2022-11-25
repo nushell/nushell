@@ -29,6 +29,8 @@ pub fn evaluate_file(
 
     let file = std::fs::read(&path).into_diagnostic()?;
 
+    engine_state.start_in_file(Some(&path));
+
     let mut working_set = StateWorkingSet::new(engine_state);
     trace!("parsing file: {}", path);
 
@@ -71,6 +73,14 @@ pub fn print_table_or_error(
 
     // Change the engine_state config to use the passed in configuration
     engine_state.set_config(config);
+
+    if let PipelineData::Value(Value::Error { error }, ..) = &pipeline_data {
+        let working_set = StateWorkingSet::new(engine_state);
+
+        report_error(&working_set, error);
+
+        std::process::exit(1);
+    }
 
     match engine_state.find_decl("table".as_bytes(), &[]) {
         Some(decl_id) => {

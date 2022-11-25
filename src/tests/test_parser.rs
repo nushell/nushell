@@ -198,7 +198,10 @@ fn commands_have_usage() -> TestResult {
 
 #[test]
 fn equals_separates_long_flag() -> TestResult {
-    run_test(r#"seq 1 4 --separator='+'"#, "1+2+3+4")
+    run_test(
+        r#"'nushell' | str lpad --length=10 --character='-'"#,
+        "---nushell",
+    )
 }
 
 #[test]
@@ -346,7 +349,7 @@ fn proper_missing_param() -> TestResult {
 
 #[test]
 fn block_arity_check1() -> TestResult {
-    fail_test(r#"ls | each { |x, y| 1}"#, "expected 1 block parameter")
+    fail_test(r#"ls | each { |x, y, z| 1}"#, "expected 2 block parameters")
 }
 
 #[test]

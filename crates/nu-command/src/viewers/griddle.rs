@@ -1,5 +1,3 @@
-use std::borrow::Cow;
-
 // use super::icons::{icon_for_file, iconify_style_ansi_to_nu};
 use super::icons::icon_for_file;
 use lscolors::Style;
@@ -9,7 +7,7 @@ use nu_protocol::{
     ast::{Call, PathMember},
     engine::{Command, EngineState, Stack},
     Category, Config, Example, IntoPipelineData, PipelineData, ShellError, Signature, Span,
-    SyntaxShape, Value,
+    SyntaxShape, Type, Value,
 };
 use nu_term_grid::grid::{Alignment, Cell, Direction, Filling, Grid, GridOptions};
 use nu_utils::get_ls_colors;
@@ -28,6 +26,11 @@ impl Command for Griddle {
 
     fn signature(&self) -> nu_protocol::Signature {
         Signature::build("grid")
+            .input_output_types(vec![
+                (Type::List(Box::new(Type::Any)), Type::String),
+                (Type::Record(vec![]), Type::String),
+                (Type::Table(vec![]), Type::String),
+            ])
             .named(
                 "width",
                 SyntaxShape::Int,
@@ -178,26 +181,6 @@ prints out the list properly."#
     }
 }
 
-/// Removes ANSI escape codes and some ASCII control characters
-///
-/// Keeps `\n` removes `\r`, `\t` etc.
-///
-/// If parsing fails silently returns the input string
-fn strip_ansi(string: &str) -> Cow<str> {
-    // Check if any ascii control character except LF(0x0A = 10) is present,
-    // which will be stripped. Includes the primary start of ANSI sequences ESC
-    // (0x1B = decimal 27)
-    if string.bytes().any(|x| matches!(x, 0..=9 | 11..=31)) {
-        if let Ok(stripped) = strip_ansi_escapes::strip(string) {
-            if let Ok(new_string) = String::from_utf8(stripped) {
-                return Cow::Owned(new_string);
-            }
-        }
-    }
-    // Else case includes failures to parse!
-    Cow::Borrowed(string)
-}
-
 fn create_grid_output(
     items: Vec<(usize, String, String)>,
     call: &Call,
@@ -232,7 +215,7 @@ fn create_grid_output(
         if header == "name" {
             if color_param {
                 if use_grid_icons {
-                    let no_ansi = strip_ansi(&value);
+                    let no_ansi = nu_utils::strip_ansi_unlikely(&value);
                     let path = std::path::Path::new(no_ansi.as_ref());
                     let icon = icon_for_file(path, call.head)?;
                     let ls_colors_style = ls_colors.style_for_path(path);

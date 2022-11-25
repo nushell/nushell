@@ -14,6 +14,7 @@ mod filters;
 mod formats;
 mod generators;
 mod hash;
+mod input_handler;
 mod math;
 mod misc;
 mod network;
@@ -61,8 +62,8 @@ mod dataframe;
 #[cfg(feature = "dataframe")]
 pub use dataframe::*;
 
-#[cfg(feature = "database")]
+#[cfg(feature = "sqlite")]
 mod database;
 
-#[cfg(feature = "database")]
+#[cfg(feature = "sqlite")]
 pub use database::*;

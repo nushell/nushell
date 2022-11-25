@@ -1,4 +1,6 @@
-use nu_protocol::ast::{Block, Expr, Expression, ImportPatternMember, PathMember, Pipeline};
+use nu_protocol::ast::{
+    Block, Expr, Expression, ImportPatternMember, PathMember, Pipeline, PipelineElement,
+};
 use nu_protocol::DeclId;
 use nu_protocol::{engine::StateWorkingSet, Span};
 use std::fmt::{Display, Formatter, Result};
@@ -30,6 +32,10 @@ pub enum FlatShape {
     GlobPattern,
     Variable,
     Flag,
+    Pipe,
+    And,
+    Or,
+    Redirection,
     Custom(DeclId),
 }
 
@@ -61,6 +67,10 @@ impl Display for FlatShape {
             FlatShape::GlobPattern => write!(f, "shape_globpattern"),
             FlatShape::Variable => write!(f, "shape_variable"),
             FlatShape::Flag => write!(f, "shape_flag"),
+            FlatShape::Pipe => write!(f, "shape_pipe"),
+            FlatShape::And => write!(f, "shape_and"),
+            FlatShape::Or => write!(f, "shape_or"),
+            FlatShape::Redirection => write!(f, "shape_redirection"),
             FlatShape::Custom(_) => write!(f, "shape_custom"),
         }
     }
@@ -101,7 +111,10 @@ pub fn flatten_expression(
             output.extend(flatten_expression(working_set, inner_expr));
             output
         }
-        Expr::Block(block_id) | Expr::RowCondition(block_id) | Expr::Subexpression(block_id) => {
+        Expr::Block(block_id)
+        | Expr::Closure(block_id)
+        | Expr::RowCondition(block_id)
+        | Expr::Subexpression(block_id) => {
             let outer_span = expr.span;
 
             let mut output = vec![];
@@ -162,7 +175,7 @@ pub fn flatten_expression(
             output.extend(args);
             output
         }
-        Expr::ExternalCall(head, args) => {
+        Expr::ExternalCall(head, args, _) => {
             let mut output = vec![];
 
             match **head {
@@ -492,13 +505,45 @@ pub fn flatten_expression(
     }
 }
 
+pub fn flatten_pipeline_element(
+    working_set: &StateWorkingSet,
+    pipeline_element: &PipelineElement,
+) -> Vec<(Span, FlatShape)> {
+    match pipeline_element {
+        PipelineElement::Expression(span, expr) => {
+            if let Some(span) = span {
+                let mut output = vec![(*span, FlatShape::Pipe)];
+                output.append(&mut flatten_expression(working_set, expr));
+                output
+            } else {
+                flatten_expression(working_set, expr)
+            }
+        }
+        PipelineElement::Redirection(span, _, expr) => {
+            let mut output = vec![(*span, FlatShape::Redirection)];
+            output.append(&mut flatten_expression(working_set, expr));
+            output
+        }
+        PipelineElement::And(span, expr) => {
+            let mut output = vec![(*span, FlatShape::And)];
+            output.append(&mut flatten_expression(working_set, expr));
+            output
+        }
+        PipelineElement::Or(span, expr) => {
+            let mut output = vec![(*span, FlatShape::Or)];
+            output.append(&mut flatten_expression(working_set, expr));
+            output
+        }
+    }
+}
+
 pub fn flatten_pipeline(
     working_set: &StateWorkingSet,
     pipeline: &Pipeline,
 ) -> Vec<(Span, FlatShape)> {
     let mut output = vec![];
-    for expr in &pipeline.expressions {
-        output.extend(flatten_expression(working_set, expr))
+    for expr in &pipeline.elements {
+        output.extend(flatten_pipeline_element(working_set, expr))
     }
     output
 }

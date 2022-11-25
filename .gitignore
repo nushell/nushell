@@ -22,6 +22,10 @@ debian/nu/
 # VSCode's IDE items
 .vscode/*
 
+# Visual Studio Extension SourceGear Rust items
+VSWorkspaceSettings.json
+unstable_cargo_features.txt
+
 # Helix configuration folder
 .helix/*
 .helix

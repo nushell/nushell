@@ -3,7 +3,7 @@ use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
     Category, Example, IntoInterruptiblePipelineData, PipelineData, ShellError, Signature, Span,
-    SyntaxShape, Value,
+    SyntaxShape, Type, Value,
 };
 
 #[derive(Clone)]
@@ -16,12 +16,23 @@ impl Command for Append {
 
     fn signature(&self) -> nu_protocol::Signature {
         Signature::build("append")
+            .input_output_types(vec![(
+                Type::List(Box::new(Type::Any)),
+                Type::List(Box::new(Type::Any)),
+            )])
             .required("row", SyntaxShape::Any, "the row, list, or table to append")
             .category(Category::Filters)
     }
 
     fn usage(&self) -> &str {
         "Append any number of rows to a table."
+    }
+
+    fn extra_usage(&self) -> &str {
+        r#"Be aware that this command 'unwraps' lists passed to it. So, if you pass a variable to it,
+and you want the variable's contents to be appended without being unwrapped, it's wise to
+pre-emptively wrap the variable in a list, like so: `append [$val]`. This way, `append` will
+only unwrap the outer list, and leave the variable's contents untouched."#
     }
 
     fn search_terms(&self) -> Vec<&str> {

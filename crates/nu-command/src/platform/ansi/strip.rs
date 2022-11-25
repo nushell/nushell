@@ -1,9 +1,8 @@
 use nu_engine::CallExt;
 use nu_protocol::{
     ast::Call, ast::CellPath, engine::Command, engine::EngineState, engine::Stack, Category,
-    Example, PipelineData, ShellError, Signature, Span, SyntaxShape, Value,
+    Example, PipelineData, ShellError, Signature, Span, SyntaxShape, Type, Value,
 };
-use strip_ansi_escapes::strip;
 
 #[derive(Clone)]
 pub struct SubCommand;
@@ -15,10 +14,11 @@ impl Command for SubCommand {
 
     fn signature(&self) -> Signature {
         Signature::build("ansi strip")
+            .input_output_types(vec![(Type::String, Type::String)])
             .rest(
-                "column path",
+                "cell path",
                 SyntaxShape::CellPath,
-                "optionally, remove ANSI sequences by column paths",
+                "for a data structure input, remove ANSI sequences from strings at the given cell paths",
             )
             .category(Category::Platform)
     }
@@ -40,7 +40,7 @@ impl Command for SubCommand {
     fn examples(&self) -> Vec<Example> {
         vec![Example {
             description: "Strip ANSI escape sequences from a string",
-            example: r#"echo [ (ansi green) (ansi cursor_on) "hello" ] | str join | ansi strip"#,
+            example: r#"$'(ansi green)(ansi cursor_on)hello' | ansi strip"#,
             result: Some(Value::test_string("hello")),
         }]
     }
@@ -79,15 +79,7 @@ fn operate(
 fn action(input: &Value, command_span: &Span) -> Value {
     match input {
         Value::String { val, span } => {
-            let stripped_string = {
-                if let Ok(bytes) = strip(&val) {
-                    String::from_utf8_lossy(&bytes).to_string()
-                } else {
-                    val.to_string()
-                }
-            };
-
-            Value::string(stripped_string, *span)
+            Value::string(nu_utils::strip_ansi_likely(val).to_string(), *span)
         }
         other => {
             let got = format!("value is {}, not string", other.get_type());

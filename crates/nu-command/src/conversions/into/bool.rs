@@ -1,8 +1,9 @@
+use crate::input_handler::{operate, CellPathOnlyArgs};
 use nu_engine::CallExt;
 use nu_protocol::{
     ast::{Call, CellPath},
     engine::{Command, EngineState, Stack},
-    Category, Example, PipelineData, ShellError, Signature, Span, SyntaxShape, Value,
+    Category, Example, PipelineData, ShellError, Signature, Span, SyntaxShape, Type, Value,
 };
 
 #[derive(Clone)]
@@ -15,10 +16,17 @@ impl Command for SubCommand {
 
     fn signature(&self) -> Signature {
         Signature::build("into bool")
+            .input_output_types(vec![
+                (Type::Int, Type::Bool),
+                (Type::Number, Type::Bool),
+                (Type::String, Type::Bool),
+                (Type::Bool, Type::Bool),
+                (Type::List(Box::new(Type::Any)), Type::Table(vec![])),
+            ])
             .rest(
                 "rest",
                 SyntaxShape::CellPath,
-                "column paths to convert to boolean (for table input)",
+                "for a data structure input, convert data at the given cell paths",
             )
             .category(Category::Conversions)
     }
@@ -89,6 +97,11 @@ impl Command for SubCommand {
                 result: Some(Value::boolean(true, span)),
             },
             Example {
+                description: "convert decimal to boolean",
+                example: "0.3 | into bool",
+                result: Some(Value::boolean(true, span)),
+            },
+            Example {
                 description: "convert decimal string to boolean",
                 example: "'0.0' | into bool",
                 result: Some(Value::boolean(false, span)),
@@ -108,28 +121,9 @@ fn into_bool(
     call: &Call,
     input: PipelineData,
 ) -> Result<PipelineData, ShellError> {
-    let head = call.head;
-    let column_paths: Vec<CellPath> = call.rest(engine_state, stack, 0)?;
-
-    input.map(
-        move |v| {
-            if column_paths.is_empty() {
-                action(&v, head)
-            } else {
-                let mut ret = v;
-                for path in &column_paths {
-                    let r =
-                        ret.update_cell_path(&path.members, Box::new(move |old| action(old, head)));
-                    if let Err(error) = r {
-                        return Value::Error { error };
-                    }
-                }
-
-                ret
-            }
-        },
-        engine_state.ctrlc.clone(),
-    )
+    let cell_paths: Vec<CellPath> = call.rest(engine_state, stack, 0)?;
+    let args = CellPathOnlyArgs::from(cell_paths);
+    operate(action, args, input, call.head, engine_state.ctrlc.clone())
 }
 
 fn string_to_boolean(s: &str, span: Span) -> Result<bool, ShellError> {
@@ -154,7 +148,7 @@ fn string_to_boolean(s: &str, span: Span) -> Result<bool, ShellError> {
     }
 }
 
-fn action(input: &Value, span: Span) -> Value {
+fn action(input: &Value, _args: &CellPathOnlyArgs, span: Span) -> Value {
     match input {
         Value::Bool { .. } => input.clone(),
         Value::Int { val, .. } => Value::Bool {

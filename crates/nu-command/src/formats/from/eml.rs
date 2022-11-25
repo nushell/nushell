@@ -5,9 +5,8 @@ use nu_engine::CallExt;
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::Category;
-use nu_protocol::Config;
 use nu_protocol::{
-    Example, PipelineData, ShellError, Signature, Span, Spanned, SyntaxShape, Value,
+    Example, PipelineData, ShellError, Signature, Span, Spanned, SyntaxShape, Type, Value,
 };
 
 #[derive(Clone)]
@@ -22,6 +21,7 @@ impl Command for FromEml {
 
     fn signature(&self) -> Signature {
         Signature::build("from eml")
+            .input_output_types(vec![(Type::String, Type::Record(vec![]))])
             .named(
                 "preview-body",
                 SyntaxShape::Int,
@@ -32,7 +32,7 @@ impl Command for FromEml {
     }
 
     fn usage(&self) -> &str {
-        "Parse text as .eml and create table."
+        "Parse text as .eml and create record."
     }
 
     fn run(
@@ -45,14 +45,13 @@ impl Command for FromEml {
         let head = call.head;
         let preview_body: Option<Spanned<i64>> =
             call.get_flag(engine_state, stack, "preview-body")?;
-        let config = engine_state.get_config();
-        from_eml(input, preview_body, head, config)
+        from_eml(input, preview_body, head)
     }
 
     fn examples(&self) -> Vec<Example> {
         vec![
             Example {
-                description: "Convert eml structured data into table",
+                description: "Convert eml structured data into record",
                 example: "'From: test@email.com
 Subject: Welcome
 To: someone@somewhere.com
@@ -89,7 +88,7 @@ Test' | from eml",
                 }),
             },
             Example {
-                description: "Convert eml structured data into table",
+                description: "Convert eml structured data into record",
                 example: "'From: test@email.com
 Subject: Welcome
 To: someone@somewhere.com
@@ -181,9 +180,8 @@ fn from_eml(
     input: PipelineData,
     preview_body: Option<Spanned<i64>>,
     head: Span,
-    config: &Config,
 ) -> Result<PipelineData, ShellError> {
-    let value = input.collect_string("", config)?;
+    let (value, metadata) = input.collect_string_strict(head)?;
 
     let body_preview = preview_body
         .map(|b| b.item as usize)
@@ -235,7 +233,7 @@ fn from_eml(
             item: collected,
             span: head,
         }),
-        None,
+        metadata,
     ))
 }
 

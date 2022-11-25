@@ -53,6 +53,20 @@ impl RawStream {
 
         Ok(Spanned { item: output, span })
     }
+
+    pub fn chain(self, stream: RawStream) -> RawStream {
+        RawStream {
+            stream: Box::new(self.stream.chain(stream.stream)),
+            leftover: self
+                .leftover
+                .into_iter()
+                .chain(stream.leftover.into_iter())
+                .collect(),
+            ctrlc: self.ctrlc,
+            is_binary: self.is_binary,
+            span: self.span,
+        }
+    }
 }
 impl Debug for RawStream {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {

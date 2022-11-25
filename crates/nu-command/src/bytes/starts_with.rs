@@ -1,19 +1,19 @@
-use super::{operate, BytesArgument};
+use crate::input_handler::{operate, CmdArgument};
 use nu_engine::CallExt;
 use nu_protocol::ast::Call;
 use nu_protocol::ast::CellPath;
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::Category;
-use nu_protocol::{Example, PipelineData, ShellError, Signature, Span, SyntaxShape, Value};
+use nu_protocol::{Example, PipelineData, ShellError, Signature, Span, SyntaxShape, Type, Value};
 
 struct Arguments {
     pattern: Vec<u8>,
-    column_paths: Option<Vec<CellPath>>,
+    cell_paths: Option<Vec<CellPath>>,
 }
 
-impl BytesArgument for Arguments {
-    fn take_column_paths(&mut self) -> Option<Vec<CellPath>> {
-        self.column_paths.take()
+impl CmdArgument for Arguments {
+    fn take_cell_paths(&mut self) -> Option<Vec<CellPath>> {
+        self.cell_paths.take()
     }
 }
 
@@ -28,11 +28,12 @@ impl Command for BytesStartsWith {
 
     fn signature(&self) -> Signature {
         Signature::build("bytes starts-with")
+            .input_output_types(vec![(Type::Binary, Type::Bool)])
             .required("pattern", SyntaxShape::Binary, "the pattern to match")
             .rest(
                 "rest",
                 SyntaxShape::CellPath,
-                "optionally matches prefix of text by column paths",
+                "for a data structure input, check if bytes at the given cell paths start with the pattern",
             )
             .category(Category::Bytes)
     }
@@ -53,15 +54,11 @@ impl Command for BytesStartsWith {
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
         let pattern: Vec<u8> = call.req(engine_state, stack, 0)?;
-        let column_paths: Vec<CellPath> = call.rest(engine_state, stack, 1)?;
-        let column_paths = if column_paths.is_empty() {
-            None
-        } else {
-            Some(column_paths)
-        };
+        let cell_paths: Vec<CellPath> = call.rest(engine_state, stack, 1)?;
+        let cell_paths = (!cell_paths.is_empty()).then_some(cell_paths);
         let arg = Arguments {
             pattern,
-            column_paths,
+            cell_paths,
         };
         operate(
             starts_with,
@@ -102,10 +99,24 @@ impl Command for BytesStartsWith {
     }
 }
 
-fn starts_with(input: &[u8], Arguments { pattern, .. }: &Arguments, span: Span) -> Value {
-    Value::Bool {
-        val: input.starts_with(pattern),
-        span,
+fn starts_with(val: &Value, args: &Arguments, span: Span) -> Value {
+    match val {
+        Value::Binary {
+            val,
+            span: val_span,
+        } => Value::Bool {
+            val: val.starts_with(&args.pattern),
+            span: *val_span,
+        },
+        other => Value::Error {
+            error: ShellError::UnsupportedInput(
+                format!(
+                    "Input's type is {}. This command only works with bytes.",
+                    other.get_type()
+                ),
+                span,
+            ),
+        },
     }
 }
 

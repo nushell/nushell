@@ -2,7 +2,8 @@ use nu_engine::CallExt;
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
-    Category, Example, IntoPipelineData, PipelineData, ShellError, Signature, SyntaxShape, Value,
+    Category, Example, IntoPipelineData, PipelineData, ShellError, Signature, Span, SyntaxShape,
+    Type, Value,
 };
 use std::{
     sync::atomic::Ordering,
@@ -26,9 +27,14 @@ impl Command for Sleep {
 
     fn signature(&self) -> Signature {
         Signature::build("sleep")
+            .input_output_types(vec![(Type::Nothing, Type::Nothing)])
             .required("duration", SyntaxShape::Duration, "time to sleep")
             .rest("rest", SyntaxShape::Duration, "additional time")
             .category(Category::Platform)
+    }
+
+    fn search_terms(&self) -> Vec<&str> {
+        vec!["delay", "wait", "timer"]
     }
 
     fn run(
@@ -71,18 +77,20 @@ impl Command for Sleep {
             Example {
                 description: "Sleep for 1sec",
                 example: "sleep 1sec",
-                result: None,
+                result: Some(Value::Nothing {
+                    span: Span::test_data(),
+                }),
             },
-            Example {
-                description: "Sleep for 3sec",
-                example: "sleep 1sec 1sec 1sec",
-                result: None,
-            },
-            Example {
-                description: "Send output after 1sec",
-                example: "sleep 1sec; echo done",
-                result: Some(Value::test_string("done")),
-            },
+            // Example {
+            //     description: "Sleep for 3sec",
+            //     example: "sleep 1sec 1sec 1sec",
+            //     result: None,
+            // },
+            // Example {
+            //     description: "Send output after 1sec",
+            //     example: "sleep 1sec; echo done",
+            //     result: None,
+            // },
         ]
     }
 }

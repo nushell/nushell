@@ -3,7 +3,7 @@ use nu_protocol::ast::{Call, CellPath};
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
     Category, Example, FromValue, IntoInterruptiblePipelineData, IntoPipelineData, PipelineData,
-    ShellError, Signature, Span, SyntaxShape, Value,
+    ShellError, Signature, Span, SyntaxShape, Type, Value,
 };
 
 #[derive(Clone)]
@@ -16,6 +16,7 @@ impl Command for DropColumn {
 
     fn signature(&self) -> Signature {
         Signature::build(self.name())
+            .input_output_types(vec![(Type::Table(vec![]), Type::Table(vec![]))])
             .optional(
                 "columns",
                 SyntaxShape::Int,
@@ -25,7 +26,7 @@ impl Command for DropColumn {
     }
 
     fn usage(&self) -> &str {
-        "Remove the last number of columns. If you want to remove columns by name, try 'reject'."
+        "Remove N columns at the right-hand end of the input table. To remove columns by name, use 'reject'."
     }
 
     fn search_terms(&self) -> Vec<&str> {

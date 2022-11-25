@@ -1,11 +1,11 @@
-use log::trace;
+use crate::repl::eval_hook;
 use nu_engine::eval_block;
 use nu_parser::{escape_quote_string, lex, parse, unescape_unquote_string, Token, TokenContents};
 use nu_protocol::engine::StateWorkingSet;
 use nu_protocol::CliError;
 use nu_protocol::{
     engine::{EngineState, Stack},
-    PipelineData, ShellError, Span, Value,
+    print_if_stream, PipelineData, ShellError, Span, Value,
 };
 #[cfg(windows)]
 use nu_utils::enable_vt_processing;
@@ -204,8 +204,6 @@ pub fn eval_source(
     fname: &str,
     input: PipelineData,
 ) -> bool {
-    trace!("eval_source");
-
     let (block, delta) = {
         let mut working_set = StateWorkingSet::new(engine_state);
         let (output, err) = parse(
@@ -232,7 +230,30 @@ pub fn eval_source(
 
     match eval_block(engine_state, stack, &block, input, false, false) {
         Ok(pipeline_data) => {
-            match pipeline_data.print(engine_state, stack, false, false) {
+            let config = engine_state.get_config();
+            let result;
+            if let PipelineData::ExternalStream {
+                stdout: stream,
+                stderr: stderr_stream,
+                exit_code,
+                ..
+            } = pipeline_data
+            {
+                result = print_if_stream(stream, stderr_stream, false, exit_code);
+            } else if let Some(hook) = config.hooks.display_output.clone() {
+                match eval_hook(engine_state, stack, Some(pipeline_data), vec![], &hook) {
+                    Err(err) => {
+                        result = Err(err);
+                    }
+                    Ok(val) => {
+                        result = val.print(engine_state, stack, false, false);
+                    }
+                }
+            } else {
+                result = pipeline_data.print(engine_state, stack, false, false);
+            }
+
+            match result {
                 Err(err) => {
                     let working_set = StateWorkingSet::new(engine_state);
 

@@ -2,7 +2,7 @@ use nu_engine::get_full_help;
 use nu_protocol::{
     ast::Call,
     engine::{Command, EngineState, Stack},
-    Category, IntoPipelineData, PipelineData, Signature, Value,
+    Category, IntoPipelineData, PipelineData, Signature, Type, Value,
 };
 
 #[derive(Clone)]
@@ -14,7 +14,9 @@ impl Command for Url {
     }
 
     fn signature(&self) -> Signature {
-        Signature::build("url").category(Category::Network)
+        Signature::build("url")
+            .input_output_types(vec![(Type::String, Type::String)])
+            .category(Category::Network)
     }
 
     fn usage(&self) -> &str {
@@ -33,7 +35,13 @@ impl Command for Url {
         _input: PipelineData,
     ) -> Result<nu_protocol::PipelineData, nu_protocol::ShellError> {
         Ok(Value::String {
-            val: get_full_help(&Url.signature(), &Url.examples(), engine_state, stack),
+            val: get_full_help(
+                &Url.signature(),
+                &Url.examples(),
+                engine_state,
+                stack,
+                self.is_parser_keyword(),
+            ),
             span: call.head,
         }
         .into_pipeline_data())

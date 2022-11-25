@@ -3,7 +3,7 @@ use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
     Category, Example, IntoPipelineData, PipelineData, ShellError, Signature, Span, SyntaxShape,
-    Value,
+    Type, Value,
 };
 
 #[derive(Clone)]
@@ -16,12 +16,13 @@ impl Command for StrCollect {
 
     fn signature(&self) -> Signature {
         Signature::build("str collect")
+            .input_output_types(vec![(Type::List(Box::new(Type::String)), Type::String)])
             .optional(
                 "separator",
                 SyntaxShape::String,
                 "optional separator to use when creating string",
             )
-            .category(Category::Strings)
+            .category(Category::Deprecated)
     }
 
     fn usage(&self) -> &str {

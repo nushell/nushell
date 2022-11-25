@@ -3,7 +3,7 @@ use nu_protocol::ast::{Call, Expr, Expression};
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
     Category, DataSource, Example, IntoPipelineData, PipelineData, PipelineMetadata, Signature,
-    Span, SyntaxShape, Value,
+    Span, SyntaxShape, Type, Value,
 };
 
 #[derive(Clone)]
@@ -20,6 +20,8 @@ impl Command for Metadata {
 
     fn signature(&self) -> nu_protocol::Signature {
         Signature::build("metadata")
+            .input_output_types(vec![(Type::Nothing, Type::Record(vec![]))])
+            .allow_variants_without_examples(true)
             .optional(
                 "expression",
                 SyntaxShape::Any,
@@ -84,6 +86,15 @@ impl Command for Metadata {
                                 span: head,
                             })
                         }
+                        PipelineMetadata {
+                            data_source: DataSource::HtmlThemes,
+                        } => {
+                            cols.push("source".into());
+                            vals.push(Value::String {
+                                val: "into html --list".into(),
+                                span: head,
+                            })
+                        }
                     }
                 }
 
@@ -143,6 +154,15 @@ fn build_metadata_record(arg: &Value, metadata: &Option<PipelineMetadata>, head:
                 cols.push("source".into());
                 vals.push(Value::String {
                     val: "ls".into(),
+                    span: head,
+                })
+            }
+            PipelineMetadata {
+                data_source: DataSource::HtmlThemes,
+            } => {
+                cols.push("source".into());
+                vals.push(Value::String {
+                    val: "into html --list".into(),
                     span: head,
                 })
             }

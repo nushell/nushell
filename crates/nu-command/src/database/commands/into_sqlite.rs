@@ -4,8 +4,8 @@ use nu_engine::CallExt;
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
-    Category, Config, Example, IntoPipelineData, PipelineData, ShellError, Signature, Span,
-    Spanned, SyntaxShape, Type, Value,
+    Category, Example, IntoPipelineData, PipelineData, ShellError, Signature, Span, Spanned,
+    SyntaxShape, Type, Value,
 };
 use std::iter;
 use std::path::Path;
@@ -45,7 +45,7 @@ impl Command for IntoSqliteDb {
     }
 
     fn usage(&self) -> &str {
-        "Convert table into a sqlite database"
+        "Convert table into a SQLite database"
     }
 
     fn search_terms(&self) -> Vec<&str> {
@@ -54,22 +54,22 @@ impl Command for IntoSqliteDb {
 
     fn examples(&self) -> Vec<Example> {
         vec![Example {
-            description: "Convert ls entries into a sqlite database with 'main' as the table name",
+            description: "Convert ls entries into a SQLite database with 'main' as the table name",
             example: "ls | into sqlite my_ls.db",
             result: None,
         },
         Example {
-            description: "Convert ls entries into a sqlite database with 'my_table' as the table name",
+            description: "Convert ls entries into a SQLite database with 'my_table' as the table name",
             example: "ls | into sqlite my_ls.db -t my_table",
             result: None,
         },
         Example {
-            description: "Convert table literal into a sqlite database with 'main' as the table name",
+            description: "Convert table literal into a SQLite database with 'main' as the table name",
             example: "[[name]; [-----] [someone] [=====] [somename] ['(((((']] | into sqlite filename.db",
             result: None,
         },
         Example {
-            description: "Convert a variety of values in table literal form into a sqlite database",
+            description: "Convert a variety of values in table literal form into a SQLite database",
             example: "[one 2 5.2 six true 100mib 25sec] | into sqlite variety.db",
             result: None,
         }]
@@ -83,14 +83,13 @@ fn operate(
     input: PipelineData,
 ) -> Result<PipelineData, ShellError> {
     let span = call.head;
-    let config = engine_state.get_config();
     let file_name: Spanned<String> = call.req(engine_state, stack, 0)?;
     let table_name: Option<Spanned<String>> = call.get_flag(engine_state, stack, "table_name")?;
 
     // collect the input into a value
     let table_entries = input.into_value(span);
 
-    match action(&table_entries, table_name, file_name, config, span) {
+    match action(&table_entries, table_name, file_name, span) {
         Ok(val) => Ok(val.into_pipeline_data()),
         Err(e) => Err(e),
     }
@@ -100,7 +99,6 @@ fn action(
     input: &Value,
     table: Option<Spanned<String>>,
     file: Spanned<String>,
-    config: &Config,
     span: Span,
 ) -> Result<Value, ShellError> {
     let table_name = if let Some(table_name) = table {
@@ -133,10 +131,7 @@ fn action(
                             } => {
                                 vals.iter()
                                     .map(|rec_val| {
-                                        format!(
-                                            "'{}'",
-                                            nu_value_to_string(rec_val.clone(), "", config)
-                                        )
+                                        format!("'{}'", nu_value_to_string(rec_val.clone(), ""))
                                     })
                                     .join(",")
                             }
@@ -145,10 +140,10 @@ fn action(
                             | Value::Float { val: _, span: _ }
                             | Value::Filesize { val: _, span: _ }
                             | Value::Duration { val: _, span: _ } =>
-                                nu_value_to_string(list_value.clone(), "", config),
+                                nu_value_to_string(list_value.clone(), ""),
                             _ =>
                             // String formats so add quotes around them
-                                format!("'{}'", nu_value_to_string(list_value.clone(), "", config)),
+                                format!("'{}'", nu_value_to_string(list_value.clone(), "")),
                         }
                     )
                 })
@@ -231,7 +226,7 @@ fn action(
 }
 
 // This is taken from to text local_into_string but tweaks it a bit so that certain formatting does not happen
-fn nu_value_to_string(value: Value, separator: &str, config: &Config) -> String {
+fn nu_value_to_string(value: Value, separator: &str) -> String {
     match value {
         Value::Bool { val, .. } => val.to_string(),
         Value::Int { val, .. } => val.to_string(),
@@ -242,33 +237,28 @@ fn nu_value_to_string(value: Value, separator: &str, config: &Config) -> String 
         Value::Range { val, .. } => {
             format!(
                 "{}..{}",
-                nu_value_to_string(val.from, ", ", config),
-                nu_value_to_string(val.to, ", ", config)
+                nu_value_to_string(val.from, ", "),
+                nu_value_to_string(val.to, ", ")
             )
         }
         Value::String { val, .. } => {
             // don't store ansi escape sequences in the database
-            let stripped = {
-                match strip_ansi_escapes::strip(&val) {
-                    Ok(item) => String::from_utf8(item).unwrap_or(val),
-                    Err(_) => val,
-                }
-            };
             // escape single quotes
-            stripped.replace('\'', "''")
+            nu_utils::strip_ansi_unlikely(&val).replace('\'', "''")
         }
         Value::List { vals: val, .. } => val
             .iter()
-            .map(|x| nu_value_to_string(x.clone(), ", ", config))
+            .map(|x| nu_value_to_string(x.clone(), ", "))
             .collect::<Vec<_>>()
             .join(separator),
         Value::Record { cols, vals, .. } => cols
             .iter()
             .zip(vals.iter())
-            .map(|(x, y)| format!("{}: {}", x, nu_value_to_string(y.clone(), ", ", config)))
+            .map(|(x, y)| format!("{}: {}", x, nu_value_to_string(y.clone(), ", ")))
             .collect::<Vec<_>>()
             .join(separator),
         Value::Block { val, .. } => format!("<Block {}>", val),
+        Value::Closure { val, .. } => format!("<Closure {}>", val),
         Value::Nothing { .. } => String::new(),
         Value::Error { error } => format!("{:?}", error),
         Value::Binary { val, .. } => format!("{:?}", val),

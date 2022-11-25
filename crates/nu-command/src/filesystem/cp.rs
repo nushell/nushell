@@ -25,7 +25,6 @@ const GLOB_PARAMS: nu_glob::MatchOptions = nu_glob::MatchOptions {
 #[derive(Clone)]
 pub struct Cp;
 
-#[allow(unused_must_use)]
 impl Command for Cp {
     fn name(&self) -> &str {
         "cp"
@@ -74,10 +73,7 @@ impl Command for Cp {
         let src: Spanned<String> = call.req(engine_state, stack, 0)?;
         let src = {
             Spanned {
-                item: match strip_ansi_escapes::strip(&src.item) {
-                    Ok(item) => String::from_utf8(item).unwrap_or(src.item),
-                    Err(_) => src.item,
-                },
+                item: nu_utils::strip_ansi_string_unlikely(src.item),
                 span: src.span,
             }
         };

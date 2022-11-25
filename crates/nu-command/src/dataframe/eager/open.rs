@@ -213,6 +213,7 @@ fn from_ipc(
             cache: true,
             rechunk: false,
             row_count: None,
+            memmap: true,
         };
 
         let df: NuLazyFrame = LazyFrame::scan_ipc(file, args)

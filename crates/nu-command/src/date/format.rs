@@ -4,7 +4,8 @@ use nu_engine::CallExt;
 use nu_protocol::{
     ast::Call,
     engine::{Command, EngineState, Stack},
-    Category, Example, PipelineData, ShellError, Signature, Span, Spanned, SyntaxShape, Value,
+    Category, Example, PipelineData, ShellError, Signature, Span, Spanned, SyntaxShape, Type,
+    Value,
 };
 use nu_utils::locale::get_system_locale_string;
 use std::fmt::{Display, Write};
@@ -21,6 +22,11 @@ impl Command for SubCommand {
 
     fn signature(&self) -> Signature {
         Signature::build("date format")
+            .input_output_types(vec![
+                (Type::Date, Type::String),
+                (Type::String, Type::String),
+            ])
+            .allow_variants_without_examples(true) // https://github.com/nushell/nushell/issues/7032
             .switch("list", "lists strftime cheatsheet", Some('l'))
             .optional(
                 "format string",
@@ -55,6 +61,13 @@ impl Command for SubCommand {
 
         let format = call.opt::<Spanned<String>>(engine_state, stack, 0)?;
 
+        if input.is_nothing() {
+            return Err(ShellError::UnsupportedInput(
+                "Input was nothing. You must pipe an input to this command.".into(),
+                head,
+            ));
+        }
+
         input.map(
             move |value| match &format {
                 Some(format) => format_helper(value, format.item.as_str(), format.span, head),
@@ -66,8 +79,18 @@ impl Command for SubCommand {
 
     fn examples(&self) -> Vec<Example> {
         vec![
+            // TODO: This should work but does not; see https://github.com/nushell/nushell/issues/7032
+            // Example {
+            //     description: "Format a given date-time using the default format (RFC 2822).",
+            //     example: r#"'2021-10-22 20:00:12 +01:00' | into datetime | date format"#,
+            //     result: Some(Value::String {
+            //         val: "Fri, 22 Oct 2021 20:00:12 +0100".to_string(),
+            //         span: Span::test_data(),
+            //     }),
+            // },
             Example {
-                description: "Format a given date using the default format (RFC 2822).",
+                description:
+                    "Format a given date-time as a string using the default format (RFC 2822).",
                 example: r#""2021-10-22 20:00:12 +01:00" | date format"#,
                 result: Some(Value::String {
                     val: "Fri, 22 Oct 2021 20:00:12 +0100".to_string(),
@@ -75,19 +98,22 @@ impl Command for SubCommand {
                 }),
             },
             Example {
-                description: "Format a given date using a given format string.",
-                example: "date format '%Y-%m-%d'",
+                description: "Format the current date-time using a given format string.",
+                example: r#"date now | date format "%Y-%m-%d %H:%M:%S""#,
                 result: None,
             },
             Example {
-                description: "Format a given date using a given format string.",
-                example: r#"date format "%Y-%m-%d %H:%M:%S""#,
+                description: "Format the current date using a given format string.",
+                example: r#"date now | date format "%Y-%m-%d %H:%M:%S""#,
                 result: None,
             },
             Example {
                 description: "Format a given date using a given format string.",
                 example: r#""2021-10-22 20:00:12 +01:00" | date format "%Y-%m-%d""#,
-                result: None,
+                result: Some(Value::String {
+                    val: "2021-10-22".to_string(),
+                    span: Span::test_data(),
+                }),
             },
         ]
     }
@@ -128,10 +154,6 @@ fn format_helper(value: Value, formatter: &str, formatter_span: Span, head_span:
                 Err(e) => e,
             }
         }
-        Value::Nothing { .. } => {
-            let dt = Local::now();
-            format_from(dt, formatter, formatter_span)
-        }
         _ => Value::Error {
             error: ShellError::DatetimeParseError(head_span),
         },
@@ -155,13 +177,6 @@ fn format_helper_rfc2822(value: Value, span: Span) -> Value {
                     span,
                 },
                 Err(e) => e,
-            }
-        }
-        Value::Nothing { span: _ } => {
-            let dt = Local::now();
-            Value::String {
-                val: dt.with_timezone(dt.offset()).to_rfc2822(),
-                span,
             }
         }
         _ => Value::Error {

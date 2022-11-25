@@ -2,8 +2,8 @@ use itertools::Itertools;
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
-    Category, Config, Example, IntoPipelineData, PipelineData, ShellError, Signature, Span,
-    Spanned, Value,
+    Category, Example, IntoPipelineData, PipelineData, ShellError, Signature, Span, Spanned, Type,
+    Value,
 };
 use serde::de::Deserialize;
 use std::collections::HashMap;
@@ -17,7 +17,9 @@ impl Command for FromYaml {
     }
 
     fn signature(&self) -> Signature {
-        Signature::build("from yaml").category(Category::Formats)
+        Signature::build("from yaml")
+            .input_output_types(vec![(Type::String, Type::Any)])
+            .category(Category::Formats)
     }
 
     fn usage(&self) -> &str {
@@ -30,14 +32,13 @@ impl Command for FromYaml {
 
     fn run(
         &self,
-        engine_state: &EngineState,
+        _engine_state: &EngineState,
         _stack: &mut Stack,
         call: &Call,
         input: PipelineData,
     ) -> Result<nu_protocol::PipelineData, ShellError> {
         let head = call.head;
-        let config = engine_state.get_config();
-        from_yaml(input, head, config)
+        from_yaml(input, head)
     }
 }
 
@@ -59,14 +60,13 @@ impl Command for FromYml {
 
     fn run(
         &self,
-        engine_state: &EngineState,
+        _engine_state: &EngineState,
         _stack: &mut Stack,
         call: &Call,
         input: PipelineData,
     ) -> Result<nu_protocol::PipelineData, ShellError> {
         let head = call.head;
-        let config = engine_state.get_config();
-        from_yaml(input, head, config)
+        from_yaml(input, head)
     }
 
     fn examples(&self) -> Vec<Example> {
@@ -213,11 +213,11 @@ pub fn get_examples() -> Vec<Example> {
     ]
 }
 
-fn from_yaml(input: PipelineData, head: Span, config: &Config) -> Result<PipelineData, ShellError> {
-    let concat_string = input.collect_string("", config)?;
+fn from_yaml(input: PipelineData, head: Span) -> Result<PipelineData, ShellError> {
+    let (concat_string, metadata) = input.collect_string_strict(head)?;
 
     match from_yaml_string_to_value(concat_string, head) {
-        Ok(x) => Ok(x.into_pipeline_data()),
+        Ok(x) => Ok(x.into_pipeline_data_with_metadata(metadata)),
         Err(other) => Err(other),
     }
 }
@@ -225,6 +225,7 @@ fn from_yaml(input: PipelineData, head: Span, config: &Config) -> Result<Pipelin
 #[cfg(test)]
 mod test {
     use super::*;
+    use nu_protocol::Config;
 
     #[test]
     fn test_problematic_yaml() {

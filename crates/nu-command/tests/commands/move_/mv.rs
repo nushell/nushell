@@ -23,7 +23,7 @@ fn moves_a_file() {
 }
 
 #[test]
-fn overwrites_if_moving_to_existing_file() {
+fn overwrites_if_moving_to_existing_file_and_force_provided() {
     Playground::setup("mv_test_2", |dirs, sandbox| {
         sandbox.with_files(vec![EmptyFile("andres.txt"), EmptyFile("jonathan.txt")]);
 
@@ -32,7 +32,7 @@ fn overwrites_if_moving_to_existing_file() {
 
         nu!(
             cwd: dirs.test(),
-            "mv andres.txt jonathan.txt"
+            "mv andres.txt -f jonathan.txt"
         );
 
         assert!(!original.exists());
@@ -204,6 +204,19 @@ fn errors_if_source_doesnt_exist() {
             "mv non-existing-file test_folder/"
         );
         assert!(actual.err.contains("invalid file or pattern"));
+    })
+}
+
+#[test]
+fn error_if_moving_to_existing_file_without_force() {
+    Playground::setup("mv_test_10_0", |dirs, sandbox| {
+        sandbox.with_files(vec![EmptyFile("andres.txt"), EmptyFile("jonathan.txt")]);
+
+        let actual = nu!(
+            cwd: dirs.test(),
+            "mv andres.txt jonathan.txt"
+        );
+        assert!(actual.err.contains("file already exists"))
     })
 }
 
@@ -390,7 +403,7 @@ fn mv_directory_with_same_name() {
             "#
         );
 
-        assert!(actual.err.contains("Directory not empty"));
+        assert!(actual.err.contains("is not empty"));
     })
 }
 
@@ -438,7 +451,7 @@ fn mv_change_case_of_file() {
 
         nu!(
             cwd: dirs.test(),
-            format!("mv {original_file_name} {new_file_name}")
+            format!("mv {original_file_name} -f {new_file_name}")
         );
 
         // Doing this instead of `Path::exists()` because we need to check file existence in

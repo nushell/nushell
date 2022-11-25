@@ -46,8 +46,11 @@ pub enum SyntaxShape {
     /// A binary literal
     Binary,
 
+    /// A closure is allowed, eg `{|| start this thing}`
+    Closure(Option<Vec<SyntaxShape>>),
+
     /// A block is allowed, eg `{start this thing}`
-    Block(Option<Vec<SyntaxShape>>),
+    Block,
 
     /// A table is allowed, eg `[[first, second]; [1, 2]]`
     Table,
@@ -97,13 +100,17 @@ pub enum SyntaxShape {
 
     /// A custom shape with custom completion logic
     Custom(Box<SyntaxShape>, DeclId),
+
+    /// Nothing
+    Nothing,
 }
 
 impl SyntaxShape {
     pub fn to_type(&self) -> Type {
         match self {
             SyntaxShape::Any => Type::Any,
-            SyntaxShape::Block(_) => Type::Block,
+            SyntaxShape::Block => Type::Block,
+            SyntaxShape::Closure(_) => Type::Closure,
             SyntaxShape::Binary => Type::Binary,
             SyntaxShape::CellPath => Type::Any,
             SyntaxShape::Custom(custom, _) => custom.to_type(),
@@ -127,14 +134,15 @@ impl SyntaxShape {
             SyntaxShape::Number => Type::Number,
             SyntaxShape::Operator => Type::Any,
             SyntaxShape::Range => Type::Any,
-            SyntaxShape::Record => Type::Record(vec![]), // FIXME: Add actual record type
+            SyntaxShape::Record => Type::Record(vec![]), // FIXME: What role should fields play in the Record type?
             SyntaxShape::RowCondition => Type::Bool,
             SyntaxShape::Boolean => Type::Bool,
             SyntaxShape::Signature => Type::Signature,
             SyntaxShape::String => Type::String,
-            SyntaxShape::Table => Type::List(Box::new(Type::Any)), // FIXME: Tables should have better types
+            SyntaxShape::Table => Type::List(Box::new(Type::Any)), // FIXME:  What role should columns play in the Table type?
             SyntaxShape::VarWithOptType => Type::Any,
             SyntaxShape::Variable => Type::Any,
+            SyntaxShape::Nothing => Type::Any,
         }
     }
 }
@@ -156,7 +164,8 @@ impl Display for SyntaxShape {
             SyntaxShape::Directory => write!(f, "directory"),
             SyntaxShape::GlobPattern => write!(f, "glob"),
             SyntaxShape::ImportPattern => write!(f, "import"),
-            SyntaxShape::Block(_) => write!(f, "block"),
+            SyntaxShape::Block => write!(f, "block"),
+            SyntaxShape::Closure(_) => write!(f, "closure"),
             SyntaxShape::Binary => write!(f, "binary"),
             SyntaxShape::Table => write!(f, "table"),
             SyntaxShape::List(x) => write!(f, "list<{}>", x),
@@ -174,6 +183,7 @@ impl Display for SyntaxShape {
             SyntaxShape::Boolean => write!(f, "bool"),
             SyntaxShape::Error => write!(f, "error"),
             SyntaxShape::Custom(x, _) => write!(f, "custom<{}>", x),
+            SyntaxShape::Nothing => write!(f, "nothing"),
         }
     }
 }

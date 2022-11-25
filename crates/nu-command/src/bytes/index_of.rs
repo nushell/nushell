@@ -1,21 +1,21 @@
-use super::{operate, BytesArgument};
+use crate::input_handler::{operate, CmdArgument};
 use nu_engine::CallExt;
 use nu_protocol::ast::{Call, CellPath};
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
-    Category, Example, PipelineData, ShellError, Signature, Span, SyntaxShape, Value,
+    Category, Example, PipelineData, ShellError, Signature, Span, SyntaxShape, Type, Value,
 };
 
 struct Arguments {
     pattern: Vec<u8>,
     end: bool,
     all: bool,
-    column_paths: Option<Vec<CellPath>>,
+    cell_paths: Option<Vec<CellPath>>,
 }
 
-impl BytesArgument for Arguments {
-    fn take_column_paths(&mut self) -> Option<Vec<CellPath>> {
-        self.column_paths.take()
+impl CmdArgument for Arguments {
+    fn take_cell_paths(&mut self) -> Option<Vec<CellPath>> {
+        self.cell_paths.take()
     }
 }
 
@@ -29,6 +29,10 @@ impl Command for BytesIndexOf {
 
     fn signature(&self) -> Signature {
         Signature::build("bytes index-of")
+            .input_output_types(vec![
+                (Type::Binary, Type::Int),
+                (Type::Binary, Type::List(Box::new(Type::Int))),
+            ])
             .required(
                 "pattern",
                 SyntaxShape::Binary,
@@ -37,7 +41,7 @@ impl Command for BytesIndexOf {
             .rest(
                 "rest",
                 SyntaxShape::CellPath,
-                "optionally returns index of pattern in string by column paths",
+                "for a data structure input, find the indexes at the given cell paths",
             )
             .switch("all", "returns all matched index", Some('a'))
             .switch("end", "search from the end of the binary", Some('e'))
@@ -60,17 +64,13 @@ impl Command for BytesIndexOf {
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
         let pattern: Vec<u8> = call.req(engine_state, stack, 0)?;
-        let column_paths: Vec<CellPath> = call.rest(engine_state, stack, 1)?;
-        let column_paths = if column_paths.is_empty() {
-            None
-        } else {
-            Some(column_paths)
-        };
+        let cell_paths: Vec<CellPath> = call.rest(engine_state, stack, 1)?;
+        let cell_paths = (!cell_paths.is_empty()).then_some(cell_paths);
         let arg = Arguments {
             pattern,
             end: call.has_flag("end"),
             all: call.has_flag("all"),
-            column_paths,
+            cell_paths,
         };
         operate(index_of, arg, input, call.head, engine_state.ctrlc.clone())
     }
@@ -126,7 +126,25 @@ impl Command for BytesIndexOf {
     }
 }
 
-fn index_of(input: &[u8], arg: &Arguments, span: Span) -> Value {
+fn index_of(val: &Value, args: &Arguments, span: Span) -> Value {
+    match val {
+        Value::Binary {
+            val,
+            span: val_span,
+        } => index_of_impl(val, args, *val_span),
+        other => Value::Error {
+            error: ShellError::UnsupportedInput(
+                format!(
+                    "Input's type is {}. This command only works with bytes.",
+                    other.get_type()
+                ),
+                span,
+            ),
+        },
+    }
+}
+
+fn index_of_impl(input: &[u8], arg: &Arguments, span: Span) -> Value {
     if arg.all {
         search_all_index(input, &arg.pattern, arg.end, span)
     } else {

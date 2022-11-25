@@ -43,3 +43,63 @@ fn checks_if_any_returns_error_with_invalid_command() {
 
     assert!(actual.err.contains("can't run executable") || actual.err.contains("did you mean"));
 }
+
+#[test]
+fn works_with_1_param_blocks() {
+    let actual = nu!(
+        cwd: ".", pipeline(
+        r#"[1 2 3] | any {|e| print $e | false }"#
+    ));
+
+    assert_eq!(actual.out, "123false");
+}
+
+#[test]
+fn works_with_0_param_blocks() {
+    let actual = nu!(
+        cwd: ".", pipeline(
+        r#"[1 2 3] | any { print $in | false }"#
+    ));
+
+    assert_eq!(actual.out, "123false");
+}
+
+#[test]
+fn early_exits_with_1_param_blocks() {
+    let actual = nu!(
+        cwd: ".", pipeline(
+        r#"[1 2 3] | any {|e| print $e | true }"#
+    ));
+
+    assert_eq!(actual.out, "1true");
+}
+
+#[test]
+fn early_exits_with_0_param_blocks() {
+    let actual = nu!(
+        cwd: ".", pipeline(
+        r#"[1 2 3] | any { print $in | true }"#
+    ));
+
+    assert_eq!(actual.out, "1true");
+}
+
+#[test]
+fn uses_optional_index_argument() {
+    let actual = nu!(
+        cwd: ".", pipeline(
+        r#"[7 8 9] | any {|el ind| print $ind | false }"#
+    ));
+
+    assert_eq!(actual.out, "012false");
+}
+
+#[test]
+fn unique_env_each_iteration() {
+    let actual = nu!(
+        cwd: "tests/fixtures/formats",
+        "[1 2] | any { print ($env.PWD | str ends-with 'formats') | cd '/' | false } | to nuon"
+    );
+
+    assert_eq!(actual.out, "truetruefalse");
+}

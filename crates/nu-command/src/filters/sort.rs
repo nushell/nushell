@@ -2,7 +2,7 @@ use nu_protocol::{
     ast::Call,
     engine::{Command, EngineState, Stack},
     Category, Example, IntoInterruptiblePipelineData, IntoPipelineData, PipelineData, ShellError,
-    Signature, Span, Value,
+    Signature, Span, Type, Value,
 };
 use std::cmp::Ordering;
 
@@ -16,9 +16,13 @@ impl Command for Sort {
 
     fn signature(&self) -> nu_protocol::Signature {
         Signature::build("sort")
-            .switch("reverse", "Sort in reverse order", Some('r'))
+        .input_output_types(vec![(
+            Type::List(Box::new(Type::Any)),
+            Type::List(Box::new(Type::Any)),
+        ), (Type::Record(vec![]), Type::Record(vec![])),])
+    .switch("reverse", "Sort in reverse order", Some('r'))
             .switch(
-                "insensitive",
+                "ignore-case",
                 "Sort string-based columns case-insensitively",
                 Some('i'),
             )
@@ -129,7 +133,7 @@ impl Command for Sort {
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
         let reverse = call.has_flag("reverse");
-        let insensitive = call.has_flag("insensitive");
+        let insensitive = call.has_flag("ignore-case");
         let metadata = &input.metadata();
 
         match input {
@@ -288,6 +292,9 @@ pub fn process(
 
 #[cfg(test)]
 mod test {
+
+    use nu_protocol::engine::CommandType;
+
     use super::*;
 
     #[test]
@@ -295,5 +302,10 @@ mod test {
         use crate::test_examples;
 
         test_examples(Sort {})
+    }
+
+    #[test]
+    fn test_command_type() {
+        assert!(matches!(Sort.command_type(), CommandType::Builtin));
     }
 }

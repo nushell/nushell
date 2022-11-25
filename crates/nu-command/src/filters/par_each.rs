@@ -1,9 +1,9 @@
-use nu_engine::{eval_block, CallExt};
+use nu_engine::{eval_block_with_early_return, CallExt};
 use nu_protocol::ast::Call;
-use nu_protocol::engine::{CaptureBlock, Command, EngineState, Stack};
+use nu_protocol::engine::{Closure, Command, EngineState, Stack};
 use nu_protocol::{
     Category, Example, IntoInterruptiblePipelineData, IntoPipelineData, PipelineData, Signature,
-    Span, SyntaxShape, Value,
+    Span, SyntaxShape, Type, Value,
 };
 use rayon::prelude::*;
 
@@ -18,25 +18,34 @@ impl Command for ParEach {
     }
 
     fn usage(&self) -> &str {
-        "Run a block on each element of input in parallel"
+        "Run a closure on each row of the input list in parallel, creating a new list with the results."
     }
 
     fn signature(&self) -> nu_protocol::Signature {
         Signature::build("par-each")
+            .input_output_types(vec![(
+                Type::List(Box::new(Type::Any)),
+                Type::List(Box::new(Type::Any)),
+            )])
             .required(
-                "block",
-                SyntaxShape::Block(Some(vec![SyntaxShape::Any])),
-                "the block to run",
+                "closure",
+                SyntaxShape::Closure(Some(vec![SyntaxShape::Any, SyntaxShape::Int])),
+                "the closure to run",
             )
-            .switch("numbered", "iterate with an index", Some('n'))
+            .switch(
+                "numbered",
+                "iterate with an index (deprecated; use a two-parameter block instead)",
+                Some('n'),
+            )
             .category(Category::Filters)
     }
 
     fn examples(&self) -> Vec<Example> {
         vec![
             Example {
-                example: "[1 2 3] | par-each { |it| 2 * $it }",
-                description: "Multiplies elements in list",
+                example: "[1 2 3] | par-each { 2 * $in }",
+                description:
+                    "Multiplies each number. Note that the list will become arbitrarily disordered.",
                 result: None,
             },
             Example {
@@ -60,12 +69,11 @@ impl Command for ParEach {
         call: &Call,
         input: PipelineData,
     ) -> Result<nu_protocol::PipelineData, nu_protocol::ShellError> {
-        let capture_block: CaptureBlock = call.req(engine_state, stack, 0)?;
+        let capture_block: Closure = call.req(engine_state, stack, 0)?;
 
         let numbered = call.has_flag("numbered");
         let metadata = input.metadata();
         let ctrlc = engine_state.ctrlc.clone();
-        let engine_state = engine_state.clone();
         let block_id = capture_block.block_id;
         let mut stack = stack.captures_to_stack(&capture_block.captures);
         let span = call.head;
@@ -104,10 +112,22 @@ impl Command for ParEach {
                             }
                         }
                     }
+                    // Optional second index argument
+                    if let Some(var) = block.signature.get_positional(1) {
+                        if let Some(var_id) = &var.var_id {
+                            stack.add_var(
+                                *var_id,
+                                Value::Int {
+                                    val: idx as i64,
+                                    span,
+                                },
+                            );
+                        }
+                    }
 
                     let val_span = x.span();
-                    match eval_block(
-                        &engine_state,
+                    match eval_block_with_early_return(
+                        engine_state,
                         &mut stack,
                         block,
                         x.into_pipeline_data(),
@@ -156,10 +176,22 @@ impl Command for ParEach {
                             }
                         }
                     }
+                    // Optional second index argument
+                    if let Some(var) = block.signature.get_positional(1) {
+                        if let Some(var_id) = &var.var_id {
+                            stack.add_var(
+                                *var_id,
+                                Value::Int {
+                                    val: idx as i64,
+                                    span,
+                                },
+                            );
+                        }
+                    }
 
                     let val_span = x.span();
-                    match eval_block(
-                        &engine_state,
+                    match eval_block_with_early_return(
+                        engine_state,
                         &mut stack,
                         block,
                         x.into_pipeline_data(),
@@ -207,10 +239,22 @@ impl Command for ParEach {
                             }
                         }
                     }
+                    // Optional second index argument
+                    if let Some(var) = block.signature.get_positional(1) {
+                        if let Some(var_id) = &var.var_id {
+                            stack.add_var(
+                                *var_id,
+                                Value::Int {
+                                    val: idx as i64,
+                                    span,
+                                },
+                            );
+                        }
+                    }
 
                     let val_span = x.span();
-                    match eval_block(
-                        &engine_state,
+                    match eval_block_with_early_return(
+                        engine_state,
                         &mut stack,
                         block,
                         x.into_pipeline_data(),
@@ -267,9 +311,21 @@ impl Command for ParEach {
                             }
                         }
                     }
+                    // Optional second index argument
+                    if let Some(var) = block.signature.get_positional(1) {
+                        if let Some(var_id) = &var.var_id {
+                            stack.add_var(
+                                *var_id,
+                                Value::Int {
+                                    val: idx as i64,
+                                    span,
+                                },
+                            );
+                        }
+                    }
 
-                    match eval_block(
-                        &engine_state,
+                    match eval_block_with_early_return(
+                        engine_state,
                         &mut stack,
                         block,
                         x.into_pipeline_data(),
@@ -284,6 +340,8 @@ impl Command for ParEach {
                 .into_iter()
                 .flatten()
                 .into_pipeline_data(ctrlc)),
+            // This match allows non-iterables to be accepted,
+            // which is currently considered undesirable (Nov 2022).
             PipelineData::Value(x, ..) => {
                 let block = engine_state.get_block(block_id);
 
@@ -293,8 +351,8 @@ impl Command for ParEach {
                     }
                 }
 
-                eval_block(
-                    &engine_state,
+                eval_block_with_early_return(
+                    engine_state,
                     &mut stack,
                     block,
                     x.into_pipeline_data(),
@@ -310,6 +368,17 @@ impl Command for ParEach {
 #[cfg(test)]
 mod test {
     use super::*;
+    use nu_test_support::{nu, pipeline};
+
+    #[test]
+    fn uses_optional_index_argument() {
+        let actual = nu!(
+            cwd: ".", pipeline(
+            r#"[7,8,9,10] | par-each {|el ind| $ind } | describe"#
+        ));
+
+        assert_eq!(actual.out, "list<int>");
+    }
 
     #[test]
     fn test_examples() {

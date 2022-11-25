@@ -4,7 +4,7 @@ use lazy_static::lazy_static;
 use nu_engine::CallExt;
 use nu_protocol::{
     ast::Call, engine::Command, Category, Example, IntoInterruptiblePipelineData, IntoPipelineData,
-    PipelineData, ShellError, Signature, Span, SyntaxShape, Value,
+    PipelineData, ShellError, Signature, Span, SyntaxShape, Type, Value,
 };
 
 // Character used to separate directories in a Path Environment variable on windows is ";"
@@ -156,6 +156,7 @@ impl Command for Char {
 
     fn signature(&self) -> Signature {
         Signature::build("char")
+            .input_output_types(vec![(Type::Nothing, Type::String)])
             .optional(
                 "character",
                 SyntaxShape::Any,
@@ -184,8 +185,8 @@ impl Command for Char {
                 result: Some(Value::test_string("\n")),
             },
             Example {
-                description: "Output prompt character, newline and a hamburger character",
-                example: r#"echo [(char prompt) (char newline) (char hamburger)] | str join"#,
+                description: "Output prompt character, newline and a hamburger menu character",
+                example: r#"(char prompt) + (char newline) + (char hamburger)"#,
                 result: Some(Value::test_string("\u{25b6}\n\u{2261}")),
             },
             Example {
