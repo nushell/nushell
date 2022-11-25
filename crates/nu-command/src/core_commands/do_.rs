@@ -1,6 +1,7 @@
 use nu_engine::{eval_block_with_early_return, CallExt};
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Closure, Command, EngineState, Stack};
+use nu_protocol::RawStream;
 use nu_protocol::{
     Category, Example, ListStream, PipelineData, ShellError, Signature, SyntaxShape, Type, Value,
 };
@@ -119,6 +120,37 @@ impl Command for Do {
                 trim_end_newline,
             }) if capture_errors => {
                 let mut exit_code_ctrlc = None;
+
+                let stdout_handler = stdout.map(|stdout_stream| {
+                    std::thread::spawn(move || {
+                        let stdout_ctrlc = stdout_stream.ctrlc.clone();
+                        let stdout_span = stdout_stream.span;
+                        let stdout_bytes = match stdout_stream.into_bytes() {
+                            Err(_) => vec![],
+                            Ok(bytes) => bytes.item,
+                        };
+                        RawStream::new(
+                            Box::new(vec![Ok(stdout_bytes)].into_iter()),
+                            stdout_ctrlc,
+                            stdout_span,
+                        )
+                    })
+                });
+
+                let stderr = stderr.map(|stderr_stream| {
+                    let stderr_ctrlc = stderr_stream.ctrlc.clone();
+                    let stderr_span = stderr_stream.span;
+                    let stderr_bytes = match stderr_stream.into_bytes() {
+                        Err(_) => vec![],
+                        Ok(bytes) => bytes.item,
+                    };
+                    RawStream::new(
+                        Box::new(vec![Ok(stderr_bytes)].into_iter()),
+                        stderr_ctrlc,
+                        stderr_span,
+                    )
+                });
+
                 let exit_code: Vec<Value> = match exit_code {
                     None => vec![],
                     Some(exit_code_stream) => {
@@ -140,6 +172,21 @@ impl Command for Do {
                         ));
                     }
                 }
+
+                let stdout = if let Some(h) = stdout_handler {
+                    match h.join() {
+                        Err(err) => {
+                            return Err(ShellError::ExternalCommand(
+                                "Fail to receive external commands stdout message".to_string(),
+                                format!("{err:?}"),
+                                span,
+                            ))
+                        }
+                        Ok(res) => Some(res),
+                    }
+                } else {
+                    None
+                };
 
                 Ok(PipelineData::ExternalStream {
                     stdout,
