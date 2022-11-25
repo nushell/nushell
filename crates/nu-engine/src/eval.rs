@@ -822,6 +822,7 @@ pub fn eval_element_with_input(
     redirect_stdout: bool,
     redirect_stderr: bool,
 ) -> Result<(PipelineData, bool), ShellError> {
+    let mut redirect_both = false;
     match element {
         PipelineElement::Expression(_, expr) => eval_expression_with_input(
             engine_state,
@@ -863,14 +864,17 @@ pub fn eval_element_with_input(
                             trim_end_newline,
                         },
                     ) => match (stdout, stderr) {
-                        (Some(stdout), Some(stderr)) => PipelineData::ExternalStream {
-                            stdout: Some(stdout.chain(stderr)),
-                            stderr: None,
-                            exit_code,
-                            span,
-                            metadata,
-                            trim_end_newline,
-                        },
+                        (Some(stdout), Some(stderr)) => {
+                            redirect_both = true;
+                            PipelineData::ExternalStream {
+                                stdout: Some(stdout),
+                                stderr: Some(stderr),
+                                exit_code,
+                                span,
+                                metadata,
+                                trim_end_newline,
+                            }
+                        }
                         (None, Some(stderr)) => PipelineData::ExternalStream {
                             stdout: Some(stderr),
                             stderr: None,
@@ -900,23 +904,34 @@ pub fn eval_element_with_input(
                 };
 
                 if let Some(save_command) = engine_state.find_decl(b"save", &[]) {
+                    let mut arguments = vec![
+                        Argument::Positional(expr.clone()),
+                        Argument::Named((
+                            Spanned {
+                                item: "raw".into(),
+                                span: *span,
+                            },
+                            None,
+                            None,
+                        )),
+                    ];
+                    if redirect_both {
+                        arguments.push(Argument::Named((
+                            Spanned {
+                                item: "stderr".into(),
+                                span: *span,
+                            },
+                            None,
+                            Some(expr.clone()),
+                        )));
+                    }
                     eval_call(
                         engine_state,
                         stack,
                         &Call {
                             decl_id: save_command,
                             head: *span,
-                            arguments: vec![
-                                Argument::Positional(expr.clone()),
-                                Argument::Named((
-                                    Spanned {
-                                        item: "--raw".into(),
-                                        span: *span,
-                                    },
-                                    None,
-                                    None,
-                                )),
-                            ],
+                            arguments,
                             redirect_stdout: false,
                             redirect_stderr: false,
                         },
