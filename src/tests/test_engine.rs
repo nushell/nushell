@@ -238,12 +238,12 @@ fn datetime_literal() -> TestResult {
 
 #[test]
 fn shortcircuiting_and() -> TestResult {
-    run_test(r#"false && (5 / 0; false)"#, "false")
+    run_test(r#"false and (5 / 0; false)"#, "false")
 }
 
 #[test]
 fn shortcircuiting_or() -> TestResult {
-    run_test(r#"true || (5 / 0; false)"#, "true")
+    run_test(r#"true or (5 / 0; false)"#, "true")
 }
 
 #[test]

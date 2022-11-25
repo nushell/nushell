@@ -1215,18 +1215,17 @@ fn parse_binary_with_base(
 
                         binary_value.extend_from_slice(contents);
                     }
-                    TokenContents::Pipe => {
+                    TokenContents::Pipe
+                    | TokenContents::PipePipe
+                    | TokenContents::OutGreaterThan
+                    | TokenContents::ErrGreaterThan
+                    | TokenContents::OutErrGreaterThan => {
                         return (
                             garbage(span),
                             Some(ParseError::Expected("binary".into(), span)),
                         );
                     }
-                    TokenContents::Comment
-                    | TokenContents::Semicolon
-                    | TokenContents::Eol
-                    | TokenContents::OutGreaterThan
-                    | TokenContents::ErrGreaterThan
-                    | TokenContents::OutErrGreaterThan => {}
+                    TokenContents::Comment | TokenContents::Semicolon | TokenContents::Eol => {}
                 }
             }
 
@@ -4122,19 +4121,12 @@ pub fn parse_closure_expression(
             (Some((signature, signature_span)), amt_to_skip)
         }
         Some(Token {
-            contents: TokenContents::Item,
+            contents: TokenContents::PipePipe,
             span,
-        }) => {
-            let contents = working_set.get_span_contents(*span);
-            if contents == b"||" {
-                (
-                    Some((Box::new(Signature::new("closure".to_string())), *span)),
-                    1,
-                )
-            } else {
-                (None, 0)
-            }
-        }
+        }) => (
+            Some((Box::new(Signature::new("closure".to_string())), *span)),
+            1,
+        ),
         _ => (None, 0),
     };
 
@@ -4500,8 +4492,8 @@ pub fn parse_operator(
         b"bit-shr" => Operator::Bits(Bits::ShiftRight),
         b"starts-with" => Operator::Comparison(Comparison::StartsWith),
         b"ends-with" => Operator::Comparison(Comparison::EndsWith),
-        b"&&" | b"and" => Operator::Boolean(Boolean::And),
-        b"||" | b"or" => Operator::Boolean(Boolean::Or),
+        b"and" => Operator::Boolean(Boolean::And),
+        b"or" => Operator::Boolean(Boolean::Or),
         b"**" => Operator::Math(Math::Pow),
         _ => {
             return (
@@ -5868,8 +5860,15 @@ pub fn lite_parse(tokens: &[Token]) -> (LiteBlock, Option<ParseError>) {
 
     let mut curr_comment: Option<Vec<Span>> = None;
 
+    let mut error = None;
+
     for token in tokens.iter() {
         match &token.contents {
+            TokenContents::PipePipe => {
+                error = error.or(Some(ParseError::ShellOrOr(token.span)));
+                curr_command.push(token.span);
+                last_token = TokenContents::Item;
+            }
             TokenContents::Item => {
                 // If we have a comment, go ahead and attach it
                 if let Some(curr_comment) = curr_comment.take() {
@@ -6115,7 +6114,7 @@ pub fn lite_parse(tokens: &[Token]) -> (LiteBlock, Option<ParseError>) {
             )),
         )
     } else {
-        (block, None)
+        (block, error)
     }
 }
 

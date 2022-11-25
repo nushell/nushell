@@ -2,7 +2,7 @@ use crate::tests::{fail_test, run_test, TestResult};
 
 #[test]
 fn chained_operator_typecheck() -> TestResult {
-    run_test("1 != 2 && 3 != 4 && 5 != 6", "true")
+    run_test("1 != 2 and 3 != 4 and 5 != 6", "true")
 }
 
 #[test]

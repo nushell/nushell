@@ -1388,11 +1388,11 @@ mod input_types {
 
         let mut working_set = StateWorkingSet::new(&engine_state);
         let inputs = vec![
-            r#"let a = 'b'; ($a == 'b') || ($a == 'b')"#,
-            r#"let a = 'b'; ($a == 'b') || ($a == 'b') && ($a == 'b')"#,
-            r#"let a = 1; ($a == 1) || ($a == 2) && ($a == 3)"#,
-            r#"let a = 'b'; if ($a == 'b') || ($a == 'b') { true } else { false }"#,
-            r#"let a = 1; if ($a == 1) || ($a > 0) { true } else { false }"#,
+            r#"let a = 'b'; ($a == 'b') or ($a == 'b')"#,
+            r#"let a = 'b'; ($a == 'b') or ($a == 'b') and ($a == 'b')"#,
+            r#"let a = 1; ($a == 1) or ($a == 2) and ($a == 3)"#,
+            r#"let a = 'b'; if ($a == 'b') or ($a == 'b') { true } else { false }"#,
+            r#"let a = 1; if ($a == 1) or ($a > 0) { true } else { false }"#,
         ];
 
         for input in inputs {

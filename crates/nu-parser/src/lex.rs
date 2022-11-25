@@ -6,6 +6,7 @@ pub enum TokenContents {
     Item,
     Comment,
     Pipe,
+    PipePipe,
     Semicolon,
     OutGreaterThan,
     ErrGreaterThan,
@@ -262,6 +263,27 @@ pub fn lex_item(
             },
             None,
         ),
+        b"&&" => (
+            Token {
+                contents: TokenContents::Item,
+                span,
+            },
+            Some(ParseError::ShellAndAnd(span)),
+        ),
+        b"2>" => (
+            Token {
+                contents: TokenContents::Item,
+                span,
+            },
+            Some(ParseError::ShellErrRedirect(span)),
+        ),
+        b"2>&1" => (
+            Token {
+                contents: TokenContents::Item,
+                span,
+            },
+            Some(ParseError::ShellOutErrRedirect(span)),
+        ),
         _ => (
             Token {
                 contents: TokenContents::Item,
@@ -300,7 +322,7 @@ pub fn lex(
                     let idx = curr_offset;
                     curr_offset += 1;
                     output.push(Token::new(
-                        TokenContents::Item,
+                        TokenContents::PipePipe,
                         Span::new(span_offset + prev_idx, span_offset + idx + 1),
                     ));
                     continue;
