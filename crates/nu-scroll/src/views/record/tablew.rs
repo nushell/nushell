@@ -19,12 +19,20 @@ use super::Layout;
 pub struct TableW<'a> {
     columns: Cow<'a, [String]>,
     data: Cow<'a, [Vec<NuText>]>,
-    show_index: bool,
-    show_header: bool,
     index_row: usize,
     index_column: usize,
-    splitline_style: NuStyle,
+    style: TableStyle,
     color_hm: &'a NuStyleTable,
+}
+
+pub struct TableStyle {
+    pub show_index: bool,
+    pub show_header: bool,
+    pub splitline_style: NuStyle,
+    pub header_top: bool,
+    pub header_bottom: bool,
+    pub shift_line: bool,
+    pub index_line: bool,
 }
 
 impl<'a> TableW<'a> {
@@ -32,22 +40,18 @@ impl<'a> TableW<'a> {
     pub fn new(
         columns: impl Into<Cow<'a, [String]>>,
         data: impl Into<Cow<'a, [Vec<NuText>]>>,
-        show_index: bool,
-        show_header: bool,
-        splitline_style: NuStyle,
         color_hm: &'a NuStyleTable,
         index_row: usize,
         index_column: usize,
+        style: TableStyle,
     ) -> Self {
         Self {
             columns: columns.into(),
             data: data.into(),
             color_hm,
-            show_index,
-            show_header,
-            splitline_style,
             index_row,
             index_column,
+            style,
         }
     }
 }
@@ -72,23 +76,31 @@ impl StatefulWidget for TableW<'_> {
         const CELL_PADDING_LEFT: u16 = 2;
         const CELL_PADDING_RIGHT: u16 = 2;
 
-        let show_index = self.show_index;
-        let show_head = self.show_header;
+        let show_index = self.style.show_index;
+        let show_head = self.style.show_header;
+        let splitline_s = self.style.splitline_style;
 
         let mut data_y = area.y;
+        let mut data_height = area.height;
+        let mut head_y = area.y;
         if show_head {
-            data_y += 3;
-        }
+            data_y += 1;
+            data_height -= 1;
 
-        let head_y = area.y + 1;
+            if self.style.header_top {
+                data_y += 1;
+                data_height -= 1;
+                head_y += 1
+            }
+
+            if self.style.header_bottom {
+                data_y += 1;
+                data_height -= 1;
+            }
+        }
 
         if area.width == 0 || area.height == 0 {
             return;
-        }
-
-        let mut data_height = area.height;
-        if show_head {
-            data_height -= 3;
         }
 
         let mut width = area.x;
@@ -101,20 +113,22 @@ impl StatefulWidget for TableW<'_> {
         // header lines
         if show_head {
             // fixme: color from config
-            render_header_borders(buf, area, 0, 1, self.splitline_style);
+            let top = self.style.header_top;
+            let bottom = self.style.header_bottom;
+
+            if top || bottom {
+                render_header_borders(buf, area, 0, 1, splitline_s, top, bottom);
+            }
         }
 
         if show_index {
             let area = Rect::new(width, data_y, area.width, data_height);
             width += render_index(buf, area, self.color_hm, self.index_row);
-            width += render_vertical(
-                buf,
-                width,
-                data_y,
-                data_height,
-                show_head,
-                self.splitline_style,
-            );
+
+            if self.style.index_line {
+                let show_head = show_head && self.style.header_bottom;
+                width += render_vertical(buf, width, data_y, data_height, show_head, splitline_s);
+            }
         }
 
         let mut do_render_split_line = true;
@@ -203,20 +217,14 @@ impl StatefulWidget for TableW<'_> {
 
             if show_head {
                 width += render_space(buf, width, data_y, data_height, CELL_PADDING_LEFT);
-                width += render_shift_column(buf, width, head_y, 1, self.splitline_style);
+                width += render_shift_column(buf, width, head_y, 1, splitline_s);
                 width += render_space(buf, width, data_y, data_height, CELL_PADDING_RIGHT);
             }
         }
 
-        if do_render_split_line {
-            width += render_vertical(
-                buf,
-                width,
-                data_y,
-                data_height,
-                show_head,
-                self.splitline_style,
-            );
+        if do_render_split_line && self.style.shift_line {
+            let show_head = show_head && self.style.header_bottom;
+            width += render_vertical(buf, width, data_y, data_height, show_head, splitline_s);
         }
 
         // we try out best to cleanup the rest of the space cause it could be meassed.
@@ -270,13 +278,28 @@ fn render_header_borders(
     y: u16,
     span: u16,
     style: NuStyle,
+    top: bool,
+    bottom: bool,
 ) -> (u16, u16) {
+    let mut i = 0;
+    let mut borders = Borders::NONE;
+    if top {
+        borders |= Borders::TOP;
+        i += 1;
+    }
+
+    if bottom {
+        borders |= Borders::BOTTOM;
+        i += 1;
+    }
+
     let block = Block::default()
-        .borders(Borders::TOP | Borders::BOTTOM)
+        .borders(borders)
         .border_style(nu_style_to_tui(style));
-    let height = 2 + span;
+    let height = i + span;
     let area = Rect::new(area.x, area.y + y, area.width, height);
     block.render(area, buf);
+
     // y pos of header text and next line
     (height.saturating_sub(2), height)
 }

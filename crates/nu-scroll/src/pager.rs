@@ -738,6 +738,15 @@ pub struct StyleConfig {
     pub selected_column: Option<NuStyle>,
     pub selected_row: Option<NuStyle>,
     pub show_cursow: bool,
+    pub split_lines: TableSplitLines,
+}
+
+#[derive(Debug, Default, Clone)]
+pub struct TableSplitLines {
+    pub header_top: bool,
+    pub header_bottom: bool,
+    pub shift_line: bool,
+    pub index_line: bool,
 }
 
 impl<'a> Pager<'a> {

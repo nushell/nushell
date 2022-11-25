@@ -15,7 +15,7 @@ use nu_protocol::{
 use pager::{Page, Pager};
 use views::{InformationView, RecordView};
 
-pub use pager::{StyleConfig, TableConfig, ViewConfig};
+pub use pager::{StyleConfig, TableConfig, TableSplitLines, ViewConfig};
 
 pub fn run_pager(
     engine_state: &EngineState,

@@ -8,7 +8,7 @@ use nu_protocol::{
     engine::{Command, EngineState, Stack},
     Category, Example, PipelineData, ShellError, Signature, SyntaxShape, Value,
 };
-use nu_scroll::{StyleConfig, TableConfig, ViewConfig};
+use nu_scroll::{StyleConfig, TableConfig, TableSplitLines, ViewConfig};
 
 /// A `less` like program to render a [Value] as a table.
 #[derive(Clone)]
@@ -73,8 +73,7 @@ Press <ESC> to get out of the mode and the inner view.
 
         let config = engine_state.get_config();
         let color_hm = get_color_config(config);
-        let scroll_colors = get_color_map(&config.scroll_config);
-        let style = style_from_colors(&config.scroll_config, &scroll_colors);
+        let style = theme_from_config(&config.scroll_config);
 
         let view_cfg = ViewConfig::new(config, &color_hm, &style);
 
@@ -116,10 +115,9 @@ Press <ESC> to get out of the mode and the inner view.
     }
 }
 
-fn style_from_colors(
-    config: &HashMap<String, Value>,
-    colors: &HashMap<String, Style>,
-) -> StyleConfig {
+fn theme_from_config(config: &HashMap<String, Value>) -> StyleConfig {
+    let colors = get_color_map(config);
+
     let mut style = default_style();
 
     if let Some(s) = colors.get("status_bar") {
@@ -152,6 +150,25 @@ fn style_from_colors(
 
     if let Some(show_cursor) = config.get("cursor").and_then(|v| v.as_bool().ok()) {
         style.show_cursow = show_cursor;
+    }
+
+    if let Some(b) = config.get("line_head_top").and_then(|v| v.as_bool().ok()) {
+        style.split_lines.header_top = b;
+    }
+
+    if let Some(b) = config
+        .get("line_head_bottom")
+        .and_then(|v| v.as_bool().ok())
+    {
+        style.split_lines.header_bottom = b;
+    }
+
+    if let Some(b) = config.get("line_shift").and_then(|v| v.as_bool().ok()) {
+        style.split_lines.shift_line = b;
+    }
+
+    if let Some(b) = config.get("line_index").and_then(|v| v.as_bool().ok()) {
+        style.split_lines.index_line = b;
     }
 
     style
@@ -188,5 +205,11 @@ fn default_style() -> StyleConfig {
         selected_column: None,
         selected_row: None,
         show_cursow: true,
+        split_lines: TableSplitLines {
+            header_bottom: true,
+            header_top: true,
+            index_line: true,
+            shift_line: true,
+        },
     }
 }

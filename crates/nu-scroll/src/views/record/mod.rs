@@ -64,16 +64,22 @@ impl<'a> RecordView<'a> {
     fn create_tablew<'b>(&self, layer: &'b RecordLayer, view_cfg: &'b ViewConfig) -> TableW<'b> {
         let data = convert_records_to_string(&layer.records, view_cfg.config, view_cfg.color_hm);
 
-        TableW::new(
-            layer.columns.as_ref(),
-            data,
-            self.cfg.show_index,
-            self.cfg.show_head,
-            view_cfg.theme.split_line,
-            view_cfg.color_hm,
-            layer.index_row,
-            layer.index_column,
-        )
+        let style = tablew::TableStyle {
+            show_index: self.cfg.show_index,
+            show_header: self.cfg.show_head,
+            splitline_style: view_cfg.theme.split_line,
+            header_bottom: view_cfg.theme.split_lines.header_bottom,
+            header_top: view_cfg.theme.split_lines.header_top,
+            index_line: view_cfg.theme.split_lines.index_line,
+            shift_line: view_cfg.theme.split_lines.shift_line,
+        };
+
+        let headers = layer.columns.as_ref();
+        let color_hm = view_cfg.color_hm;
+        let i_row = layer.index_row;
+        let i_column = layer.index_column;
+
+        TableW::new(headers, data, color_hm, i_row, i_column, style)
     }
 }
 

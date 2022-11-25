@@ -303,6 +303,10 @@ let-env config = {
     # selected_column: 'blue'
     # selected_row: { fg: 'yellow', bg: '#C1C2A3' }
     # selected_cell: { fg: 'white', bg: '#777777' }
+    # line_shift: false,
+    # line_index: false,
+    # line_head_top: false,
+    # line_head_bottom: false,
   }
 
   hooks: {
