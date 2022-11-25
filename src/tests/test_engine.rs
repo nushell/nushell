@@ -247,6 +247,11 @@ fn shortcircuiting_or() -> TestResult {
 }
 
 #[test]
+fn nonshortcircuiting_xor() -> TestResult {
+    run_test(r#"true xor (print "hello"; false) | ignore"#, "hello")
+}
+
+#[test]
 fn open_ended_range() -> TestResult {
     run_test(r#"1.. | first 100000 | length"#, "100000")
 }

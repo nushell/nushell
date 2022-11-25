@@ -4502,6 +4502,7 @@ pub fn parse_operator(
         b"ends-with" => Operator::Comparison(Comparison::EndsWith),
         b"&&" | b"and" => Operator::Boolean(Boolean::And),
         b"||" | b"or" => Operator::Boolean(Boolean::Or),
+        b"xor" => Operator::Boolean(Boolean::Xor),
         b"**" => Operator::Math(Math::Pow),
         _ => {
             return (
