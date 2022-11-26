@@ -45,7 +45,18 @@ impl Command for ParEach {
             Example {
                 example: "[1 2 3] | par-each { 2 * $in }",
                 description:
-                    "Multiplies each number. Note that the list will become arbitrarily disordered.",
+                    "Multiplies each number.",
+                result: Some(Value::List {
+                    vals: vec![
+                        Value::test_int(2), Value::test_int(4), Value::test_int(6),
+                    ],
+                    span: Span::test_data(),
+                }),
+            },
+            Example {
+                example: "[bin etc lib] | par-each { { name: $in, length: (ls $in | length) } }",
+                description:
+                    "Creates a table (a list of records) showing the number of items in each of the given directories.",
                 result: None,
             },
             Example {
@@ -83,8 +94,10 @@ impl Command for ParEach {
 
             let mut stack = stack.clone();
 
+            // First index argument
             if let Some(var) = block.signature.get_positional(0) {
                 if let Some(var_id) = &var.var_id {
+                    // Legacy -n option handled here
                     if numbered {
                         stack.add_var(
                             *var_id,
@@ -138,26 +151,36 @@ impl Command for ParEach {
         match input {
             PipelineData::Empty => Ok(PipelineData::Empty),
             PipelineData::Value(Value::Range { val, .. }, ..) => Ok(val
+                // To ensure that the ordering is preserved when parallelized,
+                // the Range is cast to Vec and then made into_par_iter(),
+                // instead of calling par_bridge() on the RangeIterator.
+                // More efficient methods of doing this are welcome.
                 .into_range_iter(ctrlc.clone())?
+                .collect::<Vec<_>>()
+                .into_par_iter()
                 .enumerate()
-                .par_bridge()
                 .map(mapper)
                 .collect::<Vec<_>>()
                 .into_iter()
                 .flatten()
                 .into_pipeline_data(ctrlc)),
             PipelineData::Value(Value::List { vals: val, .. }, ..) => Ok(val
-                .into_iter()
+                .into_par_iter()
                 .enumerate()
-                .par_bridge()
                 .map(mapper)
                 .collect::<Vec<_>>()
                 .into_iter()
                 .flatten()
                 .into_pipeline_data(ctrlc)),
             PipelineData::ListStream(stream, ..) => Ok(stream
+                // To ensure that the ordering is preserved when parallelized,
+                // the ListStream is cast to Vec and then made into_par_iter(),
+                // instead of calling par_bridge() on the iterator.
+                // More efficient methods of doing this are welcome.
+                .into_iter()
+                .collect::<Vec<_>>()
+                .into_par_iter()
                 .enumerate()
-                .par_bridge()
                 .map(mapper)
                 .collect::<Vec<_>>()
                 .into_iter()
@@ -172,8 +195,13 @@ impl Command for ParEach {
                     Ok(x) => x,
                     Err(error) => Value::Error { error },
                 })
+                // To ensure that the ordering is preserved when parallelized,
+                // the RawStream is cast to Vec and then made into_par_iter(),
+                // instead of calling par_bridge() on the iterator.
+                // More efficient methods of doing this are welcome.
+                .collect::<Vec<_>>()
+                .into_par_iter()
                 .enumerate()
-                .par_bridge()
                 .map(mapper)
                 .collect::<Vec<_>>()
                 .into_iter()
