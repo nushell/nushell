@@ -7,6 +7,12 @@ on:
 name: continuous-integration
 
 jobs:
+  cargo-deny:
+    runs-on: ubuntu-22.04
+    steps:
+    - uses: actions/checkout@v3
+    - uses: EmbarkStudios/cargo-deny-action@v1
+    
   nu-fmt-clippy:
     strategy:
       fail-fast: true
