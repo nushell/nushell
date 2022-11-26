@@ -4504,6 +4504,55 @@ pub fn parse_operator(
         b"||" | b"or" => Operator::Boolean(Boolean::Or),
         b"xor" => Operator::Boolean(Boolean::Xor),
         b"**" => Operator::Math(Math::Pow),
+        // WARNING: not actual operators below! Error handling only
+        pow @ (b"^" | b"pow") => {
+            return (
+                garbage(span),
+                Some(ParseError::UnknownOperator(
+                    match pow {
+                        b"^" => "^",
+                        b"pow" => "pow",
+                        _ => unreachable!(),
+                    },
+                    "Use '**' for exponentiation",
+                    span,
+                )),
+            );
+        }
+        equality @ (b"is" | b"===") => {
+            return (
+                garbage(span),
+                Some(ParseError::UnknownOperator(
+                    match equality {
+                        b"is" => "is",
+                        b"===" => "===",
+                        _ => unreachable!(),
+                    },
+                    "Did you mean '=='?",
+                    span,
+                )),
+            );
+        }
+        b"contains" => {
+            return (
+                garbage(span),
+                Some(ParseError::UnknownOperator(
+                    "contains",
+                    "Did you mean '$string =~ $pattern' or '$element in $container'?",
+                    span,
+                )),
+            );
+        }
+        b"%" => {
+            return (
+                garbage(span),
+                Some(ParseError::UnknownOperator(
+                    "%",
+                    "Did you mean 'mod'?",
+                    span,
+                )),
+            );
+        }
         _ => {
             return (
                 garbage(span),
