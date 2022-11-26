@@ -165,7 +165,15 @@ impl Display for SyntaxShape {
             SyntaxShape::GlobPattern => write!(f, "glob"),
             SyntaxShape::ImportPattern => write!(f, "import"),
             SyntaxShape::Block => write!(f, "block"),
-            SyntaxShape::Closure(_) => write!(f, "closure"),
+            SyntaxShape::Closure(args) => {
+                if let Some(args) = args {
+                    let arg_vec: Vec<_> = args.iter().map(|x| x.to_string()).collect();
+                    let arg_string = arg_vec.join(", ");
+                    write!(f, "closure({})", arg_string)
+                } else {
+                    write!(f, "closure()")
+                }
+            }
             SyntaxShape::Binary => write!(f, "binary"),
             SyntaxShape::Table => write!(f, "table"),
             SyntaxShape::List(x) => write!(f, "list<{}>", x),
