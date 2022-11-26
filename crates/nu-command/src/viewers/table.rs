@@ -824,7 +824,7 @@ fn convert_to_table(
 
             row.push(value);
         } else {
-            let skip_num = if with_index { 1 } else { 0 };
+            let skip_num = usize::from(with_index);
             for header in data[0].iter().skip(skip_num) {
                 let value =
                     create_table2_entry_basic(item, header.as_ref(), head, config, color_hm);
