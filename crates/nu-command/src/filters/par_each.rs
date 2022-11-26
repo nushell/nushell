@@ -77,68 +77,71 @@ impl Command for ParEach {
         let redirect_stdout = call.redirect_stdout;
         let redirect_stderr = call.redirect_stderr;
 
+        // Closure-executing function, used for almost every case below.
+        let mapper = |(idx, x): (usize, Value)| -> PipelineData {
+            let block = engine_state.get_block(block_id);
+
+            let mut stack = stack.clone();
+
+            if let Some(var) = block.signature.get_positional(0) {
+                if let Some(var_id) = &var.var_id {
+                    if numbered {
+                        stack.add_var(
+                            *var_id,
+                            Value::Record {
+                                cols: vec!["index".into(), "item".into()],
+                                vals: vec![
+                                    Value::Int {
+                                        val: idx as i64,
+                                        span,
+                                    },
+                                    x.clone(),
+                                ],
+                                span,
+                            },
+                        );
+                    } else {
+                        stack.add_var(*var_id, x.clone());
+                    }
+                }
+            }
+            // Optional second index argument
+            if let Some(var) = block.signature.get_positional(1) {
+                if let Some(var_id) = &var.var_id {
+                    stack.add_var(
+                        *var_id,
+                        Value::Int {
+                            val: idx as i64,
+                            span,
+                        },
+                    );
+                }
+            }
+
+            let val_span = x.span();
+            match eval_block_with_early_return(
+                engine_state,
+                &mut stack,
+                block,
+                x.into_pipeline_data(),
+                redirect_stdout,
+                redirect_stderr,
+            ) {
+                Ok(v) => v,
+                Err(error) => Value::Error {
+                    error: chain_error_with_input(error, val_span),
+                }
+                .into_pipeline_data(),
+            }
+        };
+
         match input {
             PipelineData::Empty => Ok(PipelineData::Empty),
             PipelineData::Value(Value::Range { val, .. }, ..) => Ok(val
                 .into_range_iter(ctrlc.clone())?
                 .enumerate()
                 .par_bridge()
-                .map(move |(idx, x)| {
-                    let block = engine_state.get_block(block_id);
-
-                    let mut stack = stack.clone();
-
-                    if let Some(var) = block.signature.get_positional(0) {
-                        if let Some(var_id) = &var.var_id {
-                            if numbered {
-                                stack.add_var(
-                                    *var_id,
-                                    Value::Record {
-                                        cols: vec!["index".into(), "item".into()],
-                                        vals: vec![
-                                            Value::Int {
-                                                val: idx as i64,
-                                                span,
-                                            },
-                                            x.clone(),
-                                        ],
-                                        span,
-                                    },
-                                );
-                            } else {
-                                stack.add_var(*var_id, x.clone());
-                            }
-                        }
-                    }
-                    // Optional second index argument
-                    if let Some(var) = block.signature.get_positional(1) {
-                        if let Some(var_id) = &var.var_id {
-                            stack.add_var(
-                                *var_id,
-                                Value::Int {
-                                    val: idx as i64,
-                                    span,
-                                },
-                            );
-                        }
-                    }
-
-                    let val_span = x.span();
-                    match eval_block_with_early_return(
-                        engine_state,
-                        &mut stack,
-                        block,
-                        x.into_pipeline_data(),
-                        redirect_stdout,
-                        redirect_stderr,
-                    ) {
-                        Ok(v) => v,
-                        Err(error) => Value::Error {
-                            error: chain_error_with_input(error, val_span),
-                        }
-                        .into_pipeline_data(),
-                    }
-                })
+                .map(mapper)
                 .collect::<Vec<_>>()
                 .into_iter()
                 .flatten()
@@ -147,62 +150,7 @@ impl Command for ParEach {
                 .into_iter()
                 .enumerate()
                 .par_bridge()
-                .map(move |(idx, x)| {
-                    let block = engine_state.get_block(block_id);
-
-                    let mut stack = stack.clone();
-
-                    if let Some(var) = block.signature.get_positional(0) {
-                        if let Some(var_id) = &var.var_id {
-                            if numbered {
-                                stack.add_var(
-                                    *var_id,
-                                    Value::Record {
-                                        cols: vec!["index".into(), "item".into()],
-                                        vals: vec![
-                                            Value::Int {
-                                                val: idx as i64,
-                                                span,
-                                            },
-                                            x.clone(),
-                                        ],
-                                        span,
-                                    },
-                                );
-                            } else {
-                                stack.add_var(*var_id, x.clone());
-                            }
-                        }
-                    }
-                    // Optional second index argument
-                    if let Some(var) = block.signature.get_positional(1) {
-                        if let Some(var_id) = &var.var_id {
-                            stack.add_var(
-                                *var_id,
-                                Value::Int {
-                                    val: idx as i64,
-                                    span,
-                                },
-                            );
-                        }
-                    }
-
-                    let val_span = x.span();
-                    match eval_block_with_early_return(
-                        engine_state,
-                        &mut stack,
-                        block,
-                        x.into_pipeline_data(),
-                        redirect_stdout,
-                        redirect_stderr,
-                    ) {
-                        Ok(v) => v,
-                        Err(error) => Value::Error {
-                            error: chain_error_with_input(error, val_span),
-                        }
-                        .into_pipeline_data(),
-                    }
-                })
+                .map(mapper)
                 .collect::<Vec<_>>()
                 .into_iter()
                 .flatten()
@@ -210,62 +158,7 @@ impl Command for ParEach {
             PipelineData::ListStream(stream, ..) => Ok(stream
                 .enumerate()
                 .par_bridge()
-                .map(move |(idx, x)| {
-                    let block = engine_state.get_block(block_id);
-
-                    let mut stack = stack.clone();
-
-                    if let Some(var) = block.signature.get_positional(0) {
-                        if let Some(var_id) = &var.var_id {
-                            if numbered {
-                                stack.add_var(
-                                    *var_id,
-                                    Value::Record {
-                                        cols: vec!["index".into(), "item".into()],
-                                        vals: vec![
-                                            Value::Int {
-                                                val: idx as i64,
-                                                span,
-                                            },
-                                            x.clone(),
-                                        ],
-                                        span,
-                                    },
-                                );
-                            } else {
-                                stack.add_var(*var_id, x.clone());
-                            }
-                        }
-                    }
-                    // Optional second index argument
-                    if let Some(var) = block.signature.get_positional(1) {
-                        if let Some(var_id) = &var.var_id {
-                            stack.add_var(
-                                *var_id,
-                                Value::Int {
-                                    val: idx as i64,
-                                    span,
-                                },
-                            );
-                        }
-                    }
-
-                    let val_span = x.span();
-                    match eval_block_with_early_return(
-                        engine_state,
-                        &mut stack,
-                        block,
-                        x.into_pipeline_data(),
-                        redirect_stdout,
-                        redirect_stderr,
-                    ) {
-                        Ok(v) => v,
-                        Err(error) => Value::Error {
-                            error: chain_error_with_input(error, val_span),
-                        }
-                        .into_pipeline_data(),
-                    }
-                })
+                .map(mapper)
                 .collect::<Vec<_>>()
                 .into_iter()
                 .flatten()
@@ -275,65 +168,13 @@ impl Command for ParEach {
                 stdout: Some(stream),
                 ..
             } => Ok(stream
+                .map(|x| match x {
+                    Ok(x) => x,
+                    Err(error) => Value::Error { error },
+                })
                 .enumerate()
                 .par_bridge()
-                .map(move |(idx, x)| {
-                    let x = match x {
-                        Ok(x) => x,
-                        Err(err) => return Value::Error { error: err }.into_pipeline_data(),
-                    };
-
-                    let block = engine_state.get_block(block_id);
-
-                    let mut stack = stack.clone();
-
-                    if let Some(var) = block.signature.get_positional(0) {
-                        if let Some(var_id) = &var.var_id {
-                            if numbered {
-                                stack.add_var(
-                                    *var_id,
-                                    Value::Record {
-                                        cols: vec!["index".into(), "item".into()],
-                                        vals: vec![
-                                            Value::Int {
-                                                val: idx as i64,
-                                                span,
-                                            },
-                                            x.clone(),
-                                        ],
-                                        span,
-                                    },
-                                );
-                            } else {
-                                stack.add_var(*var_id, x.clone());
-                            }
-                        }
-                    }
-                    // Optional second index argument
-                    if let Some(var) = block.signature.get_positional(1) {
-                        if let Some(var_id) = &var.var_id {
-                            stack.add_var(
-                                *var_id,
-                                Value::Int {
-                                    val: idx as i64,
-                                    span,
-                                },
-                            );
-                        }
-                    }
-
-                    match eval_block_with_early_return(
-                        engine_state,
-                        &mut stack,
-                        block,
-                        x.into_pipeline_data(),
-                        redirect_stdout,
-                        redirect_stderr,
-                    ) {
-                        Ok(v) => v,
-                        Err(error) => Value::Error { error }.into_pipeline_data(),
-                    }
-                })
+                .map(mapper)
                 .collect::<Vec<_>>()
                 .into_iter()
                 .flatten()
