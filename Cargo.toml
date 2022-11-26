@@ -39,7 +39,7 @@ members = [
 ]
 
 [dependencies]
-chrono = { version = "0.4.21", features = ["serde"] }
+chrono = { version = "0.4.23", features = ["serde"] }
 crossterm = "0.24.0"
 ctrlc = "3.2.1"
 log = "0.4"

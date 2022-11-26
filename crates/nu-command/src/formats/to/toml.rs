@@ -231,7 +231,7 @@ mod tests {
             [dependencies]
             rustyline = "4.1.0"
             sysinfo = "0.8.4"
-            chrono = { version = "0.4.21", features = ["serde"] }
+            chrono = { version = "0.4.23", features = ["serde"] }
             "#,
             ),
             Span::test_data(),
