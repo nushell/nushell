@@ -244,7 +244,9 @@ pub fn math_result_type(
                     )
                 }
             },
-            Operator::Boolean(Boolean::And) | Operator::Boolean(Boolean::Or) => {
+            Operator::Boolean(Boolean::And)
+            | Operator::Boolean(Boolean::Or)
+            | Operator::Boolean(Boolean::Xor) => {
                 match (&lhs.ty, &rhs.ty) {
                     (Type::Bool, Type::Bool) => (Type::Bool, None),
 

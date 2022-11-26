@@ -430,3 +430,15 @@ fn date_literal() -> TestResult {
 fn and_and_or() -> TestResult {
     run_test(r#"true and false or true"#, "true")
 }
+
+#[test]
+fn and_and_xor() -> TestResult {
+    // Assumes the precedence NOT > AND > XOR > OR
+    run_test(r#"true and true xor true and false"#, "true")
+}
+
+#[test]
+fn or_and_xor() -> TestResult {
+    // Assumes the precedence NOT > AND > XOR > OR
+    run_test(r#"true or false xor true or false"#, "true")
+}
