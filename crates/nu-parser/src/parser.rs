@@ -4514,7 +4514,7 @@ pub fn parse_operator(
                         b"pow" => "pow",
                         _ => unreachable!(),
                     },
-                    "Use '**' for exponentiation",
+                    "Use '**' for exponentiation or 'bit-xor' for bitwise XOR.",
                     span,
                 )),
             );
@@ -4549,6 +4549,60 @@ pub fn parse_operator(
                 Some(ParseError::UnknownOperator(
                     "%",
                     "Did you mean 'mod'?",
+                    span,
+                )),
+            );
+        }
+        b"&" => {
+            return (
+                garbage(span),
+                Some(ParseError::UnknownOperator(
+                    "&",
+                    "Did you mean 'bit-and'?",
+                    span,
+                )),
+            );
+        }
+        b"<<" => {
+            return (
+                garbage(span),
+                Some(ParseError::UnknownOperator(
+                    "<<",
+                    "Did you mean 'bit-shl'?",
+                    span,
+                )),
+            );
+        }
+        b">>" => {
+            return (
+                garbage(span),
+                Some(ParseError::UnknownOperator(
+                    ">>",
+                    "Did you mean 'bit-shr'?",
+                    span,
+                )),
+            );
+        }
+        bits @ (b"bits-and" | b"bits-xor" | b"bits-or" | b"bits-shl" | b"bits-shr") => {
+            return (
+                garbage(span),
+                Some(ParseError::UnknownOperator(
+                    match bits {
+                        b"bits-and" => "bits-and",
+                        b"bits-xor" => "bits-xor",
+                        b"bits-or" => "bits-or",
+                        b"bits-shl" => "bits-shl",
+                        b"bits-shr" => "bits-shr",
+                        _ => unreachable!(),
+                    },
+                    match bits {
+                        b"bits-and" => "Did you mean 'bit-and'?",
+                        b"bits-xor" => "Did you mean 'bit-xor'?",
+                        b"bits-or" => "Did you mean 'bit-or'?",
+                        b"bits-shl" => "Did you mean 'bit-shl'?",
+                        b"bits-shr" => "Did you mean 'bit-shr'?",
+                        _ => unreachable!(),
+                    },
                     span,
                 )),
             );
