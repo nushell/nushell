@@ -43,12 +43,13 @@ impl Command for ParEach {
     fn examples(&self) -> Vec<Example> {
         vec![
             Example {
-                example: "[1 2 3] | par-each { 2 * $in }",
+                example: "[1 2 3 4 5 6 7 8 9] | par-each { 2 * $in }",
                 description:
                     "Multiplies each number.",
                 result: Some(Value::List {
                     vals: vec![
-                        Value::test_int(2), Value::test_int(4), Value::test_int(6),
+                        Value::test_int(2), Value::test_int(4), Value::test_int(6), Value::test_int(8), Value::test_int(10),
+                        Value::test_int(12), Value::test_int(14), Value::test_int(16), Value::test_int(18),
                     ],
                     span: Span::test_data(),
                 }),
