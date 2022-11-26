@@ -4543,6 +4543,16 @@ pub fn parse_operator(
                 )),
             );
         }
+        b"%" => {
+            return (
+                garbage(span),
+                Some(ParseError::UnknownOperator(
+                    "%",
+                    "Did you mean 'mod'?",
+                    span,
+                )),
+            );
+        }
         _ => {
             return (
                 garbage(span),
