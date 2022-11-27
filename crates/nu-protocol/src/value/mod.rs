@@ -1762,6 +1762,7 @@ impl Value {
                     Err(ShellError::OperatorOverflow(
                         "add operation overflowed".into(),
                         span,
+                        "Consider using floating point values for increased range by promoting operand with 'into decimal'. Note: float has reduced precision!".into()
                     ))
                 }
             }
@@ -1787,6 +1788,7 @@ impl Value {
                     _ => Err(ShellError::OperatorOverflow(
                         "addition operation overflowed".into(),
                         span,
+                        "".into(),
                     )),
                 }
             }
@@ -1797,6 +1799,7 @@ impl Value {
                     Err(ShellError::OperatorOverflow(
                         "add operation overflowed".into(),
                         span,
+                        "".into(),
                     ))
                 }
             }
@@ -1807,6 +1810,7 @@ impl Value {
                     Err(ShellError::OperatorOverflow(
                         "add operation overflowed".into(),
                         span,
+                        "".into(),
                     ))
                 }
             }
@@ -1862,6 +1866,7 @@ impl Value {
                     Err(ShellError::OperatorOverflow(
                         "subtraction operation overflowed".into(),
                         span,
+                        "Consider using floating point values for increased range by promoting operand with 'into decimal'. Note: float has reduced precision!".into()
                     ))
                 }
             }
@@ -1885,6 +1890,7 @@ impl Value {
                     None => Err(ShellError::OperatorOverflow(
                         "subtraction operation overflowed".into(),
                         span,
+                        "".into(),
                     )),
                 }
             }
@@ -1894,6 +1900,7 @@ impl Value {
                     _ => Err(ShellError::OperatorOverflow(
                         "subtraction operation overflowed".into(),
                         span,
+                        "".into(),
                     )),
                 }
             }
@@ -1904,6 +1911,7 @@ impl Value {
                     Err(ShellError::OperatorOverflow(
                         "subtraction operation overflowed".into(),
                         span,
+                        "".into(),
                     ))
                 }
             }
@@ -1914,6 +1922,7 @@ impl Value {
                     Err(ShellError::OperatorOverflow(
                         "add operation overflowed".into(),
                         span,
+                        "".into(),
                     ))
                 }
             }
@@ -1941,6 +1950,7 @@ impl Value {
                     Err(ShellError::OperatorOverflow(
                         "multiply operation overflowed".into(),
                         span,
+                        "Consider using floating point values for increased range by promoting operand with 'into decimal'. Note: float has reduced precision!".into()
                     ))
                 }
             }
@@ -2893,6 +2903,7 @@ impl Value {
                     Err(ShellError::OperatorOverflow(
                         "pow operation overflowed".into(),
                         span,
+                        "Consider using floating point values for increased range by promoting operand with 'into decimal'. Note: float has reduced precision!".into()
                     ))
                 }
             }
