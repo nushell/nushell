@@ -9,8 +9,8 @@ pub fn test_examples(cmd: impl Command + 'static) {
 #[cfg(test)]
 mod test_examples {
     use super::super::{
-        Ansi, Date, Echo, From, If, Into, LetEnv, Math, Path, Random, Split, SplitColumn, SplitRow,
-        Str, StrJoin, StrLength, StrReplace, Url, Wrap,
+        Ansi, Date, Echo, From, If, Into, LetEnv, Math, MathEuler, MathPi, MathRound, Path, Random,
+        Split, SplitColumn, SplitRow, Str, StrJoin, StrLength, StrReplace, Url, Wrap,
     };
     use crate::{Break, Mut, To};
     use itertools::Itertools;
@@ -82,6 +82,9 @@ mod test_examples {
             working_set.add_decl(Box::new(Echo));
             working_set.add_decl(Box::new(Break));
             working_set.add_decl(Box::new(Mut));
+            working_set.add_decl(Box::new(MathEuler));
+            working_set.add_decl(Box::new(MathPi));
+            working_set.add_decl(Box::new(MathRound));
             // Adding the command that is being tested to the working set
             working_set.add_decl(cmd);
 
