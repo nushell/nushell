@@ -419,6 +419,7 @@ pub fn create_default_context() -> EngineState {
             MathArcTanH,
             MathPi,
             MathEuler,
+            MathLn,
         };
 
         // Network

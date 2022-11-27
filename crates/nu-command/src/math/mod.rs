@@ -12,6 +12,7 @@ mod cosh;
 mod euler;
 mod eval;
 mod floor;
+mod ln;
 pub mod math_;
 mod max;
 mod median;
@@ -64,3 +65,5 @@ pub use arctanh::SubCommand as MathArcTanH;
 
 pub use euler::SubCommand as MathEuler;
 pub use pi::SubCommand as MathPi;
+
+pub use ln::SubCommand as MathLn;
