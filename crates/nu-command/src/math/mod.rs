@@ -1,6 +1,7 @@
 mod abs;
 mod avg;
 mod ceil;
+mod euler;
 mod eval;
 mod floor;
 pub mod math_;
@@ -8,6 +9,7 @@ mod max;
 mod median;
 mod min;
 mod mode;
+mod pi;
 mod product;
 mod reducers;
 mod round;
@@ -33,3 +35,6 @@ pub use sqrt::SubCommand as MathSqrt;
 pub use stddev::SubCommand as MathStddev;
 pub use sum::SubCommand as MathSum;
 pub use variance::SubCommand as MathVariance;
+
+pub use euler::SubCommand as MathEuler;
+pub use pi::SubCommand as MathPi;
