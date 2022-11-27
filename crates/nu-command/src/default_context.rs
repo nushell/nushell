@@ -405,6 +405,9 @@ pub fn create_default_context() -> EngineState {
             MathStddev,
             MathSum,
             MathVariance,
+            MathSin,
+            MathCos,
+            MathTan,
             MathPi,
             MathEuler,
         };
