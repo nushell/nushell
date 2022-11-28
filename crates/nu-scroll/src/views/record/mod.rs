@@ -2,12 +2,11 @@ mod tablew;
 
 use std::{borrow::Cow, cmp::min, collections::HashMap};
 
-use crossterm::event::KeyEvent;
+use crossterm::event::{KeyCode, KeyEvent};
 use nu_protocol::{
     engine::{EngineState, Stack},
     Value,
 };
-use reedline::KeyCode;
 use tui::{layout::Rect, widgets::Block};
 
 use crate::{

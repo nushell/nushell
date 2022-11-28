@@ -17,6 +17,5 @@ nu-table = { path = "../nu-table", version = "0.71.1" }
 
 terminal_size = "0.2.1"
 strip-ansi-escapes = "0.1.1"
-reedline = { version = "0.13.0", features = ["bashisms", "sqlite"] }
 crossterm = "0.24.0"
 tui = "0.19.0"

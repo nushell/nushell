@@ -1,11 +1,10 @@
 use std::cmp::min;
 
-use crossterm::event::KeyEvent;
+use crossterm::event::{KeyCode, KeyEvent};
 use nu_protocol::{
     engine::{EngineState, Stack},
     PipelineData, Value,
 };
-use reedline::KeyCode;
 use tui::{
     layout::Rect,
     widgets::{BorderType, Borders, Paragraph},

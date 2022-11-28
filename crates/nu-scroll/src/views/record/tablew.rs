@@ -152,7 +152,7 @@ impl StatefulWidget for TableW<'_> {
 
             {
                 let available_space = area.width - width;
-                let head = show_head.then(|| &mut head);
+                let head = show_head.then_some(&mut head);
                 let control = truncate_column(
                     &mut column,
                     head,

@@ -1,9 +1,8 @@
 use std::cmp::max;
 
-use crossterm::event::KeyEvent;
+use crossterm::event::{KeyCode, KeyEvent};
 use nu_protocol::engine::{EngineState, Stack};
 use nu_table::TextStyle;
-use reedline::KeyCode;
 use tui::{layout::Rect, widgets::Paragraph};
 
 use crate::{

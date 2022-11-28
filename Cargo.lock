@@ -1412,16 +1412,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "gethostname"
-version = "0.2.3"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c1ebd34e35c46e00bb73e81363248d627782724609fe1b6396f553f68fe3862e"
-dependencies = [
- "libc",
- "winapi 0.3.9",
-]
-
-[[package]]
 name = "getrandom"
 version = "0.1.16"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2517,7 +2507,7 @@ dependencies = [
  "openssl",
  "pretty_assertions",
  "rayon",
- "reedline 0.14.0",
+ "reedline",
  "rstest",
  "serial_test",
  "signal-hook",
@@ -2560,7 +2550,7 @@ dependencies = [
  "nu-test-support",
  "nu-utils",
  "percent-encoding",
- "reedline 0.14.0",
+ "reedline",
  "rstest",
  "sysinfo",
  "thiserror",
@@ -2644,7 +2634,7 @@ dependencies = [
  "quickcheck_macros",
  "rand 0.8.5",
  "rayon",
- "reedline 0.14.0",
+ "reedline",
  "reqwest",
  "roxmltree",
  "rstest",
@@ -2791,7 +2781,6 @@ dependencies = [
  "nu-engine",
  "nu-protocol",
  "nu-table",
- "reedline 0.13.0",
  "strip-ansi-escapes",
  "terminal_size 0.2.1",
  "tui",
@@ -4033,29 +4022,6 @@ dependencies = [
  "getrandom 0.2.7",
  "redox_syscall",
  "thiserror",
-]
-
-[[package]]
-name = "reedline"
-version = "0.13.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "555a4285d183a94d140d749712a6600b10e70d7cd6aef91e3cfb65ba09b1d75e"
-dependencies = [
- "chrono",
- "crossterm 0.24.0",
- "fd-lock",
- "gethostname",
- "itertools",
- "nu-ansi-term",
- "rusqlite",
- "serde",
- "serde_json",
- "strip-ansi-escapes",
- "strum",
- "strum_macros",
- "thiserror",
- "unicode-segmentation",
- "unicode-width",
 ]
 
 [[package]]

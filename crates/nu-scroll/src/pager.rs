@@ -6,7 +6,7 @@ use std::{
 };
 
 use crossterm::{
-    event::{KeyCode, KeyEvent},
+    event::{KeyCode, KeyEvent, KeyModifiers},
     execute,
     terminal::{
         disable_raw_mode, enable_raw_mode, Clear, ClearType, EnterAlternateScreen,
@@ -19,7 +19,6 @@ use nu_protocol::{
     Value,
 };
 use nu_table::{string_width, Alignment, TextStyle};
-use reedline::KeyModifiers;
 use tui::{
     backend::CrosstermBackend,
     buffer::Buffer,
