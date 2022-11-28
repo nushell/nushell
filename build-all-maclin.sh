@@ -1,4 +1,5 @@
-#!/bin/sh
+#!/usr/bin/env bash
+set -euo pipefail
 
 echo "---------------------------------------------------------------"
 echo "Building nushell (nu) with dataframes and all the plugins"
@@ -17,7 +18,7 @@ echo "Building nushell"
 cargo build --features=dataframe
 for plugin in "${NU_PLUGINS[@]}"
 do
-    echo '' && cd crates/$plugin
+    echo '' && cd crates/"$plugin"
     echo "Building $plugin..."
     echo "-----------------------------"
     cargo build && cd ../..
