@@ -157,7 +157,7 @@ fn save_not_override_file_by_default() {
 
         let actual = nu!(
             cwd: dirs.root(),
-            r#""abcd" | save log.txt"#
+            r#""abcd" | save save_test_8/log.txt"#
         );
         assert!(actual.err.contains("Destination file already exists"));
     })
@@ -171,7 +171,7 @@ fn save_override_works() {
         let expected_file = dirs.test().join("log.txt");
         nu!(
             cwd: dirs.root(),
-            r#""abcd" | save log.txt -f"#
+            r#""abcd" | save save_test_9/log.txt -f"#
         );
         let actual = file_contents(expected_file);
         assert_eq!(actual, "abcd");
