@@ -9,11 +9,13 @@ use std::io::Result;
 
 mod help;
 mod nu;
+mod preview;
 mod quit;
 mod r#try;
 
 pub use help::HelpCmd;
 pub use nu::NuCmd;
+pub use preview::PreviewCmd;
 pub use quit::QuitCmd;
 pub use r#try::TryCmd;
 

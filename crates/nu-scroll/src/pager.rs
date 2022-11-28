@@ -1,4 +1,5 @@
 use std::{
+    borrow::Cow,
     cmp::min,
     io::{self, Result, Stdout},
     sync::atomic::Ordering,
@@ -46,7 +47,19 @@ pub type Terminal = tui::Terminal<CrosstermBackend<Stdout>>;
 pub enum Transition {
     Ok,
     Exit,
-    Cmd(String),
+    Cmd {
+        command: Cow<'static, str>,
+        args: Option<Value>,
+    },
+}
+
+impl Transition {
+    pub fn command(cmd: impl Into<Cow<'static, str>>, args: Option<Value>) -> Self {
+        Self::Cmd {
+            command: cmd.into(),
+            args,
+        }
+    }
 }
 
 #[derive(Debug, Clone)]
@@ -255,7 +268,7 @@ fn run_command(
                 Ok(transition) => match transition {
                     Transition::Ok => Ok(false),
                     Transition::Exit => Ok(true),
-                    Transition::Cmd(_) => todo!("not used so far"),
+                    Transition::Cmd { .. } => todo!("not used so far"),
                 },
                 Err(err) => Err(format!("Error: command {:?} failed: {}", args, err)),
             }
@@ -450,7 +463,7 @@ where
         let t = view.handle_input(engine_state, stack, layout, info, key);
         match t {
             Some(Transition::Exit) => return (true, false),
-            Some(Transition::Cmd(..)) => {
+            Some(Transition::Cmd { .. }) => {
                 // todo: handle it
                 return (false, false);
             }

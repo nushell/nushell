@@ -1,35 +1,9 @@
-use std::{
-    collections::HashMap,
-    sync::{atomic::AtomicBool, Arc},
-};
-
-use nu_cli::eval_source2;
 use nu_engine::get_columns;
-use nu_protocol::{
-    ast::PathMember,
-    engine::{EngineState, Stack},
-    PipelineData, ShellError, Value,
-};
+use nu_protocol::{ast::PathMember, PipelineData, Value};
 
-pub use nu_ansi_term::{Color as NuColor, Style as NuStyle};
-pub use nu_protocol::{Config as NuConfig, Span as NuSpan};
-use nu_table::TextStyle;
+use super::NuSpan;
 
-pub type NuText = (String, TextStyle);
-pub type CtrlC = Option<Arc<AtomicBool>>;
-pub type NuStyleTable = HashMap<String, NuStyle>;
-
-pub fn run_nu_command(
-    engine_state: &EngineState,
-    stack: &mut Stack,
-    cmd: &str,
-    current: PipelineData,
-) -> std::result::Result<PipelineData, ShellError> {
-    let mut engine_state = engine_state.clone();
-    eval_source2(&mut engine_state, stack, cmd.as_bytes(), "", current)
-}
-
-pub(crate) fn collect_pipeline(input: PipelineData) -> (Vec<String>, Vec<Vec<Value>>) {
+pub fn collect_pipeline(input: PipelineData) -> (Vec<String>, Vec<Vec<Value>>) {
     match input {
         PipelineData::Value(value, ..) => collect_input(value),
         PipelineData::ListStream(mut stream, ..) => {
@@ -107,7 +81,7 @@ pub(crate) fn collect_pipeline(input: PipelineData) -> (Vec<String>, Vec<Vec<Val
 }
 
 /// Try to build column names and a table grid.
-pub(crate) fn collect_input(value: Value) -> (Vec<String>, Vec<Vec<Value>>) {
+pub fn collect_input(value: Value) -> (Vec<String>, Vec<Vec<Value>>) {
     match value {
         Value::Record { cols, vals, .. } => (cols, vec![vals]),
         Value::List { vals, .. } => {

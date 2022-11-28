@@ -119,7 +119,7 @@ impl View for InteractiveView<'_> {
             let result = table.handle_input(engine_state, stack, layout, info, key);
 
             match result {
-                Some(Transition::Ok | Transition::Cmd(..)) => return Some(Transition::Ok),
+                Some(Transition::Ok | Transition::Cmd { .. }) => return Some(Transition::Ok),
                 Some(Transition::Exit) => {
                     self.view_mode = false;
                     return Some(Transition::Ok);

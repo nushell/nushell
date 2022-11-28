@@ -53,13 +53,13 @@ impl<'a> RecordView<'a> {
     }
 
     // todo: rename to get_layer
-    fn get_layer_last(&self) -> &RecordLayer<'a> {
+    pub fn get_layer_last(&self) -> &RecordLayer<'a> {
         self.layer_stack
             .last()
             .expect("we guarantee that 1 entry is always in a list")
     }
 
-    fn get_layer_last_mut(&mut self) -> &mut RecordLayer<'a> {
+    pub fn get_layer_last_mut(&mut self) -> &mut RecordLayer<'a> {
         self.layer_stack
             .last_mut()
             .expect("we guarantee that 1 entry is always in a list")
@@ -126,7 +126,7 @@ impl View for RecordView<'_> {
             }
         };
 
-        if matches!(&result, Some(Transition::Ok) | Some(Transition::Cmd(..))) {
+        if matches!(&result, Some(Transition::Ok) | Some(Transition::Cmd { .. })) {
             // update status bar
             let report =
                 create_records_report(self.get_layer_last(), &self.state, self.mode, self.cursor);
@@ -185,11 +185,11 @@ enum UIMode {
 }
 
 #[derive(Debug, Clone)]
-struct RecordLayer<'a> {
+pub struct RecordLayer<'a> {
     columns: Cow<'a, [String]>,
     records: Cow<'a, [Vec<Value>]>,
-    index_row: usize,
-    index_column: usize,
+    pub(crate) index_row: usize,
+    pub(crate) index_column: usize,
     name: Option<String>,
     was_transposed: bool,
 }
@@ -380,22 +380,28 @@ fn handle_key_event_cursor_mode(view: &mut RecordView, key: &KeyEvent) -> Option
             Some(Transition::Ok)
         }
         KeyCode::Enter => {
-            push_current_value_to_layer(view);
+            let next_layer = get_peeked_layer(view);
+            push_layer(view, next_layer);
             Some(Transition::Ok)
         }
         _ => None,
     }
 }
 
-fn push_current_value_to_layer(view: &mut RecordView) {
+fn get_peeked_layer(view: &RecordView) -> RecordLayer<'static> {
     let layer = view.get_layer_last();
 
     let value = layer.get_current_value(view.cursor);
-    let header = layer.get_current_header(view.cursor);
 
     let (columns, values) = collect_input(value);
 
-    let mut next_layer = RecordLayer::new(columns, values);
+    RecordLayer::new(columns, values)
+}
+
+fn push_layer(view: &mut RecordView<'_>, mut next_layer: RecordLayer<'static>) {
+    let layer = view.get_layer_last();
+    let header = layer.get_current_header(view.cursor);
+
     if let Some(header) = header {
         next_layer.set_name(header);
     }

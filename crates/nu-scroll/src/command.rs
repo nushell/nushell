@@ -1,7 +1,9 @@
 use std::collections::HashMap;
 
 use crate::{
-    commands::{HelpCmd, HelpManual, NuCmd, QuitCmd, SimpleCommand, TryCmd, ViewCommand},
+    commands::{
+        HelpCmd, HelpManual, NuCmd, PreviewCmd, QuitCmd, SimpleCommand, TryCmd, ViewCommand,
+    },
     views::View,
     TableConfig,
 };
@@ -55,6 +57,7 @@ impl CommandList {
         let mut cmd_list = vec![
             cmd_view!(NuCmd::new(table_cfg.clone())),
             cmd_view!(TryCmd::new(table_cfg.clone()), true),
+            cmd_view!(PreviewCmd::new(), true),
             cmd_react!(QuitCmd::default()),
         ];
 

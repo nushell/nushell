@@ -29,33 +29,33 @@ pub fn run_pager(
 
     let commands = command::CommandList::new(&table_cfg);
 
-    let mut p = Pager::new(table_cfg.clone(), view_cfg);
+    let mut p = Pager::new(table_cfg.clone(), view_cfg.clone());
 
     if columns.is_empty() && data.is_empty() {
-        p.run(
+        return p.run(
             engine_state,
             stack,
             ctrlc,
             Some(Page::new(InformationView, true)),
             commands,
-        )
-    } else {
-        let mut view = RecordView::new(columns, data, table_cfg.clone());
-
-        if table_cfg.reverse {
-            if let Some((terminal_size::Width(w), terminal_size::Height(h))) =
-                terminal_size::terminal_size()
-            {
-                view.reverse(w, h);
-            }
-        }
-
-        p.run(
-            engine_state,
-            stack,
-            ctrlc,
-            Some(Page::new(view, false)),
-            commands,
-        )
+        );
     }
+
+    let mut view = RecordView::new(columns, data, table_cfg.clone());
+
+    if table_cfg.reverse {
+        if let Some((terminal_size::Width(w), terminal_size::Height(h))) =
+            terminal_size::terminal_size()
+        {
+            view.reverse(w, h);
+        }
+    }
+
+    p.run(
+        engine_state,
+        stack,
+        ctrlc,
+        Some(Page::new(view, false)),
+        commands,
+    )
 }

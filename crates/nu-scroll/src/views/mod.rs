@@ -1,3 +1,8 @@
+mod information;
+mod interative;
+mod preview;
+mod record;
+
 use crossterm::event::KeyEvent;
 use nu_protocol::{
     engine::{EngineState, Stack},
@@ -10,12 +15,9 @@ use super::{
     pager::{Frame, Transition, ViewConfig, ViewInfo},
 };
 
-mod information;
-mod interative;
-mod record;
-
 pub use information::InformationView;
 pub use interative::InteractiveView;
+pub use preview::Preview;
 pub use record::{RecordView, RecordViewState};
 
 #[derive(Debug, Default)]
