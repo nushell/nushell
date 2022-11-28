@@ -1,4 +1,6 @@
-#!/bin/sh
+#!/usr/bin/env bash
+
+set -euo pipefail
 
 echo ''
 echo "----------------------------------------------"
@@ -15,5 +17,5 @@ NU_PLUGINS=(
 cargo uninstall nu
 for plugin in "${NU_PLUGINS[@]}"
 do
-    cargo uninstall $plugin
+    cargo uninstall "$plugin"
 done
