@@ -45,6 +45,7 @@ impl Command for Save {
             )
             .switch("raw", "save file as raw binary", Some('r'))
             .switch("append", "append input to the end of the file", Some('a'))
+            .switch("force", "overwrite the destination", Some('f'))
             .category(Category::FileSystem)
     }
 
@@ -57,6 +58,7 @@ impl Command for Save {
     ) -> Result<nu_protocol::PipelineData, nu_protocol::ShellError> {
         let raw = call.has_flag("raw");
         let append = call.has_flag("append");
+        let force = call.has_flag("force");
 
         let span = call.head;
 
@@ -64,7 +66,21 @@ impl Command for Save {
         let arg_span = path.span;
         let path = Path::new(&path.item);
 
-        let file = match (append, path.exists()) {
+        let path_exists = path.exists();
+        if path_exists && !force && !append {
+            return Err(ShellError::GenericError(
+                "Destination file already exists".into(),
+                format!(
+                    "Destination file '{}' already exists",
+                    path.to_string_lossy()
+                ),
+                Some(arg_span),
+                Some("you can use -f, --force to force overwriting the destination".into()),
+                Vec::new(),
+            ));
+        }
+
+        let file = match (append, path_exists) {
             (true, true) => std::fs::OpenOptions::new()
                 .write(true)
                 .append(true)

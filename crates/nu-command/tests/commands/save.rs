@@ -1,4 +1,4 @@
-use nu_test_support::fs::file_contents;
+use nu_test_support::fs::{file_contents, Stub};
 use nu_test_support::nu;
 use nu_test_support::playground::Playground;
 use std::io::Write;
@@ -147,5 +147,33 @@ fn save_string_and_stream_as_raw() {
             actual,
             r#"<!DOCTYPE html><html><body><a href='http://example.org/'>Example</a></body></html>"#
         )
+    })
+}
+
+#[test]
+fn save_not_override_file_by_default() {
+    Playground::setup("save_test_8", |dirs, sandbox| {
+        sandbox.with_files(vec![Stub::EmptyFile("log.txt")]);
+
+        let actual = nu!(
+            cwd: dirs.root(),
+            r#""abcd" | save log.txt"#
+        );
+        assert!(actual.err.contains("Destination file already exists"));
+    })
+}
+
+#[test]
+fn save_override_works() {
+    Playground::setup("save_test_9", |dirs, sandbox| {
+        sandbox.with_files(vec![Stub::EmptyFile("log.txt")]);
+
+        let expected_file = dirs.test().join("log.txt");
+        nu!(
+            cwd: dirs.root(),
+            r#""abcd" | save log.txt -f"#
+        );
+        let actual = file_contents(expected_file);
+        assert_eq!(actual, "abcd");
     })
 }
