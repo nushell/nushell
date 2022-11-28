@@ -1028,9 +1028,9 @@ pub fn nu_ansi_color_to_tui_color(clr: NuColor) -> Option<tui::style::Color> {
         White => Color::White,
         Fixed(i) => Color::Indexed(i),
         Rgb(r, g, b) => tui::style::Color::Rgb(r, g, b),
-        LightGray => Color::Gray,   // todo: make a PR to add the color
-        LightPurple => Color::Blue, // todo: make a PR to add the color,
-        Purple => Color::Blue,      // todo: make a PR to add the color,
+        LightGray => Color::Gray,
+        LightPurple => Color::LightMagenta,
+        Purple => Color::Magenta,
         Default => return None,
     };
 
