@@ -106,6 +106,7 @@ impl View for Preview {
 
                 Some(Transition::Ok)
             }
+            KeyCode::Esc => Some(Transition::Exit),
             _ => None,
         }
     }
