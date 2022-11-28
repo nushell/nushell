@@ -519,7 +519,7 @@ pub fn create_column(
                             TimeUnit::Microseconds => 1_000_000,
                             TimeUnit::Milliseconds => 1_000,
                         };
-                        // elapsed time in milliseconds since 1970-01-01
+                        // elapsed time in nano/micro/milliseconds since 1970-01-01
                         let seconds = a / unit_divisor;
                         let naive_datetime = match NaiveDateTime::from_timestamp_opt(seconds, 0) {
                             Some(val) => val,
