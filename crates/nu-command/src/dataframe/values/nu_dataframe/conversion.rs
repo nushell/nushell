@@ -460,10 +460,31 @@ pub fn create_column(
                     Some(a) => {
                         // elapsed time in day since 1970-01-01
                         let seconds = a as i64 * SECS_PER_DAY;
-                        let naive_datetime = NaiveDateTime::from_timestamp(seconds, 0);
-
+                        let naive_datetime = match NaiveDateTime::from_timestamp_opt(seconds, 0) {
+                            Some(val) => val,
+                            None => {
+                                return Value::Error {
+                                    error: ShellError::UnsupportedInput(
+                                        "The given local datetime representation is invalid."
+                                            .to_string(),
+                                        span,
+                                    ),
+                                }
+                            }
+                        };
                         // Zero length offset
-                        let offset = FixedOffset::east(0);
+                        let offset = match FixedOffset::east_opt(0) {
+                            Some(val) => val,
+                            None => {
+                                return Value::Error {
+                                    error: ShellError::UnsupportedInput(
+                                        "The given local datetime representation is invalid."
+                                            .to_string(),
+                                        span,
+                                    ),
+                                }
+                            }
+                        };
                         let datetime = DateTime::<FixedOffset>::from_utc(naive_datetime, offset);
 
                         Value::Date {
@@ -496,10 +517,31 @@ pub fn create_column(
                     Some(a) => {
                         // elapsed time in milliseconds since 1970-01-01
                         let seconds = a / 1000;
-                        let naive_datetime = NaiveDateTime::from_timestamp(seconds, 0);
-
+                        let naive_datetime = match NaiveDateTime::from_timestamp_opt(seconds, 0) {
+                            Some(val) => val,
+                            None => {
+                                return Value::Error {
+                                    error: ShellError::UnsupportedInput(
+                                        "The given local datetime representation is invalid."
+                                            .to_string(),
+                                        span,
+                                    ),
+                                }
+                            }
+                        };
                         // Zero length offset
-                        let offset = FixedOffset::east(0);
+                        let offset = match FixedOffset::east_opt(0) {
+                            Some(val) => val,
+                            None => {
+                                return Value::Error {
+                                    error: ShellError::UnsupportedInput(
+                                        "The given local datetime representation is invalid."
+                                            .to_string(),
+                                        span,
+                                    ),
+                                }
+                            }
+                        };
                         let datetime = DateTime::<FixedOffset>::from_utc(naive_datetime, offset);
 
                         Value::Date {

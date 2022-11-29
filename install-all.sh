@@ -1,6 +1,6 @@
-#!/bin/sh
-
-# Usage: Just run `sh install-all.sh` in nushell root directory
+#!/usr/bin/env bash
+# Usage: Just run `./install-all.sh` in nushell root directory
+set -euo pipefail
 
 echo "-----------------------------------------------------------------"
 echo "Installing nushell (nu) with dataframes and all the plugins"
@@ -25,5 +25,5 @@ do
     echo "----------------------------------------------"
     echo "Install plugin $plugin from local..."
     echo "----------------------------------------------"
-    cd crates/$plugin && cargo install --path . && cd ../../
+    cd crates/"$plugin" && cargo install --path . && cd ../../
 done

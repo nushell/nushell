@@ -329,7 +329,7 @@ fn print_help(plugin: &mut impl Plugin, encoder: impl PluginEncoder) {
                     .try_for_each(|positional| {
                         writeln!(
                             help,
-                            "  {} <{:?}>: {}",
+                            "  {} <{}>: {}",
                             positional.name, positional.shape, positional.desc
                         )
                     })
@@ -341,7 +341,7 @@ fn print_help(plugin: &mut impl Plugin, encoder: impl PluginEncoder) {
                     .try_for_each(|positional| {
                         writeln!(
                             help,
-                            "  (optional) {} <{:?}>: {}",
+                            "  (optional) {} <{}>: {}",
                             positional.name, positional.shape, positional.desc
                         )
                     })
@@ -350,7 +350,7 @@ fn print_help(plugin: &mut impl Plugin, encoder: impl PluginEncoder) {
                 if let Some(rest_positional) = &signature.rest_positional {
                     writeln!(
                         help,
-                        "  ...{} <{:?}>: {}",
+                        "  ...{} <{}>: {}",
                         rest_positional.name, rest_positional.shape, rest_positional.desc
                     )
                 } else {

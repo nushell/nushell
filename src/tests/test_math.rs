@@ -56,6 +56,16 @@ fn or() -> TestResult {
 }
 
 #[test]
+fn xor_1() -> TestResult {
+    run_test("false xor true", "true")
+}
+
+#[test]
+fn xor_2() -> TestResult {
+    run_test("true xor true", "false")
+}
+
+#[test]
 fn bit_xor() -> TestResult {
     run_test("4 bit-xor 4", "0")
 }

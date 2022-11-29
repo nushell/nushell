@@ -20,7 +20,7 @@ impl Command for Try {
             .input_output_types(vec![(Type::Any, Type::Any)])
             .required("try_block", SyntaxShape::Block, "block to run")
             .optional(
-                "else_expression",
+                "catch_block",
                 SyntaxShape::Keyword(
                     b"catch".to_vec(),
                     Box::new(SyntaxShape::Closure(Some(vec![SyntaxShape::Any]))),

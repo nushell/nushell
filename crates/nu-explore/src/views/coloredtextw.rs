@@ -32,13 +32,8 @@ impl Widget for ColoredTextW<'_> {
             let text = block.text();
             let style = style_to_tui(block.style());
 
-            let (o, _) = buf.set_stringn(
-                area.x + offset as u16,
-                area.y,
-                &text,
-                area.width as usize,
-                style,
-            );
+            let x = area.x + offset as u16;
+            let (o, _) = buf.set_stringn(x, area.y, text, area.width as usize, style);
 
             offset = o
         }

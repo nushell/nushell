@@ -116,27 +116,51 @@ fn get_documentation(
     {
         let _ = write!(long_desc, "\n{G}Parameters{RESET}:\n");
         for positional in &sig.required_positional {
-            let text = format!(
-                "  {C}{}{RESET} <{BB}{:?}{RESET}>: {}",
-                positional.name,
-                document_shape(positional.shape.clone()),
-                positional.desc
-            );
+            let text = match &positional.shape {
+                SyntaxShape::Keyword(kw, shape) => {
+                    format!(
+                        "  {C}\"{}\" + {RESET}<{BB}{}{RESET}>: {}",
+                        String::from_utf8_lossy(kw),
+                        document_shape(*shape.clone()),
+                        positional.desc
+                    )
+                }
+                _ => {
+                    format!(
+                        "  {C}{}{RESET} <{BB}{}{RESET}>: {}",
+                        positional.name,
+                        document_shape(positional.shape.clone()),
+                        positional.desc
+                    )
+                }
+            };
             let _ = writeln!(long_desc, "{}", text);
         }
         for positional in &sig.optional_positional {
-            let text = format!(
-                "  (optional) {C}{}{RESET} <{BB}{:?}{RESET}>: {}",
-                positional.name,
-                document_shape(positional.shape.clone()),
-                positional.desc
-            );
+            let text = match &positional.shape {
+                SyntaxShape::Keyword(kw, shape) => {
+                    format!(
+                        "  (optional) {C}\"{}\" + {RESET}<{BB}{}{RESET}>: {}",
+                        String::from_utf8_lossy(kw),
+                        document_shape(*shape.clone()),
+                        positional.desc
+                    )
+                }
+                _ => {
+                    format!(
+                        "  (optional) {C}{}{RESET} <{BB}{}{RESET}>: {}",
+                        positional.name,
+                        document_shape(positional.shape.clone()),
+                        positional.desc
+                    )
+                }
+            };
             let _ = writeln!(long_desc, "{}", text);
         }
 
         if let Some(rest_positional) = &sig.rest_positional {
             let text = format!(
-                "  ...{C}{}{RESET} <{BB}{:?}{RESET}>: {}",
+                "  ...{C}{}{RESET} <{BB}{}{RESET}>: {}",
                 rest_positional.name,
                 document_shape(rest_positional.shape.clone()),
                 rest_positional.desc

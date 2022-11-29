@@ -1,4 +1,4 @@
-use chrono::{Date, DateTime, Local};
+use chrono::{DateTime, Local};
 use nu_test_support::fs::Stub;
 use nu_test_support::nu;
 use nu_test_support::playground::Playground;
@@ -45,9 +45,10 @@ fn change_modified_time_of_file_to_today() {
         let path = dirs.test().join("file.txt");
 
         // Check only the date since the time may not match exactly
-        let date: Date<Local> = Local::now().date();
-        let actual_date: Date<Local> =
-            DateTime::from(path.metadata().unwrap().modified().unwrap()).date();
+        let date = Local::now().date_naive();
+        let actual_date_time: DateTime<Local> =
+            DateTime::from(path.metadata().unwrap().modified().unwrap());
+        let actual_date = actual_date_time.date_naive();
 
         assert_eq!(date, actual_date);
     })
@@ -66,9 +67,10 @@ fn change_access_time_of_file_to_today() {
         let path = dirs.test().join("file.txt");
 
         // Check only the date since the time may not match exactly
-        let date: Date<Local> = Local::now().date();
-        let actual_date: Date<Local> =
-            DateTime::from(path.metadata().unwrap().accessed().unwrap()).date();
+        let date = Local::now().date_naive();
+        let actual_date_time: DateTime<Local> =
+            DateTime::from(path.metadata().unwrap().accessed().unwrap());
+        let actual_date = actual_date_time.date_naive();
 
         assert_eq!(date, actual_date);
     })
@@ -87,9 +89,11 @@ fn change_modified_and_access_time_of_file_to_today() {
         let metadata = dirs.test().join("file.txt").metadata().unwrap();
 
         // Check only the date since the time may not match exactly
-        let date: Date<Local> = Local::now().date();
-        let adate: Date<Local> = DateTime::from(metadata.accessed().unwrap()).date();
-        let mdate: Date<Local> = DateTime::from(metadata.modified().unwrap()).date();
+        let date = Local::now().date_naive();
+        let adate_time: DateTime<Local> = DateTime::from(metadata.accessed().unwrap());
+        let adate = adate_time.date_naive();
+        let mdate_time: DateTime<Local> = DateTime::from(metadata.modified().unwrap());
+        let mdate = mdate_time.date_naive();
 
         assert_eq!(date, adate);
         assert_eq!(date, mdate);

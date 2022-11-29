@@ -404,6 +404,10 @@ pub fn eval_expression(
                                 lhs.or(op_span, &rhs, expr.span)
                             }
                         }
+                        Boolean::Xor => {
+                            let rhs = eval_expression(engine_state, stack, rhs)?;
+                            lhs.xor(op_span, &rhs, expr.span)
+                        }
                     }
                 }
                 Operator::Math(math) => {

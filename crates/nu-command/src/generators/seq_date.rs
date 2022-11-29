@@ -195,10 +195,9 @@ pub fn run_seq_dates(
     day_count: Option<Value>,
     reverse: bool,
 ) -> Result<Value, ShellError> {
-    let today = Local::today().naive_local();
-    let mut step_size: i64 = increment
-        .as_i64()
-        .expect("unable to change increment to i64");
+    let today = Local::now().date_naive();
+    // if cannot convert , it will return error
+    let mut step_size: i64 = increment.as_i64()?;
 
     if step_size == 0 {
         return Err(ShellError::GenericError(
