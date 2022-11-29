@@ -249,25 +249,32 @@ fn histogram_impl(
         let percentage = format!("{:.2}%", quantile * 100_f64);
         let freq = "*".repeat((MAX_FREQ_COUNT * quantile).floor() as usize);
 
-        result.push(Value::Record {
-            cols: result_cols.clone(),
-            vals: vec![
-                val.into_value(),
-                Value::Int { val: count, span },
-                Value::Float {
-                    val: quantile,
-                    span,
-                },
-                Value::String {
-                    val: percentage,
-                    span,
-                },
-                Value::String { val: freq, span },
-            ],
-            span,
-        });
+        result.push((
+            count, // attach count first for easily sorting.
+            Value::Record {
+                cols: result_cols.clone(),
+                vals: vec![
+                    val.into_value(),
+                    Value::Int { val: count, span },
+                    Value::Float {
+                        val: quantile,
+                        span,
+                    },
+                    Value::String {
+                        val: percentage,
+                        span,
+                    },
+                    Value::String { val: freq, span },
+                ],
+                span,
+            },
+        ));
     }
-    Value::List { vals: result, span }.into_pipeline_data()
+    Value::List {
+        vals: result.into_iter().map(|x| x.1).collect(),
+        span,
+    }
+    .into_pipeline_data()
 }
 
 #[cfg(test)]
