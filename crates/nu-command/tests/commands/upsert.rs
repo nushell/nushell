@@ -30,7 +30,7 @@ fn sets_the_column_from_a_block_run_output() {
         cwd: "tests/fixtures/formats", pipeline(
         r#"
             open cargo_sample.toml
-            | upsert dev-dependencies.pretty_assertions { open cargo_sample.toml | get dev-dependencies.pretty_assertions | inc --minor }
+            | upsert dev-dependencies.pretty_assertions ( open cargo_sample.toml | get dev-dependencies.pretty_assertions | inc --minor )
             | get dev-dependencies.pretty_assertions
         "#
     ));
@@ -44,7 +44,7 @@ fn sets_the_column_from_a_block_full_stream_output() {
         cwd: "tests/fixtures/formats", pipeline(
         r#"
             wrap content
-            | upsert content { open --raw cargo_sample.toml | lines | first 5 }
+            | upsert content ( open --raw cargo_sample.toml | lines | first 5 )
             | get content.1
             | str contains "nu"
         "#
@@ -72,7 +72,7 @@ fn sets_the_column_from_a_subexpression() {
 fn uses_optional_index_argument_inserting() {
     let actual = nu!(
         cwd: ".", pipeline(
-        r#"[[a]; [7] [6]] | upsert b {|el ind| $ind + 1 + $el.a } | to nuon"#
+        r#"[[a]; [7] [6]] | each {|el ind| upsert b ($ind + 1 + $el.a)} | to nuon"#
     ));
 
     assert_eq!(actual.out, "[[a, b]; [7, 8], [6, 8]]");
@@ -82,7 +82,7 @@ fn uses_optional_index_argument_inserting() {
 fn uses_optional_index_argument_updating() {
     let actual = nu!(
         cwd: ".", pipeline(
-        r#"[[a]; [7] [6]] | upsert a {|el ind| $ind + 1 + $el.a } | to nuon"#
+        r#"[[a]; [7] [6]] | each {|el ind| upsert a ($ind + 1 + $el.a)} | to nuon"#
     ));
 
     assert_eq!(actual.out, "[[a]; [8], [8]]");

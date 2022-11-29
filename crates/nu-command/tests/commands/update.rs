@@ -30,7 +30,7 @@ fn sets_the_column_from_a_block_run_output() {
         cwd: "tests/fixtures/formats", pipeline(
         r#"
             open cargo_sample.toml
-            | update dev-dependencies.pretty_assertions { open cargo_sample.toml | get dev-dependencies.pretty_assertions | inc --minor }
+            | update dev-dependencies.pretty_assertions ( open cargo_sample.toml | get dev-dependencies.pretty_assertions | inc --minor )
             | get dev-dependencies.pretty_assertions
         "#
     ));
@@ -44,7 +44,7 @@ fn sets_the_column_from_a_block_full_stream_output() {
         cwd: "tests/fixtures/formats", pipeline(
         r#"
             wrap content
-            | update content { open --raw cargo_sample.toml | lines | first 5 }
+            | update content ( open --raw cargo_sample.toml | lines | first 5 )
             | get content.1
             | str contains "nu"
         "#
@@ -119,7 +119,7 @@ fn update_nonexistent_column() {
 fn uses_optional_index_argument() {
     let actual = nu!(
         cwd: ".", pipeline(
-        r#"[[a]; [7] [6]] | update a {|el ind| $ind + 1 + $el.a } | to nuon"#
+        r#"[[a]; [7] [6]] | each {|el ind| update a ($ind + 1 + $el.a) } | to nuon"#
     ));
 
     assert_eq!(actual.out, "[[a]; [8], [8]]");
