@@ -22,38 +22,38 @@ pub struct CommandList {
     aliases: HashMap<&'static str, &'static str>,
 }
 
+macro_rules! cmd_view {
+    ($object:expr, $light:expr) => {{
+        let object = $object;
+
+        let name = object.name();
+
+        let cmd = Box::new(ViewCmd(object)) as Box<dyn VCommand>;
+        let cmd = Command::View {
+            cmd,
+            is_light: $light,
+        };
+
+        (name, cmd)
+    }};
+    ($object:expr) => {
+        cmd_view!($object, false)
+    };
+}
+
+macro_rules! cmd_react {
+    ($object:expr) => {{
+        let object = $object;
+
+        let name = object.name();
+        let cmd = Command::Reactive(Box::new($object) as Box<dyn SCommand>);
+
+        (name, cmd)
+    }};
+}
+
 impl CommandList {
     pub fn new(table_cfg: &TableConfig) -> Self {
-        macro_rules! cmd_view {
-            ($object:expr, $light:expr) => {{
-                let object = $object;
-
-                let name = object.name();
-
-                let cmd = Box::new(ViewCmd(object)) as Box<dyn VCommand>;
-                let cmd = Command::View {
-                    cmd,
-                    is_light: $light,
-                };
-
-                (name, cmd)
-            }};
-            ($object:expr) => {
-                cmd_view!($object, false)
-            };
-        }
-
-        macro_rules! cmd_react {
-            ($object:expr) => {{
-                let object = $object;
-
-                let name = object.name();
-                let cmd = Command::Reactive(Box::new($object) as Box<dyn SCommand>);
-
-                (name, cmd)
-            }};
-        }
-
         let mut cmd_list = vec![
             cmd_view!(NuCmd::new(table_cfg.clone())),
             cmd_view!(TryCmd::new(table_cfg.clone()), true),
@@ -61,12 +61,15 @@ impl CommandList {
             cmd_react!(QuitCmd::default()),
         ];
 
+        let aliases = [("h", HelpCmd::NAME), ("q", QuitCmd::NAME)];
+
         let help_manuals = create_help_manuals(&cmd_list);
-        let help_cmd = cmd_view!(HelpCmd::new(help_manuals, table_cfg.clone()), true);
+        let help_cmd = cmd_view!(
+            HelpCmd::new(help_manuals, &aliases, table_cfg.clone()),
+            true
+        );
 
         cmd_list.push(help_cmd);
-
-        let aliases = [("h", HelpCmd::NAME)];
 
         Self {
             commands: HashMap::from_iter(cmd_list),

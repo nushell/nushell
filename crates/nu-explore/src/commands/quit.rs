@@ -13,7 +13,7 @@ use super::{HelpManual, SimpleCommand};
 pub struct QuitCmd;
 
 impl QuitCmd {
-    pub const NAME: &'static str = "q";
+    pub const NAME: &'static str = "quit";
 }
 
 impl SimpleCommand for QuitCmd {
@@ -27,7 +27,7 @@ impl SimpleCommand for QuitCmd {
 
     fn help(&self) -> Option<HelpManual> {
         Some(HelpManual {
-            name: "q",
+            name: "quit",
             description: "Quit",
             arguments: vec![],
             examples: vec![],

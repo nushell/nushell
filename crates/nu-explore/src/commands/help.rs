@@ -1,4 +1,7 @@
-use std::io::{self, Result};
+use std::{
+    collections::HashMap,
+    io::{self, Result},
+};
 
 use nu_protocol::{
     engine::{EngineState, Stack},
@@ -14,18 +17,37 @@ pub struct HelpCmd {
     input_command: String,
     table_cfg: TableConfig,
     supported_commands: Vec<HelpManual>,
+    aliases: HashMap<String, Vec<String>>,
 }
 
 impl HelpCmd {
     pub const NAME: &'static str = "help";
 
-    pub fn new(commands: Vec<HelpManual>, table_cfg: TableConfig) -> Self {
+    pub fn new(
+        commands: Vec<HelpManual>,
+        aliases: &[(&str, &str)],
+        table_cfg: TableConfig,
+    ) -> Self {
+        let aliases = collect_aliases(aliases);
+
         Self {
             input_command: String::new(),
             supported_commands: commands,
+            aliases,
             table_cfg,
         }
     }
+}
+
+fn collect_aliases(aliases: &[(&str, &str)]) -> HashMap<String, Vec<String>> {
+    let mut out_aliases: HashMap<String, Vec<String>> = HashMap::new();
+    for (name, cmd) in aliases {
+        out_aliases
+            .entry(cmd.to_string())
+            .and_modify(|list| list.push(name.to_string()))
+            .or_insert_with(|| vec![name.to_string()]);
+    }
+    out_aliases
 }
 
 impl ViewCommand for HelpCmd {
@@ -69,7 +91,7 @@ impl ViewCommand for HelpCmd {
 
     fn spawn(&mut self, _: &EngineState, _: &mut Stack, _: Option<Value>) -> Result<Self::View> {
         if self.input_command.is_empty() {
-            let (headers, data) = help_frame_data(&self.supported_commands);
+            let (headers, data) = help_frame_data(&self.supported_commands, &self.aliases);
             let view = RecordView::new(headers, data, self.table_cfg.clone());
             return Ok(view);
         }
@@ -80,14 +102,22 @@ impl ViewCommand for HelpCmd {
             .find(|manual| manual.name == self.input_command)
             .ok_or_else(|| io::Error::new(io::ErrorKind::Other, "a given command was not found"))?;
 
-        let (headers, data) = help_manual_data(manual);
+        let aliases = self
+            .aliases
+            .get(manual.name)
+            .map(|l| l.as_slice())
+            .unwrap_or(&[]);
+        let (headers, data) = help_manual_data(manual, aliases);
         let view = RecordView::new(headers, data, self.table_cfg.clone());
 
         Ok(view)
     }
 }
 
-fn help_frame_data(supported_commands: &[HelpManual]) -> (Vec<String>, Vec<Vec<Value>>) {
+fn help_frame_data(
+    supported_commands: &[HelpManual],
+    aliases: &HashMap<String, Vec<String>>,
+) -> (Vec<String>, Vec<Vec<Value>>) {
     macro_rules! null {
         () => {
             Value::Nothing {
@@ -108,7 +138,12 @@ fn help_frame_data(supported_commands: &[HelpManual]) -> (Vec<String>, Vec<Vec<V
     let commands = supported_commands
         .iter()
         .map(|manual| {
-            let (cols, mut vals) = help_manual_data(manual);
+            let aliases = aliases
+                .get(manual.name)
+                .map(|l| l.as_slice())
+                .unwrap_or(&[]);
+
+            let (cols, mut vals) = help_manual_data(manual, aliases);
             let vals = vals.remove(0);
             Value::Record {
                 cols,
@@ -153,7 +188,7 @@ fn help_frame_data(supported_commands: &[HelpManual]) -> (Vec<String>, Vec<Vec<V
     (headers, data)
 }
 
-fn help_manual_data(manual: &HelpManual) -> (Vec<String>, Vec<Vec<Value>>) {
+fn help_manual_data(manual: &HelpManual, aliases: &[String]) -> (Vec<String>, Vec<Vec<Value>>) {
     macro_rules! nu_str {
         ($text:expr) => {
             Value::String {
@@ -193,18 +228,19 @@ fn help_manual_data(manual: &HelpManual) -> (Vec<String>, Vec<Vec<Value>>) {
         span: NuSpan::unknown(),
     };
 
+    let name = nu_str!(manual.name);
+    let aliases = nu_str!(aliases.join(", "));
+    let desc = nu_str!(manual.description);
+
     let headers = vec![
         String::from("name"),
+        String::from("aliases"),
         String::from("arguments"),
         String::from("examples"),
         String::from("description"),
     ];
-    let data = vec![vec![
-        nu_str!(manual.name),
-        arguments,
-        examples,
-        nu_str!(manual.description),
-    ]];
+
+    let data = vec![vec![name, aliases, arguments, examples, desc]];
 
     (headers, data)
 }
