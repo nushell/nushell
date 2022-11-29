@@ -78,7 +78,7 @@ impl<'a> ViewConfig<'a> {
     }
 }
 
-#[derive(Debug, Default, Clone)]
+#[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
 pub struct TableConfig {
     pub show_index: bool,
     pub show_head: bool,

@@ -26,9 +26,9 @@ pub fn run_pager(
     view_cfg: ViewConfig,
     input: PipelineData,
 ) -> io::Result<Option<Value>> {
-    let commands = command::CommandList::new(&table_cfg);
+    let commands = command::CommandList::new(table_cfg);
 
-    let mut p = Pager::new(table_cfg.clone(), view_cfg.clone());
+    let mut p = Pager::new(table_cfg, view_cfg.clone());
 
     let (columns, data) = collect_pipeline(input);
 
@@ -47,7 +47,7 @@ pub fn run_pager(
         return p.run(engine_state, stack, ctrlc, view, commands);
     }
 
-    let mut view = RecordView::new(columns, data, table_cfg.clone());
+    let mut view = RecordView::new(columns, data, table_cfg);
 
     if table_cfg.reverse {
         if let Some((Width(w), Height(h))) = terminal_size::terminal_size() {

@@ -154,7 +154,7 @@ impl View for InteractiveView<'_> {
                 match pipeline {
                     Ok(pipeline_data) => {
                         let (columns, values) = collect_pipeline(pipeline_data);
-                        let view = RecordView::new(columns, values, self.table_cfg.clone());
+                        let view = RecordView::new(columns, values, self.table_cfg);
 
                         self.table = Some(view);
                     }

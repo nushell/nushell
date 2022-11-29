@@ -53,23 +53,26 @@ macro_rules! cmd_react {
 }
 
 impl CommandList {
-    pub fn new(table_cfg: &TableConfig) -> Self {
-        let mut cmd_list = vec![
-            cmd_view!(NuCmd::new(table_cfg.clone())),
-            cmd_view!(TryCmd::new(table_cfg.clone()), true),
+    pub fn create_commands(table_cfg: TableConfig) -> Vec<(&'static str, Command)> {
+        vec![
+            cmd_view!(NuCmd::new(table_cfg)),
+            cmd_view!(TryCmd::new(table_cfg), true),
             cmd_view!(PreviewCmd::new(), true),
             cmd_react!(QuitCmd::default()),
-        ];
+        ]
+    }
 
-        let aliases = [("h", HelpCmd::NAME), ("q", QuitCmd::NAME)];
+    pub fn create_aliases() -> [(&'static str, &'static str); 2] {
+        [("h", HelpCmd::NAME), ("q", QuitCmd::NAME)]
+    }
 
-        let help_manuals = create_help_manuals(&cmd_list);
-        let help_cmd = cmd_view!(
-            HelpCmd::new(help_manuals, &aliases, table_cfg.clone()),
-            true
-        );
+    pub fn new(table_cfg: TableConfig) -> Self {
+        let mut cmd_list = Self::create_commands(table_cfg);
+        let aliases = Self::create_aliases();
 
-        cmd_list.push(help_cmd);
+        let help_cmd = create_help_command(&cmd_list, &aliases, table_cfg);
+
+        cmd_list.push(cmd_view!(help_cmd, true));
 
         Self {
             commands: HashMap::from_iter(cmd_list),
@@ -94,6 +97,15 @@ impl CommandList {
             cmd => cmd,
         }
     }
+}
+
+fn create_help_command(
+    commands: &[(&str, Command)],
+    aliases: &[(&str, &str)],
+    table_cfg: TableConfig,
+) -> HelpCmd {
+    let help_manuals = create_help_manuals(commands);
+    HelpCmd::new(help_manuals, aliases, table_cfg)
 }
 
 fn parse_command(command: Option<Command>, args: &str) -> Option<std::io::Result<Command>> {

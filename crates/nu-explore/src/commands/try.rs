@@ -62,7 +62,7 @@ impl ViewCommand for TryCmd {
         value: Option<Value>,
     ) -> Result<Self::View> {
         let value = value.unwrap_or_default();
-        let mut view = InteractiveView::new(value, self.table_cfg.clone());
+        let mut view = InteractiveView::new(value, self.table_cfg);
         view.init(self.command.clone());
 
         Ok(view)

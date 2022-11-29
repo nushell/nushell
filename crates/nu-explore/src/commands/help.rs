@@ -92,7 +92,7 @@ impl ViewCommand for HelpCmd {
     fn spawn(&mut self, _: &EngineState, _: &mut Stack, _: Option<Value>) -> Result<Self::View> {
         if self.input_command.is_empty() {
             let (headers, data) = help_frame_data(&self.supported_commands, &self.aliases);
-            let view = RecordView::new(headers, data, self.table_cfg.clone());
+            let view = RecordView::new(headers, data, self.table_cfg);
             return Ok(view);
         }
 
@@ -108,7 +108,7 @@ impl ViewCommand for HelpCmd {
             .map(|l| l.as_slice())
             .unwrap_or(&[]);
         let (headers, data) = help_manual_data(manual, aliases);
-        let view = RecordView::new(headers, data, self.table_cfg.clone());
+        let view = RecordView::new(headers, data, self.table_cfg);
 
         Ok(view)
     }

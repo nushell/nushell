@@ -8,7 +8,7 @@ use nu_protocol::{
 use crate::{
     nu_common::{collect_pipeline, run_nu_command},
     pager::TableConfig,
-    views::RecordView,
+    views::{Preview, RecordView, View},
 };
 
 use super::{HelpExample, HelpManual, ViewCommand};
@@ -31,7 +31,7 @@ impl NuCmd {
 }
 
 impl ViewCommand for NuCmd {
-    type View = RecordView<'static>;
+    type View = NuView<'static>;
 
     fn name(&self) -> &'static str {
         Self::NAME
@@ -83,8 +83,71 @@ impl ViewCommand for NuCmd {
 
         let (columns, values) = collect_pipeline(pipeline);
 
-        let view = RecordView::new(columns, values, self.table_cfg.clone());
+        let has_single_value = values.len() == 1 && values[0].len() == 1;
+        let is_simple_type = !matches!(&values[0][0], Value::List { .. } | Value::Record { .. });
+        if has_single_value && is_simple_type {
+            let config = &engine_state.config;
+            let text = values[0][0].into_abbreviated_string(config);
+            return Ok(NuView::Preview(Preview::new(&text)));
+        }
 
-        Ok(view)
+        let view = RecordView::new(columns, values, self.table_cfg);
+
+        Ok(NuView::Records(view))
+    }
+}
+
+pub enum NuView<'a> {
+    Records(RecordView<'a>),
+    Preview(Preview),
+}
+
+impl View for NuView<'_> {
+    fn draw(
+        &mut self,
+        f: &mut crate::pager::Frame,
+        area: tui::layout::Rect,
+        cfg: &crate::ViewConfig,
+        layout: &mut crate::views::Layout,
+    ) {
+        match self {
+            NuView::Records(v) => v.draw(f, area, cfg, layout),
+            NuView::Preview(v) => v.draw(f, area, cfg, layout),
+        }
+    }
+
+    fn handle_input(
+        &mut self,
+        engine_state: &EngineState,
+        stack: &mut Stack,
+        layout: &crate::views::Layout,
+        info: &mut crate::pager::ViewInfo,
+        key: crossterm::event::KeyEvent,
+    ) -> Option<crate::pager::Transition> {
+        match self {
+            NuView::Records(v) => v.handle_input(engine_state, stack, layout, info, key),
+            NuView::Preview(v) => v.handle_input(engine_state, stack, layout, info, key),
+        }
+    }
+
+    fn show_data(&mut self, i: usize) -> bool {
+        match self {
+            NuView::Records(v) => v.show_data(i),
+            NuView::Preview(v) => v.show_data(i),
+        }
+    }
+
+    fn collect_data(&self) -> Vec<crate::nu_common::NuText> {
+        match self {
+            NuView::Records(v) => v.collect_data(),
+            NuView::Preview(v) => v.collect_data(),
+        }
+    }
+
+    fn exit(&mut self) -> Option<Value> {
+        match self {
+            NuView::Records(v) => v.exit(),
+            NuView::Preview(v) => v.exit(),
+        }
     }
 }
