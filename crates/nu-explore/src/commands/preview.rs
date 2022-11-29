@@ -7,7 +7,7 @@ use nu_protocol::{
 };
 
 use crate::{
-    nu_common::{self, collect_input, NuConfig},
+    nu_common::{self, collect_input},
     views::Preview,
 };
 
@@ -63,7 +63,8 @@ impl ViewCommand for PreviewCmd {
                 let has_no_head = cols.is_empty() || (cols.len() == 1 && cols[0].is_empty());
                 let has_single_value = vals.len() == 1 && vals[0].len() == 1;
                 if !has_no_head && has_single_value {
-                    vals[0][0].into_abbreviated_string(&NuConfig::default())
+                    let config = engine_state.get_config();
+                    vals[0][0].into_abbreviated_string(config)
                 } else {
                     let ctrlc = engine_state.ctrlc.clone();
                     let config = engine_state.get_config();

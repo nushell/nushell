@@ -16,35 +16,16 @@ impl<'a> ColoredTextW<'a> {
     pub fn new(text: &'a str, col: usize) -> Self {
         Self { text, col }
     }
+
+    pub fn what(&self, area: Rect) -> String {
+        let text = cut_string(self.text, area, self.col);
+        text.ansi_strip().into_owned()
+    }
 }
 
 impl Widget for ColoredTextW<'_> {
     fn render(self, area: Rect, buf: &mut tui::buffer::Buffer) {
-        let mut text = Cow::Borrowed(self.text);
-
-        if self.col > 0 {
-            let n = self
-                .text
-                .ansi_strip()
-                .chars()
-                .map(|c| c.len_utf8())
-                .take(self.col)
-                .sum::<usize>();
-
-            text = self.text.ansi_get(n..).expect("must be OK");
-        }
-
-        if !text.is_empty() && text.len() > area.width as usize {
-            let n = self
-                .text
-                .ansi_strip()
-                .chars()
-                .map(|c| c.len_utf8())
-                .take(area.width as usize)
-                .sum::<usize>();
-
-            text = Cow::Owned(text.ansi_get(..n).expect("must be ok").into_owned());
-        }
+        let text = cut_string(self.text, area, self.col);
 
         let mut offset = 0;
         for block in get_blocks(&text) {
@@ -62,6 +43,35 @@ impl Widget for ColoredTextW<'_> {
             offset = o
         }
     }
+}
+
+fn cut_string(text: &str, area: Rect, skip: usize) -> Cow<'_, str> {
+    let mut text = Cow::Borrowed(text);
+
+    if skip > 0 {
+        let n = text
+            .ansi_strip()
+            .chars()
+            .map(|c| c.len_utf8())
+            .take(skip)
+            .sum::<usize>();
+
+        let s = text.ansi_get(n..).expect("must be OK").into_owned();
+        text = Cow::Owned(s);
+    }
+    if !text.is_empty() && text.len() > area.width as usize {
+        let n = text
+            .ansi_strip()
+            .chars()
+            .map(|c| c.len_utf8())
+            .take(area.width as usize)
+            .sum::<usize>();
+
+        let s = text.ansi_get(..n).expect("must be ok").into_owned();
+        text = Cow::Owned(s);
+    }
+
+    text
 }
 
 fn style_to_tui(style: ansi_str::Style) -> Style {

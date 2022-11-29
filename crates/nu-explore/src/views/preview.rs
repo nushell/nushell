@@ -1,12 +1,15 @@
 use std::cmp::max;
 
 use crossterm::event::{KeyCode, KeyEvent};
-use nu_protocol::engine::{EngineState, Stack};
+use nu_protocol::{
+    engine::{EngineState, Stack},
+    Value,
+};
 use nu_table::TextStyle;
 use tui::layout::Rect;
 
 use crate::{
-    nu_common::NuText,
+    nu_common::{NuSpan, NuText},
     pager::{Frame, Transition, ViewConfig, ViewInfo},
 };
 
@@ -38,7 +41,7 @@ impl Preview {
 }
 
 impl View for Preview {
-    fn draw(&mut self, f: &mut Frame, area: Rect, _: &ViewConfig, _: &mut Layout) {
+    fn draw(&mut self, f: &mut Frame, area: Rect, _: &ViewConfig, layout: &mut Layout) {
         if self.i_row >= self.lines.len() {
             f.render_widget(tui::widgets::Clear, area);
             return;
@@ -46,8 +49,14 @@ impl View for Preview {
 
         let lines = &self.lines[self.i_row..];
         for (i, line) in lines.iter().enumerate().take(area.height as usize) {
+            let text = ColoredTextW::new(line, self.i_col);
+
             let area = Rect::new(area.x, area.y + i as u16, area.width, 1);
-            f.render_widget(ColoredTextW::new(line, self.i_col), area)
+
+            let s = text.what(area);
+            layout.push(&s, area.x, area.y, area.width, area.height);
+
+            f.render_widget(text, area)
         }
 
         self.screen_size = area.width;
@@ -94,5 +103,19 @@ impl View for Preview {
             .iter()
             .map(|line| (line.to_owned(), TextStyle::default()))
             .collect::<Vec<_>>()
+    }
+
+    fn show_data(&mut self, row: usize) -> bool {
+        // we can only go to the appropriate line, but we can't target column
+        //
+        // todo: improve somehow?
+
+        self.i_row = row;
+        true
+    }
+
+    fn exit(&mut self) -> Option<Value> {
+        let text = self.lines.join("\n");
+        Some(Value::string(text, NuSpan::unknown()))
     }
 }
