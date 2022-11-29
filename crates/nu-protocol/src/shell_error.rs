@@ -34,8 +34,8 @@ pub enum ShellError {
     /// Check the inputs to the operation and add guards for their sizes.
     /// Integers are generally of size i64, floats are generally f64.
     #[error("Operator overflow.")]
-    #[diagnostic(code(nu::shell::operator_overflow), url(docsrs))]
-    OperatorOverflow(String, #[label = "{0}"] Span),
+    #[diagnostic(code(nu::shell::operator_overflow), url(docsrs), help("{2}"))]
+    OperatorOverflow(String, #[label = "{0}"] Span, String),
 
     /// The pipelined input into a command was not of the expected type. For example, it might
     /// expect a string input, but received a table instead.
