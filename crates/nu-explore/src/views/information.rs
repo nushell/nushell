@@ -15,9 +15,9 @@ pub struct InformationView;
 
 impl InformationView {
     const MESSAGE: [&'static str; 7] = [
-        "Scroll",
+        "Explore",
         "",
-        "Scroll helps you dynamically navigate through your data",
+        "Explore helps you dynamically navigate through your data",
         "",
         "type :help<Enter> for help",
         "type :q<Enter> to exit",

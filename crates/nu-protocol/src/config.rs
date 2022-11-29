@@ -87,7 +87,7 @@ pub struct Config {
     pub show_banner: bool,
     pub show_clickable_links_in_ls: bool,
     pub render_right_prompt_on_last_line: bool,
-    pub scroll_config: HashMap<String, Value>,
+    pub explore_config: HashMap<String, Value>,
 }
 
 impl Default for Config {
@@ -126,7 +126,7 @@ impl Default for Config {
             show_banner: true,
             show_clickable_links_in_ls: true,
             render_right_prompt_on_last_line: false,
-            scroll_config: HashMap::new(),
+            explore_config: HashMap::new(),
         }
     }
 }
@@ -186,7 +186,7 @@ pub enum TrimStrategy {
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
-pub struct ScrollConfig {
+pub struct ExploreConfig {
     pub color_config: HashMap<String, Value>,
 }
 
@@ -813,11 +813,11 @@ impl Value {
                             eprintln!("$env.config.filesize_format is not a string")
                         }
                     }
-                    "scroll_config" => {
+                    "explore_config" => {
                         if let Ok(map) = create_map(value, &config) {
-                            config.scroll_config = map;
+                            config.explore_config = map;
                         } else {
-                            eprintln!("$env.config.scroll_config is not a map")
+                            eprintln!("$env.config.explore_config is not a map")
                         }
                     }
                     // End legacy options

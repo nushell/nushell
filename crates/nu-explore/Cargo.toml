@@ -1,10 +1,10 @@
 [package]
 authors = ["The Nushell Project Developers"]
 description = "Nushell table printing"
-repository = "https://github.com/nushell/nushell/tree/main/crates/nu-scroll"
+repository = "https://github.com/nushell/nushell/tree/main/crates/nu-explore"
 edition = "2021"
 license = "MIT"
-name = "nu-scroll"
+name = "nu-explore"
 version = "0.71.1"
 
 [dependencies]

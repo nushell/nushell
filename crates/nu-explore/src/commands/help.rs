@@ -42,12 +42,12 @@ impl ViewCommand for HelpCmd {
     fn help(&self) -> Option<HelpManual> {
         Some(HelpManual {
             name: "help",
-            description: "Looks up a help information about a command or a `scroll`",
+            description: "Looks up a help information about a command or a `explore`",
             arguments: vec![],
             examples: vec![
                 HelpExample {
                     example: "help",
-                    description: "Open a help information about the `scroll`",
+                    description: "Open a help information about the `explore`",
                 },
                 HelpExample {
                     example: "help nu",

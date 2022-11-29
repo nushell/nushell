@@ -293,8 +293,8 @@ let-env config = {
   show_banner: true # true or false to enable or disable the banner
   render_right_prompt_on_last_line: false # true or false to enable or disable right prompt to be rendered on last line of the prompt.
 
-  # A 'scroll' utility config
-  scroll_config: {
+  # A 'explore' utility config
+  explore_config: {
     highlight: { bg: 'yellow', fg: 'black' }
     status_bar: { bg: '#C4C9C6', fg: '#1D1F21' }
     command_bar: { fg: '#C4C9C6' }

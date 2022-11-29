@@ -28,7 +28,7 @@ impl SimpleCommand for QuitCmd {
     fn help(&self) -> Option<HelpManual> {
         Some(HelpManual {
             name: "q",
-            description: "Quit scroll",
+            description: "Quit",
             arguments: vec![],
             examples: vec![],
         })
