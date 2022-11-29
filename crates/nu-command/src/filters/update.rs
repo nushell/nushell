@@ -82,7 +82,6 @@ fn update(
     let cell_path: CellPath = call.req(engine_state, stack, 0)?;
     let replacement: Value = call.req(engine_state, stack, 1)?;
 
-    let engine_state = engine_state.clone();
     let ctrlc = engine_state.ctrlc.clone();
 
     if let Some(PathMember::Int { val, span }) = cell_path.members.get(0) {
