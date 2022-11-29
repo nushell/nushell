@@ -90,6 +90,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "ansi-str"
+version = "0.7.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "21b1ed1c166829a0ccb5d79caa0f75cb4abd4adb2ce2c096755b7ad5ffdb0990"
+dependencies = [
+ "ansitok",
+]
+
+[[package]]
 name = "ansitok"
 version = "0.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2774,6 +2783,7 @@ dependencies = [
 name = "nu-scroll"
 version = "0.71.1"
 dependencies = [
+ "ansi-str 0.7.2",
  "crossterm 0.24.0",
  "nu-ansi-term",
  "nu-cli",
@@ -3162,7 +3172,7 @@ version = "0.7.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "1526bb6aa9f10ec339fb10360f22c57edf81d5678d0278e93bc12a47ffbe4b01"
 dependencies = [
- "ansi-str",
+ "ansi-str 0.5.0",
  "ansitok",
  "bytecount",
  "fnv",
@@ -4901,7 +4911,7 @@ version = "0.10.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "56c3ee73732ffceaea7b8f6b719ce3bb17f253fa27461ffeaf568ebd0cdb4b85"
 dependencies = [
- "ansi-str",
+ "ansi-str 0.5.0",
  "papergrid",
  "tabled_derive",
  "unicode-width",

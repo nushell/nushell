@@ -547,8 +547,8 @@ fn render_column(
     rows: &[NuText],
 ) -> u16 {
     for (row, (text, style)) in rows.iter().enumerate() {
-        let text = strip_string(text);
         let style = text_style_to_tui_style(*style);
+        let text = strip_string(text);
         let span = Span::styled(text, style);
         buf.set_span(x, y + row as u16, &span, available_width);
     }

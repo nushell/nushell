@@ -1,3 +1,4 @@
+mod coloredtextw;
 mod information;
 mod interative;
 mod preview;

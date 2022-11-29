@@ -3,14 +3,14 @@ use std::cmp::max;
 use crossterm::event::{KeyCode, KeyEvent};
 use nu_protocol::engine::{EngineState, Stack};
 use nu_table::TextStyle;
-use tui::{layout::Rect, widgets::Paragraph};
+use tui::layout::Rect;
 
 use crate::{
     nu_common::NuText,
     pager::{Frame, Transition, ViewConfig, ViewInfo},
 };
 
-use super::{Layout, View};
+use super::{coloredtextw::ColoredTextW, Layout, View};
 
 // todo: Add wrap option
 #[derive(Debug)]
@@ -26,11 +26,6 @@ impl Preview {
         let lines: Vec<String> = value
             .lines()
             .map(|line| line.replace('\t', "    ")) // tui: doesn't support TAB
-            .map(|line| {
-                strip_ansi_escapes::strip(line.as_bytes())
-                    .map(|s| String::from_utf8_lossy(&s).into_owned())
-                    .unwrap_or(line)
-            })
             .collect();
 
         Self {
@@ -49,26 +44,10 @@ impl View for Preview {
             return;
         }
 
-        let lines = self.lines[self.i_row..]
-            .iter()
-            .map(|line| {
-                if line.len() > self.i_col {
-                    line.chars().skip(self.i_col).collect::<String>()
-                } else {
-                    String::new()
-                }
-            })
-            .map(|line| {
-                if !line.is_empty() && line.len() > area.width as usize {
-                    line.chars().take(area.width as usize).collect::<String>()
-                } else {
-                    line
-                }
-            });
-
-        for (i, line) in lines.enumerate().take(area.height as usize) {
+        let lines = &self.lines[self.i_row..];
+        for (i, line) in lines.iter().enumerate().take(area.height as usize) {
             let area = Rect::new(area.x, area.y + i as u16, area.width, 1);
-            f.render_widget(Paragraph::new(line), area)
+            f.render_widget(ColoredTextW::new(line, self.i_col), area)
         }
 
         self.screen_size = area.width;

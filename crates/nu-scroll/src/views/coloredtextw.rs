@@ -1,0 +1,135 @@
+use std::borrow::Cow;
+
+use ansi_str::{get_blocks, AnsiStr};
+use tui::{
+    layout::Rect,
+    style::{Color, Modifier, Style},
+    widgets::Widget,
+};
+
+pub struct ColoredTextW<'a> {
+    text: &'a str,
+    col: usize,
+}
+
+impl<'a> ColoredTextW<'a> {
+    pub fn new(text: &'a str, col: usize) -> Self {
+        Self { text, col }
+    }
+}
+
+impl Widget for ColoredTextW<'_> {
+    fn render(self, area: Rect, buf: &mut tui::buffer::Buffer) {
+        let mut text = Cow::Borrowed(self.text);
+
+        if self.col > 0 {
+            let n = self
+                .text
+                .ansi_strip()
+                .chars()
+                .map(|c| c.len_utf8())
+                .take(self.col)
+                .sum::<usize>();
+
+            text = self.text.ansi_get(n..).expect("must be OK");
+        }
+
+        if !text.is_empty() && text.len() > area.width as usize {
+            let n = self
+                .text
+                .ansi_strip()
+                .chars()
+                .map(|c| c.len_utf8())
+                .take(area.width as usize)
+                .sum::<usize>();
+
+            text = Cow::Owned(text.ansi_get(..n).expect("must be ok").into_owned());
+        }
+
+        let mut offset = 0;
+        for block in get_blocks(&text) {
+            let text = block.text();
+            let style = style_to_tui(block.style());
+
+            let (o, _) = buf.set_stringn(
+                area.x + offset as u16,
+                area.y,
+                &text,
+                area.width as usize,
+                style,
+            );
+
+            offset = o
+        }
+    }
+}
+
+fn style_to_tui(style: ansi_str::Style) -> Style {
+    let mut out = Style::default();
+    if let Some(clr) = style.background() {
+        out.bg = ansi_color_to_tui_color(clr);
+    }
+
+    if let Some(clr) = style.foreground() {
+        out.fg = ansi_color_to_tui_color(clr);
+    }
+
+    if style.is_slow_blink() || style.is_rapid_blink() {
+        out.add_modifier |= Modifier::SLOW_BLINK;
+    }
+
+    if style.is_bold() {
+        out.add_modifier |= Modifier::BOLD;
+    }
+
+    if style.is_faint() {
+        out.add_modifier |= Modifier::DIM;
+    }
+
+    if style.is_hide() {
+        out.add_modifier |= Modifier::HIDDEN;
+    }
+
+    if style.is_italic() {
+        out.add_modifier |= Modifier::ITALIC;
+    }
+
+    if style.is_inverse() {
+        out.add_modifier |= Modifier::REVERSED;
+    }
+
+    if style.is_underline() {
+        out.add_modifier |= Modifier::UNDERLINED;
+    }
+
+    out
+}
+
+fn ansi_color_to_tui_color(clr: ansi_str::Color) -> Option<Color> {
+    use ansi_str::Color::*;
+
+    let clr = match clr {
+        Black => Color::Black,
+        BrightBlack => Color::DarkGray,
+        Red => Color::Red,
+        BrightRed => Color::LightRed,
+        Green => Color::Green,
+        BrightGreen => Color::LightGreen,
+        Yellow => Color::Yellow,
+        BrightYellow => Color::LightYellow,
+        Blue => Color::Blue,
+        BrightBlue => Color::LightBlue,
+        Magenta => Color::Magenta,
+        BrightMagenta => Color::LightMagenta,
+        Cyan => Color::Cyan,
+        BrightCyan => Color::LightCyan,
+        White => Color::White,
+        Fixed(i) => Color::Indexed(i),
+        Rgb(r, g, b) => Color::Rgb(r, g, b),
+        BrightWhite => Color::Gray,
+        BrightPurple => Color::LightMagenta,
+        Purple => Color::Magenta,
+    };
+
+    Some(clr)
+}
