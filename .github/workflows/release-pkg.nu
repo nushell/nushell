@@ -6,6 +6,20 @@
 # REF:
 #   1. https://github.com/volks73/cargo-wix
 
+# Added 2022-11-29 when Windows packaging wouldn't work for some unknown reason
+# To run this manual for windows
+# let-env TARGET = 'x86_64-pc-windows-msvc'
+# let-env TARGET_RUSTFLAGS = ''
+# let-env GITHUB_WORKSPACE = 'C:\Users\dschroeder\source\repos\forks\nushell'
+# Pass 1 let-env _EXTRA_ = 'bin'
+# Pass 2 let-env _EXTRA_ = 'msi'
+# make sure 7z.exe is in your path https://www.7-zip.org/download.html
+# make sure aria2c.exe is in your path https://github.com/aria2/aria2
+# make sure you have the wixtools installed https://wixtoolset.org/
+# set os below like this because it's what github's runner is named
+# let os = 'windows-latest'
+
+
 # The main binary file to be released
 let bin = 'nu'
 let os = $env.OS
