@@ -1,7 +1,6 @@
 mod abs;
 mod avg;
 mod ceil;
-mod eval;
 mod floor;
 pub mod math_;
 mod max;
@@ -20,7 +19,6 @@ mod variance;
 pub use abs::SubCommand as MathAbs;
 pub use avg::SubCommand as MathAvg;
 pub use ceil::SubCommand as MathCeil;
-pub use eval::SubCommand as MathEval;
 pub use floor::SubCommand as MathFloor;
 pub use math_::MathCommand as Math;
 pub use max::SubCommand as MathMax;

@@ -8,7 +8,7 @@ fn reduce_table_column() {
         echo "[{month:2,total:30}, {month:3,total:10}, {month:4,total:3}, {month:5,total:60}]"
         | from json
         | get total
-        | reduce -f 20 { |it, acc| $it + (math eval $"($acc)^1.05")}
+        | reduce -f 20 { |it, acc| $it + $acc ** 1.05}
         | into string -d 1
         "#
         )
@@ -23,7 +23,7 @@ fn reduce_table_column_with_path() {
         cwd: ".", pipeline(
         r#"
         [{month:2,total:30}, {month:3,total:10}, {month:4,total:3}, {month:5,total:60}]
-        | reduce -f 20 { |it, acc| $it.total + (math eval $"($acc)^1.05")}
+        | reduce -f 20 { |it, acc| $it.total + $acc ** 1.05}
         | into string -d 1
         "#
         )

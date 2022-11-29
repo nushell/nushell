@@ -393,7 +393,6 @@ pub fn create_default_context() -> EngineState {
             MathAbs,
             MathAvg,
             MathCeil,
-            MathEval,
             MathFloor,
             MathMax,
             MathMedian,
