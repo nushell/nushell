@@ -929,16 +929,16 @@ fn convert_to_table(
 
     // All the computations are parallelised here.
     // NOTE: It's currently not possible to Ctrl-C out of this...
-    let mut cells: Vec<Vec<_>> = Vec::new();
-    cells.par_extend(data.into_par_iter().map(|row| {
-        let mut new_row = Vec::new();
-        new_row.par_extend(row.into_par_iter().map(|deferred| {
+    let mut cells: Vec<Vec<_>> = Vec::with_capacity(data.len());
+    data.into_par_iter().map(|row| {
+        let mut new_row = Vec::with_capacity(row.len());
+        row.into_par_iter().map(|deferred| {
             let pair = deferred.compute(config, style_computer);
 
             NuTable::create_cell(pair.0, pair.1)
-        }));
+        }).collect_into_vec(&mut new_row);
         new_row
-    }));
+    }).collect_into_vec(&mut cells);
 
     let count_rows = cells.len();
     let table = NuTable::new(cells, (count_rows, count_columns));
