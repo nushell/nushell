@@ -6,7 +6,8 @@
 # REF:
 #   1. https://github.com/volks73/cargo-wix
 
-# Added 2022-11-29 when Windows packaging wouldn't work for some unknown reason
+# Added 2022-11-29 when Windows packaging wouldn't work
+# because softprops/action-gh-release was broken
 # To run this manual for windows
 # let-env TARGET = 'x86_64-pc-windows-msvc'
 # let-env TARGET_RUSTFLAGS = ''
