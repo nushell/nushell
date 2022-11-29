@@ -1,4 +1,4 @@
-use std::cmp::max;
+use std::cmp::{max, min};
 
 use crossterm::event::{KeyCode, KeyEvent};
 use nu_protocol::{
@@ -10,7 +10,7 @@ use tui::layout::Rect;
 
 use crate::{
     nu_common::{NuSpan, NuText},
-    pager::{Frame, Transition, ViewConfig, ViewInfo},
+    pager::{Frame, Report, Severentity, Transition, ViewConfig, ViewInfo},
 };
 
 use super::{coloredtextw::ColoredTextW, Layout, View};
@@ -66,16 +66,11 @@ impl View for Preview {
         &mut self,
         _: &EngineState,
         _: &mut Stack,
-        _: &Layout,
-        _: &mut ViewInfo,
+        layout: &Layout,
+        info: &mut ViewInfo, // add this arg to draw too?
         key: KeyEvent,
     ) -> Option<Transition> {
         match key.code {
-            KeyCode::Right => {
-                self.i_col += max(1, self.screen_size as usize / 2);
-
-                Some(Transition::Ok)
-            }
             KeyCode::Left => {
                 if self.i_col > 0 {
                     self.i_col -= max(1, self.screen_size as usize / 2);
@@ -83,13 +78,72 @@ impl View for Preview {
 
                 Some(Transition::Ok)
             }
-            KeyCode::Down => {
-                self.i_row += 1;
+            KeyCode::Right => {
+                self.i_col += max(1, self.screen_size as usize / 2);
 
                 Some(Transition::Ok)
             }
             KeyCode::Up => {
+                let page_size = layout.data.len();
+                let max = self.lines.len().saturating_sub(page_size);
+                let was_end = self.i_row == max;
+
+                if max != 0 && was_end {
+                    info.status = Some(Report::default());
+                }
+
                 self.i_row = self.i_row.saturating_sub(1);
+
+                Some(Transition::Ok)
+            }
+            KeyCode::Down => {
+                let page_size = layout.data.len();
+                let max = self.lines.len().saturating_sub(page_size);
+                self.i_row = min(self.i_row + 1, max);
+
+                let is_end = self.i_row == max;
+                if is_end {
+                    let report = Report::new(
+                        String::from("END"),
+                        Severentity::Info,
+                        String::new(),
+                        String::new(),
+                    );
+
+                    info.status = Some(report);
+                }
+
+                Some(Transition::Ok)
+            }
+            KeyCode::PageUp => {
+                let page_size = layout.data.len();
+                let max = self.lines.len().saturating_sub(page_size);
+                let was_end = self.i_row == max;
+
+                if max != 0 && was_end {
+                    info.status = Some(Report::default());
+                }
+
+                self.i_row = self.i_row.saturating_sub(page_size);
+
+                Some(Transition::Ok)
+            }
+            KeyCode::PageDown => {
+                let page_size = layout.data.len();
+                let max = self.lines.len().saturating_sub(page_size);
+                self.i_row = min(self.i_row + page_size, max);
+
+                let is_end = self.i_row == max;
+                if is_end {
+                    let report = Report::new(
+                        String::from("END"),
+                        Severentity::Info,
+                        String::new(),
+                        String::new(),
+                    );
+
+                    info.status = Some(report);
+                }
 
                 Some(Transition::Ok)
             }
