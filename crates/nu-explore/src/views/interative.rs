@@ -135,16 +135,24 @@ impl View for InteractiveView<'_> {
                 .table
                 .as_mut()
                 .expect("we know that we have a table cause of a flag");
+
+            let was_at_the_top = table.get_layer_last().index_row == 0;
+
+            if was_at_the_top && matches!(key.code, KeyCode::Up | KeyCode::PageUp) {
+                self.view_mode = false;
+                return Some(Transition::Ok);
+            }
+
             let result = table.handle_input(engine_state, stack, layout, info, key);
 
-            match result {
-                Some(Transition::Ok | Transition::Cmd { .. }) => return Some(Transition::Ok),
+            return match result {
+                Some(Transition::Ok | Transition::Cmd { .. }) => Some(Transition::Ok),
                 Some(Transition::Exit) => {
                     self.view_mode = false;
-                    return Some(Transition::Ok);
+                    Some(Transition::Ok)
                 }
-                None => return None,
-            }
+                None => None,
+            };
         }
 
         match &key.code {
