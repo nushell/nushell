@@ -96,7 +96,7 @@ fn sort_record_values_natural() {
         r#"{1:"1",2:"2",4:"100",3:"10"} | sort -vn | to nuon"#
     ));
 
-    assert_eq!(actual.out, r#"{"1":"1", "2":"2", "3":"10", "4":"100"}"#);
+    assert_eq!(actual.out, r#"{"1": "1", "2": "2", "3": "10", "4": "100"}"#);
 }
 
 #[test]

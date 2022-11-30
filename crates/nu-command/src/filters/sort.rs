@@ -319,6 +319,11 @@ pub fn sort(
                             .partial_cmp(&lowercase_right)
                             .unwrap_or(Ordering::Equal)
                     }
+                } else if natural {
+                    match (a.as_string(), b.as_string()) {
+                        (Ok(left), Ok(right)) => compare_str(left, right),
+                        _ => Ordering::Equal,
+                    }
                 } else {
                     a.partial_cmp(b).unwrap_or(Ordering::Equal)
                 }
