@@ -99,6 +99,15 @@ fn ignore_error_should_work_for_external_command() {
 }
 
 #[test]
+fn ignore_error_with_complete_should_have_exit_code() {
+    let actual = nu!(cwd: ".", pipeline(
+        r#"(do -i { nu --testbin fail asdf } | complete).exit_code"#
+    ));
+
+    assert_eq!(actual.out, "0");
+}
+
+#[test]
 #[cfg(not(windows))]
 fn ignore_error_with_too_much_stderr_not_hang_nushell() {
     use nu_test_support::fs::Stub::FileWithContent;

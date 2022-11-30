@@ -94,13 +94,25 @@ impl Command for Complete {
                     vals.push(res)
                 };
 
-                if let Some(exit_code) = exit_code {
-                    let mut v: Vec<_> = exit_code.collect();
+                // exit_code can be None due to `do -i` command.
+                cols.push("exit_code".to_string());
+                match exit_code {
+                    Some(exit_code_stream) => {
+                        let mut v: Vec<_> = exit_code_stream.collect();
 
-                    if let Some(v) = v.pop() {
-                        cols.push("exit_code".to_string());
-                        vals.push(v);
+                        if let Some(v) = v.pop() {
+                            vals.push(v);
+                        } else {
+                            vals.push(Value::Int {
+                                val: 0,
+                                span: call.head,
+                            })
+                        }
                     }
+                    None => vals.push(Value::Int {
+                        val: 0,
+                        span: call.head,
+                    }),
                 }
 
                 Ok(Value::Record {
