@@ -16,6 +16,9 @@ let flags = $env.TARGET_RUSTFLAGS
 let dist = $'($env.GITHUB_WORKSPACE)/output'
 let version = (open Cargo.toml | get package.version)
 
+$'Debugging info:'
+print { version: $version, bin: $bin, os: $os, target: $target, src: $src, flags: $flags, dist: $dist }; hr-line
+
 # $env
 
 $'(char nl)Packaging ($bin) v($version) for ($target) in ($src)...'; hr-line -b
