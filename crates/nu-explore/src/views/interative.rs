@@ -7,6 +7,7 @@ use nu_protocol::{
 };
 use tui::{
     layout::Rect,
+    style::{Modifier, Style},
     widgets::{BorderType, Borders, Paragraph},
 };
 
@@ -46,8 +47,16 @@ impl View for InteractiveView<'_> {
     fn draw(&mut self, f: &mut Frame, area: Rect, cfg: &ViewConfig, layout: &mut Layout) {
         let cmd_block = tui::widgets::Block::default()
             .borders(Borders::ALL)
-            .border_type(BorderType::Rounded);
+            .border_type(BorderType::Plain);
         let cmd_area = Rect::new(area.x + 1, area.y, area.width - 2, 3);
+
+        let cmd_block = if self.view_mode {
+            cmd_block
+        } else {
+            cmd_block
+                .border_style(Style::default().add_modifier(Modifier::BOLD))
+                .border_type(BorderType::Double)
+        };
 
         f.render_widget(cmd_block, cmd_area);
 
@@ -78,16 +87,27 @@ impl View for InteractiveView<'_> {
 
         f.render_widget(cmd_input, cmd_input_area);
 
-        let cur_w = area.x + 1 + 1 + 1 + max_cmd_len as u16;
-        let cur_w_max = area.x + 1 + 1 + 1 + area.width - 2 - 1 - 1 - 1 - 1;
-        if cur_w < cur_w_max {
-            f.set_cursor(area.x + 1 + 1 + 1 + max_cmd_len as u16, area.y + 1);
+        if !self.view_mode {
+            let cur_w = area.x + 1 + 1 + 1 + max_cmd_len as u16;
+            let cur_w_max = area.x + 1 + 1 + 1 + area.width - 2 - 1 - 1 - 1 - 1;
+            if cur_w < cur_w_max {
+                f.set_cursor(area.x + 1 + 1 + 1 + max_cmd_len as u16, area.y + 1);
+            }
         }
 
         let table_block = tui::widgets::Block::default()
             .borders(Borders::ALL)
-            .border_type(BorderType::Rounded);
+            .border_type(BorderType::Plain);
         let table_area = Rect::new(area.x + 1, area.y + 3, area.width - 2, area.height - 3);
+
+        let table_block = if self.view_mode {
+            table_block
+                .border_style(Style::default().add_modifier(Modifier::BOLD))
+                .border_type(BorderType::Double)
+        } else {
+            table_block
+        };
+
         f.render_widget(table_block, table_area);
 
         if let Some(table) = &mut self.table {
@@ -157,6 +177,9 @@ impl View for InteractiveView<'_> {
                         let view = RecordView::new(columns, values, self.table_cfg);
 
                         self.table = Some(view);
+
+                        // in case there was a error before wanna reset it.
+                        info.report = Some(Report::default());
                     }
                     Err(err) => {
                         info.report = Some(Report::error(format!("Error: {}", err)));
