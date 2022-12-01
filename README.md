@@ -126,12 +126,13 @@ For example, you can load a .toml file as structured data and explore it:
 > open Cargo.toml
 ╭──────────────────┬────────────────────╮
 │ bin              │ [table 1 row]      │
-│ dependencies     │ {record 24 fields} │
+│ dependencies     │ {record 25 fields} │
 │ dev-dependencies │ {record 8 fields}  │
 │ features         │ {record 10 fields} │
 │ package          │ {record 13 fields} │
+│ patch            │ {record 1 field}   │
 │ profile          │ {record 3 fields}  │
-│ target           │ {record 2 fields}  │
+│ target           │ {record 3 fields}  │
 │ workspace        │ {record 1 field}   │
 ╰──────────────────┴────────────────────╯
 ```
@@ -149,11 +150,11 @@ We can pipe this into a command that gets the contents of one of the columns:
 │ exclude       │ [list 1 item]                      │
 │ homepage      │ https://www.nushell.sh             │
 │ license       │ MIT                                │
+│ metadata      │ {record 1 field}                   │
 │ name          │ nu                                 │
-│ readme        │ README.md                          │
 │ repository    │ https://github.com/nushell/nushell │
 │ rust-version  │ 1.60                               │
-│ version       │ 0.63.1                             │
+│ version       │ 0.72.0                             │
 ╰───────────────┴────────────────────────────────────╯
 ```
 
@@ -161,7 +162,7 @@ And if needed we can drill down further:
 
 ```shell
 > open Cargo.toml | get package.version
-0.63.1
+0.72.0
 ```
 
 ### Plugins

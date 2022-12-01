@@ -75,6 +75,7 @@ mod semicolon;
 mod seq_char;
 mod shells;
 mod skip;
+mod sort;
 mod sort_by;
 mod source_env;
 mod split_by;

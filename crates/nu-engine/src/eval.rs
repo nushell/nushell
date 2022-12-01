@@ -910,7 +910,15 @@ pub fn eval_element_with_input(
                                 Argument::Positional(expr.clone()),
                                 Argument::Named((
                                     Spanned {
-                                        item: "--raw".into(),
+                                        item: "raw".into(),
+                                        span: *span,
+                                    },
+                                    None,
+                                    None,
+                                )),
+                                Argument::Named((
+                                    Spanned {
+                                        item: "force".into(),
                                         span: *span,
                                     },
                                     None,

@@ -404,6 +404,21 @@ pub fn create_default_context() -> EngineState {
             MathStddev,
             MathSum,
             MathVariance,
+            MathSin,
+            MathCos,
+            MathTan,
+            MathSinH,
+            MathCosH,
+            MathTanH,
+            MathArcSin,
+            MathArcCos,
+            MathArcTan,
+            MathArcSinH,
+            MathArcCosH,
+            MathArcTanH,
+            MathPi,
+            MathEuler,
+            MathLn,
         };
 
         // Network
