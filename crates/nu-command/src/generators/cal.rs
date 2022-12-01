@@ -5,7 +5,7 @@ use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
     Category, Example, IntoPipelineData, PipelineData, ShellError, Signature, Span, Spanned,
-    SyntaxShape, Value,
+    SyntaxShape, Type, Value,
 };
 use std::collections::VecDeque;
 
@@ -48,6 +48,8 @@ impl Command for Cal {
                 "Display the month names instead of integers",
                 None,
             )
+            .input_output_types(vec![(Type::Nothing, Type::Table(vec![]))])
+            .allow_variants_without_examples(true) // TODO: supply exhaustive examples
             .category(Category::Generators)
     }
 
