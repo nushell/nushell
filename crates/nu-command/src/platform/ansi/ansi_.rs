@@ -24,6 +24,7 @@ lazy_static! {
     AnsiCode{ short_name: Some("gi"), long_name: "green_italic", code: Color::Green.italic().prefix().to_string()},
     AnsiCode{ short_name: Some("gd"), long_name: "green_dimmed", code: Color::Green.dimmed().prefix().to_string()},
     AnsiCode{ short_name: Some("gr"), long_name: "green_reverse", code: Color::Green.reverse().prefix().to_string()},
+    AnsiCode{ short_name: Some("bg_g"), long_name: "bg_green", code: Style::new().on(Color::Green).prefix().to_string()},
 
     AnsiCode{ short_name: Some("lg"), long_name: "light_green", code: Color::LightGreen.prefix().to_string()},
     AnsiCode{ short_name: Some("lgb"), long_name: "light_green_bold", code: Color::LightGreen.bold().prefix().to_string()},
@@ -31,6 +32,7 @@ lazy_static! {
     AnsiCode{ short_name: Some("lgi"), long_name: "light_green_italic", code: Color::LightGreen.italic().prefix().to_string()},
     AnsiCode{ short_name: Some("lgd"), long_name: "light_green_dimmed", code: Color::LightGreen.dimmed().prefix().to_string()},
     AnsiCode{ short_name: Some("lgr"), long_name: "light_green_reverse", code: Color::LightGreen.reverse().prefix().to_string()},
+    AnsiCode{ short_name: Some("bg_lg"), long_name: "bg_light_green", code: Style::new().on(Color::LightGreen).prefix().to_string()},
 
     AnsiCode{ short_name: Some("r"), long_name: "red", code: Color::Red.prefix().to_string()},
     AnsiCode{ short_name: Some("rb"), long_name: "red_bold", code: Color::Red.bold().prefix().to_string()},
@@ -38,6 +40,7 @@ lazy_static! {
     AnsiCode{ short_name: Some("ri"), long_name: "red_italic", code: Color::Red.italic().prefix().to_string()},
     AnsiCode{ short_name: Some("rd"), long_name: "red_dimmed", code: Color::Red.dimmed().prefix().to_string()},
     AnsiCode{ short_name: Some("rr"), long_name: "red_reverse", code: Color::Red.reverse().prefix().to_string()},
+    AnsiCode{ short_name: Some("bg_r"), long_name: "bg_red", code: Style::new().on(Color::Red).prefix().to_string()},
 
     AnsiCode{ short_name: Some("lr"), long_name: "light_red", code: Color::LightRed.prefix().to_string()},
     AnsiCode{ short_name: Some("lrb"), long_name: "light_red_bold", code: Color::LightRed.bold().prefix().to_string()},
@@ -45,6 +48,7 @@ lazy_static! {
     AnsiCode{ short_name: Some("lri"), long_name: "light_red_italic", code: Color::LightRed.italic().prefix().to_string()},
     AnsiCode{ short_name: Some("lrd"), long_name: "light_red_dimmed", code: Color::LightRed.dimmed().prefix().to_string()},
     AnsiCode{ short_name: Some("lrr"), long_name: "light_red_reverse", code: Color::LightRed.reverse().prefix().to_string()},
+    AnsiCode{ short_name: Some("bg_lr"), long_name: "bg_light_red", code: Style::new().on(Color::LightRed).prefix().to_string()},
 
     AnsiCode{ short_name: Some("u"), long_name: "blue", code: Color::Blue.prefix().to_string()},
     AnsiCode{ short_name: Some("ub"), long_name: "blue_bold", code: Color::Blue.bold().prefix().to_string()},
@@ -52,6 +56,7 @@ lazy_static! {
     AnsiCode{ short_name: Some("ui"), long_name: "blue_italic", code: Color::Blue.italic().prefix().to_string()},
     AnsiCode{ short_name: Some("ud"), long_name: "blue_dimmed", code: Color::Blue.dimmed().prefix().to_string()},
     AnsiCode{ short_name: Some("ur"), long_name: "blue_reverse", code: Color::Blue.reverse().prefix().to_string()},
+    AnsiCode{ short_name: Some("bg_u"), long_name: "bg_blue", code: Style::new().on(Color::Blue).prefix().to_string()},
 
     AnsiCode{ short_name: Some("lu"), long_name: "light_blue", code: Color::LightBlue.prefix().to_string()},
     AnsiCode{ short_name: Some("lub"), long_name: "light_blue_bold", code: Color::LightBlue.bold().prefix().to_string()},
@@ -59,6 +64,7 @@ lazy_static! {
     AnsiCode{ short_name: Some("lui"), long_name: "light_blue_italic", code: Color::LightBlue.italic().prefix().to_string()},
     AnsiCode{ short_name: Some("lud"), long_name: "light_blue_dimmed", code: Color::LightBlue.dimmed().prefix().to_string()},
     AnsiCode{ short_name: Some("lur"), long_name: "light_blue_reverse", code: Color::LightBlue.reverse().prefix().to_string()},
+    AnsiCode{ short_name: Some("bg_lu"), long_name: "bg_light_blue", code: Style::new().on(Color::LightBlue).prefix().to_string()},
 
     AnsiCode{ short_name: Some("b"), long_name: "black", code: Color::Black.prefix().to_string()},
     AnsiCode{ short_name: Some("bb"), long_name: "black_bold", code: Color::Black.bold().prefix().to_string()},
@@ -66,6 +72,7 @@ lazy_static! {
     AnsiCode{ short_name: Some("bi"), long_name: "black_italic", code: Color::Black.italic().prefix().to_string()},
     AnsiCode{ short_name: Some("bd"), long_name: "black_dimmed", code: Color::Black.dimmed().prefix().to_string()},
     AnsiCode{ short_name: Some("br"), long_name: "black_reverse", code: Color::Black.reverse().prefix().to_string()},
+    AnsiCode{ short_name: Some("bg_b"), long_name: "bg_black", code: Style::new().on(Color::Black).prefix().to_string()},
 
     AnsiCode{ short_name: Some("ligr"), long_name: "light_gray", code: Color::LightGray.prefix().to_string()},
     AnsiCode{ short_name: Some("ligrb"), long_name: "light_gray_bold", code: Color::LightGray.bold().prefix().to_string()},
@@ -73,6 +80,7 @@ lazy_static! {
     AnsiCode{ short_name: Some("ligri"), long_name: "light_gray_italic", code: Color::LightGray.italic().prefix().to_string()},
     AnsiCode{ short_name: Some("ligrd"), long_name: "light_gray_dimmed", code: Color::LightGray.dimmed().prefix().to_string()},
     AnsiCode{ short_name: Some("ligrr"), long_name: "light_gray_reverse", code: Color::LightGray.reverse().prefix().to_string()},
+    AnsiCode{ short_name: Some("bg_ligr"), long_name: "bg_light_gray", code: Style::new().on(Color::LightGray).prefix().to_string()},
 
     AnsiCode{ short_name: Some("y"), long_name: "yellow", code: Color::Yellow.prefix().to_string()},
     AnsiCode{ short_name: Some("yb"), long_name: "yellow_bold", code: Color::Yellow.bold().prefix().to_string()},
@@ -80,6 +88,7 @@ lazy_static! {
     AnsiCode{ short_name: Some("yi"), long_name: "yellow_italic", code: Color::Yellow.italic().prefix().to_string()},
     AnsiCode{ short_name: Some("yd"), long_name: "yellow_dimmed", code: Color::Yellow.dimmed().prefix().to_string()},
     AnsiCode{ short_name: Some("yr"), long_name: "yellow_reverse", code: Color::Yellow.reverse().prefix().to_string()},
+    AnsiCode{ short_name: Some("bg_y"), long_name: "bg_yellow", code: Style::new().on(Color::Yellow).prefix().to_string()},
 
     AnsiCode{ short_name: Some("ly"), long_name: "light_yellow", code: Color::LightYellow.prefix().to_string()},
     AnsiCode{ short_name: Some("lyb"), long_name: "light_yellow_bold", code: Color::LightYellow.bold().prefix().to_string()},
@@ -87,6 +96,7 @@ lazy_static! {
     AnsiCode{ short_name: Some("lyi"), long_name: "light_yellow_italic", code: Color::LightYellow.italic().prefix().to_string()},
     AnsiCode{ short_name: Some("lyd"), long_name: "light_yellow_dimmed", code: Color::LightYellow.dimmed().prefix().to_string()},
     AnsiCode{ short_name: Some("lyr"), long_name: "light_yellow_reverse", code: Color::LightYellow.reverse().prefix().to_string()},
+    AnsiCode{ short_name: Some("bg_ly"), long_name: "bg_light_yellow", code: Style::new().on(Color::LightYellow).prefix().to_string()},
 
     AnsiCode{ short_name: Some("p"), long_name: "purple", code: Color::Purple.prefix().to_string()},
     AnsiCode{ short_name: Some("pb"), long_name: "purple_bold", code: Color::Purple.bold().prefix().to_string()},
@@ -94,6 +104,7 @@ lazy_static! {
     AnsiCode{ short_name: Some("pi"), long_name: "purple_italic", code: Color::Purple.italic().prefix().to_string()},
     AnsiCode{ short_name: Some("pd"), long_name: "purple_dimmed", code: Color::Purple.dimmed().prefix().to_string()},
     AnsiCode{ short_name: Some("pr"), long_name: "purple_reverse", code: Color::Purple.reverse().prefix().to_string()},
+    AnsiCode{ short_name: Some("bg_p"), long_name: "bg_purple", code: Style::new().on(Color::Purple).prefix().to_string()},
 
     AnsiCode{ short_name: Some("lp"), long_name: "light_purple", code: Color::LightPurple.prefix().to_string()},
     AnsiCode{ short_name: Some("lpb"), long_name: "light_purple_bold", code: Color::LightPurple.bold().prefix().to_string()},
@@ -101,6 +112,7 @@ lazy_static! {
     AnsiCode{ short_name: Some("lpi"), long_name: "light_purple_italic", code: Color::LightPurple.italic().prefix().to_string()},
     AnsiCode{ short_name: Some("lpd"), long_name: "light_purple_dimmed", code: Color::LightPurple.dimmed().prefix().to_string()},
     AnsiCode{ short_name: Some("lpr"), long_name: "light_purple_reverse", code: Color::LightPurple.reverse().prefix().to_string()},
+    AnsiCode{ short_name: Some("bg_lp"), long_name: "bg_light_purple", code: Style::new().on(Color::LightPurple).prefix().to_string()},
 
     AnsiCode{ short_name: Some("c"), long_name: "cyan", code: Color::Cyan.prefix().to_string()},
     AnsiCode{ short_name: Some("cb"), long_name: "cyan_bold", code: Color::Cyan.bold().prefix().to_string()},
@@ -108,6 +120,7 @@ lazy_static! {
     AnsiCode{ short_name: Some("ci"), long_name: "cyan_italic", code: Color::Cyan.italic().prefix().to_string()},
     AnsiCode{ short_name: Some("cd"), long_name: "cyan_dimmed", code: Color::Cyan.dimmed().prefix().to_string()},
     AnsiCode{ short_name: Some("cr"), long_name: "cyan_reverse", code: Color::Cyan.reverse().prefix().to_string()},
+    AnsiCode{ short_name: Some("bg_c"), long_name: "bg_cyan", code: Style::new().on(Color::Cyan).prefix().to_string()},
 
     AnsiCode{ short_name: Some("lc"), long_name: "light_cyan", code: Color::LightCyan.prefix().to_string()},
     AnsiCode{ short_name: Some("lcb"), long_name: "light_cyan_bold", code: Color::LightCyan.bold().prefix().to_string()},
@@ -115,6 +128,7 @@ lazy_static! {
     AnsiCode{ short_name: Some("lci"), long_name: "light_cyan_italic", code: Color::LightCyan.italic().prefix().to_string()},
     AnsiCode{ short_name: Some("lcd"), long_name: "light_cyan_dimmed", code: Color::LightCyan.dimmed().prefix().to_string()},
     AnsiCode{ short_name: Some("lcr"), long_name: "light_cyan_reverse", code: Color::LightCyan.reverse().prefix().to_string()},
+    AnsiCode{ short_name: Some("bg_lc"), long_name: "bg_light_cyan", code: Style::new().on(Color::LightCyan).prefix().to_string()},
 
     AnsiCode{ short_name: Some("w"), long_name: "white", code: Color::White.prefix().to_string()},
     AnsiCode{ short_name: Some("wb"), long_name: "white_bold", code: Color::White.bold().prefix().to_string()},
@@ -122,6 +136,7 @@ lazy_static! {
     AnsiCode{ short_name: Some("wi"), long_name: "white_italic", code: Color::White.italic().prefix().to_string()},
     AnsiCode{ short_name: Some("wd"), long_name: "white_dimmed", code: Color::White.dimmed().prefix().to_string()},
     AnsiCode{ short_name: Some("wr"), long_name: "white_reverse", code: Color::White.reverse().prefix().to_string()},
+    AnsiCode{ short_name: Some("bg_w"), long_name: "bg_white", code: Style::new().on(Color::White).prefix().to_string()},
 
     AnsiCode{ short_name: Some("dgr"), long_name: "dark_gray", code: Color::DarkGray.prefix().to_string()},
     AnsiCode{ short_name: Some("dgrb"), long_name: "dark_gray_bold", code: Color::DarkGray.bold().prefix().to_string()},
@@ -129,6 +144,7 @@ lazy_static! {
     AnsiCode{ short_name: Some("dgri"), long_name: "dark_gray_italic", code: Color::DarkGray.italic().prefix().to_string()},
     AnsiCode{ short_name: Some("dgrd"), long_name: "dark_gray_dimmed", code: Color::DarkGray.dimmed().prefix().to_string()},
     AnsiCode{ short_name: Some("dgrr"), long_name: "dark_gray_reverse", code: Color::DarkGray.reverse().prefix().to_string()},
+    AnsiCode{ short_name: Some("bg_dgr"), long_name: "bg_dark_gray", code: Style::new().on(Color::DarkGray).prefix().to_string()},
 
     AnsiCode{ short_name: Some("def"), long_name: "default", code: Color::Default.prefix().to_string()},
     AnsiCode{ short_name: Some("defb"), long_name: "default_bold", code: Color::Default.bold().prefix().to_string()},
@@ -136,8 +152,20 @@ lazy_static! {
     AnsiCode{ short_name: Some("defi"), long_name: "default_italic", code: Color::Default.italic().prefix().to_string()},
     AnsiCode{ short_name: Some("defd"), long_name: "default_dimmed", code: Color::Default.dimmed().prefix().to_string()},
     AnsiCode{ short_name: Some("defr"), long_name: "default_reverse", code: Color::Default.reverse().prefix().to_string()},
+    AnsiCode{ short_name: Some("bg_def"), long_name: "bg_default", code: Style::new().on(Color::Default).prefix().to_string()},
 
     AnsiCode{ short_name: None, long_name: "reset", code: "\x1b[0m".to_owned()},
+
+    // Attributes
+    AnsiCode { short_name: Some("n"), long_name: "attr_normal", code: Color::Green.suffix().to_string()},
+    AnsiCode { short_name: Some("bo"), long_name: "attr_bold", code: Style::new().bold().prefix().to_string()},
+    AnsiCode { short_name: Some("d"), long_name: "attr_dimmed", code: Style::new().dimmed().prefix().to_string()},
+    AnsiCode { short_name: Some("i"), long_name: "attr_italic", code: Style::new().italic().prefix().to_string()},
+    AnsiCode { short_name: Some("u"), long_name: "attr_underline", code: Style::new().underline().prefix().to_string()},
+    AnsiCode { short_name: Some("bl"), long_name: "attr_blink", code: Style::new().blink().prefix().to_string()},
+    AnsiCode { short_name: Some("h"), long_name: "attr_hidden", code: Style::new().hidden().prefix().to_string()},
+    AnsiCode { short_name: Some("s"), long_name: "attr_strike", code: Style::new().strikethrough().prefix().to_string()},
+
     // Reference for ansi codes https://gist.github.com/fnky/458719343aabd01cfb17a3a4f7296797
     // Another good reference http://ascii-table.com/ansi-escape-sequences.php
 
@@ -476,12 +504,12 @@ fn generate_ansi_code_list(
             let name: Value = Value::string(String::from(ansi_code.long_name), call_span);
             let short_name = Value::string(ansi_code.short_name.unwrap_or(""), call_span);
             // The first 102 items in the ansi array are colors
-            let preview = if i < 102 {
+            let preview = if i < 119 {
                 Value::string(format!("{}NUSHELL\u{1b}[0m", &ansi_code.code), call_span)
             } else {
                 Value::string("\u{1b}[0m", call_span)
             };
-            let code_string = String::from(&ansi_code.code.replace('\u{1b}', ""));
+            let code_string = String::from(&ansi_code.code.replace('\u{1b}', "\\e"));
             let code = Value::string(code_string, call_span);
             let vals = if use_ansi_coloring {
                 vec![name, preview, short_name, code]
