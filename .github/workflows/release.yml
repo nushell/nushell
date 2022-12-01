@@ -44,35 +44,38 @@ jobs:
           os: windows-latest
           target_rustflags: ''
         - target: x86_64-unknown-linux-gnu
-          os: ubuntu-latest
+          os: ubuntu-20.04
           target_rustflags: ''
         - target: x86_64-unknown-linux-musl
-          os: ubuntu-latest
+          os: ubuntu-20.04
           target_rustflags: ''
         - target: aarch64-unknown-linux-gnu
-          os: ubuntu-latest
+          os: ubuntu-20.04
           target_rustflags: ''
         - target: armv7-unknown-linux-gnueabihf
-          os: ubuntu-latest
+          os: ubuntu-20.04
           target_rustflags: ''
 
     runs-on: ${{matrix.os}}
 
     steps:
-    - uses: actions/checkout@v3.0.2
+    - uses: actions/checkout@v3.1.0
 
     - name: Install Rust Toolchain Components
-      uses: actions-rs/toolchain@v1.0.6
+      uses: dtolnay/rust-toolchain@stable
       with:
-        override: true
-        profile: minimal
         toolchain: stable
         target: ${{ matrix.target }}
 
+    - name: Update Rust Toolchain Target
+      run: |
+        echo "targets = ['${{matrix.target}}']" >> rust-toolchain.toml
+        cat rust-toolchain.toml
+
     - name: Setup Nushell
-      uses: hustcer/setup-nu@v2.1
+      uses: hustcer/setup-nu@v3
       with:
-        version: 0.69.1
+        version: 0.71.0
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
@@ -88,7 +91,7 @@ jobs:
 
     # REF: https://github.com/marketplace/actions/gh-release
     - name: Publish Archive
-      uses: softprops/action-gh-release@v1
+      uses: softprops/action-gh-release@v0.1.13
       if: ${{ startsWith(github.ref, 'refs/tags/') }}
       with:
         draft: true
