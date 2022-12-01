@@ -44,16 +44,16 @@ jobs:
           os: windows-latest
           target_rustflags: ''
         - target: x86_64-unknown-linux-gnu
-          os: ubuntu-22.04
+          os: ubuntu-20.04
           target_rustflags: ''
         - target: x86_64-unknown-linux-musl
-          os: ubuntu-22.04
+          os: ubuntu-20.04
           target_rustflags: ''
         - target: aarch64-unknown-linux-gnu
-          os: ubuntu-22.04
+          os: ubuntu-20.04
           target_rustflags: ''
         - target: armv7-unknown-linux-gnueabihf
-          os: ubuntu-22.04
+          os: ubuntu-20.04
           target_rustflags: ''
 
     runs-on: ${{matrix.os}}
@@ -72,7 +72,7 @@ jobs:
     - name: Setup Nushell
       uses: hustcer/setup-nu@v3
       with:
-        version: 0.72.0
+        version: 0.71.0
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
