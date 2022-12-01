@@ -49,6 +49,7 @@ impl Command for Cal {
                 None,
             )
             .input_output_types(vec![(Type::Nothing, Type::Table(vec![]))])
+            .allow_variants_without_examples(true) // TODO: supply exhaustive examples
             .category(Category::Generators)
     }
 
