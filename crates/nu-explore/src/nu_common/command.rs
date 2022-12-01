@@ -26,7 +26,7 @@ fn eval_source2(
     fname: &str,
     input: PipelineData,
 ) -> Result<PipelineData, ShellError> {
-    let (block, _) = {
+    let (mut block, _) = {
         let mut working_set = StateWorkingSet::new(engine_state);
         let (output, err) = parse(
             &mut working_set,
@@ -41,6 +41,14 @@ fn eval_source2(
 
         (output, working_set.render())
     };
+
+    // eval_block outputs all expressions expept the last to STDOUT;
+    // we don't wont that.
+    //
+    // So we LITERALLY ignore all expressions except the LAST.
+    if block.len() > 1 {
+        block.pipelines.drain(..block.pipelines.len() - 1);
+    }
 
     eval_block(engine_state, stack, &block, input, false, false)
 }
