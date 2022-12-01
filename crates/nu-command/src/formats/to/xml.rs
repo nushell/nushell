@@ -117,7 +117,7 @@ pub fn write_xml_events<W: Write>(
     match current {
         Value::Record { cols, vals, span } => {
             for (k, v) in cols.iter().zip(vals.iter()) {
-                let mut e = BytesStart::owned(k.as_bytes(), k.len());
+                let mut e = BytesStart::new(k);
                 if !is_xml_row(v) {
                     return Err(ShellError::GenericError(
                         "Expected a row with 'children' and 'attributes' columns".to_string(),
@@ -141,7 +141,7 @@ pub fn write_xml_events<W: Write>(
                     }
                 }
                 writer
-                    .write_event(Event::End(BytesEnd::borrowed(k.as_bytes())))
+                    .write_event(Event::End(BytesEnd::new(k)))
                     .expect("Couldn't close XML node");
             }
         }
@@ -153,7 +153,7 @@ pub fn write_xml_events<W: Write>(
         _ => {
             let s = current.into_abbreviated_string(config);
             writer
-                .write_event(Event::Text(BytesText::from_plain_str(s.as_str())))
+                .write_event(Event::Text(BytesText::from_escaped(s.as_str())))
                 .expect("Couldn't write XML text");
         }
     }
