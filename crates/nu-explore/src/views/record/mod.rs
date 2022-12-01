@@ -27,7 +27,7 @@ pub struct RecordView<'a> {
     layer_stack: Vec<RecordLayer<'a>>,
     mode: UIMode,
     cfg: TableConfig,
-    cursor: Position,
+    pub(crate) cursor: Position,
     state: RecordViewState,
 }
 
