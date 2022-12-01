@@ -12,7 +12,7 @@ use tui::{
 };
 
 use crate::{
-    nu_common::{collect_pipeline, run_nu_command},
+    nu_common::{collect_pipeline, is_ignored_command, run_nu_command},
     pager::{Frame, Report, TableConfig, Transition, ViewConfig, ViewInfo},
 };
 
@@ -176,6 +176,11 @@ impl View for InteractiveView<'_> {
                 Some(Transition::Ok)
             }
             KeyCode::Enter => {
+                if is_ignored_command(&self.command) {
+                    info.report = Some(Report::error(String::from("The command is ignored")));
+                    return Some(Transition::Ok);
+                }
+
                 let pipeline = PipelineData::Value(self.input.clone(), None);
                 let pipeline = run_nu_command(engine_state, stack, &self.command, pipeline);
 
