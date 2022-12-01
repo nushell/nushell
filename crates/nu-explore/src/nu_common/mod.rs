@@ -17,7 +17,7 @@ pub type NuText = (String, TextStyle);
 pub type CtrlC = Option<Arc<AtomicBool>>;
 pub type NuStyleTable = HashMap<String, NuStyle>;
 
-pub use command::run_nu_command;
+pub use command::{run_nu_command, is_ignored_command};
 pub use table::try_build_table;
 pub use value::{collect_input, collect_pipeline};
 

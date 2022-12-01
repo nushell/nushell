@@ -6,7 +6,7 @@ use nu_protocol::{
 };
 
 use crate::{
-    nu_common::{collect_pipeline, run_nu_command, has_simple_value},
+    nu_common::{collect_pipeline, has_simple_value, is_ignored_command, run_nu_command},
     pager::TableConfig,
     views::{Preview, RecordView, View},
 };
@@ -75,6 +75,13 @@ impl ViewCommand for NuCmd {
         stack: &mut Stack,
         value: Option<Value>,
     ) -> Result<Self::View> {
+        if is_ignored_command(&self.command) {
+            return Err(io::Error::new(
+                io::ErrorKind::Other,
+                "The command is ignored",
+            ));
+        }
+
         let value = value.unwrap_or_default();
 
         let pipeline = PipelineData::Value(value, None);

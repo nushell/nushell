@@ -15,6 +15,10 @@ pub fn run_nu_command(
     eval_source2(&engine_state, stack, cmd.as_bytes(), "", current)
 }
 
+pub fn is_ignored_command(command: &str) -> bool {
+    command.starts_with("clear")
+}
+
 fn eval_source2(
     engine_state: &EngineState,
     stack: &mut Stack,
