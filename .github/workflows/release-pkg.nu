@@ -16,7 +16,12 @@ let flags = $env.TARGET_RUSTFLAGS
 let dist = $'($env.GITHUB_WORKSPACE)/output'
 let version = (open Cargo.toml | get package.version)
 
+$'Debugging info:'
+print { version: $version, bin: $bin, os: $os, target: $target, src: $src, flags: $flags, dist: $dist }; hr-line -b
+
 # $env
+
+let USE_UBUNTU = 'ubuntu-20.04'
 
 $'(char nl)Packaging ($bin) v($version) for ($target) in ($src)...'; hr-line -b
 if not ('Cargo.lock' | path exists) { cargo generate-lockfile }
@@ -26,8 +31,8 @@ $'Start building ($bin)...'; hr-line
 # ----------------------------------------------------------------------------
 # Build for Ubuntu and macOS
 # ----------------------------------------------------------------------------
-if $os in ['ubuntu-latest', 'macos-latest'] {
-    if $os == 'ubuntu-latest' {
+if $os in [$USE_UBUNTU, 'macos-latest'] {
+    if $os == $USE_UBUNTU {
         sudo apt-get install libxcb-composite0-dev -y
     }
     if $target == 'aarch64-unknown-linux-gnu' {
@@ -41,7 +46,7 @@ if $os in ['ubuntu-latest', 'macos-latest'] {
     } else {
         # musl-tools to fix 'Failed to find tool. Is `musl-gcc` installed?'
         # Actually just for x86_64-unknown-linux-musl target
-        if $os == 'ubuntu-latest' { sudo apt install musl-tools -y }
+        if $os == $USE_UBUNTU { sudo apt install musl-tools -y }
         cargo-build-nu $flags
     }
 }
@@ -88,7 +93,7 @@ if ($ver | str trim | is-empty) {
 # Create a release archive and send it to output for the following steps
 # ----------------------------------------------------------------------------
 cd $dist; $'(char nl)Creating release archive...'; hr-line
-if $os in ['ubuntu-latest', 'macos-latest'] {
+if $os in [$USE_UBUNTU, 'macos-latest'] {
 
     let files = (ls | get name)
     let dest = $'($bin)-($version)-($target)'
@@ -101,7 +106,8 @@ if $os in ['ubuntu-latest', 'macos-latest'] {
 
     tar -czf $archive $dest
     print $'archive: ---> ($archive)'; ls $archive
-    echo $'::set-output name=archive::($archive)'
+    # REF: https://github.blog/changelog/2022-10-11-github-actions-deprecating-save-state-and-set-output-commands/
+    echo $"archive=($archive)" | save --append $env.GITHUB_OUTPUT
 
 } else if $os == 'windows-latest' {
 
@@ -121,7 +127,8 @@ if $os in ['ubuntu-latest', 'macos-latest'] {
         cp -r $'($dist)/*' target/release/
         cargo install cargo-wix --version 0.3.3
         cargo wix --no-build --nocapture --package nu --output $wixRelease
-        echo $'::set-output name=archive::($wixRelease)'
+        print $'archive: ---> ($wixRelease)';
+        echo $"archive=($wixRelease)" | save --append $env.GITHUB_OUTPUT
 
     } else {
 
@@ -131,7 +138,7 @@ if $os in ['ubuntu-latest', 'macos-latest'] {
         print $'archive: ---> ($archive)';
         let pkg = (ls -f $archive | get name)
         if not ($pkg | is-empty) {
-            echo $'::set-output name=archive::($pkg | get 0)'
+            echo $"archive=($pkg | get 0)" | save --append $env.GITHUB_OUTPUT
         }
     }
 }
