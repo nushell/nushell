@@ -1,7 +1,9 @@
 use nu_engine::{eval_block, CallExt};
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Block, Closure, Command, EngineState, Stack};
-use nu_protocol::{Category, Example, PipelineData, Signature, SyntaxShape, Type, Value};
+use nu_protocol::{
+    Category, Example, ListStream, PipelineData, Signature, SyntaxShape, Type, Value,
+};
 
 #[derive(Clone)]
 pub struct Try;
@@ -75,6 +77,63 @@ impl Command for Try {
                     )
                 } else {
                     Ok(PipelineData::new(call.head))
+                }
+            }
+            // external command may fail to run
+            Ok(PipelineData::ExternalStream {
+                stdout: None,
+                stderr,
+                mut exit_code,
+                span,
+                metadata,
+                trim_end_newline,
+            }) => {
+                let exit_code = exit_code.take();
+                let mut failed_to_run = false;
+                let mut exit_code_stream = None;
+                if let Some(stream) = exit_code {
+                    let ctrlc = stream.ctrlc.clone();
+                    let exit_code: Vec<Value> = stream.into_iter().collect();
+                    if let Some(Value::Int { val: code, .. }) = exit_code.last() {
+                        // if exit_code is not 0, it indicates error occured, return back Err.
+                        if *code != 0 {
+                            failed_to_run = true;
+                        }
+                    }
+                    exit_code_stream = Some(ListStream::from_stream(exit_code.into_iter(), ctrlc));
+                }
+
+                if failed_to_run {
+                    if let Some(catch_block) = catch_block {
+                        let catch_block = engine_state.get_block(catch_block.block_id);
+
+                        if let Some(var) = catch_block.signature.get_positional(0) {
+                            if let Some(var_id) = &var.var_id {
+                                let err_value = Value::nothing(call.head);
+                                stack.add_var(*var_id, err_value);
+                            }
+                        }
+
+                        eval_block(
+                            engine_state,
+                            stack,
+                            catch_block,
+                            PipelineData::new(call.head),
+                            false,
+                            false,
+                        )
+                    } else {
+                        Ok(PipelineData::new(call.head))
+                    }
+                } else {
+                    Ok(PipelineData::ExternalStream {
+                        stdout: None,
+                        stderr,
+                        exit_code: exit_code_stream,
+                        span,
+                        metadata,
+                        trim_end_newline,
+                    })
                 }
             }
             Ok(output) => Ok(output),
