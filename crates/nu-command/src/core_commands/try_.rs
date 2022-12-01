@@ -79,7 +79,7 @@ impl Command for Try {
                     Ok(PipelineData::new(call.head))
                 }
             }
-            // external command may runs to failed.
+            // external command may fail to run
             Ok(PipelineData::ExternalStream {
                 stdout: None,
                 stderr,
@@ -89,7 +89,7 @@ impl Command for Try {
                 trim_end_newline,
             }) => {
                 let exit_code = exit_code.take();
-                let mut runs_to_failed = false;
+                let mut failed_to_run = false;
                 let mut exit_code_stream = None;
                 if let Some(stream) = exit_code {
                     let ctrlc = stream.ctrlc.clone();
@@ -97,13 +97,13 @@ impl Command for Try {
                     if let Some(Value::Int { val: code, .. }) = exit_code.last() {
                         // if exit_code is not 0, it indicates error occured, return back Err.
                         if *code != 0 {
-                            runs_to_failed = true;
+                            failed_to_run = true;
                         }
                     }
                     exit_code_stream = Some(ListStream::from_stream(exit_code.into_iter(), ctrlc));
                 }
 
-                if runs_to_failed {
+                if failed_to_run {
                     if let Some(catch_block) = catch_block {
                         let catch_block = engine_state.get_block(catch_block.block_id);
 
