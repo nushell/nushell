@@ -49,7 +49,7 @@ impl Command for Where {
         call: &Call,
         input: PipelineData,
     ) -> Result<nu_protocol::PipelineData, nu_protocol::ShellError> {
-        if let Ok(Some(capture_block)) = call.get_flag::<Closure>(engine_state, stack, "block") {
+        if let Ok(Some(capture_block)) = call.get_flag::<Closure>(engine_state, stack, "closure") {
             let metadata = input.metadata();
             let ctrlc = engine_state.ctrlc.clone();
             let engine_state = engine_state.clone();
@@ -298,6 +298,14 @@ impl Command for Where {
             Example {
                 description: "Filter items of a list according to a condition",
                 example: "[1 2] | where {|x| $x > 1}",
+                result: Some(Value::List {
+                    vals: vec![Value::test_int(2)],
+                    span: Span::test_data(),
+                }),
+            },
+            Example {
+                description: "Filter items of a list according to a stored condition",
+                example: "let cond = {|x| $x > 1}; [1 2] | where -b $cond",
                 result: Some(Value::List {
                     vals: vec![Value::test_int(2)],
                     span: Span::test_data(),
