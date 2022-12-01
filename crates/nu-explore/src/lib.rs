@@ -7,7 +7,7 @@ mod views;
 
 use std::io;
 
-use nu_common::{collect_pipeline, CtrlC};
+use nu_common::{collect_pipeline, has_simple_value, CtrlC};
 use nu_protocol::{
     engine::{EngineState, Stack},
     PipelineData, Value,
@@ -38,9 +38,7 @@ pub fn run_pager(
         return p.run(engine_state, stack, ctrlc, view, commands);
     }
 
-    let has_single_value = data.len() == 1 && data[0].len() == 1;
-    let is_simple_type = !matches!(&data[0][0], Value::List { .. } | Value::Record { .. });
-    if has_single_value && is_simple_type {
+    if has_simple_value(&data) {
         let text = data[0][0].into_abbreviated_string(view_cfg.config);
 
         let view = Some(Page::new(Preview::new(&text), true));
