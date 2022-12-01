@@ -11,5 +11,4 @@ edition = "2021"
 categories = ["filesystem"]
 
 [dev-dependencies]
-tempdir = "0.3"
 doc-comment = "0.3"
