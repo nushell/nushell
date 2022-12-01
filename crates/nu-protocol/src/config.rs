@@ -962,7 +962,8 @@ fn create_hooks(value: &Value) -> Result<Hooks, ShellError> {
                     "display_output" => hooks.display_output = Some(vals[idx].clone()),
                     x => {
                         return Err(ShellError::UnsupportedConfigValue(
-                            "'pre_prompt', 'pre_execution', 'env_change'".to_string(),
+                            "'pre_prompt', 'pre_execution', 'env_change', 'display_output'"
+                                .to_string(),
                             x.to_string(),
                             *span,
                         ));
@@ -1077,4 +1078,412 @@ pub fn extract_value<'record>(
         .position(|col| col.as_str() == name)
         .and_then(|index| vals.get(index))
         .ok_or_else(|| ShellError::MissingConfigValue(name.to_string(), *span))
+}
+
+//
+// Translate the Nushell config to a record holding ONLY the supported config values.
+pub fn config_to_nu_record(config: &Config, span: Span) -> Value {
+    let mut cols = vec![];
+    let mut vals = vec![];
+
+    // ls
+    cols.push("ls".into());
+    vals.push(Value::Record {
+        cols: vec!["use_ls_colors".into(), "clickable_links".into()],
+        vals: vec![
+            Value::Bool {
+                val: config.use_ls_colors,
+                span,
+            },
+            Value::Bool {
+                val: config.show_clickable_links_in_ls,
+                span,
+            },
+        ],
+        span,
+    });
+    // cd
+    cols.push("cd".into());
+    vals.push(Value::Record {
+        cols: vec!["abbreviations".into()],
+        vals: vec![Value::Bool {
+            val: config.cd_with_abbreviations,
+            span,
+        }],
+        span,
+    });
+    // rm
+    cols.push("rm".into());
+    vals.push(Value::Record {
+        cols: vec!["always_trash".into()],
+        vals: vec![Value::Bool {
+            val: config.rm_always_trash,
+            span,
+        }],
+        span,
+    });
+    // history
+    cols.push("history".into());
+    vals.push(Value::Record {
+        cols: vec![
+            "sync_on_enter".into(),
+            "max_size".into(),
+            "file_format".into(),
+        ],
+        vals: vec![
+            Value::Bool {
+                val: config.sync_history_on_enter,
+                span,
+            },
+            Value::Int {
+                val: config.max_history_size,
+                span,
+            },
+            Value::String {
+                val: match config.history_file_format {
+                    HistoryFileFormat::Sqlite => "sqlite",
+                    HistoryFileFormat::PlainText => "plaintext",
+                }
+                .into(),
+                span,
+            },
+        ],
+        span,
+    });
+    // completions
+    cols.push("completions".into());
+    vals.push(Value::Record {
+        cols: vec![
+            "quick".into(),
+            "partial".into(),
+            "algorithm".into(),
+            "case_sensitive".into(),
+            "external".into(),
+        ],
+        vals: vec![
+            Value::Bool {
+                val: config.quick_completions,
+                span,
+            },
+            Value::Bool {
+                val: config.partial_completions,
+                span,
+            },
+            Value::String {
+                val: config.completion_algorithm.clone(),
+                span,
+            },
+            Value::Bool {
+                val: config.case_sensitive_completions,
+                span,
+            },
+            Value::Record {
+                cols: vec!["max_results".into(), "completer".into(), "enable".into()],
+                vals: vec![
+                    Value::Int {
+                        val: config.max_external_completion_results,
+                        span,
+                    },
+                    if let Some(block) = config.external_completer {
+                        Value::Block { val: block, span }
+                    } else {
+                        Value::Nothing { span }
+                    },
+                    Value::Bool {
+                        val: config.enable_external_completion,
+                        span,
+                    },
+                ],
+                span,
+            },
+        ],
+        span,
+    });
+    // table
+    cols.push("table".into());
+    vals.push(Value::Record {
+        cols: vec!["mode".into(), "index_mode".into(), "trim".into()],
+        vals: vec![
+            Value::String {
+                val: config.table_mode.clone(),
+                span,
+            },
+            Value::String {
+                val: match config.table_index_mode {
+                    TableIndexMode::Always => "always",
+                    TableIndexMode::Never => "never",
+                    TableIndexMode::Auto => "auto",
+                }
+                .into(),
+                span,
+            },
+            match &config.trim_strategy {
+                TrimStrategy::Wrap { try_to_keep_words } => Value::Record {
+                    cols: vec!["methodology".into(), "wrapping_try_keep_words".into()],
+                    vals: vec![
+                        Value::String {
+                            val: "wrapping".into(),
+                            span,
+                        },
+                        Value::Bool {
+                            val: *try_to_keep_words,
+                            span,
+                        },
+                    ],
+                    span,
+                },
+                TrimStrategy::Truncate { suffix: Some(s) } => Value::Record {
+                    cols: vec!["methodology".into(), "truncating_suffix".into()],
+                    vals: vec![
+                        Value::String {
+                            val: "truncating".into(),
+                            span,
+                        },
+                        Value::String {
+                            val: s.clone(),
+                            span,
+                        },
+                    ],
+                    span,
+                },
+                TrimStrategy::Truncate { suffix: None } => Value::Record {
+                    cols: vec!["methodology".into()],
+                    vals: vec![Value::String {
+                        val: "truncating".into(),
+                        span,
+                    }],
+                    span,
+                },
+            },
+        ],
+        span,
+    });
+    // filesize
+    cols.push("filesize".into());
+    vals.push(Value::Record {
+        cols: vec!["metric".into(), "format".into()],
+        vals: vec![
+            Value::Bool {
+                val: config.filesize_metric,
+                span,
+            },
+            Value::String {
+                val: config.filesize_format.clone(),
+                span,
+            },
+        ],
+        span,
+    });
+    // color config
+    cols.push("color_config".into());
+    let mut color_config_cols = vec![];
+    let mut color_config_vals = vec![];
+    for (key, value) in &config.color_config {
+        match value.as_string() {
+            Ok(val) => {
+                // Here's a slightly straightforward procedure to turn those JSON color-config strings
+                // back into Nu records.
+                color_config_vals.push(if val.starts_with('{') {
+                    if let Ok(nu_json::Value::Object(k)) = nu_json::from_str(&val) {
+                        let mut cols = vec![];
+                        let mut vals = vec![];
+
+                        for item in k {
+                            if let nu_json::Value::String(val) = item.1 {
+                                cols.push(item.0.clone());
+                                vals.push(Value::String { val, span });
+                            }
+                        }
+                        Value::Record { cols, vals, span }
+                    } else {
+                        continue;
+                    }
+                }
+                // Other color-config strings (hex, color names)
+                // are used as-is.
+                else {
+                    Value::String { val, span }
+                })
+            }
+            _ => continue,
+        }
+        // Only do this AFTER confirming the value is valid.
+        color_config_cols.push(key.clone());
+    }
+    vals.push(Value::Record {
+        cols: color_config_cols,
+        vals: color_config_vals,
+        span,
+    });
+    // Misc. options.
+    cols.push("use_grid_icons".into());
+    vals.push(Value::Bool {
+        val: config.use_grid_icons,
+        span,
+    });
+    cols.push("footer_mode".into());
+    vals.push(Value::String {
+        val: match config.footer_mode {
+            FooterMode::Auto => "auto".into(),
+            FooterMode::Never => "never".into(),
+            FooterMode::Always => "always".into(),
+            FooterMode::RowCount(number) => number.to_string(),
+        },
+        span,
+    });
+    cols.push("float_precision".into());
+    vals.push(Value::Int {
+        val: config.float_precision,
+        span,
+    });
+    cols.push("use_ansi_coloring".into());
+    vals.push(Value::Bool {
+        val: config.use_ansi_coloring,
+        span,
+    });
+    cols.push("edit_mode".into());
+    vals.push(Value::String {
+        val: config.edit_mode.clone(),
+        span,
+    });
+    cols.push("log_level".into());
+    vals.push(Value::String {
+        val: config.log_level.clone(),
+        span,
+    });
+    cols.push("buffer_editor".into());
+    vals.push(Value::String {
+        val: config.buffer_editor.clone(),
+        span,
+    });
+    cols.push("shell_integration".into());
+    vals.push(Value::Bool {
+        val: config.shell_integration,
+        span,
+    });
+    cols.push("show_banner".into());
+    vals.push(Value::Bool {
+        val: config.show_banner,
+        span,
+    });
+    cols.push("render_right_prompt_on_last_line".into());
+    vals.push(Value::Bool {
+        val: config.render_right_prompt_on_last_line,
+        span,
+    });
+
+    // The next three store native Nushell values, so only the outer container needs
+    // to be constructed.
+
+    // menus
+    cols.push("menus".into());
+    vals.push(Value::List {
+        vals: config
+            .menus
+            .iter()
+            .map(
+                |ParsedMenu {
+                     name,
+                     only_buffer_difference,
+                     marker,
+                     style,
+                     menu_type, // WARNING: this is not the same name as what is used in Config.nu! ("type")
+                     source,
+                 }| {
+                    Value::Record {
+                        cols: vec![
+                            "name".into(),
+                            "only_buffer_difference".into(),
+                            "marker".into(),
+                            "style".into(),
+                            "type".into(),
+                            "source".into(),
+                        ],
+                        vals: vec![
+                            name.clone(),
+                            only_buffer_difference.clone(),
+                            marker.clone(),
+                            style.clone(),
+                            menu_type.clone(),
+                            source.clone(),
+                        ],
+                        span,
+                    }
+                },
+            )
+            .collect(),
+        span,
+    });
+    // keybindings
+    cols.push("keybindings".into());
+    vals.push(Value::List {
+        vals: config
+            .keybindings
+            .iter()
+            .map(
+                |ParsedKeybinding {
+                     modifier,
+                     keycode,
+                     mode,
+                     event,
+                 }| {
+                    Value::Record {
+                        cols: vec![
+                            "modifier".into(),
+                            "keycode".into(),
+                            "mode".into(),
+                            "event".into(),
+                        ],
+                        vals: vec![
+                            modifier.clone(),
+                            keycode.clone(),
+                            mode.clone(),
+                            event.clone(),
+                        ],
+                        span,
+                    }
+                },
+            )
+            .collect(),
+        span,
+    });
+    // hooks
+    cols.push("hooks".into());
+    let mut hook_cols = vec![];
+    let mut hook_vals = vec![];
+    match &config.hooks.pre_prompt {
+        Some(v) => {
+            hook_cols.push("pre_prompt".into());
+            hook_vals.push(v.clone());
+        }
+        None => (),
+    };
+    match &config.hooks.pre_execution {
+        Some(v) => {
+            hook_cols.push("pre_execution".into());
+            hook_vals.push(v.clone());
+        }
+        None => (),
+    };
+    match &config.hooks.env_change {
+        Some(v) => {
+            hook_cols.push("env_change".into());
+            hook_vals.push(v.clone());
+        }
+        None => (),
+    };
+    match &config.hooks.display_output {
+        Some(v) => {
+            hook_cols.push("display_output".into());
+            hook_vals.push(v.clone());
+        }
+        None => (),
+    };
+    vals.push(Value::Record {
+        cols: hook_cols,
+        vals: hook_vals,
+        span,
+    });
+
+    Value::Record { cols, vals, span }
 }

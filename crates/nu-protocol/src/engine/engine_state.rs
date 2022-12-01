@@ -1,9 +1,9 @@
 use super::{Command, EnvVars, OverlayFrame, ScopeFrame, Stack, Visibility, DEFAULT_OVERLAY_NAME};
-use crate::Value;
 use crate::{
     ast::Block, AliasId, BlockId, Config, DeclId, Example, Module, ModuleId, OverlayId, ShellError,
     Signature, Span, Type, VarId, Variable,
 };
+use crate::{config_to_nu_record, Value};
 use core::panic;
 use std::borrow::Borrow;
 use std::path::Path;
@@ -236,10 +236,28 @@ impl EngineState {
                     // Updating existing overlay
                     for (k, v) in env.drain() {
                         if k == "config" {
-                            self.config = v.clone().into_config().unwrap_or_default();
-                        }
+                            // Don't insert the record as the "config" env var as-is.
+                            // Instead, parse the config, then create a new Record holding
+                            // only the valid values, and put THAT in env_vars.
 
-                        env_vars.insert(k, v);
+                            // NOTE: currently (Dec 2022) the subrecords of config.menus, config.keybindings and config.hooks
+                            // are NOT reconstructed by config_to_nu_record(), but restored from self.config as-is.
+                            // As such, invalid values may persist on them (as into_config() doesn't remove them.
+                            if let Ok(config) = v.clone().into_config() {
+                                // Don't replace self.config unless into_config() succeeds.
+                                // Note that into_config() produces Err in only very dire circumstances.
+                                self.config = config;
+                            }
+                            env_vars.insert(
+                                k,
+                                config_to_nu_record(
+                                    &self.config,
+                                    v.span().unwrap_or_else(|_| Span::unknown()),
+                                ),
+                            );
+                        } else {
+                            env_vars.insert(k, v);
+                        }
                     }
                 } else {
                     // Pushing a new overlay
