@@ -356,6 +356,7 @@ pub fn create_default_context() -> EngineState {
         bind_command! {
             Griddle,
             Table,
+            Explore,
         };
 
         // Conversions

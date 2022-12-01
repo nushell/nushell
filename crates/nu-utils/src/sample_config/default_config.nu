@@ -292,6 +292,23 @@ let-env config = {
   shell_integration: true # enables terminal markers and a workaround to arrow keys stop working issue
   show_banner: true # true or false to enable or disable the banner
   render_right_prompt_on_last_line: false # true or false to enable or disable right prompt to be rendered on last line of the prompt.
+
+  # A 'explore' utility config
+  explore_config: {
+    highlight: { bg: 'yellow', fg: 'black' }
+    status_bar: { bg: '#C4C9C6', fg: '#1D1F21' }
+    command_bar: { fg: '#C4C9C6' }
+    split_line: '#404040'
+    cursor: true
+    # selected_column: 'blue'
+    # selected_row: { fg: 'yellow', bg: '#C1C2A3' }
+    # selected_cell: { fg: 'white', bg: '#777777' }
+    # line_shift: false,
+    # line_index: false,
+    # line_head_top: false,
+    # line_head_bottom: false,
+  }
+
   hooks: {
     pre_prompt: [{
       $nothing  # replace with source code to run before the prompt is shown

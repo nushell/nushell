@@ -87,6 +87,7 @@ pub struct Config {
     pub show_banner: bool,
     pub show_clickable_links_in_ls: bool,
     pub render_right_prompt_on_last_line: bool,
+    pub explore_config: HashMap<String, Value>,
 }
 
 impl Default for Config {
@@ -125,6 +126,7 @@ impl Default for Config {
             show_banner: true,
             show_clickable_links_in_ls: true,
             render_right_prompt_on_last_line: false,
+            explore_config: HashMap::new(),
         }
     }
 }
@@ -181,6 +183,11 @@ pub enum TrimStrategy {
         /// the suffix takes 13 chars it won't be used.
         suffix: Option<String>,
     },
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug)]
+pub struct ExploreConfig {
+    pub color_config: HashMap<String, Value>,
 }
 
 impl Value {
@@ -804,6 +811,13 @@ impl Value {
                             config.filesize_format = v.to_lowercase();
                         } else {
                             eprintln!("$env.config.filesize_format is not a string")
+                        }
+                    }
+                    "explore_config" => {
+                        if let Ok(map) = create_map(value, &config) {
+                            config.explore_config = map;
+                        } else {
+                            eprintln!("$env.config.explore_config is not a map")
                         }
                     }
                     // End legacy options

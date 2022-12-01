@@ -24,3 +24,32 @@ pub fn wrap_string(text: &str, width: usize) -> String {
         .with(Width::wrap(width))
         .to_string()
 }
+
+pub fn string_truncate(text: &str, width: usize) -> String {
+    // todo: change me...
+
+    match text.lines().next() {
+        Some(first_line) => tabled::builder::Builder::from_iter([[first_line]])
+            .build()
+            .with(tabled::Style::empty())
+            .with(tabled::Padding::zero())
+            .with(tabled::Width::truncate(width))
+            .to_string(),
+        None => String::new(),
+    }
+}
+
+pub fn string_wrap(text: &str, width: usize) -> String {
+    // todo: change me...
+
+    if text.is_empty() {
+        return String::new();
+    }
+
+    tabled::builder::Builder::from_iter([[text]])
+        .build()
+        .with(tabled::Style::empty())
+        .with(tabled::Padding::zero())
+        .with(tabled::Width::wrap(width))
+        .to_string()
+}
