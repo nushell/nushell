@@ -62,12 +62,15 @@ jobs:
     - uses: actions/checkout@v3.1.0
 
     - name: Install Rust Toolchain Components
-      uses: actions-rs/toolchain@v1.0.6
+      uses: dtolnay/rust-toolchain@stable
       with:
-        override: true
-        profile: minimal
         toolchain: stable
         target: ${{ matrix.target }}
+
+    - name: Update Rust Toolchain Target
+      run: |
+        echo "targets = ['${{matrix.target}}']" >> rust-toolchain.toml
+        cat rust-toolchain.toml
 
     - name: Setup Nushell
       uses: hustcer/setup-nu@v3
