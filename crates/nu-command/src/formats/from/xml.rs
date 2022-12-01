@@ -124,7 +124,8 @@ fn from_node_to_value(n: &roxmltree::Node, span: Span) -> Value {
 
         let mut collected = IndexMap::new();
 
-        let attribute_value: Value = from_attributes_to_value(n.attributes(), span);
+        let attribute_value: Value =
+            from_attributes_to_value(&n.attributes().collect::<Vec<_>>(), span);
 
         let mut row = IndexMap::new();
         row.insert(
