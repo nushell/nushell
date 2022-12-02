@@ -191,11 +191,13 @@ pub struct ExploreConfig {
 }
 
 impl Value {
-    pub fn into_config(self) -> Result<Config, ShellError> {
+    pub fn into_config(self, config: &Config) -> Result<Config, ShellError> {
         let v = self.as_record();
 
-        let mut config = Config::default();
-
+        // Use the passed-in config as a basis for the changes.
+        // This means, among other things, that putting in various invalid values won't
+        // blow away existing changes for those config keys.
+        let mut config = config.clone();
         let mut legacy_options_used = false;
 
         if let Ok(v) = v {

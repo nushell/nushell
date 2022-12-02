@@ -243,7 +243,7 @@ impl EngineState {
                             // NOTE: currently (Dec 2022) the subrecords of config.menus, config.keybindings and config.hooks
                             // are NOT reconstructed by config_to_nu_record(), but restored from self.config as-is.
                             // As such, invalid values may persist on them (as into_config() doesn't remove them.
-                            if let Ok(config) = v.clone().into_config() {
+                            if let Ok(config) = v.clone().into_config(&self.config) {
                                 // Don't replace self.config unless into_config() succeeds.
                                 // Note that into_config() produces Err in only very dire circumstances.
                                 self.config = config;
