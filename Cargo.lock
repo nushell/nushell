@@ -2638,6 +2638,7 @@ dependencies = [
  "rand 0.8.5",
  "rayon",
  "reedline",
+ "regex",
  "reqwest",
  "roxmltree",
  "rstest",
