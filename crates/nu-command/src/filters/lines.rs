@@ -4,6 +4,10 @@ use nu_protocol::{
     Category, Example, IntoInterruptiblePipelineData, PipelineData, RawStream, ShellError,
     Signature, Span, Type, Value,
 };
+use once_cell::sync::OnceCell;
+// regex can be replaced with fancy-regex once it suppports `split()`
+// https://github.com/fancy-regex/fancy-regex/issues/104
+use regex::Regex;
 
 #[derive(Clone)]
 pub struct Lines;
@@ -34,16 +38,19 @@ impl Command for Lines {
         let head = call.head;
         let ctrlc = engine_state.ctrlc.clone();
         let skip_empty = call.has_flag("skip-empty");
+
+        // match \r\n or \n
+        static REGEX_CELL: OnceCell<Regex> = OnceCell::new();
+        let line_break_regex =
+            REGEX_CELL.get_or_init(|| Regex::new(r"\r\n|\n").expect("unable to compile regex"));
         match input {
             #[allow(clippy::needless_collect)]
             // Collect is needed because the string may not live long enough for
             // the Rc structure to continue using it. If split could take ownership
             // of the split values, then this wouldn't be needed
             PipelineData::Value(Value::String { val, span }, ..) => {
-                let split_char = if val.contains("\r\n") { "\r\n" } else { "\n" };
-
-                let mut lines = val
-                    .split(split_char)
+                let mut lines = line_break_regex
+                    .split(&val)
                     .map(|s| s.to_string())
                     .collect::<Vec<String>>();
 
@@ -66,18 +73,12 @@ impl Command for Lines {
                 Ok(iter.into_pipeline_data(engine_state.ctrlc.clone()))
             }
             PipelineData::ListStream(stream, ..) => {
-                let mut split_char = "\n";
-
                 let iter = stream
                     .into_iter()
                     .filter_map(move |value| {
                         if let Value::String { val, span } = value {
-                            if split_char != "\r\n" && val.contains("\r\n") {
-                                split_char = "\r\n";
-                            }
-
-                            let mut lines = val
-                                .split(split_char)
+                            let mut lines = line_break_regex
+                                .split(&val)
                                 .filter_map(|s| {
                                     if skip_empty && s.trim().is_empty() {
                                         None
@@ -153,6 +154,10 @@ impl Iterator for RawStreamLinesAdapter {
     type Item = Result<Value, ShellError>;
 
     fn next(&mut self) -> Option<Self::Item> {
+        static REGEX_CELL: OnceCell<Regex> = OnceCell::new();
+        let line_break_regex =
+            REGEX_CELL.get_or_init(|| Regex::new(r"\r\n|\n").expect("unable to compile regex"));
+
         loop {
             if !self.queue.is_empty() {
                 let s = self.queue.remove(0usize);
@@ -188,11 +193,8 @@ impl Iterator for RawStreamLinesAdapter {
                                 Value::String { val, span } => {
                                     self.span = span;
 
-                                    let split_char =
-                                        if val.contains("\r\n") { "\r\n" } else { "\n" };
-
-                                    let mut lines = val
-                                        .split(split_char)
+                                    let mut lines = line_break_regex
+                                        .split(&val)
                                         .map(|s| s.to_string())
                                         .collect::<Vec<_>>();
 
