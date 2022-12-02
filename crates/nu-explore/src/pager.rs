@@ -951,23 +951,13 @@ impl Report {
     }
 
     pub fn error(message: impl Into<String>) -> Self {
-        Self::new(
-            message.into(),
-            Severity::Err,
-            String::new(),
-            String::new(),
-        )
+        Self::new(message.into(), Severity::Err, String::new(), String::new())
     }
 }
 
 impl Default for Report {
     fn default() -> Self {
-        Self::new(
-            String::new(),
-            Severity::Info,
-            String::new(),
-            String::new(),
-        )
+        Self::new(String::new(), Severity::Info, String::new(), String::new())
     }
 }
 
