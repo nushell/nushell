@@ -1,7 +1,8 @@
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
-    Category, Example, IntoPipelineData, PipelineData, Signature, Span, Type, Value,
+    Category, Example, IntoPipelineData, PipelineData, PipelineMetadata, Signature, Span, Type,
+    Value,
 };
 
 #[derive(Clone)]
@@ -63,7 +64,19 @@ impl Command for Uniq {
         call: &Call,
         input: PipelineData,
     ) -> Result<nu_protocol::PipelineData, nu_protocol::ShellError> {
-        uniq(engine_state, stack, call, input)
+        let mapper = Box::new(move |ms: ItemMapperState| -> ValueCounter {
+            item_mapper(ms.item, ms.flag_ignore_case)
+        });
+
+        let metadata = input.metadata();
+        uniq(
+            engine_state,
+            stack,
+            call,
+            input.into_iter().collect(),
+            mapper,
+            metadata,
+        )
     }
 
     fn examples(&self) -> Vec<Example> {
@@ -123,7 +136,16 @@ impl Command for Uniq {
     }
 }
 
-struct ValueCounter {
+pub struct ItemMapperState {
+    pub item: Value,
+    pub flag_ignore_case: bool,
+}
+
+fn item_mapper(item: Value, flag_ignore_case: bool) -> ValueCounter {
+    ValueCounter::new(item, flag_ignore_case)
+}
+
+pub struct ValueCounter {
     val: Value,
     val_to_compare: Value,
     count: i64,
@@ -137,12 +159,15 @@ impl PartialEq<Self> for ValueCounter {
 
 impl ValueCounter {
     fn new(val: Value, flag_ignore_case: bool) -> Self {
+        Self::new_vals_to_compare(val.clone(), flag_ignore_case, val)
+    }
+    pub fn new_vals_to_compare(val: Value, flag_ignore_case: bool, vals_to_compare: Value) -> Self {
         ValueCounter {
-            val: val.clone(),
+            val,
             val_to_compare: if flag_ignore_case {
-                clone_to_lowercase(&val)
+                clone_to_lowercase(&vals_to_compare)
             } else {
-                val
+                vals_to_compare
             },
             count: 1,
         }
@@ -193,22 +218,29 @@ fn generate_results_with_count(head: Span, uniq_values: Vec<ValueCounter>) -> Ve
         .collect()
 }
 
-fn uniq(
+pub fn uniq(
     _engine_state: &EngineState,
     _stack: &mut Stack,
     call: &Call,
-    input: PipelineData,
+    input: Vec<Value>,
+    item_mapper: Box<dyn Fn(ItemMapperState) -> ValueCounter>,
+    metadata: Option<PipelineMetadata>,
 ) -> Result<nu_protocol::PipelineData, nu_protocol::ShellError> {
     let head = call.head;
     let flag_show_count = call.has_flag("count");
     let flag_show_repeated = call.has_flag("repeated");
     let flag_ignore_case = call.has_flag("ignore-case");
     let flag_only_uniques = call.has_flag("unique");
-    let metadata = input.metadata();
+    // let metadata = input.metadata();
 
     let mut uniq_values = input
         .into_iter()
-        .map(|item| ValueCounter::new(item, flag_ignore_case))
+        .map(|item| {
+            item_mapper(ItemMapperState {
+                item,
+                flag_ignore_case,
+            })
+        })
         .fold(Vec::<ValueCounter>::new(), |mut counter, item| {
             match counter
                 .iter_mut()

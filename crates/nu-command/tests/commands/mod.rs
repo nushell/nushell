@@ -88,6 +88,7 @@ mod touch;
 mod transpose;
 mod try_;
 mod uniq;
+mod uniq_by;
 mod update;
 mod upsert;
 mod url;
