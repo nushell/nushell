@@ -10,7 +10,7 @@ use tui::layout::Rect;
 
 use crate::{
     nu_common::{NuSpan, NuText},
-    pager::{Frame, Report, Severentity, Transition, ViewConfig, ViewInfo},
+    pager::{Frame, Report, Severity, Transition, ViewConfig, ViewInfo},
 };
 
 use super::{coloredtextw::ColoredTextW, Layout, View};
@@ -105,7 +105,7 @@ impl View for Preview {
                 if is_end {
                     let report = Report::new(
                         String::from("END"),
-                        Severentity::Info,
+                        Severity::Info,
                         String::new(),
                         String::new(),
                     );
@@ -137,7 +137,7 @@ impl View for Preview {
                 if is_end {
                     let report = Report::new(
                         String::from("END"),
-                        Severentity::Info,
+                        Severity::Info,
                         String::new(),
                         String::new(),
                     );

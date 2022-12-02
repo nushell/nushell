@@ -40,7 +40,8 @@ impl ViewCommand for PreviewCmd {
     fn help(&self) -> Option<HelpManual> {
         Some(HelpManual {
             name: "preview",
-            description: "Preview current value/table if any is currently in use",
+            description:
+                "View the currently selected cell's data using the `table` Nushell command",
             arguments: vec![],
             examples: vec![],
         })

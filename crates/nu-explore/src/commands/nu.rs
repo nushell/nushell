@@ -44,16 +44,17 @@ impl ViewCommand for NuCmd {
     fn help(&self) -> Option<HelpManual> {
         Some(HelpManual {
             name: "nu",
-            description: "Run a nu command. You can use a presented table as an input",
+            description:
+                "Run a Nushell command. The data currently being explored is piped into it.",
             arguments: vec![],
             examples: vec![
                 HelpExample {
                     example: "where type == 'file'",
-                    description: "Filter data to get only entries with a type being a 'file'",
+                    description: "Filter data to show only rows whose type is 'file'",
                 },
                 HelpExample {
-                    example: "get scope | get examples",
-                    description: "Get a inner values",
+                    example: "get scope.examples",
+                    description: "Navigate to a deeper value inside the data",
                 },
                 HelpExample {
                     example: "open Cargo.toml",
