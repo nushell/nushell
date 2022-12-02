@@ -270,6 +270,7 @@ fn histogram_impl(
             },
         ));
     }
+    result.sort_by(|a, b| b.0.cmp(&a.0));
     Value::List {
         vals: result.into_iter().map(|x| x.1).collect(),
         span,
