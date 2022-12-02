@@ -432,7 +432,7 @@ fn highlight_search_results(f: &mut Frame, pager: &Pager, layout: &Layout, style
 }
 
 #[allow(clippy::too_many_arguments)]
-fn handle_events<V>(
+fn handle_events<V: View>(
     engine_state: &EngineState,
     stack: &mut Stack,
     events: &UIEvents,
@@ -441,15 +441,64 @@ fn handle_events<V>(
     search: &mut SearchBuf,
     command: &mut CommandBuf,
     mut view: Option<&mut V>,
-) -> (bool, bool)
-where
-    V: View,
-{
+) -> (bool, bool) {
     let key = match events.next() {
         Ok(Some(key)) => key,
         _ => return (false, false),
     };
 
+    let result = handle_event(
+        engine_state,
+        stack,
+        layout,
+        info,
+        search,
+        command,
+        view.as_deref_mut(),
+        key,
+    );
+
+    if let (true, _) = result {
+        return result;
+    }
+
+    // Sometimes we get a BIG list of events;
+    // for example when someone scrolls via a mouse either UP or DOWN.
+    // This MIGHT causes freeses as we have a 400 delay for a next command read.
+    //
+    // To eliminate that we are trying ot read all possible commands which we should action upon.
+
+    while let Ok(Some(key)) = events.try_next() {
+        let result = handle_event(
+            engine_state,
+            stack,
+            layout,
+            info,
+            search,
+            command,
+            view.as_deref_mut(),
+            key,
+        );
+
+        if let (true, _) = result {
+            return result;
+        }
+    }
+
+    result
+}
+
+#[allow(clippy::too_many_arguments)]
+fn handle_event<V: View>(
+    engine_state: &EngineState,
+    stack: &mut Stack,
+    layout: &Layout,
+    info: &mut ViewInfo,
+    search: &mut SearchBuf,
+    command: &mut CommandBuf,
+    mut view: Option<&mut V>,
+    key: KeyEvent,
+) -> (bool, bool) {
     if handle_exit_key_event(&key) {
         return (true, true);
     }
@@ -472,7 +521,6 @@ where
     }
 
     // was not handled so we must check our default controlls
-
     handle_general_key_events2(&key, search, command, view, info);
 
     (false, false)

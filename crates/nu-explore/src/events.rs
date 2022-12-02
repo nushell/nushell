@@ -48,4 +48,15 @@ impl UIEvents {
             Err(err) => Err(err),
         }
     }
+
+    pub fn try_next(&self) -> Result<Option<KeyEvent>> {
+        match poll(Duration::default()) {
+            Ok(true) => match read()? {
+                Event::Key(event) => Ok(Some(event)),
+                _ => Ok(None),
+            },
+            Ok(false) => Ok(None),
+            Err(err) => Err(err),
+        }
+    }
 }
