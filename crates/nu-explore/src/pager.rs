@@ -329,7 +329,7 @@ fn render_status_bar(f: &mut Frame, area: Rect, report: Report, theme: &StyleCon
 }
 
 fn report_msg_style(report: &Report, theme: &StyleConfig, style: NuStyle) -> NuStyle {
-    if matches!(report.level, Severentity::Info) {
+    if matches!(report.level, Severity::Info) {
         style
     } else {
         report_level_style(report.level, theme)
@@ -834,11 +834,11 @@ impl Widget for StatusBar {
     }
 }
 
-fn report_level_style(level: Severentity, theme: &StyleConfig) -> NuStyle {
+fn report_level_style(level: Severity, theme: &StyleConfig) -> NuStyle {
     match level {
-        Severentity::Info => theme.status_info,
-        Severentity::Warn => theme.status_warn,
-        Severentity::Err => theme.status_error,
+        Severity::Info => theme.status_info,
+        Severity::Warn => theme.status_warn,
+        Severity::Err => theme.status_error,
     }
 }
 
@@ -935,13 +935,13 @@ pub struct ViewInfo {
 #[derive(Debug, Clone)]
 pub struct Report {
     pub message: String,
-    pub level: Severentity,
+    pub level: Severity,
     pub context: String,
     pub context2: String,
 }
 
 impl Report {
-    pub fn new(message: String, level: Severentity, context: String, context2: String) -> Self {
+    pub fn new(message: String, level: Severity, context: String, context2: String) -> Self {
         Self {
             message,
             level,
@@ -951,28 +951,18 @@ impl Report {
     }
 
     pub fn error(message: impl Into<String>) -> Self {
-        Self::new(
-            message.into(),
-            Severentity::Err,
-            String::new(),
-            String::new(),
-        )
+        Self::new(message.into(), Severity::Err, String::new(), String::new())
     }
 }
 
 impl Default for Report {
     fn default() -> Self {
-        Self::new(
-            String::new(),
-            Severentity::Info,
-            String::new(),
-            String::new(),
-        )
+        Self::new(String::new(), Severity::Info, String::new(), String::new())
     }
 }
 
 #[derive(Debug, Clone, Copy)]
-pub enum Severentity {
+pub enum Severity {
     Info,
     #[allow(dead_code)]
     Warn,

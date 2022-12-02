@@ -31,16 +31,20 @@ impl Command for Explore {
             .named(
                 "head",
                 SyntaxShape::Boolean,
-                "Setting it to false makes it doesn't show column headers",
+                "Show or hide column headers (default true)",
                 None,
             )
-            .switch("index", "A flag to show a index beside the rows", Some('i'))
+            .switch("index", "Show row indexes when viewing a list", Some('i'))
             .switch(
                 "reverse",
-                "Makes it start from the end. (like `more`)",
+                "Start with the viewport scrolled to the bottom",
                 Some('r'),
             )
-            .switch("peek", "Return a last seen cell content", Some('p'))
+            .switch(
+                "peek",
+                "When quitting, output the value of the cell the cursor was on",
+                Some('p'),
+            )
             .category(Category::Viewers)
     }
 
@@ -90,23 +94,24 @@ impl Command for Explore {
     fn examples(&self) -> Vec<Example> {
         vec![
             Example {
-                description: "List the files in current directory, an looking at them via explore.",
-                example: r#"ls | explore"#,
+                description: "Explore the system information record",
+                example: r#"sys | explore"#,
                 result: None,
             },
             Example {
-                description: "Inspect system information (explore with index).",
-                example: r#"sys | explore -i"#,
+                description: "Explore the output of `ls` without column names",
+                example: r#"ls | explore --head false"#,
                 result: None,
             },
             Example {
-                description: "Inspect $nu information (explore with no column names).",
-                example: r#"$nu | explore --head false"#,
+                description: "Explore a list of Markdown files' contents, with row indexes",
+                example: r#"glob *.md | each { open } | explore -i"#,
                 result: None,
             },
             Example {
-                description: "Inspect $nu information and return an entity where you've stopped.",
-                example: r#"$nu | explore --peek"#,
+                description:
+                    "Explore a JSON file, then save the last visited sub-structure to a file",
+                example: r#"open file.json | explore -p | to json | save part.json"#,
                 result: None,
             },
         ]

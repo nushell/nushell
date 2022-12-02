@@ -40,11 +40,11 @@ impl ViewCommand for TryCmd {
     fn help(&self) -> Option<HelpManual> {
         Some(HelpManual {
             name: "try",
-            description: "Opens a dynamic REPL to run nu commands",
+            description: "Opens a panel in which to run Nushell commands and explore their output",
             arguments: vec![],
             examples: vec![HelpExample {
                 example: "try open Cargo.toml",
-                description: "Optionally you can provide a command which will be run right away",
+                description: "Optionally, you can provide a command which will be run immediately",
             }],
         })
     }

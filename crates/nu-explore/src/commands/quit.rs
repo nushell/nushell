@@ -28,7 +28,7 @@ impl SimpleCommand for QuitCmd {
     fn help(&self) -> Option<HelpManual> {
         Some(HelpManual {
             name: "quit",
-            description: "Quit",
+            description: "Quit and return to Nushell",
             arguments: vec![],
             examples: vec![],
         })
