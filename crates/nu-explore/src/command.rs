@@ -62,8 +62,8 @@ impl CommandList {
         ]
     }
 
-    pub fn create_aliases() -> [(&'static str, &'static str); 2] {
-        [("h", HelpCmd::NAME), ("q", QuitCmd::NAME)]
+    pub fn create_aliases() -> [(&'static str, &'static str); 3] {
+        [("h", HelpCmd::NAME), ("q", QuitCmd::NAME), ("q!", QuitCmd::NAME)]
     }
 
     pub fn new(table_cfg: TableConfig) -> Self {
