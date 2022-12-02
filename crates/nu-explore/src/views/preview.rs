@@ -84,6 +84,12 @@ impl View for Preview {
                 Some(Transition::Ok)
             }
             KeyCode::Up => {
+                let is_start = self.i_row == 0;
+                if is_start {
+                    // noop
+                    return Some(Transition::Ok);
+                }
+
                 let page_size = layout.data.len();
                 let max = self.lines.len().saturating_sub(page_size);
                 let was_end = self.i_row == max;
@@ -99,6 +105,13 @@ impl View for Preview {
             KeyCode::Down => {
                 let page_size = layout.data.len();
                 let max = self.lines.len().saturating_sub(page_size);
+
+                let is_end = self.i_row == max;
+                if is_end {
+                    // noop
+                    return Some(Transition::Ok);
+                }
+
                 self.i_row = min(self.i_row + 1, max);
 
                 let is_end = self.i_row == max;
