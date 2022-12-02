@@ -77,6 +77,12 @@ impl Iterator for RawStream {
     type Item = Result<Value, ShellError>;
 
     fn next(&mut self) -> Option<Self::Item> {
+        if let Some(ctrlc) = &self.ctrlc {
+            if ctrlc.load(Ordering::SeqCst) {
+                return None;
+            }
+        }
+
         // If we know we're already binary, just output that
         if self.is_binary {
             match self.stream.next() {
