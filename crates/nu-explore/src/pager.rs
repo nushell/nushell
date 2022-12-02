@@ -479,7 +479,7 @@ fn handle_events<V: View>(
             view.as_deref_mut(),
             key,
         );
-            
+
         if let (true, _) = result {
             return result;
         }
