@@ -71,7 +71,7 @@ impl Command for Explore {
 
         let config = engine_state.get_config();
         let color_hm = get_color_config(config);
-        let style = theme_from_config(&config.explore_config);
+        let style = theme_from_config(&config.explore);
 
         let view_cfg = ViewConfig::new(config, &color_hm, &style);
 

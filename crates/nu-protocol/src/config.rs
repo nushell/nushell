@@ -87,7 +87,7 @@ pub struct Config {
     pub show_banner: bool,
     pub show_clickable_links_in_ls: bool,
     pub render_right_prompt_on_last_line: bool,
-    pub explore_config: HashMap<String, Value>,
+    pub explore: HashMap<String, Value>,
 }
 
 impl Default for Config {
@@ -126,7 +126,7 @@ impl Default for Config {
             show_banner: true,
             show_clickable_links_in_ls: true,
             render_right_prompt_on_last_line: false,
-            explore_config: HashMap::new(),
+            explore: HashMap::new(),
         }
     }
 }
@@ -528,7 +528,7 @@ impl Value {
                     }
                     "explore" => {
                         if let Ok(map) = create_map(value, &config) {
-                            config.explore_config = map;
+                            config.explore = map;
                         } else {
                             eprintln!("$env.config.{} is not a record", key)
                         }
