@@ -491,30 +491,39 @@ pub fn eval_expression(
                         }
                         Expr::FullCellPath(cell_path) => match &cell_path.head.expr {
                             Expr::Var(var_id) | Expr::VarDecl(var_id) => {
-                                if var_id == &ENV_VARIABLE_ID {
-                                    // let mut lhs =
-                                    //     eval_expression(engine_state, stack, &cell_path.head)?;
-                                    //lhs.update_data_at_cell_path(&cell_path.tail, rhs)?;
-                                    match &cell_path.tail[0] {
-                                        PathMember::String { val, .. } => {
-                                            stack.add_env_var(val.to_string(), rhs);
+                                // The $env variable is considered "mutable" in Nushell.
+                                // As such, give it special treatment here.
+                                let is_env = var_id == &ENV_VARIABLE_ID;
+                                if is_env || engine_state.get_var(*var_id).mutable {
+                                    let mut lhs =
+                                        eval_expression(engine_state, stack, &cell_path.head)?;
+
+                                    if is_env {
+                                        // Unlike "real" mutable vars, though, $env can be upserted by =
+                                        // instead of just updated. This allows external env-vars like $env.PYTHON_IO_ENCODING
+                                        // to be added using this syntax.
+                                        lhs.upsert_data_at_cell_path(&cell_path.tail, rhs)?;
+                                        // The special $env treatment: for something like $env.config.history.max_size = 2000,
+                                        // get $env.config AFTER the above mutation, and set it as the "config" environment variable.
+                                        let vardata = lhs.follow_cell_path(
+                                            &[cell_path.tail[0].clone()],
+                                            false,
+                                        )?;
+                                        match &cell_path.tail[0] {
+                                            PathMember::String { val, .. } => {
+                                                stack.add_env_var(val.to_string(), vardata);
+                                            }
+                                            PathMember::Int { val, .. } => {
+                                                stack.add_env_var(val.to_string(), vardata);
+                                            }
                                         }
-                                        PathMember::Int { val, .. } => {
-                                            stack.add_env_var(val.to_string(), rhs);
-                                        }
+                                    } else {
+                                        lhs.update_data_at_cell_path(&cell_path.tail, rhs)?;
+                                        stack.vars.insert(*var_id, lhs);
                                     }
                                     Ok(Value::nothing(cell_path.head.span))
                                 } else {
-                                    let var_info = engine_state.get_var(*var_id);
-                                    if var_info.mutable {
-                                        let mut lhs =
-                                            eval_expression(engine_state, stack, &cell_path.head)?;
-                                        lhs.update_data_at_cell_path(&cell_path.tail, rhs)?;
-                                        stack.vars.insert(*var_id, lhs);
-                                        Ok(Value::nothing(cell_path.head.span))
-                                    } else {
-                                        Err(ShellError::AssignmentRequiresMutableVar(lhs.span))
-                                    }
+                                    Err(ShellError::AssignmentRequiresMutableVar(lhs.span))
                                 }
                             }
                             _ => Err(ShellError::AssignmentRequiresVar(lhs.span)),
