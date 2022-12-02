@@ -526,6 +526,13 @@ impl Value {
                             eprintln!("$env.config.{} is not a record", key)
                         }
                     }
+                    "explore" => {
+                        if let Ok(map) = create_map(value, &config) {
+                            config.explore_config = map;
+                        } else {
+                            eprintln!("$env.config.{} is not a record", key)
+                        }
+                    }
                     // Misc. options
                     "color_config" => {
                         if let Ok(map) = create_map(value, &config) {
@@ -811,13 +818,6 @@ impl Value {
                             config.filesize_format = v.to_lowercase();
                         } else {
                             eprintln!("$env.config.filesize_format is not a string")
-                        }
-                    }
-                    "explore_config" => {
-                        if let Ok(map) = create_map(value, &config) {
-                            config.explore_config = map;
-                        } else {
-                            eprintln!("$env.config.explore_config is not a map")
                         }
                     }
                     // End legacy options
