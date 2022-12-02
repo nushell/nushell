@@ -4,7 +4,7 @@ use nu_protocol::{
     Category, Example, IntoInterruptiblePipelineData, PipelineData, RawStream, ShellError,
     Signature, Span, Type, Value,
 };
-use once_cell::sync::OnceCell;
+use once_cell::sync::Lazy;
 // regex can be replaced with fancy-regex once it suppports `split()`
 // https://github.com/fancy-regex/fancy-regex/issues/104
 use regex::Regex;
@@ -40,16 +40,15 @@ impl Command for Lines {
         let skip_empty = call.has_flag("skip-empty");
 
         // match \r\n or \n
-        static REGEX_CELL: OnceCell<Regex> = OnceCell::new();
-        let line_break_regex =
-            REGEX_CELL.get_or_init(|| Regex::new(r"\r\n|\n").expect("unable to compile regex"));
+        static LINE_BREAK_REGEX: Lazy<Regex> =
+            Lazy::new(|| Regex::new(r"\r\n|\n").expect("unable to compile regex"));
         match input {
             #[allow(clippy::needless_collect)]
             // Collect is needed because the string may not live long enough for
             // the Rc structure to continue using it. If split could take ownership
             // of the split values, then this wouldn't be needed
             PipelineData::Value(Value::String { val, span }, ..) => {
-                let mut lines = line_break_regex
+                let mut lines = LINE_BREAK_REGEX
                     .split(&val)
                     .map(|s| s.to_string())
                     .collect::<Vec<String>>();
@@ -77,7 +76,7 @@ impl Command for Lines {
                     .into_iter()
                     .filter_map(move |value| {
                         if let Value::String { val, span } = value {
-                            let mut lines = line_break_regex
+                            let mut lines = LINE_BREAK_REGEX
                                 .split(&val)
                                 .filter_map(|s| {
                                     if skip_empty && s.trim().is_empty() {
@@ -154,9 +153,8 @@ impl Iterator for RawStreamLinesAdapter {
     type Item = Result<Value, ShellError>;
 
     fn next(&mut self) -> Option<Self::Item> {
-        static REGEX_CELL: OnceCell<Regex> = OnceCell::new();
-        let line_break_regex =
-            REGEX_CELL.get_or_init(|| Regex::new(r"\r\n|\n").expect("unable to compile regex"));
+        static LINE_BREAK_REGEX: Lazy<Regex> =
+            Lazy::new(|| Regex::new(r"\r\n|\n").expect("unable to compile regex"));
 
         loop {
             if !self.queue.is_empty() {
@@ -193,7 +191,7 @@ impl Iterator for RawStreamLinesAdapter {
                                 Value::String { val, span } => {
                                     self.span = span;
 
-                                    let mut lines = line_break_regex
+                                    let mut lines = LINE_BREAK_REGEX
                                         .split(&val)
                                         .map(|s| s.to_string())
                                         .collect::<Vec<_>>();
