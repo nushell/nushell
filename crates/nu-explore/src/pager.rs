@@ -108,6 +108,15 @@ pub fn run_pager(
         ..Default::default()
     };
 
+    if let Some(text) = pager.message.take() {
+        info.status = Some(Report::new(
+            text,
+            Severity::Info,
+            String::new(),
+            String::new(),
+        ));
+    }
+
     let result = render_ui(
         &mut terminal,
         engine_state,
@@ -762,6 +771,7 @@ pub struct Pager<'a> {
     search_buf: SearchBuf,
     table_cfg: TableConfig,
     view_cfg: ViewConfig<'a>,
+    message: Option<String>,
 }
 
 #[derive(Debug, Clone, Default)]
@@ -816,7 +826,12 @@ impl<'a> Pager<'a> {
             search_buf: SearchBuf::default(),
             table_cfg,
             view_cfg,
+            message: None,
         }
+    }
+
+    pub fn show_message(&mut self, text: impl Into<String>) {
+        self.message = Some(text.into());
     }
 
     pub fn run(
