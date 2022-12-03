@@ -12,7 +12,6 @@ nu-protocol = { path = "../nu-protocol", features = ["plugin"], version = "0.72.
 nu-path = { path = "../nu-path", version = "0.72.2"  }
 nu-glob = { path = "../nu-glob", version = "0.72.2" }
 nu-utils = { path = "../nu-utils", version = "0.72.2"  }
-nu-json = { path = "../nu-json", version = "0.72.2"  }
 
 chrono = { version="0.4.23", features = ["std"], default-features = false }
 sysinfo ="0.26.2"

@@ -2675,7 +2675,6 @@ version = "0.72.2"
 dependencies = [
  "chrono",
  "nu-glob",
- "nu-json",
  "nu-path",
  "nu-protocol",
  "nu-utils",
