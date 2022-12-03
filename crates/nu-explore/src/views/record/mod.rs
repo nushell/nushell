@@ -271,7 +271,7 @@ fn handle_key_event_view_mode(view: &mut RecordView, key: &KeyEvent) -> Option<T
                 Some(Transition::Exit)
             }
         }
-        KeyCode::Char('i') => {
+        KeyCode::Char('i') | KeyCode::Enter => {
             view.mode = UIMode::Cursor;
             view.cursor = Position::default();
 
