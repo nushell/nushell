@@ -7,7 +7,7 @@ use nu_protocol::{
 
 use crate::{pager::TableConfig, views::InteractiveView};
 
-use super::{HelpExample, HelpManual, ViewCommand};
+use super::{HelpExample, HelpManual, Shortcode, ViewCommand};
 
 #[derive(Debug, Default, Clone)]
 pub struct TryCmd {
@@ -38,14 +38,23 @@ impl ViewCommand for TryCmd {
     }
 
     fn help(&self) -> Option<HelpManual> {
+        #[rustfmt::skip]
+        let shortcuts = vec![
+            Shortcode::new("Up",     "",        "Switches between input and a output panes"),
+            Shortcode::new("Down",   "",        "Switches between input and a output panes"),
+            Shortcode::new("Esc",    "",        "Switches between input and a output panes"),
+            Shortcode::new("Tab",    "",        "Switches between input and a output panes"),
+        ];
+
         Some(HelpManual {
             name: "try",
-            description: "Opens a panel in which to run Nushell commands and explore their output",
+            description: "Opens a panel in which to run Nushell commands and explore their output. The exporer acts liek `:table`.",
             arguments: vec![],
             examples: vec![HelpExample {
                 example: "try open Cargo.toml",
                 description: "Optionally, you can provide a command which will be run immediately",
             }],
+            input: shortcuts,
         })
     }
 

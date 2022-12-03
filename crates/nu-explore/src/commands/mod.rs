@@ -64,10 +64,37 @@ pub struct HelpManual {
     pub description: &'static str,
     pub arguments: Vec<HelpExample>,
     pub examples: Vec<HelpExample>,
+    pub input: Vec<Shortcode>,
 }
 
 #[derive(Debug, Default, Clone)]
 pub struct HelpExample {
     pub example: &'static str,
     pub description: &'static str,
+}
+
+impl HelpExample {
+    pub fn new(example: &'static str, description: &'static str) -> Self {
+        Self {
+            example,
+            description,
+        }
+    }
+}
+
+#[derive(Debug, Default, Clone)]
+pub struct Shortcode {
+    pub code: &'static str,
+    pub context: &'static str,
+    pub description: &'static str,
+}
+
+impl Shortcode {
+    pub fn new(code: &'static str, context: &'static str, description: &'static str) -> Self {
+        Self {
+            code,
+            context,
+            description,
+        }
+    }
 }

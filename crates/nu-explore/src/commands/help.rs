@@ -62,24 +62,24 @@ impl ViewCommand for HelpCmd {
     }
 
     fn help(&self) -> Option<HelpManual> {
+        #[rustfmt::skip]
+        let examples = vec![
+            HelpExample::new("help",        "Open the help page for all of `explore`"),
+            HelpExample::new("help nu",     "Open the help page for the `nu` explore command"),
+            HelpExample::new("help help",   "...It was supposed to be hidden....until...now..."),
+        ];
+
+        #[rustfmt::skip]
+        let arguments = vec![
+            HelpExample::new("help command", "you can provide a command and a help information for it will be displayed")
+        ];
+
         Some(HelpManual {
             name: "help",
             description: "Explore the help page for `explore`",
-            arguments: vec![],
-            examples: vec![
-                HelpExample {
-                    example: "help",
-                    description: "Open the help page for all of `explore`",
-                },
-                HelpExample {
-                    example: "help nu",
-                    description: "Open the help page for the `nu` explore command",
-                },
-                HelpExample {
-                    example: "help help",
-                    description: "...It was supposed to be hidden....until...now...",
-                },
-            ],
+            arguments,
+            examples,
+            input: vec![],
         })
     }
 
@@ -165,16 +165,6 @@ fn help_frame_data(
         ("/",      "view",    null!(),   "Search for a pattern"),
         ("?",      "view",    null!(),   "Search for a pattern, but the <n> key now scrolls to the previous result"),
         ("n",      "view",    null!(),   "When searching, scroll to the next search result"),
-        ("i",      "view",    null!(),   "Enters cursor mode to inspect individual cells"),
-        ("t",      "view",    null!(),   "Transpose table, so that columns become rows and vice versa"),
-        ("Up",     "",        null!(),   "Moves the cursor or viewport one row up"),
-        ("Down",   "",        null!(),   "Moves the cursor or viewport one row down"),
-        ("Left",   "",        null!(),   "Moves the cursor or viewport one column left"),
-        ("Right",  "",        null!(),   "Moves the cursor or viewport one column right"),
-        ("PgDown", "view",    null!(),   "Moves the cursor or viewport one page of rows down"),
-        ("PgUp",   "view",    null!(),   "Moves the cursor or viewport one page of rows up"),
-        ("Esc",    "",        null!(),   "Exits cursor mode. Exits the currently explored data."),
-        ("Enter",  "cursor",  null!(),   "In cursor mode, explore the data of the selected cell"),
     ];
 
     let headers = headers.iter().map(|s| s.to_string()).collect();
@@ -222,9 +212,26 @@ fn help_manual_data(manual: &HelpManual, aliases: &[String]) -> (Vec<String>, Ve
             span: NuSpan::unknown(),
         })
         .collect();
-
     let examples = Value::List {
         vals: examples,
+        span: NuSpan::unknown(),
+    };
+
+    let inputs = manual
+        .input
+        .iter()
+        .map(|e| Value::Record {
+            cols: vec![
+                String::from("name"),
+                String::from("context"),
+                String::from("description"),
+            ],
+            vals: vec![nu_str!(e.code), nu_str!(e.context), nu_str!(e.description)],
+            span: NuSpan::unknown(),
+        })
+        .collect();
+    let inputs = Value::List {
+        vals: inputs,
         span: NuSpan::unknown(),
     };
 
@@ -236,11 +243,12 @@ fn help_manual_data(manual: &HelpManual, aliases: &[String]) -> (Vec<String>, Ve
         String::from("name"),
         String::from("aliases"),
         String::from("arguments"),
+        String::from("input"),
         String::from("examples"),
         String::from("description"),
     ];
 
-    let data = vec![vec![name, aliases, arguments, examples, desc]];
+    let data = vec![vec![name, aliases, arguments, inputs, examples, desc]];
 
     (headers, data)
 }

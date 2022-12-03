@@ -166,6 +166,7 @@ fn __create_help_manual(manual: Option<HelpManual>, name: &'static str) -> HelpM
             description: "",
             arguments: Vec::new(),
             examples: Vec::new(),
+            input: Vec::new(),
         },
     }
 }

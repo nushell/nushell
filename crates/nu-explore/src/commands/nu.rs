@@ -47,6 +47,8 @@ impl ViewCommand for NuCmd {
             description:
                 "Run a Nushell command. The data currently being explored is piped into it.",
             arguments: vec![],
+            input: vec![],
+
             examples: vec![
                 HelpExample {
                     example: "where type == 'file'",
