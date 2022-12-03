@@ -16,7 +16,15 @@ pub fn run_nu_command(
 }
 
 pub fn is_ignored_command(command: &str) -> bool {
-    command.starts_with("clear")
+    let ignore_list = ["clear", "explore", "exit"];
+
+    for cmd in ignore_list {
+        if command.starts_with(cmd) {
+            return true;
+        }
+    }
+
+    false
 }
 
 fn eval_source2(
