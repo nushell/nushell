@@ -108,10 +108,7 @@ fn make_error(value: &Value, throw_span: Option<Span>) -> Option<ShellError> {
                     ) => Some(ShellError::GenericError(
                         message,
                         label_text,
-                        Some(Span {
-                            start: start as usize,
-                            end: end as usize,
-                        }),
+                        Some(Span::new(start as usize, end as usize)),
                         None,
                         Vec::new(),
                     )),

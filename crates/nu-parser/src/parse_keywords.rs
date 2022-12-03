@@ -1179,10 +1179,7 @@ pub fn parse_export_in_module(
         error = error.or_else(|| {
             Some(ParseError::MissingPositional(
                 "def, def-env, alias, or env keyword".into(), // TODO: keep filling more keywords as they come
-                Span {
-                    start: export_span.end,
-                    end: export_span.end,
-                },
+                Span::new(export_span.end, export_span.end),
                 "'def', `def-env`, `alias`, or 'env' keyword.".to_string(),
             ))
         });
@@ -1472,11 +1469,10 @@ pub fn parse_module(
         if block_bytes.ends_with(b"}") {
             end -= 1;
         } else {
-            error =
-                error.or_else(|| Some(ParseError::Unclosed("}".into(), Span { start: end, end })));
+            error = error.or_else(|| Some(ParseError::Unclosed("}".into(), Span::new(end, end))));
         }
 
-        let block_span = Span { start, end };
+        let block_span = Span::new(start, end);
 
         let (block, module, err) =
             parse_module_block(working_set, block_span, expand_aliases_denylist);

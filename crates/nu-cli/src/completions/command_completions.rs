@@ -94,10 +94,7 @@ impl CommandCompletion {
                 value: String::from_utf8_lossy(&x.0).to_string(),
                 description: x.1,
                 extra: None,
-                span: reedline::Span {
-                    start: span.start - offset,
-                    end: span.end - offset,
-                },
+                span: reedline::Span::new(span.start - offset, span.end - offset),
                 append_whitespace: true,
             });
 
@@ -108,10 +105,7 @@ impl CommandCompletion {
                 value: String::from_utf8_lossy(&x).to_string(),
                 description: None,
                 extra: None,
-                span: reedline::Span {
-                    start: span.start - offset,
-                    end: span.end - offset,
-                },
+                span: reedline::Span::new(span.start - offset, span.end - offset),
                 append_whitespace: true,
             });
 
@@ -128,10 +122,7 @@ impl CommandCompletion {
                     value: x,
                     description: None,
                     extra: None,
-                    span: reedline::Span {
-                        start: span.start - offset,
-                        end: span.end - offset,
-                    },
+                    span: reedline::Span::new(span.start - offset, span.end - offset),
                     append_whitespace: true,
                 });
 
@@ -187,10 +178,7 @@ impl Completer for CommandCompletion {
         let subcommands = if let Some(last) = last {
             self.complete_commands(
                 working_set,
-                Span {
-                    start: last.0.start,
-                    end: pos,
-                },
+                Span::new(last.0.start, pos),
                 offset,
                 false,
                 options.match_algorithm,

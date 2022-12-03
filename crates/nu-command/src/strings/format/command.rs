@@ -152,18 +152,12 @@ fn extract_formatting_operations(input: String, span_start: usize) -> Vec<Format
             if column_need_eval {
                 output.push(FormatOperation::ValueNeedEval(
                     column_name.clone(),
-                    Span {
-                        start: span_start + column_span_start,
-                        end: span_start + column_span_end,
-                    },
+                    Span::new(span_start + column_span_start, span_start + column_span_end),
                 ));
             } else {
                 output.push(FormatOperation::ValueFromColumn(
                     column_name.clone(),
-                    Span {
-                        start: span_start + column_span_start,
-                        end: span_start + column_span_end,
-                    },
+                    Span::new(span_start + column_span_start, span_start + column_span_end),
                 ));
             }
         }

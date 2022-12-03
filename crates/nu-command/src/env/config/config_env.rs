@@ -64,7 +64,7 @@ impl Command for ConfigEnv {
 
         let args = vec![Spanned {
             item: nu_config.to_string_lossy().to_string(),
-            span: Span { start: 0, end: 0 },
+            span: Span::unknown(),
         }];
 
         let command = ExternalCommand {

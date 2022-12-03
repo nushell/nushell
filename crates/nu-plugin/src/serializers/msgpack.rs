@@ -78,29 +78,29 @@ mod tests {
 
         let input = Value::Bool {
             val: false,
-            span: Span { start: 1, end: 20 },
+            span: Span::new(1, 20),
         };
 
         let call = EvaluatedCall {
-            head: Span { start: 0, end: 10 },
+            head: Span::new(0, 10),
             positional: vec![
                 Value::Float {
                     val: 1.0,
-                    span: Span { start: 0, end: 10 },
+                    span: Span::new(0, 10),
                 },
                 Value::String {
                     val: "something".into(),
-                    span: Span { start: 0, end: 10 },
+                    span: Span::new(0, 10),
                 },
             ],
             named: vec![(
                 Spanned {
                     item: "name".to_string(),
-                    span: Span { start: 0, end: 10 },
+                    span: Span::new(0, 10),
                 },
                 Some(Value::Float {
                     val: 1.0,
-                    span: Span { start: 0, end: 10 },
+                    span: Span::new(0, 10),
                 }),
             )],
         };
@@ -154,7 +154,7 @@ mod tests {
     #[test]
     fn callinfo_round_trip_collapsecustomvalue() {
         let data = vec![1, 2, 3, 4, 5, 6, 7];
-        let span = Span { start: 0, end: 20 };
+        let span = Span::new(0, 20);
 
         let collapse_custom_value = PluginCall::CollapseCustomValue(PluginData {
             data: data.clone(),
@@ -246,7 +246,7 @@ mod tests {
     fn response_round_trip_value() {
         let value = Value::Int {
             val: 10,
-            span: Span { start: 2, end: 30 },
+            span: Span::new(2, 30),
         };
 
         let response = PluginResponse::Value(Box::new(value.clone()));
@@ -275,7 +275,7 @@ mod tests {
         let name = "test".to_string();
 
         let data = vec![1, 2, 3, 4, 5];
-        let span = Span { start: 2, end: 30 };
+        let span = Span::new(2, 30);
 
         let response = PluginResponse::PluginData(
             name.clone(),
@@ -311,7 +311,7 @@ mod tests {
         let error = LabeledError {
             label: "label".into(),
             msg: "msg".into(),
-            span: Some(Span { start: 2, end: 30 }),
+            span: Some(Span::new(2, 30)),
         };
         let response = PluginResponse::Error(error.clone());
 

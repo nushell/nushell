@@ -154,7 +154,7 @@ fn item_mapper_by_col(cols: Vec<String>) -> impl Fn(crate::ItemMapperState) -> c
 
         let col_vals = Value::List {
             vals: item_column_values,
-            span: Span { start: 0, end: 0 },
+            span: Span::unknown(),
         };
 
         crate::ValueCounter::new_vals_to_compare(ms.item, ms.flag_ignore_case, col_vals)
