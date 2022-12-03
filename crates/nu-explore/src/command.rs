@@ -2,7 +2,8 @@ use std::collections::HashMap;
 
 use crate::{
     commands::{
-        HelpCmd, HelpManual, NuCmd, PreviewCmd, QuitCmd, SimpleCommand, TryCmd, ViewCommand,
+        HelpCmd, HelpManual, NuCmd, PreviewCmd, QuitCmd, SimpleCommand, TableCmd, TryCmd,
+        ViewCommand,
     },
     views::View,
     TableConfig,
@@ -58,6 +59,7 @@ impl CommandList {
             cmd_view!(NuCmd::new(table_cfg)),
             cmd_view!(TryCmd::new(table_cfg), true),
             cmd_view!(PreviewCmd::new(), true),
+            cmd_view!(TableCmd::new(table_cfg)),
             cmd_react!(QuitCmd::default()),
         ]
     }
