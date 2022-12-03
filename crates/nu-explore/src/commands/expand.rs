@@ -14,19 +14,19 @@ use crate::{
 use super::{HelpManual, ViewCommand};
 
 #[derive(Default, Clone)]
-pub struct PreviewCmd;
+pub struct ExpandCmd;
 
-impl PreviewCmd {
+impl ExpandCmd {
     pub fn new() -> Self {
         Self
     }
 }
 
-impl PreviewCmd {
-    pub const NAME: &'static str = "preview";
+impl ExpandCmd {
+    pub const NAME: &'static str = "expand";
 }
 
-impl ViewCommand for PreviewCmd {
+impl ViewCommand for ExpandCmd {
     type View = Preview;
 
     fn name(&self) -> &'static str {
@@ -39,7 +39,7 @@ impl ViewCommand for PreviewCmd {
 
     fn help(&self) -> Option<HelpManual> {
         Some(HelpManual {
-            name: "preview",
+            name: "expand",
             description:
                 "View the currently selected cell's data using the `table` Nushell command",
             arguments: vec![],

@@ -9,14 +9,14 @@ use std::io::Result;
 
 mod help;
 mod nu;
-mod preview;
+mod expand;
 mod quit;
 mod table;
 mod r#try;
 
 pub use help::HelpCmd;
 pub use nu::NuCmd;
-pub use preview::PreviewCmd;
+pub use expand::ExpandCmd;
 pub use quit::QuitCmd;
 pub use r#try::TryCmd;
 pub use table::TableCmd;

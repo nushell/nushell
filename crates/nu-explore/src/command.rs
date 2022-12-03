@@ -2,7 +2,7 @@ use std::collections::HashMap;
 
 use crate::{
     commands::{
-        HelpCmd, HelpManual, NuCmd, PreviewCmd, QuitCmd, SimpleCommand, TableCmd, TryCmd,
+        ExpandCmd, HelpCmd, HelpManual, NuCmd, QuitCmd, SimpleCommand, TableCmd, TryCmd,
         ViewCommand,
     },
     views::View,
@@ -58,15 +58,16 @@ impl CommandList {
         vec![
             cmd_view!(NuCmd::new(table_cfg)),
             cmd_view!(TryCmd::new(table_cfg), true),
-            cmd_view!(PreviewCmd::new(), true),
+            cmd_view!(ExpandCmd::new(), true),
             cmd_view!(TableCmd::new(table_cfg)),
             cmd_react!(QuitCmd::default()),
         ]
     }
 
-    pub fn create_aliases() -> [(&'static str, &'static str); 3] {
+    pub fn create_aliases() -> [(&'static str, &'static str); 4] {
         [
             ("h", HelpCmd::NAME),
+            ("e", ExpandCmd::NAME),
             ("q", QuitCmd::NAME),
             ("q!", QuitCmd::NAME),
         ]
