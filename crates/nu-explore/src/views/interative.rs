@@ -143,6 +143,11 @@ impl View for InteractiveView<'_> {
                 return Some(Transition::Ok);
             }
 
+            if matches!(key.code, KeyCode::Tab) {
+                self.view_mode = false;
+                return Some(Transition::Ok);
+            }
+
             let result = table.handle_input(engine_state, stack, layout, info, key);
 
             return match result {
@@ -168,7 +173,7 @@ impl View for InteractiveView<'_> {
                 self.command.push(*c);
                 Some(Transition::Ok)
             }
-            KeyCode::Down => {
+            KeyCode::Down | KeyCode::Tab => {
                 if self.table.is_some() {
                     self.view_mode = true;
                 }

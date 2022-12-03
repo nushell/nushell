@@ -7,16 +7,16 @@ use super::pager::{Pager, Transition};
 
 use std::io::Result;
 
+mod expand;
 mod help;
 mod nu;
-mod expand;
 mod quit;
 mod table;
 mod r#try;
 
+pub use expand::ExpandCmd;
 pub use help::HelpCmd;
 pub use nu::NuCmd;
-pub use expand::ExpandCmd;
 pub use quit::QuitCmd;
 pub use r#try::TryCmd;
 pub use table::TableCmd;
