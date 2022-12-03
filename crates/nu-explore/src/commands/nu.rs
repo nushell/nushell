@@ -89,6 +89,8 @@ impl ViewCommand for NuCmd {
         let pipeline = run_nu_command(engine_state, stack, &self.command, pipeline)
             .map_err(|e| io::Error::new(io::ErrorKind::Other, e))?;
 
+        let is_record = matches!(pipeline, PipelineData::Value(Value::Record { .. }, ..));
+
         let (columns, values) = collect_pipeline(pipeline);
 
         if has_simple_value(&values) {
@@ -97,7 +99,12 @@ impl ViewCommand for NuCmd {
             return Ok(NuView::Preview(Preview::new(&text)));
         }
 
-        let view = RecordView::new(columns, values, self.table_cfg);
+        let mut view = RecordView::new(columns, values, self.table_cfg);
+
+        if is_record {
+            view.transpose();
+            view.show_head(false);
+        }
 
         Ok(NuView::Records(view))
     }

@@ -30,6 +30,7 @@ pub fn run_pager(
 
     let mut p = Pager::new(table_cfg, view_cfg.clone());
 
+    let is_record = matches!(input, PipelineData::Value(Value::Record { .. }, ..));
     let (columns, data) = collect_pipeline(input);
 
     let has_no_input = columns.is_empty() && data.is_empty();
@@ -46,6 +47,11 @@ pub fn run_pager(
     }
 
     let mut view = RecordView::new(columns, data, table_cfg);
+
+    if is_record {
+        view.transpose();
+        view.show_head(false);
+    }
 
     if table_cfg.reverse {
         if let Some((Width(w), Height(h))) = terminal_size::terminal_size() {

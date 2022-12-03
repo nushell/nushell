@@ -27,6 +27,7 @@ pub struct RecordView<'a> {
     layer_stack: Vec<RecordLayer<'a>>,
     mode: UIMode,
     cfg: TableConfig,
+    show_head: bool,
     pub(crate) cursor: Position,
     state: RecordViewState,
 }
@@ -42,6 +43,7 @@ impl<'a> RecordView<'a> {
             mode: UIMode::View,
             cursor: Position::new(0, 0),
             cfg: table_cfg,
+            show_head: true,
             state: RecordViewState::default(),
         }
     }
@@ -49,6 +51,18 @@ impl<'a> RecordView<'a> {
     pub fn reverse(&mut self, width: u16, height: u16) {
         let page_size = estimate_page_size(Rect::new(0, 0, width, height), self.cfg.show_head);
         state_reverse_data(self, page_size as usize);
+    }
+
+    pub fn transpose(&mut self) {
+        let layer = self.get_layer_last_mut();
+        layer.index_column = 0;
+        layer.index_row = 0;
+
+        transpose_table(layer);
+    }
+
+    pub fn show_head(&mut self, on: bool) {
+        self.show_head = on;
     }
 
     // todo: rename to get_layer
@@ -67,9 +81,14 @@ impl<'a> RecordView<'a> {
     fn create_tablew<'b>(&self, layer: &'b RecordLayer, view_cfg: &'b ViewConfig) -> TableW<'b> {
         let data = convert_records_to_string(&layer.records, view_cfg.config, view_cfg.color_hm);
 
+        let mut show_header = false;
+        if self.show_head {
+            show_header = self.cfg.show_head;
+        }
+
         let style = tablew::TableStyle {
             show_index: self.cfg.show_index,
-            show_header: self.cfg.show_head,
+            show_header,
             splitline_style: view_cfg.theme.split_line,
             header_bottom: view_cfg.theme.split_lines.header_bottom,
             header_top: view_cfg.theme.split_lines.header_top,
@@ -259,11 +278,7 @@ fn handle_key_event_view_mode(view: &mut RecordView, key: &KeyEvent) -> Option<T
             Some(Transition::Ok)
         }
         KeyCode::Char('t') => {
-            let layer = view.get_layer_last_mut();
-            layer.index_column = 0;
-            layer.index_row = 0;
-
-            transpose_table(layer);
+            view.transpose();
 
             Some(Transition::Ok)
         }

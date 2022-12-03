@@ -186,8 +186,16 @@ impl View for InteractiveView<'_> {
 
                 match pipeline {
                     Ok(pipeline_data) => {
+                        let is_record =
+                            matches!(pipeline_data, PipelineData::Value(Value::Record { .. }, ..));
+
                         let (columns, values) = collect_pipeline(pipeline_data);
-                        let view = RecordView::new(columns, values, self.table_cfg);
+
+                        let mut view = RecordView::new(columns, values, self.table_cfg);
+                        if is_record {
+                            view.transpose();
+                            view.show_head(false);
+                        }
 
                         self.table = Some(view);
 
