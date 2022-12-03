@@ -191,119 +191,165 @@ pub struct ExploreConfig {
 }
 
 impl Value {
-    pub fn into_config(self, config: &Config) -> Result<Config, ShellError> {
-        let v = self.as_record();
-
-        // Use the passed-in config as a basis for the changes.
-        // This means, among other things, that putting in various invalid values won't
-        // blow away existing changes for those config keys.
+    pub fn into_config(&mut self, config: &Config) -> Result<Config, ShellError> {
+        // Clone the passed-in config rather than mutating it,
+        // so that early returns by ShellError don't leave it in a bad state.
+        // (Actually... is this absolutely necessary?)
         let mut config = config.clone();
         let mut legacy_options_used = false;
 
-        if let Ok(v) = v {
-            for (key, value) in v.0.iter().zip(v.1) {
-                let key = key.as_str();
+        // When an unsupported config value is found, remove it from this record.
+        macro_rules! invalid {
+            ($cols:ident, $vals:ident, $index:ident, $eprintln_arg:tt) => {
+                eprintln!($eprintln_arg);
+                $cols.remove($index);
+                $vals.remove($index);
+            };
+        }
+
+        if let Value::Record { cols, vals, .. } = self {
+            // Because this whole algorithm removes while iterating, this must iterate in reverse.
+            for index in (0..cols.len()).rev() {
+                let value = &vals[index];
+                let key = cols[index].as_str();
                 match key {
                     // Grouped options
                     "ls" => {
-                        if let Ok((cols, inner_vals)) = value.as_record() {
-                            for (key2, value) in cols.iter().zip(inner_vals) {
-                                let key2 = key2.as_str();
+                        if let Value::Record { cols, vals, .. } = &mut vals[index] {
+                            for index in (0..cols.len()).rev() {
+                                let value = &vals[index];
+                                let key2 = cols[index].as_str();
                                 match key2 {
                                     "use_ls_colors" => {
                                         if let Ok(b) = value.as_bool() {
                                             config.use_ls_colors = b;
                                         } else {
-                                            eprintln!("$env.config.{}.{} is not a bool", key, key2)
+                                            invalid!(
+                                                cols,
+                                                vals,
+                                                index,
+                                                "$env.config.{key}.{key2} is not a bool"
+                                            );
                                         }
                                     }
                                     "clickable_links" => {
                                         if let Ok(b) = value.as_bool() {
                                             config.show_clickable_links_in_ls = b;
                                         } else {
-                                            eprintln!("$env.config.{}.{} is not a bool", key, key2)
+                                            invalid!(
+                                                cols,
+                                                vals,
+                                                index,
+                                                "$env.config.{key}.{key2} is not a bool"
+                                            );
                                         }
                                     }
                                     x => {
-                                        eprintln!(
-                                            "$env.config.{}.{} is an unknown config setting",
-                                            key, x
-                                        )
+                                        invalid!(
+                                            cols,
+                                            vals,
+                                            index,
+                                            "$env.config.{key}.{x} is an unknown config setting"
+                                        );
                                     }
                                 }
                             }
                         } else {
-                            eprintln!("$env.config.{} is not a record", key);
+                            invalid!(cols, vals, index, "$env.config.{key} is not a record");
                         }
                     }
                     "cd" => {
-                        if let Ok((cols, inner_vals)) = value.as_record() {
-                            for (key2, value) in cols.iter().zip(inner_vals) {
-                                let key2 = key2.as_str();
+                        if let Value::Record { cols, vals, .. } = &mut vals[index] {
+                            for index in (0..cols.len()).rev() {
+                                let value = &vals[index];
+                                let key2 = cols[index].as_str();
                                 match key2 {
                                     "abbreviations" => {
                                         if let Ok(b) = value.as_bool() {
                                             config.cd_with_abbreviations = b;
                                         } else {
-                                            eprintln!("$env.config.{}.{} is not a bool", key, key2)
+                                            invalid!(
+                                                cols,
+                                                vals,
+                                                index,
+                                                "$env.config.{key}.{key2} is not a bool"
+                                            );
                                         }
                                     }
                                     x => {
-                                        eprintln!(
-                                            "$env.config.{}.{} is an unknown config setting",
-                                            key, x
-                                        )
+                                        invalid!(
+                                            cols,
+                                            vals,
+                                            index,
+                                            "$env.config.{key}.{x} is an unknown config setting"
+                                        );
                                     }
                                 }
                             }
                         } else {
-                            eprintln!("$env.config.{} is not a record", key);
+                            invalid!(cols, vals, index, "$env.config.{key} is not a record");
                         }
                     }
                     "rm" => {
-                        if let Ok((cols, inner_vals)) = value.as_record() {
-                            for (key2, value) in cols.iter().zip(inner_vals) {
-                                let key2 = key2.as_str();
+                        if let Value::Record { cols, vals, .. } = &mut vals[index] {
+                            for index in (0..cols.len()).rev() {
+                                let value = &vals[index];
+                                let key2 = cols[index].as_str();
                                 match key2 {
                                     "always_trash" => {
                                         if let Ok(b) = value.as_bool() {
                                             config.rm_always_trash = b;
                                         } else {
-                                            eprintln!("$env.config.{}.{} is not a bool", key, key2)
+                                            invalid!(
+                                                cols,
+                                                vals,
+                                                index,
+                                                "$env.config.{key}.{key2} is not a bool"
+                                            );
                                         }
                                     }
                                     x => {
-                                        eprintln!(
-                                            "$env.config.{}.{} is an unknown config setting",
-                                            key, x
-                                        )
+                                        invalid!(
+                                            cols,
+                                            vals,
+                                            index,
+                                            "$env.config.{key}.{x} is an unknown config setting"
+                                        );
                                     }
                                 }
                             }
                         } else {
-                            eprintln!("$env.config.{} is not a record", key);
+                            invalid!(cols, vals, index, "$env.config.{key} is not a record");
                         }
                     }
                     "history" => {
-                        if let Ok((cols, inner_vals)) = value.as_record() {
-                            for (key2, value) in cols.iter().zip(inner_vals) {
-                                let key2 = key2.as_str();
+                        if let Value::Record { cols, vals, .. } = &mut vals[index] {
+                            for index in (0..cols.len()).rev() {
+                                let value = &vals[index];
+                                let key2 = cols[index].as_str();
                                 match key2 {
                                     "sync_on_enter" => {
                                         if let Ok(b) = value.as_bool() {
                                             config.sync_history_on_enter = b;
                                         } else {
-                                            eprintln!("$env.config.{}.{} is not a bool", key, key2)
+                                            invalid!(
+                                                cols,
+                                                vals,
+                                                index,
+                                                "$env.config.{key}.{key2} is not a bool"
+                                            );
                                         }
                                     }
                                     "max_size" => {
                                         if let Ok(i) = value.as_i64() {
                                             config.max_history_size = i;
                                         } else {
-                                            eprintln!(
-                                                "$env.config.{}.{} is not an integer",
-                                                key, key2
-                                            )
+                                            invalid!(
+                                                cols,
+                                                vals,
+                                                index,
+                                                "$env.config.{key}.{key2} is not an integer"
+                                            );
                                         }
                                     }
                                     "file_format" => {
@@ -313,49 +359,63 @@ impl Value {
                                                 "sqlite" => HistoryFileFormat::Sqlite,
                                                 "plaintext" => HistoryFileFormat::PlainText,
                                                 _ => {
-                                                    eprintln!(
-                                                        "unrecognized $config.{}.{} '{val_str}'; expected either 'sqlite' or 'plaintext'",
-                                                        key, key2,
+                                                    invalid!(cols, vals, index,
+                                                        "unrecognized $config.{key}.{key2} '{val_str}'; expected either 'sqlite' or 'plaintext'"
                                                     );
                                                     HistoryFileFormat::PlainText
                                                 }
                                             };
                                         } else {
-                                            eprintln!(
-                                                "$env.config.{}.{} is not a string",
-                                                key, key2
-                                            )
+                                            invalid!(
+                                                cols,
+                                                vals,
+                                                index,
+                                                "$env.config.{key}.{key2} is not a string"
+                                            );
                                         }
                                     }
                                     x => {
-                                        eprintln!(
-                                            "$env.config.{}.{} is an unknown config setting",
-                                            key, x
-                                        )
+                                        invalid!(
+                                            cols,
+                                            vals,
+                                            index,
+                                            "$env.config.{key}.{x} is an unknown config setting"
+                                        );
                                     }
                                 }
                             }
                         } else {
-                            eprintln!("$env.config.{} is not a record", key)
+                            invalid!(cols, vals, index, "$env.config.{key} is not a record");
                         }
                     }
                     "completions" => {
-                        if let Ok((cols, inner_vals)) = value.as_record() {
-                            for (key2, value) in cols.iter().zip(inner_vals) {
-                                let key2 = key2.as_str();
+                        if let Value::Record { cols, vals, .. } = &mut vals[index] {
+                            for index in (0..cols.len()).rev() {
+                                let value = &vals[index];
+                                let key2 = cols[index].as_str();
                                 match key2 {
                                     "quick" => {
                                         if let Ok(b) = value.as_bool() {
                                             config.quick_completions = b;
                                         } else {
-                                            eprintln!("$env.config.{}.{} is not a bool", key, key2)
+                                            invalid!(
+                                                cols,
+                                                vals,
+                                                index,
+                                                "$env.config.{key}.{key2} is not a bool"
+                                            );
                                         }
                                     }
                                     "partial" => {
                                         if let Ok(b) = value.as_bool() {
                                             config.partial_completions = b;
                                         } else {
-                                            eprintln!("$env.config.{}.{} is not a bool", key, key2)
+                                            invalid!(
+                                                cols,
+                                                vals,
+                                                index,
+                                                "$env.config.{key}.{key2} is not a bool"
+                                            );
                                         }
                                     }
                                     "algorithm" => {
@@ -366,31 +426,38 @@ impl Value {
                                                 "prefix" => val_str,
                                                 "fuzzy" => val_str,
                                                 _ => {
-                                                    eprintln!(
-                                                        "unrecognized $config.{}.{} '{val_str}'; expected either 'prefix' or 'fuzzy'",
-                                                        key, key2
+                                                    invalid!(cols, vals, index,
+                                                        "unrecognized $config.{key}.{key2} '{val_str}'; expected either 'prefix' or 'fuzzy'"
                                                     );
                                                     String::from("prefix")
                                                 }
                                             };
                                         } else {
-                                            eprintln!(
-                                                "$env.config.{}.{} is not a string",
-                                                key, key2
-                                            )
+                                            invalid!(
+                                                cols,
+                                                vals,
+                                                index,
+                                                "$env.config.{key}.{key2} is not a string"
+                                            );
                                         }
                                     }
                                     "case_sensitive" => {
                                         if let Ok(b) = value.as_bool() {
                                             config.case_sensitive_completions = b;
                                         } else {
-                                            eprintln!("$env.config.{}.{} is not a bool", key, key2)
+                                            invalid!(
+                                                cols,
+                                                vals,
+                                                index,
+                                                "$env.config.{key}.{key2} is not a bool"
+                                            );
                                         }
                                     }
                                     "external" => {
-                                        if let Ok((cols, inner_vals)) = value.as_record() {
-                                            for (key3, value) in cols.iter().zip(inner_vals) {
-                                                let key3 = key3.as_str();
+                                        if let Value::Record { cols, vals, .. } = &mut vals[index] {
+                                            for index in (0..cols.len()).rev() {
+                                                let value = &vals[index];
+                                                let key3 = cols[index].as_str();
                                                 match key3 {
                                                     "max_results" => {
                                                         if let Ok(i) = value.as_integer() {
@@ -398,7 +465,7 @@ impl Value {
                                                                 .max_external_completion_results =
                                                                 i;
                                                         } else {
-                                                            eprintln!("$env.config.{}.{}.{} is not an integer", key, key2, key3)
+                                                            invalid!(cols, vals, index, "$env.config.{key}.{key2}.{key3} is not an integer");
                                                         }
                                                     }
                                                     "completer" => {
@@ -408,7 +475,7 @@ impl Value {
                                                             match value {
                                                                 Value::Nothing { .. } => {}
                                                                 _ => {
-                                                                    eprintln!("$env.config.{}.{}.{} is not a block or null", key, key2, key3)
+                                                                    invalid!(cols, vals, index, "$env.config.{key}.{key2}.{key3} is not a block or null");
                                                                 }
                                                             }
                                                         }
@@ -417,122 +484,157 @@ impl Value {
                                                         if let Ok(b) = value.as_bool() {
                                                             config.enable_external_completion = b;
                                                         } else {
-                                                            eprintln!("$env.config.{}.{}.{} is not a bool", key, key2, key3)
+                                                            invalid!(cols, vals, index, "$env.config.{key}.{key2}.{key3} is not a bool");
                                                         }
                                                     }
                                                     x => {
-                                                        eprintln!("$env.config.{}.{}.{} is an unknown config setting", key, key2, x)
+                                                        invalid!(cols, vals, index, "$env.config.{key}.{key2}.{x} is an unknown config setting");
                                                     }
                                                 }
                                             }
                                         } else {
-                                            eprintln!(
-                                                "$env.config.{}.{} is not a record",
-                                                key, key2
+                                            invalid!(
+                                                cols,
+                                                vals,
+                                                index,
+                                                "$env.config.{key}.{key2} is not a record"
                                             );
                                         }
                                     }
                                     x => {
-                                        eprintln!(
-                                            "$env.config.{}.{} is an unknown config setting",
-                                            key, x
-                                        )
+                                        invalid!(
+                                            cols,
+                                            vals,
+                                            index,
+                                            "$env.config.{key}.{x} is an unknown config setting"
+                                        );
                                     }
                                 }
                             }
                         } else {
-                            eprintln!("$env.config.{} is not a record", key)
+                            invalid!(cols, vals, index, "$env.config.{key} is not a record");
                         }
                     }
                     "table" => {
-                        if let Ok((cols, inner_vals)) = value.as_record() {
-                            for (key2, value) in cols.iter().zip(inner_vals) {
-                                let key2 = key2.as_str();
+                        if let Value::Record { cols, vals, .. } = &mut vals[index] {
+                            for index in (0..cols.len()).rev() {
+                                let value = &vals[index];
+                                let key2 = cols[index].as_str();
                                 match key2 {
                                     "mode" => {
                                         if let Ok(v) = value.as_string() {
                                             config.table_mode = v;
                                         } else {
-                                            eprintln!(
-                                                "$env.config.{}.{} is not a string",
-                                                key, key2
-                                            )
+                                            invalid!(
+                                                cols,
+                                                vals,
+                                                index,
+                                                "$env.config.{key}.{key2} is not a string"
+                                            );
                                         }
                                     }
                                     "index_mode" => {
                                         if let Ok(b) = value.as_string() {
                                             let val_str = b.to_lowercase();
                                             match val_str.as_ref() {
-                                                "always" => config.table_index_mode = TableIndexMode::Always,
-                                                "never" => config.table_index_mode = TableIndexMode::Never,
-                                                "auto" => config.table_index_mode = TableIndexMode::Auto,
-                                                _ => eprintln!(
-                                                    "unrecognized $env.config.{}.{} '{val_str}'; expected either 'never', 'always' or 'auto'",
-                                                    key, key2
-                                                ),
+                                                "always" => {
+                                                    config.table_index_mode = TableIndexMode::Always
+                                                }
+                                                "never" => {
+                                                    config.table_index_mode = TableIndexMode::Never
+                                                }
+                                                "auto" => {
+                                                    config.table_index_mode = TableIndexMode::Auto
+                                                }
+                                                _ => {
+                                                    invalid!(cols, vals, index,
+                                                        "unrecognized $env.config.{key}.{key2} '{val_str}'; expected either 'never', 'always' or 'auto'"
+                                                    );
+                                                }
                                             }
                                         } else {
-                                            eprintln!(
-                                                "$env.config.{}.{} is not a string",
-                                                key, key2
-                                            )
+                                            invalid!(
+                                                cols,
+                                                vals,
+                                                index,
+                                                "$env.config.{key}.{key2} is not a string"
+                                            );
                                         }
                                     }
                                     "trim" => {
-                                        config.trim_strategy =
-                                            try_parse_trim_strategy(value, &config)?
+                                        match try_parse_trim_strategy(value, &config) {
+                                            Ok(v) => config.trim_strategy = v,
+                                            Err(e) => {
+                                                // try_parse_trim_strategy() already calls eprintln!() on error
+                                                cols.remove(index);
+                                                vals.remove(index);
+                                                return Err(e);
+                                            }
+                                        }
                                     }
                                     x => {
-                                        eprintln!(
-                                            "$env.config.{}.{} is an unknown config setting",
-                                            key, x
-                                        )
+                                        invalid!(
+                                            cols,
+                                            vals,
+                                            index,
+                                            "$env.config.{key}.{x} is an unknown config setting"
+                                        );
                                     }
                                 }
                             }
                         } else {
-                            eprintln!("$env.config.{} is not a record", key)
+                            invalid!(cols, vals, index, "$env.config.{key} is not a record");
                         }
                     }
                     "filesize" => {
-                        if let Ok((cols, inner_vals)) = value.as_record() {
-                            for (key2, value) in cols.iter().zip(inner_vals) {
-                                let key2 = key2.as_str();
+                        if let Value::Record { cols, vals, .. } = &mut vals[index] {
+                            for index in (0..cols.len()).rev() {
+                                let value = &vals[index];
+                                let key2 = cols[index].as_str();
                                 match key2 {
                                     "metric" => {
                                         if let Ok(b) = value.as_bool() {
                                             config.filesize_metric = b;
                                         } else {
-                                            eprintln!("$env.config.{}.{} is not a bool", key, key2)
+                                            invalid!(
+                                                cols,
+                                                vals,
+                                                index,
+                                                "$env.config.{key}.{key2} is not a bool"
+                                            );
                                         }
                                     }
                                     "format" => {
                                         if let Ok(v) = value.as_string() {
                                             config.filesize_format = v.to_lowercase();
                                         } else {
-                                            eprintln!(
-                                                "$env.config.{}.{} is not a string",
-                                                key, key2
-                                            )
+                                            invalid!(
+                                                cols,
+                                                vals,
+                                                index,
+                                                "$env.config.{key}.{key2} is not a string"
+                                            );
                                         }
                                     }
                                     x => {
-                                        eprintln!(
-                                            "$env.config.{}.{} is an unknown config setting",
-                                            key, x
-                                        )
+                                        invalid!(
+                                            cols,
+                                            vals,
+                                            index,
+                                            "$env.config.{key}.{x} is an unknown config setting"
+                                        );
                                     }
                                 }
                             }
                         } else {
-                            eprintln!("$env.config.{} is not a record", key)
+                            invalid!(cols, vals, index, "$env.config.{key} is not a record");
                         }
                     }
                     "explore" => {
                         if let Ok(map) = create_map(value, &config) {
                             config.explore = map;
                         } else {
-                            eprintln!("$env.config.{} is not a record", key)
+                            invalid!(cols, vals, index, "$env.config.{key} is not a record");
                         }
                     }
                     // Misc. options
@@ -540,14 +642,14 @@ impl Value {
                         if let Ok(map) = create_map(value, &config) {
                             config.color_config = map;
                         } else {
-                            eprintln!("$env.config.color_config is not a record")
+                            invalid!(cols, vals, index, "$env.config.{key} is not a record");
                         }
                     }
                     "use_grid_icons" => {
                         if let Ok(b) = value.as_bool() {
                             config.use_grid_icons = b;
                         } else {
-                            eprintln!("$env.config.{} is not a bool", key)
+                            invalid!(cols, vals, index, "$env.config.{key} is not a bool");
                         }
                     }
                     "footer_mode" => {
@@ -563,55 +665,70 @@ impl Value {
                                 },
                             };
                         } else {
-                            eprintln!("$env.config.{} is not a string", key)
+                            invalid!(cols, vals, index, "$env.config.{key} is not a string");
                         }
                     }
                     "float_precision" => {
                         if let Ok(i) = value.as_integer() {
                             config.float_precision = i;
                         } else {
-                            eprintln!("$env.config.{} is not an integer", key)
+                            invalid!(cols, vals, index, "$env.config.{key} is not an integer");
                         }
                     }
                     "use_ansi_coloring" => {
                         if let Ok(b) = value.as_bool() {
                             config.use_ansi_coloring = b;
                         } else {
-                            eprintln!("$env.config.{} is not a bool", key)
+                            invalid!(cols, vals, index, "$env.config.{key} is not a bool");
                         }
                     }
                     "edit_mode" => {
                         if let Ok(v) = value.as_string() {
                             config.edit_mode = v.to_lowercase();
                         } else {
-                            eprintln!("$env.config.{} is not a string", key)
+                            invalid!(cols, vals, index, "$env.config.{key} is not a string");
                         }
                     }
                     "log_level" => {
                         if let Ok(v) = value.as_string() {
                             config.log_level = v.to_lowercase();
                         } else {
-                            eprintln!("$env.config.{} is not a string", key)
+                            invalid!(cols, vals, index, "$env.config.{key} is not a string");
                         }
                     }
                     "menus" => match create_menus(value) {
                         Ok(map) => config.menus = map,
                         Err(e) => {
-                            eprintln!("$env.config.{} is not a valid list of menus", key);
+                            invalid!(
+                                cols,
+                                vals,
+                                index,
+                                "$env.config.{key} is not a valid list of menus"
+                            );
                             eprintln!("{:?}", e);
                         }
                     },
                     "keybindings" => match create_keybindings(value) {
                         Ok(keybindings) => config.keybindings = keybindings,
                         Err(e) => {
-                            eprintln!("$env.config.{} is not a valid keybindings list", key);
+                            invalid!(
+                                cols,
+                                vals,
+                                index,
+                                "$env.config.{key} is not a valid keybindings list"
+                            );
                             eprintln!("{:?}", e);
                         }
                     },
                     "hooks" => match create_hooks(value) {
                         Ok(hooks) => config.hooks = hooks,
                         Err(e) => {
-                            eprintln!("$env.config.{} is not a valid hooks list", key);
+                            invalid!(
+                                cols,
+                                vals,
+                                index,
+                                "$env.config.{key} is not a valid hooks list"
+                            );
                             eprintln!("{:?}", e);
                         }
                     },
@@ -619,28 +736,28 @@ impl Value {
                         if let Ok(b) = value.as_bool() {
                             config.shell_integration = b;
                         } else {
-                            eprintln!("$env.config.{} is not a bool", key);
+                            invalid!(cols, vals, index, "$env.config.{key} is not a bool");
                         }
                     }
                     "buffer_editor" => {
                         if let Ok(v) = value.as_string() {
                             config.buffer_editor = v.to_lowercase();
                         } else {
-                            eprintln!("$env.config.{} is not a string", key);
+                            invalid!(cols, vals, index, "$env.config.{key} is not a string");
                         }
                     }
                     "show_banner" => {
                         if let Ok(b) = value.as_bool() {
                             config.show_banner = b;
                         } else {
-                            eprintln!("$env.config.{} is not a bool", key);
+                            invalid!(cols, vals, index, "$env.config.{key} is not a bool");
                         }
                     }
                     "render_right_prompt_on_last_line" => {
                         if let Ok(b) = value.as_bool() {
                             config.render_right_prompt_on_last_line = b;
                         } else {
-                            eprintln!("$env.config.{} is not a bool", key);
+                            invalid!(cols, vals, index, "$env.config.{key} is not a bool");
                         }
                     }
                     // Legacy config options (deprecated as of 2022-11-02)
@@ -649,7 +766,7 @@ impl Value {
                         if let Ok(b) = value.as_bool() {
                             config.use_ls_colors = b;
                         } else {
-                            eprintln!("$env.config.use_ls_colors is not a bool")
+                            invalid!(cols, vals, index, "$env.config.{key} is not a bool");
                         }
                     }
                     "rm_always_trash" => {
@@ -657,7 +774,7 @@ impl Value {
                         if let Ok(b) = value.as_bool() {
                             config.rm_always_trash = b;
                         } else {
-                            eprintln!("$env.config.rm_always_trash is not a bool")
+                            invalid!(cols, vals, index, "$env.config.{key} is not a bool");
                         }
                     }
                     "history_file_format" => {
@@ -668,14 +785,17 @@ impl Value {
                                 "sqlite" => HistoryFileFormat::Sqlite,
                                 "plaintext" => HistoryFileFormat::PlainText,
                                 _ => {
-                                    eprintln!(
-                                        "unrecognized $env.config.history_file_format '{val_str}'"
+                                    invalid!(
+                                        cols,
+                                        vals,
+                                        index,
+                                        "unrecognized $env.config.{key} '{val_str}'"
                                     );
                                     HistoryFileFormat::PlainText
                                 }
                             };
                         } else {
-                            eprintln!("$env.config.history_file_format is not a string")
+                            invalid!(cols, vals, index, "$env.config.{key} is not a string");
                         }
                     }
                     "sync_history_on_enter" => {
@@ -683,7 +803,7 @@ impl Value {
                         if let Ok(b) = value.as_bool() {
                             config.sync_history_on_enter = b;
                         } else {
-                            eprintln!("$env.config.sync_history_on_enter is not a bool")
+                            invalid!(cols, vals, index, "$env.config.{key} is not a bool");
                         }
                     }
                     "max_history_size" => {
@@ -691,7 +811,7 @@ impl Value {
                         if let Ok(i) = value.as_i64() {
                             config.max_history_size = i;
                         } else {
-                            eprintln!("$env.config.max_history_size is not an integer")
+                            invalid!(cols, vals, index, "$env.config.{key} is not an integer");
                         }
                     }
                     "quick_completions" => {
@@ -699,7 +819,7 @@ impl Value {
                         if let Ok(b) = value.as_bool() {
                             config.quick_completions = b;
                         } else {
-                            eprintln!("$env.config.quick_completions is not a bool")
+                            invalid!(cols, vals, index, "$env.config.{key} is not a bool");
                         }
                     }
                     "partial_completions" => {
@@ -707,7 +827,7 @@ impl Value {
                         if let Ok(b) = value.as_bool() {
                             config.partial_completions = b;
                         } else {
-                            eprintln!("$env.config.partial_completions is not a bool")
+                            invalid!(cols, vals, index, "$env.config.{key} is not a bool");
                         }
                     }
                     "max_external_completion_results" => {
@@ -715,9 +835,7 @@ impl Value {
                         if let Ok(i) = value.as_integer() {
                             config.max_external_completion_results = i;
                         } else {
-                            eprintln!(
-                                "$env.config.max_external_completion_results is not an integer"
-                            )
+                            invalid!(cols, vals, index, "$env.config.{key} is not an integer");
                         }
                     }
                     "completion_algorithm" => {
@@ -729,14 +847,14 @@ impl Value {
                                 "prefix" => val_str,
                                 "fuzzy" => val_str,
                                 _ => {
-                                    eprintln!(
-                                        "unrecognized $env.config.completions.algorithm '{val_str}'; expected either 'prefix' or 'fuzzy'"
+                                    invalid!(cols, vals, index,
+                                        "unrecognized $env.config.{key} '{val_str}'; expected either 'prefix' or 'fuzzy'"
                                     );
                                     val_str
                                 }
                             };
                         } else {
-                            eprintln!("$env.config.completion_algorithm is not a string")
+                            invalid!(cols, vals, index, "$env.config.{key} is not a string");
                         }
                     }
                     "case_sensitive_completions" => {
@@ -744,7 +862,7 @@ impl Value {
                         if let Ok(b) = value.as_bool() {
                             config.case_sensitive_completions = b;
                         } else {
-                            eprintln!("$env.config.case_sensitive_completions is not a bool")
+                            invalid!(cols, vals, index, "$env.config.{key} is not a bool");
                         }
                     }
                     "enable_external_completion" => {
@@ -752,7 +870,7 @@ impl Value {
                         if let Ok(b) = value.as_bool() {
                             config.enable_external_completion = b;
                         } else {
-                            eprintln!("$env.config.enable_external_completion is not a bool")
+                            invalid!(cols, vals, index, "$env.config.{key} is not a bool");
                         }
                     }
 
@@ -761,13 +879,15 @@ impl Value {
                         if let Ok(v) = value.as_block() {
                             config.external_completer = Some(v)
                         }
+                        // No error here because external completers are optional.
+                        // Idea: maybe error if this is a non-block, non-null?
                     }
                     "table_mode" => {
                         legacy_options_used = true;
                         if let Ok(v) = value.as_string() {
                             config.table_mode = v;
                         } else {
-                            eprintln!("$env.config.table_mode is not a string")
+                            invalid!(cols, vals, index, "$env.config.{key} is not a string");
                         }
                     }
                     "table_index_mode" => {
@@ -778,24 +898,34 @@ impl Value {
                                 "always" => config.table_index_mode = TableIndexMode::Always,
                                 "never" => config.table_index_mode = TableIndexMode::Never,
                                 "auto" => config.table_index_mode = TableIndexMode::Auto,
-                                _ => eprintln!(
-                                    "unrecognized $env.config.table_index_mode '{val_str}'; expected either 'never', 'always' or 'auto'"
-                                ),
+                                _ => {
+                                    invalid!(cols, vals, index,
+                                        "unrecognized $env.config.table_index_mode '{val_str}'; expected either 'never', 'always' or 'auto'"
+                                    );
+                                }
                             }
                         } else {
-                            eprintln!("$env.config.table_index_mode is not a string")
+                            invalid!(cols, vals, index, "$env.config.{key} is not a string");
                         }
                     }
                     "table_trim" => {
                         legacy_options_used = true;
-                        config.trim_strategy = try_parse_trim_strategy(value, &config)?
+                        match try_parse_trim_strategy(value, &config) {
+                            Ok(v) => config.trim_strategy = v,
+                            Err(e) => {
+                                // try_parse_trim_strategy() already calls eprintln!() on error
+                                cols.remove(index);
+                                vals.remove(index);
+                                return Err(e);
+                            }
+                        }
                     }
                     "show_clickable_links_in_ls" => {
                         legacy_options_used = true;
                         if let Ok(b) = value.as_bool() {
                             config.show_clickable_links_in_ls = b;
                         } else {
-                            eprintln!("$env.config.show_clickable_links_in_ls is not a bool")
+                            invalid!(cols, vals, index, "$env.config.{key} is not a bool");
                         }
                     }
                     "cd_with_abbreviations" => {
@@ -803,7 +933,7 @@ impl Value {
                         if let Ok(b) = value.as_bool() {
                             config.cd_with_abbreviations = b;
                         } else {
-                            eprintln!("$env.config.cd_with_abbreviations is not a bool")
+                            invalid!(cols, vals, index, "$env.config.{key} is not a bool");
                         }
                     }
                     "filesize_metric" => {
@@ -811,7 +941,7 @@ impl Value {
                         if let Ok(b) = value.as_bool() {
                             config.filesize_metric = b;
                         } else {
-                            eprintln!("$env.config.filesize_metric is not a bool")
+                            invalid!(cols, vals, index, "$env.config.{key} is not a bool");
                         }
                     }
                     "filesize_format" => {
@@ -819,12 +949,17 @@ impl Value {
                         if let Ok(v) = value.as_string() {
                             config.filesize_format = v.to_lowercase();
                         } else {
-                            eprintln!("$env.config.filesize_format is not a string")
+                            invalid!(cols, vals, index, "$env.config.{key} is not a string");
                         }
                     }
                     // End legacy options
                     x => {
-                        eprintln!("$env.config.{} is an unknown config setting", x)
+                        invalid!(
+                            cols,
+                            vals,
+                            index,
+                            "$env.config.{x} is an unknown config setting"
+                        );
                     }
                 }
             }
@@ -1080,412 +1215,4 @@ pub fn extract_value<'record>(
         .position(|col| col.as_str() == name)
         .and_then(|index| vals.get(index))
         .ok_or_else(|| ShellError::MissingConfigValue(name.to_string(), *span))
-}
-
-//
-// Translate the Nushell config to a record holding ONLY the supported config values.
-pub fn config_to_nu_record(config: &Config, span: Span) -> Value {
-    let mut cols = vec![];
-    let mut vals = vec![];
-
-    // ls
-    cols.push("ls".into());
-    vals.push(Value::Record {
-        cols: vec!["use_ls_colors".into(), "clickable_links".into()],
-        vals: vec![
-            Value::Bool {
-                val: config.use_ls_colors,
-                span,
-            },
-            Value::Bool {
-                val: config.show_clickable_links_in_ls,
-                span,
-            },
-        ],
-        span,
-    });
-    // cd
-    cols.push("cd".into());
-    vals.push(Value::Record {
-        cols: vec!["abbreviations".into()],
-        vals: vec![Value::Bool {
-            val: config.cd_with_abbreviations,
-            span,
-        }],
-        span,
-    });
-    // rm
-    cols.push("rm".into());
-    vals.push(Value::Record {
-        cols: vec!["always_trash".into()],
-        vals: vec![Value::Bool {
-            val: config.rm_always_trash,
-            span,
-        }],
-        span,
-    });
-    // history
-    cols.push("history".into());
-    vals.push(Value::Record {
-        cols: vec![
-            "sync_on_enter".into(),
-            "max_size".into(),
-            "file_format".into(),
-        ],
-        vals: vec![
-            Value::Bool {
-                val: config.sync_history_on_enter,
-                span,
-            },
-            Value::Int {
-                val: config.max_history_size,
-                span,
-            },
-            Value::String {
-                val: match config.history_file_format {
-                    HistoryFileFormat::Sqlite => "sqlite",
-                    HistoryFileFormat::PlainText => "plaintext",
-                }
-                .into(),
-                span,
-            },
-        ],
-        span,
-    });
-    // completions
-    cols.push("completions".into());
-    vals.push(Value::Record {
-        cols: vec![
-            "quick".into(),
-            "partial".into(),
-            "algorithm".into(),
-            "case_sensitive".into(),
-            "external".into(),
-        ],
-        vals: vec![
-            Value::Bool {
-                val: config.quick_completions,
-                span,
-            },
-            Value::Bool {
-                val: config.partial_completions,
-                span,
-            },
-            Value::String {
-                val: config.completion_algorithm.clone(),
-                span,
-            },
-            Value::Bool {
-                val: config.case_sensitive_completions,
-                span,
-            },
-            Value::Record {
-                cols: vec!["max_results".into(), "completer".into(), "enable".into()],
-                vals: vec![
-                    Value::Int {
-                        val: config.max_external_completion_results,
-                        span,
-                    },
-                    if let Some(block) = config.external_completer {
-                        Value::Block { val: block, span }
-                    } else {
-                        Value::Nothing { span }
-                    },
-                    Value::Bool {
-                        val: config.enable_external_completion,
-                        span,
-                    },
-                ],
-                span,
-            },
-        ],
-        span,
-    });
-    // table
-    cols.push("table".into());
-    vals.push(Value::Record {
-        cols: vec!["mode".into(), "index_mode".into(), "trim".into()],
-        vals: vec![
-            Value::String {
-                val: config.table_mode.clone(),
-                span,
-            },
-            Value::String {
-                val: match config.table_index_mode {
-                    TableIndexMode::Always => "always",
-                    TableIndexMode::Never => "never",
-                    TableIndexMode::Auto => "auto",
-                }
-                .into(),
-                span,
-            },
-            match &config.trim_strategy {
-                TrimStrategy::Wrap { try_to_keep_words } => Value::Record {
-                    cols: vec!["methodology".into(), "wrapping_try_keep_words".into()],
-                    vals: vec![
-                        Value::String {
-                            val: "wrapping".into(),
-                            span,
-                        },
-                        Value::Bool {
-                            val: *try_to_keep_words,
-                            span,
-                        },
-                    ],
-                    span,
-                },
-                TrimStrategy::Truncate { suffix: Some(s) } => Value::Record {
-                    cols: vec!["methodology".into(), "truncating_suffix".into()],
-                    vals: vec![
-                        Value::String {
-                            val: "truncating".into(),
-                            span,
-                        },
-                        Value::String {
-                            val: s.clone(),
-                            span,
-                        },
-                    ],
-                    span,
-                },
-                TrimStrategy::Truncate { suffix: None } => Value::Record {
-                    cols: vec!["methodology".into()],
-                    vals: vec![Value::String {
-                        val: "truncating".into(),
-                        span,
-                    }],
-                    span,
-                },
-            },
-        ],
-        span,
-    });
-    // filesize
-    cols.push("filesize".into());
-    vals.push(Value::Record {
-        cols: vec!["metric".into(), "format".into()],
-        vals: vec![
-            Value::Bool {
-                val: config.filesize_metric,
-                span,
-            },
-            Value::String {
-                val: config.filesize_format.clone(),
-                span,
-            },
-        ],
-        span,
-    });
-    // color config
-    cols.push("color_config".into());
-    let mut color_config_cols = vec![];
-    let mut color_config_vals = vec![];
-    for (key, value) in &config.color_config {
-        match value.as_string() {
-            Ok(val) => {
-                // Here's a slightly straightforward procedure to turn those JSON color-config strings
-                // back into Nu records.
-                color_config_vals.push(if val.starts_with('{') {
-                    if let Ok(nu_json::Value::Object(k)) = nu_json::from_str(&val) {
-                        let mut cols = vec![];
-                        let mut vals = vec![];
-
-                        for item in k {
-                            if let nu_json::Value::String(val) = item.1 {
-                                cols.push(item.0.clone());
-                                vals.push(Value::String { val, span });
-                            }
-                        }
-                        Value::Record { cols, vals, span }
-                    } else {
-                        continue;
-                    }
-                }
-                // Other color-config strings (hex, color names)
-                // are used as-is.
-                else {
-                    Value::String { val, span }
-                })
-            }
-            _ => continue,
-        }
-        // Only do this AFTER confirming the value is valid.
-        color_config_cols.push(key.clone());
-    }
-    vals.push(Value::Record {
-        cols: color_config_cols,
-        vals: color_config_vals,
-        span,
-    });
-    // Misc. options.
-    cols.push("use_grid_icons".into());
-    vals.push(Value::Bool {
-        val: config.use_grid_icons,
-        span,
-    });
-    cols.push("footer_mode".into());
-    vals.push(Value::String {
-        val: match config.footer_mode {
-            FooterMode::Auto => "auto".into(),
-            FooterMode::Never => "never".into(),
-            FooterMode::Always => "always".into(),
-            FooterMode::RowCount(number) => number.to_string(),
-        },
-        span,
-    });
-    cols.push("float_precision".into());
-    vals.push(Value::Int {
-        val: config.float_precision,
-        span,
-    });
-    cols.push("use_ansi_coloring".into());
-    vals.push(Value::Bool {
-        val: config.use_ansi_coloring,
-        span,
-    });
-    cols.push("edit_mode".into());
-    vals.push(Value::String {
-        val: config.edit_mode.clone(),
-        span,
-    });
-    cols.push("log_level".into());
-    vals.push(Value::String {
-        val: config.log_level.clone(),
-        span,
-    });
-    cols.push("buffer_editor".into());
-    vals.push(Value::String {
-        val: config.buffer_editor.clone(),
-        span,
-    });
-    cols.push("shell_integration".into());
-    vals.push(Value::Bool {
-        val: config.shell_integration,
-        span,
-    });
-    cols.push("show_banner".into());
-    vals.push(Value::Bool {
-        val: config.show_banner,
-        span,
-    });
-    cols.push("render_right_prompt_on_last_line".into());
-    vals.push(Value::Bool {
-        val: config.render_right_prompt_on_last_line,
-        span,
-    });
-
-    // The next three store native Nushell values, so only the outer container needs
-    // to be constructed.
-
-    // menus
-    cols.push("menus".into());
-    vals.push(Value::List {
-        vals: config
-            .menus
-            .iter()
-            .map(
-                |ParsedMenu {
-                     name,
-                     only_buffer_difference,
-                     marker,
-                     style,
-                     menu_type, // WARNING: this is not the same name as what is used in Config.nu! ("type")
-                     source,
-                 }| {
-                    Value::Record {
-                        cols: vec![
-                            "name".into(),
-                            "only_buffer_difference".into(),
-                            "marker".into(),
-                            "style".into(),
-                            "type".into(),
-                            "source".into(),
-                        ],
-                        vals: vec![
-                            name.clone(),
-                            only_buffer_difference.clone(),
-                            marker.clone(),
-                            style.clone(),
-                            menu_type.clone(),
-                            source.clone(),
-                        ],
-                        span,
-                    }
-                },
-            )
-            .collect(),
-        span,
-    });
-    // keybindings
-    cols.push("keybindings".into());
-    vals.push(Value::List {
-        vals: config
-            .keybindings
-            .iter()
-            .map(
-                |ParsedKeybinding {
-                     modifier,
-                     keycode,
-                     mode,
-                     event,
-                 }| {
-                    Value::Record {
-                        cols: vec![
-                            "modifier".into(),
-                            "keycode".into(),
-                            "mode".into(),
-                            "event".into(),
-                        ],
-                        vals: vec![
-                            modifier.clone(),
-                            keycode.clone(),
-                            mode.clone(),
-                            event.clone(),
-                        ],
-                        span,
-                    }
-                },
-            )
-            .collect(),
-        span,
-    });
-    // hooks
-    cols.push("hooks".into());
-    let mut hook_cols = vec![];
-    let mut hook_vals = vec![];
-    match &config.hooks.pre_prompt {
-        Some(v) => {
-            hook_cols.push("pre_prompt".into());
-            hook_vals.push(v.clone());
-        }
-        None => (),
-    };
-    match &config.hooks.pre_execution {
-        Some(v) => {
-            hook_cols.push("pre_execution".into());
-            hook_vals.push(v.clone());
-        }
-        None => (),
-    };
-    match &config.hooks.env_change {
-        Some(v) => {
-            hook_cols.push("env_change".into());
-            hook_vals.push(v.clone());
-        }
-        None => (),
-    };
-    match &config.hooks.display_output {
-        Some(v) => {
-            hook_cols.push("display_output".into());
-            hook_vals.push(v.clone());
-        }
-        None => (),
-    };
-    vals.push(Value::Record {
-        cols: hook_cols,
-        vals: hook_vals,
-        span,
-    });
-
-    Value::Record { cols, vals, span }
 }
