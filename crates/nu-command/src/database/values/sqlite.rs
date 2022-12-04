@@ -387,7 +387,7 @@ fn prepared_statement_to_nu_list(
         .map(|c| c.to_string())
         .collect::<Vec<String>>();
 
-    let results = stmt.query_map([], |row| {
+    let row_results = stmt.query_map([], |row| {
         Ok(convert_sqlite_row_to_nu_value(
             row,
             call_span,
@@ -396,26 +396,26 @@ fn prepared_statement_to_nu_list(
     })?;
 
     // we collect all rows before returning them. Not ideal but it's hard/impossible to return a stream from a CustomValue
-    let mut records = vec![];
+    let mut row_values = vec![];
 
-    for f in results {
+    for row_result in row_results {
         if let Some(ctrlc) = &ctrlc {
             if ctrlc.load(Ordering::SeqCst) {
                 // return whatever we have so far, let the caller decide whether to use it
                 return Ok(Value::List {
-                    vals: records,
+                    vals: row_values,
                     span: call_span,
                 });
             }
         }
 
-        if let Ok(nu_v) = f {
-            records.push(nu_v);
+        if let Ok(row_value) = row_result {
+            row_values.push(row_value);
         }
     }
 
     Ok(Value::List {
-        vals: records,
+        vals: row_values,
         span: call_span,
     })
 }
