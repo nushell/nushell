@@ -55,7 +55,7 @@ pub enum SyntaxShape {
     /// A table is allowed, eg `[[first, second]; [1, 2]]`
     Table,
 
-    /// A table is allowed, eg `[first second]`
+    /// A list is allowed, eg `[first second]`
     List(Box<SyntaxShape>),
 
     /// A filesize value is allowed, eg `10kb`
@@ -67,7 +67,7 @@ pub enum SyntaxShape {
     /// A datetime value, eg `2022-02-02` or `2019-10-12T07:20:50.52+00:00`
     DateTime,
 
-    /// An operator
+    /// An operator, eg `+`
     Operator,
 
     /// A math expression which expands shorthand forms on the lefthand side, eg `foo > 1`
@@ -77,7 +77,7 @@ pub enum SyntaxShape {
     /// A general math expression, eg `1 + 2`
     MathExpression,
 
-    /// A variable name
+    /// A variable name, eg `$foo`
     Variable,
 
     /// A variable with optional type, `x` or `x: int`
@@ -89,10 +89,10 @@ pub enum SyntaxShape {
     /// A general expression, eg `1 + 2` or `foo --bar`
     Expression,
 
-    /// A boolean value
+    /// A boolean value, eg `true` or `false`
     Boolean,
 
-    /// A record value
+    /// A record value, eg `{x: 1, y: 2}`
     Record,
 
     /// An error value
