@@ -1,5 +1,5 @@
 use super::definitions::{
-    db::Db, db_column::DbColumn, db_constraint::DbConstraint, db_foreignkey::DbForeignKey,
+    db_column::DbColumn, db_constraint::DbConstraint, db_foreignkey::DbForeignKey,
     db_index::DbIndex, db_table::DbTable,
 };
 
@@ -99,35 +99,6 @@ impl SQLiteDatabase {
         };
 
         Ok(conn)
-    }
-
-    pub fn get_databases_and_tables(&self, conn: &Connection) -> Result<Vec<Db>, rusqlite::Error> {
-        let mut db_query = conn.prepare("SELECT name FROM pragma_database_list")?;
-
-        let databases = db_query.query_map([], |row| {
-            let name: String = row.get(0)?;
-            Ok(Db::new(name, self.get_tables(conn)?))
-        })?;
-
-        let mut db_list = vec![];
-        for db in databases {
-            db_list.push(db?);
-        }
-
-        Ok(db_list)
-    }
-
-    pub fn get_databases(&self, conn: &Connection) -> Result<Vec<String>, rusqlite::Error> {
-        let mut db_query = conn.prepare("SELECT name FROM pragma_database_list")?;
-
-        let mut db_list = vec![];
-        let _ = db_query.query_map([], |row| {
-            let name: String = row.get(0)?;
-            db_list.push(name);
-            Ok(())
-        })?;
-
-        Ok(db_list)
     }
 
     pub fn get_tables(&self, conn: &Connection) -> Result<Vec<DbTable>, rusqlite::Error> {
