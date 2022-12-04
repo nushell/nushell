@@ -25,7 +25,8 @@ pub struct SQLiteDatabase {
     // management gets tricky quick. Revisit this approach if we find a compelling use case.
     pub path: PathBuf,
     #[serde(skip)]
-    // this understandably can't be serialized. think that's OK as long as we
+    // this understandably can't be serialized. think that's OK, I'm not aware of a
+    // reason why a CustomValue would be serialized outside of a plugin
     ctrlc: Option<Arc<AtomicBool>>,
 }
 
