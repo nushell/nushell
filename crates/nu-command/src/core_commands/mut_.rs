@@ -84,6 +84,11 @@ impl Command for Mut {
                 result: None,
             },
             Example {
+                description: "Upsert a value inside a mutable data structure",
+                example: "mut a = {b:{c:1}}; $a.b.c = 2",
+                result: None,
+            },
+            Example {
                 description: "Set a mutable variable to the result of an expression",
                 example: "mut x = 10 + 100",
                 result: None,

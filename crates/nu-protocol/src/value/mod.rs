@@ -878,10 +878,12 @@ impl Value {
                     Value::List { vals, .. } => {
                         if let Some(v) = vals.get_mut(*row_num) {
                             v.upsert_data_at_cell_path(&cell_path[1..], new_val)?
-                        } else if vals.is_empty() {
-                            return Err(ShellError::AccessEmptyContent(*span));
+                        } else if vals.len() == *row_num && cell_path.len() == 1 {
+                            // If the upsert is at 1 + the end of the list, it's OK.
+                            // Otherwise, it's prohibited.
+                            vals.push(new_val);
                         } else {
-                            return Err(ShellError::AccessBeyondEnd(vals.len() - 1, *span));
+                            return Err(ShellError::InsertAfterNextFreeIndex(vals.len(), *span));
                         }
                     }
                     v => return Err(ShellError::NotAList(*span, v.span()?)),
@@ -1266,10 +1268,12 @@ impl Value {
                     Value::List { vals, .. } => {
                         if let Some(v) = vals.get_mut(*row_num) {
                             v.insert_data_at_cell_path(&cell_path[1..], new_val)?
-                        } else if vals.is_empty() {
-                            return Err(ShellError::AccessEmptyContent(*span));
+                        } else if vals.len() == *row_num && cell_path.len() == 1 {
+                            // If the insert is at 1 + the end of the list, it's OK.
+                            // Otherwise, it's prohibited.
+                            vals.push(new_val);
                         } else {
-                            return Err(ShellError::AccessBeyondEnd(vals.len() - 1, *span));
+                            return Err(ShellError::InsertAfterNextFreeIndex(vals.len(), *span));
                         }
                     }
                     v => return Err(ShellError::NotAList(*span, v.span()?)),

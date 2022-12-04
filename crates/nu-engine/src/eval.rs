@@ -498,13 +498,11 @@ pub fn eval_expression(
                                     let mut lhs =
                                         eval_expression(engine_state, stack, &cell_path.head)?;
 
+                                    lhs.upsert_data_at_cell_path(&cell_path.tail, rhs)?;
                                     if is_env {
-                                        // Unlike "real" mutable vars, though, $env can be upserted by =
-                                        // instead of just updated. This allows external env-vars like $env.PYTHON_IO_ENCODING
-                                        // to be added using this syntax.
-                                        lhs.upsert_data_at_cell_path(&cell_path.tail, rhs)?;
                                         // The special $env treatment: for something like $env.config.history.max_size = 2000,
-                                        // get $env.config AFTER the above mutation, and set it as the "config" environment variable.
+                                        // get $env.config (or whichever one it is) AFTER the above mutation, and set it
+                                        // as the "config" environment variable.
                                         let vardata = lhs.follow_cell_path(
                                             &[cell_path.tail[0].clone()],
                                             false,
@@ -513,12 +511,12 @@ pub fn eval_expression(
                                             PathMember::String { val, .. } => {
                                                 stack.add_env_var(val.to_string(), vardata);
                                             }
+                                            // In case someone really wants an integer env-var
                                             PathMember::Int { val, .. } => {
                                                 stack.add_env_var(val.to_string(), vardata);
                                             }
                                         }
                                     } else {
-                                        lhs.update_data_at_cell_path(&cell_path.tail, rhs)?;
                                         stack.vars.insert(*var_id, lhs);
                                     }
                                     Ok(Value::nothing(cell_path.head.span))
