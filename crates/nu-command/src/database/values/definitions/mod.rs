@@ -1,4 +1,3 @@
-pub mod db;
 pub mod db_column;
 pub mod db_constraint;
 pub mod db_foreignkey;
