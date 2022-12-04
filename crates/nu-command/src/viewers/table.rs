@@ -912,8 +912,6 @@ fn convert_to_table2<'a>(
         }
 
         for (row, item) in input.clone().into_iter().enumerate() {
-            let row = if with_header { row + 1 } else { row };
-
             if let Some(ctrlc) = &ctrlc {
                 if ctrlc.load(Ordering::SeqCst) {
                     return Ok(None);
@@ -935,6 +933,8 @@ fn convert_to_table2<'a>(
             column_width = max(column_width, width);
 
             let value = NuTable::create_cell(value.0, value.1);
+
+            let row = if with_header { row + 1 } else { row };
             data[row].push(value);
         }
 
