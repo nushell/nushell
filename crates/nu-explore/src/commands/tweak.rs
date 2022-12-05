@@ -13,16 +13,16 @@ use crate::{
 use super::{HelpExample, HelpManual, SimpleCommand};
 
 #[derive(Default, Clone)]
-pub struct TweekCmd {
+pub struct TweakCmd {
     path: Vec<String>,
     value: Value,
 }
 
-impl TweekCmd {
-    pub const NAME: &'static str = "tweek";
+impl TweakCmd {
+    pub const NAME: &'static str = "tweak";
 }
 
-impl SimpleCommand for TweekCmd {
+impl SimpleCommand for TweakCmd {
     fn name(&self) -> &'static str {
         Self::NAME
     }

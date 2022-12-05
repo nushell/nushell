@@ -13,7 +13,7 @@ mod nu;
 mod quit;
 mod table;
 mod r#try;
-mod tweek;
+mod tweak;
 
 pub use expand::ExpandCmd;
 pub use help::HelpCmd;
@@ -21,7 +21,7 @@ pub use nu::NuCmd;
 pub use quit::QuitCmd;
 pub use r#try::TryCmd;
 pub use table::TableCmd;
-pub use tweek::TweekCmd;
+pub use tweak::TweakCmd;
 
 pub trait SimpleCommand {
     fn name(&self) -> &'static str;
