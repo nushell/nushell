@@ -185,11 +185,6 @@ pub enum TrimStrategy {
     },
 }
 
-#[derive(Serialize, Deserialize, Clone, Debug)]
-pub struct ExploreConfig {
-    pub color_config: HashMap<String, Value>,
-}
-
 impl Value {
     pub fn into_config(self) -> Result<Config, ShellError> {
         let v = self.as_record();

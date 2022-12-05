@@ -16,6 +16,7 @@ use crate::{
         make_styled_string, nu_style_to_tui, ConfigMap, Frame, Position, Report, Severity,
         Transition, ViewInfo,
     },
+    util::create_map,
     views::ElementInfo,
 };
 
@@ -184,7 +185,9 @@ impl View for RecordView<'_> {
     }
 
     fn setup(&mut self, cfg: ViewConfig<'_>) {
-        self.theme = theme_from_config(cfg.config);
+        if let Some(hm) = cfg.config.get("table").and_then(create_map) {
+            self.theme = theme_from_config(&hm);
+        }
     }
 }
 
@@ -682,21 +685,21 @@ fn theme_from_config(config: &ConfigMap) -> TableTheme {
 
     let colors = get_color_map(config);
 
-    if let Some(s) = colors.get("table_split_line") {
+    if let Some(s) = colors.get("split_line") {
         theme.table.splitline_style = *s;
     }
 
-    theme.cursor.selected_cell = colors.get("table_selected_cell").cloned();
-    theme.cursor.selected_row = colors.get("table_selected_row").cloned();
-    theme.cursor.selected_column = colors.get("table_selected_column").cloned();
-    theme.cursor.show_cursow = config_get_bool(config, "table_show_cursor", true);
+    theme.cursor.selected_cell = colors.get("selected_cell").cloned();
+    theme.cursor.selected_row = colors.get("selected_row").cloned();
+    theme.cursor.selected_column = colors.get("selected_column").cloned();
+    theme.cursor.show_cursow = config_get_bool(config, "show_cursor", true);
 
-    theme.table.header_top = config_get_bool(config, "table_line_head_top", true);
-    theme.table.header_bottom = config_get_bool(config, "table_line_head_bottom", true);
-    theme.table.shift_line = config_get_bool(config, "table_line_shift", true);
-    theme.table.index_line = config_get_bool(config, "table_line_index", true);
-    theme.table.show_header = config_get_bool(config, "table_show_head", true);
-    theme.table.show_index = config_get_bool(config, "table_show_index", true);
+    theme.table.header_top = config_get_bool(config, "line_head_top", true);
+    theme.table.header_bottom = config_get_bool(config, "line_head_bottom", true);
+    theme.table.shift_line = config_get_bool(config, "line_shift", true);
+    theme.table.index_line = config_get_bool(config, "line_index", true);
+    theme.table.show_header = config_get_bool(config, "show_head", true);
+    theme.table.show_index = config_get_bool(config, "show_index", true);
 
     theme
 }

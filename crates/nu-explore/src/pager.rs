@@ -32,6 +32,7 @@ use tui::{
 use crate::{
     command::{Command, CommandList},
     nu_common::{CtrlC, NuColor, NuConfig, NuStyle, NuStyleTable, NuText},
+    util::map_into_value,
     views::ViewConfig,
 };
 
@@ -833,8 +834,8 @@ impl<'a> Pager<'a> {
         self.message = Some(text.into());
     }
 
-    pub fn set_config(&mut self, key: String, value: Value) {
-        self.config.config.insert(key, value);
+    pub fn set_config(&mut self, path: &[String], value: Value) -> bool {
+        set_config(&mut self.config.config, path, value)
     }
 
     pub fn run(
@@ -854,6 +855,64 @@ impl<'a> Pager<'a> {
         }
 
         run_pager(engine_state, stack, ctrlc, self, view, commands)
+    }
+}
+
+fn set_config(hm: &mut HashMap<String, Value>, path: &[String], value: Value) -> bool {
+    if path.is_empty() {
+        return false;
+    }
+
+    let key = &path[0];
+    let val = match hm.get_mut(key) {
+        Some(val) => val,
+        None => return false,
+    };
+
+    if path.len() == 1 {
+        *val = value;
+        return true;
+    }
+
+    match val {
+        Value::Record { cols, vals, .. } => {
+            if path.len() == 2 {
+                if cols.len() != vals.len() {
+                    return false;
+                }
+
+                let key = &path[1];
+
+                let pos = cols.iter().position(|v| v == key);
+                match pos {
+                    Some(i) => {
+                        vals[i] = value;
+                    }
+                    None => {
+                        cols.push(key.clone());
+                        vals.push(value);
+                    }
+                }
+            } else {
+                let mut hm2: HashMap<String, Value> = HashMap::new();
+                for (k, v) in cols.iter().zip(vals) {
+                    hm2.insert(k.to_string(), v.clone());
+                }
+
+                let result = set_config(&mut hm2, &path[1..], value);
+                if !result {
+                    *val = map_into_value(hm2);
+                }
+
+                if path.len() == 2 {
+                } else {
+                    return false;
+                }
+            }
+
+            true
+        }
+        _ => false,
     }
 }
 

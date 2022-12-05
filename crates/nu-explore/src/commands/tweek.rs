@@ -14,7 +14,7 @@ use super::{HelpExample, HelpManual, SimpleCommand};
 
 #[derive(Default, Clone)]
 pub struct TweekCmd {
-    key: String,
+    path: Vec<String>,
     value: Value,
 }
 
@@ -36,10 +36,14 @@ impl SimpleCommand for TweekCmd {
             name: "tweek",
             description: "Tweek different settings",
             arguments: vec![],
-            examples: vec![HelpExample::new(
-                ":tweek table_show_index false",
-                "Don't show index anymore",
-            )],
+            examples: vec![
+                HelpExample::new(":tweek table show_index false", "Don't show index anymore"),
+                HelpExample::new(":tweek table show_head false", "Don't show header anymore"),
+                HelpExample::new(
+                    ":tweek try border_color {bg: '#FFFFFF', fg: '#F213F1'}",
+                    "Make a different color for borders in :try",
+                ),
+            ],
             input: vec![],
         })
     }
@@ -47,24 +51,24 @@ impl SimpleCommand for TweekCmd {
     fn parse(&mut self, input: &str) -> Result<()> {
         let input = input.trim();
 
-        let args = input.split_whitespace().collect::<Vec<_>>();
+        let args = input
+            .split_whitespace()
+            .filter(|s| !s.trim().is_empty())
+            .collect::<Vec<_>>();
+
         if args.len() < 2 {
             return Err(io::Error::new(
                 io::ErrorKind::Other,
-                "expected to get 2 arguments",
+                "expected to get at least 2 arguments",
             ));
         }
 
-        let key = args[0].to_owned();
-        let value = args[1];
+        let path = &args[..args.len() - 1];
+        let value = args[args.len() - 1];
 
-        let value = match value {
-            "true" => Value::boolean(true, NuSpan::unknown()),
-            "false" => Value::boolean(false, NuSpan::unknown()),
-            s => Value::string(s.to_owned(), NuSpan::unknown()),
-        };
+        let value = parse_value(value);
 
-        self.key = key;
+        self.path = path.iter().map(|s| s.to_string()).collect();
         self.value = value;
 
         Ok(())
@@ -77,8 +81,16 @@ impl SimpleCommand for TweekCmd {
         p: &mut Pager<'_>,
         _: Option<Value>,
     ) -> Result<Transition> {
-        p.set_config(self.key.clone(), self.value.clone());
+        p.set_config(&self.path, self.value.clone());
 
         Ok(Transition::Ok)
+    }
+}
+
+fn parse_value(value: &str) -> Value {
+    match value {
+        "true" => Value::boolean(true, NuSpan::unknown()),
+        "false" => Value::boolean(false, NuSpan::unknown()),
+        s => Value::string(s.to_owned(), NuSpan::unknown()),
     }
 }

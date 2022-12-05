@@ -15,6 +15,7 @@ use tui::{
 use crate::{
     nu_common::{collect_pipeline, is_ignored_command, run_nu_command, NuStyle},
     pager::{nu_style_to_tui, Frame, Report, Transition, ViewInfo},
+    util::create_map,
 };
 
 use super::{
@@ -225,10 +226,12 @@ impl View for InteractiveView<'_> {
     }
 
     fn setup(&mut self, config: ViewConfig<'_>) {
-        let colors = get_color_map(config.config);
+        if let Some(hm) = config.config.get("try").and_then(create_map) {
+            let colors = get_color_map(&hm);
 
-        if let Some(color) = colors.get("try_border_color").copied() {
-            self.border_color = color;
+            if let Some(color) = colors.get("border_color").copied() {
+                self.border_color = color;
+            }
         }
 
         let mut r = RecordView::new(vec![], vec![]);

@@ -18,6 +18,10 @@ use views::{InformationView, Preview, RecordView};
 
 pub use pager::{PagerConfig, StyleConfig};
 
+pub mod util {
+    pub use super::nu_common::{create_map, map_into_value};
+}
+
 pub fn run_pager(
     engine_state: &EngineState,
     stack: &mut Stack,

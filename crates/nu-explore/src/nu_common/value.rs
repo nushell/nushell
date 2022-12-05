@@ -1,3 +1,5 @@
+use std::collections::HashMap;
+
 use nu_engine::get_columns;
 use nu_protocol::{ast::PathMember, PipelineData, Value};
 
@@ -166,5 +168,32 @@ fn record_lookup_value(item: &Value, header: &str) -> Value {
             }
         }
         item => item.clone(),
+    }
+}
+
+pub fn create_map(value: &Value) -> Option<HashMap<String, Value>> {
+    let (cols, inner_vals) = value.as_record().ok()?;
+
+    let mut hm: HashMap<String, Value> = HashMap::new();
+    for (k, v) in cols.iter().zip(inner_vals) {
+        hm.insert(k.to_string(), v.clone());
+    }
+
+    Some(hm)
+}
+
+pub fn map_into_value(hm: HashMap<String, Value>) -> Value {
+    let mut columns = Vec::with_capacity(hm.len());
+    let mut values = Vec::with_capacity(hm.len());
+
+    for (key, value) in hm {
+        columns.push(key);
+        values.push(value);
+    }
+
+    Value::Record {
+        cols: columns,
+        vals: values,
+        span: NuSpan::unknown(),
     }
 }

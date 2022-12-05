@@ -19,7 +19,7 @@ pub type NuStyleTable = HashMap<String, NuStyle>;
 
 pub use command::{is_ignored_command, run_nu_command};
 pub use table::try_build_table;
-pub use value::{collect_input, collect_pipeline};
+pub use value::{collect_input, collect_pipeline, create_map, map_into_value};
 
 pub fn has_simple_value(data: &[Vec<Value>]) -> bool {
     let has_single_value = data.len() == 1 && data[0].len() == 1;

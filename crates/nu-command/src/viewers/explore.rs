@@ -3,7 +3,11 @@ use std::collections::HashMap;
 use nu_ansi_term::{Color, Style};
 use nu_color_config::{get_color_config, get_color_map};
 use nu_engine::CallExt;
-use nu_explore::{run_pager, PagerConfig, StyleConfig};
+use nu_explore::{
+    run_pager,
+    util::{create_map, map_into_value},
+    PagerConfig, StyleConfig,
+};
 use nu_protocol::{
     ast::Call,
     engine::{Command, EngineState, Stack},
@@ -71,12 +75,18 @@ impl Command for Explore {
         let mut config = nu_config.explore.clone();
         prepare_default_config(&mut config);
 
-        if show_index {
-            insert_bool(&mut config, "table_show_index", show_index);
-        }
+        {
+            let mut hm = config.get("table").and_then(create_map).unwrap_or_default();
 
-        if show_head {
-            insert_bool(&mut config, "table_show_head", show_head);
+            if show_index {
+                insert_bool(&mut hm, "show_index", show_index);
+            }
+
+            if show_head {
+                insert_bool(&mut hm, "show_head", show_head);
+            }
+
+            config.insert(String::from("table"), map_into_value(hm));
         }
 
         let exit_esc = config
@@ -149,16 +159,20 @@ fn style_from_config(config: &HashMap<String, Value>) -> StyleConfig {
         style.highlight = *s;
     }
 
-    if let Some(s) = colors.get("status_info") {
-        style.status_info = *s;
-    }
+    if let Some(hm) = config.get("status").and_then(create_map) {
+        let colors = get_color_map(&hm);
 
-    if let Some(s) = colors.get("status_warn") {
-        style.status_warn = *s;
-    }
+        if let Some(s) = colors.get("status_info") {
+            style.status_info = *s;
+        }
 
-    if let Some(s) = colors.get("status_error") {
-        style.status_error = *s;
+        if let Some(s) = colors.get("status_warn") {
+            style.status_warn = *s;
+        }
+
+        if let Some(s) = colors.get("status_error") {
+            style.status_error = *s;
+        }
     }
 
     style
@@ -198,22 +212,64 @@ fn prepare_default_config(config: &mut HashMap<String, Value>) {
 
     const TABLE_SELECT_COLUMN: Style = color(None, None);
 
+    const TRY_BORDER_COLOR: Style = color(None, None);
+
     insert_style(config, "status_bar", STATUS_BAR);
     insert_style(config, "command_bar", INPUT_BAR);
     insert_style(config, "highlight", HIGHLIGHT);
-    insert_style(config, "status_info", STATUS_INFO);
-    insert_style(config, "status_warn", STATUS_WARN);
-    insert_style(config, "status_error", STATUS_ERROR);
 
-    insert_style(config, "table_split_line", TABLE_SPLIT_LINE);
-    insert_style(config, "table_selected_cell", TABLE_SELECT_CELL);
-    insert_style(config, "table_selected_row", TABLE_SELECT_ROW);
-    insert_style(config, "table_selected_column", TABLE_SELECT_COLUMN);
-    insert_bool(config, "table_cursor", TABLE_SELECT_CURSOR);
-    insert_bool(config, "table_line_head_top", TABLE_LINE_HEADER_TOP);
-    insert_bool(config, "table_line_head_bottom", TABLE_LINE_HEADER_BOTTOM);
-    insert_bool(config, "table_line_shift", TABLE_LINE_SHIFT);
-    insert_bool(config, "table_line_index", TABLE_LINE_INDEX);
+    // because how config works we need to parse a string into Value::Record
+
+    {
+        let mut hm = config
+            .get("status")
+            .and_then(parse_hash_map)
+            .unwrap_or_default();
+
+        insert_style(&mut hm, "info", STATUS_INFO);
+        insert_style(&mut hm, "warn", STATUS_WARN);
+        insert_style(&mut hm, "error", STATUS_ERROR);
+
+        config.insert(String::from("status"), map_into_value(hm));
+    }
+    {
+        let mut hm = config
+            .get("table")
+            .and_then(parse_hash_map)
+            .unwrap_or_default();
+
+        insert_style(&mut hm, "split_line", TABLE_SPLIT_LINE);
+        insert_style(&mut hm, "selected_cell", TABLE_SELECT_CELL);
+        insert_style(&mut hm, "selected_row", TABLE_SELECT_ROW);
+        insert_style(&mut hm, "selected_column", TABLE_SELECT_COLUMN);
+        insert_bool(&mut hm, "cursor", TABLE_SELECT_CURSOR);
+        insert_bool(&mut hm, "line_head_top", TABLE_LINE_HEADER_TOP);
+        insert_bool(&mut hm, "line_head_bottom", TABLE_LINE_HEADER_BOTTOM);
+        insert_bool(&mut hm, "line_shift", TABLE_LINE_SHIFT);
+        insert_bool(&mut hm, "line_index", TABLE_LINE_INDEX);
+
+        config.insert(String::from("table"), map_into_value(hm));
+    }
+
+    {
+        let mut hm = config
+            .get("try")
+            .and_then(parse_hash_map)
+            .unwrap_or_default();
+
+        insert_style(&mut hm, "border_color", TRY_BORDER_COLOR);
+
+        config.insert(String::from("try"), map_into_value(hm));
+    }
+}
+
+fn parse_hash_map(value: &Value) -> Option<HashMap<String, Value>> {
+    value
+        .as_string()
+        .ok()
+        .and_then(|s| nu_json::from_str::<nu_json::Value>(&s).ok())
+        .map(convert_json_value_into_value)
+        .and_then(|v| create_map(&v))
 }
 
 const fn color(foreground: Option<Color>, background: Option<Color>) -> Style {
@@ -253,4 +309,37 @@ fn insert_bool(map: &mut HashMap<String, Value>, key: &str, value: bool) {
     }
 
     map.insert(String::from(key), Value::boolean(value, Span::unknown()));
+}
+
+fn convert_json_value_into_value(value: nu_json::Value) -> Value {
+    match value {
+        nu_json::Value::Null => Value::nothing(Span::unknown()),
+        nu_json::Value::Bool(val) => Value::boolean(val, Span::unknown()),
+        nu_json::Value::I64(val) => Value::int(val, Span::unknown()),
+        nu_json::Value::U64(val) => Value::int(val as i64, Span::unknown()),
+        nu_json::Value::F64(val) => Value::float(val, Span::unknown()),
+        nu_json::Value::String(val) => Value::string(val, Span::unknown()),
+        nu_json::Value::Array(val) => {
+            let vals = val
+                .into_iter()
+                .map(convert_json_value_into_value)
+                .collect::<Vec<_>>();
+
+            Value::List {
+                vals,
+                span: Span::unknown(),
+            }
+        }
+        nu_json::Value::Object(val) => {
+            let hm = val
+                .into_iter()
+                .map(|(key, value)| {
+                    let val = convert_json_value_into_value(value);
+                    (key, val)
+                })
+                .collect();
+
+            map_into_value(hm)
+        }
+    }
 }
