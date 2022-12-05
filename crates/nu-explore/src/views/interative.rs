@@ -27,6 +27,7 @@ pub struct InteractiveView<'a> {
     input: Value,
     command: String,
     border_color: NuStyle,
+    highlighted_color: NuStyle,
     table: Option<RecordView<'a>>,
     table_theme: TableTheme,
     view_mode: bool,
@@ -39,6 +40,7 @@ impl<'a> InteractiveView<'a> {
             table: None,
             table_theme: TableTheme::default(),
             border_color: NuStyle::default(),
+            highlighted_color: NuStyle::default(),
             view_mode: false,
             command: String::new(),
         }
@@ -60,6 +62,7 @@ impl<'a> InteractiveView<'a> {
 impl View for InteractiveView<'_> {
     fn draw(&mut self, f: &mut Frame, area: Rect, cfg: ViewConfig<'_>, layout: &mut Layout) {
         let border_color = nu_style_to_tui(self.border_color);
+        let highlighted_color = nu_style_to_tui(self.highlighted_color);
 
         let cmd_block = tui::widgets::Block::default()
             .borders(Borders::ALL)
@@ -73,7 +76,7 @@ impl View for InteractiveView<'_> {
             cmd_block
                 .border_style(Style::default().add_modifier(Modifier::BOLD))
                 .border_type(BorderType::Double)
-                .border_style(border_color)
+                .border_style(highlighted_color)
         };
 
         f.render_widget(cmd_block, cmd_area);
@@ -123,7 +126,7 @@ impl View for InteractiveView<'_> {
             table_block
                 .border_style(Style::default().add_modifier(Modifier::BOLD))
                 .border_type(BorderType::Double)
-                .border_style(border_color)
+                .border_style(highlighted_color)
         } else {
             table_block
         };
@@ -231,6 +234,16 @@ impl View for InteractiveView<'_> {
 
             if let Some(color) = colors.get("border_color").copied() {
                 self.border_color = color;
+            }
+
+            if let Some(color) = colors.get("highlighted_color").copied() {
+                self.highlighted_color = color;
+            }
+
+            if self.border_color != NuStyle::default()
+                && self.highlighted_color == NuStyle::default()
+            {
+                self.highlighted_color = self.border_color;
             }
         }
 
