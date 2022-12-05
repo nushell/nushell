@@ -193,6 +193,7 @@ impl Command for Kill {
                 example: "kill --force 12345",
                 result: None,
             },
+            #[cfg(not(target_os = "windows"))]
             Example {
                 description: "Send INT signal",
                 example: "kill -s 2 12345",
