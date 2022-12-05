@@ -83,6 +83,13 @@ fn generate_operator_info() -> Vec<OperatorInfo> {
         },
         OperatorInfo {
             op_type: "Assignment".into(),
+            operator: "++=".into(),
+            name: "AppendAssign".into(),
+            description: "Appends a list or a value to a variable.".into(),
+            precedence: 10,
+        },
+        OperatorInfo {
+            op_type: "Assignment".into(),
             operator: "-=".into(),
             name: "MinusAssign".into(),
             description: "Subtracts a value from a variable.".into(),
