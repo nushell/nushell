@@ -157,4 +157,11 @@ impl View for NuView<'_> {
             NuView::Preview(v) => v.exit(),
         }
     }
+
+    fn setup(&mut self, config: ViewConfig<'_>) {
+        match self {
+            NuView::Records(v) => v.setup(config),
+            NuView::Preview(v) => v.setup(config),
+        }
+    }
 }

@@ -67,7 +67,7 @@ impl Transition {
 pub struct PagerConfig<'a> {
     pub nu_config: &'a NuConfig,
     pub color_hm: &'a NuStyleTable,
-    pub config: &'a ConfigMap,
+    pub config: ConfigMap,
     pub style: StyleConfig,
     pub peek_value: bool,
     pub exit_esc: bool,
@@ -75,7 +75,7 @@ pub struct PagerConfig<'a> {
 }
 
 impl<'a> PagerConfig<'a> {
-    pub fn new(nu_config: &'a NuConfig, color_hm: &'a NuStyleTable, config: &'a ConfigMap) -> Self {
+    pub fn new(nu_config: &'a NuConfig, color_hm: &'a NuStyleTable, config: ConfigMap) -> Self {
         Self {
             nu_config,
             color_hm,
@@ -173,7 +173,7 @@ fn render_ui(
                     let cfg = ViewConfig::new(
                         pager.config.nu_config,
                         pager.config.color_hm,
-                        pager.config.config,
+                        &pager.config.config,
                     );
 
                     page.view.draw(f, available_area, cfg, &mut layout);
@@ -305,7 +305,7 @@ fn run_command(
                     new_view.setup(ViewConfig::new(
                         pager.config.nu_config,
                         pager.config.color_hm,
-                        pager.config.config,
+                        &pager.config.config,
                     ));
 
                     *view = Some(Page::raw(new_view, is_light));
@@ -833,6 +833,10 @@ impl<'a> Pager<'a> {
         self.message = Some(text.into());
     }
 
+    pub fn set_config(&mut self, key: String, value: Value) {
+        self.config.config.insert(key, value);
+    }
+
     pub fn run(
         &mut self,
         engine_state: &EngineState,
@@ -845,7 +849,7 @@ impl<'a> Pager<'a> {
             page.view.setup(ViewConfig::new(
                 self.config.nu_config,
                 self.config.color_hm,
-                self.config.config,
+                &self.config.config,
             ))
         }
 

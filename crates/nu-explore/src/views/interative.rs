@@ -17,13 +17,17 @@ use crate::{
     pager::{nu_style_to_tui, Frame, Report, Transition, ViewInfo},
 };
 
-use super::{record::RecordView, Layout, View, ViewConfig};
+use super::{
+    record::{RecordView, TableTheme},
+    Layout, View, ViewConfig,
+};
 
 pub struct InteractiveView<'a> {
     input: Value,
     command: String,
     border_color: NuStyle,
     table: Option<RecordView<'a>>,
+    table_theme: TableTheme,
     view_mode: bool,
 }
 
@@ -32,6 +36,7 @@ impl<'a> InteractiveView<'a> {
         Self {
             input,
             table: None,
+            table_theme: TableTheme::default(),
             border_color: NuStyle::default(),
             view_mode: false,
             command: String::new(),
@@ -43,7 +48,8 @@ impl<'a> InteractiveView<'a> {
     }
 
     pub fn try_run(&mut self, engine_state: &EngineState, stack: &mut Stack) -> Result<(), String> {
-        let view = run_command(&self.command, &self.input, engine_state, stack)?;
+        let mut view = run_command(&self.command, &self.input, engine_state, stack)?;
+        view.set_theme(self.table_theme.clone());
 
         self.table = Some(view);
         Ok(())
@@ -223,6 +229,15 @@ impl View for InteractiveView<'_> {
 
         if let Some(color) = colors.get("try_border_color").copied() {
             self.border_color = color;
+        }
+
+        let mut r = RecordView::new(vec![], vec![]);
+        r.setup(config);
+
+        self.table_theme = r.get_theme().clone();
+
+        if let Some(view) = &mut self.table {
+            view.set_theme(self.table_theme.clone());
         }
     }
 }

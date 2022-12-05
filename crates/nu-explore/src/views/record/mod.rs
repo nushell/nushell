@@ -52,6 +52,14 @@ impl<'a> RecordView<'a> {
         state_reverse_data(self, page_size as usize);
     }
 
+    pub fn get_theme(&self) -> &TableTheme {
+        &self.theme
+    }
+
+    pub fn set_theme(&mut self, theme: TableTheme) {
+        self.theme = theme;
+    }
+
     pub fn transpose(&mut self) {
         let layer = self.get_layer_last_mut();
         layer.index_column = 0;
@@ -59,10 +67,6 @@ impl<'a> RecordView<'a> {
 
         transpose_table(layer);
     }
-
-    // pub fn show_head(&mut self, on: bool) {
-    //     self.theme.table.show_header = on;
-    // }
 
     // todo: rename to get_layer
     pub fn get_layer_last(&self) -> &RecordLayer<'a> {
@@ -705,7 +709,7 @@ fn config_get_bool(config: &ConfigMap, key: &str, default: bool) -> bool {
 }
 
 #[derive(Debug, Default, Clone)]
-struct TableTheme {
+pub struct TableTheme {
     table: TableStyle,
     cursor: CursorStyle,
 }

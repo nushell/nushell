@@ -305,4 +305,11 @@ impl View for HelpView<'_> {
             HelpView::Preview(v) => v.exit(),
         }
     }
+
+    fn setup(&mut self, config: ViewConfig<'_>) {
+        match self {
+            HelpView::Records(v) => v.setup(config),
+            HelpView::Preview(v) => v.setup(config),
+        }
+    }
 }
