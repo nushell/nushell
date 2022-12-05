@@ -97,19 +97,26 @@ impl Command for SubCommand {
             },
             Example {
                 description: "Split a list of chars into two lists",
-                example: "[a, b, c, d, e, f, g] | split list a",
+                example: "[a, b, c, d, a, e, f, g] | split list a",
                 result: Some(Value::List {
-                    vals: vec![Value::List {
-                        vals: vec![
-                            Value::test_string("b"),
-                            Value::test_string("c"),
-                            Value::test_string("d"),
-                            Value::test_string("e"),
-                            Value::test_string("f"),
-                            Value::test_string("g"),
-                        ],
-                        span: Span::test_data(),
-                    }],
+                    vals: vec![
+                        Value::List {
+                            vals: vec![
+                                Value::test_string("b"),
+                                Value::test_string("c"),
+                                Value::test_string("d"),
+                            ],
+                            span: Span::test_data(),
+                        },
+                        Value::List {
+                            vals: vec![
+                                Value::test_string("e"),
+                                Value::test_string("f"),
+                                Value::test_string("g"),
+                            ],
+                            span: Span::test_data(),
+                        },
+                    ],
                     span: Span::test_data(),
                 }),
             },
