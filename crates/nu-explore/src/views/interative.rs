@@ -1,6 +1,7 @@
 use std::cmp::min;
 
 use crossterm::event::{KeyCode, KeyEvent};
+use nu_color_config::get_color_map;
 use nu_protocol::{
     engine::{EngineState, Stack},
     PipelineData, Value,
@@ -12,8 +13,8 @@ use tui::{
 };
 
 use crate::{
-    nu_common::{collect_pipeline, is_ignored_command, run_nu_command},
-    pager::{Frame, Report, Transition, ViewInfo},
+    nu_common::{collect_pipeline, is_ignored_command, run_nu_command, NuStyle},
+    pager::{nu_style_to_tui, Frame, Report, Transition, ViewInfo},
 };
 
 use super::{record::RecordView, Layout, View, ViewConfig};
@@ -21,6 +22,7 @@ use super::{record::RecordView, Layout, View, ViewConfig};
 pub struct InteractiveView<'a> {
     input: Value,
     command: String,
+    border_color: NuStyle,
     table: Option<RecordView<'a>>,
     view_mode: bool,
 }
@@ -30,6 +32,7 @@ impl<'a> InteractiveView<'a> {
         Self {
             input,
             table: None,
+            border_color: NuStyle::default(),
             view_mode: false,
             command: String::new(),
         }
@@ -49,9 +52,12 @@ impl<'a> InteractiveView<'a> {
 
 impl View for InteractiveView<'_> {
     fn draw(&mut self, f: &mut Frame, area: Rect, cfg: ViewConfig<'_>, layout: &mut Layout) {
+        let border_color = nu_style_to_tui(self.border_color);
+
         let cmd_block = tui::widgets::Block::default()
             .borders(Borders::ALL)
-            .border_type(BorderType::Plain);
+            .border_type(BorderType::Plain)
+            .border_style(border_color);
         let cmd_area = Rect::new(area.x + 1, area.y, area.width - 2, 3);
 
         let cmd_block = if self.view_mode {
@@ -60,6 +66,7 @@ impl View for InteractiveView<'_> {
             cmd_block
                 .border_style(Style::default().add_modifier(Modifier::BOLD))
                 .border_type(BorderType::Double)
+                .border_style(border_color)
         };
 
         f.render_widget(cmd_block, cmd_area);
@@ -101,13 +108,15 @@ impl View for InteractiveView<'_> {
 
         let table_block = tui::widgets::Block::default()
             .borders(Borders::ALL)
-            .border_type(BorderType::Plain);
+            .border_type(BorderType::Plain)
+            .border_style(border_color);
         let table_area = Rect::new(area.x + 1, area.y + 3, area.width - 2, area.height - 3);
 
         let table_block = if self.view_mode {
             table_block
                 .border_style(Style::default().add_modifier(Modifier::BOLD))
                 .border_type(BorderType::Double)
+                .border_style(border_color)
         } else {
             table_block
         };
@@ -207,6 +216,14 @@ impl View for InteractiveView<'_> {
 
     fn show_data(&mut self, i: usize) -> bool {
         self.table.as_mut().map_or(false, |v| v.show_data(i))
+    }
+
+    fn setup(&mut self, config: ViewConfig<'_>) {
+        let colors = get_color_map(config.config);
+
+        if let Some(color) = colors.get("try_border_color").copied() {
+            self.border_color = color;
+        }
     }
 }
 
