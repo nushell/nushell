@@ -1,11 +1,72 @@
 use nu_ansi_term::{Color, Style};
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 
-#[derive(Deserialize, PartialEq, Eq, Debug)]
+#[derive(Deserialize, Serialize, PartialEq, Eq, Debug)]
 pub struct NuStyle {
     pub fg: Option<String>,
     pub bg: Option<String>,
     pub attr: Option<String>,
+}
+
+impl From<Style> for NuStyle {
+    fn from(s: Style) -> Self {
+        Self {
+            bg: s.background.and_then(color_to_string),
+            fg: s.foreground.and_then(color_to_string),
+            attr: style_get_attr(s),
+        }
+    }
+}
+
+fn style_get_attr(s: Style) -> Option<String> {
+    macro_rules! check {
+        ($attrs:expr, $b:expr, $c:expr) => {
+            if $b {
+                $attrs.push($c);
+            }
+        };
+    }
+
+    let mut attrs = String::new();
+
+    check!(attrs, s.is_blink, 'l');
+    check!(attrs, s.is_bold, 'b');
+    check!(attrs, s.is_dimmed, 'd');
+    check!(attrs, s.is_reverse, 'r');
+    check!(attrs, s.is_strikethrough, 's');
+    check!(attrs, s.is_underline, 'u');
+
+    if attrs.is_empty() {
+        None
+    } else {
+        Some(attrs)
+    }
+}
+
+fn color_to_string(color: Color) -> Option<String> {
+    match color {
+        Color::Black => Some(String::from("black")),
+        Color::DarkGray => Some(String::from("dark_gray")),
+        Color::Red => Some(String::from("red")),
+        Color::LightRed => Some(String::from("light_red")),
+        Color::Green => Some(String::from("green")),
+        Color::LightGreen => Some(String::from("light_green")),
+        Color::Yellow => Some(String::from("yellow")),
+        Color::LightYellow => Some(String::from("light_yellow")),
+        Color::Blue => Some(String::from("blue")),
+        Color::LightBlue => Some(String::from("light_blue")),
+        Color::Purple => Some(String::from("purple")),
+        Color::LightPurple => Some(String::from("light_purple")),
+        Color::Magenta => Some(String::from("magenta")),
+        Color::LightMagenta => Some(String::from("light_magenta")),
+        Color::Cyan => Some(String::from("cyan")),
+        Color::LightCyan => Some(String::from("light_cyan")),
+        Color::White => Some(String::from("white")),
+        Color::LightGray => Some(String::from("light_gray")),
+        Color::Default => Some(String::from("default")),
+        Color::Rgb(r, g, b) => Some(format!("#{:X}{:X}{:X}", r, g, b)),
+        Color::Fixed(_) => None,
+    }
 }
 
 pub fn parse_nustyle(nu_style: NuStyle) -> Style {

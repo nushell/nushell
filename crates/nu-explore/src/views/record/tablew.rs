@@ -25,10 +25,11 @@ pub struct TableW<'a> {
     color_hm: &'a NuStyleTable,
 }
 
+#[derive(Debug, Default, Clone, Copy)]
 pub struct TableStyle {
+    pub splitline_style: NuStyle,
     pub show_index: bool,
     pub show_header: bool,
-    pub splitline_style: NuStyle,
     pub header_top: bool,
     pub header_bottom: bool,
     pub shift_line: bool,

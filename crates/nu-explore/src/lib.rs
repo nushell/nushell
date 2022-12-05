@@ -16,22 +16,21 @@ use pager::{Page, Pager};
 use terminal_size::{Height, Width};
 use views::{InformationView, Preview, RecordView};
 
-pub use pager::{StyleConfig, TableConfig, TableSplitLines, ViewConfig};
+pub use pager::{PagerConfig, StyleConfig};
 
 pub fn run_pager(
     engine_state: &EngineState,
     stack: &mut Stack,
     ctrlc: CtrlC,
-    table_cfg: TableConfig,
-    view_cfg: ViewConfig,
     input: PipelineData,
+    config: PagerConfig,
 ) -> io::Result<Option<Value>> {
-    let commands = command::CommandList::new(table_cfg);
-
-    let mut p = Pager::new(table_cfg, view_cfg.clone());
+    let mut p = Pager::new(config.clone());
 
     let is_record = matches!(input, PipelineData::Value(Value::Record { .. }, ..));
     let (columns, data) = collect_pipeline(input);
+
+    let commands = command::CommandList::new();
 
     let has_no_input = columns.is_empty() && data.is_empty();
     if has_no_input {
@@ -42,20 +41,19 @@ pub fn run_pager(
     p.show_message("For help type :help");
 
     if has_simple_value(&data) {
-        let text = data[0][0].into_abbreviated_string(view_cfg.config);
+        let text = data[0][0].into_abbreviated_string(config.nu_config);
 
         let view = Some(Page::new(Preview::new(&text), true));
         return p.run(engine_state, stack, ctrlc, view, commands);
     }
 
-    let mut view = RecordView::new(columns, data, table_cfg);
+    let mut view = RecordView::new(columns, data);
 
     if is_record {
         view.transpose();
-        view.show_head(false);
     }
 
-    if table_cfg.reverse {
+    if config.reverse {
         if let Some((Width(w), Height(h))) = terminal_size::terminal_size() {
             view.reverse(w, h);
         }

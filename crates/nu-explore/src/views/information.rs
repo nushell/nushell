@@ -5,10 +5,10 @@ use tui::{layout::Rect, widgets::Paragraph};
 
 use crate::{
     nu_common::NuText,
-    pager::{Frame, Transition, ViewConfig, ViewInfo},
+    pager::{Frame, Transition, ViewInfo},
 };
 
-use super::{Layout, View};
+use super::{Layout, View, ViewConfig};
 
 #[derive(Debug, Default)]
 pub struct InformationView;
@@ -26,7 +26,7 @@ impl InformationView {
 }
 
 impl View for InformationView {
-    fn draw(&mut self, f: &mut Frame, area: Rect, _: &ViewConfig, layout: &mut Layout) {
+    fn draw(&mut self, f: &mut Frame, area: Rect, _: ViewConfig<'_>, layout: &mut Layout) {
         let count_lines = Self::MESSAGE.len() as u16;
 
         if area.height < count_lines {

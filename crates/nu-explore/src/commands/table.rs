@@ -5,18 +5,18 @@ use nu_protocol::{
     Value,
 };
 
-use crate::{nu_common::collect_input, pager::TableConfig, views::RecordView};
+use crate::{nu_common::collect_input, views::RecordView};
 
 use super::{HelpManual, Shortcode, ViewCommand};
 
 #[derive(Debug, Default, Clone)]
 pub struct TableCmd {
-    table_cfg: TableConfig,
+    // todo: add arguments to override config right from CMD
 }
 
 impl TableCmd {
-    pub fn new(table_cfg: TableConfig) -> Self {
-        Self { table_cfg }
+    pub fn new() -> Self {
+        Self {}
     }
 
     pub const NAME: &'static str = "table";
@@ -72,11 +72,10 @@ impl ViewCommand for TableCmd {
 
         let (columns, data) = collect_input(value);
 
-        let mut view = RecordView::new(columns, data, self.table_cfg);
+        let mut view = RecordView::new(columns, data);
 
         if is_record {
             view.transpose();
-            view.show_head(false);
         }
 
         Ok(view)

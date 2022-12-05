@@ -13,25 +13,22 @@ use tui::{
 
 use crate::{
     nu_common::{collect_pipeline, is_ignored_command, run_nu_command},
-    pager::{Frame, Report, TableConfig, Transition, ViewConfig, ViewInfo},
+    pager::{Frame, Report, Transition, ViewInfo},
 };
 
-use super::{record::RecordView, Layout, View};
+use super::{record::RecordView, Layout, View, ViewConfig};
 
 pub struct InteractiveView<'a> {
     input: Value,
     command: String,
     table: Option<RecordView<'a>>,
     view_mode: bool,
-    // todo: impl Debug for it
-    table_cfg: TableConfig,
 }
 
 impl<'a> InteractiveView<'a> {
-    pub fn new(input: Value, table_cfg: TableConfig) -> Self {
+    pub fn new(input: Value) -> Self {
         Self {
             input,
-            table_cfg,
             table: None,
             view_mode: false,
             command: String::new(),
@@ -43,13 +40,7 @@ impl<'a> InteractiveView<'a> {
     }
 
     pub fn try_run(&mut self, engine_state: &EngineState, stack: &mut Stack) -> Result<(), String> {
-        let view = run_command(
-            &self.command,
-            &self.input,
-            self.table_cfg,
-            engine_state,
-            stack,
-        )?;
+        let view = run_command(&self.command, &self.input, engine_state, stack)?;
 
         self.table = Some(view);
         Ok(())
@@ -57,7 +48,7 @@ impl<'a> InteractiveView<'a> {
 }
 
 impl View for InteractiveView<'_> {
-    fn draw(&mut self, f: &mut Frame, area: Rect, cfg: &ViewConfig, layout: &mut Layout) {
+    fn draw(&mut self, f: &mut Frame, area: Rect, cfg: ViewConfig<'_>, layout: &mut Layout) {
         let cmd_block = tui::widgets::Block::default()
             .borders(Borders::ALL)
             .border_type(BorderType::Plain);
@@ -222,7 +213,6 @@ impl View for InteractiveView<'_> {
 fn run_command(
     command: &str,
     input: &Value,
-    table_cfg: TableConfig,
     engine_state: &EngineState,
     stack: &mut Stack,
 ) -> Result<RecordView<'static>, String> {
@@ -238,10 +228,9 @@ fn run_command(
 
             let (columns, values) = collect_pipeline(pipeline_data);
 
-            let mut view = RecordView::new(columns, values, table_cfg);
+            let mut view = RecordView::new(columns, values);
             if is_record {
                 view.transpose();
-                view.show_head(false);
             }
 
             Ok(view)

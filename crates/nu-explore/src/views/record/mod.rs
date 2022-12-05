@@ -3,6 +3,7 @@ mod tablew;
 use std::{borrow::Cow, cmp::min, collections::HashMap};
 
 use crossterm::event::{KeyCode, KeyEvent};
+use nu_color_config::get_color_map;
 use nu_protocol::{
     engine::{EngineState, Stack},
     Value,
@@ -10,25 +11,24 @@ use nu_protocol::{
 use tui::{layout::Rect, widgets::Block};
 
 use crate::{
-    nu_common::{collect_input, NuConfig, NuSpan, NuStyleTable, NuText},
+    nu_common::{collect_input, NuConfig, NuSpan, NuStyle, NuStyleTable, NuText},
     pager::{
-        make_styled_string, nu_style_to_tui, Frame, Position, Report, Severity, StyleConfig,
-        TableConfig, Transition, ViewConfig, ViewInfo,
+        make_styled_string, nu_style_to_tui, ConfigMap, Frame, Position, Report, Severity,
+        Transition, ViewInfo,
     },
     views::ElementInfo,
 };
 
-use self::tablew::{TableW, TableWState};
+use self::tablew::{TableStyle, TableW, TableWState};
 
-use super::{Layout, View};
+use super::{Layout, View, ViewConfig};
 
 #[derive(Debug, Clone)]
 pub struct RecordView<'a> {
     layer_stack: Vec<RecordLayer<'a>>,
     mode: UIMode,
-    cfg: TableConfig,
-    show_head: bool,
     pub(crate) cursor: Position,
+    theme: TableTheme,
     state: RecordViewState,
 }
 
@@ -36,20 +36,19 @@ impl<'a> RecordView<'a> {
     pub fn new(
         columns: impl Into<Cow<'a, [String]>>,
         records: impl Into<Cow<'a, [Vec<Value>]>>,
-        table_cfg: TableConfig,
     ) -> Self {
         Self {
             layer_stack: vec![RecordLayer::new(columns, records)],
             mode: UIMode::View,
             cursor: Position::new(0, 0),
-            cfg: table_cfg,
-            show_head: true,
+            theme: TableTheme::default(),
             state: RecordViewState::default(),
         }
     }
 
     pub fn reverse(&mut self, width: u16, height: u16) {
-        let page_size = estimate_page_size(Rect::new(0, 0, width, height), self.cfg.show_head);
+        let page_size =
+            estimate_page_size(Rect::new(0, 0, width, height), self.theme.table.show_header);
         state_reverse_data(self, page_size as usize);
     }
 
@@ -61,9 +60,9 @@ impl<'a> RecordView<'a> {
         transpose_table(layer);
     }
 
-    pub fn show_head(&mut self, on: bool) {
-        self.show_head = on;
-    }
+    // pub fn show_head(&mut self, on: bool) {
+    //     self.theme.table.show_header = on;
+    // }
 
     // todo: rename to get_layer
     pub fn get_layer_last(&self) -> &RecordLayer<'a> {
@@ -78,35 +77,20 @@ impl<'a> RecordView<'a> {
             .expect("we guarantee that 1 entry is always in a list")
     }
 
-    fn create_tablew<'b>(&self, layer: &'b RecordLayer, view_cfg: &'b ViewConfig) -> TableW<'b> {
-        let data = convert_records_to_string(&layer.records, view_cfg.config, view_cfg.color_hm);
-
-        let mut show_header = false;
-        if self.show_head {
-            show_header = self.cfg.show_head;
-        }
-
-        let style = tablew::TableStyle {
-            show_index: self.cfg.show_index,
-            show_header,
-            splitline_style: view_cfg.theme.split_line,
-            header_bottom: view_cfg.theme.split_lines.header_bottom,
-            header_top: view_cfg.theme.split_lines.header_top,
-            index_line: view_cfg.theme.split_lines.index_line,
-            shift_line: view_cfg.theme.split_lines.shift_line,
-        };
+    fn create_tablew<'b>(&self, layer: &'b RecordLayer, cfg: ViewConfig<'b>) -> TableW<'b> {
+        let data = convert_records_to_string(&layer.records, cfg.nu_config, cfg.color_hm);
 
         let headers = layer.columns.as_ref();
-        let color_hm = view_cfg.color_hm;
+        let color_hm = cfg.color_hm;
         let i_row = layer.index_row;
         let i_column = layer.index_column;
 
-        TableW::new(headers, data, color_hm, i_row, i_column, style)
+        TableW::new(headers, data, color_hm, i_row, i_column, self.theme.table)
     }
 }
 
 impl View for RecordView<'_> {
-    fn draw(&mut self, f: &mut Frame, area: Rect, cfg: &ViewConfig, layout: &mut Layout) {
+    fn draw(&mut self, f: &mut Frame, area: Rect, cfg: ViewConfig<'_>, layout: &mut Layout) {
         let layer = self.get_layer_last();
         let table = self.create_tablew(layer, cfg);
 
@@ -122,7 +106,7 @@ impl View for RecordView<'_> {
 
         if self.mode == UIMode::Cursor {
             let cursor = get_cursor(self);
-            highlight_cell(f, area, &self.state, cursor, cfg.theme);
+            highlight_cell(f, area, &self.state, cursor, &self.theme.cursor);
         }
     }
 
@@ -193,6 +177,10 @@ impl View for RecordView<'_> {
 
     fn exit(&mut self) -> Option<Value> {
         Some(build_last_value(self))
+    }
+
+    fn setup(&mut self, cfg: ViewConfig<'_>) {
+        self.theme = theme_from_config(cfg.config);
     }
 }
 
@@ -279,7 +267,6 @@ fn handle_key_event_view_mode(view: &mut RecordView, key: &KeyEvent) -> Option<T
         }
         KeyCode::Char('t') => {
             view.transpose();
-            view.show_head = true;
 
             Some(Transition::Ok)
         }
@@ -405,7 +392,6 @@ fn handle_key_event_cursor_mode(view: &mut RecordView, key: &KeyEvent) -> Option
 
             if is_record {
                 view.transpose();
-                view.show_head(false);
             }
 
             Some(Transition::Ok)
@@ -483,7 +469,7 @@ fn highlight_cell(
     area: Rect,
     state: &RecordViewState,
     cursor: Position,
-    theme: &StyleConfig,
+    theme: &CursorStyle,
 ) {
     let Position { x: column, y: row } = cursor;
 
@@ -685,4 +671,49 @@ fn _transpose_table(
     }
 
     data
+}
+
+fn theme_from_config(config: &ConfigMap) -> TableTheme {
+    let mut theme = TableTheme::default();
+
+    let colors = get_color_map(config);
+
+    if let Some(s) = colors.get("table_split_line") {
+        theme.table.splitline_style = *s;
+    }
+
+    theme.cursor.selected_cell = colors.get("table_selected_cell").cloned();
+    theme.cursor.selected_row = colors.get("table_selected_row").cloned();
+    theme.cursor.selected_column = colors.get("table_selected_column").cloned();
+    theme.cursor.show_cursow = config_get_bool(config, "table_show_cursor", true);
+
+    theme.table.header_top = config_get_bool(config, "table_line_head_top", true);
+    theme.table.header_bottom = config_get_bool(config, "table_line_head_bottom", true);
+    theme.table.shift_line = config_get_bool(config, "table_line_shift", true);
+    theme.table.index_line = config_get_bool(config, "table_line_index", true);
+    theme.table.show_header = config_get_bool(config, "table_show_head", true);
+    theme.table.show_index = config_get_bool(config, "table_show_index", true);
+
+    theme
+}
+
+fn config_get_bool(config: &ConfigMap, key: &str, default: bool) -> bool {
+    config
+        .get(key)
+        .and_then(|v| v.as_bool().ok())
+        .unwrap_or(default)
+}
+
+#[derive(Debug, Default, Clone)]
+struct TableTheme {
+    table: TableStyle,
+    cursor: CursorStyle,
+}
+
+#[derive(Debug, Default, Clone)]
+struct CursorStyle {
+    selected_cell: Option<NuStyle>,
+    selected_column: Option<NuStyle>,
+    selected_row: Option<NuStyle>,
+    show_cursow: bool,
 }

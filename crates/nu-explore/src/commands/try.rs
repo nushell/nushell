@@ -5,21 +5,19 @@ use nu_protocol::{
     Value,
 };
 
-use crate::{pager::TableConfig, views::InteractiveView};
+use crate::views::InteractiveView;
 
 use super::{HelpExample, HelpManual, Shortcode, ViewCommand};
 
 #[derive(Debug, Default, Clone)]
 pub struct TryCmd {
     command: String,
-    table_cfg: TableConfig,
 }
 
 impl TryCmd {
-    pub fn new(table_cfg: TableConfig) -> Self {
+    pub fn new() -> Self {
         Self {
             command: String::new(),
-            table_cfg,
         }
     }
 
@@ -71,7 +69,7 @@ impl ViewCommand for TryCmd {
         value: Option<Value>,
     ) -> Result<Self::View> {
         let value = value.unwrap_or_default();
-        let mut view = InteractiveView::new(value, self.table_cfg);
+        let mut view = InteractiveView::new(value);
         view.init(self.command.clone());
         view.try_run(engine_state, stack)
             .map_err(|e| Error::new(ErrorKind::Other, e))?;

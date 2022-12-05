@@ -1,6 +1,7 @@
 use std::{
     borrow::Cow,
     cmp::min,
+    collections::HashMap,
     io::{self, Result, Stdout},
     sync::atomic::Ordering,
 };
@@ -31,6 +32,7 @@ use tui::{
 use crate::{
     command::{Command, CommandList},
     nu_common::{CtrlC, NuColor, NuConfig, NuStyle, NuStyleTable, NuText},
+    views::ViewConfig,
 };
 
 use super::{
@@ -62,30 +64,31 @@ impl Transition {
 }
 
 #[derive(Debug, Clone)]
-pub struct ViewConfig<'a> {
-    pub config: &'a NuConfig,
+pub struct PagerConfig<'a> {
+    pub nu_config: &'a NuConfig,
     pub color_hm: &'a NuStyleTable,
-    pub theme: &'a StyleConfig,
+    pub config: &'a ConfigMap,
+    pub style: StyleConfig,
+    pub peek_value: bool,
+    pub exit_esc: bool,
+    pub reverse: bool,
 }
 
-impl<'a> ViewConfig<'a> {
-    pub fn new(config: &'a NuConfig, color_hm: &'a NuStyleTable, theme: &'a StyleConfig) -> Self {
+impl<'a> PagerConfig<'a> {
+    pub fn new(nu_config: &'a NuConfig, color_hm: &'a NuStyleTable, config: &'a ConfigMap) -> Self {
         Self {
-            config,
+            nu_config,
             color_hm,
-            theme,
+            config,
+            peek_value: false,
+            exit_esc: false,
+            reverse: false,
+            style: StyleConfig::default(),
         }
     }
 }
 
-#[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
-pub struct TableConfig {
-    pub show_index: bool,
-    pub show_head: bool,
-    pub reverse: bool,
-    pub peek_value: bool,
-    pub show_help: bool,
-}
+pub type ConfigMap = HashMap<String, Value>;
 
 pub fn run_pager(
     engine_state: &EngineState,
@@ -166,27 +169,29 @@ fn render_ui(
                 let available_area =
                     Rect::new(area.x, area.y, area.width, area.height.saturating_sub(2));
 
-                if let Some(p) = &mut view {
-                    p.view.draw(f, available_area, &pager.view_cfg, &mut layout);
+                if let Some(page) = &mut view {
+                    let cfg = ViewConfig::new(
+                        pager.config.nu_config,
+                        pager.config.color_hm,
+                        pager.config.config,
+                    );
 
-                    if pager.table_cfg.show_help {
-                        pager.table_cfg.show_help = false;
-                    }
+                    page.view.draw(f, available_area, cfg, &mut layout);
                 }
 
                 if let Some(report) = info.status {
                     let last_2nd_line = area.bottom().saturating_sub(2);
                     let area = Rect::new(area.left(), last_2nd_line, area.width, 1);
-                    render_status_bar(f, area, report, pager.view_cfg.theme);
+                    render_status_bar(f, area, report, &pager.config.style);
                 }
 
                 {
                     let last_line = area.bottom().saturating_sub(1);
                     let area = Rect::new(area.left(), last_line, area.width, 1);
-                    render_cmd_bar(f, area, pager, info.report, pager.view_cfg.theme);
+                    render_cmd_bar(f, area, pager, info.report, &pager.config.style);
                 }
 
-                highlight_search_results(f, pager, &layout, pager.view_cfg.theme.highlight);
+                highlight_search_results(f, pager, &layout, pager.config.style.highlight);
                 set_cursor_cmd_bar(f, area, pager);
             })?;
         }
@@ -205,6 +210,10 @@ fn render_ui(
             if force {
                 break Ok(try_to_peek_value(pager, view.as_mut().map(|p| &mut p.view)));
             } else {
+                if view_stack.is_empty() && pager.config.exit_esc {
+                    break Ok(try_to_peek_value(pager, view.as_mut().map(|p| &mut p.view)));
+                }
+
                 // try to pop the view stack
                 if let Some(v) = view_stack.pop() {
                     view = Some(v);
@@ -286,12 +295,18 @@ fn run_command(
             let value = view.as_mut().and_then(|p| p.view.exit());
             let result = cmd.spawn(engine_state, stack, value);
             match result {
-                Ok(new_view) => {
+                Ok(mut new_view) => {
                     if let Some(view) = view.take() {
                         if !view.is_light {
                             view_stack.push(view);
                         }
                     }
+
+                    new_view.setup(ViewConfig::new(
+                        pager.config.nu_config,
+                        pager.config.color_hm,
+                        pager.config.config,
+                    ));
 
                     *view = Some(Page::raw(new_view, is_light));
                     Ok(false)
@@ -324,7 +339,7 @@ fn try_to_peek_value<V>(pager: &mut Pager, view: Option<&mut V>) -> Option<Value
 where
     V: View,
 {
-    if pager.table_cfg.peek_value {
+    if pager.config.peek_value {
         view.and_then(|v| v.exit())
     } else {
         None
@@ -767,11 +782,10 @@ fn cmd_input_key_event(buf: &mut CommandBuf, key: &KeyEvent) -> bool {
 
 #[derive(Debug, Clone)]
 pub struct Pager<'a> {
+    config: PagerConfig<'a>,
+    message: Option<String>,
     cmd_buf: CommandBuf,
     search_buf: SearchBuf,
-    table_cfg: TableConfig,
-    view_cfg: ViewConfig<'a>,
-    message: Option<String>,
 }
 
 #[derive(Debug, Clone, Default)]
@@ -802,30 +816,15 @@ pub struct StyleConfig {
     pub status_error: NuStyle,
     pub status_bar: NuStyle,
     pub cmd_bar: NuStyle,
-    pub split_line: NuStyle,
     pub highlight: NuStyle,
-    pub selected_cell: Option<NuStyle>,
-    pub selected_column: Option<NuStyle>,
-    pub selected_row: Option<NuStyle>,
-    pub show_cursow: bool,
-    pub split_lines: TableSplitLines,
-}
-
-#[derive(Debug, Default, Clone)]
-pub struct TableSplitLines {
-    pub header_top: bool,
-    pub header_bottom: bool,
-    pub shift_line: bool,
-    pub index_line: bool,
 }
 
 impl<'a> Pager<'a> {
-    pub fn new(table_cfg: TableConfig, view_cfg: ViewConfig<'a>) -> Self {
+    pub fn new(config: PagerConfig<'a>) -> Self {
         Self {
+            config,
             cmd_buf: CommandBuf::default(),
             search_buf: SearchBuf::default(),
-            table_cfg,
-            view_cfg,
             message: None,
         }
     }
@@ -839,9 +838,17 @@ impl<'a> Pager<'a> {
         engine_state: &EngineState,
         stack: &mut Stack,
         ctrlc: CtrlC,
-        view: Option<Page>,
+        mut view: Option<Page>,
         commands: CommandList,
     ) -> Result<Option<Value>> {
+        if let Some(page) = &mut view {
+            page.view.setup(ViewConfig::new(
+                self.config.nu_config,
+                self.config.color_hm,
+                self.config.config,
+            ))
+        }
+
         run_pager(engine_state, stack, ctrlc, self, view, commands)
     }
 }

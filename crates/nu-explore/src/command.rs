@@ -6,7 +6,6 @@ use crate::{
         ViewCommand,
     },
     views::View,
-    TableConfig,
 };
 
 #[derive(Clone)]
@@ -54,12 +53,12 @@ macro_rules! cmd_react {
 }
 
 impl CommandList {
-    pub fn create_commands(table_cfg: TableConfig) -> Vec<(&'static str, Command)> {
+    pub fn create_commands() -> Vec<(&'static str, Command)> {
         vec![
-            cmd_view!(NuCmd::new(table_cfg)),
-            cmd_view!(TryCmd::new(table_cfg), true),
+            cmd_view!(NuCmd::new()),
+            cmd_view!(TryCmd::new(), true),
             cmd_view!(ExpandCmd::new(), true),
-            cmd_view!(TableCmd::new(table_cfg)),
+            cmd_view!(TableCmd::new()),
             cmd_react!(QuitCmd::default()),
         ]
     }
@@ -73,11 +72,11 @@ impl CommandList {
         ]
     }
 
-    pub fn new(table_cfg: TableConfig) -> Self {
-        let mut cmd_list = Self::create_commands(table_cfg);
+    pub fn new() -> Self {
+        let mut cmd_list = Self::create_commands();
         let aliases = Self::create_aliases();
 
-        let help_cmd = create_help_command(&cmd_list, &aliases, table_cfg);
+        let help_cmd = create_help_command(&cmd_list, &aliases);
 
         cmd_list.push(cmd_view!(help_cmd, true));
 
@@ -106,13 +105,15 @@ impl CommandList {
     }
 }
 
-fn create_help_command(
-    commands: &[(&str, Command)],
-    aliases: &[(&str, &str)],
-    table_cfg: TableConfig,
-) -> HelpCmd {
+impl Default for CommandList {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+fn create_help_command(commands: &[(&str, Command)], aliases: &[(&str, &str)]) -> HelpCmd {
     let help_manuals = create_help_manuals(commands);
-    HelpCmd::new(help_manuals, aliases, table_cfg)
+    HelpCmd::new(help_manuals, aliases)
 }
 
 fn parse_command(command: Option<Command>, args: &str) -> Option<std::io::Result<Command>> {

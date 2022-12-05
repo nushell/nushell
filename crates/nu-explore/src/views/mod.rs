@@ -11,9 +11,14 @@ use nu_protocol::{
 };
 use tui::layout::Rect;
 
+use crate::{
+    nu_common::{NuConfig, NuStyleTable},
+    pager::ConfigMap,
+};
+
 use super::{
     nu_common::NuText,
-    pager::{Frame, Transition, ViewConfig, ViewInfo},
+    pager::{Frame, Transition, ViewInfo},
 };
 
 pub use information::InformationView;
@@ -48,8 +53,25 @@ impl ElementInfo {
     }
 }
 
+#[derive(Debug, Clone, Copy)]
+pub struct ViewConfig<'a> {
+    nu_config: &'a NuConfig,
+    color_hm: &'a NuStyleTable,
+    config: &'a ConfigMap,
+}
+
+impl<'a> ViewConfig<'a> {
+    pub fn new(nu_config: &'a NuConfig, color_hm: &'a NuStyleTable, config: &'a ConfigMap) -> Self {
+        Self {
+            nu_config,
+            color_hm,
+            config,
+        }
+    }
+}
+
 pub trait View {
-    fn draw(&mut self, f: &mut Frame, area: Rect, cfg: &ViewConfig, layout: &mut Layout);
+    fn draw(&mut self, f: &mut Frame, area: Rect, cfg: ViewConfig<'_>, layout: &mut Layout);
 
     fn handle_input(
         &mut self,
@@ -71,10 +93,12 @@ pub trait View {
     fn exit(&mut self) -> Option<Value> {
         None
     }
+
+    fn setup(&mut self, _: ViewConfig<'_>) {}
 }
 
 impl View for Box<dyn View> {
-    fn draw(&mut self, f: &mut Frame, area: Rect, cfg: &ViewConfig, layout: &mut Layout) {
+    fn draw(&mut self, f: &mut Frame, area: Rect, cfg: ViewConfig<'_>, layout: &mut Layout) {
         self.as_mut().draw(f, area, cfg, layout)
     }
 
@@ -100,5 +124,9 @@ impl View for Box<dyn View> {
 
     fn show_data(&mut self, i: usize) -> bool {
         self.as_mut().show_data(i)
+    }
+
+    fn setup(&mut self, cfg: ViewConfig<'_>) {
+        self.as_mut().setup(cfg)
     }
 }

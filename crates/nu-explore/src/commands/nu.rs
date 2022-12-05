@@ -4,11 +4,12 @@ use nu_protocol::{
     engine::{EngineState, Stack},
     PipelineData, Value,
 };
+use tui::layout::Rect;
 
 use crate::{
     nu_common::{collect_pipeline, has_simple_value, is_ignored_command, run_nu_command},
-    pager::TableConfig,
-    views::{Preview, RecordView, View},
+    pager::Frame,
+    views::{Layout, Preview, RecordView, View, ViewConfig},
 };
 
 use super::{HelpExample, HelpManual, ViewCommand};
@@ -16,14 +17,12 @@ use super::{HelpExample, HelpManual, ViewCommand};
 #[derive(Debug, Default, Clone)]
 pub struct NuCmd {
     command: String,
-    table_cfg: TableConfig,
 }
 
 impl NuCmd {
-    pub fn new(table_cfg: TableConfig) -> Self {
+    pub fn new() -> Self {
         Self {
             command: String::new(),
-            table_cfg,
         }
     }
 
@@ -101,11 +100,10 @@ impl ViewCommand for NuCmd {
             return Ok(NuView::Preview(Preview::new(&text)));
         }
 
-        let mut view = RecordView::new(columns, values, self.table_cfg);
+        let mut view = RecordView::new(columns, values);
 
         if is_record {
             view.transpose();
-            view.show_head(false);
         }
 
         Ok(NuView::Records(view))
@@ -118,13 +116,7 @@ pub enum NuView<'a> {
 }
 
 impl View for NuView<'_> {
-    fn draw(
-        &mut self,
-        f: &mut crate::pager::Frame,
-        area: tui::layout::Rect,
-        cfg: &crate::ViewConfig,
-        layout: &mut crate::views::Layout,
-    ) {
+    fn draw(&mut self, f: &mut Frame, area: Rect, cfg: ViewConfig<'_>, layout: &mut Layout) {
         match self {
             NuView::Records(v) => v.draw(f, area, cfg, layout),
             NuView::Preview(v) => v.draw(f, area, cfg, layout),
@@ -135,7 +127,7 @@ impl View for NuView<'_> {
         &mut self,
         engine_state: &EngineState,
         stack: &mut Stack,
-        layout: &crate::views::Layout,
+        layout: &Layout,
         info: &mut crate::pager::ViewInfo,
         key: crossterm::event::KeyEvent,
     ) -> Option<crate::pager::Transition> {

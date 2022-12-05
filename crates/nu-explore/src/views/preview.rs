@@ -10,10 +10,10 @@ use tui::layout::Rect;
 
 use crate::{
     nu_common::{NuSpan, NuText},
-    pager::{Frame, Report, Severity, Transition, ViewConfig, ViewInfo},
+    pager::{Frame, Report, Severity, Transition, ViewInfo},
 };
 
-use super::{coloredtextw::ColoredTextW, Layout, View};
+use super::{coloredtextw::ColoredTextW, Layout, View, ViewConfig};
 
 // todo: Add wrap option
 #[derive(Debug)]
@@ -41,7 +41,7 @@ impl Preview {
 }
 
 impl View for Preview {
-    fn draw(&mut self, f: &mut Frame, area: Rect, _: &ViewConfig, layout: &mut Layout) {
+    fn draw(&mut self, f: &mut Frame, area: Rect, _: ViewConfig<'_>, layout: &mut Layout) {
         if self.i_row >= self.lines.len() {
             f.render_widget(tui::widgets::Clear, area);
             return;

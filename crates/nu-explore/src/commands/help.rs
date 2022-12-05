@@ -7,11 +7,12 @@ use nu_protocol::{
     engine::{EngineState, Stack},
     Value,
 };
+use tui::layout::Rect;
 
 use crate::{
     nu_common::{collect_input, NuSpan},
-    pager::TableConfig,
-    views::{Preview, RecordView, View},
+    pager::Frame,
+    views::{Layout, Preview, RecordView, View, ViewConfig},
 };
 
 use super::{HelpExample, HelpManual, ViewCommand};
@@ -19,7 +20,6 @@ use super::{HelpExample, HelpManual, ViewCommand};
 #[derive(Debug, Default, Clone)]
 pub struct HelpCmd {
     input_command: String,
-    table_cfg: TableConfig,
     supported_commands: Vec<HelpManual>,
     aliases: HashMap<String, Vec<String>>,
 }
@@ -53,18 +53,13 @@ To jump over them use "<n>" key.
 You also can make a reverse search by using "?" instead of "/".
 "#;
 
-    pub fn new(
-        commands: Vec<HelpManual>,
-        aliases: &[(&str, &str)],
-        table_cfg: TableConfig,
-    ) -> Self {
+    pub fn new(commands: Vec<HelpManual>, aliases: &[(&str, &str)]) -> Self {
         let aliases = collect_aliases(aliases);
 
         Self {
             input_command: String::new(),
             supported_commands: commands,
             aliases,
-            table_cfg,
         }
     }
 }
@@ -133,7 +128,7 @@ impl ViewCommand for HelpCmd {
 
         if self.input_command == ":" {
             let (headers, data) = help_frame_data(&self.supported_commands, &self.aliases);
-            let view = RecordView::new(headers, data, self.table_cfg);
+            let view = RecordView::new(headers, data);
             return Ok(HelpView::Records(view));
         }
 
@@ -154,7 +149,7 @@ impl ViewCommand for HelpCmd {
             .map(|l| l.as_slice())
             .unwrap_or(&[]);
         let (headers, data) = help_manual_data(manual, aliases);
-        let view = RecordView::new(headers, data, self.table_cfg);
+        let view = RecordView::new(headers, data);
 
         Ok(HelpView::Records(view))
     }
@@ -269,13 +264,7 @@ pub enum HelpView<'a> {
 }
 
 impl View for HelpView<'_> {
-    fn draw(
-        &mut self,
-        f: &mut crate::pager::Frame,
-        area: tui::layout::Rect,
-        cfg: &crate::ViewConfig,
-        layout: &mut crate::views::Layout,
-    ) {
+    fn draw(&mut self, f: &mut Frame, area: Rect, cfg: ViewConfig<'_>, layout: &mut Layout) {
         match self {
             HelpView::Records(v) => v.draw(f, area, cfg, layout),
             HelpView::Preview(v) => v.draw(f, area, cfg, layout),
@@ -286,7 +275,7 @@ impl View for HelpView<'_> {
         &mut self,
         engine_state: &EngineState,
         stack: &mut Stack,
-        layout: &crate::views::Layout,
+        layout: &Layout,
         info: &mut crate::pager::ViewInfo,
         key: crossterm::event::KeyEvent,
     ) -> Option<crate::pager::Transition> {
