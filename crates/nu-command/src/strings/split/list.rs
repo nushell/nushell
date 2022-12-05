@@ -95,6 +95,24 @@ impl Command for SubCommand {
                     span: Span::test_data(),
                 }),
             },
+            Example {
+                description: "Split a list of chars into two lists",
+                example: "[a, b, c, d, e, f, g] | split list a",
+                result: Some(Value::List {
+                    vals: vec![Value::List {
+                        vals: vec![
+                            Value::test_string("b"),
+                            Value::test_string("c"),
+                            Value::test_string("d"),
+                            Value::test_string("e"),
+                            Value::test_string("f"),
+                            Value::test_string("g"),
+                        ],
+                        span: Span::test_data(),
+                    }],
+                    span: Span::test_data(),
+                }),
+            },
         ]
     }
 }
@@ -110,12 +128,14 @@ fn split_list(
     let mut returned_list = Vec::new();
     let iter = input.into_interruptible_iter(engine_state.ctrlc.clone());
     for val in iter {
-        if val == separator && !temp_list.is_empty() {
-            returned_list.push(Value::List {
-                vals: temp_list.clone(),
-                span: call.head,
-            });
-            temp_list = Vec::new();
+        if val == separator {
+            if !temp_list.is_empty() {
+                returned_list.push(Value::List {
+                    vals: temp_list.clone(),
+                    span: call.head,
+                });
+                temp_list = Vec::new();
+            }
         } else {
             temp_list.push(val);
         }
