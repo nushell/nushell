@@ -279,6 +279,7 @@ fn handle_key_event_view_mode(view: &mut RecordView, key: &KeyEvent) -> Option<T
         }
         KeyCode::Char('t') => {
             view.transpose();
+            view.show_head = true;
 
             Some(Transition::Ok)
         }
@@ -395,7 +396,18 @@ fn handle_key_event_cursor_mode(view: &mut RecordView, key: &KeyEvent) -> Option
         }
         KeyCode::Enter => {
             let next_layer = get_peeked_layer(view);
+
+            let layer = view.get_layer_last();
+            let value = layer.get_current_value(view.cursor);
+            let is_record = matches!(value, Value::Record { .. });
+
             push_layer(view, next_layer);
+
+            if is_record {
+                view.transpose();
+                view.show_head(false);
+            }
+
             Some(Transition::Ok)
         }
         _ => None,
