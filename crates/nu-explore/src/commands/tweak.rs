@@ -33,14 +33,14 @@ impl SimpleCommand for TweakCmd {
 
     fn help(&self) -> Option<HelpManual> {
         Some(HelpManual {
-            name: "tweek",
-            description: "Tweek different settings",
+            name: "tweak",
+            description: "Tweak different settings",
             arguments: vec![],
             examples: vec![
-                HelpExample::new(":tweek table show_index false", "Don't show index anymore"),
-                HelpExample::new(":tweek table show_head false", "Don't show header anymore"),
+                HelpExample::new(":tweak table show_index false", "Don't show index anymore"),
+                HelpExample::new(":tweak table show_head false", "Don't show header anymore"),
                 HelpExample::new(
-                    ":tweek try border_color {bg: '#FFFFFF', fg: '#F213F1'}",
+                    ":tweak try border_color {bg: '#FFFFFF', fg: '#F213F1'}",
                     "Make a different color for borders in :try",
                 ),
             ],
