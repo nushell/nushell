@@ -11,7 +11,10 @@ jobs:
     strategy:
       fail-fast: true
       matrix:
-        platform: [windows-latest, macos-latest, ubuntu-latest]
+        # Pinning to Ubuntu 20.04 because building on newer Ubuntu versions causes linux-gnu
+        # builds to link against a too-new-for-many-Linux-installs glibc version. Consider
+        # revisiting this when 20.04 is closer to EOL (April 2025)
+        platform: [windows-latest, macos-latest, ubuntu-20.04]
         rust:
           - stable
 
@@ -44,7 +47,7 @@ jobs:
     strategy:
       fail-fast: true
       matrix:
-        platform: [windows-latest, macos-latest, ubuntu-latest]
+        platform: [windows-latest, macos-latest, ubuntu-20.04]
         style: [default, dataframe]
         rust:
           - stable
@@ -81,7 +84,7 @@ jobs:
     strategy:
       fail-fast: true
       matrix:
-        platform: [ubuntu-latest, macos-latest, windows-latest]
+        platform: [ubuntu-20.04, macos-latest, windows-latest]
         rust:
           - stable
         py:
@@ -125,7 +128,7 @@ jobs:
     strategy:
       fail-fast: true
       matrix:
-        platform: [windows-latest, macos-latest, ubuntu-latest]
+        platform: [windows-latest, macos-latest, ubuntu-20.04]
         rust:
           - stable
 
