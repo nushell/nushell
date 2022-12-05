@@ -284,7 +284,32 @@ fn run_command(
             let result = command.react(engine_state, stack, pager, value);
             match result {
                 Ok(transition) => match transition {
-                    Transition::Ok => Ok(false),
+                    Transition::Ok => {
+                        // so we basically allow a change of a config inside a command,
+                        // and cause of this we wanna update all of our views.
+                        //
+                        // THOUGH: MOST LIKELY IT WON'T BE CHANGED AND WE DO A WASTE.......
+
+                        {
+                            if let Some(page) = view.as_mut() {
+                                page.view.setup(ViewConfig::new(
+                                    pager.config.nu_config,
+                                    pager.config.color_hm,
+                                    &pager.config.config,
+                                ));
+                            }
+
+                            for page in view_stack {
+                                page.view.setup(ViewConfig::new(
+                                    pager.config.nu_config,
+                                    pager.config.color_hm,
+                                    &pager.config.config,
+                                ));
+                            }
+                        }
+
+                        Ok(false)
+                    }
                     Transition::Exit => Ok(true),
                     Transition::Cmd { .. } => todo!("not used so far"),
                 },
