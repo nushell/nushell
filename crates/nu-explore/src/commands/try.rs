@@ -1,4 +1,4 @@
-use std::io::Result;
+use std::io::{Error, ErrorKind, Result};
 
 use nu_protocol::{
     engine::{EngineState, Stack},
@@ -66,13 +66,15 @@ impl ViewCommand for TryCmd {
 
     fn spawn(
         &mut self,
-        _: &EngineState,
-        _: &mut Stack,
+        engine_state: &EngineState,
+        stack: &mut Stack,
         value: Option<Value>,
     ) -> Result<Self::View> {
         let value = value.unwrap_or_default();
         let mut view = InteractiveView::new(value, self.table_cfg);
         view.init(self.command.clone());
+        view.try_run(engine_state, stack)
+            .map_err(|e| Error::new(ErrorKind::Other, e))?;
 
         Ok(view)
     }

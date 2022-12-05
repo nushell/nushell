@@ -41,6 +41,19 @@ impl<'a> InteractiveView<'a> {
     pub fn init(&mut self, command: String) {
         self.command = command;
     }
+
+    pub fn try_run(&mut self, engine_state: &EngineState, stack: &mut Stack) -> Result<(), String> {
+        let view = run_command(
+            &self.command,
+            &self.input,
+            self.table_cfg,
+            engine_state,
+            stack,
+        )?;
+
+        self.table = Some(view);
+        Ok(())
+    }
 }
 
 impl View for InteractiveView<'_> {
@@ -181,35 +194,8 @@ impl View for InteractiveView<'_> {
                 Some(Transition::Ok)
             }
             KeyCode::Enter => {
-                if is_ignored_command(&self.command) {
-                    info.report = Some(Report::error(String::from("The command is ignored")));
-                    return Some(Transition::Ok);
-                }
-
-                let pipeline = PipelineData::Value(self.input.clone(), None);
-                let pipeline = run_nu_command(engine_state, stack, &self.command, pipeline);
-
-                match pipeline {
-                    Ok(pipeline_data) => {
-                        let is_record =
-                            matches!(pipeline_data, PipelineData::Value(Value::Record { .. }, ..));
-
-                        let (columns, values) = collect_pipeline(pipeline_data);
-
-                        let mut view = RecordView::new(columns, values, self.table_cfg);
-                        if is_record {
-                            view.transpose();
-                            view.show_head(false);
-                        }
-
-                        self.table = Some(view);
-
-                        // in case there was a error before wanna reset it.
-                        info.report = Some(Report::default());
-                    }
-                    Err(err) => {
-                        info.report = Some(Report::error(format!("Error: {}", err)));
-                    }
+                if let Err(err) = self.try_run(engine_state, stack) {
+                    info.report = Some(Report::error(format!("Error: {}", err)))
                 }
 
                 Some(Transition::Ok)
@@ -230,5 +216,36 @@ impl View for InteractiveView<'_> {
 
     fn show_data(&mut self, i: usize) -> bool {
         self.table.as_mut().map_or(false, |v| v.show_data(i))
+    }
+}
+
+fn run_command(
+    command: &str,
+    input: &Value,
+    table_cfg: TableConfig,
+    engine_state: &EngineState,
+    stack: &mut Stack,
+) -> Result<RecordView<'static>, String> {
+    if is_ignored_command(command) {
+        return Err(String::from("the command is ignored"));
+    }
+
+    let pipeline = PipelineData::Value(input.clone(), None);
+    let pipeline = run_nu_command(engine_state, stack, command, pipeline);
+    match pipeline {
+        Ok(pipeline_data) => {
+            let is_record = matches!(pipeline_data, PipelineData::Value(Value::Record { .. }, ..));
+
+            let (columns, values) = collect_pipeline(pipeline_data);
+
+            let mut view = RecordView::new(columns, values, table_cfg);
+            if is_record {
+                view.transpose();
+                view.show_head(false);
+            }
+
+            Ok(view)
+        }
+        Err(err) => Err(err.to_string()),
     }
 }
