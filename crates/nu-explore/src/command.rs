@@ -59,7 +59,6 @@ impl CommandList {
             cmd_view!(TryCmd::new(), true),
             cmd_view!(ExpandCmd::new(), true),
             cmd_view!(TableCmd::new()),
-
             cmd_react!(QuitCmd::default()),
             cmd_react!(TweekCmd::default()),
         ]
