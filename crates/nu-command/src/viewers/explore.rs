@@ -169,15 +169,15 @@ fn style_from_config(config: &HashMap<String, Value>) -> StyleConfig {
     if let Some(hm) = config.get("status").and_then(create_map) {
         let colors = get_color_map(&hm);
 
-        if let Some(s) = colors.get("status_info") {
+        if let Some(s) = colors.get("info") {
             style.status_info = *s;
         }
 
-        if let Some(s) = colors.get("status_warn") {
+        if let Some(s) = colors.get("warn") {
             style.status_warn = *s;
         }
 
-        if let Some(s) = colors.get("status_error") {
+        if let Some(s) = colors.get("error") {
             style.status_error = *s;
         }
     }

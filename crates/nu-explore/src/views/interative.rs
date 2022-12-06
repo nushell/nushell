@@ -26,6 +26,7 @@ use super::{
 pub struct InteractiveView<'a> {
     input: Value,
     command: String,
+    imidiate: bool,
     border_color: NuStyle,
     highlighted_color: NuStyle,
     table: Option<RecordView<'a>>,
@@ -38,6 +39,7 @@ impl<'a> InteractiveView<'a> {
         Self {
             input,
             table: None,
+            imidiate: false,
             table_theme: TableTheme::default(),
             border_color: NuStyle::default(),
             highlighted_color: NuStyle::default(),
@@ -188,12 +190,29 @@ impl View for InteractiveView<'_> {
             KeyCode::Backspace => {
                 if !self.command.is_empty() {
                     self.command.pop();
+
+                    if self.imidiate {
+                        match self.try_run(engine_state, stack) {
+                            Ok(_) => info.report = Some(Report::default()),
+                            Err(err) => {
+                                info.report = Some(Report::error(format!("Error: {}", err)))
+                            }
+                        }
+                    }
                 }
 
                 Some(Transition::Ok)
             }
             KeyCode::Char(c) => {
                 self.command.push(*c);
+
+                if self.imidiate {
+                    match self.try_run(engine_state, stack) {
+                        Ok(_) => info.report = Some(Report::default()),
+                        Err(err) => info.report = Some(Report::error(format!("Error: {}", err))),
+                    }
+                }
+
                 Some(Transition::Ok)
             }
             KeyCode::Down | KeyCode::Tab => {
@@ -204,8 +223,9 @@ impl View for InteractiveView<'_> {
                 Some(Transition::Ok)
             }
             KeyCode::Enter => {
-                if let Err(err) = self.try_run(engine_state, stack) {
-                    info.report = Some(Report::error(format!("Error: {}", err)))
+                match self.try_run(engine_state, stack) {
+                    Ok(_) => info.report = Some(Report::default()),
+                    Err(err) => info.report = Some(Report::error(format!("Error: {}", err))),
                 }
 
                 Some(Transition::Ok)
@@ -244,6 +264,10 @@ impl View for InteractiveView<'_> {
                 && self.highlighted_color == NuStyle::default()
             {
                 self.highlighted_color = self.border_color;
+            }
+
+            if let Some(val) = hm.get("reactive").and_then(|v| v.as_bool().ok()) {
+                self.imidiate = val;
             }
         }
 

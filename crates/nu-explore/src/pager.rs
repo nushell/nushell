@@ -876,11 +876,9 @@ impl<'a> Pager<'a> {
             ["status_bar"] => value_as_style(&mut self.config.style.status_bar, &value),
             ["command_bar"] => value_as_style(&mut self.config.style.cmd_bar, &value),
             ["highlight"] => value_as_style(&mut self.config.style.highlight, &value),
-            ["status", "status_info"] => value_as_style(&mut self.config.style.status_info, &value),
-            ["status", "status_warn"] => value_as_style(&mut self.config.style.status_warn, &value),
-            ["status", "status_error"] => {
-                value_as_style(&mut self.config.style.status_error, &value)
-            }
+            ["status", "info"] => value_as_style(&mut self.config.style.status_info, &value),
+            ["status", "warn"] => value_as_style(&mut self.config.style.status_warn, &value),
+            ["status", "error"] => value_as_style(&mut self.config.style.status_error, &value),
             path => set_config(&mut self.config.config, path, value),
         }
     }

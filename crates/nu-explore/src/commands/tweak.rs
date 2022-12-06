@@ -51,20 +51,16 @@ impl SimpleCommand for TweakCmd {
     fn parse(&mut self, input: &str) -> Result<()> {
         let input = input.trim();
 
-        let args = input
-            .split_whitespace()
-            .filter(|s| !s.trim().is_empty())
-            .collect::<Vec<_>>();
-
-        if args.len() < 2 {
-            return Err(io::Error::new(
-                io::ErrorKind::Other,
-                "expected to get 2 arguments 'key value'",
-            ));
-        }
-
-        let key = args[0];
-        let value = args[1];
+        let args = input.split_once(' ');
+        let (key, value) = match args {
+            Some(args) => args,
+            None => {
+                return Err(io::Error::new(
+                    io::ErrorKind::Other,
+                    "expected to get 2 arguments 'key value'",
+                ))
+            }
+        };
 
         self.value = parse_value(value);
 
