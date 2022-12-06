@@ -42,7 +42,9 @@ pub fn run_pager(
         return p.run(engine_state, stack, ctrlc, view, commands);
     }
 
-    p.show_message("For help type :help");
+    if config.show_banner {
+        p.show_message("For help type :help");
+    }
 
     if has_simple_value(&data) {
         let text = data[0][0].into_abbreviated_string(config.nu_config);

@@ -74,25 +74,10 @@ impl Command for Explore {
 
         let mut config = nu_config.explore.clone();
         prepare_default_config(&mut config);
+        update_config(&mut config, show_index, show_head);
 
-        {
-            let mut hm = config.get("table").and_then(create_map).unwrap_or_default();
-
-            if show_index {
-                insert_bool(&mut hm, "show_index", show_index);
-            }
-
-            if show_head {
-                insert_bool(&mut hm, "show_head", show_head);
-            }
-
-            config.insert(String::from("table"), map_into_value(hm));
-        }
-
-        let exit_esc = config
-            .get("exit_esc")
-            .and_then(|v| v.as_bool().ok())
-            .unwrap_or(false);
+        let show_banner = is_need_banner(&config).unwrap_or(true);
+        let exit_esc = is_need_esc_exit(&config).unwrap_or(false);
 
         let style = style_from_config(&config);
 
@@ -102,6 +87,7 @@ impl Command for Explore {
         config.peek_value = peek_value;
         config.reverse = is_reverse;
         config.exit_esc = exit_esc;
+        config.show_banner = show_banner;
 
         let result = run_pager(engine_state, stack, ctrlc, input, config);
 
@@ -140,6 +126,27 @@ impl Command for Explore {
             },
         ]
     }
+}
+
+fn is_need_banner(config: &HashMap<String, Value>) -> Option<bool> {
+    config.get("help_banner").and_then(|v| v.as_bool().ok())
+}
+
+fn is_need_esc_exit(config: &HashMap<String, Value>) -> Option<bool> {
+    config.get("exit_esc").and_then(|v| v.as_bool().ok())
+}
+
+fn update_config(config: &mut HashMap<String, Value>, show_index: bool, show_head: bool) {
+    let mut hm = config.get("table").and_then(create_map).unwrap_or_default();
+    if show_index {
+        insert_bool(&mut hm, "show_index", show_index);
+    }
+
+    if show_head {
+        insert_bool(&mut hm, "show_head", show_head);
+    }
+
+    config.insert(String::from("table"), map_into_value(hm));
 }
 
 fn style_from_config(config: &HashMap<String, Value>) -> StyleConfig {

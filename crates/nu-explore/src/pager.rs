@@ -14,7 +14,7 @@ use crossterm::{
         LeaveAlternateScreen,
     },
 };
-use nu_color_config::style_primitive;
+use nu_color_config::{lookup_ansi_color_style, style_primitive};
 use nu_protocol::{
     engine::{EngineState, Stack},
     Value,
@@ -73,6 +73,7 @@ pub struct PagerConfig<'a> {
     pub peek_value: bool,
     pub exit_esc: bool,
     pub reverse: bool,
+    pub show_banner: bool,
 }
 
 impl<'a> PagerConfig<'a> {
@@ -84,6 +85,7 @@ impl<'a> PagerConfig<'a> {
             peek_value: false,
             exit_esc: false,
             reverse: false,
+            show_banner: false,
             style: StyleConfig::default(),
         }
     }
@@ -860,7 +862,27 @@ impl<'a> Pager<'a> {
     }
 
     pub fn set_config(&mut self, path: &[String], value: Value) -> bool {
-        set_config(&mut self.config.config, path, value)
+        let path = path.iter().map(|s| s.as_str()).collect::<Vec<_>>();
+
+        match &path[..] {
+            ["exit_esc"] => {
+                if matches!(value, Value::Bool { .. }) {
+                    self.config.exit_esc = value.is_true();
+                    true
+                } else {
+                    false
+                }
+            }
+            ["status_bar"] => value_as_style(&mut self.config.style.status_bar, &value),
+            ["command_bar"] => value_as_style(&mut self.config.style.cmd_bar, &value),
+            ["highlight"] => value_as_style(&mut self.config.style.highlight, &value),
+            ["status", "status_info"] => value_as_style(&mut self.config.style.status_info, &value),
+            ["status", "status_warn"] => value_as_style(&mut self.config.style.status_warn, &value),
+            ["status", "status_error"] => {
+                value_as_style(&mut self.config.style.status_error, &value)
+            }
+            path => set_config(&mut self.config.config, path, value),
+        }
     }
 
     pub fn run(
@@ -883,12 +905,22 @@ impl<'a> Pager<'a> {
     }
 }
 
-fn set_config(hm: &mut HashMap<String, Value>, path: &[String], value: Value) -> bool {
+fn value_as_style(style: &mut nu_ansi_term::Style, value: &Value) -> bool {
+    match value.as_string() {
+        Ok(s) => {
+            *style = lookup_ansi_color_style(&s);
+            true
+        }
+        Err(_) => false,
+    }
+}
+
+fn set_config(hm: &mut HashMap<String, Value>, path: &[&str], value: Value) -> bool {
     if path.is_empty() {
         return false;
     }
 
-    let key = &path[0];
+    let key = path[0];
     let val = match hm.get_mut(key) {
         Some(val) => val,
         None => return false,
@@ -914,7 +946,7 @@ fn set_config(hm: &mut HashMap<String, Value>, path: &[String], value: Value) ->
                         vals[i] = value;
                     }
                     None => {
-                        cols.push(key.clone());
+                        cols.push(key.to_string());
                         vals.push(value);
                     }
                 }
