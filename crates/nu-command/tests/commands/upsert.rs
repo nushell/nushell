@@ -105,5 +105,5 @@ fn upsert_empty() {
         r#"[] | upsert 1 1"#
     ));
 
-    assert!(actual.err.contains("index too large (empty content)"));
+    assert!(actual.err.contains("index too large (max: 0)"));
 }
