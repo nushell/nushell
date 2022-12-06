@@ -34,13 +34,13 @@ impl SimpleCommand for TweakCmd {
     fn help(&self) -> Option<HelpManual> {
         Some(HelpManual {
             name: "tweak",
-            description: "Tweak different settings",
+            description: "Set settings",
             arguments: vec![],
             examples: vec![
-                HelpExample::new(":tweak table show_index false", "Don't show index anymore"),
-                HelpExample::new(":tweak table show_head false", "Don't show header anymore"),
+                HelpExample::new(":tweak table.show_index false", "Don't show index anymore"),
+                HelpExample::new(":tweak table.show_head false", "Don't show header anymore"),
                 HelpExample::new(
-                    ":tweak try border_color {bg: '#FFFFFF', fg: '#F213F1'}",
+                    ":tweak try.border_color {bg: '#FFFFFF', fg: '#F213F1'}",
                     "Make a different color for borders in :try",
                 ),
             ],
@@ -59,17 +59,19 @@ impl SimpleCommand for TweakCmd {
         if args.len() < 2 {
             return Err(io::Error::new(
                 io::ErrorKind::Other,
-                "expected to get at least 2 arguments",
+                "expected to get 2 arguments 'key value'",
             ));
         }
 
-        let path = &args[..args.len() - 1];
-        let value = args[args.len() - 1];
+        let key = args[0];
+        let value = args[1];
 
-        let value = parse_value(value);
+        self.value = parse_value(value);
 
-        self.path = path.iter().map(|s| s.to_string()).collect();
-        self.value = value;
+        self.path = key
+            .split_terminator('.')
+            .map(|s| s.to_string())
+            .collect::<Vec<_>>();
 
         Ok(())
     }
