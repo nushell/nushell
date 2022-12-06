@@ -1997,28 +1997,22 @@ pub fn parse_full_cell_path(
         );
         error = error.or(err);
 
-        if !tail.is_empty() {
-            (
-                Expression {
-                    ty: head.ty.clone(), // FIXME. How to access the last type of tail?
-                    expr: Expr::FullCellPath(Box::new(FullCellPath { head, tail })),
-                    span: full_cell_span,
-                    custom_completion: None,
+        (
+            Expression {
+                // FIXME: Get the type of the data at the tail using follow_cell_path() (or something)
+                ty: if !tail.is_empty() {
+                    // Until the aforementioned fix is implemented, this is necessary to allow mutable list upserts
+                    // such as $a.1 = 2 to work correctly.
+                    Type::Any
+                } else {
+                    head.ty.clone()
                 },
-                error,
-            )
-        } else {
-            let ty = head.ty.clone();
-            (
-                Expression {
-                    expr: Expr::FullCellPath(Box::new(FullCellPath { head, tail })),
-                    ty,
-                    span: full_cell_span,
-                    custom_completion: None,
-                },
-                error,
-            )
-        }
+                expr: Expr::FullCellPath(Box::new(FullCellPath { head, tail })),
+                span: full_cell_span,
+                custom_completion: None,
+            },
+            error,
+        )
     } else {
         (garbage(span), error)
     }
