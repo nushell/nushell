@@ -383,7 +383,8 @@ impl<'a> TableW<'a> {
         state.count_columns = 0;
 
         for (i, col) in (self.index_column..self.data.len()).enumerate() {
-            let mut column = self.data[col][self.index_row..columns.len()].to_vec();
+            let mut column =
+                self.data[col][self.index_row..self.index_row + columns.len()].to_vec();
             let column_width = calculate_column_width(&column);
             if column_width > u16::MAX as usize {
                 break;
