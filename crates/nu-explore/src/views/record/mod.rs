@@ -20,7 +20,7 @@ use crate::{
     views::ElementInfo,
 };
 
-use self::tablew::{TableStyle, TableW, TableWState};
+use self::tablew::{Orientation, TableStyle, TableW, TableWState};
 
 use super::{Layout, View, ViewConfig};
 
@@ -29,6 +29,7 @@ pub struct RecordView<'a> {
     layer_stack: Vec<RecordLayer<'a>>,
     mode: UIMode,
     pub(crate) cursor: Position,
+    orientation: Orientation,
     theme: TableTheme,
     state: RecordViewState,
 }
@@ -42,6 +43,7 @@ impl<'a> RecordView<'a> {
             layer_stack: vec![RecordLayer::new(columns, records)],
             mode: UIMode::View,
             cursor: Position::new(0, 0),
+            orientation: Orientation::Right,
             theme: TableTheme::default(),
             state: RecordViewState::default(),
         }
@@ -82,6 +84,34 @@ impl<'a> RecordView<'a> {
             .expect("we guarantee that 1 entry is always in a list")
     }
 
+    pub fn count_columns(&self) -> usize {
+        use Orientation::*;
+
+        match self.orientation {
+            Top | Bottom => self.get_layer_last().count_columns(),
+            Left | Right => self.get_layer_last().count_rows(),
+        }
+    }
+
+    pub fn count_rows(&self) -> usize {
+        use Orientation::*;
+
+        match self.orientation {
+            Top | Bottom => self.get_layer_last().count_rows(),
+            Left | Right => self.get_layer_last().count_columns(),
+        }
+    }
+
+    pub fn set_orientation(&mut self, orientation: Orientation) {
+        self.orientation = orientation;
+
+        // we need to reset all indexes as we can't no more use them.
+        for layer in &mut self.layer_stack {
+            layer.index_column = 0;
+            layer.index_row = 0;
+        }
+    }
+
     fn create_tablew<'b>(&self, layer: &'b RecordLayer, cfg: ViewConfig<'b>) -> TableW<'b> {
         let data = convert_records_to_string(&layer.records, cfg.nu_config, cfg.color_hm);
 
@@ -90,7 +120,15 @@ impl<'a> RecordView<'a> {
         let i_row = layer.index_row;
         let i_column = layer.index_column;
 
-        TableW::new(headers, data, color_hm, i_row, i_column, self.theme.table)
+        TableW::new(
+            headers,
+            data,
+            color_hm,
+            i_row,
+            i_column,
+            self.theme.table,
+            self.orientation,
+        )
     }
 }
 
@@ -187,6 +225,16 @@ impl View for RecordView<'_> {
     fn setup(&mut self, cfg: ViewConfig<'_>) {
         if let Some(hm) = cfg.config.get("table").and_then(create_map) {
             self.theme = theme_from_config(&hm);
+
+            if let Some(orientation) = hm.get("orientation").and_then(|v| v.as_string().ok()) {
+                match orientation.as_str() {
+                    "left" => self.set_orientation(Orientation::Left),
+                    "right" => self.set_orientation(Orientation::Right),
+                    "top" => self.set_orientation(Orientation::Top),
+                    "bottom" => self.set_orientation(Orientation::Bottom),
+                    _ => {}
+                }
+            }
         }
     }
 }
@@ -284,8 +332,8 @@ fn handle_key_event_view_mode(view: &mut RecordView, key: &KeyEvent) -> Option<T
             Some(Transition::Ok)
         }
         KeyCode::Down => {
+            let max_index = view.count_rows().saturating_sub(1);
             let layer = view.get_layer_last_mut();
-            let max_index = layer.count_rows().saturating_sub(1);
             layer.index_row = min(layer.index_row + 1, max_index);
 
             Some(Transition::Ok)
@@ -297,24 +345,24 @@ fn handle_key_event_view_mode(view: &mut RecordView, key: &KeyEvent) -> Option<T
             Some(Transition::Ok)
         }
         KeyCode::Right => {
+            let max_index = view.count_columns().saturating_sub(1);
             let layer = view.get_layer_last_mut();
-            let max_index = layer.count_columns().saturating_sub(1);
             layer.index_column = min(layer.index_column + 1, max_index);
 
             Some(Transition::Ok)
         }
         KeyCode::PageUp => {
-            let count_rows = view.state.count_rows;
+            let page_size = view.state.count_rows as usize;
             let layer = view.get_layer_last_mut();
-            layer.index_row = layer.index_row.saturating_sub(count_rows as usize);
+            layer.index_row = layer.index_row.saturating_sub(page_size);
 
             Some(Transition::Ok)
         }
         KeyCode::PageDown => {
-            let count_rows = view.state.count_rows;
+            let page_size = view.state.count_rows as usize;
+            let max_index = view.count_rows().saturating_sub(1);
             let layer = view.get_layer_last_mut();
-            let max_index = layer.count_rows().saturating_sub(1);
-            layer.index_row = min(layer.index_row + count_rows as usize, max_index);
+            layer.index_row = min(layer.index_row + page_size, max_index);
 
             Some(Transition::Ok)
         }
@@ -343,9 +391,9 @@ fn handle_key_event_cursor_mode(view: &mut RecordView, key: &KeyEvent) -> Option
         KeyCode::Down => {
             let cursor = view.cursor;
             let showed_rows = view.state.count_rows;
-            let layer = view.get_layer_last_mut();
+            let total_rows = view.count_rows();
 
-            let total_rows = layer.count_rows();
+            let layer = view.get_layer_last_mut();
             let row_index = layer.index_row + cursor.y as usize + 1;
 
             if row_index < total_rows {
@@ -373,9 +421,9 @@ fn handle_key_event_cursor_mode(view: &mut RecordView, key: &KeyEvent) -> Option
         KeyCode::Right => {
             let cursor = view.cursor;
             let showed_columns = view.state.count_columns;
-            let layer = view.get_layer_last_mut();
+            let total_columns = view.count_columns();
 
-            let total_columns = layer.count_columns();
+            let layer = view.get_layer_last_mut();
             let column_index = layer.index_column + cursor.x as usize + 1;
 
             if column_index < total_columns {
