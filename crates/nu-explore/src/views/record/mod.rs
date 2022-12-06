@@ -20,15 +20,17 @@ use crate::{
     views::ElementInfo,
 };
 
-use self::tablew::{Orientation, TableStyle, TableW, TableWState};
+use self::tablew::{TableStyle, TableW, TableWState};
 
 use super::{Layout, View, ViewConfig};
+
+pub use self::tablew::Orientation;
 
 #[derive(Debug, Clone)]
 pub struct RecordView<'a> {
     layer_stack: Vec<RecordLayer<'a>>,
     mode: UIMode,
-    pub(crate) cursor: Position,
+    cursor: Position,
     orientation: Orientation,
     theme: TableTheme,
     state: RecordViewState,
@@ -43,7 +45,7 @@ impl<'a> RecordView<'a> {
             layer_stack: vec![RecordLayer::new(columns, records)],
             mode: UIMode::View,
             cursor: Position::new(0, 0),
-            orientation: Orientation::Right,
+            orientation: Orientation::Top,
             theme: TableTheme::default(),
             state: RecordViewState::default(),
         }
@@ -87,7 +89,8 @@ impl<'a> RecordView<'a> {
     pub fn count_columns(&self) -> usize {
         use Orientation::*;
 
-        match self.orientation {
+        let layer = self.get_layer_last();
+        match layer.orientation {
             Top | Bottom => self.get_layer_last().count_columns(),
             Left | Right => self.get_layer_last().count_rows(),
         }
@@ -96,7 +99,8 @@ impl<'a> RecordView<'a> {
     pub fn count_rows(&self) -> usize {
         use Orientation::*;
 
-        match self.orientation {
+        let layer = self.get_layer_last();
+        match layer.orientation {
             Top | Bottom => self.get_layer_last().count_rows(),
             Left | Right => self.get_layer_last().count_columns(),
         }
@@ -110,6 +114,40 @@ impl<'a> RecordView<'a> {
             layer.index_column = 0;
             layer.index_row = 0;
         }
+    }
+
+    pub fn set_orientation_current(&mut self, orientation: Orientation) {
+        let layer = self.get_layer_last_mut();
+        layer.orientation = orientation;
+
+        // we need to reset all indexes as we can't no more use them.
+        for layer in &mut self.layer_stack {
+            layer.index_column = 0;
+            layer.index_row = 0;
+        }
+    }
+
+    pub fn get_cursor(&self) -> (usize, usize) {
+        (self.cursor.y as usize, self.cursor.x as usize)
+    }
+
+    pub fn start_row(&self) -> usize {
+        self.get_layer_last().index_row
+    }
+
+    pub fn get_current_value(&self) -> Value {
+        let Position { x, y } = self.cursor;
+        let layer = self.get_layer_last();
+
+        let row = y as usize + layer.index_row;
+        let column = x as usize + layer.index_column;
+
+        let (row, column) = match layer.orientation {
+            Orientation::Top | Orientation::Bottom => (row, column),
+            Orientation::Left | Orientation::Right => (column, row),
+        };
+
+        layer.records[row][column].clone()
     }
 
     fn create_tablew<'b>(&self, layer: &'b RecordLayer, cfg: ViewConfig<'b>) -> TableW<'b> {
@@ -127,7 +165,7 @@ impl<'a> RecordView<'a> {
             i_row,
             i_column,
             self.theme.table,
-            self.orientation,
+            layer.orientation,
         )
     }
 }
@@ -249,8 +287,9 @@ enum UIMode {
 pub struct RecordLayer<'a> {
     columns: Cow<'a, [String]>,
     records: Cow<'a, [Vec<Value>]>,
-    pub(crate) index_row: usize,
-    pub(crate) index_column: usize,
+    index_row: usize,
+    index_column: usize,
+    orientation: Orientation,
     name: Option<String>,
     was_transposed: bool,
 }
@@ -265,6 +304,7 @@ impl<'a> RecordLayer<'a> {
             records: records.into(),
             index_row: 0,
             index_column: 0,
+            orientation: Orientation::Top,
             name: None,
             was_transposed: false,
         }
@@ -280,14 +320,6 @@ impl<'a> RecordLayer<'a> {
 
     fn count_columns(&self) -> usize {
         self.columns.len()
-    }
-
-    fn get_current_value(&self, Position { x, y }: Position) -> Value {
-        let current_row = y as usize + self.index_row;
-        let current_column = x as usize + self.index_column;
-
-        let row = self.records[current_row].clone();
-        row[current_column].clone()
     }
 
     fn get_current_header(&self, Position { x, .. }: Position) -> Option<String> {
@@ -437,16 +469,16 @@ fn handle_key_event_cursor_mode(view: &mut RecordView, key: &KeyEvent) -> Option
             Some(Transition::Ok)
         }
         KeyCode::Enter => {
-            let next_layer = get_peeked_layer(view);
-
-            let layer = view.get_layer_last();
-            let value = layer.get_current_value(view.cursor);
+            let value = view.get_current_value();
             let is_record = matches!(value, Value::Record { .. });
+            let next_layer = create_layer(value);
 
             push_layer(view, next_layer);
 
             if is_record {
-                view.transpose();
+                view.set_orientation_current(Orientation::Left);
+            } else {
+                view.set_orientation_current(view.orientation);
             }
 
             Some(Transition::Ok)
@@ -455,11 +487,7 @@ fn handle_key_event_cursor_mode(view: &mut RecordView, key: &KeyEvent) -> Option
     }
 }
 
-fn get_peeked_layer(view: &RecordView) -> RecordLayer<'static> {
-    let layer = view.get_layer_last();
-
-    let value = layer.get_current_value(view.cursor);
-
+fn create_layer(value: Value) -> RecordLayer<'static> {
     let (columns, values) = collect_input(value);
 
     RecordLayer::new(columns, values)

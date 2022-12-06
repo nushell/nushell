@@ -24,7 +24,7 @@ use super::{
 pub use information::InformationView;
 pub use interative::InteractiveView;
 pub use preview::Preview;
-pub use record::{RecordView, RecordViewState};
+pub use record::{Orientation, RecordView, RecordViewState};
 
 #[derive(Debug, Default)]
 pub struct Layout {

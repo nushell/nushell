@@ -14,7 +14,7 @@ use nu_protocol::{
 };
 use pager::{Page, Pager};
 use terminal_size::{Height, Width};
-use views::{InformationView, Preview, RecordView};
+use views::{InformationView, Orientation, Preview, RecordView};
 
 pub use pager::{PagerConfig, StyleConfig};
 
@@ -54,7 +54,7 @@ pub fn run_pager(
     let mut view = RecordView::new(columns, data);
 
     if is_record {
-        view.transpose();
+        view.set_orientation_current(Orientation::Left);
     }
 
     if config.reverse {

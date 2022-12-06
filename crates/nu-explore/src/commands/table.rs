@@ -5,7 +5,10 @@ use nu_protocol::{
     Value,
 };
 
-use crate::{nu_common::collect_input, views::RecordView};
+use crate::{
+    nu_common::collect_input,
+    views::{Orientation, RecordView},
+};
 
 use super::{HelpManual, Shortcode, ViewCommand};
 
@@ -75,7 +78,7 @@ impl ViewCommand for TableCmd {
         let mut view = RecordView::new(columns, data);
 
         if is_record {
-            view.transpose();
+            view.set_orientation_current(Orientation::Left);
         }
 
         Ok(view)

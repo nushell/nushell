@@ -212,8 +212,6 @@ fn prepare_default_config(config: &mut HashMap<String, Value>) {
 
     const TABLE_SELECT_COLUMN: Style = color(None, None);
 
-    const TABLE_ORIENTATION: &str = "top";
-
     const TRY_BORDER_COLOR: Style = color(None, None);
 
     insert_style(config, "status_bar", STATUS_BAR);
@@ -249,7 +247,6 @@ fn prepare_default_config(config: &mut HashMap<String, Value>) {
         insert_bool(&mut hm, "line_head_bottom", TABLE_LINE_HEADER_BOTTOM);
         insert_bool(&mut hm, "line_shift", TABLE_LINE_SHIFT);
         insert_bool(&mut hm, "line_index", TABLE_LINE_INDEX);
-        insert_str(&mut hm, "orientation", TABLE_ORIENTATION);
 
         config.insert(String::from("table"), map_into_value(hm));
     }
@@ -312,17 +309,6 @@ fn insert_bool(map: &mut HashMap<String, Value>, key: &str, value: bool) {
     }
 
     map.insert(String::from(key), Value::boolean(value, Span::unknown()));
-}
-
-fn insert_str(map: &mut HashMap<String, Value>, key: &str, value: impl Into<String>) {
-    if map.contains_key(key) {
-        return;
-    }
-
-    map.insert(
-        String::from(key),
-        Value::string(value.into(), Span::unknown()),
-    );
 }
 
 fn convert_json_value_into_value(value: nu_json::Value) -> Value {

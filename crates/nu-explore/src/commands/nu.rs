@@ -9,7 +9,7 @@ use tui::layout::Rect;
 use crate::{
     nu_common::{collect_pipeline, has_simple_value, is_ignored_command, run_nu_command},
     pager::Frame,
-    views::{Layout, Preview, RecordView, View, ViewConfig},
+    views::{Layout, Orientation, Preview, RecordView, View, ViewConfig},
 };
 
 use super::{HelpExample, HelpManual, ViewCommand};
@@ -103,7 +103,7 @@ impl ViewCommand for NuCmd {
         let mut view = RecordView::new(columns, values);
 
         if is_record {
-            view.transpose();
+            view.set_orientation_current(Orientation::Left);
         }
 
         Ok(NuView::Records(view))

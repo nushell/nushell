@@ -383,7 +383,7 @@ impl<'a> TableW<'a> {
         state.count_columns = 0;
 
         for (i, col) in (self.index_column..self.data.len()).enumerate() {
-            let mut column = self.data[col][self.index_row..].to_vec();
+            let mut column = self.data[col][self.index_row..columns.len()].to_vec();
             let column_width = calculate_column_width(&column);
             if column_width > u16::MAX as usize {
                 break;
@@ -398,14 +398,21 @@ impl<'a> TableW<'a> {
                 print_split_line: true,
                 width: column_width,
             };
-            let is_last = col + 1 == self.columns.len();
+            let is_last = col + 1 == self.data.len();
             let control = truncate_column(&mut column, None, available, is_last, ctrl);
 
             let column_width = control.width;
-
             do_render_shift_column = control.print_shift_column;
 
-            if control.break_everything {
+            if control.break_everything || column_width == 1 {
+                break;
+            }
+
+            // check whether we will have a enough space just in case...
+            let rest = area.width.saturating_sub(left_w + right_w);
+            let has_space = rest > 1 + CELL_PADDING_LEFT + CELL_PADDING_RIGHT;
+            if !is_last && !has_space {
+                do_render_shift_column = true;
                 break;
             }
 
