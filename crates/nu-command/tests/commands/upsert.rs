@@ -87,3 +87,23 @@ fn uses_optional_index_argument_updating() {
 
     assert_eq!(actual.out, "[[a]; [8], [8]]");
 }
+
+#[test]
+fn index_does_not_exist() {
+    let actual = nu!(
+        cwd: ".", pipeline(
+        r#"[1,2,3] | upsert 4 4"#
+    ));
+
+    assert!(actual.err.contains("index too large (max: 3)"));
+}
+
+#[test]
+fn upsert_empty() {
+    let actual = nu!(
+        cwd: ".", pipeline(
+        r#"[] | upsert 1 1"#
+    ));
+
+    assert!(actual.err.contains("index too large (max: 0)"));
+}

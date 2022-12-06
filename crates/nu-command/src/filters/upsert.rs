@@ -169,7 +169,7 @@ fn upsert(
                 if let Some(v) = input.next() {
                     pre_elems.push(v);
                 } else {
-                    return Err(ShellError::AccessBeyondEnd(idx - 1, *span));
+                    return Err(ShellError::AccessBeyondEnd(idx, *span));
                 }
             }
 
