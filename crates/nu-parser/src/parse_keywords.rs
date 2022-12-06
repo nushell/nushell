@@ -3221,9 +3221,10 @@ pub fn parse_where2_expr(
         return (garbage(span(row_condition_spans)), Some(e));
     }
 
-    let block_id = match expression.expr {
-        Expr::Block(block_id) => block_id,
-        Expr::Closure(block_id) => block_id,
+    let expr = match expression.expr {
+        Expr::Block(block_id) => Expr::Block(block_id),
+        Expr::Closure(block_id) => Expr::Closure(block_id),
+        Expr::FullCellPath(cell_path) => Expr::FullCellPath(cell_path), // can be a closure stored in a variable
         _ => {
             // We have an expression, so let's convert this into a block.
             let mut block = Block::new();
@@ -3242,7 +3243,8 @@ pub fn parse_where2_expr(
                 default_value: None,
             });
 
-            working_set.add_block(block)
+            let block_id = working_set.add_block(block);
+            Expr::Closure(block_id)
         }
     };
 
@@ -3251,7 +3253,7 @@ pub fn parse_where2_expr(
     let mut call_with_block = call;
 
     call_with_block.add_positional(Expression {
-        expr: Expr::Closure(block_id),
+        expr,
         span: span(row_condition_spans),
         ty: Type::Any,
         custom_completion: None,

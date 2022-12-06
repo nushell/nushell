@@ -43,8 +43,8 @@ impl Command for Where2 {
         input: PipelineData,
     ) -> Result<nu_protocol::PipelineData, nu_protocol::ShellError> {
         let closure: Closure = if let Some(id_expression) = call.positional_iter().last() {
-            let result = eval_expression(engine_state, stack, id_expression)?;
-            FromValue::from_value(&result)?
+            let value = eval_expression(engine_state, stack, id_expression)?;
+            FromValue::from_value(&value)?
         } else {
             return Err(ShellError::NushellFailedSpanned(
                 "Missing row condition block".to_string(),
@@ -140,7 +140,7 @@ impl Command for Where2 {
             },
             Example {
                 description: "Filter items of a list according to a stored condition",
-                example: "let cond = {|x| $x > 1}; [1 2] | where2 -b $cond",
+                example: "let cond = {|x| $x > 1}; [1 2] | where2 $cond",
                 result: Some(Value::List {
                     vals: vec![Value::test_int(2)],
                     span: Span::test_data(),
