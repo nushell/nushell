@@ -786,6 +786,11 @@ fn theme_from_config(config: &ConfigMap) -> TableTheme {
     theme.table.show_header = config_get_bool(config, "show_head", true);
     theme.table.show_index = config_get_bool(config, "show_index", true);
 
+    theme.table.padding_index_left = config_get_usize(config, "padding_index_left", 2);
+    theme.table.padding_index_right = config_get_usize(config, "padding_index_right", 1);
+    theme.table.padding_column_left = config_get_usize(config, "padding_column_left", 2);
+    theme.table.padding_column_right = config_get_usize(config, "padding_column_right", 2);
+
     theme
 }
 
@@ -793,6 +798,14 @@ fn config_get_bool(config: &ConfigMap, key: &str, default: bool) -> bool {
     config
         .get(key)
         .and_then(|v| v.as_bool().ok())
+        .unwrap_or(default)
+}
+
+fn config_get_usize(config: &ConfigMap, key: &str, default: usize) -> usize {
+    config
+        .get(key)
+        .and_then(|v| v.as_string().ok())
+        .and_then(|s| s.parse::<usize>().ok())
         .unwrap_or(default)
 }
 

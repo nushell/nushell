@@ -44,6 +44,10 @@ pub struct TableStyle {
     pub header_bottom: bool,
     pub shift_line: bool,
     pub index_line: bool,
+    pub padding_index_left: usize,
+    pub padding_index_right: usize,
+    pub padding_column_left: usize,
+    pub padding_column_right: usize,
 }
 
 impl<'a> TableW<'a> {
@@ -98,8 +102,10 @@ impl StatefulWidget for TableW<'_> {
 // todo: refactoring these to methods as they have quite a bit in common.
 impl<'a> TableW<'a> {
     fn render_table_horizontal(self, area: Rect, buf: &mut Buffer, state: &mut TableWState) {
-        const CELL_PADDING_LEFT: u16 = 2;
-        const CELL_PADDING_RIGHT: u16 = 2;
+        let padding_cell_l = self.style.padding_column_left as u16;
+        let padding_cell_r = self.style.padding_column_right as u16;
+        let padding_index_l = self.style.padding_index_left as u16;
+        let padding_index_r = self.style.padding_index_right as u16;
 
         let show_index = self.style.show_index;
         let show_head = self.style.show_header;
@@ -172,7 +178,14 @@ impl<'a> TableW<'a> {
 
         if show_index {
             let area = Rect::new(width, data_y, area.width, data_height);
-            width += render_index(buf, area, self.color_hm, self.index_row);
+            width += render_index(
+                buf,
+                area,
+                self.color_hm,
+                self.index_row,
+                padding_index_l,
+                padding_index_r,
+            );
 
             if self.style.index_line {
                 let head_t = show_head && is_head_top && self.style.header_bottom;
@@ -229,23 +242,23 @@ impl<'a> TableW<'a> {
                 let header = &[head_row_text(&head, self.color_hm)];
 
                 let mut w = width;
-                w += render_space(buf, w, head_y, 1, CELL_PADDING_LEFT);
+                w += render_space(buf, w, head_y, 1, padding_cell_l);
                 w += render_column(buf, w, head_y, use_space, header);
-                render_space(buf, w, head_y, 1, CELL_PADDING_RIGHT);
+                render_space(buf, w, head_y, 1, padding_cell_r);
 
-                let x = w - CELL_PADDING_RIGHT - use_space;
+                let x = w - padding_cell_r - use_space;
                 state.layout.push(&header[0].0, x, head_y, use_space, 1);
 
                 // it would be nice to add it so it would be available on search
                 // state.state.data_index.insert((i, col), ElementInfo::new(text, x, data_y, use_space, 1));
             }
 
-            width += render_space(buf, width, data_y, data_height, CELL_PADDING_LEFT);
+            width += render_space(buf, width, data_y, data_height, padding_cell_l);
             width += render_column(buf, width, data_y, use_space, &column);
-            width += render_space(buf, width, data_y, data_height, CELL_PADDING_RIGHT);
+            width += render_space(buf, width, data_y, data_height, padding_cell_r);
 
             for (row, (text, _)) in column.iter().enumerate() {
-                let x = width - CELL_PADDING_RIGHT - use_space;
+                let x = width - padding_cell_r - use_space;
                 let y = data_y + row as u16;
                 state.layout.push(text, x, y, use_space, 1);
 
@@ -266,9 +279,9 @@ impl<'a> TableW<'a> {
             // render_shift_column(buf, used_width, head_offset, available_height);
 
             if show_head {
-                width += render_space(buf, width, data_y, data_height, CELL_PADDING_LEFT);
+                width += render_space(buf, width, data_y, data_height, padding_cell_l);
                 width += render_shift_column(buf, width, head_y, 1, splitline_s);
-                width += render_space(buf, width, data_y, data_height, CELL_PADDING_RIGHT);
+                width += render_space(buf, width, data_y, data_height, padding_cell_r);
             }
         }
 
@@ -288,12 +301,14 @@ impl<'a> TableW<'a> {
     }
 
     fn render_table_vertical(self, area: Rect, buf: &mut Buffer, state: &mut TableWState) {
+        let padding_cell_l = self.style.padding_column_left as u16;
+        let padding_cell_r = self.style.padding_column_right as u16;
+        let padding_index_l = self.style.padding_index_left as u16;
+        let padding_index_r = self.style.padding_index_right as u16;
+
         if area.width == 0 || area.height == 0 {
             return;
         }
-
-        const CELL_PADDING_LEFT: u16 = 2;
-        const CELL_PADDING_RIGHT: u16 = 2;
 
         let show_index = self.style.show_index;
         let show_head = self.style.show_header;
@@ -307,7 +322,14 @@ impl<'a> TableW<'a> {
 
         if show_index {
             let area = Rect::new(area.x, area.y, area.width, area.height);
-            left_w += render_index(buf, area, self.color_hm, self.index_row);
+            left_w += render_index(
+                buf,
+                area,
+                self.color_hm,
+                self.index_row,
+                padding_index_l,
+                padding_index_r,
+            );
 
             if self.style.index_line {
                 let x = area.x + left_w;
@@ -323,10 +345,8 @@ impl<'a> TableW<'a> {
         if show_head {
             let columns_width = columns.iter().map(|s| string_width(s)).max().unwrap_or(0);
 
-            let will_use_space = CELL_PADDING_LEFT as usize
-                + CELL_PADDING_RIGHT as usize
-                + columns_width
-                + left_w as usize;
+            let will_use_space =
+                padding_cell_l as usize + padding_cell_r as usize + columns_width + left_w as usize;
             if will_use_space > area.width as usize {
                 return;
             }
@@ -345,11 +365,11 @@ impl<'a> TableW<'a> {
                 }
 
                 let x = area.x + left_w;
-                left_w += render_space(buf, x, area.y, 1, CELL_PADDING_LEFT);
+                left_w += render_space(buf, x, area.y, 1, padding_cell_l);
                 let x = area.x + left_w;
                 left_w += render_column(buf, x, area.y, columns_width as u16, &columns);
                 let x = area.x + left_w;
-                left_w += render_space(buf, x, area.y, 1, CELL_PADDING_RIGHT);
+                left_w += render_space(buf, x, area.y, 1, padding_cell_r);
 
                 if self.style.header_bottom {
                     let x = area.x + left_w;
@@ -363,12 +383,12 @@ impl<'a> TableW<'a> {
                         render_vertical(buf, x, area.y, area.height, false, false, splitline_s);
                 }
 
-                let x = area.x + area.width - right_w - CELL_PADDING_RIGHT;
-                right_w += render_space(buf, x, area.y, 1, CELL_PADDING_RIGHT);
+                let x = area.x + area.width - right_w - padding_cell_r;
+                right_w += render_space(buf, x, area.y, 1, padding_cell_r);
                 let x = area.x + area.width - right_w - columns_width as u16;
                 right_w += render_column(buf, x, area.y, columns_width as u16, &columns);
-                let x = area.x + area.width - right_w - CELL_PADDING_LEFT;
-                right_w += render_space(buf, x, area.y, 1, CELL_PADDING_LEFT);
+                let x = area.x + area.width - right_w - padding_cell_l;
+                right_w += render_space(buf, x, area.y, 1, padding_cell_l);
 
                 if self.style.header_top {
                     let x = area.x + area.width - right_w - 1;
@@ -412,21 +432,21 @@ impl<'a> TableW<'a> {
 
             // check whether we will have a enough space just in case...
             let rest = area.width.saturating_sub(left_w + right_w);
-            let has_space = rest > 1 + CELL_PADDING_LEFT + CELL_PADDING_RIGHT;
+            let has_space = rest > 1 + padding_cell_l + padding_cell_r;
             if !is_last && !has_space {
                 do_render_shift_column = true;
                 break;
             }
 
             let x = area.x + left_w;
-            left_w += render_space(buf, x, area.y, area.height, CELL_PADDING_LEFT);
+            left_w += render_space(buf, x, area.y, area.height, padding_cell_l);
             let x = area.x + left_w;
             left_w += render_column(buf, x, area.y, column_width, &column);
             let x = area.x + left_w;
-            left_w += render_space(buf, x, area.y, area.height, CELL_PADDING_RIGHT);
+            left_w += render_space(buf, x, area.y, area.height, padding_cell_r);
 
             for (row, (text, _)) in column.iter().enumerate() {
-                let x = left_w - CELL_PADDING_RIGHT - column_width;
+                let x = left_w - padding_cell_r - column_width;
                 let y = area.y + row as u16;
                 state.layout.push(text, x, y, column_width, 1);
 
@@ -443,11 +463,11 @@ impl<'a> TableW<'a> {
 
         if do_render_shift_column {
             let x = area.x + left_w;
-            left_w += render_space(buf, x, area.y, area.height, CELL_PADDING_LEFT);
+            left_w += render_space(buf, x, area.y, area.height, padding_cell_l);
             let x = area.x + left_w;
             left_w += render_shift_column(buf, x, area.y, area.height, splitline_s);
             let x = area.x + left_w;
-            left_w += render_space(buf, x, area.y, area.height, CELL_PADDING_RIGHT);
+            left_w += render_space(buf, x, area.y, area.height, padding_cell_r);
         }
 
         let rest = area.width.saturating_sub(left_w + right_w);
@@ -522,11 +542,15 @@ fn render_header_borders(
     (height.saturating_sub(2), height)
 }
 
-fn render_index(buf: &mut Buffer, area: Rect, color_hm: &NuStyleTable, start_index: usize) -> u16 {
-    const PADDING_LEFT: u16 = 2;
-    const PADDING_RIGHT: u16 = 1;
-
-    let mut width = render_space(buf, area.x, area.y, area.height, PADDING_LEFT);
+fn render_index(
+    buf: &mut Buffer,
+    area: Rect,
+    color_hm: &NuStyleTable,
+    start_index: usize,
+    padding_left: u16,
+    padding_right: u16,
+) -> u16 {
+    let mut width = render_space(buf, area.x, area.y, area.height, padding_left);
 
     let index = IndexColumn::new(color_hm, start_index);
     let w = index.estimate_width(area.height) as u16;
@@ -535,7 +559,7 @@ fn render_index(buf: &mut Buffer, area: Rect, color_hm: &NuStyleTable, start_ind
     index.render(area, buf);
 
     width += w;
-    width += render_space(buf, area.x + width, area.y, area.height, PADDING_RIGHT);
+    width += render_space(buf, area.x + width, area.y, area.height, padding_right);
 
     width
 }
