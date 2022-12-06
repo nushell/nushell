@@ -3157,7 +3157,7 @@ pub fn parse_where2_expr(
         return (
             garbage(span(spans)),
             Some(ParseError::MissingPositional(
-                "block".into(),
+                "row condition".into(),
                 span(spans),
                 "where2 ...row_condition".into(),
             )),
