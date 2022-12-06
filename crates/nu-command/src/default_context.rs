@@ -137,6 +137,7 @@ pub fn create_default_context() -> EngineState {
             Update,
             UpdateCells,
             Where,
+            Where2,
             Window,
             Wrap,
             Zip,

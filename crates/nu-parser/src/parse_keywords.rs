@@ -1,3 +1,4 @@
+use crate::parser::parse_math_expression;
 use nu_path::canonicalize_with;
 use nu_protocol::{
     ast::{
@@ -3128,6 +3129,151 @@ pub fn parse_source(
             span(spans),
         )),
     )
+}
+
+pub fn parse_where2_expr(
+    working_set: &mut StateWorkingSet,
+    spans: &[Span],
+    expand_aliases_denylist: &[usize],
+) -> (Expression, Option<ParseError>) {
+    // where has two forms:
+    // 1. where <expr>
+    //   * let closure = {|row| $row.name !~ 'foo' }; ls | where $closure
+    //   * ls | where {|row| $row.name !~ 'foo' }
+    // 2. where <expr> <op> <expr>
+    //   * ls | where name !~ 'foo'
+    //   * ls | where $it.name !~ 'foo
+    if !spans.is_empty() && working_set.get_span_contents(spans[0]) != b"where2" {
+        return (
+            garbage(span(spans)),
+            Some(ParseError::UnknownState(
+                "internal error: Wrong call name for 'where2' command".into(),
+                span(spans),
+            )),
+        );
+    }
+
+    if spans.len() < 2 {
+        return (
+            garbage(span(spans)),
+            Some(ParseError::MissingPositional(
+                "block".into(),
+                span(spans),
+                "where2 ...row_condition".into(),
+            )),
+        );
+    }
+
+    let call = match working_set.find_decl(b"where2", &Type::Any) {
+        Some(decl_id) => {
+            let ParsedInternalCall {
+                call,
+                error: mut err,
+                output,
+            } = parse_internal_call(
+                working_set,
+                spans[0],
+                &spans[1..],
+                decl_id,
+                expand_aliases_denylist,
+            );
+            let decl = working_set.get_decl(decl_id);
+
+            let call_span = span(spans);
+
+            err = check_call(call_span, &decl.signature(), &call).or(err);
+            if err.is_some() || call.has_flag("help") {
+                return (
+                    Expression {
+                        expr: Expr::Call(call),
+                        span: call_span,
+                        ty: output,
+                        custom_completion: None,
+                    },
+                    err,
+                );
+            }
+
+            call
+        }
+        None => {
+            return (
+                garbage(span(spans)),
+                Some(ParseError::UnknownState(
+                    "internal error: 'where2' declaration not found".into(),
+                    span(spans),
+                )),
+            )
+        }
+    };
+
+    let row_condition_spans = &spans[1..];
+
+    let var_id = working_set.add_variable(b"$it".to_vec(), span(spans), Type::Any, false);
+    let (expression, err) = parse_math_expression(
+        working_set,
+        row_condition_spans,
+        Some(var_id),
+        expand_aliases_denylist,
+    );
+
+    if let Some(e) = err {
+        return (garbage(span(row_condition_spans)), Some(e));
+    }
+
+    let block_id = match expression.expr {
+        Expr::Block(block_id) => block_id,
+        Expr::Closure(block_id) => block_id,
+        _ => {
+            // We have an expression, so let's convert this into a block.
+            let mut block = Block::new();
+            let mut pipeline = Pipeline::new();
+            pipeline
+                .elements
+                .push(PipelineElement::Expression(None, expression));
+
+            block.pipelines.push(pipeline);
+
+            block.signature.required_positional.push(PositionalArg {
+                name: "$it".into(),
+                desc: "row condition".into(),
+                shape: SyntaxShape::Any,
+                var_id: Some(var_id),
+                default_value: None,
+            });
+
+            working_set.add_block(block)
+        }
+    };
+
+    // Using the same trick as with 'source': Sneak in the block ID for the evaluator as a
+    // positional parameter.
+    let mut call_with_block = call;
+
+    call_with_block.add_positional(Expression {
+        expr: Expr::Closure(block_id),
+        span: span(row_condition_spans),
+        ty: Type::Any,
+        custom_completion: None,
+    });
+
+    let expression = Expression {
+        expr: Expr::Call(call_with_block),
+        span: span(spans),
+        ty: Type::Any,
+        custom_completion: None,
+    };
+
+    (expression, None)
+}
+
+pub fn parse_where2(
+    working_set: &mut StateWorkingSet,
+    spans: &[Span],
+    expand_aliases_denylist: &[usize],
+) -> (Pipeline, Option<ParseError>) {
+    let (expression, err) = parse_where2_expr(working_set, spans, expand_aliases_denylist);
+    (Pipeline::from_vec(vec![expression]), err)
 }
 
 #[cfg(feature = "plugin")]

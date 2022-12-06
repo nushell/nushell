@@ -17,7 +17,8 @@ use nu_protocol::{
 
 use crate::parse_keywords::{
     parse_alias, parse_def, parse_def_predecl, parse_export_in_block, parse_extern, parse_for,
-    parse_hide, parse_let, parse_module, parse_overlay, parse_source, parse_use,
+    parse_hide, parse_let, parse_module, parse_overlay, parse_source, parse_use, parse_where2,
+    parse_where2_expr,
 };
 
 use itertools::Itertools;
@@ -4995,6 +4996,7 @@ pub fn parse_expression(
                     spans[0],
                 )),
             ),
+            b"where2" => parse_where2_expr(working_set, &spans[pos..], expand_aliases_denylist),
             #[cfg(feature = "plugin")]
             b"register" => (
                 parse_call(
@@ -5130,6 +5132,7 @@ pub fn parse_builtin_commands(
         }
         b"export" => parse_export_in_block(working_set, lite_command, expand_aliases_denylist),
         b"hide" => parse_hide(working_set, &lite_command.parts, expand_aliases_denylist),
+        b"where2" => parse_where2(working_set, &lite_command.parts, expand_aliases_denylist),
         #[cfg(feature = "plugin")]
         b"register" => parse_register(working_set, &lite_command.parts, expand_aliases_denylist),
         _ => {
