@@ -95,7 +95,7 @@ fn index_does_not_exist() {
         r#"[1,2,3] | upsert 4 4"#
     ));
 
-    assert!(actual.err.contains("index too large"));
+    assert!(actual.err.contains("index too large (max: 3)"));
 }
 
 #[test]
