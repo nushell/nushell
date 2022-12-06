@@ -265,12 +265,17 @@ impl View for RecordView<'_> {
             self.theme = theme_from_config(&hm);
 
             if let Some(orientation) = hm.get("orientation").and_then(|v| v.as_string().ok()) {
-                match orientation.as_str() {
-                    "left" => self.set_orientation(Orientation::Left),
-                    "right" => self.set_orientation(Orientation::Right),
-                    "top" => self.set_orientation(Orientation::Top),
-                    "bottom" => self.set_orientation(Orientation::Bottom),
-                    _ => {}
+                let orientation = match orientation.as_str() {
+                    "left" => Some(Orientation::Left),
+                    "right" => Some(Orientation::Right),
+                    "top" => Some(Orientation::Top),
+                    "bottom" => Some(Orientation::Bottom),
+                    _ => None,
+                };
+
+                if let Some(orientation) = orientation {
+                    self.set_orientation(orientation);
+                    self.set_orientation_current(orientation);
                 }
             }
         }
