@@ -64,5 +64,5 @@ fn eval_source2(
         block.pipelines.drain(..block.pipelines.len() - 1);
     }
 
-    eval_block(engine_state, stack, &block, input, false, false)
+    eval_block(engine_state, stack, &block, input, true, true)
 }

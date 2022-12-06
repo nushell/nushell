@@ -45,7 +45,7 @@ pub fn collect_pipeline(input: PipelineData) -> (Vec<String>, Vec<Vec<Value>>) {
                 );
 
                 columns.push(String::from("stdout"));
-                data.push(vec![value]);
+                data.push(value);
             }
 
             if let Some(stderr) = stderr {
@@ -55,29 +55,32 @@ pub fn collect_pipeline(input: PipelineData) -> (Vec<String>, Vec<Vec<Value>>) {
                 );
 
                 columns.push(String::from("stderr"));
-                data.push(vec![value]);
+                data.push(value);
             }
 
             if let Some(exit_code) = exit_code {
                 let list = exit_code.collect::<Vec<_>>();
+                let val = Value::List { vals: list, span };
 
                 columns.push(String::from("exit_code"));
-                data.push(list);
+                data.push(val);
             }
 
             if metadata.is_some() {
-                columns.push(String::from("metadata"));
-                data.push(vec![Value::Record {
+                let val = Value::Record {
                     cols: vec![String::from("data_source")],
                     vals: vec![Value::String {
                         val: String::from("ls"),
                         span,
                     }],
                     span,
-                }]);
+                };
+
+                columns.push(String::from("metadata"));
+                data.push(val);
             }
 
-            (columns, data)
+            (columns, vec![data])
         }
     }
 }

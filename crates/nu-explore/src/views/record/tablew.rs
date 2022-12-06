@@ -186,6 +186,7 @@ impl<'a> TableW<'a> {
         let mut do_render_shift_column = false;
         state.count_rows = data.len();
         state.count_columns = 0;
+
         for (i, col) in (self.index_column..self.columns.len()).enumerate() {
             let mut head = String::from(&self.columns[col]);
 

@@ -90,6 +90,10 @@ impl ViewCommand for NuCmd {
         let pipeline = run_nu_command(engine_state, stack, &self.command, pipeline)
             .map_err(|e| io::Error::new(io::ErrorKind::Other, e))?;
 
+        if let PipelineData::Value(Value::Error { error }, ..) = pipeline {
+            return Err(io::Error::new(io::ErrorKind::Other, error.to_string()));
+        }
+
         let is_record = matches!(pipeline, PipelineData::Value(Value::Record { .. }, ..));
 
         let (columns, values) = collect_pipeline(pipeline);

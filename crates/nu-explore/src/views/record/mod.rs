@@ -106,6 +106,10 @@ impl<'a> RecordView<'a> {
         }
     }
 
+    pub fn get_orientation_current(&mut self) -> Orientation {
+        self.get_layer_last().orientation
+    }
+
     pub fn set_orientation(&mut self, orientation: Orientation) {
         self.orientation = orientation;
 

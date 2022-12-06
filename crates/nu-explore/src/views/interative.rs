@@ -278,6 +278,8 @@ impl View for InteractiveView<'_> {
 
         if let Some(view) = &mut self.table {
             view.set_theme(self.table_theme.clone());
+            view.set_orientation(r.get_orientation_current());
+            view.set_orientation_current(r.get_orientation_current());
         }
     }
 }
@@ -296,6 +298,10 @@ fn run_command(
     let pipeline = run_nu_command(engine_state, stack, command, pipeline);
     match pipeline {
         Ok(pipeline_data) => {
+            if let PipelineData::Value(Value::Error { error }, ..) = pipeline_data {
+                return Err(error.to_string());
+            }
+
             let is_record = matches!(pipeline_data, PipelineData::Value(Value::Record { .. }, ..));
 
             let (columns, values) = collect_pipeline(pipeline_data);
