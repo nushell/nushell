@@ -121,7 +121,7 @@ fn switch_shell(
 
     stack.add_env_var("PWD".into(), new_path);
 
-    Ok(PipelineData::new(call.head))
+    Ok(PipelineData::empty())
 }
 
 fn list_shells(

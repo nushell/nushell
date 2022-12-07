@@ -5,6 +5,7 @@ use super::NuSpan;
 
 pub fn collect_pipeline(input: PipelineData) -> (Vec<String>, Vec<Vec<Value>>) {
     match input {
+        PipelineData::Empty => (vec![], vec![]),
         PipelineData::Value(value, ..) => collect_input(value),
         PipelineData::ListStream(mut stream, ..) => {
             let mut records = vec![];

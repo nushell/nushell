@@ -59,7 +59,7 @@ mod test_examples {
         let delta = {
             // Base functions that are needed for testing
             // Try to keep this working set small to keep tests running as fast as possible
-            let mut working_set = StateWorkingSet::new(&*engine_state);
+            let mut working_set = StateWorkingSet::new(&engine_state);
             working_set.add_decl(Box::new(Let));
             working_set.add_decl(Box::new(Str));
             working_set.add_decl(Box::new(StrJoin));
@@ -215,10 +215,10 @@ mod test_examples {
         );
 
         engine_state
-            .merge_env(&mut stack, &cwd)
+            .merge_env(&mut stack, cwd)
             .expect("Error merging environment");
 
-        let empty_input = PipelineData::new(Span::test_data());
+        let empty_input = PipelineData::empty();
         let result = eval(example.example, empty_input, cwd, engine_state);
 
         // Note. Value implements PartialEq for Bool, Int, Float, String and Block
@@ -320,7 +320,7 @@ mod test_examples {
                 block.pipelines[0].elements.truncate(&n_expressions - 1);
 
                 if !block.pipelines[0].elements.is_empty() {
-                    let empty_input = PipelineData::new(Span::test_data());
+                    let empty_input = PipelineData::empty();
                     Some(eval_block(block, empty_input, cwd, engine_state, delta))
                 } else {
                     Some(Value::nothing(Span::test_data()))

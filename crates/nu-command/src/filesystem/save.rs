@@ -2,8 +2,7 @@ use nu_engine::CallExt;
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
-    Category, Example, PipelineData, RawStream, ShellError, Signature, Span, Spanned, SyntaxShape,
-    Value,
+    Category, Example, PipelineData, RawStream, ShellError, Signature, Spanned, SyntaxShape, Value,
 };
 use std::fs::File;
 use std::io::{BufWriter, Write};
@@ -160,7 +159,7 @@ impl Command for Save {
                         file.flush()?
                     }
 
-                    Ok(PipelineData::new(span))
+                    Ok(PipelineData::empty())
                 }
                 Value::Binary { val, .. } => {
                     if let Err(err) = file.write_all(&val) {
@@ -169,7 +168,7 @@ impl Command for Save {
                         file.flush()?
                     }
 
-                    Ok(PipelineData::new(span))
+                    Ok(PipelineData::empty())
                 }
                 Value::List { vals, .. } => {
                     let val = vals
@@ -185,7 +184,7 @@ impl Command for Save {
                         file.flush()?
                     }
 
-                    Ok(PipelineData::new(span))
+                    Ok(PipelineData::empty())
                 }
                 v => Err(ShellError::UnsupportedInput(
                     format!("{:?} not supported", v.get_type()),
@@ -194,7 +193,7 @@ impl Command for Save {
             }
         } else {
             match input {
-                PipelineData::ExternalStream { stdout: None, .. } => Ok(PipelineData::new(span)),
+                PipelineData::ExternalStream { stdout: None, .. } => Ok(PipelineData::empty()),
                 PipelineData::ExternalStream {
                     stdout: Some(stream),
                     stderr,
@@ -202,16 +201,16 @@ impl Command for Save {
                 } => {
                     // delegate a thread to redirect stderr to result.
                     let handler = stderr.map(|stderr_stream| match stderr_file {
-                        Some(stderr_file) => std::thread::spawn(move || {
-                            stream_to_file(stderr_stream, stderr_file, span)
-                        }),
+                        Some(stderr_file) => {
+                            std::thread::spawn(move || stream_to_file(stderr_stream, stderr_file))
+                        }
                         None => std::thread::spawn(move || {
                             let _ = stderr_stream.into_bytes();
-                            Ok(PipelineData::new(span))
+                            Ok(PipelineData::empty())
                         }),
                     });
 
-                    let res = stream_to_file(stream, file, span);
+                    let res = stream_to_file(stream, file);
                     if let Some(h) = handler {
                         match h.join() {
                             Err(err) => {
@@ -236,7 +235,7 @@ impl Command for Save {
                             file.flush()?
                         }
 
-                        Ok(PipelineData::new(span))
+                        Ok(PipelineData::empty())
                     }
                     Value::Binary { val, .. } => {
                         if let Err(err) = file.write_all(&val) {
@@ -245,7 +244,7 @@ impl Command for Save {
                             file.flush()?
                         }
 
-                        Ok(PipelineData::new(span))
+                        Ok(PipelineData::empty())
                     }
                     Value::List { vals, .. } => {
                         let val = vals
@@ -261,7 +260,7 @@ impl Command for Save {
                             file.flush()?
                         }
 
-                        Ok(PipelineData::new(span))
+                        Ok(PipelineData::empty())
                     }
                     v => Err(ShellError::UnsupportedInput(
                         format!("{:?} not supported", v.get_type()),
@@ -303,11 +302,7 @@ impl Command for Save {
     }
 }
 
-fn stream_to_file(
-    mut stream: RawStream,
-    file: File,
-    span: Span,
-) -> Result<PipelineData, ShellError> {
+fn stream_to_file(mut stream: RawStream, file: File) -> Result<PipelineData, ShellError> {
     let mut writer = BufWriter::new(file);
 
     stream
@@ -331,5 +326,5 @@ fn stream_to_file(
             }
             Ok(())
         })
-        .map(|_| PipelineData::new(span))
+        .map(|_| PipelineData::empty())
 }

@@ -97,7 +97,7 @@ impl Command for SkipWhile {
                     &engine_state,
                     &mut stack,
                     &block,
-                    PipelineData::new(span),
+                    PipelineData::empty(),
                     redirect_stdout,
                     redirect_stderr,
                 )

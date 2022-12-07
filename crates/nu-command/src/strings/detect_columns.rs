@@ -180,7 +180,7 @@ fn detect_columns(
         })
         .into_pipeline_data(ctrlc))
     } else {
-        Ok(PipelineData::new(name_span))
+        Ok(PipelineData::empty())
     }
 }
 

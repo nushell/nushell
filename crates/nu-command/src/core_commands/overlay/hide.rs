@@ -88,7 +88,7 @@ impl Command for OverlayHide {
             stack.add_env_var(name, val);
         }
 
-        Ok(PipelineData::new(call.head))
+        Ok(PipelineData::empty())
     }
 
     fn examples(&self) -> Vec<Example> {

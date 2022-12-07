@@ -103,6 +103,7 @@ fn empty(
         .into_pipeline_data())
     } else {
         match input {
+            PipelineData::Empty => Ok(PipelineData::Empty),
             PipelineData::ExternalStream { stdout, .. } => match stdout {
                 Some(s) => {
                     let bytes = s.into_bytes();

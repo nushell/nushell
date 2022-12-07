@@ -67,7 +67,7 @@ impl Completer for CustomCompletion {
                 redirect_stdout: true,
                 redirect_stderr: true,
             },
-            PipelineData::new(span),
+            PipelineData::empty(),
         );
 
         let mut custom_completion_options = None;

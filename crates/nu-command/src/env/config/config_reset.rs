@@ -108,6 +108,6 @@ impl Command for ConfigReset {
                 }
             }
         }
-        Ok(PipelineData::new(span))
+        Ok(PipelineData::empty())
     }
 }
