@@ -1,4 +1,5 @@
 use crate::parser::parse_math_expression;
+use log::trace;
 use nu_path::canonicalize_with;
 use nu_protocol::{
     ast::{
@@ -3131,11 +3132,12 @@ pub fn parse_source(
     )
 }
 
-pub fn parse_where2_expr(
+pub fn parse_where_expr(
     working_set: &mut StateWorkingSet,
     spans: &[Span],
     expand_aliases_denylist: &[usize],
 ) -> (Expression, Option<ParseError>) {
+    trace!("parsing: where");
     // where has two forms:
     // 1. where <expr>
     //   * let closure = {|row| $row.name !~ 'foo' }; ls | where $closure
@@ -3143,11 +3145,11 @@ pub fn parse_where2_expr(
     // 2. where <expr> <op> <expr>
     //   * ls | where name !~ 'foo'
     //   * ls | where $it.name !~ 'foo
-    if !spans.is_empty() && working_set.get_span_contents(spans[0]) != b"where2" {
+    if !spans.is_empty() && working_set.get_span_contents(spans[0]) != b"where" {
         return (
             garbage(span(spans)),
             Some(ParseError::UnknownState(
-                "internal error: Wrong call name for 'where2' command".into(),
+                "internal error: Wrong call name for 'where' command".into(),
                 span(spans),
             )),
         );
@@ -3159,12 +3161,14 @@ pub fn parse_where2_expr(
             Some(ParseError::MissingPositional(
                 "row condition".into(),
                 span(spans),
-                "where2 ...row_condition".into(),
+                "where ...row_condition".into(),
             )),
         );
     }
 
-    let call = match working_set.find_decl(b"where2", &Type::Any) {
+    let it_var_id = working_set.add_variable(b"$it".to_vec(), span(spans), Type::Any, false);
+
+    let call = match working_set.find_decl(b"where", &Type::Any) {
         Some(decl_id) => {
             let ParsedInternalCall {
                 call,
@@ -3200,7 +3204,7 @@ pub fn parse_where2_expr(
             return (
                 garbage(span(spans)),
                 Some(ParseError::UnknownState(
-                    "internal error: 'where2' declaration not found".into(),
+                    "internal error: 'where' declaration not found".into(),
                     span(spans),
                 )),
             )
@@ -3209,11 +3213,10 @@ pub fn parse_where2_expr(
 
     let row_condition_spans = &spans[1..];
 
-    let var_id = working_set.add_variable(b"$it".to_vec(), span(spans), Type::Any, false);
     let (expression, err) = parse_math_expression(
         working_set,
         row_condition_spans,
-        Some(var_id),
+        Some(it_var_id),
         expand_aliases_denylist,
     );
 
@@ -3224,7 +3227,13 @@ pub fn parse_where2_expr(
     let expr = match expression.expr {
         Expr::Block(block_id) => Expr::Block(block_id),
         Expr::Closure(block_id) => Expr::Closure(block_id),
-        Expr::FullCellPath(cell_path) => Expr::FullCellPath(cell_path), // can be a closure stored in a variable
+        // Expr::FullCellPath(cell_path)
+        //     if (working_set.get_span_contents(cell_path.head.span).starts_with(b"$")) &&
+        //         (working_set.get_span_contents(cell_path.head.span) != b"$it") =>
+        // {
+        //     // can be a closure stored in a variable, but not $it
+        //     Expr::FullCellPath(cell_path)
+        // }
         _ => {
             // We have an expression, so let's convert this into a block.
             let mut block = Block::new();
@@ -3239,7 +3248,7 @@ pub fn parse_where2_expr(
                 name: "$it".into(),
                 desc: "row condition".into(),
                 shape: SyntaxShape::Any,
-                var_id: Some(var_id),
+                var_id: Some(it_var_id),
                 default_value: None,
             });
 
@@ -3269,12 +3278,12 @@ pub fn parse_where2_expr(
     (expression, None)
 }
 
-pub fn parse_where2(
+pub fn parse_where(
     working_set: &mut StateWorkingSet,
     spans: &[Span],
     expand_aliases_denylist: &[usize],
 ) -> (Pipeline, Option<ParseError>) {
-    let (expression, err) = parse_where2_expr(working_set, spans, expand_aliases_denylist);
+    let (expression, err) = parse_where_expr(working_set, spans, expand_aliases_denylist);
     (Pipeline::from_vec(vec![expression]), err)
 }
 
