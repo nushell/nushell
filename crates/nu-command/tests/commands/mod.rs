@@ -72,6 +72,7 @@ mod run_external;
 mod save;
 mod select;
 mod semicolon;
+mod seq;
 mod seq_char;
 mod shells;
 mod skip;
