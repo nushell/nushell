@@ -239,12 +239,12 @@ impl EngineState {
                             // Don't insert the record as the "config" env var as-is.
                             // Instead, mutate a clone of it with into_config(), and put THAT in env_vars.
                             let mut new_record = v.clone();
-                            if let Ok(config) = new_record.into_config(&self.config) {
-                                // Don't replace self.config unless into_config() succeeds.
-                                // Note that into_config() produces Err in only very dire circumstances.
-                                self.config = config;
-                            }
+                            let (config, error) = new_record.into_config(&self.config);
+                            self.config = config;
                             env_vars.insert(k, new_record);
+                            if let Some(e) = error {
+                                return Err(e);
+                            }
                         } else {
                             env_vars.insert(k, v);
                         }

@@ -191,23 +191,38 @@ pub struct ExploreConfig {
 }
 
 impl Value {
-    pub fn into_config(&mut self, config: &Config) -> Result<Config, ShellError> {
+    pub fn into_config(&mut self, config: &Config) -> (Config, Option<ShellError>) {
         // Clone the passed-in config rather than mutating it,
         // so that early returns by ShellError don't leave it in a bad state.
         // (Actually... is this absolutely necessary?)
         let mut config = config.clone();
         let mut legacy_options_used = false;
 
+        // Vec for storing errors.
+        // Current Nushell behaviour (Dec 2022) is that having some typo like "always_trash": tru in your config.nu's
+        // set-env config record shouldn't abort all config parsing there and then.
+        // Thus, errors are simply collected one-by-one and wrapped in a GenericError at the end.
+        let mut errors = vec![];
+
         // When an unsupported config value is found, remove it from this record.
         macro_rules! invalid {
-            ($cols:ident, $vals:ident, $index:ident, $eprintln_arg:tt) => {
-                eprintln!($eprintln_arg);
+            // Because Value::Record discards all of the spans of its
+            // column names (by storing them as Strings), the key name cannot be provided
+            // as a value, even in key errors.
+            ($cols:ident, $vals:ident, $index:ident, $span:expr, $msg:literal) => {
+                errors.push(ShellError::GenericError(
+                    "Error while applying config changes".into(),
+                    format!($msg),
+                    $span,
+                    Some("This value has been removed from your $env.config record.".into()),
+                    vec![],
+                ));
                 $cols.remove($index);
                 $vals.remove($index);
             };
         }
 
-        if let Value::Record { cols, vals, .. } = self {
+        if let Value::Record { cols, vals, span } = self {
             // Because this whole algorithm removes while iterating, this must iterate in reverse.
             for index in (0..cols.len()).rev() {
                 let value = &vals[index];
@@ -215,7 +230,7 @@ impl Value {
                 match key {
                     // Grouped options
                     "ls" => {
-                        if let Value::Record { cols, vals, .. } = &mut vals[index] {
+                        if let Value::Record { cols, vals, span } = &mut vals[index] {
                             for index in (0..cols.len()).rev() {
                                 let value = &vals[index];
                                 let key2 = cols[index].as_str();
@@ -228,7 +243,8 @@ impl Value {
                                                 cols,
                                                 vals,
                                                 index,
-                                                "$env.config.{key}.{key2} is not a bool"
+                                                Some(*span),
+                                                "should be a bool"
                                             );
                                         }
                                     }
@@ -240,7 +256,8 @@ impl Value {
                                                 cols,
                                                 vals,
                                                 index,
-                                                "$env.config.{key}.{key2} is not a bool"
+                                                Some(*span),
+                                                "should be a bool"
                                             );
                                         }
                                     }
@@ -249,17 +266,18 @@ impl Value {
                                             cols,
                                             vals,
                                             index,
+                                            value.span().ok(),
                                             "$env.config.{key}.{x} is an unknown config setting"
                                         );
                                     }
                                 }
                             }
                         } else {
-                            invalid!(cols, vals, index, "$env.config.{key} is not a record");
+                            invalid!(cols, vals, index, Some(*span), "should be a record");
                         }
                     }
                     "cd" => {
-                        if let Value::Record { cols, vals, .. } = &mut vals[index] {
+                        if let Value::Record { cols, vals, span } = &mut vals[index] {
                             for index in (0..cols.len()).rev() {
                                 let value = &vals[index];
                                 let key2 = cols[index].as_str();
@@ -272,7 +290,8 @@ impl Value {
                                                 cols,
                                                 vals,
                                                 index,
-                                                "$env.config.{key}.{key2} is not a bool"
+                                                Some(*span),
+                                                "should be a bool"
                                             );
                                         }
                                     }
@@ -281,17 +300,18 @@ impl Value {
                                             cols,
                                             vals,
                                             index,
+                                            value.span().ok(),
                                             "$env.config.{key}.{x} is an unknown config setting"
                                         );
                                     }
                                 }
                             }
                         } else {
-                            invalid!(cols, vals, index, "$env.config.{key} is not a record");
+                            invalid!(cols, vals, index, Some(*span), "should be a record");
                         }
                     }
                     "rm" => {
-                        if let Value::Record { cols, vals, .. } = &mut vals[index] {
+                        if let Value::Record { cols, vals, span } = &mut vals[index] {
                             for index in (0..cols.len()).rev() {
                                 let value = &vals[index];
                                 let key2 = cols[index].as_str();
@@ -304,7 +324,8 @@ impl Value {
                                                 cols,
                                                 vals,
                                                 index,
-                                                "$env.config.{key}.{key2} is not a bool"
+                                                Some(*span),
+                                                "should be a bool"
                                             );
                                         }
                                     }
@@ -313,17 +334,18 @@ impl Value {
                                             cols,
                                             vals,
                                             index,
+                                            value.span().ok(),
                                             "$env.config.{key}.{x} is an unknown config setting"
                                         );
                                     }
                                 }
                             }
                         } else {
-                            invalid!(cols, vals, index, "$env.config.{key} is not a record");
+                            invalid!(cols, vals, index, Some(*span), "should be a record");
                         }
                     }
                     "history" => {
-                        if let Value::Record { cols, vals, .. } = &mut vals[index] {
+                        if let Value::Record { cols, vals, span } = &mut vals[index] {
                             for index in (0..cols.len()).rev() {
                                 let value = &vals[index];
                                 let key2 = cols[index].as_str();
@@ -336,7 +358,8 @@ impl Value {
                                                 cols,
                                                 vals,
                                                 index,
-                                                "$env.config.{key}.{key2} is not a bool"
+                                                Some(*span),
+                                                "should be a bool"
                                             );
                                         }
                                     }
@@ -348,7 +371,8 @@ impl Value {
                                                 cols,
                                                 vals,
                                                 index,
-                                                "$env.config.{key}.{key2} is not an integer"
+                                                Some(*span),
+                                                "should be an integer"
                                             );
                                         }
                                     }
@@ -359,8 +383,8 @@ impl Value {
                                                 "sqlite" => HistoryFileFormat::Sqlite,
                                                 "plaintext" => HistoryFileFormat::PlainText,
                                                 _ => {
-                                                    invalid!(cols, vals, index,
-                                                        "unrecognized $config.{key}.{key2} '{val_str}'; expected either 'sqlite' or 'plaintext'"
+                                                    invalid!(cols, vals, index, Some(*span),
+                                                        "unrecognized $env.config.{key}.{key2} '{val_str}'; expected either 'sqlite' or 'plaintext'"
                                                     );
                                                     HistoryFileFormat::PlainText
                                                 }
@@ -370,7 +394,8 @@ impl Value {
                                                 cols,
                                                 vals,
                                                 index,
-                                                "$env.config.{key}.{key2} is not a string"
+                                                Some(*span),
+                                                "should be a string"
                                             );
                                         }
                                     }
@@ -379,17 +404,18 @@ impl Value {
                                             cols,
                                             vals,
                                             index,
+                                            value.span().ok(),
                                             "$env.config.{key}.{x} is an unknown config setting"
                                         );
                                     }
                                 }
                             }
                         } else {
-                            invalid!(cols, vals, index, "$env.config.{key} is not a record");
+                            invalid!(cols, vals, index, Some(*span), "should be a record");
                         }
                     }
                     "completions" => {
-                        if let Value::Record { cols, vals, .. } = &mut vals[index] {
+                        if let Value::Record { cols, vals, span } = &mut vals[index] {
                             for index in (0..cols.len()).rev() {
                                 let value = &vals[index];
                                 let key2 = cols[index].as_str();
@@ -402,7 +428,8 @@ impl Value {
                                                 cols,
                                                 vals,
                                                 index,
-                                                "$env.config.{key}.{key2} is not a bool"
+                                                Some(*span),
+                                                "should be a bool"
                                             );
                                         }
                                     }
@@ -414,7 +441,8 @@ impl Value {
                                                 cols,
                                                 vals,
                                                 index,
-                                                "$env.config.{key}.{key2} is not a bool"
+                                                Some(*span),
+                                                "should be a bool"
                                             );
                                         }
                                     }
@@ -426,10 +454,10 @@ impl Value {
                                                 "prefix" => val_str,
                                                 "fuzzy" => val_str,
                                                 _ => {
-                                                    invalid!(cols, vals, index,
-                                                        "unrecognized $config.{key}.{key2} '{val_str}'; expected either 'prefix' or 'fuzzy'"
+                                                    invalid!(cols, vals, index, Some(*span),
+                                                        "unrecognized $env.config.{key}.{key2} '{val_str}'; expected either 'prefix' or 'fuzzy'"
                                                     );
-                                                    String::from("prefix")
+                                                    "prefix".into()
                                                 }
                                             };
                                         } else {
@@ -437,7 +465,8 @@ impl Value {
                                                 cols,
                                                 vals,
                                                 index,
-                                                "$env.config.{key}.{key2} is not a string"
+                                                Some(*span),
+                                                "should be a string"
                                             );
                                         }
                                     }
@@ -449,12 +478,14 @@ impl Value {
                                                 cols,
                                                 vals,
                                                 index,
-                                                "$env.config.{key}.{key2} is not a bool"
+                                                Some(*span),
+                                                "should be a bool"
                                             );
                                         }
                                     }
                                     "external" => {
-                                        if let Value::Record { cols, vals, .. } = &mut vals[index] {
+                                        if let Value::Record { cols, vals, span } = &mut vals[index]
+                                        {
                                             for index in (0..cols.len()).rev() {
                                                 let value = &vals[index];
                                                 let key3 = cols[index].as_str();
@@ -465,7 +496,13 @@ impl Value {
                                                                 .max_external_completion_results =
                                                                 i;
                                                         } else {
-                                                            invalid!(cols, vals, index, "$env.config.{key}.{key2}.{key3} is not an integer");
+                                                            invalid!(
+                                                                cols,
+                                                                vals,
+                                                                index,
+                                                                Some(*span),
+                                                                "should be an integer"
+                                                            );
                                                         }
                                                     }
                                                     "completer" => {
@@ -475,7 +512,13 @@ impl Value {
                                                             match value {
                                                                 Value::Nothing { .. } => {}
                                                                 _ => {
-                                                                    invalid!(cols, vals, index, "$env.config.{key}.{key2}.{key3} is not a block or null");
+                                                                    invalid!(
+                                                                        cols,
+                                                                        vals,
+                                                                        index,
+                                                                        Some(*span),
+                                                                        "should be a block or null"
+                                                                    );
                                                                 }
                                                             }
                                                         }
@@ -484,11 +527,17 @@ impl Value {
                                                         if let Ok(b) = value.as_bool() {
                                                             config.enable_external_completion = b;
                                                         } else {
-                                                            invalid!(cols, vals, index, "$env.config.{key}.{key2}.{key3} is not a bool");
+                                                            invalid!(
+                                                                cols,
+                                                                vals,
+                                                                index,
+                                                                Some(*span),
+                                                                "should be a bool"
+                                                            );
                                                         }
                                                     }
                                                     x => {
-                                                        invalid!(cols, vals, index, "$env.config.{key}.{key2}.{x} is an unknown config setting");
+                                                        invalid!(cols, vals, index, value.span().ok(),"$env.config.{key}.{key2}.{x} is an unknown config setting");
                                                     }
                                                 }
                                             }
@@ -497,7 +546,8 @@ impl Value {
                                                 cols,
                                                 vals,
                                                 index,
-                                                "$env.config.{key}.{key2} is not a record"
+                                                Some(*span),
+                                                "should be a record"
                                             );
                                         }
                                     }
@@ -506,17 +556,18 @@ impl Value {
                                             cols,
                                             vals,
                                             index,
+                                            value.span().ok(),
                                             "$env.config.{key}.{x} is an unknown config setting"
                                         );
                                     }
                                 }
                             }
                         } else {
-                            invalid!(cols, vals, index, "$env.config.{key} is not a record");
+                            invalid!(cols, vals, index, Some(*span), "should be a record");
                         }
                     }
                     "table" => {
-                        if let Value::Record { cols, vals, .. } = &mut vals[index] {
+                        if let Value::Record { cols, vals, span } = &mut vals[index] {
                             for index in (0..cols.len()).rev() {
                                 let value = &vals[index];
                                 let key2 = cols[index].as_str();
@@ -529,7 +580,8 @@ impl Value {
                                                 cols,
                                                 vals,
                                                 index,
-                                                "$env.config.{key}.{key2} is not a string"
+                                                Some(*span),
+                                                "should be a string"
                                             );
                                         }
                                     }
@@ -547,7 +599,7 @@ impl Value {
                                                     config.table_index_mode = TableIndexMode::Auto
                                                 }
                                                 _ => {
-                                                    invalid!(cols, vals, index,
+                                                    invalid!(cols, vals, index, Some(*span),
                                                         "unrecognized $env.config.{key}.{key2} '{val_str}'; expected either 'never', 'always' or 'auto'"
                                                     );
                                                 }
@@ -557,18 +609,19 @@ impl Value {
                                                 cols,
                                                 vals,
                                                 index,
-                                                "$env.config.{key}.{key2} is not a string"
+                                                Some(*span),
+                                                "should be a string"
                                             );
                                         }
                                     }
                                     "trim" => {
-                                        match try_parse_trim_strategy(value, &config) {
+                                        match try_parse_trim_strategy(value, &config, &mut errors) {
                                             Ok(v) => config.trim_strategy = v,
                                             Err(e) => {
                                                 // try_parse_trim_strategy() already calls eprintln!() on error
                                                 cols.remove(index);
                                                 vals.remove(index);
-                                                return Err(e);
+                                                errors.push(e);
                                             }
                                         }
                                     }
@@ -577,17 +630,18 @@ impl Value {
                                             cols,
                                             vals,
                                             index,
+                                            value.span().ok(),
                                             "$env.config.{key}.{x} is an unknown config setting"
                                         );
                                     }
                                 }
                             }
                         } else {
-                            invalid!(cols, vals, index, "$env.config.{key} is not a record");
+                            invalid!(cols, vals, index, Some(*span), "should be a record");
                         }
                     }
                     "filesize" => {
-                        if let Value::Record { cols, vals, .. } = &mut vals[index] {
+                        if let Value::Record { cols, vals, span } = &mut vals[index] {
                             for index in (0..cols.len()).rev() {
                                 let value = &vals[index];
                                 let key2 = cols[index].as_str();
@@ -600,7 +654,8 @@ impl Value {
                                                 cols,
                                                 vals,
                                                 index,
-                                                "$env.config.{key}.{key2} is not a bool"
+                                                Some(*span),
+                                                "should be a bool"
                                             );
                                         }
                                     }
@@ -612,7 +667,8 @@ impl Value {
                                                 cols,
                                                 vals,
                                                 index,
-                                                "$env.config.{key}.{key2} is not a string"
+                                                Some(*span),
+                                                "should be a string"
                                             );
                                         }
                                     }
@@ -621,20 +677,21 @@ impl Value {
                                             cols,
                                             vals,
                                             index,
+                                            value.span().ok(),
                                             "$env.config.{key}.{x} is an unknown config setting"
                                         );
                                     }
                                 }
                             }
                         } else {
-                            invalid!(cols, vals, index, "$env.config.{key} is not a record");
+                            invalid!(cols, vals, index, Some(*span), "should be a record");
                         }
                     }
                     "explore" => {
                         if let Ok(map) = create_map(value, &config) {
                             config.explore = map;
                         } else {
-                            invalid!(cols, vals, index, "$env.config.{key} is not a record");
+                            invalid!(cols, vals, index, Some(*span), "should be a record");
                         }
                     }
                     // Misc. options
@@ -642,14 +699,14 @@ impl Value {
                         if let Ok(map) = create_map(value, &config) {
                             config.color_config = map;
                         } else {
-                            invalid!(cols, vals, index, "$env.config.{key} is not a record");
+                            invalid!(cols, vals, index, Some(*span), "should be a record");
                         }
                     }
                     "use_grid_icons" => {
                         if let Ok(b) = value.as_bool() {
                             config.use_grid_icons = b;
                         } else {
-                            invalid!(cols, vals, index, "$env.config.{key} is not a bool");
+                            invalid!(cols, vals, index, Some(*span), "should be a bool");
                         }
                     }
                     "footer_mode" => {
@@ -665,35 +722,35 @@ impl Value {
                                 },
                             };
                         } else {
-                            invalid!(cols, vals, index, "$env.config.{key} is not a string");
+                            invalid!(cols, vals, index, Some(*span), "should be a string");
                         }
                     }
                     "float_precision" => {
                         if let Ok(i) = value.as_integer() {
                             config.float_precision = i;
                         } else {
-                            invalid!(cols, vals, index, "$env.config.{key} is not an integer");
+                            invalid!(cols, vals, index, Some(*span), "should be an integer");
                         }
                     }
                     "use_ansi_coloring" => {
                         if let Ok(b) = value.as_bool() {
                             config.use_ansi_coloring = b;
                         } else {
-                            invalid!(cols, vals, index, "$env.config.{key} is not a bool");
+                            invalid!(cols, vals, index, Some(*span), "should be a bool");
                         }
                     }
                     "edit_mode" => {
                         if let Ok(v) = value.as_string() {
                             config.edit_mode = v.to_lowercase();
                         } else {
-                            invalid!(cols, vals, index, "$env.config.{key} is not a string");
+                            invalid!(cols, vals, index, Some(*span), "should be a string");
                         }
                     }
                     "log_level" => {
                         if let Ok(v) = value.as_string() {
                             config.log_level = v.to_lowercase();
                         } else {
-                            invalid!(cols, vals, index, "$env.config.{key} is not a string");
+                            invalid!(cols, vals, index, Some(*span), "should be a string");
                         }
                     }
                     "menus" => match create_menus(value) {
@@ -703,9 +760,10 @@ impl Value {
                                 cols,
                                 vals,
                                 index,
-                                "$env.config.{key} is not a valid list of menus"
+                                Some(*span),
+                                "should be a valid list of menus"
                             );
-                            eprintln!("{:?}", e);
+                            errors.push(e);
                         }
                     },
                     "keybindings" => match create_keybindings(value) {
@@ -715,9 +773,10 @@ impl Value {
                                 cols,
                                 vals,
                                 index,
-                                "$env.config.{key} is not a valid keybindings list"
+                                Some(*span),
+                                "should be a valid keybindings list"
                             );
-                            eprintln!("{:?}", e);
+                            errors.push(e);
                         }
                     },
                     "hooks" => match create_hooks(value) {
@@ -727,37 +786,38 @@ impl Value {
                                 cols,
                                 vals,
                                 index,
-                                "$env.config.{key} is not a valid hooks list"
+                                Some(*span),
+                                "should be a valid hooks list"
                             );
-                            eprintln!("{:?}", e);
+                            errors.push(e);
                         }
                     },
                     "shell_integration" => {
                         if let Ok(b) = value.as_bool() {
                             config.shell_integration = b;
                         } else {
-                            invalid!(cols, vals, index, "$env.config.{key} is not a bool");
+                            invalid!(cols, vals, index, Some(*span), "should be a bool");
                         }
                     }
                     "buffer_editor" => {
                         if let Ok(v) = value.as_string() {
                             config.buffer_editor = v.to_lowercase();
                         } else {
-                            invalid!(cols, vals, index, "$env.config.{key} is not a string");
+                            invalid!(cols, vals, index, Some(*span), "should be a string");
                         }
                     }
                     "show_banner" => {
                         if let Ok(b) = value.as_bool() {
                             config.show_banner = b;
                         } else {
-                            invalid!(cols, vals, index, "$env.config.{key} is not a bool");
+                            invalid!(cols, vals, index, Some(*span), "should be a bool");
                         }
                     }
                     "render_right_prompt_on_last_line" => {
                         if let Ok(b) = value.as_bool() {
                             config.render_right_prompt_on_last_line = b;
                         } else {
-                            invalid!(cols, vals, index, "$env.config.{key} is not a bool");
+                            invalid!(cols, vals, index, Some(*span), "should be a bool");
                         }
                     }
                     // Legacy config options (deprecated as of 2022-11-02)
@@ -766,7 +826,7 @@ impl Value {
                         if let Ok(b) = value.as_bool() {
                             config.use_ls_colors = b;
                         } else {
-                            invalid!(cols, vals, index, "$env.config.{key} is not a bool");
+                            invalid!(cols, vals, index, Some(*span), "should be a bool");
                         }
                     }
                     "rm_always_trash" => {
@@ -774,7 +834,7 @@ impl Value {
                         if let Ok(b) = value.as_bool() {
                             config.rm_always_trash = b;
                         } else {
-                            invalid!(cols, vals, index, "$env.config.{key} is not a bool");
+                            invalid!(cols, vals, index, Some(*span), "should be a bool");
                         }
                     }
                     "history_file_format" => {
@@ -789,13 +849,14 @@ impl Value {
                                         cols,
                                         vals,
                                         index,
+                                        Some(*span),
                                         "unrecognized $env.config.{key} '{val_str}'"
                                     );
                                     HistoryFileFormat::PlainText
                                 }
                             };
                         } else {
-                            invalid!(cols, vals, index, "$env.config.{key} is not a string");
+                            invalid!(cols, vals, index, Some(*span), "should be a string");
                         }
                     }
                     "sync_history_on_enter" => {
@@ -803,7 +864,7 @@ impl Value {
                         if let Ok(b) = value.as_bool() {
                             config.sync_history_on_enter = b;
                         } else {
-                            invalid!(cols, vals, index, "$env.config.{key} is not a bool");
+                            invalid!(cols, vals, index, Some(*span), "should be a bool");
                         }
                     }
                     "max_history_size" => {
@@ -811,7 +872,7 @@ impl Value {
                         if let Ok(i) = value.as_i64() {
                             config.max_history_size = i;
                         } else {
-                            invalid!(cols, vals, index, "$env.config.{key} is not an integer");
+                            invalid!(cols, vals, index, Some(*span), "should be an integer");
                         }
                     }
                     "quick_completions" => {
@@ -819,7 +880,7 @@ impl Value {
                         if let Ok(b) = value.as_bool() {
                             config.quick_completions = b;
                         } else {
-                            invalid!(cols, vals, index, "$env.config.{key} is not a bool");
+                            invalid!(cols, vals, index, Some(*span), "should be a bool");
                         }
                     }
                     "partial_completions" => {
@@ -827,7 +888,7 @@ impl Value {
                         if let Ok(b) = value.as_bool() {
                             config.partial_completions = b;
                         } else {
-                            invalid!(cols, vals, index, "$env.config.{key} is not a bool");
+                            invalid!(cols, vals, index, Some(*span), "should be a bool");
                         }
                     }
                     "max_external_completion_results" => {
@@ -835,7 +896,7 @@ impl Value {
                         if let Ok(i) = value.as_integer() {
                             config.max_external_completion_results = i;
                         } else {
-                            invalid!(cols, vals, index, "$env.config.{key} is not an integer");
+                            invalid!(cols, vals, index, Some(*span), "should be an integer");
                         }
                     }
                     "completion_algorithm" => {
@@ -847,14 +908,14 @@ impl Value {
                                 "prefix" => val_str,
                                 "fuzzy" => val_str,
                                 _ => {
-                                    invalid!(cols, vals, index,
+                                    invalid!(cols, vals, index, Some(*span),
                                         "unrecognized $env.config.{key} '{val_str}'; expected either 'prefix' or 'fuzzy'"
                                     );
                                     val_str
                                 }
                             };
                         } else {
-                            invalid!(cols, vals, index, "$env.config.{key} is not a string");
+                            invalid!(cols, vals, index, Some(*span), "should be a string");
                         }
                     }
                     "case_sensitive_completions" => {
@@ -862,7 +923,7 @@ impl Value {
                         if let Ok(b) = value.as_bool() {
                             config.case_sensitive_completions = b;
                         } else {
-                            invalid!(cols, vals, index, "$env.config.{key} is not a bool");
+                            invalid!(cols, vals, index, Some(*span), "should be a bool");
                         }
                     }
                     "enable_external_completion" => {
@@ -870,7 +931,7 @@ impl Value {
                         if let Ok(b) = value.as_bool() {
                             config.enable_external_completion = b;
                         } else {
-                            invalid!(cols, vals, index, "$env.config.{key} is not a bool");
+                            invalid!(cols, vals, index, Some(*span), "should be a bool");
                         }
                     }
 
@@ -887,7 +948,7 @@ impl Value {
                         if let Ok(v) = value.as_string() {
                             config.table_mode = v;
                         } else {
-                            invalid!(cols, vals, index, "$env.config.{key} is not a string");
+                            invalid!(cols, vals, index, Some(*span), "should be a string");
                         }
                     }
                     "table_index_mode" => {
@@ -899,24 +960,24 @@ impl Value {
                                 "never" => config.table_index_mode = TableIndexMode::Never,
                                 "auto" => config.table_index_mode = TableIndexMode::Auto,
                                 _ => {
-                                    invalid!(cols, vals, index,
+                                    invalid!(cols, vals, index, Some(*span),
                                         "unrecognized $env.config.table_index_mode '{val_str}'; expected either 'never', 'always' or 'auto'"
                                     );
                                 }
                             }
                         } else {
-                            invalid!(cols, vals, index, "$env.config.{key} is not a string");
+                            invalid!(cols, vals, index, Some(*span), "should be a string");
                         }
                     }
                     "table_trim" => {
                         legacy_options_used = true;
-                        match try_parse_trim_strategy(value, &config) {
+                        match try_parse_trim_strategy(value, &config, &mut errors) {
                             Ok(v) => config.trim_strategy = v,
                             Err(e) => {
                                 // try_parse_trim_strategy() already calls eprintln!() on error
                                 cols.remove(index);
                                 vals.remove(index);
-                                return Err(e);
+                                errors.push(e);
                             }
                         }
                     }
@@ -925,7 +986,7 @@ impl Value {
                         if let Ok(b) = value.as_bool() {
                             config.show_clickable_links_in_ls = b;
                         } else {
-                            invalid!(cols, vals, index, "$env.config.{key} is not a bool");
+                            invalid!(cols, vals, index, Some(*span), "should be a bool");
                         }
                     }
                     "cd_with_abbreviations" => {
@@ -933,7 +994,7 @@ impl Value {
                         if let Ok(b) = value.as_bool() {
                             config.cd_with_abbreviations = b;
                         } else {
-                            invalid!(cols, vals, index, "$env.config.{key} is not a bool");
+                            invalid!(cols, vals, index, Some(*span), "should be a bool");
                         }
                     }
                     "filesize_metric" => {
@@ -941,7 +1002,7 @@ impl Value {
                         if let Ok(b) = value.as_bool() {
                             config.filesize_metric = b;
                         } else {
-                            invalid!(cols, vals, index, "$env.config.{key} is not a bool");
+                            invalid!(cols, vals, index, Some(*span), "should be a bool");
                         }
                     }
                     "filesize_format" => {
@@ -949,7 +1010,7 @@ impl Value {
                         if let Ok(v) = value.as_string() {
                             config.filesize_format = v.to_lowercase();
                         } else {
-                            invalid!(cols, vals, index, "$env.config.{key} is not a string");
+                            invalid!(cols, vals, index, Some(*span), "should be a string");
                         }
                     }
                     // End legacy options
@@ -958,30 +1019,68 @@ impl Value {
                             cols,
                             vals,
                             index,
+                            value.span().ok(),
                             "$env.config.{x} is an unknown config setting"
                         );
                     }
                 }
             }
         } else {
-            eprintln!("$env.config is not a record");
+            return (
+                config,
+                Some(ShellError::GenericError(
+                    "Error while applying config changes".into(),
+                    "$env.config is not a record".into(),
+                    self.span().ok(),
+                    None,
+                    vec![],
+                )),
+            );
         }
 
         if legacy_options_used {
+            // This is a notification message, not an error.
             eprintln!(
                 r#"The format of $env.config has recently changed, and several options have been grouped into sub-records. You may need to update your config.nu file.
 Please consult https://www.nushell.sh/blog/2022-11-29-nushell-0.72.html for details. Support for the old format will be removed in an upcoming Nu release."#
             );
         }
 
-        Ok(config)
+        // Return the config and the vec of errors.
+        (
+            config,
+            if !errors.is_empty() {
+                // Because the config was iterated in reverse, these errors
+                // need to be reversed, too.
+                errors.reverse();
+                Some(ShellError::GenericError(
+                    "Config record contains invalid values or unknown settings".into(),
+                    // Without a span, this second string is ignored.
+                    "".into(),
+                    None,
+                    None,
+                    errors,
+                ))
+            } else {
+                None
+            },
+        )
     }
 }
 
-fn try_parse_trim_strategy(value: &Value, config: &Config) -> Result<TrimStrategy, ShellError> {
+fn try_parse_trim_strategy(
+    value: &Value,
+    config: &Config,
+    errors: &mut Vec<ShellError>,
+) -> Result<TrimStrategy, ShellError> {
     let map = create_map(value, config).map_err(|e| {
-        eprintln!("$env.config.table.trim is not a record");
-        e
+        ShellError::GenericError(
+            "Error while applying config changes".into(),
+            "$env.config.table.trim is not a record".into(),
+            value.span().ok(),
+            Some("Please consult the documentation for configuring Nushell.".into()),
+            vec![e],
+        )
     })?;
 
     let mut methodology = match map.get("methodology") {
@@ -990,7 +1089,13 @@ fn try_parse_trim_strategy(value: &Value, config: &Config) -> Result<TrimStrateg
             None => return Ok(TRIM_STRATEGY_DEFAULT),
         },
         None => {
-            eprintln!("$env.config.table.trim.methodology was not provided");
+            errors.push(ShellError::GenericError(
+                "Error while applying config changes".into(),
+                "$env.config.table.trim.methodology was not provided".into(),
+                value.span().ok(),
+                Some("Please consult the documentation for configuring Nushell.".into()),
+                vec![],
+            ));
             return Ok(TRIM_STRATEGY_DEFAULT);
         }
     };
@@ -1001,7 +1106,13 @@ fn try_parse_trim_strategy(value: &Value, config: &Config) -> Result<TrimStrateg
                 if let Ok(b) = value.as_bool() {
                     *try_to_keep_words = b;
                 } else {
-                    eprintln!("$env.config.table.trim.wrapping_try_keep_words is not a bool");
+                    errors.push(ShellError::GenericError(
+                        "Error while applying config changes".into(),
+                        "$env.config.table.trim.wrapping_try_keep_words is not a bool".into(),
+                        value.span().ok(),
+                        Some("Please consult the documentation for configuring Nushell.".into()),
+                        vec![],
+                    ));
                 }
             }
         }
@@ -1010,7 +1121,13 @@ fn try_parse_trim_strategy(value: &Value, config: &Config) -> Result<TrimStrateg
                 if let Ok(v) = value.as_string() {
                     *suffix = Some(v);
                 } else {
-                    eprintln!("$env.config.table.trim.truncating_suffix is not a string")
+                    errors.push(ShellError::GenericError(
+                        "Error while applying config changes".into(),
+                        "$env.config.table.trim.truncating_suffix is not a string".into(),
+                        value.span().ok(),
+                        Some("Please consult the documentation for configuring Nushell.".into()),
+                        vec![],
+                    ));
                 }
             }
         }
