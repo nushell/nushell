@@ -67,3 +67,11 @@ fn mutation_in_else() -> TestResult {
         "300",
     )
 }
+
+#[test]
+fn mutation_in_else2() -> TestResult {
+    run_test(
+        "mut x = 100; if 2 > 3 { $x = 200 } else if true { $x = 400 } else { $x = 300 }; $x ",
+        "400",
+    )
+}
