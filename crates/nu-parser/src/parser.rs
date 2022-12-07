@@ -660,7 +660,7 @@ pub fn parse_multispan_value(
             (
                 Expression::garbage(span),
                 Some(ParseError::Expected(
-                    format!("non-block value: {}", shape),
+                    format!("one of a list of accepted shapes: {:?}", shapes),
                     span,
                 )),
             )
