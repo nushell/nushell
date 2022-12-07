@@ -76,7 +76,7 @@ pub fn evaluate_repl(
         "CMD_DURATION_MS".into(),
         Value::String {
             val: "0823".to_string(),
-            span: Span { start: 0, end: 0 },
+            span: Span::unknown(),
         },
     );
 
@@ -84,7 +84,7 @@ pub fn evaluate_repl(
         "LAST_EXIT_CODE".into(),
         Value::Int {
             val: 0,
-            span: Span { start: 0, end: 0 },
+            span: Span::unknown(),
         },
     );
 
@@ -149,7 +149,7 @@ pub fn evaluate_repl(
             stack,
             s.item.as_bytes(),
             &format!("entry #{}", entry_num),
-            PipelineData::new(Span::new(0, 0)),
+            PipelineData::empty(),
         );
         engine_state.merge_env(stack, get_guaranteed_cwd(engine_state, stack))?;
     }
@@ -375,7 +375,7 @@ pub fn evaluate_repl(
                         "OLDPWD".into(),
                         Value::String {
                             val: cwd.clone(),
-                            span: Span { start: 0, end: 0 },
+                            span: Span::unknown(),
                         },
                     );
 
@@ -385,7 +385,7 @@ pub fn evaluate_repl(
                         "PWD".into(),
                         Value::String {
                             val: path.clone(),
-                            span: Span { start: 0, end: 0 },
+                            span: Span::unknown(),
                         },
                     );
                     let cwd = Value::String { val: cwd, span };
@@ -431,7 +431,7 @@ pub fn evaluate_repl(
                         stack,
                         s.as_bytes(),
                         &format!("entry #{}", entry_num),
-                        PipelineData::new(Span::new(0, 0)),
+                        PipelineData::empty(),
                     );
                 }
                 let cmd_duration = start_time.elapsed();
@@ -440,7 +440,7 @@ pub fn evaluate_repl(
                     "CMD_DURATION_MS".into(),
                     Value::String {
                         val: format!("{}", cmd_duration.as_millis()),
-                        span: Span { start: 0, end: 0 },
+                        span: Span::unknown(),
                     },
                 );
 
@@ -637,7 +637,7 @@ pub fn eval_string_with_input(
 
     let input_as_pipeline_data = match input {
         Some(input) => PipelineData::Value(input, None),
-        None => PipelineData::new(Span::test_data()),
+        None => PipelineData::empty(),
     };
 
     eval_block(
@@ -722,7 +722,7 @@ pub fn eval_hook(
         val: "condition".to_string(),
         span: value_span,
     };
-    let mut output = PipelineData::new(Span::new(0, 0));
+    let mut output = PipelineData::empty();
 
     let code_path = PathMember::String {
         val: "code".to_string(),
@@ -823,7 +823,7 @@ pub fn eval_hook(
                         };
 
                         engine_state.merge_delta(delta)?;
-                        let input = PipelineData::new(value_span);
+                        let input = PipelineData::empty();
 
                         let var_ids: Vec<VarId> = vars
                             .into_iter()
@@ -943,7 +943,7 @@ pub fn run_hook_block(
 ) -> Result<Value, ShellError> {
     let block = engine_state.get_block(block_id);
 
-    let input = optional_input.unwrap_or_else(|| PipelineData::new(span));
+    let input = optional_input.unwrap_or_else(PipelineData::empty);
 
     let mut callee_stack = stack.gather_captures(&block.captures);
 
@@ -997,7 +997,7 @@ fn run_ansi_sequence(seq: &str) -> Result<(), ShellError> {
             return Err(ShellError::GenericError(
                 "Error writing ansi sequence".into(),
                 err.to_string(),
-                Some(Span { start: 0, end: 0 }),
+                Some(Span::unknown()),
                 None,
                 Vec::new(),
             ));
@@ -1007,7 +1007,7 @@ fn run_ansi_sequence(seq: &str) -> Result<(), ShellError> {
         ShellError::GenericError(
             "Error flushing stdio".into(),
             e.to_string(),
-            Some(Span { start: 0, end: 0 }),
+            Some(Span::unknown()),
             None,
             Vec::new(),
         )

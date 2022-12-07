@@ -136,11 +136,22 @@ pub fn collect_proc(interval: Duration, _with_thread: bool) -> Vec<ProcessInfo> 
 
             let start_time = if let Some((start, _, _, _)) = times {
                 let time = chrono::Duration::seconds(start as i64 / 10_000_000);
-                let base = NaiveDate::from_ymd(1600, 1, 1).and_hms(0, 0, 0);
-                let time = base + time;
-                Local.from_utc_datetime(&time)
+                let base =
+                    NaiveDate::from_ymd_opt(1600, 1, 1).and_then(|nd| nd.and_hms_opt(0, 0, 0));
+                if let Some(base) = base {
+                    let time = base + time;
+                    Local.from_utc_datetime(&time)
+                } else {
+                    continue;
+                }
             } else {
-                Local.from_utc_datetime(&NaiveDate::from_ymd(1600, 1, 1).and_hms(0, 0, 0))
+                let time =
+                    NaiveDate::from_ymd_opt(1600, 1, 1).and_then(|nt| nt.and_hms_opt(0, 0, 0));
+                if let Some(time) = time {
+                    Local.from_utc_datetime(&time)
+                } else {
+                    continue;
+                }
             };
 
             let cpu_info = if let Some((_, _, curr_sys, curr_user)) = times {

@@ -1,6 +1,6 @@
 use crate::input_handler::{operate, CmdArgument};
 use crate::{generate_strftime_list, parse_date_from_string};
-use chrono::{DateTime, FixedOffset, Local, TimeZone, Utc};
+use chrono::{DateTime, FixedOffset, Local, LocalResult, TimeZone, Utc};
 use nu_engine::CallExt;
 use nu_protocol::ast::Call;
 use nu_protocol::ast::CellPath;
@@ -147,38 +147,63 @@ impl Command for SubCommand {
     }
 
     fn examples(&self) -> Vec<Example> {
+        let example_result_1 = |secs: i64, nsecs: u32| {
+            let dt = match Utc.timestamp_opt(secs, nsecs) {
+                LocalResult::Single(dt) => Some(dt),
+                _ => None,
+            };
+            match dt {
+                Some(dt) => Some(Value::Date {
+                    val: dt.into(),
+                    span: Span::test_data(),
+                }),
+                None => Some(Value::Error {
+                    error: ShellError::UnsupportedInput(
+                        "The given datetime representation is unsupported.".to_string(),
+                        Span::test_data(),
+                    ),
+                }),
+            }
+        };
+        let example_result_2 = |millis: i64| {
+            let dt = match Utc.timestamp_millis_opt(millis) {
+                LocalResult::Single(dt) => Some(dt),
+                _ => None,
+            };
+            match dt {
+                Some(dt) => Some(Value::Date {
+                    val: dt.into(),
+                    span: Span::test_data(),
+                }),
+                None => Some(Value::Error {
+                    error: ShellError::UnsupportedInput(
+                        "The given datetime representation is unsupported.".to_string(),
+                        Span::test_data(),
+                    ),
+                }),
+            }
+        };
         vec![
             Example {
                 description: "Convert to datetime",
                 example: "'27.02.2021 1:55 pm +0000' | into datetime",
-                result: Some(Value::Date {
-                    val: Utc.timestamp(1614434100, 0).into(),
-                    span: Span::test_data(),
-                }),
+                result: example_result_1(1614434100,0)
             },
             Example {
                 description: "Convert to datetime",
                 example: "'2021-02-27T13:55:40+00:00' | into datetime",
-                result: Some(Value::Date {
-                    val: Utc.timestamp(1614434140, 0).into(),
-                    span: Span::test_data(),
-                }),
+                result: example_result_1(1614434140, 0)
             },
             Example {
                 description: "Convert to datetime using a custom format",
                 example: "'20210227_135540+0000' | into datetime -f '%Y%m%d_%H%M%S%z'",
-                result: Some(Value::Date {
-                    val: Utc.timestamp(1614434140, 0).into(),
-                    span: Span::test_data(),
-                }),
+                result: example_result_1(1614434140, 0)
+
             },
             Example {
                 description: "Convert timestamp (no larger than 8e+12) to a UTC datetime",
                 example: "1614434140 | into datetime",
-                result: Some(Value::Date {
-                    val: Utc.timestamp(1614434140, 0).into(),
-                    span: Span::test_data(),
-                }),
+                result: example_result_1(1614434140, 0)
             },
             Example {
                 description:
@@ -190,10 +215,7 @@ impl Command for SubCommand {
                 description:
                     "Convert timestamps like the sqlite history t",
                 example: "1656165681720 | into datetime",
-                result: Some(Value::Date {
-                    val: Utc.timestamp_millis(1656165681720).into(),
-                    span: Span::test_data(),
-                }),
+                result: example_result_2(1656165681720)
             },
         ]
     }
@@ -239,8 +261,31 @@ fn action(input: &Value, args: &Arguments, head: Span) -> Value {
                 // be able to convert chrono::Utc::now()
                 let dt = match ts.to_string().len() {
                     x if x > 13 => Utc.timestamp_nanos(ts).into(),
-                    x if x > 10 => Utc.timestamp_millis(ts).into(),
-                    _ => Utc.timestamp(ts, 0).into(),
+                    x if x > 10 => match Utc.timestamp_millis_opt(ts) {
+                        LocalResult::Single(dt) => dt.into(),
+                        _ => {
+                            return Value::Error {
+                                // This error message is from chrono
+                                error: ShellError::UnsupportedInput(
+                                    "The given local datetime representation is invalid."
+                                        .to_string(),
+                                    head,
+                                ),
+                            };
+                        }
+                    },
+                    _ => match Utc.timestamp_opt(ts, 0) {
+                        LocalResult::Single(dt) => dt.into(),
+                        _ => {
+                            return Value::Error {
+                                error: ShellError::UnsupportedInput(
+                                    "The given local datetime representation is invalid."
+                                        .to_string(),
+                                    head,
+                                ),
+                            }
+                        }
+                    },
                 };
 
                 Value::Date {
@@ -249,28 +294,64 @@ fn action(input: &Value, args: &Arguments, head: Span) -> Value {
                 }
             }
             Some(Spanned { item, span }) => match item {
-                Zone::Utc => Value::Date {
-                    val: Utc.timestamp(ts, 0).into(),
-                    span: head,
-                },
-                Zone::Local => Value::Date {
-                    val: Local.timestamp(ts, 0).into(),
-                    span: head,
-                },
-                Zone::East(i) => {
-                    let eastoffset = FixedOffset::east((*i as i32) * HOUR);
-                    Value::Date {
-                        val: eastoffset.timestamp(ts, 0),
+                Zone::Utc => match Utc.timestamp_opt(ts, 0) {
+                    LocalResult::Single(val) => Value::Date {
+                        val: val.into(),
                         span: head,
-                    }
-                }
-                Zone::West(i) => {
-                    let westoffset = FixedOffset::west((*i as i32) * HOUR);
-                    Value::Date {
-                        val: westoffset.timestamp(ts, 0),
+                    },
+                    _ => Value::Error {
+                        error: ShellError::UnsupportedInput(
+                            "The given local datetime representation is invalid.".to_string(),
+                            *span,
+                        ),
+                    },
+                },
+                Zone::Local => match Local.timestamp_opt(ts, 0) {
+                    LocalResult::Single(val) => Value::Date {
+                        val: val.into(),
                         span: head,
-                    }
-                }
+                    },
+                    _ => Value::Error {
+                        error: ShellError::UnsupportedInput(
+                            "The given local datetime representation is invalid.".to_string(),
+                            *span,
+                        ),
+                    },
+                },
+                Zone::East(i) => match FixedOffset::east_opt((*i as i32) * HOUR) {
+                    Some(eastoffset) => match eastoffset.timestamp_opt(ts, 0) {
+                        LocalResult::Single(val) => Value::Date { val, span: head },
+                        _ => Value::Error {
+                            error: ShellError::UnsupportedInput(
+                                "The given local datetime representation is invalid.".to_string(),
+                                *span,
+                            ),
+                        },
+                    },
+                    None => Value::Error {
+                        error: ShellError::UnsupportedInput(
+                            "The given local datetime representation is invalid.".to_string(),
+                            *span,
+                        ),
+                    },
+                },
+                Zone::West(i) => match FixedOffset::west_opt((*i as i32) * HOUR) {
+                    Some(westoffset) => match westoffset.timestamp_opt(ts, 0) {
+                        LocalResult::Single(val) => Value::Date { val, span: head },
+                        _ => Value::Error {
+                            error: ShellError::UnsupportedInput(
+                                "The given local datetime representation is invalid.".to_string(),
+                                *span,
+                            ),
+                        },
+                    },
+                    None => Value::Error {
+                        error: ShellError::UnsupportedInput(
+                            "The given local datetime representation is invalid.".to_string(),
+                            *span,
+                        ),
+                    },
+                },
                 Zone::Error => Value::Error {
                     error: ShellError::UnsupportedInput(
                         "Cannot convert given timezone or offset to timestamp".to_string(),
@@ -425,7 +506,7 @@ mod tests {
         };
         let actual = action(&date_str, &args, Span::test_data());
         let expected = Value::Date {
-            val: Local.timestamp(1614434140, 0).into(),
+            val: Local.timestamp_opt(1614434140, 0).unwrap().into(),
             span: Span::test_data(),
         };
 
@@ -443,7 +524,7 @@ mod tests {
         let actual = action(&date_str, &args, Span::test_data());
 
         let expected = Value::Date {
-            val: Utc.timestamp(1614434140, 0).into(),
+            val: Utc.timestamp_opt(1614434140, 0).unwrap().into(),
             span: Span::test_data(),
         };
 

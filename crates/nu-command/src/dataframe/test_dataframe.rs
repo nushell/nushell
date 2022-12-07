@@ -22,7 +22,7 @@ pub fn test_dataframe(cmds: Vec<Box<dyn Command + 'static>>) {
     let delta = {
         // Base functions that are needed for testing
         // Try to keep this working set small to keep tests running as fast as possible
-        let mut working_set = StateWorkingSet::new(&*engine_state);
+        let mut working_set = StateWorkingSet::new(&engine_state);
         working_set.add_decl(Box::new(Let));
         working_set.add_decl(Box::new(ToDataFrame));
         working_set.add_decl(Box::new(ToLazyFrame));
@@ -49,7 +49,7 @@ pub fn test_dataframe(cmds: Vec<Box<dyn Command + 'static>>) {
         let start = std::time::Instant::now();
 
         let (block, delta) = {
-            let mut working_set = StateWorkingSet::new(&*engine_state);
+            let mut working_set = StateWorkingSet::new(&engine_state);
             let (output, err) = parse(
                 &mut working_set,
                 None,
@@ -75,7 +75,7 @@ pub fn test_dataframe(cmds: Vec<Box<dyn Command + 'static>>) {
             &engine_state,
             &mut stack,
             &block,
-            PipelineData::new(Span::test_data()),
+            PipelineData::empty(),
             true,
             true,
         ) {

@@ -878,10 +878,12 @@ impl Value {
                     Value::List { vals, .. } => {
                         if let Some(v) = vals.get_mut(*row_num) {
                             v.upsert_data_at_cell_path(&cell_path[1..], new_val)?
-                        } else if vals.is_empty() {
-                            return Err(ShellError::AccessEmptyContent(*span));
+                        } else if vals.len() == *row_num && cell_path.len() == 1 {
+                            // If the upsert is at 1 + the end of the list, it's OK.
+                            // Otherwise, it's prohibited.
+                            vals.push(new_val);
                         } else {
-                            return Err(ShellError::AccessBeyondEnd(vals.len() - 1, *span));
+                            return Err(ShellError::InsertAfterNextFreeIndex(vals.len(), *span));
                         }
                     }
                     v => return Err(ShellError::NotAList(*span, v.span()?)),
@@ -1266,10 +1268,12 @@ impl Value {
                     Value::List { vals, .. } => {
                         if let Some(v) = vals.get_mut(*row_num) {
                             v.insert_data_at_cell_path(&cell_path[1..], new_val)?
-                        } else if vals.is_empty() {
-                            return Err(ShellError::AccessEmptyContent(*span));
+                        } else if vals.len() == *row_num && cell_path.len() == 1 {
+                            // If the insert is at 1 + the end of the list, it's OK.
+                            // Otherwise, it's prohibited.
+                            vals.push(new_val);
                         } else {
-                            return Err(ShellError::AccessBeyondEnd(vals.len() - 1, *span));
+                            return Err(ShellError::InsertAfterNextFreeIndex(vals.len(), *span));
                         }
                     }
                     v => return Err(ShellError::NotAList(*span, v.span()?)),
@@ -1391,7 +1395,7 @@ impl Value {
 impl Default for Value {
     fn default() -> Self {
         Value::Nothing {
-            span: Span { start: 0, end: 0 },
+            span: Span::unknown(),
         }
     }
 }
@@ -1762,6 +1766,7 @@ impl Value {
                     Err(ShellError::OperatorOverflow(
                         "add operation overflowed".into(),
                         span,
+                        "Consider using floating point values for increased range by promoting operand with 'into decimal'. Note: float has reduced precision!".into()
                     ))
                 }
             }
@@ -1787,6 +1792,7 @@ impl Value {
                     _ => Err(ShellError::OperatorOverflow(
                         "addition operation overflowed".into(),
                         span,
+                        "".into(),
                     )),
                 }
             }
@@ -1797,6 +1803,7 @@ impl Value {
                     Err(ShellError::OperatorOverflow(
                         "add operation overflowed".into(),
                         span,
+                        "".into(),
                     ))
                 }
             }
@@ -1807,6 +1814,7 @@ impl Value {
                     Err(ShellError::OperatorOverflow(
                         "add operation overflowed".into(),
                         span,
+                        "".into(),
                     ))
                 }
             }
@@ -1862,6 +1870,7 @@ impl Value {
                     Err(ShellError::OperatorOverflow(
                         "subtraction operation overflowed".into(),
                         span,
+                        "Consider using floating point values for increased range by promoting operand with 'into decimal'. Note: float has reduced precision!".into()
                     ))
                 }
             }
@@ -1885,6 +1894,7 @@ impl Value {
                     None => Err(ShellError::OperatorOverflow(
                         "subtraction operation overflowed".into(),
                         span,
+                        "".into(),
                     )),
                 }
             }
@@ -1894,6 +1904,7 @@ impl Value {
                     _ => Err(ShellError::OperatorOverflow(
                         "subtraction operation overflowed".into(),
                         span,
+                        "".into(),
                     )),
                 }
             }
@@ -1904,6 +1915,7 @@ impl Value {
                     Err(ShellError::OperatorOverflow(
                         "subtraction operation overflowed".into(),
                         span,
+                        "".into(),
                     ))
                 }
             }
@@ -1914,6 +1926,7 @@ impl Value {
                     Err(ShellError::OperatorOverflow(
                         "add operation overflowed".into(),
                         span,
+                        "".into(),
                     ))
                 }
             }
@@ -1941,6 +1954,7 @@ impl Value {
                     Err(ShellError::OperatorOverflow(
                         "multiply operation overflowed".into(),
                         span,
+                        "Consider using floating point values for increased range by promoting operand with 'into decimal'. Note: float has reduced precision!".into()
                     ))
                 }
             }
@@ -2865,6 +2879,25 @@ impl Value {
         }
     }
 
+    pub fn xor(&self, op: Span, rhs: &Value, span: Span) -> Result<Value, ShellError> {
+        match (self, rhs) {
+            (Value::Bool { val: lhs, .. }, Value::Bool { val: rhs, .. }) => Ok(Value::Bool {
+                val: (*lhs && !*rhs) || (!*lhs && *rhs),
+                span,
+            }),
+            (Value::CustomValue { val: lhs, span }, rhs) => {
+                lhs.operation(*span, Operator::Boolean(Boolean::Xor), op, rhs)
+            }
+            _ => Err(ShellError::OperatorMismatch {
+                op_span: op,
+                lhs_ty: self.get_type(),
+                lhs_span: self.span()?,
+                rhs_ty: rhs.get_type(),
+                rhs_span: rhs.span()?,
+            }),
+        }
+    }
+
     pub fn pow(&self, op: Span, rhs: &Value, span: Span) -> Result<Value, ShellError> {
         match (self, rhs) {
             (Value::Int { val: lhs, .. }, Value::Int { val: rhs, .. }) => {
@@ -2874,6 +2907,7 @@ impl Value {
                     Err(ShellError::OperatorOverflow(
                         "pow operation overflowed".into(),
                         span,
+                        "Consider using floating point values for increased range by promoting operand with 'into decimal'. Note: float has reduced precision!".into()
                     ))
                 }
             }
@@ -2968,7 +3002,7 @@ pub fn is_leap_year(year: i32) -> bool {
 }
 
 #[derive(Clone, Copy)]
-enum TimePeriod {
+pub enum TimePeriod {
     Nanos(i64),
     Micros(i64),
     Millis(i64),
@@ -2982,18 +3016,18 @@ enum TimePeriod {
 }
 
 impl TimePeriod {
-    fn to_text(self) -> Cow<'static, str> {
+    pub fn to_text(self) -> Cow<'static, str> {
         match self {
-            Self::Nanos(n) => format!("{}ns", n).into(),
-            Self::Micros(n) => format!("{}µs", n).into(),
-            Self::Millis(n) => format!("{}ms", n).into(),
-            Self::Seconds(n) => format!("{}sec", n).into(),
-            Self::Minutes(n) => format!("{}min", n).into(),
-            Self::Hours(n) => format!("{}hr", n).into(),
-            Self::Days(n) => format!("{}day", n).into(),
-            Self::Weeks(n) => format!("{}wk", n).into(),
-            Self::Months(n) => format!("{}month", n).into(),
-            Self::Years(n) => format!("{}yr", n).into(),
+            Self::Nanos(n) => format!("{} ns", n).into(),
+            Self::Micros(n) => format!("{} µs", n).into(),
+            Self::Millis(n) => format!("{} ms", n).into(),
+            Self::Seconds(n) => format!("{} sec", n).into(),
+            Self::Minutes(n) => format!("{} min", n).into(),
+            Self::Hours(n) => format!("{} hr", n).into(),
+            Self::Days(n) => format!("{} day", n).into(),
+            Self::Weeks(n) => format!("{} wk", n).into(),
+            Self::Months(n) => format!("{} month", n).into(),
+            Self::Years(n) => format!("{} yr", n).into(),
         }
     }
 }
@@ -3005,6 +3039,21 @@ impl Display for TimePeriod {
 }
 
 pub fn format_duration(duration: i64) -> String {
+    let (sign, periods) = format_duration_as_timeperiod(duration);
+
+    let text = periods
+        .into_iter()
+        .map(|p| p.to_text().to_string().replace(' ', ""))
+        .collect::<Vec<String>>();
+
+    format!(
+        "{}{}",
+        if sign == -1 { "-" } else { "" },
+        text.join(" ").trim()
+    )
+}
+
+pub fn format_duration_as_timeperiod(duration: i64) -> (i32, Vec<TimePeriod>) {
     // Attribution: most of this is taken from chrono-humanize-rs. Thanks!
     // https://gitlab.com/imp/chrono-humanize-rs/-/blob/master/src/humantime.rs
     const DAYS_IN_YEAR: i64 = 365;
@@ -3151,21 +3200,7 @@ pub fn format_duration(duration: i64) -> String {
         periods.push(TimePeriod::Seconds(0));
     }
 
-    // let last = periods.pop().map(|last| last.to_text().to_string());
-    let text = periods
-        .into_iter()
-        .map(|p| p.to_text().to_string())
-        .collect::<Vec<String>>();
-
-    // if let Some(last) = last {
-    //     text.push(format!("and {}", last));
-    // }
-
-    format!(
-        "{}{}",
-        if sign == -1 { "-" } else { "" },
-        text.join(" ").trim()
-    )
+    (sign, periods)
 }
 
 pub fn format_filesize_from_conf(num_bytes: i64, config: &Config) -> String {

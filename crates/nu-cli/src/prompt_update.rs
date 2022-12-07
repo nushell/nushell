@@ -4,7 +4,7 @@ use log::info;
 use nu_engine::eval_subexpression;
 use nu_protocol::{
     engine::{EngineState, Stack, StateWorkingSet},
-    Config, PipelineData, Span, Value,
+    Config, PipelineData, Value,
 };
 use reedline::Prompt;
 
@@ -37,12 +37,8 @@ fn get_prompt_string(
                 let block = engine_state.get_block(block_id);
                 let mut stack = stack.captures_to_stack(&captures);
                 // Use eval_subexpression to force a redirection of output, so we can use everything in prompt
-                let ret_val = eval_subexpression(
-                    engine_state,
-                    &mut stack,
-                    block,
-                    PipelineData::new(Span::new(0, 0)), // Don't try this at home, 0 span is ignored
-                );
+                let ret_val =
+                    eval_subexpression(engine_state, &mut stack, block, PipelineData::empty());
                 info!(
                     "get_prompt_string (block) {}:{}:{}",
                     file!(),
@@ -62,12 +58,7 @@ fn get_prompt_string(
             Value::Block { val: block_id, .. } => {
                 let block = engine_state.get_block(block_id);
                 // Use eval_subexpression to force a redirection of output, so we can use everything in prompt
-                let ret_val = eval_subexpression(
-                    engine_state,
-                    stack,
-                    block,
-                    PipelineData::new(Span::new(0, 0)), // Don't try this at home, 0 span is ignored
-                );
+                let ret_val = eval_subexpression(engine_state, stack, block, PipelineData::empty());
                 info!(
                     "get_prompt_string (block) {}:{}:{}",
                     file!(),

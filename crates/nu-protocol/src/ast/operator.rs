@@ -35,6 +35,7 @@ pub enum Math {
 pub enum Boolean {
     And,
     Or,
+    Xor,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -94,6 +95,7 @@ impl Display for Operator {
             Operator::Math(Math::Pow) => write!(f, "**"),
             Operator::Boolean(Boolean::And) => write!(f, "&&"),
             Operator::Boolean(Boolean::Or) => write!(f, "||"),
+            Operator::Boolean(Boolean::Xor) => write!(f, "xor"),
             Operator::Bits(Bits::BitOr) => write!(f, "bit-or"),
             Operator::Bits(Bits::BitXor) => write!(f, "bit-xor"),
             Operator::Bits(Bits::BitAnd) => write!(f, "bit-and"),

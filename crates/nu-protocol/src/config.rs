@@ -87,6 +87,7 @@ pub struct Config {
     pub show_banner: bool,
     pub show_clickable_links_in_ls: bool,
     pub render_right_prompt_on_last_line: bool,
+    pub explore: HashMap<String, Value>,
 }
 
 impl Default for Config {
@@ -125,6 +126,7 @@ impl Default for Config {
             show_banner: true,
             show_clickable_links_in_ls: true,
             render_right_prompt_on_last_line: false,
+            explore: HashMap::new(),
         }
     }
 }
@@ -181,6 +183,11 @@ pub enum TrimStrategy {
         /// the suffix takes 13 chars it won't be used.
         suffix: Option<String>,
     },
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug)]
+pub struct ExploreConfig {
+    pub color_config: HashMap<String, Value>,
 }
 
 impl Value {
@@ -515,6 +522,13 @@ impl Value {
                                     }
                                 }
                             }
+                        } else {
+                            eprintln!("$env.config.{} is not a record", key)
+                        }
+                    }
+                    "explore" => {
+                        if let Ok(map) = create_map(value, &config) {
+                            config.explore = map;
                         } else {
                             eprintln!("$env.config.{} is not a record", key)
                         }
@@ -967,7 +981,7 @@ fn create_hooks(value: &Value) -> Result<Hooks, ShellError> {
             _ => Err(ShellError::UnsupportedConfigValue(
                 "record for 'hooks' config".into(),
                 "non-record value".into(),
-                Span { start: 0, end: 0 },
+                Span::unknown(),
             )),
         },
     }

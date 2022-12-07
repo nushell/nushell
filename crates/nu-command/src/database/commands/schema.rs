@@ -1,5 +1,5 @@
 use super::super::SQLiteDatabase;
-use crate::database::values::definitions::{db::Db, db_row::DbRow, db_table::DbTable};
+use crate::database::values::definitions::{db_row::DbRow, db_table::DbTable};
 use nu_protocol::{
     ast::Call,
     engine::{Command, EngineState, Stack},
@@ -22,7 +22,7 @@ impl Command for SchemaDb {
     }
 
     fn usage(&self) -> &str {
-        "Show SQLite database information, including its schema."
+        "Show the schema of a SQLite database."
     }
 
     fn examples(&self) -> Vec<Example> {
@@ -50,76 +50,63 @@ impl Command for SchemaDb {
 
         let sqlite_db = SQLiteDatabase::try_from_pipeline(input, span)?;
         let conn = open_sqlite_db_connection(&sqlite_db, span)?;
-        let dbs = get_databases_and_tables(&sqlite_db, &conn, span)?;
+        let tables = sqlite_db.get_tables(&conn).map_err(|e| {
+            ShellError::GenericError(
+                "Error reading tables".into(),
+                e.to_string(),
+                Some(span),
+                None,
+                Vec::new(),
+            )
+        })?;
 
-        cols.push("db_filename".into());
-        vals.push(Value::String {
-            val: sqlite_db.path.to_string_lossy().into(),
+        let mut table_names = vec![];
+        let mut table_values = vec![];
+        for table in tables {
+            let column_info = get_table_columns(&sqlite_db, &conn, &table, span)?;
+            let constraint_info = get_table_constraints(&sqlite_db, &conn, &table, span)?;
+            let foreign_key_info = get_table_foreign_keys(&sqlite_db, &conn, &table, span)?;
+            let index_info = get_table_indexes(&sqlite_db, &conn, &table, span)?;
+
+            let mut cols = vec![];
+            let mut vals = vec![];
+
+            cols.push("columns".into());
+            vals.push(Value::List {
+                vals: column_info,
+                span,
+            });
+
+            cols.push("constraints".into());
+            vals.push(Value::List {
+                vals: constraint_info,
+                span,
+            });
+
+            cols.push("foreign_keys".into());
+            vals.push(Value::List {
+                vals: foreign_key_info,
+                span,
+            });
+
+            cols.push("indexes".into());
+            vals.push(Value::List {
+                vals: index_info,
+                span,
+            });
+
+            table_names.push(table.name);
+            table_values.push(Value::Record { cols, vals, span });
+        }
+
+        cols.push("tables".into());
+        vals.push(Value::Record {
+            cols: table_names,
+            vals: table_values,
             span,
         });
 
-        for db in dbs {
-            let tables = get_database_tables(&db);
-            let mut table_list: Vec<Value> = vec![];
-            let mut table_names = vec![];
-            let mut table_values = vec![];
-            for table in tables {
-                let column_info = get_table_columns(&sqlite_db, &conn, &table, span)?;
-                let constraint_info = get_table_constraints(&sqlite_db, &conn, &table, span)?;
-                let foreign_key_info = get_table_foreign_keys(&sqlite_db, &conn, &table, span)?;
-                let index_info = get_table_indexes(&sqlite_db, &conn, &table, span)?;
-
-                table_names.push(table.name);
-                table_values.push(Value::Record {
-                    cols: vec![
-                        "columns".into(),
-                        "constraints".into(),
-                        "foreign_keys".into(),
-                        "indexes".into(),
-                    ],
-                    vals: vec![
-                        Value::List {
-                            vals: column_info,
-                            span,
-                        },
-                        Value::List {
-                            vals: constraint_info,
-                            span,
-                        },
-                        Value::List {
-                            vals: foreign_key_info,
-                            span,
-                        },
-                        Value::List {
-                            vals: index_info,
-                            span,
-                        },
-                    ],
-                    span,
-                });
-            }
-            table_list.push(Value::Record {
-                cols: table_names,
-                vals: table_values,
-                span,
-            });
-
-            cols.push("databases".into());
-
-            let mut rcols = vec![];
-            let mut rvals = vec![];
-            rcols.push("name".into());
-            rvals.push(Value::string(db.name().to_string(), span));
-
-            rcols.push("tables".into());
-            rvals.append(&mut table_list);
-
-            vals.push(Value::Record {
-                cols: rcols,
-                vals: rvals,
-                span,
-            });
-        }
+        // TODO: add views and triggers
 
         Ok(PipelineData::Value(
             Value::Record { cols, vals, span },
@@ -138,26 +125,6 @@ fn open_sqlite_db_connection(db: &SQLiteDatabase, span: Span) -> Result<Connecti
             Vec::new(),
         )
     })
-}
-
-fn get_databases_and_tables(
-    db: &SQLiteDatabase,
-    conn: &Connection,
-    span: Span,
-) -> Result<Vec<Db>, ShellError> {
-    db.get_databases_and_tables(conn).map_err(|e| {
-        ShellError::GenericError(
-            "Error getting databases and tables".into(),
-            e.to_string(),
-            Some(span),
-            None,
-            Vec::new(),
-        )
-    })
-}
-
-fn get_database_tables(db: &Db) -> Vec<DbTable> {
-    db.tables()
 }
 
 fn get_table_columns(

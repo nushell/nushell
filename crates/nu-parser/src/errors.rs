@@ -100,6 +100,14 @@ pub enum ParseError {
     )]
     UnexpectedKeyword(String, #[label("unexpected {0}")] Span),
 
+    #[error("Unknown operator")]
+    #[diagnostic(code(nu::parser::unknown_operator), url(docsrs), help("{1}"))]
+    UnknownOperator(
+        &'static str,
+        &'static str,
+        #[label("Operator '{0}' not supported")] Span,
+    ),
+
     #[error("Statement used in pipeline.")]
     #[diagnostic(
         code(nu::parser::unexpected_keyword),
@@ -445,6 +453,7 @@ impl ParseError {
             ParseError::ShellOrOr(s) => *s,
             ParseError::ShellErrRedirect(s) => *s,
             ParseError::ShellOutErrRedirect(s) => *s,
+            ParseError::UnknownOperator(_, _, s) => *s,
         }
     }
 }

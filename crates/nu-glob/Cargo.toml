@@ -1,6 +1,6 @@
 [package]
 name = "nu-glob"
-version = "0.71.1"
+version = "0.72.2"
 authors = ["The Nushell Project Developers", "The Rust Project Developers"]
 license = "MIT/Apache-2.0"
 description = """
@@ -11,5 +11,4 @@ edition = "2021"
 categories = ["filesystem"]
 
 [dev-dependencies]
-tempdir = "0.3"
 doc-comment = "0.3"

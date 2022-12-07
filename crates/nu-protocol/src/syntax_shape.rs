@@ -55,7 +55,7 @@ pub enum SyntaxShape {
     /// A table is allowed, eg `[[first, second]; [1, 2]]`
     Table,
 
-    /// A table is allowed, eg `[first second]`
+    /// A list is allowed, eg `[first second]`
     List(Box<SyntaxShape>),
 
     /// A filesize value is allowed, eg `10kb`
@@ -67,7 +67,7 @@ pub enum SyntaxShape {
     /// A datetime value, eg `2022-02-02` or `2019-10-12T07:20:50.52+00:00`
     DateTime,
 
-    /// An operator
+    /// An operator, eg `+`
     Operator,
 
     /// A math expression which expands shorthand forms on the lefthand side, eg `foo > 1`
@@ -77,7 +77,7 @@ pub enum SyntaxShape {
     /// A general math expression, eg `1 + 2`
     MathExpression,
 
-    /// A variable name
+    /// A variable name, eg `$foo`
     Variable,
 
     /// A variable with optional type, `x` or `x: int`
@@ -89,10 +89,10 @@ pub enum SyntaxShape {
     /// A general expression, eg `1 + 2` or `foo --bar`
     Expression,
 
-    /// A boolean value
+    /// A boolean value, eg `true` or `false`
     Boolean,
 
-    /// A record value
+    /// A record value, eg `{x: 1, y: 2}`
     Record,
 
     /// An error value
@@ -100,6 +100,9 @@ pub enum SyntaxShape {
 
     /// A custom shape with custom completion logic
     Custom(Box<SyntaxShape>, DeclId),
+
+    /// One of a list of possible items, checked in order
+    OneOf(Vec<SyntaxShape>),
 
     /// Nothing
     Nothing,
@@ -132,6 +135,7 @@ impl SyntaxShape {
             SyntaxShape::Keyword(_, expr) => expr.to_type(),
             SyntaxShape::MathExpression => Type::Any,
             SyntaxShape::Number => Type::Number,
+            SyntaxShape::OneOf(_) => Type::Any,
             SyntaxShape::Operator => Type::Any,
             SyntaxShape::Range => Type::Any,
             SyntaxShape::Record => Type::Record(vec![]), // FIXME: What role should fields play in the Record type?
@@ -165,7 +169,15 @@ impl Display for SyntaxShape {
             SyntaxShape::GlobPattern => write!(f, "glob"),
             SyntaxShape::ImportPattern => write!(f, "import"),
             SyntaxShape::Block => write!(f, "block"),
-            SyntaxShape::Closure(_) => write!(f, "closure"),
+            SyntaxShape::Closure(args) => {
+                if let Some(args) = args {
+                    let arg_vec: Vec<_> = args.iter().map(|x| x.to_string()).collect();
+                    let arg_string = arg_vec.join(", ");
+                    write!(f, "closure({})", arg_string)
+                } else {
+                    write!(f, "closure()")
+                }
+            }
             SyntaxShape::Binary => write!(f, "binary"),
             SyntaxShape::Table => write!(f, "table"),
             SyntaxShape::List(x) => write!(f, "list<{}>", x),
@@ -183,6 +195,11 @@ impl Display for SyntaxShape {
             SyntaxShape::Boolean => write!(f, "bool"),
             SyntaxShape::Error => write!(f, "error"),
             SyntaxShape::Custom(x, _) => write!(f, "custom<{}>", x),
+            SyntaxShape::OneOf(list) => {
+                let arg_vec: Vec<_> = list.iter().map(|x| x.to_string()).collect();
+                let arg_string = arg_vec.join(", ");
+                write!(f, "one_of({})", arg_string)
+            }
             SyntaxShape::Nothing => write!(f, "nothing"),
         }
     }

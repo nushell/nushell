@@ -109,7 +109,7 @@ impl Command for Open {
         } else {
             #[cfg(feature = "sqlite")]
             if !raw {
-                let res = SQLiteDatabase::try_from_path(path, arg_span)
+                let res = SQLiteDatabase::try_from_path(path, arg_span, ctrlc.clone())
                     .map(|db| db.into_value(call.head).into_pipeline_data());
 
                 if res.is_ok() {

@@ -73,7 +73,7 @@ impl Command for Mut {
         //println!("Adding: {:?} to {}", rhs, var_id);
 
         stack.add_var(var_id, rhs.into_value(call.head));
-        Ok(PipelineData::new(call.head))
+        Ok(PipelineData::empty())
     }
 
     fn examples(&self) -> Vec<Example> {
@@ -81,6 +81,11 @@ impl Command for Mut {
             Example {
                 description: "Set a mutable variable to a value, then update it",
                 example: "mut x = 10; $x = 12",
+                result: None,
+            },
+            Example {
+                description: "Upsert a value inside a mutable data structure",
+                example: "mut a = {b:{c:1}}; $a.b.c = 2",
                 result: None,
             },
             Example {

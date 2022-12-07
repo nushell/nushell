@@ -518,7 +518,7 @@ pub(crate) fn dir_entry_dict(
 
         if md.is_dir() {
             if du {
-                let params = DirBuilder::new(Span { start: 0, end: 2 }, None, false, None, false);
+                let params = DirBuilder::new(Span::new(0, 2), None, false, None, false);
                 let dir_size = DirInfo::new(filename, &params, None, ctrl_c).get_size();
 
                 vals.push(Value::Filesize {
@@ -799,7 +799,10 @@ mod windows_helper {
             .is_err()
             {
                 return Err(ShellError::ReadingFile(
-                    "Could not read file metadata".to_string(),
+                    format!(
+                        "Could not read metadata for '{}'. It may have an illegal filename.",
+                        filename.to_string_lossy()
+                    ),
                     span,
                 ));
             }

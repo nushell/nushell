@@ -219,7 +219,7 @@ impl Command for Reduce {
                 engine_state,
                 &mut stack,
                 block,
-                PipelineData::new(span),
+                PipelineData::empty(),
                 // redirect stdout until its the last input value
                 redirect_stdout || input_iter.peek().is_some(),
                 redirect_stderr,

@@ -1,6 +1,6 @@
 use super::parser::datetime_in_timezone;
 use crate::date::utils::parse_date_from_string;
-use chrono::{DateTime, Local};
+use chrono::{DateTime, Local, LocalResult};
 use nu_engine::CallExt;
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
@@ -65,13 +65,25 @@ impl Command for SubCommand {
 
     fn examples(&self) -> Vec<Example> {
         let example_result_1 = || {
-            let dt = FixedOffset::east(5 * 3600)
-                .ymd(2020, 10, 10)
-                .and_hms(13, 00, 00);
-            Some(Value::Date {
-                val: dt,
-                span: Span::test_data(),
-            })
+            let dt = match FixedOffset::east_opt(5 * 3600) {
+                Some(dt) => match dt.with_ymd_and_hms(2020, 10, 10, 13, 00, 00) {
+                    LocalResult::Single(dt) => Some(dt),
+                    _ => None,
+                },
+                _ => None,
+            };
+            match dt {
+                Some(dt) => Some(Value::Date {
+                    val: dt,
+                    span: Span::test_data(),
+                }),
+                None => Some(Value::Error {
+                    error: ShellError::UnsupportedInput(
+                        "The given datetime representation is unsupported.".to_string(),
+                        Span::test_data(),
+                    ),
+                }),
+            }
         };
 
         vec![

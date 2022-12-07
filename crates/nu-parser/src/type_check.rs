@@ -23,7 +23,6 @@ pub fn math_result_type(
     op: &mut Expression,
     rhs: &mut Expression,
 ) -> (Type, Option<ParseError>) {
-    //println!("checking: {:?} {:?} {:?}", lhs, op, rhs);
     match &op.expr {
         Expr::Operator(operator) => match operator {
             Operator::Math(Math::Plus) => match (&lhs.ty, &rhs.ty) {
@@ -84,6 +83,7 @@ pub fn math_result_type(
                         (Type::List(Box::new(Type::Any)), None)
                     }
                 }
+                (Type::Table(a), Type::Table(_)) => (Type::Table(a.clone()), None),
                 _ => {
                     *op = Expression::garbage(op.span);
                     (
@@ -244,7 +244,9 @@ pub fn math_result_type(
                     )
                 }
             },
-            Operator::Boolean(Boolean::And) | Operator::Boolean(Boolean::Or) => {
+            Operator::Boolean(Boolean::And)
+            | Operator::Boolean(Boolean::Or)
+            | Operator::Boolean(Boolean::Xor) => {
                 match (&lhs.ty, &rhs.ty) {
                     (Type::Bool, Type::Bool) => (Type::Bool, None),
 

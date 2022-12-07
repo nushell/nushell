@@ -173,19 +173,13 @@ pub fn check_call(command: Span, sig: &Signature, call: &Call) -> Option<ParseEr
                 if let Some(last) = call.positional_iter().last() {
                     return Some(ParseError::MissingPositional(
                         argument.name.clone(),
-                        Span {
-                            start: last.span.end,
-                            end: last.span.end,
-                        },
+                        Span::new(last.span.end, last.span.end),
                         sig.call_signature(),
                     ));
                 } else {
                     return Some(ParseError::MissingPositional(
                         argument.name.clone(),
-                        Span {
-                            start: command.end,
-                            end: command.end,
-                        },
+                        Span::new(command.end, command.end),
                         sig.call_signature(),
                     ));
                 }
@@ -196,19 +190,13 @@ pub fn check_call(command: Span, sig: &Signature, call: &Call) -> Option<ParseEr
         if let Some(last) = call.positional_iter().last() {
             Some(ParseError::MissingPositional(
                 missing.name.clone(),
-                Span {
-                    start: last.span.end,
-                    end: last.span.end,
-                },
+                Span::new(last.span.end, last.span.end),
                 sig.call_signature(),
             ))
         } else {
             Some(ParseError::MissingPositional(
                 missing.name.clone(),
-                Span {
-                    start: command.end,
-                    end: command.end,
-                },
+                Span::new(command.end, command.end),
                 sig.call_signature(),
             ))
         }
@@ -285,10 +273,7 @@ pub fn parse_external_call(
     let head_contents = working_set.get_span_contents(spans[0]);
 
     let head_span = if head_contents.starts_with(b"^") {
-        Span {
-            start: spans[0].start + 1,
-            end: spans[0].end,
-        }
+        Span::new(spans[0].start + 1, spans[0].end)
     } else {
         spans[0]
     };
@@ -345,7 +330,7 @@ pub fn parse_external_call(
                 span: *span,
                 ty: Type::String,
                 custom_completion: None,
-            })
+            });
         }
     }
     (
@@ -393,10 +378,7 @@ fn parse_long_flag(
                         (
                             Some(Spanned {
                                 item: long_name,
-                                span: Span {
-                                    start: arg_span.start,
-                                    end: arg_span.start + long_name_len + 2,
-                                },
+                                span: Span::new(arg_span.start, arg_span.start + long_name_len + 2),
                             }),
                             Some(arg),
                             err,
@@ -486,10 +468,10 @@ fn parse_short_flags(
         for short_flag in short_flags.iter().enumerate() {
             let short_flag_char = char::from(*short_flag.1);
             let orig = arg_span;
-            let short_flag_span = Span {
-                start: orig.start + 1 + short_flag.0,
-                end: orig.start + 1 + short_flag.0 + 1,
-            };
+            let short_flag_span = Span::new(
+                orig.start + 1 + short_flag.0,
+                orig.start + 1 + short_flag.0 + 1,
+            );
             if let Some(flag) = sig.get_short_flag(short_flag_char) {
                 // If we require an arg and are in a batch of short flags, error
                 if !found_short_flags.is_empty() && flag.arg.is_some() {
@@ -662,6 +644,27 @@ pub fn parse_multispan_value(
 
             (arg, error)
         }
+        SyntaxShape::OneOf(shapes) => {
+            for shape in shapes.iter() {
+                if let (s, None) = parse_multispan_value(
+                    working_set,
+                    spans,
+                    spans_idx,
+                    shape,
+                    expand_aliases_denylist,
+                ) {
+                    return (s, None);
+                }
+            }
+            let span = spans[*spans_idx];
+            (
+                Expression::garbage(span),
+                Some(ParseError::Expected(
+                    format!("one of a list of accepted shapes: {:?}", shapes),
+                    span,
+                )),
+            )
+        }
         SyntaxShape::Expression => {
             trace!("parsing: expression");
 
@@ -715,10 +718,7 @@ pub fn parse_multispan_value(
                     Some(ParseError::KeywordMissingArgument(
                         arg.to_string(),
                         String::from_utf8_lossy(keyword).into(),
-                        Span {
-                            start: spans[*spans_idx - 1].end,
-                            end: spans[*spans_idx - 1].end,
-                        },
+                        Span::new(spans[*spans_idx - 1].end, spans[*spans_idx - 1].end),
                     ))
                 });
                 return (
@@ -925,10 +925,7 @@ pub fn parse_internal_call(
                 error = error.or_else(|| {
                     Some(ParseError::MissingPositional(
                         positional.name.clone(),
-                        Span {
-                            start: spans[spans_idx].end,
-                            end: spans[spans_idx].end,
-                        },
+                        Span::new(spans[spans_idx].end, spans[spans_idx].end),
                         signature.call_signature(),
                     ))
                 });
@@ -1620,7 +1617,7 @@ pub fn parse_string_interpolation(
         (span.start, span.end)
     };
 
-    let inner_span = Span { start, end };
+    let inner_span = Span::new(start, end);
     let contents = working_set.get_span_contents(inner_span).to_vec();
 
     let mut output = vec![];
@@ -1641,10 +1638,7 @@ pub fn parse_string_interpolation(
         {
             mode = InterpolationMode::Expression;
             if token_start < b {
-                let span = Span {
-                    start: token_start,
-                    end: b,
-                };
+                let span = Span::new(token_start, b);
                 let str_contents = working_set.get_span_contents(span);
 
                 let str_contents = if double_quote {
@@ -1695,10 +1689,7 @@ pub fn parse_string_interpolation(
                     mode = InterpolationMode::String;
 
                     if token_start < b {
-                        let span = Span {
-                            start: token_start,
-                            end: b + 1,
-                        };
+                        let span = Span::new(token_start, b + 1);
 
                         let (expr, err) =
                             parse_full_cell_path(working_set, None, span, expand_aliases_denylist);
@@ -1717,10 +1708,7 @@ pub fn parse_string_interpolation(
     match mode {
         InterpolationMode::String => {
             if token_start < end {
-                let span = Span {
-                    start: token_start,
-                    end,
-                };
+                let span = Span::new(token_start, end);
                 let str_contents = working_set.get_span_contents(span);
 
                 let str_contents = if double_quote {
@@ -1742,10 +1730,7 @@ pub fn parse_string_interpolation(
         }
         InterpolationMode::Expression => {
             if token_start < end {
-                let span = Span {
-                    start: token_start,
-                    end,
-                };
+                let span = Span::new(token_start, end);
 
                 let (expr, err) =
                     parse_full_cell_path(working_set, None, span, expand_aliases_denylist);
@@ -1922,11 +1907,11 @@ pub fn parse_full_cell_path(
             if bytes.ends_with(b")") {
                 end -= 1;
             } else {
-                error = error
-                    .or_else(|| Some(ParseError::Unclosed(")".into(), Span { start: end, end })));
+                error =
+                    error.or_else(|| Some(ParseError::Unclosed(")".into(), Span::new(end, end))));
             }
 
-            let span = Span { start, end };
+            let span = Span::new(start, end);
 
             let source = working_set.get_span_contents(span);
 
@@ -2032,28 +2017,22 @@ pub fn parse_full_cell_path(
         );
         error = error.or(err);
 
-        if !tail.is_empty() {
-            (
-                Expression {
-                    ty: head.ty.clone(), // FIXME. How to access the last type of tail?
-                    expr: Expr::FullCellPath(Box::new(FullCellPath { head, tail })),
-                    span: full_cell_span,
-                    custom_completion: None,
+        (
+            Expression {
+                // FIXME: Get the type of the data at the tail using follow_cell_path() (or something)
+                ty: if !tail.is_empty() {
+                    // Until the aforementioned fix is implemented, this is necessary to allow mutable list upserts
+                    // such as $a.1 = 2 to work correctly.
+                    Type::Any
+                } else {
+                    head.ty.clone()
                 },
-                error,
-            )
-        } else {
-            let ty = head.ty.clone();
-            (
-                Expression {
-                    expr: Expr::FullCellPath(Box::new(FullCellPath { head, tail })),
-                    ty,
-                    span: full_cell_span,
-                    custom_completion: None,
-                },
-                error,
-            )
-        }
+                expr: Expr::FullCellPath(Box::new(FullCellPath { head, tail })),
+                span: full_cell_span,
+                custom_completion: None,
+            },
+            error,
+        )
     } else {
         (garbage(span), error)
     }
@@ -2567,19 +2546,13 @@ pub fn unescape_string(bytes: &[u8], span: Span) -> (Vec<u8>, Option<ParseError>
                             }
                             err = Some(ParseError::Expected(
                                 "unicode hex value".into(),
-                                Span {
-                                    start: (span.start + idx),
-                                    end: span.end,
-                                },
+                                Span::new(span.start + idx, span.end),
                             ));
                         }
                         _ => {
                             err = Some(ParseError::Expected(
                                 "unicode hex value".into(),
-                                Span {
-                                    start: (span.start + idx),
-                                    end: span.end,
-                                },
+                                Span::new(span.start + idx, span.end),
                             ));
                         }
                     }
@@ -2588,10 +2561,7 @@ pub fn unescape_string(bytes: &[u8], span: Span) -> (Vec<u8>, Option<ParseError>
                 _ => {
                     err = Some(ParseError::Expected(
                         "supported escape character".into(),
-                        Span {
-                            start: (span.start + idx),
-                            end: span.end,
-                        },
+                        Span::new(span.start + idx, span.end),
                     ));
                 }
             }
@@ -2771,10 +2741,7 @@ pub fn parse_shape_name(
                 let (shape, err) = parse_shape_name(
                     working_set,
                     split[0].as_bytes(),
-                    Span {
-                        start: span.start,
-                        end: span.start + split[0].len(),
-                    },
+                    Span::new(span.start, span.start + split[0].len()),
                 );
                 let command_name = trim_quotes(split[1].as_bytes());
 
@@ -2785,10 +2752,10 @@ pub fn parse_shape_name(
                 } else {
                     return (
                         shape,
-                        Some(ParseError::UnknownCommand(Span {
-                            start: span.start + split[0].len() + 1,
-                            end: span.end,
-                        })),
+                        Some(ParseError::UnknownCommand(Span::new(
+                            span.start + split[0].len() + 1,
+                            span.end,
+                        ))),
                     );
                 }
             } else {
@@ -3142,10 +3109,7 @@ pub fn parse_signature(
         error = error.or_else(|| {
             Some(ParseError::Expected(
                 "[ or (".into(),
-                Span {
-                    start,
-                    end: start + 1,
-                },
+                Span::new(start, start + 1),
             ))
         });
     }
@@ -3153,16 +3117,11 @@ pub fn parse_signature(
     if (has_paren && bytes.ends_with(b")")) || (!has_paren && bytes.ends_with(b"]")) {
         end -= 1;
     } else {
-        error = error.or_else(|| {
-            Some(ParseError::Unclosed(
-                "] or )".into(),
-                Span { start: end, end },
-            ))
-        });
+        error = error.or_else(|| Some(ParseError::Unclosed("] or )".into(), Span::new(end, end))));
     }
 
     let (sig, err) =
-        parse_signature_helper(working_set, Span { start, end }, expand_aliases_denylist);
+        parse_signature_helper(working_set, Span::new(start, end), expand_aliases_denylist);
     error = error.or(err);
 
     (
@@ -3630,10 +3589,7 @@ pub fn parse_signature_helper(
                 contents: crate::TokenContents::Comment,
                 span,
             } => {
-                let contents = working_set.get_span_contents(Span {
-                    start: span.start + 1,
-                    end: span.end,
-                });
+                let contents = working_set.get_span_contents(Span::new(span.start + 1, span.end));
 
                 let mut contents = String::from_utf8_lossy(contents).to_string();
                 contents = contents.trim().into();
@@ -3723,10 +3679,10 @@ pub fn parse_list_expression(
     if bytes.ends_with(b"]") {
         end -= 1;
     } else {
-        error = error.or_else(|| Some(ParseError::Unclosed("]".into(), Span { start: end, end })));
+        error = error.or_else(|| Some(ParseError::Unclosed("]".into(), Span::new(end, end))));
     }
 
-    let inner_span = Span { start, end };
+    let inner_span = Span::new(start, end);
     let source = working_set.get_span_contents(inner_span);
 
     let (output, err) = lex(source, inner_span.start, &[b'\n', b'\r', b','], &[], true);
@@ -3802,10 +3758,10 @@ pub fn parse_table_expression(
     if bytes.ends_with(b"]") {
         end -= 1;
     } else {
-        error = error.or_else(|| Some(ParseError::Unclosed("]".into(), Span { start: end, end })));
+        error = error.or_else(|| Some(ParseError::Unclosed("]".into(), Span::new(end, end))));
     }
 
-    let inner_span = Span { start, end };
+    let inner_span = Span::new(start, end);
 
     let source = working_set.get_span_contents(inner_span);
 
@@ -3937,10 +3893,10 @@ pub fn parse_block_expression(
     if bytes.ends_with(b"}") {
         end -= 1;
     } else {
-        error = error.or_else(|| Some(ParseError::Unclosed("}".into(), Span { start: end, end })));
+        error = error.or_else(|| Some(ParseError::Unclosed("}".into(), Span::new(end, end))));
     }
 
-    let inner_span = Span { start, end };
+    let inner_span = Span::new(start, end);
 
     let source = working_set.get_span_contents(inner_span);
 
@@ -4068,10 +4024,10 @@ pub fn parse_closure_expression(
     if bytes.ends_with(b"}") {
         end -= 1;
     } else {
-        error = error.or_else(|| Some(ParseError::Unclosed("}".into(), Span { start: end, end })));
+        error = error.or_else(|| Some(ParseError::Unclosed("}".into(), Span::new(end, end))));
     }
 
-    let inner_span = Span { start, end };
+    let inner_span = Span::new(start, end);
 
     let source = working_set.get_span_contents(inner_span);
 
@@ -4110,10 +4066,7 @@ pub fn parse_closure_expression(
                 end
             };
 
-            let signature_span = Span {
-                start: start_point,
-                end: end_point,
-            };
+            let signature_span = Span::new(start_point, end_point);
             let (signature, err) =
                 parse_signature_helper(working_set, signature_span, expand_aliases_denylist);
             error = error.or(err);
@@ -4312,7 +4265,10 @@ pub fn parse_value(
             } else {
                 return (
                     Expression::garbage(span),
-                    Some(ParseError::Expected("non-block value".into(), span)),
+                    Some(ParseError::Expected(
+                        format!("non-block value: {}", shape),
+                        span,
+                    )),
                 );
             }
         }
@@ -4494,7 +4450,111 @@ pub fn parse_operator(
         b"ends-with" => Operator::Comparison(Comparison::EndsWith),
         b"and" => Operator::Boolean(Boolean::And),
         b"or" => Operator::Boolean(Boolean::Or),
+        b"xor" => Operator::Boolean(Boolean::Xor),
         b"**" => Operator::Math(Math::Pow),
+        // WARNING: not actual operators below! Error handling only
+        pow @ (b"^" | b"pow") => {
+            return (
+                garbage(span),
+                Some(ParseError::UnknownOperator(
+                    match pow {
+                        b"^" => "^",
+                        b"pow" => "pow",
+                        _ => unreachable!(),
+                    },
+                    "Use '**' for exponentiation or 'bit-xor' for bitwise XOR.",
+                    span,
+                )),
+            );
+        }
+        equality @ (b"is" | b"===") => {
+            return (
+                garbage(span),
+                Some(ParseError::UnknownOperator(
+                    match equality {
+                        b"is" => "is",
+                        b"===" => "===",
+                        _ => unreachable!(),
+                    },
+                    "Did you mean '=='?",
+                    span,
+                )),
+            );
+        }
+        b"contains" => {
+            return (
+                garbage(span),
+                Some(ParseError::UnknownOperator(
+                    "contains",
+                    "Did you mean '$string =~ $pattern' or '$element in $container'?",
+                    span,
+                )),
+            );
+        }
+        b"%" => {
+            return (
+                garbage(span),
+                Some(ParseError::UnknownOperator(
+                    "%",
+                    "Did you mean 'mod'?",
+                    span,
+                )),
+            );
+        }
+        b"&" => {
+            return (
+                garbage(span),
+                Some(ParseError::UnknownOperator(
+                    "&",
+                    "Did you mean 'bit-and'?",
+                    span,
+                )),
+            );
+        }
+        b"<<" => {
+            return (
+                garbage(span),
+                Some(ParseError::UnknownOperator(
+                    "<<",
+                    "Did you mean 'bit-shl'?",
+                    span,
+                )),
+            );
+        }
+        b">>" => {
+            return (
+                garbage(span),
+                Some(ParseError::UnknownOperator(
+                    ">>",
+                    "Did you mean 'bit-shr'?",
+                    span,
+                )),
+            );
+        }
+        bits @ (b"bits-and" | b"bits-xor" | b"bits-or" | b"bits-shl" | b"bits-shr") => {
+            return (
+                garbage(span),
+                Some(ParseError::UnknownOperator(
+                    match bits {
+                        b"bits-and" => "bits-and",
+                        b"bits-xor" => "bits-xor",
+                        b"bits-or" => "bits-or",
+                        b"bits-shl" => "bits-shl",
+                        b"bits-shr" => "bits-shr",
+                        _ => unreachable!(),
+                    },
+                    match bits {
+                        b"bits-and" => "Did you mean 'bit-and'?",
+                        b"bits-xor" => "Did you mean 'bit-xor'?",
+                        b"bits-or" => "Did you mean 'bit-or'?",
+                        b"bits-shl" => "Did you mean 'bit-shl'?",
+                        b"bits-shr" => "Did you mean 'bit-shr'?",
+                        _ => unreachable!(),
+                    },
+                    span,
+                )),
+            );
+        }
         _ => {
             return (
                 garbage(span),
@@ -4561,10 +4621,7 @@ pub fn parse_math_expression(
                 garbage(spans[0]),
                 Some(ParseError::Expected(
                     "expression".into(),
-                    Span {
-                        start: spans[0].end,
-                        end: spans[0].end,
-                    },
+                    Span::new(spans[0].end, spans[0].end),
                 )),
             );
         }
@@ -4713,16 +4770,10 @@ pub fn parse_expression(
 
             let lhs = parse_string_strict(
                 working_set,
-                Span {
-                    start: spans[pos].start,
-                    end: spans[pos].start + point - 1,
-                },
+                Span::new(spans[pos].start, spans[pos].start + point - 1),
             );
             let rhs = if spans[pos].start + point < spans[pos].end {
-                let rhs_span = Span {
-                    start: spans[pos].start + point,
-                    end: spans[pos].end,
-                };
+                let rhs_span = Span::new(spans[pos].start + point, spans[pos].end);
 
                 if working_set.get_span_contents(rhs_span).starts_with(b"$") {
                     parse_dollar_expr(working_set, rhs_span, expand_aliases_denylist)
@@ -4733,7 +4784,7 @@ pub fn parse_expression(
                 (
                     Expression {
                         expr: Expr::String(String::new()),
-                        span: Span { start: 0, end: 0 },
+                        span: Span::unknown(),
                         ty: Type::Nothing,
                         custom_completion: None,
                     },
@@ -5012,7 +5063,7 @@ pub fn parse_expression(
             ];
 
             let expr = Expr::Call(Box::new(Call {
-                head: Span { start: 0, end: 0 },
+                head: Span::unknown(),
                 decl_id,
                 arguments,
                 redirect_stdout: true,
@@ -5120,10 +5171,7 @@ pub fn parse_record(
         error = error.or_else(|| {
             Some(ParseError::Expected(
                 "{".into(),
-                Span {
-                    start,
-                    end: start + 1,
-                },
+                Span::new(start, start + 1),
             ))
         });
     }
@@ -5131,10 +5179,10 @@ pub fn parse_record(
     if bytes.ends_with(b"}") {
         end -= 1;
     } else {
-        error = error.or_else(|| Some(ParseError::Unclosed("}".into(), Span { start: end, end })));
+        error = error.or_else(|| Some(ParseError::Unclosed("}".into(), Span::new(end, end))));
     }
 
-    let inner_span = Span { start, end };
+    let inner_span = Span::new(start, end);
     let source = working_set.get_span_contents(inner_span);
 
     let (tokens, err) = lex(source, start, &[b'\n', b'\r', b','], &[b':'], true);

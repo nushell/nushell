@@ -34,8 +34,8 @@ pub enum ShellError {
     /// Check the inputs to the operation and add guards for their sizes.
     /// Integers are generally of size i64, floats are generally f64.
     #[error("Operator overflow.")]
-    #[diagnostic(code(nu::shell::operator_overflow), url(docsrs))]
-    OperatorOverflow(String, #[label = "{0}"] Span),
+    #[diagnostic(code(nu::shell::operator_overflow), url(docsrs), help("{2}"))]
+    OperatorOverflow(String, #[label = "{0}"] Span, String),
 
     /// The pipelined input into a command was not of the expected type. For example, it might
     /// expect a string input, but received a table instead.
@@ -375,6 +375,18 @@ Either make sure {0} is a string, or add a 'to_string' entry for it in ENV_CONVE
     #[error("Row number too large (max: {0}).")]
     #[diagnostic(code(nu::shell::access_beyond_end), url(docsrs))]
     AccessBeyondEnd(usize, #[label = "index too large (max: {0})"] Span),
+
+    /// You attempted to insert data at a list position higher than the end.
+    ///
+    /// ## Resolution
+    ///
+    /// To insert data into a list, assign to the last used index + 1.
+    #[error("Inserted at wrong row number (should be {0}).")]
+    #[diagnostic(code(nu::shell::access_beyond_end), url(docsrs))]
+    InsertAfterNextFreeIndex(
+        usize,
+        #[label = "can't insert at index (the next available index is {0})"] Span,
+    ),
 
     /// You attempted to access an index when it's empty.
     ///

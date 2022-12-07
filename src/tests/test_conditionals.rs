@@ -59,3 +59,19 @@ fn if_elseif3() -> TestResult {
 fn if_elseif4() -> TestResult {
     run_test("if 2 > 3 { 5 } else if 6 < 7 { 4 } else { 8 } ", "4")
 }
+
+#[test]
+fn mutation_in_else() -> TestResult {
+    run_test(
+        "mut x = 100; if 2 > 3 { $x = 200 } else { $x = 300 }; $x ",
+        "300",
+    )
+}
+
+#[test]
+fn mutation_in_else2() -> TestResult {
+    run_test(
+        "mut x = 100; if 2 > 3 { $x = 200 } else if true { $x = 400 } else { $x = 300 }; $x ",
+        "400",
+    )
+}
