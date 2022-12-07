@@ -91,17 +91,12 @@ impl Command for Save {
         let mut file = match file {
             Ok(file) => file,
             Err(err) => {
-                return Ok(PipelineData::Value(
-                    Value::Error {
-                        error: ShellError::GenericError(
-                            "Permission denied".into(),
-                            err.to_string(),
-                            Some(arg_span),
-                            None,
-                            Vec::new(),
-                        ),
-                    },
+                return Err(ShellError::GenericError(
+                    "Permission denied".into(),
+                    err.to_string(),
+                    Some(arg_span),
                     None,
+                    Vec::new(),
                 ));
             }
         };
@@ -117,17 +112,12 @@ impl Command for Save {
                     match std::fs::File::create(stderr_path) {
                         Ok(file) => Some(file),
                         Err(err) => {
-                            return Ok(PipelineData::Value(
-                                Value::Error {
-                                    error: ShellError::GenericError(
-                                        "Permission denied".into(),
-                                        err.to_string(),
-                                        Some(stderr_span),
-                                        None,
-                                        Vec::new(),
-                                    ),
-                                },
+                            return Err(ShellError::GenericError(
+                                "Permission denied".into(),
+                                err.to_string(),
+                                Some(stderr_span),
                                 None,
+                                Vec::new(),
                             ))
                         }
                     }

@@ -135,17 +135,12 @@ impl Command for SubCommand {
                         Err(err) => {
                             let arg_span =
                                 call.get_named_arg("output").expect("arg should exist").span;
-                            return Ok(PipelineData::Value(
-                                Value::Error {
-                                    error: ShellError::GenericError(
-                                        "Permission denied".into(),
-                                        err.to_string(),
-                                        Some(arg_span),
-                                        None,
-                                        Vec::new(),
-                                    ),
-                                },
+                            return Err(ShellError::GenericError(
+                                "Permission denied".into(),
+                                err.to_string(),
+                                Some(arg_span),
                                 None,
+                                Vec::new(),
                             ));
                         }
                     };
