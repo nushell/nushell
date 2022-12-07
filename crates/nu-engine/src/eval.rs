@@ -1084,14 +1084,28 @@ pub fn eval_block(
 
                     match engine_state.find_decl("table".as_bytes(), &[]) {
                         Some(decl_id) => {
-                            let table = engine_state.get_decl(decl_id).run(
-                                engine_state,
-                                stack,
-                                &Call::new(Span::new(0, 0)),
-                                input,
-                            )?;
+                            let table = engine_state.get_decl(decl_id);
 
-                            print_or_return(table, config)?;
+                            if let Some(block_id) = table.get_block_id() {
+                                let block = engine_state.get_block(block_id);
+                                eval_block(
+                                    engine_state,
+                                    stack,
+                                    block,
+                                    input,
+                                    redirect_stdout,
+                                    redirect_stderr,
+                                )?;
+                            } else {
+                                let table = table.run(
+                                    engine_state,
+                                    stack,
+                                    &Call::new(Span::new(0, 0)),
+                                    input,
+                                )?;
+
+                                print_or_return(table, config)?;
+                            }
                         }
                         None => {
                             print_or_return(input, config)?;

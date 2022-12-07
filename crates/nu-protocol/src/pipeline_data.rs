@@ -98,6 +98,7 @@ impl PipelineData {
 
     pub fn is_nothing(&self) -> bool {
         matches!(self, PipelineData::Value(Value::Nothing { .. }, ..))
+            || matches!(self, PipelineData::Empty)
     }
 
     /// PipelineData doesn't always have a Span, but we can try!
