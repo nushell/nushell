@@ -644,6 +644,27 @@ pub fn parse_multispan_value(
 
             (arg, error)
         }
+        SyntaxShape::OneOf(shapes) => {
+            for shape in shapes.iter() {
+                if let (s, None) = parse_multispan_value(
+                    working_set,
+                    spans,
+                    spans_idx,
+                    shape,
+                    expand_aliases_denylist,
+                ) {
+                    return (s, None);
+                }
+            }
+            let span = spans[*spans_idx];
+            (
+                Expression::garbage(span),
+                Some(ParseError::Expected(
+                    format!("one of a list of accepted shapes: {:?}", shapes),
+                    span,
+                )),
+            )
+        }
         SyntaxShape::Expression => {
             trace!("parsing: expression");
 
@@ -4252,7 +4273,10 @@ pub fn parse_value(
             } else {
                 return (
                     Expression::garbage(span),
-                    Some(ParseError::Expected("non-block value".into(), span)),
+                    Some(ParseError::Expected(
+                        format!("non-block value: {}", shape),
+                        span,
+                    )),
                 );
             }
         }
