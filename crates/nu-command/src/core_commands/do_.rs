@@ -169,9 +169,9 @@ impl Command for Do {
                 trim_end_newline,
             }),
             Ok(PipelineData::Value(Value::Error { .. }, ..)) if ignore_shell_errors => {
-                Ok(PipelineData::new(call.head))
+                Ok(PipelineData::empty())
             }
-            Err(_) if ignore_shell_errors => Ok(PipelineData::new(call.head)),
+            Err(_) if ignore_shell_errors => Ok(PipelineData::empty()),
             r => r,
         }
     }

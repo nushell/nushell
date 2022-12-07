@@ -22,8 +22,8 @@ use nu_path::canonicalize_with;
 use nu_protocol::{
     ast::{Call, Expr, Expression, PipelineElement},
     engine::{Command, EngineState, Stack, StateWorkingSet},
-    Category, Example, IntoPipelineData, PipelineData, RawStream, ShellError, Signature, Span,
-    Spanned, SyntaxShape, Value,
+    Category, Example, IntoPipelineData, PipelineData, RawStream, ShellError, Signature, Spanned,
+    SyntaxShape, Value,
 };
 use nu_utils::stdout_write_all_and_flush;
 use std::{
@@ -323,7 +323,7 @@ fn main() -> Result<()> {
                     trim_end_newline: false,
                 }
             } else {
-                PipelineData::new(Span::new(0, 0))
+                PipelineData::empty()
             };
 
             info!("redirect_stdin {}:{}:{}", file!(), line!(), column!());

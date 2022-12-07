@@ -102,7 +102,7 @@ impl Command for If {
                         .map(|res| res.0)
                     }
                 } else {
-                    Ok(PipelineData::new(call.head))
+                    Ok(PipelineData::empty())
                 }
             }
             x => Err(ShellError::CantConvert(

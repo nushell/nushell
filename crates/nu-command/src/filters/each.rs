@@ -156,6 +156,7 @@ with 'transpose' first."#
         let redirect_stderr = call.redirect_stderr;
 
         match input {
+            PipelineData::Empty => Ok(PipelineData::Empty),
             PipelineData::Value(Value::Range { .. }, ..)
             | PipelineData::Value(Value::List { .. }, ..)
             | PipelineData::ListStream { .. } => Ok(input
@@ -223,7 +224,7 @@ with 'transpose' first."#
                     }
                 })
                 .into_pipeline_data(ctrlc)),
-            PipelineData::ExternalStream { stdout: None, .. } => Ok(PipelineData::new(call.head)),
+            PipelineData::ExternalStream { stdout: None, .. } => Ok(PipelineData::empty()),
             PipelineData::ExternalStream {
                 stdout: Some(stream),
                 ..

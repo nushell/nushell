@@ -97,6 +97,7 @@ fn getcol(
     input: PipelineData,
 ) -> Result<PipelineData, ShellError> {
     match input {
+        PipelineData::Empty => Ok(PipelineData::Empty),
         PipelineData::Value(
             Value::List {
                 vals: input_vals,

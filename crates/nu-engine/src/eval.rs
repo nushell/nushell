@@ -339,10 +339,7 @@ pub fn eval_expression(
         }
         Expr::Call(call) => {
             // FIXME: protect this collect with ctrl-c
-            Ok(
-                eval_call(engine_state, stack, call, PipelineData::new(call.head))?
-                    .into_value(call.head),
-            )
+            Ok(eval_call(engine_state, stack, call, PipelineData::empty())?.into_value(call.head))
         }
         Expr::ExternalCall(head, args, is_subexpression) => {
             let span = head.span;
@@ -352,7 +349,7 @@ pub fn eval_expression(
                 stack,
                 head,
                 args,
-                PipelineData::new(span),
+                PipelineData::empty(),
                 false,
                 false,
                 *is_subexpression,
@@ -536,7 +533,7 @@ pub fn eval_expression(
 
             // FIXME: protect this collect with ctrl-c
             Ok(
-                eval_subexpression(engine_state, stack, block, PipelineData::new(expr.span))?
+                eval_subexpression(engine_state, stack, block, PipelineData::empty())?
                     .into_value(expr.span),
             )
         }
@@ -1103,7 +1100,7 @@ pub fn eval_block(
                 }
             }
 
-            input = PipelineData::new(Span::unknown())
+            input = PipelineData::empty()
         }
     }
 

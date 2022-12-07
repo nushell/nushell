@@ -172,7 +172,7 @@ impl Command for OverlayUse {
             caller_stack.add_overlay(overlay_name);
         }
 
-        Ok(PipelineData::new(call.head))
+        Ok(PipelineData::empty())
     }
 
     fn examples(&self) -> Vec<Example> {

@@ -176,7 +176,7 @@ impl Command for SubCommand {
                                     file.flush()?
                                 }
 
-                                Ok(PipelineData::new(span))
+                                Ok(PipelineData::empty())
                             }
                             Value::Binary { val, .. } => {
                                 if let Err(err) = file.write_all(&val) {
@@ -185,7 +185,7 @@ impl Command for SubCommand {
                                     file.flush()?
                                 }
 
-                                Ok(PipelineData::new(span))
+                                Ok(PipelineData::empty())
                             }
                             Value::List { vals, .. } => {
                                 let val = vals
@@ -201,7 +201,7 @@ impl Command for SubCommand {
                                     file.flush()?
                                 }
 
-                                Ok(PipelineData::new(span))
+                                Ok(PipelineData::empty())
                             }
                             v => Err(ShellError::UnsupportedInput(
                                 format!("{:?} not supported", v.get_type()),
@@ -211,7 +211,7 @@ impl Command for SubCommand {
                     } else {
                         match value {
                             PipelineData::ExternalStream { stdout: None, .. } => {
-                                Ok(PipelineData::new(span))
+                                Ok(PipelineData::empty())
                             }
                             PipelineData::ExternalStream {
                                 stdout: Some(mut stream),
@@ -240,7 +240,7 @@ impl Command for SubCommand {
                                         }
                                         Ok(())
                                     })
-                                    .map(|_| PipelineData::new(span))
+                                    .map(|_| PipelineData::empty())
                             }
                             value => match value.into_value(span) {
                                 Value::String { val, .. } => {
@@ -250,7 +250,7 @@ impl Command for SubCommand {
                                         file.flush()?
                                     }
 
-                                    Ok(PipelineData::new(span))
+                                    Ok(PipelineData::empty())
                                 }
                                 Value::Binary { val, .. } => {
                                     if let Err(err) = file.write_all(&val) {
@@ -259,7 +259,7 @@ impl Command for SubCommand {
                                         file.flush()?
                                     }
 
-                                    Ok(PipelineData::new(span))
+                                    Ok(PipelineData::empty())
                                 }
                                 Value::List { vals, .. } => {
                                     let val = vals
@@ -275,7 +275,7 @@ impl Command for SubCommand {
                                         file.flush()?
                                     }
 
-                                    Ok(PipelineData::new(span))
+                                    Ok(PipelineData::empty())
                                 }
                                 v => Err(ShellError::UnsupportedInput(
                                     format!("{:?} not supported", v.get_type()),

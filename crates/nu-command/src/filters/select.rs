@@ -249,7 +249,7 @@ fn select(
                 Ok(v.into_pipeline_data().set_metadata(metadata))
             }
         }
-        _ => Ok(PipelineData::new(span)),
+        _ => Ok(PipelineData::empty()),
     }
 }
 
