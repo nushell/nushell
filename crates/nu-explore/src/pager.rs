@@ -31,7 +31,7 @@ use tui::{
 
 use crate::{
     command::{Command, CommandList},
-    nu_common::{CtrlC, NuColor, NuConfig, NuStyle, NuStyleTable, NuText},
+    nu_common::{CtrlC, NuColor, NuConfig, NuSpan, NuStyle, NuStyleTable, NuText},
     util::map_into_value,
     views::ViewConfig,
 };
@@ -938,10 +938,19 @@ fn set_config(hm: &mut HashMap<String, Value>, path: &[&str], value: Value) -> b
     }
 
     let key = path[0];
-    let val = match hm.get_mut(key) {
-        Some(val) => val,
-        None => return false,
-    };
+
+    if !hm.contains_key(key) {
+        hm.insert(
+            key.to_string(),
+            Value::Record {
+                cols: vec![],
+                vals: vec![],
+                span: NuSpan::unknown(),
+            },
+        );
+    }
+
+    let val = hm.get_mut(key).expect("...");
 
     if path.len() == 1 {
         *val = value;

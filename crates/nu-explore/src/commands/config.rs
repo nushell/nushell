@@ -19,7 +19,7 @@ use crate::{
     },
 };
 
-use super::{HelpExample, HelpManual, ViewCommand};
+use super::{default_color_list, HelpExample, HelpManual, ViewCommand};
 
 #[derive(Default, Clone)]
 pub struct ConfigCmd {
@@ -46,7 +46,28 @@ impl ViewCommand for ConfigCmd {
     }
 
     fn help(&self) -> Option<HelpManual> {
-        None
+        Some(HelpManual {
+            name: "config",
+            description: "",
+            arguments: vec![],
+            examples: vec![],
+            config_options: vec![
+                super::ConfigOption::new(
+                    ".... 1",
+                    ".",
+                    "config.border_color",
+                    default_color_list(),
+                ),
+                super::ConfigOption::new(".... 2", ".", "config.list_color", default_color_list()),
+                super::ConfigOption::new(
+                    ".... 3",
+                    ".",
+                    "config.cursor_color",
+                    default_color_list(),
+                ),
+            ],
+            input: vec![],
+        })
     }
 
     fn display_config_option(&mut self, group: String, key: String, value: String) -> bool {
@@ -83,8 +104,11 @@ impl ViewCommand for ConfigCmd {
                 for value in opt.values {
                     let mut cmd = cmd.clone();
 
-                    let can_be_displayed =
-                        cmd.display_config_option(opt.group.clone(), opt.key.clone(), value.example.to_string());
+                    let can_be_displayed = cmd.display_config_option(
+                        opt.group.clone(),
+                        opt.key.clone(),
+                        value.example.to_string(),
+                    );
                     let view = if can_be_displayed {
                         cmd.spawn(engine_state, stack, Some(default_table.clone()))?
                     } else {

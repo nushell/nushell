@@ -221,6 +221,8 @@ fn prepare_default_config(config: &mut HashMap<String, Value>) {
 
     const TRY_BORDER_COLOR: Style = color(None, None);
 
+    const CONFIG_CURSOR_COLOR: Style = color(Some(Color::Black), Some(Color::LightYellow));
+
     insert_style(config, "status_bar", STATUS_BAR);
     insert_style(config, "command_bar", INPUT_BAR);
     insert_style(config, "highlight", HIGHLIGHT);
@@ -267,6 +269,17 @@ fn prepare_default_config(config: &mut HashMap<String, Value>) {
         insert_style(&mut hm, "border_color", TRY_BORDER_COLOR);
 
         config.insert(String::from("try"), map_into_value(hm));
+    }
+
+    {
+        let mut hm = config
+            .get("config")
+            .and_then(parse_hash_map)
+            .unwrap_or_default();
+
+        insert_style(&mut hm, "cursor_color", CONFIG_CURSOR_COLOR);
+
+        config.insert(String::from("config"), map_into_value(hm));
     }
 }
 

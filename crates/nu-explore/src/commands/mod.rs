@@ -151,3 +151,31 @@ impl ConfigOption {
         }
     }
 }
+
+#[rustfmt::skip]
+fn default_color_list() -> Vec<HelpExample> {
+    vec![
+        HelpExample::new("red",                   "Red foreground"),
+        HelpExample::new("blue",                  "Blue foreground"),
+        HelpExample::new("green",                 "Green foreground"),
+        HelpExample::new("yellow",                "Yellow foreground"),
+        HelpExample::new("magenta",               "Magenta foreground"),
+        HelpExample::new("black",                 "Black foreground"),
+        HelpExample::new("white",                 "White foreground"),
+        HelpExample::new("#AA4433",               "#AA4433 HEX foreground"),
+        HelpExample::new(r#"{bg: "red"}"#,        "Red background"),
+        HelpExample::new(r#"{bg: "blue"}"#,       "Blue background"),
+        HelpExample::new(r#"{bg: "green"}"#,      "Green background"),
+        HelpExample::new(r#"{bg: "yellow"}"#,     "Yellow background"),
+        HelpExample::new(r#"{bg: "magenta"}"#,    "Magenta background"),
+        HelpExample::new(r#"{bg: "black"}"#,      "Black background"),
+        HelpExample::new(r#"{bg: "white"}"#,      "White background"),
+        HelpExample::new(r##"{bg: "#AA4433"}"##,  "#AA4433 HEX background"),
+    ]
+}
+
+fn default_int_list() -> Vec<HelpExample> {
+    (0..20)
+        .map(|i| HelpExample::new(i.to_string(), format!("A value equal to {}", i)))
+        .collect()
+}

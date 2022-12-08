@@ -1,4 +1,9 @@
-use std::{cmp::min, collections::HashMap, fmt::Debug, ptr::addr_of};
+use std::{
+    cmp::{min, Ordering},
+    collections::HashMap,
+    fmt::Debug,
+    ptr::addr_of,
+};
 
 use crossterm::event::{KeyCode, KeyEvent};
 use nu_color_config::get_color_map;
@@ -6,7 +11,7 @@ use nu_protocol::{
     engine::{EngineState, Stack},
     PipelineData, Value,
 };
-use nu_table::string_truncate;
+use nu_table::{string_truncate, TextStyle};
 use tui::{
     layout::Rect,
     style::{Modifier, Style},
@@ -16,7 +21,7 @@ use tui::{
 use crate::{
     nu_common::{
         collect_pipeline, is_ignored_command, run_command_with_value, run_nu_command, truncate_str,
-        NuColor, NuStyle,
+        NuColor, NuStyle, NuText,
     },
     pager::{nu_style_to_tui, Frame, Report, Transition, ViewInfo},
     util::create_map,
@@ -182,9 +187,6 @@ impl View for ConfigurationView {
         let list_color = nu_style_to_tui(self.list_color);
         let border_color = nu_style_to_tui(self.border_color);
         let cursor_color = nu_style_to_tui(self.cursor_color);
-        let cursor_color = tui::style::Style::default()
-            .fg(tui::style::Color::Black)
-            .bg(tui::style::Color::LightYellow);
 
         let height = area.height - USED_HEIGHT_BY_BORDERS;
 
@@ -301,18 +303,69 @@ impl View for ConfigurationView {
         None
     }
 
-    fn collect_data(&self) -> Vec<crate::nu_common::NuText> {
-        Vec::new()
+    fn collect_data(&self) -> Vec<NuText> {
+        if self.peeked_cursor.is_some() {
+            let i = self.cursor.shift + self.cursor.pos;
+            let opt = &self.options[i];
+            opt.options
+                .iter()
+                .map(|e| (e.name.clone(), TextStyle::default()))
+                .collect::<Vec<_>>()
+        } else {
+            self.options
+                .iter()
+                .map(|s| (s.group.to_string(), TextStyle::default()))
+                .collect()
+        }
     }
 
     fn show_data(&mut self, i: usize) -> bool {
-        false
+        if let Some(c) = &mut self.peeked_cursor {
+            let i = self.cursor.shift + self.cursor.pos;
+            if i > self.options[i].options.len() {
+                return false;
+            }
+
+            loop {
+                let p = c.shift + c.pos;
+                match i.cmp(&p) {
+                    Ordering::Equal => return true,
+                    Ordering::Less => c.down(),
+                    Ordering::Greater => c.up(),
+                }
+            }
+        } else {
+            if i > self.options.len() {
+                return false;
+            }
+
+            loop {
+                let p = self.cursor.shift + self.cursor.pos;
+                match i.cmp(&p) {
+                    Ordering::Equal => return true,
+                    Ordering::Less => self.cursor.down(),
+                    Ordering::Greater => self.cursor.up(),
+                }
+            }
+        }
     }
 
     fn setup(&mut self, config: ViewConfig<'_>) {
-        // if self.block_init_update {
-        //     return;
-        // }
+        if let Some(hm) = config.config.get("config").and_then(create_map) {
+            let colors = get_color_map(&hm);
+
+            if let Some(style) = colors.get("border_color").copied() {
+                self.border_color = style;
+            }
+
+            if let Some(style) = colors.get("cursor_color").copied() {
+                self.cursor_color = style;
+            }
+
+            if let Some(style) = colors.get("list_color").copied() {
+                self.list_color = style;
+            }
+        }
 
         for group in &mut self.options {
             for opt in &mut group.options {

@@ -10,7 +10,7 @@ use nu_protocol::{
 use tui::layout::Rect;
 
 use crate::{
-    nu_common::{collect_input, NuSpan},
+    nu_common::{collect_input, nu_str, NuSpan},
     pager::Frame,
     views::{Layout, Preview, RecordView, View, ViewConfig},
 };
@@ -246,6 +246,46 @@ fn help_manual_data(manual: &HelpManual, aliases: &[String]) -> (Vec<String>, Ve
         span: NuSpan::unknown(),
     };
 
+    let configuration = manual
+        .config_options
+        .iter()
+        .map(|o| {
+            let values = o
+                .values
+                .iter()
+                .map(|v| Value::Record {
+                    cols: vec![String::from("example"), String::from("description")],
+                    vals: vec![nu_str!(v.example), nu_str!(v.description)],
+                    span: NuSpan::unknown(),
+                })
+                .collect();
+            let values = Value::List {
+                vals: values,
+                span: NuSpan::unknown(),
+            };
+
+            Value::Record {
+                cols: vec![
+                    String::from("name"),
+                    String::from("context"),
+                    String::from("description"),
+                    String::from("values"),
+                ],
+                vals: vec![
+                    nu_str!(o.group),
+                    nu_str!(o.key),
+                    nu_str!(o.description),
+                    values,
+                ],
+                span: NuSpan::unknown(),
+            }
+        })
+        .collect();
+    let configuration = Value::List {
+        vals: configuration,
+        span: NuSpan::unknown(),
+    };
+
     let name = nu_str!(manual.name);
     let aliases = nu_str!(aliases.join(", "));
     let desc = nu_str!(manual.description);
@@ -256,10 +296,19 @@ fn help_manual_data(manual: &HelpManual, aliases: &[String]) -> (Vec<String>, Ve
         String::from("arguments"),
         String::from("input"),
         String::from("examples"),
+        String::from("configuration"),
         String::from("description"),
     ];
 
-    let data = vec![vec![name, aliases, arguments, inputs, examples, desc]];
+    let data = vec![vec![
+        name,
+        aliases,
+        arguments,
+        inputs,
+        examples,
+        configuration,
+        desc,
+    ]];
 
     (headers, data)
 }
