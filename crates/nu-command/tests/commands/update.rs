@@ -43,7 +43,7 @@ fn sets_the_column_from_a_block_full_stream_output() {
     let actual = nu!(
         cwd: "tests/fixtures/formats", pipeline(
         r#"
-            wrap content
+            {content: null}
             | update content { open --raw cargo_sample.toml | lines | first 5 }
             | get content.1
             | str contains "nu"
@@ -58,7 +58,7 @@ fn sets_the_column_from_a_subexpression() {
     let actual = nu!(
         cwd: "tests/fixtures/formats", pipeline(
         r#"
-            wrap content
+            {content: null}
             | update content (open --raw cargo_sample.toml | lines | first 5)
             | get content.1
             | str contains "nu"

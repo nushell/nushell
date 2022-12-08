@@ -196,7 +196,7 @@ impl Command for Cd {
         match have_permission(&path_tointo) {
             PermissionResult::PermissionOk => {
                 stack.add_env_var("PWD".into(), path_value);
-                Ok(PipelineData::new(call.head))
+                Ok(PipelineData::empty())
             }
             PermissionResult::PermissionDenied(reason) => Err(ShellError::IOError(format!(
                 "Cannot change directory to {}: {}",

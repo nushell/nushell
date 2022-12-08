@@ -286,24 +286,10 @@ fn generate_operator_info() -> Vec<OperatorInfo> {
         },
         OperatorInfo {
             op_type: "Boolean".into(),
-            operator: "&&".into(),
-            name: "And".into(),
-            description: "Deprecated. Checks if two values are true.".into(),
-            precedence: 50,
-        },
-        OperatorInfo {
-            op_type: "Boolean".into(),
             operator: "and".into(),
             name: "And".into(),
             description: "Checks if two values are true.".into(),
             precedence: 50,
-        },
-        OperatorInfo {
-            op_type: "Boolean".into(),
-            operator: "||".into(),
-            name: "Or".into(),
-            description: "Deprecated. Checks if either value is true.".into(),
-            precedence: 40,
         },
         OperatorInfo {
             op_type: "Boolean".into(),

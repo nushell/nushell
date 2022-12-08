@@ -101,6 +101,9 @@ pub enum SyntaxShape {
     /// A custom shape with custom completion logic
     Custom(Box<SyntaxShape>, DeclId),
 
+    /// One of a list of possible items, checked in order
+    OneOf(Vec<SyntaxShape>),
+
     /// Nothing
     Nothing,
 }
@@ -132,6 +135,7 @@ impl SyntaxShape {
             SyntaxShape::Keyword(_, expr) => expr.to_type(),
             SyntaxShape::MathExpression => Type::Any,
             SyntaxShape::Number => Type::Number,
+            SyntaxShape::OneOf(_) => Type::Any,
             SyntaxShape::Operator => Type::Any,
             SyntaxShape::Range => Type::Any,
             SyntaxShape::Record => Type::Record(vec![]), // FIXME: What role should fields play in the Record type?
@@ -191,6 +195,11 @@ impl Display for SyntaxShape {
             SyntaxShape::Boolean => write!(f, "bool"),
             SyntaxShape::Error => write!(f, "error"),
             SyntaxShape::Custom(x, _) => write!(f, "custom<{}>", x),
+            SyntaxShape::OneOf(list) => {
+                let arg_vec: Vec<_> = list.iter().map(|x| x.to_string()).collect();
+                let arg_string = arg_vec.join(", ");
+                write!(f, "one_of({})", arg_string)
+            }
             SyntaxShape::Nothing => write!(f, "nothing"),
         }
     }

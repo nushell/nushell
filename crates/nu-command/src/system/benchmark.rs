@@ -44,7 +44,7 @@ impl Command for Benchmark {
             engine_state,
             &mut stack,
             block,
-            PipelineData::new(call.head),
+            PipelineData::empty(),
             redirect_stdout,
             redirect_stderr,
         )?

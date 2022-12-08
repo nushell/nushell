@@ -39,13 +39,7 @@ pub fn evaluate_file(
     if working_set.find_decl(b"main", &Type::Any).is_some() {
         let args = format!("main {}", args.join(" "));
 
-        if !eval_source(
-            engine_state,
-            stack,
-            &file,
-            &path,
-            PipelineData::new(Span::new(0, 0)),
-        ) {
+        if !eval_source(engine_state, stack, &file, &path, PipelineData::empty()) {
             std::process::exit(1);
         }
         if !eval_source(engine_state, stack, args.as_bytes(), "<commandline>", input) {

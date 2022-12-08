@@ -37,14 +37,13 @@ impl Command for Ast {
         call: &Call,
         _input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
-        let head = call.head;
         let pipeline: Spanned<String> = call.req(engine_state, stack, 0)?;
         let mut working_set = StateWorkingSet::new(engine_state);
 
         let (output, err) = parse(&mut working_set, None, pipeline.item.as_bytes(), false, &[]);
         eprintln!("output: {:#?}\nerror: {:#?}", output, err);
 
-        Ok(PipelineData::new(head))
+        Ok(PipelineData::empty())
     }
 
     fn examples(&self) -> Vec<Example> {

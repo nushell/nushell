@@ -110,7 +110,7 @@ impl Command for Last {
             if let Some(last) = last {
                 Ok(last.into_pipeline_data().set_metadata(metadata))
             } else {
-                Ok(PipelineData::new(span).set_metadata(metadata))
+                Ok(PipelineData::empty().set_metadata(metadata))
             }
         }
     }

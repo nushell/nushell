@@ -50,7 +50,7 @@ impl Command for ExportEnv {
 
         redirect_env(engine_state, caller_stack, &callee_stack);
 
-        Ok(PipelineData::new(call.head))
+        Ok(PipelineData::empty())
     }
 
     fn examples(&self) -> Vec<Example> {

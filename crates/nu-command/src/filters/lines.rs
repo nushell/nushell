@@ -71,6 +71,7 @@ impl Command for Lines {
 
                 Ok(iter.into_pipeline_data(engine_state.ctrlc.clone()))
             }
+            PipelineData::Empty => Ok(PipelineData::Empty),
             PipelineData::ListStream(stream, ..) => {
                 let iter = stream
                     .into_iter()
@@ -112,7 +113,7 @@ impl Command for Lines {
                 format!("Not supported input: {}", val.as_string()?),
                 head,
             )),
-            PipelineData::ExternalStream { stdout: None, .. } => Ok(PipelineData::new(head)),
+            PipelineData::ExternalStream { stdout: None, .. } => Ok(PipelineData::empty()),
             PipelineData::ExternalStream {
                 stdout: Some(stream),
                 ..

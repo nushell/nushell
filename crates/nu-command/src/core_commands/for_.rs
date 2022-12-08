@@ -110,7 +110,7 @@ impl Command for For {
                         &engine_state,
                         stack,
                         &block,
-                        PipelineData::new(head),
+                        PipelineData::empty(),
                         redirect_stdout,
                         redirect_stderr,
                     ) {
@@ -155,7 +155,7 @@ impl Command for For {
                         &engine_state,
                         stack,
                         &block,
-                        PipelineData::new(head),
+                        PipelineData::empty(),
                         redirect_stdout,
                         redirect_stderr,
                     ) {
@@ -181,14 +181,14 @@ impl Command for For {
                     &engine_state,
                     stack,
                     &block,
-                    PipelineData::new(head),
+                    PipelineData::empty(),
                     redirect_stdout,
                     redirect_stderr,
                 )?
                 .into_value(head);
             }
         }
-        Ok(PipelineData::new(head))
+        Ok(PipelineData::empty())
     }
 
     fn examples(&self) -> Vec<Example> {
