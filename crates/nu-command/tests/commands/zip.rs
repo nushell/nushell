@@ -9,7 +9,7 @@ export def expect [
     right
 ] {
     $left | zip $right | all {|row|
-        $row.name.0 == $row.name.1 && $row.commits.0 == $row.commits.1
+        $row.name.0 == $row.name.1 and $row.commits.0 == $row.commits.1
     }
 }
 "#;

@@ -278,7 +278,9 @@ fn handle_table_command(
         ),
         PipelineData::Value(Value::Record { cols, vals, span }, ..) => {
             let result = match table_view {
-                TableView::General => build_general_table2(cols, vals, ctrlc, config, term_width),
+                TableView::General => {
+                    build_general_table2(cols, vals, ctrlc.clone(), config, term_width)
+                }
                 TableView::Expanded {
                     limit,
                     flatten,
@@ -286,14 +288,34 @@ fn handle_table_command(
                 } => {
                     let sep = flatten_separator.as_deref().unwrap_or(" ");
                     build_expanded_table(
-                        cols, vals, span, ctrlc, config, term_width, limit, flatten, sep,
+                        cols,
+                        vals,
+                        span,
+                        ctrlc.clone(),
+                        config,
+                        term_width,
+                        limit,
+                        flatten,
+                        sep,
                     )
                 }
                 TableView::Collapsed => build_collapsed_table(cols, vals, config, term_width),
             }?;
 
-            let result = result
-                .unwrap_or_else(|| format!("Couldn't fit table into {} columns!", term_width));
+            let ctrl_c_was_triggered = || match &ctrlc {
+                Some(ctrlc) => ctrlc.load(Ordering::SeqCst),
+                None => false,
+            };
+
+            let result = result.unwrap_or_else(|| {
+                if ctrl_c_was_triggered() {
+                    "".into()
+                } else {
+                    // assume this failed because the table was too wide
+                    // TODO: more robust error classification
+                    format!("Couldn't fit table into {} columns!", term_width)
+                }
+            });
 
             let val = Value::String {
                 val: result,
@@ -912,8 +934,6 @@ fn convert_to_table2<'a>(
         }
 
         for (row, item) in input.clone().into_iter().enumerate() {
-            let row = if with_header { row + 1 } else { row };
-
             if let Some(ctrlc) = &ctrlc {
                 if ctrlc.load(Ordering::SeqCst) {
                     return Ok(None);
@@ -935,6 +955,8 @@ fn convert_to_table2<'a>(
             column_width = max(column_width, width);
 
             let value = NuTable::create_cell(value.0, value.1);
+
+            let row = if with_header { row + 1 } else { row };
             data[row].push(value);
         }
 

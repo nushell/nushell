@@ -343,7 +343,6 @@ pub fn create_default_context() -> EngineState {
             ToText,
             ToToml,
             ToTsv,
-            ToCsv,
             Touch,
             Use,
             Upsert,

@@ -57,7 +57,7 @@ impl Command for LoadEnv {
                         stack.add_env_var(env_var, rhs);
                     }
                 }
-                Ok(PipelineData::new(call.head))
+                Ok(PipelineData::empty())
             }
             None => match input {
                 PipelineData::Value(Value::Record { cols, vals, .. }, ..) => {
@@ -81,7 +81,7 @@ impl Command for LoadEnv {
                             stack.add_env_var(env_var, rhs);
                         }
                     }
-                    Ok(PipelineData::new(call.head))
+                    Ok(PipelineData::empty())
                 }
                 _ => Err(ShellError::UnsupportedInput(
                     "'load-env' expects a single record".into(),

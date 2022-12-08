@@ -146,16 +146,13 @@ fn registry_query(
                         }
                         .into_pipeline_data())
                     }
-                    Err(_) => Ok(Value::Error {
-                        error: ShellError::GenericError(
-                            "Unable to find registry key/value".to_string(),
-                            format!("Registry value: {} was not found", value.item),
-                            Some(value.span),
-                            None,
-                            Vec::new(),
-                        ),
-                    }
-                    .into_pipeline_data()),
+                    Err(_) => Err(ShellError::GenericError(
+                        "Unable to find registry key/value".to_string(),
+                        format!("Registry value: {} was not found", value.item),
+                        Some(value.span),
+                        None,
+                        Vec::new(),
+                    )),
                 }
             }
             None => Ok(Value::nothing(Span::test_data()).into_pipeline_data()),

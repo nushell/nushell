@@ -71,12 +71,12 @@ impl Command for Try {
                         engine_state,
                         stack,
                         catch_block,
-                        PipelineData::new(call.head),
+                        PipelineData::empty(),
                         false,
                         false,
                     )
                 } else {
-                    Ok(PipelineData::new(call.head))
+                    Ok(PipelineData::empty())
                 }
             }
             // external command may fail to run
@@ -118,12 +118,12 @@ impl Command for Try {
                             engine_state,
                             stack,
                             catch_block,
-                            PipelineData::new(call.head),
+                            PipelineData::empty(),
                             false,
                             false,
                         )
                     } else {
-                        Ok(PipelineData::new(call.head))
+                        Ok(PipelineData::empty())
                     }
                 } else {
                     Ok(PipelineData::ExternalStream {

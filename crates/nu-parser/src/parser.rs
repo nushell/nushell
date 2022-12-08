@@ -644,6 +644,27 @@ pub fn parse_multispan_value(
 
             (arg, error)
         }
+        SyntaxShape::OneOf(shapes) => {
+            for shape in shapes.iter() {
+                if let (s, None) = parse_multispan_value(
+                    working_set,
+                    spans,
+                    spans_idx,
+                    shape,
+                    expand_aliases_denylist,
+                ) {
+                    return (s, None);
+                }
+            }
+            let span = spans[*spans_idx];
+            (
+                Expression::garbage(span),
+                Some(ParseError::Expected(
+                    format!("one of a list of accepted shapes: {:?}", shapes),
+                    span,
+                )),
+            )
+        }
         SyntaxShape::Expression => {
             trace!("parsing: expression");
 
@@ -1191,18 +1212,17 @@ fn parse_binary_with_base(
 
                         binary_value.extend_from_slice(contents);
                     }
-                    TokenContents::Pipe => {
+                    TokenContents::Pipe
+                    | TokenContents::PipePipe
+                    | TokenContents::OutGreaterThan
+                    | TokenContents::ErrGreaterThan
+                    | TokenContents::OutErrGreaterThan => {
                         return (
                             garbage(span),
                             Some(ParseError::Expected("binary".into(), span)),
                         );
                     }
-                    TokenContents::Comment
-                    | TokenContents::Semicolon
-                    | TokenContents::Eol
-                    | TokenContents::OutGreaterThan
-                    | TokenContents::ErrGreaterThan
-                    | TokenContents::OutErrGreaterThan => {}
+                    TokenContents::Comment | TokenContents::Semicolon | TokenContents::Eol => {}
                 }
             }
 
@@ -1997,28 +2017,22 @@ pub fn parse_full_cell_path(
         );
         error = error.or(err);
 
-        if !tail.is_empty() {
-            (
-                Expression {
-                    ty: head.ty.clone(), // FIXME. How to access the last type of tail?
-                    expr: Expr::FullCellPath(Box::new(FullCellPath { head, tail })),
-                    span: full_cell_span,
-                    custom_completion: None,
+        (
+            Expression {
+                // FIXME: Get the type of the data at the tail using follow_cell_path() (or something)
+                ty: if !tail.is_empty() {
+                    // Until the aforementioned fix is implemented, this is necessary to allow mutable list upserts
+                    // such as $a.1 = 2 to work correctly.
+                    Type::Any
+                } else {
+                    head.ty.clone()
                 },
-                error,
-            )
-        } else {
-            let ty = head.ty.clone();
-            (
-                Expression {
-                    expr: Expr::FullCellPath(Box::new(FullCellPath { head, tail })),
-                    ty,
-                    span: full_cell_span,
-                    custom_completion: None,
-                },
-                error,
-            )
-        }
+                expr: Expr::FullCellPath(Box::new(FullCellPath { head, tail })),
+                span: full_cell_span,
+                custom_completion: None,
+            },
+            error,
+        )
     } else {
         (garbage(span), error)
     }
@@ -4060,19 +4074,12 @@ pub fn parse_closure_expression(
             (Some((signature, signature_span)), amt_to_skip)
         }
         Some(Token {
-            contents: TokenContents::Item,
+            contents: TokenContents::PipePipe,
             span,
-        }) => {
-            let contents = working_set.get_span_contents(*span);
-            if contents == b"||" {
-                (
-                    Some((Box::new(Signature::new("closure".to_string())), *span)),
-                    1,
-                )
-            } else {
-                (None, 0)
-            }
-        }
+        }) => (
+            Some((Box::new(Signature::new("closure".to_string())), *span)),
+            1,
+        ),
         _ => (None, 0),
     };
 
@@ -4258,7 +4265,10 @@ pub fn parse_value(
             } else {
                 return (
                     Expression::garbage(span),
-                    Some(ParseError::Expected("non-block value".into(), span)),
+                    Some(ParseError::Expected(
+                        format!("non-block value: {}", shape),
+                        span,
+                    )),
                 );
             }
         }
@@ -4438,8 +4448,8 @@ pub fn parse_operator(
         b"bit-shr" => Operator::Bits(Bits::ShiftRight),
         b"starts-with" => Operator::Comparison(Comparison::StartsWith),
         b"ends-with" => Operator::Comparison(Comparison::EndsWith),
-        b"&&" | b"and" => Operator::Boolean(Boolean::And),
-        b"||" | b"or" => Operator::Boolean(Boolean::Or),
+        b"and" => Operator::Boolean(Boolean::And),
+        b"or" => Operator::Boolean(Boolean::Or),
         b"xor" => Operator::Boolean(Boolean::Xor),
         b"**" => Operator::Math(Math::Pow),
         // WARNING: not actual operators below! Error handling only
@@ -5898,8 +5908,15 @@ pub fn lite_parse(tokens: &[Token]) -> (LiteBlock, Option<ParseError>) {
 
     let mut curr_comment: Option<Vec<Span>> = None;
 
+    let mut error = None;
+
     for token in tokens.iter() {
         match &token.contents {
+            TokenContents::PipePipe => {
+                error = error.or(Some(ParseError::ShellOrOr(token.span)));
+                curr_command.push(token.span);
+                last_token = TokenContents::Item;
+            }
             TokenContents::Item => {
                 // If we have a comment, go ahead and attach it
                 if let Some(curr_comment) = curr_comment.take() {
@@ -6145,7 +6162,7 @@ pub fn lite_parse(tokens: &[Token]) -> (LiteBlock, Option<ParseError>) {
             )),
         )
     } else {
-        (block, None)
+        (block, error)
     }
 }
 

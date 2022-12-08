@@ -55,7 +55,7 @@ impl Command for Loop {
                 engine_state,
                 stack,
                 block,
-                PipelineData::new(call.head),
+                PipelineData::empty(),
                 call.redirect_stdout,
                 call.redirect_stderr,
             ) {
@@ -73,7 +73,7 @@ impl Command for Loop {
                 }
             }
         }
-        Ok(PipelineData::new(call.head))
+        Ok(PipelineData::empty())
     }
 
     fn examples(&self) -> Vec<Example> {

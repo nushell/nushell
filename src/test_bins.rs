@@ -220,7 +220,7 @@ pub fn nu_repl() {
             outcome_err(&engine_state, &err);
         }
 
-        let input = PipelineData::new(Span::test_data());
+        let input = PipelineData::empty();
         let config = engine_state.get_config();
 
         match eval_block(&engine_state, &mut stack, &block, input, false, false) {

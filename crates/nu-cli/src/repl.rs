@@ -149,7 +149,7 @@ pub fn evaluate_repl(
             stack,
             s.item.as_bytes(),
             &format!("entry #{}", entry_num),
-            PipelineData::new(Span::new(0, 0)),
+            PipelineData::empty(),
         );
         engine_state.merge_env(stack, get_guaranteed_cwd(engine_state, stack))?;
     }
@@ -431,7 +431,7 @@ pub fn evaluate_repl(
                         stack,
                         s.as_bytes(),
                         &format!("entry #{}", entry_num),
-                        PipelineData::new(Span::new(0, 0)),
+                        PipelineData::empty(),
                     );
                 }
                 let cmd_duration = start_time.elapsed();
@@ -637,7 +637,7 @@ pub fn eval_string_with_input(
 
     let input_as_pipeline_data = match input {
         Some(input) => PipelineData::Value(input, None),
-        None => PipelineData::new(Span::test_data()),
+        None => PipelineData::empty(),
     };
 
     eval_block(
@@ -722,7 +722,7 @@ pub fn eval_hook(
         val: "condition".to_string(),
         span: value_span,
     };
-    let mut output = PipelineData::new(Span::new(0, 0));
+    let mut output = PipelineData::empty();
 
     let code_path = PathMember::String {
         val: "code".to_string(),
@@ -823,7 +823,7 @@ pub fn eval_hook(
                         };
 
                         engine_state.merge_delta(delta)?;
-                        let input = PipelineData::new(value_span);
+                        let input = PipelineData::empty();
 
                         let var_ids: Vec<VarId> = vars
                             .into_iter()
@@ -943,7 +943,7 @@ pub fn run_hook_block(
 ) -> Result<Value, ShellError> {
     let block = engine_state.get_block(block_id);
 
-    let input = optional_input.unwrap_or_else(|| PipelineData::new(span));
+    let input = optional_input.unwrap_or_else(PipelineData::empty);
 
     let mut callee_stack = stack.gather_captures(&block.captures);
 

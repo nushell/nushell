@@ -799,7 +799,10 @@ mod windows_helper {
             .is_err()
             {
                 return Err(ShellError::ReadingFile(
-                    "Could not read file metadata".to_string(),
+                    format!(
+                        "Could not read metadata for '{}'. It may have an illegal filename.",
+                        filename.to_string_lossy()
+                    ),
                     span,
                 ));
             }

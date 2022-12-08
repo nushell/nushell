@@ -92,7 +92,7 @@ impl NuCompleter {
             &self.engine_state,
             &mut callee_stack,
             block,
-            PipelineData::new(span),
+            PipelineData::empty(),
             true,
             true,
         );

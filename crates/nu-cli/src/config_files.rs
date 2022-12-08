@@ -8,7 +8,7 @@ use nu_path::canonicalize_with;
 use nu_protocol::engine::{EngineState, Stack, StateWorkingSet};
 #[cfg(feature = "plugin")]
 use nu_protocol::Spanned;
-use nu_protocol::{HistoryFileFormat, PipelineData, Span};
+use nu_protocol::{HistoryFileFormat, PipelineData};
 use std::path::PathBuf;
 
 #[cfg(feature = "plugin")]
@@ -38,7 +38,7 @@ pub fn read_plugin_file(
                 stack,
                 &contents,
                 &plugin_filename,
-                PipelineData::new(Span::new(0, 0)),
+                PipelineData::empty(),
             );
         }
     }
@@ -85,7 +85,7 @@ pub fn eval_config_contents(
                 stack,
                 &contents,
                 &config_filename,
-                PipelineData::new(Span::new(0, 0)),
+                PipelineData::empty(),
             );
 
             // Merge the environment in case env vars changed in the config
