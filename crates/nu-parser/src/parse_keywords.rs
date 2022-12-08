@@ -54,6 +54,13 @@ pub fn parse_def_predecl(
         let signature = sig.as_signature();
         working_set.exit_scope();
         if let (Some(name), Some(mut signature)) = (name, signature) {
+            if name.contains('#')
+                || name.parse::<bytesize::ByteSize>().is_ok()
+                || name.parse::<f64>().is_ok()
+            {
+                return Some(ParseError::CommandDefNotValid(spans[1]));
+            }
+
             signature.name = name;
             let decl = signature.predeclare();
 
@@ -77,6 +84,13 @@ pub fn parse_def_predecl(
         working_set.exit_scope();
 
         if let (Some(name), Some(mut signature)) = (name, signature) {
+            if name.contains('#')
+                || name.parse::<bytesize::ByteSize>().is_ok()
+                || name.parse::<f64>().is_ok()
+            {
+                return Some(ParseError::CommandDefNotValid(spans[1]));
+            }
+
             signature.name = name.clone();
             //let decl = signature.predeclare();
             let decl = KnownExternal {
@@ -588,27 +602,16 @@ pub fn parse_alias(
         return (Pipeline::from_vec(vec![expr]), None);
     }
 
-    let (name_span, alias_name, split_id) =
+    let (name_span, split_id) =
         if spans.len() > 1 && working_set.get_span_contents(spans[0]) == b"export" {
-            (spans[1], spans.get(2), 2)
+            (spans[1], 2)
         } else {
-            (spans[0], spans.get(1), 1)
+            (spans[0], 1)
         };
 
     let name = working_set.get_span_contents(name_span);
 
     if name == b"alias" {
-        if let Some(alias_name) = alias_name {
-            let alias_name = String::from_utf8_lossy(working_set.get_span_contents(*alias_name));
-            if alias_name.parse::<bytesize::ByteSize>().is_ok() || alias_name.parse::<f64>().is_ok()
-            {
-                return (
-                    Pipeline::from_vec(vec![garbage(name_span)]),
-                    Some(ParseError::AliasNotValid(name_span)),
-                );
-            }
-        }
-
         if let Some((span, err)) = check_name(working_set, spans) {
             return (Pipeline::from_vec(vec![garbage(*span)]), Some(err));
         }
@@ -650,6 +653,17 @@ pub fn parse_alias(
                 let _equals = working_set.get_span_contents(spans[split_id + 1]);
 
                 let replacement = spans[(split_id + 2)..].to_vec();
+
+                let checked_name = String::from_utf8_lossy(&alias_name);
+                if checked_name.contains('#')
+                    || checked_name.parse::<bytesize::ByteSize>().is_ok()
+                    || checked_name.parse::<f64>().is_ok()
+                {
+                    return (
+                        Pipeline::from_vec(vec![garbage(name_span)]),
+                        Some(ParseError::AliasNotValid(name_span)),
+                    );
+                }
 
                 working_set.add_alias(alias_name, replacement);
             }
