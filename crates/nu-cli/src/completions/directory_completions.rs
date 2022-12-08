@@ -137,7 +137,11 @@ pub fn directory_completion(
                                 }
 
                                 // Fix files or folders with quotes or hash
-                                if path.contains('\'') || path.contains('"') || path.contains(' ') || path.contains('#') {
+                                if path.contains('\'')
+                                    || path.contains('"')
+                                    || path.contains(' ')
+                                    || path.contains('#')
+                                {
                                     path = format!("`{}`", path);
                                 }
 
