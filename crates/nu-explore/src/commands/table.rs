@@ -1,5 +1,7 @@
 use std::io::Result;
 
+use nu_ansi_term::Style;
+use nu_color_config::lookup_ansi_color_style;
 use nu_protocol::{
     engine::{EngineState, Stack},
     Value,
@@ -10,16 +12,36 @@ use crate::{
     views::{Orientation, RecordView},
 };
 
-use super::{HelpManual, Shortcode, ViewCommand};
+use super::{ConfigOption, HelpExample, HelpManual, Shortcode, ViewCommand};
 
 #[derive(Debug, Default, Clone)]
 pub struct TableCmd {
     // todo: add arguments to override config right from CMD
+    settings: TableSettings,
+}
+
+#[derive(Debug, Default, Clone)]
+struct TableSettings {
+    orientation: Option<Orientation>,
+    line_head_top: Option<bool>,
+    line_head_bottom: Option<bool>,
+    line_shift: Option<bool>,
+    line_index: Option<bool>,
+    split_line_s: Option<Style>,
+    selected_cell_s: Option<Style>,
+    selected_row_s: Option<Style>,
+    selected_column_s: Option<Style>,
+    show_cursor: Option<bool>,
+    padding_column_left: Option<usize>,
+    padding_column_right: Option<usize>,
+    padding_index_left: Option<usize>,
+    padding_index_right: Option<usize>,
+    turn_on_cursor_mode: bool,
 }
 
 impl TableCmd {
     pub fn new() -> Self {
-        Self {}
+        Self::default()
     }
 
     pub const NAME: &'static str = "table";
@@ -60,6 +82,117 @@ impl ViewCommand for TableCmd {
         })
     }
 
+    fn get_config_settings(&self) -> Vec<ConfigOption> {
+        vec![
+            ConfigOption::new(
+                "Column header orientation",
+                "Used to move column header",
+                "table.orientation",
+                vec![
+                    HelpExample::new("top", "Sticks column header to the top"),
+                    HelpExample::new("bottom", "Sticks column header to the bottom"),
+                    HelpExample::new("left", "Sticks column header to the left"),
+                    HelpExample::new("right", "Sticks column header to the right"),
+                ],
+            ),
+            ConfigOption::boolean("Lines are lines", "", "table.line_head_top"),
+            ConfigOption::boolean("Lines are lines", "", "table.line_head_bottom"),
+            ConfigOption::boolean("Lines are lines", "", "table.line_shift"),
+            ConfigOption::boolean("Lines are lines", "", "table.line_index"),
+            ConfigOption::new(
+                "Color of selected cell",
+                ".",
+                "table.selected_cell",
+                default_color_list(),
+            ),
+            ConfigOption::new(
+                "Color of selected row",
+                ".",
+                "table.selected_row",
+                default_color_list(),
+            ),
+            ConfigOption::new(
+                "Color of selected column",
+                ".",
+                "table.selected_column",
+                default_color_list(),
+            ),
+            ConfigOption::new(
+                "Color of split lines",
+                ".",
+                "table.split_line",
+                default_color_list(),
+            ),
+            ConfigOption::new(
+                "Padding column left",
+                ".",
+                "table.padding_column_left",
+                default_int_list(),
+            ),
+            ConfigOption::new(
+                "Padding column right",
+                ".",
+                "table.padding_column_right",
+                default_int_list(),
+            ),
+            ConfigOption::new(
+                "Padding index left",
+                ".",
+                "table.padding_index_left",
+                default_int_list(),
+            ),
+            ConfigOption::new(
+                "Padding index right",
+                ".",
+                "table.padding_index_right",
+                default_int_list(),
+            ),
+        ]
+    }
+
+    fn set_config_settings(&mut self, _group: String, key: String, value: String) {
+        match key.as_str() {
+            "table.orientation" => self.settings.orientation = orientation_from_str(&value),
+            "table.line_head_top" => self.settings.line_head_top = bool_from_str(&value),
+            "table.line_head_bottom" => self.settings.line_head_bottom = bool_from_str(&value),
+            "table.line_shift" => self.settings.line_shift = bool_from_str(&value),
+            "table.line_index" => self.settings.line_index = bool_from_str(&value),
+            "table.cursor" => {
+                self.settings.show_cursor = bool_from_str(&value);
+                self.settings.turn_on_cursor_mode = true;
+            }
+            "table.split_line" => {
+                self.settings.split_line_s = Some(lookup_ansi_color_style(&value));
+                self.settings.turn_on_cursor_mode = true;
+            }
+            "table.selected_cell" => {
+                self.settings.selected_cell_s = Some(lookup_ansi_color_style(&value));
+                self.settings.turn_on_cursor_mode = true;
+            }
+            "table.selected_row" => {
+                self.settings.selected_row_s = Some(lookup_ansi_color_style(&value));
+                self.settings.turn_on_cursor_mode = true;
+            }
+            "table.selected_column" => {
+                self.settings.selected_column_s = Some(lookup_ansi_color_style(&value));
+                self.settings.turn_on_cursor_mode = true;
+            }
+            "table.padding_column_left" => {
+                self.settings.padding_column_left = usize_from_str(&value);
+            }
+            "table.padding_column_right" => {
+                self.settings.padding_column_right = usize_from_str(&value);
+            }
+            "table.padding_index_left" => {
+                self.settings.padding_index_left = usize_from_str(&value);
+            }
+            "table.padding_index_right" => {
+                self.settings.padding_index_right = usize_from_str(&value);
+            }
+            _ => {}
+        }
+    }
+
     fn parse(&mut self, _: &str) -> Result<()> {
         Ok(())
     }
@@ -77,10 +210,116 @@ impl ViewCommand for TableCmd {
 
         let mut view = RecordView::new(columns, data);
 
+        // todo: use setup instead ????
+
         if is_record {
             view.set_orientation_current(Orientation::Left);
         }
 
+        if let Some(o) = self.settings.orientation {
+            view.set_orientation_current(o);
+        }
+
+        if self.settings.line_head_bottom.unwrap_or(false) {
+            view.set_line_head_bottom(true);
+        }
+
+        if self.settings.line_head_top.unwrap_or(false) {
+            view.set_line_head_top(true);
+        }
+
+        if self.settings.line_index.unwrap_or(false) {
+            view.set_line_index(true);
+        }
+
+        if self.settings.line_shift.unwrap_or(false) {
+            view.set_line_traling(true);
+        }
+
+        if self.settings.show_cursor.unwrap_or(false) {
+            view.show_cursor(true);
+        }
+
+        if let Some(style) = self.settings.selected_cell_s {
+            view.set_style_selected_cell(style);
+        }
+
+        if let Some(style) = self.settings.selected_column_s {
+            view.set_style_selected_column(style);
+        }
+
+        if let Some(style) = self.settings.selected_row_s {
+            view.set_style_selected_row(style);
+        }
+
+        if let Some(style) = self.settings.split_line_s {
+            view.set_style_split_line(style);
+        }
+
+        if let Some(p) = self.settings.padding_column_left {
+            let c = view.get_padding_column();
+            view.set_padding_column((p, c.1))
+        }
+
+        if let Some(p) = self.settings.padding_column_right {
+            let c = view.get_padding_column();
+            view.set_padding_column((c.0, p))
+        }
+
+        if let Some(p) = self.settings.padding_index_left {
+            let c = view.get_padding_index();
+            view.set_padding_index((p, c.1))
+        }
+
+        if let Some(p) = self.settings.padding_index_right {
+            let c = view.get_padding_index();
+            view.set_padding_index((c.0, p))
+        }
+
+        if self.settings.turn_on_cursor_mode {
+            view.get_into_cursor_mode();
+        }
+
         Ok(view)
     }
+}
+
+fn bool_from_str(s: &str) -> Option<bool> {
+    match s {
+        "true" => Some(true),
+        "false" => Some(false),
+        _ => None,
+    }
+}
+
+fn usize_from_str(s: &str) -> Option<usize> {
+    s.parse::<usize>().ok()
+}
+
+fn orientation_from_str(s: &str) -> Option<Orientation> {
+    match s {
+        "left" => Some(Orientation::Left),
+        "right" => Some(Orientation::Right),
+        "top" => Some(Orientation::Top),
+        "bottom" => Some(Orientation::Bottom),
+        _ => None,
+    }
+}
+
+fn default_color_list() -> Vec<HelpExample> {
+    vec![
+        HelpExample::new("red", ""),
+        HelpExample::new("blue", ""),
+        HelpExample::new("green", ""),
+        HelpExample::new("#AA4433", ""),
+    ]
+}
+
+fn default_int_list() -> Vec<HelpExample> {
+    vec![
+        HelpExample::new("0", ""),
+        HelpExample::new("1", ""),
+        HelpExample::new("2", ""),
+        HelpExample::new("3", ""),
+    ]
 }

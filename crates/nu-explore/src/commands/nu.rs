@@ -7,12 +7,12 @@ use nu_protocol::{
 use tui::layout::Rect;
 
 use crate::{
-    nu_common::{collect_pipeline, has_simple_value, is_ignored_command, run_nu_command},
+    nu_common::{collect_pipeline, has_simple_value, run_command_with_value},
     pager::Frame,
     views::{Layout, Orientation, Preview, RecordView, View, ViewConfig},
 };
 
-use super::{HelpExample, HelpManual, ViewCommand};
+use super::{ConfigOption, HelpExample, HelpManual, ViewCommand};
 
 #[derive(Debug, Default, Clone)]
 pub struct NuCmd {
@@ -65,6 +65,12 @@ impl ViewCommand for NuCmd {
         })
     }
 
+    fn get_config_settings(&self) -> Vec<ConfigOption> {
+        vec![]
+    }
+
+    fn set_config_settings(&mut self, group: String, key: String, value: String) {}
+
     fn parse(&mut self, args: &str) -> Result<()> {
         self.command = args.trim().to_owned();
 
@@ -77,22 +83,10 @@ impl ViewCommand for NuCmd {
         stack: &mut Stack,
         value: Option<Value>,
     ) -> Result<Self::View> {
-        if is_ignored_command(&self.command) {
-            return Err(io::Error::new(
-                io::ErrorKind::Other,
-                "The command is ignored",
-            ));
-        }
-
         let value = value.unwrap_or_default();
 
-        let pipeline = PipelineData::Value(value, None);
-        let pipeline = run_nu_command(engine_state, stack, &self.command, pipeline)
+        let pipeline = run_command_with_value(&self.command, &value, engine_state, stack)
             .map_err(|e| io::Error::new(io::ErrorKind::Other, e))?;
-
-        if let PipelineData::Value(Value::Error { error }, ..) = pipeline {
-            return Err(io::Error::new(io::ErrorKind::Other, error.to_string()));
-        }
 
         let is_record = matches!(pipeline, PipelineData::Value(Value::Record { .. }, ..));
 

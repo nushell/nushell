@@ -7,7 +7,7 @@ use nu_protocol::{
 
 use crate::views::InteractiveView;
 
-use super::{HelpExample, HelpManual, Shortcode, ViewCommand};
+use super::{ConfigOption, HelpExample, HelpManual, Shortcode, ViewCommand};
 
 #[derive(Debug, Default, Clone)]
 pub struct TryCmd {
@@ -55,6 +55,12 @@ impl ViewCommand for TryCmd {
             input: shortcuts,
         })
     }
+
+    fn get_config_settings(&self) -> Vec<ConfigOption> {
+        vec![ConfigOption::boolean("Try ....", "", "try.reactive")]
+    }
+
+    fn set_config_settings(&mut self, group: String, key: String, value: String) {}
 
     fn parse(&mut self, args: &str) -> Result<()> {
         self.command = args.trim().to_owned();

@@ -11,7 +11,7 @@ use crate::{
     views::Preview,
 };
 
-use super::{HelpManual, Shortcode, ViewCommand};
+use super::{ConfigOption, HelpManual, Shortcode, ViewCommand};
 
 #[derive(Default, Clone)]
 pub struct ExpandCmd;
@@ -58,6 +58,12 @@ impl ViewCommand for ExpandCmd {
             input: shortcodes,
         })
     }
+
+    fn get_config_settings(&self) -> Vec<ConfigOption> {
+        vec![]
+    }
+
+    fn set_config_settings(&mut self, group: String, key: String, value: String) {}
 
     fn parse(&mut self, _: &str) -> Result<()> {
         Ok(())

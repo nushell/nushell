@@ -9,7 +9,7 @@ use tui::{
 };
 
 use crate::{
-    nu_common::{NuStyle, NuStyleTable, NuText},
+    nu_common::{truncate_str, NuStyle, NuStyleTable, NuText},
     pager::{nu_style_to_tui, text_style_to_tui_style},
     views::ElementInfo,
 };
@@ -470,10 +470,10 @@ impl<'a> TableW<'a> {
             left_w += render_space(buf, x, area.y, area.height, padding_cell_r);
         }
 
-        let rest = area.width.saturating_sub(left_w + right_w);
-        if rest > 0 {
-            render_space(buf, left_w, area.y, area.height, rest);
-        }
+        // let rest = area.width.saturating_sub(left_w + right_w);
+        // if rest > 0 {
+        //     render_space(buf, left_w, area.y, area.height, rest);
+        // }
     }
 }
 
@@ -746,15 +746,6 @@ fn truncate_column(
 fn truncate_list(list: &mut [NuText], width: usize) {
     for (text, _) in list {
         truncate_str(text, width);
-    }
-}
-
-fn truncate_str(text: &mut String, width: usize) {
-    if width == 0 {
-        text.clear();
-    } else {
-        *text = nu_table::string_truncate(text, width - 1);
-        text.push('…');
     }
 }
 

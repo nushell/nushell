@@ -13,7 +13,7 @@ use tui::{
 };
 
 use crate::{
-    nu_common::{collect_pipeline, is_ignored_command, run_nu_command, NuStyle},
+    nu_common::{collect_pipeline, run_command_with_value, NuStyle},
     pager::{nu_style_to_tui, Frame, Report, Transition, ViewInfo},
     util::create_map,
 };
@@ -290,29 +290,17 @@ fn run_command(
     engine_state: &EngineState,
     stack: &mut Stack,
 ) -> Result<RecordView<'static>, String> {
-    if is_ignored_command(command) {
-        return Err(String::from("the command is ignored"));
+    let pipeline =
+        run_command_with_value(command, input, engine_state, stack).map_err(|e| e.to_string())?;
+
+    let is_record = matches!(pipeline, PipelineData::Value(Value::Record { .. }, ..));
+
+    let (columns, values) = collect_pipeline(pipeline);
+
+    let mut view = RecordView::new(columns, values);
+    if is_record {
+        view.set_orientation_current(Orientation::Left);
     }
 
-    let pipeline = PipelineData::Value(input.clone(), None);
-    let pipeline = run_nu_command(engine_state, stack, command, pipeline);
-    match pipeline {
-        Ok(pipeline_data) => {
-            if let PipelineData::Value(Value::Error { error }, ..) = pipeline_data {
-                return Err(error.to_string());
-            }
-
-            let is_record = matches!(pipeline_data, PipelineData::Value(Value::Record { .. }, ..));
-
-            let (columns, values) = collect_pipeline(pipeline_data);
-
-            let mut view = RecordView::new(columns, values);
-            if is_record {
-                view.set_orientation_current(Orientation::Left);
-            }
-
-            Ok(view)
-        }
-        Err(err) => Err(err.to_string()),
-    }
+    Ok(view)
 }

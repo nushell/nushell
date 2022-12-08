@@ -15,6 +15,10 @@ mod table;
 mod r#try;
 mod tweak;
 
+pub mod config;
+mod config_show;
+
+pub use config_show::ConfigShowCmd;
 pub use expand::ExpandCmd;
 pub use help::HelpCmd;
 pub use nu::NuCmd;
@@ -52,6 +56,10 @@ pub trait ViewCommand {
 
     fn parse(&mut self, args: &str) -> Result<()>;
 
+    fn get_config_settings(&self) -> Vec<ConfigOption>;
+
+    fn set_config_settings(&mut self, group: String, key: String, value: String);
+
     fn spawn(
         &mut self,
         engine_state: &EngineState,
@@ -66,6 +74,8 @@ pub struct HelpManual {
     pub description: &'static str,
     pub arguments: Vec<HelpExample>,
     pub examples: Vec<HelpExample>,
+    // todo: add config settings options
+    // pub config_options: Vec<HelpExample>,
     pub input: Vec<Shortcode>,
 }
 
@@ -97,6 +107,43 @@ impl Shortcode {
             code,
             context,
             description,
+        }
+    }
+}
+
+pub struct ConfigOption {
+    pub group: String,
+    pub description: String,
+    pub key: String,
+    pub values: Vec<HelpExample>,
+}
+
+impl ConfigOption {
+    pub fn new<N, D, K>(group: N, description: D, key: K, values: Vec<HelpExample>) -> Self
+    where
+        N: Into<String>,
+        D: Into<String>,
+        K: Into<String>,
+    {
+        Self {
+            group: group.into(),
+            description: description.into(),
+            key: key.into(),
+            values,
+        }
+    }
+
+    pub fn boolean<N, D, K>(group: N, description: D, key: K) -> Self
+    where
+        N: Into<String>,
+        D: Into<String>,
+        K: Into<String>,
+    {
+        Self {
+            group: group.into(),
+            description: description.into(),
+            key: key.into(),
+            values: vec![HelpExample::new("true", ""), HelpExample::new("false", "")],
         }
     }
 }

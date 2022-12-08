@@ -57,6 +57,66 @@ impl<'a> RecordView<'a> {
         state_reverse_data(self, page_size as usize);
     }
 
+    pub fn set_style_split_line(&mut self, style: NuStyle) {
+        self.theme.table.splitline_style = style
+    }
+
+    pub fn set_style_selected_cell(&mut self, style: NuStyle) {
+        self.theme.cursor.selected_cell = Some(style)
+    }
+
+    pub fn set_style_selected_row(&mut self, style: NuStyle) {
+        self.theme.cursor.selected_row = Some(style)
+    }
+
+    pub fn set_style_selected_column(&mut self, style: NuStyle) {
+        self.theme.cursor.selected_column = Some(style)
+    }
+
+    pub fn show_cursor(&mut self, b: bool) {
+        self.theme.cursor.show_cursow = b;
+    }
+
+    pub fn set_line_head_top(&mut self, b: bool) {
+        self.theme.table.header_top = b;
+    }
+
+    pub fn set_line_head_bottom(&mut self, b: bool) {
+        self.theme.table.header_bottom = b;
+    }
+
+    pub fn set_line_traling(&mut self, b: bool) {
+        self.theme.table.shift_line = b;
+    }
+
+    pub fn set_line_index(&mut self, b: bool) {
+        self.theme.table.index_line = b;
+    }
+
+    pub fn set_padding_column(&mut self, (left, right): (usize, usize)) {
+        self.theme.table.padding_column_left = left;
+        self.theme.table.padding_column_right = right;
+    }
+
+    pub fn set_padding_index(&mut self, (left, right): (usize, usize)) {
+        self.theme.table.padding_index_left = left;
+        self.theme.table.padding_index_right = right;
+    }
+
+    pub fn get_padding_column(&self) -> (usize, usize) {
+        (
+            self.theme.table.padding_column_left,
+            self.theme.table.padding_column_right,
+        )
+    }
+
+    pub fn get_padding_index(&self) -> (usize, usize) {
+        (
+            self.theme.table.padding_index_left,
+            self.theme.table.padding_index_right,
+        )
+    }
+
     pub fn get_theme(&self) -> &TableTheme {
         &self.theme
     }
@@ -133,6 +193,11 @@ impl<'a> RecordView<'a> {
 
     pub fn get_cursor(&self) -> (usize, usize) {
         (self.cursor.y as usize, self.cursor.x as usize)
+    }
+
+    pub fn get_into_cursor_mode(&mut self) {
+        self.mode = UIMode::Cursor;
+        self.cursor = Position::default();
     }
 
     pub fn start_row(&self) -> usize {
@@ -264,6 +329,7 @@ impl View for RecordView<'_> {
         Some(build_last_value(self))
     }
 
+    // todo: move the method to Command?
     fn setup(&mut self, cfg: ViewConfig<'_>) {
         if let Some(hm) = cfg.config.get("table").and_then(create_map) {
             self.theme = theme_from_config(&hm);

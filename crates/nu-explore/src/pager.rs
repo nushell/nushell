@@ -49,19 +49,7 @@ pub type Terminal = tui::Terminal<CrosstermBackend<Stdout>>;
 pub enum Transition {
     Ok,
     Exit,
-    Cmd {
-        command: Cow<'static, str>,
-        args: Option<Value>,
-    },
-}
-
-impl Transition {
-    pub fn command(cmd: impl Into<Cow<'static, str>>, args: Option<Value>) -> Self {
-        Self::Cmd {
-            command: cmd.into(),
-            args,
-        }
-    }
+    Cmd(String),
 }
 
 #[derive(Debug, Clone)]
@@ -199,7 +187,7 @@ fn render_ui(
             })?;
         }
 
-        let (exited, force) = handle_events(
+        let status = handle_events(
             engine_state,
             stack,
             &events,
@@ -209,17 +197,39 @@ fn render_ui(
             &mut pager.cmd_buf,
             view.as_mut().map(|p| &mut p.view),
         );
-        if exited {
-            if force {
-                break Ok(try_to_peek_value(pager, view.as_mut().map(|p| &mut p.view)));
-            } else {
-                if view_stack.is_empty() && pager.config.exit_esc {
+
+        if let Some(status) = status {
+            match status {
+                Transition::Exit => {
                     break Ok(try_to_peek_value(pager, view.as_mut().map(|p| &mut p.view)));
                 }
+                Transition::Ok => {
+                    if view_stack.is_empty() && pager.config.exit_esc {
+                        break Ok(try_to_peek_value(pager, view.as_mut().map(|p| &mut p.view)));
+                    }
 
-                // try to pop the view stack
-                if let Some(v) = view_stack.pop() {
-                    view = Some(v);
+                    // try to pop the view stack
+                    if let Some(v) = view_stack.pop() {
+                        view = Some(v);
+                    }
+                }
+                Transition::Cmd(command) => {
+                    let out = pager_run_command(
+                        engine_state,
+                        stack,
+                        pager,
+                        &mut view,
+                        &mut view_stack,
+                        &commands,
+                        command,
+                    );
+                    match out {
+                        Ok(false) => {}
+                        Ok(true) => {
+                            break Ok(try_to_peek_value(pager, view.as_mut().map(|p| &mut p.view)))
+                        }
+                        Err(err) => info.report = Some(Report::error(err)),
+                    }
                 }
             }
         }
@@ -229,24 +239,36 @@ fn render_ui(
             pager.cmd_buf.run_cmd = false;
             pager.cmd_buf.buf_cmd2 = String::new();
 
-            let command = commands.find(&args);
-            let result = handle_command(
+            let out = pager_run_command(
                 engine_state,
                 stack,
                 pager,
                 &mut view,
                 &mut view_stack,
-                command,
-                &args,
+                &commands,
+                args,
             );
-
-            match result {
+            match out {
                 Ok(false) => {}
                 Ok(true) => break Ok(try_to_peek_value(pager, view.as_mut().map(|p| &mut p.view))),
                 Err(err) => info.report = Some(Report::error(err)),
             }
         }
     }
+}
+
+#[allow(clippy::too_many_arguments)]
+fn pager_run_command(
+    engine_state: &EngineState,
+    stack: &mut Stack,
+    pager: &mut Pager,
+    view: &mut Option<Page>,
+    view_stack: &mut Vec<Page>,
+    commands: &CommandList,
+    args: String,
+) -> std::result::Result<bool, String> {
+    let command = commands.find(&args);
+    handle_command(engine_state, stack, pager, view, view_stack, command, &args)
 }
 
 fn handle_command(
@@ -493,10 +515,10 @@ fn handle_events<V: View>(
     search: &mut SearchBuf,
     command: &mut CommandBuf,
     mut view: Option<&mut V>,
-) -> (bool, bool) {
+) -> Option<Transition> {
     let key = match events.next() {
         Ok(Some(key)) => key,
-        _ => return (false, false),
+        _ => return None,
     };
 
     let result = handle_event(
@@ -510,7 +532,7 @@ fn handle_events<V: View>(
         key,
     );
 
-    if let (true, _) = result {
+    if result.is_some() {
         return result;
     }
 
@@ -532,7 +554,7 @@ fn handle_events<V: View>(
             key,
         );
 
-        if let (true, _) = result {
+        if result.is_some() {
             return result;
         }
     }
@@ -550,24 +572,21 @@ fn handle_event<V: View>(
     command: &mut CommandBuf,
     mut view: Option<&mut V>,
     key: KeyEvent,
-) -> (bool, bool) {
+) -> Option<Transition> {
     if handle_exit_key_event(&key) {
-        return (true, true);
+        return Some(Transition::Exit);
     }
 
     if handle_general_key_events1(&key, search, command, view.as_deref_mut()) {
-        return (false, false);
+        return None;
     }
 
     if let Some(view) = &mut view {
         let t = view.handle_input(engine_state, stack, layout, info, key);
         match t {
-            Some(Transition::Exit) => return (true, false),
-            Some(Transition::Cmd { .. }) => {
-                // todo: handle it
-                return (false, false);
-            }
-            Some(Transition::Ok) => return (false, false),
+            Some(Transition::Exit) => return Some(Transition::Ok),
+            Some(Transition::Cmd(cmd)) => return Some(Transition::Cmd(cmd)),
+            Some(Transition::Ok) => return None,
             None => {}
         }
     }
@@ -575,7 +594,7 @@ fn handle_event<V: View>(
     // was not handled so we must check our default controlls
     handle_general_key_events2(&key, search, command, view, info);
 
-    (false, false)
+    None
 }
 
 fn handle_exit_key_event(key: &KeyEvent) -> bool {

@@ -21,6 +21,9 @@ use super::{
     pager::{Frame, Transition, ViewInfo},
 };
 
+pub mod configuration;
+
+pub use configuration::ConfigurationView;
 pub use information::InformationView;
 pub use interative::InteractiveView;
 pub use preview::Preview;
@@ -55,9 +58,9 @@ impl ElementInfo {
 
 #[derive(Debug, Clone, Copy)]
 pub struct ViewConfig<'a> {
-    nu_config: &'a NuConfig,
-    color_hm: &'a NuStyleTable,
-    config: &'a ConfigMap,
+    pub nu_config: &'a NuConfig,
+    pub color_hm: &'a NuStyleTable,
+    pub config: &'a ConfigMap,
 }
 
 impl<'a> ViewConfig<'a> {

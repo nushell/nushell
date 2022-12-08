@@ -2,10 +2,11 @@ use std::collections::HashMap;
 
 use crate::{
     commands::{
-        ExpandCmd, HelpCmd, HelpManual, NuCmd, QuitCmd, SimpleCommand, TableCmd, TryCmd, TweakCmd,
-        ViewCommand,
+        config::ConfigCmd, ConfigShowCmd, ExpandCmd, HelpCmd, HelpManual, NuCmd, QuitCmd,
+        SimpleCommand, TableCmd, TryCmd, TweakCmd, ViewCommand,
     },
-    views::View,
+    nu_common::nu_str,
+    views::{RecordView, View},
 };
 
 #[derive(Clone)]
@@ -59,6 +60,7 @@ impl CommandList {
             cmd_view!(TryCmd::new(), true),
             cmd_view!(ExpandCmd::new(), true),
             cmd_view!(TableCmd::new()),
+            cmd_view!(ConfigShowCmd::new()),
             cmd_react!(QuitCmd::default()),
             cmd_react!(TweakCmd::default()),
         ]
@@ -78,8 +80,10 @@ impl CommandList {
         let aliases = Self::create_aliases();
 
         let help_cmd = create_help_command(&cmd_list, &aliases);
-
         cmd_list.push(cmd_view!(help_cmd, true));
+
+        let config_cmd = create_config_command(&cmd_list);
+        cmd_list.push(cmd_view!(config_cmd, true));
 
         Self {
             commands: HashMap::from_iter(cmd_list),
@@ -112,8 +116,16 @@ impl Default for CommandList {
     }
 }
 
+fn create_config_command(commands: &[(&str, Command)]) -> ConfigCmd {
+    let mut commands: Vec<_> = commands.iter().map(|(_, cmd)| cmd.clone()).collect();
+    commands.push(cmd_view!(ConfigCmd::new(vec![]), true).1);
+
+    ConfigCmd::new(commands)
+}
+
 fn create_help_command(commands: &[(&str, Command)], aliases: &[(&str, &str)]) -> HelpCmd {
     let help_manuals = create_help_manuals(commands);
+
     HelpCmd::new(help_manuals, aliases)
 }
 
@@ -194,6 +206,14 @@ where
 
     fn help(&self) -> Option<HelpManual> {
         self.0.help()
+    }
+
+    fn get_config_settings(&self) -> Vec<crate::commands::ConfigOption> {
+        self.0.get_config_settings()
+    }
+
+    fn set_config_settings(&mut self, group: String, key: String, value: String) {
+        self.0.set_config_settings(group, key, value);
     }
 
     fn parse(&mut self, args: &str) -> std::io::Result<()> {

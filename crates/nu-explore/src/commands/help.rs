@@ -15,7 +15,7 @@ use crate::{
     views::{Layout, Preview, RecordView, View, ViewConfig},
 };
 
-use super::{HelpExample, HelpManual, ViewCommand};
+use super::{ConfigOption, HelpExample, HelpManual, ViewCommand};
 
 #[derive(Debug, Default, Clone)]
 pub struct HelpCmd {
@@ -107,6 +107,12 @@ impl ViewCommand for HelpCmd {
             input: vec![],
         })
     }
+
+    fn get_config_settings(&self) -> Vec<ConfigOption> {
+        vec![]
+    }
+
+    fn set_config_settings(&mut self, group: String, key: String, value: String) {}
 
     fn parse(&mut self, args: &str) -> Result<()> {
         self.input_command = args.trim().to_owned();

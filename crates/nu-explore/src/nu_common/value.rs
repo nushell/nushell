@@ -200,3 +200,7 @@ pub fn map_into_value(hm: HashMap<String, Value>) -> Value {
         span: NuSpan::unknown(),
     }
 }
+
+pub fn nu_str<S: AsRef<str>>(s: S) -> Value {
+    Value::string(s.as_ref().to_owned(), NuSpan::unknown())
+}
