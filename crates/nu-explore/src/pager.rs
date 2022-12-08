@@ -1,5 +1,4 @@
 use std::{
-    borrow::Cow,
     cmp::min,
     collections::HashMap,
     io::{self, Result, Stdout},

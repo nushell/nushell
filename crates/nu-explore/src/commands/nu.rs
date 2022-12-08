@@ -12,7 +12,7 @@ use crate::{
     views::{Layout, Orientation, Preview, RecordView, View, ViewConfig},
 };
 
-use super::{ConfigOption, HelpExample, HelpManual, ViewCommand};
+use super::{HelpExample, HelpManual, ViewCommand};
 
 #[derive(Debug, Default, Clone)]
 pub struct NuCmd {
@@ -64,7 +64,7 @@ impl ViewCommand for NuCmd {
         })
     }
 
-    fn display_config_option(&mut self, group: String, key: String, value: String) -> bool {
+    fn display_config_option(&mut self, _: String, _: String, _: String) -> bool {
         false
     }
 

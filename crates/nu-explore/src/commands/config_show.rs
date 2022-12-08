@@ -1,28 +1,19 @@
-use std::{
-    collections::HashMap,
-    io::{self, Result},
-};
+use std::io::Result;
 
 use nu_protocol::{
     engine::{EngineState, Stack},
-    PipelineData, Value,
+    Value,
 };
 use tui::layout::Rect;
 
 use crate::{
-    command::Command,
-    nu_common::{
-        collect_pipeline, has_simple_value, nu_str, run_command_with_value, try_build_table, NuSpan,
-    },
+    nu_common::try_build_table,
     pager::Frame,
     util::map_into_value,
-    views::{
-        configuration::{ConfigGroup, ConfigOption},
-        ConfigurationView, Layout, Orientation, Preview, RecordView, View, ViewConfig,
-    },
+    views::{Layout, Preview, View, ViewConfig},
 };
 
-use super::{HelpExample, HelpManual, ViewCommand};
+use super::{HelpManual, ViewCommand};
 
 #[derive(Clone)]
 pub struct ConfigShowCmd {
@@ -62,7 +53,7 @@ impl ViewCommand for ConfigShowCmd {
         None
     }
 
-    fn display_config_option(&mut self, group: String, key: String, value: String) -> bool {
+    fn display_config_option(&mut self, _: String, _: String, _: String) -> bool {
         false
     }
 
@@ -74,12 +65,7 @@ impl ViewCommand for ConfigShowCmd {
         Ok(())
     }
 
-    fn spawn(
-        &mut self,
-        engine_state: &EngineState,
-        stack: &mut Stack,
-        _: Option<Value>,
-    ) -> Result<Self::View> {
+    fn spawn(&mut self, _: &EngineState, _: &mut Stack, _: Option<Value>) -> Result<Self::View> {
         Ok(ConfigView {
             preview: Preview::new(""),
             format: self.format.clone(),

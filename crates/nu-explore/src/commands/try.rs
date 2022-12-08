@@ -54,7 +54,7 @@ impl ViewCommand for TryCmd {
         })
     }
 
-    fn display_config_option(&mut self, group: String, key: String, value: String) -> bool {
+    fn display_config_option(&mut self, _: String, _: String, _: String) -> bool {
         false
     }
 

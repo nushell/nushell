@@ -1,25 +1,20 @@
-use std::{
-    collections::HashMap,
-    io::{self, Result},
-};
+use std::io::Result;
 
 use nu_protocol::{
     engine::{EngineState, Stack},
-    PipelineData, Value,
+    Value,
 };
-use tui::layout::Rect;
 
 use crate::{
     command::Command,
-    nu_common::{collect_pipeline, has_simple_value, nu_str, run_command_with_value, NuSpan},
-    pager::Frame,
+    nu_common::{nu_str, NuSpan},
     views::{
         configuration::{ConfigGroup, ConfigOption},
-        ConfigurationView, Layout, Orientation, Preview, RecordView, View, ViewConfig,
+        ConfigurationView, Preview,
     },
 };
 
-use super::{default_color_list, HelpExample, HelpManual, ViewCommand};
+use super::{default_color_list, HelpManual, ViewCommand};
 
 #[derive(Default, Clone)]
 pub struct ConfigCmd {
@@ -70,7 +65,7 @@ impl ViewCommand for ConfigCmd {
         })
     }
 
-    fn display_config_option(&mut self, group: String, key: String, value: String) -> bool {
+    fn display_config_option(&mut self, _: String, _: String, _: String) -> bool {
         false
     }
 

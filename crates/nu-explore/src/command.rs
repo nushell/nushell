@@ -5,8 +5,7 @@ use crate::{
         config::ConfigCmd, ConfigShowCmd, ExpandCmd, HelpCmd, HelpManual, NuCmd, QuitCmd,
         SimpleCommand, TableCmd, TryCmd, TweakCmd, ViewCommand,
     },
-    nu_common::nu_str,
-    views::{RecordView, View},
+    views::View,
 };
 
 #[derive(Clone)]

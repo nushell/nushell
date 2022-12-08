@@ -1,33 +1,25 @@
-use std::{
-    cmp::{min, Ordering},
-    collections::HashMap,
-    fmt::Debug,
-    ptr::addr_of,
-};
+use std::{cmp::Ordering, fmt::Debug, ptr::addr_of};
 
 use crossterm::event::{KeyCode, KeyEvent};
 use nu_color_config::get_color_map;
 use nu_protocol::{
     engine::{EngineState, Stack},
-    PipelineData, Value,
+    Value,
 };
-use nu_table::{string_truncate, TextStyle};
+use nu_table::TextStyle;
 use tui::{
     layout::Rect,
-    style::{Modifier, Style},
+    style::Style,
     widgets::{BorderType, Borders, Clear, Paragraph},
 };
 
 use crate::{
-    nu_common::{
-        collect_pipeline, is_ignored_command, run_command_with_value, run_nu_command, truncate_str,
-        NuColor, NuStyle, NuText,
-    },
-    pager::{nu_style_to_tui, Frame, Report, Transition, ViewInfo},
+    nu_common::{truncate_str, NuStyle, NuText},
+    pager::{nu_style_to_tui, Frame, Transition, ViewInfo},
     util::create_map,
 };
 
-use super::{record::RecordView, Layout, Orientation, View, ViewConfig};
+use super::{Layout, View, ViewConfig};
 
 #[derive(Debug, Default)]
 pub struct ConfigurationView {
@@ -69,6 +61,7 @@ impl ConfigurationView {
         area: Rect,
         list_color: Style,
         cursor_color: Style,
+        layout: &mut Layout,
     ) {
         let (data, data_c) = match self.peeked_cursor {
             Some(cursor) => {
@@ -93,7 +86,7 @@ impl ConfigurationView {
             }
         };
 
-        render_list(f, area, &data, data_c, list_color, cursor_color);
+        render_list(f, area, &data, data_c, list_color, cursor_color, layout);
     }
 
     fn peek_current_value(&self, cursor: &Cursor) -> (&str, &str) {
@@ -195,7 +188,6 @@ impl View for ConfigurationView {
 
         let view_b_x1 = option_b_x2 + BLOCK_PADDING;
         let view_b_w = area.width - (LEFT_PADDING + BLOCK_PADDING + OPTION_BLOCK_WIDTH);
-        let view_b_x2 = option_b_x2 + view_b_w;
 
         let option_content_x1 = option_b_x1 + 1;
         let option_content_w = OPTION_BLOCK_WIDTH - 2;
@@ -225,7 +217,7 @@ impl View for ConfigurationView {
         f.render_widget(option_block, option_area);
         f.render_widget(view_block, view_area);
 
-        self.render_option_list(f, option_content_area, list_color, cursor_color);
+        self.render_option_list(f, option_content_area, list_color, cursor_color, layout);
 
         if let Some(cursor) = self.peeked_cursor {
             let i = self.cursor.shift + self.cursor.pos;
@@ -244,10 +236,10 @@ impl View for ConfigurationView {
 
     fn handle_input(
         &mut self,
-        engine_state: &EngineState,
-        stack: &mut Stack,
-        layout: &Layout,
-        info: &mut ViewInfo,
+        _: &EngineState,
+        _: &mut Stack,
+        _: &Layout,
+        _: &mut ViewInfo,
         key: KeyEvent,
     ) -> Option<Transition> {
         match key.code {
@@ -382,6 +374,7 @@ fn render_list(
     cursor: Cursor,
     not_picked_s: Style,
     picked_s: Style,
+    layout: &mut Layout,
 ) {
     let height = area.height as usize;
     let width = area.width as usize;
@@ -399,7 +392,7 @@ fn render_list(
 
         let area = Rect::new(area.x, area.y + i as u16, area.width, 1);
 
-        let mut text = Paragraph::new(name);
+        let mut text = Paragraph::new(name.clone());
 
         if i == selected_row {
             text = text.style(picked_s);
@@ -408,5 +401,7 @@ fn render_list(
         }
 
         f.render_widget(text, area);
+
+        layout.push(&name, area.x, area.y + i as u16, area.width, 1);
     }
 }

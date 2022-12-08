@@ -10,12 +10,12 @@ use nu_protocol::{
 use tui::layout::Rect;
 
 use crate::{
-    nu_common::{collect_input, nu_str, NuSpan},
+    nu_common::{collect_input, NuSpan},
     pager::Frame,
     views::{Layout, Preview, RecordView, View, ViewConfig},
 };
 
-use super::{ConfigOption, HelpExample, HelpManual, ViewCommand};
+use super::{HelpExample, HelpManual, ViewCommand};
 
 #[derive(Debug, Default, Clone)]
 pub struct HelpCmd {
@@ -109,7 +109,7 @@ impl ViewCommand for HelpCmd {
         })
     }
 
-    fn display_config_option(&mut self, group: String, key: String, value: String) -> bool {
+    fn display_config_option(&mut self, _: String, _: String, _: String) -> bool {
         false
     }
 

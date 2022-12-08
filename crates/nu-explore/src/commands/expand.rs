@@ -11,7 +11,7 @@ use crate::{
     views::Preview,
 };
 
-use super::{ConfigOption, HelpManual, Shortcode, ViewCommand};
+use super::{HelpManual, Shortcode, ViewCommand};
 
 #[derive(Default, Clone)]
 pub struct ExpandCmd;
@@ -60,7 +60,7 @@ impl ViewCommand for ExpandCmd {
         })
     }
 
-    fn display_config_option(&mut self, group: String, key: String, value: String) -> bool {
+    fn display_config_option(&mut self, _: String, _: String, _: String) -> bool {
         false
     }
 

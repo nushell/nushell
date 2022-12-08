@@ -473,6 +473,8 @@ impl<'a> TableW<'a> {
             left_w += render_space(buf, x, area.y, area.height, padding_cell_r);
         }
 
+        _ = left_w;
+
         // let rest = area.width.saturating_sub(left_w + right_w);
         // if rest > 0 {
         //     render_space(buf, left_w, area.y, area.height, rest);
@@ -636,14 +638,6 @@ fn repeat_vertical(
     for row in 0..height {
         buf.set_span(x_offset, y_offset + row as u16, &span, width);
     }
-}
-
-#[derive(Debug, Default, Copy, Clone)]
-struct PrintControl {
-    width: u16,
-    break_everything: bool,
-    print_split_line: bool,
-    print_shift_column: bool,
 }
 
 fn truncate_column_width(
