@@ -8,24 +8,29 @@ use nu_protocol::{
 use crate::{
     command::Command,
     nu_common::{nu_str, NuSpan},
-    views::{
-        configuration::{ConfigGroup, ConfigOption},
-        ConfigurationView, Preview,
-    },
+    views::{configuration, ConfigurationView, Preview},
 };
 
-use super::{default_color_list, HelpManual, ViewCommand};
+use super::{default_color_list, ConfigOption, HelpManual, ViewCommand};
 
 #[derive(Default, Clone)]
 pub struct ConfigCmd {
     commands: Vec<Command>,
+    groups: Vec<ConfigOption>,
 }
 
 impl ConfigCmd {
     pub const NAME: &'static str = "config";
 
-    pub fn new(commands: Vec<Command>) -> Self {
-        Self { commands }
+    pub fn from_commands(commands: Vec<Command>) -> Self {
+        Self {
+            commands,
+            groups: Vec::new(),
+        }
+    }
+
+    pub fn register_group(&mut self, group: ConfigOption) {
+        self.groups.push(group);
     }
 }
 
@@ -79,10 +84,9 @@ impl ViewCommand for ConfigCmd {
         stack: &mut Stack,
         _: Option<Value>,
     ) -> Result<Self::View> {
-        let default_table = create_default_value();
-
         let mut options = vec![];
 
+        let default_table = create_default_value();
         for cmd in &self.commands {
             let cmd = match cmd {
                 Command::Reactive(_) => continue,
@@ -110,13 +114,26 @@ impl ViewCommand for ConfigCmd {
                         Box::new(Preview::new(&opt.description))
                     };
 
-                    let option = ConfigOption::new(value.example.to_string(), view);
+                    let option = configuration::ConfigOption::new(value.example.to_string(), view);
                     values.push(option);
                 }
 
-                let group = ConfigGroup::new(opt.key, values);
+                let group = configuration::ConfigGroup::new(opt.key, values);
                 options.push(group);
             }
+        }
+
+        for group in &self.groups {
+            let mut values = vec![];
+            for value in &group.values {
+                let view = Box::new(Preview::new(&group.description));
+
+                let option = configuration::ConfigOption::new(value.example.to_string(), view);
+                values.push(option);
+            }
+
+            let group = configuration::ConfigGroup::new(group.key.clone(), values);
+            options.push(group);
         }
 
         options.sort_by(|x, y| x.group().cmp(y.group()));

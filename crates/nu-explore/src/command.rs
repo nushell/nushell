@@ -1,10 +1,7 @@
-use std::collections::HashMap;
+use std::{borrow::Cow, collections::HashMap};
 
 use crate::{
-    commands::{
-        config::ConfigCmd, ConfigShowCmd, ExpandCmd, HelpCmd, HelpManual, NuCmd, QuitCmd,
-        SimpleCommand, TableCmd, TryCmd, TweakCmd, ViewCommand,
-    },
+    commands::{HelpManual, SimpleCommand, ViewCommand},
     views::View,
 };
 
@@ -17,85 +14,107 @@ pub enum Command {
     },
 }
 
-pub struct CommandList {
-    commands: HashMap<&'static str, Command>,
-    aliases: HashMap<&'static str, &'static str>,
-}
+impl Command {
+    pub fn view<C>(command: C, is_light: bool) -> Self
+    where
+        C: ViewCommand + Clone + 'static,
+        C::View: View,
+    {
+        let cmd = Box::new(ViewCmd(command)) as Box<dyn VCommand>;
 
-macro_rules! cmd_view {
-    ($object:expr, $light:expr) => {{
-        let object = $object;
-
-        let name = object.name();
-
-        let cmd = Box::new(ViewCmd(object)) as Box<dyn VCommand>;
-        let cmd = Command::View {
-            cmd,
-            is_light: $light,
-        };
-
-        (name, cmd)
-    }};
-    ($object:expr) => {
-        cmd_view!($object, false)
-    };
-}
-
-macro_rules! cmd_react {
-    ($object:expr) => {{
-        let object = $object;
-
-        let name = object.name();
-        let cmd = Command::Reactive(Box::new($object) as Box<dyn SCommand>);
-
-        (name, cmd)
-    }};
-}
-
-impl CommandList {
-    pub fn create_commands() -> Vec<(&'static str, Command)> {
-        vec![
-            cmd_view!(NuCmd::new()),
-            cmd_view!(TryCmd::new(), true),
-            cmd_view!(ExpandCmd::new(), true),
-            cmd_view!(TableCmd::new()),
-            cmd_view!(ConfigShowCmd::new()),
-            cmd_react!(QuitCmd::default()),
-            cmd_react!(TweakCmd::default()),
-        ]
+        Self::View { cmd, is_light }
     }
 
-    pub fn create_aliases() -> [(&'static str, &'static str); 4] {
-        [
-            ("h", HelpCmd::NAME),
-            ("e", ExpandCmd::NAME),
-            ("q", QuitCmd::NAME),
-            ("q!", QuitCmd::NAME),
-        ]
+    pub fn reactive<C>(command: C) -> Self
+    where
+        C: SimpleCommand + Clone + 'static,
+    {
+        let cmd = Box::new(command) as Box<dyn SCommand>;
+
+        Self::Reactive(cmd)
     }
+}
 
-    pub fn new() -> Self {
-        let mut cmd_list = Self::create_commands();
-        let aliases = Self::create_aliases();
-
-        let help_cmd = create_help_command(&cmd_list, &aliases);
-        cmd_list.push(cmd_view!(help_cmd, true));
-
-        let config_cmd = create_config_command(&cmd_list);
-        cmd_list.push(cmd_view!(config_cmd, true));
-
-        Self {
-            commands: HashMap::from_iter(cmd_list),
-            aliases: HashMap::from_iter(aliases),
+impl Command {
+    pub fn name(&self) -> &str {
+        match self {
+            Command::Reactive(cmd) => cmd.name(),
+            Command::View { cmd, .. } => cmd.name(),
         }
+    }
+
+    pub fn parse(&mut self, args: &str) -> std::io::Result<()> {
+        match self {
+            Command::Reactive(cmd) => cmd.parse(args),
+            Command::View { cmd, .. } => cmd.parse(args),
+        }
+    }
+}
+
+#[derive(Default, Clone)]
+pub struct CommandRegistry {
+    commands: HashMap<Cow<'static, str>, Command>,
+    aliases: HashMap<Cow<'static, str>, Cow<'static, str>>,
+}
+
+impl CommandRegistry {
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    pub fn register(&mut self, command: Command) {
+        self.commands
+            .insert(Cow::Owned(command.name().to_owned()), command);
+    }
+
+    pub fn register_command_view<C>(&mut self, command: C, is_light: bool)
+    where
+        C: ViewCommand + Clone + 'static,
+        C::View: View,
+    {
+        self.commands.insert(
+            Cow::Owned(command.name().to_owned()),
+            Command::view(command, is_light),
+        );
+    }
+
+    pub fn register_command_reactive<C>(&mut self, command: C)
+    where
+        C: SimpleCommand + Clone + 'static,
+    {
+        self.commands.insert(
+            Cow::Owned(command.name().to_owned()),
+            Command::reactive(command),
+        );
+    }
+
+    pub fn create_aliase(&mut self, aliase: &str, command: &str) {
+        self.aliases.insert(
+            Cow::Owned(aliase.to_owned()),
+            Cow::Owned(command.to_owned()),
+        );
     }
 
     pub fn find(&self, args: &str) -> Option<std::io::Result<Command>> {
         let cmd = args.split_once(' ').map_or(args, |(cmd, _)| cmd);
         let args = &args[cmd.len()..];
 
-        let command = self.find_command(cmd);
-        parse_command(command, args)
+        let mut command = self.find_command(cmd)?;
+        if let Err(err) = command.parse(args) {
+            return Some(Err(err));
+        }
+
+        Some(Ok(command))
+    }
+
+    pub fn get_commands(&self) -> impl Iterator<Item = &Command> {
+        self.commands.values()
+    }
+
+    pub fn get_aliases(&self) -> impl Iterator<Item = (&str, &str)> {
+        self.aliases
+            .iter()
+            .map(|(key, value)| (key.as_ref(), value.as_ref()))
     }
 
     fn find_command(&self, cmd: &str) -> Option<Command> {
@@ -106,82 +125,6 @@ impl CommandList {
                 .and_then(|cmd| self.commands.get(cmd).cloned()),
             cmd => cmd,
         }
-    }
-}
-
-impl Default for CommandList {
-    fn default() -> Self {
-        Self::new()
-    }
-}
-
-fn create_config_command(commands: &[(&str, Command)]) -> ConfigCmd {
-    let mut commands: Vec<_> = commands.iter().map(|(_, cmd)| cmd.clone()).collect();
-    commands.push(cmd_view!(ConfigCmd::new(vec![]), true).1);
-
-    ConfigCmd::new(commands)
-}
-
-fn create_help_command(commands: &[(&str, Command)], aliases: &[(&str, &str)]) -> HelpCmd {
-    let help_manuals = create_help_manuals(commands);
-
-    HelpCmd::new(help_manuals, aliases)
-}
-
-fn parse_command(command: Option<Command>, args: &str) -> Option<std::io::Result<Command>> {
-    match command {
-        Some(mut cmd) => {
-            let result = match &mut cmd {
-                Command::Reactive(cmd) => cmd.parse(args),
-                Command::View { cmd, .. } => cmd.parse(args),
-            };
-
-            Some(result.map(|_| cmd))
-        }
-        None => None,
-    }
-}
-
-fn create_help_manuals(cmd_list: &[(&str, Command)]) -> Vec<HelpManual> {
-    let mut help_manuals: Vec<_> = cmd_list
-        .iter()
-        .map(|(_, cmd)| cmd)
-        .map(create_help_manual)
-        .collect();
-
-    help_manuals.push(__create_help_manual(
-        HelpCmd::default().help(),
-        HelpCmd::NAME,
-    ));
-
-    help_manuals
-}
-
-fn create_help_manual(cmd: &Command) -> HelpManual {
-    let name = match cmd {
-        Command::Reactive(cmd) => cmd.name(),
-        Command::View { cmd, .. } => cmd.name(),
-    };
-
-    let manual = match cmd {
-        Command::Reactive(cmd) => cmd.help(),
-        Command::View { cmd, .. } => cmd.help(),
-    };
-
-    __create_help_manual(manual, name)
-}
-
-fn __create_help_manual(manual: Option<HelpManual>, name: &'static str) -> HelpManual {
-    match manual {
-        Some(manual) => manual,
-        None => HelpManual {
-            name,
-            description: "",
-            arguments: Vec::new(),
-            examples: Vec::new(),
-            input: Vec::new(),
-            config_options: Vec::new(),
-        },
     }
 }
 

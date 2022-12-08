@@ -158,8 +158,12 @@ fn style_from_config(config: &HashMap<String, Value>) -> StyleConfig {
         style.status_bar = *s;
     }
 
-    if let Some(s) = colors.get("command_bar") {
-        style.cmd_bar = *s;
+    if let Some(s) = colors.get("command_bar_text") {
+        style.cmd_bar_text = *s;
+    }
+
+    if let Some(s) = colors.get("command_bar_background") {
+        style.cmd_bar_background = *s;
     }
 
     if let Some(s) = colors.get("highlight") {
@@ -224,7 +228,7 @@ fn prepare_default_config(config: &mut HashMap<String, Value>) {
     const CONFIG_CURSOR_COLOR: Style = color(Some(Color::Black), Some(Color::LightYellow));
 
     insert_style(config, "status_bar", STATUS_BAR);
-    insert_style(config, "command_bar", INPUT_BAR);
+    insert_style(config, "command_bar_text", INPUT_BAR);
     insert_style(config, "highlight", HIGHLIGHT);
 
     // because how config works we need to parse a string into Value::Record

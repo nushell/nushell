@@ -90,6 +90,10 @@ impl StatefulWidget for TableW<'_> {
         buf: &mut tui::buffer::Buffer,
         state: &mut Self::State,
     ) {
+        if area.width < 5 {
+            return;
+        }
+
         let is_horizontal = matches!(self.head_position, Orientation::Top | Orientation::Bottom);
         if is_horizontal {
             self.render_table_horizontal(area, buf, state);

@@ -23,14 +23,14 @@ use tui::{
     backend::CrosstermBackend,
     buffer::Buffer,
     layout::Rect,
-    style::{Color, Modifier, Style},
+    style::{Color, Modifier},
     text::Span,
     widgets::{Block, Borders, Widget},
 };
 
 use crate::{
-    command::{Command, CommandList},
-    nu_common::{CtrlC, NuColor, NuConfig, NuSpan, NuStyle, NuStyleTable, NuText},
+    command::{Command, CommandRegistry},
+    nu_common::{truncate_str, CtrlC, NuColor, NuConfig, NuSpan, NuStyle, NuStyleTable, NuText},
     util::map_into_value,
     views::ViewConfig,
 };
@@ -86,7 +86,7 @@ pub fn run_pager(
     ctrlc: CtrlC,
     pager: &mut Pager,
     view: Option<Page>,
-    commands: CommandList,
+    commands: CommandRegistry,
 ) -> Result<Option<Value>> {
     // setup terminal
     enable_raw_mode()?;
@@ -137,7 +137,7 @@ fn render_ui(
     pager: &mut Pager<'_>,
     info: &mut ViewInfo,
     mut view: Option<Page>,
-    commands: CommandList,
+    commands: CommandRegistry,
 ) -> Result<Option<Value>> {
     let events = UIEvents::new();
     let mut view_stack = Vec::new();
@@ -263,7 +263,7 @@ fn pager_run_command(
     pager: &mut Pager,
     view: &mut Option<Page>,
     view_stack: &mut Vec<Page>,
-    commands: &CommandList,
+    commands: &CommandRegistry,
     args: String,
 ) -> std::result::Result<bool, String> {
     let command = commands.find(&args);
@@ -417,8 +417,16 @@ fn render_cmd_bar(
     theme: &StyleConfig,
 ) {
     if let Some(report) = report {
-        let style = report_msg_style(&report, theme, theme.cmd_bar);
-        f.render_widget(CmdBar::new(&report.message, &report.context, style), area);
+        let style = report_msg_style(&report, theme, theme.cmd_bar_text);
+        f.render_widget(
+            CmdBar::new(
+                &report.message,
+                &report.context,
+                style,
+                theme.cmd_bar_background,
+            ),
+            area,
+        );
         return;
     }
 
@@ -441,7 +449,10 @@ fn render_cmd_bar_search(f: &mut Frame, area: Rect, pager: &Pager<'_>, theme: &S
             ..Default::default()
         };
 
-        f.render_widget(CmdBar::new(&message, "", style), area);
+        f.render_widget(
+            CmdBar::new(&message, "", style, theme.cmd_bar_background),
+            area,
+        );
         return;
     }
 
@@ -459,7 +470,10 @@ fn render_cmd_bar_search(f: &mut Frame, area: Rect, pager: &Pager<'_>, theme: &S
         format!("[{}/{}]", index, total)
     };
 
-    f.render_widget(CmdBar::new(&text, &info, theme.cmd_bar), area);
+    f.render_widget(
+        CmdBar::new(&text, &info, theme.cmd_bar_text, theme.cmd_bar_background),
+        area,
+    );
 }
 
 fn render_cmd_bar_cmd(f: &mut Frame, area: Rect, pager: &Pager, theme: &StyleConfig) {
@@ -479,7 +493,10 @@ fn render_cmd_bar_cmd(f: &mut Frame, area: Rect, pager: &Pager, theme: &StyleCon
 
     let prefix = ':';
     let text = format!("{}{}", prefix, input);
-    f.render_widget(CmdBar::new(&text, "", theme.cmd_bar), area);
+    f.render_widget(
+        CmdBar::new(&text, "", theme.cmd_bar_text, theme.cmd_bar_background),
+        area,
+    );
 }
 
 fn highlight_search_results(f: &mut Frame, pager: &Pager, layout: &Layout, style: NuStyle) {
@@ -875,7 +892,8 @@ pub struct StyleConfig {
     pub status_warn: NuStyle,
     pub status_error: NuStyle,
     pub status_bar: NuStyle,
-    pub cmd_bar: NuStyle,
+    pub cmd_bar_text: NuStyle,
+    pub cmd_bar_background: NuStyle,
     pub highlight: NuStyle,
 }
 
@@ -906,7 +924,10 @@ impl<'a> Pager<'a> {
                 }
             }
             ["status_bar"] => value_as_style(&mut self.config.style.status_bar, &value),
-            ["command_bar"] => value_as_style(&mut self.config.style.cmd_bar, &value),
+            ["command_bar_text"] => value_as_style(&mut self.config.style.cmd_bar_text, &value),
+            ["command_bar_background"] => {
+                value_as_style(&mut self.config.style.cmd_bar_background, &value)
+            }
             ["highlight"] => value_as_style(&mut self.config.style.highlight, &value),
             ["status", "info"] => value_as_style(&mut self.config.style.status_info, &value),
             ["status", "warn"] => value_as_style(&mut self.config.style.status_warn, &value),
@@ -921,7 +942,7 @@ impl<'a> Pager<'a> {
         stack: &mut Stack,
         ctrlc: CtrlC,
         mut view: Option<Page>,
-        commands: CommandList,
+        commands: CommandRegistry,
     ) -> Result<Option<Value>> {
         if let Some(page) = &mut view {
             page.view.setup(ViewConfig::new(
@@ -1075,41 +1096,50 @@ fn report_level_style(level: Severity, theme: &StyleConfig) -> NuStyle {
 struct CmdBar<'a> {
     text: &'a str,
     information: &'a str,
-    style: NuStyle,
+    text_s: NuStyle,
+    back_s: NuStyle,
 }
 
 impl<'a> CmdBar<'a> {
-    fn new(text: &'a str, information: &'a str, style: NuStyle) -> Self {
+    fn new(text: &'a str, information: &'a str, text_s: NuStyle, back_s: NuStyle) -> Self {
         Self {
             text,
             information,
-            style,
+            text_s,
+            back_s,
         }
     }
 }
 
 impl Widget for CmdBar<'_> {
     fn render(self, area: Rect, buf: &mut Buffer) {
-        let text_style = nu_style_to_tui(self.style).add_modifier(Modifier::BOLD);
+        let text_style = nu_style_to_tui(self.text_s).add_modifier(Modifier::BOLD);
+        let ground_style = nu_style_to_tui(self.back_s);
 
         // colorize the line
-        let block = Block::default()
-            .borders(Borders::empty())
-            .style(Style::default());
+        let block = Block::default().style(ground_style);
         block.render(area, buf);
 
         let span = Span::styled(self.text, text_style);
         let w = string_width(self.text);
         buf.set_span(area.x, area.y, &span, w as u16);
 
-        let span = Span::styled(self.information, text_style);
-        let w = string_width(self.information);
-        buf.set_span(
-            area.right().saturating_sub(12).saturating_sub(w as u16),
-            area.y,
-            &span,
-            w as u16,
-        );
+        if area.width.saturating_sub(w as u16) > 12 + 12 {
+            let mut information = self.information.to_owned();
+            let mut w = string_width(self.information);
+            if w > 12 {
+                truncate_str(&mut information, 12);
+                w = 12;
+            }
+
+            let span = Span::styled(&information, text_style);
+            buf.set_span(
+                area.right().saturating_sub(w as u16 + 12),
+                area.y,
+                &span,
+                w as u16,
+            );
+        }
     }
 }
 
