@@ -432,6 +432,7 @@ fn handle_key_event_view_mode(view: &mut RecordView, key: &KeyEvent) -> Option<T
 
             Some(Transition::Ok)
         }
+        KeyCode::Char('e') => Some(Transition::Cmd(String::from("expand"))),
         KeyCode::Up => {
             let layer = view.get_layer_last_mut();
             layer.index_row = layer.index_row.saturating_sub(1);

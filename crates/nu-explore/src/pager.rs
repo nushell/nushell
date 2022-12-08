@@ -490,18 +490,32 @@ fn highlight_search_results(f: &mut Frame, pager: &Pager, layout: &Layout, style
     let hightlight_block = Block::default().style(nu_style_to_tui(style));
 
     for e in &layout.data {
-        if let Some(p) = e.text.find(&pager.search_buf.buf_cmd_input) {
-            // if p > e.width as usize {
-            //     // we probably need to handle it somehow
-            //     break;
-            // }
+        let text = ansi_str::AnsiStr::ansi_strip(&e.text);
 
-            // todo: might be not UTF-8 friendly
+        if let Some(p) = text.find(&pager.search_buf.buf_cmd_input) {
+            let p = covert_bytes_to_chars(&text, p);
+
             let w = pager.search_buf.buf_cmd_input.len() as u16;
             let area = Rect::new(e.area.x + p as u16, e.area.y, w, 1);
+
             f.render_widget(hightlight_block.clone(), area);
         }
     }
+}
+
+fn covert_bytes_to_chars(text: &str, p: usize) -> usize {
+    let mut b = 0;
+    let mut i = 0;
+    for c in text.chars() {
+        b += c.len_utf8();
+        if b > p {
+            break;
+        }
+
+        i += 1;
+    }
+
+    i
 }
 
 #[allow(clippy::too_many_arguments)]

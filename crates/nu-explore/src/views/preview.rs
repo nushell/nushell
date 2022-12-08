@@ -50,13 +50,12 @@ impl View for Preview {
         let lines = &self.lines[self.i_row..];
         for (i, line) in lines.iter().enumerate().take(area.height as usize) {
             let text = ColoredTextW::new(line, self.i_col);
+            let s = text.what(area);
 
             let area = Rect::new(area.x, area.y + i as u16, area.width, 1);
+            f.render_widget(text, area);
 
-            let s = text.what(area);
             layout.push(&s, area.x, area.y, area.width, area.height);
-
-            f.render_widget(text, area)
         }
 
         self.screen_size = area.width;

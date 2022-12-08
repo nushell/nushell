@@ -322,8 +322,8 @@ impl View for ConfigurationView {
                 let p = c.shift + c.pos;
                 match i.cmp(&p) {
                     Ordering::Equal => return true,
-                    Ordering::Less => c.down(),
-                    Ordering::Greater => c.up(),
+                    Ordering::Less => c.up(),
+                    Ordering::Greater => c.down(),
                 }
             }
         } else {
@@ -335,8 +335,8 @@ impl View for ConfigurationView {
                 let p = self.cursor.shift + self.cursor.pos;
                 match i.cmp(&p) {
                     Ordering::Equal => return true,
-                    Ordering::Less => self.cursor.down(),
-                    Ordering::Greater => self.cursor.up(),
+                    Ordering::Less => self.cursor.up(),
+                    Ordering::Greater => self.cursor.down(),
                 }
             }
         }
@@ -402,6 +402,6 @@ fn render_list(
 
         f.render_widget(text, area);
 
-        layout.push(&name, area.x, area.y + i as u16, area.width, 1);
+        layout.push(&name, area.x, area.y, area.width, 1);
     }
 }
