@@ -192,9 +192,7 @@ pub struct ExploreConfig {
 
 impl Value {
     pub fn into_config(&mut self, config: &Config) -> (Config, Option<ShellError>) {
-        // Clone the passed-in config rather than mutating it,
-        // so that early returns by ShellError don't leave it in a bad state.
-        // (Actually... is this absolutely necessary?)
+        // Clone the passed-in config rather than mutating it.
         let mut config = config.clone();
         let mut legacy_options_used = false;
 
@@ -204,8 +202,43 @@ impl Value {
         // Thus, errors are simply collected one-by-one and wrapped in a GenericError at the end.
         let mut errors = vec![];
 
-        // When an unsupported config value is found, remove it from this record.
+        // When an unsupported config value is found, ignore it.
         macro_rules! invalid {
+            ($span:expr, $msg:literal) => {
+                errors.push(ShellError::GenericError(
+                    "Error while applying config changes".into(),
+                    format!($msg),
+                    $span,
+                    Some("This value will be ignored.".into()),
+                    vec![],
+                ));
+            };
+        }
+        // Some extra helpers
+        macro_rules! try_bool {
+            ($cols:ident, $vals:ident, $index:ident, $span:expr, $setting:ident) => {
+                if let Ok(b) = &$vals[$index].as_bool() {
+                    config.$setting = *b;
+                } else {
+                    invalid!(Some(*$span), "should be a bool");
+                    // Reconstruct
+                    $vals[$index] = Value::boolean(config.$setting, *$span);
+                }
+            };
+        }
+        macro_rules! try_int {
+            ($cols:ident, $vals:ident, $index:ident, $span:expr, $setting:ident) => {
+                if let Ok(b) = &$vals[$index].as_integer() {
+                    config.$setting = *b;
+                } else {
+                    invalid!(Some(*$span), "should be an int");
+                    // Reconstruct
+                    $vals[$index] = Value::int(config.$setting, *$span);
+                }
+            };
+        }
+        // When an unsupported config value is found, remove it from this record.
+        macro_rules! invalid_key {
             // Because Value::Record discards all of the spans of its
             // column names (by storing them as Strings), the key name cannot be provided
             // as a value, even in key errors.
@@ -214,7 +247,7 @@ impl Value {
                     "Error while applying config changes".into(),
                     format!($msg),
                     $span,
-                    Some("This value has been removed from your $env.config record.".into()),
+                    Some("This value will not appear in your $env.config record.".into()),
                     vec![],
                 ));
                 $cols.remove($index);
@@ -236,33 +269,17 @@ impl Value {
                                 let key2 = cols[index].as_str();
                                 match key2 {
                                     "use_ls_colors" => {
-                                        if let Ok(b) = value.as_bool() {
-                                            config.use_ls_colors = b;
-                                        } else {
-                                            invalid!(
-                                                cols,
-                                                vals,
-                                                index,
-                                                Some(*span),
-                                                "should be a bool"
-                                            );
-                                        }
+                                        try_bool!(cols, vals, index, span, use_ls_colors)
                                     }
-                                    "clickable_links" => {
-                                        if let Ok(b) = value.as_bool() {
-                                            config.show_clickable_links_in_ls = b;
-                                        } else {
-                                            invalid!(
-                                                cols,
-                                                vals,
-                                                index,
-                                                Some(*span),
-                                                "should be a bool"
-                                            );
-                                        }
-                                    }
+                                    "clickable_links" => try_bool!(
+                                        cols,
+                                        vals,
+                                        index,
+                                        span,
+                                        show_clickable_links_in_ls
+                                    ),
                                     x => {
-                                        invalid!(
+                                        invalid_key!(
                                             cols,
                                             vals,
                                             index,
@@ -273,7 +290,16 @@ impl Value {
                                 }
                             }
                         } else {
-                            invalid!(cols, vals, index, Some(*span), "should be a record");
+                            invalid!(vals[index].span().ok(), "should be a record");
+                            // Reconstruct
+                            vals[index] = Value::record(
+                                vec!["use_ls_colors".into(), "clickable_links".into()],
+                                vec![
+                                    Value::boolean(config.use_ls_colors, *span),
+                                    Value::boolean(config.show_clickable_links_in_ls, *span),
+                                ],
+                                *span,
+                            );
                         }
                     }
                     "cd" => {
@@ -283,20 +309,10 @@ impl Value {
                                 let key2 = cols[index].as_str();
                                 match key2 {
                                     "abbreviations" => {
-                                        if let Ok(b) = value.as_bool() {
-                                            config.cd_with_abbreviations = b;
-                                        } else {
-                                            invalid!(
-                                                cols,
-                                                vals,
-                                                index,
-                                                Some(*span),
-                                                "should be a bool"
-                                            );
-                                        }
+                                        try_bool!(cols, vals, index, span, cd_with_abbreviations)
                                     }
                                     x => {
-                                        invalid!(
+                                        invalid_key!(
                                             cols,
                                             vals,
                                             index,
@@ -307,7 +323,16 @@ impl Value {
                                 }
                             }
                         } else {
-                            invalid!(cols, vals, index, Some(*span), "should be a record");
+                            invalid!(vals[index].span().ok(), "should be a record");
+                            // Reconstruct
+                            vals[index] = Value::record(
+                                vec!["use_ls_colors".into(), "clickable_links".into()],
+                                vec![
+                                    Value::boolean(config.use_ls_colors, *span),
+                                    Value::boolean(config.show_clickable_links_in_ls, *span),
+                                ],
+                                *span,
+                            );
                         }
                     }
                     "rm" => {
@@ -317,20 +342,10 @@ impl Value {
                                 let key2 = cols[index].as_str();
                                 match key2 {
                                     "always_trash" => {
-                                        if let Ok(b) = value.as_bool() {
-                                            config.rm_always_trash = b;
-                                        } else {
-                                            invalid!(
-                                                cols,
-                                                vals,
-                                                index,
-                                                Some(*span),
-                                                "should be a bool"
-                                            );
-                                        }
+                                        try_bool!(cols, vals, index, span, rm_always_trash)
                                     }
                                     x => {
-                                        invalid!(
+                                        invalid_key!(
                                             cols,
                                             vals,
                                             index,
@@ -341,66 +356,68 @@ impl Value {
                                 }
                             }
                         } else {
-                            invalid!(cols, vals, index, Some(*span), "should be a record");
+                            invalid!(vals[index].span().ok(), "should be a record");
+                            // Reconstruct
+                            vals[index] = Value::record(
+                                vec!["always_trash".into()],
+                                vec![Value::boolean(config.rm_always_trash, *span)],
+                                *span,
+                            );
                         }
                     }
                     "history" => {
+                        // Used as a shortcut for various places below
+                        macro_rules! default_history_file_format {
+                            ($span:expr) => {
+                                Value::string(
+                                    match config.history_file_format {
+                                        HistoryFileFormat::Sqlite => "sqlite",
+                                        HistoryFileFormat::PlainText => "plaintext",
+                                    },
+                                    *$span,
+                                )
+                            };
+                        }
                         if let Value::Record { cols, vals, span } = &mut vals[index] {
                             for index in (0..cols.len()).rev() {
                                 let value = &vals[index];
                                 let key2 = cols[index].as_str();
                                 match key2 {
                                     "sync_on_enter" => {
-                                        if let Ok(b) = value.as_bool() {
-                                            config.sync_history_on_enter = b;
-                                        } else {
-                                            invalid!(
-                                                cols,
-                                                vals,
-                                                index,
-                                                Some(*span),
-                                                "should be a bool"
-                                            );
-                                        }
+                                        try_bool!(cols, vals, index, span, sync_history_on_enter)
                                     }
                                     "max_size" => {
-                                        if let Ok(i) = value.as_i64() {
-                                            config.max_history_size = i;
-                                        } else {
-                                            invalid!(
-                                                cols,
-                                                vals,
-                                                index,
-                                                Some(*span),
-                                                "should be an integer"
-                                            );
-                                        }
+                                        try_int!(cols, vals, index, span, max_history_size)
                                     }
                                     "file_format" => {
                                         if let Ok(v) = value.as_string() {
                                             let val_str = v.to_lowercase();
-                                            config.history_file_format = match val_str.as_ref() {
-                                                "sqlite" => HistoryFileFormat::Sqlite,
-                                                "plaintext" => HistoryFileFormat::PlainText,
+                                            match val_str.as_ref() {
+                                                "sqlite" => {
+                                                    config.history_file_format =
+                                                        HistoryFileFormat::Sqlite
+                                                }
+                                                "plaintext" => {
+                                                    config.history_file_format =
+                                                        HistoryFileFormat::PlainText
+                                                }
                                                 _ => {
-                                                    invalid!(cols, vals, index, Some(*span),
+                                                    invalid!(Some(*span),
                                                         "unrecognized $env.config.{key}.{key2} '{val_str}'; expected either 'sqlite' or 'plaintext'"
                                                     );
-                                                    HistoryFileFormat::PlainText
+                                                    // Reconstruct
+                                                    vals[index] =
+                                                        default_history_file_format!(span);
                                                 }
                                             };
                                         } else {
-                                            invalid!(
-                                                cols,
-                                                vals,
-                                                index,
-                                                Some(*span),
-                                                "should be a string"
-                                            );
+                                            invalid!(Some(*span), "should be a string");
+                                            // Reconstruct
+                                            vals[index] = default_history_file_format!(span);
                                         }
                                     }
                                     x => {
-                                        invalid!(
+                                        invalid_key!(
                                             cols,
                                             vals,
                                             index,
@@ -411,77 +428,98 @@ impl Value {
                                 }
                             }
                         } else {
-                            invalid!(cols, vals, index, Some(*span), "should be a record");
+                            invalid!(vals[index].span().ok(), "should be a record");
+                            // Reconstruct
+                            vals[index] = Value::record(
+                                vec![
+                                    "sync_on_enter".into(),
+                                    "max_size".into(),
+                                    "file_format".into(),
+                                ],
+                                vec![
+                                    Value::boolean(config.sync_history_on_enter, *span),
+                                    Value::int(config.max_history_size, *span),
+                                    default_history_file_format!(span),
+                                ],
+                                *span,
+                            );
                         }
                     }
                     "completions" => {
+                        // Some shortcuts for structures below
+                        macro_rules! default_external_completer {
+                            ($span: expr) => {
+                                if let Some(block) = config.external_completer {
+                                    Value::Block {
+                                        val: block,
+                                        span: *$span,
+                                    }
+                                } else {
+                                    Value::Nothing { span: *$span }
+                                }
+                            };
+                        }
+                        // Some shortcuts for structures below
+                        macro_rules! default_external {
+                            ($span: expr) => {
+                                Value::record(
+                                    vec!["max_results".into(), "completer".into(), "enable".into()],
+                                    vec![
+                                        Value::int(config.max_external_completion_results, *$span),
+                                        default_external_completer!($span),
+                                        Value::boolean(config.enable_external_completion, *$span),
+                                    ],
+                                    *$span,
+                                )
+                            };
+                        }
                         if let Value::Record { cols, vals, span } = &mut vals[index] {
                             for index in (0..cols.len()).rev() {
                                 let value = &vals[index];
                                 let key2 = cols[index].as_str();
                                 match key2 {
                                     "quick" => {
-                                        if let Ok(b) = value.as_bool() {
-                                            config.quick_completions = b;
-                                        } else {
-                                            invalid!(
-                                                cols,
-                                                vals,
-                                                index,
-                                                Some(*span),
-                                                "should be a bool"
-                                            );
-                                        }
+                                        try_bool!(cols, vals, index, span, quick_completions)
                                     }
                                     "partial" => {
-                                        if let Ok(b) = value.as_bool() {
-                                            config.partial_completions = b;
-                                        } else {
-                                            invalid!(
-                                                cols,
-                                                vals,
-                                                index,
-                                                Some(*span),
-                                                "should be a bool"
-                                            );
-                                        }
+                                        try_bool!(cols, vals, index, span, partial_completions)
                                     }
                                     "algorithm" => {
                                         if let Ok(v) = value.as_string() {
                                             let val_str = v.to_lowercase();
-                                            config.completion_algorithm = match val_str.as_ref() {
+                                            match val_str.as_ref() {
                                                 // This should match the MatchAlgorithm enum in completions::completion_options
-                                                "prefix" => val_str,
-                                                "fuzzy" => val_str,
+                                                "prefix" | "fuzzy" => {
+                                                    config.completion_algorithm = val_str
+                                                }
                                                 _ => {
-                                                    invalid!(cols, vals, index, Some(*span),
+                                                    invalid!( Some(*span),
                                                         "unrecognized $env.config.{key}.{key2} '{val_str}'; expected either 'prefix' or 'fuzzy'"
                                                     );
-                                                    "prefix".into()
+                                                    // Reconstruct
+                                                    vals[index] = Value::string(
+                                                        config.completion_algorithm.clone(),
+                                                        *span,
+                                                    );
                                                 }
                                             };
                                         } else {
-                                            invalid!(
-                                                cols,
-                                                vals,
-                                                index,
-                                                Some(*span),
-                                                "should be a string"
+                                            invalid!(Some(*span), "should be a string");
+                                            // Reconstruct
+                                            vals[index] = Value::string(
+                                                config.completion_algorithm.clone(),
+                                                *span,
                                             );
                                         }
                                     }
                                     "case_sensitive" => {
-                                        if let Ok(b) = value.as_bool() {
-                                            config.case_sensitive_completions = b;
-                                        } else {
-                                            invalid!(
-                                                cols,
-                                                vals,
-                                                index,
-                                                Some(*span),
-                                                "should be a bool"
-                                            );
-                                        }
+                                        try_bool!(
+                                            cols,
+                                            vals,
+                                            index,
+                                            span,
+                                            case_sensitive_completions
+                                        )
                                     }
                                     "external" => {
                                         if let Value::Record { cols, vals, span } = &mut vals[index]
@@ -491,19 +529,13 @@ impl Value {
                                                 let key3 = cols[index].as_str();
                                                 match key3 {
                                                     "max_results" => {
-                                                        if let Ok(i) = value.as_integer() {
-                                                            config
-                                                                .max_external_completion_results =
-                                                                i;
-                                                        } else {
-                                                            invalid!(
-                                                                cols,
-                                                                vals,
-                                                                index,
-                                                                Some(*span),
-                                                                "should be an integer"
-                                                            );
-                                                        }
+                                                        try_int!(
+                                                            cols,
+                                                            vals,
+                                                            index,
+                                                            span,
+                                                            max_external_completion_results
+                                                        )
                                                     }
                                                     "completer" => {
                                                         if let Ok(v) = value.as_block() {
@@ -513,46 +545,45 @@ impl Value {
                                                                 Value::Nothing { .. } => {}
                                                                 _ => {
                                                                     invalid!(
-                                                                        cols,
-                                                                        vals,
-                                                                        index,
                                                                         Some(*span),
                                                                         "should be a block or null"
+                                                                    );
+                                                                    // Reconstruct
+                                                                    vals[index] = default_external_completer!(
+                                                                        span
                                                                     );
                                                                 }
                                                             }
                                                         }
                                                     }
                                                     "enable" => {
-                                                        if let Ok(b) = value.as_bool() {
-                                                            config.enable_external_completion = b;
-                                                        } else {
-                                                            invalid!(
-                                                                cols,
-                                                                vals,
-                                                                index,
-                                                                Some(*span),
-                                                                "should be a bool"
-                                                            );
-                                                        }
+                                                        try_bool!(
+                                                            cols,
+                                                            vals,
+                                                            index,
+                                                            span,
+                                                            enable_external_completion
+                                                        )
                                                     }
                                                     x => {
-                                                        invalid!(cols, vals, index, value.span().ok(),"$env.config.{key}.{key2}.{x} is an unknown config setting");
+                                                        invalid_key!(
+                                                            cols,
+                                                            vals,
+                                                            index,
+                                                            value.span().ok(),
+                                                            "$env.config.{key}.{key2}.{x} is an unknown config setting"
+                                                    );
                                                     }
                                                 }
                                             }
                                         } else {
-                                            invalid!(
-                                                cols,
-                                                vals,
-                                                index,
-                                                Some(*span),
-                                                "should be a record"
-                                            );
+                                            invalid!(Some(*span), "should be a record");
+                                            // Reconstruct
+                                            vals[index] = default_external!(span);
                                         }
                                     }
                                     x => {
-                                        invalid!(
+                                        invalid_key!(
                                             cols,
                                             vals,
                                             index,
@@ -563,10 +594,72 @@ impl Value {
                                 }
                             }
                         } else {
-                            invalid!(cols, vals, index, Some(*span), "should be a record");
+                            invalid!(vals[index].span().ok(), "should be a record");
+                            // Reconstruct record
+                            vals[index] = Value::record(
+                                vec![
+                                    "quick".into(),
+                                    "partial".into(),
+                                    "algorithm".into(),
+                                    "case_sensitive".into(),
+                                    "external".into(),
+                                ],
+                                vec![
+                                    Value::boolean(config.quick_completions, *span),
+                                    Value::boolean(config.partial_completions, *span),
+                                    Value::string(config.completion_algorithm.clone(), *span),
+                                    Value::boolean(config.case_sensitive_completions, *span),
+                                    default_external!(span),
+                                ],
+                                *span,
+                            );
                         }
                     }
                     "table" => {
+                        // Used as shortcuts for various places below
+                        macro_rules! default_index_mode {
+                            ($span:expr) => {
+                                Value::string(
+                                    match config.table_index_mode {
+                                        TableIndexMode::Always => "always",
+                                        TableIndexMode::Never => "never",
+                                        TableIndexMode::Auto => "auto",
+                                    },
+                                    *$span,
+                                )
+                            };
+                        }
+                        macro_rules! default_trim_strategy {
+                            ($span:expr) => {
+                                match &config.trim_strategy {
+                                    TrimStrategy::Wrap { try_to_keep_words } => Value::record(
+                                        vec![
+                                            "methodology".into(),
+                                            "wrapping_try_keep_words".into(),
+                                        ],
+                                        vec![
+                                            Value::string("wrapping", *$span),
+                                            Value::boolean(*try_to_keep_words, *$span),
+                                        ],
+                                        *$span,
+                                    ),
+                                    TrimStrategy::Truncate { suffix } => Value::record(
+                                        vec!["methodology".into(), "truncating_suffix".into()],
+                                        match suffix {
+                                            Some(s) => vec![
+                                                Value::string("truncating", *$span),
+                                                Value::string(s.clone(), *$span),
+                                            ],
+                                            None => vec![
+                                                Value::string("truncating", *$span),
+                                                Value::Nothing { span: *span },
+                                            ],
+                                        },
+                                        *$span,
+                                    ),
+                                }
+                            };
+                        }
                         if let Value::Record { cols, vals, span } = &mut vals[index] {
                             for index in (0..cols.len()).rev() {
                                 let value = &vals[index];
@@ -576,13 +669,9 @@ impl Value {
                                         if let Ok(v) = value.as_string() {
                                             config.table_mode = v;
                                         } else {
-                                            invalid!(
-                                                cols,
-                                                vals,
-                                                index,
-                                                Some(*span),
-                                                "should be a string"
-                                            );
+                                            invalid!(Some(*span), "should be a string");
+                                            vals[index] =
+                                                Value::string(config.table_mode.clone(), *span);
                                         }
                                     }
                                     "index_mode" => {
@@ -599,34 +688,29 @@ impl Value {
                                                     config.table_index_mode = TableIndexMode::Auto
                                                 }
                                                 _ => {
-                                                    invalid!(cols, vals, index, Some(*span),
+                                                    invalid!( Some(*span),
                                                         "unrecognized $env.config.{key}.{key2} '{val_str}'; expected either 'never', 'always' or 'auto'"
                                                     );
+                                                    vals[index] = default_index_mode!(span);
                                                 }
                                             }
                                         } else {
-                                            invalid!(
-                                                cols,
-                                                vals,
-                                                index,
-                                                Some(*span),
-                                                "should be a string"
-                                            );
+                                            invalid!(Some(*span), "should be a string");
+                                            vals[index] = default_index_mode!(span);
                                         }
                                     }
                                     "trim" => {
                                         match try_parse_trim_strategy(value, &config, &mut errors) {
                                             Ok(v) => config.trim_strategy = v,
                                             Err(e) => {
-                                                // try_parse_trim_strategy() already calls eprintln!() on error
-                                                cols.remove(index);
-                                                vals.remove(index);
+                                                // try_parse_trim_strategy() already adds its own errors
                                                 errors.push(e);
+                                                vals[index] = default_trim_strategy!(span);
                                             }
                                         }
                                     }
                                     x => {
-                                        invalid!(
+                                        invalid_key!(
                                             cols,
                                             vals,
                                             index,
@@ -637,7 +721,17 @@ impl Value {
                                 }
                             }
                         } else {
-                            invalid!(cols, vals, index, Some(*span), "should be a record");
+                            invalid!(vals[index].span().ok(), "should be a record");
+                            // Reconstruct
+                            vals[index] = Value::record(
+                                vec!["mode".into(), "index_mode".into(), "trim".into()],
+                                vec![
+                                    Value::string(config.table_mode.clone(), *span),
+                                    default_index_mode!(span),
+                                    default_trim_strategy!(span),
+                                ],
+                                *span,
+                            )
                         }
                     }
                     "filesize" => {
@@ -647,33 +741,22 @@ impl Value {
                                 let key2 = cols[index].as_str();
                                 match key2 {
                                     "metric" => {
-                                        if let Ok(b) = value.as_bool() {
-                                            config.filesize_metric = b;
-                                        } else {
-                                            invalid!(
-                                                cols,
-                                                vals,
-                                                index,
-                                                Some(*span),
-                                                "should be a bool"
-                                            );
-                                        }
+                                        try_bool!(cols, vals, index, span, filesize_metric)
                                     }
                                     "format" => {
                                         if let Ok(v) = value.as_string() {
                                             config.filesize_format = v.to_lowercase();
                                         } else {
-                                            invalid!(
-                                                cols,
-                                                vals,
-                                                index,
-                                                Some(*span),
-                                                "should be a string"
+                                            invalid!(Some(*span), "should be a string");
+                                            // Reconstruct
+                                            vals[index] = Value::string(
+                                                config.filesize_format.clone(),
+                                                *span,
                                             );
                                         }
                                     }
                                     x => {
-                                        invalid!(
+                                        invalid_key!(
                                             cols,
                                             vals,
                                             index,
@@ -684,14 +767,25 @@ impl Value {
                                 }
                             }
                         } else {
-                            invalid!(cols, vals, index, Some(*span), "should be a record");
+                            invalid!(vals[index].span().ok(), "should be a record");
+                            // Reconstruct
+                            vals[index] = Value::record(
+                                vec!["metric".into(), "format".into()],
+                                vec![
+                                    Value::boolean(config.filesize_metric, *span),
+                                    Value::string(config.filesize_format.clone(), *span),
+                                ],
+                                *span,
+                            );
                         }
                     }
                     "explore" => {
                         if let Ok(map) = create_map(value, &config) {
                             config.explore = map;
                         } else {
-                            invalid!(cols, vals, index, Some(*span), "should be a record");
+                            invalid!(vals[index].span().ok(), "should be a record");
+                            // Reconstruct
+                            vals[index] = Value::record_from_hashmap(&config.explore, *span);
                         }
                     }
                     // Misc. options
@@ -699,15 +793,13 @@ impl Value {
                         if let Ok(map) = create_map(value, &config) {
                             config.color_config = map;
                         } else {
-                            invalid!(cols, vals, index, Some(*span), "should be a record");
+                            invalid!(vals[index].span().ok(), "should be a record");
+                            // Reconstruct
+                            vals[index] = Value::record_from_hashmap(&config.color_config, *span);
                         }
                     }
                     "use_grid_icons" => {
-                        if let Ok(b) = value.as_bool() {
-                            config.use_grid_icons = b;
-                        } else {
-                            invalid!(cols, vals, index, Some(*span), "should be a bool");
-                        }
+                        try_bool!(cols, vals, index, span, use_grid_icons);
                     }
                     "footer_mode" => {
                         if let Ok(b) = value.as_string() {
@@ -722,120 +814,195 @@ impl Value {
                                 },
                             };
                         } else {
-                            invalid!(cols, vals, index, Some(*span), "should be a string");
+                            invalid!(Some(*span), "should be a string");
+                            // Reconstruct
+                            vals[index] = Value::String {
+                                val: match config.footer_mode {
+                                    FooterMode::Auto => "auto".into(),
+                                    FooterMode::Never => "never".into(),
+                                    FooterMode::Always => "always".into(),
+                                    FooterMode::RowCount(number) => number.to_string(),
+                                },
+                                span: *span,
+                            };
                         }
                     }
                     "float_precision" => {
-                        if let Ok(i) = value.as_integer() {
-                            config.float_precision = i;
-                        } else {
-                            invalid!(cols, vals, index, Some(*span), "should be an integer");
-                        }
+                        try_int!(cols, vals, index, span, float_precision);
                     }
                     "use_ansi_coloring" => {
-                        if let Ok(b) = value.as_bool() {
-                            config.use_ansi_coloring = b;
-                        } else {
-                            invalid!(cols, vals, index, Some(*span), "should be a bool");
-                        }
+                        try_bool!(cols, vals, index, span, use_ansi_coloring);
                     }
                     "edit_mode" => {
                         if let Ok(v) = value.as_string() {
                             config.edit_mode = v.to_lowercase();
                         } else {
-                            invalid!(cols, vals, index, Some(*span), "should be a string");
+                            invalid!(Some(*span), "should be a string");
+                            // Reconstruct
+                            vals[index] = Value::string(config.edit_mode.clone(), *span);
                         }
                     }
                     "log_level" => {
                         if let Ok(v) = value.as_string() {
                             config.log_level = v.to_lowercase();
                         } else {
-                            invalid!(cols, vals, index, Some(*span), "should be a string");
+                            invalid!(Some(*span), "should be a string");
+                            // Reconstruct
+                            vals[index] = Value::string(config.log_level.clone(), *span);
                         }
                     }
                     "menus" => match create_menus(value) {
                         Ok(map) => config.menus = map,
                         Err(e) => {
-                            invalid!(
-                                cols,
-                                vals,
-                                index,
-                                Some(*span),
-                                "should be a valid list of menus"
-                            );
+                            invalid!(Some(*span), "should be a valid list of menus");
                             errors.push(e);
+                            // Reconstruct
+                            vals[index] = Value::List {
+                                vals: config
+                                    .menus
+                                    .iter()
+                                    .map(
+                                        |ParsedMenu {
+                                             name,
+                                             only_buffer_difference,
+                                             marker,
+                                             style,
+                                             menu_type, // WARNING: this is not the same name as what is used in Config.nu! ("type")
+                                             source,
+                                         }| {
+                                            Value::Record {
+                                                cols: vec![
+                                                    "name".into(),
+                                                    "only_buffer_difference".into(),
+                                                    "marker".into(),
+                                                    "style".into(),
+                                                    "type".into(),
+                                                    "source".into(),
+                                                ],
+                                                vals: vec![
+                                                    name.clone(),
+                                                    only_buffer_difference.clone(),
+                                                    marker.clone(),
+                                                    style.clone(),
+                                                    menu_type.clone(),
+                                                    source.clone(),
+                                                ],
+                                                span: *span,
+                                            }
+                                        },
+                                    )
+                                    .collect(),
+                                span: *span,
+                            }
                         }
                     },
                     "keybindings" => match create_keybindings(value) {
                         Ok(keybindings) => config.keybindings = keybindings,
                         Err(e) => {
-                            invalid!(
-                                cols,
-                                vals,
-                                index,
-                                Some(*span),
-                                "should be a valid keybindings list"
-                            );
+                            invalid!(Some(*span), "should be a valid keybindings list");
                             errors.push(e);
+                            // Reconstruct
+                            vals[index] = Value::List {
+                                vals: config
+                                    .keybindings
+                                    .iter()
+                                    .map(
+                                        |ParsedKeybinding {
+                                             modifier,
+                                             keycode,
+                                             mode,
+                                             event,
+                                         }| {
+                                            Value::Record {
+                                                cols: vec![
+                                                    "modifier".into(),
+                                                    "keycode".into(),
+                                                    "mode".into(),
+                                                    "event".into(),
+                                                ],
+                                                vals: vec![
+                                                    modifier.clone(),
+                                                    keycode.clone(),
+                                                    mode.clone(),
+                                                    event.clone(),
+                                                ],
+                                                span: *span,
+                                            }
+                                        },
+                                    )
+                                    .collect(),
+                                span: *span,
+                            }
                         }
                     },
                     "hooks" => match create_hooks(value) {
                         Ok(hooks) => config.hooks = hooks,
                         Err(e) => {
-                            invalid!(
-                                cols,
-                                vals,
-                                index,
-                                Some(*span),
-                                "should be a valid hooks list"
-                            );
+                            invalid!(Some(*span), "should be a valid hooks list");
                             errors.push(e);
+                            // Reconstruct
+                            let mut hook_cols = vec![];
+                            let mut hook_vals = vec![];
+                            match &config.hooks.pre_prompt {
+                                Some(v) => {
+                                    hook_cols.push("pre_prompt".into());
+                                    hook_vals.push(v.clone());
+                                }
+                                None => (),
+                            };
+                            match &config.hooks.pre_execution {
+                                Some(v) => {
+                                    hook_cols.push("pre_execution".into());
+                                    hook_vals.push(v.clone());
+                                }
+                                None => (),
+                            };
+                            match &config.hooks.env_change {
+                                Some(v) => {
+                                    hook_cols.push("env_change".into());
+                                    hook_vals.push(v.clone());
+                                }
+                                None => (),
+                            };
+                            match &config.hooks.display_output {
+                                Some(v) => {
+                                    hook_cols.push("display_output".into());
+                                    hook_vals.push(v.clone());
+                                }
+                                None => (),
+                            };
+                            vals.push(Value::Record {
+                                cols: hook_cols,
+                                vals: hook_vals,
+                                span: *span,
+                            });
                         }
                     },
                     "shell_integration" => {
-                        if let Ok(b) = value.as_bool() {
-                            config.shell_integration = b;
-                        } else {
-                            invalid!(cols, vals, index, Some(*span), "should be a bool");
-                        }
+                        try_bool!(cols, vals, index, span, shell_integration);
                     }
                     "buffer_editor" => {
                         if let Ok(v) = value.as_string() {
                             config.buffer_editor = v.to_lowercase();
                         } else {
-                            invalid!(cols, vals, index, Some(*span), "should be a string");
+                            invalid!(Some(*span), "should be a string");
                         }
                     }
                     "show_banner" => {
-                        if let Ok(b) = value.as_bool() {
-                            config.show_banner = b;
-                        } else {
-                            invalid!(cols, vals, index, Some(*span), "should be a bool");
-                        }
+                        try_bool!(cols, vals, index, span, show_banner);
                     }
                     "render_right_prompt_on_last_line" => {
-                        if let Ok(b) = value.as_bool() {
-                            config.render_right_prompt_on_last_line = b;
-                        } else {
-                            invalid!(cols, vals, index, Some(*span), "should be a bool");
-                        }
+                        try_bool!(cols, vals, index, span, render_right_prompt_on_last_line);
                     }
                     // Legacy config options (deprecated as of 2022-11-02)
+                    // Legacy options do NOT reconstruct their values on error
                     "use_ls_colors" => {
                         legacy_options_used = true;
-                        if let Ok(b) = value.as_bool() {
-                            config.use_ls_colors = b;
-                        } else {
-                            invalid!(cols, vals, index, Some(*span), "should be a bool");
-                        }
+                        try_bool!(cols, vals, index, span, use_ls_colors);
                     }
                     "rm_always_trash" => {
                         legacy_options_used = true;
-                        if let Ok(b) = value.as_bool() {
-                            config.rm_always_trash = b;
-                        } else {
-                            invalid!(cols, vals, index, Some(*span), "should be a bool");
-                        }
+                        try_bool!(cols, vals, index, span, rm_always_trash);
                     }
                     "history_file_format" => {
                         legacy_options_used = true;
@@ -846,9 +1013,6 @@ impl Value {
                                 "plaintext" => HistoryFileFormat::PlainText,
                                 _ => {
                                     invalid!(
-                                        cols,
-                                        vals,
-                                        index,
                                         Some(*span),
                                         "unrecognized $env.config.{key} '{val_str}'"
                                     );
@@ -856,48 +1020,28 @@ impl Value {
                                 }
                             };
                         } else {
-                            invalid!(cols, vals, index, Some(*span), "should be a string");
+                            invalid!(Some(*span), "should be a string");
                         }
                     }
                     "sync_history_on_enter" => {
                         legacy_options_used = true;
-                        if let Ok(b) = value.as_bool() {
-                            config.sync_history_on_enter = b;
-                        } else {
-                            invalid!(cols, vals, index, Some(*span), "should be a bool");
-                        }
+                        try_bool!(cols, vals, index, span, sync_history_on_enter);
                     }
                     "max_history_size" => {
                         legacy_options_used = true;
-                        if let Ok(i) = value.as_i64() {
-                            config.max_history_size = i;
-                        } else {
-                            invalid!(cols, vals, index, Some(*span), "should be an integer");
-                        }
+                        try_int!(cols, vals, index, span, max_history_size);
                     }
                     "quick_completions" => {
                         legacy_options_used = true;
-                        if let Ok(b) = value.as_bool() {
-                            config.quick_completions = b;
-                        } else {
-                            invalid!(cols, vals, index, Some(*span), "should be a bool");
-                        }
+                        try_bool!(cols, vals, index, span, quick_completions);
                     }
                     "partial_completions" => {
                         legacy_options_used = true;
-                        if let Ok(b) = value.as_bool() {
-                            config.partial_completions = b;
-                        } else {
-                            invalid!(cols, vals, index, Some(*span), "should be a bool");
-                        }
+                        try_bool!(cols, vals, index, span, partial_completions);
                     }
                     "max_external_completion_results" => {
                         legacy_options_used = true;
-                        if let Ok(i) = value.as_integer() {
-                            config.max_external_completion_results = i;
-                        } else {
-                            invalid!(cols, vals, index, Some(*span), "should be an integer");
-                        }
+                        try_int!(cols, vals, index, span, max_external_completion_results);
                     }
                     "completion_algorithm" => {
                         legacy_options_used = true;
@@ -908,33 +1052,24 @@ impl Value {
                                 "prefix" => val_str,
                                 "fuzzy" => val_str,
                                 _ => {
-                                    invalid!(cols, vals, index, Some(*span),
+                                    invalid!( Some(*span),
                                         "unrecognized $env.config.{key} '{val_str}'; expected either 'prefix' or 'fuzzy'"
                                     );
                                     val_str
                                 }
                             };
                         } else {
-                            invalid!(cols, vals, index, Some(*span), "should be a string");
+                            invalid!(Some(*span), "should be a string");
                         }
                     }
                     "case_sensitive_completions" => {
                         legacy_options_used = true;
-                        if let Ok(b) = value.as_bool() {
-                            config.case_sensitive_completions = b;
-                        } else {
-                            invalid!(cols, vals, index, Some(*span), "should be a bool");
-                        }
+                        try_bool!(cols, vals, index, span, case_sensitive_completions);
                     }
                     "enable_external_completion" => {
                         legacy_options_used = true;
-                        if let Ok(b) = value.as_bool() {
-                            config.enable_external_completion = b;
-                        } else {
-                            invalid!(cols, vals, index, Some(*span), "should be a bool");
-                        }
+                        try_bool!(cols, vals, index, span, enable_external_completion);
                     }
-
                     "external_completer" => {
                         legacy_options_used = true;
                         if let Ok(v) = value.as_block() {
@@ -948,7 +1083,7 @@ impl Value {
                         if let Ok(v) = value.as_string() {
                             config.table_mode = v;
                         } else {
-                            invalid!(cols, vals, index, Some(*span), "should be a string");
+                            invalid!(Some(*span), "should be a string");
                         }
                     }
                     "table_index_mode" => {
@@ -960,13 +1095,13 @@ impl Value {
                                 "never" => config.table_index_mode = TableIndexMode::Never,
                                 "auto" => config.table_index_mode = TableIndexMode::Auto,
                                 _ => {
-                                    invalid!(cols, vals, index, Some(*span),
+                                    invalid!( Some(*span),
                                         "unrecognized $env.config.table_index_mode '{val_str}'; expected either 'never', 'always' or 'auto'"
                                     );
                                 }
                             }
                         } else {
-                            invalid!(cols, vals, index, Some(*span), "should be a string");
+                            invalid!(Some(*span), "should be a string");
                         }
                     }
                     "table_trim" => {
@@ -983,39 +1118,27 @@ impl Value {
                     }
                     "show_clickable_links_in_ls" => {
                         legacy_options_used = true;
-                        if let Ok(b) = value.as_bool() {
-                            config.show_clickable_links_in_ls = b;
-                        } else {
-                            invalid!(cols, vals, index, Some(*span), "should be a bool");
-                        }
+                        try_bool!(cols, vals, index, span, show_clickable_links_in_ls);
                     }
                     "cd_with_abbreviations" => {
                         legacy_options_used = true;
-                        if let Ok(b) = value.as_bool() {
-                            config.cd_with_abbreviations = b;
-                        } else {
-                            invalid!(cols, vals, index, Some(*span), "should be a bool");
-                        }
+                        try_bool!(cols, vals, index, span, cd_with_abbreviations);
                     }
                     "filesize_metric" => {
                         legacy_options_used = true;
-                        if let Ok(b) = value.as_bool() {
-                            config.filesize_metric = b;
-                        } else {
-                            invalid!(cols, vals, index, Some(*span), "should be a bool");
-                        }
+                        try_bool!(cols, vals, index, span, filesize_metric);
                     }
                     "filesize_format" => {
                         legacy_options_used = true;
                         if let Ok(v) = value.as_string() {
                             config.filesize_format = v.to_lowercase();
                         } else {
-                            invalid!(cols, vals, index, Some(*span), "should be a string");
+                            invalid!(Some(*span), "should be a string");
                         }
                     }
                     // End legacy options
                     x => {
-                        invalid!(
+                        invalid_key!(
                             cols,
                             vals,
                             index,
