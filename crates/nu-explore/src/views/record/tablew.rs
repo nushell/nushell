@@ -107,6 +107,8 @@ impl<'a> TableW<'a> {
         let padding_index_l = self.style.padding_index_left as u16;
         let padding_index_r = self.style.padding_index_right as u16;
 
+        let shift_column_w = 1 + padding_cell_l + padding_cell_r;
+
         let show_index = self.style.show_index;
         let show_head = self.style.show_header;
         let splitline_s = self.style.splitline_style;
@@ -195,7 +197,6 @@ impl<'a> TableW<'a> {
             }
         }
 
-        let mut do_render_split_line = true;
         let mut do_render_shift_column = false;
         state.count_rows = data.len();
         state.count_columns = 0;
@@ -214,27 +215,27 @@ impl<'a> TableW<'a> {
             }
 
             {
-                let available_space = area.width - width;
-                let head = show_head.then_some(&mut head);
-                let control = truncate_column(
-                    &mut column,
-                    head,
-                    available_space,
-                    col + 1 == self.columns.len(),
-                    PrintControl {
-                        break_everything: false,
-                        print_shift_column: false,
-                        print_split_line: true,
-                        width: use_space,
-                    },
-                );
+                let available = area.width - width;
+                let column_space = use_space + padding_cell_l + padding_cell_r;
 
-                use_space = control.width;
-                do_render_split_line = control.print_split_line;
-                do_render_shift_column = control.print_shift_column;
+                let is_last = col + 1 == self.columns.len();
+                let w = truncate_column_width(available, column_space, shift_column_w, is_last);
 
-                if control.break_everything {
+                if w == 0 {
                     break;
+                } else if w <= shift_column_w {
+                    do_render_shift_column = true;
+                    break;
+                } else if w < column_space {
+                    use_space = w - (padding_cell_l + padding_cell_r);
+
+                    truncate_list(&mut column, use_space as usize);
+                    if show_head {
+                        truncate_str(&mut head, use_space as usize);
+                    }
+                    if !is_last {
+                        do_render_shift_column = true;
+                    }
                 }
             }
 
@@ -285,7 +286,7 @@ impl<'a> TableW<'a> {
             }
         }
 
-        if do_render_split_line && self.style.shift_line {
+        if self.style.shift_line && width < area.width {
             let head_t = show_head && is_head_top && self.style.header_bottom;
             let head_b = show_head && is_head_bottom && self.style.header_top;
             width += render_vertical(buf, width, data_y, data_height, head_t, head_b, splitline_s);
@@ -305,6 +306,8 @@ impl<'a> TableW<'a> {
         let padding_cell_r = self.style.padding_column_right as u16;
         let padding_index_l = self.style.padding_index_left as u16;
         let padding_index_r = self.style.padding_index_right as u16;
+
+        let shift_column_w = 1 + padding_cell_l + padding_cell_r;
 
         if area.width == 0 || area.height == 0 {
             return;
@@ -411,31 +414,25 @@ impl<'a> TableW<'a> {
                 break;
             }
 
-            let column_width = column_width as u16;
+            let mut column_width = column_width as u16;
 
             let available = area.width - left_w - right_w;
-            let ctrl = PrintControl {
-                break_everything: false,
-                print_shift_column: false,
-                print_split_line: true,
-                width: column_width,
-            };
+            let column_w = column_width + padding_cell_l + padding_cell_r;
             let is_last = col + 1 == self.data.len();
-            let control = truncate_column(&mut column, None, available, is_last, ctrl);
+            let w = truncate_column_width(available, column_w, shift_column_w, is_last);
 
-            let column_width = control.width;
-            do_render_shift_column = control.print_shift_column;
-
-            if control.break_everything || column_width == 1 {
+            if w == 0 {
                 break;
-            }
-
-            // check whether we will have a enough space just in case...
-            let rest = area.width.saturating_sub(left_w + right_w);
-            let has_space = rest > 1 + padding_cell_l + padding_cell_r;
-            if !is_last && !has_space {
+            } else if w <= shift_column_w {
                 do_render_shift_column = true;
                 break;
+            } else if w < column_w {
+                column_width = w - (padding_cell_l + padding_cell_r);
+                truncate_list(&mut column, column_width as usize);
+
+                if !is_last {
+                    do_render_shift_column = true;
+                }
             }
 
             let x = area.x + left_w;
@@ -445,16 +442,18 @@ impl<'a> TableW<'a> {
             let x = area.x + left_w;
             left_w += render_space(buf, x, area.y, area.height, padding_cell_r);
 
-            for (row, (text, _)) in column.iter().enumerate() {
-                let x = left_w - padding_cell_r - column_width;
-                let y = area.y + row as u16;
-                state.layout.push(text, x, y, column_width, 1);
+            {
+                for (row, (text, _)) in column.iter().enumerate() {
+                    let x = left_w - padding_cell_r - column_width;
+                    let y = area.y + row as u16;
+                    state.layout.push(text, x, y, column_width, 1);
 
-                let e = ElementInfo::new(text, x, y, column_width, 1);
-                state.data_index.insert((row, i), e);
+                    let e = ElementInfo::new(text, x, y, column_width, 1);
+                    state.data_index.insert((row, i), e);
+                }
+
+                state.count_columns += 1;
             }
-
-            state.count_columns += 1;
 
             if do_render_shift_column {
                 break;
@@ -643,104 +642,35 @@ struct PrintControl {
     print_shift_column: bool,
 }
 
-fn truncate_column(
-    column: &mut [NuText],
-    head: Option<&mut String>,
-    available_space: u16,
+fn truncate_column_width(
+    available_w: u16,
+    column_w: u16,
+    min_column_w: u16,
     is_column_last: bool,
-    mut control: PrintControl,
-) -> PrintControl {
-    const CELL_PADDING_LEFT: u16 = 2;
-    const CELL_PADDING_RIGHT: u16 = 2;
-    const VERTICAL_LINE_WIDTH: u16 = 1;
-    const CELL_MIN_WIDTH: u16 = 1;
-
-    let min_space_cell = CELL_PADDING_LEFT + CELL_PADDING_RIGHT + CELL_MIN_WIDTH;
-    let min_space = min_space_cell + VERTICAL_LINE_WIDTH;
-    if available_space < min_space {
-        // if there's not enough space at all just return; doing our best
-        if available_space < VERTICAL_LINE_WIDTH {
-            control.print_split_line = false;
-        }
-
-        control.break_everything = true;
-        return control;
+) -> u16 {
+    if available_w < min_column_w {
+        return 0;
     }
 
-    let column_taking_space =
-        control.width + CELL_PADDING_LEFT + CELL_PADDING_RIGHT + VERTICAL_LINE_WIDTH;
-    let is_enough_space = available_space > column_taking_space;
-    if !is_enough_space {
+    if available_w < column_w {
         if is_column_last {
-            // we can do nothing about it we need to truncate.
-            // we assume that there's always at least space for padding and 1 symbol. (5 chars)
-
-            let width = available_space
-                .saturating_sub(CELL_PADDING_LEFT + CELL_PADDING_RIGHT + VERTICAL_LINE_WIDTH);
-            if width == 0 {
-                control.break_everything = true;
-                return control;
-            }
-
-            if let Some(head) = head {
-                truncate_str(head, width as usize);
-            }
-
-            truncate_list(column, width as usize);
-
-            control.width = width;
-        } else {
-            let min_space_2cells = min_space + min_space_cell;
-            if available_space > min_space_2cells {
-                let width = available_space.saturating_sub(min_space_2cells);
-                if width == 0 {
-                    control.break_everything = true;
-                    return control;
-                }
-
-                truncate_list(column, width as usize);
-
-                if let Some(head) = head {
-                    truncate_str(head, width as usize);
-                }
-
-                control.width = width;
-                control.print_shift_column = true;
-            } else {
-                control.break_everything = true;
-                control.print_shift_column = true;
-            }
+            return available_w;
         }
-    } else if !is_column_last {
-        // even though we can safely render current column,
-        // we need to check whether there's enough space for AT LEAST a shift column
-        // (2 padding + 2 padding + 1 a char)
-        let left_space = available_space - column_taking_space;
-        if left_space < min_space {
-            let need_space = min_space_cell - left_space;
-            let min_left_width = 1;
-            let is_column_big_enough = control.width > need_space + min_left_width;
 
-            if is_column_big_enough {
-                let width = control.width.saturating_sub(need_space);
-                if width == 0 {
-                    control.break_everything = true;
-                    return control;
-                }
-
-                truncate_list(column, width as usize);
-
-                if let Some(head) = head {
-                    truncate_str(head, width as usize);
-                }
-
-                control.width = width;
-                control.print_shift_column = true;
-            }
+        if available_w > min_column_w + min_column_w {
+            return available_w - min_column_w;
         }
+
+        return min_column_w;
     }
 
-    control
+    // check whether we will have a enough space just in case...
+    let is_enough_space_for_shift = available_w > column_w + min_column_w;
+    if !is_column_last && !is_enough_space_for_shift {
+        return min_column_w;
+    }
+
+    column_w
 }
 
 fn truncate_list(list: &mut [NuText], width: usize) {

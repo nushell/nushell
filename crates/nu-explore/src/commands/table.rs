@@ -99,6 +99,7 @@ impl ViewCommand for TableCmd {
             ConfigOption::boolean("Lines are lines", "", "table.line_head_bottom"),
             ConfigOption::boolean("Lines are lines", "", "table.line_shift"),
             ConfigOption::boolean("Lines are lines", "", "table.line_index"),
+            ConfigOption::boolean("Show cursor", "", "table.show_cursor"),
             ConfigOption::new(
                 "Color of selected cell",
                 ".",
@@ -157,7 +158,7 @@ impl ViewCommand for TableCmd {
             "table.line_head_bottom" => self.settings.line_head_bottom = bool_from_str(&value),
             "table.line_shift" => self.settings.line_shift = bool_from_str(&value),
             "table.line_index" => self.settings.line_index = bool_from_str(&value),
-            "table.cursor" => {
+            "table.show_cursor" => {
                 self.settings.show_cursor = bool_from_str(&value);
                 self.settings.turn_on_cursor_mode = true;
             }
