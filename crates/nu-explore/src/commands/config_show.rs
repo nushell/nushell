@@ -105,5 +105,19 @@ impl View for ConfigView {
         };
 
         self.preview = Preview::new(&text);
+        self.preview
+            .set_value(map_into_value(config.config.clone()));
+    }
+
+    fn exit(&mut self) -> Option<Value> {
+        self.preview.exit()
+    }
+
+    fn collect_data(&self) -> Vec<crate::nu_common::NuText> {
+        self.preview.collect_data()
+    }
+
+    fn show_data(&mut self, i: usize) -> bool {
+        self.preview.show_data(i)
     }
 }

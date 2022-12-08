@@ -18,6 +18,7 @@ use super::{coloredtextw::ColoredTextW, Layout, View, ViewConfig};
 // todo: Add wrap option
 #[derive(Debug)]
 pub struct Preview {
+    underlaying_value: Option<Value>,
     lines: Vec<String>,
     i_row: usize,
     i_col: usize,
@@ -36,7 +37,12 @@ impl Preview {
             i_col: 0,
             i_row: 0,
             screen_size: 0,
+            underlaying_value: None,
         }
+    }
+
+    pub fn set_value(&mut self, value: Value) {
+        self.underlaying_value = Some(value);
     }
 }
 
@@ -181,7 +187,12 @@ impl View for Preview {
     }
 
     fn exit(&mut self) -> Option<Value> {
-        let text = self.lines.join("\n");
-        Some(Value::string(text, NuSpan::unknown()))
+        match &self.underlaying_value {
+            Some(value) => Some(value.clone()),
+            None => {
+                let text = self.lines.join("\n");
+                Some(Value::string(text, NuSpan::unknown()))
+            }
+        }
     }
 }
