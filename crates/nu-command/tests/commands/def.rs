@@ -41,7 +41,7 @@ fn def_fails_with_invalid_name() {
     ));
     assert!(actual
         .err
-        .contains("command name can't be a number, a filesize, or contain a hashtag"));
+        .contains("command name can't be a number, a filesize, or contain a hash"));
 
     let actual = nu!(
         cwd: "tests/fixtures/formats", pipeline(
@@ -51,7 +51,7 @@ fn def_fails_with_invalid_name() {
     ));
     assert!(actual
         .err
-        .contains("command name can't be a number, a filesize, or contain a hashtag"));
+        .contains("command name can't be a number, a filesize, or contain a hash"));
 
     let actual = nu!(
         cwd: "tests/fixtures/formats", pipeline(
@@ -61,5 +61,5 @@ fn def_fails_with_invalid_name() {
     ));
     assert!(actual
         .err
-        .contains("command name can't be a number, a filesize, or contain a hashtag"));
+        .contains("command name can't be a number, a filesize, or contain a hash"));
 }

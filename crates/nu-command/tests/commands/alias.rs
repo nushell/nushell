@@ -51,7 +51,7 @@ fn alias_fails_with_invalid_name() {
     ));
     assert!(actual
         .err
-        .contains("alias name can't be a number, a filesize, or contain a hashtag"));
+        .contains("alias name can't be a number, a filesize, or contain a hash"));
 
     let actual = nu!(
         cwd: "tests/fixtures/formats", pipeline(
@@ -61,7 +61,7 @@ fn alias_fails_with_invalid_name() {
     ));
     assert!(actual
         .err
-        .contains("alias name can't be a number, a filesize, or contain a hashtag"));
+        .contains("alias name can't be a number, a filesize, or contain a hash"));
 
     let actual = nu!(
         cwd: "tests/fixtures/formats", pipeline(
@@ -71,7 +71,7 @@ fn alias_fails_with_invalid_name() {
     ));
     assert!(actual
         .err
-        .contains("alias name can't be a number, a filesize, or contain a hashtag"));
+        .contains("alias name can't be a number, a filesize, or contain a hash"));
 }
 
 #[test]
