@@ -105,14 +105,13 @@ impl ViewCommand for HelpCmd {
             arguments,
             examples,
             input: vec![],
+            config_options: vec![],
         })
     }
 
-    fn get_config_settings(&self) -> Vec<ConfigOption> {
-        vec![]
+    fn display_config_option(&mut self, group: String, key: String, value: String) -> bool {
+        false
     }
-
-    fn set_config_settings(&mut self, group: String, key: String, value: String) {}
 
     fn parse(&mut self, args: &str) -> Result<()> {
         self.input_command = args.trim().to_owned();

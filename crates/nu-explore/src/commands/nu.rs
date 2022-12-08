@@ -49,27 +49,24 @@ impl ViewCommand for NuCmd {
             input: vec![],
 
             examples: vec![
-                HelpExample {
-                    example: "where type == 'file'",
-                    description: "Filter data to show only rows whose type is 'file'",
-                },
-                HelpExample {
-                    example: "get scope.examples",
-                    description: "Navigate to a deeper value inside the data",
-                },
-                HelpExample {
-                    example: "open Cargo.toml",
-                    description: "Open a Cargo.toml file",
-                },
+                HelpExample::new(
+                    "where type == 'file'",
+                    "Filter data to show only rows whose type is 'file'",
+                ),
+                HelpExample::new(
+                    "get scope.examples",
+                    "Navigate to a deeper value inside the data",
+                ),
+                HelpExample::new("open Cargo.toml", "Open a Cargo.toml file"),
             ],
+
+            config_options: vec![],
         })
     }
 
-    fn get_config_settings(&self) -> Vec<ConfigOption> {
-        vec![]
+    fn display_config_option(&mut self, group: String, key: String, value: String) -> bool {
+        false
     }
-
-    fn set_config_settings(&mut self, group: String, key: String, value: String) {}
 
     fn parse(&mut self, args: &str) -> Result<()> {
         self.command = args.trim().to_owned();

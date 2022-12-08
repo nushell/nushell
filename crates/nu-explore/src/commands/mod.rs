@@ -5,7 +5,7 @@ use nu_protocol::{
 
 use super::pager::{Pager, Transition};
 
-use std::io::Result;
+use std::{borrow::Cow, io::Result};
 
 mod expand;
 mod help;
@@ -56,9 +56,7 @@ pub trait ViewCommand {
 
     fn parse(&mut self, args: &str) -> Result<()>;
 
-    fn get_config_settings(&self) -> Vec<ConfigOption>;
-
-    fn set_config_settings(&mut self, group: String, key: String, value: String);
+    fn display_config_option(&mut self, group: String, key: String, value: String) -> bool;
 
     fn spawn(
         &mut self,
@@ -74,22 +72,24 @@ pub struct HelpManual {
     pub description: &'static str,
     pub arguments: Vec<HelpExample>,
     pub examples: Vec<HelpExample>,
-    // todo: add config settings options
-    // pub config_options: Vec<HelpExample>,
+    pub config_options: Vec<ConfigOption>,
     pub input: Vec<Shortcode>,
 }
 
 #[derive(Debug, Default, Clone)]
 pub struct HelpExample {
-    pub example: &'static str,
-    pub description: &'static str,
+    pub example: Cow<'static, str>,
+    pub description: Cow<'static, str>,
 }
 
 impl HelpExample {
-    pub fn new(example: &'static str, description: &'static str) -> Self {
+    pub fn new(
+        example: impl Into<Cow<'static, str>>,
+        description: impl Into<Cow<'static, str>>,
+    ) -> Self {
         Self {
-            example,
-            description,
+            example: example.into(),
+            description: description.into(),
         }
     }
 }
@@ -111,6 +111,7 @@ impl Shortcode {
     }
 }
 
+#[derive(Debug, Default, Clone)]
 pub struct ConfigOption {
     pub group: String,
     pub description: String,
@@ -143,7 +144,10 @@ impl ConfigOption {
             group: group.into(),
             description: description.into(),
             key: key.into(),
-            values: vec![HelpExample::new("true", ""), HelpExample::new("false", "")],
+            values: vec![
+                HelpExample::new("true", "Turn the flag on"),
+                HelpExample::new("false", "Turn the flag on"),
+            ],
         }
     }
 }

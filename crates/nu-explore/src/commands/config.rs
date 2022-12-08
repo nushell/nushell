@@ -49,11 +49,9 @@ impl ViewCommand for ConfigCmd {
         None
     }
 
-    fn get_config_settings(&self) -> Vec<super::ConfigOption> {
-        vec![]
+    fn display_config_option(&mut self, group: String, key: String, value: String) -> bool {
+        false
     }
-
-    fn set_config_settings(&mut self, group: String, key: String, value: String) {}
 
     fn parse(&mut self, _: &str) -> Result<()> {
         Ok(())
@@ -75,20 +73,25 @@ impl ViewCommand for ConfigCmd {
                 Command::View { cmd, .. } => cmd,
             };
 
-            let cmd_options = cmd.get_config_settings();
+            let help = match cmd.help() {
+                Some(help) => help,
+                None => continue,
+            };
 
-            for opt in cmd_options {
+            for opt in help.config_options {
                 let mut values = vec![];
                 for value in opt.values {
                     let mut cmd = cmd.clone();
-                    cmd.set_config_settings(
-                        opt.group.clone(),
-                        opt.key.clone(),
-                        value.example.to_owned(),
-                    );
-                    let view = cmd.spawn(engine_state, stack, Some(default_table.clone()))?;
 
-                    let option = ConfigOption::new(value.example.to_owned(), view);
+                    let can_be_displayed =
+                        cmd.display_config_option(opt.group.clone(), opt.key.clone(), value.example.to_string());
+                    let view = if can_be_displayed {
+                        cmd.spawn(engine_state, stack, Some(default_table.clone()))?
+                    } else {
+                        Box::new(Preview::new(&opt.description))
+                    };
+
+                    let option = ConfigOption::new(value.example.to_string(), view);
                     values.push(option);
                 }
 

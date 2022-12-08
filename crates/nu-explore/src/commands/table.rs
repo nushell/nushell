@@ -73,17 +73,8 @@ impl ViewCommand for TableCmd {
             Shortcode::new("Enter",  "cursor",  "In cursor mode, explore the data of the selected cell"),
         ];
 
-        Some(HelpManual {
-            name: "table",
-            description: "Display a table view",
-            arguments: vec![],
-            examples: vec![],
-            input: shortcuts,
-        })
-    }
-
-    fn get_config_settings(&self) -> Vec<ConfigOption> {
-        vec![
+        #[rustfmt::skip]
+        let config_options = vec![
             ConfigOption::new(
                 "Column header orientation",
                 "Used to move column header",
@@ -100,58 +91,27 @@ impl ViewCommand for TableCmd {
             ConfigOption::boolean("Lines are lines", "", "table.line_shift"),
             ConfigOption::boolean("Lines are lines", "", "table.line_index"),
             ConfigOption::boolean("Show cursor", "", "table.show_cursor"),
-            ConfigOption::new(
-                "Color of selected cell",
-                ".",
-                "table.selected_cell",
-                default_color_list(),
-            ),
-            ConfigOption::new(
-                "Color of selected row",
-                ".",
-                "table.selected_row",
-                default_color_list(),
-            ),
-            ConfigOption::new(
-                "Color of selected column",
-                ".",
-                "table.selected_column",
-                default_color_list(),
-            ),
-            ConfigOption::new(
-                "Color of split lines",
-                ".",
-                "table.split_line",
-                default_color_list(),
-            ),
-            ConfigOption::new(
-                "Padding column left",
-                ".",
-                "table.padding_column_left",
-                default_int_list(),
-            ),
-            ConfigOption::new(
-                "Padding column right",
-                ".",
-                "table.padding_column_right",
-                default_int_list(),
-            ),
-            ConfigOption::new(
-                "Padding index left",
-                ".",
-                "table.padding_index_left",
-                default_int_list(),
-            ),
-            ConfigOption::new(
-                "Padding index right",
-                ".",
-                "table.padding_index_right",
-                default_int_list(),
-            ),
-        ]
+            ConfigOption::new("Color of selected cell", ".", "table.selected_cell", default_color_list()),
+            ConfigOption::new("Color of selected row", ".", "table.selected_row", default_color_list()),
+            ConfigOption::new("Color of selected column", ".", "table.selected_column", default_color_list()),
+            ConfigOption::new("Color of split lines", ".", "table.split_line", default_color_list()),
+            ConfigOption::new("Padding column left", ".", "table.padding_column_left", default_int_list()),
+            ConfigOption::new("Padding column right", ".", "table.padding_column_right", default_int_list()),
+            ConfigOption::new("Padding index left", ".", "table.padding_index_left", default_int_list()),
+            ConfigOption::new("Padding index right", ".", "table.padding_index_right", default_int_list()),
+        ];
+
+        Some(HelpManual {
+            name: "table",
+            description: "Display a table view",
+            arguments: vec![],
+            examples: vec![],
+            config_options,
+            input: shortcuts,
+        })
     }
 
-    fn set_config_settings(&mut self, _group: String, key: String, value: String) {
+    fn display_config_option(&mut self, _group: String, key: String, value: String) -> bool {
         match key.as_str() {
             "table.orientation" => self.settings.orientation = orientation_from_str(&value),
             "table.line_head_top" => self.settings.line_head_top = bool_from_str(&value),
@@ -190,8 +150,10 @@ impl ViewCommand for TableCmd {
             "table.padding_index_right" => {
                 self.settings.padding_index_right = usize_from_str(&value);
             }
-            _ => {}
+            _ => return false,
         }
+
+        true
     }
 
     fn parse(&mut self, _: &str) -> Result<()> {
@@ -307,20 +269,30 @@ fn orientation_from_str(s: &str) -> Option<Orientation> {
     }
 }
 
+#[rustfmt::skip]
 fn default_color_list() -> Vec<HelpExample> {
     vec![
-        HelpExample::new("red", ""),
-        HelpExample::new("blue", ""),
-        HelpExample::new("green", ""),
-        HelpExample::new("#AA4433", ""),
+        HelpExample::new("red",                   "Red foreground"),
+        HelpExample::new("blue",                  "Blue foreground"),
+        HelpExample::new("green",                 "Green foreground"),
+        HelpExample::new("yellow",                "Yellow foreground"),
+        HelpExample::new("magenta",               "Magenta foreground"),
+        HelpExample::new("black",                 "Black foreground"),
+        HelpExample::new("white",                 "White foreground"),
+        HelpExample::new("#AA4433",               "#AA4433 HEX foreground"),
+        HelpExample::new(r#"{bg: "red"}"#,        "Red background"),
+        HelpExample::new(r#"{bg: "blue"}"#,       "Blue background"),
+        HelpExample::new(r#"{bg: "green"}"#,      "Green background"),
+        HelpExample::new(r#"{bg: "yellow"}"#,     "Yellow background"),
+        HelpExample::new(r#"{bg: "magenta"}"#,    "Magenta background"),
+        HelpExample::new(r#"{bg: "black"}"#,      "Black background"),
+        HelpExample::new(r#"{bg: "white"}"#,      "White background"),
+        HelpExample::new(r##"{bg: "#AA4433"}"##,  "#AA4433 HEX background"),
     ]
 }
 
 fn default_int_list() -> Vec<HelpExample> {
-    vec![
-        HelpExample::new("0", ""),
-        HelpExample::new("1", ""),
-        HelpExample::new("2", ""),
-        HelpExample::new("3", ""),
-    ]
+    (0..20)
+        .map(|i| HelpExample::new(i.to_string(), format!("A value equal to {}", i)))
+        .collect()
 }

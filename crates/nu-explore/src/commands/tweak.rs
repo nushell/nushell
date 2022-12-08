@@ -44,6 +44,7 @@ impl SimpleCommand for TweakCmd {
                     "Make a different color for borders in :try",
                 ),
             ],
+            config_options: vec![],
             input: vec![],
         })
     }

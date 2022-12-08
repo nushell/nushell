@@ -62,11 +62,9 @@ impl ViewCommand for ConfigShowCmd {
         None
     }
 
-    fn get_config_settings(&self) -> Vec<super::ConfigOption> {
-        vec![]
+    fn display_config_option(&mut self, group: String, key: String, value: String) -> bool {
+        false
     }
-
-    fn set_config_settings(&mut self, group: String, key: String, value: String) {}
 
     fn parse(&mut self, args: &str) -> Result<()> {
         if args.trim() == "nu" {

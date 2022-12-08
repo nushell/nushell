@@ -201,6 +201,10 @@ impl<'a> TableW<'a> {
         state.count_rows = data.len();
         state.count_columns = 0;
 
+        if width > area.width {
+            return;
+        }
+
         for (i, col) in (self.index_column..self.columns.len()).enumerate() {
             let mut head = String::from(&self.columns[col]);
 

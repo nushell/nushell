@@ -181,6 +181,7 @@ fn __create_help_manual(manual: Option<HelpManual>, name: &'static str) -> HelpM
             arguments: Vec::new(),
             examples: Vec::new(),
             input: Vec::new(),
+            config_options: Vec::new(),
         },
     }
 }
@@ -208,12 +209,8 @@ where
         self.0.help()
     }
 
-    fn get_config_settings(&self) -> Vec<crate::commands::ConfigOption> {
-        self.0.get_config_settings()
-    }
-
-    fn set_config_settings(&mut self, group: String, key: String, value: String) {
-        self.0.set_config_settings(group, key, value);
+    fn display_config_option(&mut self, group: String, key: String, value: String) -> bool {
+        self.0.display_config_option(group, key, value)
     }
 
     fn parse(&mut self, args: &str) -> std::io::Result<()> {

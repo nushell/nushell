@@ -32,6 +32,7 @@ impl SimpleCommand for QuitCmd {
             arguments: vec![],
             examples: vec![],
             input: vec![],
+            config_options: vec![],
         })
     }
 

@@ -186,6 +186,8 @@ impl View for ConfigurationView {
             .fg(tui::style::Color::Black)
             .bg(tui::style::Color::LightYellow);
 
+        let height = area.height - USED_HEIGHT_BY_BORDERS;
+
         let option_b_x1 = area.x + LEFT_PADDING;
         let option_b_x2 = area.x + LEFT_PADDING + OPTION_BLOCK_WIDTH;
 
@@ -195,18 +197,16 @@ impl View for ConfigurationView {
 
         let option_content_x1 = option_b_x1 + 1;
         let option_content_w = OPTION_BLOCK_WIDTH - 2;
-        let option_content_h = area.height - USED_HEIGHT_BY_BORDERS;
+        let option_content_h = height;
 
         let option_content_area =
             Rect::new(option_content_x1, 1, option_content_w, option_content_h);
 
         let view_content_x1 = view_b_x1 + 1;
         let view_content_w = view_b_w - 2;
-        let view_content_h = area.height - USED_HEIGHT_BY_BORDERS;
+        let view_content_h = height;
 
         let view_content_area = Rect::new(view_content_x1, 1, view_content_w, view_content_h);
-
-        let height = area.height as usize - USED_HEIGHT_BY_BORDERS as usize;
 
         let option_block = tui::widgets::Block::default()
             .borders(Borders::ALL)
@@ -233,17 +233,11 @@ impl View for ConfigurationView {
             let mut layout = Layout::default();
 
             opt.view.draw(f, view_content_area, cfg, &mut layout);
-
-            // f.render_widget(
-            //     tui::widgets::Block::default()
-            //         .style(tui::style::Style::default().bg(tui::style::Color::Red)),
-            //     view_content_area,
-            // )
         } else {
             f.render_widget(Clear, view_content_area);
         }
 
-        self.update_cursors(height);
+        self.update_cursors(height as usize);
     }
 
     fn handle_input(
@@ -339,12 +333,12 @@ fn render_list(
     let height = area.height as usize;
     let width = area.width as usize;
 
-    let mut groups = &data[cursor.shift..];
-    if groups.len() > height {
-        groups = &groups[..height];
+    let mut data = &data[cursor.shift..];
+    if data.len() > height {
+        data = &data[..height];
     }
 
-    let selected_row = cursor.pos + cursor.shift;
+    let selected_row = cursor.pos;
 
     for (i, name) in data.iter().enumerate() {
         let mut name = name.to_owned();
@@ -356,6 +350,8 @@ fn render_list(
 
         if i == selected_row {
             text = text.style(picked_s);
+        } else {
+            text = text.style(not_picked_s);
         }
 
         f.render_widget(text, area);

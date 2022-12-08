@@ -48,19 +48,15 @@ impl ViewCommand for TryCmd {
             name: "try",
             description: "Opens a panel in which to run Nushell commands and explore their output. The exporer acts liek `:table`.",
             arguments: vec![],
-            examples: vec![HelpExample {
-                example: "try open Cargo.toml",
-                description: "Optionally, you can provide a command which will be run immediately",
-            }],
+            examples: vec![HelpExample::new("try open Cargo.toml", "Optionally, you can provide a command which will be run immediately")],
             input: shortcuts,
+            config_options:  vec![ConfigOption::boolean("try", "Try makes running command on each input character", "try.reactive")],
         })
     }
 
-    fn get_config_settings(&self) -> Vec<ConfigOption> {
-        vec![ConfigOption::boolean("Try ....", "", "try.reactive")]
+    fn display_config_option(&mut self, group: String, key: String, value: String) -> bool {
+        false
     }
-
-    fn set_config_settings(&mut self, group: String, key: String, value: String) {}
 
     fn parse(&mut self, args: &str) -> Result<()> {
         self.command = args.trim().to_owned();

@@ -55,15 +55,14 @@ impl ViewCommand for ExpandCmd {
                 "View the currently selected cell's data using the `table` Nushell command",
             arguments: vec![],
             examples: vec![],
+            config_options: vec![],
             input: shortcodes,
         })
     }
 
-    fn get_config_settings(&self) -> Vec<ConfigOption> {
-        vec![]
+    fn display_config_option(&mut self, group: String, key: String, value: String) -> bool {
+        false
     }
-
-    fn set_config_settings(&mut self, group: String, key: String, value: String) {}
 
     fn parse(&mut self, _: &str) -> Result<()> {
         Ok(())
