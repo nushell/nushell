@@ -142,7 +142,7 @@ pub fn file_path_completion(
                         }
 
                         // Fix files or folders with quotes
-                        if path.contains('\'') || path.contains('"') || path.contains(' ') {
+                        if path.contains('\'') || path.contains('"') || path.contains(' ') || path.contains('#') {
                             path = format!("`{}`", path);
                         }
 
