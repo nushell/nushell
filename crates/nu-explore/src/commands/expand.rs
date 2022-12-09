@@ -74,26 +74,27 @@ impl ViewCommand for ExpandCmd {
         _stack: &mut Stack,
         value: Option<Value>,
     ) -> Result<Self::View> {
-        let value = match value {
-            Some(value) => {
-                let (cols, vals) = collect_input(value.clone());
-
-                let has_no_head = cols.is_empty() || (cols.len() == 1 && cols[0].is_empty());
-                let has_single_value = vals.len() == 1 && vals[0].len() == 1;
-                if !has_no_head && has_single_value {
-                    let config = engine_state.get_config();
-                    vals[0][0].into_abbreviated_string(config)
-                } else {
-                    let ctrlc = engine_state.ctrlc.clone();
-                    let config = engine_state.get_config();
-                    let color_hm = get_color_config(config);
-
-                    nu_common::try_build_table(ctrlc, config, &color_hm, value)
-                }
-            }
-            None => String::new(),
-        };
+        let value = value
+            .map(|v| convert_value_to_string(v, engine_state))
+            .unwrap_or_default();
 
         Ok(Preview::new(&value))
+    }
+}
+
+fn convert_value_to_string(value: Value, engine_state: &EngineState) -> String {
+    let (cols, vals) = collect_input(value.clone());
+
+    let has_no_head = cols.is_empty() || (cols.len() == 1 && cols[0].is_empty());
+    let has_single_value = vals.len() == 1 && vals[0].len() == 1;
+    if !has_no_head && has_single_value {
+        let config = engine_state.get_config();
+        vals[0][0].into_abbreviated_string(config)
+    } else {
+        let ctrlc = engine_state.ctrlc.clone();
+        let config = engine_state.get_config();
+        let color_hm = get_color_config(config);
+
+        nu_common::try_build_table(ctrlc, config, &color_hm, value)
     }
 }

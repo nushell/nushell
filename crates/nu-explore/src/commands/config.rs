@@ -6,8 +6,8 @@ use nu_protocol::{
 };
 
 use crate::{
-    command::Command,
     nu_common::{nu_str, NuSpan},
+    registry::Command,
     views::{configuration, ConfigurationView, Preview},
 };
 
@@ -119,24 +119,28 @@ impl ViewCommand for ConfigCmd {
                 }
 
                 let group = configuration::ConfigGroup::new(opt.key, values);
-                options.push(group);
+                options.push((opt.group, group));
             }
         }
 
-        for group in &self.groups {
+        for opt in &self.groups {
             let mut values = vec![];
-            for value in &group.values {
-                let view = Box::new(Preview::new(&group.description));
+            for value in &opt.values {
+                let view = Box::new(Preview::new(&opt.description));
 
                 let option = configuration::ConfigOption::new(value.example.to_string(), view);
                 values.push(option);
             }
 
-            let group = configuration::ConfigGroup::new(group.key.clone(), values);
-            options.push(group);
+            let group = configuration::ConfigGroup::new(opt.key.clone(), values);
+            options.push((opt.group.clone(), group));
         }
 
-        options.sort_by(|x, y| x.group().cmp(y.group()));
+        options.sort_by(|(group1, opt1), (group2, opt2)| {
+            group1.cmp(group2).then(opt1.group().cmp(opt2.group()))
+        });
+
+        let options = options.into_iter().map(|(_, opt)| opt).collect();
 
         Ok(ConfigurationView::new(options))
     }

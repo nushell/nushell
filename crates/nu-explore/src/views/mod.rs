@@ -3,6 +3,7 @@ mod information;
 mod interative;
 mod preview;
 mod record;
+pub mod util;
 
 use crossterm::event::KeyEvent;
 use nu_protocol::{

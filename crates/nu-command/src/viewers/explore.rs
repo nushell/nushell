@@ -154,8 +154,12 @@ fn style_from_config(config: &HashMap<String, Value>) -> StyleConfig {
 
     let colors = get_color_map(config);
 
-    if let Some(s) = colors.get("status_bar") {
-        style.status_bar = *s;
+    if let Some(s) = colors.get("status_bar_text") {
+        style.status_bar_text = *s;
+    }
+
+    if let Some(s) = colors.get("status_bar_background") {
+        style.status_bar_background = *s;
     }
 
     if let Some(s) = colors.get("command_bar_text") {
@@ -227,7 +231,7 @@ fn prepare_default_config(config: &mut HashMap<String, Value>) {
 
     const CONFIG_CURSOR_COLOR: Style = color(Some(Color::Black), Some(Color::LightYellow));
 
-    insert_style(config, "status_bar", STATUS_BAR);
+    insert_style(config, "status_bar_background", STATUS_BAR);
     insert_style(config, "command_bar_text", INPUT_BAR);
     insert_style(config, "highlight", HIGHLIGHT);
 

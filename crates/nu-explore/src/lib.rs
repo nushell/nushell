@@ -1,13 +1,11 @@
-mod command;
 mod commands;
-mod events;
 mod nu_common;
 mod pager;
+mod registry;
 mod views;
 
 use std::io;
 
-use command::{Command, CommandRegistry};
 use commands::{
     config::ConfigCmd, default_color_list, ConfigOption, ConfigShowCmd, ExpandCmd, HelpCmd,
     HelpManual, NuCmd, QuitCmd, TableCmd, TryCmd, TweakCmd,
@@ -18,6 +16,7 @@ use nu_protocol::{
     PipelineData, Value,
 };
 use pager::{Page, Pager};
+use registry::{Command, CommandRegistry};
 use terminal_size::{Height, Width};
 use views::{InformationView, Orientation, Preview, RecordView};
 
@@ -43,23 +42,30 @@ pub fn run_pager(
 
     let has_no_input = columns.is_empty() && data.is_empty();
     if has_no_input {
-        let view = Some(Page::new(InformationView, true));
-        return p.run(engine_state, stack, ctrlc, view, commands);
+        return p.run(engine_state, stack, ctrlc, information_view(), commands);
     }
 
     if config.show_banner {
         p.show_message("For help type :help");
     }
 
-    if has_simple_value(&data) {
-        let text = data[0][0].into_abbreviated_string(config.nu_config);
-
+    if let Some(value) = has_simple_value(&data) {
+        let text = value.into_abbreviated_string(config.nu_config);
         let view = Some(Page::new(Preview::new(&text), true));
         return p.run(engine_state, stack, ctrlc, view, commands);
     }
 
-    let mut view = RecordView::new(columns, data);
+    let view = create_record_view(columns, data, is_record, config);
+    p.run(engine_state, stack, ctrlc, view, commands)
+}
 
+fn create_record_view(
+    columns: Vec<String>,
+    data: Vec<Vec<Value>>,
+    is_record: bool,
+    config: PagerConfig,
+) -> Option<Page> {
+    let mut view = RecordView::new(columns, data);
     if is_record {
         view.set_orientation_current(Orientation::Left);
     }
@@ -70,8 +76,11 @@ pub fn run_pager(
         }
     }
 
-    let view = Some(Page::new(view, false));
-    p.run(engine_state, stack, ctrlc, view, commands)
+    Some(Page::new(view, false))
+}
+
+fn information_view() -> Option<Page> {
+    Some(Page::new(InformationView, true))
 }
 
 pub fn create_command_registry() -> CommandRegistry {
@@ -121,10 +130,14 @@ fn create_config_command(commands: &[Command]) -> ConfigCmd {
     config.register_group(ConfigOption::new("Explore configuration", "...", "status.warn", default_color_list()));
     config.register_group(ConfigOption::new("Explore configuration", "...", "status.error", default_color_list()));
 
-    config.register_group(ConfigOption::new("Explore configuration", "...", "status_bar", default_color_list()));
+    config.register_group(ConfigOption::new("Explore configuration", "...", "status_bar_text", default_color_list()));
+    config.register_group(ConfigOption::new("Explore configuration", "...", "status_bar_background", default_color_list()));
     config.register_group(ConfigOption::new("Explore configuration", "...", "command_bar_text", default_color_list()));
     config.register_group(ConfigOption::new("Explore configuration", "...", "command_bar_background", default_color_list()));
     config.register_group(ConfigOption::new("Explore configuration", "...", "highlight", default_color_list()));
+
+    config.register_group(ConfigOption::boolean("Explore configuration", "...", "help_banner"));
+    config.register_group(ConfigOption::boolean("Explore configuration", "...", "exit_esc"));
 
     config
 }

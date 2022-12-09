@@ -14,9 +14,10 @@ use tui::{
 };
 
 use crate::{
-    nu_common::{truncate_str, NuStyle, NuText},
-    pager::{nu_style_to_tui, Frame, Transition, ViewInfo},
+    nu_common::{truncate_str, NuText},
+    pager::{Frame, Transition, ViewInfo},
     util::create_map,
+    views::util::nu_style_to_tui,
 };
 
 use super::{Layout, View, ViewConfig};
@@ -26,9 +27,9 @@ pub struct ConfigurationView {
     options: Vec<ConfigGroup>,
     peeked_cursor: Option<Cursor>,
     cursor: Cursor,
-    border_color: NuStyle,
-    cursor_color: NuStyle,
-    list_color: NuStyle,
+    border_color: Style,
+    cursor_color: Style,
+    list_color: Style,
     // block_init_update: bool,
 }
 
@@ -38,9 +39,9 @@ impl ConfigurationView {
             options,
             cursor: Cursor::default(),
             peeked_cursor: None,
-            border_color: NuStyle::default(),
-            cursor_color: NuStyle::default(),
-            list_color: NuStyle::default(),
+            border_color: Style::default(),
+            cursor_color: Style::default(),
+            list_color: Style::default(),
         }
     }
 
@@ -177,9 +178,9 @@ impl View for ConfigurationView {
             return;
         }
 
-        let list_color = nu_style_to_tui(self.list_color);
-        let border_color = nu_style_to_tui(self.border_color);
-        let cursor_color = nu_style_to_tui(self.cursor_color);
+        let list_color = self.list_color;
+        let border_color = self.border_color;
+        let cursor_color = self.cursor_color;
 
         let height = area.height - USED_HEIGHT_BY_BORDERS;
 
@@ -347,15 +348,15 @@ impl View for ConfigurationView {
             let colors = get_color_map(&hm);
 
             if let Some(style) = colors.get("border_color").copied() {
-                self.border_color = style;
+                self.border_color = nu_style_to_tui(style);
             }
 
             if let Some(style) = colors.get("cursor_color").copied() {
-                self.cursor_color = style;
+                self.cursor_color = nu_style_to_tui(style);
             }
 
             if let Some(style) = colors.get("list_color").copied() {
-                self.list_color = style;
+                self.list_color = nu_style_to_tui(style);
             }
         }
 

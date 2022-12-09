@@ -10,8 +10,10 @@ use tui::{
 
 use crate::{
     nu_common::{truncate_str, NuStyle, NuStyleTable, NuText},
-    pager::{nu_style_to_tui, text_style_to_tui_style},
-    views::ElementInfo,
+    views::{
+        util::{nu_style_to_tui, text_style_to_tui_style},
+        ElementInfo,
+    },
 };
 
 use super::Layout;

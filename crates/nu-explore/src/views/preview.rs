@@ -10,7 +10,10 @@ use tui::layout::Rect;
 
 use crate::{
     nu_common::{NuSpan, NuText},
-    pager::{Frame, Report, Severity, Transition, ViewInfo},
+    pager::{
+        report::{Report, Severity},
+        Frame, Transition, ViewInfo,
+    },
 };
 
 use super::{coloredtextw::ColoredTextW, Layout, View, ViewConfig};

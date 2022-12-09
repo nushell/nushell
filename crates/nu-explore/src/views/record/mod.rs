@@ -13,8 +13,8 @@ use tui::{layout::Rect, widgets::Block};
 use crate::{
     nu_common::{collect_input, NuConfig, NuSpan, NuStyle, NuStyleTable, NuText},
     pager::{
-        make_styled_string, nu_style_to_tui, ConfigMap, Frame, Position, Report, Severity,
-        Transition, ViewInfo,
+        report::{Report, Severity},
+        ConfigMap, Frame, Position, Transition, ViewInfo,
     },
     util::create_map,
     views::ElementInfo,
@@ -22,7 +22,10 @@ use crate::{
 
 use self::tablew::{TableStyle, TableW, TableWState};
 
-use super::{Layout, View, ViewConfig};
+use super::{
+    util::{make_styled_string, nu_style_to_tui},
+    Layout, View, ViewConfig,
+};
 
 pub use self::tablew::Orientation;
 

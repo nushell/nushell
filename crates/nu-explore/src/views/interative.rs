@@ -13,13 +13,14 @@ use tui::{
 };
 
 use crate::{
-    nu_common::{collect_pipeline, run_command_with_value, NuStyle},
-    pager::{nu_style_to_tui, Frame, Report, Transition, ViewInfo},
+    nu_common::{collect_pipeline, run_command_with_value},
+    pager::{report::Report, Frame, Transition, ViewInfo},
     util::create_map,
 };
 
 use super::{
     record::{RecordView, TableTheme},
+    util::nu_style_to_tui,
     Layout, Orientation, View, ViewConfig,
 };
 
@@ -27,11 +28,11 @@ pub struct InteractiveView<'a> {
     input: Value,
     command: String,
     imidiate: bool,
-    border_color: NuStyle,
-    highlighted_color: NuStyle,
     table: Option<RecordView<'a>>,
     table_theme: TableTheme,
     view_mode: bool,
+    border_color: Style,
+    highlighted_color: Style,
 }
 
 impl<'a> InteractiveView<'a> {
@@ -41,8 +42,8 @@ impl<'a> InteractiveView<'a> {
             table: None,
             imidiate: false,
             table_theme: TableTheme::default(),
-            border_color: NuStyle::default(),
-            highlighted_color: NuStyle::default(),
+            border_color: Style::default(),
+            highlighted_color: Style::default(),
             view_mode: false,
             command: String::new(),
         }
@@ -63,8 +64,8 @@ impl<'a> InteractiveView<'a> {
 
 impl View for InteractiveView<'_> {
     fn draw(&mut self, f: &mut Frame, area: Rect, cfg: ViewConfig<'_>, layout: &mut Layout) {
-        let border_color = nu_style_to_tui(self.border_color);
-        let highlighted_color = nu_style_to_tui(self.highlighted_color);
+        let border_color = self.border_color;
+        let highlighted_color = self.highlighted_color;
 
         let cmd_block = tui::widgets::Block::default()
             .borders(Borders::ALL)
@@ -253,16 +254,14 @@ impl View for InteractiveView<'_> {
             let colors = get_color_map(&hm);
 
             if let Some(color) = colors.get("border_color").copied() {
-                self.border_color = color;
+                self.border_color = nu_style_to_tui(color);
             }
 
             if let Some(color) = colors.get("highlighted_color").copied() {
-                self.highlighted_color = color;
+                self.highlighted_color = nu_style_to_tui(color);
             }
 
-            if self.border_color != NuStyle::default()
-                && self.highlighted_color == NuStyle::default()
-            {
+            if self.border_color != Style::default() && self.highlighted_color == Style::default() {
                 self.highlighted_color = self.border_color;
             }
 

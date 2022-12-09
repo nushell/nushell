@@ -89,9 +89,8 @@ impl ViewCommand for NuCmd {
 
         let (columns, values) = collect_pipeline(pipeline);
 
-        if has_simple_value(&values) {
-            let config = &engine_state.config;
-            let text = values[0][0].into_abbreviated_string(config);
+        if let Some(value) = has_simple_value(&values) {
+            let text = value.into_abbreviated_string(&engine_state.config);
             return Ok(NuView::Preview(Preview::new(&text)));
         }
 

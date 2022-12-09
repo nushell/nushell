@@ -96,13 +96,7 @@ impl View for ConfigView {
     }
 
     fn setup(&mut self, config: ViewConfig<'_>) {
-        let text = match self.format {
-            ConfigFormat::Table => {
-                let value = map_into_value(config.config.clone());
-                try_build_table(None, config.nu_config, config.color_hm, value)
-            }
-            ConfigFormat::Nu => nu_json::to_string(&config.config).unwrap_or_default(),
-        };
+        let text = self.create_output_string(config);
 
         self.preview = Preview::new(&text);
         self.preview
@@ -119,5 +113,17 @@ impl View for ConfigView {
 
     fn show_data(&mut self, i: usize) -> bool {
         self.preview.show_data(i)
+    }
+}
+
+impl ConfigView {
+    fn create_output_string(&mut self, config: ViewConfig) -> String {
+        match self.format {
+            ConfigFormat::Table => {
+                let value = map_into_value(config.config.clone());
+                try_build_table(None, config.nu_config, config.color_hm, value)
+            }
+            ConfigFormat::Nu => nu_json::to_string(&config.config).unwrap_or_default(),
+        }
     }
 }

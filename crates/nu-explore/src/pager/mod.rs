@@ -1,3 +1,8 @@
+mod command_bar;
+mod events;
+pub mod report;
+mod status_bar;
+
 use std::{
     cmp::min,
     collections::HashMap,
@@ -13,35 +18,136 @@ use crossterm::{
         LeaveAlternateScreen,
     },
 };
-use nu_color_config::{lookup_ansi_color_style, style_primitive};
+use nu_color_config::lookup_ansi_color_style;
 use nu_protocol::{
     engine::{EngineState, Stack},
     Value,
 };
-use nu_table::{string_width, Alignment, TextStyle};
-use tui::{
-    backend::CrosstermBackend,
-    buffer::Buffer,
-    layout::Rect,
-    style::{Color, Modifier},
-    text::Span,
-    widgets::{Block, Borders, Widget},
-};
+use tui::{backend::CrosstermBackend, layout::Rect, widgets::Block};
 
 use crate::{
-    command::{Command, CommandRegistry},
-    nu_common::{truncate_str, CtrlC, NuColor, NuConfig, NuSpan, NuStyle, NuStyleTable, NuText},
+    nu_common::{CtrlC, NuColor, NuConfig, NuSpan, NuStyle, NuStyleTable},
+    registry::{Command, CommandRegistry},
     util::map_into_value,
-    views::ViewConfig,
+    views::{util::nu_style_to_tui, ViewConfig},
 };
 
-use super::{
-    events::UIEvents,
-    views::{Layout, View},
+use self::{
+    command_bar::CommandBar,
+    report::{Report, Severity},
+    status_bar::StatusBar,
 };
+
+use super::views::{Layout, View};
+
+use events::UIEvents;
 
 pub type Frame<'a> = tui::Frame<'a, CrosstermBackend<Stdout>>;
 pub type Terminal = tui::Terminal<CrosstermBackend<Stdout>>;
+pub type ConfigMap = HashMap<String, Value>;
+
+#[derive(Debug, Clone)]
+pub struct Pager<'a> {
+    config: PagerConfig<'a>,
+    message: Option<String>,
+    cmd_buf: CommandBuf,
+    search_buf: SearchBuf,
+}
+
+#[derive(Debug, Clone, Default)]
+struct SearchBuf {
+    buf_cmd: String,
+    buf_cmd_input: String,
+    search_results: Vec<usize>,
+    search_index: usize,
+    is_reversed: bool,
+    is_search_input: bool,
+}
+
+#[derive(Debug, Clone, Default)]
+struct CommandBuf {
+    is_cmd_input: bool,
+    run_cmd: bool,
+    buf_cmd2: String,
+    cmd_history: Vec<String>,
+    cmd_history_allow: bool,
+    cmd_history_pos: usize,
+    cmd_exec_info: Option<String>,
+}
+
+#[derive(Debug, Default, Clone)]
+pub struct StyleConfig {
+    pub status_info: NuStyle,
+    pub status_warn: NuStyle,
+    pub status_error: NuStyle,
+    pub status_bar_background: NuStyle,
+    pub status_bar_text: NuStyle,
+    pub cmd_bar_text: NuStyle,
+    pub cmd_bar_background: NuStyle,
+    pub highlight: NuStyle,
+}
+
+impl<'a> Pager<'a> {
+    pub fn new(config: PagerConfig<'a>) -> Self {
+        Self {
+            config,
+            cmd_buf: CommandBuf::default(),
+            search_buf: SearchBuf::default(),
+            message: None,
+        }
+    }
+
+    pub fn show_message(&mut self, text: impl Into<String>) {
+        self.message = Some(text.into());
+    }
+
+    pub fn set_config(&mut self, path: &[String], value: Value) -> bool {
+        let path = path.iter().map(|s| s.as_str()).collect::<Vec<_>>();
+
+        match &path[..] {
+            ["exit_esc"] => {
+                if matches!(value, Value::Bool { .. }) {
+                    self.config.exit_esc = value.is_true();
+                    true
+                } else {
+                    false
+                }
+            }
+            ["status_bar_text"] => value_as_style(&mut self.config.style.status_bar_text, &value),
+            ["status_bar_background"] => {
+                value_as_style(&mut self.config.style.status_bar_background, &value)
+            }
+            ["command_bar_text"] => value_as_style(&mut self.config.style.cmd_bar_text, &value),
+            ["command_bar_background"] => {
+                value_as_style(&mut self.config.style.cmd_bar_background, &value)
+            }
+            ["highlight"] => value_as_style(&mut self.config.style.highlight, &value),
+            ["status", "info"] => value_as_style(&mut self.config.style.status_info, &value),
+            ["status", "warn"] => value_as_style(&mut self.config.style.status_warn, &value),
+            ["status", "error"] => value_as_style(&mut self.config.style.status_error, &value),
+            path => set_config(&mut self.config.config, path, value),
+        }
+    }
+
+    pub fn run(
+        &mut self,
+        engine_state: &EngineState,
+        stack: &mut Stack,
+        ctrlc: CtrlC,
+        mut view: Option<Page>,
+        commands: CommandRegistry,
+    ) -> Result<Option<Value>> {
+        if let Some(page) = &mut view {
+            page.view.setup(ViewConfig::new(
+                self.config.nu_config,
+                self.config.color_hm,
+                &self.config.config,
+            ))
+        }
+
+        run_pager(engine_state, stack, ctrlc, self, view, commands)
+    }
+}
 
 #[derive(Debug, Clone)]
 #[allow(dead_code)]
@@ -78,9 +184,7 @@ impl<'a> PagerConfig<'a> {
     }
 }
 
-pub type ConfigMap = HashMap<String, Value>;
-
-pub fn run_pager(
+fn run_pager(
     engine_state: &EngineState,
     stack: &mut Stack,
     ctrlc: CtrlC,
@@ -396,8 +500,13 @@ where
 }
 
 fn render_status_bar(f: &mut Frame, area: Rect, report: Report, theme: &StyleConfig) {
-    let msg_style = report_msg_style(&report, theme, theme.status_bar);
-    let status_bar = StatusBar::new(report, theme.status_bar, msg_style);
+    let msg_style = report_msg_style(&report, theme, theme.status_bar_text);
+    let mut status_bar = StatusBar::new(report.message, report.context, report.context2);
+    status_bar.set_background_style(theme.status_bar_background);
+    status_bar.set_message_style(msg_style);
+    status_bar.set_ctx_style(theme.status_bar_text);
+    status_bar.set_ctx2_style(theme.status_bar_text);
+
     f.render_widget(status_bar, area);
 }
 
@@ -418,15 +527,14 @@ fn render_cmd_bar(
 ) {
     if let Some(report) = report {
         let style = report_msg_style(&report, theme, theme.cmd_bar_text);
-        f.render_widget(
-            CmdBar::new(
-                &report.message,
-                &report.context,
-                style,
-                theme.cmd_bar_background,
-            ),
-            area,
+        let bar = CommandBar::new(
+            &report.message,
+            &report.context,
+            style,
+            theme.cmd_bar_background,
         );
+
+        f.render_widget(bar, area);
         return;
     }
 
@@ -449,10 +557,8 @@ fn render_cmd_bar_search(f: &mut Frame, area: Rect, pager: &Pager<'_>, theme: &S
             ..Default::default()
         };
 
-        f.render_widget(
-            CmdBar::new(&message, "", style, theme.cmd_bar_background),
-            area,
-        );
+        let bar = CommandBar::new(&message, "", style, theme.cmd_bar_background);
+        f.render_widget(bar, area);
         return;
     }
 
@@ -470,10 +576,8 @@ fn render_cmd_bar_search(f: &mut Frame, area: Rect, pager: &Pager<'_>, theme: &S
         format!("[{}/{}]", index, total)
     };
 
-    f.render_widget(
-        CmdBar::new(&text, &info, theme.cmd_bar_text, theme.cmd_bar_background),
-        area,
-    );
+    let bar = CommandBar::new(&text, &info, theme.cmd_bar_text, theme.cmd_bar_background);
+    f.render_widget(bar, area);
 }
 
 fn render_cmd_bar_cmd(f: &mut Frame, area: Rect, pager: &Pager, theme: &StyleConfig) {
@@ -493,10 +597,9 @@ fn render_cmd_bar_cmd(f: &mut Frame, area: Rect, pager: &Pager, theme: &StyleCon
 
     let prefix = ':';
     let text = format!("{}{}", prefix, input);
-    f.render_widget(
-        CmdBar::new(&text, "", theme.cmd_bar_text, theme.cmd_bar_background),
-        area,
-    );
+
+    let bar = CommandBar::new(&text, "", theme.cmd_bar_text, theme.cmd_bar_background);
+    f.render_widget(bar, area);
 }
 
 fn highlight_search_results(f: &mut Frame, pager: &Pager, layout: &Layout, style: NuStyle) {
@@ -857,105 +960,6 @@ fn cmd_input_key_event(buf: &mut CommandBuf, key: &KeyEvent) -> bool {
     }
 }
 
-#[derive(Debug, Clone)]
-pub struct Pager<'a> {
-    config: PagerConfig<'a>,
-    message: Option<String>,
-    cmd_buf: CommandBuf,
-    search_buf: SearchBuf,
-}
-
-#[derive(Debug, Clone, Default)]
-struct SearchBuf {
-    buf_cmd: String,
-    buf_cmd_input: String,
-    search_results: Vec<usize>,
-    search_index: usize,
-    is_reversed: bool,
-    is_search_input: bool,
-}
-
-#[derive(Debug, Clone, Default)]
-struct CommandBuf {
-    is_cmd_input: bool,
-    run_cmd: bool,
-    buf_cmd2: String,
-    cmd_history: Vec<String>,
-    cmd_history_allow: bool,
-    cmd_history_pos: usize,
-    cmd_exec_info: Option<String>,
-}
-
-#[derive(Debug, Default, Clone)]
-pub struct StyleConfig {
-    pub status_info: NuStyle,
-    pub status_warn: NuStyle,
-    pub status_error: NuStyle,
-    pub status_bar: NuStyle,
-    pub cmd_bar_text: NuStyle,
-    pub cmd_bar_background: NuStyle,
-    pub highlight: NuStyle,
-}
-
-impl<'a> Pager<'a> {
-    pub fn new(config: PagerConfig<'a>) -> Self {
-        Self {
-            config,
-            cmd_buf: CommandBuf::default(),
-            search_buf: SearchBuf::default(),
-            message: None,
-        }
-    }
-
-    pub fn show_message(&mut self, text: impl Into<String>) {
-        self.message = Some(text.into());
-    }
-
-    pub fn set_config(&mut self, path: &[String], value: Value) -> bool {
-        let path = path.iter().map(|s| s.as_str()).collect::<Vec<_>>();
-
-        match &path[..] {
-            ["exit_esc"] => {
-                if matches!(value, Value::Bool { .. }) {
-                    self.config.exit_esc = value.is_true();
-                    true
-                } else {
-                    false
-                }
-            }
-            ["status_bar"] => value_as_style(&mut self.config.style.status_bar, &value),
-            ["command_bar_text"] => value_as_style(&mut self.config.style.cmd_bar_text, &value),
-            ["command_bar_background"] => {
-                value_as_style(&mut self.config.style.cmd_bar_background, &value)
-            }
-            ["highlight"] => value_as_style(&mut self.config.style.highlight, &value),
-            ["status", "info"] => value_as_style(&mut self.config.style.status_info, &value),
-            ["status", "warn"] => value_as_style(&mut self.config.style.status_warn, &value),
-            ["status", "error"] => value_as_style(&mut self.config.style.status_error, &value),
-            path => set_config(&mut self.config.config, path, value),
-        }
-    }
-
-    pub fn run(
-        &mut self,
-        engine_state: &EngineState,
-        stack: &mut Stack,
-        ctrlc: CtrlC,
-        mut view: Option<Page>,
-        commands: CommandRegistry,
-    ) -> Result<Option<Value>> {
-        if let Some(page) = &mut view {
-            page.view.setup(ViewConfig::new(
-                self.config.nu_config,
-                self.config.color_hm,
-                &self.config.config,
-            ))
-        }
-
-        run_pager(engine_state, stack, ctrlc, self, view, commands)
-    }
-}
-
 fn value_as_style(style: &mut nu_ansi_term::Style, value: &Value) -> bool {
     match value.as_string() {
         Ok(s) => {
@@ -1033,57 +1037,6 @@ fn set_config(hm: &mut HashMap<String, Value>, path: &[&str], value: Value) -> b
     }
 }
 
-struct StatusBar {
-    report: Report,
-    style: NuStyle,
-    message_style: NuStyle,
-}
-
-impl StatusBar {
-    fn new(report: Report, style: NuStyle, message_style: NuStyle) -> Self {
-        Self {
-            report,
-            style,
-            message_style,
-        }
-    }
-}
-
-impl Widget for StatusBar {
-    fn render(self, area: Rect, buf: &mut Buffer) {
-        let block_style = nu_style_to_tui(self.style);
-        let text_style = nu_style_to_tui(self.style).add_modifier(Modifier::BOLD);
-        let message_style = nu_style_to_tui(self.message_style).add_modifier(Modifier::BOLD);
-
-        // colorize the line
-        let block = Block::default()
-            .borders(Borders::empty())
-            .style(block_style);
-        block.render(area, buf);
-
-        if !self.report.message.is_empty() {
-            let width = area.width.saturating_sub(3 + 12 + 12 + 12);
-            let name = nu_table::string_truncate(&self.report.message, width as usize);
-            let span = Span::styled(name, message_style);
-            buf.set_span(area.left(), area.y, &span, width);
-        }
-
-        if !self.report.context2.is_empty() {
-            let span = Span::styled(&self.report.context2, text_style);
-            let span_w = self.report.context2.len() as u16;
-            let span_x = area.right().saturating_sub(3 + 12 + span_w);
-            buf.set_span(span_x, area.y, &span, span_w);
-        }
-
-        if !self.report.context.is_empty() {
-            let span = Span::styled(&self.report.context, text_style);
-            let span_w = self.report.context.len() as u16;
-            let span_x = area.right().saturating_sub(span_w);
-            buf.set_span(span_x, area.y, &span, span_w);
-        }
-    }
-}
-
 fn report_level_style(level: Severity, theme: &StyleConfig) -> NuStyle {
     match level {
         Severity::Info => theme.status_info,
@@ -1092,140 +1045,11 @@ fn report_level_style(level: Severity, theme: &StyleConfig) -> NuStyle {
     }
 }
 
-#[derive(Debug)]
-struct CmdBar<'a> {
-    text: &'a str,
-    information: &'a str,
-    text_s: NuStyle,
-    back_s: NuStyle,
-}
-
-impl<'a> CmdBar<'a> {
-    fn new(text: &'a str, information: &'a str, text_s: NuStyle, back_s: NuStyle) -> Self {
-        Self {
-            text,
-            information,
-            text_s,
-            back_s,
-        }
-    }
-}
-
-impl Widget for CmdBar<'_> {
-    fn render(self, area: Rect, buf: &mut Buffer) {
-        let text_style = nu_style_to_tui(self.text_s).add_modifier(Modifier::BOLD);
-        let ground_style = nu_style_to_tui(self.back_s);
-
-        // colorize the line
-        let block = Block::default().style(ground_style);
-        block.render(area, buf);
-
-        let span = Span::styled(self.text, text_style);
-        let w = string_width(self.text);
-        buf.set_span(area.x, area.y, &span, w as u16);
-
-        if area.width.saturating_sub(w as u16) > 12 + 12 {
-            let mut information = self.information.to_owned();
-            let mut w = string_width(self.information);
-            if w > 12 {
-                truncate_str(&mut information, 12);
-                w = 12;
-            }
-
-            let span = Span::styled(&information, text_style);
-            buf.set_span(
-                area.right().saturating_sub(w as u16 + 12),
-                area.y,
-                &span,
-                w as u16,
-            );
-        }
-    }
-}
-
-pub fn nu_style_to_tui(style: NuStyle) -> tui::style::Style {
-    let mut out = tui::style::Style::default();
-    if let Some(clr) = style.background {
-        out.bg = nu_ansi_color_to_tui_color(clr);
-    }
-
-    if let Some(clr) = style.foreground {
-        out.fg = nu_ansi_color_to_tui_color(clr);
-    }
-
-    if style.is_blink {
-        out.add_modifier |= Modifier::SLOW_BLINK;
-    }
-
-    if style.is_bold {
-        out.add_modifier |= Modifier::BOLD;
-    }
-
-    if style.is_dimmed {
-        out.add_modifier |= Modifier::DIM;
-    }
-
-    if style.is_hidden {
-        out.add_modifier |= Modifier::HIDDEN;
-    }
-
-    if style.is_italic {
-        out.add_modifier |= Modifier::ITALIC;
-    }
-
-    if style.is_reverse {
-        out.add_modifier |= Modifier::REVERSED;
-    }
-
-    if style.is_underline {
-        out.add_modifier |= Modifier::UNDERLINED;
-    }
-
-    out
-}
-
 #[derive(Debug, Default, Clone)]
 pub struct ViewInfo {
     pub cursor: Option<Position>,
     pub status: Option<Report>,
     pub report: Option<Report>,
-}
-
-#[derive(Debug, Clone)]
-pub struct Report {
-    pub message: String,
-    pub level: Severity,
-    pub context: String,
-    pub context2: String,
-}
-
-impl Report {
-    pub fn new(message: String, level: Severity, context: String, context2: String) -> Self {
-        Self {
-            message,
-            level,
-            context,
-            context2,
-        }
-    }
-
-    pub fn error(message: impl Into<String>) -> Self {
-        Self::new(message.into(), Severity::Err, String::new(), String::new())
-    }
-}
-
-impl Default for Report {
-    fn default() -> Self {
-        Self::new(String::new(), Severity::Info, String::new(), String::new())
-    }
-}
-
-#[derive(Debug, Clone, Copy)]
-pub enum Severity {
-    Info,
-    #[allow(dead_code)]
-    Warn,
-    Err,
 }
 
 #[derive(Debug, Default, Clone, Copy, Eq, PartialEq, Ord, PartialOrd, Hash)]
@@ -1237,90 +1061,6 @@ pub struct Position {
 impl Position {
     pub fn new(x: u16, y: u16) -> Self {
         Self { x, y }
-    }
-}
-
-pub fn text_style_to_tui_style(style: TextStyle) -> tui::style::Style {
-    let mut out = tui::style::Style::default();
-    if let Some(style) = style.color_style {
-        if let Some(clr) = style.background {
-            out.bg = nu_ansi_color_to_tui_color(clr);
-        }
-
-        if let Some(clr) = style.foreground {
-            out.fg = nu_ansi_color_to_tui_color(clr);
-        }
-    }
-
-    out
-}
-
-pub fn nu_ansi_color_to_tui_color(clr: NuColor) -> Option<tui::style::Color> {
-    use NuColor::*;
-
-    let clr = match clr {
-        Black => Color::Black,
-        DarkGray => Color::DarkGray,
-        Red => Color::Red,
-        LightRed => Color::LightRed,
-        Green => Color::Green,
-        LightGreen => Color::LightGreen,
-        Yellow => Color::Yellow,
-        LightYellow => Color::LightYellow,
-        Blue => Color::Blue,
-        LightBlue => Color::LightBlue,
-        Magenta => Color::Magenta,
-        LightMagenta => Color::LightMagenta,
-        Cyan => Color::Cyan,
-        LightCyan => Color::LightCyan,
-        White => Color::White,
-        Fixed(i) => Color::Indexed(i),
-        Rgb(r, g, b) => tui::style::Color::Rgb(r, g, b),
-        LightGray => Color::Gray,
-        LightPurple => Color::LightMagenta,
-        Purple => Color::Magenta,
-        Default => return None,
-    };
-
-    Some(clr)
-}
-
-pub fn make_styled_string(
-    text: String,
-    text_type: &str,
-    col: usize,
-    with_index: bool,
-    color_hm: &NuStyleTable,
-    float_precision: usize,
-) -> NuText {
-    if col == 0 && with_index {
-        (
-            text,
-            TextStyle {
-                alignment: Alignment::Right,
-                color_style: Some(color_hm["row_index"]),
-            },
-        )
-    } else if text_type == "float" {
-        // set dynamic precision from config
-        let precise_number = match convert_with_precision(&text, float_precision) {
-            Ok(num) => num,
-            Err(e) => e.to_string(),
-        };
-        (precise_number, style_primitive(text_type, color_hm))
-    } else {
-        (text, style_primitive(text_type, color_hm))
-    }
-}
-
-fn convert_with_precision(val: &str, precision: usize) -> Result<String> {
-    // vall will always be a f64 so convert it with precision formatting
-    match val.trim().parse::<f64>() {
-        Ok(f) => Ok(format!("{:.prec$}", f, prec = precision)),
-        Err(err) => {
-            let message = format!("error converting string [{}] to f64; {}", &val, err);
-            Err(io::Error::new(io::ErrorKind::Other, message))
-        }
     }
 }
 
