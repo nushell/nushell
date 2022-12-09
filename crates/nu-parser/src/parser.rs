@@ -645,25 +645,33 @@ pub fn parse_multispan_value(
             (arg, error)
         }
         SyntaxShape::OneOf(shapes) => {
+            let mut err = None;
             for shape in shapes.iter() {
-                if let (s, None) = parse_multispan_value(
+                let (s, option_err) = parse_multispan_value(
                     working_set,
                     spans,
                     spans_idx,
                     shape,
                     expand_aliases_denylist,
-                ) {
-                    return (s, None);
+                );
+                match option_err {
+                    None => return (s, None),
+                    e => err = err.or(e),
                 }
             }
             let span = spans[*spans_idx];
-            (
-                Expression::garbage(span),
-                Some(ParseError::Expected(
-                    format!("one of a list of accepted shapes: {:?}", shapes),
-                    span,
-                )),
-            )
+
+            if err.is_some() {
+                (Expression::garbage(span), err)
+            } else {
+                (
+                    Expression::garbage(span),
+                    Some(ParseError::Expected(
+                        format!("one of a list of accepted shapes: {:?}", shapes),
+                        span,
+                    )),
+                )
+            }
         }
         SyntaxShape::Expression => {
             trace!("parsing: expression");
