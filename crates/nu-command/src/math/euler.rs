@@ -17,7 +17,7 @@ impl Command for SubCommand {
     }
 
     fn usage(&self) -> &str {
-        "Returns the mathematical constant π."
+        "Returns the mathematical constant e (math exp 1)."
     }
 
     fn search_terms(&self) -> Vec<&str> {
