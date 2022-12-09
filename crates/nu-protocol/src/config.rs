@@ -193,6 +193,7 @@ pub struct ExploreConfig {
 impl Value {
     pub fn into_config(&mut self, config: &Config) -> (Config, Option<ShellError>) {
         // Clone the passed-in config rather than mutating it.
+
         let mut config = config.clone();
         let mut legacy_options_used = false;
 
@@ -255,6 +256,14 @@ impl Value {
             };
         }
 
+        // Config record (self) mutation rules:
+        // * When parsing a config Record, if a config key error occurs, remove the key.
+        // * When parsing a config Record, if a config value error occurs, replace the value
+        // with a reconstructed Nu value for the current (unaltered) configuration for that setting.
+        // For instance:
+        // $env.config.ls.use_ls_colors = 2 results in an error, so
+        // the current use_ls_colors config setting is converted to a Value::Boolean and inserted in the
+        // record in place of the 2.
         if let Value::Record { cols, vals, span } = self {
             // Because this whole algorithm removes while iterating, this must iterate in reverse.
             for index in (0..cols.len()).rev() {
@@ -366,8 +375,7 @@ impl Value {
                         }
                     }
                     "history" => {
-                        // Used as a shortcut for various places below
-                        macro_rules! default_history_file_format {
+                        macro_rules! reconstruct_history_file_format {
                             ($span:expr) => {
                                 Value::string(
                                     match config.history_file_format {
@@ -407,13 +415,13 @@ impl Value {
                                                     );
                                                     // Reconstruct
                                                     vals[index] =
-                                                        default_history_file_format!(span);
+                                                        reconstruct_history_file_format!(span);
                                                 }
                                             };
                                         } else {
                                             invalid!(Some(*span), "should be a string");
                                             // Reconstruct
-                                            vals[index] = default_history_file_format!(span);
+                                            vals[index] = reconstruct_history_file_format!(span);
                                         }
                                     }
                                     x => {
@@ -439,15 +447,14 @@ impl Value {
                                 vec![
                                     Value::boolean(config.sync_history_on_enter, *span),
                                     Value::int(config.max_history_size, *span),
-                                    default_history_file_format!(span),
+                                    reconstruct_history_file_format!(span),
                                 ],
                                 *span,
                             );
                         }
                     }
                     "completions" => {
-                        // Some shortcuts for structures below
-                        macro_rules! default_external_completer {
+                        macro_rules! reconstruct_external_completer {
                             ($span: expr) => {
                                 if let Some(block) = config.external_completer {
                                     Value::Block {
@@ -459,14 +466,13 @@ impl Value {
                                 }
                             };
                         }
-                        // Some shortcuts for structures below
-                        macro_rules! default_external {
+                        macro_rules! reconstruct_external {
                             ($span: expr) => {
                                 Value::record(
                                     vec!["max_results".into(), "completer".into(), "enable".into()],
                                     vec![
                                         Value::int(config.max_external_completion_results, *$span),
-                                        default_external_completer!($span),
+                                        reconstruct_external_completer!($span),
                                         Value::boolean(config.enable_external_completion, *$span),
                                     ],
                                     *$span,
@@ -549,7 +555,7 @@ impl Value {
                                                                         "should be a block or null"
                                                                     );
                                                                     // Reconstruct
-                                                                    vals[index] = default_external_completer!(
+                                                                    vals[index] = reconstruct_external_completer!(
                                                                         span
                                                                     );
                                                                 }
@@ -579,7 +585,7 @@ impl Value {
                                         } else {
                                             invalid!(Some(*span), "should be a record");
                                             // Reconstruct
-                                            vals[index] = default_external!(span);
+                                            vals[index] = reconstruct_external!(span);
                                         }
                                     }
                                     x => {
@@ -609,15 +615,14 @@ impl Value {
                                     Value::boolean(config.partial_completions, *span),
                                     Value::string(config.completion_algorithm.clone(), *span),
                                     Value::boolean(config.case_sensitive_completions, *span),
-                                    default_external!(span),
+                                    reconstruct_external!(span),
                                 ],
                                 *span,
                             );
                         }
                     }
                     "table" => {
-                        // Used as shortcuts for various places below
-                        macro_rules! default_index_mode {
+                        macro_rules! reconstruct_index_mode {
                             ($span:expr) => {
                                 Value::string(
                                     match config.table_index_mode {
@@ -629,7 +634,7 @@ impl Value {
                                 )
                             };
                         }
-                        macro_rules! default_trim_strategy {
+                        macro_rules! reconstruct_trim_strategy {
                             ($span:expr) => {
                                 match &config.trim_strategy {
                                     TrimStrategy::Wrap { try_to_keep_words } => Value::record(
@@ -691,12 +696,12 @@ impl Value {
                                                     invalid!( Some(*span),
                                                         "unrecognized $env.config.{key}.{key2} '{val_str}'; expected either 'never', 'always' or 'auto'"
                                                     );
-                                                    vals[index] = default_index_mode!(span);
+                                                    vals[index] = reconstruct_index_mode!(span);
                                                 }
                                             }
                                         } else {
                                             invalid!(Some(*span), "should be a string");
-                                            vals[index] = default_index_mode!(span);
+                                            vals[index] = reconstruct_index_mode!(span);
                                         }
                                     }
                                     "trim" => {
@@ -705,7 +710,7 @@ impl Value {
                                             Err(e) => {
                                                 // try_parse_trim_strategy() already adds its own errors
                                                 errors.push(e);
-                                                vals[index] = default_trim_strategy!(span);
+                                                vals[index] = reconstruct_trim_strategy!(span);
                                             }
                                         }
                                     }
@@ -727,8 +732,8 @@ impl Value {
                                 vec!["mode".into(), "index_mode".into(), "trim".into()],
                                 vec![
                                     Value::string(config.table_mode.clone(), *span),
-                                    default_index_mode!(span),
-                                    default_trim_strategy!(span),
+                                    reconstruct_index_mode!(span),
+                                    reconstruct_trim_strategy!(span),
                                 ],
                                 *span,
                             )
