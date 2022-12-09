@@ -422,6 +422,7 @@ pub fn create_default_context() -> EngineState {
             MathTau,
             MathEuler,
             MathLn,
+            MathLog,
         };
 
         // Network
