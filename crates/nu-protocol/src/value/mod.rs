@@ -3205,7 +3205,7 @@ pub fn format_duration_as_timeperiod(duration: i64) -> (i32, Vec<TimePeriod>) {
 
 pub fn format_filesize_from_conf(num_bytes: i64, config: &Config) -> String {
     // We need to take into account config.filesize_metric so, if someone asks for KB
-    // filesize_metric is true, return KiB
+    // and filesize_metric is false, return KiB
     format_filesize(
         num_bytes,
         config.filesize_format.as_str(),
@@ -3215,15 +3215,17 @@ pub fn format_filesize_from_conf(num_bytes: i64, config: &Config) -> String {
 
 pub fn format_filesize(num_bytes: i64, format_value: &str, filesize_metric: bool) -> String {
     // Allow the user to specify how they want their numbers formatted
+
+    // When format_value is "auto" or an invalid value, the returned ByteUnit doesn't matter
+    // and is always B.
     let filesize_format_var = get_filesize_format(format_value, filesize_metric);
 
     let byte = byte_unit::Byte::from_bytes(num_bytes.unsigned_abs() as u128);
-    let adj_byte =
-        if filesize_format_var.0 == byte_unit::ByteUnit::B && filesize_format_var.1 == "auto" {
-            byte.get_appropriate_unit(!filesize_metric)
-        } else {
-            byte.get_adjusted_unit(filesize_format_var.0)
-        };
+    let adj_byte = if filesize_format_var.1 == "auto" {
+        byte.get_appropriate_unit(!filesize_metric)
+    } else {
+        byte.get_adjusted_unit(filesize_format_var.0)
+    };
 
     match adj_byte.get_unit() {
         byte_unit::ByteUnit::B => {
@@ -3253,64 +3255,29 @@ pub fn format_filesize(num_bytes: i64, format_value: &str, filesize_metric: bool
 }
 
 fn get_filesize_format(format_value: &str, filesize_metric: bool) -> (ByteUnit, &str) {
+    macro_rules! either {
+        ($metric:ident, $binary:ident) => {
+            (
+                // filesize_metric always overrides the unit of
+                // filesize_format.
+                if filesize_metric {
+                    byte_unit::ByteUnit::$metric
+                } else {
+                    byte_unit::ByteUnit::$binary
+                },
+                "",
+            )
+        };
+    }
     match format_value {
         "b" => (byte_unit::ByteUnit::B, ""),
-        "kb" => {
-            if filesize_metric {
-                (byte_unit::ByteUnit::KiB, "")
-            } else {
-                (byte_unit::ByteUnit::KB, "")
-            }
-        }
-        "kib" => (byte_unit::ByteUnit::KiB, ""),
-        "mb" => {
-            if filesize_metric {
-                (byte_unit::ByteUnit::MiB, "")
-            } else {
-                (byte_unit::ByteUnit::MB, "")
-            }
-        }
-        "mib" => (byte_unit::ByteUnit::MiB, ""),
-        "gb" => {
-            if filesize_metric {
-                (byte_unit::ByteUnit::GiB, "")
-            } else {
-                (byte_unit::ByteUnit::GB, "")
-            }
-        }
-        "gib" => (byte_unit::ByteUnit::GiB, ""),
-        "tb" => {
-            if filesize_metric {
-                (byte_unit::ByteUnit::TiB, "")
-            } else {
-                (byte_unit::ByteUnit::TB, "")
-            }
-        }
-        "tib" => (byte_unit::ByteUnit::TiB, ""),
-        "pb" => {
-            if filesize_metric {
-                (byte_unit::ByteUnit::PiB, "")
-            } else {
-                (byte_unit::ByteUnit::PB, "")
-            }
-        }
-        "pib" => (byte_unit::ByteUnit::PiB, ""),
-        "eb" => {
-            if filesize_metric {
-                (byte_unit::ByteUnit::EiB, "")
-            } else {
-                (byte_unit::ByteUnit::EB, "")
-            }
-        }
-        "eib" => (byte_unit::ByteUnit::EiB, ""),
-        "zb" => {
-            if filesize_metric {
-                (byte_unit::ByteUnit::ZiB, "")
-            } else {
-                (byte_unit::ByteUnit::ZB, "")
-            }
-        }
-        "zib" => (byte_unit::ByteUnit::ZiB, ""),
+        "kb" | "kib" => either!(KB, KiB),
+        "mb" | "mib" => either!(MB, MiB),
+        "gb" | "gib" => either!(GB, GiB),
+        "tb" | "tib" => either!(TB, TiB),
+        "pb" | "pib" => either!(TB, TiB),
+        "eb" | "eib" => either!(EB, EiB),
+        "zb" | "zib" => either!(ZB, ZiB),
         _ => (byte_unit::ByteUnit::B, "auto"),
     }
 }

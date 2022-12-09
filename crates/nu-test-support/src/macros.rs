@@ -1,4 +1,4 @@
-/// Run a command in nu and get it's output
+/// Run a command in nu and get its output
 ///
 /// The `nu!` macro accepts a number of options like the `cwd` in which the
 /// command should be run. It is also possible to specify a different `locale`
