@@ -2,6 +2,7 @@ mod alias;
 mod all;
 mod any;
 mod append;
+mod assignment;
 mod break_;
 mod cal;
 mod cd;

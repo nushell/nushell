@@ -4429,6 +4429,7 @@ pub fn parse_operator(
     let operator = match contents {
         b"=" => Operator::Assignment(Assignment::Assign),
         b"+=" => Operator::Assignment(Assignment::PlusAssign),
+        b"++=" => Operator::Assignment(Assignment::AppendAssign),
         b"-=" => Operator::Assignment(Assignment::MinusAssign),
         b"*=" => Operator::Assignment(Assignment::MultiplyAssign),
         b"/=" => Operator::Assignment(Assignment::DivideAssign),

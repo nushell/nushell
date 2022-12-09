@@ -474,6 +474,10 @@ pub fn eval_expression(
                             let lhs = eval_expression(engine_state, stack, lhs)?;
                             lhs.div(op_span, &rhs, op_span)?
                         }
+                        Assignment::AppendAssign => {
+                            let lhs = eval_expression(engine_state, stack, lhs)?;
+                            lhs.append(op_span, &rhs, op_span)?
+                        }
                     };
 
                     match &lhs.expr {
