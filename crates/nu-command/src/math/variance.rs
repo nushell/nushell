@@ -64,18 +64,9 @@ impl Command for SubCommand {
 }
 
 fn sum_of_squares(values: &[Value], span: &Span) -> Result<Value, ShellError> {
-    let n = Value::Int {
-        val: values.len() as i64,
-        span: *span,
-    };
-    let mut sum_x = Value::Int {
-        val: 0,
-        span: *span,
-    };
-    let mut sum_x2 = Value::Int {
-        val: 0,
-        span: *span,
-    };
+    let n = Value::int(values.len() as i64, *span);
+    let mut sum_x = Value::int(0, *span);
+    let mut sum_x2 = Value::int(0, *span);
     for value in values {
         let v = match &value {
             Value::Int { .. }
@@ -116,10 +107,7 @@ pub fn compute_variance(sample: bool) -> impl Fn(&[Value], &Span) -> Result<Valu
             )),
             other => other,
         }?;
-        let n = Value::Int {
-            val: n as i64,
-            span: *span,
-        };
+        let n = Value::int(n as i64, *span);
         ss.div(*span, &n, *span)
     }
 }

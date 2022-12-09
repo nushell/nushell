@@ -52,10 +52,7 @@ impl Completer for NuMenuCompleter {
 
         if let Some(position) = block.signature.get_positional(1) {
             if let Some(position_id) = &position.var_id {
-                let line_buffer = Value::Int {
-                    val: pos as i64,
-                    span: self.span,
-                };
+                let line_buffer = Value::int(pos as i64, self.span);
                 self.stack.add_var(*position_id, line_buffer);
             }
         }

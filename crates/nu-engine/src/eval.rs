@@ -256,10 +256,7 @@ pub fn eval_expression(
 ) -> Result<Value, ShellError> {
     match &expr.expr {
         Expr::Bool(b) => Ok(Value::boolean(*b, expr.span)),
-        Expr::Int(i) => Ok(Value::Int {
-            val: *i,
-            span: expr.span,
-        }),
+        Expr::Int(i) => Ok(Value::int(*i, expr.span)),
         Expr::Float(f) => Ok(Value::Float {
             val: *f,
             span: expr.span,

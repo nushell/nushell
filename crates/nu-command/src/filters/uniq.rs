@@ -206,13 +206,7 @@ fn generate_results_with_count(head: Span, uniq_values: Vec<ValueCounter>) -> Ve
         .into_iter()
         .map(|item| Value::Record {
             cols: vec!["value".to_string(), "count".to_string()],
-            vals: vec![
-                item.val,
-                Value::Int {
-                    val: item.count,
-                    span: head,
-                },
-            ],
+            vals: vec![item.val, Value::int(item.count, head)],
             span: head,
         })
         .collect()

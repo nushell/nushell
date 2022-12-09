@@ -55,18 +55,9 @@ with 'transpose' first."#
 
     fn examples(&self) -> Vec<Example> {
         let stream_test_1 = vec![
-            Value::Int {
-                val: 2,
-                span: Span::test_data(),
-            },
-            Value::Int {
-                val: 4,
-                span: Span::test_data(),
-            },
-            Value::Int {
-                val: 6,
-                span: Span::test_data(),
-            },
+            Value::int(2, Span::test_data()),
+            Value::int(4, Span::test_data()),
+            Value::int(6, Span::test_data()),
         ];
 
         let stream_test_2 = vec![

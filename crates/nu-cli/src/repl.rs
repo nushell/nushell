@@ -80,13 +80,7 @@ pub fn evaluate_repl(
         },
     );
 
-    stack.add_env_var(
-        "LAST_EXIT_CODE".into(),
-        Value::Int {
-            val: 0,
-            span: Span::unknown(),
-        },
-    );
+    stack.add_env_var("LAST_EXIT_CODE".into(), Value::int(0, Span::unknown()));
 
     info!(
         "load config initially {}:{}:{}",

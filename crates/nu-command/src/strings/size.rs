@@ -55,26 +55,11 @@ impl Command for Size {
                         "graphemes".into(),
                     ],
                     vals: vec![
-                        Value::Int {
-                            val: 1,
-                            span: Span::test_data(),
-                        },
-                        Value::Int {
-                            val: 7,
-                            span: Span::test_data(),
-                        },
-                        Value::Int {
-                            val: 38,
-                            span: Span::test_data(),
-                        },
-                        Value::Int {
-                            val: 38,
-                            span: Span::test_data(),
-                        },
-                        Value::Int {
-                            val: 38,
-                            span: Span::test_data(),
-                        },
+                        Value::int(1, Span::test_data()),
+                        Value::int(7, Span::test_data()),
+                        Value::int(38, Span::test_data()),
+                        Value::int(38, Span::test_data()),
+                        Value::int(38, Span::test_data()),
                     ],
                     span: Span::test_data(),
                 }),
@@ -91,26 +76,11 @@ impl Command for Size {
                         "graphemes".into(),
                     ],
                     vals: vec![
-                        Value::Int {
-                            val: 1,
-                            span: Span::test_data(),
-                        },
-                        Value::Int {
-                            val: 6,
-                            span: Span::test_data(),
-                        },
-                        Value::Int {
-                            val: 18,
-                            span: Span::test_data(),
-                        },
-                        Value::Int {
-                            val: 6,
-                            span: Span::test_data(),
-                        },
-                        Value::Int {
-                            val: 6,
-                            span: Span::test_data(),
-                        },
+                        Value::int(1, Span::test_data()),
+                        Value::int(6, Span::test_data()),
+                        Value::int(18, Span::test_data()),
+                        Value::int(6, Span::test_data()),
+                        Value::int(6, Span::test_data()),
                     ],
                     span: Span::test_data(),
                 }),
@@ -127,26 +97,11 @@ impl Command for Size {
                         "graphemes".into(),
                     ],
                     vals: vec![
-                        Value::Int {
-                            val: 1,
-                            span: Span::test_data(),
-                        },
-                        Value::Int {
-                            val: 2,
-                            span: Span::test_data(),
-                        },
-                        Value::Int {
-                            val: 15,
-                            span: Span::test_data(),
-                        },
-                        Value::Int {
-                            val: 14,
-                            span: Span::test_data(),
-                        },
-                        Value::Int {
-                            val: 13,
-                            span: Span::test_data(),
-                        },
+                        Value::int(1, Span::test_data()),
+                        Value::int(2, Span::test_data()),
+                        Value::int(15, Span::test_data()),
+                        Value::int(14, Span::test_data()),
+                        Value::int(13, Span::test_data()),
                     ],
                     span: Span::test_data(),
                 }),

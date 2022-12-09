@@ -181,10 +181,7 @@ pub fn get_examples() -> Vec<Example> {
             description: "Converts yaml formatted string to table",
             result: Some(Value::Record {
                 cols: vec!["a".to_string()],
-                vals: vec![Value::Int {
-                    val: 1,
-                    span: Span::test_data(),
-                }],
+                vals: vec![Value::int(1, Span::test_data())],
                 span: Span::test_data(),
             }),
         },

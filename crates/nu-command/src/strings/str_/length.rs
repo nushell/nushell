@@ -66,10 +66,7 @@ impl Command for SubCommand {
 
 fn action(input: &Value, _arg: &CellPathOnlyArgs, head: Span) -> Value {
     match input {
-        Value::String { val, .. } => Value::Int {
-            val: val.len() as i64,
-            span: head,
-        },
+        Value::String { val, .. } => Value::int(val.len() as i64, head),
         other => Value::Error {
             error: ShellError::UnsupportedInput(
                 format!(

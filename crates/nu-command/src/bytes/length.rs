@@ -70,10 +70,7 @@ fn length(val: &Value, _args: &CellPathOnlyArgs, span: Span) -> Value {
         Value::Binary {
             val,
             span: val_span,
-        } => Value::Int {
-            val: val.len() as i64,
-            span: *val_span,
-        },
+        } => Value::int(val.len() as i64, *val_span),
         other => Value::Error {
             error: ShellError::UnsupportedInput(
                 format!(

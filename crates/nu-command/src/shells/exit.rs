@@ -86,17 +86,11 @@ impl Command for Exit {
             );
             stack.add_env_var(
                 "NUSHELL_CURRENT_SHELL".into(),
-                Value::Int {
-                    val: current_shell as i64,
-                    span: call.head,
-                },
+                Value::int(current_shell as i64, call.head),
             );
             stack.add_env_var(
                 "NUSHELL_LAST_SHELL".into(),
-                Value::Int {
-                    val: last_shell as i64,
-                    span: call.head,
-                },
+                Value::int(last_shell as i64, call.head),
             );
 
             stack.add_env_var("PWD".into(), new_path);

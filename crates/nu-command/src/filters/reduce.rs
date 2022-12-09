@@ -54,26 +54,17 @@ impl Command for Reduce {
             Example {
                 example: "[ 1 2 3 4 ] | reduce {|it, acc| $it + $acc }",
                 description: "Sum values of a list (same as 'math sum')",
-                result: Some(Value::Int {
-                    val: 10,
-                    span: Span::test_data(),
-                }),
+                result: Some(Value::int(10, Span::test_data())),
             },
             Example {
                 example: "[ 8 7 6 ] | reduce {|it, acc, ind| $acc + $it + $ind }",
                 description: "Sum values of a list, plus their indexes",
-                result: Some(Value::Int {
-                    val: 22,
-                    span: Span::test_data(),
-                }),
+                result: Some(Value::int(22, Span::test_data())),
             },
             Example {
                 example: "[ 1 2 3 4 ] | reduce -f 10 {|it, acc| $acc + $it }",
                 description: "Sum values with a starting value (fold)",
-                result: Some(Value::Int {
-                    val: 20,
-                    span: Span::test_data(),
-                }),
+                result: Some(Value::int(20, Span::test_data())),
             },
             Example {
                 example: r#"[ i o t ] | reduce -f "Arthur, King of the Britons" {|it, acc| $acc | str replace -a $it "X" }"#,

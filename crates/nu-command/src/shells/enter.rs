@@ -68,10 +68,7 @@ impl Command for Enter {
 
         stack.add_env_var(
             "NUSHELL_LAST_SHELL".into(),
-            Value::Int {
-                val: current_shell as i64,
-                span: call.head,
-            },
+            Value::int(current_shell as i64, call.head),
         );
 
         if current_shell + 1 > shells.len() {
@@ -91,10 +88,7 @@ impl Command for Enter {
         );
         stack.add_env_var(
             "NUSHELL_CURRENT_SHELL".into(),
-            Value::Int {
-                val: current_shell as i64,
-                span: call.head,
-            },
+            Value::int(current_shell as i64, call.head),
         );
 
         stack.add_env_var("PWD".into(), new_path);

@@ -479,10 +479,7 @@ mod tests {
                     val: "  nu      shell   ".to_string(),
                     span: Span::test_data(),
                 },
-                Value::Int {
-                    val: 65,
-                    span: Span::test_data(),
-                },
+                Value::int(65, Span::test_data()),
                 Value::String {
                     val: "  d".to_string(),
                     span: Span::test_data(),
@@ -496,10 +493,7 @@ mod tests {
                     val: "nushell".to_string(),
                     span: Span::test_data(),
                 },
-                Value::Int {
-                    val: 65,
-                    span: Span::test_data(),
-                },
+                Value::int(65, Span::test_data()),
                 Value::String {
                     val: "d".to_string(),
                     span: Span::test_data(),
@@ -569,10 +563,7 @@ mod tests {
                     val: "##nu####shell##".to_string(),
                     span: Span::test_data(),
                 },
-                Value::Int {
-                    val: 65,
-                    span: Span::test_data(),
-                },
+                Value::int(65, Span::test_data()),
                 Value::String {
                     val: "#d".to_string(),
                     span: Span::test_data(),
@@ -586,10 +577,7 @@ mod tests {
                     val: "nushell".to_string(),
                     span: Span::test_data(),
                 },
-                Value::Int {
-                    val: 65,
-                    span: Span::test_data(),
-                },
+                Value::int(65, Span::test_data()),
                 Value::String {
                     val: "d".to_string(),
                     span: Span::test_data(),
@@ -697,10 +685,7 @@ mod tests {
                     val: "  a  ".to_string(),
                     span: Span::test_data(),
                 },
-                Value::Int {
-                    val: 65,
-                    span: Span::test_data(),
-                },
+                Value::int(65, Span::test_data()),
                 Value::String {
                     val: " d".to_string(),
                     span: Span::test_data(),
@@ -714,10 +699,7 @@ mod tests {
                     val: "a  ".to_string(),
                     span: Span::test_data(),
                 },
-                Value::Int {
-                    val: 65,
-                    span: Span::test_data(),
-                },
+                Value::int(65, Span::test_data()),
                 Value::String {
                     val: "d".to_string(),
                     span: Span::test_data(),
@@ -840,10 +822,7 @@ mod tests {
                     val: "  a  ".to_string(),
                     span: Span::test_data(),
                 },
-                Value::Int {
-                    val: 65,
-                    span: Span::test_data(),
-                },
+                Value::int(65, Span::test_data()),
                 Value::String {
                     val: " d".to_string(),
                     span: Span::test_data(),
@@ -857,10 +836,7 @@ mod tests {
                     val: "  a".to_string(),
                     span: Span::test_data(),
                 },
-                Value::Int {
-                    val: 65,
-                    span: Span::test_data(),
-                },
+                Value::int(65, Span::test_data()),
                 Value::String {
                     val: " d".to_string(),
                     span: Span::test_data(),
@@ -985,10 +961,7 @@ mod tests {
                     val: "  a    b     c    d  ".to_string(),
                     span: Span::test_data(),
                 },
-                Value::Int {
-                    val: 65,
-                    span: Span::test_data(),
-                },
+                Value::int(65, Span::test_data()),
                 Value::String {
                     val: " b c  d e   f".to_string(),
                     span: Span::test_data(),
@@ -1002,10 +975,7 @@ mod tests {
                     val: "a b c d".to_string(),
                     span: Span::test_data(),
                 },
-                Value::Int {
-                    val: 65,
-                    span: Span::test_data(),
-                },
+                Value::int(65, Span::test_data()),
                 Value::String {
                     val: "b c d e f".to_string(),
                     span: Span::test_data(),

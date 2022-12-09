@@ -181,10 +181,7 @@ impl Command for Cd {
         );
         stack.add_env_var(
             "NUSHELL_CURRENT_SHELL".into(),
-            Value::Int {
-                val: current_shell as i64,
-                span: call.head,
-            },
+            Value::int(current_shell as i64, call.head),
         );
 
         if let Some(oldpwd) = stack.get_env_var(engine_state, "PWD") {

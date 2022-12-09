@@ -105,18 +105,12 @@ fn switch_shell(
 
     stack.add_env_var(
         "NUSHELL_CURRENT_SHELL".into(),
-        Value::Int {
-            val: new_shell as i64,
-            span: call.head,
-        },
+        Value::int(new_shell as i64, call.head),
     );
 
     stack.add_env_var(
         "NUSHELL_LAST_SHELL".into(),
-        Value::Int {
-            val: current_shell as i64,
-            span: call.head,
-        },
+        Value::int(current_shell as i64, call.head),
     );
 
     stack.add_env_var("PWD".into(), new_path);

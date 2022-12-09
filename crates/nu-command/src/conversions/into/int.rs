@@ -113,10 +113,7 @@ impl Command for SubCommand {
             Example {
                 description: "Convert file size to integer",
                 example: "4KB | into int",
-                result: Some(Value::Int {
-                    val: 4000,
-                    span: Span::test_data(),
-                }),
+                result: Some(Value::int(4000, Span::test_data())),
             },
             Example {
                 description: "Convert bool to integer",
@@ -233,20 +230,14 @@ fn action(input: &Value, args: &Arguments, span: Span) -> Value {
                 }
                 val.resize(8, 0);
 
-                Value::Int {
-                    val: LittleEndian::read_i64(&val),
-                    span: *span,
-                }
+                Value::int(LittleEndian::read_i64(&val), *span)
             } else {
                 while val.len() < 8 {
                     val.insert(0, 0);
                 }
                 val.resize(8, 0);
 
-                Value::Int {
-                    val: BigEndian::read_i64(&val),
-                    span: *span,
-                }
+                Value::int(BigEndian::read_i64(&val), *span)
             }
         }
         _ => Value::Error {
@@ -269,13 +260,13 @@ fn convert_int(input: &Value, head: Span, radix: u32) -> Value {
             // octal
             {
                 match int_from_string(val, head) {
-                    Ok(x) => return Value::Int { val: x, span: head },
+                    Ok(x) => return Value::int(x, head),
                     Err(e) => return Value::Error { error: e },
                 }
             } else if val.starts_with("00") {
                 // It's a padded string
                 match i64::from_str_radix(val, radix) {
-                    Ok(n) => return Value::Int { val: n, span: head },
+                    Ok(n) => return Value::int(n, head),
                     Err(e) => {
                         return Value::Error {
                             error: ShellError::CantConvert(
@@ -300,7 +291,7 @@ fn convert_int(input: &Value, head: Span, radix: u32) -> Value {
         }
     };
     match i64::from_str_radix(i.trim(), radix) {
-        Ok(n) => Value::Int { val: n, span: head },
+        Ok(n) => Value::int(n, head),
         Err(_reason) => Value::Error {
             error: ShellError::CantConvert("string".to_string(), "int".to_string(), head, None),
         },

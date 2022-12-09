@@ -110,10 +110,7 @@ impl Clone for Value {
     fn clone(&self) -> Self {
         match self {
             Value::Bool { val, span } => Value::boolean(*val, *span),
-            Value::Int { val, span } => Value::Int {
-                val: *val,
-                span: *span,
-            },
+            Value::Int { val, span } => Value::int(*val, *span),
             Value::Filesize { val, span } => Value::Filesize {
                 val: *val,
                 span: *span,
@@ -665,10 +662,7 @@ impl Value {
                         }
                         Value::Binary { val, .. } => {
                             if let Some(item) = val.get(*count) {
-                                current = Value::Int {
-                                    val: *item as i64,
-                                    span: *origin_span,
-                                };
+                                current = Value::int(*item as i64, *origin_span);
                             } else if val.is_empty() {
                                 return Err(ShellError::AccessEmptyContent(*origin_span))
                             } else {
@@ -3379,10 +3373,7 @@ mod tests {
         #[test]
         fn test_list() {
             let list_of_ints = Value::List {
-                vals: vec![Value::Int {
-                    val: 0,
-                    span: Span::unknown(),
-                }],
+                vals: vec![Value::int(0, Span::unknown())],
                 span: Span::unknown(),
             };
             let list_of_floats = Value::List {
@@ -3394,10 +3385,7 @@ mod tests {
             };
             let list_of_ints_and_floats = Value::List {
                 vals: vec![
-                    Value::Int {
-                        val: 0,
-                        span: Span::unknown(),
-                    },
+                    Value::int(0, Span::unknown()),
                     Value::Float {
                         val: 0.0,
                         span: Span::unknown(),
@@ -3407,10 +3395,7 @@ mod tests {
             };
             let list_of_ints_and_floats_and_bools = Value::List {
                 vals: vec![
-                    Value::Int {
-                        val: 0,
-                        span: Span::unknown(),
-                    },
+                    Value::int(0, Span::unknown()),
                     Value::Float {
                         val: 0.0,
                         span: Span::unknown(),

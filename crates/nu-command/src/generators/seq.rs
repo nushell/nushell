@@ -208,10 +208,7 @@ impl Iterator for IntSeq {
         {
             return None;
         }
-        let ret = Some(Value::Int {
-            val: self.count,
-            span: self.span,
-        });
+        let ret = Some(Value::int(self.count, self.span));
         self.count += self.step;
         ret
     }

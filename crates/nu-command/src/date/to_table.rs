@@ -113,30 +113,12 @@ fn parse_date_into_table(date: Result<DateTime<FixedOffset>, Value>, head: Span)
     match date {
         Ok(x) => {
             let vals = vec![
-                Value::Int {
-                    val: x.year() as i64,
-                    span: head,
-                },
-                Value::Int {
-                    val: x.month() as i64,
-                    span: head,
-                },
-                Value::Int {
-                    val: x.day() as i64,
-                    span: head,
-                },
-                Value::Int {
-                    val: x.hour() as i64,
-                    span: head,
-                },
-                Value::Int {
-                    val: x.minute() as i64,
-                    span: head,
-                },
-                Value::Int {
-                    val: x.second() as i64,
-                    span: head,
-                },
+                Value::int(x.year() as i64, head),
+                Value::int(x.month() as i64, head),
+                Value::int(x.day() as i64, head),
+                Value::int(x.hour() as i64, head),
+                Value::int(x.minute() as i64, head),
+                Value::int(x.second() as i64, head),
                 Value::String {
                     val: x.offset().to_string(),
                     span: head,

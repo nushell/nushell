@@ -105,10 +105,7 @@ impl Inc {
 
     pub fn inc_value(&self, head: Span, value: &Value) -> Result<Value, LabeledError> {
         match value {
-            Value::Int { val, span } => Ok(Value::Int {
-                val: val + 1,
-                span: *span,
-            }),
+            Value::Int { val, span } => Ok(Value::int(val + 1, *span)),
             Value::String { val, .. } => Ok(self.apply(val, head)),
             x => {
                 let msg = x.as_string().map_err(|e| LabeledError {
