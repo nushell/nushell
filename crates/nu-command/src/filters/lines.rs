@@ -71,6 +71,7 @@ impl Command for Lines {
 
                 Ok(iter.into_pipeline_data(engine_state.ctrlc.clone()))
             }
+            PipelineData::Empty => Ok(PipelineData::Empty),
             PipelineData::ListStream(stream, ..) => {
                 let iter = stream
                     .into_iter()
@@ -112,7 +113,7 @@ impl Command for Lines {
                 format!("Not supported input: {}", val.as_string()?),
                 head,
             )),
-            PipelineData::ExternalStream { stdout: None, .. } => Ok(PipelineData::new(head)),
+            PipelineData::ExternalStream { stdout: None, .. } => Ok(PipelineData::empty()),
             PipelineData::ExternalStream {
                 stdout: Some(stream),
                 ..
@@ -172,10 +173,10 @@ impl Iterator for RawStreamLinesAdapter {
                 // inner is complete, feed out remaining state
                 if self.inner_complete {
                     if !self.incomplete_line.is_empty() {
-                        let r = Some(Ok(Value::String {
-                            val: self.incomplete_line.to_string(),
-                            span: self.span,
-                        }));
+                        let r = Some(Ok(Value::string(
+                            self.incomplete_line.to_string(),
+                            self.span,
+                        )));
                         self.incomplete_line = String::new();
                         return r;
                     }

@@ -344,7 +344,6 @@ pub fn create_default_context() -> EngineState {
             ToText,
             ToToml,
             ToTsv,
-            ToCsv,
             Touch,
             Use,
             Upsert,
@@ -421,8 +420,10 @@ pub fn create_default_context() -> EngineState {
             MathArcCosH,
             MathArcTanH,
             MathPi,
+            MathTau,
             MathEuler,
             MathLn,
+            MathLog,
         };
 
         // Network

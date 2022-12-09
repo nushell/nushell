@@ -74,18 +74,12 @@ impl Command for StrCollect {
             Example {
                 description: "Create a string from input",
                 example: "['nu', 'shell'] | str collect",
-                result: Some(Value::String {
-                    val: "nushell".to_string(),
-                    span: Span::test_data(),
-                }),
+                result: Some(Value::string("nushell", Span::test_data())),
             },
             Example {
                 description: "Create a string from input with a separator",
                 example: "['nu', 'shell'] | str collect '-'",
-                result: Some(Value::String {
-                    val: "nu-shell".to_string(),
-                    span: Span::test_data(),
-                }),
+                result: Some(Value::string("nu-shell", Span::test_data())),
             },
         ]
     }

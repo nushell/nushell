@@ -44,38 +44,14 @@ impl Command for Fmt {
                     "upperhex".into(),
                 ],
                 vals: vec![
-                    Value::String {
-                        val: "0b101010".to_string(),
-                        span: Span::test_data(),
-                    },
-                    Value::String {
-                        val: "42".to_string(),
-                        span: Span::test_data(),
-                    },
-                    Value::String {
-                        val: "42".to_string(),
-                        span: Span::test_data(),
-                    },
-                    Value::String {
-                        val: "4.2e1".to_string(),
-                        span: Span::test_data(),
-                    },
-                    Value::String {
-                        val: "0x2a".to_string(),
-                        span: Span::test_data(),
-                    },
-                    Value::String {
-                        val: "0o52".to_string(),
-                        span: Span::test_data(),
-                    },
-                    Value::String {
-                        val: "4.2E1".to_string(),
-                        span: Span::test_data(),
-                    },
-                    Value::String {
-                        val: "0x2A".to_string(),
-                        span: Span::test_data(),
-                    },
+                    Value::string("0b101010", Span::test_data()),
+                    Value::string("42", Span::test_data()),
+                    Value::string("42", Span::test_data()),
+                    Value::string("4.2e1", Span::test_data()),
+                    Value::string("0x2a", Span::test_data()),
+                    Value::string("0o52", Span::test_data()),
+                    Value::string("4.2E1", Span::test_data()),
+                    Value::string("0x2A", Span::test_data()),
                 ],
                 span: Span::test_data(),
             }),

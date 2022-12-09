@@ -83,6 +83,13 @@ fn generate_operator_info() -> Vec<OperatorInfo> {
         },
         OperatorInfo {
             op_type: "Assignment".into(),
+            operator: "++=".into(),
+            name: "AppendAssign".into(),
+            description: "Appends a list or a value to a variable.".into(),
+            precedence: 10,
+        },
+        OperatorInfo {
+            op_type: "Assignment".into(),
             operator: "-=".into(),
             name: "MinusAssign".into(),
             description: "Subtracts a value from a variable.".into(),
@@ -286,24 +293,10 @@ fn generate_operator_info() -> Vec<OperatorInfo> {
         },
         OperatorInfo {
             op_type: "Boolean".into(),
-            operator: "&&".into(),
-            name: "And".into(),
-            description: "Deprecated. Checks if two values are true.".into(),
-            precedence: 50,
-        },
-        OperatorInfo {
-            op_type: "Boolean".into(),
             operator: "and".into(),
             name: "And".into(),
             description: "Checks if two values are true.".into(),
             precedence: 50,
-        },
-        OperatorInfo {
-            op_type: "Boolean".into(),
-            operator: "||".into(),
-            name: "Or".into(),
-            description: "Deprecated. Checks if either value is true.".into(),
-            precedence: 40,
         },
         OperatorInfo {
             op_type: "Boolean".into(),

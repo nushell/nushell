@@ -61,15 +61,9 @@ fn command(
 ) -> Result<PipelineData, ShellError> {
     let df = NuDataFrame::try_from_pipeline(input, call.head)?;
 
-    let rows = Value::Int {
-        val: df.as_ref().height() as i64,
-        span: call.head,
-    };
+    let rows = Value::int(df.as_ref().height() as i64, call.head);
 
-    let cols = Value::Int {
-        val: df.as_ref().width() as i64,
-        span: call.head,
-    };
+    let cols = Value::int(df.as_ref().width() as i64, call.head);
 
     let rows_col = Column::new("rows".to_string(), vec![rows]);
     let cols_col = Column::new("columns".to_string(), vec![cols]);

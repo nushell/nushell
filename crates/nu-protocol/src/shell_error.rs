@@ -376,6 +376,18 @@ Either make sure {0} is a string, or add a 'to_string' entry for it in ENV_CONVE
     #[diagnostic(code(nu::shell::access_beyond_end), url(docsrs))]
     AccessBeyondEnd(usize, #[label = "index too large (max: {0})"] Span),
 
+    /// You attempted to insert data at a list position higher than the end.
+    ///
+    /// ## Resolution
+    ///
+    /// To insert data into a list, assign to the last used index + 1.
+    #[error("Inserted at wrong row number (should be {0}).")]
+    #[diagnostic(code(nu::shell::access_beyond_end), url(docsrs))]
+    InsertAfterNextFreeIndex(
+        usize,
+        #[label = "can't insert at index (the next available index is {0})"] Span,
+    ),
+
     /// You attempted to access an index when it's empty.
     ///
     /// ## Resolution

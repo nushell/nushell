@@ -56,14 +56,8 @@ impl Command for TermSize {
         Ok(Value::Record {
             cols: vec!["columns".into(), "rows".into()],
             vals: vec![
-                Value::Int {
-                    val: cols.0 as i64,
-                    span: Span::test_data(),
-                },
-                Value::Int {
-                    val: rows.0 as i64,
-                    span: Span::test_data(),
-                },
+                Value::int(cols.0 as i64, Span::test_data()),
+                Value::int(rows.0 as i64, Span::test_data()),
             ],
             span: head,
         }

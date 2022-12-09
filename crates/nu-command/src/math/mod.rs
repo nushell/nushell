@@ -13,6 +13,7 @@ mod euler;
 mod eval;
 mod floor;
 mod ln;
+mod log;
 pub mod math_;
 mod max;
 mod median;
@@ -29,6 +30,7 @@ mod stddev;
 mod sum;
 mod tan;
 mod tanh;
+mod tau;
 mod utils;
 mod variance;
 
@@ -65,5 +67,7 @@ pub use arctanh::SubCommand as MathArcTanH;
 
 pub use euler::SubCommand as MathEuler;
 pub use pi::SubCommand as MathPi;
+pub use tau::SubCommand as MathTau;
 
+pub use self::log::SubCommand as MathLog;
 pub use ln::SubCommand as MathLn;

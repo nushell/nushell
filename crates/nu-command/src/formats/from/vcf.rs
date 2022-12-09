@@ -57,14 +57,8 @@ END:VCARD' | from vcf",
                                     "params".to_string(),
                                 ],
                                 vals: vec![
-                                    Value::String {
-                                        val: "N".to_string(),
-                                        span: Span::test_data(),
-                                    },
-                                    Value::String {
-                                        val: "Foo".to_string(),
-                                        span: Span::test_data(),
-                                    },
+                                    Value::string("N", Span::test_data()),
+                                    Value::string("Foo", Span::test_data()),
                                     Value::Nothing {
                                         span: Span::test_data(),
                                     },
@@ -78,14 +72,8 @@ END:VCARD' | from vcf",
                                     "params".to_string(),
                                 ],
                                 vals: vec![
-                                    Value::String {
-                                        val: "FN".to_string(),
-                                        span: Span::test_data(),
-                                    },
-                                    Value::String {
-                                        val: "Bar".to_string(),
-                                        span: Span::test_data(),
-                                    },
+                                    Value::string("FN", Span::test_data()),
+                                    Value::string("Bar", Span::test_data()),
                                     Value::Nothing {
                                         span: Span::test_data(),
                                     },
@@ -99,14 +87,8 @@ END:VCARD' | from vcf",
                                     "params".to_string(),
                                 ],
                                 vals: vec![
-                                    Value::String {
-                                        val: "EMAIL".to_string(),
-                                        span: Span::test_data(),
-                                    },
-                                    Value::String {
-                                        val: "foo@bar.com".to_string(),
-                                        span: Span::test_data(),
-                                    },
+                                    Value::string("EMAIL", Span::test_data()),
+                                    Value::string("foo@bar.com", Span::test_data()),
                                     Value::Nothing {
                                         span: Span::test_data(),
                                     },

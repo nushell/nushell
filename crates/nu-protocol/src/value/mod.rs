@@ -109,14 +109,8 @@ pub enum Value {
 impl Clone for Value {
     fn clone(&self) -> Self {
         match self {
-            Value::Bool { val, span } => Value::Bool {
-                val: *val,
-                span: *span,
-            },
-            Value::Int { val, span } => Value::Int {
-                val: *val,
-                span: *span,
-            },
+            Value::Bool { val, span } => Value::boolean(*val, *span),
+            Value::Int { val, span } => Value::int(*val, *span),
             Value::Filesize { val, span } => Value::Filesize {
                 val: *val,
                 span: *span,
@@ -133,10 +127,7 @@ impl Clone for Value {
                 val: val.clone(),
                 span: *span,
             },
-            Value::Float { val, span } => Value::Float {
-                val: *val,
-                span: *span,
-            },
+            Value::Float { val, span } => Value::float(*val, *span),
             Value::String { val, span } => Value::String {
                 val: val.clone(),
                 span: *span,
@@ -668,10 +659,7 @@ impl Value {
                         }
                         Value::Binary { val, .. } => {
                             if let Some(item) = val.get(*count) {
-                                current = Value::Int {
-                                    val: *item as i64,
-                                    span: *origin_span,
-                                };
+                                current = Value::int(*item as i64, *origin_span);
                             } else if val.is_empty() {
                                 return Err(ShellError::AccessEmptyContent(*origin_span))
                             } else {
@@ -878,10 +866,12 @@ impl Value {
                     Value::List { vals, .. } => {
                         if let Some(v) = vals.get_mut(*row_num) {
                             v.upsert_data_at_cell_path(&cell_path[1..], new_val)?
-                        } else if vals.is_empty() {
-                            return Err(ShellError::AccessEmptyContent(*span));
+                        } else if vals.len() == *row_num && cell_path.len() == 1 {
+                            // If the upsert is at 1 + the end of the list, it's OK.
+                            // Otherwise, it's prohibited.
+                            vals.push(new_val);
                         } else {
-                            return Err(ShellError::AccessBeyondEnd(vals.len() - 1, *span));
+                            return Err(ShellError::InsertAfterNextFreeIndex(vals.len(), *span));
                         }
                     }
                     v => return Err(ShellError::NotAList(*span, v.span()?)),
@@ -1266,10 +1256,12 @@ impl Value {
                     Value::List { vals, .. } => {
                         if let Some(v) = vals.get_mut(*row_num) {
                             v.insert_data_at_cell_path(&cell_path[1..], new_val)?
-                        } else if vals.is_empty() {
-                            return Err(ShellError::AccessEmptyContent(*span));
+                        } else if vals.len() == *row_num && cell_path.len() == 1 {
+                            // If the insert is at 1 + the end of the list, it's OK.
+                            // Otherwise, it's prohibited.
+                            vals.push(new_val);
                         } else {
-                            return Err(ShellError::AccessBeyondEnd(vals.len() - 1, *span));
+                            return Err(ShellError::InsertAfterNextFreeIndex(vals.len(), *span));
                         }
                     }
                     v => return Err(ShellError::NotAList(*span, v.span()?)),
@@ -1326,10 +1318,7 @@ impl Value {
     /// Note: Only use this for test data, *not* live data, as it will point into unknown source
     /// when used in errors.
     pub fn test_string(s: impl Into<String>) -> Value {
-        Value::String {
-            val: s.into(),
-            span: Span::test_data(),
-        }
+        Value::string(s, Span::test_data())
     }
 
     /// Note: Only use this for test data, *not* live data, as it will point into unknown source
@@ -3378,46 +3367,25 @@ mod tests {
         #[test]
         fn test_list() {
             let list_of_ints = Value::List {
-                vals: vec![Value::Int {
-                    val: 0,
-                    span: Span::unknown(),
-                }],
+                vals: vec![Value::int(0, Span::unknown())],
                 span: Span::unknown(),
             };
             let list_of_floats = Value::List {
-                vals: vec![Value::Float {
-                    val: 0.0,
-                    span: Span::unknown(),
-                }],
+                vals: vec![Value::float(0.0, Span::unknown())],
                 span: Span::unknown(),
             };
             let list_of_ints_and_floats = Value::List {
                 vals: vec![
-                    Value::Int {
-                        val: 0,
-                        span: Span::unknown(),
-                    },
-                    Value::Float {
-                        val: 0.0,
-                        span: Span::unknown(),
-                    },
+                    Value::int(0, Span::unknown()),
+                    Value::float(0.0, Span::unknown()),
                 ],
                 span: Span::unknown(),
             };
             let list_of_ints_and_floats_and_bools = Value::List {
                 vals: vec![
-                    Value::Int {
-                        val: 0,
-                        span: Span::unknown(),
-                    },
-                    Value::Float {
-                        val: 0.0,
-                        span: Span::unknown(),
-                    },
-                    Value::Bool {
-                        val: false,
-                        span: Span::unknown(),
-                    },
+                    Value::int(0, Span::unknown()),
+                    Value::float(0.0, Span::unknown()),
+                    Value::boolean(false, Span::unknown()),
                 ],
                 span: Span::unknown(),
             };

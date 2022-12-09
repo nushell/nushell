@@ -77,10 +77,7 @@ impl NuCompleter {
                     Value::List {
                         vals: spans
                             .iter()
-                            .map(|it| Value::String {
-                                val: it.to_string(),
-                                span: Span::unknown(),
-                            })
+                            .map(|it| Value::string(it, Span::unknown()))
                             .collect(),
                         span: Span::unknown(),
                     },
@@ -92,7 +89,7 @@ impl NuCompleter {
             &self.engine_state,
             &mut callee_stack,
             block,
-            PipelineData::new(span),
+            PipelineData::empty(),
             true,
             true,
         );

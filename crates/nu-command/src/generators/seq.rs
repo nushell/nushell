@@ -2,8 +2,8 @@ use nu_engine::CallExt;
 use nu_protocol::{
     ast::Call,
     engine::{Command, EngineState, Stack},
-    Category, Example, IntoPipelineData, PipelineData, ShellError, Signature, Span, Spanned,
-    SyntaxShape, Type, Value,
+    Category, Example, PipelineData, ShellError, Signature, Span, Spanned, SyntaxShape, Type,
+    Value,
 };
 
 #[derive(Clone)]
@@ -93,6 +93,13 @@ fn seq(
     let span = call.head;
     let rest_nums: Vec<Spanned<f64>> = call.rest(engine_state, stack, 0)?;
 
+    // note that the check for int or float has to occur here. prior, the check would occur after
+    // everything had been generated; this does not work well with ListStreams.
+    // As such, the simple test is to check if this errors out: that means there is a float in the
+    // input, which necessarily means that parts of the output will be floats.
+    let rest_nums_check: Result<Vec<Spanned<i64>>, ShellError> = call.rest(engine_state, stack, 0);
+    let contains_decimals = rest_nums_check.is_err();
+
     if rest_nums.is_empty() {
         return Err(ShellError::GenericError(
             "seq requires some parameters".into(),
@@ -105,7 +112,7 @@ fn seq(
 
     let rest_nums: Vec<f64> = rest_nums.iter().map(|n| n.item).collect();
 
-    run_seq(rest_nums, span)
+    run_seq(rest_nums, span, contains_decimals, engine_state)
 }
 
 #[cfg(test)]
@@ -120,60 +127,86 @@ mod tests {
     }
 }
 
-pub fn run_seq(free: Vec<f64>, span: Span) -> Result<PipelineData, ShellError> {
+pub fn run_seq(
+    free: Vec<f64>,
+    span: Span,
+    contains_decimals: bool,
+    engine_state: &EngineState,
+) -> Result<PipelineData, ShellError> {
     let first = free[0];
-
-    let step: f64 = if free.len() > 2 { free[1] } else { 1.0 };
+    let step = if free.len() > 2 { free[1] } else { 1.0 };
     let last = { free[free.len() - 1] };
 
-    Ok(print_seq(first, step, last, span))
-}
-
-fn done_printing(next: f64, step: f64, last: f64) -> bool {
-    if step >= 0f64 {
-        next > last
+    if !contains_decimals {
+        // integers only
+        Ok(PipelineData::ListStream(
+            nu_protocol::ListStream {
+                stream: Box::new(IntSeq {
+                    count: first as i64,
+                    step: step as i64,
+                    last: last as i64,
+                    span,
+                }),
+                ctrlc: engine_state.ctrlc.clone(),
+            },
+            None,
+        ))
     } else {
-        next < last
+        // floats
+        Ok(PipelineData::ListStream(
+            nu_protocol::ListStream {
+                stream: Box::new(FloatSeq {
+                    first,
+                    step,
+                    last,
+                    index: 0,
+                    span,
+                }),
+                ctrlc: engine_state.ctrlc.clone(),
+            },
+            None,
+        ))
     }
 }
 
-fn print_seq(first: f64, step: f64, last: f64, span: Span) -> PipelineData {
-    let mut i = 0isize;
-    let mut value = first + i as f64 * step;
-    let mut ret_num = vec![];
-
-    while !done_printing(value, step, last) {
-        ret_num.push(value);
-        i += 1;
-        value = first + i as f64 * step;
-    }
-
-    // we'd like to keep the datatype the same for the output, so check
-    // and see if any of the output contains values after the decimal point,
-    // and if so we'll make the entire output floats
-    let contains_decimals = vec_contains_decimals(&ret_num);
-    let rows: Vec<Value> = ret_num
-        .iter()
-        .map(|v| {
-            if contains_decimals {
-                Value::float(*v, span)
-            } else {
-                Value::int(*v as i64, span)
-            }
-        })
-        .collect();
-
-    Value::List { vals: rows, span }.into_pipeline_data()
+struct FloatSeq {
+    first: f64,
+    step: f64,
+    last: f64,
+    index: isize,
+    span: Span,
 }
 
-fn vec_contains_decimals(array: &[f64]) -> bool {
-    let mut found_decimal = false;
-    for x in array {
-        if x.fract() != 0.0 {
-            found_decimal = true;
-            break;
+impl Iterator for FloatSeq {
+    type Item = Value;
+    fn next(&mut self) -> Option<Value> {
+        let count = self.first + self.index as f64 * self.step;
+        // Accuracy guaranteed as far as possible; each time, the value is re-evaluated from the
+        // base arguments
+        if (count > self.last && self.step >= 0.0) || (count < self.last && self.step <= 0.0) {
+            return None;
         }
+        self.index += 1;
+        Some(Value::float(count, self.span))
     }
+}
 
-    found_decimal
+struct IntSeq {
+    count: i64,
+    step: i64,
+    last: i64,
+    span: Span,
+}
+
+impl Iterator for IntSeq {
+    type Item = Value;
+    fn next(&mut self) -> Option<Value> {
+        if (self.count > self.last && self.step >= 0) || (self.count < self.last && self.step <= 0)
+        {
+            return None;
+        }
+        let ret = Some(Value::int(self.count, self.span));
+        self.count += self.step;
+        ret
+    }
 }

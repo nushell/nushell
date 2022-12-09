@@ -95,10 +95,7 @@ fn action(input: &Value, args: &Arguments, head: Span) -> Value {
     match &input {
         Value::String { val, .. } => {
             let distance = levenshtein_distance(val, compare_string);
-            Value::Int {
-                val: distance as i64,
-                span: head,
-            }
+            Value::int(distance as i64, head)
         }
         other => Value::Error {
             error: ShellError::UnsupportedInput(

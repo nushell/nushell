@@ -110,10 +110,7 @@ impl Command for SubCommand {
             Example {
                 description: "Format a given date using a given format string.",
                 example: r#""2021-10-22 20:00:12 +01:00" | date format "%Y-%m-%d""#,
-                result: Some(Value::String {
-                    val: "2021-10-22".to_string(),
-                    span: Span::test_data(),
-                }),
+                result: Some(Value::string("2021-10-22", Span::test_data())),
             },
         ]
     }
@@ -429,18 +426,9 @@ pub(crate) fn generate_strftime_list(head: Span, show_parse_only_formats: bool) 
         .map(|s| Value::Record {
             cols: column_names.clone(),
             vals: vec![
-                Value::String {
-                    val: s.spec.to_string(),
-                    span: head,
-                },
-                Value::String {
-                    val: now.format(s.spec).to_string(),
-                    span: head,
-                },
-                Value::String {
-                    val: s.description.to_string(),
-                    span: head,
-                },
+                Value::string(s.spec, head),
+                Value::string(now.format(s.spec).to_string(), head),
+                Value::string(s.description, head),
             ],
             span: head,
         })
@@ -459,19 +447,15 @@ pub(crate) fn generate_strftime_list(head: Span, show_parse_only_formats: bool) 
         records.push(Value::Record {
             cols: column_names,
             vals: vec![
-                Value::String {
-                    val: "%#z".to_string(),
-                    span: head,
-                },
+                Value::string("%#z", head),
                 Value::String {
                     val: example,
                     span: head,
                 },
-                Value::String {
-                    val: "Parsing only: Same as %z but allows minutes to be missing or present."
-                        .to_string(),
-                    span: head,
-                },
+                Value::string(
+                    "Parsing only: Same as %z but allows minutes to be missing or present.",
+                    head,
+                ),
             ],
             span: head,
         });

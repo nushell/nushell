@@ -62,7 +62,7 @@ This command is a parser keyword. For details, check:
 
         stack.remove_env_var(engine_state, &env_var_name.item);
 
-        Ok(PipelineData::new(call.head))
+        Ok(PipelineData::empty())
     }
 
     fn examples(&self) -> Vec<Example> {

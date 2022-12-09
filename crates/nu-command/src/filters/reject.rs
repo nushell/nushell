@@ -68,10 +68,7 @@ impl Command for Reject {
                 example: "{a: 1, b: 2} | reject a",
                 result: Some(Value::Record {
                     cols: vec!["b".into()],
-                    vals: vec![Value::Int {
-                        val: 2,
-                        span: Span::test_data(),
-                    }],
+                    vals: vec![Value::int(2, Span::test_data())],
                     span: Span::test_data(),
                 }),
             },
@@ -82,10 +79,7 @@ impl Command for Reject {
                     cols: vec!["a".into()],
                     vals: vec![Value::Record {
                         cols: vec!["c".into()],
-                        vals: vec![Value::Int {
-                            val: 5,
-                            span: Span::test_data(),
-                        }],
+                        vals: vec![Value::int(5, Span::test_data())],
                         span: Span::test_data(),
                     }],
                     span: Span::test_data(),

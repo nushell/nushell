@@ -394,8 +394,8 @@ let-env config = {
         }
         source: { |buffer, position|
             $nu.scope.commands
-            | where command =~ $buffer
-            | each { |it| {value: $it.command description: $it.usage} }
+            | where name =~ $buffer
+            | each { |it| {value: $it.name description: $it.usage} }
         }
       }
       {
@@ -437,8 +437,8 @@ let-env config = {
         }
         source: { |buffer, position|
             $nu.scope.commands
-            | where command =~ $buffer
-            | each { |it| {value: $it.command description: $it.usage} }
+            | where name =~ $buffer
+            | each { |it| {value: $it.name description: $it.usage} }
         }
       }
   ]
@@ -447,7 +447,7 @@ let-env config = {
       name: completion_menu
       modifier: none
       keycode: tab
-      mode: emacs # Options: emacs vi_normal vi_insert
+      mode: [emacs vi_normal vi_insert]
       event: {
         until: [
           { send: menu name: completion_menu }

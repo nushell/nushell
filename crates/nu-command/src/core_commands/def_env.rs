@@ -62,20 +62,17 @@ def-env cd_with_fallback [arg = ""] {
         &self,
         _engine_state: &EngineState,
         _stack: &mut Stack,
-        call: &Call,
+        _call: &Call,
         _input: PipelineData,
     ) -> Result<nu_protocol::PipelineData, nu_protocol::ShellError> {
-        Ok(PipelineData::new(call.head))
+        Ok(PipelineData::empty())
     }
 
     fn examples(&self) -> Vec<Example> {
         vec![Example {
             description: "Set environment variable by call a custom command",
             example: r#"def-env foo [] { let-env BAR = "BAZ" }; foo; $env.BAR"#,
-            result: Some(Value::String {
-                val: "BAZ".to_string(),
-                span: Span::test_data(),
-            }),
+            result: Some(Value::string("BAZ", Span::test_data())),
         }]
     }
 }

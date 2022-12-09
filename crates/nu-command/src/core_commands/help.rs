@@ -131,10 +131,7 @@ fn help(
                 });
 
                 cols.push("category".into());
-                vals.push(Value::String {
-                    val: sig.category.to_string(),
-                    span: head,
-                });
+                vals.push(Value::string(sig.category.to_string(), head));
 
                 cols.push("command_type".into());
                 vals.push(Value::String {
@@ -231,10 +228,7 @@ fn help(
                 });
 
                 cols.push("category".into());
-                vals.push(Value::String {
-                    val: sig.category.to_string(),
-                    span: head,
-                });
+                vals.push(Value::string(sig.category.to_string(), head));
 
                 cols.push("command_type".into());
                 vals.push(Value::String {
@@ -334,11 +328,7 @@ Get the processes on your system actively using CPU:
 
 You can also learn more at https://www.nushell.sh/book/"#;
 
-        Ok(Value::String {
-            val: msg.into(),
-            span: head,
-        }
-        .into_pipeline_data())
+        Ok(Value::string(msg, head).into_pipeline_data())
     }
 }
 
