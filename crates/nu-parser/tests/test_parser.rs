@@ -1409,8 +1409,14 @@ mod input_types {
         add_declations(&mut engine_state);
 
         let mut working_set = StateWorkingSet::new(&engine_state);
-        let (_, err) = parse(&mut working_set, None, b"if false { 'a' } else { $foo }", true, &[]);
-        
+        let (_, err) = parse(
+            &mut working_set,
+            None,
+            b"if false { 'a' } else { $foo }",
+            true,
+            &[],
+        );
+
         let err = err.unwrap();
 
         assert!(matches!(err, ParseError::VariableNotFound(_)));
