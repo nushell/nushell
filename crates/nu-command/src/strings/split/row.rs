@@ -57,9 +57,11 @@ impl Command for SubCommand {
                 example: "echo 'abc' | split row ''",
                 result: Some(Value::List {
                     vals: vec![
+                        Value::test_string(""),
                         Value::test_string("a"),
                         Value::test_string("b"),
                         Value::test_string("c"),
+                        Value::test_string(""),
                     ],
                     span: Span::test_data(),
                 }),
