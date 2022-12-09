@@ -30,11 +30,7 @@ impl Command for IsAdmin {
         call: &Call,
         _input: PipelineData,
     ) -> Result<nu_protocol::PipelineData, nu_protocol::ShellError> {
-        Ok(Value::Bool {
-            val: is_root(),
-            span: call.head,
-        }
-        .into_pipeline_data())
+        Ok(Value::boolean(is_root(), call.head).into_pipeline_data())
     }
 
     fn examples(&self) -> Vec<Example> {

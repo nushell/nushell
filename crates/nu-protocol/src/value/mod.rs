@@ -109,10 +109,7 @@ pub enum Value {
 impl Clone for Value {
     fn clone(&self) -> Self {
         match self {
-            Value::Bool { val, span } => Value::Bool {
-                val: *val,
-                span: *span,
-            },
+            Value::Bool { val, span } => Value::boolean(*val, *span),
             Value::Int { val, span } => Value::Int {
                 val: *val,
                 span: *span,
@@ -3418,10 +3415,7 @@ mod tests {
                         val: 0.0,
                         span: Span::unknown(),
                     },
-                    Value::Bool {
-                        val: false,
-                        span: Span::unknown(),
-                    },
+                    Value::boolean(false, Span::unknown()),
                 ],
                 span: Span::unknown(),
             };

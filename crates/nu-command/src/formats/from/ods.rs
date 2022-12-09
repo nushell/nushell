@@ -141,10 +141,7 @@ fn from_ods(
                             val: *i,
                             span: head,
                         },
-                        DataType::Bool(b) => Value::Bool {
-                            val: *b,
-                            span: head,
-                        },
+                        DataType::Bool(b) => Value::boolean(*b, head),
                         _ => Value::nothing(head),
                     };
 

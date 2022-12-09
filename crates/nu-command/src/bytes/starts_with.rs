@@ -74,26 +74,17 @@ impl Command for BytesStartsWith {
             Example {
                 description: "Checks if binary starts with `0x[1F FF AA]`",
                 example: "0x[1F FF AA AA] | bytes starts-with 0x[1F FF AA]",
-                result: Some(Value::Bool {
-                    val: true,
-                    span: Span::test_data(),
-                }),
+                result: Some(Value::boolean(true, Span::test_data())),
             },
             Example {
                 description: "Checks if binary starts with `0x[1F]`",
                 example: "0x[1F FF AA AA] | bytes starts-with 0x[1F]",
-                result: Some(Value::Bool {
-                    val: true,
-                    span: Span::test_data(),
-                }),
+                result: Some(Value::boolean(true, Span::test_data())),
             },
             Example {
                 description: "Checks if binary starts with `0x[1F]`",
                 example: "0x[1F FF AA AA] | bytes starts-with 0x[11]",
-                result: Some(Value::Bool {
-                    val: false,
-                    span: Span::test_data(),
-                }),
+                result: Some(Value::boolean(false, Span::test_data())),
             },
         ]
     }
@@ -104,10 +95,7 @@ fn starts_with(val: &Value, args: &Arguments, span: Span) -> Value {
         Value::Binary {
             val,
             span: val_span,
-        } => Value::Bool {
-            val: val.starts_with(&args.pattern),
-            span: *val_span,
-        },
+        } => Value::boolean(val.starts_with(&args.pattern), *val_span),
         other => Value::Error {
             error: ShellError::UnsupportedInput(
                 format!(

@@ -70,26 +70,17 @@ impl Command for SubCommand {
             Example {
                 description: "Checks if input string starts with 'my'",
                 example: "'my_library.rb' | str starts-with 'my'",
-                result: Some(Value::Bool {
-                    val: true,
-                    span: Span::test_data(),
-                }),
+                result: Some(Value::boolean(true, Span::test_data())),
             },
             Example {
                 description: "Checks if input string starts with 'my'",
                 example: "'Cargo.toml' | str starts-with 'Car'",
-                result: Some(Value::Bool {
-                    val: true,
-                    span: Span::test_data(),
-                }),
+                result: Some(Value::boolean(true, Span::test_data())),
             },
             Example {
                 description: "Checks if input string starts with 'my'",
                 example: "'Cargo.toml' | str starts-with '.toml'",
-                result: Some(Value::Bool {
-                    val: false,
-                    span: Span::test_data(),
-                }),
+                result: Some(Value::boolean(false, Span::test_data())),
             },
         ]
     }
@@ -99,10 +90,7 @@ fn action(input: &Value, Arguments { substring, .. }: &Arguments, head: Span) ->
     match input {
         Value::String { val: s, .. } => {
             let starts_with = s.starts_with(substring);
-            Value::Bool {
-                val: starts_with,
-                span: head,
-            }
+            Value::boolean(starts_with, head)
         }
         other => Value::Error {
             error: ShellError::UnsupportedInput(
