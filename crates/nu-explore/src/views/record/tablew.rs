@@ -253,7 +253,7 @@ impl<'a> TableW<'a> {
                 let mut w = width;
                 w += render_space(buf, w, head_y, 1, padding_cell_l);
                 w += render_column(buf, w, head_y, use_space, header);
-                render_space(buf, w, head_y, 1, padding_cell_r);
+                w += render_space(buf, w, head_y, 1, padding_cell_r);
 
                 let x = w - padding_cell_r - use_space;
                 state.layout.push(&header[0].0, x, head_y, use_space, 1);
