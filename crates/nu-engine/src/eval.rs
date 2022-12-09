@@ -257,10 +257,7 @@ pub fn eval_expression(
     match &expr.expr {
         Expr::Bool(b) => Ok(Value::boolean(*b, expr.span)),
         Expr::Int(i) => Ok(Value::int(*i, expr.span)),
-        Expr::Float(f) => Ok(Value::Float {
-            val: *f,
-            span: expr.span,
-        }),
+        Expr::Float(f) => Ok(Value::float(*f, expr.span)),
         Expr::Binary(b) => Ok(Value::Binary {
             val: b.clone(),
             span: expr.span,

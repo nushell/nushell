@@ -187,10 +187,7 @@ impl Iterator for FloatSeq {
             return None;
         }
         self.index += 1;
-        Some(Value::Float {
-            val: count,
-            span: self.span,
-        })
+        Some(Value::float(count, self.span))
     }
 }
 

@@ -127,10 +127,7 @@ impl Clone for Value {
                 val: val.clone(),
                 span: *span,
             },
-            Value::Float { val, span } => Value::Float {
-                val: *val,
-                span: *span,
-            },
+            Value::Float { val, span } => Value::float(*val, *span),
             Value::String { val, span } => Value::String {
                 val: val.clone(),
                 span: *span,
@@ -3374,29 +3371,20 @@ mod tests {
                 span: Span::unknown(),
             };
             let list_of_floats = Value::List {
-                vals: vec![Value::Float {
-                    val: 0.0,
-                    span: Span::unknown(),
-                }],
+                vals: vec![Value::float(0.0, Span::unknown())],
                 span: Span::unknown(),
             };
             let list_of_ints_and_floats = Value::List {
                 vals: vec![
                     Value::int(0, Span::unknown()),
-                    Value::Float {
-                        val: 0.0,
-                        span: Span::unknown(),
-                    },
+                    Value::float(0.0, Span::unknown()),
                 ],
                 span: Span::unknown(),
             };
             let list_of_ints_and_floats_and_bools = Value::List {
                 vals: vec![
                     Value::int(0, Span::unknown()),
-                    Value::Float {
-                        val: 0.0,
-                        span: Span::unknown(),
-                    },
+                    Value::float(0.0, Span::unknown()),
                     Value::boolean(false, Span::unknown()),
                 ],
                 span: Span::unknown(),

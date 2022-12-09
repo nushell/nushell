@@ -40,10 +40,7 @@ impl Command for SubCommand {
         vec![Example {
             description: "Compute the average of a list of numbers",
             example: "[-50 100.0 25] | math avg",
-            result: Some(Value::Float {
-                val: 25.0,
-                span: Span::test_data(),
-            }),
+            result: Some(Value::float(25.0, Span::test_data())),
         }]
     }
 }

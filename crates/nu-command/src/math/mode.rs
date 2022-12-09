@@ -172,10 +172,7 @@ fn recreate_value(hashable_value: &HashableType, head: Span) -> Value {
     let bytes = hashable_value.bytes;
     match &hashable_value.original_type {
         NumberTypes::Int => Value::int(i64::from_ne_bytes(bytes), head),
-        NumberTypes::Float => Value::Float {
-            val: f64::from_ne_bytes(bytes),
-            span: head,
-        },
+        NumberTypes::Float => Value::float(f64::from_ne_bytes(bytes), head),
         NumberTypes::Duration => Value::Duration {
             val: i64::from_ne_bytes(bytes),
             span: head,

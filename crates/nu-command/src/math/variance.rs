@@ -46,18 +46,12 @@ impl Command for SubCommand {
             Example {
                 description: "Get the variance of a list of numbers",
                 example: "echo [1 2 3 4 5] | math variance",
-                result: Some(Value::Float {
-                    val: 2.0,
-                    span: Span::test_data(),
-                }),
+                result: Some(Value::float(2.0, Span::test_data())),
             },
             Example {
                 description: "Get the sample variance of a list of numbers",
                 example: "[1 2 3 4 5] | math variance -s",
-                result: Some(Value::Float {
-                    val: 2.5,
-                    span: Span::test_data(),
-                }),
+                result: Some(Value::float(2.5, Span::test_data())),
             },
         ]
     }

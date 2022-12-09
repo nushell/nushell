@@ -54,18 +54,12 @@ impl Command for SubCommand {
             Example {
                 description: "Compute the standard deviation of a list of numbers",
                 example: "[1 2 3 4 5] | math stddev",
-                result: Some(Value::Float {
-                    val: std::f64::consts::SQRT_2,
-                    span: Span::test_data(),
-                }),
+                result: Some(Value::float(std::f64::consts::SQRT_2, Span::test_data())),
             },
             Example {
                 description: "Compute the sample standard deviation of a list of numbers",
                 example: "[1 2 3 4 5] | math stddev -s",
-                result: Some(Value::Float {
-                    val: 1.5811388300841898,
-                    span: Span::test_data(),
-                }),
+                result: Some(Value::float(1.5811388300841898, Span::test_data())),
             },
         ]
     }

@@ -5,10 +5,7 @@ fn test_comparison_nothing() {
     let values = vec![
         Value::int(1, Span::test_data()),
         Value::string("string", Span::test_data()),
-        Value::Float {
-            val: 1.0,
-            span: Span::test_data(),
-        },
+        Value::float(1.0, Span::test_data()),
     ];
 
     let nothing = Value::Nothing {
