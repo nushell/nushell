@@ -3209,11 +3209,17 @@ pub fn format_filesize_from_conf(num_bytes: i64, config: &Config) -> String {
     format_filesize(
         num_bytes,
         config.filesize_format.as_str(),
-        config.filesize_metric,
+        Some(config.filesize_metric),
     )
 }
 
-pub fn format_filesize(num_bytes: i64, format_value: &str, filesize_metric: bool) -> String {
+// filesize_metric is explicit when printed a value according to user config;
+// other places (such as `format filesize`) don't.
+pub fn format_filesize(
+    num_bytes: i64,
+    format_value: &str,
+    filesize_metric: Option<bool>,
+) -> String {
     // Allow the user to specify how they want their numbers formatted
 
     // When format_value is "auto" or an invalid value, the returned ByteUnit doesn't matter
@@ -3222,7 +3228,9 @@ pub fn format_filesize(num_bytes: i64, format_value: &str, filesize_metric: bool
 
     let byte = byte_unit::Byte::from_bytes(num_bytes.unsigned_abs() as u128);
     let adj_byte = if filesize_format_var.1 == "auto" {
-        byte.get_appropriate_unit(!filesize_metric)
+        // When filesize_metric is None, format_value should never be "auto", so this
+        // unwrap_or() should always work.
+        byte.get_appropriate_unit(!filesize_metric.unwrap_or(false))
     } else {
         byte.get_adjusted_unit(filesize_format_var.0)
     };
@@ -3254,16 +3262,22 @@ pub fn format_filesize(num_bytes: i64, format_value: &str, filesize_metric: bool
     }
 }
 
-fn get_filesize_format(format_value: &str, filesize_metric: bool) -> (ByteUnit, &str) {
+fn get_filesize_format(format_value: &str, filesize_metric: Option<bool>) -> (ByteUnit, &str) {
     macro_rules! either {
-        ($metric:ident, $binary:ident) => {
+        ($in:ident, $metric:ident, $binary:ident) => {
             (
                 // filesize_metric always overrides the unit of
                 // filesize_format.
-                if filesize_metric {
-                    byte_unit::ByteUnit::$metric
-                } else {
-                    byte_unit::ByteUnit::$binary
+                match filesize_metric {
+                    Some(true) => byte_unit::ByteUnit::$metric,
+                    Some(false) => byte_unit::ByteUnit::$binary,
+                    None => {
+                        if $in.ends_with("ib") {
+                            byte_unit::ByteUnit::$binary
+                        } else {
+                            byte_unit::ByteUnit::$metric
+                        }
+                    }
                 },
                 "",
             )
@@ -3271,13 +3285,13 @@ fn get_filesize_format(format_value: &str, filesize_metric: bool) -> (ByteUnit, 
     }
     match format_value {
         "b" => (byte_unit::ByteUnit::B, ""),
-        "kb" | "kib" => either!(KB, KiB),
-        "mb" | "mib" => either!(MB, MiB),
-        "gb" | "gib" => either!(GB, GiB),
-        "tb" | "tib" => either!(TB, TiB),
-        "pb" | "pib" => either!(TB, TiB),
-        "eb" | "eib" => either!(EB, EiB),
-        "zb" | "zib" => either!(ZB, ZiB),
+        "kb" | "kib" => either!(format_value, KB, KiB),
+        "mb" | "mib" => either!(format_value, MB, MiB),
+        "gb" | "gib" => either!(format_value, GB, GiB),
+        "tb" | "tib" => either!(format_value, TB, TiB),
+        "pb" | "pib" => either!(format_value, TB, TiB),
+        "eb" | "eib" => either!(format_value, EB, EiB),
+        "zb" | "zib" => either!(format_value, ZB, ZiB),
         _ => (byte_unit::ByteUnit::B, "auto"),
     }
 }
