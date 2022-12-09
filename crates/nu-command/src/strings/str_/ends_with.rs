@@ -67,18 +67,12 @@ impl Command for SubCommand {
             Example {
                 description: "Checks if string ends with '.rb'",
                 example: "'my_library.rb' | str ends-with '.rb'",
-                result: Some(Value::Bool {
-                    val: true,
-                    span: Span::test_data(),
-                }),
+                result: Some(Value::boolean(true, Span::test_data())),
             },
             Example {
                 description: "Checks if string ends with '.txt'",
                 example: "'my_library.rb' | str ends-with '.txt'",
-                result: Some(Value::Bool {
-                    val: false,
-                    span: Span::test_data(),
-                }),
+                result: Some(Value::boolean(false, Span::test_data())),
             },
         ]
     }
@@ -86,10 +80,7 @@ impl Command for SubCommand {
 
 fn action(input: &Value, args: &Arguments, head: Span) -> Value {
     match input {
-        Value::String { val, .. } => Value::Bool {
-            val: val.ends_with(&args.substring),
-            span: head,
-        },
+        Value::String { val, .. } => Value::boolean(val.ends_with(&args.substring), head),
         other => Value::Error {
             error: ShellError::UnsupportedInput(
                 format!(

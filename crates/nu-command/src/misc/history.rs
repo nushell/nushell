@@ -93,10 +93,7 @@ impl Command for History {
                                             val: entry.command_line,
                                             span: head,
                                         },
-                                        Value::Int {
-                                            val: idx as i64,
-                                            span: head,
-                                        },
+                                        Value::int(idx as i64, head),
                                     ],
                                     span: head,
                                 })
@@ -183,14 +180,8 @@ impl Command for History {
                                             },
                                             span: head,
                                         },
-                                        Value::Int {
-                                            val: entry.exit_status.unwrap_or(0),
-                                            span: head,
-                                        },
-                                        Value::Int {
-                                            val: idx as i64,
-                                            span: head,
-                                        },
+                                        Value::int(entry.exit_status.unwrap_or(0), head),
+                                        Value::int(idx as i64, head),
                                     ],
                                     span: head,
                                 })

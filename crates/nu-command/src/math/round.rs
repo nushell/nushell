@@ -64,18 +64,9 @@ impl Command for SubCommand {
                 example: "[1.555 2.333 -3.111] | math round -p 2",
                 result: Some(Value::List {
                     vals: vec![
-                        Value::Float {
-                            val: 1.56,
-                            span: Span::test_data(),
-                        },
-                        Value::Float {
-                            val: 2.33,
-                            span: Span::test_data(),
-                        },
-                        Value::Float {
-                            val: -3.11,
-                            span: Span::test_data(),
-                        },
+                        Value::float(1.56, Span::test_data()),
+                        Value::float(2.33, Span::test_data()),
+                        Value::float(-3.11, Span::test_data()),
                     ],
                     span: Span::test_data(),
                 }),

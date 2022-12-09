@@ -38,14 +38,8 @@ impl Command for ExprCol {
             result: Some(Value::Record {
                 cols: vec!["expr".into(), "value".into()],
                 vals: vec![
-                    Value::String {
-                        val: "column".into(),
-                        span: Span::test_data(),
-                    },
-                    Value::String {
-                        val: "a".into(),
-                        span: Span::test_data(),
-                    },
+                    Value::string("column", Span::test_data()),
+                    Value::string("a", Span::test_data()),
                 ],
                 span: Span::test_data(),
             }),

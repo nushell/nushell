@@ -80,10 +80,7 @@ impl Command for Loop {
         vec![Example {
             description: "Loop while a condition is true",
             example: "mut x = 0; loop { if $x > 10 { break }; $x = $x + 1 }; $x",
-            result: Some(Value::Int {
-                val: 11,
-                span: Span::test_data(),
-            }),
+            result: Some(Value::int(11, Span::test_data())),
         }]
     }
 }

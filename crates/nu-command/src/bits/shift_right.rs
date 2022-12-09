@@ -76,10 +76,7 @@ impl Command for SubCommand {
             Example {
                 description: "Shift right a number with 2 bits",
                 example: "8 | bits shr 2",
-                result: Some(Value::Int {
-                    val: 2,
-                    span: Span::test_data(),
-                }),
+                result: Some(Value::int(2, Span::test_data())),
             },
             Example {
                 description: "Shift right a list of numbers",

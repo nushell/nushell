@@ -126,10 +126,7 @@ fn action(
 ) -> Value {
     let range = match range {
         Some(range) => range.clone(),
-        None => Value::String {
-            val: "".to_string(),
-            span: head,
-        },
+        None => Value::string("", head),
     };
 
     let r = process_range(input, &range, head);
@@ -143,26 +140,14 @@ fn action(
 
             if *end {
                 if let Some(result) = s[start_index..end_index].rfind(&**substring) {
-                    Value::Int {
-                        val: result as i64 + start_index as i64,
-                        span: head,
-                    }
+                    Value::int(result as i64 + start_index as i64, head)
                 } else {
-                    Value::Int {
-                        val: -1,
-                        span: head,
-                    }
+                    Value::int(-1, head)
                 }
             } else if let Some(result) = s[start_index..end_index].find(&**substring) {
-                Value::Int {
-                    val: result as i64 + start_index as i64,
-                    span: head,
-                }
+                Value::int(result as i64 + start_index as i64, head)
             } else {
-                Value::Int {
-                    val: -1,
-                    span: head,
-                }
+                Value::int(-1, head)
             }
         }
         other => Value::Error {

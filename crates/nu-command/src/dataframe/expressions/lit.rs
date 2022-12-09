@@ -37,14 +37,8 @@ impl Command for ExprLit {
             result: Some(Value::Record {
                 cols: vec!["expr".into(), "value".into()],
                 vals: vec![
-                    Value::String {
-                        val: "literal".into(),
-                        span: Span::test_data(),
-                    },
-                    Value::String {
-                        val: "2i64".into(),
-                        span: Span::test_data(),
-                    },
+                    Value::string("literal", Span::test_data()),
+                    Value::string("2i64", Span::test_data()),
                 ],
                 span: Span::test_data(),
             }),

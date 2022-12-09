@@ -40,11 +40,7 @@ impl Command for SubCommand {
         call: &Call,
         _input: PipelineData,
     ) -> Result<nu_protocol::PipelineData, nu_protocol::ShellError> {
-        Ok(Value::Float {
-            val: std::f64::consts::PI,
-            span: call.head,
-        }
-        .into_pipeline_data())
+        Ok(Value::float(std::f64::consts::PI, call.head).into_pipeline_data())
     }
 }
 

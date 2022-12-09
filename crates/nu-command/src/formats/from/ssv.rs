@@ -44,13 +44,13 @@ impl Command for FromSsv {
             example: r#"'FOO   BAR
 1   2' | from ssv"#,
             description: "Converts ssv formatted string to table",
-            result: Some(Value::List { vals: vec![Value::Record { cols: vec!["FOO".to_string(), "BAR".to_string()], vals: vec![Value::String { val: "1".to_string(), span: Span::test_data() }, Value::String { val: "2".to_string(), span: Span::test_data() }], span: Span::test_data() }], span: Span::test_data() }),
+            result: Some(Value::List { vals: vec![Value::Record { cols: vec!["FOO".to_string(), "BAR".to_string()], vals: vec![Value::string("1", Span::test_data()), Value::string("2", Span::test_data())], span: Span::test_data() }], span: Span::test_data() }),
         }, Example {
             example: r#"'FOO   BAR
 1   2' | from ssv -n"#,
             description: "Converts ssv formatted string to table but not treating the first row as column names",
             result: Some(
-                Value::List { vals: vec![Value::Record { cols: vec!["column1".to_string(), "column2".to_string()], vals: vec![Value::String { val: "FOO".to_string(), span: Span::test_data() }, Value::String { val: "BAR".to_string(), span: Span::test_data() }], span: Span::test_data() }, Value::Record { cols: vec!["column1".to_string(), "column2".to_string()], vals: vec![Value::String { val: "1".to_string(), span: Span::test_data() }, Value::String { val: "2".to_string(), span: Span::test_data() }], span: Span::test_data() }], span: Span::test_data() }),
+                Value::List { vals: vec![Value::Record { cols: vec!["column1".to_string(), "column2".to_string()], vals: vec![Value::string("FOO", Span::test_data()), Value::string("BAR", Span::test_data())], span: Span::test_data() }, Value::Record { cols: vec!["column1".to_string(), "column2".to_string()], vals: vec![Value::string("1", Span::test_data()), Value::string("2", Span::test_data())], span: Span::test_data() }], span: Span::test_data() }),
         }]
     }
 

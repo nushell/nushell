@@ -168,10 +168,7 @@ fn headerfieldvalue_to_value(head: Span, value: &HeaderFieldValue) -> Value {
                 .collect(),
             span: head,
         },
-        Unstructured(s) => Value::String {
-            val: s.to_string(),
-            span: head,
-        },
+        Unstructured(s) => Value::string(s, head),
         Empty => Value::nothing(head),
     }
 }

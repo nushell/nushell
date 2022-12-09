@@ -43,40 +43,22 @@ impl Command for Window {
         let stream_test_1 = vec![
             Value::List {
                 vals: vec![
-                    Value::Int {
-                        val: 1,
-                        span: Span::test_data(),
-                    },
-                    Value::Int {
-                        val: 2,
-                        span: Span::test_data(),
-                    },
+                    Value::int(1, Span::test_data()),
+                    Value::int(2, Span::test_data()),
                 ],
                 span: Span::test_data(),
             },
             Value::List {
                 vals: vec![
-                    Value::Int {
-                        val: 2,
-                        span: Span::test_data(),
-                    },
-                    Value::Int {
-                        val: 3,
-                        span: Span::test_data(),
-                    },
+                    Value::int(2, Span::test_data()),
+                    Value::int(3, Span::test_data()),
                 ],
                 span: Span::test_data(),
             },
             Value::List {
                 vals: vec![
-                    Value::Int {
-                        val: 3,
-                        span: Span::test_data(),
-                    },
-                    Value::Int {
-                        val: 4,
-                        span: Span::test_data(),
-                    },
+                    Value::int(3, Span::test_data()),
+                    Value::int(4, Span::test_data()),
                 ],
                 span: Span::test_data(),
             },
@@ -85,40 +67,22 @@ impl Command for Window {
         let stream_test_2 = vec![
             Value::List {
                 vals: vec![
-                    Value::Int {
-                        val: 1,
-                        span: Span::test_data(),
-                    },
-                    Value::Int {
-                        val: 2,
-                        span: Span::test_data(),
-                    },
+                    Value::int(1, Span::test_data()),
+                    Value::int(2, Span::test_data()),
                 ],
                 span: Span::test_data(),
             },
             Value::List {
                 vals: vec![
-                    Value::Int {
-                        val: 4,
-                        span: Span::test_data(),
-                    },
-                    Value::Int {
-                        val: 5,
-                        span: Span::test_data(),
-                    },
+                    Value::int(4, Span::test_data()),
+                    Value::int(5, Span::test_data()),
                 ],
                 span: Span::test_data(),
             },
             Value::List {
                 vals: vec![
-                    Value::Int {
-                        val: 7,
-                        span: Span::test_data(),
-                    },
-                    Value::Int {
-                        val: 8,
-                        span: Span::test_data(),
-                    },
+                    Value::int(7, Span::test_data()),
+                    Value::int(8, Span::test_data()),
                 ],
                 span: Span::test_data(),
             },
@@ -127,31 +91,16 @@ impl Command for Window {
         let stream_test_3 = vec![
             Value::List {
                 vals: vec![
-                    Value::Int {
-                        val: 1,
-                        span: Span::test_data(),
-                    },
-                    Value::Int {
-                        val: 2,
-                        span: Span::test_data(),
-                    },
-                    Value::Int {
-                        val: 3,
-                        span: Span::test_data(),
-                    },
+                    Value::int(1, Span::test_data()),
+                    Value::int(2, Span::test_data()),
+                    Value::int(3, Span::test_data()),
                 ],
                 span: Span::test_data(),
             },
             Value::List {
                 vals: vec![
-                    Value::Int {
-                        val: 4,
-                        span: Span::test_data(),
-                    },
-                    Value::Int {
-                        val: 5,
-                        span: Span::test_data(),
-                    },
+                    Value::int(4, Span::test_data()),
+                    Value::int(5, Span::test_data()),
                 ],
                 span: Span::test_data(),
             },
