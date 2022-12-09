@@ -4,6 +4,7 @@ mod arccosh;
 mod arcsin;
 mod arcsinh;
 mod arctan;
+mod arctan2;
 mod arctanh;
 mod avg;
 mod ceil;
