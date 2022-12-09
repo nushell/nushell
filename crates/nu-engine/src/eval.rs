@@ -903,22 +903,29 @@ pub fn eval_element_with_input(
             }
             _ => Err(ShellError::CommandNotFound(*span)),
         },
-        PipelineElement::And(_, expr) => eval_expression_with_input(
-            engine_state,
-            stack,
-            expr,
-            input,
-            redirect_stdout,
-            redirect_stderr,
-        ),
-        PipelineElement::Or(_, expr) => eval_expression_with_input(
-            engine_state,
-            stack,
-            expr,
-            input,
-            redirect_stdout,
-            redirect_stderr,
-        ),
+        PipelineElement::Or(_, expr) => {
+            let output = eval_expression_with_input(
+                engine_state,
+                stack,
+                expr,
+                input,
+                redirect_stdout,
+                redirect_stderr,
+            );
+
+            if let Ok(output) = output {
+                // Ignore error because this is '||'
+                let _ = drain_and_print(
+                    engine_state,
+                    stack,
+                    output.0,
+                    redirect_stdout,
+                    redirect_stderr,
+                );
+            }
+
+            Ok((PipelineData::empty(), false))
+        }
     }
 }
 
@@ -1006,81 +1013,89 @@ pub fn eval_block(
         }
 
         if pipeline_idx < (num_pipelines) - 1 {
-            match input {
-                PipelineData::Value(Value::Nothing { .. }, ..) => {}
-                PipelineData::ExternalStream {
-                    ref mut exit_code, ..
-                } => {
-                    let exit_code = exit_code.take();
-
-                    // Drain the input to the screen via tabular output
-                    let config = engine_state.get_config();
-
-                    match engine_state.find_decl("table".as_bytes(), &[]) {
-                        Some(decl_id) => {
-                            let table = engine_state.get_decl(decl_id).run(
-                                engine_state,
-                                stack,
-                                &Call::new(Span::new(0, 0)),
-                                input,
-                            )?;
-
-                            print_or_return(table, config)?;
-                        }
-                        None => {
-                            print_or_return(input, config)?;
-                        }
-                    };
-
-                    if let Some(exit_code) = exit_code {
-                        let mut v: Vec<_> = exit_code.collect();
-
-                        if let Some(v) = v.pop() {
-                            stack.add_env_var("LAST_EXIT_CODE".into(), v);
-                        }
-                    }
-                }
-                _ => {
-                    // Drain the input to the screen via tabular output
-                    let config = engine_state.get_config();
-
-                    match engine_state.find_decl("table".as_bytes(), &[]) {
-                        Some(decl_id) => {
-                            let table = engine_state.get_decl(decl_id);
-
-                            if let Some(block_id) = table.get_block_id() {
-                                let block = engine_state.get_block(block_id);
-                                eval_block(
-                                    engine_state,
-                                    stack,
-                                    block,
-                                    input,
-                                    redirect_stdout,
-                                    redirect_stderr,
-                                )?;
-                            } else {
-                                let table = table.run(
-                                    engine_state,
-                                    stack,
-                                    &Call::new(Span::new(0, 0)),
-                                    input,
-                                )?;
-
-                                print_or_return(table, config)?;
-                            }
-                        }
-                        None => {
-                            print_or_return(input, config)?;
-                        }
-                    };
-                }
-            }
+            drain_and_print(engine_state, stack, input, redirect_stdout, redirect_stderr)?;
 
             input = PipelineData::empty()
         }
     }
 
     Ok(input)
+}
+
+fn drain_and_print(
+    engine_state: &EngineState,
+    stack: &mut Stack,
+    mut input: PipelineData,
+    redirect_stdout: bool,
+    redirect_stderr: bool,
+) -> Result<(), ShellError> {
+    match input {
+        PipelineData::Value(Value::Nothing { .. }, ..) => {}
+        PipelineData::ExternalStream {
+            ref mut exit_code, ..
+        } => {
+            let exit_code = exit_code.take();
+
+            // Drain the input to the screen via tabular output
+            let config = engine_state.get_config();
+
+            match engine_state.find_decl("table".as_bytes(), &[]) {
+                Some(decl_id) => {
+                    let table = engine_state.get_decl(decl_id).run(
+                        engine_state,
+                        stack,
+                        &Call::new(Span::new(0, 0)),
+                        input,
+                    )?;
+
+                    print_or_return(table, config)?;
+                }
+                None => {
+                    print_or_return(input, config)?;
+                }
+            };
+
+            if let Some(exit_code) = exit_code {
+                let mut v: Vec<_> = exit_code.collect();
+
+                if let Some(v) = v.pop() {
+                    stack.add_env_var("LAST_EXIT_CODE".into(), v);
+                }
+            }
+        }
+        _ => {
+            // Drain the input to the screen via tabular output
+            let config = engine_state.get_config();
+
+            match engine_state.find_decl("table".as_bytes(), &[]) {
+                Some(decl_id) => {
+                    let table = engine_state.get_decl(decl_id);
+
+                    if let Some(block_id) = table.get_block_id() {
+                        let block = engine_state.get_block(block_id);
+                        eval_block(
+                            engine_state,
+                            stack,
+                            block,
+                            input,
+                            redirect_stdout,
+                            redirect_stderr,
+                        )?;
+                    } else {
+                        let table =
+                            table.run(engine_state, stack, &Call::new(Span::new(0, 0)), input)?;
+
+                        print_or_return(table, config)?;
+                    }
+                }
+                None => {
+                    print_or_return(input, config)?;
+                }
+            };
+        }
+    }
+
+    Ok(())
 }
 
 fn print_or_return(pipeline_data: PipelineData, config: &Config) -> Result<(), ShellError> {
