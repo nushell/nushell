@@ -119,10 +119,7 @@ fn parse_date_into_table(date: Result<DateTime<FixedOffset>, Value>, head: Span)
                 Value::int(x.hour() as i64, head),
                 Value::int(x.minute() as i64, head),
                 Value::int(x.second() as i64, head),
-                Value::String {
-                    val: x.offset().to_string(),
-                    span: head,
-                },
+                Value::string(x.offset().to_string(), head),
             ];
             Value::List {
                 vals: vec![Value::Record {

@@ -53,15 +53,9 @@ impl Command for Enter {
             ));
         }
 
-        let new_path = Value::String {
-            val: new_path.to_string_lossy().to_string(),
-            span: call.head,
-        };
+        let new_path = Value::string(new_path.to_string_lossy(), call.head);
 
-        let cwd = Value::String {
-            val: cwd.to_string_lossy().to_string(),
-            span: call.head,
-        };
+        let cwd = Value::string(cwd.to_string_lossy(), call.head);
 
         let mut shells = get_shells(engine_state, stack, cwd);
         let mut current_shell = get_current_shell(engine_state, stack);

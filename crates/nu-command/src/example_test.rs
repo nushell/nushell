@@ -208,10 +208,7 @@ mod test_examples {
         // Set up PWD
         stack.add_env_var(
             "PWD".to_string(),
-            Value::String {
-                val: cwd.to_string_lossy().to_string(),
-                span: Span::test_data(),
-            },
+            Value::string(cwd.to_string_lossy(), Span::test_data()),
         );
 
         engine_state
@@ -296,10 +293,7 @@ mod test_examples {
 
         stack.add_env_var(
             "PWD".to_string(),
-            Value::String {
-                val: cwd.to_string_lossy().to_string(),
-                span: Span::test_data(),
-            },
+            Value::string(cwd.to_string_lossy(), Span::test_data()),
         );
 
         match nu_engine::eval_block(engine_state, &mut stack, &block, input, true, true) {

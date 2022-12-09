@@ -64,10 +64,7 @@ with 'transpose' first."#
             Value::Nothing {
                 span: Span::test_data(),
             },
-            Value::String {
-                val: "found 2!".to_string(),
-                span: Span::test_data(),
-            },
+            Value::string("found 2!", Span::test_data()),
             Value::Nothing {
                 span: Span::test_data(),
             },
@@ -87,14 +84,8 @@ with 'transpose' first."#
                 description: "Produce a list that has \"two\" for each 2 in the input",
                 result: Some(Value::List {
                     vals: vec![
-                        Value::String {
-                            val: "two".to_string(),
-                            span: Span::test_data(),
-                        },
-                        Value::String {
-                            val: "two".to_string(),
-                            span: Span::test_data(),
-                        },
+                        Value::string("two", Span::test_data()),
+                        Value::string("two", Span::test_data()),
                     ],
                     span: Span::test_data(),
                 }),
@@ -104,10 +95,7 @@ with 'transpose' first."#
                 description:
                     "Iterate over each element, producing a list showing indexes of any 2s",
                 result: Some(Value::List {
-                    vals: vec![Value::String {
-                        val: "found 2 at 1!".to_string(),
-                        span: Span::test_data(),
-                    }],
+                    vals: vec![Value::string("found 2 at 1!", Span::test_data())],
                     span: Span::test_data(),
                 }),
             },

@@ -38,10 +38,7 @@ impl Command for IsAdmin {
             Example {
                 description: "Echo 'iamroot' if nushell is running with admin/root privileges, and 'iamnotroot' if not.",
                 example: r#"if is-admin { echo "iamroot" } else { echo "iamnotroot" }"#,
-                result: Some(Value::String {
-                    val: "iamnotroot".to_string(),
-                    span: Span::test_data(),
-                }),
+                result: Some(Value::string("iamnotroot", Span::test_data())),
             },
         ]
     }

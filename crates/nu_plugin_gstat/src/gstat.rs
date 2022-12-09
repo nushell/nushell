@@ -254,25 +254,13 @@ impl GStat {
         cols.push("stashes".into());
         vals.push(Value::int(-1, *span));
         cols.push("repo_name".into());
-        vals.push(Value::String {
-            val: "no_repository".to_string(),
-            span: *span,
-        });
+        vals.push(Value::string("no_repository", *span));
         cols.push("tag".into());
-        vals.push(Value::String {
-            val: "no_tag".to_string(),
-            span: *span,
-        });
+        vals.push(Value::string("no_tag", *span));
         cols.push("branch".into());
-        vals.push(Value::String {
-            val: "no_branch".to_string(),
-            span: *span,
-        });
+        vals.push(Value::string("no_branch", *span));
         cols.push("remote".into());
-        vals.push(Value::String {
-            val: "no_remote".to_string(),
-            span: *span,
-        });
+        vals.push(Value::string("no_remote", *span));
 
         Value::Record {
             cols,

@@ -610,35 +610,23 @@ pub fn eval_expression(
             let cwd = current_dir_str(engine_state, stack)?;
             let path = expand_path_with(s, cwd);
 
-            Ok(Value::String {
-                val: path.to_string_lossy().to_string(),
-                span: expr.span,
-            })
+            Ok(Value::string(path.to_string_lossy(), expr.span))
         }
         Expr::Directory(s) => {
             if s == "-" {
-                Ok(Value::String {
-                    val: "-".to_string(),
-                    span: expr.span,
-                })
+                Ok(Value::string("-", expr.span))
             } else {
                 let cwd = current_dir_str(engine_state, stack)?;
                 let path = expand_path_with(s, cwd);
 
-                Ok(Value::String {
-                    val: path.to_string_lossy().to_string(),
-                    span: expr.span,
-                })
+                Ok(Value::string(path.to_string_lossy(), expr.span))
             }
         }
         Expr::GlobPattern(s) => {
             let cwd = current_dir_str(engine_state, stack)?;
             let path = expand_path_with(s, cwd);
 
-            Ok(Value::String {
-                val: path.to_string_lossy().to_string(),
-                span: expr.span,
-            })
+            Ok(Value::string(path.to_string_lossy(), expr.span))
         }
         Expr::Signature(_) => Ok(Value::Nothing { span: expr.span }),
         Expr::Garbage => Ok(Value::Nothing { span: expr.span }),

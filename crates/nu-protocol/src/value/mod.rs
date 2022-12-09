@@ -1321,10 +1321,7 @@ impl Value {
     /// Note: Only use this for test data, *not* live data, as it will point into unknown source
     /// when used in errors.
     pub fn test_string(s: impl Into<String>) -> Value {
-        Value::String {
-            val: s.into(),
-            span: Span::test_data(),
-        }
+        Value::string(s, Span::test_data())
     }
 
     /// Note: Only use this for test data, *not* live data, as it will point into unknown source

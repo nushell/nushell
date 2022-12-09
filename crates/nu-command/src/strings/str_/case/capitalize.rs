@@ -48,18 +48,12 @@ impl Command for SubCommand {
             Example {
                 description: "Capitalize contents",
                 example: "'good day' | str capitalize",
-                result: Some(Value::String {
-                    val: "Good day".to_string(),
-                    span: Span::test_data(),
-                }),
+                result: Some(Value::string("Good day", Span::test_data())),
             },
             Example {
                 description: "Capitalize contents",
                 example: "'anton' | str capitalize",
-                result: Some(Value::String {
-                    val: "Anton".to_string(),
-                    span: Span::test_data(),
-                }),
+                result: Some(Value::string("Anton", Span::test_data())),
             },
             Example {
                 description: "Capitalize a column in a table",
@@ -69,10 +63,7 @@ impl Command for SubCommand {
                         span: Span::test_data(),
                         cols: vec!["lang".to_string(), "gems".to_string()],
                         vals: vec![
-                            Value::String {
-                                val: "Nu_test".to_string(),
-                                span: Span::test_data(),
-                            },
+                            Value::string("Nu_test", Span::test_data()),
                             Value::test_int(100),
                         ],
                     }],

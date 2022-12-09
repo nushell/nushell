@@ -173,10 +173,10 @@ impl Iterator for RawStreamLinesAdapter {
                 // inner is complete, feed out remaining state
                 if self.inner_complete {
                     if !self.incomplete_line.is_empty() {
-                        let r = Some(Ok(Value::String {
-                            val: self.incomplete_line.to_string(),
-                            span: self.span,
-                        }));
+                        let r = Some(Ok(Value::string(
+                            self.incomplete_line.to_string(),
+                            self.span,
+                        )));
                         self.incomplete_line = String::new();
                         return r;
                     }

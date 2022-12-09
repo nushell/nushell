@@ -135,10 +135,7 @@ impl Command for OverlayUse {
                     let mut parent = path.clone();
                     parent.pop();
 
-                    let file_pwd = Value::String {
-                        val: parent.to_string_lossy().to_string(),
-                        span: call.head,
-                    };
+                    let file_pwd = Value::string(parent.to_string_lossy(), call.head);
 
                     caller_stack.add_env_var("FILE_PWD".to_string(), file_pwd);
                 }

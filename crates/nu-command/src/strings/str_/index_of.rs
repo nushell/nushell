@@ -126,10 +126,7 @@ fn action(
 ) -> Value {
     let range = match range {
         Some(range) => range.clone(),
-        None => Value::String {
-            val: "".to_string(),
-            span: head,
-        },
+        None => Value::string("", head),
     };
 
     let r = process_range(input, &range, head);

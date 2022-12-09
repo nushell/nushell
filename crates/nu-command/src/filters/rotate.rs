@@ -313,10 +313,7 @@ pub fn rotate(
     for (idx, val) in columns_iter {
         // when rotating counter clockwise, the old columns names become the first column's values
         let mut res = if ccw {
-            vec![Value::String {
-                val: val.to_string(),
-                span: call.head,
-            }]
+            vec![Value::string(val, call.head)]
         } else {
             vec![]
         };
@@ -329,10 +326,7 @@ pub fn rotate(
             }
             // when rotating clockwise, the old column names become the last column's values
             if !ccw {
-                res.push(Value::String {
-                    val: val.to_string(),
-                    span: call.head,
-                });
+                res.push(Value::string(val, call.head));
             }
             res.to_vec()
         };

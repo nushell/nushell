@@ -163,10 +163,7 @@ impl Command for Cd {
 
         let path_tointo = path.clone();
         let path_value = Value::String { val: path, span };
-        let cwd = Value::String {
-            val: cwd.to_string_lossy().to_string(),
-            span: call.head,
-        };
+        let cwd = Value::string(cwd.to_string_lossy(), call.head);
 
         let mut shells = get_shells(engine_state, stack, cwd);
         let current_shell = get_current_shell(engine_state, stack);

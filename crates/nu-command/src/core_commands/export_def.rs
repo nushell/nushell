@@ -46,10 +46,7 @@ impl Command for ExportDef {
         vec![Example {
             description: "Define a custom command in a module and call it",
             example: r#"module spam { export def foo [] { "foo" } }; use spam foo; foo"#,
-            result: Some(Value::String {
-                val: "foo".to_string(),
-                span: Span::test_data(),
-            }),
+            result: Some(Value::string("foo", Span::test_data())),
         }]
     }
 

@@ -50,26 +50,17 @@ impl Command for SubCommand {
             Example {
                 description: "convert a string to camelCase",
                 example: " 'NuShell' | str camel-case",
-                result: Some(Value::String {
-                    val: "nuShell".to_string(),
-                    span: Span::test_data(),
-                }),
+                result: Some(Value::string("nuShell", Span::test_data())),
             },
             Example {
                 description: "convert a string to camelCase",
                 example: "'this-is-the-first-case' | str camel-case",
-                result: Some(Value::String {
-                    val: "thisIsTheFirstCase".to_string(),
-                    span: Span::test_data(),
-                }),
+                result: Some(Value::string("thisIsTheFirstCase", Span::test_data())),
             },
             Example {
                 description: "convert a string to camelCase",
                 example: " 'this_is_the_second_case' | str camel-case",
-                result: Some(Value::String {
-                    val: "thisIsTheSecondCase".to_string(),
-                    span: Span::test_data(),
-                }),
+                result: Some(Value::string("thisIsTheSecondCase", Span::test_data())),
             },
             Example {
                 description: "convert a column from a table to camelCase",
@@ -79,10 +70,7 @@ impl Command for SubCommand {
                         span: Span::test_data(),
                         cols: vec!["lang".to_string(), "gems".to_string()],
                         vals: vec![
-                            Value::String {
-                                val: "nuTest".to_string(),
-                                span: Span::test_data(),
-                            },
+                            Value::string("nuTest", Span::test_data()),
                             Value::test_int(100),
                         ],
                     }],
