@@ -1,4 +1,4 @@
-use nu_engine::{eval_block, eval_expression};
+use nu_engine::{eval_block, eval_expression, CallExt};
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Closure, Command, EngineState, Stack};
 use nu_protocol::{
@@ -27,7 +27,11 @@ impl Command for Where {
                 ),
                 (Type::Table(vec![]), Type::Table(vec![])),
             ])
-            .rest("row_condition", SyntaxShape::Any, "Filter condition")
+            .required(
+                "row_condition",
+                SyntaxShape::RowCondition,
+                "Filter condition",
+            )
             .category(Category::Filters)
     }
 
@@ -42,78 +46,69 @@ impl Command for Where {
         call: &Call,
         input: PipelineData,
     ) -> Result<nu_protocol::PipelineData, nu_protocol::ShellError> {
-        let capture_closure: Closure = if let Some(id_expression) = call.positional_iter().last() {
-            let value = eval_expression(engine_state, stack, id_expression)?;
-            FromValue::from_value(&value)?
-        } else {
-            return Err(ShellError::NushellFailedSpanned(
-                "Missing row condition block".to_string(),
-                "parser failed to add a block".to_string(),
-                call.head,
-            ));
-        };
+            let closure: Closure = call.req(engine_state, stack, 0)?;
 
-        let head_span = call.head;
+                let span = call.head;
 
-        let metadata = input.metadata();
-        let mut stack = stack.captures_to_stack(&capture_closure.captures);
-        let closure = engine_state.get_block(capture_closure.block_id).clone();
+                let metadata = input.metadata();
+                let mut stack = stack.captures_to_stack(&closure.captures);
+                let block = engine_state.get_block(closure.block_id).clone();
 
-        let orig_env_vars = stack.env_vars.clone();
-        let orig_env_hidden = stack.env_hidden.clone();
+                let orig_env_vars = stack.env_vars.clone();
+                let orig_env_hidden = stack.env_hidden.clone();
 
-        let ctrlc = engine_state.ctrlc.clone();
-        let engine_state = engine_state.clone();
+                let ctrlc = engine_state.ctrlc.clone();
+                let engine_state = engine_state.clone();
 
-        let redirect_stdout = call.redirect_stdout;
-        let redirect_stderr = call.redirect_stderr;
-        Ok(input
-            .into_iter()
-            .enumerate()
-            .filter_map(move |(idx, value)| {
-                stack.with_env(&orig_env_vars, &orig_env_hidden);
+                let redirect_stdout = call.redirect_stdout;
+                let redirect_stderr = call.redirect_stderr;
+                Ok(input
+                    .into_iter()
+                    .enumerate()
+                    .filter_map(move |(idx, value)| {
+                        stack.with_env(&orig_env_vars, &orig_env_hidden);
 
-                if let Some(var) = closure.signature.get_positional(0) {
-                    if let Some(var_id) = &var.var_id {
-                        stack.add_var(*var_id, value.clone());
-                    }
-                }
-                // Optional index argument
-                if let Some(var) = closure.signature.get_positional(1) {
-                    if let Some(var_id) = &var.var_id {
-                        stack.add_var(
-                            *var_id,
-                            Value::Int {
-                                val: idx as i64,
-                                span: head_span,
-                            },
-                        );
-                    }
-                }
-                let result = eval_block(
-                    &engine_state,
-                    &mut stack,
-                    &closure,
-                    // clone() is used here because x is given to Ok() below.
-                    value.clone().into_pipeline_data(),
-                    redirect_stdout,
-                    redirect_stderr,
-                );
-
-                match result {
-                    Ok(result) => {
-                        let result = result.into_value(head_span);
-                        if result.is_true() {
-                            Some(value)
-                        } else {
-                            None
+                        if let Some(var) = block.signature.get_positional(0) {
+                            if let Some(var_id) = &var.var_id {
+                                stack.add_var(*var_id, value.clone());
+                            }
                         }
-                    }
-                    Err(err) => Some(Value::Error { error: err }),
-                }
-            })
-            .into_pipeline_data(ctrlc))
-        .map(|x| x.set_metadata(metadata))
+                        // Optional index argument
+                        if let Some(var) = block.signature.get_positional(1) {
+                            if let Some(var_id) = &var.var_id {
+                                stack.add_var(
+                                    *var_id,
+                                    Value::Int {
+                                        val: idx as i64,
+                                        span,
+                                    },
+                                );
+                            }
+                        }
+                        let result = eval_block(
+                            &engine_state,
+                            &mut stack,
+                            &block,
+                            // clone() is used here because x is given to Ok() below.
+                            value.clone().into_pipeline_data(),
+                            redirect_stdout,
+                            redirect_stderr,
+                        );
+
+                        match result {
+                            Ok(result) => {
+                                let result = result.into_value(span);
+                                if result.is_true() {
+                                    Some(value)
+                                } else {
+                                    None
+                                }
+                            }
+                            Err(err) => Some(Value::Error { error: err }),
+                        }
+                    })
+                    .into_pipeline_data(ctrlc))
+                .map(|x| x.set_metadata(metadata))
     }
 
     fn examples(&self) -> Vec<Example> {
@@ -133,14 +128,6 @@ impl Command for Where {
             Example {
                 description: "Filter items of a list according to a condition",
                 example: "[1 2] | where {|x| $x > 1}",
-                result: Some(Value::List {
-                    vals: vec![Value::test_int(2)],
-                    span: Span::test_data(),
-                }),
-            },
-            Example {
-                description: "Filter items of a list according to a stored condition",
-                example: "let cond = {|x| $x > 1}; [1 2] | where $cond",
                 result: Some(Value::List {
                     vals: vec![Value::test_int(2)],
                     span: Span::test_data(),
