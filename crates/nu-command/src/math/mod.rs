@@ -29,6 +29,7 @@ mod stddev;
 mod sum;
 mod tan;
 mod tanh;
+mod tau;
 mod utils;
 mod variance;
 
@@ -65,5 +66,6 @@ pub use arctanh::SubCommand as MathArcTanH;
 
 pub use euler::SubCommand as MathEuler;
 pub use pi::SubCommand as MathPi;
+pub use tau::SubCommand as MathTau;
 
 pub use ln::SubCommand as MathLn;
