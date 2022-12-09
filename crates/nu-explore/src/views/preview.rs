@@ -1,4 +1,4 @@
-use std::cmp::{max, min};
+use std::cmp::max;
 
 use crossterm::event::{KeyCode, KeyEvent};
 use nu_protocol::{
@@ -10,22 +10,19 @@ use tui::layout::Rect;
 
 use crate::{
     nu_common::{NuSpan, NuText},
-    pager::{
-        report::{Report, Severity},
-        Frame, Transition, ViewInfo,
-    },
+    pager::{report::Report, Frame, Transition, ViewInfo},
 };
 
-use super::{coloredtextw::ColoredTextW, Layout, View, ViewConfig};
+use super::{coloredtextw::ColoredTextW, cursorw::Cursor, Layout, View, ViewConfig};
 
 // todo: Add wrap option
 #[derive(Debug)]
 pub struct Preview {
     underlaying_value: Option<Value>,
     lines: Vec<String>,
-    i_row: usize,
-    i_col: usize,
-    screen_size: u16,
+    row_c: Cursor,
+    col_c: Cursor,
+    area: Rect,
 }
 
 impl Preview {
@@ -34,13 +31,14 @@ impl Preview {
             .lines()
             .map(|line| line.replace('\t', "    ")) // tui: doesn't support TAB
             .collect();
+        let count_lines = lines.len();
 
         Self {
             lines,
-            i_col: 0,
-            i_row: 0,
-            screen_size: 0,
             underlaying_value: None,
+            col_c: Cursor::new(usize::MAX, usize::MAX),
+            row_c: Cursor::new(0, count_lines),
+            area: Rect::default(),
         }
     }
 
@@ -51,14 +49,13 @@ impl Preview {
 
 impl View for Preview {
     fn draw(&mut self, f: &mut Frame, area: Rect, _: ViewConfig<'_>, layout: &mut Layout) {
-        if self.i_row >= self.lines.len() {
-            f.render_widget(tui::widgets::Clear, area);
-            return;
-        }
+        self.row_c.reset(area.height as usize);
+        self.col_c.reset(area.width as usize);
+        self.area = area;
 
-        let lines = &self.lines[self.i_row..];
+        let lines = &self.lines[self.row_c.current()..];
         for (i, line) in lines.iter().enumerate().take(area.height as usize) {
-            let text = ColoredTextW::new(line, self.i_col);
+            let text = ColoredTextW::new(line, self.col_c.current());
             let s = text.what(area);
 
             let area = Rect::new(area.x, area.y + i as u16, area.width, 1);
@@ -66,104 +63,94 @@ impl View for Preview {
 
             layout.push(&s, area.x, area.y, area.width, area.height);
         }
-
-        self.screen_size = area.width;
     }
 
     fn handle_input(
         &mut self,
         _: &EngineState,
         _: &mut Stack,
-        layout: &Layout,
+        _: &Layout,
         info: &mut ViewInfo, // add this arg to draw too?
         key: KeyEvent,
     ) -> Option<Transition> {
         match key.code {
             KeyCode::Left => {
-                if self.i_col > 0 {
-                    self.i_col -= max(1, self.screen_size as usize / 2);
-                }
+                self.col_c.prev(max(1, self.area.width as usize / 2));
 
                 Some(Transition::Ok)
             }
             KeyCode::Right => {
-                self.i_col += max(1, self.screen_size as usize / 2);
+                self.col_c.next(max(1, self.area.width as usize / 2));
 
                 Some(Transition::Ok)
             }
             KeyCode::Up => {
-                let is_start = self.i_row == 0;
-                if is_start {
-                    // noop
-                    return Some(Transition::Ok);
-                }
+                self.row_c.prev(1);
 
-                let page_size = layout.data.len();
-                let max = self.lines.len().saturating_sub(page_size);
-                let was_end = self.i_row == max;
-
-                if max != 0 && was_end {
+                if (self.row_c.page() + 1) * self.row_c.page_size() + self.row_c.relative()
+                    != self.row_c.limit()
+                {
                     info.status = Some(Report::default());
                 }
 
-                self.i_row = self.i_row.saturating_sub(1);
+                if self.row_c.current() == 0 {
+                    info.status = Some(Report::info("TOP"));
+                }
 
                 Some(Transition::Ok)
             }
             KeyCode::Down => {
-                let page_size = layout.data.len();
-                let max = self.lines.len().saturating_sub(page_size);
-
-                let is_end = self.i_row == max;
-                if is_end {
-                    // noop
+                if (self.row_c.page() + 1) * self.row_c.page_size() + self.row_c.relative()
+                    == self.row_c.limit()
+                {
                     return Some(Transition::Ok);
                 }
 
-                self.i_row = min(self.i_row + 1, max);
+                self.row_c.next(1);
 
-                let is_end = self.i_row == max;
-                if is_end {
-                    let report = Report::new(
-                        String::from("END"),
-                        Severity::Info,
-                        String::new(),
-                        String::new(),
-                    );
+                info.status = Some(Report::info(""));
 
-                    info.status = Some(report);
+                if (self.row_c.page() + 1) * self.row_c.page_size() + self.row_c.relative()
+                    == self.row_c.limit()
+                {
+                    info.status = Some(Report::info("END"));
                 }
 
                 Some(Transition::Ok)
             }
             KeyCode::PageUp => {
-                let page_size = layout.data.len();
-                let max = self.lines.len().saturating_sub(page_size);
-                let was_end = self.i_row == max;
+                let page_size = self.area.height as usize;
+                self.row_c.prev(page_size);
 
-                if max != 0 && was_end {
+                if (self.row_c.page() + 1) * self.row_c.page_size() + self.row_c.relative()
+                    != self.row_c.limit()
+                {
                     info.status = Some(Report::default());
                 }
 
-                self.i_row = self.i_row.saturating_sub(page_size);
+                if self.row_c.current() == 0 {
+                    info.status = Some(Report::info("TOP"));
+                }
 
                 Some(Transition::Ok)
             }
             KeyCode::PageDown => {
-                let page_size = layout.data.len();
-                let max = self.lines.len().saturating_sub(page_size);
-                self.i_row = min(self.i_row + page_size, max);
+                if (self.row_c.page() + 1) * self.row_c.page_size() + self.row_c.relative()
+                    == self.row_c.limit()
+                {
+                    return Some(Transition::Ok);
+                }
 
-                let is_end = self.i_row == max;
-                if is_end {
-                    let report = Report::new(
-                        String::from("END"),
-                        Severity::Info,
-                        String::new(),
-                        String::new(),
-                    );
+                let page_size = self.area.height as usize;
+                self.row_c.next(page_size);
 
-                    info.status = Some(report);
+                info.status = Some(Report::info(""));
+
+                if (self.row_c.page() + 1) * self.row_c.page_size() + self.row_c.relative()
+                    == self.row_c.limit()
+                {
+                    self.row_c.move_relative(0);
+                    info.status = Some(Report::info("END"));
                 }
 
                 Some(Transition::Ok)
@@ -185,7 +172,7 @@ impl View for Preview {
         //
         // todo: improve somehow?
 
-        self.i_row = row;
+        self.row_c.move_to(row);
         true
     }
 

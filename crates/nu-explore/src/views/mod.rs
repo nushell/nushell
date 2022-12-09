@@ -1,4 +1,5 @@
 mod coloredtextw;
+mod cursorw;
 mod information;
 mod interative;
 mod preview;

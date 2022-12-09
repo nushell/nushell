@@ -16,6 +16,14 @@ impl Report {
         }
     }
 
+    pub fn message(message: impl Into<String>, level: Severity) -> Self {
+        Self::new(message.into(), level, String::new(), String::new())
+    }
+
+    pub fn info(message: impl Into<String>) -> Self {
+        Self::new(message.into(), Severity::Info, String::new(), String::new())
+    }
+
     pub fn error(message: impl Into<String>) -> Self {
         Self::new(message.into(), Severity::Err, String::new(), String::new())
     }

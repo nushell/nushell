@@ -20,13 +20,13 @@ use crate::{
     views::util::nu_style_to_tui,
 };
 
-use super::{Layout, View, ViewConfig};
+use super::{cursorw::Cursor2, Layout, View, ViewConfig};
 
 #[derive(Debug, Default)]
 pub struct ConfigurationView {
     options: Vec<ConfigGroup>,
-    peeked_cursor: Option<Cursor>,
-    cursor: Cursor,
+    peeked_cursor: Option<Cursor2>,
+    cursor: Cursor2,
     border_color: Style,
     cursor_color: Style,
     list_color: Style,
@@ -37,7 +37,7 @@ impl ConfigurationView {
     pub fn new(options: Vec<ConfigGroup>) -> Self {
         Self {
             options,
-            cursor: Cursor::default(),
+            cursor: Cursor2::default(),
             peeked_cursor: None,
             border_color: Style::default(),
             cursor_color: Style::default(),
@@ -46,13 +46,15 @@ impl ConfigurationView {
     }
 
     fn update_cursors(&mut self, height: usize) {
-        self.cursor.size = height;
-        self.cursor.total = self.options.len();
-        if let Some(cursor) = &mut self.peeked_cursor {
-            let current = self.cursor.pos + self.cursor.shift;
+        if self.cursor == Cursor2::default() {
+            self.cursor = Cursor2::new(height, self.options.len());
+        }
 
-            cursor.size = height;
-            cursor.total = self.options[current].options.len();
+        if let Some(cursor) = &mut self.peeked_cursor {
+            if *cursor == Cursor2::default() {
+                let i = cursor.current();
+                *cursor = Cursor2::new(height, self.options[i].options.len());
+            }
         }
     }
 
@@ -66,7 +68,7 @@ impl ConfigurationView {
     ) {
         let (data, data_c) = match self.peeked_cursor {
             Some(cursor) => {
-                let i = self.cursor.shift + self.cursor.pos;
+                let i = self.cursor.current();
                 let opt = &self.options[i];
                 let data = opt
                     .options
@@ -90,44 +92,13 @@ impl ConfigurationView {
         render_list(f, area, &data, data_c, list_color, cursor_color, layout);
     }
 
-    fn peek_current_value(&self, cursor: &Cursor) -> (&str, &str) {
-        let i = self.cursor.shift + self.cursor.pos;
-        let j = cursor.shift + cursor.pos;
+    fn peek_current_value(&self, cursor: &Cursor2) -> (&str, &str) {
+        let i = self.cursor.current();
+        let j = cursor.current();
         let group = &self.options[i];
         let opt = &group.options[j];
 
         (group.group.as_str(), opt.name.as_str())
-    }
-}
-
-#[derive(Debug, Default, Clone, Copy)]
-struct Cursor {
-    size: usize,
-    shift: usize,
-    pos: usize,
-    total: usize,
-}
-
-impl Cursor {
-    fn up(&mut self) {
-        if self.pos == 0 {
-            self.shift = self.shift.saturating_sub(1);
-        } else {
-            self.pos -= 1;
-        }
-    }
-
-    fn down(&mut self) {
-        let current_row = self.pos + self.shift;
-        let next_row = current_row + 1;
-
-        if next_row < self.total {
-            if self.pos as usize + 1 == self.size {
-                self.shift += 1;
-            } else {
-                self.pos += 1;
-            }
-        }
     }
 }
 
@@ -221,8 +192,8 @@ impl View for ConfigurationView {
         self.render_option_list(f, option_content_area, list_color, cursor_color, layout);
 
         if let Some(cursor) = self.peeked_cursor {
-            let i = self.cursor.shift + self.cursor.pos;
-            let j = cursor.shift + cursor.pos;
+            let i = self.cursor.current();
+            let j = cursor.current();
             let opt = &mut self.options[i].options[j];
 
             let mut layout = Layout::default();
@@ -254,9 +225,9 @@ impl View for ConfigurationView {
             }
             KeyCode::Up => {
                 match &mut self.peeked_cursor {
-                    Some(cursor) => cursor.up(),
-                    None => self.cursor.up(),
-                }
+                    Some(cursor) => cursor.prev(),
+                    None => self.cursor.prev(),
+                };
 
                 if let Some(cursor) = self.peeked_cursor {
                     let (key, value) = self.peek_current_value(&cursor);
@@ -267,9 +238,9 @@ impl View for ConfigurationView {
             }
             KeyCode::Down => {
                 match &mut self.peeked_cursor {
-                    Some(cursor) => cursor.down(),
-                    None => self.cursor.down(),
-                }
+                    Some(cursor) => cursor.next(),
+                    None => self.cursor.next(),
+                };
 
                 if let Some(cursor) = self.peeked_cursor {
                     let (key, value) = self.peek_current_value(&cursor);
@@ -280,9 +251,9 @@ impl View for ConfigurationView {
             }
             KeyCode::Enter => {
                 if self.peeked_cursor.is_none() {
-                    self.peeked_cursor = Some(Cursor::default());
+                    self.peeked_cursor = Some(Cursor2::default());
 
-                    let (key, value) = self.peek_current_value(&Cursor::default());
+                    let (key, value) = self.peek_current_value(&Cursor2::default());
                     return Some(Transition::Cmd(format!("tweak {} {}", key, value)));
                 }
 
@@ -298,7 +269,7 @@ impl View for ConfigurationView {
 
     fn collect_data(&self) -> Vec<NuText> {
         if self.peeked_cursor.is_some() {
-            let i = self.cursor.shift + self.cursor.pos;
+            let i = self.cursor.current();
             let opt = &self.options[i];
             opt.options
                 .iter()
@@ -314,18 +285,18 @@ impl View for ConfigurationView {
 
     fn show_data(&mut self, i: usize) -> bool {
         if let Some(c) = &mut self.peeked_cursor {
-            let i = self.cursor.shift + self.cursor.pos;
+            let i = self.cursor.current();
             if i > self.options[i].options.len() {
                 return false;
             }
 
             loop {
-                let p = c.shift + c.pos;
+                let p = c.current();
                 match i.cmp(&p) {
                     Ordering::Equal => return true,
-                    Ordering::Less => c.up(),
-                    Ordering::Greater => c.down(),
-                }
+                    Ordering::Less => c.prev(),
+                    Ordering::Greater => c.next(),
+                };
             }
         } else {
             if i > self.options.len() {
@@ -333,12 +304,12 @@ impl View for ConfigurationView {
             }
 
             loop {
-                let p = self.cursor.shift + self.cursor.pos;
+                let p = self.cursor.current();
                 match i.cmp(&p) {
                     Ordering::Equal => return true,
-                    Ordering::Less => self.cursor.up(),
-                    Ordering::Greater => self.cursor.down(),
-                }
+                    Ordering::Less => self.cursor.prev(),
+                    Ordering::Greater => self.cursor.next(),
+                };
             }
         }
     }
@@ -372,7 +343,7 @@ fn render_list(
     f: &mut Frame,
     area: Rect,
     data: &[String],
-    cursor: Cursor,
+    cursor: Cursor2,
     not_picked_s: Style,
     picked_s: Style,
     layout: &mut Layout,
@@ -380,12 +351,12 @@ fn render_list(
     let height = area.height as usize;
     let width = area.width as usize;
 
-    let mut data = &data[cursor.shift..];
+    let mut data = &data[cursor.index()..];
     if data.len() > height {
         data = &data[..height];
     }
 
-    let selected_row = cursor.pos;
+    let selected_row = cursor.relative();
 
     for (i, name) in data.iter().enumerate() {
         let mut name = name.to_owned();

@@ -206,12 +206,7 @@ fn run_pager(
     };
 
     if let Some(text) = pager.message.take() {
-        info.status = Some(Report::new(
-            text,
-            Severity::Info,
-            String::new(),
-            String::new(),
-        ));
+        info.status = Some(Report::message(text, Severity::Info));
     }
 
     let result = render_ui(
