@@ -25,7 +25,7 @@ impl Command for TakeUntil {
             ])
             .required(
                 "predicate",
-                SyntaxShape::RowCondition,
+                SyntaxShape::Closure(Some(vec![SyntaxShape::Any, SyntaxShape::Int])),
                 "the predicate that element(s) must not match",
             )
             .category(Category::Filters)
@@ -39,7 +39,7 @@ impl Command for TakeUntil {
         vec![
             Example {
                 description: "Take until the element is positive",
-                example: "[-1 -2 9 1] | take until $it > 0",
+                example: "[-1 -2 9 1] | take until {|x| $x > 0 }",
                 result: Some(Value::List {
                     vals: vec![Value::test_int(-1), Value::test_int(-2)],
                     span: Span::test_data(),
@@ -47,7 +47,7 @@ impl Command for TakeUntil {
             },
             Example {
                 description: "Take until the field value is positive",
-                example: "[{a: -1} {a: -2} {a: 9} {a: 1}] | take until $it.a > 0",
+                example: "[{a: -1} {a: -2} {a: 9} {a: 1}] | take until {|x| $x.a > 0 }",
                 result: Some(Value::List {
                     vals: vec![
                         Value::test_record(vec!["a"], vec![Value::test_int(-1)]),
