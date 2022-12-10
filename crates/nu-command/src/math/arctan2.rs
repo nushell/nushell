@@ -36,13 +36,11 @@ impl Command for SubCommand {
     fn examples(&self) -> Vec<Example> {
         let result1 = 42.0_f64.atan2(10.0_f64);
 
-        vec![
-            Example {
-                description: "Compute the arctan2 of two numbers",
-                example: "42 | math arctan2 10",
-                result: Some(Value::test_float(result1)),
-            },
-        ]
+        vec![Example {
+            description: "Compute the arctan2 of two numbers",
+            example: "42 | math arctan2 10",
+            result: Some(Value::test_float(result1)),
+        }]
     }
 
     fn run(
