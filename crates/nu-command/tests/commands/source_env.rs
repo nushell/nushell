@@ -194,7 +194,7 @@ fn source_env_eval_export_env_hide() {
 
         let actual = nu!(cwd: dirs.test(), pipeline(&inp.join("; ")));
 
-        assert!(actual.err.contains("cannot find column"));
+        assert!(actual.err.contains("not_found"));
     })
 }
 
