@@ -337,8 +337,8 @@ fn remove_overlay_env() {
     let actual = nu!(cwd: "tests/overlays", pipeline(&inp.join("; ")));
     let actual_repl = nu!(cwd: "tests/overlays", nu_repl_code(inp));
 
-    assert!(actual.err.contains("cannot find column"));
-    assert!(actual_repl.err.contains("cannot find column"));
+    assert!(actual.err.contains("not_found"));
+    assert!(actual_repl.err.contains("not_found"));
 }
 
 #[test]
@@ -448,8 +448,8 @@ fn remove_overlay_discard_env() {
     let actual = nu!(cwd: "tests/overlays", pipeline(&inp.join("; ")));
     let actual_repl = nu!(cwd: "tests/overlays", nu_repl_code(inp));
 
-    assert!(actual.err.contains("cannot find column"));
-    assert!(actual_repl.err.contains("cannot find column"));
+    assert!(actual.err.contains("not_found"));
+    assert!(actual_repl.err.contains("not_found"));
 }
 
 #[test]
@@ -496,8 +496,8 @@ fn remove_overlay_dont_keep_env() {
     let actual = nu!(cwd: "tests/overlays", pipeline(&inp.join("; ")));
     let actual_repl = nu!(cwd: "tests/overlays", nu_repl_code(inp));
 
-    assert!(actual.err.contains("cannot find column"));
-    assert!(actual_repl.err.contains("cannot find column"));
+    assert!(actual.err.contains("not_found"));
+    assert!(actual_repl.err.contains("not_found"));
 }
 
 #[test]
@@ -550,8 +550,8 @@ fn remove_overlay_dont_keep_overwritten_env() {
     let actual = nu!(cwd: "tests/overlays", pipeline(&inp.join("; ")));
     let actual_repl = nu!(cwd: "tests/overlays", nu_repl_code(inp));
 
-    assert!(actual.err.contains("cannot find column"));
-    assert!(actual_repl.err.contains("cannot find column"));
+    assert!(actual.err.contains("not_found"));
+    assert!(actual_repl.err.contains("not_found"));
 }
 
 #[test]
@@ -604,8 +604,8 @@ fn remove_overlay_dont_keep_env_in_latest_overlay() {
     let actual = nu!(cwd: "tests/overlays", pipeline(&inp.join("; ")));
     let actual_repl = nu!(cwd: "tests/overlays", nu_repl_code(inp));
 
-    assert!(actual.err.contains("cannot find column"));
-    assert!(actual_repl.err.contains("cannot find column"));
+    assert!(actual.err.contains("not_found"));
+    assert!(actual_repl.err.contains("not_found"));
 }
 
 #[test]
@@ -799,8 +799,8 @@ fn overlay_use_export_env_hide() {
     let actual = nu!(cwd: "tests/overlays", pipeline(&inp.join("; ")));
     let actual_repl = nu!(cwd: "tests/overlays", nu_repl_code(inp));
 
-    assert!(actual.err.contains("cannot find column"));
-    assert!(actual_repl.err.contains("cannot find column"));
+    assert!(actual.err.contains("not_found"));
+    assert!(actual_repl.err.contains("not_found"));
 }
 
 #[test]
