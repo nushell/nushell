@@ -321,6 +321,7 @@ fn find_with_rest_and_highlight(
     let ls_colors = get_ls_colors(ls_colors_env_str);
 
     match input {
+        PipelineData::Empty => Ok(PipelineData::Empty),
         PipelineData::Value(_, _) => input
             .map(
                 move |mut x| match &mut x {
@@ -446,7 +447,7 @@ fn find_with_rest_and_highlight(
         )
         .into_pipeline_data(ctrlc)
         .set_metadata(meta)),
-        PipelineData::ExternalStream { stdout: None, .. } => Ok(PipelineData::new(span)),
+        PipelineData::ExternalStream { stdout: None, .. } => Ok(PipelineData::empty()),
         PipelineData::ExternalStream {
             stdout: Some(stream),
             ..

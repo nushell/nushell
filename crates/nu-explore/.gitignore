@@ -1,0 +1,22 @@
+/target
+/scratch
+**/*.rs.bk
+history.txt
+tests/fixtures/nuplayground
+crates/*/target
+
+# Debian/Ubuntu
+debian/.debhelper/
+debian/debhelper-build-stamp
+debian/files
+debian/nu.substvars
+debian/nu/
+
+# macOS junk
+.DS_Store
+
+# JetBrains' IDE items
+.idea/*
+
+# VSCode's IDE items
+.vscode/*

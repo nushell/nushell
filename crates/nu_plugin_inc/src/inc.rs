@@ -31,12 +31,7 @@ impl Inc {
             Some(Action::SemVerAction(act_on)) => {
                 let mut ver = match semver::Version::parse(input) {
                     Ok(parsed_ver) => parsed_ver,
-                    Err(_) => {
-                        return Value::String {
-                            val: input.to_string(),
-                            span: head,
-                        }
-                    }
+                    Err(_) => return Value::string(input, head),
                 };
 
                 match act_on {
@@ -45,20 +40,11 @@ impl Inc {
                     SemVerAction::Patch => ver.increment_patch(),
                 }
 
-                Value::String {
-                    val: ver.to_string(),
-                    span: head,
-                }
+                Value::string(ver.to_string(), head)
             }
             Some(Action::Default) | None => match input.parse::<u64>() {
-                Ok(v) => Value::String {
-                    val: (v + 1).to_string(),
-                    span: head,
-                },
-                Err(_) => Value::String {
-                    val: input.to_string(),
-                    span: head,
-                },
+                Ok(v) => Value::string((v + 1).to_string(), head),
+                Err(_) => Value::string(input, head),
             },
         }
     }
@@ -105,10 +91,7 @@ impl Inc {
 
     pub fn inc_value(&self, head: Span, value: &Value) -> Result<Value, LabeledError> {
         match value {
-            Value::Int { val, span } => Ok(Value::Int {
-                val: val + 1,
-                span: *span,
-            }),
+            Value::Int { val, span } => Ok(Value::int(val + 1, *span)),
             Value::String { val, .. } => Ok(self.apply(val, head)),
             x => {
                 let msg = x.as_string().map_err(|e| LabeledError {
@@ -137,10 +120,7 @@ mod tests {
 
         #[test]
         fn major() {
-            let expected = Value::String {
-                val: "1.0.0".to_string(),
-                span: Span::test_data(),
-            };
+            let expected = Value::string("1.0.0", Span::test_data());
             let mut inc = Inc::new();
             inc.for_semver(SemVerAction::Major);
             assert_eq!(inc.apply("0.1.3", Span::test_data()), expected)
@@ -148,10 +128,7 @@ mod tests {
 
         #[test]
         fn minor() {
-            let expected = Value::String {
-                val: "0.2.0".to_string(),
-                span: Span::test_data(),
-            };
+            let expected = Value::string("0.2.0", Span::test_data());
             let mut inc = Inc::new();
             inc.for_semver(SemVerAction::Minor);
             assert_eq!(inc.apply("0.1.3", Span::test_data()), expected)
@@ -159,10 +136,7 @@ mod tests {
 
         #[test]
         fn patch() {
-            let expected = Value::String {
-                val: "0.1.4".to_string(),
-                span: Span::test_data(),
-            };
+            let expected = Value::string("0.1.4", Span::test_data());
             let mut inc = Inc::new();
             inc.for_semver(SemVerAction::Patch);
             assert_eq!(inc.apply("0.1.3", Span::test_data()), expected)

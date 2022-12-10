@@ -133,18 +133,9 @@ fn from_xlsx(
                     let value = match cell {
                         DataType::Empty => Value::nothing(head),
                         DataType::String(s) => Value::string(s, head),
-                        DataType::Float(f) => Value::Float {
-                            val: *f,
-                            span: head,
-                        },
-                        DataType::Int(i) => Value::Int {
-                            val: *i,
-                            span: head,
-                        },
-                        DataType::Bool(b) => Value::Bool {
-                            val: *b,
-                            span: head,
-                        },
+                        DataType::Float(f) => Value::float(*f, head),
+                        DataType::Int(i) => Value::int(*i, head),
+                        DataType::Bool(b) => Value::boolean(*b, head),
                         _ => Value::nothing(head),
                     };
 

@@ -39,6 +39,7 @@ impl Command for Wrap {
         let name: String = call.req(engine_state, stack, 0)?;
 
         match input {
+            PipelineData::Empty => Ok(PipelineData::Empty),
             PipelineData::Value(Value::Range { .. }, ..)
             | PipelineData::Value(Value::List { .. }, ..)
             | PipelineData::ListStream { .. } => Ok(input

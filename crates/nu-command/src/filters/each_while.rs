@@ -43,24 +43,12 @@ impl Command for EachWhile {
 
     fn examples(&self) -> Vec<Example> {
         let stream_test_1 = vec![
-            Value::Int {
-                val: 2,
-                span: Span::test_data(),
-            },
-            Value::Int {
-                val: 4,
-                span: Span::test_data(),
-            },
+            Value::int(2, Span::test_data()),
+            Value::int(4, Span::test_data()),
         ];
         let stream_test_2 = vec![
-            Value::String {
-                val: "Output: 1".into(),
-                span: Span::test_data(),
-            },
-            Value::String {
-                val: "Output: 2".into(),
-                span: Span::test_data(),
-            },
+            Value::string("Output: 1", Span::test_data()),
+            Value::string("Output: 2", Span::test_data()),
         ];
 
         vec![
@@ -84,10 +72,7 @@ impl Command for EachWhile {
                 example: r#"[1 2 3] | each while {|el ind| if $el < 2 { $"value ($el) at ($ind)!"} }"#,
                 description: "Iterate over each element, printing the matching value and its index",
                 result: Some(Value::List {
-                    vals: vec![Value::String {
-                        val: "value 1 at 0!".to_string(),
-                        span: Span::test_data(),
-                    }],
+                    vals: vec![Value::string("value 1 at 0!", Span::test_data())],
                     span: Span::test_data(),
                 }),
             },
@@ -116,6 +101,7 @@ impl Command for EachWhile {
         let redirect_stderr = call.redirect_stderr;
 
         match input {
+            PipelineData::Empty => Ok(PipelineData::Empty),
             PipelineData::Value(Value::Range { .. }, ..)
             | PipelineData::Value(Value::List { .. }, ..)
             | PipelineData::ListStream { .. } => Ok(input
@@ -186,7 +172,7 @@ impl Command for EachWhile {
                 })
                 .fuse()
                 .into_pipeline_data(ctrlc)),
-            PipelineData::ExternalStream { stdout: None, .. } => Ok(PipelineData::new(call.head)),
+            PipelineData::ExternalStream { stdout: None, .. } => Ok(PipelineData::empty()),
             PipelineData::ExternalStream {
                 stdout: Some(stream),
                 ..

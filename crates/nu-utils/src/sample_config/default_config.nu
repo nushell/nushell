@@ -262,6 +262,20 @@ let-env config = {
       truncating_suffix: "..." # A suffix used by the 'truncating' methodology
     }
   }
+  explore: {
+    highlight: { bg: 'yellow', fg: 'black' }
+    status_bar: { bg: '#C4C9C6', fg: '#1D1F21' }
+    command_bar: { fg: '#C4C9C6' }
+    split_line: '#404040'
+    cursor: true
+    # selected_column: 'blue'
+    # selected_row: { fg: 'yellow', bg: '#C1C2A3' }
+    # selected_cell: { fg: 'white', bg: '#777777' }
+    # line_shift: false,
+    # line_index: false,
+    # line_head_top: false,
+    # line_head_bottom: false,
+  }
   history: {
     max_size: 10000 # Session has to be reloaded for this to take effect
     sync_on_enter: true # Enable to share history between multiple sessions, else you have to close the session to write history to file
@@ -292,6 +306,7 @@ let-env config = {
   shell_integration: true # enables terminal markers and a workaround to arrow keys stop working issue
   show_banner: true # true or false to enable or disable the banner
   render_right_prompt_on_last_line: false # true or false to enable or disable right prompt to be rendered on last line of the prompt.
+
   hooks: {
     pre_prompt: [{
       $nothing  # replace with source code to run before the prompt is shown
@@ -379,8 +394,8 @@ let-env config = {
         }
         source: { |buffer, position|
             $nu.scope.commands
-            | where command =~ $buffer
-            | each { |it| {value: $it.command description: $it.usage} }
+            | where name =~ $buffer
+            | each { |it| {value: $it.name description: $it.usage} }
         }
       }
       {
@@ -422,8 +437,8 @@ let-env config = {
         }
         source: { |buffer, position|
             $nu.scope.commands
-            | where command =~ $buffer
-            | each { |it| {value: $it.command description: $it.usage} }
+            | where name =~ $buffer
+            | each { |it| {value: $it.name description: $it.usage} }
         }
       }
   ]
@@ -432,7 +447,7 @@ let-env config = {
       name: completion_menu
       modifier: none
       keycode: tab
-      mode: emacs # Options: emacs vi_normal vi_insert
+      mode: [emacs vi_normal vi_insert]
       event: {
         until: [
           { send: menu name: completion_menu }

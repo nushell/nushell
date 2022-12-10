@@ -149,7 +149,7 @@ fn split_span_by_highlight_positions(
     for pos in highlight_positions {
         if start <= *pos && pos < &span.end {
             if start < *pos {
-                result.push((Span { start, end: *pos }, false));
+                result.push((Span::new(start, *pos), false));
             }
             let span_str = &line[pos - global_span_offset..span.end - global_span_offset];
             let end = span_str
@@ -157,18 +157,12 @@ fn split_span_by_highlight_positions(
                 .next()
                 .map(|c| pos + get_char_length(c))
                 .unwrap_or(pos + 1);
-            result.push((Span { start: *pos, end }, true));
+            result.push((Span::new(*pos, end), true));
             start = end;
         }
     }
     if start < span.end {
-        result.push((
-            Span {
-                start,
-                end: span.end,
-            },
-            false,
-        ));
+        result.push((Span::new(start, span.end), false));
     }
     result
 }

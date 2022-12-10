@@ -418,13 +418,9 @@ fn display(help: &str, engine_state: &EngineState, stack: &mut Stack, span: Span
                     engine_state,
                     stack,
                     &Call::new(span),
-                    Value::String {
-                        val: item.to_string(),
-                        span: Span { start: 0, end: 0 },
-                    }
-                    .into_pipeline_data(),
+                    Value::string(item, Span::unknown()).into_pipeline_data(),
                 ) {
-                    let result = output.into_value(Span { start: 0, end: 0 });
+                    let result = output.into_value(Span::unknown());
                     match result.as_string() {
                         Ok(s) => {
                             build.push_str(&s);

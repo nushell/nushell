@@ -350,7 +350,7 @@ fn get_converted_value(
                     engine_state,
                     &mut stack,
                     block,
-                    PipelineData::new(val_span),
+                    PipelineData::new_with_metadata(None, val_span),
                     true,
                     true,
                 );

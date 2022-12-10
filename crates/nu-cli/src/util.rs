@@ -289,10 +289,7 @@ pub fn eval_source(
 fn set_last_exit_code(stack: &mut Stack, exit_code: i64) {
     stack.add_env_var(
         "LAST_EXIT_CODE".to_string(),
-        Value::Int {
-            val: exit_code,
-            span: Span { start: 0, end: 0 },
-        },
+        Value::int(exit_code, Span::unknown()),
     );
 }
 

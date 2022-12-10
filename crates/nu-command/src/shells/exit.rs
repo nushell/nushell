@@ -53,10 +53,7 @@ impl Command for Exit {
         }
 
         let cwd = current_dir(engine_state, stack)?;
-        let cwd = Value::String {
-            val: cwd.to_string_lossy().to_string(),
-            span: call.head,
-        };
+        let cwd = Value::string(cwd.to_string_lossy(), call.head);
 
         let mut shells = get_shells(engine_state, stack, cwd);
         let mut current_shell = get_current_shell(engine_state, stack);
@@ -86,22 +83,16 @@ impl Command for Exit {
             );
             stack.add_env_var(
                 "NUSHELL_CURRENT_SHELL".into(),
-                Value::Int {
-                    val: current_shell as i64,
-                    span: call.head,
-                },
+                Value::int(current_shell as i64, call.head),
             );
             stack.add_env_var(
                 "NUSHELL_LAST_SHELL".into(),
-                Value::Int {
-                    val: last_shell as i64,
-                    span: call.head,
-                },
+                Value::int(last_shell as i64, call.head),
             );
 
             stack.add_env_var("PWD".into(), new_path);
 
-            Ok(PipelineData::new(call.head))
+            Ok(PipelineData::empty())
         }
     }
 

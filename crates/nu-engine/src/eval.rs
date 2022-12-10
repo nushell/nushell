@@ -124,13 +124,7 @@ pub fn eval_call(
 
                             callee_stack.add_var(var_id, result);
                         } else {
-                            callee_stack.add_var(
-                                var_id,
-                                Value::Bool {
-                                    val: true,
-                                    span: call.head,
-                                },
-                            )
+                            callee_stack.add_var(var_id, Value::boolean(true, call.head))
                         }
                         found = true;
                     }
@@ -138,13 +132,7 @@ pub fn eval_call(
 
                 if !found {
                     if named.arg.is_none() {
-                        callee_stack.add_var(
-                            var_id,
-                            Value::Bool {
-                                val: false,
-                                span: call.head,
-                            },
-                        )
+                        callee_stack.add_var(var_id, Value::boolean(false, call.head))
                     } else if let Some(arg) = &named.default_value {
                         let result = eval_expression(engine_state, caller_stack, arg)?;
 
@@ -267,18 +255,9 @@ pub fn eval_expression(
     expr: &Expression,
 ) -> Result<Value, ShellError> {
     match &expr.expr {
-        Expr::Bool(b) => Ok(Value::Bool {
-            val: *b,
-            span: expr.span,
-        }),
-        Expr::Int(i) => Ok(Value::Int {
-            val: *i,
-            span: expr.span,
-        }),
-        Expr::Float(f) => Ok(Value::Float {
-            val: *f,
-            span: expr.span,
-        }),
+        Expr::Bool(b) => Ok(Value::boolean(*b, expr.span)),
+        Expr::Int(i) => Ok(Value::int(*i, expr.span)),
+        Expr::Float(f) => Ok(Value::float(*f, expr.span)),
         Expr::Binary(b) => Ok(Value::Binary {
             val: b.clone(),
             span: expr.span,
@@ -339,10 +318,7 @@ pub fn eval_expression(
         }
         Expr::Call(call) => {
             // FIXME: protect this collect with ctrl-c
-            Ok(
-                eval_call(engine_state, stack, call, PipelineData::new(call.head))?
-                    .into_value(call.head),
-            )
+            Ok(eval_call(engine_state, stack, call, PipelineData::empty())?.into_value(call.head))
         }
         Expr::ExternalCall(head, args, is_subexpression) => {
             let span = head.span;
@@ -352,7 +328,7 @@ pub fn eval_expression(
                 stack,
                 head,
                 args,
-                PipelineData::new(span),
+                PipelineData::empty(),
                 false,
                 false,
                 *is_subexpression,
@@ -367,10 +343,7 @@ pub fn eval_expression(
         Expr::UnaryNot(expr) => {
             let lhs = eval_expression(engine_state, stack, expr)?;
             match lhs {
-                Value::Bool { val, .. } => Ok(Value::Bool {
-                    val: !val,
-                    span: expr.span,
-                }),
+                Value::Bool { val, .. } => Ok(Value::boolean(!val, expr.span)),
                 _ => Err(ShellError::TypeMismatch("bool".to_string(), expr.span)),
             }
         }
@@ -384,10 +357,7 @@ pub fn eval_expression(
                     match boolean {
                         Boolean::And => {
                             if lhs.is_false() {
-                                Ok(Value::Bool {
-                                    val: false,
-                                    span: expr.span,
-                                })
+                                Ok(Value::boolean(false, expr.span))
                             } else {
                                 let rhs = eval_expression(engine_state, stack, rhs)?;
                                 lhs.and(op_span, &rhs, expr.span)
@@ -395,10 +365,7 @@ pub fn eval_expression(
                         }
                         Boolean::Or => {
                             if lhs.is_true() {
-                                Ok(Value::Bool {
-                                    val: true,
-                                    span: expr.span,
-                                })
+                                Ok(Value::boolean(true, expr.span))
                             } else {
                                 let rhs = eval_expression(engine_state, stack, rhs)?;
                                 lhs.or(op_span, &rhs, expr.span)
@@ -477,6 +444,10 @@ pub fn eval_expression(
                             let lhs = eval_expression(engine_state, stack, lhs)?;
                             lhs.div(op_span, &rhs, op_span)?
                         }
+                        Assignment::AppendAssign => {
+                            let lhs = eval_expression(engine_state, stack, lhs)?;
+                            lhs.append(op_span, &rhs, op_span)?
+                        }
                     };
 
                     match &lhs.expr {
@@ -491,30 +462,37 @@ pub fn eval_expression(
                         }
                         Expr::FullCellPath(cell_path) => match &cell_path.head.expr {
                             Expr::Var(var_id) | Expr::VarDecl(var_id) => {
-                                if var_id == &ENV_VARIABLE_ID {
-                                    // let mut lhs =
-                                    //     eval_expression(engine_state, stack, &cell_path.head)?;
-                                    //lhs.update_data_at_cell_path(&cell_path.tail, rhs)?;
-                                    match &cell_path.tail[0] {
-                                        PathMember::String { val, .. } => {
-                                            stack.add_env_var(val.to_string(), rhs);
+                                // The $env variable is considered "mutable" in Nushell.
+                                // As such, give it special treatment here.
+                                let is_env = var_id == &ENV_VARIABLE_ID;
+                                if is_env || engine_state.get_var(*var_id).mutable {
+                                    let mut lhs =
+                                        eval_expression(engine_state, stack, &cell_path.head)?;
+
+                                    lhs.upsert_data_at_cell_path(&cell_path.tail, rhs)?;
+                                    if is_env {
+                                        // The special $env treatment: for something like $env.config.history.max_size = 2000,
+                                        // get $env.config (or whichever one it is) AFTER the above mutation, and set it
+                                        // as the "config" environment variable.
+                                        let vardata = lhs.follow_cell_path(
+                                            &[cell_path.tail[0].clone()],
+                                            false,
+                                        )?;
+                                        match &cell_path.tail[0] {
+                                            PathMember::String { val, .. } => {
+                                                stack.add_env_var(val.to_string(), vardata);
+                                            }
+                                            // In case someone really wants an integer env-var
+                                            PathMember::Int { val, .. } => {
+                                                stack.add_env_var(val.to_string(), vardata);
+                                            }
                                         }
-                                        PathMember::Int { val, .. } => {
-                                            stack.add_env_var(val.to_string(), rhs);
-                                        }
+                                    } else {
+                                        stack.vars.insert(*var_id, lhs);
                                     }
                                     Ok(Value::nothing(cell_path.head.span))
                                 } else {
-                                    let var_info = engine_state.get_var(*var_id);
-                                    if var_info.mutable {
-                                        let mut lhs =
-                                            eval_expression(engine_state, stack, &cell_path.head)?;
-                                        lhs.update_data_at_cell_path(&cell_path.tail, rhs)?;
-                                        stack.vars.insert(*var_id, lhs);
-                                        Ok(Value::nothing(cell_path.head.span))
-                                    } else {
-                                        Err(ShellError::AssignmentRequiresMutableVar(lhs.span))
-                                    }
+                                    Err(ShellError::AssignmentRequiresMutableVar(lhs.span))
                                 }
                             }
                             _ => Err(ShellError::AssignmentRequiresVar(lhs.span)),
@@ -529,7 +507,7 @@ pub fn eval_expression(
 
             // FIXME: protect this collect with ctrl-c
             Ok(
-                eval_subexpression(engine_state, stack, block, PipelineData::new(expr.span))?
+                eval_subexpression(engine_state, stack, block, PipelineData::empty())?
                     .into_value(expr.span),
             )
         }
@@ -633,35 +611,23 @@ pub fn eval_expression(
             let cwd = current_dir_str(engine_state, stack)?;
             let path = expand_path_with(s, cwd);
 
-            Ok(Value::String {
-                val: path.to_string_lossy().to_string(),
-                span: expr.span,
-            })
+            Ok(Value::string(path.to_string_lossy(), expr.span))
         }
         Expr::Directory(s) => {
             if s == "-" {
-                Ok(Value::String {
-                    val: "-".to_string(),
-                    span: expr.span,
-                })
+                Ok(Value::string("-", expr.span))
             } else {
                 let cwd = current_dir_str(engine_state, stack)?;
                 let path = expand_path_with(s, cwd);
 
-                Ok(Value::String {
-                    val: path.to_string_lossy().to_string(),
-                    span: expr.span,
-                })
+                Ok(Value::string(path.to_string_lossy(), expr.span))
             }
         }
         Expr::GlobPattern(s) => {
             let cwd = current_dir_str(engine_state, stack)?;
             let path = expand_path_with(s, cwd);
 
-            Ok(Value::String {
-                val: path.to_string_lossy().to_string(),
-                span: expr.span,
-            })
+            Ok(Value::string(path.to_string_lossy(), expr.span))
         }
         Expr::Signature(_) => Ok(Value::Nothing { span: expr.span }),
         Expr::Garbage => Ok(Value::Nothing { span: expr.span }),
@@ -910,7 +876,15 @@ pub fn eval_element_with_input(
                                 Argument::Positional(expr.clone()),
                                 Argument::Named((
                                     Spanned {
-                                        item: "--raw".into(),
+                                        item: "raw".into(),
+                                        span: *span,
+                                    },
+                                    None,
+                                    None,
+                                )),
+                                Argument::Named((
+                                    Spanned {
+                                        item: "force".into(),
                                         span: *span,
                                     },
                                     None,
@@ -1072,14 +1046,28 @@ pub fn eval_block(
 
                     match engine_state.find_decl("table".as_bytes(), &[]) {
                         Some(decl_id) => {
-                            let table = engine_state.get_decl(decl_id).run(
-                                engine_state,
-                                stack,
-                                &Call::new(Span::new(0, 0)),
-                                input,
-                            )?;
+                            let table = engine_state.get_decl(decl_id);
 
-                            print_or_return(table, config)?;
+                            if let Some(block_id) = table.get_block_id() {
+                                let block = engine_state.get_block(block_id);
+                                eval_block(
+                                    engine_state,
+                                    stack,
+                                    block,
+                                    input,
+                                    redirect_stdout,
+                                    redirect_stderr,
+                                )?;
+                            } else {
+                                let table = table.run(
+                                    engine_state,
+                                    stack,
+                                    &Call::new(Span::new(0, 0)),
+                                    input,
+                                )?;
+
+                                print_or_return(table, config)?;
+                            }
                         }
                         None => {
                             print_or_return(input, config)?;
@@ -1088,7 +1076,7 @@ pub fn eval_block(
                 }
             }
 
-            input = PipelineData::new(Span { start: 0, end: 0 })
+            input = PipelineData::empty()
         }
     }
 

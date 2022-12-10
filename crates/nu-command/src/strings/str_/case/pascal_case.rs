@@ -50,26 +50,17 @@ impl Command for SubCommand {
             Example {
                 description: "convert a string to PascalCase",
                 example: "'nu-shell' | str pascal-case",
-                result: Some(Value::String {
-                    val: "NuShell".to_string(),
-                    span: Span::test_data(),
-                }),
+                result: Some(Value::string("NuShell", Span::test_data())),
             },
             Example {
                 description: "convert a string to PascalCase",
                 example: "'this-is-the-first-case' | str pascal-case",
-                result: Some(Value::String {
-                    val: "ThisIsTheFirstCase".to_string(),
-                    span: Span::test_data(),
-                }),
+                result: Some(Value::string("ThisIsTheFirstCase", Span::test_data())),
             },
             Example {
                 description: "convert a string to PascalCase",
                 example: "'this_is_the_second_case' | str pascal-case",
-                result: Some(Value::String {
-                    val: "ThisIsTheSecondCase".to_string(),
-                    span: Span::test_data(),
-                }),
+                result: Some(Value::string("ThisIsTheSecondCase", Span::test_data())),
             },
             Example {
                 description: "convert a column from a table to PascalCase",
@@ -79,10 +70,7 @@ impl Command for SubCommand {
                         span: Span::test_data(),
                         cols: vec!["lang".to_string(), "gems".to_string()],
                         vals: vec![
-                            Value::String {
-                                val: "NuTest".to_string(),
-                                span: Span::test_data(),
-                            },
+                            Value::string("NuTest", Span::test_data()),
                             Value::test_int(100),
                         ],
                     }],

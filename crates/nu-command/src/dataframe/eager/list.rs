@@ -61,15 +61,9 @@ impl Command for ListDF {
                     span: call.head,
                 };
 
-                let columns = Value::Int {
-                    val: df.as_ref().width() as i64,
-                    span: call.head,
-                };
+                let columns = Value::int(df.as_ref().width() as i64, call.head);
 
-                let rows = Value::Int {
-                    val: df.as_ref().height() as i64,
-                    span: call.head,
-                };
+                let rows = Value::int(df.as_ref().height() as i64, call.head);
 
                 let cols = vec![
                     "name".to_string(),

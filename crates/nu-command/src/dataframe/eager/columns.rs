@@ -30,14 +30,8 @@ impl Command for ColumnsDF {
             example: "[[a b]; [1 2] [3 4]] | into df | columns",
             result: Some(Value::List {
                 vals: vec![
-                    Value::String {
-                        val: "a".into(),
-                        span: Span::test_data(),
-                    },
-                    Value::String {
-                        val: "b".into(),
-                        span: Span::test_data(),
-                    },
+                    Value::string("a", Span::test_data()),
+                    Value::string("b", Span::test_data()),
                 ],
                 span: Span::test_data(),
             }),
@@ -67,10 +61,7 @@ fn command(
         .as_ref()
         .get_column_names()
         .iter()
-        .map(|v| Value::String {
-            val: v.to_string(),
-            span: call.head,
-        })
+        .map(|v| Value::string(*v, call.head))
         .collect();
 
     let names = Value::List {

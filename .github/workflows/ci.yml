@@ -17,7 +17,10 @@ jobs:
     strategy:
       fail-fast: true
       matrix:
-        platform: [windows-latest, macos-latest, ubuntu-latest]
+        # Pinning to Ubuntu 20.04 because building on newer Ubuntu versions causes linux-gnu
+        # builds to link against a too-new-for-many-Linux-installs glibc version. Consider
+        # revisiting this when 20.04 is closer to EOL (April 2025)
+        platform: [windows-latest, macos-latest, ubuntu-20.04]
         rust:
           - stable
 
@@ -31,17 +34,11 @@ jobs:
       - name: Setup Rust toolchain and cache
         uses: actions-rust-lang/setup-rust-toolchain@v1.3.4
 
-      - name: Rustfmt
-        uses: actions-rs/cargo@v1.0.1
-        with:
-          command: fmt
-          args: --all -- --check
+      - name: cargo fmt
+        run: cargo fmt --all -- --check
 
       - name: Clippy
-        uses: actions-rs/cargo@v1.0.1
-        with:
-          command: clippy
-          args: --workspace --exclude nu_plugin_* -- -D warnings -D clippy::unwrap_used -A clippy::needless_collect
+        run: cargo clippy --workspace --exclude nu_plugin_* -- -D warnings -D clippy::unwrap_used -A clippy::needless_collect
 
   nu-tests:
     env:
@@ -50,7 +47,7 @@ jobs:
     strategy:
       fail-fast: true
       matrix:
-        platform: [windows-latest, macos-latest, ubuntu-latest]
+        platform: [windows-latest, macos-latest, ubuntu-20.04]
         style: [default, dataframe]
         rust:
           - stable
@@ -75,10 +72,7 @@ jobs:
         uses: actions-rust-lang/setup-rust-toolchain@v1.3.4
 
       - name: Tests
-        uses: actions-rs/cargo@v1.0.1
-        with:
-          command: test
-          args: --workspace --profile ci --exclude nu_plugin_* ${{ matrix.flags }}
+        run: cargo test --workspace --profile ci --exclude nu_plugin_* ${{ matrix.flags }}
 
   python-virtualenv:
     env:
@@ -87,7 +81,7 @@ jobs:
     strategy:
       fail-fast: true
       matrix:
-        platform: [ubuntu-latest, macos-latest, windows-latest]
+        platform: [ubuntu-20.04, macos-latest, windows-latest]
         rust:
           - stable
         py:
@@ -102,10 +96,7 @@ jobs:
         uses: actions-rust-lang/setup-rust-toolchain@v1.3.4
 
       - name: Install Nushell
-        uses: actions-rs/cargo@v1.0.1
-        with:
-          command: install
-          args: --locked --path=. --profile ci --no-default-features
+        run: cargo install --locked --path=. --profile ci --no-default-features
 
       - name: Setup Python
         uses: actions/setup-python@v4
@@ -131,7 +122,7 @@ jobs:
     strategy:
       fail-fast: true
       matrix:
-        platform: [windows-latest, macos-latest, ubuntu-latest]
+        platform: [windows-latest, macos-latest, ubuntu-20.04]
         rust:
           - stable
 
@@ -144,13 +135,7 @@ jobs:
         uses: actions-rust-lang/setup-rust-toolchain@v1.3.4
 
       - name: Clippy
-        uses: actions-rs/cargo@v1.0.1
-        with:
-          command: clippy
-          args: --package nu_plugin_* ${{ matrix.flags }} -- -D warnings -D clippy::unwrap_used -A clippy::needless_collect
+        run: cargo clippy --package nu_plugin_* ${{ matrix.flags }} -- -D warnings -D clippy::unwrap_used -A clippy::needless_collect
 
       - name: Tests
-        uses: actions-rs/cargo@v1.0.1
-        with:
-          command: test
-          args: --profile ci --package nu_plugin_*
+        run: cargo test --profile ci --package nu_plugin_*

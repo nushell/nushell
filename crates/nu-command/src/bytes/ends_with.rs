@@ -68,26 +68,17 @@ impl Command for BytesEndsWith {
             Example {
                 description: "Checks if binary ends with `0x[AA]`",
                 example: "0x[1F FF AA AA] | bytes ends-with 0x[AA]",
-                result: Some(Value::Bool {
-                    val: true,
-                    span: Span::test_data(),
-                }),
+                result: Some(Value::boolean(true, Span::test_data())),
             },
             Example {
                 description: "Checks if binary ends with `0x[FF AA AA]`",
                 example: "0x[1F FF AA AA] | bytes ends-with 0x[FF AA AA]",
-                result: Some(Value::Bool {
-                    val: true,
-                    span: Span::test_data(),
-                }),
+                result: Some(Value::boolean(true, Span::test_data())),
             },
             Example {
                 description: "Checks if binary ends with `0x[11]`",
                 example: "0x[1F FF AA AA] | bytes ends-with 0x[11]",
-                result: Some(Value::Bool {
-                    val: false,
-                    span: Span::test_data(),
-                }),
+                result: Some(Value::boolean(false, Span::test_data())),
             },
         ]
     }
@@ -98,10 +89,7 @@ fn ends_with(val: &Value, args: &Arguments, span: Span) -> Value {
         Value::Binary {
             val,
             span: val_span,
-        } => Value::Bool {
-            val: val.ends_with(&args.pattern),
-            span: *val_span,
-        },
+        } => Value::boolean(val.ends_with(&args.pattern), *val_span),
         other => Value::Error {
             error: ShellError::UnsupportedInput(
                 format!(

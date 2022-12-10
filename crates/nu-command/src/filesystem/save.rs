@@ -2,8 +2,7 @@ use nu_engine::CallExt;
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
-    Category, Example, PipelineData, RawStream, ShellError, Signature, Span, Spanned, SyntaxShape,
-    Value,
+    Category, Example, PipelineData, RawStream, ShellError, Signature, Spanned, SyntaxShape, Value,
 };
 use std::fs::File;
 use std::io::{BufWriter, Write};
@@ -45,6 +44,7 @@ impl Command for Save {
             )
             .switch("raw", "save file as raw binary", Some('r'))
             .switch("append", "append input to the end of the file", Some('a'))
+            .switch("force", "overwrite the destination", Some('f'))
             .category(Category::FileSystem)
     }
 
@@ -57,6 +57,7 @@ impl Command for Save {
     ) -> Result<nu_protocol::PipelineData, nu_protocol::ShellError> {
         let raw = call.has_flag("raw");
         let append = call.has_flag("append");
+        let force = call.has_flag("force");
 
         let span = call.head;
 
@@ -64,7 +65,21 @@ impl Command for Save {
         let arg_span = path.span;
         let path = Path::new(&path.item);
 
-        let file = match (append, path.exists()) {
+        let path_exists = path.exists();
+        if path_exists && !force && !append {
+            return Err(ShellError::GenericError(
+                "Destination file already exists".into(),
+                format!(
+                    "Destination file '{}' already exists",
+                    path.to_string_lossy()
+                ),
+                Some(arg_span),
+                Some("you can use -f, --force to force overwriting the destination".into()),
+                Vec::new(),
+            ));
+        }
+
+        let file = match (append, path_exists) {
             (true, true) => std::fs::OpenOptions::new()
                 .write(true)
                 .append(true)
@@ -75,17 +90,12 @@ impl Command for Save {
         let mut file = match file {
             Ok(file) => file,
             Err(err) => {
-                return Ok(PipelineData::Value(
-                    Value::Error {
-                        error: ShellError::GenericError(
-                            "Permission denied".into(),
-                            err.to_string(),
-                            Some(arg_span),
-                            None,
-                            Vec::new(),
-                        ),
-                    },
+                return Err(ShellError::GenericError(
+                    "Permission denied".into(),
+                    err.to_string(),
+                    Some(arg_span),
                     None,
+                    Vec::new(),
                 ));
             }
         };
@@ -101,17 +111,12 @@ impl Command for Save {
                     match std::fs::File::create(stderr_path) {
                         Ok(file) => Some(file),
                         Err(err) => {
-                            return Ok(PipelineData::Value(
-                                Value::Error {
-                                    error: ShellError::GenericError(
-                                        "Permission denied".into(),
-                                        err.to_string(),
-                                        Some(stderr_span),
-                                        None,
-                                        Vec::new(),
-                                    ),
-                                },
+                            return Err(ShellError::GenericError(
+                                "Permission denied".into(),
+                                err.to_string(),
+                                Some(stderr_span),
                                 None,
+                                Vec::new(),
                             ))
                         }
                     }
@@ -154,7 +159,7 @@ impl Command for Save {
                         file.flush()?
                     }
 
-                    Ok(PipelineData::new(span))
+                    Ok(PipelineData::empty())
                 }
                 Value::Binary { val, .. } => {
                     if let Err(err) = file.write_all(&val) {
@@ -163,7 +168,7 @@ impl Command for Save {
                         file.flush()?
                     }
 
-                    Ok(PipelineData::new(span))
+                    Ok(PipelineData::empty())
                 }
                 Value::List { vals, .. } => {
                     let val = vals
@@ -179,7 +184,7 @@ impl Command for Save {
                         file.flush()?
                     }
 
-                    Ok(PipelineData::new(span))
+                    Ok(PipelineData::empty())
                 }
                 v => Err(ShellError::UnsupportedInput(
                     format!("{:?} not supported", v.get_type()),
@@ -188,7 +193,7 @@ impl Command for Save {
             }
         } else {
             match input {
-                PipelineData::ExternalStream { stdout: None, .. } => Ok(PipelineData::new(span)),
+                PipelineData::ExternalStream { stdout: None, .. } => Ok(PipelineData::empty()),
                 PipelineData::ExternalStream {
                     stdout: Some(stream),
                     stderr,
@@ -196,16 +201,16 @@ impl Command for Save {
                 } => {
                     // delegate a thread to redirect stderr to result.
                     let handler = stderr.map(|stderr_stream| match stderr_file {
-                        Some(stderr_file) => std::thread::spawn(move || {
-                            stream_to_file(stderr_stream, stderr_file, span)
-                        }),
+                        Some(stderr_file) => {
+                            std::thread::spawn(move || stream_to_file(stderr_stream, stderr_file))
+                        }
                         None => std::thread::spawn(move || {
                             let _ = stderr_stream.into_bytes();
-                            Ok(PipelineData::new(span))
+                            Ok(PipelineData::empty())
                         }),
                     });
 
-                    let res = stream_to_file(stream, file, span);
+                    let res = stream_to_file(stream, file);
                     if let Some(h) = handler {
                         match h.join() {
                             Err(err) => {
@@ -230,7 +235,7 @@ impl Command for Save {
                             file.flush()?
                         }
 
-                        Ok(PipelineData::new(span))
+                        Ok(PipelineData::empty())
                     }
                     Value::Binary { val, .. } => {
                         if let Err(err) = file.write_all(&val) {
@@ -239,7 +244,7 @@ impl Command for Save {
                             file.flush()?
                         }
 
-                        Ok(PipelineData::new(span))
+                        Ok(PipelineData::empty())
                     }
                     Value::List { vals, .. } => {
                         let val = vals
@@ -255,7 +260,7 @@ impl Command for Save {
                             file.flush()?
                         }
 
-                        Ok(PipelineData::new(span))
+                        Ok(PipelineData::empty())
                     }
                     v => Err(ShellError::UnsupportedInput(
                         format!("{:?} not supported", v.get_type()),
@@ -297,11 +302,7 @@ impl Command for Save {
     }
 }
 
-fn stream_to_file(
-    mut stream: RawStream,
-    file: File,
-    span: Span,
-) -> Result<PipelineData, ShellError> {
+fn stream_to_file(mut stream: RawStream, file: File) -> Result<PipelineData, ShellError> {
     let mut writer = BufWriter::new(file);
 
     stream
@@ -325,5 +326,5 @@ fn stream_to_file(
             }
             Ok(())
         })
-        .map(|_| PipelineData::new(span))
+        .map(|_| PipelineData::empty())
 }

@@ -61,10 +61,7 @@ fn command(
     let df = NuDataFrame::try_from_pipeline(input, call.head)?;
 
     let res = df.as_series(call.head)?.null_count();
-    let value = Value::Int {
-        val: res as i64,
-        span: call.head,
-    };
+    let value = Value::int(res as i64, call.head);
 
     NuDataFrame::try_from_columns(vec![Column::new("count_null".to_string(), vec![value])])
         .map(|df| PipelineData::Value(NuDataFrame::into_value(df, call.head), None))

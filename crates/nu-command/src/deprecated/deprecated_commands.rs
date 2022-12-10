@@ -14,5 +14,9 @@ pub fn deprecated_commands() -> HashMap<String, String> {
         ("all?".to_string(), "all".to_string()),
         ("any?".to_string(), "any".to_string()),
         ("empty?".to_string(), "is-empty".to_string()),
+        (
+            "build-string".to_string(),
+            "str join'/'string concatenation with '+'".to_string(),
+        ),
     ])
 }

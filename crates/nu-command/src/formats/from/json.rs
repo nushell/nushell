@@ -31,10 +31,7 @@ impl Command for FromJson {
                 description: "Converts json formatted string to table",
                 result: Some(Value::Record {
                     cols: vec!["a".to_string()],
-                    vals: vec![Value::Int {
-                        val: 1,
-                        span: Span::test_data(),
-                    }],
+                    vals: vec![Value::int(1, Span::test_data())],
                     span: Span::test_data(),
                 }),
             },
@@ -44,20 +41,11 @@ impl Command for FromJson {
                 result: Some(Value::Record {
                     cols: vec!["a".to_string(), "b".to_string()],
                     vals: vec![
-                        Value::Int {
-                            val: 1,
-                            span: Span::test_data(),
-                        },
+                        Value::int(1, Span::test_data()),
                         Value::List {
                             vals: vec![
-                                Value::Int {
-                                    val: 1,
-                                    span: Span::test_data(),
-                                },
-                                Value::Int {
-                                    val: 2,
-                                    span: Span::test_data(),
-                                },
+                                Value::int(1, Span::test_data()),
+                                Value::int(2, Span::test_data()),
                             ],
                             span: Span::test_data(),
                         },
@@ -166,19 +154,13 @@ fn convert_row_column_to_span(row: usize, col: usize, contents: &str) -> Span {
             cur_col = 0;
         }
         if cur_row >= row && cur_col >= col {
-            return Span {
-                start: offset,
-                end: offset,
-            };
+            return Span::new(offset, offset);
         } else {
             cur_col += 1;
         }
     }
 
-    Span {
-        start: contents.len(),
-        end: contents.len(),
-    }
+    Span::new(contents.len(), contents.len())
 }
 
 fn convert_string_to_value(string_input: String, span: Span) -> Result<Value, ShellError> {

@@ -6,6 +6,7 @@ pub enum TokenContents {
     Item,
     Comment,
     Pipe,
+    PipePipe,
     Semicolon,
     OutGreaterThan,
     ErrGreaterThan,
@@ -122,10 +123,7 @@ pub fn lex_item(
                         },
                         Some(ParseError::UnexpectedEof(
                             (start as char).to_string(),
-                            Span {
-                                start: span.end,
-                                end: span.end,
-                            },
+                            Span::new(span.end, span.end),
                         )),
                     );
                 }
@@ -193,13 +191,8 @@ pub fn lex_item(
     // If there is still unclosed opening delimiters, remember they were missing
     if let Some(block) = block_level.last() {
         let delim = block.closing();
-        let cause = ParseError::UnexpectedEof(
-            (delim as char).to_string(),
-            Span {
-                start: span.end,
-                end: span.end,
-            },
-        );
+        let cause =
+            ParseError::UnexpectedEof((delim as char).to_string(), Span::new(span.end, span.end));
 
         return (
             Token {
@@ -221,10 +214,7 @@ pub fn lex_item(
             },
             Some(ParseError::UnexpectedEof(
                 (delim as char).to_string(),
-                Span {
-                    start: span.end,
-                    end: span.end,
-                },
+                Span::new(span.end, span.end),
             )),
         );
     }
@@ -261,6 +251,27 @@ pub fn lex_item(
                 span,
             },
             None,
+        ),
+        b"&&" => (
+            Token {
+                contents: TokenContents::Item,
+                span,
+            },
+            Some(ParseError::ShellAndAnd(span)),
+        ),
+        b"2>" => (
+            Token {
+                contents: TokenContents::Item,
+                span,
+            },
+            Some(ParseError::ShellErrRedirect(span)),
+        ),
+        b"2>&1" => (
+            Token {
+                contents: TokenContents::Item,
+                span,
+            },
+            Some(ParseError::ShellOutErrRedirect(span)),
         ),
         _ => (
             Token {
@@ -300,7 +311,7 @@ pub fn lex(
                     let idx = curr_offset;
                     curr_offset += 1;
                     output.push(Token::new(
-                        TokenContents::Item,
+                        TokenContents::PipePipe,
                         Span::new(span_offset + prev_idx, span_offset + idx + 1),
                     ));
                     continue;

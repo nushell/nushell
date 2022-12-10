@@ -49,6 +49,7 @@ pub fn create_default_context() -> EngineState {
             Extern,
             For,
             Help,
+            HelpOperators,
             Hide,
             HideEnv,
             If,
@@ -91,6 +92,7 @@ pub fn create_default_context() -> EngineState {
             EachWhile,
             Empty,
             Every,
+            Filter,
             Find,
             First,
             Flatten,
@@ -131,6 +133,7 @@ pub fn create_default_context() -> EngineState {
             SplitList,
             Transpose,
             Uniq,
+            UniqBy,
             Upsert,
             Update,
             UpdateCells,
@@ -341,7 +344,6 @@ pub fn create_default_context() -> EngineState {
             ToText,
             ToToml,
             ToTsv,
-            ToCsv,
             Touch,
             Use,
             Upsert,
@@ -355,6 +357,7 @@ pub fn create_default_context() -> EngineState {
         bind_command! {
             Griddle,
             Table,
+            Explore,
         };
 
         // Conversions
@@ -368,6 +371,7 @@ pub fn create_default_context() -> EngineState {
             IntoDuration,
             IntoFilesize,
             IntoInt,
+            IntoCellPath,
             IntoRecord,
             IntoString,
         };
@@ -404,6 +408,23 @@ pub fn create_default_context() -> EngineState {
             MathStddev,
             MathSum,
             MathVariance,
+            MathSin,
+            MathCos,
+            MathTan,
+            MathSinH,
+            MathCosH,
+            MathTanH,
+            MathArcSin,
+            MathArcCos,
+            MathArcTan,
+            MathArcSinH,
+            MathArcCosH,
+            MathArcTanH,
+            MathPi,
+            MathTau,
+            MathEuler,
+            MathLn,
+            MathLog,
         };
 
         // Network

@@ -50,14 +50,13 @@ Since this command has no output, there is no point in piping it with other comm
         let args: Vec<Value> = call.rest(engine_state, stack, 0)?;
         let no_newline = call.has_flag("no-newline");
         let to_stderr = call.has_flag("stderr");
-        let head = call.head;
 
         for arg in args {
             arg.into_pipeline_data()
                 .print(engine_state, stack, no_newline, to_stderr)?;
         }
 
-        Ok(PipelineData::new(head))
+        Ok(PipelineData::empty())
     }
 
     fn examples(&self) -> Vec<Example> {

@@ -73,18 +73,12 @@ impl Command for SubCommand {
             Example {
                 description: "Check if input contains string",
                 example: "'my_library.rb' | str contains '.rb'",
-                result: Some(Value::Bool {
-                    val: true,
-                    span: Span::test_data(),
-                }),
+                result: Some(Value::boolean(true, Span::test_data())),
             },
             Example {
                 description: "Check if input contains string case insensitive",
                 example: "'my_library.rb' | str contains -i '.RB'",
-                result: Some(Value::Bool {
-                    val: true,
-                    span: Span::test_data(),
-                }),
+                result: Some(Value::boolean(true, Span::test_data())),
             },
             Example {
                 description: "Check if input contains string in a table",
@@ -93,10 +87,7 @@ impl Command for SubCommand {
                     vals: vec![Value::Record {
                         cols: vec!["ColA".to_string(), "ColB".to_string()],
                         vals: vec![
-                            Value::Bool {
-                                val: true,
-                                span: Span::test_data(),
-                            },
+                            Value::boolean(true, Span::test_data()),
                             Value::test_int(100),
                         ],
                         span: Span::test_data(),
@@ -111,10 +102,7 @@ impl Command for SubCommand {
                     vals: vec![Value::Record {
                         cols: vec!["ColA".to_string(), "ColB".to_string()],
                         vals: vec![
-                            Value::Bool {
-                                val: true,
-                                span: Span::test_data(),
-                            },
+                            Value::boolean(true, Span::test_data()),
                             Value::test_int(100),
                         ],
                         span: Span::test_data(),
@@ -129,14 +117,8 @@ impl Command for SubCommand {
                     vals: vec![Value::Record {
                         cols: vec!["ColA".to_string(), "ColB".to_string()],
                         vals: vec![
-                            Value::Bool {
-                                val: true,
-                                span: Span::test_data(),
-                            },
-                            Value::Bool {
-                                val: true,
-                                span: Span::test_data(),
-                            },
+                            Value::boolean(true, Span::test_data()),
+                            Value::boolean(true, Span::test_data()),
                         ],
                         span: Span::test_data(),
                     }],
@@ -146,28 +128,16 @@ impl Command for SubCommand {
             Example {
                 description: "Check if input string contains 'banana'",
                 example: "'hello' | str contains 'banana'",
-                result: Some(Value::Bool {
-                    val: false,
-                    span: Span::test_data(),
-                }),
+                result: Some(Value::boolean(false, Span::test_data())),
             },
             Example {
                 description: "Check if list contains string",
                 example: "[one two three] | str contains o",
                 result: Some(Value::List {
                     vals: vec![
-                        Value::Bool {
-                            val: true,
-                            span: Span::test_data(),
-                        },
-                        Value::Bool {
-                            val: true,
-                            span: Span::test_data(),
-                        },
-                        Value::Bool {
-                            val: false,
-                            span: Span::test_data(),
-                        },
+                        Value::boolean(true, Span::test_data()),
+                        Value::boolean(true, Span::test_data()),
+                        Value::boolean(false, Span::test_data()),
                     ],
                     span: Span::test_data(),
                 }),
@@ -177,18 +147,9 @@ impl Command for SubCommand {
                 example: "[one two three] | str contains -n o",
                 result: Some(Value::List {
                     vals: vec![
-                        Value::Bool {
-                            val: false,
-                            span: Span::test_data(),
-                        },
-                        Value::Bool {
-                            val: false,
-                            span: Span::test_data(),
-                        },
-                        Value::Bool {
-                            val: true,
-                            span: Span::test_data(),
-                        },
+                        Value::boolean(false, Span::test_data()),
+                        Value::boolean(false, Span::test_data()),
+                        Value::boolean(true, Span::test_data()),
                     ],
                     span: Span::test_data(),
                 }),
@@ -208,8 +169,8 @@ fn action(
     head: Span,
 ) -> Value {
     match input {
-        Value::String { val, .. } => Value::Bool {
-            val: match case_insensitive {
+        Value::String { val, .. } => Value::boolean(
+            match case_insensitive {
                 true => {
                     if *not_contain {
                         !val.to_lowercase()
@@ -227,8 +188,8 @@ fn action(
                     }
                 }
             },
-            span: head,
-        },
+            head,
+        ),
         other => Value::Error {
             error: ShellError::UnsupportedInput(
                 format!(

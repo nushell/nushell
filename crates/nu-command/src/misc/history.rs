@@ -54,7 +54,7 @@ impl Command for History {
             if clear {
                 let _ = std::fs::remove_file(history_path);
                 // TODO: FIXME also clear the auxiliary files when using sqlite
-                Ok(PipelineData::new(head))
+                Ok(PipelineData::empty())
             } else {
                 let history_reader: Option<Box<dyn ReedlineHistory>> =
                     match engine_state.config.history_file_format {
@@ -93,10 +93,7 @@ impl Command for History {
                                             val: entry.command_line,
                                             span: head,
                                         },
-                                        Value::Int {
-                                            val: idx as i64,
-                                            span: head,
-                                        },
+                                        Value::int(idx as i64, head),
                                     ],
                                     span: head,
                                 })
@@ -183,14 +180,8 @@ impl Command for History {
                                             },
                                             span: head,
                                         },
-                                        Value::Int {
-                                            val: entry.exit_status.unwrap_or(0),
-                                            span: head,
-                                        },
-                                        Value::Int {
-                                            val: idx as i64,
-                                            span: head,
-                                        },
+                                        Value::int(entry.exit_status.unwrap_or(0), head),
+                                        Value::int(idx as i64, head),
                                     ],
                                     span: head,
                                 })

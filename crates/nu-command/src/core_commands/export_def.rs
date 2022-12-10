@@ -36,20 +36,17 @@ impl Command for ExportDef {
         &self,
         _engine_state: &EngineState,
         _stack: &mut Stack,
-        call: &Call,
+        _call: &Call,
         _input: PipelineData,
     ) -> Result<nu_protocol::PipelineData, nu_protocol::ShellError> {
-        Ok(PipelineData::new(call.head))
+        Ok(PipelineData::empty())
     }
 
     fn examples(&self) -> Vec<Example> {
         vec![Example {
             description: "Define a custom command in a module and call it",
             example: r#"module spam { export def foo [] { "foo" } }; use spam foo; foo"#,
-            result: Some(Value::String {
-                val: "foo".to_string(),
-                span: Span::test_data(),
-            }),
+            result: Some(Value::string("foo", Span::test_data())),
         }]
     }
 

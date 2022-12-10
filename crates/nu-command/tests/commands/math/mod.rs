@@ -431,7 +431,7 @@ fn compound_comparison() {
     let actual = nu!(
         cwd: "tests/fixtures/formats", pipeline(
         r#"
-            4 > 3 && 2 > 1
+            4 > 3 and 2 > 1
         "#
     ));
 
@@ -443,7 +443,7 @@ fn compound_comparison2() {
     let actual = nu!(
         cwd: "tests/fixtures/formats", pipeline(
         r#"
-            4 < 3 || 2 > 1
+            4 < 3 or 2 > 1
         "#
     ));
 
@@ -455,7 +455,7 @@ fn compound_where() {
     let actual = nu!(
         cwd: "tests/fixtures/formats", pipeline(
         r#"
-            echo '[{"a": 1, "b": 1}, {"a": 2, "b": 1}, {"a": 2, "b": 2}]' | from json | where a == 2 && b == 1 | to json -r
+            echo '[{"a": 1, "b": 1}, {"a": 2, "b": 1}, {"a": 2, "b": 2}]' | from json | where a == 2 and b == 1 | to json -r
         "#
     ));
 
@@ -467,7 +467,7 @@ fn compound_where_paren() {
     let actual = nu!(
         cwd: "tests/fixtures/formats", pipeline(
         r#"
-            echo '[{"a": 1, "b": 1}, {"a": 2, "b": 1}, {"a": 2, "b": 2}]' | from json | where ($it.a == 2 && $it.b == 1) || $it.b == 2 | to json -r
+            echo '[{"a": 1, "b": 1}, {"a": 2, "b": 1}, {"a": 2, "b": 2}]' | from json | where ($it.a == 2 and $it.b == 1) or $it.b == 2 | to json -r
         "#
     ));
 
@@ -508,4 +508,15 @@ fn adding_value_and_list() {
     ));
 
     assert_eq!(actual.out, "[1, 3, 5]");
+}
+
+#[test]
+fn adding_tables() {
+    let actual = nu!(
+        cwd: "tests/fixtures/formats", pipeline(
+        r#"
+            [[a b]; [1 2]] ++ [[c d]; [10 11]] | to nuon
+        "#
+    ));
+    assert_eq!(actual.out, "[{a: 1, b: 2}, {c: 10, d: 11}]");
 }

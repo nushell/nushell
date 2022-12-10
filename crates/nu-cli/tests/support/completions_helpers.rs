@@ -33,20 +33,53 @@ pub fn new_engine() -> (PathBuf, String, EngineState, Stack) {
         "PWD".to_string(),
         Value::String {
             val: dir_str.clone(),
-            span: nu_protocol::Span {
-                start: 0,
-                end: dir_str.len(),
-            },
+            span: nu_protocol::Span::new(0, dir_str.len()),
         },
     );
     stack.add_env_var(
         "TEST".to_string(),
         Value::String {
             val: "NUSHELL".to_string(),
-            span: nu_protocol::Span {
-                start: 0,
-                end: dir_str.len(),
-            },
+            span: nu_protocol::Span::new(0, dir_str.len()),
+        },
+    );
+
+    // Merge environment into the permanent state
+    let merge_result = engine_state.merge_env(&mut stack, &dir);
+    assert!(merge_result.is_ok());
+
+    (dir, dir_str, engine_state, stack)
+}
+
+pub fn new_quote_engine() -> (PathBuf, String, EngineState, Stack) {
+    // Target folder inside assets
+    let dir = fs::fixtures().join("quoted_completions");
+    let mut dir_str = dir
+        .clone()
+        .into_os_string()
+        .into_string()
+        .unwrap_or_default();
+    dir_str.push(SEP);
+
+    // Create a new engine with default context
+    let mut engine_state = create_default_context();
+
+    // New stack
+    let mut stack = Stack::new();
+
+    // Add pwd as env var
+    stack.add_env_var(
+        "PWD".to_string(),
+        Value::String {
+            val: dir_str.clone(),
+            span: nu_protocol::Span::new(0, dir_str.len()),
+        },
+    );
+    stack.add_env_var(
+        "TEST".to_string(),
+        Value::String {
+            val: "NUSHELL".to_string(),
+            span: nu_protocol::Span::new(0, dir_str.len()),
         },
     );
 
@@ -112,7 +145,7 @@ pub fn merge_input(
         &block,
         PipelineData::Value(
             Value::Nothing {
-                span: Span { start: 0, end: 0 },
+                span: Span::unknown(),
             },
             None
         ),

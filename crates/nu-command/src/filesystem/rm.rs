@@ -199,18 +199,18 @@ fn rm(
         ));
     }
 
-    let targets_span = Span {
-        start: targets
+    let targets_span = Span::new(
+        targets
             .iter()
             .map(|x| x.span.start)
             .min()
             .expect("targets were empty"),
-        end: targets
+        targets
             .iter()
             .map(|x| x.span.end)
             .max()
             .expect("targets were empty"),
-    };
+    );
 
     let path = current_dir(engine_state, stack)?;
 

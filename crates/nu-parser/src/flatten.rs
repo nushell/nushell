@@ -102,10 +102,7 @@ pub fn flatten_expression(
         }
         Expr::UnaryNot(inner_expr) => {
             let mut output = vec![(
-                Span {
-                    start: expr.span.start,
-                    end: expr.span.start + 3,
-                },
+                Span::new(expr.span.start, expr.span.start + 3),
                 FlatShape::Operator,
             )];
             output.extend(flatten_expression(working_set, inner_expr));
@@ -123,25 +120,13 @@ pub fn flatten_expression(
 
             if let Some(first) = flattened.first() {
                 if first.0.start > outer_span.start {
-                    output.push((
-                        Span {
-                            start: outer_span.start,
-                            end: first.0.start,
-                        },
-                        FlatShape::Block,
-                    ));
+                    output.push((Span::new(outer_span.start, first.0.start), FlatShape::Block));
                 }
             }
 
             let last = if let Some(last) = flattened.last() {
                 if last.0.end < outer_span.end {
-                    Some((
-                        Span {
-                            start: last.0.end,
-                            end: outer_span.end,
-                        },
-                        FlatShape::Block,
-                    ))
+                    Some((Span::new(last.0.end, outer_span.end), FlatShape::Block))
                 } else {
                     None
                 }
@@ -313,13 +298,7 @@ pub fn flatten_expression(
 
                 if let Some(first) = flattened.first() {
                     if first.0.start > last_end {
-                        output.push((
-                            Span {
-                                start: last_end,
-                                end: first.0.start,
-                            },
-                            FlatShape::List,
-                        ));
+                        output.push((Span::new(last_end, first.0.start), FlatShape::List));
                     }
                 }
 
@@ -331,13 +310,7 @@ pub fn flatten_expression(
             }
 
             if last_end < outer_span.end {
-                output.push((
-                    Span {
-                        start: last_end,
-                        end: outer_span.end,
-                    },
-                    FlatShape::List,
-                ));
+                output.push((Span::new(last_end, outer_span.end), FlatShape::List));
             }
             output
         }
@@ -353,18 +326,12 @@ pub fn flatten_expression(
                     output.insert(
                         0,
                         (
-                            Span {
-                                start: expr.span.start,
-                                end: expr.span.start + 2,
-                            },
+                            Span::new(expr.span.start, expr.span.start + 2),
                             FlatShape::StringInterpolation,
                         ),
                     );
                     output.push((
-                        Span {
-                            start: expr.span.end - 1,
-                            end: expr.span.end,
-                        },
+                        Span::new(expr.span.end - 1, expr.span.end),
                         FlatShape::StringInterpolation,
                     ));
                 }
@@ -382,13 +349,7 @@ pub fn flatten_expression(
 
                 if let Some(first) = flattened_lhs.first() {
                     if first.0.start > last_end {
-                        output.push((
-                            Span {
-                                start: last_end,
-                                end: first.0.start,
-                            },
-                            FlatShape::Record,
-                        ));
+                        output.push((Span::new(last_end, first.0.start), FlatShape::Record));
                     }
                 }
                 if let Some(last) = flattened_lhs.last() {
@@ -398,13 +359,7 @@ pub fn flatten_expression(
 
                 if let Some(first) = flattened_rhs.first() {
                     if first.0.start > last_end {
-                        output.push((
-                            Span {
-                                start: last_end,
-                                end: first.0.start,
-                            },
-                            FlatShape::Record,
-                        ));
+                        output.push((Span::new(last_end, first.0.start), FlatShape::Record));
                     }
                 }
                 if let Some(last) = flattened_rhs.last() {
@@ -414,13 +369,7 @@ pub fn flatten_expression(
                 output.extend(flattened_rhs);
             }
             if last_end < outer_span.end {
-                output.push((
-                    Span {
-                        start: last_end,
-                        end: outer_span.end,
-                    },
-                    FlatShape::Record,
-                ));
+                output.push((Span::new(last_end, outer_span.end), FlatShape::Record));
             }
 
             output
@@ -448,13 +397,7 @@ pub fn flatten_expression(
                 let flattened = flatten_expression(working_set, e);
                 if let Some(first) = flattened.first() {
                     if first.0.start > last_end {
-                        output.push((
-                            Span {
-                                start: last_end,
-                                end: first.0.start,
-                            },
-                            FlatShape::Table,
-                        ));
+                        output.push((Span::new(last_end, first.0.start), FlatShape::Table));
                     }
                 }
 
@@ -469,13 +412,7 @@ pub fn flatten_expression(
                     let flattened = flatten_expression(working_set, expr);
                     if let Some(first) = flattened.first() {
                         if first.0.start > last_end {
-                            output.push((
-                                Span {
-                                    start: last_end,
-                                    end: first.0.start,
-                                },
-                                FlatShape::Table,
-                            ));
+                            output.push((Span::new(last_end, first.0.start), FlatShape::Table));
                         }
                     }
 
@@ -488,13 +425,7 @@ pub fn flatten_expression(
             }
 
             if last_end < outer_span.end {
-                output.push((
-                    Span {
-                        start: last_end,
-                        end: outer_span.end,
-                    },
-                    FlatShape::Table,
-                ));
+                output.push((Span::new(last_end, outer_span.end), FlatShape::Table));
             }
 
             output
