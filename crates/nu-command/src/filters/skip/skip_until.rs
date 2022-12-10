@@ -25,7 +25,7 @@ impl Command for SkipUntil {
             ])
             .required(
                 "predicate",
-                SyntaxShape::RowCondition,
+                SyntaxShape::Closure(Some(vec![SyntaxShape::Any, SyntaxShape::Int])),
                 "the predicate that skipped element must not match",
             )
             .category(Category::Filters)
@@ -43,7 +43,15 @@ impl Command for SkipUntil {
         vec![
             Example {
                 description: "Skip until the element is positive",
-                example: "[-2 0 2 -1] | skip until $it > 0",
+                example: "[-2 0 2 -1] | skip until {|x| $x > 0 }",
+                result: Some(Value::List {
+                    vals: vec![Value::test_int(2), Value::test_int(-1)],
+                    span: Span::test_data(),
+                }),
+            },
+            Example {
+                description: "Skip until the element is positive using stored condition",
+                example: "let cond = {|x| $x > 0 }; [-2 0 2 -1] | skip until $cond",
                 result: Some(Value::List {
                     vals: vec![Value::test_int(2), Value::test_int(-1)],
                     span: Span::test_data(),
@@ -51,7 +59,7 @@ impl Command for SkipUntil {
             },
             Example {
                 description: "Skip until the field value is positive",
-                example: "[{a: -2} {a: 0} {a: 2} {a: -1}] | skip until $it.a > 0",
+                example: "[{a: -2} {a: 0} {a: 2} {a: -1}] | skip until {|x| $x.a > 0 }",
                 result: Some(Value::List {
                     vals: vec![
                         Value::test_record(vec!["a"], vec![Value::test_int(2)]),

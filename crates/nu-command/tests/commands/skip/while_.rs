@@ -38,7 +38,7 @@ fn condition_is_met() {
                 | str trim
                 | str join (char nl)
                 | from csv
-                | skip while "Chicken Collection" != "Red Chickens"
+                | skip while {|row| $row."Chicken Collection" != "Red Chickens" }
                 | skip 1
                 | into int "31/04/2020"
                 | get "31/04/2020"
