@@ -14,17 +14,14 @@ pub enum Redirection {
 pub enum PipelineElement {
     Expression(Option<Span>, Expression),
     Redirection(Span, Redirection, Expression),
-    Or(Option<Span>, Expression),
 }
 
 impl PipelineElement {
     pub fn span(&self) -> Span {
         match self {
             PipelineElement::Expression(None, expression) => expression.span,
-            PipelineElement::Or(None, expression) => expression.span,
             PipelineElement::Expression(Some(span), expression)
-            | PipelineElement::Redirection(span, _, expression)
-            | PipelineElement::Or(Some(span), expression) => Span {
+            | PipelineElement::Redirection(span, _, expression) => Span {
                 start: span.start,
                 end: expression.span.end,
             },
@@ -33,16 +30,16 @@ impl PipelineElement {
     pub fn has_in_variable(&self, working_set: &StateWorkingSet) -> bool {
         match self {
             PipelineElement::Expression(_, expression)
-            | PipelineElement::Redirection(_, _, expression)
-            | PipelineElement::Or(_, expression) => expression.has_in_variable(working_set),
+            | PipelineElement::Redirection(_, _, expression) => {
+                expression.has_in_variable(working_set)
+            }
         }
     }
 
     pub fn replace_in_variable(&mut self, working_set: &mut StateWorkingSet, new_var_id: VarId) {
         match self {
             PipelineElement::Expression(_, expression)
-            | PipelineElement::Redirection(_, _, expression)
-            | PipelineElement::Or(_, expression) => {
+            | PipelineElement::Redirection(_, _, expression) => {
                 expression.replace_in_variable(working_set, new_var_id)
             }
         }
@@ -56,8 +53,7 @@ impl PipelineElement {
     ) {
         match self {
             PipelineElement::Expression(_, expression)
-            | PipelineElement::Redirection(_, _, expression)
-            | PipelineElement::Or(_, expression) => {
+            | PipelineElement::Redirection(_, _, expression) => {
                 expression.replace_span(working_set, replaced, new_span)
             }
         }

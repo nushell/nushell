@@ -455,15 +455,6 @@ pub fn flatten_pipeline_element(
             output.append(&mut flatten_expression(working_set, expr));
             output
         }
-        PipelineElement::Or(span, expr) => {
-            if let Some(span) = span {
-                let mut output = vec![(*span, FlatShape::Or)];
-                output.append(&mut flatten_expression(working_set, expr));
-                output
-            } else {
-                flatten_expression(working_set, expr)
-            }
-        }
     }
 }
 

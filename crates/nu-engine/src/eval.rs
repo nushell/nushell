@@ -903,29 +903,6 @@ pub fn eval_element_with_input(
             }
             _ => Err(ShellError::CommandNotFound(*span)),
         },
-        PipelineElement::Or(_, expr) => {
-            let output = eval_expression_with_input(
-                engine_state,
-                stack,
-                expr,
-                input,
-                redirect_stdout,
-                redirect_stderr,
-            );
-
-            if let Ok(output) = output {
-                // Ignore error because this is '||'
-                let _ = drain_and_print(
-                    engine_state,
-                    stack,
-                    output.0,
-                    redirect_stdout,
-                    redirect_stderr,
-                );
-            }
-
-            Ok((PipelineData::empty(), false))
-        }
     }
 }
 

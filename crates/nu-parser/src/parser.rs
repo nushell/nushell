@@ -5327,6 +5327,9 @@ pub fn parse_block(
                                 error = err;
                             }
 
+                            let try_id = working_set.find_decl(b"try", &Type::Any).expect("internal error: missing definition for required 'try' command");
+
+                            PipelineElement::Expression((), ())
                             PipelineElement::Or(*span, expr)
                         }
                         LiteElement::Redirection(span, redirection, command) => {
