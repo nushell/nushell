@@ -84,9 +84,13 @@ pub fn evaluate_file(
     };
 
     engine_state.start_in_file(Some(file_path_str));
+
+    let mut parent = file_path.clone();
+    parent.pop();
+
     stack.add_env_var(
         "FILE_PWD".to_string(),
-        Value::string(file_path_str, Span::unknown()),
+        Value::string(parent.to_string_lossy(), Span::unknown()),
     );
 
     let mut working_set = StateWorkingSet::new(engine_state);
