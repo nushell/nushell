@@ -118,6 +118,17 @@ fn passes_with_env_env_var_to_external_process() {
     assert_eq!(actual.out, "foo");
 }
 
+#[test]
+fn has_file_pwd() {
+    Playground::setup("has_file_pwd", |dirs, sandbox| {
+        sandbox.with_files(vec![FileWithContent("spam.nu", "$env.FILE_PWD")]);
+
+        let actual = nu!(cwd: dirs.test(), "nu spam.nu");
+
+        assert!(actual.out.ends_with("spam.nu"));
+    })
+}
+
 // FIXME: autoenv not currently implemented
 #[ignore]
 #[test]

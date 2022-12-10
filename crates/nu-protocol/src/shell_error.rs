@@ -749,6 +749,15 @@ Either make sure {0} is a string, or add a 'to_string' entry for it in ENV_CONVE
     #[diagnostic(code(nu::parser::non_utf8), url(docsrs))]
     NonUtf8(#[label = "non-UTF8 string"] Span),
 
+    /// The given input must be valid UTF-8 for further processing.
+    ///
+    /// ## Resolution
+    ///
+    /// Check your input's encoding. Are there any funny characters/bytes?
+    #[error("Non-UTF8 string")]
+    #[diagnostic(code(nu::parser::non_utf8_custom), url(docsrs))]
+    NonUtf8Custom(String, #[label = "{0}"] Span),
+
     /// A custom value could not be converted to a Dataframe.
     ///
     /// ## Resolution
