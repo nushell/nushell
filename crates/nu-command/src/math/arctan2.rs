@@ -17,7 +17,6 @@ impl Command for SubCommand {
         Signature::build("math arctan2")
             .switch("degrees", "Return degrees instead of radians", Some('d'))
             .input_output_types(vec![(Type::Number, Type::Float)])
-            .vectorizes_over_list(true)
             .required(
                 "target",
                 SyntaxShape::Number,
@@ -36,25 +35,12 @@ impl Command for SubCommand {
 
     fn examples(&self) -> Vec<Example> {
         let result1 = 42.0_f64.atan2(10.0_f64);
-        let result2: Vec<Value> = vec![2.0_f64, 5.0_f64, 4.0_f64]
-            .into_iter()
-            .map(|n| n.atan2(7.0_f64))
-            .map(Value::test_float)
-            .collect();
 
         vec![
             Example {
                 description: "Compute the arctan2 of two numbers",
                 example: "42 | math arctan2 10",
                 result: Some(Value::test_float(result1)),
-            },
-            Example {
-                description: "Compute the arctan2 of each number in a list and a given number",
-                example: "[2 5 4] | math arctan2 7",
-                result: Some(Value::List {
-                    vals: result2,
-                    span: Span::test_data(),
-                }),
             },
         ]
     }

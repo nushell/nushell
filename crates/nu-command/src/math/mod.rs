@@ -65,6 +65,7 @@ pub use arcsin::SubCommand as MathArcSin;
 pub use arcsinh::SubCommand as MathArcSinH;
 pub use arctan::SubCommand as MathArcTan;
 pub use arctanh::SubCommand as MathArcTanH;
+pub use arctan2::SubCommand as MathArcTan2;
 
 pub use euler::SubCommand as MathEuler;
 pub use pi::SubCommand as MathPi;

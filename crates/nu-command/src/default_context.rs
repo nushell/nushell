@@ -418,6 +418,7 @@ pub fn create_default_context() -> EngineState {
             MathArcSinH,
             MathArcCosH,
             MathArcTanH,
+            MathArcTan2,
             MathPi,
             MathTau,
             MathEuler,
