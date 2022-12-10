@@ -25,7 +25,7 @@ impl Command for SkipWhile {
             ])
             .required(
                 "predicate",
-                SyntaxShape::RowCondition,
+                SyntaxShape::Closure(Some(vec![SyntaxShape::Any, SyntaxShape::Int])),
                 "the predicate that skipped element must match",
             )
             .category(Category::Filters)
@@ -43,7 +43,7 @@ impl Command for SkipWhile {
         vec![
             Example {
                 description: "Skip while the element is negative",
-                example: "[-2 0 2 -1] | skip while $it < 0",
+                example: "[-2 0 2 -1] | skip while {|x| $x < 0 }",
                 result: Some(Value::List {
                     vals: vec![Value::test_int(0), Value::test_int(2), Value::test_int(-1)],
                     span: Span::test_data(),
@@ -51,7 +51,7 @@ impl Command for SkipWhile {
             },
             Example {
                 description: "Skip while the field value is negative",
-                example: "[{a: -2} {a: 0} {a: 2} {a: -1}] | skip while $it.a < 0",
+                example: "[{a: -2} {a: 0} {a: 2} {a: -1}] | skip while {|x| $x.a < 0 }",
                 result: Some(Value::List {
                     vals: vec![
                         Value::test_record(vec!["a"], vec![Value::test_int(0)]),
