@@ -370,6 +370,7 @@ pub fn create_default_context() -> EngineState {
             IntoDuration,
             IntoFilesize,
             IntoInt,
+            IntoCellPath,
             IntoRecord,
             IntoString,
         };
