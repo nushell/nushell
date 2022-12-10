@@ -46,6 +46,14 @@ impl Command for TakeWhile {
                 }),
             },
             Example {
+                description: "Take while the element is negative using stored condition",
+                example: "let cond = {|x| $x < 0 }; [-1 -2 9 1] | take while $cond",
+                result: Some(Value::List {
+                    vals: vec![Value::test_int(-1), Value::test_int(-2)],
+                    span: Span::test_data(),
+                }),
+            },
+            Example {
                 description: "Take while the field value is negative",
                 example: "[{a: -1} {a: -2} {a: 9} {a: 1}] | take while {|x| $x.a < 0 }",
                 result: Some(Value::List {
