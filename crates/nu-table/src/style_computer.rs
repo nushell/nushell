@@ -3,8 +3,8 @@ use nu_ansi_term::{Color, Style};
 use nu_color_config::{color_record_to_nustyle, lookup_ansi_color_style};
 use nu_engine::eval_block;
 use nu_protocol::{
-    engine::{EngineState, Stack},
-    IntoPipelineData, Value,
+    engine::{EngineState, Stack, StateWorkingSet},
+    CliError, IntoPipelineData, Value,
 };
 use tabled::alignment::AlignmentHorizontal;
 
@@ -99,10 +99,16 @@ impl<'a> StyleComputer<'a> {
                             _ => Style::default(),
                         }
                     }
-                    // Currently, errors in user style closures are just thrown in the goddamn garbage.
-                    // Of course, producing error messages during table rendering is a little difficult
-                    // right now (Nov 2022)
-                    Err(..) => Style::default(),
+                    // This is basically a copy of nu_cli::report_error(), but that isn't usable due to
+                    // dependencies. While crudely spitting out a bunch of errors like this is not ideal,
+                    // currently hook closure errors behave roughly the same.
+                    Err(e) => {
+                        eprintln!(
+                            "Error: {:?}",
+                            CliError(&e, &StateWorkingSet::new(self.engine_state))
+                        );
+                        Style::default()
+                    }
                 }
             }
             // There should be no other kinds of values (due to create_map() in config.rs filtering them out)
