@@ -77,7 +77,7 @@ impl Command for While {
                                 return Err(err);
                             }
                             Ok(pipeline) => {
-                                pipeline.into_value(call.head);
+                                let _ = pipeline.print(&engine_state, stack, false, false)?;
                             }
                         }
                     } else {
