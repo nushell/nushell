@@ -283,8 +283,10 @@ fn move_file(
     }
 
     if interactive && to.exists() {
-        let (interaction, confirmed) =
-            try_interaction(interactive, "mv: overwrite", &to.to_string_lossy());
+        let (interaction, confirmed) = try_interaction(
+            interactive,
+            format!("mv: overwrite '{}'? ", to.to_string_lossy()),
+        );
         if let Err(e) = interaction {
             return Err(ShellError::GenericError(
                 format!("Error during interaction: {:}", e),
