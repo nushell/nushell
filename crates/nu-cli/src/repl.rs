@@ -964,6 +964,7 @@ pub fn run_hook_block(
                 return Err(error);
             }
 
+            // If all went fine, preserve the environment of the called block
             let caller_env_vars = stack.get_env_var_names(engine_state);
 
             // remove env vars that are present in the caller but not in the callee
