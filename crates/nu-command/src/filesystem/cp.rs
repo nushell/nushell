@@ -322,8 +322,10 @@ fn interactive_copy(
     span: Span,
     copy_impl: impl Fn(PathBuf, PathBuf, Span) -> Value,
 ) -> Value {
-    let (interaction, confirmed) =
-        try_interaction(interactive, "cp: overwrite", &dst.to_string_lossy());
+    let (interaction, confirmed) = try_interaction(
+        interactive,
+        format!("cp: overwrite '{}'? ", dst.to_string_lossy()),
+    );
     if let Err(e) = interaction {
         Value::Error {
             error: ShellError::GenericError(
