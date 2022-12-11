@@ -87,7 +87,7 @@ fn help(
     let rest: Vec<Spanned<String>> = call.rest(engine_state, stack, 0)?;
     let commands = engine_state.get_decl_ids_sorted(false);
 
-    // 🚩The following two-lins are copied from filters/find.rs:
+    // 🚩The following two-lines are copied from filters/find.rs:
     let style_computer = StyleComputer::from_config(engine_state, stack);
     // Currently, search results all use the same style.
     // Also note that this sample string is passed into user-written code (the closure that may or may not be

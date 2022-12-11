@@ -1,6 +1,5 @@
 use nu_ansi_term::{Color, Style};
-use nu_color_config::StyleComputer;
-use nu_color_config::{color_record_to_nustyle, lookup_ansi_color_style};
+use nu_color_config::{color_record_to_nustyle, lookup_ansi_color_style, StyleComputer};
 use nu_engine::CallExt;
 use nu_explore::{
     run_pager,
