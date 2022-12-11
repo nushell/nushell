@@ -245,3 +245,42 @@ fn test_computable_style_static() {
         style2
     );
 }
+
+// Because each closure currently runs in a separate environment, checks that the closures have run
+// must use the filesystem.
+#[test]
+fn test_computable_style_closure_basic() {
+    use nu_test_support::{nu, nu_repl_code, playground::Playground};
+    Playground::setup("computable_style_closure_basic", |dirs, _| {
+        let inp = [
+            r#"let-env config = {
+                color_config: {
+                    string: {|e| touch ($e + '.obj'); 'red' }
+                }
+            };"#,
+            "[bell book candle] | table | ignore",
+            "ls | get name | to nuon",
+        ];
+        let actual_repl = nu!(cwd: dirs.test(), nu_repl_code(&inp));
+        assert_eq!(actual_repl.err, "");
+        assert_eq!(actual_repl.out, "[bell.obj, book.obj, candle.obj]");
+    });
+}
+
+#[test]
+fn test_computable_style_closure_errors() {
+    use nu_test_support::{nu, nu_repl_code};
+    let inp = [
+        r#"let-env config = {
+            color_config: {
+                string: {|e| $e + 2 }
+            }
+        };"#,
+        "[bell] | table",
+    ];
+    let actual_repl = nu!(cwd: ".", nu_repl_code(&inp));
+    // Check that the error was printed
+    assert!(actual_repl.err.contains("type mismatch for operator"));
+    // Check that the value was printed
+    assert!(actual_repl.out.contains("bell"));
+}
