@@ -3,7 +3,8 @@ use std::{
     cmp::{max, Ordering},
 };
 
-use nu_table::{string_width, Alignment, TextStyle};
+use nu_protocol::Value;
+use nu_table::{string_width, Alignment, StyleComputer, TextStyle};
 use tui::{
     buffer::Buffer,
     layout::Rect,
@@ -12,7 +13,7 @@ use tui::{
 };
 
 use crate::{
-    nu_common::{truncate_str, NuStyle, NuStyleTable, NuText},
+    nu_common::{truncate_str, NuStyle, NuText},
     views::util::{nu_style_to_tui, text_style_to_tui_style},
 };
 
@@ -26,7 +27,7 @@ pub struct TableW<'a> {
     index_column: usize,
     style: TableStyle,
     head_position: Orientation,
-    color_hm: &'a NuStyleTable,
+    style_computer: &'a StyleComputer<'a>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -58,7 +59,7 @@ impl<'a> TableW<'a> {
     pub fn new(
         columns: impl Into<Cow<'a, [String]>>,
         data: impl Into<Cow<'a, [Vec<NuText>]>>,
-        color_hm: &'a NuStyleTable,
+        style_computer: &'a StyleComputer<'a>,
         index_row: usize,
         index_column: usize,
         style: TableStyle,
@@ -67,11 +68,11 @@ impl<'a> TableW<'a> {
         Self {
             columns: columns.into(),
             data: data.into(),
+            style_computer,
             index_row,
             index_column,
             style,
             head_position,
-            color_hm,
         }
     }
 }
@@ -190,7 +191,7 @@ impl<'a> TableW<'a> {
             width += render_index(
                 buf,
                 area,
-                self.color_hm,
+                self.style_computer,
                 self.index_row,
                 padding_index_l,
                 padding_index_r,
@@ -246,7 +247,7 @@ impl<'a> TableW<'a> {
             }
 
             if show_head {
-                let mut header = [head_row_text(&head, self.color_hm)];
+                let mut header = [head_row_text(&head, self.style_computer)];
                 if head_width > use_space as usize {
                     truncate_str(&mut header[0].0, use_space as usize)
                 }
@@ -540,13 +541,16 @@ fn check_column_width(
 }
 
 struct IndexColumn<'a> {
-    color_hm: &'a NuStyleTable,
+    style_computer: &'a StyleComputer<'a>,
     start: usize,
 }
 
 impl<'a> IndexColumn<'a> {
-    fn new(color_hm: &'a NuStyleTable, start: usize) -> Self {
-        Self { color_hm, start }
+    fn new(style_computer: &'a StyleComputer, start: usize) -> Self {
+        Self {
+            style_computer,
+            start,
+        }
     }
 
     fn estimate_width(&self, height: u16) -> usize {
@@ -557,11 +561,13 @@ impl<'a> IndexColumn<'a> {
 
 impl Widget for IndexColumn<'_> {
     fn render(self, area: Rect, buf: &mut Buffer) {
-        let style = nu_style_to_tui(self.color_hm["row_index"]);
-
         for row in 0..area.height {
             let i = 1 + row as usize + self.start;
             let text = i.to_string();
+            let style = nu_style_to_tui(self.style_computer.compute(
+                "row_index",
+                &Value::string(text.as_str(), nu_protocol::Span::unknown()),
+            ));
 
             let p = Paragraph::new(text)
                 .style(style)
@@ -605,16 +611,19 @@ fn render_header_borders(
 }
 
 fn render_index(
+    
     buf: &mut Buffer,
+   
     area: Rect,
-    color_hm: &NuStyleTable,
+   
+    style_computer: &StyleComputer,
     start_index: usize,
     padding_left: u16,
     padding_right: u16,
 ) -> u16 {
     let mut width = render_space(buf, area.x, area.y, area.height, padding_left);
 
-    let index = IndexColumn::new(color_hm, start_index);
+    let index = IndexColumn::new(style_computer, start_index);
     let w = index.estimate_width(area.height) as u16;
     let area = Rect::new(area.x + width, area.y, w, area.height);
 
@@ -769,12 +778,12 @@ fn strip_string(text: &str) -> String {
         .unwrap_or_else(|| text.to_owned())
 }
 
-fn head_row_text(head: &str, color_hm: &NuStyleTable) -> NuText {
+fn head_row_text(head: &str, style_computer: &StyleComputer) -> NuText {
     (
         String::from(head),
-        TextStyle {
-            alignment: Alignment::Center,
-            color_style: Some(color_hm["header"]),
-        },
+        TextStyle::with_style(
+            Alignment::Center,
+            style_computer.compute("header", &Value::string(head, nu_protocol::Span::unknown())),
+        ),
     )
 }

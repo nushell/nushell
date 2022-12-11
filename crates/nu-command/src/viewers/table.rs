@@ -282,9 +282,14 @@ fn handle_table_command(
             // Create a StyleComputer to compute styles for each value in the table.
             let style_computer = &StyleComputer::from_config(engine_state, stack);
             let result = match table_view {
-                TableView::General => {
-                    build_general_table2(style_computer, cols, vals, ctrlc.clone(), config, term_width)
-                }
+                TableView::General => build_general_table2(
+                    style_computer,
+                    cols,
+                    vals,
+                    ctrlc.clone(),
+                    config,
+                    term_width,
+                ),
                 TableView::Expanded {
                     limit,
                     flatten,
@@ -292,12 +297,12 @@ fn handle_table_command(
                 } => {
                     let sep = flatten_separator.as_deref().unwrap_or(" ");
                     build_expanded_table(
-                        style_computer,
                         cols,
                         vals,
                         span,
                         ctrlc.clone(),
                         config,
+                        style_computer,
                         term_width,
                         limit,
                         flatten,
@@ -434,12 +439,12 @@ fn build_general_table2(
 // The table produced by `table -e`
 #[allow(clippy::too_many_arguments)]
 fn build_expanded_table(
-    style_computer: &StyleComputer,
     cols: Vec<String>,
     vals: Vec<Value>,
     span: Span,
     ctrlc: Option<Arc<AtomicBool>>,
     config: &Config,
+    style_computer: &StyleComputer,
     term_width: usize,
     expand_limit: Option<usize>,
     flatten: bool,
@@ -531,12 +536,12 @@ fn build_expanded_table(
                 }
                 Value::Record { cols, vals, span } => {
                     let result = build_expanded_table(
-                        style_computer,
                         cols.clone(),
                         vals.clone(),
                         span,
                         ctrlc.clone(),
                         config,
+                        style_computer,
                         remaining_width,
                         deep,
                         flatten,
@@ -930,15 +935,19 @@ fn convert_to_table(
     // All the computations are parallelised here.
     // NOTE: It's currently not possible to Ctrl-C out of this...
     let mut cells: Vec<Vec<_>> = Vec::with_capacity(data.len());
-    data.into_par_iter().map(|row| {
-        let mut new_row = Vec::with_capacity(row.len());
-        row.into_par_iter().map(|deferred| {
-            let pair = deferred.compute(config, style_computer);
+    data.into_par_iter()
+        .map(|row| {
+            let mut new_row = Vec::with_capacity(row.len());
+            row.into_par_iter()
+                .map(|deferred| {
+                    let pair = deferred.compute(config, style_computer);
 
-            NuTable::create_cell(pair.0, pair.1)
-        }).collect_into_vec(&mut new_row);
-        new_row
-    }).collect_into_vec(&mut cells);
+                    NuTable::create_cell(pair.0, pair.1)
+                })
+                .collect_into_vec(&mut new_row);
+            new_row
+        })
+        .collect_into_vec(&mut cells);
 
     let count_rows = cells.len();
     let table = NuTable::new(cells, (count_rows, count_columns));
@@ -1052,10 +1061,10 @@ fn convert_to_table2<'a>(
             }
 
             let value = convert_to_table2_entry(
-                style_computer,
                 item,
                 config,
                 &ctrlc,
+                style_computer,
                 deep,
                 flatten,
                 flatten_sep,
@@ -1292,10 +1301,10 @@ fn create_table2_entry(
 
             match val {
                 Ok(val) => convert_to_table2_entry(
-                    style_computer,
                     &val,
                     config,
                     ctrlc,
+                    style_computer,
                     deep,
                     flatten,
                     flatten_sep,
@@ -1305,10 +1314,10 @@ fn create_table2_entry(
             }
         }
         _ => convert_to_table2_entry(
-            style_computer,
             item,
             config,
             ctrlc,
+            style_computer,
             deep,
             flatten,
             flatten_sep,
@@ -1328,10 +1337,12 @@ fn wrap_nu_text(mut text: NuText, width: usize) -> NuText {
 
 #[allow(clippy::too_many_arguments)]
 fn convert_to_table2_entry(
-    style_computer: &StyleComputer,
     item: &Value,
     config: &Config,
     ctrlc: &Option<Arc<AtomicBool>>,
+    // This is passed in, even though it could be retrieved from config,
+    // to save reallocation (because it's presumably being used upstream).
+    style_computer: &StyleComputer,
     deep: Option<usize>,
     flatten: bool,
     flatten_sep: &str,
@@ -1438,6 +1449,8 @@ fn convert_to_table2_entry(
 fn convert_value_list_to_string(
     vals: &[Value],
     config: &Config,
+    // This is passed in, even though it could be retrieved from config,
+    // to save reallocation (because it's presumably being used upstream).
     style_computer: &StyleComputer,
     flatten_sep: &str,
 ) -> NuText {
@@ -1454,6 +1467,8 @@ fn convert_value_list_to_string(
 fn value_to_styled_string(
     value: &Value,
     config: &Config,
+    // This is passed in, even though it could be retrieved from config,
+    // to save reallocation (because it's presumably being used upstream).
     style_computer: &StyleComputer,
 ) -> NuText {
     let float_precision = config.float_precision as usize;

@@ -3,10 +3,7 @@ mod string;
 mod table;
 mod value;
 
-use std::{
-    collections::HashMap,
-    sync::{atomic::AtomicBool, Arc},
-};
+use std::sync::{atomic::AtomicBool, Arc};
 
 use nu_protocol::Value;
 use nu_table::TextStyle;
@@ -16,7 +13,6 @@ pub use nu_protocol::{Config as NuConfig, Span as NuSpan};
 
 pub type NuText = (String, TextStyle);
 pub type CtrlC = Option<Arc<AtomicBool>>;
-pub type NuStyleTable = HashMap<String, NuStyle>;
 
 pub use command::{is_ignored_command, run_command_with_value, run_nu_command};
 pub use string::truncate_str;

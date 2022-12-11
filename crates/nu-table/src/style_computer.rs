@@ -8,12 +8,15 @@ use nu_protocol::{
 };
 use tabled::alignment::AlignmentHorizontal;
 
-use std::collections::HashMap;
+use std::{
+    collections::HashMap,
+    fmt::{Debug, Formatter, Result},
+};
 
 // ComputableStyle represents the valid user style types: a single color value, or a closure which
 // takes an input value and produces a color value. The latter represents a value which
 // is computed at use-time.
-#[derive(Clone)]
+#[derive(Debug, Clone)]
 pub enum ComputableStyle {
     Static(Style),
     Closure(Value),
@@ -197,6 +200,16 @@ impl<'a> StyleComputer<'a> {
             }
         }
         StyleComputer::new(engine_state, stack, map)
+    }
+}
+
+// Because EngineState doesn't have Debug (Dec 2022),
+// this incomplete representation must be used.
+impl<'a> Debug for StyleComputer<'a> {
+    fn fmt(&self, f: &mut Formatter<'_>) -> Result {
+        f.debug_struct("StyleComputer")
+            .field("map", &self.map)
+            .finish()
     }
 }
 

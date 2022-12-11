@@ -1,7 +1,5 @@
-use std::collections::HashMap;
-
 use nu_ansi_term::{Color, Style};
-use nu_color_config::{get_color_config, get_color_map};
+use nu_color_config::{color_record_to_nustyle, lookup_ansi_color_style};
 use nu_engine::CallExt;
 use nu_explore::{
     run_pager,
@@ -13,6 +11,8 @@ use nu_protocol::{
     engine::{Command, EngineState, Stack},
     Category, Example, PipelineData, ShellError, Signature, Span, SyntaxShape, Value,
 };
+use nu_table::StyleComputer;
+use std::collections::HashMap;
 
 /// A `less` like program to render a [Value] as a table.
 #[derive(Clone)]
@@ -81,7 +81,7 @@ impl Command for Explore {
 
         let style = style_from_config(&config);
 
-        let mut config = PagerConfig::new(nu_config, &color_hm, config);
+        let mut config = PagerConfig::new(nu_config, &style_computer, config);
         config.style = style;
         config.reverse = is_reverse;
         config.peek_value = peek_value;
@@ -128,6 +128,8 @@ impl Command for Explore {
     }
 }
 
+// For now, this doesn't use StyleComputer.
+// As such, closures can't be given as styles for Explore.
 fn is_need_banner(config: &HashMap<String, Value>) -> Option<bool> {
     config.get("help_banner").and_then(|v| v.as_bool().ok())
 }
@@ -152,8 +154,6 @@ fn update_config(config: &mut HashMap<String, Value>, show_index: bool, show_hea
 fn style_from_config(config: &HashMap<String, Value>) -> StyleConfig {
     let mut style = StyleConfig::default();
 
-    let colors = get_color_map(config);
-
     if let Some(s) = colors.get("status_bar_text") {
         style.status_bar_text = *s;
     }
@@ -169,9 +169,8 @@ fn style_from_config(config: &HashMap<String, Value>) -> StyleConfig {
     if let Some(s) = colors.get("command_bar_background") {
         style.cmd_bar_background = *s;
     }
-
-    if let Some(s) = colors.get("highlight") {
-        style.highlight = *s;
+    if let Some(value) = config.get("command_bar") {
+        style.cmd_bar = lookup!(value)
     }
 
     if let Some(hm) = config.get("status").and_then(create_map) {
@@ -187,7 +186,7 @@ fn style_from_config(config: &HashMap<String, Value>) -> StyleConfig {
 
         if let Some(s) = colors.get("error") {
             style.status_error = *s;
-        }
+        } 
     }
 
     style

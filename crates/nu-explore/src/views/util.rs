@@ -1,7 +1,7 @@
 use std::borrow::Cow;
 
 use nu_color_config::style_primitive;
-use nu_table::{string_width, Alignment, TextStyle};
+use nu_table::{string_width, Alignment, TextStyle, StyleComputer};
 use tui::{
     buffer::Buffer,
     style::{Color, Modifier, Style},
@@ -123,7 +123,7 @@ pub fn make_styled_string(
     text_type: &str,
     col: usize,
     with_index: bool,
-    color_hm: &NuStyleTable,
+    style_computer: &StyleComputer,
     float_precision: usize,
 ) -> NuText {
     if col == 0 && with_index {
