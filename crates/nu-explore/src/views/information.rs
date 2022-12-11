@@ -1,6 +1,6 @@
 use crossterm::event::KeyEvent;
+use nu_color_config::TextStyle;
 use nu_protocol::engine::{EngineState, Stack};
-use nu_table::TextStyle;
 use tui::{layout::Rect, widgets::Paragraph};
 
 use crate::{

@@ -1,8 +1,9 @@
+use nu_color_config::{StyleComputer, TextStyle};
 use nu_protocol::{
     engine::{EngineState, Stack},
     Config,
 };
-use nu_table::{Alignments, StyleComputer, Table, TableConfig, TableTheme, TextStyle};
+use nu_table::{Alignments, Table, TableConfig, TableTheme};
 use std::collections::HashMap;
 use tabled::papergrid::records::{cell_info::CellInfo, tcell::TCell};
 

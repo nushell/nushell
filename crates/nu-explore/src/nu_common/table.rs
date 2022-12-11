@@ -1,3 +1,4 @@
+use nu_color_config::{Alignment, StyleComputer, TextStyle};
 use nu_engine::column::get_columns;
 use nu_protocol::FooterMode;
 use nu_protocol::{
@@ -5,9 +6,7 @@ use nu_protocol::{
     engine::{EngineState, Stack},
     Config, ShellError, Span, TableIndexMode, Value,
 };
-use nu_table::{
-    string_width, Alignment, StyleComputer, Table as NuTable, TableConfig, TableTheme, TextStyle,
-};
+use nu_table::{string_width, Alignments, Table as NuTable, TableConfig, TableTheme};
 use std::sync::Arc;
 use std::{
     cmp::max,

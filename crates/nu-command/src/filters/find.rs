@@ -3,6 +3,7 @@ use crate::help::highlight_search_string;
 use fancy_regex::Regex;
 use lscolors::{Color as LsColors_Color, LsColors, Style as LsColors_Style};
 use nu_ansi_term::{Color, Style};
+use nu_color_config::StyleComputer;
 use nu_engine::{env_to_string, CallExt};
 use nu_protocol::{
     ast::Call,
@@ -10,7 +11,6 @@ use nu_protocol::{
     Category, Config, Example, IntoInterruptiblePipelineData, ListStream, PipelineData, ShellError,
     Signature, Span, SyntaxShape, Type, Value,
 };
-use nu_table::StyleComputer;
 use nu_utils::get_ls_colors;
 
 #[derive(Clone)]

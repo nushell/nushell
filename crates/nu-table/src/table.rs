@@ -1,8 +1,8 @@
+use crate::table_theme::TableTheme;
+use nu_color_config::{StyleComputer, TextStyle};
 use std::{cmp::min, collections::HashMap, fmt::Display};
 use nu_protocol::{Config, FooterMode, Span, TrimStrategy, Value};
-
-use nu_ansi_term::Style;
-use nu_protocol::TrimStrategy;
+use std::collections::HashMap;
 use tabled::{
     alignment::AlignmentHorizontal,
     builder::Builder,
@@ -21,8 +21,6 @@ use tabled::{
     peaker::Peaker,
     Alignment, Modify, ModifyObject, TableOption, Width,
 };
-
-use crate::{style_computer::StyleComputer, table_theme::TableTheme, TextStyle};
 
 /// Table represent a table view.
 #[derive(Debug, Clone)]
@@ -580,25 +578,6 @@ fn truncate_columns_by_columns(data: &mut Data, theme: &TableTheme, termwidth: u
     false
 }
 
-impl papergrid::Color for TextStyle {
-    fn fmt_prefix(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        if let Some(color) = &self.color_style {
-            color.prefix().fmt(f)?;
-        }
-
-        Ok(())
-    }
-
-    fn fmt_suffix(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        if let Some(color) = &self.color_style {
-            if !color.is_plain() {
-                f.write_str("\u{1b}[0m")?;
-            }
-        }
-
-        Ok(())
-    }
-}
 
 /// The same as [`tabled::peaker::PriorityMax`] but prioritizes left columns first in case of equal width.
 #[derive(Debug, Default, Clone)]

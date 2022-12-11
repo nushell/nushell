@@ -18,7 +18,7 @@ use crossterm::{
         LeaveAlternateScreen,
     },
 };
-use nu_color_config::lookup_ansi_color_style;
+use nu_color_config::{Alignment, StyleComputer, TextStyle, lookup_ansi_color_style};
 use nu_protocol::{
     engine::{EngineState, Stack},
     Value,

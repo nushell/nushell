@@ -1,4 +1,5 @@
 use nu_ansi_term::{Color, Style};
+use nu_color_config::StyleComputer;
 use nu_color_config::{color_record_to_nustyle, lookup_ansi_color_style};
 use nu_engine::CallExt;
 use nu_explore::{
@@ -11,7 +12,6 @@ use nu_protocol::{
     engine::{Command, EngineState, Stack},
     Category, Example, PipelineData, ShellError, Signature, Span, SyntaxShape, Value,
 };
-use nu_table::StyleComputer;
 use std::collections::HashMap;
 
 /// A `less` like program to render a [Value] as a table.

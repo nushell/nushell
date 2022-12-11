@@ -127,10 +127,10 @@ pub fn make_styled_string(
     float_precision: usize,
 ) -> NuText {
     if col == 0 && with_index {
-        return (text, index_text_style(color_hm));
+        return (text, index_text_style(style_computer));
     }
 
-    let style = style_primitive(text_type, color_hm);
+    let style = style_primitive(text_type, style_computer);
 
     let mut text = text;
     if text_type == "float" {
@@ -140,10 +140,10 @@ pub fn make_styled_string(
     (text, style)
 }
 
-fn index_text_style(color_hm: &std::collections::HashMap<String, NuStyle>) -> TextStyle {
+fn index_text_style(style_computer: &StyleComputer) -> TextStyle {
     TextStyle {
         alignment: Alignment::Right,
-        color_style: Some(color_hm["row_index"]),
+        color_style: Some(style_computer.compute("row_index", &Value::nothing(Span::unknown()))),
     }
 }
 

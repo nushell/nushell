@@ -1,6 +1,7 @@
 use std::collections::HashMap;
 
-use crate::{style_computer::StyleComputer, table::TrimStrategyModifier, Alignments, TableTheme};
+use crate::{table::TrimStrategyModifier, Alignments, TableTheme};
+use nu_color_config::StyleComputer;
 use nu_protocol::{Config, Span, Value};
 use tabled::{
     color::Color, formatting::AlignmentStrategy, object::Segment, papergrid::records::Records,

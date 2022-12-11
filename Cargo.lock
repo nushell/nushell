@@ -2565,9 +2565,13 @@ name = "nu-color-config"
 version = "0.72.2"
 dependencies = [
  "nu-ansi-term",
- "nu-json",
+ "nu-engine",
+ "nu-path",
  "nu-protocol",
+ "nu-test-support",
+ "nu-utils",
  "serde",
+ "tabled",
 ]
 
 [[package]]

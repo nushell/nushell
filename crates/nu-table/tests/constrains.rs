@@ -1,5 +1,6 @@
 mod common;
 
+use nu_color_config::{StyleComputer, TextStyle};
 use nu_protocol::{
     engine::{EngineState, Stack},
     Config, TrimStrategy,

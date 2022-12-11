@@ -3,6 +3,7 @@ use nu_ansi_term::{
     Color::{Red, White},
     Style,
 };
+use nu_color_config::StyleComputer;
 use nu_engine::{get_full_help, CallExt};
 use nu_protocol::{
     ast::Call,
@@ -10,7 +11,6 @@ use nu_protocol::{
     span, Category, Example, IntoInterruptiblePipelineData, IntoPipelineData, PipelineData,
     ShellError, Signature, Span, Spanned, SyntaxShape, Type, Value,
 };
-use nu_table::StyleComputer;
 use std::borrow::Borrow;
 #[derive(Clone)]
 pub struct Help;

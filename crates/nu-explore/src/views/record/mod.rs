@@ -4,11 +4,11 @@ use std::{borrow::Cow, collections::HashMap};
 
 use crossterm::event::{KeyCode, KeyEvent};
 use nu_color_config::get_color_map;
+use nu_color_config::StyleComputer;
 use nu_protocol::{
     engine::{EngineState, Stack},
     Value,
 };
-use nu_table::StyleComputer;
 use tui::{layout::Rect, widgets::Block};
 
 use crate::{

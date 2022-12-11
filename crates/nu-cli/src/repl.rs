@@ -9,6 +9,7 @@ use fancy_regex::Regex;
 use lazy_static::lazy_static;
 use log::{info, trace, warn};
 use miette::{IntoDiagnostic, Result};
+use nu_color_config::StyleComputer;
 use nu_engine::{convert_env_values, eval_block, eval_block_with_early_return};
 use nu_parser::{lex, parse, trim_quotes_str};
 use nu_protocol::{
@@ -17,7 +18,6 @@ use nu_protocol::{
     format_duration, BlockId, HistoryFileFormat, PipelineData, PositionalArg, ShellError, Span,
     Spanned, Type, Value, VarId,
 };
-use nu_table::StyleComputer;
 use reedline::{DefaultHinter, EditCommand, Emacs, SqliteBackedHistory, Vi};
 use std::{
     io::{self, Write},

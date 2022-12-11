@@ -1,5 +1,6 @@
 use lscolors::{LsColors, Style};
 use nu_color_config::color_from_hex;
+use nu_color_config::{Alignment, StyleComputer, TextStyle};
 use nu_engine::{column::get_columns, env_to_string, CallExt};
 use nu_protocol::{
     ast::{Call, PathMember},
@@ -8,9 +9,7 @@ use nu_protocol::{
     PipelineData, PipelineMetadata, RawStream, ShellError, Signature, Span, SyntaxShape,
     TableIndexMode, Value,
 };
-use nu_table::{
-    string_width, Alignment, StyleComputer, Table as NuTable, TableConfig, TableTheme, TextStyle,
-};
+use nu_table::{string_width, Alignments, Table as NuTable, TableConfig, TableTheme};
 use nu_utils::get_ls_colors;
 use rayon::prelude::*;
 use std::sync::Arc;

@@ -1,11 +1,11 @@
 use std::cmp::max;
 
 use crossterm::event::{KeyCode, KeyEvent};
+use nu_color_config::TextStyle;
 use nu_protocol::{
     engine::{EngineState, Stack},
     Value,
 };
-use nu_table::TextStyle;
 use tui::layout::Rect;
 
 use crate::{

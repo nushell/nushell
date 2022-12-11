@@ -3,8 +3,9 @@ use std::{
     cmp::{max, Ordering},
 };
 
+use nu_color_config::{Alignment, StyleComputer, TextStyle};
 use nu_protocol::Value;
-use nu_table::{string_width, Alignment, StyleComputer, TextStyle};
+use nu_table::string_width;
 use tui::{
     buffer::Buffer,
     layout::Rect,

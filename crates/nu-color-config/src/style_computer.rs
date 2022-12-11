@@ -1,6 +1,5 @@
-use crate::TextStyle;
+use crate::{color_record_to_nustyle, lookup_ansi_color_style, TextStyle};
 use nu_ansi_term::{Color, Style};
-use nu_color_config::{color_record_to_nustyle, lookup_ansi_color_style};
 use nu_engine::eval_block;
 use nu_protocol::{
     engine::{EngineState, Stack, StateWorkingSet},
