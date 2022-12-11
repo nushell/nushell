@@ -15,7 +15,7 @@ impl Command for Const {
     }
 
     fn signature(&self) -> nu_protocol::Signature {
-        Signature::build("let")
+        Signature::build("const")
             .input_output_types(vec![(Type::Nothing, Type::Nothing)])
             .allow_variants_without_examples(true)
             .required("const_name", SyntaxShape::VarWithOptType, "constant name")
