@@ -17,8 +17,8 @@ use nu_protocol::{
 
 use crate::parse_keywords::{
     parse_alias, parse_def, parse_def_predecl, parse_export_in_block, parse_extern, parse_for,
-    parse_hide, parse_let, parse_module, parse_overlay, parse_source, parse_use, parse_where,
-    parse_where_expr,
+    parse_hide, parse_let_or_const, parse_module, parse_overlay, parse_source, parse_use,
+    parse_where, parse_where_expr,
 };
 
 use itertools::Itertools;
@@ -4871,7 +4871,7 @@ pub fn parse_expression(
                 .0,
                 Some(ParseError::BuiltinCommandInPipeline("for".into(), spans[0])),
             ),
-            b"let" => (
+            b"let" | b"const" => (
                 parse_call(
                     working_set,
                     &spans[pos..],
@@ -5139,7 +5139,9 @@ pub fn parse_builtin_commands(
     match name {
         b"def" | b"def-env" => parse_def(working_set, lite_command, expand_aliases_denylist),
         b"extern" => parse_extern(working_set, lite_command, expand_aliases_denylist),
-        b"let" => parse_let(working_set, &lite_command.parts, expand_aliases_denylist),
+        b"let" | b"const" => {
+            parse_let_or_const(working_set, &lite_command.parts, expand_aliases_denylist)
+        }
         b"mut" => parse_mut(working_set, &lite_command.parts, expand_aliases_denylist),
         b"for" => {
             let (expr, err) = parse_for(working_set, &lite_command.parts, expand_aliases_denylist);

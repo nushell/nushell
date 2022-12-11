@@ -382,6 +382,21 @@ pub enum ParseError {
     #[diagnostic(code(nu::shell::error_reading_file), url(docsrs))]
     ReadingFile(String, #[label("{0}")] Span),
 
+    /// Tried assigning non-constant value to a constant
+    ///
+    /// ## Resolution
+    ///
+    /// Only a subset of expressions are allowed to be assigned as a constant during parsing.
+    #[error("Not a constant.")]
+    #[diagnostic(
+        code(nu::parser::not_a_constant),
+        url(docsrs),
+        help(
+            "Only a subset of expressions are allowed to be assigned as a constant during parsing."
+        )
+    )]
+    NotAConstant(#[label = "Value is not a parse-time constant"] Span),
+
     #[error("{0}")]
     #[diagnostic()]
     LabeledError(String, String, #[label("{1}")] Span),
@@ -454,6 +469,7 @@ impl ParseError {
             ParseError::ShellErrRedirect(s) => *s,
             ParseError::ShellOutErrRedirect(s) => *s,
             ParseError::UnknownOperator(_, _, s) => *s,
+            ParseError::NotAConstant(s) => *s,
         }
     }
 }

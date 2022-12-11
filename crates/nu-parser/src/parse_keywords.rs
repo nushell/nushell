@@ -6,7 +6,7 @@ use nu_protocol::{
         ImportPatternMember, PathMember, Pipeline, PipelineElement,
     },
     engine::{StateWorkingSet, DEFAULT_OVERLAY_NAME},
-    span, BlockId, Exportable, Module, PositionalArg, Span, Spanned, SyntaxShape, Type,
+    span, BlockId, Exportable, Module, PositionalArg, Span, Spanned, SyntaxShape, Type, Value,
 };
 use std::collections::HashSet;
 use std::path::{Path, PathBuf};
@@ -20,8 +20,8 @@ use crate::{
     lex,
     parser::{
         check_call, check_name, garbage, garbage_pipeline, lite_parse, parse, parse_internal_call,
-        parse_multispan_value, parse_signature, parse_string, parse_var_with_opt_type, trim_quotes,
-        LiteCommand, LiteElement, ParsedInternalCall,
+        parse_multispan_value, parse_signature, parse_string, parse_value, parse_var_with_opt_type,
+        trim_quotes, LiteCommand, LiteElement, ParsedInternalCall,
     },
     unescape_unquote_string, ParseError,
 };
@@ -2751,19 +2751,23 @@ pub fn parse_overlay_hide(
     (pipeline, None)
 }
 
-pub fn parse_let(
+pub fn parse_let_or_const(
     working_set: &mut StateWorkingSet,
     spans: &[Span],
     expand_aliases_denylist: &[usize],
 ) -> (Pipeline, Option<ParseError>) {
     let name = working_set.get_span_contents(spans[0]);
 
-    if name == b"let" {
+    if name == b"let" || name == b"const" {
+        let is_const = &name == b"const";
+
         if let Some((span, err)) = check_name(working_set, spans) {
             return (Pipeline::from_vec(vec![garbage(*span)]), Some(err));
         }
 
-        if let Some(decl_id) = working_set.find_decl(b"let", &Type::Any) {
+        if let Some(decl_id) =
+            working_set.find_decl(if is_const { b"const" } else { b"let" }, &Type::Any)
+        {
             let cmd = working_set.get_decl(decl_id);
             let call_signature = cmd.signature().call_signature();
 
@@ -2815,6 +2819,15 @@ pub fn parse_let(
 
                         if let Some(var_id) = var_id {
                             working_set.set_variable_type(var_id, rhs_type);
+
+                            if is_const {
+                                match eval_constant(working_set, &rvalue) {
+                                    Ok(val) => {
+                                        working_set.add_constant(var_id, val);
+                                    }
+                                    Err(err) => error = error.or(Some(err)),
+                                }
+                            }
                         }
 
                         let call = Box::new(Call {
@@ -2866,7 +2879,7 @@ pub fn parse_let(
     (
         garbage_pipeline(spans),
         Some(ParseError::UnknownState(
-            "internal error: let statement unparseable".into(),
+            "internal error: let or const statement unparseable".into(),
             span(spans),
         )),
     )
@@ -3036,79 +3049,111 @@ pub fn parse_source(
 
             // Command and one file name
             if spans.len() >= 2 {
-                let name_expr = working_set.get_span_contents(spans[1]);
-                let (filename, err) = unescape_unquote_string(name_expr, spans[1]);
+                let (expr, err) = parse_value(
+                    working_set,
+                    spans[1],
+                    &SyntaxShape::Any,
+                    expand_aliases_denylist,
+                );
 
-                if err.is_none() {
-                    if let Some(path) = find_in_dirs(&filename, working_set, &cwd, LIB_DIRS_ENV) {
-                        if let Ok(contents) = std::fs::read(&path) {
-                            // Change currently parsed directory
-                            let prev_currently_parsed_cwd = if let Some(parent) = path.parent() {
-                                let prev = working_set.currently_parsed_cwd.clone();
+                error = error.or(err);
 
-                                working_set.currently_parsed_cwd = Some(parent.into());
+                let val = match eval_constant(working_set, &expr) {
+                    Ok(val) => val,
+                    Err(err) => {
+                        return (
+                            Pipeline::from_vec(vec![Expression {
+                                expr: Expr::Call(call),
+                                span: span(&spans[1..]),
+                                ty: Type::Any,
+                                custom_completion: None,
+                            }]),
+                            Some(err),
+                        );
+                    }
+                };
 
-                                prev
-                            } else {
-                                working_set.currently_parsed_cwd.clone()
-                            };
+                let filename = match value_as_string(val, spans[1]) {
+                    Ok(s) => s,
+                    Err(err) => {
+                        return (
+                            Pipeline::from_vec(vec![Expression {
+                                expr: Expr::Call(call),
+                                span: span(&spans[1..]),
+                                ty: Type::Any,
+                                custom_completion: None,
+                            }]),
+                            Some(err),
+                        );
+                    }
+                };
 
-                            // This will load the defs from the file into the
-                            // working set, if it was a successful parse.
-                            let (block, err) = parse(
-                                working_set,
-                                path.file_name().and_then(|x| x.to_str()),
-                                &contents,
-                                scoped,
-                                expand_aliases_denylist,
-                            );
+                if let Some(path) = find_in_dirs(&filename, working_set, &cwd, LIB_DIRS_ENV) {
+                    if let Ok(contents) = std::fs::read(&path) {
+                        // Change currently parsed directory
+                        let prev_currently_parsed_cwd = if let Some(parent) = path.parent() {
+                            let prev = working_set.currently_parsed_cwd.clone();
 
-                            // Restore the currently parsed directory back
-                            working_set.currently_parsed_cwd = prev_currently_parsed_cwd;
+                            working_set.currently_parsed_cwd = Some(parent.into());
 
-                            if err.is_some() {
-                                // Unsuccessful parse of file
-                                return (
-                                    Pipeline::from_vec(vec![Expression {
-                                        expr: Expr::Call(call),
-                                        span: span(&spans[1..]),
-                                        ty: Type::Any,
-                                        custom_completion: None,
-                                    }]),
-                                    // Return the file parse error
-                                    err,
-                                );
-                            } else {
-                                // Save the block into the working set
-                                let block_id = working_set.add_block(block);
+                            prev
+                        } else {
+                            working_set.currently_parsed_cwd.clone()
+                        };
 
-                                let mut call_with_block = call;
+                        // This will load the defs from the file into the
+                        // working set, if it was a successful parse.
+                        let (block, err) = parse(
+                            working_set,
+                            path.file_name().and_then(|x| x.to_str()),
+                            &contents,
+                            scoped,
+                            expand_aliases_denylist,
+                        );
 
-                                // FIXME: Adding this expression to the positional creates a syntax highlighting error
-                                // after writing `source example.nu`
-                                call_with_block.add_positional(Expression {
-                                    expr: Expr::Int(block_id as i64),
-                                    span: spans[1],
+                        // Restore the currently parsed directory back
+                        working_set.currently_parsed_cwd = prev_currently_parsed_cwd;
+
+                        if err.is_some() {
+                            // Unsuccessful parse of file
+                            return (
+                                Pipeline::from_vec(vec![Expression {
+                                    expr: Expr::Call(call),
+                                    span: span(&spans[1..]),
                                     ty: Type::Any,
                                     custom_completion: None,
-                                });
+                                }]),
+                                // Return the file parse error
+                                err,
+                            );
+                        } else {
+                            // Save the block into the working set
+                            let block_id = working_set.add_block(block);
 
-                                return (
-                                    Pipeline::from_vec(vec![Expression {
-                                        expr: Expr::Call(call_with_block),
-                                        span: span(spans),
-                                        ty: Type::Any,
-                                        custom_completion: None,
-                                    }]),
-                                    None,
-                                );
-                            }
+                            let mut call_with_block = call;
+
+                            // FIXME: Adding this expression to the positional creates a syntax highlighting error
+                            // after writing `source example.nu`
+                            call_with_block.add_positional(Expression {
+                                expr: Expr::Int(block_id as i64),
+                                span: spans[1],
+                                ty: Type::Any,
+                                custom_completion: None,
+                            });
+
+                            return (
+                                Pipeline::from_vec(vec![Expression {
+                                    expr: Expr::Call(call_with_block),
+                                    span: span(spans),
+                                    ty: Type::Any,
+                                    custom_completion: None,
+                                }]),
+                                None,
+                            );
                         }
-                    } else {
-                        error = error.or(Some(ParseError::SourcedFileNotFound(filename, spans[1])));
                     }
                 } else {
-                    return (garbage_pipeline(spans), Some(ParseError::NonUtf8(spans[1])));
+                    error = error.or(Some(ParseError::SourcedFileNotFound(filename, spans[1])));
                 }
             }
             return (
@@ -3496,5 +3541,121 @@ pub fn find_in_dirs(
         } else {
             None
         }
+    }
+}
+
+fn value_as_string(value: Value, span: Span) -> Result<String, ParseError> {
+    match value {
+        Value::String { val, .. } => Ok(val),
+        _ => Err(ParseError::NotAConstant(span)),
+    }
+}
+
+// similar to eval_expression() in the engine
+fn eval_constant(working_set: &StateWorkingSet, expr: &Expression) -> Result<Value, ParseError> {
+    match &expr.expr {
+        Expr::Bool(b) => Ok(Value::boolean(*b, expr.span)),
+        Expr::Int(i) => Ok(Value::int(*i, expr.span)),
+        Expr::Float(f) => Ok(Value::float(*f, expr.span)),
+        Expr::Binary(b) => Ok(Value::Binary {
+            val: b.clone(),
+            span: expr.span,
+        }),
+        Expr::Var(var_id) => match working_set.find_constant(*var_id) {
+            Some(val) => Ok(val.clone()),
+            None => Err(ParseError::NotAConstant(expr.span)),
+        },
+        Expr::FullCellPath(cell_path) => {
+            let value = eval_constant(working_set, &cell_path.head)?;
+
+            match value.follow_cell_path(&cell_path.tail, false) {
+                Ok(val) => Ok(val),
+                // TODO: Better error conversion
+                Err(shell_error) => Err(ParseError::LabeledError(
+                    "Error following cell path".to_string(),
+                    format!("{:?}", shell_error),
+                    expr.span,
+                )),
+            }
+        }
+        Expr::CellPath(cell_path) => Ok(Value::CellPath {
+            val: cell_path.clone(),
+            span: expr.span,
+        }),
+        Expr::DateTime(dt) => Ok(Value::Date {
+            val: *dt,
+            span: expr.span,
+        }),
+        Expr::Block(block_id) => Ok(Value::Block {
+            val: *block_id,
+            span: expr.span,
+        }),
+        Expr::List(x) => {
+            let mut output = vec![];
+            for expr in x {
+                output.push(eval_constant(working_set, expr)?);
+            }
+            Ok(Value::List {
+                vals: output,
+                span: expr.span,
+            })
+        }
+        Expr::Record(fields) => {
+            let mut cols = vec![];
+            let mut vals = vec![];
+            for (col, val) in fields {
+                // avoid duplicate cols.
+                let col_name = value_as_string(eval_constant(working_set, col)?, expr.span)?;
+                let pos = cols.iter().position(|c| c == &col_name);
+                match pos {
+                    Some(index) => {
+                        vals[index] = eval_constant(working_set, val)?;
+                    }
+                    None => {
+                        cols.push(col_name);
+                        vals.push(eval_constant(working_set, val)?);
+                    }
+                }
+            }
+
+            Ok(Value::Record {
+                cols,
+                vals,
+                span: expr.span,
+            })
+        }
+        Expr::Table(headers, vals) => {
+            let mut output_headers = vec![];
+            for expr in headers {
+                output_headers.push(value_as_string(
+                    eval_constant(working_set, expr)?,
+                    expr.span,
+                )?);
+            }
+
+            let mut output_rows = vec![];
+            for val in vals {
+                let mut row = vec![];
+                for expr in val {
+                    row.push(eval_constant(working_set, expr)?);
+                }
+                output_rows.push(Value::Record {
+                    cols: output_headers.clone(),
+                    vals: row,
+                    span: expr.span,
+                });
+            }
+            Ok(Value::List {
+                vals: output_rows,
+                span: expr.span,
+            })
+        }
+        Expr::Keyword(_, _, expr) => eval_constant(working_set, expr),
+        Expr::String(s) => Ok(Value::String {
+            val: s.clone(),
+            span: expr.span,
+        }),
+        Expr::Nothing => Ok(Value::Nothing { span: expr.span }),
+        _ => Err(ParseError::NotAConstant(expr.span)),
     }
 }

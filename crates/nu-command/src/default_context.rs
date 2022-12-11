@@ -32,6 +32,7 @@ pub fn create_default_context() -> EngineState {
             Ast,
             Break,
             Commandline,
+            Const,
             Continue,
             Debug,
             Def,
