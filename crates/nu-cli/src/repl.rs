@@ -709,6 +709,13 @@ pub fn eval_hook(
 ) -> Result<PipelineData, ShellError> {
     let value_span = value.span()?;
 
+    // Hooks can optionally be a record in this form:
+    // {
+    //     condition: {|before, after| ... }  # block that evaluates to true/false
+    //     code: # block or a string
+    // }
+    // The condition block will be run to check whether the main hook (in `code`) should be run.
+    // If it returns true (the default if a condition block is not specified), the hook should be run.
     let condition_path = PathMember::String {
         val: "condition".to_string(),
         span: value_span,
@@ -748,16 +755,19 @@ pub fn eval_hook(
                                 arguments.clone(),
                                 block_span,
                             ) {
-                                Ok(value) => match value {
-                                    Value::Bool { val, .. } => val,
-                                    other => {
+                                Ok(pipeline_data) => {
+                                    if let PipelineData::Value(Value::Bool { val, .. }, ..) =
+                                        pipeline_data
+                                    {
+                                        val
+                                    } else {
                                         return Err(ShellError::UnsupportedConfigValue(
                                             "boolean output".to_string(),
-                                            format!("{}", other.get_type()),
-                                            other.span()?,
+                                            "other PipelineData variant".to_string(),
+                                            block_span,
                                         ));
                                     }
-                                },
+                                }
                                 Err(err) => {
                                     return Err(err);
                                 }
@@ -880,34 +890,28 @@ pub fn eval_hook(
             span: block_span,
             ..
         } => {
-            output = PipelineData::Value(
-                run_hook_block(
-                    engine_state,
-                    stack,
-                    *block_id,
-                    input,
-                    arguments,
-                    *block_span,
-                )?,
-                None,
-            );
+            output = run_hook_block(
+                engine_state,
+                stack,
+                *block_id,
+                input,
+                arguments,
+                *block_span,
+            )?;
         }
         Value::Closure {
             val: block_id,
             span: block_span,
             ..
         } => {
-            output = PipelineData::Value(
-                run_hook_block(
-                    engine_state,
-                    stack,
-                    *block_id,
-                    input,
-                    arguments,
-                    *block_span,
-                )?,
-                None,
-            );
+            output = run_hook_block(
+                engine_state,
+                stack,
+                *block_id,
+                input,
+                arguments,
+                *block_span,
+            )?;
         }
         other => {
             return Err(ShellError::UnsupportedConfigValue(
@@ -931,7 +935,7 @@ pub fn run_hook_block(
     optional_input: Option<PipelineData>,
     arguments: Vec<(String, Value)>,
     span: Span,
-) -> Result<Value, ShellError> {
+) -> Result<PipelineData, ShellError> {
     let block = engine_state.get_block(block_id);
 
     let input = optional_input.unwrap_or_else(PipelineData::empty);
@@ -955,28 +959,27 @@ pub fn run_hook_block(
 
     match eval_block_with_early_return(engine_state, &mut callee_stack, block, input, false, false)
     {
-        Ok(pipeline_data) => match pipeline_data.into_value(span) {
-            Value::Error { error } => Err(error),
-            val => {
-                // If all went fine, preserve the environment of the called block
-                let caller_env_vars = stack.get_env_var_names(engine_state);
-
-                // remove env vars that are present in the caller but not in the callee
-                // (the callee hid them)
-                for var in caller_env_vars.iter() {
-                    if !callee_stack.has_env_var(engine_state, var) {
-                        stack.remove_env_var(engine_state, var);
-                    }
-                }
-
-                // add new env vars from callee to caller
-                for (var, value) in callee_stack.get_stack_env_vars() {
-                    stack.add_env_var(var, value);
-                }
-
-                Ok(val)
+        Ok(pipeline_data) => {
+            if let PipelineData::Value(Value::Error { error }, _) = pipeline_data {
+                return Err(error);
             }
-        },
+
+            let caller_env_vars = stack.get_env_var_names(engine_state);
+
+            // remove env vars that are present in the caller but not in the callee
+            // (the callee hid them)
+            for var in caller_env_vars.iter() {
+                if !callee_stack.has_env_var(engine_state, var) {
+                    stack.remove_env_var(engine_state, var);
+                }
+            }
+
+            // add new env vars from callee to caller
+            for (var, value) in callee_stack.get_stack_env_vars() {
+                stack.add_env_var(var, value);
+            }
+            Ok(pipeline_data)
+        }
         Err(err) => Err(err),
     }
 }
