@@ -23,6 +23,16 @@ fn filters_with_nothing_comparison() {
 }
 
 #[test]
+fn where_inside_block_works() {
+    let actual = nu!(
+        cwd: ".",
+        "{|x| ls | where $it =~ 'foo' } | describe"
+    );
+
+    assert_eq!(actual.out, "closure");
+}
+
+#[test]
 fn filters_with_0_arity_block() {
     let actual = nu!(
         cwd: ".",

@@ -1315,6 +1315,24 @@ impl Value {
         Value::Bool { val, span }
     }
 
+    pub fn record(cols: Vec<String>, vals: Vec<Value>, span: Span) -> Value {
+        Value::Record { cols, vals, span }
+    }
+
+    pub fn record_from_hashmap(map: &HashMap<String, Value>, span: Span) -> Value {
+        let mut cols = vec![];
+        let mut vals = vec![];
+        for (key, val) in map.iter() {
+            cols.push(key.clone());
+            vals.push(val.clone());
+        }
+        Value::record(cols, vals, span)
+    }
+
+    pub fn list(vals: Vec<Value>, span: Span) -> Value {
+        Value::List { vals, span }
+    }
+
     /// Note: Only use this for test data, *not* live data, as it will point into unknown source
     /// when used in errors.
     pub fn test_string(s: impl Into<String>) -> Value {

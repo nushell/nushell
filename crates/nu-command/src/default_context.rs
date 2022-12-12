@@ -92,6 +92,7 @@ pub fn create_default_context() -> EngineState {
             EachWhile,
             Empty,
             Every,
+            Filter,
             Find,
             First,
             Flatten,
@@ -370,6 +371,7 @@ pub fn create_default_context() -> EngineState {
             IntoDuration,
             IntoFilesize,
             IntoInt,
+            IntoCellPath,
             IntoRecord,
             IntoString,
         };

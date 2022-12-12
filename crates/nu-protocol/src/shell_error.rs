@@ -749,6 +749,15 @@ Either make sure {0} is a string, or add a 'to_string' entry for it in ENV_CONVE
     #[diagnostic(code(nu::parser::non_utf8), url(docsrs))]
     NonUtf8(#[label = "non-UTF8 string"] Span),
 
+    /// The given input must be valid UTF-8 for further processing.
+    ///
+    /// ## Resolution
+    ///
+    /// Check your input's encoding. Are there any funny characters/bytes?
+    #[error("Non-UTF8 string")]
+    #[diagnostic(code(nu::parser::non_utf8_custom), url(docsrs))]
+    NonUtf8Custom(String, #[label = "{0}"] Span),
+
     /// A custom value could not be converted to a Dataframe.
     ///
     /// ## Resolution
@@ -812,6 +821,19 @@ Either make sure {0} is a string, or add a 'to_string' entry for it in ENV_CONVE
         String,
         String,
         #[label = "'{0}' is deprecated. Please use '{1}' instead."] Span,
+    ),
+
+    /// Attempted to use a deprecated parameter.
+    ///
+    /// ## Resolution
+    ///
+    /// Check the help for the command and update your script accordingly.
+    #[error("Deprecated parameter {0}")]
+    #[diagnostic(code(nu::shell::deprecated_command), url(docsrs))]
+    DeprecatedParameter(
+        String,
+        String,
+        #[label = "Parameter '{0}' is deprecated. Please use '{1}' instead."] Span,
     ),
 
     /// Non-Unicode input received.
