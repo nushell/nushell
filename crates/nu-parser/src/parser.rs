@@ -6141,7 +6141,7 @@ pub fn lite_parse(tokens: &[Token]) -> (LiteBlock, Option<ParseError>) {
                         }
                         _ => {
                             curr_pipeline
-                                .push(LiteElement::Command(last_connector_span, curr_command));
+                                .push(LiteElement::Command(Some(token.span), curr_command));
                         }
                     }
 

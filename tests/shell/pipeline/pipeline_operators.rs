@@ -33,7 +33,7 @@ fn or_operator1() {
         "#
     );
 
-    assert_eq!(actual.out, "5");
+    assert!(actual.out.contains('5'));
 }
 
 #[test]
@@ -45,5 +45,30 @@ fn or_operator2() {
         "#
     );
 
-    assert_eq!(actual.out, "5");
+    assert!(actual.out.contains('5'));
+}
+
+#[test]
+fn or_operator3() {
+    // On success, don't run the next step
+    let actual = nu!(
+        cwd: ".",
+        r#"
+            0 || 2 + 3
+        "#
+    );
+
+    assert_eq!(actual.out, "0");
+}
+
+#[test]
+fn or_operator4() {
+    let actual = nu!(
+        cwd: ".",
+        r#"
+        1 / 0 || 2 / 0 || 10 + 9
+        "#
+    );
+
+    assert!(actual.out.contains("19"));
 }
