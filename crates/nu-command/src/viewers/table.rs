@@ -761,6 +761,7 @@ fn make_clickable_link(
     }
 }
 
+#[allow(clippy::too_many_arguments)]
 fn convert_to_table(
     row_offset: usize,
     input: &[Value],
@@ -1000,7 +1001,7 @@ fn convert_to_table2<'a>(
 
         let count_columns = if with_index { 2 } else { 1 };
         let size = (data.len(), count_columns);
-        let table = NuTable::new(data, size, usize::MAX, with_header, with_index, &theme);
+        let table = NuTable::new(data, size, usize::MAX, with_header, with_index, theme);
 
         return Ok(Some(table));
     }
@@ -1165,7 +1166,7 @@ fn convert_to_table2<'a>(
     let count_rows = data.len();
     let size = (count_rows, count_columns);
 
-    let table = NuTable::new(data, size, usize::MAX, with_header, with_index, &theme);
+    let table = NuTable::new(data, size, usize::MAX, with_header, with_index, theme);
 
     Ok(Some(table))
 }
