@@ -5338,9 +5338,6 @@ pub fn parse_block(
                                 error = err;
                             }
 
-                            let try_id = working_set.find_decl(b"try", &Type::Any).expect("internal error: missing definition for required 'try' command");
-
-                            PipelineElement::Expression((), ())
                             PipelineElement::Or(*span, expr)
                         }
                         LiteElement::Redirection(span, redirection, command) => {
@@ -5387,7 +5384,7 @@ pub fn parse_block(
                             is_subexpression,
                         )
                     }
-                    LiteElement::Or(_, command) => {
+                    LiteElement::Or(span, command) => {
                         let (mut pipeline, err) = parse_builtin_commands(
                             working_set,
                             command,
@@ -5395,7 +5392,7 @@ pub fn parse_block(
                             is_subexpression,
                         );
 
-                        if let PipelineElement::Expression(span, expr) = &pipeline.elements[0] {
+                        if let PipelineElement::Expression(_, expr) = &pipeline.elements[0] {
                             pipeline.elements[0] = PipelineElement::Or(*span, expr.clone())
                         }
 
@@ -5891,7 +5888,7 @@ impl LiteCommand {
 pub enum LiteElement {
     Command(Option<Span>, LiteCommand),
     Redirection(Span, Redirection, LiteCommand),
-    Or(Option<Span>, LiteCommand),
+    Or(Span, LiteCommand),
 }
 
 #[derive(Debug)]
@@ -6102,7 +6099,7 @@ pub fn lite_parse(tokens: &[Token]) -> (LiteBlock, Option<ParseError>) {
                 // in an "Or". This lets us know during eval that it's the current command
                 // whose error will be ignored rather than having to look ahead in the pipeline
                 if !curr_command.is_empty() {
-                    curr_pipeline.push(LiteElement::Or(last_connector_span, curr_command));
+                    curr_pipeline.push(LiteElement::Or(token.span, curr_command));
                     curr_command = LiteCommand::new();
                 }
                 if !curr_pipeline.is_empty() {
