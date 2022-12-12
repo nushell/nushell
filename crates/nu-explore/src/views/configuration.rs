@@ -20,24 +20,25 @@ use crate::{
     views::util::nu_style_to_tui,
 };
 
-use super::{cursorw::Cursor2, Layout, View, ViewConfig};
+use super::{cursor::WindowCursor, Layout, View, ViewConfig};
 
 #[derive(Debug, Default)]
 pub struct ConfigurationView {
     options: Vec<ConfigGroup>,
-    peeked_cursor: Option<Cursor2>,
-    cursor: Cursor2,
+    peeked_cursor: Option<WindowCursor>,
+    cursor: WindowCursor,
     border_color: Style,
     cursor_color: Style,
     list_color: Style,
-    // block_init_update: bool,
 }
 
 impl ConfigurationView {
     pub fn new(options: Vec<ConfigGroup>) -> Self {
+        let cursor = WindowCursor::new(options.len(), options.len()).expect("...");
+
         Self {
             options,
-            cursor: Cursor2::default(),
+            cursor,
             peeked_cursor: None,
             border_color: Style::default(),
             cursor_color: Style::default(),
@@ -46,15 +47,10 @@ impl ConfigurationView {
     }
 
     fn update_cursors(&mut self, height: usize) {
-        if self.cursor == Cursor2::default() {
-            self.cursor = Cursor2::new(height, self.options.len());
-        }
+        self.cursor.set_window(height);
 
         if let Some(cursor) = &mut self.peeked_cursor {
-            if *cursor == Cursor2::default() {
-                let i = cursor.current();
-                *cursor = Cursor2::new(height, self.options[i].options.len());
-            }
+            cursor.set_window(height);
         }
     }
 
@@ -68,7 +64,7 @@ impl ConfigurationView {
     ) {
         let (data, data_c) = match self.peeked_cursor {
             Some(cursor) => {
-                let i = self.cursor.current();
+                let i = self.cursor.index();
                 let opt = &self.options[i];
                 let data = opt
                     .options
@@ -92,13 +88,30 @@ impl ConfigurationView {
         render_list(f, area, &data, data_c, list_color, cursor_color, layout);
     }
 
-    fn peek_current_value(&self, cursor: &Cursor2) -> (&str, &str) {
-        let i = self.cursor.current();
-        let j = cursor.current();
+    fn peek_current(&self) -> Option<(&ConfigGroup, &ConfigOption)> {
+        let cursor = match self.peeked_cursor {
+            Some(cursor) => cursor,
+            None => return None,
+        };
+
+        let i = self.cursor.index();
+        let j = cursor.index();
         let group = &self.options[i];
         let opt = &group.options[j];
 
-        (group.group.as_str(), opt.name.as_str())
+        Some((group, opt))
+    }
+
+    fn peek_current_opt(&mut self) -> Option<&mut ConfigOption> {
+        let cursor = match self.peeked_cursor {
+            Some(cursor) => cursor,
+            None => return None,
+        };
+
+        let i = self.cursor.index();
+        let j = cursor.index();
+
+        Some(&mut self.options[i].options[j])
     }
 }
 
@@ -191,13 +204,8 @@ impl View for ConfigurationView {
 
         self.render_option_list(f, option_content_area, list_color, cursor_color, layout);
 
-        if let Some(cursor) = self.peeked_cursor {
-            let i = self.cursor.current();
-            let j = cursor.current();
-            let opt = &mut self.options[i].options[j];
-
+        if let Some(opt) = self.peek_current_opt() {
             let mut layout = Layout::default();
-
             opt.view.draw(f, view_content_area, cfg, &mut layout);
         } else {
             f.render_widget(Clear, view_content_area);
@@ -225,39 +233,65 @@ impl View for ConfigurationView {
             }
             KeyCode::Up => {
                 match &mut self.peeked_cursor {
-                    Some(cursor) => cursor.prev(),
-                    None => self.cursor.prev(),
+                    Some(cursor) => cursor.prev(1),
+                    None => self.cursor.prev(1),
                 };
 
-                if let Some(cursor) = self.peeked_cursor {
-                    let (key, value) = self.peek_current_value(&cursor);
-                    return Some(Transition::Cmd(format!("tweak {} {}", key, value)));
+                if let Some((group, opt)) = self.peek_current() {
+                    return Some(Transition::Cmd(build_tweak_cmd(group, opt)));
                 }
 
                 Some(Transition::Ok)
             }
             KeyCode::Down => {
                 match &mut self.peeked_cursor {
-                    Some(cursor) => cursor.next(),
-                    None => self.cursor.next(),
+                    Some(cursor) => cursor.next(1),
+                    None => self.cursor.next(1),
                 };
 
-                if let Some(cursor) = self.peeked_cursor {
-                    let (key, value) = self.peek_current_value(&cursor);
-                    return Some(Transition::Cmd(format!("tweak {} {}", key, value)));
+                if let Some((group, opt)) = self.peek_current() {
+                    return Some(Transition::Cmd(build_tweak_cmd(group, opt)));
+                }
+
+                Some(Transition::Ok)
+            }
+            KeyCode::PageUp => {
+                match &mut self.peeked_cursor {
+                    Some(cursor) => cursor.prev_window(),
+                    None => self.cursor.prev_window(),
+                };
+
+                if let Some((group, opt)) = self.peek_current() {
+                    return Some(Transition::Cmd(build_tweak_cmd(group, opt)));
+                }
+
+                Some(Transition::Ok)
+            }
+            KeyCode::PageDown => {
+                match &mut self.peeked_cursor {
+                    Some(cursor) => cursor.next_window(),
+                    None => self.cursor.next_window(),
+                };
+
+                if let Some((group, opt)) = self.peek_current() {
+                    return Some(Transition::Cmd(build_tweak_cmd(group, opt)));
                 }
 
                 Some(Transition::Ok)
             }
             KeyCode::Enter => {
-                if self.peeked_cursor.is_none() {
-                    self.peeked_cursor = Some(Cursor2::default());
-
-                    let (key, value) = self.peek_current_value(&Cursor2::default());
-                    return Some(Transition::Cmd(format!("tweak {} {}", key, value)));
+                if self.peeked_cursor.is_some() {
+                    return Some(Transition::Ok);
                 }
 
-                Some(Transition::Ok)
+                self.peeked_cursor = Some(WindowCursor::default());
+                let length = self.peek_current().expect("...").0.options.len();
+
+                self.peeked_cursor = WindowCursor::new(length, length);
+
+                let (group, opt) = self.peek_current().expect("...");
+
+                Some(Transition::Cmd(build_tweak_cmd(group, opt)))
             }
             _ => None,
         }
@@ -269,7 +303,7 @@ impl View for ConfigurationView {
 
     fn collect_data(&self) -> Vec<NuText> {
         if self.peeked_cursor.is_some() {
-            let i = self.cursor.current();
+            let i = self.cursor.index();
             let opt = &self.options[i];
             opt.options
                 .iter()
@@ -285,17 +319,17 @@ impl View for ConfigurationView {
 
     fn show_data(&mut self, i: usize) -> bool {
         if let Some(c) = &mut self.peeked_cursor {
-            let i = self.cursor.current();
+            let i = self.cursor.index();
             if i > self.options[i].options.len() {
                 return false;
             }
 
             loop {
-                let p = c.current();
+                let p = c.index();
                 match i.cmp(&p) {
                     Ordering::Equal => return true,
-                    Ordering::Less => c.prev(),
-                    Ordering::Greater => c.next(),
+                    Ordering::Less => c.prev(1),
+                    Ordering::Greater => c.next(1),
                 };
             }
         } else {
@@ -304,11 +338,11 @@ impl View for ConfigurationView {
             }
 
             loop {
-                let p = self.cursor.current();
+                let p = self.cursor.index();
                 match i.cmp(&p) {
                     Ordering::Equal => return true,
-                    Ordering::Less => self.cursor.prev(),
-                    Ordering::Greater => self.cursor.next(),
+                    Ordering::Less => self.cursor.prev(1),
+                    Ordering::Greater => self.cursor.next(1),
                 };
             }
         }
@@ -339,11 +373,15 @@ impl View for ConfigurationView {
     }
 }
 
+fn build_tweak_cmd(group: &ConfigGroup, opt: &ConfigOption) -> String {
+    format!("tweak {} {}", group.group(), opt.name)
+}
+
 fn render_list(
     f: &mut Frame,
     area: Rect,
     data: &[String],
-    cursor: Cursor2,
+    cursor: WindowCursor,
     not_picked_s: Style,
     picked_s: Style,
     layout: &mut Layout,
@@ -351,12 +389,12 @@ fn render_list(
     let height = area.height as usize;
     let width = area.width as usize;
 
-    let mut data = &data[cursor.index()..];
+    let mut data = &data[cursor.starts_at()..];
     if data.len() > height {
         data = &data[..height];
     }
 
-    let selected_row = cursor.relative();
+    let selected_row = cursor.offset();
 
     for (i, name) in data.iter().enumerate() {
         let mut name = name.to_owned();

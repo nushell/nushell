@@ -244,7 +244,7 @@ impl ViewCommand for TableCmd {
         }
 
         if self.settings.turn_on_cursor_mode {
-            view.get_into_cursor_mode();
+            view.set_cursor_mode();
         }
 
         Ok(view)

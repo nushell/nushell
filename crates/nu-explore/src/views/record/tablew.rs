@@ -1,4 +1,4 @@
-use std::{borrow::Cow, cmp::max, collections::HashMap};
+use std::{borrow::Cow, cmp::max};
 
 use nu_table::{string_width, Alignment, TextStyle};
 use tui::{
@@ -10,10 +10,7 @@ use tui::{
 
 use crate::{
     nu_common::{truncate_str, NuStyle, NuStyleTable, NuText},
-    views::{
-        util::{nu_style_to_tui, text_style_to_tui_style},
-        ElementInfo,
-    },
+    views::util::{nu_style_to_tui, text_style_to_tui_style},
 };
 
 use super::Layout;
@@ -80,7 +77,7 @@ pub struct TableWState {
     pub layout: Layout,
     pub count_rows: usize,
     pub count_columns: usize,
-    pub data_index: HashMap<(usize, usize), ElementInfo>,
+    pub data_height: u16,
 }
 
 impl StatefulWidget for TableW<'_> {
@@ -206,12 +203,13 @@ impl<'a> TableW<'a> {
         let mut do_render_shift_column = false;
         state.count_rows = data.len();
         state.count_columns = 0;
+        state.data_height = data_height;
 
         if width > area.width {
             return;
         }
 
-        for (i, col) in (self.index_column..self.columns.len()).enumerate() {
+        for col in self.index_column..self.columns.len() {
             let mut head = String::from(&self.columns[col]);
 
             let mut column = create_column(data, col);
@@ -259,9 +257,6 @@ impl<'a> TableW<'a> {
 
                 let x = w - padding_cell_r - use_space;
                 state.layout.push(&header[0].0, x, head_y, use_space, 1);
-
-                // it would be nice to add it so it would be available on search
-                // state.state.data_index.insert((i, col), ElementInfo::new(text, x, data_y, use_space, 1));
             }
 
             width += render_space(buf, width, data_y, data_height, padding_cell_l);
@@ -272,9 +267,6 @@ impl<'a> TableW<'a> {
                 let x = width - padding_cell_r - use_space;
                 let y = data_y + row as u16;
                 state.layout.push(text, x, y, use_space, 1);
-
-                let e = ElementInfo::new(text, x, y, use_space, 1);
-                state.data_index.insert((row, i), e);
             }
 
             state.count_columns += 1;
@@ -416,7 +408,7 @@ impl<'a> TableW<'a> {
         state.count_rows = columns.len();
         state.count_columns = 0;
 
-        for (i, col) in (self.index_column..self.data.len()).enumerate() {
+        for col in self.index_column..self.data.len() {
             let mut column =
                 self.data[col][self.index_row..self.index_row + columns.len()].to_vec();
             let column_width = calculate_column_width(&column);
@@ -457,9 +449,6 @@ impl<'a> TableW<'a> {
                     let x = left_w - padding_cell_r - column_width;
                     let y = area.y + row as u16;
                     state.layout.push(text, x, y, column_width, 1);
-
-                    let e = ElementInfo::new(text, x, y, column_width, 1);
-                    state.data_index.insert((row, i), e);
                 }
 
                 state.count_columns += 1;

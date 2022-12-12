@@ -1,5 +1,5 @@
 mod coloredtextw;
-mod cursorw;
+mod cursor;
 mod information;
 mod interative;
 mod preview;
@@ -29,7 +29,7 @@ pub use configuration::ConfigurationView;
 pub use information::InformationView;
 pub use interative::InteractiveView;
 pub use preview::Preview;
-pub use record::{Orientation, RecordView, RecordViewState};
+pub use record::{Orientation, RecordView};
 
 #[derive(Debug, Default)]
 pub struct Layout {

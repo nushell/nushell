@@ -13,16 +13,14 @@ use crate::{
     pager::{report::Report, Frame, Transition, ViewInfo},
 };
 
-use super::{coloredtextw::ColoredTextW, cursorw::Cursor, Layout, View, ViewConfig};
+use super::{coloredtextw::ColoredTextW, cursor::XYCursor, Layout, View, ViewConfig};
 
 // todo: Add wrap option
 #[derive(Debug)]
 pub struct Preview {
     underlaying_value: Option<Value>,
     lines: Vec<String>,
-    row_c: Cursor,
-    col_c: Cursor,
-    area: Rect,
+    cursor: XYCursor,
 }
 
 impl Preview {
@@ -31,14 +29,12 @@ impl Preview {
             .lines()
             .map(|line| line.replace('\t', "    ")) // tui: doesn't support TAB
             .collect();
-        let count_lines = lines.len();
+        let cursor = XYCursor::new(lines.len(), usize::MAX);
 
         Self {
             lines,
+            cursor,
             underlaying_value: None,
-            col_c: Cursor::new(usize::MAX, usize::MAX),
-            row_c: Cursor::new(0, count_lines),
-            area: Rect::default(),
         }
     }
 
@@ -49,13 +45,12 @@ impl Preview {
 
 impl View for Preview {
     fn draw(&mut self, f: &mut Frame, area: Rect, _: ViewConfig<'_>, layout: &mut Layout) {
-        self.row_c.reset(area.height as usize);
-        self.col_c.reset(area.width as usize);
-        self.area = area;
+        self.cursor
+            .set_window(area.height as usize, area.width as usize);
 
-        let lines = &self.lines[self.row_c.current()..];
+        let lines = &self.lines[self.cursor.row_starts_at()..];
         for (i, line) in lines.iter().enumerate().take(area.height as usize) {
-            let text = ColoredTextW::new(line, self.col_c.current());
+            let text = ColoredTextW::new(line, self.cursor.column());
             let s = text.what(area);
 
             let area = Rect::new(area.x, area.y + i as u16, area.width, 1);
@@ -75,82 +70,57 @@ impl View for Preview {
     ) -> Option<Transition> {
         match key.code {
             KeyCode::Left => {
-                self.col_c.prev(max(1, self.area.width as usize / 2));
+                self.cursor
+                    .prev_column_by(max(1, self.cursor.column_window_size() / 2));
 
                 Some(Transition::Ok)
             }
             KeyCode::Right => {
-                self.col_c.next(max(1, self.area.width as usize / 2));
+                self.cursor
+                    .next_column_by(max(1, self.cursor.column_window_size() / 2));
 
                 Some(Transition::Ok)
             }
             KeyCode::Up => {
-                self.row_c.prev(1);
+                self.cursor.prev_row_i();
 
-                if (self.row_c.page() + 1) * self.row_c.page_size() + self.row_c.relative()
-                    != self.row_c.limit()
-                {
-                    info.status = Some(Report::default());
-                }
-
-                if self.row_c.current() == 0 {
+                if self.cursor.row_starts_at() == 0 {
                     info.status = Some(Report::info("TOP"));
+                } else {
+                    info.status = Some(Report::default());
                 }
 
                 Some(Transition::Ok)
             }
             KeyCode::Down => {
-                if (self.row_c.page() + 1) * self.row_c.page_size() + self.row_c.relative()
-                    == self.row_c.limit()
-                {
-                    return Some(Transition::Ok);
-                }
+                if self.cursor.row() + self.cursor.row_window_size() < self.cursor.row_limit() {
+                    self.cursor.next_row_i();
 
-                self.row_c.next(1);
-
-                info.status = Some(Report::info(""));
-
-                if (self.row_c.page() + 1) * self.row_c.page_size() + self.row_c.relative()
-                    == self.row_c.limit()
-                {
                     info.status = Some(Report::info("END"));
+                } else {
+                    info.status = Some(Report::default());
                 }
 
                 Some(Transition::Ok)
             }
             KeyCode::PageUp => {
-                let page_size = self.area.height as usize;
-                self.row_c.prev(page_size);
+                self.cursor.prev_row_page();
 
-                if (self.row_c.page() + 1) * self.row_c.page_size() + self.row_c.relative()
-                    != self.row_c.limit()
-                {
-                    info.status = Some(Report::default());
-                }
-
-                if self.row_c.current() == 0 {
+                if self.cursor.row_starts_at() == 0 {
                     info.status = Some(Report::info("TOP"));
+                } else {
+                    info.status = Some(Report::default());
                 }
 
                 Some(Transition::Ok)
             }
             KeyCode::PageDown => {
-                if (self.row_c.page() + 1) * self.row_c.page_size() + self.row_c.relative()
-                    == self.row_c.limit()
-                {
-                    return Some(Transition::Ok);
-                }
+                self.cursor.next_row_page();
 
-                let page_size = self.area.height as usize;
-                self.row_c.next(page_size);
-
-                info.status = Some(Report::info(""));
-
-                if (self.row_c.page() + 1) * self.row_c.page_size() + self.row_c.relative()
-                    == self.row_c.limit()
-                {
-                    self.row_c.move_relative(0);
+                if self.cursor.row() + 1 == self.cursor.row_limit() {
                     info.status = Some(Report::info("END"));
+                } else {
+                    info.status = Some(Report::default());
                 }
 
                 Some(Transition::Ok)
@@ -172,7 +142,7 @@ impl View for Preview {
         //
         // todo: improve somehow?
 
-        self.row_c.move_to(row);
+        self.cursor.set_position(row, 0);
         true
     }
 
