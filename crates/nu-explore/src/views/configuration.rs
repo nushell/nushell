@@ -10,7 +10,7 @@ use nu_table::TextStyle;
 use tui::{
     layout::Rect,
     style::Style,
-    widgets::{BorderType, Borders, Clear, Paragraph},
+    widgets::{BorderType, Borders, Paragraph},
 };
 
 use crate::{
@@ -102,6 +102,11 @@ impl ConfigurationView {
         Some((group, opt))
     }
 
+    fn peek_current_group(&self) -> &ConfigGroup {
+        let i = self.cursor.index();
+        &self.options[i]
+    }
+
     fn peek_current_opt(&mut self) -> Option<&mut ConfigOption> {
         let cursor = match self.peeked_cursor {
             Some(cursor) => cursor,
@@ -118,12 +123,17 @@ impl ConfigurationView {
 #[derive(Debug, Default)]
 pub struct ConfigGroup {
     group: String,
+    description: String,
     options: Vec<ConfigOption>,
 }
 
 impl ConfigGroup {
-    pub fn new(group: String, options: Vec<ConfigOption>) -> Self {
-        Self { group, options }
+    pub fn new(group: String, options: Vec<ConfigOption>, description: String) -> Self {
+        Self {
+            group,
+            options,
+            description,
+        }
     }
 
     pub fn group(&self) -> &str {
@@ -208,7 +218,10 @@ impl View for ConfigurationView {
             let mut layout = Layout::default();
             opt.view.draw(f, view_content_area, cfg, &mut layout);
         } else {
-            f.render_widget(Clear, view_content_area);
+            let group = self.peek_current_group();
+            let description = &group.description;
+
+            f.render_widget(Paragraph::new(description.as_str()), view_content_area);
         }
 
         self.update_cursors(height as usize);

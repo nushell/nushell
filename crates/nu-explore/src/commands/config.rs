@@ -118,7 +118,7 @@ impl ViewCommand for ConfigCmd {
                     values.push(option);
                 }
 
-                let group = configuration::ConfigGroup::new(opt.key, values);
+                let group = configuration::ConfigGroup::new(opt.key, values, opt.description);
                 options.push((opt.group, group));
             }
         }
@@ -132,7 +132,8 @@ impl ViewCommand for ConfigCmd {
                 values.push(option);
             }
 
-            let group = configuration::ConfigGroup::new(opt.key.clone(), values);
+            let group =
+                configuration::ConfigGroup::new(opt.key.clone(), values, opt.description.clone());
             options.push((opt.group.clone(), group));
         }
 
