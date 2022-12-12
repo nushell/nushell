@@ -136,8 +136,12 @@ pub fn directory_completion(
                                     file_name.push(SEP);
                                 }
 
-                                // Fix files or folders with quotes
-                                if path.contains('\'') || path.contains('"') || path.contains(' ') {
+                                // Fix files or folders with quotes or hash
+                                if path.contains('\'')
+                                    || path.contains('"')
+                                    || path.contains(' ')
+                                    || path.contains('#')
+                                {
                                     path = format!("`{}`", path);
                                 }
 

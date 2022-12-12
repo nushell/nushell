@@ -25,6 +25,8 @@ use tempfile::NamedTempFile;
 
 pub type TestResult = Result<(), Box<dyn std::error::Error>>;
 
+const DEFAULT_CONFIG: &str = "./crates/nu-utils/src/sample_config/default_config.nu";
+
 pub fn run_test_with_env(input: &str, expected: &str, env: &HashMap<&str, &str>) -> TestResult {
     let mut file = NamedTempFile::new()?;
     let name = file.path();
@@ -43,6 +45,25 @@ pub fn run_test(input: &str, expected: &str) -> TestResult {
     let name = file.path();
 
     let mut cmd = Command::cargo_bin("nu")?;
+    cmd.arg(name);
+    cmd.env(
+        "PWD",
+        std::env::current_dir().expect("Can't get current dir"),
+    );
+
+    writeln!(file, "{}", input)?;
+
+    run_cmd_and_assert(cmd, expected)
+}
+
+#[cfg(test)]
+pub fn run_test_with_default_config(input: &str, expected: &str) -> TestResult {
+    let mut file = NamedTempFile::new()?;
+    let name = file.path();
+
+    let mut cmd = Command::cargo_bin("nu")?;
+    cmd.arg("--config");
+    cmd.arg(DEFAULT_CONFIG);
     cmd.arg(name);
     cmd.env(
         "PWD",

@@ -112,11 +112,6 @@ impl Command for SeqDate {
                     span,
                 }),
             },
-            Example {
-                description: "starting on May 5th, 2020, print the next 10 days in your locale's date format, colon separated",
-                example: "seq date -o %x -s ':' -d 10 -b '2020-05-01'",
-                result: None,
-            },
         ]
     }
 

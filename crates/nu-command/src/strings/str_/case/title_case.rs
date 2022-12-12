@@ -50,18 +50,12 @@ impl Command for SubCommand {
             Example {
                 description: "convert a string to Title Case",
                 example: "'nu-shell' | str title-case",
-                result: Some(Value::String {
-                    val: "Nu Shell".to_string(),
-                    span: Span::test_data(),
-                }),
+                result: Some(Value::string("Nu Shell", Span::test_data())),
             },
             Example {
                 description: "convert a string to Title Case",
                 example: "'this is a test case' | str title-case",
-                result: Some(Value::String {
-                    val: "This Is A Test Case".to_string(),
-                    span: Span::test_data(),
-                }),
+                result: Some(Value::string("This Is A Test Case", Span::test_data())),
             },
             Example {
                 description: "convert a column from a table to Title Case",
@@ -71,10 +65,7 @@ impl Command for SubCommand {
                         span: Span::test_data(),
                         cols: vec!["title".to_string(), "count".to_string()],
                         vals: vec![
-                            Value::String {
-                                val: "Nu Test".to_string(),
-                                span: Span::test_data(),
-                            },
+                            Value::string("Nu Test", Span::test_data()),
                             Value::test_int(100),
                         ],
                     }],

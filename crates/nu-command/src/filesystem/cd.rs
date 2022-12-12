@@ -163,10 +163,7 @@ impl Command for Cd {
 
         let path_tointo = path.clone();
         let path_value = Value::String { val: path, span };
-        let cwd = Value::String {
-            val: cwd.to_string_lossy().to_string(),
-            span: call.head,
-        };
+        let cwd = Value::string(cwd.to_string_lossy(), call.head);
 
         let mut shells = get_shells(engine_state, stack, cwd);
         let current_shell = get_current_shell(engine_state, stack);
@@ -181,10 +178,7 @@ impl Command for Cd {
         );
         stack.add_env_var(
             "NUSHELL_CURRENT_SHELL".into(),
-            Value::Int {
-                val: current_shell as i64,
-                span: call.head,
-            },
+            Value::int(current_shell as i64, call.head),
         );
 
         if let Some(oldpwd) = stack.get_env_var(engine_state, "PWD") {

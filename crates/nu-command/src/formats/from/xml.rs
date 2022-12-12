@@ -54,10 +54,7 @@ impl Command for FromXml {
                                     cols: vec!["children".to_string(), "attributes".to_string()],
                                     vals: vec![
                                         Value::List {
-                                            vals: vec![Value::String {
-                                                val: "Event".to_string(),
-                                                span: Span::test_data(),
-                                            }],
+                                            vals: vec![Value::string("Event", Span::test_data())],
                                             span: Span::test_data(),
                                         },
                                         Value::Record {
@@ -201,10 +198,7 @@ mod tests {
     use nu_protocol::{Spanned, Value};
 
     fn string(input: impl Into<String>) -> Value {
-        Value::String {
-            val: input.into(),
-            span: Span::test_data(),
-        }
+        Value::string(input, Span::test_data())
     }
 
     fn row(entries: IndexMap<String, Value>) -> Value {

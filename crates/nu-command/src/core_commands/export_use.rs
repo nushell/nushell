@@ -48,10 +48,7 @@ impl Command for ExportUse {
     use eggs foo
     foo
             "#,
-            result: Some(Value::String {
-                val: "foo".to_string(),
-                span: Span::test_data(),
-            }),
+            result: Some(Value::string("foo", Span::test_data())),
         }]
     }
 

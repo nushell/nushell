@@ -72,10 +72,7 @@ def-env cd_with_fallback [arg = ""] {
         vec![Example {
             description: "Set environment variable by call a custom command",
             example: r#"def-env foo [] { let-env BAR = "BAZ" }; foo; $env.BAR"#,
-            result: Some(Value::String {
-                val: "BAZ".to_string(),
-                span: Span::test_data(),
-            }),
+            result: Some(Value::string("BAZ", Span::test_data())),
         }]
     }
 }

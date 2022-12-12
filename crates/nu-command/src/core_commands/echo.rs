@@ -51,13 +51,7 @@ little reason to use this over just writing the values as-is."#
                 std::cmp::Ordering::Equal => PipelineData::Value(to_be_echoed[0].clone(), None),
 
                 //  When there are no elements, we echo the empty string
-                std::cmp::Ordering::Less => PipelineData::Value(
-                    Value::String {
-                        val: "".to_string(),
-                        span: call.head,
-                    },
-                    None,
-                ),
+                std::cmp::Ordering::Less => PipelineData::Value(Value::string("", call.head), None),
             }
         })
     }

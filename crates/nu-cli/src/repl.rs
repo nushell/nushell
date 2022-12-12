@@ -74,19 +74,10 @@ pub fn evaluate_repl(
     // seed env vars
     stack.add_env_var(
         "CMD_DURATION_MS".into(),
-        Value::String {
-            val: "0823".to_string(),
-            span: Span::unknown(),
-        },
+        Value::string("0823", Span::unknown()),
     );
 
-    stack.add_env_var(
-        "LAST_EXIT_CODE".into(),
-        Value::Int {
-            val: 0,
-            span: Span::unknown(),
-        },
-    );
+    stack.add_env_var("LAST_EXIT_CODE".into(), Value::int(0, Span::unknown()));
 
     info!(
         "load config initially {}:{}:{}",

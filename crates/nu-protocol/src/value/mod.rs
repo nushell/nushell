@@ -109,14 +109,8 @@ pub enum Value {
 impl Clone for Value {
     fn clone(&self) -> Self {
         match self {
-            Value::Bool { val, span } => Value::Bool {
-                val: *val,
-                span: *span,
-            },
-            Value::Int { val, span } => Value::Int {
-                val: *val,
-                span: *span,
-            },
+            Value::Bool { val, span } => Value::boolean(*val, *span),
+            Value::Int { val, span } => Value::int(*val, *span),
             Value::Filesize { val, span } => Value::Filesize {
                 val: *val,
                 span: *span,
@@ -133,10 +127,7 @@ impl Clone for Value {
                 val: val.clone(),
                 span: *span,
             },
-            Value::Float { val, span } => Value::Float {
-                val: *val,
-                span: *span,
-            },
+            Value::Float { val, span } => Value::float(*val, *span),
             Value::String { val, span } => Value::String {
                 val: val.clone(),
                 span: *span,
@@ -668,10 +659,7 @@ impl Value {
                         }
                         Value::Binary { val, .. } => {
                             if let Some(item) = val.get(*count) {
-                                current = Value::Int {
-                                    val: *item as i64,
-                                    span: *origin_span,
-                                };
+                                current = Value::int(*item as i64, *origin_span);
                             } else if val.is_empty() {
                                 return Err(ShellError::AccessEmptyContent(*origin_span))
                             } else {
@@ -1327,13 +1315,28 @@ impl Value {
         Value::Bool { val, span }
     }
 
+    pub fn record(cols: Vec<String>, vals: Vec<Value>, span: Span) -> Value {
+        Value::Record { cols, vals, span }
+    }
+
+    pub fn record_from_hashmap(map: &HashMap<String, Value>, span: Span) -> Value {
+        let mut cols = vec![];
+        let mut vals = vec![];
+        for (key, val) in map.iter() {
+            cols.push(key.clone());
+            vals.push(val.clone());
+        }
+        Value::record(cols, vals, span)
+    }
+
+    pub fn list(vals: Vec<Value>, span: Span) -> Value {
+        Value::List { vals, span }
+    }
+
     /// Note: Only use this for test data, *not* live data, as it will point into unknown source
     /// when used in errors.
     pub fn test_string(s: impl Into<String>) -> Value {
-        Value::String {
-            val: s.into(),
-            span: Span::test_data(),
-        }
+        Value::string(s, Span::test_data())
     }
 
     /// Note: Only use this for test data, *not* live data, as it will point into unknown source
@@ -3382,46 +3385,25 @@ mod tests {
         #[test]
         fn test_list() {
             let list_of_ints = Value::List {
-                vals: vec![Value::Int {
-                    val: 0,
-                    span: Span::unknown(),
-                }],
+                vals: vec![Value::int(0, Span::unknown())],
                 span: Span::unknown(),
             };
             let list_of_floats = Value::List {
-                vals: vec![Value::Float {
-                    val: 0.0,
-                    span: Span::unknown(),
-                }],
+                vals: vec![Value::float(0.0, Span::unknown())],
                 span: Span::unknown(),
             };
             let list_of_ints_and_floats = Value::List {
                 vals: vec![
-                    Value::Int {
-                        val: 0,
-                        span: Span::unknown(),
-                    },
-                    Value::Float {
-                        val: 0.0,
-                        span: Span::unknown(),
-                    },
+                    Value::int(0, Span::unknown()),
+                    Value::float(0.0, Span::unknown()),
                 ],
                 span: Span::unknown(),
             };
             let list_of_ints_and_floats_and_bools = Value::List {
                 vals: vec![
-                    Value::Int {
-                        val: 0,
-                        span: Span::unknown(),
-                    },
-                    Value::Float {
-                        val: 0.0,
-                        span: Span::unknown(),
-                    },
-                    Value::Bool {
-                        val: false,
-                        span: Span::unknown(),
-                    },
+                    Value::int(0, Span::unknown()),
+                    Value::float(0.0, Span::unknown()),
+                    Value::boolean(false, Span::unknown()),
                 ],
                 span: Span::unknown(),
             };

@@ -50,10 +50,7 @@ impl Command for OverlayList {
             example: r#"module spam { export def foo [] { "foo" } }
     overlay use spam
     overlay list | last"#,
-            result: Some(Value::String {
-                val: "spam".to_string(),
-                span: Span::test_data(),
-            }),
+            result: Some(Value::string("spam", Span::test_data())),
         }]
     }
 }

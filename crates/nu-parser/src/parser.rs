@@ -17,7 +17,8 @@ use nu_protocol::{
 
 use crate::parse_keywords::{
     parse_alias, parse_def, parse_def_predecl, parse_export_in_block, parse_extern, parse_for,
-    parse_hide, parse_let, parse_module, parse_overlay, parse_source, parse_use,
+    parse_hide, parse_let, parse_module, parse_overlay, parse_source, parse_use, parse_where,
+    parse_where_expr,
 };
 
 use itertools::Itertools;
@@ -645,25 +646,33 @@ pub fn parse_multispan_value(
             (arg, error)
         }
         SyntaxShape::OneOf(shapes) => {
+            let mut err = None;
             for shape in shapes.iter() {
-                if let (s, None) = parse_multispan_value(
+                let (s, option_err) = parse_multispan_value(
                     working_set,
                     spans,
                     spans_idx,
                     shape,
                     expand_aliases_denylist,
-                ) {
-                    return (s, None);
+                );
+                match option_err {
+                    None => return (s, None),
+                    e => err = err.or(e),
                 }
             }
             let span = spans[*spans_idx];
-            (
-                Expression::garbage(span),
-                Some(ParseError::Expected(
-                    format!("one of a list of accepted shapes: {:?}", shapes),
-                    span,
-                )),
-            )
+
+            if err.is_some() {
+                (Expression::garbage(span), err)
+            } else {
+                (
+                    Expression::garbage(span),
+                    Some(ParseError::Expected(
+                        format!("one of a list of accepted shapes: {:?}", shapes),
+                        span,
+                    )),
+                )
+            }
         }
         SyntaxShape::Expression => {
             trace!("parsing: expression");
@@ -1884,6 +1893,7 @@ pub fn parse_full_cell_path(
     span: Span,
     expand_aliases_denylist: &[usize],
 ) -> (Expression, Option<ParseError>) {
+    trace!("parsing: full cell path");
     let full_cell_span = span;
     let source = working_set.get_span_contents(span);
     let mut error = None;
@@ -1988,10 +1998,11 @@ pub fn parse_full_cell_path(
 
             (out, true)
         } else if let Some(var_id) = implicit_head {
+            trace!("parsing: implicit head of full cell path");
             (
                 Expression {
                     expr: Expr::Var(var_id),
-                    span: Span::new(0, 0),
+                    span: head.span,
                     ty: Type::Any,
                     custom_completion: None,
                 },
@@ -3027,6 +3038,7 @@ pub fn expand_to_cell_path(
     var_id: VarId,
     expand_aliases_denylist: &[usize],
 ) {
+    trace!("parsing: expanding to cell path");
     if let Expression {
         expr: Expr::String(_),
         span,
@@ -4421,6 +4433,7 @@ pub fn parse_operator(
     let operator = match contents {
         b"=" => Operator::Assignment(Assignment::Assign),
         b"+=" => Operator::Assignment(Assignment::PlusAssign),
+        b"++=" => Operator::Assignment(Assignment::AppendAssign),
         b"-=" => Operator::Assignment(Assignment::MinusAssign),
         b"*=" => Operator::Assignment(Assignment::MultiplyAssign),
         b"/=" => Operator::Assignment(Assignment::DivideAssign),
@@ -4580,6 +4593,8 @@ pub fn parse_math_expression(
     lhs_row_var_id: Option<VarId>,
     expand_aliases_denylist: &[usize],
 ) -> (Expression, Option<ParseError>) {
+    trace!("parsing: math expression");
+
     // As the expr_stack grows, we increase the required precedence to grow larger
     // If, at any time, the operator we're looking at is the same or lower precedence
     // of what is in the expression stack, we collapse the expression stack.
@@ -4756,6 +4771,8 @@ pub fn parse_expression(
     expand_aliases_denylist: &[usize],
     is_subexpression: bool,
 ) -> (Expression, Option<ParseError>) {
+    trace!("parsing: expression");
+
     let mut pos = 0;
     let mut shorthand = vec![];
 
@@ -5005,6 +5022,7 @@ pub fn parse_expression(
                     spans[0],
                 )),
             ),
+            b"where" => parse_where_expr(working_set, &spans[pos..], expand_aliases_denylist),
             #[cfg(feature = "plugin")]
             b"register" => (
                 parse_call(
@@ -5140,6 +5158,7 @@ pub fn parse_builtin_commands(
         }
         b"export" => parse_export_in_block(working_set, lite_command, expand_aliases_denylist),
         b"hide" => parse_hide(working_set, &lite_command.parts, expand_aliases_denylist),
+        b"where" => parse_where(working_set, &lite_command.parts, expand_aliases_denylist),
         #[cfg(feature = "plugin")]
         b"register" => parse_register(working_set, &lite_command.parts, expand_aliases_denylist),
         _ => {
@@ -5285,6 +5304,7 @@ pub fn parse_block(
                     .iter()
                     .map(|command| match command {
                         LiteElement::Command(span, command) => {
+                            trace!("parsing: pipeline element: command");
                             let (expr, err) = parse_expression(
                                 working_set,
                                 &command.parts,
@@ -5300,6 +5320,7 @@ pub fn parse_block(
                             PipelineElement::Expression(*span, expr)
                         }
                         LiteElement::Redirection(span, redirection, command) => {
+                            trace!("parsing: pipeline element: redirection");
                             let (expr, err) = parse_string(
                                 working_set,
                                 command.parts[0],
@@ -6176,8 +6197,6 @@ pub fn parse(
     scoped: bool,
     expand_aliases_denylist: &[usize],
 ) -> (Block, Option<ParseError>) {
-    trace!("starting top-level parse");
-
     let mut error = None;
 
     let span_offset = working_set.next_span_start();

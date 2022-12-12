@@ -46,10 +46,7 @@ impl Command for SubCommand {
             result: Some(Value::List {
                 vals: vec![
                     Value::test_int(50),
-                    Value::Float {
-                        val: 100.0,
-                        span: Span::test_data(),
-                    },
+                    Value::float(100.0, Span::test_data()),
                     Value::test_int(25),
                 ],
                 span: Span::test_data(),

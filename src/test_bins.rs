@@ -151,10 +151,7 @@ pub fn nu_repl() {
 
     stack.add_env_var(
         "PWD".to_string(),
-        Value::String {
-            val: cwd.to_string_lossy().to_string(),
-            span: Span::test_data(),
-        },
+        Value::string(cwd.to_string_lossy(), Span::test_data()),
     );
 
     let mut last_output = String::new();

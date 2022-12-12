@@ -95,15 +95,9 @@ fn get_records(entry_type: &str, span: &Span) -> Vec<Value> {
 }
 
 fn convert_to_record(edit: &str, entry_type: &str, span: &Span) -> Value {
-    let entry_type = Value::String {
-        val: entry_type.to_string(),
-        span: *span,
-    };
+    let entry_type = Value::string(entry_type, *span);
 
-    let name = Value::String {
-        val: edit.to_string(),
-        span: *span,
-    };
+    let name = Value::string(edit, *span);
 
     Value::Record {
         cols: vec!["type".to_string(), "name".to_string()],

@@ -22,8 +22,8 @@ impl Command for Any {
             ])
             .required(
                 "predicate",
-                SyntaxShape::RowCondition,
-                "the expression, or block, that should return a boolean",
+                SyntaxShape::Closure(Some(vec![SyntaxShape::Any, SyntaxShape::Int])),
+                "a closure that must evaluate to a boolean",
             )
             .category(Category::Filters)
     }
@@ -40,22 +40,17 @@ impl Command for Any {
         vec![
             Example {
                 description: "Check if any row's status is the string 'DOWN'",
-                example: "[[status]; [UP] [DOWN] [UP]] | any status == DOWN",
-                result: Some(Value::test_bool(true)),
-            },
-            Example {
-                description: "Check if any of the values is odd, using the built-in $it variable",
-                example: "[2 4 1 6 8] | any ($it mod 2) == 1",
-                result: Some(Value::test_bool(true)),
-            },
-            Example {
-                description: "Check if any of the values are odd, using a block",
-                example: "[2 4 1 6 8] | any {|e| $e mod 2 == 1 }",
+                example: "[[status]; [UP] [DOWN] [UP]] | any {|el| $el.status == DOWN }",
                 result: Some(Value::test_bool(true)),
             },
             Example {
                 description: "Check if any value is equal to twice its own index",
                 example: "[9 8 7 6] | any {|el ind| $el == $ind * 2 }",
+                result: Some(Value::test_bool(true)),
+            },
+            Example {
+                description: "Check if any of the values are odd, using a stored closure",
+                example: "let cond = {|e| $e mod 2 == 1 }; [2 4 1 6 8] | any $cond",
                 result: Some(Value::test_bool(true)),
             },
         ]

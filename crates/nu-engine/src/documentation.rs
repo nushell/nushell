@@ -187,11 +187,7 @@ fn get_documentation(
                 engine_state,
                 stack,
                 &Call::new(Span::unknown()),
-                Value::String {
-                    val: example.example.to_string(),
-                    span: Span::unknown(),
-                }
-                .into_pipeline_data(),
+                Value::string(example.example, Span::unknown()).into_pipeline_data(),
             ) {
                 Ok(output) => {
                     let result = output.into_value(Span::unknown());

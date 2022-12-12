@@ -126,8 +126,11 @@ impl CommandCompletion {
                     append_whitespace: true,
                 });
 
+            let results_strings: Vec<String> =
+                results.clone().into_iter().map(|x| x.value).collect();
+
             for external in results_external {
-                if results.contains(&external) {
+                if results_strings.contains(&external.value) {
                     results.push(Suggestion {
                         value: format!("^{}", external.value),
                         description: None,

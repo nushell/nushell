@@ -86,7 +86,7 @@ fn action(input: &Value, _args: &CellPathOnlyArgs, head: Span) -> Value {
             let other = s.trim();
 
             match other.parse::<f64>() {
-                Ok(x) => Value::Float { val: x, span: head },
+                Ok(x) => Value::float(x, head),
                 Err(reason) => Value::Error {
                     error: ShellError::CantConvert(
                         "float".to_string(),
@@ -97,10 +97,7 @@ fn action(input: &Value, _args: &CellPathOnlyArgs, head: Span) -> Value {
                 },
             }
         }
-        Value::Int { val: v, span } => Value::Float {
-            val: *v as f64,
-            span: *span,
-        },
+        Value::Int { val: v, span } => Value::float(*v as f64, *span),
         Value::Bool { val: b, span } => Value::Float {
             val: match b {
                 true => 1.0,

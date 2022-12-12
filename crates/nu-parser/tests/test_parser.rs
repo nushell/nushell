@@ -1402,4 +1402,23 @@ mod input_types {
             assert!(block.len() == 2, "testing: {}", input);
         }
     }
+
+    #[test]
+    fn else_errors_correctly() {
+        let mut engine_state = EngineState::new();
+        add_declations(&mut engine_state);
+
+        let mut working_set = StateWorkingSet::new(&engine_state);
+        let (_, err) = parse(
+            &mut working_set,
+            None,
+            b"if false { 'a' } else { $foo }",
+            true,
+            &[],
+        );
+
+        let err = err.unwrap();
+
+        assert!(matches!(err, ParseError::VariableNotFound(_)));
+    }
 }

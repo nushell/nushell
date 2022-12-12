@@ -3,6 +3,7 @@ use std::{
     io::{self, Result},
 };
 
+use crossterm::event::KeyEvent;
 use nu_protocol::{
     engine::{EngineState, Stack},
     Value,
@@ -11,7 +12,7 @@ use tui::layout::Rect;
 
 use crate::{
     nu_common::{collect_input, NuSpan},
-    pager::Frame,
+    pager::{Frame, ViewInfo, Transition},
     views::{Layout, Preview, RecordView, View, ViewConfig},
 };
 
@@ -192,10 +193,7 @@ fn help_frame_data(
 fn help_manual_data(manual: &HelpManual, aliases: &[String]) -> (Vec<String>, Vec<Vec<Value>>) {
     macro_rules! nu_str {
         ($text:expr) => {
-            Value::String {
-                val: $text.to_string(),
-                span: NuSpan::unknown(),
-            }
+            Value::string($text.to_string(), NuSpan::unknown())
         };
     }
 
@@ -330,9 +328,9 @@ impl View for HelpView<'_> {
         engine_state: &EngineState,
         stack: &mut Stack,
         layout: &Layout,
-        info: &mut crate::pager::ViewInfo,
-        key: crossterm::event::KeyEvent,
-    ) -> Option<crate::pager::Transition> {
+        info: &mut ViewInfo,
+        key: KeyEvent,
+    ) -> Option<Transition> {
         match self {
             HelpView::Records(v) => v.handle_input(engine_state, stack, layout, info, key),
             HelpView::Preview(v) => v.handle_input(engine_state, stack, layout, info, key),

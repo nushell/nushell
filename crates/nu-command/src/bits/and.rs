@@ -54,10 +54,7 @@ impl Command for SubCommand {
             Example {
                 description: "Apply bits and to two numbers",
                 example: "2 | bits and 2",
-                result: Some(Value::Int {
-                    val: 2,
-                    span: Span::test_data(),
-                }),
+                result: Some(Value::int(2, Span::test_data())),
             },
             Example {
                 description: "Apply logical and to a list of numbers",

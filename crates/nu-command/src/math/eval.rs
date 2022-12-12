@@ -47,10 +47,7 @@ impl Command for SubCommand {
         vec![Example {
             description: "Evaluate math in the pipeline",
             example: "'10 / 4' | math eval",
-            result: Some(Value::Float {
-                val: 2.5,
-                span: Span::test_data(),
-            }),
+            result: Some(Value::float(2.5, Span::test_data())),
         }]
     }
 }
@@ -104,10 +101,7 @@ pub fn parse(math_expression: &str, span: &Span) -> Result<Value, String> {
     ctx.var("tau", std::f64::consts::TAU);
     match meval::eval_str_with_context(math_expression, &ctx) {
         Ok(num) if num.is_infinite() || num.is_nan() => Err("cannot represent result".to_string()),
-        Ok(num) => Ok(Value::Float {
-            val: num,
-            span: *span,
-        }),
+        Ok(num) => Ok(Value::float(num, *span)),
         Err(error) => Err(error.to_string().to_lowercase()),
     }
 }
