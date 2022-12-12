@@ -569,5 +569,5 @@ fn list_unknown_flag() {
             "#
     ));
 
-    assert!(actual.err.contains("Available flags: --help(-h), --all(-a), --long(-l), --short-names(-s), --full-paths(-f), --du(-d), --directory(-D). Use `--help` for more information."));
+    assert!(actual.err.contains("Available flags: --help(-h), --all(-a),"));
 }
