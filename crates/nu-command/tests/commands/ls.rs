@@ -569,5 +569,7 @@ fn list_unknown_flag() {
             "#
     ));
 
-    assert!(actual.err.contains("Available flags: --help(-h), --all(-a),"));
+    assert!(actual
+        .err
+        .contains("Available flags: --help(-h), --all(-a),"));
 }
