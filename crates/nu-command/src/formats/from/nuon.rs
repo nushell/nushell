@@ -146,7 +146,6 @@ impl Command for FromNuon {
                 match pipeline.elements.remove(0) {
                     PipelineElement::Expression(_, expression)
                     | PipelineElement::Redirection(_, _, expression)
-                    | PipelineElement::And(_, expression)
                     | PipelineElement::Or(_, expression) => expression,
                 }
             }
