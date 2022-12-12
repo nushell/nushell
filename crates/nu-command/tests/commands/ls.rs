@@ -559,3 +559,15 @@ fn list_ignores_ansi() {
         assert!(actual.err.is_empty());
     })
 }
+
+#[test]
+fn list_unknown_flag() {
+    let actual = nu!(
+        cwd: ".", pipeline(
+        r#"
+                ls -r
+            "#
+    ));
+
+    assert!(actual.err.contains("Available flags: --help(-h), --all(-a), --long(-l), --short-names(-s), --full-paths(-f), --du(-d), --directory(-D). Use `--help` for more information."));
+}

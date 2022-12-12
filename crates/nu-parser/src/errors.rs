@@ -254,9 +254,9 @@ pub enum ParseError {
     #[diagnostic(
         code(nu::parser::unknown_flag),
         url(docsrs),
-        help("use {0} --help for a list of flags")
+        help("{3}. Use `--help` for more information.")
     )]
-    UnknownFlag(String, String, #[label = "unknown flag"] Span),
+    UnknownFlag(String, String, #[label = "unknown flag"] Span, String),
 
     #[error("Unknown type.")]
     #[diagnostic(code(nu::parser::unknown_type), url(docsrs))]
@@ -422,7 +422,7 @@ impl ParseError {
             ParseError::DuplicateCommandDef(s) => *s,
             ParseError::UnknownCommand(s) => *s,
             ParseError::NonUtf8(s) => *s,
-            ParseError::UnknownFlag(_, _, s) => *s,
+            ParseError::UnknownFlag(_, _, s, _) => *s,
             ParseError::RequiredAfterOptional(_, s) => *s,
             ParseError::UnknownType(s) => *s,
             ParseError::MissingFlagParam(_, s) => *s,

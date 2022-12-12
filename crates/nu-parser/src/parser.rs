@@ -432,6 +432,7 @@ fn parse_long_flag(
                         sig.name.clone(),
                         long_name.clone(),
                         arg_span,
+                        sig.clone().formatted_flags(),
                     )),
                 )
             }
@@ -497,6 +498,7 @@ fn parse_short_flags(
                                 sig.name.clone(),
                                 format!("-{}", String::from_utf8_lossy(contents)),
                                 *first,
+                                sig.clone().formatted_flags(),
                             ))
                         });
                     }
@@ -507,6 +509,7 @@ fn parse_short_flags(
                             sig.name.clone(),
                             format!("-{}", String::from_utf8_lossy(contents)),
                             *first,
+                            sig.clone().formatted_flags(),
                         ))
                     });
                 }
@@ -517,6 +520,7 @@ fn parse_short_flags(
                         sig.name.clone(),
                         format!("-{}", String::from_utf8_lossy(contents)),
                         *first,
+                        sig.clone().formatted_flags(),
                     ))
                 });
             }
@@ -528,6 +532,7 @@ fn parse_short_flags(
                         sig.name.clone(),
                         format!("-{}", String::from_utf8_lossy(contents)),
                         *first,
+                        sig.clone().formatted_flags(),
                     ))
                 });
             }

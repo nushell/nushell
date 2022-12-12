@@ -610,6 +610,19 @@ impl Signature {
             block_id,
         })
     }
+
+    pub fn formatted_flags(self) -> String {
+        let mut s = "Available flags:".to_string();
+        for flag in self.named {
+            if let Some(short) = flag.short {
+                s = format!("{s} --{}(-{}),", flag.long, short);
+            } else {
+                s = format!("{s} --{},", flag.long);
+            }
+        }
+        s.remove(s.len() - 1);
+        s
+    }
 }
 
 #[derive(Clone)]
