@@ -226,7 +226,15 @@ impl<'a> RecordView<'a> {
     }
 
     fn update_cursors(&mut self, rows: usize, columns: usize) {
-        self.get_layer_last_mut().cursor.set_window(rows, columns);
+        match self.get_layer_last().orientation {
+            Orientation::Top | Orientation::Bottom => {
+                self.get_layer_last_mut().cursor.set_window(rows, columns);
+            }
+
+            Orientation::Left | Orientation::Right => {
+                self.get_layer_last_mut().cursor.set_window(rows, columns);
+            }
+        }
     }
 
     fn create_records_report(&self) -> Report {
@@ -256,9 +264,14 @@ impl View for RecordView<'_> {
 
         if self.mode == UIMode::Cursor {
             let (row, column) = self.get_current_window();
-            let info = layout
-                .data
-                .get(column * (table_layout.count_rows + 1) + row + 1);
+            let info = get_element_info(
+                layout,
+                row,
+                column,
+                table_layout.count_rows,
+                self.get_layer_last().orientation,
+                self.theme.table.show_header,
+            );
 
             if let Some(info) = info {
                 highlight_cell(f, area, info.clone(), &self.theme.cursor);
@@ -347,6 +360,24 @@ impl View for RecordView<'_> {
     }
 }
 
+fn get_element_info(
+    layout: &mut Layout,
+    row: usize,
+    column: usize,
+    count_rows: usize,
+    orientation: Orientation,
+    with_head: bool,
+) -> Option<&ElementInfo> {
+    let with_head = with_head as usize;
+    let index = match orientation {
+        Orientation::Top | Orientation::Bottom => column * (count_rows + with_head) + row + 1,
+        Orientation::Left => (column + with_head) * count_rows + row,
+        Orientation::Right => column * count_rows + row,
+    };
+
+    layout.data.get(index)
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 enum UIMode {
     Cursor,
@@ -387,11 +418,17 @@ impl<'a> RecordLayer<'a> {
     }
 
     fn count_rows(&self) -> usize {
-        self.records.len()
+        match self.orientation {
+            Orientation::Top | Orientation::Bottom => self.records.len(),
+            Orientation::Left | Orientation::Right => self.columns.len(),
+        }
     }
 
     fn count_columns(&self) -> usize {
-        self.columns.len()
+        match self.orientation {
+            Orientation::Top | Orientation::Bottom => self.columns.len(),
+            Orientation::Left | Orientation::Right => self.records.len(),
+        }
     }
 
     fn get_column_header(&self) -> Option<String> {
@@ -506,9 +543,9 @@ fn handle_key_event_cursor_mode(view: &mut RecordView, key: &KeyEvent) -> Option
             push_layer(view, next_layer);
 
             if is_record {
-                view.set_orientation_current(Orientation::Left);
+                view.get_layer_last_mut().orientation = Orientation::Left;
             } else {
-                view.set_orientation_current(view.orientation);
+                view.get_layer_last_mut().orientation = view.orientation;
             }
 
             Some(Transition::Ok)

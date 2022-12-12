@@ -12,7 +12,7 @@ use tui::layout::Rect;
 
 use crate::{
     nu_common::{collect_input, NuSpan},
-    pager::{Frame, ViewInfo, Transition},
+    pager::{Frame, Transition, ViewInfo},
     views::{Layout, Preview, RecordView, View, ViewConfig},
 };
 

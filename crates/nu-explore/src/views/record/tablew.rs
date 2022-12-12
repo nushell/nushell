@@ -376,6 +376,13 @@ impl<'a> TableW<'a> {
                 let x = area.x + left_w;
                 left_w += render_space(buf, x, area.y, 1, padding_cell_r);
 
+                let layout_x = left_w - padding_cell_r - columns_width as u16;
+                for (i, (text, _)) in columns.iter().enumerate() {
+                    state
+                        .layout
+                        .push(text, layout_x, area.y + i as u16, columns_width as u16, 1);
+                }
+
                 if self.style.header_bottom {
                     let x = area.x + left_w;
                     left_w +=
