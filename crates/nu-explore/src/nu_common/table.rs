@@ -122,7 +122,7 @@ pub fn build_expanded_table(
     // calculate the width of a key part + the rest of table so we know the rest of the table width available for value.
     let key_width = cols.iter().map(|col| string_width(col)).max().unwrap_or(0);
     let key = NuTable::create_cell(" ".repeat(key_width), TextStyle::default());
-    let key_table = NuTable::new(vec![vec![key]], (1, 2), term_width, false, false);
+    let key_table = NuTable::new(vec![vec![key]], (1, 2), term_width, false, false, &theme);
     let key_width = key_table
         .draw_table(config, &color_hm, alignments, &theme, usize::MAX, false)
         .map(|table| string_width(&table))
@@ -248,7 +248,7 @@ pub fn build_expanded_table(
     }
 
     let data_len = data.len();
-    let table = NuTable::new(data, (data_len, 2), term_width, false, false);
+    let table = NuTable::new(data, (data_len, 2), term_width, false, false, &theme);
 
     let table_s = table
         .clone()
@@ -401,7 +401,7 @@ fn convert_to_table2<'a>(
 
         let count_columns = if with_index { 2 } else { 1 };
         let size = (data.len(), count_columns);
-        let table = NuTable::new(data, size, usize::MAX, with_header, with_index);
+        let table = NuTable::new(data, size, usize::MAX, with_header, with_index, &theme);
 
         return Ok(Some(table));
     }
@@ -566,7 +566,7 @@ fn convert_to_table2<'a>(
     let count_rows = data.len();
     let size = (count_rows, count_columns);
 
-    let table = NuTable::new(data, size, usize::MAX, with_header, with_index);
+    let table = NuTable::new(data, size, usize::MAX, with_header, with_index, &theme);
 
     Ok(Some(table))
 }

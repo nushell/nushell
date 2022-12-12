@@ -25,7 +25,7 @@ fn draw_table(
     width: usize,
 ) -> String {
     let size = (data.len(), count_columns);
-    let table = Table::new(data, size, width, with_header, false);
+    let table = Table::new(data, size, width, with_header, false, &theme);
 
     let cfg = Config::default();
     let styles = HashMap::default();

@@ -27,21 +27,18 @@ fn main() {
     let count_cols = std::cmp::max(rows.len(), headers.len());
     let mut rows = vec![rows; 3];
     rows.insert(0, headers);
-    let table = Table::new(rows, (3, count_cols), width, true, false);
+
+    let theme = TableTheme::rounded();
+
+    let table = Table::new(rows, (3, count_cols), width, true, false, &theme);
     // FIXME: Config isn't available from here so just put these here to compile
     let color_hm: HashMap<String, nu_ansi_term::Style> = HashMap::new();
     // get the default config
     let config = Config::default();
+    let alignments = Alignments::default();
     // Capture the table as a string
     let output_table = table
-        .draw_table(
-            &config,
-            &color_hm,
-            Alignments::default(),
-            &TableTheme::rounded(),
-            width,
-            false,
-        )
+        .draw_table(&config, &color_hm, alignments, &theme, width, false)
         .unwrap_or_else(|| format!("Couldn't fit table into {} columns!", width));
     // Draw the table
     println!("{}", output_table)

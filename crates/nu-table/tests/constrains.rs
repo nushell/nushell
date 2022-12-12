@@ -12,6 +12,7 @@ fn data_and_header_has_different_size() {
         usize::MAX,
         true,
         false,
+        &theme::heavy(),
     );
 
     let table = draw_table(table, usize::MAX, &Config::default());
@@ -31,6 +32,7 @@ fn data_and_header_has_different_size() {
         usize::MAX,
         true,
         false,
+        &theme::heavy(),
     );
     let table = draw_table(table, usize::MAX, &Config::default());
 
@@ -48,11 +50,25 @@ fn data_and_header_has_different_size() {
 fn termwidth_too_small() {
     let cfg = Config::default();
     for i in 0..10 {
-        let table = Table::new(vec![row(3), row(3), row(5)], (3, 5), i, true, false);
+        let table = Table::new(
+            vec![row(3), row(3), row(5)],
+            (3, 5),
+            i,
+            true,
+            false,
+            &theme::heavy(),
+        );
         assert!(draw_table(table, i, &cfg).is_none());
     }
 
-    let table = Table::new(vec![row(3), row(3), row(5)], (3, 5), 11, true, false);
+    let table = Table::new(
+        vec![row(3), row(3), row(5)],
+        (3, 5),
+        11,
+        true,
+        false,
+        &theme::heavy(),
+    );
     assert!(draw_table(table, 11, &cfg).is_some());
 
     let cfg = Config {
@@ -61,11 +77,25 @@ fn termwidth_too_small() {
     };
 
     for i in 0..10 {
-        let table = Table::new(vec![row(3), row(3), row(5)], (3, 5), i, true, false);
+        let table = Table::new(
+            vec![row(3), row(3), row(5)],
+            (3, 5),
+            i,
+            true,
+            false,
+            &theme::heavy(),
+        );
         assert!(draw_table(table, i, &cfg).is_none());
     }
 
-    let table = Table::new(vec![row(3), row(3), row(5)], (3, 5), 11, true, false);
+    let table = Table::new(
+        vec![row(3), row(3), row(5)],
+        (3, 5),
+        11,
+        true,
+        false,
+        &theme::heavy(),
+    );
     assert!(draw_table(table, 11, &cfg).is_some());
 }
 
@@ -215,5 +245,5 @@ fn table_with_data(termwidth: usize) -> Table {
     ];
     let data = vec![header, row(5), row(5)];
 
-    Table::new(data, (3, 5), termwidth, true, false)
+    Table::new(data, (3, 5), termwidth, true, false, &theme::heavy())
 }

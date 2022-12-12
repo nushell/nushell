@@ -1,4 +1,4 @@
-use std::{collections::HashMap, fmt::Display};
+use std::{cmp::min, collections::HashMap, fmt::Display};
 
 use nu_protocol::{Config, FooterMode, TrimStrategy};
 use tabled::{
@@ -13,6 +13,7 @@ use tabled::{
             cell_info::CellInfo, tcell::TCell, vec_records::VecRecords, Records, RecordsMut,
         },
         width::CfgWidthFunction,
+        Estimate,
     },
     Alignment, Modify, ModifyObject, TableOption, Width,
 };
@@ -40,6 +41,7 @@ impl Table {
         termwidth: usize,
         with_header: bool,
         with_index: bool,
+        theme: &TableTheme,
     ) -> Table {
         // it's not guaranted that data will have all rows with the same number of columns.
         // but VecRecords::with_hint require this constrain.
@@ -53,7 +55,7 @@ impl Table {
         }
 
         let mut data = VecRecords::with_hint(data, size.1);
-        let is_empty = maybe_truncate_columns(&mut data, size.1, termwidth);
+        let is_empty = maybe_truncate_columns(&mut data, theme, termwidth);
 
         Table {
             data,
@@ -372,23 +374,55 @@ where
     }
 }
 
-fn maybe_truncate_columns(data: &mut Data, length: usize, termwidth: usize) -> bool {
-    // Make sure we have enough space for the columns we have
-    let max_num_of_columns = termwidth / 10;
-    if max_num_of_columns == 0 {
-        return true;
+fn maybe_truncate_columns(data: &mut Data, theme: &TableTheme, termwidth: usize) -> bool {
+    const MIN_TRUNCATE_WIDTH: usize = 3;
+
+    let config;
+    let mut total;
+    {
+        let mut table = Builder::custom(&*data).build();
+        load_theme(&mut table, &HashMap::new(), theme, false, false);
+        total = table.total_width();
+        config = table.get_config().clone();
     }
 
-    // If we have too many columns, truncate the table
-    if max_num_of_columns < length {
-        data.truncate(max_num_of_columns);
+    if total <= termwidth {
+        return false;
+    }
+
+    let mut width_ctrl = tabled::papergrid::width::WidthEstimator::default();
+    width_ctrl.estimate(&*data, &config);
+    let mut widths = Vec::from(width_ctrl);
+
+    let mut truncated = false;
+    while data.count_columns() > 0 {
+        let column = data.count_columns() - 1;
+        let width = widths[column];
+
+        let min_width = min(width, MIN_TRUNCATE_WIDTH);
+        if total < termwidth + min_width {
+            break;
+        }
+
+        data.truncate(column);
+        widths.truncate(column);
+
+        total -= width;
+        if config.get_borders().has_vertical() {
+            total -= 1;
+        }
+
+        truncated = true;
+    }
+
+    if truncated {
         data.push(Table::create_cell(
             String::from("..."),
             TextStyle::default(),
         ));
     }
 
-    false
+    truncated && data.count_columns() == 1
 }
 
 impl papergrid::Color for TextStyle {
