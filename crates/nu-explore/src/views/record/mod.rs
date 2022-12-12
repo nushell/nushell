@@ -543,9 +543,11 @@ fn handle_key_event_cursor_mode(view: &mut RecordView, key: &KeyEvent) -> Option
             push_layer(view, next_layer);
 
             if is_record {
-                view.get_layer_last_mut().orientation = Orientation::Left;
-            } else {
+                view.set_orientation_current(Orientation::Left);
+            } else if view.orientation == view.get_layer_last().orientation {
                 view.get_layer_last_mut().orientation = view.orientation;
+            } else {
+                view.set_orientation_current(view.orientation);
             }
 
             Some(Transition::Ok)

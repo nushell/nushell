@@ -26,7 +26,7 @@ pub struct TableW<'a> {
     color_hm: &'a NuStyleTable,
 }
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Orientation {
     Top,
     Bottom,
