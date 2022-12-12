@@ -612,16 +612,34 @@ impl Signature {
     }
 
     pub fn formatted_flags(self) -> String {
-        let mut s = "Available flags:".to_string();
-        for flag in self.named {
-            if let Some(short) = flag.short {
-                s = format!("{s} --{}(-{}),", flag.long, short);
-            } else {
-                s = format!("{s} --{},", flag.long);
+        if self.named.len() < 11 {
+            let mut s = "Available flags:".to_string();
+            for flag in self.named {
+                if let Some(short) = flag.short {
+                    let _ = write!(s, " --{}(-{}),", flag.long, short);
+                } else {
+                    let _ = write!(s, " --{},", flag.long);
+                }
             }
+            s.remove(s.len() - 1);
+            let _ = write!(s, ". Use `--help` for more information.");
+            s
+        } else {
+            let mut s = "Some available flags:".to_string();
+            for flag in self.named {
+                if let Some(short) = flag.short {
+                    let _ = write!(s, " --{}(-{}),", flag.long, short);
+                } else {
+                    let _ = write!(s, " --{},", flag.long);
+                }
+            }
+            s.remove(s.len() - 1);
+            let _ = write!(
+                s,
+                "... Use `--help` for a full list of flags and more information."
+            );
+            s
         }
-        s.remove(s.len() - 1);
-        s
     }
 }
 
