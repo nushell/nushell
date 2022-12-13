@@ -63,13 +63,13 @@ fn create_directory_two_parents_up_using_multiple_dots() {
 }
 
 #[test]
-fn show_created_paths() {
+fn print_created_paths() {
     Playground::setup("mkdir_test_2", |dirs, _| {
         let actual = nu!(
          cwd: dirs.test(),
          pipeline(
              r#"
-                 mkdir -s dir_1 dir_2 dir_3
+                 mkdir -v dir_1 dir_2 dir_3
                  | length
              "#
         ));
