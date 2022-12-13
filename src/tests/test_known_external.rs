@@ -1,4 +1,4 @@
-use crate::tests::{fail_test, run_test_contains, TestResult};
+use crate::tests::{run_test_contains, TestResult};
 
 // cargo version prints a string of the form:
 // cargo 1.60.0 (d1fd9fe2c 2022-03-01)
