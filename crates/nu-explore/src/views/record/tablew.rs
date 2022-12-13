@@ -1,4 +1,7 @@
-use std::{borrow::Cow, cmp::max};
+use std::{
+    borrow::Cow,
+    cmp::{max, Ordering},
+};
 
 use nu_table::{string_width, Alignment, TextStyle};
 use tui::{
@@ -110,8 +113,6 @@ impl<'a> TableW<'a> {
         let padding_index_l = self.style.padding_index_left as u16;
         let padding_index_r = self.style.padding_index_right as u16;
 
-        let shift_column_w = 1 + padding_cell_l + padding_cell_r;
-
         let show_index = self.style.show_index;
         let show_head = self.style.show_header;
         let splitline_s = self.style.splitline_style;
@@ -210,49 +211,46 @@ impl<'a> TableW<'a> {
         }
 
         for col in self.index_column..self.columns.len() {
-            let mut head = String::from(&self.columns[col]);
-
             let mut column = create_column(data, col);
-
             let column_width = calculate_column_width(&column);
-            let mut use_space = column_width as u16;
 
+            let mut head = String::from(&self.columns[col]);
+            let head_width = string_width(&head);
+
+            let mut use_space = column_width as u16;
             if show_head {
-                let head_width = string_width(&head);
                 use_space = max(head_width as u16, use_space);
             }
 
-            {
-                let available = area.width - width;
-                let column_space = use_space + padding_cell_l + padding_cell_r;
-
+            if use_space > 0 {
                 let is_last = col + 1 == self.columns.len();
-                let w = truncate_column_width(available, column_space, shift_column_w, is_last);
+                let space = area.width - width;
 
-                if w == 0 {
-                    break;
-                } else if w <= shift_column_w {
+                let pad = padding_cell_l + padding_cell_r;
+                let head = show_head.then_some(&mut head);
+                let (w, ok, shift) =
+                    truncate_column_width(space, 1, use_space, pad, is_last, &mut column, head);
+
+                if shift {
                     do_render_shift_column = true;
-                    break;
-                } else if w < column_space {
-                    use_space = w - (padding_cell_l + padding_cell_r);
-
-                    truncate_list(&mut column, use_space as usize);
-                    if show_head {
-                        truncate_str(&mut head, use_space as usize);
-                    }
-                    if !is_last {
-                        do_render_shift_column = true;
-                    }
                 }
+
+                if w == 0 && !ok {
+                    break;
+                }
+
+                use_space = w;
             }
 
             if show_head {
-                let header = &[head_row_text(&head, self.color_hm)];
+                let mut header = [head_row_text(&head, self.color_hm)];
+                if head_width > use_space as usize {
+                    truncate_str(&mut header[0].0, use_space as usize)
+                }
 
                 let mut w = width;
                 w += render_space(buf, w, head_y, 1, padding_cell_l);
-                w += render_column(buf, w, head_y, use_space, header);
+                w += render_column(buf, w, head_y, use_space, &header);
                 w += render_space(buf, w, head_y, 1, padding_cell_r);
 
                 let x = w - padding_cell_r - use_space;
@@ -308,8 +306,6 @@ impl<'a> TableW<'a> {
         let padding_cell_r = self.style.padding_column_right as u16;
         let padding_index_l = self.style.padding_index_left as u16;
         let padding_index_r = self.style.padding_index_right as u16;
-
-        let shift_column_w = 1 + padding_cell_l + padding_cell_r;
 
         if area.width == 0 || area.height == 0 {
             return;
@@ -423,25 +419,19 @@ impl<'a> TableW<'a> {
                 break;
             }
 
-            let mut column_width = column_width as u16;
-
+            let column_width = column_width as u16;
             let available = area.width - left_w - right_w;
-            let column_w = column_width + padding_cell_l + padding_cell_r;
             let is_last = col + 1 == self.data.len();
-            let w = truncate_column_width(available, column_w, shift_column_w, is_last);
+            let pad = padding_cell_l + padding_cell_r;
+            let (column_width, ok, shift) =
+                truncate_column_width(available, 1, column_width, pad, is_last, &mut column, None);
 
-            if w == 0 {
-                break;
-            } else if w <= shift_column_w {
+            if shift {
                 do_render_shift_column = true;
-                break;
-            } else if w < column_w {
-                column_width = w - (padding_cell_l + padding_cell_r);
-                truncate_list(&mut column, column_width as usize);
+            }
 
-                if !is_last {
-                    do_render_shift_column = true;
-                }
+            if column_width == 0 && !ok {
+                break;
             }
 
             let x = area.x + left_w;
@@ -476,12 +466,73 @@ impl<'a> TableW<'a> {
         }
 
         _ = left_w;
-
-        // let rest = area.width.saturating_sub(left_w + right_w);
-        // if rest > 0 {
-        //     render_space(buf, left_w, area.y, area.height, rest);
-        // }
     }
+}
+
+#[allow(clippy::too_many_arguments)]
+fn truncate_column_width(
+    space: u16,
+    min: u16,
+    w: u16,
+    pad: u16,
+    is_last: bool,
+    column: &mut [(String, TextStyle)],
+    head: Option<&mut String>,
+) -> (u16, bool, bool) {
+    let result = check_column_width(space, min, w, pad, is_last);
+
+    let (width, shift_column) = match result {
+        Some(result) => result,
+        None => return (w, true, false),
+    };
+
+    if width == 0 {
+        return (0, false, shift_column);
+    }
+
+    truncate_list(column, width as usize);
+    if let Some(head) = head {
+        truncate_str(head, width as usize);
+    }
+
+    (width, false, shift_column)
+}
+
+fn check_column_width(
+    space: u16,
+    min: u16,
+    w: u16,
+    pad: u16,
+    is_last: bool,
+) -> Option<(u16, bool)> {
+    if !is_space_available(space, pad) {
+        return Some((0, false));
+    }
+
+    if is_last {
+        if !is_space_available(space, w + pad) {
+            return Some((space - pad, false));
+        } else {
+            return None;
+        }
+    }
+
+    if !is_space_available(space, min + pad) {
+        return Some((0, false));
+    }
+
+    if !is_space_available(space, w + pad + min + pad) {
+        let left_space = space - (min + pad);
+
+        if left_space > pad {
+            let left = left_space - pad;
+            return Some((left, true));
+        } else {
+            return Some((0, true));
+        }
+    }
+
+    None
 }
 
 struct IndexColumn<'a> {
@@ -616,7 +667,10 @@ fn create_column(data: &[Vec<NuText>], col: usize) -> Vec<NuText> {
         }
 
         let value = &values[col];
-        column[row] = value.clone();
+
+        let text = value.0.replace('\n', " ");
+
+        column[row] = (text, value.1);
     }
 
     column
@@ -642,35 +696,11 @@ fn repeat_vertical(
     }
 }
 
-fn truncate_column_width(
-    available_w: u16,
-    column_w: u16,
-    min_column_w: u16,
-    is_column_last: bool,
-) -> u16 {
-    if available_w < min_column_w {
-        return 0;
+fn is_space_available(available: u16, got: u16) -> bool {
+    match available.cmp(&got) {
+        Ordering::Less => false,
+        Ordering::Equal | Ordering::Greater => true,
     }
-
-    if available_w < column_w {
-        if is_column_last {
-            return available_w;
-        }
-
-        if available_w > min_column_w + min_column_w {
-            return available_w - min_column_w;
-        }
-
-        return min_column_w;
-    }
-
-    // check whether we will have a enough space just in case...
-    let is_enough_space_for_shift = available_w > column_w + min_column_w;
-    if !is_column_last && !is_enough_space_for_shift {
-        return min_column_w;
-    }
-
-    column_w
 }
 
 fn truncate_list(list: &mut [NuText], width: usize) {

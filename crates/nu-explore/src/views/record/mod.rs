@@ -713,8 +713,8 @@ fn get_percentage(value: usize, max: usize) -> usize {
 }
 
 fn transpose_table(layer: &mut RecordLayer<'_>) {
-    let count_rows = layer.count_rows();
-    let count_columns = layer.count_columns();
+    let count_rows = layer.records.len();
+    let count_columns = layer.columns.len();
 
     if layer.was_transposed {
         let data = match &mut layer.records {
