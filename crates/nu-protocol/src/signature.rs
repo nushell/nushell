@@ -118,6 +118,7 @@ pub struct Signature {
     pub allow_variants_without_examples: bool,
     pub is_filter: bool,
     pub creates_scope: bool,
+    pub is_known_external: bool,
     // Signature category used to classify commands stored in the list of declarations
     pub category: Category,
 }
@@ -220,6 +221,7 @@ impl Signature {
             is_filter: false,
             creates_scope: false,
             category: Category::Default,
+            is_known_external: false,
         }
     }
 

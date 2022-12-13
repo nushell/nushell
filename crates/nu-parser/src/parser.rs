@@ -795,6 +795,7 @@ pub fn parse_internal_call(
 
     let decl = working_set.get_decl(decl_id);
     let signature = decl.signature();
+    let is_known_external = signature.is_known_external;
     let output = signature.output_type.clone();
 
     working_set.type_scope.add_type(output.clone());
@@ -814,13 +815,16 @@ pub fn parse_internal_call(
         let arg_span = spans[spans_idx];
 
         // Check if we're on a long flag, if so, parse
-        let (long_name, arg, err) = parse_long_flag(
+        let (long_name, arg, mut err) = parse_long_flag(
             working_set,
             spans,
             &mut spans_idx,
             &signature,
             expand_aliases_denylist,
         );
+        if is_known_external {
+            err = None;
+        }
         if let Some(long_name) = long_name {
             // We found a long flag, like --bar
             error = error.or(err);
@@ -830,13 +834,16 @@ pub fn parse_internal_call(
         }
 
         // Check if we're on a short flag or group of short flags, if so, parse
-        let (short_flags, err) = parse_short_flags(
+        let (short_flags, mut err) = parse_short_flags(
             working_set,
             spans,
             &mut spans_idx,
             positional_idx,
             &signature,
         );
+        if is_known_external {
+            err = None;
+        }
 
         if let Some(mut short_flags) = short_flags {
             if short_flags.is_empty() {
