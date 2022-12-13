@@ -7,7 +7,6 @@ pub enum TokenContents {
     Comment,
     Pipe,
     PipePipe,
-    AndAnd,
     Semicolon,
     OutGreaterThan,
     ErrGreaterThan,
@@ -255,10 +254,10 @@ pub fn lex_item(
         ),
         b"&&" => (
             Token {
-                contents: TokenContents::AndAnd,
+                contents: TokenContents::Item,
                 span,
             },
-            None,
+            Some(ParseError::ShellAndAnd(span)),
         ),
         b"2>" => (
             Token {
