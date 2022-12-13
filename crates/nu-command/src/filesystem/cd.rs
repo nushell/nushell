@@ -4,7 +4,7 @@ use nu_engine::{current_dir, CallExt};
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
-    Category, Example, PipelineData, ShellError, Signature, Spanned, SyntaxShape, Value,
+    Category, Example, PipelineData, ShellError, Signature, Spanned, SyntaxShape, Type, Value,
 };
 use std::path::Path;
 
@@ -49,6 +49,11 @@ impl Command for Cd {
     fn signature(&self) -> nu_protocol::Signature {
         Signature::build("cd")
             .optional("path", SyntaxShape::Directory, "the path to change to")
+            .input_output_types(vec![
+                (Type::Nothing, Type::Nothing),
+                (Type::String, Type::Nothing),
+            ])
+            .allow_variants_without_examples(true)
             .category(Category::FileSystem)
     }
 
