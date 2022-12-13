@@ -10,10 +10,7 @@ fn known_external_runs() -> TestResult {
 
 #[test]
 fn known_external_unknown_flag() -> TestResult {
-    fail_test(
-        r#"extern "cargo version" []; cargo version --no-such-flag"#,
-        "command doesn't have flag",
-    )
+    run_test_contains(r#"extern "cargo" []; cargo --version"#, "cargo")
 }
 
 /// GitHub issues #5179, #4618
