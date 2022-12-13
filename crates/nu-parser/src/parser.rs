@@ -1223,6 +1223,7 @@ fn parse_binary_with_base(
                     }
                     TokenContents::Pipe
                     | TokenContents::PipePipe
+                    | TokenContents::AndAnd
                     | TokenContents::OutGreaterThan
                     | TokenContents::ErrGreaterThan
                     | TokenContents::OutErrGreaterThan => {
@@ -3816,7 +3817,9 @@ pub fn parse_table_expression(
         }
         _ => {
             match &output.block[0].commands[0] {
-                LiteElement::Command(_, command) | LiteElement::Redirection(_, _, command) => {
+                LiteElement::Command(_, command)
+                | LiteElement::Redirection(_, _, command)
+                | LiteElement::Or(_, command) => {
                     let mut table_headers = vec![];
 
                     let (headers, err) = parse_value(
@@ -3837,7 +3840,8 @@ pub fn parse_table_expression(
 
                     match &output.block[1].commands[0] {
                         LiteElement::Command(_, command)
-                        | LiteElement::Redirection(_, _, command) => {
+                        | LiteElement::Redirection(_, _, command)
+                        | LiteElement::Or(_, command) => {
                             let mut rows = vec![];
                             for part in &command.parts {
                                 let (values, err) = parse_value(
@@ -5294,7 +5298,9 @@ pub fn parse_block(
     for pipeline in &lite_block.block {
         if pipeline.commands.len() == 1 {
             match &pipeline.commands[0] {
-                LiteElement::Command(_, command) | LiteElement::Redirection(_, _, command) => {
+                LiteElement::Command(_, command)
+                | LiteElement::Redirection(_, _, command)
+                | LiteElement::Or(_, command) => {
                     if let Some(err) =
                         parse_def_predecl(working_set, &command.parts, expand_aliases_denylist)
                     {
@@ -5331,6 +5337,21 @@ pub fn parse_block(
 
                             PipelineElement::Expression(*span, expr)
                         }
+                        LiteElement::Or(span, command) => {
+                            let (expr, err) = parse_expression(
+                                working_set,
+                                &command.parts,
+                                expand_aliases_denylist,
+                                is_subexpression,
+                            );
+                            working_set.type_scope.add_type(expr.ty.clone());
+
+                            if error.is_none() {
+                                error = err;
+                            }
+
+                            PipelineElement::Or(*span, expr)
+                        }
                         LiteElement::Redirection(span, redirection, command) => {
                             trace!("parsing: pipeline element: redirection");
                             let (expr, err) = parse_string(
@@ -5366,8 +5387,16 @@ pub fn parse_block(
 
                 Pipeline { elements: output }
             } else {
-                match &pipeline.commands[0] {
+                let (mut pipeline, err) = match &pipeline.commands[0] {
                     LiteElement::Command(_, command) | LiteElement::Redirection(_, _, command) => {
+                        parse_builtin_commands(
+                            working_set,
+                            command,
+                            expand_aliases_denylist,
+                            is_subexpression,
+                        )
+                    }
+                    LiteElement::Or(span, command) => {
                         let (mut pipeline, err) = parse_builtin_commands(
                             working_set,
                             command,
@@ -5375,61 +5404,63 @@ pub fn parse_block(
                             is_subexpression,
                         );
 
-                        if idx == 0 {
-                            if let Some(let_decl_id) = working_set.find_decl(b"let", &Type::Any) {
-                                if let Some(let_env_decl_id) =
-                                    working_set.find_decl(b"let-env", &Type::Any)
+                        if let PipelineElement::Expression(_, expr) = &pipeline.elements[0] {
+                            pipeline.elements[0] = PipelineElement::Or(*span, expr.clone())
+                        }
+
+                        (pipeline, err)
+                    }
+                };
+
+                if idx == 0 {
+                    if let Some(let_decl_id) = working_set.find_decl(b"let", &Type::Any) {
+                        if let Some(let_env_decl_id) = working_set.find_decl(b"let-env", &Type::Any)
+                        {
+                            for element in pipeline.elements.iter_mut() {
+                                if let PipelineElement::Expression(
+                                    _,
+                                    Expression {
+                                        expr: Expr::Call(call),
+                                        ..
+                                    },
+                                ) = element
                                 {
-                                    for element in pipeline.elements.iter_mut() {
-                                        if let PipelineElement::Expression(
-                                            _,
-                                            Expression {
-                                                expr: Expr::Call(call),
-                                                ..
-                                            },
-                                        ) = element
+                                    if call.decl_id == let_decl_id
+                                        || call.decl_id == let_env_decl_id
+                                    {
+                                        // Do an expansion
+                                        if let Some(Expression {
+                                            expr: Expr::Keyword(_, _, expr),
+                                            ..
+                                        }) = call.positional_iter_mut().nth(1)
                                         {
-                                            if call.decl_id == let_decl_id
-                                                || call.decl_id == let_env_decl_id
-                                            {
-                                                // Do an expansion
-                                                if let Some(Expression {
-                                                    expr: Expr::Keyword(_, _, expr),
-                                                    ..
-                                                }) = call.positional_iter_mut().nth(1)
-                                                {
-                                                    if expr.has_in_variable(working_set) {
-                                                        *expr = Box::new(wrap_expr_with_collect(
-                                                            working_set,
-                                                            expr,
-                                                        ));
-                                                    }
-                                                }
-                                                continue;
-                                            } else if element.has_in_variable(working_set)
-                                                && !is_subexpression
-                                            {
-                                                *element =
-                                                    wrap_element_with_collect(working_set, element);
+                                            if expr.has_in_variable(working_set) {
+                                                *expr = Box::new(wrap_expr_with_collect(
+                                                    working_set,
+                                                    expr,
+                                                ));
                                             }
-                                        } else if element.has_in_variable(working_set)
-                                            && !is_subexpression
-                                        {
-                                            *element =
-                                                wrap_element_with_collect(working_set, element);
                                         }
+                                        continue;
+                                    } else if element.has_in_variable(working_set)
+                                        && !is_subexpression
+                                    {
+                                        *element = wrap_element_with_collect(working_set, element);
                                     }
+                                } else if element.has_in_variable(working_set) && !is_subexpression
+                                {
+                                    *element = wrap_element_with_collect(working_set, element);
                                 }
                             }
                         }
-
-                        if error.is_none() {
-                            error = err;
-                        }
-
-                        pipeline
                     }
                 }
+
+                if error.is_none() {
+                    error = err;
+                }
+
+                pipeline
             }
         })
         .into();
@@ -5506,7 +5537,6 @@ pub fn discover_captures_in_pipeline_element(
     match element {
         PipelineElement::Expression(_, expression)
         | PipelineElement::Redirection(_, _, expression)
-        | PipelineElement::And(_, expression)
         | PipelineElement::Or(_, expression) => {
             discover_captures_in_expr(working_set, expression, seen, seen_blocks)
         }
@@ -5767,9 +5797,6 @@ fn wrap_element_with_collect(
                 wrap_expr_with_collect(working_set, expression),
             )
         }
-        PipelineElement::And(span, expression) => {
-            PipelineElement::And(*span, wrap_expr_with_collect(working_set, expression))
-        }
         PipelineElement::Or(span, expression) => {
             PipelineElement::Or(*span, wrap_expr_with_collect(working_set, expression))
         }
@@ -5873,6 +5900,7 @@ impl LiteCommand {
 pub enum LiteElement {
     Command(Option<Span>, LiteCommand),
     Redirection(Span, Redirection, LiteCommand),
+    Or(Span, LiteCommand),
 }
 
 #[derive(Debug)]
@@ -5941,15 +5969,8 @@ pub fn lite_parse(tokens: &[Token]) -> (LiteBlock, Option<ParseError>) {
 
     let mut curr_comment: Option<Vec<Span>> = None;
 
-    let mut error = None;
-
     for token in tokens.iter() {
         match &token.contents {
-            TokenContents::PipePipe => {
-                error = error.or(Some(ParseError::ShellOrOr(token.span)));
-                curr_command.push(token.span);
-                last_token = TokenContents::Item;
-            }
             TokenContents::Item => {
                 // If we have a comment, go ahead and attach it
                 if let Some(curr_comment) = curr_comment.take() {
@@ -6085,7 +6106,25 @@ pub fn lite_parse(tokens: &[Token]) -> (LiteBlock, Option<ParseError>) {
 
                 last_token = TokenContents::Eol;
             }
-            TokenContents::Semicolon => {
+            TokenContents::PipePipe => {
+                // Different to redirection, for PipePipe, we'll wrap the current command
+                // in an "Or". This lets us know during eval that it's the current command
+                // whose error will be ignored rather than having to look ahead in the pipeline
+                if !curr_command.is_empty() {
+                    curr_pipeline.push(LiteElement::Or(token.span, curr_command));
+                    curr_command = LiteCommand::new();
+                }
+                if !curr_pipeline.is_empty() {
+                    block.push(curr_pipeline);
+
+                    curr_pipeline = LitePipeline::new();
+                    last_connector = TokenContents::Pipe;
+                    last_connector_span = None;
+                }
+
+                last_token = TokenContents::PipePipe;
+            }
+            TokenContents::Semicolon | TokenContents::AndAnd => {
                 if !curr_command.is_empty() {
                     match last_connector {
                         TokenContents::OutGreaterThan => {
@@ -6114,7 +6153,7 @@ pub fn lite_parse(tokens: &[Token]) -> (LiteBlock, Option<ParseError>) {
                         }
                         _ => {
                             curr_pipeline
-                                .push(LiteElement::Command(last_connector_span, curr_command));
+                                .push(LiteElement::Command(Some(token.span), curr_command));
                         }
                     }
 
@@ -6186,7 +6225,10 @@ pub fn lite_parse(tokens: &[Token]) -> (LiteBlock, Option<ParseError>) {
         block.push(curr_pipeline);
     }
 
-    if last_token == TokenContents::Pipe {
+    if last_token == TokenContents::Pipe
+        || last_token == TokenContents::PipePipe
+        || last_token == TokenContents::AndAnd
+    {
         (
             block,
             Some(ParseError::UnexpectedEof(
@@ -6195,7 +6237,7 @@ pub fn lite_parse(tokens: &[Token]) -> (LiteBlock, Option<ParseError>) {
             )),
         )
     } else {
-        (block, error)
+        (block, None)
     }
 }
 

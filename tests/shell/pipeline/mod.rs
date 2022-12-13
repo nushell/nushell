@@ -1,4 +1,5 @@
 mod commands;
+mod pipeline_operators;
 
 use nu_test_support::nu;
 

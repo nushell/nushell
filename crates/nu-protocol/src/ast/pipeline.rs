@@ -14,7 +14,6 @@ pub enum Redirection {
 pub enum PipelineElement {
     Expression(Option<Span>, Expression),
     Redirection(Span, Redirection, Expression),
-    And(Span, Expression),
     Or(Span, Expression),
 }
 
@@ -23,9 +22,8 @@ impl PipelineElement {
         match self {
             PipelineElement::Expression(None, expression) => expression.span,
             PipelineElement::Expression(Some(span), expression)
-            | PipelineElement::Redirection(span, _, expression)
-            | PipelineElement::And(span, expression)
-            | PipelineElement::Or(span, expression) => Span {
+            | PipelineElement::Or(span, expression)
+            | PipelineElement::Redirection(span, _, expression) => Span {
                 start: span.start,
                 end: expression.span.end,
             },
@@ -35,7 +33,6 @@ impl PipelineElement {
         match self {
             PipelineElement::Expression(_, expression)
             | PipelineElement::Redirection(_, _, expression)
-            | PipelineElement::And(_, expression)
             | PipelineElement::Or(_, expression) => expression.has_in_variable(working_set),
         }
     }
@@ -43,9 +40,8 @@ impl PipelineElement {
     pub fn replace_in_variable(&mut self, working_set: &mut StateWorkingSet, new_var_id: VarId) {
         match self {
             PipelineElement::Expression(_, expression)
-            | PipelineElement::Redirection(_, _, expression)
-            | PipelineElement::And(_, expression)
-            | PipelineElement::Or(_, expression) => {
+            | PipelineElement::Or(_, expression)
+            | PipelineElement::Redirection(_, _, expression) => {
                 expression.replace_in_variable(working_set, new_var_id)
             }
         }
@@ -59,9 +55,8 @@ impl PipelineElement {
     ) {
         match self {
             PipelineElement::Expression(_, expression)
-            | PipelineElement::Redirection(_, _, expression)
-            | PipelineElement::And(_, expression)
-            | PipelineElement::Or(_, expression) => {
+            | PipelineElement::Or(_, expression)
+            | PipelineElement::Redirection(_, _, expression) => {
                 expression.replace_span(working_set, replaced, new_span)
             }
         }
