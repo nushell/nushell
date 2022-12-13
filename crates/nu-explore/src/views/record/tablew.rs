@@ -40,6 +40,7 @@ pub enum Orientation {
 #[derive(Debug, Default, Clone, Copy)]
 pub struct TableStyle {
     pub splitline_style: NuStyle,
+    pub shift_line_style: NuStyle,
     pub show_index: bool,
     pub show_header: bool,
     pub header_top: bool,
@@ -115,7 +116,9 @@ impl<'a> TableW<'a> {
 
         let show_index = self.style.show_index;
         let show_head = self.style.show_header;
+
         let splitline_s = self.style.splitline_style;
+        let shift_column_s = self.style.shift_line_style;
 
         let mut data_height = area.height;
         let mut data_y = area.y;
@@ -281,7 +284,7 @@ impl<'a> TableW<'a> {
 
             if show_head {
                 width += render_space(buf, width, data_y, data_height, padding_cell_l);
-                width += render_shift_column(buf, width, head_y, 1, splitline_s);
+                width += render_shift_column(buf, width, head_y, 1, shift_column_s);
                 width += render_space(buf, width, data_y, data_height, padding_cell_r);
             }
         }
@@ -302,18 +305,19 @@ impl<'a> TableW<'a> {
     }
 
     fn render_table_vertical(self, area: Rect, buf: &mut Buffer, state: &mut TableWState) {
+        if area.width == 0 || area.height == 0 {
+            return;
+        }
+
         let padding_cell_l = self.style.padding_column_left as u16;
         let padding_cell_r = self.style.padding_column_right as u16;
         let padding_index_l = self.style.padding_index_left as u16;
         let padding_index_r = self.style.padding_index_right as u16;
 
-        if area.width == 0 || area.height == 0 {
-            return;
-        }
-
         let show_index = self.style.show_index;
         let show_head = self.style.show_header;
         let splitline_s = self.style.splitline_style;
+        let shift_column_s = self.style.shift_line_style;
 
         let is_head_left = matches!(self.head_position, Orientation::Left);
         let is_head_right = matches!(self.head_position, Orientation::Right);
@@ -460,7 +464,7 @@ impl<'a> TableW<'a> {
             let x = area.x + left_w;
             left_w += render_space(buf, x, area.y, area.height, padding_cell_l);
             let x = area.x + left_w;
-            left_w += render_shift_column(buf, x, area.y, area.height, splitline_s);
+            left_w += render_shift_column(buf, x, area.y, area.height, shift_column_s);
             let x = area.x + left_w;
             left_w += render_space(buf, x, area.y, area.height, padding_cell_r);
         }
