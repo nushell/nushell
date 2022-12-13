@@ -113,13 +113,6 @@ impl Stack {
             .ok_or_else(|| ShellError::NushellFailed("No active overlay".into()))
     }
 
-    pub fn last_exit_code(&self, engine_state: &EngineState) -> Option<i64> {
-        match self.get_env_var(engine_state, "LAST_EXIT_CODE") {
-            Some(Value::Int { val, .. }) => Some(val),
-            _ => None,
-        }
-    }
-
     pub fn captures_to_stack(&self, captures: &HashMap<VarId, Value>) -> Stack {
         // FIXME: this is probably slow
         let mut env_vars = self.env_vars.clone();
