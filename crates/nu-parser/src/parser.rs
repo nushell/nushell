@@ -505,8 +505,6 @@ fn parse_short_flags(
         // One restriction is that it's not defined, nu doesn't know if the flag takes
         // value or not, here we assume that it doesn't take value by default.
         if sig.is_known_external {
-            // Some hacky things here:
-            // we already know which flag is found, an
             let mut flags = found_short_flags;
             for unmatched_span in unmatched_short_flags {
                 let contents = working_set.get_span_contents(unmatched_span);
