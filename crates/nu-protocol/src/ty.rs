@@ -7,29 +7,29 @@ use crate::SyntaxShape;
 
 #[derive(Clone, Debug, Default, EnumIter, PartialEq, Eq, Serialize, Deserialize, Hash)]
 pub enum Type {
-    Int,
-    Float,
-    Range,
-    Bool,
-    String,
+    Any,
+    Binary,
     Block,
-    Closure,
+    Bool,
     CellPath,
-    Duration,
+    Closure,
+    Custom(String),
     Date,
+    Duration,
+    Error,
     Filesize,
+    Float,
+    Int,
     List(Box<Type>),
-    Number,
+    ListStream,
     #[default]
     Nothing,
+    Number,
+    Range,
     Record(Vec<(String, Type)>),
-    Table(Vec<(String, Type)>),
-    ListStream,
-    Any,
-    Error,
-    Binary,
-    Custom(String),
     Signature,
+    String,
+    Table(Vec<(String, Type)>),
 }
 
 impl Type {
