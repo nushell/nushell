@@ -312,24 +312,6 @@ fn generate_operator_info() -> Vec<OperatorInfo> {
             description: "Checks if one value is true and the other is false.".into(),
             precedence: 45,
         },
-        OperatorInfo {
-            op_type: "Pipeline".into(),
-            operator: "&&".into(),
-            name: "PipelineAnd".into(),
-            description:
-                "Runs the pipeline on the left and, if successful, runs pipeline on the right."
-                    .into(),
-            precedence: 0,
-        },
-        OperatorInfo {
-            op_type: "Pipeline".into(),
-            operator: "||".into(),
-            name: "PipelineOr".into(),
-            description:
-                "Runs the pipeline on the left and, if it failed, runs pipeline on the right."
-                    .into(),
-            precedence: 0,
-        },
     ]
 }
 
