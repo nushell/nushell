@@ -422,17 +422,22 @@ fn parse_long_flag(
                     )
                 }
             } else {
+                // not return unknown flag for known external
                 (
                     Some(Spanned {
                         item: long_name.clone(),
                         span: arg_span,
                     }),
                     None,
-                    Some(ParseError::UnknownFlag(
-                        sig.name.clone(),
-                        long_name.clone(),
-                        arg_span,
-                    )),
+                    if sig.is_known_external {
+                        None
+                    } else {
+                        Some(ParseError::UnknownFlag(
+                            sig.name.clone(),
+                            long_name.clone(),
+                            arg_span,
+                        ))
+                    },
                 )
             }
         } else {
@@ -519,7 +524,7 @@ fn parse_short_flags(
                     })
                 }
             }
-            return (Some(flags), error);
+            return (Some(flags), None);
         }
 
         if found_short_flags.is_empty() {
@@ -853,16 +858,13 @@ pub fn parse_internal_call(
         let arg_span = spans[spans_idx];
 
         // Check if we're on a long flag, if so, parse
-        let (long_name, arg, mut err) = parse_long_flag(
+        let (long_name, arg, err) = parse_long_flag(
             working_set,
             spans,
             &mut spans_idx,
             &signature,
             expand_aliases_denylist,
         );
-        if is_known_external {
-            err = None;
-        }
         if let Some(long_name) = long_name {
             // We found a long flag, like --bar
             error = error.or(err);
@@ -879,9 +881,6 @@ pub fn parse_internal_call(
             positional_idx,
             &signature,
         );
-        if is_known_external {
-            err = None;
-        }
 
         if let Some(mut short_flags) = short_flags {
             if short_flags.is_empty() {
