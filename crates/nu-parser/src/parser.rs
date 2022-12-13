@@ -843,7 +843,6 @@ pub fn parse_internal_call(
 
     let decl = working_set.get_decl(decl_id);
     let signature = decl.signature();
-    let is_known_external = signature.is_known_external;
     let output = signature.output_type.clone();
 
     working_set.type_scope.add_type(output.clone());
@@ -879,7 +878,7 @@ pub fn parse_internal_call(
         }
 
         // Check if we're on a short flag or group of short flags, if so, parse
-        let (short_flags, mut err) = parse_short_flags(
+        let (short_flags, err) = parse_short_flags(
             working_set,
             spans,
             &mut spans_idx,
