@@ -3,7 +3,8 @@ use nu_engine::{eval_block, CallExt};
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
-    Category, Example, PipelineData, RawStream, ShellError, Signature, Spanned, SyntaxShape, Value,
+    Category, Example, PipelineData, RawStream, ShellError, Signature, Spanned, SyntaxShape, Type,
+    Value,
 };
 use std::io::BufReader;
 
@@ -35,6 +36,7 @@ impl Command for Open {
 
     fn signature(&self) -> nu_protocol::Signature {
         Signature::build("open")
+            .input_output_types(vec![(Type::String, Type::Nothing)])
             .optional("filename", SyntaxShape::Filepath, "the filename to use")
             .switch("raw", "open file as raw binary", Some('r'))
             .category(Category::FileSystem)

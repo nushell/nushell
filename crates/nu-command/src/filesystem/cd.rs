@@ -48,6 +48,7 @@ impl Command for Cd {
 
     fn signature(&self) -> nu_protocol::Signature {
         Signature::build("cd")
+            .input_output_types(vec![(Type::Nothing, Type::Nothing)])
             .optional("path", SyntaxShape::Directory, "the path to change to")
             .input_output_types(vec![
                 (Type::Nothing, Type::Nothing),
