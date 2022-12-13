@@ -136,7 +136,7 @@ let dark_theme = {
     header: green_bold
     empty: blue
     # Closures can be used to choose colors for specific values.
-    # $in is the value to choose a color for.
+    # The value (in this case, a bool) is piped into the closure.
     bool: { if $in { 'light_cyan' } else { 'light_gray' } }
     int: white
     filesize: {|e|
@@ -216,6 +216,8 @@ let light_theme = {
     leading_trailing_space_bg: { attr: n } # no fg, no bg, attr none effectively turns this off
     header: green_bold
     empty: blue
+    # Closures can be used to choose colors for specific values.
+    # The value (in this case, a bool) is piped into the closure.
     bool: { if $in { 'dark_cyan' } else { 'dark_gray' } }
     int: dark_gray
     filesize: {|e|
