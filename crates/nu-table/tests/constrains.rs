@@ -1,102 +1,85 @@
-use std::{collections::HashMap, usize};
+mod common;
 
-use nu_protocol::{Config, TrimStrategy};
-use nu_table::{string_width, Alignments, Table, TableTheme as theme, TextStyle};
-use tabled::papergrid::records::{cell_info::CellInfo, tcell::TCell};
+use nu_protocol::TrimStrategy;
+use nu_table::{Table, TableConfig, TableTheme as theme};
+
+use common::{create_row, styled_str, test_table, TestCase, VecCells};
 
 #[test]
 fn data_and_header_has_different_size() {
-    let table = Table::new(
-        vec![row(3), row(5), row(5)],
-        (3, 5),
+    let table = Table::new(vec![create_row(3), create_row(5), create_row(5)], (3, 5));
+
+    let table = table.draw(
+        TableConfig::new(theme::heavy(), true, false, false),
         usize::MAX,
-        true,
-        false,
-        &theme::heavy(),
     );
 
-    let table = draw_table(table, usize::MAX, &Config::default());
-
-    let expected = "┏━━━┳━━━┳━━━┳━━━┳━━━┓\n\
-                         ┃ 0 ┃ 1 ┃ 2 ┃   ┃   ┃\n\
-                         ┣━━━╋━━━╋━━━╋━━━╋━━━┫\n\
-                         ┃ 0 ┃ 1 ┃ 2 ┃ 3 ┃ 4 ┃\n\
-                         ┃ 0 ┃ 1 ┃ 2 ┃ 3 ┃ 4 ┃\n\
-                         ┗━━━┻━━━┻━━━┻━━━┻━━━┛";
-
-    assert_eq!(table.as_deref(), Some(expected));
-
-    let table = Table::new(
-        vec![row(5), row(3), row(3)],
-        (3, 5),
-        usize::MAX,
-        true,
-        false,
-        &theme::heavy(),
+    assert_eq!(
+        table.as_deref(),
+        Some(
+            "┏━━━┳━━━┳━━━┳━━━┳━━━┓\n\
+             ┃ 0 ┃ 1 ┃ 2 ┃   ┃   ┃\n\
+             ┣━━━╋━━━╋━━━╋━━━╋━━━┫\n\
+             ┃ 0 ┃ 1 ┃ 2 ┃ 3 ┃ 4 ┃\n\
+             ┃ 0 ┃ 1 ┃ 2 ┃ 3 ┃ 4 ┃\n\
+             ┗━━━┻━━━┻━━━┻━━━┻━━━┛"
+        )
     );
-    let table = draw_table(table, usize::MAX, &Config::default());
 
-    let expected = "┏━━━┳━━━┳━━━┳━━━┳━━━┓\n\
-                         ┃ 0 ┃ 1 ┃ 2 ┃ 3 ┃ 4 ┃\n\
-                         ┣━━━╋━━━╋━━━╋━━━╋━━━┫\n\
-                         ┃ 0 ┃ 1 ┃ 2 ┃   ┃   ┃\n\
-                         ┃ 0 ┃ 1 ┃ 2 ┃   ┃   ┃\n\
-                         ┗━━━┻━━━┻━━━┻━━━┻━━━┛";
+    let table = Table::new(vec![create_row(5), create_row(3), create_row(3)], (3, 5));
 
-    assert_eq!(table.as_deref(), Some(expected));
+    let table = table.draw(
+        TableConfig::new(theme::heavy(), true, false, false),
+        usize::MAX,
+    );
+
+    assert_eq!(
+        table.as_deref(),
+        Some(
+            "┏━━━┳━━━┳━━━┳━━━┳━━━┓\n\
+             ┃ 0 ┃ 1 ┃ 2 ┃ 3 ┃ 4 ┃\n\
+             ┣━━━╋━━━╋━━━╋━━━╋━━━┫\n\
+             ┃ 0 ┃ 1 ┃ 2 ┃   ┃   ┃\n\
+             ┃ 0 ┃ 1 ┃ 2 ┃   ┃   ┃\n\
+             ┗━━━┻━━━┻━━━┻━━━┻━━━┛"
+        )
+    );
 }
 
 #[test]
 fn termwidth_too_small() {
-    let cfg = Config::default();
-    for i in 0..10 {
-        let table = Table::new(
-            vec![row(3), row(3), row(5)],
-            (3, 5),
-            i,
-            true,
-            false,
-            &theme::heavy(),
-        );
-        assert!(draw_table(table, i, &cfg).is_none());
-    }
+    let test_loop = |config: TableConfig| {
+        for i in 0..10 {
+            let table = Table::new(vec![create_row(3), create_row(3), create_row(5)], (3, 5));
+            let table = table.draw(config.clone(), i);
 
-    let table = Table::new(
-        vec![row(3), row(3), row(5)],
-        (3, 5),
-        11,
-        true,
-        false,
-        &theme::heavy(),
-    );
-    assert!(draw_table(table, 11, &cfg).is_some());
-
-    let cfg = Config {
-        trim_strategy: TrimStrategy::Truncate { suffix: None },
-        ..Default::default()
+            assert!(table.is_none());
+        }
     };
 
-    for i in 0..10 {
-        let table = Table::new(
-            vec![row(3), row(3), row(5)],
-            (3, 5),
-            i,
-            true,
-            false,
-            &theme::heavy(),
-        );
-        assert!(draw_table(table, i, &cfg).is_none());
-    }
+    let base_config = TableConfig::new(theme::heavy(), true, false, false);
 
-    let table = Table::new(
-        vec![row(3), row(3), row(5)],
-        (3, 5),
-        11,
-        true,
-        false,
-        &theme::heavy(),
-    );
-    assert!(draw_table(table, 11, &cfg).is_some());
+    let config = base_config.clone();
+    test_loop(config);
+
+    let config = base_config.clone().trim(TrimStrategy::truncate(None));
+    test_loop(config);
+
+    let config = base_config
+        .clone()
+        .trim(TrimStrategy::truncate(Some(String::from("**"))));
+    test_loop(config);
+
+    let config = base_config
+        .clone()
+        .trim(TrimStrategy::truncate(Some(String::from(""))));
+    test_loop(config);
+
+    let config = base_config.clone().trim(TrimStrategy::wrap(false));
+    test_loop(config);
+
+    let config = base_config.trim(TrimStrategy::wrap(true));
+    test_loop(config);
 }
 
 #[test]
@@ -121,8 +104,7 @@ fn wrap_test() {
         (49, Some("┏━━━━━━━━━━━┳━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━┳━━━━━┓\n┃ 123 45678 ┃ qweqw eqwe ┃ xxx xx xx x xx ┃ ... ┃\n┃           ┃            ┃     x xx xx    ┃     ┃\n┣━━━━━━━━━━━╋━━━━━━━━━━━━╋━━━━━━━━━━━━━━━━╋━━━━━┫\n┃ 0         ┃ 1          ┃ 2              ┃ ... ┃\n┃ 0         ┃ 1          ┃ 2              ┃ ... ┃\n┗━━━━━━━━━━━┻━━━━━━━━━━━━┻━━━━━━━━━━━━━━━━┻━━━━━┛")),
     ];
 
-    let trim = TrimStrategy::wrap(false);
-    test_config(&tests, trim);
+    test_trim(&tests, TrimStrategy::wrap(false));
 }
 
 #[test]
@@ -147,8 +129,7 @@ fn wrap_keep_words_test() {
         (49, Some("┏━━━━━━━━━━━┳━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━┳━━━━━┓\n┃ 123 45678 ┃ qweqw eqwe ┃ xxx xx xx x xx ┃ ... ┃\n┃           ┃            ┃  x xx xx       ┃     ┃\n┣━━━━━━━━━━━╋━━━━━━━━━━━━╋━━━━━━━━━━━━━━━━╋━━━━━┫\n┃ 0         ┃ 1          ┃ 2              ┃ ... ┃\n┃ 0         ┃ 1          ┃ 2              ┃ ... ┃\n┗━━━━━━━━━━━┻━━━━━━━━━━━━┻━━━━━━━━━━━━━━━━┻━━━━━┛")),
     ];
 
-    let trim = TrimStrategy::wrap(true);
-    test_config(&tests, trim);
+    test_trim(&tests, TrimStrategy::wrap(true));
 }
 
 #[test]
@@ -173,8 +154,7 @@ fn truncate_test() {
         (49, Some("┏━━━━━━━━━━━┳━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━┳━━━━━┓\n┃ 123 45678 ┃ qweqw eqwe ┃ xxx xx xx x xx ┃ ... ┃\n┣━━━━━━━━━━━╋━━━━━━━━━━━━╋━━━━━━━━━━━━━━━━╋━━━━━┫\n┃ 0         ┃ 1          ┃ 2              ┃ ... ┃\n┃ 0         ┃ 1          ┃ 2              ┃ ... ┃\n┗━━━━━━━━━━━┻━━━━━━━━━━━━┻━━━━━━━━━━━━━━━━┻━━━━━┛")),
     ];
 
-    let trim = TrimStrategy::truncate(None);
-    test_config(&tests, trim);
+    test_trim(&tests, TrimStrategy::truncate(None));
 }
 
 #[test]
@@ -199,55 +179,21 @@ fn truncate_with_suffix_test() {
         (49, Some("┏━━━━━━━━━━━┳━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━┳━━━━━┓\n┃ 123 45678 ┃ qweqw eqwe ┃ xxx xx xx x... ┃ ... ┃\n┣━━━━━━━━━━━╋━━━━━━━━━━━━╋━━━━━━━━━━━━━━━━╋━━━━━┫\n┃ 0         ┃ 1          ┃ 2              ┃ ... ┃\n┃ 0         ┃ 1          ┃ 2              ┃ ... ┃\n┗━━━━━━━━━━━┻━━━━━━━━━━━━┻━━━━━━━━━━━━━━━━┻━━━━━┛")),
     ];
 
-    let trim = TrimStrategy::truncate(Some(String::from("...")));
-    test_config(&tests, trim);
+    test_trim(&tests, TrimStrategy::truncate(Some(String::from("..."))));
 }
 
-fn test_config(tests: &[(usize, Option<&str>)], trim: TrimStrategy) {
-    let config = Config {
-        trim_strategy: trim,
-        ..Default::default()
-    };
+fn test_trim(tests: &[(usize, Option<&str>)], trim: TrimStrategy) {
+    let config = TableConfig::new(nu_table::TableTheme::heavy(), true, false, false).trim(trim);
+    let tests = tests.iter().map(|&(termwidth, expected)| {
+        TestCase::new(config.clone(), termwidth, expected.map(|s| s.to_string()))
+    });
 
-    for (i, &(termwidth, expected)) in tests.iter().enumerate() {
-        let table = table_with_data(termwidth);
-        let actual = draw_table(table, termwidth, &config);
+    let data = create_test_table0();
 
-        assert_eq!(
-            actual.as_deref(),
-            expected,
-            "\nfail i={:?} width={}",
-            i,
-            termwidth
-        );
-
-        if let Some(table) = actual {
-            assert!(string_width(&table) <= termwidth);
-        }
-    }
+    test_table(data, tests);
 }
 
-fn draw_table(table: Table, limit: usize, cfg: &Config) -> Option<String> {
-    let styles = HashMap::default();
-    let alignments = Alignments::default();
-    table.draw_table(cfg, &styles, alignments, &theme::heavy(), limit, false)
-}
-
-fn row(count_columns: usize) -> Vec<TCell<CellInfo<'static>, TextStyle>> {
-    let mut row = Vec::with_capacity(count_columns);
-
-    for i in 0..count_columns {
-        row.push(Table::create_cell(i.to_string(), TextStyle::default()));
-    }
-
-    row
-}
-
-fn styled_str(s: &str) -> TCell<CellInfo<'static>, TextStyle> {
-    Table::create_cell(s.to_string(), TextStyle::default())
-}
-
-fn table_with_data(termwidth: usize) -> Table {
+fn create_test_table0() -> VecCells {
     let header = vec![
         styled_str("123 45678"),
         styled_str("qweqw eqwe"),
@@ -255,7 +201,6 @@ fn table_with_data(termwidth: usize) -> Table {
         styled_str("qqq qqq qqqq qqq qq"),
         styled_str("qw"),
     ];
-    let data = vec![header, row(5), row(5)];
 
-    Table::new(data, (3, 5), termwidth, true, false, &theme::heavy())
+    vec![header, create_row(5), create_row(5)]
 }

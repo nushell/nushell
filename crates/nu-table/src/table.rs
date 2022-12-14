@@ -1,6 +1,7 @@
 use std::{cmp::min, collections::HashMap, fmt::Display};
 
-use nu_protocol::{Config, FooterMode, TrimStrategy};
+use nu_ansi_term::Style;
+use nu_protocol::TrimStrategy;
 use tabled::{
     alignment::AlignmentHorizontal,
     builder::Builder,
@@ -12,6 +13,7 @@ use tabled::{
         records::{
             cell_info::CellInfo, tcell::TCell, vec_records::VecRecords, Records, RecordsMut,
         },
+        util::string_width_multiline,
         width::CfgWidthFunction,
         Estimate,
     },
@@ -25,9 +27,6 @@ use crate::{table_theme::TableTheme, TextStyle};
 #[derive(Debug, Clone)]
 pub struct Table {
     data: Data,
-    is_empty: bool,
-    with_header: bool,
-    with_index: bool,
 }
 
 type Data = VecRecords<TCell<CellInfo<'static>, TextStyle>>;
@@ -36,35 +35,22 @@ impl Table {
     /// Creates a [Table] instance.
     ///
     /// If `headers.is_empty` then no headers will be rendered.
-    pub fn new(
-        mut data: Vec<Vec<TCell<CellInfo<'static>, TextStyle>>>,
-        size: (usize, usize),
-        termwidth: usize,
-        with_header: bool,
-        with_index: bool,
-        theme: &TableTheme,
-    ) -> Table {
+    pub fn new(data: Vec<Vec<TCell<CellInfo<'static>, TextStyle>>>, size: (usize, usize)) -> Table {
         // it's not guaranted that data will have all rows with the same number of columns.
         // but VecRecords::with_hint require this constrain.
-        for row in &mut data {
-            if row.len() < size.1 {
-                row.extend(
-                    std::iter::repeat(Self::create_cell(String::default(), TextStyle::default()))
-                        .take(size.1 - row.len()),
-                );
-            }
-        }
+        //
+        // so we do a check to make it certainly true
 
-        let mut data = VecRecords::with_hint(data, size.1);
-        let is_empty =
-            maybe_truncate_columns(&mut data, theme, termwidth, TruncationPriority::Content);
+        let mut data = data;
+        make_data_consistent(&mut data, size);
 
-        Table {
-            data,
-            is_empty,
-            with_header,
-            with_index,
-        }
+        let data = VecRecords::with_hint(data, size.1);
+
+        Table { data }
+    }
+
+    pub fn count_rows(&self) -> usize {
+        self.data.count_rows()
     }
 
     pub fn create_cell(
@@ -74,29 +60,15 @@ impl Table {
         TCell::new(CellInfo::new(text.into(), CfgWidthFunction::new(4)), style)
     }
 
-    pub fn is_empty(&self) -> bool {
-        self.is_empty
-    }
-
-    pub fn size(&self) -> (usize, usize) {
-        (self.data.count_rows(), self.data.count_columns())
-    }
-
-    pub fn is_with_index(&self) -> bool {
-        self.with_index
-    }
-
     pub fn truncate(&mut self, width: usize, theme: &TableTheme) -> bool {
         let mut truncated = false;
         while self.data.count_rows() > 0 && self.data.count_columns() > 0 {
-            let mut table = Builder::custom(self.data.clone()).build();
-            load_theme(&mut table, &HashMap::new(), theme, false, false);
-            let total = table.total_width();
-
-            // println!("{}", table);
-            // println!("width={:?} total={:?}", width, total);
-
-            drop(table);
+            let total;
+            {
+                let mut table = Builder::custom(self.data.clone()).build();
+                load_theme(&mut table, theme, false, false, None);
+                total = table.total_width();
+            }
 
             if total > width {
                 truncated = true;
@@ -121,19 +93,69 @@ impl Table {
         false
     }
 
-    /// Draws a trable on a String.
+    /// Converts a table to a String.
     ///
     /// It returns None in case where table cannot be fit to a terminal width.
-    pub fn draw_table(
-        self,
-        config: &Config,
-        color_hm: &HashMap<String, nu_ansi_term::Style>,
-        alignments: Alignments,
-        theme: &TableTheme,
-        termwidth: usize,
-        expand: bool,
-    ) -> Option<String> {
-        draw_table(self, config, color_hm, alignments, theme, termwidth, expand)
+    pub fn draw(self, config: TableConfig, termwidth: usize) -> Option<String> {
+        build_table(self.data, config, termwidth)
+    }
+}
+
+fn make_data_consistent(data: &mut Vec<Vec<TCell<CellInfo, TextStyle>>>, size: (usize, usize)) {
+    for row in data {
+        if row.len() < size.1 {
+            row.extend(
+                std::iter::repeat(Table::create_cell(String::default(), TextStyle::default()))
+                    .take(size.1 - row.len()),
+            );
+        }
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct TableConfig {
+    theme: TableTheme,
+    alignments: Alignments,
+    trim: TrimStrategy,
+    split_color: Option<Style>,
+    expand: bool,
+    with_index: bool,
+    with_header: bool,
+    with_footer: bool,
+}
+
+impl TableConfig {
+    pub fn new(
+        theme: TableTheme,
+        with_header: bool,
+        with_index: bool,
+        append_footer: bool,
+    ) -> Self {
+        Self {
+            theme,
+            with_header,
+            with_index,
+            with_footer: append_footer,
+            expand: false,
+            alignments: Alignments::default(),
+            trim: TrimStrategy::truncate(None),
+            split_color: None,
+        }
+    }
+
+    pub fn expand(mut self) -> Self {
+        self.expand = true;
+        self
+    }
+
+    pub fn trim(mut self, strategy: TrimStrategy) -> Self {
+        self.trim = strategy;
+        self
+    }
+
+    pub fn splitline_style(mut self, color: Style) -> Self {
+        self.split_color = Some(color);
+        self
     }
 }
 
@@ -154,63 +176,61 @@ impl Default for Alignments {
     }
 }
 
-fn draw_table(
-    mut table: Table,
-    config: &Config,
-    color_hm: &HashMap<String, nu_ansi_term::Style>,
-    alignments: Alignments,
-    theme: &TableTheme,
-    termwidth: usize,
-    expand: bool,
-) -> Option<String> {
-    if table.is_empty {
+fn build_table(mut data: Data, cfg: TableConfig, termwidth: usize) -> Option<String> {
+    let priority = TruncationPriority::Content;
+    let is_empty = maybe_truncate_columns(&mut data, &cfg.theme, termwidth, priority);
+
+    if is_empty {
         return None;
     }
 
-    let with_header = table.with_header;
-    let with_footer = with_header && need_footer(config, (table.data).size().0 as u64);
-    let with_index = table.with_index;
-
-    if with_footer {
-        table.data.duplicate_row(0);
+    if cfg.with_footer {
+        data.duplicate_row(0);
     }
 
-    let mut table = Builder::custom(table.data).build();
-    load_theme(&mut table, color_hm, theme, with_footer, with_header);
+    draw_table(
+        data,
+        &cfg.theme,
+        cfg.alignments,
+        cfg.with_index,
+        cfg.with_header,
+        cfg.with_footer,
+        cfg.expand,
+        cfg.split_color,
+        &cfg.trim,
+        termwidth,
+    )
+}
+
+#[allow(clippy::too_many_arguments)]
+fn draw_table(
+    data: Data,
+    theme: &TableTheme,
+    alignments: Alignments,
+    with_index: bool,
+    with_header: bool,
+    with_footer: bool,
+    expand: bool,
+    split_color: Option<Style>,
+    trim_strategy: &TrimStrategy,
+    termwidth: usize,
+) -> Option<String> {
+    let mut table = Builder::custom(data).build();
+    load_theme(&mut table, theme, with_footer, with_header, split_color);
     align_table(&mut table, alignments, with_index, with_header, with_footer);
 
     if expand {
         table.with(Width::increase(termwidth));
     }
 
-    table_trim_columns(&mut table, termwidth, &config.trim_strategy);
+    table_trim_columns(&mut table, termwidth, trim_strategy);
 
-    let table = print_table(table, config);
-    if table_width(&table) > termwidth {
+    let text = table.to_string();
+    if string_width_multiline(&text) > termwidth {
         None
     } else {
-        Some(table)
+        Some(text)
     }
-}
-
-fn print_table(table: tabled::Table<Data>, config: &Config) -> String {
-    let output = table.to_string();
-
-    // the atty is for when people do ls from vim, there should be no coloring there
-    if !config.use_ansi_coloring || !atty::is(atty::Stream::Stdout) {
-        // Draw the table without ansi colors
-        nu_utils::strip_ansi_string_likely(output)
-    } else {
-        // Draw the table with ansi colors
-        output
-    }
-}
-
-fn table_width(table: &str) -> usize {
-    table
-        .lines()
-        .next()
-        .map_or(0, papergrid::util::string_width)
 }
 
 fn align_table(
@@ -272,10 +292,10 @@ fn override_alignments(
 
 fn load_theme<R>(
     table: &mut tabled::Table<R>,
-    color_hm: &HashMap<String, nu_ansi_term::Style>,
     theme: &TableTheme,
     with_footer: bool,
     with_header: bool,
+    separator_color: Option<Style>,
 ) where
     R: Records,
 {
@@ -286,7 +306,7 @@ fn load_theme<R>(
 
     table.with(theme);
 
-    if let Some(color) = color_hm.get("separator") {
+    if let Some(color) = separator_color {
         let color = color.paint(" ").to_string();
         if let Ok(color) = Color::try_from(color) {
             table.with(color);
@@ -300,11 +320,6 @@ fn load_theme<R>(
                 .with(AlignmentStrategy::PerCell),
         );
     }
-}
-
-fn need_footer(config: &Config, count_records: u64) -> bool {
-    matches!(config.footer_mode, FooterMode::RowCount(limit) if count_records > limit)
-        || matches!(config.footer_mode, FooterMode::Always)
 }
 
 struct FooterStyle;
@@ -411,7 +426,7 @@ fn truncate_columns_by_content(data: &mut Data, theme: &TableTheme, termwidth: u
     let total;
     {
         let mut table = Builder::custom(&*data).build();
-        load_theme(&mut table, &HashMap::new(), theme, false, false);
+        load_theme(&mut table, theme, false, false, None);
         total = table.total_width();
         config = table.get_config().clone();
     }
@@ -496,7 +511,7 @@ fn truncate_columns_by_columns(data: &mut Data, theme: &TableTheme, termwidth: u
     let total;
     {
         let mut table = Builder::custom(&*data).build();
-        load_theme(&mut table, &HashMap::new(), theme, false, false);
+        load_theme(&mut table, theme, false, false, None);
         total = table.total_width();
         config = table.get_config().clone();
     }

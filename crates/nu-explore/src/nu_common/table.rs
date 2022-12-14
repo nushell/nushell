@@ -1,7 +1,8 @@
 use nu_color_config::{get_color_config, style_primitive};
 use nu_engine::column::get_columns;
+use nu_protocol::FooterMode;
 use nu_protocol::{ast::PathMember, Config, ShellError, Span, TableIndexMode, Value};
-use nu_table::{string_width, Alignment, Alignments, Table as NuTable, TableTheme, TextStyle};
+use nu_table::{string_width, Alignment, Table as NuTable, TableConfig, TableTheme, TextStyle};
 use std::sync::Arc;
 use std::{
     cmp::max,
@@ -21,10 +22,8 @@ pub fn try_build_table(
     color_hm: &NuStyleTable,
     value: Value,
 ) -> String {
-    let theme = load_theme_from_config(config);
-
     match value {
-        Value::List { vals, span } => try_build_list(vals, &ctrlc, config, span, color_hm, theme),
+        Value::List { vals, span } => try_build_list(vals, &ctrlc, config, span, color_hm),
         Value::Record { cols, vals, span } => {
             try_build_map(cols, vals, span, ctrlc, config, color_hm)
         }
@@ -65,7 +64,6 @@ fn try_build_list(
     config: &NuConfig,
     span: Span,
     color_hm: &HashMap<String, nu_ansi_term::Style>,
-    theme: TableTheme,
 ) -> String {
     let table = convert_to_table2(
         0,
@@ -74,22 +72,23 @@ fn try_build_list(
         config,
         span,
         color_hm,
-        &theme,
         None,
         false,
         "",
         usize::MAX,
     );
     match table {
-        Ok(Some(table)) => {
-            let val = table.draw_table(
+        Ok(Some((table, with_header, with_index))) => {
+            let table_config = create_table_config(
                 config,
                 color_hm,
-                Alignments::default(),
-                &theme,
-                usize::MAX,
+                table.count_rows(),
+                with_header,
+                with_index,
                 false,
             );
+
+            let val = table.draw(table_config, usize::MAX);
 
             match val {
                 Some(result) => result,
@@ -104,7 +103,7 @@ fn try_build_list(
 }
 
 #[allow(clippy::too_many_arguments)]
-pub fn build_expanded_table(
+fn build_expanded_table(
     cols: Vec<String>,
     vals: Vec<Value>,
     span: Span,
@@ -115,16 +114,18 @@ pub fn build_expanded_table(
     flatten: bool,
     flatten_sep: &str,
 ) -> Result<Option<String>, ShellError> {
-    let theme = load_theme_from_config(config);
     let color_hm = get_color_config(config);
-    let alignments = Alignments::default();
+    let theme = load_theme_from_config(config);
 
     // calculate the width of a key part + the rest of table so we know the rest of the table width available for value.
     let key_width = cols.iter().map(|col| string_width(col)).max().unwrap_or(0);
     let key = NuTable::create_cell(" ".repeat(key_width), TextStyle::default());
-    let key_table = NuTable::new(vec![vec![key]], (1, 2), term_width, false, false, &theme);
+    let key_table = NuTable::new(vec![vec![key]], (1, 2));
     let key_width = key_table
-        .draw_table(config, &color_hm, alignments, &theme, usize::MAX, false)
+        .draw(
+            create_table_config(config, &color_hm, 1, false, false, false),
+            usize::MAX,
+        )
         .map(|table| string_width(&table))
         .unwrap_or(0);
 
@@ -161,7 +162,6 @@ pub fn build_expanded_table(
                         config,
                         span,
                         &color_hm,
-                        &theme,
                         deep,
                         flatten,
                         flatten_sep,
@@ -169,21 +169,23 @@ pub fn build_expanded_table(
                     )?;
 
                     match table {
-                        Some(mut table) => {
+                        Some((mut table, with_header, with_index)) => {
                             // controll width via removing table columns.
                             let theme = load_theme_from_config(config);
                             table.truncate(remaining_width, &theme);
 
                             is_expanded = true;
 
-                            let val = table.draw_table(
+                            let table_config = create_table_config(
                                 config,
                                 &color_hm,
-                                alignments,
-                                &theme,
-                                remaining_width,
+                                table.count_rows(),
+                                with_header,
+                                with_index,
                                 false,
                             );
+
+                            let val = table.draw(table_config, remaining_width);
                             match val {
                                 Some(result) => result,
                                 None => return Ok(None),
@@ -247,12 +249,12 @@ pub fn build_expanded_table(
         data.push(row);
     }
 
-    let data_len = data.len();
-    let table = NuTable::new(data, (data_len, 2), term_width, false, false, &theme);
+    let table_config = create_table_config(config, &color_hm, data.len(), false, false, false);
 
-    let table_s = table
-        .clone()
-        .draw_table(config, &color_hm, alignments, &theme, term_width, false);
+    let data_len = data.len();
+    let table = NuTable::new(data, (data_len, 2));
+
+    let table_s = table.clone().draw(table_config.clone(), term_width);
 
     let table = match table_s {
         Some(s) => {
@@ -265,7 +267,8 @@ pub fn build_expanded_table(
             let used_percent = width as f32 / term_width as f32;
 
             if width < term_width && used_percent > EXPAND_TREASHHOLD {
-                table.draw_table(config, &color_hm, alignments, &theme, term_width, true)
+                let table_config = table_config.expand();
+                table.draw(table_config, term_width)
             } else {
                 Some(s)
             }
@@ -285,12 +288,11 @@ fn convert_to_table2<'a>(
     config: &Config,
     head: Span,
     color_hm: &NuColorMap,
-    theme: &TableTheme,
     deep: Option<usize>,
     flatten: bool,
     flatten_sep: &str,
     available_width: usize,
-) -> Result<Option<NuTable>, ShellError> {
+) -> Result<Option<(NuTable, bool, bool)>, ShellError> {
     const PADDING_SPACE: usize = 2;
     const SPLIT_LINE_SPACE: usize = 1;
     const ADDITIONAL_CELL_SPACE: usize = PADDING_SPACE + SPLIT_LINE_SPACE;
@@ -338,8 +340,6 @@ fn convert_to_table2<'a>(
         }
 
         for (row, item) in input.clone().into_iter().enumerate() {
-            let row = if with_header { row + 1 } else { row };
-
             if let Some(ctrlc) = &ctrlc {
                 if ctrlc.load(Ordering::SeqCst) {
                     return Ok(None);
@@ -361,6 +361,8 @@ fn convert_to_table2<'a>(
             column_width = max(column_width, width);
 
             let value = NuTable::create_cell(value.0, value.1);
+
+            let row = if with_header { row + 1 } else { row };
             data[row].push(value);
         }
 
@@ -388,7 +390,6 @@ fn convert_to_table2<'a>(
                 config,
                 &ctrlc,
                 color_hm,
-                theme,
                 deep,
                 flatten,
                 flatten_sep,
@@ -401,9 +402,10 @@ fn convert_to_table2<'a>(
 
         let count_columns = if with_index { 2 } else { 1 };
         let size = (data.len(), count_columns);
-        let table = NuTable::new(data, size, usize::MAX, with_header, with_index, theme);
 
-        return Ok(Some(table));
+        let table = NuTable::new(data, size);
+
+        return Ok(Some((table, with_header, with_index)));
     }
 
     let mut widths = Vec::new();
@@ -449,7 +451,6 @@ fn convert_to_table2<'a>(
                 config,
                 &ctrlc,
                 color_hm,
-                theme,
                 deep,
                 flatten,
                 flatten_sep,
@@ -566,9 +567,9 @@ fn convert_to_table2<'a>(
     let count_rows = data.len();
     let size = (count_rows, count_columns);
 
-    let table = NuTable::new(data, size, usize::MAX, with_header, with_index, theme);
+    let table = NuTable::new(data, size);
 
-    Ok(Some(table))
+    Ok(Some((table, with_header, with_index)))
 }
 
 fn lookup_index_value(item: &Value, config: &Config) -> Option<String> {
@@ -614,7 +615,6 @@ fn create_table2_entry(
     config: &Config,
     ctrlc: &Option<Arc<AtomicBool>>,
     color_hm: &NuColorMap,
-    theme: &TableTheme,
     deep: Option<usize>,
     flatten: bool,
     flatten_sep: &str,
@@ -632,7 +632,6 @@ fn create_table2_entry(
                     config,
                     ctrlc,
                     color_hm,
-                    theme,
                     deep,
                     flatten,
                     flatten_sep,
@@ -646,7 +645,6 @@ fn create_table2_entry(
             config,
             ctrlc,
             color_hm,
-            theme,
             deep,
             flatten,
             flatten_sep,
@@ -670,7 +668,6 @@ fn convert_to_table2_entry(
     config: &Config,
     ctrlc: &Option<Arc<AtomicBool>>,
     color_hm: &NuColorMap,
-    theme: &TableTheme,
     deep: Option<usize>,
     flatten: bool,
     flatten_sep: &str,
@@ -693,7 +690,6 @@ fn convert_to_table2_entry(
                     config,
                     *span,
                     color_hm,
-                    theme,
                     deep.map(|i| i - 1),
                     flatten,
                     flatten_sep,
@@ -701,9 +697,17 @@ fn convert_to_table2_entry(
                 );
 
                 let inner_table = table.map(|table| {
-                    table.and_then(|table| {
-                        let alignments = Alignments::default();
-                        table.draw_table(config, color_hm, alignments, theme, usize::MAX, false)
+                    table.and_then(|(table, with_header, with_index)| {
+                        let table_config = create_table_config(
+                            config,
+                            color_hm,
+                            table.count_rows(),
+                            with_header,
+                            with_index,
+                            false,
+                        );
+
+                        table.draw(table_config, usize::MAX)
                     })
                 });
 
@@ -733,7 +737,6 @@ fn convert_to_table2_entry(
                     config,
                     *span,
                     color_hm,
-                    theme,
                     deep.map(|i| i - 1),
                     flatten,
                     flatten_sep,
@@ -741,11 +744,20 @@ fn convert_to_table2_entry(
                 );
 
                 let inner_table = table.map(|table| {
-                    table.and_then(|table| {
-                        let alignments = Alignments::default();
-                        table.draw_table(config, color_hm, alignments, theme, usize::MAX, false)
+                    table.and_then(|(table, with_header, with_index)| {
+                        let table_config = create_table_config(
+                            config,
+                            color_hm,
+                            table.count_rows(),
+                            with_header,
+                            with_index,
+                            false,
+                        );
+
+                        table.draw(table_config, usize::MAX)
                     })
                 });
+
                 if let Ok(Some(table)) = inner_table {
                     (table, TextStyle::default())
                 } else {
@@ -841,4 +853,44 @@ fn load_theme_from_config(config: &Config) -> TableTheme {
         "none" => nu_table::TableTheme::none(),
         _ => nu_table::TableTheme::rounded(),
     }
+}
+
+fn create_table_config(
+    config: &Config,
+    color_hm: &HashMap<String, nu_ansi_term::Style>,
+    count_records: usize,
+    with_header: bool,
+    with_index: bool,
+    expand: bool,
+) -> TableConfig {
+    let theme = load_theme_from_config(config);
+    let append_footer = with_footer(config, with_header, count_records);
+
+    let mut table_cfg = TableConfig::new(theme, with_header, with_index, append_footer);
+
+    let sep_color = lookup_separator_color(color_hm);
+    if let Some(color) = sep_color {
+        table_cfg = table_cfg.splitline_style(color);
+    }
+
+    if expand {
+        table_cfg = table_cfg.expand();
+    }
+
+    table_cfg.trim(config.trim_strategy.clone())
+}
+
+fn lookup_separator_color(
+    color_hm: &HashMap<String, nu_ansi_term::Style>,
+) -> Option<nu_ansi_term::Style> {
+    color_hm.get("separator").cloned()
+}
+
+fn with_footer(config: &Config, with_header: bool, count_records: usize) -> bool {
+    with_header && need_footer(config, count_records as u64)
+}
+
+fn need_footer(config: &Config, count_records: u64) -> bool {
+    matches!(config.footer_mode, FooterMode::RowCount(limit) if count_records > limit)
+        || matches!(config.footer_mode, FooterMode::Always)
 }
