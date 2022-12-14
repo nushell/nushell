@@ -7,105 +7,105 @@ use crate::{DeclId, Type};
 /// The syntactic shapes that values must match to be passed into a command. You can think of this as the type-checking that occurs when you call a function.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub enum SyntaxShape {
-    /// A specific match to a word or symbol
-    Keyword(Vec<u8>, Box<SyntaxShape>),
-
     /// Any syntactic form is allowed
     Any,
-
-    /// Strings and string-like bare words are allowed
-    String,
-
-    /// A dotted path to navigate the table
-    CellPath,
-
-    /// A dotted path to navigate the table (including variable)
-    FullCellPath,
-
-    /// Only a numeric (integer or decimal) value is allowed
-    Number,
-
-    /// A range is allowed (eg, `1..3`)
-    Range,
-
-    /// Only an integer value is allowed
-    Int,
-
-    /// A filepath is allowed
-    Filepath,
-
-    /// A directory is allowed
-    Directory,
-
-    /// A glob pattern is allowed, eg `foo*`
-    GlobPattern,
-
-    /// A module path pattern used for imports
-    ImportPattern,
 
     /// A binary literal
     Binary,
 
-    /// A closure is allowed, eg `{|| start this thing}`
-    Closure(Option<Vec<SyntaxShape>>),
-
     /// A block is allowed, eg `{start this thing}`
     Block,
 
-    /// A table is allowed, eg `[[first, second]; [1, 2]]`
-    Table,
+    /// A boolean value, eg `true` or `false`
+    Boolean,
 
-    /// A list is allowed, eg `[first second]`
-    List(Box<SyntaxShape>),
+    /// A dotted path to navigate the table
+    CellPath,
 
-    /// A filesize value is allowed, eg `10kb`
-    Filesize,
+    /// A closure is allowed, eg `{|| start this thing}`
+    Closure(Option<Vec<SyntaxShape>>),
 
-    /// A duration value is allowed, eg `19day`
-    Duration,
+    /// A custom shape with custom completion logic
+    Custom(Box<SyntaxShape>, DeclId),
 
     /// A datetime value, eg `2022-02-02` or `2019-10-12T07:20:50.52+00:00`
     DateTime,
 
+    /// A directory is allowed
+    Directory,
+
+    /// A duration value is allowed, eg `19day`
+    Duration,
+
+    /// An error value
+    Error,
+
+    /// A general expression, eg `1 + 2` or `foo --bar`
+    Expression,
+
+    /// A filepath is allowed
+    Filepath,
+
+    /// A filesize value is allowed, eg `10kb`
+    Filesize,
+
+    /// A dotted path to navigate the table (including variable)
+    FullCellPath,
+
+    /// A glob pattern is allowed, eg `foo*`
+    GlobPattern,
+
+    /// Only an integer value is allowed
+    Int,
+
+    /// A module path pattern used for imports
+    ImportPattern,
+
+    /// A specific match to a word or symbol
+    Keyword(Vec<u8>, Box<SyntaxShape>),
+
+    /// A list is allowed, eg `[first second]`
+    List(Box<SyntaxShape>),
+
+    /// A general math expression, eg `1 + 2`
+    MathExpression,
+
+    /// Nothing
+    Nothing,
+
+    /// Only a numeric (integer or decimal) value is allowed
+    Number,
+
+    /// One of a list of possible items, checked in order
+    OneOf(Vec<SyntaxShape>),
+
     /// An operator, eg `+`
     Operator,
+
+    /// A range is allowed (eg, `1..3`)
+    Range,
+
+    /// A record value, eg `{x: 1, y: 2}`
+    Record,
 
     /// A math expression which expands shorthand forms on the lefthand side, eg `foo > 1`
     /// The shorthand allows us to more easily reach columns inside of the row being passed in
     RowCondition,
 
-    /// A general math expression, eg `1 + 2`
-    MathExpression,
+    /// A signature for a definition, `[x:int, --foo]`
+    Signature,
+
+    /// Strings and string-like bare words are allowed
+    String,
+
+    /// A table is allowed, eg `[[first, second]; [1, 2]]`
+    Table,
 
     /// A variable name, eg `$foo`
     Variable,
 
     /// A variable with optional type, `x` or `x: int`
     VarWithOptType,
-
-    /// A signature for a definition, `[x:int, --foo]`
-    Signature,
-
-    /// A general expression, eg `1 + 2` or `foo --bar`
-    Expression,
-
-    /// A boolean value, eg `true` or `false`
-    Boolean,
-
-    /// A record value, eg `{x: 1, y: 2}`
-    Record,
-
-    /// An error value
-    Error,
-
-    /// A custom shape with custom completion logic
-    Custom(Box<SyntaxShape>, DeclId),
-
-    /// One of a list of possible items, checked in order
-    OneOf(Vec<SyntaxShape>),
-
-    /// Nothing
-    Nothing,
 }
 
 impl SyntaxShape {
@@ -134,6 +134,7 @@ impl SyntaxShape {
             }
             SyntaxShape::Keyword(_, expr) => expr.to_type(),
             SyntaxShape::MathExpression => Type::Any,
+            SyntaxShape::Nothing => Type::Any,
             SyntaxShape::Number => Type::Number,
             SyntaxShape::OneOf(_) => Type::Any,
             SyntaxShape::Operator => Type::Any,
@@ -146,7 +147,6 @@ impl SyntaxShape {
             SyntaxShape::Table => Type::List(Box::new(Type::Any)), // FIXME:  What role should columns play in the Table type?
             SyntaxShape::VarWithOptType => Type::Any,
             SyntaxShape::Variable => Type::Any,
-            SyntaxShape::Nothing => Type::Any,
         }
     }
 }

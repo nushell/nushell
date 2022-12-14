@@ -69,7 +69,10 @@ impl Command for Loop {
                     return Err(err);
                 }
                 Ok(pipeline) => {
-                    let _ = pipeline.print(engine_state, stack, false, false)?;
+                    let exit_code = pipeline.print(engine_state, stack, false, false)?;
+                    if exit_code != 0 {
+                        break;
+                    }
                 }
             }
         }

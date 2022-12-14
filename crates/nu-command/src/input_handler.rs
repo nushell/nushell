@@ -1,6 +1,6 @@
 use nu_protocol::ast::CellPath;
 use nu_protocol::{PipelineData, ShellError, Span, Value};
-use std::sync::atomic::AtomicBool;
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 
 pub trait CmdArgument {
@@ -69,5 +69,14 @@ where
                 ctrlc,
             )
         }
+    }
+}
+
+// Helper method to avoid boilerplate every time we check ctrl+c
+pub fn ctrl_c_was_pressed(ctrlc: &Option<Arc<AtomicBool>>) -> bool {
+    if let Some(ctrlc) = ctrlc {
+        ctrlc.load(Ordering::SeqCst)
+    } else {
+        false
     }
 }

@@ -25,7 +25,7 @@ impl Command for Upsert {
             .required(
                 "replacement value",
                 SyntaxShape::Any,
-                "the new value to give the cell(s), or a block to create the value",
+                "the new value to give the cell(s), or a closure to create the value",
             )
             .category(Category::Filters)
     }
