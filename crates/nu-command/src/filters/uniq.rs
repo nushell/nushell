@@ -1,3 +1,4 @@
+use crate::input_handler::ctrl_c_was_pressed;
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
@@ -213,27 +214,30 @@ fn generate_results_with_count(head: Span, uniq_values: Vec<ValueCounter>) -> Ve
 }
 
 pub fn uniq(
-    _engine_state: &EngineState,
+    engine_state: &EngineState,
     _stack: &mut Stack,
     call: &Call,
     input: Vec<Value>,
     item_mapper: Box<dyn Fn(ItemMapperState) -> ValueCounter>,
     metadata: Option<PipelineMetadata>,
 ) -> Result<nu_protocol::PipelineData, nu_protocol::ShellError> {
+    let ctrlc = engine_state.ctrlc.clone();
     let head = call.head;
     let flag_show_count = call.has_flag("count");
     let flag_show_repeated = call.has_flag("repeated");
     let flag_ignore_case = call.has_flag("ignore-case");
     let flag_only_uniques = call.has_flag("unique");
-    // let metadata = input.metadata();
 
     let mut uniq_values = input
         .into_iter()
-        .map(|item| {
-            item_mapper(ItemMapperState {
+        .map_while(|item| {
+            if ctrl_c_was_pressed(&ctrlc) {
+                return None;
+            }
+            Some(item_mapper(ItemMapperState {
                 item,
                 flag_ignore_case,
-            })
+            }))
         })
         .fold(Vec::<ValueCounter>::new(), |mut counter, item| {
             match counter
