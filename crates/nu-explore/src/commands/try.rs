@@ -7,7 +7,7 @@ use nu_protocol::{
 
 use crate::views::InteractiveView;
 
-use super::{ConfigOption, HelpExample, HelpManual, Shortcode, ViewCommand};
+use super::{default_color_list, ConfigOption, HelpExample, HelpManual, Shortcode, ViewCommand};
 
 #[derive(Debug, Default, Clone)]
 pub struct TryCmd {
@@ -44,13 +44,33 @@ impl ViewCommand for TryCmd {
             Shortcode::new("Tab",    "",        "Switches between input and a output panes"),
         ];
 
+        let config_options = vec![
+            ConfigOption::boolean(
+                "try",
+                "Try makes running command on each input character",
+                "try.reactive",
+            ),
+            ConfigOption::new(
+                "try",
+                "Change a border color of the menus",
+                "try.border_color",
+                default_color_list(),
+            ),
+            ConfigOption::new(
+                "try",
+                "Change a highlighed menu color",
+                "try.highlighted_color",
+                default_color_list(),
+            ),
+        ];
+
         Some(HelpManual {
             name: "try",
             description: "Opens a panel in which to run Nushell commands and explore their output. The exporer acts liek `:table`.",
             arguments: vec![],
             examples: vec![HelpExample::new("try open Cargo.toml", "Optionally, you can provide a command which will be run immediately")],
             input: shortcuts,
-            config_options:  vec![ConfigOption::boolean("try", "Try makes running command on each input character", "try.reactive")],
+            config_options,
         })
     }
 

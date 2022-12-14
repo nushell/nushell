@@ -80,7 +80,7 @@ impl ViewCommand for TableCmd {
         #[rustfmt::skip]
         let config_options = vec![
             ConfigOption::new(
-                "Column header orientation",
+                ":table group",
                 "Used to move column header",
                 "table.orientation",
                 vec![
@@ -90,19 +90,27 @@ impl ViewCommand for TableCmd {
                     HelpExample::new("right", "Sticks column header to the right"),
                 ],
             ),
-            ConfigOption::boolean("Lines are lines", "", "table.line_head_top"),
-            ConfigOption::boolean("Lines are lines", "", "table.line_head_bottom"),
-            ConfigOption::boolean("Lines are lines", "", "table.line_shift"),
-            ConfigOption::boolean("Lines are lines", "", "table.line_index"),
-            ConfigOption::boolean("Show cursor", "", "table.show_cursor"),
-            ConfigOption::new("Color of selected cell", ".", "table.selected_cell", default_color_list()),
-            ConfigOption::new("Color of selected row", ".", "table.selected_row", default_color_list()),
-            ConfigOption::new("Color of selected column", ".", "table.selected_column", default_color_list()),
-            ConfigOption::new("Color of split lines", ".", "table.split_line", default_color_list()),
-            ConfigOption::new("Padding column left", ".", "table.padding_column_left", default_int_list()),
-            ConfigOption::new("Padding column right", ".", "table.padding_column_right", default_int_list()),
-            ConfigOption::new("Padding index left", ".", "table.padding_index_left", default_int_list()),
-            ConfigOption::new("Padding index right", ".", "table.padding_index_right", default_int_list()),
+            ConfigOption::boolean(":table group", "Show index", "table.show_index"),
+            ConfigOption::boolean(":table group", "Show header", "table.show_head"),
+
+            ConfigOption::boolean(":table group", "Lines are lines", "table.line_head_top"),
+            ConfigOption::boolean(":table group", "Lines are lines", "table.line_head_bottom"),
+            ConfigOption::boolean(":table group", "Lines are lines", "table.line_shift"),
+            ConfigOption::boolean(":table group", "Lines are lines", "table.line_index"),
+            ConfigOption::boolean(":table group", "Lines are lines", "table.line_index"),
+
+            ConfigOption::boolean(":table group", "Show cursor", "table.show_cursor"),
+
+            ConfigOption::new(":table group", "Color of selected cell", "table.selected_cell", default_color_list()),
+            ConfigOption::new(":table group", "Color of selected row", "table.selected_row", default_color_list()),
+            ConfigOption::new(":table group", "Color of selected column", "table.selected_column", default_color_list()),
+
+            ConfigOption::new(":table group", "Color of split line", "table.split_line", default_color_list()),
+
+            ConfigOption::new(":table group", "Padding column left", "table.padding_column_left", default_int_list()),
+            ConfigOption::new(":table group", "Padding column right", "table.padding_column_right", default_int_list()),
+            ConfigOption::new(":table group", "Padding index left", "table.padding_index_left", default_int_list()),
+            ConfigOption::new(":table group", "Padding index right", "table.padding_index_right", default_int_list()),
         ];
 
         Some(HelpManual {
