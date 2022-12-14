@@ -48,6 +48,7 @@ $'Start building ($bin)...'; hr-line
 # ----------------------------------------------------------------------------
 if $os in [$USE_UBUNTU, 'macos-latest'] {
     if $os == $USE_UBUNTU {
+        sudo apt update
         sudo apt-get install libxcb-composite0-dev -y
     }
     if $target == 'aarch64-unknown-linux-gnu' {
@@ -57,6 +58,10 @@ if $os in [$USE_UBUNTU, 'macos-latest'] {
     } else if $target == 'armv7-unknown-linux-gnueabihf' {
         sudo apt-get install pkg-config gcc-arm-linux-gnueabihf -y
         let-env CARGO_TARGET_ARMV7_UNKNOWN_LINUX_GNUEABIHF_LINKER = 'arm-linux-gnueabihf-gcc'
+        cargo-build-nu $flags
+    } else if $target == 'riscv64gc-unknown-linux-gnu' {
+        sudo apt-get install gcc-riscv64-linux-gnu -y
+        let-env CARGO_TARGET_RISCV64GC_UNKNOWN_LINUX_GNU_LINKER = 'riscv64-linux-gnu-gcc'
         cargo-build-nu $flags
     } else {
         # musl-tools to fix 'Failed to find tool. Is `musl-gcc` installed?'
