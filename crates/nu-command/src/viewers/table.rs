@@ -1617,7 +1617,7 @@ impl Iterator for PagingTableCreator {
                 let table =
                     strip_output_color(Some(table), &self.config).expect("must never happen");
 
-                    let mut bytes = table.as_bytes().to_vec();
+                let mut bytes = table.as_bytes().to_vec();
                 bytes.push(b'\n'); // nu-table tables don't come with a newline on the end
 
                 Some(Ok(bytes))
