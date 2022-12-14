@@ -19,8 +19,9 @@ RUN echo '/usr/bin/nu' >> /etc/shells \
     |cut -f4 -d '"' \
     |xargs -I{} wget {} \
     && tar -xzf nu* \
-    && chmod +x nu \
+    && cd nu*-musl \
     && mv nu /usr/bin/nu \
+    && chmod +x /usr/bin/nu \
     && chown -R nushell:nushell /home/nushell/.config/nushell \
     && rm -rf /tmp/*
 

@@ -58,7 +58,7 @@ impl Command for External {
         // Translate environment variables from Values to Strings
         let env_vars_str = env_to_strings(engine_state, stack)?;
 
-        fn value_as_spanned(value: Value) -> Result<Spanned<String>, ShellError> {
+        fn value_as_spanned(value: Value, name: &String) -> Result<Spanned<String>, ShellError> {
             let span = value.span()?;
 
             value
@@ -66,7 +66,11 @@ impl Command for External {
                 .map(|item| Spanned { item, span })
                 .map_err(|_| {
                     ShellError::ExternalCommand(
-                        format!("Cannot convert {} to a string", value.get_type()),
+                        format!(
+                            "Cannot convert {} to a string argument for '{}'",
+                            value.get_type(),
+                            name
+                        ),
                         "All arguments to an external command need to be string-compatible".into(),
                         span,
                     )
@@ -83,13 +87,13 @@ impl Command for External {
                     // Example: one_arg may be something like ["ls" "-a"]
                     // convert it to "ls" "-a"
                     for v in vals {
-                        spanned_args.push(value_as_spanned(v)?);
+                        spanned_args.push(value_as_spanned(v, &name.item)?);
                         // for arguments in list, it's always treated as a whole arguments
                         arg_keep_raw.push(true);
                     }
                 }
                 val => {
-                    spanned_args.push(value_as_spanned(val)?);
+                    spanned_args.push(value_as_spanned(val, &name.item)?);
                     match one_arg_expr.expr {
                         // refer to `parse_dollar_expr` function
                         // the expression type of $variable_name, $"($variable_name)"
@@ -407,17 +411,11 @@ impl ExternalCommand {
                                 }
                             }
                             if let Some(code) = x.code() {
-                                let _ = exit_code_tx.send(Value::Int {
-                                    val: code as i64,
-                                    span: head,
-                                });
+                                let _ = exit_code_tx.send(Value::int(code as i64, head));
                             } else if x.success() {
-                                let _ = exit_code_tx.send(Value::Int { val: 0, span: head });
+                                let _ = exit_code_tx.send(Value::int(0, head));
                             } else {
-                                let _ = exit_code_tx.send(Value::Int {
-                                    val: -1,
-                                    span: head,
-                                });
+                                let _ = exit_code_tx.send(Value::int(-1, head));
                             }
                             Ok(())
                         }

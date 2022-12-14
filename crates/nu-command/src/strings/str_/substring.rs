@@ -134,10 +134,7 @@ fn action(input: &Value, args: &Arguments, head: Span) -> Value {
 
             if start < len && end >= 0 {
                 match start.cmp(&end) {
-                    Ordering::Equal => Value::String {
-                        val: "".to_string(),
-                        span: head,
-                    },
+                    Ordering::Equal => Value::string("", head),
                     Ordering::Greater => Value::Error {
                         error: ShellError::UnsupportedInput(
                             "End must be greater than or equal to Start".to_string(),
@@ -165,10 +162,7 @@ fn action(input: &Value, args: &Arguments, head: Span) -> Value {
                     },
                 }
             } else {
-                Value::String {
-                    val: "".to_string(),
-                    span: head,
-                }
+                Value::string("", head)
             }
         }
         other => Value::Error {
@@ -304,10 +298,7 @@ mod tests {
 
     #[test]
     fn substrings_indexes() {
-        let word = Value::String {
-            val: "andres".to_string(),
-            span: Span::test_data(),
-        };
+        let word = Value::string("andres", Span::test_data());
 
         let cases = vec![
             expectation("a", (0, 1)),
@@ -346,13 +337,7 @@ mod tests {
                 Span::test_data(),
             );
 
-            assert_eq!(
-                actual,
-                Value::String {
-                    val: expected.to_string(),
-                    span: Span::test_data()
-                }
-            );
+            assert_eq!(actual, Value::string(expected, Span::test_data()));
         }
     }
 }

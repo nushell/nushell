@@ -236,10 +236,18 @@ impl EngineState {
                     // Updating existing overlay
                     for (k, v) in env.drain() {
                         if k == "config" {
-                            self.config = v.clone().into_config().unwrap_or_default();
+                            // Don't insert the record as the "config" env var as-is.
+                            // Instead, mutate a clone of it with into_config(), and put THAT in env_vars.
+                            let mut new_record = v.clone();
+                            let (config, error) = new_record.into_config(&self.config);
+                            self.config = config;
+                            env_vars.insert(k, new_record);
+                            if let Some(e) = error {
+                                return Err(e);
+                            }
+                        } else {
+                            env_vars.insert(k, v);
                         }
-
-                        env_vars.insert(k, v);
                     }
                 } else {
                     // Pushing a new overlay

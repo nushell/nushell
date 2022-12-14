@@ -170,13 +170,7 @@ impl Command for Watch {
 
                     if let Some(position) = block.signature.get_positional(0) {
                         if let Some(position_id) = &position.var_id {
-                            stack.add_var(
-                                *position_id,
-                                Value::String {
-                                    val: operation.to_string(),
-                                    span: call.span(),
-                                },
-                            );
+                            stack.add_var(*position_id, Value::string(operation, call.span()));
                         }
                     }
 
@@ -184,10 +178,7 @@ impl Command for Watch {
                         if let Some(position_id) = &position.var_id {
                             stack.add_var(
                                 *position_id,
-                                Value::String {
-                                    val: path.to_string_lossy().to_string(),
-                                    span: call.span(),
-                                },
+                                Value::string(path.to_string_lossy(), call.span()),
                             );
                         }
                     }
@@ -196,13 +187,10 @@ impl Command for Watch {
                         if let Some(position_id) = &position.var_id {
                             stack.add_var(
                                 *position_id,
-                                Value::String {
-                                    val: new_path
-                                        .unwrap_or_else(|| "".into())
-                                        .to_string_lossy()
-                                        .to_string(),
-                                    span: call.span(),
-                                },
+                                Value::string(
+                                    new_path.unwrap_or_else(|| "".into()).to_string_lossy(),
+                                    call.span(),
+                                ),
                             );
                         }
                     }

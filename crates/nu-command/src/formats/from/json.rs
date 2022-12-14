@@ -31,10 +31,7 @@ impl Command for FromJson {
                 description: "Converts json formatted string to table",
                 result: Some(Value::Record {
                     cols: vec!["a".to_string()],
-                    vals: vec![Value::Int {
-                        val: 1,
-                        span: Span::test_data(),
-                    }],
+                    vals: vec![Value::int(1, Span::test_data())],
                     span: Span::test_data(),
                 }),
             },
@@ -44,20 +41,11 @@ impl Command for FromJson {
                 result: Some(Value::Record {
                     cols: vec!["a".to_string(), "b".to_string()],
                     vals: vec![
-                        Value::Int {
-                            val: 1,
-                            span: Span::test_data(),
-                        },
+                        Value::int(1, Span::test_data()),
                         Value::List {
                             vals: vec![
-                                Value::Int {
-                                    val: 1,
-                                    span: Span::test_data(),
-                                },
-                                Value::Int {
-                                    val: 2,
-                                    span: Span::test_data(),
-                                },
+                                Value::int(1, Span::test_data()),
+                                Value::int(2, Span::test_data()),
                             ],
                             span: Span::test_data(),
                         },

@@ -90,11 +90,9 @@ impl Resource {}
 
 pub fn try_interaction(
     interactive: bool,
-    prompt_msg: &str,
-    file_name: &str,
+    prompt: String,
 ) -> (Result<Option<bool>, Box<dyn Error>>, bool) {
     let interaction = if interactive {
-        let prompt = format!("{} '{}'? ", prompt_msg, file_name);
         match get_interactive_confirmation(prompt) {
             Ok(i) => Ok(Some(i)),
             Err(e) => Err(e),

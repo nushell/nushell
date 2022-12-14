@@ -91,13 +91,7 @@ impl Command for For {
                         if numbered {
                             Value::Record {
                                 cols: vec!["index".into(), "item".into()],
-                                vals: vec![
-                                    Value::Int {
-                                        val: idx as i64,
-                                        span: head,
-                                    },
-                                    x,
-                                ],
+                                vals: vec![Value::int(idx as i64, head), x],
                                 span: head,
                             }
                         } else {
@@ -124,7 +118,7 @@ impl Command for For {
                             return Err(err);
                         }
                         Ok(pipeline) => {
-                            pipeline.into_value(head);
+                            let _ = pipeline.print(&engine_state, stack, false, false)?;
                         }
                     }
                 }
@@ -136,13 +130,7 @@ impl Command for For {
                         if numbered {
                             Value::Record {
                                 cols: vec!["index".into(), "item".into()],
-                                vals: vec![
-                                    Value::Int {
-                                        val: idx as i64,
-                                        span: head,
-                                    },
-                                    x,
-                                ],
+                                vals: vec![Value::int(idx as i64, head), x],
                                 span: head,
                             }
                         } else {
@@ -169,7 +157,7 @@ impl Command for For {
                             return Err(err);
                         }
                         Ok(pipeline) => {
-                            pipeline.into_value(head);
+                            let _ = pipeline.print(&engine_state, stack, false, false)?;
                         }
                     }
                 }

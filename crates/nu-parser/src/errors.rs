@@ -251,12 +251,8 @@ pub enum ParseError {
     NonUtf8(#[label = "non-UTF8 string"] Span),
 
     #[error("The `{0}` command doesn't have flag `{1}`.")]
-    #[diagnostic(
-        code(nu::parser::unknown_flag),
-        url(docsrs),
-        help("use {0} --help for a list of flags")
-    )]
-    UnknownFlag(String, String, #[label = "unknown flag"] Span),
+    #[diagnostic(code(nu::parser::unknown_flag), url(docsrs), help("{3}"))]
+    UnknownFlag(String, String, #[label = "unknown flag"] Span, String),
 
     #[error("Unknown type.")]
     #[diagnostic(code(nu::parser::unknown_type), url(docsrs))]
@@ -422,7 +418,7 @@ impl ParseError {
             ParseError::DuplicateCommandDef(s) => *s,
             ParseError::UnknownCommand(s) => *s,
             ParseError::NonUtf8(s) => *s,
-            ParseError::UnknownFlag(_, _, s) => *s,
+            ParseError::UnknownFlag(_, _, s, _) => *s,
             ParseError::RequiredAfterOptional(_, s) => *s,
             ParseError::UnknownType(s) => *s,
             ParseError::MissingFlagParam(_, s) => *s,

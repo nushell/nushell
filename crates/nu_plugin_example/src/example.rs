@@ -62,10 +62,7 @@ impl Example {
         let vals = (0..10i64)
             .map(|i| {
                 let vals = (0..3)
-                    .map(|v| Value::Int {
-                        val: v * i,
-                        span: call.head,
-                    })
+                    .map(|v| Value::int(v * i, call.head))
                     .collect::<Vec<Value>>();
 
                 Value::Record {

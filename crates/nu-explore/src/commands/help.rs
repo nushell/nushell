@@ -128,10 +128,7 @@ fn help_frame_data(
 
     macro_rules! nu_str {
         ($text:expr) => {
-            Value::String {
-                val: $text.to_string(),
-                span: NuSpan::unknown(),
-            }
+            Value::string($text.to_string(), NuSpan::unknown())
         };
     }
 
@@ -191,10 +188,7 @@ fn help_frame_data(
 fn help_manual_data(manual: &HelpManual, aliases: &[String]) -> (Vec<String>, Vec<Vec<Value>>) {
     macro_rules! nu_str {
         ($text:expr) => {
-            Value::String {
-                val: $text.to_string(),
-                span: NuSpan::unknown(),
-            }
+            Value::string($text, NuSpan::unknown())
         };
     }
 

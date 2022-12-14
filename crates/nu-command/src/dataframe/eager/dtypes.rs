@@ -82,10 +82,7 @@ fn command(
                 span: call.head,
             });
 
-            Value::String {
-                val: v.to_string(),
-                span: call.head,
-            }
+            Value::string(*v, call.head)
         })
         .collect();
 

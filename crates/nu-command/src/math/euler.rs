@@ -17,7 +17,7 @@ impl Command for SubCommand {
     }
 
     fn usage(&self) -> &str {
-        "Returns the mathematical constant π."
+        "Returns the mathematical constant e (exp(1)/'1 | math exp')."
     }
 
     fn search_terms(&self) -> Vec<&str> {
@@ -40,11 +40,7 @@ impl Command for SubCommand {
         call: &Call,
         _input: PipelineData,
     ) -> Result<nu_protocol::PipelineData, nu_protocol::ShellError> {
-        Ok(Value::Float {
-            val: std::f64::consts::E,
-            span: call.head,
-        }
-        .into_pipeline_data())
+        Ok(Value::float(std::f64::consts::E, call.head).into_pipeline_data())
     }
 }
 

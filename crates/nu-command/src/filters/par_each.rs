@@ -34,7 +34,7 @@ impl Command for ParEach {
             )
             .switch(
                 "numbered",
-                "iterate with an index (deprecated; use a two-parameter block instead)",
+                "iterate with an index (deprecated; use a two-parameter closure instead)",
                 Some('n'),
             )
             .category(Category::Filters)
@@ -52,10 +52,7 @@ impl Command for ParEach {
                 example: r#"[1 2 3] | par-each -n { |it| if $it.item == 2 { echo $"found 2 at ($it.index)!"} }"#,
                 description: "Iterate over each element, print the matching value and its index",
                 result: Some(Value::List {
-                    vals: vec![Value::String {
-                        val: "found 2 at 1!".to_string(),
-                        span: Span::test_data(),
-                    }],
+                    vals: vec![Value::string("found 2 at 1!", Span::test_data())],
                     span: Span::test_data(),
                 }),
             },

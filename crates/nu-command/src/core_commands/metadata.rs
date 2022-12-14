@@ -81,19 +81,13 @@ impl Command for Metadata {
                             data_source: DataSource::Ls,
                         } => {
                             cols.push("source".into());
-                            vals.push(Value::String {
-                                val: "ls".into(),
-                                span: head,
-                            })
+                            vals.push(Value::string("ls", head))
                         }
                         PipelineMetadata {
                             data_source: DataSource::HtmlThemes,
                         } => {
                             cols.push("source".into());
-                            vals.push(Value::String {
-                                val: "into html --list".into(),
-                                span: head,
-                            })
+                            vals.push(Value::string("into html --list", head))
                         }
                     }
                 }
@@ -152,19 +146,13 @@ fn build_metadata_record(arg: &Value, metadata: &Option<PipelineMetadata>, head:
                 data_source: DataSource::Ls,
             } => {
                 cols.push("source".into());
-                vals.push(Value::String {
-                    val: "ls".into(),
-                    span: head,
-                })
+                vals.push(Value::string("ls", head))
             }
             PipelineMetadata {
                 data_source: DataSource::HtmlThemes,
             } => {
                 cols.push("source".into());
-                vals.push(Value::String {
-                    val: "into html --list".into(),
-                    span: head,
-                })
+                vals.push(Value::string("into html --list", head))
             }
         }
     }

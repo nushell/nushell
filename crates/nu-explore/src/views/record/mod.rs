@@ -621,10 +621,7 @@ fn transpose_table(layer: &mut RecordLayer<'_>) {
         let mut data = _transpose_table(&layer.records, count_rows, count_columns);
 
         for (column, column_name) in layer.columns.iter().enumerate() {
-            let value = Value::String {
-                val: column_name.to_string(),
-                span: NuSpan::unknown(),
-            };
+            let value = Value::string(column_name, NuSpan::unknown());
 
             data[column].insert(0, value);
         }

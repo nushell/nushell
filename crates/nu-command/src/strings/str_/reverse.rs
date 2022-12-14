@@ -51,28 +51,16 @@ impl Command for SubCommand {
             Example {
                 description: "Reverse a single string",
                 example: "'Nushell' | str reverse",
-                result: Some(Value::String {
-                    val: "llehsuN".to_string(),
-                    span: Span::test_data(),
-                }),
+                result: Some(Value::string("llehsuN", Span::test_data())),
             },
             Example {
                 description: "Reverse multiple strings in a list",
                 example: "['Nushell' 'is' 'cool'] | str reverse",
                 result: Some(Value::List {
                     vals: vec![
-                        Value::String {
-                            val: "llehsuN".to_string(),
-                            span: Span::test_data(),
-                        },
-                        Value::String {
-                            val: "si".to_string(),
-                            span: Span::test_data(),
-                        },
-                        Value::String {
-                            val: "looc".to_string(),
-                            span: Span::test_data(),
-                        },
+                        Value::string("llehsuN", Span::test_data()),
+                        Value::string("si", Span::test_data()),
+                        Value::string("looc", Span::test_data()),
                     ],
                     span: Span::test_data(),
                 }),

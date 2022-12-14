@@ -166,42 +166,27 @@ impl Command for ViewSource {
             Example {
                 description: "View the source of a code block",
                 example: r#"let abc = { echo 'hi' }; view-source $abc"#,
-                result: Some(Value::String {
-                    val: "{ echo 'hi' }".to_string(),
-                    span: Span::test_data(),
-                }),
+                result: Some(Value::string("{ echo 'hi' }", Span::test_data())),
             },
             Example {
                 description: "View the source of a custom command",
                 example: r#"def hi [] { echo 'Hi!' }; view-source hi"#,
-                result: Some(Value::String {
-                    val: "{ echo 'Hi!' }".to_string(),
-                    span: Span::test_data(),
-                }),
+                result: Some(Value::string("{ echo 'Hi!' }", Span::test_data())),
             },
             Example {
                 description: "View the source of a custom command, which participates in the caller environment",
                 example: r#"def-env foo [] { let-env BAR = 'BAZ' }; view-source foo"#,
-                result: Some(Value::String {
-                    val: "{ let-env BAR = 'BAZ' }".to_string(),
-                    span: Span::test_data(),
-                }),
+                result: Some(Value::string("{ let-env BAR = 'BAZ' }", Span::test_data())),
             },
             Example {
                 description: "View the source of a module",
                 example: r#"module mod-foo { export-env { let-env FOO_ENV = 'BAZ' } }; view-source mod-foo"#,
-                result: Some(Value::String {
-                    val: " export-env { let-env FOO_ENV = 'BAZ' }".to_string(),
-                    span: Span::test_data(),
-                }),
+                result: Some(Value::string(" export-env { let-env FOO_ENV = 'BAZ' }", Span::test_data())),
             },
             Example {
                 description: "View the source of an alias",
                 example: r#"alias hello = echo hi; view-source hello"#,
-                result: Some(Value::String {
-                    val: "echo hi".to_string(),
-                    span: Span::test_data(),
-                }),
+                result: Some(Value::string("echo hi", Span::test_data())),
             },
         ]
     }

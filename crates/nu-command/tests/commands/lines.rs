@@ -7,7 +7,7 @@ fn lines() {
         r#"
             open cargo_sample.toml -r
             | lines
-            | skip while $it != "[dependencies]"
+            | skip while {|it| $it != "[dependencies]" }
             | skip 1
             | first
             | split column "="
