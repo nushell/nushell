@@ -14,7 +14,7 @@ impl Command for Do {
     }
 
     fn usage(&self) -> &str {
-        "Run a block"
+        "Run a closure, providing it with the pipeline input"
     }
 
     fn signature(&self) -> Signature {
