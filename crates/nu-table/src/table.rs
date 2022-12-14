@@ -15,6 +15,7 @@ use tabled::{
         width::CfgWidthFunction,
         Estimate,
     },
+    peaker::Peaker,
     Alignment, Modify, ModifyObject, TableOption, Width,
 };
 
@@ -55,7 +56,8 @@ impl Table {
         }
 
         let mut data = VecRecords::with_hint(data, size.1);
-        let is_empty = maybe_truncate_columns(&mut data, theme, termwidth);
+        let is_empty =
+            maybe_truncate_columns(&mut data, theme, termwidth, TruncationPriority::Content);
 
         Table {
             data,
@@ -354,7 +356,7 @@ where
     fn change(&mut self, table: &mut tabled::Table<R>) {
         match self.trim_strategy {
             TrimStrategy::Wrap { try_to_keep_words } => {
-                let mut w = Width::wrap(self.termwidth).priority::<tabled::peaker::PriorityMax>();
+                let mut w = Width::wrap(self.termwidth).priority::<PriorityMax>();
                 if *try_to_keep_words {
                     w = w.keep_words();
                 }
@@ -362,8 +364,7 @@ where
                 w.change(table)
             }
             TrimStrategy::Truncate { suffix } => {
-                let mut w =
-                    Width::truncate(self.termwidth).priority::<tabled::peaker::PriorityMax>();
+                let mut w = Width::truncate(self.termwidth).priority::<PriorityMax>();
                 if let Some(suffix) = suffix {
                     w = w.suffix(suffix).suffix_try_color(true);
                 }
@@ -374,11 +375,40 @@ where
     }
 }
 
-fn maybe_truncate_columns(data: &mut Data, theme: &TableTheme, termwidth: usize) -> bool {
-    const MIN_TRUNCATE_WIDTH: usize = 3;
+enum TruncationPriority {
+    // VERSION where we are showing AS LITTLE COLUMNS AS POSSIBLE but WITH AS MUCH CONTENT AS POSSIBLE.
+    Content,
+    // VERSION where we are showing AS MANY COLUMNS AS POSSIBLE but as a side affect they MIGHT CONTAIN AS LITTLE CONTENT AS POSSIBLE
+    //
+    // not used so far.
+    #[allow(dead_code)]
+    Columns,
+}
+
+fn maybe_truncate_columns(
+    data: &mut Data,
+    theme: &TableTheme,
+    termwidth: usize,
+    priority: TruncationPriority,
+) -> bool {
+    if data.count_columns() == 0 {
+        return true;
+    }
+
+    match priority {
+        TruncationPriority::Content => truncate_columns_by_content(data, theme, termwidth),
+        TruncationPriority::Columns => truncate_columns_by_columns(data, theme, termwidth),
+    }
+}
+
+// VERSION where we are showing AS LITTLE COLUMNS AS POSSIBLE but WITH AS MUCH CONTENT AS POSSIBLE.
+fn truncate_columns_by_content(data: &mut Data, theme: &TableTheme, termwidth: usize) -> bool {
+    const MIN_ACCEPTABLE_WIDTH: usize = 3;
+    const TRAILING_COLUMN_WIDTH: usize = 5;
+    const TRAILING_COLUMN_STR: &str = "...";
 
     let config;
-    let mut total;
+    let total;
     {
         let mut table = Builder::custom(&*data).build();
         load_theme(&mut table, &HashMap::new(), theme, false, false);
@@ -392,37 +422,144 @@ fn maybe_truncate_columns(data: &mut Data, theme: &TableTheme, termwidth: usize)
 
     let mut width_ctrl = tabled::papergrid::width::WidthEstimator::default();
     width_ctrl.estimate(&*data, &config);
-    let mut widths = Vec::from(width_ctrl);
+    let widths = Vec::from(width_ctrl);
 
-    let mut truncated = false;
-    while data.count_columns() > 0 {
-        let column = data.count_columns() - 1;
-        let width = widths[column];
+    let borders = config.get_borders();
+    let vertical_border_i = borders.has_vertical() as usize;
 
-        let min_width = min(width, MIN_TRUNCATE_WIDTH);
-        if total < termwidth + min_width {
+    let mut width = borders.has_left() as usize + borders.has_right() as usize;
+    let mut truncate_pos = 0;
+    for column_width in widths {
+        width += column_width;
+        width += vertical_border_i;
+
+        if width >= termwidth {
+            // check whether we CAN limit the column width
+            width -= column_width;
+            width += MIN_ACCEPTABLE_WIDTH;
+
+            if width <= termwidth {
+                truncate_pos += 1;
+            }
+
             break;
         }
 
-        data.truncate(column);
-        widths.truncate(column);
+        truncate_pos += 1;
+    }
 
-        total -= width;
-        if config.get_borders().has_vertical() {
-            total -= 1;
+    // we don't need any truncation then (is it possible?)
+    if truncate_pos + 1 == data.count_columns() {
+        return false;
+    }
+
+    if truncate_pos == 0 {
+        return true;
+    }
+
+    data.truncate(truncate_pos);
+
+    // Append columns with a trailing column
+
+    let min_width = borders.has_left() as usize
+        + borders.has_right() as usize
+        + data.count_columns() * MIN_ACCEPTABLE_WIDTH
+        + (data.count_columns() - 1) * vertical_border_i;
+
+    let diff = termwidth - min_width;
+    let can_be_squeezed = diff > TRAILING_COLUMN_WIDTH + vertical_border_i;
+
+    if can_be_squeezed {
+        let cell = Table::create_cell(String::from(TRAILING_COLUMN_STR), TextStyle::default());
+        data.push(cell);
+    } else {
+        if data.count_columns() == 1 {
+            return true;
         }
 
-        truncated = true;
+        data.truncate(data.count_columns() - 1);
+
+        let cell = Table::create_cell(String::from(TRAILING_COLUMN_STR), TextStyle::default());
+        data.push(cell);
     }
 
-    if truncated {
-        data.push(Table::create_cell(
-            String::from("..."),
-            TextStyle::default(),
-        ));
+    false
+}
+
+fn truncate_columns_by_columns(data: &mut Data, theme: &TableTheme, termwidth: usize) -> bool {
+    const MIN_ACCEPTABLE_WIDTH: usize = 3;
+    const TRAILING_COLUMN_WIDTH: usize = 3;
+    const TRAILING_COLUMN_PADDING: usize = 2;
+    const TRAILING_COLUMN_STR: &str = "...";
+
+    let config;
+    let total;
+    {
+        let mut table = Builder::custom(&*data).build();
+        load_theme(&mut table, &HashMap::new(), theme, false, false);
+        total = table.total_width();
+        config = table.get_config().clone();
     }
 
-    truncated && data.count_columns() == 1
+    if total <= termwidth {
+        return false;
+    }
+
+    let mut width_ctrl = tabled::papergrid::width::WidthEstimator::default();
+    width_ctrl.estimate(&*data, &config);
+    let widths = Vec::from(width_ctrl);
+    let widths_total = widths.iter().sum::<usize>();
+
+    let min_widths = widths
+        .iter()
+        .map(|w| min(*w, MIN_ACCEPTABLE_WIDTH))
+        .sum::<usize>();
+    let mut min_total = total - widths_total + min_widths;
+
+    if min_total <= termwidth {
+        return false;
+    }
+
+    while data.count_columns() > 0 {
+        let column = data.count_columns() - 1;
+
+        data.truncate(column);
+
+        let width = widths[column];
+        let min_width = min(width, MIN_ACCEPTABLE_WIDTH);
+
+        min_total -= min_width;
+        if config.get_borders().has_vertical() {
+            min_total -= 1;
+        }
+
+        if min_total <= termwidth {
+            break;
+        }
+    }
+
+    if data.count_columns() == 0 {
+        return true;
+    }
+
+    // Append columns with a trailing column
+
+    let diff = termwidth - min_total;
+    if diff > TRAILING_COLUMN_WIDTH + TRAILING_COLUMN_PADDING {
+        let cell = Table::create_cell(String::from(TRAILING_COLUMN_STR), TextStyle::default());
+        data.push(cell);
+    } else {
+        if data.count_columns() == 1 {
+            return true;
+        }
+
+        data.truncate(data.count_columns() - 1);
+
+        let cell = Table::create_cell(String::from(TRAILING_COLUMN_STR), TextStyle::default());
+        data.push(cell);
+    }
+
+    false
 }
 
 impl papergrid::Color for TextStyle {
@@ -442,5 +579,29 @@ impl papergrid::Color for TextStyle {
         }
 
         Ok(())
+    }
+}
+
+/// The same as [`tabled::peaker::PriorityMax`] but prioritizes left columns first in case of equal width.
+#[derive(Debug, Default, Clone)]
+pub struct PriorityMax;
+
+impl Peaker for PriorityMax {
+    fn create() -> Self {
+        Self
+    }
+
+    fn peak(&mut self, _: &[usize], widths: &[usize]) -> Option<usize> {
+        let col = (0..widths.len()).rev().max_by_key(|&i| widths[i]);
+        match col {
+            Some(col) => {
+                if widths[col] == 0 {
+                    None
+                } else {
+                    Some(col)
+                }
+            }
+            None => None,
+        }
     }
 }

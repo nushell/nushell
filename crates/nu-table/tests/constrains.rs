@@ -1,7 +1,7 @@
 use std::{collections::HashMap, usize};
 
 use nu_protocol::{Config, TrimStrategy};
-use nu_table::{Alignments, Table, TableTheme as theme, TextStyle};
+use nu_table::{string_width, Alignments, Table, TableTheme as theme, TextStyle};
 use tabled::papergrid::records::{cell_info::CellInfo, tcell::TCell};
 
 #[test]
@@ -101,118 +101,130 @@ fn termwidth_too_small() {
 
 #[test]
 fn wrap_test() {
-    let cfg = Config {
-        trim_strategy: TrimStrategy::Wrap {
-            try_to_keep_words: false,
-        },
-        ..Default::default()
-    };
+    let tests = [
+        (0, None),
+        (1, None),
+        (2, None),
+        (3, None),
+        (4, None),
+        (5, None),
+        (6, None),
+        (7, None),
+        (8, None),
+        (9, None),
+        (10, None),
+        (11, None),
+        (12, Some("┏━━━━┳━━━━━┓\n┃ 12 ┃ ... ┃\n┃ 3  ┃     ┃\n┃ 45 ┃     ┃\n┃ 67 ┃     ┃\n┃ 8  ┃     ┃\n┣━━━━╋━━━━━┫\n┃ 0  ┃ ... ┃\n┃ 0  ┃ ... ┃\n┗━━━━┻━━━━━┛")),
+        (13, Some("┏━━━━━┳━━━━━┓\n┃ 123 ┃ ... ┃\n┃  45 ┃     ┃\n┃ 678 ┃     ┃\n┣━━━━━╋━━━━━┫\n┃ 0   ┃ ... ┃\n┃ 0   ┃ ... ┃\n┗━━━━━┻━━━━━┛")),
+        (21, Some("┏━━━━━━┳━━━━━━┳━━━━━┓\n┃ 123  ┃ qweq ┃ ... ┃\n┃ 4567 ┃ w eq ┃     ┃\n┃  8   ┃  we  ┃     ┃\n┣━━━━━━╋━━━━━━╋━━━━━┫\n┃ 0    ┃ 1    ┃ ... ┃\n┃ 0    ┃ 1    ┃ ... ┃\n┗━━━━━━┻━━━━━━┻━━━━━┛")),
+        (29, Some("┏━━━━━━━━━━┳━━━━━━━━━━┳━━━━━┓\n┃ 123 4567 ┃ qweqw eq ┃ ... ┃\n┃    8     ┃    we    ┃     ┃\n┣━━━━━━━━━━╋━━━━━━━━━━╋━━━━━┫\n┃ 0        ┃ 1        ┃ ... ┃\n┃ 0        ┃ 1        ┃ ... ┃\n┗━━━━━━━━━━┻━━━━━━━━━━┻━━━━━┛")),
+        (49, Some("┏━━━━━━━━━━━┳━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━┳━━━━━┓\n┃ 123 45678 ┃ qweqw eqwe ┃ xxx xx xx x xx ┃ ... ┃\n┃           ┃            ┃     x xx xx    ┃     ┃\n┣━━━━━━━━━━━╋━━━━━━━━━━━━╋━━━━━━━━━━━━━━━━╋━━━━━┫\n┃ 0         ┃ 1          ┃ 2              ┃ ... ┃\n┃ 0         ┃ 1          ┃ 2              ┃ ... ┃\n┗━━━━━━━━━━━┻━━━━━━━━━━━━┻━━━━━━━━━━━━━━━━┻━━━━━┛")),
+    ];
 
-    for i in 0..10 {
-        assert!(draw_table(table_with_data(i), i, &cfg).is_none());
-    }
-
-    assert_eq!(draw_table(table_with_data(10), 10, &cfg).unwrap(), "┏━━━━┳━━━┓\n┃ 12 ┃ . ┃\n┃ 3  ┃ . ┃\n┃ 45 ┃ . ┃\n┃ 67 ┃   ┃\n┃ 8  ┃   ┃\n┣━━━━╋━━━┫\n┃ 0  ┃ . ┃\n┃    ┃ . ┃\n┃    ┃ . ┃\n┃ 0  ┃ . ┃\n┃    ┃ . ┃\n┃    ┃ . ┃\n┗━━━━┻━━━┛");
-    assert_eq!(
-        draw_table(table_with_data(21), 21, &cfg).unwrap(),
-        "┏━━━━━━┳━━━━━━┳━━━━━┓\n┃ 123  ┃ qweq ┃ ... ┃\n┃ 4567 ┃ w eq ┃     ┃\n┃  8   ┃  we  ┃     ┃\n┣━━━━━━╋━━━━━━╋━━━━━┫\n┃ 0    ┃ 1    ┃ ... ┃\n┃ 0    ┃ 1    ┃ ... ┃\n┗━━━━━━┻━━━━━━┻━━━━━┛"
-    );
-    assert_eq!(
-        draw_table(table_with_data(29), 29, &cfg).unwrap(),
-        "┏━━━━━━━━━━┳━━━━━━━━━━┳━━━━━┓\n┃ 123 4567 ┃ qweqw eq ┃ ... ┃\n┃    8     ┃    we    ┃     ┃\n┣━━━━━━━━━━╋━━━━━━━━━━╋━━━━━┫\n┃ 0        ┃ 1        ┃ ... ┃\n┃ 0        ┃ 1        ┃ ... ┃\n┗━━━━━━━━━━┻━━━━━━━━━━┻━━━━━┛"
-    );
-    assert_eq!(
-        draw_table(table_with_data(49), 49, &cfg).unwrap(),
-        "┏━━━━━━━━━━┳━━━━━━━━━━┳━━━━━━━━━┳━━━━━━━━━┳━━━━━┓\n┃ 123 4567 ┃ qweqw eq ┃ xxx xx  ┃ qqq qqq ┃ ... ┃\n┃    8     ┃    we    ┃ xx x xx ┃  qqqq q ┃     ┃\n┃          ┃          ┃  x xx x ┃  qq qq  ┃     ┃\n┃          ┃          ┃    x    ┃         ┃     ┃\n┣━━━━━━━━━━╋━━━━━━━━━━╋━━━━━━━━━╋━━━━━━━━━╋━━━━━┫\n┃ 0        ┃ 1        ┃ 2       ┃ 3       ┃ ... ┃\n┃ 0        ┃ 1        ┃ 2       ┃ 3       ┃ ... ┃\n┗━━━━━━━━━━┻━━━━━━━━━━┻━━━━━━━━━┻━━━━━━━━━┻━━━━━┛"
-    );
+    let trim = TrimStrategy::wrap(false);
+    test_config(&tests, trim);
 }
 
 #[test]
 fn wrap_keep_words_test() {
-    let cfg = Config {
-        trim_strategy: TrimStrategy::Wrap {
-            try_to_keep_words: true,
-        },
-        ..Default::default()
-    };
+    let tests = [
+        (0, None),
+        (1, None),
+        (2, None),
+        (3, None),
+        (4, None),
+        (5, None),
+        (6, None),
+        (7, None),
+        (8, None),
+        (9, None),
+        (10, None),
+        (11, None),
+        (12, Some("┏━━━━┳━━━━━┓\n┃ 12 ┃ ... ┃\n┃ 3  ┃     ┃\n┃ 45 ┃     ┃\n┃ 67 ┃     ┃\n┃ 8  ┃     ┃\n┣━━━━╋━━━━━┫\n┃ 0  ┃ ... ┃\n┃ 0  ┃ ... ┃\n┗━━━━┻━━━━━┛")),
+        (13, Some("┏━━━━━┳━━━━━┓\n┃ 123 ┃ ... ┃\n┃     ┃     ┃\n┃ 456 ┃     ┃\n┃ 78  ┃     ┃\n┣━━━━━╋━━━━━┫\n┃ 0   ┃ ... ┃\n┃ 0   ┃ ... ┃\n┗━━━━━┻━━━━━┛")),
+        (21, Some("┏━━━━━━┳━━━━━━┳━━━━━┓\n┃ 123  ┃ qweq ┃ ... ┃\n┃ 4567 ┃  w   ┃     ┃\n┃ 8    ┃ eqwe ┃     ┃\n┣━━━━━━╋━━━━━━╋━━━━━┫\n┃ 0    ┃ 1    ┃ ... ┃\n┃ 0    ┃ 1    ┃ ... ┃\n┗━━━━━━┻━━━━━━┻━━━━━┛")),
+        (29, Some("┏━━━━━━━━━━┳━━━━━━━━━━┳━━━━━┓\n┃   123    ┃  qweqw   ┃ ... ┃\n┃ 45678    ┃ eqwe     ┃     ┃\n┣━━━━━━━━━━╋━━━━━━━━━━╋━━━━━┫\n┃ 0        ┃ 1        ┃ ... ┃\n┃ 0        ┃ 1        ┃ ... ┃\n┗━━━━━━━━━━┻━━━━━━━━━━┻━━━━━┛")),
+        (49, Some("┏━━━━━━━━━━━┳━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━┳━━━━━┓\n┃ 123 45678 ┃ qweqw eqwe ┃ xxx xx xx x xx ┃ ... ┃\n┃           ┃            ┃  x xx xx       ┃     ┃\n┣━━━━━━━━━━━╋━━━━━━━━━━━━╋━━━━━━━━━━━━━━━━╋━━━━━┫\n┃ 0         ┃ 1          ┃ 2              ┃ ... ┃\n┃ 0         ┃ 1          ┃ 2              ┃ ... ┃\n┗━━━━━━━━━━━┻━━━━━━━━━━━━┻━━━━━━━━━━━━━━━━┻━━━━━┛")),
+    ];
 
-    for i in 0..10 {
-        assert!(draw_table(table_with_data(i), i, &cfg).is_none());
-    }
-
-    assert_eq!(draw_table(table_with_data(10), 10, &cfg).unwrap(), "┏━━━━┳━━━┓\n┃ 12 ┃ . ┃\n┃ 3  ┃ . ┃\n┃ 45 ┃ . ┃\n┃ 67 ┃   ┃\n┃ 8  ┃   ┃\n┣━━━━╋━━━┫\n┃ 0  ┃ . ┃\n┃    ┃ . ┃\n┃    ┃ . ┃\n┃ 0  ┃ . ┃\n┃    ┃ . ┃\n┃    ┃ . ┃\n┗━━━━┻━━━┛");
-    assert_eq!(
-        draw_table(table_with_data(21), 21, &cfg).unwrap(),
-        "┏━━━━━━┳━━━━━━┳━━━━━┓\n┃ 123  ┃ qweq ┃ ... ┃\n┃ 4567 ┃  w   ┃     ┃\n┃ 8    ┃ eqwe ┃     ┃\n┣━━━━━━╋━━━━━━╋━━━━━┫\n┃ 0    ┃ 1    ┃ ... ┃\n┃ 0    ┃ 1    ┃ ... ┃\n┗━━━━━━┻━━━━━━┻━━━━━┛"
-    );
-    assert_eq!(
-        draw_table(table_with_data(29), 29, &cfg).unwrap(),
-        "┏━━━━━━━━━━┳━━━━━━━━━━┳━━━━━┓\n┃   123    ┃  qweqw   ┃ ... ┃\n┃ 45678    ┃ eqwe     ┃     ┃\n┣━━━━━━━━━━╋━━━━━━━━━━╋━━━━━┫\n┃ 0        ┃ 1        ┃ ... ┃\n┃ 0        ┃ 1        ┃ ... ┃\n┗━━━━━━━━━━┻━━━━━━━━━━┻━━━━━┛"
-    );
-    assert_eq!(
-        draw_table(table_with_data(49), 49, &cfg).unwrap(),
-        "┏━━━━━━━━━━┳━━━━━━━━━━┳━━━━━━━━━┳━━━━━━━━━┳━━━━━┓\n┃   123    ┃  qweqw   ┃ xxx xx  ┃ qqq qqq ┃ ... ┃\n┃ 45678    ┃ eqwe     ┃ xx x xx ┃  qqqq   ┃     ┃\n┃          ┃          ┃  x xx   ┃ qqq qq  ┃     ┃\n┃          ┃          ┃ xx      ┃         ┃     ┃\n┣━━━━━━━━━━╋━━━━━━━━━━╋━━━━━━━━━╋━━━━━━━━━╋━━━━━┫\n┃ 0        ┃ 1        ┃ 2       ┃ 3       ┃ ... ┃\n┃ 0        ┃ 1        ┃ 2       ┃ 3       ┃ ... ┃\n┗━━━━━━━━━━┻━━━━━━━━━━┻━━━━━━━━━┻━━━━━━━━━┻━━━━━┛"
-    );
+    let trim = TrimStrategy::wrap(true);
+    test_config(&tests, trim);
 }
 
 #[test]
 fn truncate_test() {
-    let cfg = Config {
-        trim_strategy: TrimStrategy::Truncate { suffix: None },
-        ..Default::default()
-    };
+    let tests = [
+        (0, None),
+        (1, None),
+        (2, None),
+        (3, None),
+        (4, None),
+        (5, None),
+        (6, None),
+        (7, None),
+        (8, None),
+        (9, None),
+        (10, None),
+        (11, None),
+        (12, Some("┏━━━━┳━━━━━┓\n┃ 12 ┃ ... ┃\n┣━━━━╋━━━━━┫\n┃ 0  ┃ ... ┃\n┃ 0  ┃ ... ┃\n┗━━━━┻━━━━━┛")),
+        (13, Some("┏━━━━━┳━━━━━┓\n┃ 123 ┃ ... ┃\n┣━━━━━╋━━━━━┫\n┃ 0   ┃ ... ┃\n┃ 0   ┃ ... ┃\n┗━━━━━┻━━━━━┛")),
+        (21, Some("┏━━━━━━┳━━━━━━┳━━━━━┓\n┃ 123  ┃ qweq ┃ ... ┃\n┣━━━━━━╋━━━━━━╋━━━━━┫\n┃ 0    ┃ 1    ┃ ... ┃\n┃ 0    ┃ 1    ┃ ... ┃\n┗━━━━━━┻━━━━━━┻━━━━━┛")),
+        (29, Some("┏━━━━━━━━━━┳━━━━━━━━━━┳━━━━━┓\n┃ 123 4567 ┃ qweqw eq ┃ ... ┃\n┣━━━━━━━━━━╋━━━━━━━━━━╋━━━━━┫\n┃ 0        ┃ 1        ┃ ... ┃\n┃ 0        ┃ 1        ┃ ... ┃\n┗━━━━━━━━━━┻━━━━━━━━━━┻━━━━━┛")),
+        (49, Some("┏━━━━━━━━━━━┳━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━┳━━━━━┓\n┃ 123 45678 ┃ qweqw eqwe ┃ xxx xx xx x xx ┃ ... ┃\n┣━━━━━━━━━━━╋━━━━━━━━━━━━╋━━━━━━━━━━━━━━━━╋━━━━━┫\n┃ 0         ┃ 1          ┃ 2              ┃ ... ┃\n┃ 0         ┃ 1          ┃ 2              ┃ ... ┃\n┗━━━━━━━━━━━┻━━━━━━━━━━━━┻━━━━━━━━━━━━━━━━┻━━━━━┛")),
+    ];
 
-    for i in 0..10 {
-        assert!(draw_table(table_with_data(i), i, &cfg).is_none());
-    }
-
-    assert_eq!(
-        draw_table(table_with_data(10), 10, &cfg).unwrap(),
-        "┏━━━━┳━━━┓\n┃ 12 ┃ . ┃\n┣━━━━╋━━━┫\n┃ 0  ┃ . ┃\n┃ 0  ┃ . ┃\n┗━━━━┻━━━┛"
-    );
-    assert_eq!(
-        draw_table(table_with_data(21), 21, &cfg).unwrap(),
-        "┏━━━━━━┳━━━━━━┳━━━━━┓\n┃ 123  ┃ qweq ┃ ... ┃\n┣━━━━━━╋━━━━━━╋━━━━━┫\n┃ 0    ┃ 1    ┃ ... ┃\n┃ 0    ┃ 1    ┃ ... ┃\n┗━━━━━━┻━━━━━━┻━━━━━┛"
-    );
-    assert_eq!(
-        draw_table(table_with_data(29), 29, &cfg).unwrap(),
-        "┏━━━━━━━━━━┳━━━━━━━━━━┳━━━━━┓\n┃ 123 4567 ┃ qweqw eq ┃ ... ┃\n┣━━━━━━━━━━╋━━━━━━━━━━╋━━━━━┫\n┃ 0        ┃ 1        ┃ ... ┃\n┃ 0        ┃ 1        ┃ ... ┃\n┗━━━━━━━━━━┻━━━━━━━━━━┻━━━━━┛"
-    );
-    assert_eq!(
-        draw_table(table_with_data(49), 49, &cfg).unwrap(),
-        "┏━━━━━━━━━━┳━━━━━━━━━━┳━━━━━━━━━┳━━━━━━━━━┳━━━━━┓\n┃ 123 4567 ┃ qweqw eq ┃ xxx xx  ┃ qqq qqq ┃ ... ┃\n┣━━━━━━━━━━╋━━━━━━━━━━╋━━━━━━━━━╋━━━━━━━━━╋━━━━━┫\n┃ 0        ┃ 1        ┃ 2       ┃ 3       ┃ ... ┃\n┃ 0        ┃ 1        ┃ 2       ┃ 3       ┃ ... ┃\n┗━━━━━━━━━━┻━━━━━━━━━━┻━━━━━━━━━┻━━━━━━━━━┻━━━━━┛"
-    );
+    let trim = TrimStrategy::truncate(None);
+    test_config(&tests, trim);
 }
 
 #[test]
 fn truncate_with_suffix_test() {
-    let cfg = Config {
-        trim_strategy: TrimStrategy::Truncate {
-            suffix: Some(String::from("...")),
-        },
+    let tests = [
+        (0, None),
+        (1, None),
+        (2, None),
+        (3, None),
+        (4, None),
+        (5, None),
+        (6, None),
+        (7, None),
+        (8, None),
+        (9, None),
+        (10, None),
+        (11, None),
+        (12, Some("┏━━━━┳━━━━━┓\n┃ .. ┃ ... ┃\n┣━━━━╋━━━━━┫\n┃ 0  ┃ ... ┃\n┃ 0  ┃ ... ┃\n┗━━━━┻━━━━━┛")),
+        (13, Some("┏━━━━━┳━━━━━┓\n┃ ... ┃ ... ┃\n┣━━━━━╋━━━━━┫\n┃ 0   ┃ ... ┃\n┃ 0   ┃ ... ┃\n┗━━━━━┻━━━━━┛")),
+        (21, Some("┏━━━━━━┳━━━━━━┳━━━━━┓\n┃ 1... ┃ q... ┃ ... ┃\n┣━━━━━━╋━━━━━━╋━━━━━┫\n┃ 0    ┃ 1    ┃ ... ┃\n┃ 0    ┃ 1    ┃ ... ┃\n┗━━━━━━┻━━━━━━┻━━━━━┛")),
+        (29, Some("┏━━━━━━━━━━┳━━━━━━━━━━┳━━━━━┓\n┃ 123 4... ┃ qweqw... ┃ ... ┃\n┣━━━━━━━━━━╋━━━━━━━━━━╋━━━━━┫\n┃ 0        ┃ 1        ┃ ... ┃\n┃ 0        ┃ 1        ┃ ... ┃\n┗━━━━━━━━━━┻━━━━━━━━━━┻━━━━━┛")),
+        (49, Some("┏━━━━━━━━━━━┳━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━┳━━━━━┓\n┃ 123 45678 ┃ qweqw eqwe ┃ xxx xx xx x... ┃ ... ┃\n┣━━━━━━━━━━━╋━━━━━━━━━━━━╋━━━━━━━━━━━━━━━━╋━━━━━┫\n┃ 0         ┃ 1          ┃ 2              ┃ ... ┃\n┃ 0         ┃ 1          ┃ 2              ┃ ... ┃\n┗━━━━━━━━━━━┻━━━━━━━━━━━━┻━━━━━━━━━━━━━━━━┻━━━━━┛")),
+    ];
+
+    let trim = TrimStrategy::truncate(Some(String::from("...")));
+    test_config(&tests, trim);
+}
+
+fn test_config(tests: &[(usize, Option<&str>)], trim: TrimStrategy) {
+    let config = Config {
+        trim_strategy: trim,
         ..Default::default()
     };
 
-    for i in 0..10 {
-        assert!(draw_table(table_with_data(i), i, &cfg).is_none());
-    }
+    for (i, &(termwidth, expected)) in tests.iter().enumerate() {
+        let table = table_with_data(termwidth);
+        let actual = draw_table(table, termwidth, &config);
 
-    assert_eq!(
-        draw_table(table_with_data(10), 10, &cfg).unwrap(),
-        "┏━━━━┳━━━┓\n┃ .. ┃ . ┃\n┣━━━━╋━━━┫\n┃ 0  ┃ . ┃\n┃ 0  ┃ . ┃\n┗━━━━┻━━━┛"
-    );
-    assert_eq!(
-        draw_table(table_with_data(21), 21, &cfg).unwrap(),
-        "┏━━━━━━┳━━━━━━┳━━━━━┓\n┃ 1... ┃ q... ┃ ... ┃\n┣━━━━━━╋━━━━━━╋━━━━━┫\n┃ 0    ┃ 1    ┃ ... ┃\n┃ 0    ┃ 1    ┃ ... ┃\n┗━━━━━━┻━━━━━━┻━━━━━┛"
-    );
-    assert_eq!(
-        draw_table(table_with_data(29), 29, &cfg).unwrap(),
-        "┏━━━━━━━━━━┳━━━━━━━━━━┳━━━━━┓\n┃ 123 4... ┃ qweqw... ┃ ... ┃\n┣━━━━━━━━━━╋━━━━━━━━━━╋━━━━━┫\n┃ 0        ┃ 1        ┃ ... ┃\n┃ 0        ┃ 1        ┃ ... ┃\n┗━━━━━━━━━━┻━━━━━━━━━━┻━━━━━┛"
-    );
-    assert_eq!(
-        draw_table(table_with_data(49), 49, &cfg).unwrap(),
-        "┏━━━━━━━━━━┳━━━━━━━━━━┳━━━━━━━━━┳━━━━━━━━━┳━━━━━┓\n┃ 123 4... ┃ qweqw... ┃ xxx ... ┃ qqq ... ┃ ... ┃\n┣━━━━━━━━━━╋━━━━━━━━━━╋━━━━━━━━━╋━━━━━━━━━╋━━━━━┫\n┃ 0        ┃ 1        ┃ 2       ┃ 3       ┃ ... ┃\n┃ 0        ┃ 1        ┃ 2       ┃ 3       ┃ ... ┃\n┗━━━━━━━━━━┻━━━━━━━━━━┻━━━━━━━━━┻━━━━━━━━━┻━━━━━┛"
-    );
+        assert_eq!(
+            actual.as_deref(),
+            expected,
+            "\nfail i={:?} width={}",
+            i,
+            termwidth
+        );
+
+        if let Some(table) = actual {
+            assert!(string_width(&table) <= termwidth);
+        }
+    }
 }
 
 fn draw_table(table: Table, limit: usize, cfg: &Config) -> Option<String> {
