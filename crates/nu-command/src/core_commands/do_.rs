@@ -23,25 +23,25 @@ impl Command for Do {
             .input_output_types(vec![(Type::Any, Type::Any)])
             .switch(
                 "ignore-errors",
-                "ignore errors as the block runs",
+                "ignore errors as the closure runs",
                 Some('i'),
             )
             .switch(
                 "ignore-shell-errors",
-                "ignore shell errors as the block runs",
+                "ignore shell errors as the closure runs",
                 Some('s'),
             )
             .switch(
                 "ignore-program-errors",
-                "ignore program errors as the block runs",
+                "ignore external program errors as the closure runs",
                 Some('p'),
             )
             .switch(
                 "capture-errors",
-                "capture errors as the block runs and return it",
+                "catch errors as the closure runs, and return them",
                 Some('c'),
             )
-            .rest("rest", SyntaxShape::Any, "the parameter(s) for the block")
+            .rest("rest", SyntaxShape::Any, "the parameter(s) for the closure")
             .category(Category::Core)
     }
 
@@ -179,22 +179,22 @@ impl Command for Do {
     fn examples(&self) -> Vec<Example> {
         vec![
             Example {
-                description: "Run the block",
+                description: "Run the closure",
                 example: r#"do { echo hello }"#,
                 result: Some(Value::test_string("hello")),
             },
             Example {
-                description: "Run the block and ignore both shell and program errors",
+                description: "Run the closure and ignore both shell and external program errors",
                 example: r#"do -i { thisisnotarealcommand }"#,
                 result: None,
             },
             Example {
-                description: "Run the block and ignore shell errors",
+                description: "Run the closure and ignore shell errors",
                 example: r#"do -s { thisisnotarealcommand }"#,
                 result: None,
             },
             Example {
-                description: "Run the block and ignore program errors",
+                description: "Run the closure and ignore external program errors",
                 example: r#"do -p { nu -c 'exit 1' }; echo "I'll still run""#,
                 result: None,
             },
@@ -204,12 +204,12 @@ impl Command for Do {
                 result: None,
             },
             Example {
-                description: "Run the block, with a positional parameter",
+                description: "Run the closure, with a positional parameter",
                 example: r#"do {|x| 100 + $x } 77"#,
                 result: Some(Value::test_int(177)),
             },
             Example {
-                description: "Run the block, with input",
+                description: "Run the closure, with input",
                 example: r#"77 | do {|x| 100 + $in }"#,
                 result: None, // TODO: returns 177
             },
