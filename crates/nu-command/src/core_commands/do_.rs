@@ -184,6 +184,11 @@ impl Command for Do {
                 result: Some(Value::test_string("hello")),
             },
             Example {
+                description: "Run a stored first-class closure",
+                example: r#"let text = "I am enclosed"; let hello = {|| echo $text}; do $hello"#,
+                result: Some(Value::test_string("I am enclosed")),
+            },
+            Example {
                 description: "Run the closure and ignore both shell and external program errors",
                 example: r#"do -i { thisisnotarealcommand }"#,
                 result: None,
