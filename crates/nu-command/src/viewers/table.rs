@@ -1616,7 +1616,11 @@ impl Iterator for PagingTableCreator {
         self.row_offset += idx;
 
         match table {
-            Ok(Some(table)) => Some(Ok(table.as_bytes().to_vec())),
+            Ok(Some(table)) => {
+                let mut bytes = table.as_bytes().to_vec();
+                bytes.push(b'\n'); // tabled tables don't come with a newline on the end
+                Some(Ok(bytes))
+            }
             Err(err) => Some(Err(err)),
             _ => None,
         }
