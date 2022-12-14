@@ -36,13 +36,13 @@ impl Command for Reduce {
             )
             .switch(
                 "numbered",
-                "iterate with an index (deprecated; use a 3-parameter block instead)",
+                "iterate with an index (deprecated; use a 3-parameter closure instead)",
                 Some('n'),
             )
     }
 
     fn usage(&self) -> &str {
-        "Aggregate a list to a single value using an accumulator block."
+        "Aggregate a list to a single value using an accumulator closure."
     }
 
     fn search_terms(&self) -> Vec<&str> {
