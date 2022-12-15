@@ -2,10 +2,10 @@ use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
     Category, Example, HistoryFileFormat, IntoInterruptiblePipelineData, PipelineData, ShellError,
-    Signature, Value,
+    Signature, Span, Value,
 };
 use reedline::{
-    FileBackedHistory, History as ReedlineHistory, SearchDirection, SearchQuery,
+    FileBackedHistory, History as ReedlineHistory, HistoryItem, SearchDirection, SearchQuery,
     SqliteBackedHistory,
 };
 
@@ -24,6 +24,7 @@ impl Command for History {
     fn signature(&self) -> nu_protocol::Signature {
         Signature::build("history")
             .switch("clear", "Clears out the history entries", Some('c'))
+            .switch("long", "Show long listing of history entries", Some('l'))
             .category(Category::Misc)
     }
 
@@ -35,9 +36,11 @@ impl Command for History {
         _input: PipelineData,
     ) -> Result<nu_protocol::PipelineData, nu_protocol::ShellError> {
         let head = call.head;
+
         // todo for sqlite history this command should be an alias to `open ~/.config/nushell/history.sqlite3 | get history`
         if let Some(config_path) = nu_path::config_dir() {
             let clear = call.has_flag("clear");
+            let long = call.has_flag("long");
             let ctrlc = engine_state.ctrlc.clone();
 
             let mut history_path = config_path;
@@ -106,85 +109,9 @@ impl Command for History {
                                 .ok()
                         })
                         .map(move |entries| {
-                            entries
-                                .into_iter()
-                                .enumerate()
-                                .map(move |(idx, entry)| Value::Record {
-                                    cols: vec![
-                                        "item_id".into(),
-                                        "start_timestamp".into(),
-                                        "command".to_string(),
-                                        "session_id".into(),
-                                        "hostname".into(),
-                                        "cwd".into(),
-                                        "duration".into(),
-                                        "exit_status".into(),
-                                        "index".to_string(),
-                                    ],
-                                    vals: vec![
-                                        Value::Int {
-                                            val: match entry.id {
-                                                Some(id) => {
-                                                    let ids = id.to_string();
-                                                    match ids.parse::<i64>() {
-                                                        Ok(i) => i,
-                                                        _ => 0i64,
-                                                    }
-                                                }
-                                                None => 0i64,
-                                            },
-                                            span: head,
-                                        },
-                                        Value::String {
-                                            val: match entry.start_timestamp {
-                                                Some(time) => time.to_string(),
-                                                None => "".into(),
-                                            },
-                                            span: head,
-                                        },
-                                        Value::String {
-                                            val: entry.command_line,
-                                            span: head,
-                                        },
-                                        Value::Int {
-                                            val: match entry.session_id {
-                                                Some(sid) => {
-                                                    let sids = sid.to_string();
-                                                    match sids.parse::<i64>() {
-                                                        Ok(i) => i,
-                                                        _ => 0i64,
-                                                    }
-                                                }
-                                                None => 0i64,
-                                            },
-                                            span: head,
-                                        },
-                                        Value::String {
-                                            val: match entry.hostname {
-                                                Some(host) => host,
-                                                None => "".into(),
-                                            },
-                                            span: head,
-                                        },
-                                        Value::String {
-                                            val: match entry.cwd {
-                                                Some(cwd) => cwd,
-                                                None => "".into(),
-                                            },
-                                            span: head,
-                                        },
-                                        Value::Duration {
-                                            val: match entry.duration {
-                                                Some(d) => d.as_nanos().try_into().unwrap_or(0),
-                                                None => 0,
-                                            },
-                                            span: head,
-                                        },
-                                        Value::int(entry.exit_status.unwrap_or(0), head),
-                                        Value::int(idx as i64, head),
-                                    ],
-                                    span: head,
-                                })
+                            entries.into_iter().enumerate().map(move |(idx, entry)| {
+                                create_history_record(idx, entry, long, head)
+                            })
                         })
                         .ok_or(ShellError::FileNotFound(head))?
                         .into_pipeline_data(ctrlc)),
@@ -213,5 +140,116 @@ impl Command for History {
                 result: None,
             },
         ]
+    }
+}
+
+fn create_history_record(idx: usize, entry: HistoryItem, long: bool, head: Span) -> Value {
+    //1. Format all the values
+    //2. Create a record of either short or long columns and values
+
+    let item_id_value = Value::Int {
+        val: match entry.id {
+            Some(id) => {
+                let ids = id.to_string();
+                match ids.parse::<i64>() {
+                    Ok(i) => i,
+                    _ => 0i64,
+                }
+            }
+            None => 0i64,
+        },
+        span: head,
+    };
+    let start_timestamp_value = Value::String {
+        val: match entry.start_timestamp {
+            Some(time) => time.to_string(),
+            None => "".into(),
+        },
+        span: head,
+    };
+    let command_value = Value::String {
+        val: entry.command_line,
+        span: head,
+    };
+    let session_id_value = Value::Int {
+        val: match entry.session_id {
+            Some(sid) => {
+                let sids = sid.to_string();
+                match sids.parse::<i64>() {
+                    Ok(i) => i,
+                    _ => 0i64,
+                }
+            }
+            None => 0i64,
+        },
+        span: head,
+    };
+    let hostname_value = Value::String {
+        val: match entry.hostname {
+            Some(host) => host,
+            None => "".into(),
+        },
+        span: head,
+    };
+    let cwd_value = Value::String {
+        val: match entry.cwd {
+            Some(cwd) => cwd,
+            None => "".into(),
+        },
+        span: head,
+    };
+    let duration_value = Value::Duration {
+        val: match entry.duration {
+            Some(d) => d.as_nanos().try_into().unwrap_or(0),
+            None => 0,
+        },
+        span: head,
+    };
+    let exit_status_value = Value::int(entry.exit_status.unwrap_or(0), head);
+    let index_value = Value::int(idx as i64, head);
+    if long {
+        Value::Record {
+            cols: vec![
+                "item_id".into(),
+                "start_timestamp".into(),
+                "command".to_string(),
+                "session_id".into(),
+                "hostname".into(),
+                "cwd".into(),
+                "duration".into(),
+                "exit_status".into(),
+                "idx".to_string(),
+            ],
+            vals: vec![
+                item_id_value,
+                start_timestamp_value,
+                command_value,
+                session_id_value,
+                hostname_value,
+                cwd_value,
+                duration_value,
+                exit_status_value,
+                index_value,
+            ],
+            span: head,
+        }
+    } else {
+        Value::Record {
+            cols: vec![
+                "start_timestamp".into(),
+                "command".to_string(),
+                "cwd".into(),
+                "duration".into(),
+                "exit_status".into(),
+            ],
+            vals: vec![
+                start_timestamp_value,
+                command_value,
+                cwd_value,
+                duration_value,
+                exit_status_value,
+            ],
+            span: head,
+        }
     }
 }
