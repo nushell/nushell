@@ -793,8 +793,9 @@ fn theme_from_config(config: &ConfigMap) -> TableTheme {
     theme.table.header_bottom = config_get_bool(config, "line_head_bottom", true);
     theme.table.shift_line = config_get_bool(config, "line_shift", true);
     theme.table.index_line = config_get_bool(config, "line_index", true);
+
     theme.table.show_header = config_get_bool(config, "show_head", true);
-    theme.table.show_index = config_get_bool(config, "show_index", true);
+    theme.table.show_index = config_get_bool(config, "show_index", false);
 
     theme.table.padding_index_left = config_get_usize(config, "padding_index_left", 2);
     theme.table.padding_index_right = config_get_usize(config, "padding_index_right", 1);
