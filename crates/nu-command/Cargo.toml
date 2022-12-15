@@ -29,6 +29,7 @@ num-format = { version = "0.4.3" }
 
 # Potential dependencies for extras
 alphanumeric-sort = "1.4.4"
+atty = "0.2.14"
 base64 = "0.13.0"
 byteorder = "1.4.3"
 bytesize = "1.1.0"
