@@ -24,7 +24,11 @@ impl Command for History {
     fn signature(&self) -> nu_protocol::Signature {
         Signature::build("history")
             .switch("clear", "Clears out the history entries", Some('c'))
-            .switch("long", "Show long listing of history entries", Some('l'))
+            .switch(
+                "long",
+                "Show long listing of entries for sqlite history",
+                Some('l'),
+            )
             .category(Category::Misc)
     }
 
