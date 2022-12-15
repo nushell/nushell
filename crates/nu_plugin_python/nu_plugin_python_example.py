@@ -71,6 +71,7 @@ def signatures():
                     "shape": "String",
                     "var_id": None,
                 },
+                "vectorizes_over_list": False,
                 "named": [
                     {
                         "long": "help",
@@ -97,6 +98,8 @@ def signatures():
                         "var_id": None,
                     },
                 ],
+                "input_output_types": [["Any", "Any"]],
+                "allow_variants_without_examples": True,
                 "search_terms": ["Python", "Example"],
                 "is_filter": False,
                 "creates_scope": False,
