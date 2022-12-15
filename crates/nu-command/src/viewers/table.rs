@@ -299,11 +299,6 @@ fn handle_table_command(
 
             let result = strip_output_color(result, config);
 
-            let ctrl_c_was_triggered = || match &ctrlc {
-                Some(ctrlc) => ctrlc.load(Ordering::SeqCst),
-                None => false,
-            };
-
             let result = result.unwrap_or_else(|| {
                 if nu_utils::ctrl_c::was_pressed(&ctrlc) {
                     "".into()
