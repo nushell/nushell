@@ -138,7 +138,7 @@ macro_rules! nu {
         let test_bins = $crate::fs::binaries();
 
         let cwd = std::env::current_dir().expect("Could not get current working directory.");
-        let test_bins = nu_path::canonicalize_with(&test_bins, cwd).unwrap_or_else(|e| {
+        let test_bins = $crate::nu_path::canonicalize_with(&test_bins, cwd).unwrap_or_else(|e| {
             panic!(
                 "Couldn't canonicalize dummy binaries path {}: {:?}",
                 test_bins.display(),

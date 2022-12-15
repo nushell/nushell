@@ -203,10 +203,8 @@ impl Iterator for RangeIterator {
             return None;
         }
 
-        if let Some(ctrlc) = &self.ctrlc {
-            if ctrlc.load(core::sync::atomic::Ordering::SeqCst) {
-                return None;
-            }
+        if nu_utils::ctrl_c::was_pressed(&self.ctrlc) {
+            return None;
         }
 
         let ordering = if matches!(self.end, Value::Nothing { .. }) {

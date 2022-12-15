@@ -1,5 +1,3 @@
-use std::sync::atomic::Ordering;
-
 use nu_engine::{eval_block, CallExt};
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Block, Command, EngineState, Stack};
@@ -44,10 +42,8 @@ impl Command for Loop {
         let block: Block = call.req(engine_state, stack, 0)?;
 
         loop {
-            if let Some(ctrlc) = &engine_state.ctrlc {
-                if ctrlc.load(Ordering::SeqCst) {
-                    break;
-                }
+            if nu_utils::ctrl_c::was_pressed(&engine_state.ctrlc) {
+                break;
             }
 
             let block = engine_state.get_block(block.block_id);

@@ -13,7 +13,7 @@ use std::collections::HashMap;
 use std::io::{BufRead, BufReader, Read, Write};
 use std::path::{Path, PathBuf};
 use std::process::{Command as CommandSys, Stdio};
-use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::atomic::AtomicBool;
 use std::sync::mpsc::{self, SyncSender};
 use std::sync::Arc;
 
@@ -745,10 +745,8 @@ fn read_and_redirect_message<R>(
         let length = bytes.len();
         buf_read.consume(length);
 
-        if let Some(ctrlc) = &ctrlc {
-            if ctrlc.load(Ordering::SeqCst) {
-                break;
-            }
+        if nu_utils::ctrl_c::was_pressed(&ctrlc) {
+            break;
         }
 
         match sender.send(bytes) {
