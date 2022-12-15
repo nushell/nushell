@@ -27,6 +27,7 @@ jobs:
         - x86_64-unknown-linux-musl
         - aarch64-unknown-linux-gnu
         - armv7-unknown-linux-gnueabihf
+        - riscv64gc-unknown-linux-gnu
         extra: ['bin']
         include:
         - target: aarch64-apple-darwin
@@ -55,6 +56,9 @@ jobs:
         - target: armv7-unknown-linux-gnueabihf
           os: ubuntu-20.04
           target_rustflags: ''
+        - target: riscv64gc-unknown-linux-gnu
+          os: ubuntu-20.04
+          target_rustflags: ''
 
     runs-on: ${{matrix.os}}
 
@@ -71,7 +75,7 @@ jobs:
     - name: Setup Nushell
       uses: hustcer/setup-nu@v3
       with:
-        version: 0.71.0
+        version: 0.72.1
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 

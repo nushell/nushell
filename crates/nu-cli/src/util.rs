@@ -250,7 +250,7 @@ pub fn eval_source(
                     }
                 }
             } else {
-                result = pipeline_data.print(engine_state, stack, false, false);
+                result = pipeline_data.print(engine_state, stack, true, false);
             }
 
             match result {

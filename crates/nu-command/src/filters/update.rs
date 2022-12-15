@@ -25,7 +25,7 @@ impl Command for Update {
             .required(
                 "replacement value",
                 SyntaxShape::Any,
-                "the new value to give the cell(s), or a block to create the value",
+                "the new value to give the cell(s), or a closure to create the value",
             )
             .category(Category::Filters)
     }
@@ -56,7 +56,7 @@ impl Command for Update {
                 }),
             },
             Example {
-                description: "Use in block form for more involved updating logic",
+                description: "Use in closure form for more involved updating logic",
                 example: "[[count fruit]; [1 'apple']] | update count {|row index| ($row.fruit | str length) + $index }",
                 result: Some(Value::List {
                     vals: vec![Value::Record {

@@ -474,6 +474,91 @@ impl PipelineData {
         }
     }
 
+    /// Try to catch external stream exit status and detect if it runs to failed.
+    ///
+    /// This is useful to commands with semicolon, we can detect errors early to avoid
+    /// commands after semicolon running.
+    ///
+    /// Returns self and a flag indicates if the external stream runs to failed.
+    /// If `self` is not Pipeline::ExternalStream, the flag will be false.
+    pub fn is_external_failed(self) -> (Self, bool) {
+        let mut failed_to_run = false;
+        // Only need ExternalStream without redirecting output.
+        // It indicates we have no more commands to execute currently.
+        if let PipelineData::ExternalStream {
+            stdout: None,
+            stderr,
+            mut exit_code,
+            span,
+            metadata,
+            trim_end_newline,
+        } = self
+        {
+            let exit_code = exit_code.take();
+
+            // Note:
+            // In run-external's implementation detail, the result sender thread
+            // send out stderr message first, then stdout message, then exit_code.
+            //
+            // In this clause, we already make sure that `stdout` is None
+            // But not the case of `stderr`, so if `stderr` is not None
+            // We need to consume stderr message before reading external commands' exit code.
+            //
+            // Or we'll never have a chance to read exit_code if stderr producer produce too much stderr message.
+            // So we consume stderr stream and rebuild it.
+            let stderr = stderr.map(|stderr_stream| {
+                let stderr_ctrlc = stderr_stream.ctrlc.clone();
+                let stderr_span = stderr_stream.span;
+                let stderr_bytes = match stderr_stream.into_bytes() {
+                    Err(_) => vec![],
+                    Ok(bytes) => bytes.item,
+                };
+                RawStream::new(
+                    Box::new(vec![Ok(stderr_bytes)].into_iter()),
+                    stderr_ctrlc,
+                    stderr_span,
+                )
+            });
+
+            match exit_code {
+                Some(exit_code_stream) => {
+                    let ctrlc = exit_code_stream.ctrlc.clone();
+                    let exit_code: Vec<Value> = exit_code_stream.into_iter().collect();
+                    if let Some(Value::Int { val: code, .. }) = exit_code.last() {
+                        // if exit_code is not 0, it indicates error occured, return back Err.
+                        if *code != 0 {
+                            failed_to_run = true;
+                        }
+                    }
+                    (
+                        PipelineData::ExternalStream {
+                            stdout: None,
+                            stderr,
+                            exit_code: Some(ListStream::from_stream(exit_code.into_iter(), ctrlc)),
+                            span,
+                            metadata,
+                            trim_end_newline,
+                        },
+                        failed_to_run,
+                    )
+                }
+                None => (
+                    PipelineData::ExternalStream {
+                        stdout: None,
+                        stderr,
+                        exit_code: None,
+                        span,
+                        metadata,
+                        trim_end_newline,
+                    },
+                    failed_to_run,
+                ),
+            }
+        } else {
+            (self, false)
+        }
+    }
+
     /// Consume and print self data immediately.
     ///
     /// `no_newline` controls if we need to attach newline character to output.

@@ -1,9 +1,7 @@
 use nu_engine::{eval_block, CallExt};
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Block, Closure, Command, EngineState, Stack};
-use nu_protocol::{
-    Category, Example, ListStream, PipelineData, Signature, SyntaxShape, Type, Value,
-};
+use nu_protocol::{Category, Example, PipelineData, Signature, SyntaxShape, Type, Value};
 
 #[derive(Clone)]
 pub struct Try;
@@ -80,30 +78,9 @@ impl Command for Try {
                 }
             }
             // external command may fail to run
-            Ok(PipelineData::ExternalStream {
-                stdout: None,
-                stderr,
-                mut exit_code,
-                span,
-                metadata,
-                trim_end_newline,
-            }) => {
-                let exit_code = exit_code.take();
-                let mut failed_to_run = false;
-                let mut exit_code_stream = None;
-                if let Some(stream) = exit_code {
-                    let ctrlc = stream.ctrlc.clone();
-                    let exit_code: Vec<Value> = stream.into_iter().collect();
-                    if let Some(Value::Int { val: code, .. }) = exit_code.last() {
-                        // if exit_code is not 0, it indicates error occured, return back Err.
-                        if *code != 0 {
-                            failed_to_run = true;
-                        }
-                    }
-                    exit_code_stream = Some(ListStream::from_stream(exit_code.into_iter(), ctrlc));
-                }
-
-                if failed_to_run {
+            Ok(pipeline) => {
+                let (pipeline, external_failed) = pipeline.is_external_failed();
+                if external_failed {
                     if let Some(catch_block) = catch_block {
                         let catch_block = engine_state.get_block(catch_block.block_id);
 
@@ -126,17 +103,9 @@ impl Command for Try {
                         Ok(PipelineData::empty())
                     }
                 } else {
-                    Ok(PipelineData::ExternalStream {
-                        stdout: None,
-                        stderr,
-                        exit_code: exit_code_stream,
-                        span,
-                        metadata,
-                        trim_end_newline,
-                    })
+                    Ok(pipeline)
                 }
             }
-            Ok(output) => Ok(output),
         }
     }
 

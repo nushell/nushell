@@ -432,6 +432,7 @@ fn parse_long_flag(
                         sig.name.clone(),
                         long_name.clone(),
                         arg_span,
+                        sig.clone().formatted_flags(),
                     )),
                 )
             }
@@ -497,6 +498,7 @@ fn parse_short_flags(
                                 sig.name.clone(),
                                 format!("-{}", String::from_utf8_lossy(contents)),
                                 *first,
+                                sig.clone().formatted_flags(),
                             ))
                         });
                     }
@@ -507,6 +509,7 @@ fn parse_short_flags(
                             sig.name.clone(),
                             format!("-{}", String::from_utf8_lossy(contents)),
                             *first,
+                            sig.clone().formatted_flags(),
                         ))
                     });
                 }
@@ -517,6 +520,7 @@ fn parse_short_flags(
                         sig.name.clone(),
                         format!("-{}", String::from_utf8_lossy(contents)),
                         *first,
+                        sig.clone().formatted_flags(),
                     ))
                 });
             }
@@ -528,6 +532,7 @@ fn parse_short_flags(
                         sig.name.clone(),
                         format!("-{}", String::from_utf8_lossy(contents)),
                         *first,
+                        sig.clone().formatted_flags(),
                     ))
                 });
             }
@@ -1634,42 +1639,52 @@ pub fn parse_string_interpolation(
     let mut token_start = start;
     let mut delimiter_stack = vec![];
 
+    let mut consecutive_backslashes: usize = 0;
+
     let mut b = start;
 
     while b != end {
-        if contents[b - start] == b'('
-            && (if double_quote && (b - start) > 0 {
-                contents[b - start - 1] != b'\\'
+        let current_byte = contents[b - start];
+
+        if mode == InterpolationMode::String {
+            let preceding_consecutive_backslashes = consecutive_backslashes;
+
+            let is_backslash = current_byte == b'\\';
+            consecutive_backslashes = if is_backslash {
+                preceding_consecutive_backslashes + 1
             } else {
-                true
-            })
-            && mode == InterpolationMode::String
-        {
-            mode = InterpolationMode::Expression;
-            if token_start < b {
-                let span = Span::new(token_start, b);
-                let str_contents = working_set.get_span_contents(span);
+                0
+            };
 
-                let str_contents = if double_quote {
-                    let (str_contents, err) = unescape_string(str_contents, span);
-                    error = error.or(err);
+            if current_byte == b'(' && (!double_quote || preceding_consecutive_backslashes % 2 == 0)
+            {
+                mode = InterpolationMode::Expression;
+                if token_start < b {
+                    let span = Span::new(token_start, b);
+                    let str_contents = working_set.get_span_contents(span);
 
-                    str_contents
-                } else {
-                    str_contents.to_vec()
-                };
+                    let str_contents = if double_quote {
+                        let (str_contents, err) = unescape_string(str_contents, span);
+                        error = error.or(err);
 
-                output.push(Expression {
-                    expr: Expr::String(String::from_utf8_lossy(&str_contents).to_string()),
-                    span,
-                    ty: Type::String,
-                    custom_completion: None,
-                });
-                token_start = b;
+                        str_contents
+                    } else {
+                        str_contents.to_vec()
+                    };
+
+                    output.push(Expression {
+                        expr: Expr::String(String::from_utf8_lossy(&str_contents).to_string()),
+                        span,
+                        ty: Type::String,
+                        custom_completion: None,
+                    });
+                    token_start = b;
+                }
             }
         }
+
         if mode == InterpolationMode::Expression {
-            let byte = contents[b - start];
+            let byte = current_byte;
             if let Some(b'\'') = delimiter_stack.last() {
                 if byte == b'\'' {
                     delimiter_stack.pop();
@@ -2723,28 +2738,36 @@ pub fn parse_shape_name(
         b"any" => SyntaxShape::Any,
         b"binary" => SyntaxShape::Binary,
         b"block" => SyntaxShape::Block, //FIXME: Blocks should have known output types
-        b"closure" => SyntaxShape::Closure(None), //FIXME: Blocks should have known output types
+        b"bool" => SyntaxShape::Boolean,
         b"cell-path" => SyntaxShape::CellPath,
-        b"duration" => SyntaxShape::Duration,
-        b"path" => SyntaxShape::Filepath,
+        b"closure" => SyntaxShape::Closure(None), //FIXME: Blocks should have known output types
+        b"cond" => SyntaxShape::RowCondition,
+        // b"custom" => SyntaxShape::Custom(Box::new(SyntaxShape::Any), SyntaxShape::Int),
+        b"datetime" => SyntaxShape::DateTime,
         b"directory" => SyntaxShape::Directory,
+        b"duration" => SyntaxShape::Duration,
+        b"error" => SyntaxShape::Error,
         b"expr" => SyntaxShape::Expression,
         b"filesize" => SyntaxShape::Filesize,
+        b"full-cell-path" => SyntaxShape::FullCellPath,
         b"glob" => SyntaxShape::GlobPattern,
         b"int" => SyntaxShape::Int,
+        b"import-pattern" => SyntaxShape::ImportPattern,
+        b"keyword" => SyntaxShape::Keyword(vec![], Box::new(SyntaxShape::Any)),
+        b"list" => SyntaxShape::List(Box::new(SyntaxShape::Any)),
         b"math" => SyntaxShape::MathExpression,
+        b"nothing" => SyntaxShape::Nothing,
         b"number" => SyntaxShape::Number,
+        b"one-of" => SyntaxShape::OneOf(vec![]),
         b"operator" => SyntaxShape::Operator,
+        b"path" => SyntaxShape::Filepath,
         b"range" => SyntaxShape::Range,
-        b"cond" => SyntaxShape::RowCondition,
-        b"bool" => SyntaxShape::Boolean,
+        b"record" => SyntaxShape::Record,
         b"signature" => SyntaxShape::Signature,
         b"string" => SyntaxShape::String,
-        b"variable" => SyntaxShape::Variable,
-        b"record" => SyntaxShape::Record,
-        b"list" => SyntaxShape::List(Box::new(SyntaxShape::Any)),
         b"table" => SyntaxShape::Table,
-        b"error" => SyntaxShape::Error,
+        b"variable" => SyntaxShape::Variable,
+        b"var-with-opt-type" => SyntaxShape::VarWithOptType,
         _ => {
             if bytes.contains(&b'@') {
                 let str = String::from_utf8_lossy(bytes);
@@ -2780,19 +2803,23 @@ pub fn parse_shape_name(
 
 pub fn parse_type(_working_set: &StateWorkingSet, bytes: &[u8]) -> Type {
     match bytes {
-        b"int" => Type::Int,
-        b"float" => Type::Float,
-        b"range" => Type::Range,
-        b"bool" => Type::Bool,
-        b"string" => Type::String,
-        b"block" => Type::Block,
-        b"duration" => Type::Duration,
-        b"date" => Type::Date,
-        b"filesize" => Type::Filesize,
-        b"number" => Type::Number,
-        b"table" => Type::Table(vec![]), //FIXME
-        b"error" => Type::Error,
         b"binary" => Type::Binary,
+        b"block" => Type::Block,
+        b"bool" => Type::Bool,
+        b"cellpath" => Type::CellPath,
+        b"closure" => Type::Closure,
+        b"date" => Type::Date,
+        b"duration" => Type::Duration,
+        b"error" => Type::Error,
+        b"filesize" => Type::Filesize,
+        b"float" => Type::Float,
+        b"int" => Type::Int,
+        b"list" => Type::List(Box::new(Type::Any)),
+        b"number" => Type::Number,
+        b"range" => Type::Range,
+        b"record" => Type::Record(vec![]),
+        b"string" => Type::String,
+        b"table" => Type::Table(vec![]), //FIXME
 
         _ => Type::Any,
     }
