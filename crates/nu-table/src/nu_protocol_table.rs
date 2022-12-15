@@ -1,9 +1,12 @@
 use std::collections::HashMap;
 
 use nu_protocol::{Config, Span, Value};
-use tabled::{color::Color, papergrid::records::Records, Table};
+use tabled::{
+    color::Color, formatting::AlignmentStrategy, object::Segment, papergrid::records::Records,
+    Alignment, Modify, Table,
+};
 
-use crate::{table::TrimStrategyModifier, TableTheme};
+use crate::{table::TrimStrategyModifier, Alignments, TableTheme};
 
 /// NuTable has a recursive table representation of nu_prorocol::Value.
 ///
@@ -215,4 +218,10 @@ fn load_theme<R>(
             table.with(color);
         }
     }
+
+    table.with(
+        Modify::new(Segment::all())
+            .with(Alignment::Horizontal(Alignments::default().data))
+            .with(AlignmentStrategy::PerLine),
+    );
 }

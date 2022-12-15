@@ -1889,9 +1889,9 @@ dependencies = [
 
 [[package]]
 name = "json_to_table"
-version = "0.2.0"
+version = "0.3.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "408f09e42613f7a9902ecf2f30bcd053cf9f5668d0b1493ae1669070338d661b"
+checksum = "a0be33515faeb3773f550c80fd7a889148164e58f7e3cf36467718c8ce71ee55"
 dependencies = [
  "serde_json",
  "tabled",
@@ -2576,6 +2576,7 @@ version = "0.72.2"
 dependencies = [
  "Inflector",
  "alphanumeric-sort",
+ "atty",
  "base64",
  "byteorder",
  "bytesize",
@@ -2812,7 +2813,6 @@ dependencies = [
 name = "nu-table"
 version = "0.72.2"
 dependencies = [
- "atty",
  "json_to_table",
  "nu-ansi-term",
  "nu-protocol",

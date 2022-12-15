@@ -185,6 +185,18 @@ pub enum TrimStrategy {
     },
 }
 
+impl TrimStrategy {
+    pub fn wrap(dont_split_words: bool) -> Self {
+        Self::Wrap {
+            try_to_keep_words: dont_split_words,
+        }
+    }
+
+    pub fn truncate(suffix: Option<String>) -> Self {
+        Self::Truncate { suffix }
+    }
+}
+
 impl Value {
     pub fn into_config(&mut self, config: &Config) -> (Config, Option<ShellError>) {
         // Clone the passed-in config rather than mutating it.
