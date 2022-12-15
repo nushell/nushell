@@ -1526,8 +1526,8 @@ impl PagingTableCreator {
             &self.config,
             &color_hm,
             table.count_rows(),
-            with_index,
             with_header,
+            with_index,
             false,
         );
 
