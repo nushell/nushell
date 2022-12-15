@@ -1,4 +1,3 @@
-use crate::input_handler::ctrl_c_was_pressed;
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
@@ -231,7 +230,7 @@ pub fn uniq(
     let mut uniq_values = input
         .into_iter()
         .map_while(|item| {
-            if ctrl_c_was_pressed(&ctrlc) {
+            if nu_utils::ctrl_c::was_pressed(&ctrlc) {
                 return None;
             }
             Some(item_mapper(ItemMapperState {

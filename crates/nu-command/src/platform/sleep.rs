@@ -6,7 +6,6 @@ use nu_protocol::{
     Type, Value,
 };
 use std::{
-    sync::atomic::Ordering,
     thread,
     time::{Duration, Instant},
 };
@@ -62,10 +61,8 @@ impl Command for Sleep {
                 break;
             }
 
-            if let Some(ctrlc) = ctrlc_ref {
-                if ctrlc.load(Ordering::SeqCst) {
-                    break;
-                }
+            if nu_utils::ctrl_c::was_pressed(ctrlc_ref) {
+                break;
             }
         }
 

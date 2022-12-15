@@ -10,10 +10,7 @@ use std::{
     fs::File,
     io::Read,
     path::{Path, PathBuf},
-    sync::{
-        atomic::{AtomicBool, Ordering},
-        Arc,
-    },
+    sync::{atomic::AtomicBool, Arc},
 };
 
 const SQLITE_MAGIC_BYTES: &[u8] = "SQLite format 3\0".as_bytes();
@@ -399,14 +396,12 @@ fn prepared_statement_to_nu_list(
     let mut row_values = vec![];
 
     for row_result in row_results {
-        if let Some(ctrlc) = &ctrlc {
-            if ctrlc.load(Ordering::SeqCst) {
-                // return whatever we have so far, let the caller decide whether to use it
-                return Ok(Value::List {
-                    vals: row_values,
-                    span: call_span,
-                });
-            }
+        if nu_utils::ctrl_c::was_pressed(&ctrlc) {
+            // return whatever we have so far, let the caller decide whether to use it
+            return Ok(Value::List {
+                vals: row_values,
+                span: call_span,
+            });
         }
 
         if let Ok(row_value) = row_result {

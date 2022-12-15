@@ -12,12 +12,7 @@ use nu_table::{string_width, Alignment, Table as NuTable, TableConfig, TableThem
 use nu_utils::get_ls_colors;
 use std::sync::Arc;
 use std::time::Instant;
-use std::{
-    cmp::max,
-    collections::HashMap,
-    path::PathBuf,
-    sync::atomic::{AtomicBool, Ordering},
-};
+use std::{cmp::max, collections::HashMap, path::PathBuf, sync::atomic::AtomicBool};
 use terminal_size::{Height, Width};
 use url::Url;
 
@@ -310,7 +305,7 @@ fn handle_table_command(
             };
 
             let result = result.unwrap_or_else(|| {
-                if ctrl_c_was_triggered() {
+                if nu_utils::ctrl_c::was_pressed(&ctrlc) {
                     "".into()
                 } else {
                     // assume this failed because the table was too wide
@@ -397,11 +392,8 @@ fn build_general_table2(
 ) -> Result<Option<String>, ShellError> {
     let mut data = Vec::with_capacity(vals.len());
     for (column, value) in cols.into_iter().zip(vals.into_iter()) {
-        // handle CTRLC event
-        if let Some(ctrlc) = &ctrlc {
-            if ctrlc.load(Ordering::SeqCst) {
-                return Ok(None);
-            }
+        if nu_utils::ctrl_c::was_pressed(&ctrlc) {
+            return Ok(None);
         }
 
         let row = vec![
@@ -460,11 +452,8 @@ fn build_expanded_table(
 
     let mut data = Vec::with_capacity(cols.len());
     for (key, value) in cols.into_iter().zip(vals) {
-        // handle CTRLC event
-        if let Some(ctrlc) = &ctrlc {
-            if ctrlc.load(Ordering::SeqCst) {
-                return Ok(None);
-            }
+        if nu_utils::ctrl_c::was_pressed(&ctrlc) {
+            return Ok(None);
         }
 
         let is_limited = matches!(expand_limit, Some(0));
@@ -810,10 +799,8 @@ fn convert_to_table(
     };
 
     for (row_num, item) in input.enumerate() {
-        if let Some(ctrlc) = &ctrlc {
-            if ctrlc.load(Ordering::SeqCst) {
-                return Ok(None);
-            }
+        if nu_utils::ctrl_c::was_pressed(&ctrlc) {
+            return Ok(None);
         }
 
         if let Value::Error { error } = item {
@@ -925,10 +912,8 @@ fn convert_to_table2<'a>(
         }
 
         for (row, item) in input.clone().into_iter().enumerate() {
-            if let Some(ctrlc) = &ctrlc {
-                if ctrlc.load(Ordering::SeqCst) {
-                    return Ok(None);
-                }
+            if nu_utils::ctrl_c::was_pressed(&ctrlc) {
+                return Ok(None);
             }
 
             if let Value::Error { error } = item {
@@ -960,10 +945,8 @@ fn convert_to_table2<'a>(
 
     if !with_header {
         for (row, item) in input.into_iter().enumerate() {
-            if let Some(ctrlc) = &ctrlc {
-                if ctrlc.load(Ordering::SeqCst) {
-                    return Ok(None);
-                }
+            if nu_utils::ctrl_c::was_pressed(&ctrlc) {
+                return Ok(None);
             }
 
             if let Value::Error { error } = item {
@@ -1019,10 +1002,8 @@ fn convert_to_table2<'a>(
         data[0].push(NuTable::create_cell(&header, header_style(color_hm)));
 
         for (row, item) in input.clone().into_iter().enumerate() {
-            if let Some(ctrlc) = &ctrlc {
-                if ctrlc.load(Ordering::SeqCst) {
-                    return Ok(None);
-                }
+            if nu_utils::ctrl_c::was_pressed(&ctrlc) {
+                return Ok(None);
             }
 
             if let Value::Error { error } = item {
@@ -1059,10 +1040,8 @@ fn convert_to_table2<'a>(
             column_width = string_width(&header);
 
             for (row, item) in input.clone().into_iter().enumerate() {
-                if let Some(ctrlc) = &ctrlc {
-                    if ctrlc.load(Ordering::SeqCst) {
-                        return Ok(None);
-                    }
+                if nu_utils::ctrl_c::was_pressed(&ctrlc) {
+                    return Ok(None);
                 }
 
                 let value = create_table2_entry_basic(item, &header, head, config, color_hm);
@@ -1086,10 +1065,8 @@ fn convert_to_table2<'a>(
             column_width = string_width(&header);
 
             for (row, item) in input.clone().into_iter().enumerate() {
-                if let Some(ctrlc) = &ctrlc {
-                    if ctrlc.load(Ordering::SeqCst) {
-                        return Ok(None);
-                    }
+                if nu_utils::ctrl_c::was_pressed(&ctrlc) {
+                    return Ok(None);
                 }
 
                 let value = create_table2_entry_basic(item, &header, head, config, color_hm);
@@ -1593,10 +1570,8 @@ impl Iterator for PagingTableCreator {
                 break;
             }
 
-            if let Some(ctrlc) = &self.ctrlc {
-                if ctrlc.load(Ordering::SeqCst) {
-                    break;
-                }
+            if nu_utils::ctrl_c::was_pressed(&self.ctrlc) {
+                break;
             }
         }
 
