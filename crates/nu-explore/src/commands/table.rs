@@ -97,7 +97,6 @@ impl ViewCommand for TableCmd {
             ConfigOption::boolean(":table group", "Lines are lines", "table.line_head_bottom"),
             ConfigOption::boolean(":table group", "Lines are lines", "table.line_shift"),
             ConfigOption::boolean(":table group", "Lines are lines", "table.line_index"),
-            ConfigOption::boolean(":table group", "Lines are lines", "table.line_index"),
 
             ConfigOption::boolean(":table group", "Show cursor", "table.show_cursor"),
 

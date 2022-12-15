@@ -262,6 +262,7 @@ let-env config = {
       truncating_suffix: "..." # A suffix used by the 'truncating' methodology
     }
   }
+
   explore: {
     help_banner: true,
     exit_esc: true,
@@ -318,6 +319,7 @@ let-env config = {
       # list_color: green,
     }
   }
+
   history: {
     max_size: 10000 # Session has to be reloaded for this to take effect
     sync_on_enter: true # Enable to share history between multiple sessions, else you have to close the session to write history to file
