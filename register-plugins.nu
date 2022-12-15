@@ -9,11 +9,19 @@ def register_plugin [plugin] {
     nu -c $'register ($plugin)'
 }
 
+def windows? [] {
+    $nu.os-info.name == windows
+}
+
+def keep-plugin-executables [] {
+    if (windows?) { $in } else { where name !~ '\.d' }
+}
+
 # get list of all plugin files from their installed directory
 let plugin_location = ((which nu).path.0 | path dirname)
 
 # for each plugin file, print the name and launch another instance of nushell to register it
-for plugin in (ls $"($plugin_location)/nu_plugin_*") {
+for plugin in (ls $"($plugin_location)/nu_plugin_*" | keep-plugin-executables) {
     match ($plugin.name | path basename | str replace '\.exe$' '') {
         nu_plugin_custom_values: { register_plugin $plugin.name }
         nu_plugin_example: { register_plugin $plugin.name }
