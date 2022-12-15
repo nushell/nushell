@@ -35,23 +35,23 @@ impl HelpCmd {
    Get out of Explore:  Use ":q<Enter>" (or <Ctrl> + <D>).
 
    Get specific help:   It is possible to go directly to whatewer you want help on,
-                        by giving an argument to the ":help" command.
+                        by adding an argument to the ":help" command.
                         
-                        Currently you can get only help on a different commands.
+                        Currently you can only get help on a few commands.
                         To obtain a list of supported commands run ":help :<Enter>"
 
 ------------------------------------------------------------------------------------
 
 Regular expressions ~
 
-Most commands you can use support regular expressions.
+Most commands support regular expressions.
 
-You can type "/" and type a pattern you wanna search on.
-Then hit <Enter> and you are going to see the search results.
+You can type "/" and type a pattern you want to search on.
+Then hit <Enter> and you will see the search results.
 
-To jump over them use "<n>" key.
+To go to the next hit use "<n>" key.
 
-You also can make a reverse search by using "?" instead of "/".
+You also can do a reverse search by using "?" instead of "/".
 "#;
 
     pub fn new(commands: Vec<HelpManual>, aliases: &[(&str, &str)]) -> Self {
