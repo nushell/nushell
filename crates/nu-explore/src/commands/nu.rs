@@ -41,25 +41,25 @@ impl ViewCommand for NuCmd {
     }
 
     fn help(&self) -> Option<HelpManual> {
+        let examples = vec![
+            HelpExample::new(
+                "where type == 'file'",
+                "Filter data to show only rows whose type is 'file'",
+            ),
+            HelpExample::new(
+                "get scope.examples",
+                "Navigate to a deeper value inside the data",
+            ),
+            HelpExample::new("open Cargo.toml", "Open a Cargo.toml file"),
+        ];
+
         Some(HelpManual {
             name: "nu",
             description:
                 "Run a Nushell command. The data currently being explored is piped into it.",
+            examples,
             arguments: vec![],
             input: vec![],
-
-            examples: vec![
-                HelpExample::new(
-                    "where type == 'file'",
-                    "Filter data to show only rows whose type is 'file'",
-                ),
-                HelpExample::new(
-                    "get scope.examples",
-                    "Navigate to a deeper value inside the data",
-                ),
-                HelpExample::new("open Cargo.toml", "Open a Cargo.toml file"),
-            ],
-
             config_options: vec![],
         })
     }

@@ -46,36 +46,44 @@ impl ViewCommand for ConfigCmd {
     }
 
     fn help(&self) -> Option<HelpManual> {
+        let config_options = vec![
+            ConfigOption::new(
+                ":config options",
+                "A border color of menus",
+                "config.border_color",
+                default_color_list(),
+            ),
+            ConfigOption::new(
+                ":config options",
+                "Set a color of entries in a list",
+                "config.list_color",
+                default_color_list(),
+            ),
+            ConfigOption::new(
+                ":config options",
+                "Set a color of a chosen entry in a list",
+                "config.cursor_color",
+                default_color_list(),
+            ),
+        ];
+
         Some(HelpManual {
-            name: "config",
-            description: "",
+            name: Self::NAME,
+            description:
+                "Interactive configuration manager.\nCan be used to set various explore settings.\n\nIt could be consired an interactive version of :tweak",
+            config_options,
             arguments: vec![],
             examples: vec![],
-            config_options: vec![
-                super::ConfigOption::new(
-                    ".... 1",
-                    ".",
-                    "config.border_color",
-                    default_color_list(),
-                ),
-                super::ConfigOption::new(".... 2", ".", "config.list_color", default_color_list()),
-                super::ConfigOption::new(
-                    ".... 3",
-                    ".",
-                    "config.cursor_color",
-                    default_color_list(),
-                ),
-            ],
             input: vec![],
         })
     }
 
-    fn display_config_option(&mut self, _: String, _: String, _: String) -> bool {
-        false
-    }
-
     fn parse(&mut self, _: &str) -> Result<()> {
         Ok(())
+    }
+
+    fn display_config_option(&mut self, _: String, _: String, _: String) -> bool {
+        false
     }
 
     fn spawn(

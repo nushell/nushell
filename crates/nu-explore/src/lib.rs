@@ -124,20 +124,24 @@ pub fn create_aliases(regestry: &mut CommandRegistry) {
 
 #[rustfmt::skip]
 fn create_config_command(commands: &[Command]) -> ConfigCmd {
+    const GROUP: &str = "Explore configuration";
+
     let mut config = ConfigCmd::from_commands(commands.to_vec());
 
-    config.register_group(ConfigOption::new("Explore configuration", "...", "status.info", default_color_list()));
-    config.register_group(ConfigOption::new("Explore configuration", "...", "status.warn", default_color_list()));
-    config.register_group(ConfigOption::new("Explore configuration", "...", "status.error", default_color_list()));
+    config.register_group(ConfigOption::new(GROUP, "Status bar information color", "status.info", default_color_list()));
+    config.register_group(ConfigOption::new(GROUP, "Status bar warning color", "status.warn", default_color_list()));
+    config.register_group(ConfigOption::new(GROUP, "Status bar error color", "status.error", default_color_list()));
 
-    config.register_group(ConfigOption::new("Explore configuration", "...", "status_bar_text", default_color_list()));
-    config.register_group(ConfigOption::new("Explore configuration", "...", "status_bar_background", default_color_list()));
-    config.register_group(ConfigOption::new("Explore configuration", "...", "command_bar_text", default_color_list()));
-    config.register_group(ConfigOption::new("Explore configuration", "...", "command_bar_background", default_color_list()));
-    config.register_group(ConfigOption::new("Explore configuration", "...", "highlight", default_color_list()));
+    config.register_group(ConfigOption::new(GROUP, "Status bar default text color", "status_bar_text", default_color_list()));
+    config.register_group(ConfigOption::new(GROUP, "Status bar background", "status_bar_background", default_color_list()));
 
-    config.register_group(ConfigOption::boolean("Explore configuration", "...", "help_banner"));
-    config.register_group(ConfigOption::boolean("Explore configuration", "...", "exit_esc"));
+    config.register_group(ConfigOption::new(GROUP, "Command bar text color", "command_bar_text", default_color_list()));
+    config.register_group(ConfigOption::new(GROUP, "Command bar background", "command_bar_background", default_color_list()));
+
+    config.register_group(ConfigOption::new(GROUP, "Highlight color in search", "highlight", default_color_list()));
+
+    config.register_group(ConfigOption::boolean(GROUP, "Show help banner on open", "help_banner"));
+    config.register_group(ConfigOption::boolean(GROUP, "Pressing ESC causes a program exit", "exit_esc"));
 
     config
 }

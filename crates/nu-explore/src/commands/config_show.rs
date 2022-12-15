@@ -13,7 +13,7 @@ use crate::{
     views::{Layout, Preview, View, ViewConfig},
 };
 
-use super::{HelpManual, ViewCommand};
+use super::{HelpExample, HelpManual, ViewCommand};
 
 #[derive(Clone)]
 pub struct ConfigShowCmd {
@@ -50,7 +50,15 @@ impl ViewCommand for ConfigShowCmd {
     }
 
     fn help(&self) -> Option<HelpManual> {
-        None
+        Some(HelpManual {
+            name: Self::NAME,
+            description:
+                "Return a currently used configuration.\nSome default fields might be missing.",
+            arguments: vec![HelpExample::new("nu", "Use a nuon format instead")],
+            config_options: vec![],
+            input: vec![],
+            examples: vec![],
+        })
     }
 
     fn display_config_option(&mut self, _: String, _: String, _: String) -> bool {

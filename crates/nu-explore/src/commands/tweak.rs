@@ -34,7 +34,7 @@ impl SimpleCommand for TweakCmd {
     fn help(&self) -> Option<HelpManual> {
         Some(HelpManual {
             name: "tweak",
-            description: "Set settings",
+            description: "Set different settings.\nIt could be consired a not interactive version of :config",
             arguments: vec![],
             examples: vec![
                 HelpExample::new(":tweak table.show_index false", "Don't show index anymore"),

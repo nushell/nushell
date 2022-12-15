@@ -44,31 +44,24 @@ impl ViewCommand for TryCmd {
             Shortcode::new("Tab",    "",        "Switches between input and a output panes"),
         ];
 
+        #[rustfmt::skip]
         let config_options = vec![
-            ConfigOption::boolean(
-                "try",
-                "Try makes running command on each input character",
-                "try.reactive",
-            ),
-            ConfigOption::new(
-                "try",
-                "Change a border color of the menus",
-                "try.border_color",
-                default_color_list(),
-            ),
-            ConfigOption::new(
-                "try",
-                "Change a highlighed menu color",
-                "try.highlighted_color",
-                default_color_list(),
-            ),
+            ConfigOption::boolean(":try options", "Try makes running command on each input character", "try.reactive"),
+            ConfigOption::new(":try options", "Change a border color of the menus", "try.border_color", default_color_list()),
+            ConfigOption::new(":try options", "Change a highlighed menu color", "try.highlighted_color", default_color_list()),
+        ];
+
+        #[rustfmt::skip]
+        let examples = vec![
+            HelpExample::new("try", "Open a interactive :try command"),
+            HelpExample::new("try open Cargo.toml", "Optionally, you can provide a command which will be run immediately"),
         ];
 
         Some(HelpManual {
             name: "try",
             description: "Opens a panel in which to run Nushell commands and explore their output. The exporer acts liek `:table`.",
             arguments: vec![],
-            examples: vec![HelpExample::new("try open Cargo.toml", "Optionally, you can provide a command which will be run immediately")],
+            examples,
             input: shortcuts,
             config_options,
         })
