@@ -31,10 +31,8 @@ pub fn eval_call(
     call: &Call,
     input: PipelineData,
 ) -> Result<PipelineData, ShellError> {
-    if let Some(ctrlc) = &engine_state.ctrlc {
-        if ctrlc.load(core::sync::atomic::Ordering::SeqCst) {
-            return Ok(Value::Nothing { span: call.head }.into_pipeline_data());
-        }
+    if nu_utils::ctrl_c::was_pressed(&engine_state.ctrlc) {
+        return Ok(Value::Nothing { span: call.head }.into_pipeline_data());
     }
     let decl = engine_state.get_decl(call.decl_id);
 

@@ -1,5 +1,4 @@
 use std::path::PathBuf;
-use std::sync::atomic::Ordering;
 use std::sync::mpsc::{channel, RecvTimeoutError};
 use std::time::Duration;
 
@@ -252,10 +251,8 @@ impl Command for Watch {
                 }
                 Err(RecvTimeoutError::Timeout) => {}
             }
-            if let Some(ctrlc) = ctrlc_ref {
-                if ctrlc.load(Ordering::SeqCst) {
-                    break;
-                }
+            if nu_utils::ctrl_c::was_pressed(ctrlc_ref) {
+                break;
             }
         }
 

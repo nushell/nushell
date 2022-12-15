@@ -2,7 +2,7 @@ use filesize::file_real_size_fast;
 use nu_glob::Pattern;
 use nu_protocol::{ShellError, Span, Value};
 use std::path::PathBuf;
-use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::atomic::AtomicBool;
 use std::sync::Arc;
 
 #[derive(Debug, Clone)]
@@ -106,13 +106,8 @@ impl DirInfo {
         match std::fs::read_dir(&s.path) {
             Ok(d) => {
                 for f in d {
-                    match ctrl_c {
-                        Some(ref cc) => {
-                            if cc.load(Ordering::SeqCst) {
-                                break;
-                            }
-                        }
-                        None => continue,
+                    if nu_utils::ctrl_c::was_pressed(&ctrl_c) {
+                        break;
                     }
 
                     match f {
