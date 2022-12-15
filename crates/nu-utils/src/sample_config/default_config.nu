@@ -267,29 +267,29 @@ let-env config = {
     help_banner: true,
     exit_esc: true,
 
-    command_bar_text: #C4C9C6,
-    # command_bar: "{fg: #C4C9C6 bg: #223311 }",
+    command_bar_text: '#C4C9C6',
+    # command_bar: "{fg: '#C4C9C6' bg: '#223311' }",
     
-    status_bar_background: {fg: #1D1F21 bg: #C4C9C6 },
-    # status_bar_text: "{fg: #C4C9C6 bg: #223311 }",
+    status_bar_background: {fg: '#1D1F21' bg: '#C4C9C6' },
+    # status_bar_text: "{fg: '#C4C9C6' bg: '#223311' }",
 
-    highlight: "{bg: yellow fg: black }",
+    highlight: "{bg: 'yellow' fg: 'black' }",
 
     status: {
-      # warn: "{bg: yellow, fg: blue}", 
-      # error: "{bg: yellow, fg: blue}", 
-      # info: "{bg: yellow, fg: blue}"
+      # warn: "{bg: 'yellow', fg: 'blue'}", 
+      # error: "{bg: 'yellow', fg: 'blue'}", 
+      # info: "{bg: 'yellow', fg: 'blue'}"
     },
 
     try: {
-      # border_color: red, 
-      # highlighted_color: blue,
+      # border_color: 'red', 
+      # highlighted_color: 'blue',
 
       # reactive: false,
     },
 
     table: {
-      split_line: #404040, 
+      split_line: '#404040', 
 
       cursor: true,
 
@@ -301,8 +301,8 @@ let-env config = {
       show_head: true,
       show_index: true,
 
-      # selected_cell: "{fg: white, bg: #777777}", 
-      # selected_row: "{fg: yellow, bg: #C1C2A3}", 
+      # selected_cell: "{fg: 'white', bg: '#777777'}", 
+      # selected_row: "{fg: 'yellow', bg: '#C1C2A3'}", 
       # selected_column: blue,
 
       # padding_column_right: 2, 
@@ -313,7 +313,7 @@ let-env config = {
     }
 
     config: {
-      cursor_color: "{bg: yellow fg: black }",
+      cursor_color: "{bg: 'yellow' fg: 'black' }",
 
       # border_color: white,
       # list_color: green,
