@@ -429,16 +429,12 @@ fn parse_long_flag(
                         span: arg_span,
                     }),
                     None,
-                    if sig.is_known_external {
-                        None
-                    } else {
-                        Some(ParseError::UnknownFlag(
-                            sig.name.clone(),
-                            long_name.clone(),
-                            arg_span,
-                            sig.clone().formatted_flags(),
-                        ))
-                    },
+                    Some(ParseError::UnknownFlag(
+                        sig.name.clone(),
+                        long_name.clone(),
+                        arg_span,
+                        sig.clone().formatted_flags(),
+                    )),
                 )
             }
         } else {
@@ -488,42 +484,6 @@ fn parse_short_flags(
             } else {
                 unmatched_short_flags.push(short_flag_span);
             }
-        }
-
-        // Note:
-        // We already know which flags are found, which flags are not found.
-        // But if the relative command is known external, we need to treated them
-        // as all found flags, to make external commands run with correct external flags.
-        //
-        // e.g:
-        // > export extern "git" []
-        // > git -v
-        //
-        // -v is unmatched_short_flags, but it's a valid git flag, we need to pass it
-        // to git directly, and let git itself to validate flag
-        //
-        // One restriction is that it's not defined, nu doesn't know if the flag takes
-        // value or not, here we assume that it doesn't take value by default.
-        if sig.is_known_external {
-            let mut flags = found_short_flags;
-            for unmatched_span in unmatched_short_flags {
-                let contents = working_set.get_span_contents(unmatched_span);
-                if contents.is_empty() {
-                    continue;
-                }
-                if let Some(ch) = char::from_u32(contents[0] as u32) {
-                    flags.push(Flag {
-                        long: "".to_string(),
-                        short: Some(ch),
-                        arg: None,
-                        required: false,
-                        desc: "".to_string(),
-                        var_id: None,
-                        default_value: None,
-                    })
-                }
-            }
-            return (Some(flags), None);
         }
 
         if found_short_flags.is_empty() {
