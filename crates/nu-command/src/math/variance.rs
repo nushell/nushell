@@ -45,7 +45,7 @@ impl Command for SubCommand {
         vec![
             Example {
                 description: "Get the variance of a list of numbers",
-                example: "echo [1 2 3 4 5] | math variance",
+                example: "[1 2 3 4 5] | math variance",
                 result: Some(Value::float(2.0, Span::test_data())),
             },
             Example {

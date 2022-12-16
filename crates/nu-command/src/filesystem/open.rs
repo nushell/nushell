@@ -194,7 +194,7 @@ impl Command for Open {
             },
             Example {
                 description: "Open a file, using the input to get filename",
-                example: "echo 'myfile.txt' | open",
+                example: "'myfile.txt' | open",
                 result: None,
             },
             Example {

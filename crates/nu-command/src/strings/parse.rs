@@ -48,17 +48,17 @@ impl Command for Parse {
         vec![
             Example {
                 description: "Parse a string into two named columns",
-                example: "echo \"hi there\" | parse \"{foo} {bar}\"",
+                example: "\"hi there\" | parse \"{foo} {bar}\"",
                 result: Some(result.clone()),
             },
             Example {
                 description: "Parse a string using regex pattern",
-                example: "echo \"hi there\" | parse -r '(?P<foo>\\w+) (?P<bar>\\w+)'",
+                example: "\"hi there\" | parse -r '(?P<foo>\\w+) (?P<bar>\\w+)'",
                 result: Some(result),
             },
             Example {
                 description: "Parse a string using fancy-regex named capture group pattern",
-                example: "echo \"foo bar.\" | parse -r '\\s*(?<name>\\w+)(?=\\.)'",
+                example: "\"foo bar.\" | parse -r '\\s*(?<name>\\w+)(?=\\.)'",
                 result: Some(Value::List {
                     vals: vec![Value::Record {
                         cols: vec!["name".to_string()],
@@ -70,7 +70,7 @@ impl Command for Parse {
             },
             Example {
                 description: "Parse a string using fancy-regex capture group pattern",
-                example: "echo \"foo! bar.\" | parse -r '(\\w+)(?=\\.)|(\\w+)(?=!)'",
+                example: "\"foo! bar.\" | parse -r '(\\w+)(?=\\.)|(\\w+)(?=!)'",
                 result: Some(Value::List {
                     vals: vec![
                         Value::Record {
@@ -88,7 +88,7 @@ impl Command for Parse {
             },
             Example {
                 description: "Parse a string using fancy-regex look behind pattern",
-                example: "echo \" @another(foo bar)   \" | parse -r '\\s*(?<=[() ])(@\\w+)(\\([^)]*\\))?\\s*'",
+                example: "\" @another(foo bar)   \" | parse -r '\\s*(?<=[() ])(@\\w+)(\\([^)]*\\))?\\s*'",
                 result: Some(Value::List {
                     vals: vec![Value::Record {
                         cols: vec!["Capture1".to_string(), "Capture2".to_string()],
@@ -100,7 +100,7 @@ impl Command for Parse {
             },
             Example {
                 description: "Parse a string using fancy-regex look ahead atomic group pattern",
-                example: "echo \"abcd\" | parse -r '^a(bc(?=d)|b)cd$'",
+                example: "\"abcd\" | parse -r '^a(bc(?=d)|b)cd$'",
                 result: Some(Value::List {
                     vals: vec![Value::Record {
                         cols: vec!["Capture1".to_string()],

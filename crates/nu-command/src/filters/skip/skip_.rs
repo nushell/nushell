@@ -45,7 +45,7 @@ impl Command for Skip {
         vec![
             Example {
                 description: "Skip the first value of a list",
-                example: "echo [2 4 6 8] | skip 1",
+                example: "[2 4 6 8] | skip 1",
                 result: Some(Value::List {
                     vals: vec![Value::test_int(4), Value::test_int(6), Value::test_int(8)],
                     span: Span::test_data(),
@@ -53,7 +53,7 @@ impl Command for Skip {
             },
             Example {
                 description: "Skip two rows of a table",
-                example: "echo [[editions]; [2015] [2018] [2021]] | skip 2",
+                example: "[[editions]; [2015] [2018] [2021]] | skip 2",
                 result: Some(Value::List {
                     vals: vec![Value::Record {
                         cols: vec!["editions".to_owned()],

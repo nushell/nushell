@@ -54,7 +54,7 @@ impl Command for SubCommand {
         vec![
             Example {
                 description: "Split a string into rows of char",
-                example: "echo 'abc' | split row ''",
+                example: "'abc' | split row ''",
                 result: Some(Value::List {
                     vals: vec![
                         Value::test_string(""),
@@ -68,7 +68,7 @@ impl Command for SubCommand {
             },
             Example {
                 description: "Split a string into rows by the specified separator",
-                example: "echo 'a--b--c' | split row '--'",
+                example: "'a--b--c' | split row '--'",
                 result: Some(Value::List {
                     vals: vec![
                         Value::test_string("a"),
@@ -80,7 +80,7 @@ impl Command for SubCommand {
             },
             Example {
                 description: "Split a string by '-'",
-                example: "echo '-a-b-c-' | split row '-'",
+                example: "'-a-b-c-' | split row '-'",
                 result: Some(Value::List {
                     vals: vec![
                         Value::test_string(""),
