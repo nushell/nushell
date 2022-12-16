@@ -13,7 +13,7 @@ impl HashDigest for Sha256 {
         vec![
             Example {
                 description: "Return the sha256 hash of a string, hex-encoded",
-                example: "echo 'abcdefghijklmnopqrstuvwxyz' | hash sha256",
+                example: "'abcdefghijklmnopqrstuvwxyz' | hash sha256",
                 result: Some(Value::String {
                     val: "71c480df93d6ae2f1efad1447c66c9525e316218cf51fc8d9ed832f2daf18b73"
                         .to_owned(),
@@ -22,7 +22,7 @@ impl HashDigest for Sha256 {
             },
             Example {
                 description: "Return the sha256 hash of a string, as binary",
-                example: "echo 'abcdefghijklmnopqrstuvwxyz' | hash sha256 --binary",
+                example: "'abcdefghijklmnopqrstuvwxyz' | hash sha256 --binary",
                 result: Some(Value::Binary {
                     val: vec![
                         0x71, 0xc4, 0x80, 0xdf, 0x93, 0xd6, 0xae, 0x2f, 0x1e, 0xfa, 0xd1, 0x44,

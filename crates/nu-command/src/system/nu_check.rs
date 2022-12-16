@@ -193,7 +193,7 @@ impl Command for NuCheck {
             },
             Example {
                 description: "Parse a string as script",
-                example: "echo $'two(char nl)lines' | nu-check ",
+                example: "$'two(char nl)lines' | nu-check ",
                 result: None,
             },
             Example {

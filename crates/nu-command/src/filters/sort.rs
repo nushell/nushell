@@ -88,7 +88,7 @@ impl Command for Sort {
             },
             Example {
                 description: "Sort strings (case-insensitive)",
-                example: "echo [airplane Truck Car] | sort -i",
+                example: "[airplane Truck Car] | sort -i",
                 result: Some(Value::List {
                     vals: vec![
                         Value::test_string("airplane"),
@@ -100,7 +100,7 @@ impl Command for Sort {
             },
             Example {
                 description: "Sort strings (reversed case-insensitive)",
-                example: "echo [airplane Truck Car] | sort -i -r",
+                example: "[airplane Truck Car] | sort -i -r",
                 result: Some(Value::List {
                     vals: vec![
                         Value::test_string("Truck"),

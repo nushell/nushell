@@ -40,12 +40,12 @@ impl Command for EncodeBase64 {
         vec![
             Example {
                 description: "Base64 encode a string with default settings",
-                example: "echo 'Some Data' | encode base64",
+                example: "'Some Data' | encode base64",
                 result: Some(Value::string("U29tZSBEYXRh", Span::test_data())),
             },
             Example {
                 description: "Base64 encode a string with the binhex character set",
-                example: "echo 'Some Data' | encode base64 --character-set binhex",
+                example: "'Some Data' | encode base64 --character-set binhex",
                 result: Some(Value::string(r#"7epXB5"%A@4J"#, Span::test_data())),
             },
         ]

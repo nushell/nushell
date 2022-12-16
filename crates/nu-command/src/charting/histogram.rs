@@ -50,7 +50,7 @@ impl Command for Histogram {
             },
             Example {
                 description: "Compute a histogram for a list of numbers",
-                example: "echo [1 2 1] | histogram",
+                example: "[1 2 1] | histogram",
                 result: Some(Value::List {
                         vals: vec![Value::Record {
                             cols: vec!["value".to_string(), "count".to_string(), "quantile".to_string(), "percentage".to_string(), "frequency".to_string()],
@@ -80,7 +80,7 @@ impl Command for Histogram {
             },
             Example {
                 description: "Compute a histogram for a list of numbers, and percentage is based on the maximum value",
-                example: "echo [1 2 3 1 1 1 2 2 1 1] | histogram --percentage-type relative",
+                example: "[1 2 3 1 1 1 2 2 1 1] | histogram --percentage-type relative",
                 result: None,
             }
         ]

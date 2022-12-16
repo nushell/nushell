@@ -36,8 +36,8 @@ impl Command for IsAdmin {
     fn examples(&self) -> Vec<Example> {
         vec![
             Example {
-                description: "Echo 'iamroot' if nushell is running with admin/root privileges, and 'iamnotroot' if not.",
-                example: r#"if is-admin { echo "iamroot" } else { echo "iamnotroot" }"#,
+                description: "Return 'iamroot' if nushell is running with admin/root privileges, and 'iamnotroot' if not.",
+                example: r#"if is-admin { "iamroot" } else { "iamnotroot" }"#,
                 result: Some(Value::string("iamnotroot", Span::test_data())),
             },
         ]

@@ -60,7 +60,7 @@ impl Command for SubCommand {
         vec![
             Example {
                 description: "Split a string into columns by the specified separator",
-                example: "echo 'a--b--c' | split column '--'",
+                example: "'a--b--c' | split column '--'",
                 result: Some(Value::List {
                     vals: vec![Value::Record {
                         cols: vec![

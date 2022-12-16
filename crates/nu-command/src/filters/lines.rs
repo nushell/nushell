@@ -131,7 +131,7 @@ impl Command for Lines {
     fn examples(&self) -> Vec<Example> {
         vec![Example {
             description: "Split multi-line string into lines",
-            example: r#"echo $"two\nlines" | lines"#,
+            example: r#"$"two\nlines" | lines"#,
             result: Some(Value::List {
                 vals: vec![Value::test_string("two"), Value::test_string("lines")],
                 span: Span::test_data(),
