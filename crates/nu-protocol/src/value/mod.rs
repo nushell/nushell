@@ -719,7 +719,7 @@ impl Value {
                         for val in vals {
                             // only look in records; this avoids unintentionally recursing into deeply nested tables
                             if matches!(val, Value::Record { .. }) {
-                                 if let Ok(result) = val.clone().follow_cell_path(
+                                if let Ok(result) = val.clone().follow_cell_path(
                                     &[PathMember::String {
                                         val: column_name.clone(),
                                         span: *origin_span,
