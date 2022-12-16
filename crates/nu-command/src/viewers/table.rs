@@ -9,16 +9,12 @@ use nu_protocol::{
     PipelineData, PipelineMetadata, RawStream, ShellError, Signature, Span, SyntaxShape,
     TableIndexMode, Value,
 };
-use nu_table::{string_width, Alignments, Table as NuTable, TableConfig, TableTheme};
+use nu_table::{string_width, Table as NuTable, TableConfig, TableTheme};
 use nu_utils::get_ls_colors;
 use rayon::prelude::*;
 use std::sync::Arc;
 use std::time::Instant;
-use std::{
-    cmp::max,
-    path::PathBuf,
-    sync::atomic::{AtomicBool, Ordering},
-};
+use std::{cmp::max, path::PathBuf, sync::atomic::AtomicBool};
 use terminal_size::{Height, Width};
 use url::Url;
 
@@ -425,7 +421,6 @@ fn build_general_table2(
     }
 
     let data_len = data.len();
-    let color_hm = get_color_config(config);
     let table_config = create_table_config(config, style_computer, data_len, false, false, false);
 
     let table = NuTable::new(data, (data_len, 2));
@@ -449,7 +444,6 @@ fn build_expanded_table(
     flatten: bool,
     flatten_sep: &str,
 ) -> Result<Option<String>, ShellError> {
-    let color_hm = get_color_config(config);
     let theme = load_theme_from_config(config);
 
     // calculate the width of a key part + the rest of table so we know the rest of the table width available for value.
@@ -457,13 +451,9 @@ fn build_expanded_table(
     let key = NuTable::create_cell(" ".repeat(key_width), TextStyle::default());
     let key_table = NuTable::new(vec![vec![key]], (1, 2));
     let key_width = key_table
-        .draw_table(
-            config,
-            style_computer,
-            alignments,
-            &theme,
+        .draw(
+            create_table_config(config, style_computer, 1, false, false, false),
             usize::MAX,
-            false,
         )
         .map(|table| string_width(&table))
         .unwrap_or(0);
@@ -513,7 +503,7 @@ fn build_expanded_table(
 
                             let table_config = create_table_config(
                                 config,
-                                &style_computer,
+                                style_computer,
                                 table.count_rows(),
                                 with_header,
                                 with_index,
@@ -586,7 +576,7 @@ fn build_expanded_table(
     }
 
     let data_len = data.len();
-    let table_config = create_table_config(config, &color_hm, data_len, false, false, false);
+    let table_config = create_table_config(config, style_computer, data_len, false, false, false);
     let table = NuTable::new(data, (data_len, 2));
 
     let table_s = table.clone().draw(table_config.clone(), term_width);
@@ -1560,7 +1550,7 @@ impl PagingTableCreator {
         let config = self.engine_state.get_config();
         let style_computer = StyleComputer::from_config(&self.engine_state, &self.stack);
         let term_width = get_width_param(self.width_param);
-        let theme = load_theme_from_config(&self.config);
+        let theme = load_theme_from_config(config);
 
         let table = convert_to_table2(
             self.row_offset,
@@ -1649,8 +1639,6 @@ impl PagingTableCreator {
         let term_width = get_width_param(self.width_param);
         let config = &self.engine_state.get_config();
         let style_computer = StyleComputer::from_config(&self.engine_state, &self.stack);
-        let theme = load_theme_from_config(config);
-
         let table = convert_to_table(
             self.row_offset,
             batch,
@@ -1727,8 +1715,8 @@ impl Iterator for PagingTableCreator {
 
         match table {
             Ok(Some(table)) => {
-                let table =
-                    strip_output_color(Some(table), &self.config).expect("must never happen");
+                let table = strip_output_color(Some(table), self.engine_state.get_config())
+                    .expect("must never happen");
 
                 let mut bytes = table.as_bytes().to_vec();
                 bytes.push(b'\n'); // nu-table tables don't come with a newline on the end
@@ -1849,9 +1837,7 @@ fn create_table_config(
     table_cfg.trim(config.trim_strategy.clone())
 }
 
-fn lookup_separator_color(
-    style_computer: &StyleComputer,
-) -> nu_ansi_term::Style {
+fn lookup_separator_color(style_computer: &StyleComputer) -> nu_ansi_term::Style {
     style_computer.compute("separator", &Value::nothing(Span::unknown()))
 }
 

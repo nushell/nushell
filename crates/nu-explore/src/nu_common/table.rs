@@ -6,7 +6,7 @@ use nu_protocol::{
     engine::{EngineState, Stack},
     Config, ShellError, Span, TableIndexMode, Value,
 };
-use nu_table::{string_width, Alignments, Table as NuTable, TableConfig, TableTheme};
+use nu_table::{string_width, Table as NuTable, TableConfig, TableTheme};
 use std::sync::Arc;
 use std::{
     cmp::max,
@@ -28,9 +28,7 @@ pub fn try_build_table(
     let style_computer = StyleComputer::from_config(engine_state, stack);
 
     match value {
-        Value::List { vals, span } => {
-            try_build_list(vals, &ctrlc, config, span, &style_computer)
-        }
+        Value::List { vals, span } => try_build_list(vals, &ctrlc, config, span, &style_computer),
         Value::Record { cols, vals, span } => {
             try_build_map(cols, vals, span, &style_computer, ctrlc, config)
         }
@@ -125,9 +123,7 @@ fn build_expanded_table(
     flatten: bool,
     flatten_sep: &str,
 ) -> Result<Option<String>, ShellError> {
-    let color_hm = get_color_config(config);
     let theme = load_theme_from_config(config);
-    let alignments = Alignments::default();
 
     // calculate the width of a key part + the rest of table so we know the rest of the table width available for value.
     let key_width = cols.iter().map(|col| string_width(col)).max().unwrap_or(0);
@@ -135,7 +131,7 @@ fn build_expanded_table(
     let key_table = NuTable::new(vec![vec![key]], (1, 2));
     let key_width = key_table
         .draw(
-            create_table_config(config, &color_hm, 1, false, false, false),
+            create_table_config(config, style_computer, 1, false, false, false),
             usize::MAX,
         )
         .map(|table| string_width(&table))
@@ -262,7 +258,7 @@ fn build_expanded_table(
         data.push(row);
     }
 
-    let table_config = create_table_config(config, &color_hm, data.len(), false, false, false);
+    let table_config = create_table_config(config, style_computer, data.len(), false, false, false);
 
     let data_len = data.len();
     let table = NuTable::new(data, (data_len, 2));
@@ -920,9 +916,7 @@ fn create_table_config(
     table_cfg.trim(config.trim_strategy.clone())
 }
 
-fn lookup_separator_color(
-    style_computer: &StyleComputer,
-) -> nu_ansi_term::Style {
+fn lookup_separator_color(style_computer: &StyleComputer) -> nu_ansi_term::Style {
     style_computer.compute("separator", &Value::nothing(Span::unknown()))
 }
 

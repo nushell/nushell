@@ -1,8 +1,8 @@
 use crate::table_theme::TableTheme;
-use nu_color_config::{StyleComputer, TextStyle};
-use std::{cmp::min, collections::HashMap, fmt::Display};
-use nu_protocol::{Config, FooterMode, Span, TrimStrategy, Value};
-use std::collections::HashMap;
+use nu_ansi_term::Style;
+use nu_color_config::TextStyle;
+use nu_protocol::TrimStrategy;
+use std::{cmp::min, collections::HashMap};
 use tabled::{
     alignment::AlignmentHorizontal,
     builder::Builder,
@@ -10,7 +10,6 @@ use tabled::{
     formatting::AlignmentStrategy,
     object::{Cell, Columns, Rows, Segment},
     papergrid::{
-        self,
         records::{
             cell_info::CellInfo, tcell::TCell, vec_records::VecRecords, Records, RecordsMut,
         },
@@ -305,9 +304,7 @@ fn load_theme<R>(
 
     table.with(theme);
 
-    if let Some(style_computer) = style_computer {
-        let color = style_computer.compute("separator", &Value::nothing(Span::unknown()));
-        // Attempt to use the given color(?)
+    if let Some(color) = separator_color {
         let color = color.paint(" ").to_string();
         if let Ok(color) = Color::try_from(color) {
             table.with(color);
@@ -577,7 +574,6 @@ fn truncate_columns_by_columns(data: &mut Data, theme: &TableTheme, termwidth: u
 
     false
 }
-
 
 /// The same as [`tabled::peaker::PriorityMax`] but prioritizes left columns first in case of equal width.
 #[derive(Debug, Default, Clone)]
