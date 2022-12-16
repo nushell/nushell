@@ -717,6 +717,7 @@ impl Value {
                         let mut output = vec![];
                         let mut hasvalue = false;
                         let mut temp: Result<Value, ShellError> = Err(ShellError::NotFound(*span));
+                        let vals = vals.iter().filter(|v| matches!(v, Value::Record { .. }));
                         for val in vals {
                             temp = val.clone().follow_cell_path(
                                 &[PathMember::String {
