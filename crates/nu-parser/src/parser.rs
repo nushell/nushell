@@ -815,11 +815,13 @@ pub fn parse_internal_call(
     // The index into the spans of argument data given to parse
     // Starting at the first argument
     let mut spans_idx = 0;
+    let mut external_pos = vec![];
 
     while spans_idx < spans.len() {
         let arg_span = spans[spans_idx];
 
         // Check if we're on a long flag, if so, parse
+        let old_span_idx = spans_idx;
         let (long_name, arg, err) = parse_long_flag(
             working_set,
             spans,
@@ -829,8 +831,23 @@ pub fn parse_internal_call(
         );
         if let Some(long_name) = long_name {
             // We found a long flag, like --bar
-            error = error.or(err);
-            call.add_named((long_name, None, arg));
+            match err {
+                Some(ParseError::UnknownFlag(_, _, _, _)) if signature.is_known_external => {
+                    // the idx may changed in parse_long_flag function
+                    // but if it's unknownflag, we need take spans_idx back, get it's content
+                    // and push the content to extra_pos.
+                    if spans_idx != old_span_idx {
+                        spans_idx = old_span_idx;
+                    }
+                    let arg_span = spans[spans_idx];
+                    let arg_contents = working_set.get_span_contents(arg_span);
+                    external_pos.push(arg_contents);
+                }
+                other => {
+                    error = error.or(other);
+                    call.add_named((long_name, None, arg));
+                }
+            }
             spans_idx += 1;
             continue;
         }
