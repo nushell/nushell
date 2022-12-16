@@ -458,7 +458,7 @@ fn parse_short_flags(
     spans_idx: &usize,
     positional_idx: usize,
     sig: &Signature,
-) -> (Option<Vec<Flag>>, Option<ParseError>) {
+) -> (Option<Vec<Flag>>, Option<Vec<Span>>, Option<ParseError>) {
     let mut error = None;
     let arg_span = spans[*spans_idx];
 
@@ -491,7 +491,7 @@ fn parse_short_flags(
             if let Some(positional) = sig.get_positional(positional_idx) {
                 if positional.shape == SyntaxShape::Int || positional.shape == SyntaxShape::Number {
                     if String::from_utf8_lossy(arg_contents).parse::<f64>().is_ok() {
-                        return (None, None);
+                        return (None, None, None);
                     } else if let Some(first) = unmatched_short_flags.first() {
                         let contents = working_set.get_span_contents(*first);
                         error = error.or_else(|| {
@@ -539,9 +539,9 @@ fn parse_short_flags(
             }
         }
 
-        (Some(found_short_flags), error)
+        (Some(found_short_flags), Some(unmatched_short_flags), error)
     } else {
-        (None, None)
+        (None, None, None)
     }
 }
 
@@ -815,7 +815,10 @@ pub fn parse_internal_call(
     // The index into the spans of argument data given to parse
     // Starting at the first argument
     let mut spans_idx = 0;
-    let mut external_pos = vec![];
+    // if the given `signature` is external, all unknown args will pass here.
+    // Then these args will be combined into a simple string argument and pass to
+    // external command.
+    let mut external_unknown_pos: Vec<Expression> = vec![];
 
     while spans_idx < spans.len() {
         let arg_span = spans[spans_idx];
@@ -840,8 +843,14 @@ pub fn parse_internal_call(
                         spans_idx = old_span_idx;
                     }
                     let arg_span = spans[spans_idx];
-                    let arg_contents = working_set.get_span_contents(arg_span);
-                    external_pos.push(arg_contents);
+                    let (external_exp, err) = parse_value(
+                        working_set,
+                        arg_span,
+                        &SyntaxShape::String,
+                        expand_aliases_denylist,
+                    );
+                    error = error.or(err);
+                    external_unknown_pos.push(external_exp);
                 }
                 other => {
                     error = error.or(other);
@@ -853,22 +862,21 @@ pub fn parse_internal_call(
         }
 
         // Check if we're on a short flag or group of short flags, if so, parse
-        let (short_flags, err) =
+        let (short_flags, unmatch_short_flags_span, err) =
             parse_short_flags(working_set, spans, &spans_idx, positional_idx, &signature);
 
-        if let Some(mut short_flags) = short_flags {
-            if short_flags.is_empty() {
-                short_flags.push(Flag {
-                    long: "".to_string(),
-                    short: Some('a'),
-                    arg: None,
-                    required: false,
-                    desc: "".to_string(),
-                    var_id: None,
-                    default_value: None,
-                })
+        if let Some(short_flags) = short_flags {
+            // will ignore error if `signature` is known external definition
+            // and our error is ParseError::UnknownFlag, in case the relative
+            // unknown flags will be passed to external command.
+            if let Some(ParseError::UnknownFlag(_, _, _, _)) = err {
+                if !signature.is_known_external {
+                    error = error.or(err);
+                }
+            } else {
+                error = error.or(err);
             }
-            error = error.or(err);
+
             for flag in short_flags {
                 if let Some(arg_shape) = flag.arg {
                     if let Some(arg) = spans.get(spans_idx + 1) {
@@ -934,6 +942,20 @@ pub fn parse_internal_call(
                     ));
                 }
             }
+
+            if signature.is_known_external {
+                if let Some(unmatch_span) = unmatch_short_flags_span {
+                    for s in unmatch_span {
+                        let content = working_set.get_span_contents(s);
+                        external_unknown_pos.push(Expression {
+                            expr: Expr::String(format!("-{}", String::from_utf8_lossy(content))),
+                            span: s,
+                            ty: Type::String,
+                            custom_completion: None,
+                        })
+                    }
+                }
+            }
             spans_idx += 1;
             continue;
         }
@@ -985,6 +1007,16 @@ pub fn parse_internal_call(
             };
             call.add_positional(arg);
             positional_idx += 1;
+        } else if signature.is_known_external {
+            // extra positional arguments will pass to external unknown pos.
+            let (external_expr, err) = parse_value(
+                working_set,
+                arg_span,
+                &SyntaxShape::String,
+                expand_aliases_denylist,
+            );
+            error = error.or(err);
+            external_unknown_pos.push(external_expr);
         } else {
             call.add_positional(Expression::garbage(arg_span));
             error = error.or_else(|| {
@@ -1001,6 +1033,34 @@ pub fn parse_internal_call(
 
     let err = check_call(command_span, &signature, &call);
     error = error.or(err);
+
+    if signature.is_known_external {
+        // convert all `external_pos` to a string.
+        let external_arg = external_unknown_pos
+            .into_iter()
+            .filter_map(|expr| {
+                if let Expression {
+                    expr: Expr::String(str_arg_val),
+                    span: _,
+                    ty: _,
+                    custom_completion: _,
+                } = expr
+                {
+                    Some(str_arg_val)
+                } else {
+                    None
+                }
+            })
+            .join(" ");
+        if !external_arg.is_empty() {
+            call.add_positional(Expression {
+                expr: Expr::String(external_arg),
+                span: command_span,
+                ty: Type::String,
+                custom_completion: None,
+            })
+        }
+    }
 
     if signature.creates_scope {
         working_set.exit_scope();
