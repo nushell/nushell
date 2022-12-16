@@ -2691,6 +2691,7 @@ dependencies = [
  "nu-ansi-term",
  "nu-color-config",
  "nu-engine",
+ "nu-json",
  "nu-parser",
  "nu-protocol",
  "nu-table",

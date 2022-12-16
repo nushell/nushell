@@ -4,11 +4,12 @@ use nu_protocol::{
     engine::{EngineState, Stack},
     PipelineData, Value,
 };
+use tui::layout::Rect;
 
 use crate::{
-    nu_common::{collect_pipeline, has_simple_value, is_ignored_command, run_nu_command},
-    pager::TableConfig,
-    views::{Preview, RecordView, View},
+    nu_common::{collect_pipeline, has_simple_value, run_command_with_value},
+    pager::Frame,
+    views::{Layout, Orientation, Preview, RecordView, View, ViewConfig},
 };
 
 use super::{HelpExample, HelpManual, ViewCommand};
@@ -16,14 +17,12 @@ use super::{HelpExample, HelpManual, ViewCommand};
 #[derive(Debug, Default, Clone)]
 pub struct NuCmd {
     command: String,
-    table_cfg: TableConfig,
 }
 
 impl NuCmd {
-    pub fn new(table_cfg: TableConfig) -> Self {
+    pub fn new() -> Self {
         Self {
             command: String::new(),
-            table_cfg,
         }
     }
 
@@ -42,26 +41,31 @@ impl ViewCommand for NuCmd {
     }
 
     fn help(&self) -> Option<HelpManual> {
+        let examples = vec![
+            HelpExample::new(
+                "where type == 'file'",
+                "Filter data to show only rows whose type is 'file'",
+            ),
+            HelpExample::new(
+                "get scope.examples",
+                "Navigate to a deeper value inside the data",
+            ),
+            HelpExample::new("open Cargo.toml", "Open a Cargo.toml file"),
+        ];
+
         Some(HelpManual {
             name: "nu",
             description:
                 "Run a Nushell command. The data currently being explored is piped into it.",
+            examples,
             arguments: vec![],
-            examples: vec![
-                HelpExample {
-                    example: "where type == 'file'",
-                    description: "Filter data to show only rows whose type is 'file'",
-                },
-                HelpExample {
-                    example: "get scope.examples",
-                    description: "Navigate to a deeper value inside the data",
-                },
-                HelpExample {
-                    example: "open Cargo.toml",
-                    description: "Open a Cargo.toml file",
-                },
-            ],
+            input: vec![],
+            config_options: vec![],
         })
+    }
+
+    fn display_config_option(&mut self, _: String, _: String, _: String) -> bool {
+        false
     }
 
     fn parse(&mut self, args: &str) -> Result<()> {
@@ -76,28 +80,25 @@ impl ViewCommand for NuCmd {
         stack: &mut Stack,
         value: Option<Value>,
     ) -> Result<Self::View> {
-        if is_ignored_command(&self.command) {
-            return Err(io::Error::new(
-                io::ErrorKind::Other,
-                "The command is ignored",
-            ));
-        }
-
         let value = value.unwrap_or_default();
 
-        let pipeline = PipelineData::Value(value, None);
-        let pipeline = run_nu_command(engine_state, stack, &self.command, pipeline)
+        let pipeline = run_command_with_value(&self.command, &value, engine_state, stack)
             .map_err(|e| io::Error::new(io::ErrorKind::Other, e))?;
+
+        let is_record = matches!(pipeline, PipelineData::Value(Value::Record { .. }, ..));
 
         let (columns, values) = collect_pipeline(pipeline);
 
-        if has_simple_value(&values) {
-            let config = &engine_state.config;
-            let text = values[0][0].into_abbreviated_string(config);
+        if let Some(value) = has_simple_value(&values) {
+            let text = value.into_abbreviated_string(&engine_state.config);
             return Ok(NuView::Preview(Preview::new(&text)));
         }
 
-        let view = RecordView::new(columns, values, self.table_cfg);
+        let mut view = RecordView::new(columns, values);
+
+        if is_record {
+            view.set_orientation_current(Orientation::Left);
+        }
 
         Ok(NuView::Records(view))
     }
@@ -109,13 +110,7 @@ pub enum NuView<'a> {
 }
 
 impl View for NuView<'_> {
-    fn draw(
-        &mut self,
-        f: &mut crate::pager::Frame,
-        area: tui::layout::Rect,
-        cfg: &crate::ViewConfig,
-        layout: &mut crate::views::Layout,
-    ) {
+    fn draw(&mut self, f: &mut Frame, area: Rect, cfg: ViewConfig<'_>, layout: &mut Layout) {
         match self {
             NuView::Records(v) => v.draw(f, area, cfg, layout),
             NuView::Preview(v) => v.draw(f, area, cfg, layout),
@@ -126,7 +121,7 @@ impl View for NuView<'_> {
         &mut self,
         engine_state: &EngineState,
         stack: &mut Stack,
-        layout: &crate::views::Layout,
+        layout: &Layout,
         info: &mut crate::pager::ViewInfo,
         key: crossterm::event::KeyEvent,
     ) -> Option<crate::pager::Transition> {
@@ -154,6 +149,13 @@ impl View for NuView<'_> {
         match self {
             NuView::Records(v) => v.exit(),
             NuView::Preview(v) => v.exit(),
+        }
+    }
+
+    fn setup(&mut self, config: ViewConfig<'_>) {
+        match self {
+            NuView::Records(v) => v.setup(config),
+            NuView::Preview(v) => v.setup(config),
         }
     }
 }

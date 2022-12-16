@@ -1,8 +1,10 @@
 mod coloredtextw;
+mod cursor;
 mod information;
 mod interative;
 mod preview;
 mod record;
+pub mod util;
 
 use crossterm::event::KeyEvent;
 use nu_protocol::{
@@ -11,15 +13,23 @@ use nu_protocol::{
 };
 use tui::layout::Rect;
 
-use super::{
-    nu_common::NuText,
-    pager::{Frame, Transition, ViewConfig, ViewInfo},
+use crate::{
+    nu_common::{NuConfig, NuStyleTable},
+    pager::ConfigMap,
 };
 
+use super::{
+    nu_common::NuText,
+    pager::{Frame, Transition, ViewInfo},
+};
+
+pub mod configuration;
+
+pub use configuration::ConfigurationView;
 pub use information::InformationView;
 pub use interative::InteractiveView;
 pub use preview::Preview;
-pub use record::{RecordView, RecordViewState};
+pub use record::{Orientation, RecordView};
 
 #[derive(Debug, Default)]
 pub struct Layout {
@@ -48,8 +58,25 @@ impl ElementInfo {
     }
 }
 
+#[derive(Debug, Clone, Copy)]
+pub struct ViewConfig<'a> {
+    pub nu_config: &'a NuConfig,
+    pub color_hm: &'a NuStyleTable,
+    pub config: &'a ConfigMap,
+}
+
+impl<'a> ViewConfig<'a> {
+    pub fn new(nu_config: &'a NuConfig, color_hm: &'a NuStyleTable, config: &'a ConfigMap) -> Self {
+        Self {
+            nu_config,
+            color_hm,
+            config,
+        }
+    }
+}
+
 pub trait View {
-    fn draw(&mut self, f: &mut Frame, area: Rect, cfg: &ViewConfig, layout: &mut Layout);
+    fn draw(&mut self, f: &mut Frame, area: Rect, cfg: ViewConfig<'_>, layout: &mut Layout);
 
     fn handle_input(
         &mut self,
@@ -71,10 +98,12 @@ pub trait View {
     fn exit(&mut self) -> Option<Value> {
         None
     }
+
+    fn setup(&mut self, _: ViewConfig<'_>) {}
 }
 
 impl View for Box<dyn View> {
-    fn draw(&mut self, f: &mut Frame, area: Rect, cfg: &ViewConfig, layout: &mut Layout) {
+    fn draw(&mut self, f: &mut Frame, area: Rect, cfg: ViewConfig<'_>, layout: &mut Layout) {
         self.as_mut().draw(f, area, cfg, layout)
     }
 
@@ -100,5 +129,9 @@ impl View for Box<dyn View> {
 
     fn show_data(&mut self, i: usize) -> bool {
         self.as_mut().show_data(i)
+    }
+
+    fn setup(&mut self, cfg: ViewConfig<'_>) {
+        self.as_mut().setup(cfg)
     }
 }

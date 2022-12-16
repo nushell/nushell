@@ -1,3 +1,5 @@
+use std::collections::HashMap;
+
 use nu_engine::get_columns;
 use nu_protocol::{ast::PathMember, PipelineData, Value};
 
@@ -44,7 +46,7 @@ pub fn collect_pipeline(input: PipelineData) -> (Vec<String>, Vec<Vec<Value>>) {
                 );
 
                 columns.push(String::from("stdout"));
-                data.push(vec![value]);
+                data.push(value);
             }
 
             if let Some(stderr) = stderr {
@@ -54,29 +56,32 @@ pub fn collect_pipeline(input: PipelineData) -> (Vec<String>, Vec<Vec<Value>>) {
                 );
 
                 columns.push(String::from("stderr"));
-                data.push(vec![value]);
+                data.push(value);
             }
 
             if let Some(exit_code) = exit_code {
                 let list = exit_code.collect::<Vec<_>>();
+                let val = Value::List { vals: list, span };
 
                 columns.push(String::from("exit_code"));
-                data.push(list);
+                data.push(val);
             }
 
             if metadata.is_some() {
-                columns.push(String::from("metadata"));
-                data.push(vec![Value::Record {
+                let val = Value::Record {
                     cols: vec![String::from("data_source")],
                     vals: vec![Value::String {
                         val: String::from("ls"),
                         span,
                     }],
                     span,
-                }]);
+                };
+
+                columns.push(String::from("metadata"));
+                data.push(val);
             }
 
-            (columns, data)
+            (columns, vec![data])
         }
     }
 }
@@ -168,4 +173,35 @@ fn record_lookup_value(item: &Value, header: &str) -> Value {
         }
         item => item.clone(),
     }
+}
+
+pub fn create_map(value: &Value) -> Option<HashMap<String, Value>> {
+    let (cols, inner_vals) = value.as_record().ok()?;
+
+    let mut hm: HashMap<String, Value> = HashMap::new();
+    for (k, v) in cols.iter().zip(inner_vals) {
+        hm.insert(k.to_string(), v.clone());
+    }
+
+    Some(hm)
+}
+
+pub fn map_into_value(hm: HashMap<String, Value>) -> Value {
+    let mut columns = Vec::with_capacity(hm.len());
+    let mut values = Vec::with_capacity(hm.len());
+
+    for (key, value) in hm {
+        columns.push(key);
+        values.push(value);
+    }
+
+    Value::Record {
+        cols: columns,
+        vals: values,
+        span: NuSpan::unknown(),
+    }
+}
+
+pub fn nu_str<S: AsRef<str>>(s: S) -> Value {
+    Value::string(s.as_ref().to_owned(), NuSpan::unknown())
 }

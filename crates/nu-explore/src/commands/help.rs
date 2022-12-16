@@ -3,19 +3,24 @@ use std::{
     io::{self, Result},
 };
 
+use crossterm::event::KeyEvent;
 use nu_protocol::{
     engine::{EngineState, Stack},
     Value,
 };
+use tui::layout::Rect;
 
-use crate::{nu_common::NuSpan, pager::TableConfig, views::RecordView};
+use crate::{
+    nu_common::{collect_input, NuSpan},
+    pager::{Frame, Transition, ViewInfo},
+    views::{Layout, Preview, RecordView, View, ViewConfig},
+};
 
 use super::{HelpExample, HelpManual, ViewCommand};
 
 #[derive(Debug, Default, Clone)]
 pub struct HelpCmd {
     input_command: String,
-    table_cfg: TableConfig,
     supported_commands: Vec<HelpManual>,
     aliases: HashMap<String, Vec<String>>,
 }
@@ -23,18 +28,39 @@ pub struct HelpCmd {
 impl HelpCmd {
     pub const NAME: &'static str = "help";
 
-    pub fn new(
-        commands: Vec<HelpManual>,
-        aliases: &[(&str, &str)],
-        table_cfg: TableConfig,
-    ) -> Self {
+    const HELP_MESSAGE: &'static str = r#"                        Explore - main help file
+
+          Move around:  Use the cursor keys.
+    Close this window:  Use "<Esc>".
+   Get out of Explore:  Use ":q<Enter>" (or <Ctrl> + <D>).
+
+   Get specific help:   It is possible to go directly to whatewer you want help on,
+                        by adding an argument to the ":help" command.
+                        
+                        Currently you can only get help on a few commands.
+                        To obtain a list of supported commands run ":help :<Enter>"
+
+------------------------------------------------------------------------------------
+
+Regular expressions ~
+
+Most commands support regular expressions.
+
+You can type "/" and type a pattern you want to search on.
+Then hit <Enter> and you will see the search results.
+
+To go to the next hit use "<n>" key.
+
+You also can do a reverse search by using "?" instead of "/".
+"#;
+
+    pub fn new(commands: Vec<HelpManual>, aliases: &[(&str, &str)]) -> Self {
         let aliases = collect_aliases(aliases);
 
         Self {
             input_command: String::new(),
             supported_commands: commands,
             aliases,
-            table_cfg,
         }
     }
 }
@@ -51,7 +77,7 @@ fn collect_aliases(aliases: &[(&str, &str)]) -> HashMap<String, Vec<String>> {
 }
 
 impl ViewCommand for HelpCmd {
-    type View = RecordView<'static>;
+    type View = HelpView<'static>;
 
     fn name(&self) -> &'static str {
         Self::NAME
@@ -62,25 +88,30 @@ impl ViewCommand for HelpCmd {
     }
 
     fn help(&self) -> Option<HelpManual> {
+        #[rustfmt::skip]
+        let examples = vec![
+            HelpExample::new("help",        "Open the help page for all of `explore`"),
+            HelpExample::new("help :nu",     "Open the help page for the `nu` explore command"),
+            HelpExample::new("help :help",   "...It was supposed to be hidden....until...now..."),
+        ];
+
+        #[rustfmt::skip]
+        let arguments = vec![
+            HelpExample::new("help :command", "you can provide a command and a help information for it will be displayed")
+        ];
+
         Some(HelpManual {
             name: "help",
             description: "Explore the help page for `explore`",
-            arguments: vec![],
-            examples: vec![
-                HelpExample {
-                    example: "help",
-                    description: "Open the help page for all of `explore`",
-                },
-                HelpExample {
-                    example: "help nu",
-                    description: "Open the help page for the `nu` explore command",
-                },
-                HelpExample {
-                    example: "help help",
-                    description: "...It was supposed to be hidden....until...now...",
-                },
-            ],
+            arguments,
+            examples,
+            input: vec![],
+            config_options: vec![],
         })
+    }
+
+    fn display_config_option(&mut self, _: String, _: String, _: String) -> bool {
+        false
     }
 
     fn parse(&mut self, args: &str) -> Result<()> {
@@ -91,15 +122,31 @@ impl ViewCommand for HelpCmd {
 
     fn spawn(&mut self, _: &EngineState, _: &mut Stack, _: Option<Value>) -> Result<Self::View> {
         if self.input_command.is_empty() {
-            let (headers, data) = help_frame_data(&self.supported_commands, &self.aliases);
-            let view = RecordView::new(headers, data, self.table_cfg);
-            return Ok(view);
+            return Ok(HelpView::Preview(Preview::new(Self::HELP_MESSAGE)));
         }
+
+        if !self.input_command.starts_with(':') {
+            return Err(io::Error::new(
+                io::ErrorKind::Other,
+                "unexpected help argument",
+            ));
+        }
+
+        if self.input_command == ":" {
+            let (headers, data) = help_frame_data(&self.supported_commands, &self.aliases);
+            let view = RecordView::new(headers, data);
+            return Ok(HelpView::Records(view));
+        }
+
+        let command = self
+            .input_command
+            .strip_prefix(':')
+            .expect("we just checked the prefix");
 
         let manual = self
             .supported_commands
             .iter()
-            .find(|manual| manual.name == self.input_command)
+            .find(|manual| manual.name == command)
             .ok_or_else(|| io::Error::new(io::ErrorKind::Other, "a given command was not found"))?;
 
         let aliases = self
@@ -108,9 +155,9 @@ impl ViewCommand for HelpCmd {
             .map(|l| l.as_slice())
             .unwrap_or(&[]);
         let (headers, data) = help_manual_data(manual, aliases);
-        let view = RecordView::new(headers, data, self.table_cfg);
+        let view = RecordView::new(headers, data);
 
-        Ok(view)
+        Ok(HelpView::Records(view))
     }
 }
 
@@ -118,20 +165,6 @@ fn help_frame_data(
     supported_commands: &[HelpManual],
     aliases: &HashMap<String, Vec<String>>,
 ) -> (Vec<String>, Vec<Vec<Value>>) {
-    macro_rules! null {
-        () => {
-            Value::Nothing {
-                span: NuSpan::unknown(),
-            }
-        };
-    }
-
-    macro_rules! nu_str {
-        ($text:expr) => {
-            Value::string($text.to_string(), NuSpan::unknown())
-        };
-    }
-
     let commands = supported_commands
         .iter()
         .map(|manual| {
@@ -154,41 +187,13 @@ fn help_frame_data(
         span: NuSpan::unknown(),
     };
 
-    let headers = vec!["name", "mode", "information", "description"];
-
-    #[rustfmt::skip]
-    let shortcuts = [
-        (":",      "view",    commands,  "Run an explore command (explore the 'information' cell of this row to list commands)"),
-        ("/",      "view",    null!(),   "Search for a pattern"),
-        ("?",      "view",    null!(),   "Search for a pattern, but the <n> key now scrolls to the previous result"),
-        ("n",      "view",    null!(),   "When searching, scroll to the next search result"),
-        ("i",      "view",    null!(),   "Enters cursor mode to inspect individual cells"),
-        ("t",      "view",    null!(),   "Transpose table, so that columns become rows and vice versa"),
-        ("Up",     "",        null!(),   "Moves the cursor or viewport one row up"),
-        ("Down",   "",        null!(),   "Moves the cursor or viewport one row down"),
-        ("Left",   "",        null!(),   "Moves the cursor or viewport one column left"),
-        ("Right",  "",        null!(),   "Moves the cursor or viewport one column right"),
-        ("PgDown", "view",    null!(),   "Moves the cursor or viewport one page of rows down"),
-        ("PgUp",   "view",    null!(),   "Moves the cursor or viewport one page of rows up"),
-        ("Esc",    "",        null!(),   "Exits cursor mode. Exits the currently explored data."),
-        ("Enter",  "cursor",  null!(),   "In cursor mode, explore the data of the selected cell"),
-    ];
-
-    let headers = headers.iter().map(|s| s.to_string()).collect();
-    let data = shortcuts
-        .iter()
-        .map(|(name, mode, info, desc)| {
-            vec![nu_str!(name), nu_str!(mode), info.clone(), nu_str!(desc)]
-        })
-        .collect();
-
-    (headers, data)
+    collect_input(commands)
 }
 
 fn help_manual_data(manual: &HelpManual, aliases: &[String]) -> (Vec<String>, Vec<Vec<Value>>) {
     macro_rules! nu_str {
         ($text:expr) => {
-            Value::string($text, NuSpan::unknown())
+            Value::string($text.to_string(), NuSpan::unknown())
         };
     }
 
@@ -216,9 +221,66 @@ fn help_manual_data(manual: &HelpManual, aliases: &[String]) -> (Vec<String>, Ve
             span: NuSpan::unknown(),
         })
         .collect();
-
     let examples = Value::List {
         vals: examples,
+        span: NuSpan::unknown(),
+    };
+
+    let inputs = manual
+        .input
+        .iter()
+        .map(|e| Value::Record {
+            cols: vec![
+                String::from("name"),
+                String::from("context"),
+                String::from("description"),
+            ],
+            vals: vec![nu_str!(e.code), nu_str!(e.context), nu_str!(e.description)],
+            span: NuSpan::unknown(),
+        })
+        .collect();
+    let inputs = Value::List {
+        vals: inputs,
+        span: NuSpan::unknown(),
+    };
+
+    let configuration = manual
+        .config_options
+        .iter()
+        .map(|o| {
+            let values = o
+                .values
+                .iter()
+                .map(|v| Value::Record {
+                    cols: vec![String::from("example"), String::from("description")],
+                    vals: vec![nu_str!(v.example), nu_str!(v.description)],
+                    span: NuSpan::unknown(),
+                })
+                .collect();
+            let values = Value::List {
+                vals: values,
+                span: NuSpan::unknown(),
+            };
+
+            Value::Record {
+                cols: vec![
+                    String::from("name"),
+                    String::from("context"),
+                    String::from("description"),
+                    String::from("values"),
+                ],
+                vals: vec![
+                    nu_str!(o.group),
+                    nu_str!(o.key),
+                    nu_str!(o.description),
+                    values,
+                ],
+                span: NuSpan::unknown(),
+            }
+        })
+        .collect();
+    let configuration = Value::List {
+        vals: configuration,
         span: NuSpan::unknown(),
     };
 
@@ -230,11 +292,76 @@ fn help_manual_data(manual: &HelpManual, aliases: &[String]) -> (Vec<String>, Ve
         String::from("name"),
         String::from("aliases"),
         String::from("arguments"),
+        String::from("input"),
         String::from("examples"),
+        String::from("configuration"),
         String::from("description"),
     ];
 
-    let data = vec![vec![name, aliases, arguments, examples, desc]];
+    let data = vec![vec![
+        name,
+        aliases,
+        arguments,
+        inputs,
+        examples,
+        configuration,
+        desc,
+    ]];
 
     (headers, data)
+}
+pub enum HelpView<'a> {
+    Records(RecordView<'a>),
+    Preview(Preview),
+}
+
+impl View for HelpView<'_> {
+    fn draw(&mut self, f: &mut Frame, area: Rect, cfg: ViewConfig<'_>, layout: &mut Layout) {
+        match self {
+            HelpView::Records(v) => v.draw(f, area, cfg, layout),
+            HelpView::Preview(v) => v.draw(f, area, cfg, layout),
+        }
+    }
+
+    fn handle_input(
+        &mut self,
+        engine_state: &EngineState,
+        stack: &mut Stack,
+        layout: &Layout,
+        info: &mut ViewInfo,
+        key: KeyEvent,
+    ) -> Option<Transition> {
+        match self {
+            HelpView::Records(v) => v.handle_input(engine_state, stack, layout, info, key),
+            HelpView::Preview(v) => v.handle_input(engine_state, stack, layout, info, key),
+        }
+    }
+
+    fn show_data(&mut self, i: usize) -> bool {
+        match self {
+            HelpView::Records(v) => v.show_data(i),
+            HelpView::Preview(v) => v.show_data(i),
+        }
+    }
+
+    fn collect_data(&self) -> Vec<crate::nu_common::NuText> {
+        match self {
+            HelpView::Records(v) => v.collect_data(),
+            HelpView::Preview(v) => v.collect_data(),
+        }
+    }
+
+    fn exit(&mut self) -> Option<Value> {
+        match self {
+            HelpView::Records(v) => v.exit(),
+            HelpView::Preview(v) => v.exit(),
+        }
+    }
+
+    fn setup(&mut self, config: ViewConfig<'_>) {
+        match self {
+            HelpView::Records(v) => v.setup(config),
+            HelpView::Preview(v) => v.setup(config),
+        }
+    }
 }

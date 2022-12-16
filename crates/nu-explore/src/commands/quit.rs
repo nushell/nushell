@@ -31,6 +31,8 @@ impl SimpleCommand for QuitCmd {
             description: "Quit and return to Nushell",
             arguments: vec![],
             examples: vec![],
+            input: vec![],
+            config_options: vec![],
         })
     }
 

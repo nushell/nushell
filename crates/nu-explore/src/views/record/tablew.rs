@@ -1,4 +1,7 @@
-use std::{borrow::Cow, cmp::max, collections::HashMap};
+use std::{
+    borrow::Cow,
+    cmp::{max, Ordering},
+};
 
 use nu_table::{string_width, Alignment, TextStyle};
 use tui::{
@@ -9,30 +12,45 @@ use tui::{
 };
 
 use crate::{
-    nu_common::{NuStyle, NuStyleTable, NuText},
-    pager::{nu_style_to_tui, text_style_to_tui_style},
-    views::ElementInfo,
+    nu_common::{truncate_str, NuStyle, NuStyleTable, NuText},
+    views::util::{nu_style_to_tui, text_style_to_tui_style},
 };
 
 use super::Layout;
 
+#[derive(Debug, Clone)]
 pub struct TableW<'a> {
     columns: Cow<'a, [String]>,
     data: Cow<'a, [Vec<NuText>]>,
     index_row: usize,
     index_column: usize,
     style: TableStyle,
+    head_position: Orientation,
     color_hm: &'a NuStyleTable,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Orientation {
+    Top,
+    Bottom,
+    Left,
+    Right,
+}
+
+#[derive(Debug, Default, Clone, Copy)]
 pub struct TableStyle {
+    pub splitline_style: NuStyle,
+    pub shift_line_style: NuStyle,
     pub show_index: bool,
     pub show_header: bool,
-    pub splitline_style: NuStyle,
     pub header_top: bool,
     pub header_bottom: bool,
     pub shift_line: bool,
     pub index_line: bool,
+    pub padding_index_left: usize,
+    pub padding_index_right: usize,
+    pub padding_column_left: usize,
+    pub padding_column_right: usize,
 }
 
 impl<'a> TableW<'a> {
@@ -44,14 +62,16 @@ impl<'a> TableW<'a> {
         index_row: usize,
         index_column: usize,
         style: TableStyle,
+        head_position: Orientation,
     ) -> Self {
         Self {
             columns: columns.into(),
             data: data.into(),
-            color_hm,
             index_row,
             index_column,
             style,
+            head_position,
+            color_hm,
         }
     }
 }
@@ -61,7 +81,7 @@ pub struct TableWState {
     pub layout: Layout,
     pub count_rows: usize,
     pub count_columns: usize,
-    pub data_index: HashMap<(usize, usize), ElementInfo>,
+    pub data_height: u16,
 }
 
 impl StatefulWidget for TableW<'_> {
@@ -73,29 +93,70 @@ impl StatefulWidget for TableW<'_> {
         buf: &mut tui::buffer::Buffer,
         state: &mut Self::State,
     ) {
-        const CELL_PADDING_LEFT: u16 = 2;
-        const CELL_PADDING_RIGHT: u16 = 2;
+        if area.width < 5 {
+            return;
+        }
+
+        let is_horizontal = matches!(self.head_position, Orientation::Top | Orientation::Bottom);
+        if is_horizontal {
+            self.render_table_horizontal(area, buf, state);
+        } else {
+            self.render_table_vertical(area, buf, state);
+        }
+    }
+}
+
+// todo: refactoring these to methods as they have quite a bit in common.
+impl<'a> TableW<'a> {
+    fn render_table_horizontal(self, area: Rect, buf: &mut Buffer, state: &mut TableWState) {
+        let padding_cell_l = self.style.padding_column_left as u16;
+        let padding_cell_r = self.style.padding_column_right as u16;
+        let padding_index_l = self.style.padding_index_left as u16;
+        let padding_index_r = self.style.padding_index_right as u16;
 
         let show_index = self.style.show_index;
         let show_head = self.style.show_header;
+
         let splitline_s = self.style.splitline_style;
+        let shift_column_s = self.style.shift_line_style;
 
-        let mut data_y = area.y;
         let mut data_height = area.height;
+        let mut data_y = area.y;
         let mut head_y = area.y;
-        if show_head {
-            data_y += 1;
-            data_height -= 1;
 
-            if self.style.header_top {
+        let is_head_top = matches!(self.head_position, Orientation::Top);
+        let is_head_bottom = matches!(self.head_position, Orientation::Bottom);
+
+        if show_head {
+            if is_head_top {
                 data_y += 1;
                 data_height -= 1;
-                head_y += 1
+
+                if self.style.header_top {
+                    data_y += 1;
+                    data_height -= 1;
+                    head_y += 1
+                }
+
+                if self.style.header_bottom {
+                    data_y += 1;
+                    data_height -= 1;
+                }
             }
 
-            if self.style.header_bottom {
-                data_y += 1;
+            if is_head_bottom {
                 data_height -= 1;
+                head_y = area.y + data_height;
+
+                if self.style.header_top && self.style.header_bottom {
+                    data_height -= 2;
+                    head_y -= 1
+                } else if self.style.header_top {
+                    data_height -= 1;
+                } else if self.style.header_bottom {
+                    data_height -= 1;
+                    head_y -= 1
+                }
             }
         }
 
@@ -104,103 +165,109 @@ impl StatefulWidget for TableW<'_> {
         }
 
         let mut width = area.x;
-
         let mut data = &self.data[self.index_row..];
         if data.len() > data_height as usize {
             data = &data[..data_height as usize];
         }
 
-        // header lines
         if show_head {
             // fixme: color from config
             let top = self.style.header_top;
             let bottom = self.style.header_bottom;
 
             if top || bottom {
-                render_header_borders(buf, area, 0, 1, splitline_s, top, bottom);
+                if is_head_top {
+                    render_header_borders(buf, area, 1, splitline_s, top, bottom);
+                } else if is_head_bottom {
+                    let area = Rect::new(area.x, area.y + data_height, area.width, area.height);
+                    render_header_borders(buf, area, 1, splitline_s, top, bottom);
+                }
             }
         }
 
         if show_index {
             let area = Rect::new(width, data_y, area.width, data_height);
-            width += render_index(buf, area, self.color_hm, self.index_row);
+            width += render_index(
+                buf,
+                area,
+                self.color_hm,
+                self.index_row,
+                padding_index_l,
+                padding_index_r,
+            );
 
             if self.style.index_line {
-                let show_head = show_head && self.style.header_bottom;
-                width += render_vertical(buf, width, data_y, data_height, show_head, splitline_s);
+                let head_t = show_head && is_head_top && self.style.header_bottom;
+                let head_b = show_head && is_head_bottom && self.style.header_top;
+                width +=
+                    render_vertical(buf, width, data_y, data_height, head_t, head_b, splitline_s);
             }
         }
 
-        let mut do_render_split_line = true;
         let mut do_render_shift_column = false;
-
         state.count_rows = data.len();
         state.count_columns = 0;
+        state.data_height = data_height;
 
-        for (i, col) in (self.index_column..self.columns.len()).enumerate() {
-            let mut head = String::from(&self.columns[col]);
+        if width > area.width {
+            return;
+        }
 
+        for col in self.index_column..self.columns.len() {
             let mut column = create_column(data, col);
-
             let column_width = calculate_column_width(&column);
-            let mut use_space = column_width as u16;
 
+            let mut head = String::from(&self.columns[col]);
+            let head_width = string_width(&head);
+
+            let mut use_space = column_width as u16;
             if show_head {
-                let head_width = string_width(&head);
                 use_space = max(head_width as u16, use_space);
             }
 
-            {
-                let available_space = area.width - width;
+            if use_space > 0 {
+                let is_last = col + 1 == self.columns.len();
+                let space = area.width - width;
+
+                let pad = padding_cell_l + padding_cell_r;
                 let head = show_head.then_some(&mut head);
-                let control = truncate_column(
-                    &mut column,
-                    head,
-                    available_space,
-                    col + 1 == self.columns.len(),
-                    PrintControl {
-                        break_everything: false,
-                        print_shift_column: false,
-                        print_split_line: true,
-                        width: use_space,
-                    },
-                );
+                let (w, ok, shift) =
+                    truncate_column_width(space, 1, use_space, pad, is_last, &mut column, head);
 
-                use_space = control.width;
-                do_render_split_line = control.print_split_line;
-                do_render_shift_column = control.print_shift_column;
+                if shift {
+                    do_render_shift_column = true;
+                }
 
-                if control.break_everything {
+                if w == 0 && !ok {
                     break;
                 }
+
+                use_space = w;
             }
 
             if show_head {
-                let header = &[head_row_text(&head, self.color_hm)];
+                let mut header = [head_row_text(&head, self.color_hm)];
+                if head_width > use_space as usize {
+                    truncate_str(&mut header[0].0, use_space as usize)
+                }
 
                 let mut w = width;
-                w += render_space(buf, w, head_y, 1, CELL_PADDING_LEFT);
-                w += render_column(buf, w, head_y, use_space, header);
-                render_space(buf, w, head_y, 1, CELL_PADDING_RIGHT);
+                w += render_space(buf, w, head_y, 1, padding_cell_l);
+                w += render_column(buf, w, head_y, use_space, &header);
+                w += render_space(buf, w, head_y, 1, padding_cell_r);
 
-                let x = w - CELL_PADDING_RIGHT - use_space;
+                let x = w - padding_cell_r - use_space;
                 state.layout.push(&header[0].0, x, head_y, use_space, 1);
-
-                // it would be nice to add it so it would be available on search
-                // state.state.data_index.insert((i, col), ElementInfo::new(text, x, data_y, use_space, 1));
             }
 
-            width += render_space(buf, width, data_y, data_height, CELL_PADDING_LEFT);
+            width += render_space(buf, width, data_y, data_height, padding_cell_l);
             width += render_column(buf, width, data_y, use_space, &column);
-            width += render_space(buf, width, data_y, data_height, CELL_PADDING_RIGHT);
+            width += render_space(buf, width, data_y, data_height, padding_cell_r);
 
             for (row, (text, _)) in column.iter().enumerate() {
-                let x = width - CELL_PADDING_RIGHT - use_space;
+                let x = width - padding_cell_r - use_space;
                 let y = data_y + row as u16;
                 state.layout.push(text, x, y, use_space, 1);
-
-                let e = ElementInfo::new(text, x, y, use_space, 1);
-                state.data_index.insert((row, i), e);
             }
 
             state.count_columns += 1;
@@ -216,18 +283,18 @@ impl StatefulWidget for TableW<'_> {
             // render_shift_column(buf, used_width, head_offset, available_height);
 
             if show_head {
-                width += render_space(buf, width, data_y, data_height, CELL_PADDING_LEFT);
-                width += render_shift_column(buf, width, head_y, 1, splitline_s);
-                width += render_space(buf, width, data_y, data_height, CELL_PADDING_RIGHT);
+                width += render_space(buf, width, data_y, data_height, padding_cell_l);
+                width += render_shift_column(buf, width, head_y, 1, shift_column_s);
+                width += render_space(buf, width, data_y, data_height, padding_cell_r);
             }
         }
 
-        if do_render_split_line && self.style.shift_line {
-            let show_head = show_head && self.style.header_bottom;
-            width += render_vertical(buf, width, data_y, data_height, show_head, splitline_s);
+        if self.style.shift_line && width < area.width {
+            let head_t = show_head && is_head_top && self.style.header_bottom;
+            let head_b = show_head && is_head_bottom && self.style.header_top;
+            width += render_vertical(buf, width, data_y, data_height, head_t, head_b, splitline_s);
         }
 
-        // we try out best to cleanup the rest of the space cause it could be meassed.
         let rest = area.width.saturating_sub(width);
         if rest > 0 {
             render_space(buf, width, data_y, data_height, rest);
@@ -236,6 +303,240 @@ impl StatefulWidget for TableW<'_> {
             }
         }
     }
+
+    fn render_table_vertical(self, area: Rect, buf: &mut Buffer, state: &mut TableWState) {
+        if area.width == 0 || area.height == 0 {
+            return;
+        }
+
+        let padding_cell_l = self.style.padding_column_left as u16;
+        let padding_cell_r = self.style.padding_column_right as u16;
+        let padding_index_l = self.style.padding_index_left as u16;
+        let padding_index_r = self.style.padding_index_right as u16;
+
+        let show_index = self.style.show_index;
+        let show_head = self.style.show_header;
+        let splitline_s = self.style.splitline_style;
+        let shift_column_s = self.style.shift_line_style;
+
+        let is_head_left = matches!(self.head_position, Orientation::Left);
+        let is_head_right = matches!(self.head_position, Orientation::Right);
+
+        let mut left_w = 0;
+        let mut right_w = 0;
+
+        if show_index {
+            let area = Rect::new(area.x, area.y, area.width, area.height);
+            left_w += render_index(
+                buf,
+                area,
+                self.color_hm,
+                self.index_row,
+                padding_index_l,
+                padding_index_r,
+            );
+
+            if self.style.index_line {
+                let x = area.x + left_w;
+                left_w += render_vertical(buf, x, area.y, area.height, false, false, splitline_s);
+            }
+        }
+
+        let mut columns = &self.columns[self.index_row..];
+        if columns.len() > area.height as usize {
+            columns = &columns[..area.height as usize];
+        }
+
+        if show_head {
+            let columns_width = columns.iter().map(|s| string_width(s)).max().unwrap_or(0);
+
+            let will_use_space =
+                padding_cell_l as usize + padding_cell_r as usize + columns_width + left_w as usize;
+            if will_use_space > area.width as usize {
+                return;
+            }
+
+            let columns = columns
+                .iter()
+                .map(|s| head_row_text(s, self.color_hm))
+                .collect::<Vec<_>>();
+
+            if is_head_left {
+                let have_index_line = show_index && self.style.index_line;
+                if !have_index_line && self.style.header_top {
+                    let x = area.x + left_w;
+                    left_w +=
+                        render_vertical(buf, x, area.y, area.height, false, false, splitline_s);
+                }
+
+                let x = area.x + left_w;
+                left_w += render_space(buf, x, area.y, 1, padding_cell_l);
+                let x = area.x + left_w;
+                left_w += render_column(buf, x, area.y, columns_width as u16, &columns);
+                let x = area.x + left_w;
+                left_w += render_space(buf, x, area.y, 1, padding_cell_r);
+
+                let layout_x = left_w - padding_cell_r - columns_width as u16;
+                for (i, (text, _)) in columns.iter().enumerate() {
+                    state
+                        .layout
+                        .push(text, layout_x, area.y + i as u16, columns_width as u16, 1);
+                }
+
+                if self.style.header_bottom {
+                    let x = area.x + left_w;
+                    left_w +=
+                        render_vertical(buf, x, area.y, area.height, false, false, splitline_s);
+                }
+            } else if is_head_right {
+                if self.style.header_bottom {
+                    let x = area.x + area.width - 1;
+                    right_w +=
+                        render_vertical(buf, x, area.y, area.height, false, false, splitline_s);
+                }
+
+                let x = area.x + area.width - right_w - padding_cell_r;
+                right_w += render_space(buf, x, area.y, 1, padding_cell_r);
+                let x = area.x + area.width - right_w - columns_width as u16;
+                right_w += render_column(buf, x, area.y, columns_width as u16, &columns);
+                let x = area.x + area.width - right_w - padding_cell_l;
+                right_w += render_space(buf, x, area.y, 1, padding_cell_l);
+
+                if self.style.header_top {
+                    let x = area.x + area.width - right_w - 1;
+                    right_w +=
+                        render_vertical(buf, x, area.y, area.height, false, false, splitline_s);
+                }
+            }
+        }
+
+        let mut do_render_shift_column = false;
+
+        state.count_rows = columns.len();
+        state.count_columns = 0;
+
+        for col in self.index_column..self.data.len() {
+            let mut column =
+                self.data[col][self.index_row..self.index_row + columns.len()].to_vec();
+            let column_width = calculate_column_width(&column);
+            if column_width > u16::MAX as usize {
+                break;
+            }
+
+            let column_width = column_width as u16;
+            let available = area.width - left_w - right_w;
+            let is_last = col + 1 == self.data.len();
+            let pad = padding_cell_l + padding_cell_r;
+            let (column_width, ok, shift) =
+                truncate_column_width(available, 1, column_width, pad, is_last, &mut column, None);
+
+            if shift {
+                do_render_shift_column = true;
+            }
+
+            if column_width == 0 && !ok {
+                break;
+            }
+
+            let x = area.x + left_w;
+            left_w += render_space(buf, x, area.y, area.height, padding_cell_l);
+            let x = area.x + left_w;
+            left_w += render_column(buf, x, area.y, column_width, &column);
+            let x = area.x + left_w;
+            left_w += render_space(buf, x, area.y, area.height, padding_cell_r);
+
+            {
+                for (row, (text, _)) in column.iter().enumerate() {
+                    let x = left_w - padding_cell_r - column_width;
+                    let y = area.y + row as u16;
+                    state.layout.push(text, x, y, column_width, 1);
+                }
+
+                state.count_columns += 1;
+            }
+
+            if do_render_shift_column {
+                break;
+            }
+        }
+
+        if do_render_shift_column {
+            let x = area.x + left_w;
+            left_w += render_space(buf, x, area.y, area.height, padding_cell_l);
+            let x = area.x + left_w;
+            left_w += render_shift_column(buf, x, area.y, area.height, shift_column_s);
+            let x = area.x + left_w;
+            left_w += render_space(buf, x, area.y, area.height, padding_cell_r);
+        }
+
+        _ = left_w;
+    }
+}
+
+#[allow(clippy::too_many_arguments)]
+fn truncate_column_width(
+    space: u16,
+    min: u16,
+    w: u16,
+    pad: u16,
+    is_last: bool,
+    column: &mut [(String, TextStyle)],
+    head: Option<&mut String>,
+) -> (u16, bool, bool) {
+    let result = check_column_width(space, min, w, pad, is_last);
+
+    let (width, shift_column) = match result {
+        Some(result) => result,
+        None => return (w, true, false),
+    };
+
+    if width == 0 {
+        return (0, false, shift_column);
+    }
+
+    truncate_list(column, width as usize);
+    if let Some(head) = head {
+        truncate_str(head, width as usize);
+    }
+
+    (width, false, shift_column)
+}
+
+fn check_column_width(
+    space: u16,
+    min: u16,
+    w: u16,
+    pad: u16,
+    is_last: bool,
+) -> Option<(u16, bool)> {
+    if !is_space_available(space, pad) {
+        return Some((0, false));
+    }
+
+    if is_last {
+        if !is_space_available(space, w + pad) {
+            return Some((space - pad, false));
+        } else {
+            return None;
+        }
+    }
+
+    if !is_space_available(space, min + pad) {
+        return Some((0, false));
+    }
+
+    if !is_space_available(space, w + pad + min + pad) {
+        let left_space = space - (min + pad);
+
+        if left_space > pad {
+            let left = left_space - pad;
+            return Some((left, true));
+        } else {
+            return Some((0, true));
+        }
+    }
+
+    None
 }
 
 struct IndexColumn<'a> {
@@ -275,7 +576,6 @@ impl Widget for IndexColumn<'_> {
 fn render_header_borders(
     buf: &mut Buffer,
     area: Rect,
-    y: u16,
     span: u16,
     style: NuStyle,
     top: bool,
@@ -297,18 +597,22 @@ fn render_header_borders(
         .borders(borders)
         .border_style(nu_style_to_tui(style));
     let height = i + span;
-    let area = Rect::new(area.x, area.y + y, area.width, height);
+    let area = Rect::new(area.x, area.y, area.width, height);
     block.render(area, buf);
 
     // y pos of header text and next line
     (height.saturating_sub(2), height)
 }
 
-fn render_index(buf: &mut Buffer, area: Rect, color_hm: &NuStyleTable, start_index: usize) -> u16 {
-    const PADDING_LEFT: u16 = 2;
-    const PADDING_RIGHT: u16 = 1;
-
-    let mut width = render_space(buf, area.x, area.y, area.height, PADDING_LEFT);
+fn render_index(
+    buf: &mut Buffer,
+    area: Rect,
+    color_hm: &NuStyleTable,
+    start_index: usize,
+    padding_left: u16,
+    padding_right: u16,
+) -> u16 {
+    let mut width = render_space(buf, area.x, area.y, area.height, padding_left);
 
     let index = IndexColumn::new(color_hm, start_index);
     let w = index.estimate_width(area.height) as u16;
@@ -317,7 +621,7 @@ fn render_index(buf: &mut Buffer, area: Rect, color_hm: &NuStyleTable, start_ind
     index.render(area, buf);
 
     width += w;
-    width += render_space(buf, area.x + width, area.y, area.height, PADDING_RIGHT);
+    width += render_space(buf, area.x + width, area.y, area.height, padding_right);
 
     width
 }
@@ -327,16 +631,19 @@ fn render_vertical(
     x: u16,
     y: u16,
     height: u16,
-    show_header: bool,
+    top_slit: bool,
+    bottom_slit: bool,
     style: NuStyle,
 ) -> u16 {
     render_vertical_split(buf, x, y, height, style);
 
-    if show_header && y > 0 {
+    if top_slit && y > 0 {
         render_top_connector(buf, x, y - 1, style);
     }
 
-    // render_bottom_connector(buf, x, height + y);
+    if bottom_slit {
+        render_bottom_connector(buf, x, y + height, style);
+    }
 
     1
 }
@@ -364,7 +671,10 @@ fn create_column(data: &[Vec<NuText>], col: usize) -> Vec<NuText> {
         }
 
         let value = &values[col];
-        column[row] = value.clone();
+
+        let text = value.0.replace('\n', " ");
+
+        column[row] = (text, value.1);
     }
 
     column
@@ -390,126 +700,16 @@ fn repeat_vertical(
     }
 }
 
-#[derive(Debug, Default, Copy, Clone)]
-struct PrintControl {
-    width: u16,
-    break_everything: bool,
-    print_split_line: bool,
-    print_shift_column: bool,
-}
-
-fn truncate_column(
-    column: &mut [NuText],
-    head: Option<&mut String>,
-    available_space: u16,
-    is_column_last: bool,
-    mut control: PrintControl,
-) -> PrintControl {
-    const CELL_PADDING_LEFT: u16 = 2;
-    const CELL_PADDING_RIGHT: u16 = 2;
-    const VERTICAL_LINE_WIDTH: u16 = 1;
-    const CELL_MIN_WIDTH: u16 = 1;
-
-    let min_space_cell = CELL_PADDING_LEFT + CELL_PADDING_RIGHT + CELL_MIN_WIDTH;
-    let min_space = min_space_cell + VERTICAL_LINE_WIDTH;
-    if available_space < min_space {
-        // if there's not enough space at all just return; doing our best
-        if available_space < VERTICAL_LINE_WIDTH {
-            control.print_split_line = false;
-        }
-
-        control.break_everything = true;
-        return control;
+fn is_space_available(available: u16, got: u16) -> bool {
+    match available.cmp(&got) {
+        Ordering::Less => false,
+        Ordering::Equal | Ordering::Greater => true,
     }
-
-    let column_taking_space =
-        control.width + CELL_PADDING_LEFT + CELL_PADDING_RIGHT + VERTICAL_LINE_WIDTH;
-    let is_enough_space = available_space > column_taking_space;
-    if !is_enough_space {
-        if is_column_last {
-            // we can do nothing about it we need to truncate.
-            // we assume that there's always at least space for padding and 1 symbol. (5 chars)
-
-            let width = available_space
-                .saturating_sub(CELL_PADDING_LEFT + CELL_PADDING_RIGHT + VERTICAL_LINE_WIDTH);
-            if width == 0 {
-                control.break_everything = true;
-                return control;
-            }
-
-            if let Some(head) = head {
-                truncate_str(head, width as usize);
-            }
-
-            truncate_list(column, width as usize);
-
-            control.width = width;
-        } else {
-            let min_space_2cells = min_space + min_space_cell;
-            if available_space > min_space_2cells {
-                let width = available_space.saturating_sub(min_space_2cells);
-                if width == 0 {
-                    control.break_everything = true;
-                    return control;
-                }
-
-                truncate_list(column, width as usize);
-
-                if let Some(head) = head {
-                    truncate_str(head, width as usize);
-                }
-
-                control.width = width;
-                control.print_shift_column = true;
-            } else {
-                control.break_everything = true;
-                control.print_shift_column = true;
-            }
-        }
-    } else if !is_column_last {
-        // even though we can safely render current column,
-        // we need to check whether there's enough space for AT LEAST a shift column
-        // (2 padding + 2 padding + 1 a char)
-        let left_space = available_space - column_taking_space;
-        if left_space < min_space {
-            let need_space = min_space_cell - left_space;
-            let min_left_width = 1;
-            let is_column_big_enough = control.width > need_space + min_left_width;
-
-            if is_column_big_enough {
-                let width = control.width.saturating_sub(need_space);
-                if width == 0 {
-                    control.break_everything = true;
-                    return control;
-                }
-
-                truncate_list(column, width as usize);
-
-                if let Some(head) = head {
-                    truncate_str(head, width as usize);
-                }
-
-                control.width = width;
-                control.print_shift_column = true;
-            }
-        }
-    }
-
-    control
 }
 
 fn truncate_list(list: &mut [NuText], width: usize) {
     for (text, _) in list {
         truncate_str(text, width);
-    }
-}
-
-fn truncate_str(text: &mut String, width: usize) {
-    if width == 0 {
-        text.clear();
-    } else {
-        *text = nu_table::string_truncate(text, width - 1);
-        text.push('…');
     }
 }
 
@@ -527,6 +727,12 @@ fn render_shift_column(buf: &mut Buffer, x: u16, y: u16, height: u16, style: NuS
 fn render_top_connector(buf: &mut Buffer, x: u16, y: u16, style: NuStyle) {
     let style = nu_style_to_tui(style);
     let span = Span::styled("┬", style);
+    buf.set_span(x, y, &span, 1);
+}
+
+fn render_bottom_connector(buf: &mut Buffer, x: u16, y: u16, style: NuStyle) {
+    let style = nu_style_to_tui(style);
+    let span = Span::styled("┴", style);
     buf.set_span(x, y, &span, 1);
 }
 

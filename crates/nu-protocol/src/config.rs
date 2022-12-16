@@ -197,11 +197,6 @@ impl TrimStrategy {
     }
 }
 
-#[derive(Serialize, Deserialize, Clone, Debug)]
-pub struct ExploreConfig {
-    pub color_config: HashMap<String, Value>,
-}
-
 impl Value {
     pub fn into_config(&mut self, config: &Config) -> (Config, Option<ShellError>) {
         // Clone the passed-in config rather than mutating it.

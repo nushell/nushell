@@ -1,8 +1,9 @@
 mod tablew;
 
-use std::{borrow::Cow, cmp::min, collections::HashMap};
+use std::{borrow::Cow, collections::HashMap};
 
 use crossterm::event::{KeyCode, KeyEvent};
+use nu_color_config::get_color_map;
 use nu_protocol::{
     engine::{EngineState, Stack},
     Value,
@@ -10,45 +11,125 @@ use nu_protocol::{
 use tui::{layout::Rect, widgets::Block};
 
 use crate::{
-    nu_common::{collect_input, NuConfig, NuSpan, NuStyleTable, NuText},
+    nu_common::{collect_input, NuConfig, NuSpan, NuStyle, NuStyleTable, NuText},
     pager::{
-        make_styled_string, nu_style_to_tui, Frame, Position, Report, Severity, StyleConfig,
-        TableConfig, Transition, ViewConfig, ViewInfo,
+        report::{Report, Severity},
+        ConfigMap, Frame, Transition, ViewInfo,
     },
+    util::create_map,
     views::ElementInfo,
 };
 
-use self::tablew::{TableW, TableWState};
+use self::tablew::{TableStyle, TableW, TableWState};
 
-use super::{Layout, View};
+use super::{
+    cursor::XYCursor,
+    util::{make_styled_string, nu_style_to_tui},
+    Layout, View, ViewConfig,
+};
+
+pub use self::tablew::Orientation;
 
 #[derive(Debug, Clone)]
 pub struct RecordView<'a> {
     layer_stack: Vec<RecordLayer<'a>>,
     mode: UIMode,
-    cfg: TableConfig,
-    pub(crate) cursor: Position,
-    state: RecordViewState,
+    orientation: Orientation,
+    theme: TableTheme,
 }
 
 impl<'a> RecordView<'a> {
     pub fn new(
         columns: impl Into<Cow<'a, [String]>>,
         records: impl Into<Cow<'a, [Vec<Value>]>>,
-        table_cfg: TableConfig,
     ) -> Self {
         Self {
             layer_stack: vec![RecordLayer::new(columns, records)],
             mode: UIMode::View,
-            cursor: Position::new(0, 0),
-            cfg: table_cfg,
-            state: RecordViewState::default(),
+            orientation: Orientation::Top,
+            theme: TableTheme::default(),
         }
     }
 
     pub fn reverse(&mut self, width: u16, height: u16) {
-        let page_size = estimate_page_size(Rect::new(0, 0, width, height), self.cfg.show_head);
+        let page_size =
+            estimate_page_size(Rect::new(0, 0, width, height), self.theme.table.show_header);
         state_reverse_data(self, page_size as usize);
+    }
+
+    pub fn set_style_split_line(&mut self, style: NuStyle) {
+        self.theme.table.splitline_style = style
+    }
+
+    pub fn set_style_selected_cell(&mut self, style: NuStyle) {
+        self.theme.cursor.selected_cell = Some(style)
+    }
+
+    pub fn set_style_selected_row(&mut self, style: NuStyle) {
+        self.theme.cursor.selected_row = Some(style)
+    }
+
+    pub fn set_style_selected_column(&mut self, style: NuStyle) {
+        self.theme.cursor.selected_column = Some(style)
+    }
+
+    pub fn show_cursor(&mut self, b: bool) {
+        self.theme.cursor.show_cursow = b;
+    }
+
+    pub fn set_line_head_top(&mut self, b: bool) {
+        self.theme.table.header_top = b;
+    }
+
+    pub fn set_line_head_bottom(&mut self, b: bool) {
+        self.theme.table.header_bottom = b;
+    }
+
+    pub fn set_line_traling(&mut self, b: bool) {
+        self.theme.table.shift_line = b;
+    }
+
+    pub fn set_line_index(&mut self, b: bool) {
+        self.theme.table.index_line = b;
+    }
+
+    pub fn set_padding_column(&mut self, (left, right): (usize, usize)) {
+        self.theme.table.padding_column_left = left;
+        self.theme.table.padding_column_right = right;
+    }
+
+    pub fn set_padding_index(&mut self, (left, right): (usize, usize)) {
+        self.theme.table.padding_index_left = left;
+        self.theme.table.padding_index_right = right;
+    }
+
+    pub fn get_padding_column(&self) -> (usize, usize) {
+        (
+            self.theme.table.padding_column_left,
+            self.theme.table.padding_column_right,
+        )
+    }
+
+    pub fn get_padding_index(&self) -> (usize, usize) {
+        (
+            self.theme.table.padding_index_left,
+            self.theme.table.padding_index_right,
+        )
+    }
+
+    pub fn get_theme(&self) -> &TableTheme {
+        &self.theme
+    }
+
+    pub fn set_theme(&mut self, theme: TableTheme) {
+        self.theme = theme;
+    }
+
+    pub fn transpose(&mut self) {
+        let layer = self.get_layer_last_mut();
+        transpose_table(layer);
+
+        layer.reset_cursor();
     }
 
     // todo: rename to get_layer
@@ -64,46 +145,137 @@ impl<'a> RecordView<'a> {
             .expect("we guarantee that 1 entry is always in a list")
     }
 
-    fn create_tablew<'b>(&self, layer: &'b RecordLayer, view_cfg: &'b ViewConfig) -> TableW<'b> {
-        let data = convert_records_to_string(&layer.records, view_cfg.config, view_cfg.color_hm);
+    pub fn get_orientation_current(&mut self) -> Orientation {
+        self.get_layer_last().orientation
+    }
 
-        let style = tablew::TableStyle {
-            show_index: self.cfg.show_index,
-            show_header: self.cfg.show_head,
-            splitline_style: view_cfg.theme.split_line,
-            header_bottom: view_cfg.theme.split_lines.header_bottom,
-            header_top: view_cfg.theme.split_lines.header_top,
-            index_line: view_cfg.theme.split_lines.index_line,
-            shift_line: view_cfg.theme.split_lines.shift_line,
+    pub fn set_orientation(&mut self, orientation: Orientation) {
+        self.orientation = orientation;
+
+        // we need to reset all indexes as we can't no more use them.
+        self.reset_cursors();
+    }
+
+    fn reset_cursors(&mut self) {
+        for layer in &mut self.layer_stack {
+            layer.reset_cursor();
+        }
+    }
+
+    pub fn set_orientation_current(&mut self, orientation: Orientation) {
+        let layer = self.get_layer_last_mut();
+        layer.orientation = orientation;
+        layer.reset_cursor();
+    }
+
+    pub fn get_current_position(&self) -> (usize, usize) {
+        let layer = self.get_layer_last();
+        (layer.cursor.row(), layer.cursor.column())
+    }
+
+    pub fn get_current_window(&self) -> (usize, usize) {
+        let layer = self.get_layer_last();
+        (layer.cursor.row_window(), layer.cursor.column_window())
+    }
+
+    pub fn get_current_offset(&self) -> (usize, usize) {
+        let layer = self.get_layer_last();
+        (
+            layer.cursor.row_starts_at(),
+            layer.cursor.column_starts_at(),
+        )
+    }
+
+    pub fn set_cursor_mode(&mut self) {
+        self.mode = UIMode::Cursor;
+    }
+
+    pub fn set_view_mode(&mut self) {
+        self.mode = UIMode::View;
+    }
+
+    pub fn get_current_value(&self) -> Value {
+        let (row, column) = self.get_current_position();
+        let layer = self.get_layer_last();
+
+        let (row, column) = match layer.orientation {
+            Orientation::Top | Orientation::Bottom => (row, column),
+            Orientation::Left | Orientation::Right => (column, row),
         };
 
-        let headers = layer.columns.as_ref();
-        let color_hm = view_cfg.color_hm;
-        let i_row = layer.index_row;
-        let i_column = layer.index_column;
+        layer.records[row][column].clone()
+    }
 
-        TableW::new(headers, data, color_hm, i_row, i_column, style)
+    fn create_tablew(&'a self, cfg: ViewConfig<'a>) -> TableW<'a> {
+        let layer = self.get_layer_last();
+        let data = convert_records_to_string(&layer.records, cfg.nu_config, cfg.color_hm);
+
+        let headers = layer.columns.as_ref();
+        let color_hm = cfg.color_hm;
+        let (row, column) = self.get_current_offset();
+
+        TableW::new(
+            headers,
+            data,
+            color_hm,
+            row,
+            column,
+            self.theme.table,
+            layer.orientation,
+        )
+    }
+
+    fn update_cursors(&mut self, rows: usize, columns: usize) {
+        match self.get_layer_last().orientation {
+            Orientation::Top | Orientation::Bottom => {
+                self.get_layer_last_mut().cursor.set_window(rows, columns);
+            }
+
+            Orientation::Left | Orientation::Right => {
+                self.get_layer_last_mut().cursor.set_window(rows, columns);
+            }
+        }
+    }
+
+    fn create_records_report(&self) -> Report {
+        let layer = self.get_layer_last();
+        let covered_percent = report_row_position(layer.cursor);
+        let cursor = report_cursor_position(self.mode, layer.cursor);
+        let message = layer.name.clone().unwrap_or_default();
+
+        Report {
+            message,
+            context: covered_percent,
+            context2: cursor,
+            level: Severity::Info,
+        }
     }
 }
 
 impl View for RecordView<'_> {
-    fn draw(&mut self, f: &mut Frame, area: Rect, cfg: &ViewConfig, layout: &mut Layout) {
-        let layer = self.get_layer_last();
-        let table = self.create_tablew(layer, cfg);
-
+    fn draw(&mut self, f: &mut Frame, area: Rect, cfg: ViewConfig<'_>, layout: &mut Layout) {
         let mut table_layout = TableWState::default();
+        let table = self.create_tablew(cfg);
         f.render_stateful_widget(table, area, &mut table_layout);
 
         *layout = table_layout.layout;
-        self.state = RecordViewState {
-            count_rows: table_layout.count_rows,
-            count_columns: table_layout.count_columns,
-            data_index: table_layout.data_index,
-        };
+
+        self.update_cursors(table_layout.count_rows, table_layout.count_columns);
 
         if self.mode == UIMode::Cursor {
-            let cursor = get_cursor(self);
-            highlight_cell(f, area, &self.state, cursor, cfg.theme);
+            let (row, column) = self.get_current_window();
+            let info = get_element_info(
+                layout,
+                row,
+                column,
+                table_layout.count_rows,
+                self.get_layer_last().orientation,
+                self.theme.table.show_header,
+            );
+
+            if let Some(info) = info {
+                highlight_cell(f, area, info.clone(), &self.theme.cursor);
+            }
         }
     }
 
@@ -117,19 +289,11 @@ impl View for RecordView<'_> {
     ) -> Option<Transition> {
         let result = match self.mode {
             UIMode::View => handle_key_event_view_mode(self, &key),
-            UIMode::Cursor => {
-                // we handle a situation where we got resized and the old cursor is no longer valid
-                self.cursor = get_cursor(self);
-
-                handle_key_event_cursor_mode(self, &key)
-            }
+            UIMode::Cursor => handle_key_event_cursor_mode(self, &key),
         };
 
         if matches!(&result, Some(Transition::Ok) | Some(Transition::Cmd { .. })) {
-            // update status bar
-            let report =
-                create_records_report(self.get_layer_last(), &self.state, self.mode, self.cursor);
-
+            let report = self.create_records_report();
             info.status = Some(report);
         }
 
@@ -158,10 +322,7 @@ impl View for RecordView<'_> {
 
             for (column, _) in cells.iter().enumerate() {
                 if i == pos {
-                    let layer = self.get_layer_last_mut();
-                    layer.index_column = column;
-                    layer.index_row = row;
-
+                    self.get_layer_last_mut().cursor.set_position(row, column);
                     return true;
                 }
 
@@ -175,6 +336,46 @@ impl View for RecordView<'_> {
     fn exit(&mut self) -> Option<Value> {
         Some(build_last_value(self))
     }
+
+    // todo: move the method to Command?
+    fn setup(&mut self, cfg: ViewConfig<'_>) {
+        if let Some(hm) = cfg.config.get("table").and_then(create_map) {
+            self.theme = theme_from_config(&hm);
+
+            if let Some(orientation) = hm.get("orientation").and_then(|v| v.as_string().ok()) {
+                let orientation = match orientation.as_str() {
+                    "left" => Some(Orientation::Left),
+                    "right" => Some(Orientation::Right),
+                    "top" => Some(Orientation::Top),
+                    "bottom" => Some(Orientation::Bottom),
+                    _ => None,
+                };
+
+                if let Some(orientation) = orientation {
+                    self.set_orientation(orientation);
+                    self.set_orientation_current(orientation);
+                }
+            }
+        }
+    }
+}
+
+fn get_element_info(
+    layout: &mut Layout,
+    row: usize,
+    column: usize,
+    count_rows: usize,
+    orientation: Orientation,
+    with_head: bool,
+) -> Option<&ElementInfo> {
+    let with_head = with_head as usize;
+    let index = match orientation {
+        Orientation::Top | Orientation::Bottom => column * (count_rows + with_head) + row + 1,
+        Orientation::Left => (column + with_head) * count_rows + row,
+        Orientation::Right => column * count_rows + row,
+    };
+
+    layout.data.get(index)
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
@@ -187,10 +388,10 @@ enum UIMode {
 pub struct RecordLayer<'a> {
     columns: Cow<'a, [String]>,
     records: Cow<'a, [Vec<Value>]>,
-    pub(crate) index_row: usize,
-    pub(crate) index_column: usize,
+    orientation: Orientation,
     name: Option<String>,
     was_transposed: bool,
+    cursor: XYCursor,
 }
 
 impl<'a> RecordLayer<'a> {
@@ -198,11 +399,15 @@ impl<'a> RecordLayer<'a> {
         columns: impl Into<Cow<'a, [String]>>,
         records: impl Into<Cow<'a, [Vec<Value>]>>,
     ) -> Self {
+        let columns = columns.into();
+        let records = records.into();
+        let cursor = XYCursor::new(records.len(), columns.len());
+
         Self {
-            columns: columns.into(),
-            records: records.into(),
-            index_row: 0,
-            index_column: 0,
+            columns,
+            records,
+            cursor,
+            orientation: Orientation::Top,
             name: None,
             was_transposed: false,
         }
@@ -213,33 +418,27 @@ impl<'a> RecordLayer<'a> {
     }
 
     fn count_rows(&self) -> usize {
-        self.records.len()
+        match self.orientation {
+            Orientation::Top | Orientation::Bottom => self.records.len(),
+            Orientation::Left | Orientation::Right => self.columns.len(),
+        }
     }
 
     fn count_columns(&self) -> usize {
-        self.columns.len()
+        match self.orientation {
+            Orientation::Top | Orientation::Bottom => self.columns.len(),
+            Orientation::Left | Orientation::Right => self.records.len(),
+        }
     }
 
-    fn get_current_value(&self, Position { x, y }: Position) -> Value {
-        let current_row = y as usize + self.index_row;
-        let current_column = x as usize + self.index_column;
-
-        let row = self.records[current_row].clone();
-        row[current_column].clone()
-    }
-
-    fn get_current_header(&self, Position { x, .. }: Position) -> Option<String> {
-        let col = x as usize + self.index_column;
-
+    fn get_column_header(&self) -> Option<String> {
+        let col = self.cursor.column();
         self.columns.get(col).map(|header| header.to_string())
     }
-}
 
-#[derive(Debug, Default, Clone)]
-pub struct RecordViewState {
-    count_rows: usize,
-    count_columns: usize,
-    data_index: HashMap<(usize, usize), ElementInfo>,
+    fn reset_cursor(&mut self) {
+        self.cursor = XYCursor::new(self.count_rows(), self.count_columns());
+    }
 }
 
 fn handle_key_event_view_mode(view: &mut RecordView, key: &KeyEvent) -> Option<Transition> {
@@ -247,64 +446,51 @@ fn handle_key_event_view_mode(view: &mut RecordView, key: &KeyEvent) -> Option<T
         KeyCode::Esc => {
             if view.layer_stack.len() > 1 {
                 view.layer_stack.pop();
+                view.mode = UIMode::Cursor;
+
                 Some(Transition::Ok)
             } else {
                 Some(Transition::Exit)
             }
         }
-        KeyCode::Char('i') => {
-            view.mode = UIMode::Cursor;
-            view.cursor = Position::default();
+        KeyCode::Char('i') | KeyCode::Enter => {
+            view.set_cursor_mode();
 
             Some(Transition::Ok)
         }
         KeyCode::Char('t') => {
-            let layer = view.get_layer_last_mut();
-            layer.index_column = 0;
-            layer.index_row = 0;
-
-            transpose_table(layer);
+            view.transpose();
 
             Some(Transition::Ok)
         }
+        KeyCode::Char('e') => Some(Transition::Cmd(String::from("expand"))),
         KeyCode::Up => {
-            let layer = view.get_layer_last_mut();
-            layer.index_row = layer.index_row.saturating_sub(1);
+            view.get_layer_last_mut().cursor.prev_row_i();
 
             Some(Transition::Ok)
         }
         KeyCode::Down => {
-            let layer = view.get_layer_last_mut();
-            let max_index = layer.count_rows().saturating_sub(1);
-            layer.index_row = min(layer.index_row + 1, max_index);
+            view.get_layer_last_mut().cursor.next_row_i();
 
             Some(Transition::Ok)
         }
         KeyCode::Left => {
-            let layer = view.get_layer_last_mut();
-            layer.index_column = layer.index_column.saturating_sub(1);
+            view.get_layer_last_mut().cursor.prev_column_i();
 
             Some(Transition::Ok)
         }
         KeyCode::Right => {
-            let layer = view.get_layer_last_mut();
-            let max_index = layer.count_columns().saturating_sub(1);
-            layer.index_column = min(layer.index_column + 1, max_index);
+            view.get_layer_last_mut().cursor.next_column_i();
 
             Some(Transition::Ok)
         }
         KeyCode::PageUp => {
-            let count_rows = view.state.count_rows;
-            let layer = view.get_layer_last_mut();
-            layer.index_row = layer.index_row.saturating_sub(count_rows as usize);
+            view.get_layer_last_mut().cursor.prev_row_page();
 
             Some(Transition::Ok)
         }
         KeyCode::PageDown => {
-            let count_rows = view.state.count_rows;
-            let layer = view.get_layer_last_mut();
-            let max_index = layer.count_rows().saturating_sub(1);
-            layer.index_row = min(layer.index_row + count_rows as usize, max_index);
+            view.get_layer_last_mut().cursor.next_row_page();
 
             Some(Transition::Ok)
         }
@@ -315,83 +501,62 @@ fn handle_key_event_view_mode(view: &mut RecordView, key: &KeyEvent) -> Option<T
 fn handle_key_event_cursor_mode(view: &mut RecordView, key: &KeyEvent) -> Option<Transition> {
     match key.code {
         KeyCode::Esc => {
-            view.mode = UIMode::View;
-            view.cursor = Position::default();
+            view.set_view_mode();
 
             Some(Transition::Ok)
         }
         KeyCode::Up => {
-            if view.cursor.y == 0 {
-                let layer = view.get_layer_last_mut();
-                layer.index_row = layer.index_row.saturating_sub(1);
-            } else {
-                view.cursor.y -= 1
-            }
+            view.get_layer_last_mut().cursor.prev_row();
 
             Some(Transition::Ok)
         }
         KeyCode::Down => {
-            let cursor = view.cursor;
-            let showed_rows = view.state.count_rows;
-            let layer = view.get_layer_last_mut();
-
-            let total_rows = layer.count_rows();
-            let row_index = layer.index_row + cursor.y as usize + 1;
-
-            if row_index < total_rows {
-                if cursor.y as usize + 1 == showed_rows {
-                    layer.index_row += 1;
-                } else {
-                    view.cursor.y += 1;
-                }
-            }
+            view.get_layer_last_mut().cursor.next_row();
 
             Some(Transition::Ok)
         }
         KeyCode::Left => {
-            let cursor = view.cursor;
-            let layer = view.get_layer_last_mut();
-
-            if cursor.x == 0 {
-                layer.index_column = layer.index_column.saturating_sub(1);
-            } else {
-                view.cursor.x -= 1
-            }
+            view.get_layer_last_mut().cursor.prev_column();
 
             Some(Transition::Ok)
         }
         KeyCode::Right => {
-            let cursor = view.cursor;
-            let showed_columns = view.state.count_columns;
-            let layer = view.get_layer_last_mut();
+            view.get_layer_last_mut().cursor.next_column();
 
-            let total_columns = layer.count_columns();
-            let column_index = layer.index_column + cursor.x as usize + 1;
+            Some(Transition::Ok)
+        }
+        KeyCode::PageUp => {
+            view.get_layer_last_mut().cursor.prev_row_page();
 
-            if column_index < total_columns {
-                if cursor.x as usize + 1 == showed_columns {
-                    layer.index_column += 1;
-                } else {
-                    view.cursor.x += 1;
-                }
-            }
+            Some(Transition::Ok)
+        }
+        KeyCode::PageDown => {
+            view.get_layer_last_mut().cursor.next_row_page();
 
             Some(Transition::Ok)
         }
         KeyCode::Enter => {
-            let next_layer = get_peeked_layer(view);
+            let value = view.get_current_value();
+            let is_record = matches!(value, Value::Record { .. });
+            let next_layer = create_layer(value);
+
             push_layer(view, next_layer);
+
+            if is_record {
+                view.set_orientation_current(Orientation::Left);
+            } else if view.orientation == view.get_layer_last().orientation {
+                view.get_layer_last_mut().orientation = view.orientation;
+            } else {
+                view.set_orientation_current(view.orientation);
+            }
+
             Some(Transition::Ok)
         }
         _ => None,
     }
 }
 
-fn get_peeked_layer(view: &RecordView) -> RecordLayer<'static> {
-    let layer = view.get_layer_last();
-
-    let value = layer.get_current_value(view.cursor);
-
+fn create_layer(value: Value) -> RecordLayer<'static> {
     let (columns, values) = collect_input(value);
 
     RecordLayer::new(columns, values)
@@ -399,16 +564,13 @@ fn get_peeked_layer(view: &RecordView) -> RecordLayer<'static> {
 
 fn push_layer(view: &mut RecordView<'_>, mut next_layer: RecordLayer<'static>) {
     let layer = view.get_layer_last();
-    let header = layer.get_current_header(view.cursor);
+    let header = layer.get_column_header();
 
     if let Some(header) = header {
         next_layer.set_name(header);
     }
 
     view.layer_stack.push(next_layer);
-
-    view.mode = UIMode::View;
-    view.cursor = Position::default();
 }
 
 fn estimate_page_size(area: Rect, show_head: bool) -> u16 {
@@ -425,8 +587,8 @@ fn estimate_page_size(area: Rect, show_head: bool) -> u16 {
 fn state_reverse_data(state: &mut RecordView<'_>, page_size: usize) {
     let layer = state.get_layer_last_mut();
     let count_rows = layer.records.len();
-    if count_rows > page_size as usize {
-        layer.index_row = count_rows - page_size as usize;
+    if count_rows > page_size {
+        layer.cursor.set_position(count_rows - page_size, 0);
     }
 }
 
@@ -451,70 +613,38 @@ fn convert_records_to_string(
         .collect::<Vec<_>>()
 }
 
-fn highlight_cell(
-    f: &mut Frame,
-    area: Rect,
-    state: &RecordViewState,
-    cursor: Position,
-    theme: &StyleConfig,
-) {
-    let Position { x: column, y: row } = cursor;
-
-    let info = state.data_index.get(&(row as usize, column as usize));
-
-    if let Some(info) = info {
-        if let Some(style) = theme.selected_column {
-            let hightlight_block = Block::default().style(nu_style_to_tui(style));
-            let area = Rect::new(info.area.x, area.y, info.area.width, area.height);
-            f.render_widget(hightlight_block.clone(), area);
-        }
-
-        if let Some(style) = theme.selected_row {
-            let hightlight_block = Block::default().style(nu_style_to_tui(style));
-            let area = Rect::new(area.x, info.area.y, area.width, 1);
-            f.render_widget(hightlight_block.clone(), area);
-        }
-
-        if let Some(style) = theme.selected_cell {
-            let hightlight_block = Block::default().style(nu_style_to_tui(style));
-            let area = Rect::new(info.area.x, info.area.y, info.area.width, 1);
-            f.render_widget(hightlight_block.clone(), area);
-        }
-
-        if theme.show_cursow {
-            f.set_cursor(info.area.x, info.area.y);
-        }
+fn highlight_cell(f: &mut Frame, area: Rect, info: ElementInfo, theme: &CursorStyle) {
+    if let Some(style) = theme.selected_column {
+        let hightlight_block = Block::default().style(nu_style_to_tui(style));
+        let area = Rect::new(info.area.x, area.y, info.area.width, area.height);
+        f.render_widget(hightlight_block.clone(), area);
     }
-}
 
-fn get_cursor(v: &RecordView<'_>) -> Position {
-    let count_rows = v.state.count_rows as u16;
-    let count_columns = v.state.count_columns as u16;
+    if let Some(style) = theme.selected_row {
+        let hightlight_block = Block::default().style(nu_style_to_tui(style));
+        let area = Rect::new(area.x, info.area.y, area.width, 1);
+        f.render_widget(hightlight_block.clone(), area);
+    }
 
-    let mut cursor = v.cursor;
-    cursor.y = min(cursor.y, count_rows.saturating_sub(1) as u16);
-    cursor.x = min(cursor.x, count_columns.saturating_sub(1) as u16);
+    if let Some(style) = theme.selected_cell {
+        let hightlight_block = Block::default().style(nu_style_to_tui(style));
+        let area = Rect::new(info.area.x, info.area.y, info.area.width, 1);
+        f.render_widget(hightlight_block.clone(), area);
+    }
 
-    cursor
+    if theme.show_cursow {
+        f.set_cursor(info.area.x, info.area.y);
+    }
 }
 
 fn build_last_value(v: &RecordView) -> Value {
     if v.mode == UIMode::Cursor {
-        peak_current_value(v)
+        v.get_current_value()
     } else if v.get_layer_last().count_rows() < 2 {
         build_table_as_record(v)
     } else {
         build_table_as_list(v)
     }
-}
-
-fn peak_current_value(v: &RecordView) -> Value {
-    let layer = v.get_layer_last();
-    let Position { x: column, y: row } = v.cursor;
-    let row = row as usize + layer.index_row;
-    let column = column as usize + layer.index_column;
-    let value = &layer.records[row][column];
-    value.clone()
 }
 
 fn build_table_as_list(v: &RecordView) -> Value {
@@ -551,40 +681,28 @@ fn build_table_as_record(v: &RecordView) -> Value {
     }
 }
 
-fn create_records_report(
-    layer: &RecordLayer,
-    state: &RecordViewState,
-    mode: UIMode,
-    cursor: Position,
-) -> Report {
-    let seen_rows = layer.index_row + state.count_rows;
-    let seen_rows = min(seen_rows, layer.count_rows());
-    let percent_rows = get_percentage(seen_rows, layer.count_rows());
-    let covered_percent = match percent_rows {
-        100 => String::from("All"),
-        _ if layer.index_row == 0 => String::from("Top"),
-        value => format!("{}%", value),
-    };
-    let title = if let Some(name) = &layer.name {
-        name.clone()
+fn report_cursor_position(mode: UIMode, cursor: XYCursor) -> String {
+    if mode == UIMode::Cursor {
+        let row = cursor.row();
+        let column = cursor.column();
+        format!("{},{}", row, column)
     } else {
-        String::new()
-    };
-    let cursor = {
-        if mode == UIMode::Cursor {
-            let row = layer.index_row + cursor.y as usize;
-            let column = layer.index_column + cursor.x as usize;
-            format!("{},{}", row, column)
-        } else {
-            format!("{},{}", layer.index_row, layer.index_column)
-        }
-    };
+        let rows_seen = cursor.row_starts_at();
+        let columns_seen = cursor.column_starts_at();
+        format!("{},{}", rows_seen, columns_seen)
+    }
+}
 
-    Report {
-        message: title,
-        context: covered_percent,
-        context2: cursor,
-        level: Severity::Info,
+fn report_row_position(cursor: XYCursor) -> String {
+    if cursor.row_starts_at() == 0 {
+        String::from("Top")
+    } else {
+        let percent_rows = get_percentage(cursor.row(), cursor.row_limit());
+
+        match percent_rows {
+            100 => String::from("All"),
+            value => format!("{}%", value),
+        }
     }
 }
 
@@ -595,8 +713,8 @@ fn get_percentage(value: usize, max: usize) -> usize {
 }
 
 fn transpose_table(layer: &mut RecordLayer<'_>) {
-    let count_rows = layer.count_rows();
-    let count_columns = layer.count_columns();
+    let count_rows = layer.records.len();
+    let count_columns = layer.columns.len();
 
     if layer.was_transposed {
         let data = match &mut layer.records {
@@ -655,4 +773,63 @@ fn _transpose_table(
     }
 
     data
+}
+
+fn theme_from_config(config: &ConfigMap) -> TableTheme {
+    let mut theme = TableTheme::default();
+
+    let colors = get_color_map(config);
+
+    if let Some(s) = colors.get("split_line") {
+        theme.table.splitline_style = *s;
+    }
+
+    theme.cursor.selected_cell = colors.get("selected_cell").cloned();
+    theme.cursor.selected_row = colors.get("selected_row").cloned();
+    theme.cursor.selected_column = colors.get("selected_column").cloned();
+    theme.cursor.show_cursow = config_get_bool(config, "show_cursor", true);
+
+    theme.table.header_top = config_get_bool(config, "line_head_top", true);
+    theme.table.header_bottom = config_get_bool(config, "line_head_bottom", true);
+    theme.table.shift_line = config_get_bool(config, "line_shift", true);
+    theme.table.index_line = config_get_bool(config, "line_index", true);
+
+    theme.table.show_header = config_get_bool(config, "show_head", true);
+    theme.table.show_index = config_get_bool(config, "show_index", false);
+
+    theme.table.padding_index_left = config_get_usize(config, "padding_index_left", 2);
+    theme.table.padding_index_right = config_get_usize(config, "padding_index_right", 1);
+    theme.table.padding_column_left = config_get_usize(config, "padding_column_left", 2);
+    theme.table.padding_column_right = config_get_usize(config, "padding_column_right", 2);
+
+    theme
+}
+
+fn config_get_bool(config: &ConfigMap, key: &str, default: bool) -> bool {
+    config
+        .get(key)
+        .and_then(|v| v.as_bool().ok())
+        .unwrap_or(default)
+}
+
+fn config_get_usize(config: &ConfigMap, key: &str, default: usize) -> usize {
+    config
+        .get(key)
+        .and_then(|v| v.as_string().ok())
+        .and_then(|s| s.parse::<usize>().ok())
+        .unwrap_or(default)
+}
+
+#[derive(Debug, Default, Clone)]
+pub struct TableTheme {
+    table: TableStyle,
+    cursor: CursorStyle,
+}
+
+#[derive(Debug, Default, Clone)]
+struct CursorStyle {
+    selected_cell: Option<NuStyle>,
+    selected_column: Option<NuStyle>,
+    selected_row: Option<NuStyle>,
+    show_cursow: bool,
 }
