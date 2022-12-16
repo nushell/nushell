@@ -332,7 +332,7 @@ impl<'a> TableW<'a> {
             left_w += render_index(
                 buf,
                 area,
-                self.color_hm,
+                self.style_computer,
                 self.index_row,
                 padding_index_l,
                 padding_index_r,
@@ -360,7 +360,7 @@ impl<'a> TableW<'a> {
 
             let columns = columns
                 .iter()
-                .map(|s| head_row_text(s, self.color_hm))
+                .map(|s| head_row_text(s, self.style_computer))
                 .collect::<Vec<_>>();
 
             if is_head_left {
@@ -612,11 +612,10 @@ fn render_header_borders(
 }
 
 fn render_index(
-    
     buf: &mut Buffer,
-   
+
     area: Rect,
-   
+
     style_computer: &StyleComputer,
     start_index: usize,
     padding_left: u16,

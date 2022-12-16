@@ -1,11 +1,7 @@
 use nu_color_config::{Alignment, StyleComputer, TextStyle};
 use nu_engine::column::get_columns;
 use nu_protocol::FooterMode;
-use nu_protocol::{
-    ast::PathMember,
-    engine::{EngineState, Stack},
-    Config, ShellError, Span, TableIndexMode, Value,
-};
+use nu_protocol::{ast::PathMember, Config, ShellError, Span, TableIndexMode, Value};
 use nu_table::{string_width, Table as NuTable, TableConfig, TableTheme};
 use std::sync::Arc;
 use std::{
@@ -19,20 +15,17 @@ type NuText = (String, TextStyle);
 use crate::nu_common::NuConfig;
 
 pub fn try_build_table(
-    engine_state: &EngineState,
-    stack: &mut Stack,
     ctrlc: Option<Arc<AtomicBool>>,
     config: &NuConfig,
+    style_computer: &StyleComputer,
     value: Value,
 ) -> String {
-    let style_computer = StyleComputer::from_config(engine_state, stack);
-
     match value {
-        Value::List { vals, span } => try_build_list(vals, &ctrlc, config, span, &style_computer),
+        Value::List { vals, span } => try_build_list(vals, &ctrlc, config, span, style_computer),
         Value::Record { cols, vals, span } => {
-            try_build_map(cols, vals, span, &style_computer, ctrlc, config)
+            try_build_map(cols, vals, span, style_computer, ctrlc, config)
         }
-        val => value_to_styled_string(&val, config, &style_computer).0,
+        val => value_to_styled_string(&val, config, style_computer).0,
     }
 }
 

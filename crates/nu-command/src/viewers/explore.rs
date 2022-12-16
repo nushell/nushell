@@ -1,5 +1,5 @@
 use nu_ansi_term::{Color, Style};
-use nu_color_config::{color_record_to_nustyle, lookup_ansi_color_style, StyleComputer};
+use nu_color_config::{get_color_map, StyleComputer};
 use nu_engine::CallExt;
 use nu_explore::{
     run_pager,
@@ -69,7 +69,7 @@ impl Command for Explore {
 
         let ctrlc = engine_state.ctrlc.clone();
         let nu_config = engine_state.get_config();
-        let color_hm = get_color_config(nu_config);
+        let style_computer = StyleComputer::from_config(engine_state, stack);
 
         let mut config = nu_config.explore.clone();
         prepare_default_config(&mut config);
@@ -88,7 +88,7 @@ impl Command for Explore {
         config.exit_esc = exit_esc;
         config.show_banner = show_banner;
 
-        let result = run_pager(engine_state, stack, ctrlc, input, config);
+        let result = run_pager(engine_state, &mut stack.clone(), ctrlc, input, config);
 
         match result {
             Ok(Some(value)) => Ok(PipelineData::Value(value, None)),
@@ -153,6 +153,8 @@ fn update_config(config: &mut HashMap<String, Value>, show_index: bool, show_hea
 fn style_from_config(config: &HashMap<String, Value>) -> StyleConfig {
     let mut style = StyleConfig::default();
 
+    let colors = get_color_map(config);
+
     if let Some(s) = colors.get("status_bar_text") {
         style.status_bar_text = *s;
     }
@@ -168,9 +170,6 @@ fn style_from_config(config: &HashMap<String, Value>) -> StyleConfig {
     if let Some(s) = colors.get("command_bar_background") {
         style.cmd_bar_background = *s;
     }
-    if let Some(value) = config.get("command_bar") {
-        style.cmd_bar = lookup!(value)
-    }
 
     if let Some(hm) = config.get("status").and_then(create_map) {
         let colors = get_color_map(&hm);
@@ -185,7 +184,7 @@ fn style_from_config(config: &HashMap<String, Value>) -> StyleConfig {
 
         if let Some(s) = colors.get("error") {
             style.status_error = *s;
-        } 
+        }
     }
 
     style

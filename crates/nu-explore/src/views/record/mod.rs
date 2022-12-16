@@ -3,8 +3,7 @@ mod tablew;
 use std::{borrow::Cow, collections::HashMap};
 
 use crossterm::event::{KeyCode, KeyEvent};
-use nu_color_config::get_color_map;
-use nu_color_config::StyleComputer;
+use nu_color_config::{get_color_map, StyleComputer};
 use nu_protocol::{
     engine::{EngineState, Stack},
     Value,
@@ -12,7 +11,7 @@ use nu_protocol::{
 use tui::{layout::Rect, widgets::Block};
 
 use crate::{
-    nu_common::{collect_input, NuConfig, NuSpan, NuStyle, NuStyleTable, NuText},
+    nu_common::{collect_input, NuConfig, NuSpan, NuStyle, NuText},
     pager::{
         report::{Report, Severity},
         ConfigMap, Frame, Transition, ViewInfo,
@@ -209,7 +208,7 @@ impl<'a> RecordView<'a> {
 
     fn create_tablew(&'a self, cfg: ViewConfig<'a>) -> TableW<'a> {
         let layer = self.get_layer_last();
-        let data = convert_records_to_string(&layer.records, cfg.nu_config, cfg.color_hm);
+        let data = convert_records_to_string(&layer.records, cfg.nu_config, cfg.style_computer);
 
         let headers = layer.columns.as_ref();
         let style_computer = cfg.style_computer;
@@ -611,7 +610,7 @@ fn convert_records_to_string(
                     let text = value.clone().into_abbreviated_string(cfg);
                     let float_precision = cfg.float_precision as usize;
 
-                    make_styled_string(text, Some(value), 0, false, style_computer, float_precision)
+                    make_styled_string(style_computer, text, Some(value), float_precision)
                 })
                 .collect::<Vec<_>>()
         })

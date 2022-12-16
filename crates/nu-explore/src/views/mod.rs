@@ -7,16 +7,14 @@ mod record;
 pub mod util;
 
 use crossterm::event::KeyEvent;
+use nu_color_config::StyleComputer;
 use nu_protocol::{
     engine::{EngineState, Stack},
     Value,
 };
 use tui::layout::Rect;
 
-use crate::{
-    nu_common::{NuConfig, NuStyleTable},
-    pager::ConfigMap,
-};
+use crate::{nu_common::NuConfig, pager::ConfigMap};
 
 use super::{
     nu_common::NuText,
@@ -61,15 +59,19 @@ impl ElementInfo {
 #[derive(Debug, Clone, Copy)]
 pub struct ViewConfig<'a> {
     pub nu_config: &'a NuConfig,
-    pub color_hm: &'a NuStyleTable,
+    pub style_computer: &'a StyleComputer<'a>,
     pub config: &'a ConfigMap,
 }
 
 impl<'a> ViewConfig<'a> {
-    pub fn new(nu_config: &'a NuConfig, color_hm: &'a NuStyleTable, config: &'a ConfigMap) -> Self {
+    pub fn new(
+        nu_config: &'a NuConfig,
+        style_computer: &'a StyleComputer<'a>,
+        config: &'a ConfigMap,
+    ) -> Self {
         Self {
             nu_config,
-            color_hm,
+            style_computer,
             config,
         }
     }

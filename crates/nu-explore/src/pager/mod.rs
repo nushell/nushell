@@ -18,7 +18,7 @@ use crossterm::{
         LeaveAlternateScreen,
     },
 };
-use nu_color_config::{Alignment, StyleComputer, TextStyle, lookup_ansi_color_style};
+use nu_color_config::{lookup_ansi_color_style, StyleComputer};
 use nu_protocol::{
     engine::{EngineState, Stack},
     Value,
@@ -26,7 +26,7 @@ use nu_protocol::{
 use tui::{backend::CrosstermBackend, layout::Rect, widgets::Block};
 
 use crate::{
-    nu_common::{CtrlC, NuColor, NuConfig, NuSpan, NuStyle, NuStyleTable},
+    nu_common::{CtrlC, NuColor, NuConfig, NuSpan, NuStyle},
     registry::{Command, CommandRegistry},
     util::map_into_value,
     views::{util::nu_style_to_tui, ViewConfig},
@@ -140,7 +140,7 @@ impl<'a> Pager<'a> {
         if let Some(page) = &mut view {
             page.view.setup(ViewConfig::new(
                 self.config.nu_config,
-                self.config.color_hm,
+                self.config.style_computer,
                 &self.config.config,
             ))
         }
@@ -160,7 +160,7 @@ pub enum Transition {
 #[derive(Debug, Clone)]
 pub struct PagerConfig<'a> {
     pub nu_config: &'a NuConfig,
-    pub color_hm: &'a NuStyleTable,
+    pub style_computer: &'a StyleComputer<'a>,
     pub config: ConfigMap,
     pub style: StyleConfig,
     pub peek_value: bool,
@@ -170,10 +170,14 @@ pub struct PagerConfig<'a> {
 }
 
 impl<'a> PagerConfig<'a> {
-    pub fn new(nu_config: &'a NuConfig, color_hm: &'a NuStyleTable, config: ConfigMap) -> Self {
+    pub fn new(
+        nu_config: &'a NuConfig,
+        style_computer: &'a StyleComputer,
+        config: ConfigMap,
+    ) -> Self {
         Self {
             nu_config,
-            color_hm,
+            style_computer,
             config,
             peek_value: false,
             exit_esc: false,
@@ -261,7 +265,7 @@ fn render_ui(
                 if let Some(page) = &mut view {
                     let cfg = ViewConfig::new(
                         pager.config.nu_config,
-                        pager.config.color_hm,
+                        pager.config.style_computer,
                         &pager.config.config,
                     );
 
@@ -416,7 +420,7 @@ fn run_command(
                             if let Some(page) = view.as_mut() {
                                 page.view.setup(ViewConfig::new(
                                     pager.config.nu_config,
-                                    pager.config.color_hm,
+                                    pager.config.style_computer,
                                     &pager.config.config,
                                 ));
                             }
@@ -424,7 +428,7 @@ fn run_command(
                             for page in view_stack {
                                 page.view.setup(ViewConfig::new(
                                     pager.config.nu_config,
-                                    pager.config.color_hm,
+                                    pager.config.style_computer,
                                     &pager.config.config,
                                 ));
                             }
@@ -452,7 +456,7 @@ fn run_command(
 
                     new_view.setup(ViewConfig::new(
                         pager.config.nu_config,
-                        pager.config.color_hm,
+                        pager.config.style_computer,
                         &pager.config.config,
                     ));
 

@@ -1,6 +1,6 @@
 use std::{io::Result, vec};
 
-use nu_color_config::get_color_config;
+use nu_color_config::StyleComputer;
 use nu_protocol::{
     engine::{EngineState, Stack},
     Value,
@@ -71,18 +71,18 @@ impl ViewCommand for ExpandCmd {
     fn spawn(
         &mut self,
         engine_state: &EngineState,
-        _stack: &mut Stack,
+        stack: &mut Stack,
         value: Option<Value>,
     ) -> Result<Self::View> {
         let value = value
-            .map(|v| convert_value_to_string(v, engine_state))
+            .map(|v| convert_value_to_string(v, engine_state, stack))
             .unwrap_or_default();
 
         Ok(Preview::new(&value))
     }
 }
 
-fn convert_value_to_string(value: Value, engine_state: &EngineState) -> String {
+fn convert_value_to_string(value: Value, engine_state: &EngineState, stack: &mut Stack) -> String {
     let (cols, vals) = collect_input(value.clone());
 
     let has_no_head = cols.is_empty() || (cols.len() == 1 && cols[0].is_empty());
@@ -93,8 +93,8 @@ fn convert_value_to_string(value: Value, engine_state: &EngineState) -> String {
     } else {
         let ctrlc = engine_state.ctrlc.clone();
         let config = engine_state.get_config();
-        let color_hm = get_color_config(config);
+        let style_computer = StyleComputer::from_config(engine_state, stack);
 
-        nu_common::try_build_table(ctrlc, config, &color_hm, value)
+        nu_common::try_build_table(ctrlc, config, &style_computer, value)
     }
 }
