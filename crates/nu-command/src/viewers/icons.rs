@@ -1,5 +1,5 @@
-use lazy_static::lazy_static;
 use nu_protocol::{ShellError, Span};
+use once_cell::sync::Lazy;
 use std::collections::HashMap;
 use std::path::Path;
 
@@ -85,50 +85,47 @@ impl Icons {
 //         .unwrap_or_default()
 // }
 
-lazy_static! {
-    static ref MAP_BY_NAME: HashMap<&'static str, char> = {
-        let mut m = HashMap::new();
-        m.insert(".Trash", '\u{f1f8}'); // 
-        m.insert(".atom", '\u{e764}'); // 
-        m.insert(".bashprofile", '\u{e615}'); // 
-        m.insert(".bashrc", '\u{f489}'); // 
-        m.insert(".git", '\u{f1d3}'); // 
-        m.insert(".gitattributes", '\u{f1d3}'); // 
-        m.insert(".gitconfig", '\u{f1d3}'); // 
-        m.insert(".github", '\u{f408}'); // 
-        m.insert(".gitignore", '\u{f1d3}'); // 
-        m.insert(".gitmodules", '\u{f1d3}'); // 
-        m.insert(".rvm", '\u{e21e}'); // 
-        m.insert(".vimrc", '\u{e62b}'); // 
-        m.insert(".vscode", '\u{e70c}'); // 
-        m.insert(".zshrc", '\u{f489}'); // 
-        m.insert("Cargo.lock", '\u{e7a8}'); // 
-        m.insert("bin", '\u{e5fc}'); // 
-        m.insert("config", '\u{e5fc}'); // 
-        m.insert("docker-compose.yml", '\u{f308}'); // 
-        m.insert("Dockerfile", '\u{f308}'); // 
-        m.insert("ds_store", '\u{f179}'); // 
-        m.insert("gitignore_global", '\u{f1d3}'); // 
-        m.insert("gradle", '\u{e70e}'); // 
-        m.insert("gruntfile.coffee", '\u{e611}'); // 
-        m.insert("gruntfile.js", '\u{e611}'); // 
-        m.insert("gruntfile.ls", '\u{e611}'); // 
-        m.insert("gulpfile.coffee", '\u{e610}'); // 
-        m.insert("gulpfile.js", '\u{e610}'); // 
-        m.insert("gulpfile.ls", '\u{e610}'); // 
-        m.insert("hidden", '\u{f023}'); // 
-        m.insert("include", '\u{e5fc}'); // 
-        m.insert("lib", '\u{f121}'); // 
-        m.insert("localized", '\u{f179}'); // 
-        m.insert("Makefile", '\u{e779}'); // 
-        m.insert("node_modules", '\u{e718}'); // 
-        m.insert("npmignore", '\u{e71e}'); // 
-        m.insert("rubydoc", '\u{e73b}'); // 
-        m.insert("yarn.lock", '\u{e718}'); // 
-
-        m
-    };
-}
+static MAP_BY_NAME: Lazy<HashMap<&'static str, char>> = Lazy::new(|| {
+    HashMap::from([
+        (".Trash", '\u{f1f8}'),             // 
+        (".atom", '\u{e764}'),              // 
+        (".bashprofile", '\u{e615}'),       // 
+        (".bashrc", '\u{f489}'),            // 
+        (".git", '\u{f1d3}'),               // 
+        (".gitattributes", '\u{f1d3}'),     // 
+        (".gitconfig", '\u{f1d3}'),         // 
+        (".github", '\u{f408}'),            // 
+        (".gitignore", '\u{f1d3}'),         // 
+        (".gitmodules", '\u{f1d3}'),        // 
+        (".rvm", '\u{e21e}'),               // 
+        (".vimrc", '\u{e62b}'),             // 
+        (".vscode", '\u{e70c}'),            // 
+        (".zshrc", '\u{f489}'),             // 
+        ("Cargo.lock", '\u{e7a8}'),         // 
+        ("bin", '\u{e5fc}'),                // 
+        ("config", '\u{e5fc}'),             // 
+        ("docker-compose.yml", '\u{f308}'), // 
+        ("Dockerfile", '\u{f308}'),         // 
+        ("ds_store", '\u{f179}'),           // 
+        ("gitignore_global", '\u{f1d3}'),   // 
+        ("gradle", '\u{e70e}'),             // 
+        ("gruntfile.coffee", '\u{e611}'),   // 
+        ("gruntfile.js", '\u{e611}'),       // 
+        ("gruntfile.ls", '\u{e611}'),       // 
+        ("gulpfile.coffee", '\u{e610}'),    // 
+        ("gulpfile.js", '\u{e610}'),        // 
+        ("gulpfile.ls", '\u{e610}'),        // 
+        ("hidden", '\u{f023}'),             // 
+        ("include", '\u{e5fc}'),            // 
+        ("lib", '\u{f121}'),                // 
+        ("localized", '\u{f179}'),          // 
+        ("Makefile", '\u{e779}'),           // 
+        ("node_modules", '\u{e718}'),       // 
+        ("npmignore", '\u{e71e}'),          // 
+        ("rubydoc", '\u{e73b}'),            // 
+        ("yarn.lock", '\u{e718}'),          // 
+    ])
+});
 
 pub fn icon_for_file(file_path: &Path, span: Span) -> Result<char, ShellError> {
     let extensions = Box::new(FileExtensions);
