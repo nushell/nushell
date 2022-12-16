@@ -1640,42 +1640,52 @@ pub fn parse_string_interpolation(
     let mut token_start = start;
     let mut delimiter_stack = vec![];
 
+    let mut consecutive_backslashes: usize = 0;
+
     let mut b = start;
 
     while b != end {
-        if contents[b - start] == b'('
-            && (if double_quote && (b - start) > 0 {
-                contents[b - start - 1] != b'\\'
+        let current_byte = contents[b - start];
+
+        if mode == InterpolationMode::String {
+            let preceding_consecutive_backslashes = consecutive_backslashes;
+
+            let is_backslash = current_byte == b'\\';
+            consecutive_backslashes = if is_backslash {
+                preceding_consecutive_backslashes + 1
             } else {
-                true
-            })
-            && mode == InterpolationMode::String
-        {
-            mode = InterpolationMode::Expression;
-            if token_start < b {
-                let span = Span::new(token_start, b);
-                let str_contents = working_set.get_span_contents(span);
+                0
+            };
 
-                let str_contents = if double_quote {
-                    let (str_contents, err) = unescape_string(str_contents, span);
-                    error = error.or(err);
+            if current_byte == b'(' && (!double_quote || preceding_consecutive_backslashes % 2 == 0)
+            {
+                mode = InterpolationMode::Expression;
+                if token_start < b {
+                    let span = Span::new(token_start, b);
+                    let str_contents = working_set.get_span_contents(span);
 
-                    str_contents
-                } else {
-                    str_contents.to_vec()
-                };
+                    let str_contents = if double_quote {
+                        let (str_contents, err) = unescape_string(str_contents, span);
+                        error = error.or(err);
 
-                output.push(Expression {
-                    expr: Expr::String(String::from_utf8_lossy(&str_contents).to_string()),
-                    span,
-                    ty: Type::String,
-                    custom_completion: None,
-                });
-                token_start = b;
+                        str_contents
+                    } else {
+                        str_contents.to_vec()
+                    };
+
+                    output.push(Expression {
+                        expr: Expr::String(String::from_utf8_lossy(&str_contents).to_string()),
+                        span,
+                        ty: Type::String,
+                        custom_completion: None,
+                    });
+                    token_start = b;
+                }
             }
         }
+
         if mode == InterpolationMode::Expression {
-            let byte = contents[b - start];
+            let byte = current_byte;
             if let Some(b'\'') = delimiter_stack.last() {
                 if byte == b'\'' {
                     delimiter_stack.pop();

@@ -1,10 +1,7 @@
 use crate::*;
 use std::{
     fmt::Debug,
-    sync::{
-        atomic::{AtomicBool, Ordering},
-        Arc,
-    },
+    sync::{atomic::AtomicBool, Arc},
 };
 
 pub struct RawStream {
@@ -77,10 +74,8 @@ impl Iterator for RawStream {
     type Item = Result<Value, ShellError>;
 
     fn next(&mut self) -> Option<Self::Item> {
-        if let Some(ctrlc) = &self.ctrlc {
-            if ctrlc.load(Ordering::SeqCst) {
-                return None;
-            }
+        if nu_utils::ctrl_c::was_pressed(&self.ctrlc) {
+            return None;
         }
 
         // If we know we're already binary, just output that
@@ -223,12 +218,8 @@ impl Iterator for ListStream {
     type Item = Value;
 
     fn next(&mut self) -> Option<Self::Item> {
-        if let Some(ctrlc) = &self.ctrlc {
-            if ctrlc.load(Ordering::SeqCst) {
-                None
-            } else {
-                self.stream.next()
-            }
+        if nu_utils::ctrl_c::was_pressed(&self.ctrlc) {
+            None
         } else {
             self.stream.next()
         }

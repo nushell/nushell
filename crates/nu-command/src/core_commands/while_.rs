@@ -1,5 +1,3 @@
-use std::sync::atomic::Ordering;
-
 use nu_engine::{eval_block, eval_expression, CallExt};
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Block, Command, EngineState, Stack};
@@ -48,10 +46,8 @@ impl Command for While {
         let block: Block = call.req(engine_state, stack, 1)?;
 
         loop {
-            if let Some(ctrlc) = &engine_state.ctrlc {
-                if ctrlc.load(Ordering::SeqCst) {
-                    break;
-                }
+            if nu_utils::ctrl_c::was_pressed(&engine_state.ctrlc) {
+                break;
             }
 
             let result = eval_expression(engine_state, stack, cond)?;
@@ -77,7 +73,11 @@ impl Command for While {
                                 return Err(err);
                             }
                             Ok(pipeline) => {
-                                let _ = pipeline.print(engine_state, stack, false, false)?;
+                                let exit_code =
+                                    pipeline.print(engine_state, stack, false, false)?;
+                                if exit_code != 0 {
+                                    break;
+                                }
                             }
                         }
                     } else {

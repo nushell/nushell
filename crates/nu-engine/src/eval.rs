@@ -6,8 +6,8 @@ use nu_protocol::{
         Operator, PathMember, PipelineElement, Redirection,
     },
     engine::{EngineState, Stack},
-    Config, HistoryFileFormat, IntoInterruptiblePipelineData, IntoPipelineData, ListStream,
-    PipelineData, Range, RawStream, ShellError, Span, Spanned, Unit, Value, VarId, ENV_VARIABLE_ID,
+    Config, HistoryFileFormat, IntoInterruptiblePipelineData, IntoPipelineData, PipelineData,
+    Range, ShellError, Span, Spanned, Unit, Value, VarId, ENV_VARIABLE_ID,
 };
 use nu_utils::stdout_write_all_and_flush;
 use std::collections::HashMap;
@@ -31,10 +31,8 @@ pub fn eval_call(
     call: &Call,
     input: PipelineData,
 ) -> Result<PipelineData, ShellError> {
-    if let Some(ctrlc) = &engine_state.ctrlc {
-        if ctrlc.load(core::sync::atomic::Ordering::SeqCst) {
-            return Ok(Value::Nothing { span: call.head }.into_pipeline_data());
-        }
+    if nu_utils::ctrl_c::was_pressed(&engine_state.ctrlc) {
+        return Ok(Value::Nothing { span: call.head }.into_pipeline_data());
     }
     let decl = engine_state.get_decl(call.decl_id);
 
@@ -698,86 +696,9 @@ pub fn eval_expression_with_input(
     Ok(might_consume_external_result(input))
 }
 
-// if the result is ExternalStream without redirecting output.
-// that indicates we have no more commands to execute currently.
-// we can try to catch and detect if external command runs to failed.
-//
-// This is useful to commands with semicolon, we can detect errors early to avoid
-// commands after semicolon running.
+// Try to catch and detect if external command runs to failed.
 fn might_consume_external_result(input: PipelineData) -> (PipelineData, bool) {
-    let mut runs_to_failed = false;
-    if let PipelineData::ExternalStream {
-        stdout: None,
-        stderr,
-        mut exit_code,
-        span,
-        metadata,
-        trim_end_newline,
-    } = input
-    {
-        let exit_code = exit_code.take();
-
-        // Note:
-        // In run-external's implementation detail, the result sender thread
-        // send out stderr message first, then stdout message, then exit_code.
-        //
-        // In this clause, we already make sure that `stdout` is None
-        // But not the case of `stderr`, so if `stderr` is not None
-        // We need to consume stderr message before reading external commands' exit code.
-        //
-        // Or we'll never have a chance to read exit_code if stderr producer produce too much stderr message.
-        // So we consume stderr stream and rebuild it.
-        let stderr = stderr.map(|stderr_stream| {
-            let stderr_ctrlc = stderr_stream.ctrlc.clone();
-            let stderr_span = stderr_stream.span;
-            let stderr_bytes = match stderr_stream.into_bytes() {
-                Err(_) => vec![],
-                Ok(bytes) => bytes.item,
-            };
-            RawStream::new(
-                Box::new(vec![Ok(stderr_bytes)].into_iter()),
-                stderr_ctrlc,
-                stderr_span,
-            )
-        });
-
-        match exit_code {
-            Some(exit_code_stream) => {
-                let ctrlc = exit_code_stream.ctrlc.clone();
-                let exit_code: Vec<Value> = exit_code_stream.into_iter().collect();
-                if let Some(Value::Int { val: code, .. }) = exit_code.last() {
-                    // if exit_code is not 0, it indicates error occured, return back Err.
-                    if *code != 0 {
-                        runs_to_failed = true;
-                    }
-                }
-                (
-                    PipelineData::ExternalStream {
-                        stdout: None,
-                        stderr,
-                        exit_code: Some(ListStream::from_stream(exit_code.into_iter(), ctrlc)),
-                        span,
-                        metadata,
-                        trim_end_newline,
-                    },
-                    runs_to_failed,
-                )
-            }
-            None => (
-                PipelineData::ExternalStream {
-                    stdout: None,
-                    stderr,
-                    exit_code: None,
-                    span,
-                    metadata,
-                    trim_end_newline,
-                },
-                runs_to_failed,
-            ),
-        }
-    } else {
-        (input, false)
-    }
+    input.is_external_failed()
 }
 
 pub fn eval_element_with_input(

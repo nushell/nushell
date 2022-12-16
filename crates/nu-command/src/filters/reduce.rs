@@ -1,5 +1,3 @@
-use std::sync::atomic::Ordering;
-
 use nu_engine::{eval_block, CallExt};
 
 use nu_protocol::ast::Call;
@@ -36,13 +34,13 @@ impl Command for Reduce {
             )
             .switch(
                 "numbered",
-                "iterate with an index (deprecated; use a 3-parameter block instead)",
+                "iterate with an index (deprecated; use a 3-parameter closure instead)",
                 Some('n'),
             )
     }
 
     fn usage(&self) -> &str {
-        "Aggregate a list to a single value using an accumulator block."
+        "Aggregate a list to a single value using an accumulator closure."
     }
 
     fn search_terms(&self) -> Vec<&str> {
@@ -217,10 +215,8 @@ impl Command for Reduce {
             )?
             .into_value(span);
 
-            if let Some(ctrlc) = &ctrlc {
-                if ctrlc.load(Ordering::SeqCst) {
-                    break;
-                }
+            if nu_utils::ctrl_c::was_pressed(&ctrlc) {
+                break;
             }
         }
 

@@ -34,7 +34,7 @@ impl Command for ParEach {
             )
             .switch(
                 "numbered",
-                "iterate with an index (deprecated; use a two-parameter block instead)",
+                "iterate with an index (deprecated; use a two-parameter closure instead)",
                 Some('n'),
             )
             .category(Category::Filters)

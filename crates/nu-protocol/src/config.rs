@@ -185,6 +185,18 @@ pub enum TrimStrategy {
     },
 }
 
+impl TrimStrategy {
+    pub fn wrap(dont_split_words: bool) -> Self {
+        Self::Wrap {
+            try_to_keep_words: dont_split_words,
+        }
+    }
+
+    pub fn truncate(suffix: Option<String>) -> Self {
+        Self::Truncate { suffix }
+    }
+}
+
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct ExploreConfig {
     pub color_config: HashMap<String, Value>,

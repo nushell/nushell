@@ -3,6 +3,8 @@ pub mod fs;
 pub mod locale_override;
 pub mod macros;
 pub mod playground;
+// Needs to be reexported for `nu!` macro
+pub use nu_path;
 
 pub struct Outcome {
     pub out: String,
