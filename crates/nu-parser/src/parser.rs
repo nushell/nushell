@@ -455,7 +455,7 @@ fn parse_long_flag(
 fn parse_short_flags(
     working_set: &mut StateWorkingSet,
     spans: &[Span],
-    spans_idx: &mut usize,
+    spans_idx: &usize,
     positional_idx: usize,
     sig: &Signature,
 ) -> (Option<Vec<Flag>>, Option<ParseError>) {
@@ -836,13 +836,8 @@ pub fn parse_internal_call(
         }
 
         // Check if we're on a short flag or group of short flags, if so, parse
-        let (short_flags, err) = parse_short_flags(
-            working_set,
-            spans,
-            &mut spans_idx,
-            positional_idx,
-            &signature,
-        );
+        let (short_flags, err) =
+            parse_short_flags(working_set, spans, &spans_idx, positional_idx, &signature);
 
         if let Some(mut short_flags) = short_flags {
             if short_flags.is_empty() {
