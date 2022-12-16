@@ -65,7 +65,8 @@ impl Command for SubCommand {
         vec![
             Example {
                 description: "Convert string to duration in table",
-                example: "[[value]; ['1sec'] ['2min'] ['3hr'] ['4day'] ['5wk']] | into duration value",
+                example:
+                    "[[value]; ['1sec'] ['2min'] ['3hr'] ['4day'] ['5wk']] | into duration value",
                 result: Some(Value::List {
                     vals: vec![
                         Value::Record {

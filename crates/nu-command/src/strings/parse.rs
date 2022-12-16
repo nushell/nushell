@@ -63,7 +63,7 @@ impl Command for Parse {
                     vals: vec![Value::Record {
                         cols: vec!["name".to_string()],
                         vals: vec![Value::test_string("bar")],
-                        span: Span::test_data()
+                        span: Span::test_data(),
                     }],
                     span: Span::test_data(),
                 }),
@@ -76,24 +76,29 @@ impl Command for Parse {
                         Value::Record {
                             cols: vec!["Capture1".to_string(), "Capture2".to_string()],
                             vals: vec![Value::test_string(""), Value::test_string("foo")],
-                            span: Span::test_data()
+                            span: Span::test_data(),
                         },
                         Value::Record {
                             cols: vec!["Capture1".to_string(), "Capture2".to_string()],
                             vals: vec![Value::test_string("bar"), Value::test_string("")],
                             span: Span::test_data(),
-                        }],
+                        },
+                    ],
                     span: Span::test_data(),
                 }),
             },
             Example {
                 description: "Parse a string using fancy-regex look behind pattern",
-                example: "\" @another(foo bar)   \" | parse -r '\\s*(?<=[() ])(@\\w+)(\\([^)]*\\))?\\s*'",
+                example:
+                    "\" @another(foo bar)   \" | parse -r '\\s*(?<=[() ])(@\\w+)(\\([^)]*\\))?\\s*'",
                 result: Some(Value::List {
                     vals: vec![Value::Record {
                         cols: vec!["Capture1".to_string(), "Capture2".to_string()],
-                        vals: vec![Value::test_string("@another"), Value::test_string("(foo bar)")],
-                        span: Span::test_data()
+                        vals: vec![
+                            Value::test_string("@another"),
+                            Value::test_string("(foo bar)"),
+                        ],
+                        span: Span::test_data(),
                     }],
                     span: Span::test_data(),
                 }),
@@ -105,12 +110,11 @@ impl Command for Parse {
                     vals: vec![Value::Record {
                         cols: vec!["Capture1".to_string()],
                         vals: vec![Value::test_string("b")],
-                        span: Span::test_data()
+                        span: Span::test_data(),
                     }],
                     span: Span::test_data(),
                 }),
             },
-
         ]
     }
 
