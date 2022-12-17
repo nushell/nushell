@@ -320,7 +320,6 @@ let-env config = {
   }
 
   explore: {
-    help_banner: true
     exit_esc: true
 
     command_bar_text: '#C4C9C6'

@@ -166,7 +166,6 @@ pub struct PagerConfig<'a> {
     pub peek_value: bool,
     pub exit_esc: bool,
     pub reverse: bool,
-    pub show_banner: bool,
 }
 
 impl<'a> PagerConfig<'a> {
@@ -182,7 +181,6 @@ impl<'a> PagerConfig<'a> {
             peek_value: false,
             exit_esc: true,
             reverse: false,
-            show_banner: false,
             style: StyleConfig::default(),
         }
     }
