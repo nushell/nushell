@@ -1701,6 +1701,10 @@ impl Iterator for PagingTableCreator {
             }
         }
 
+        if batch.is_empty() {
+            return None;
+        }
+
         let table = match &self.view {
             TableView::General => self.build_general(&batch),
             TableView::Collapsed => self.build_collapsed(batch),
@@ -1723,8 +1727,12 @@ impl Iterator for PagingTableCreator {
 
                 Some(Ok(bytes))
             }
+            Ok(None) => {
+                let term_width = get_width_param(self.width_param);
+                let msg = format!("Couldn't fit table into {} columns!", term_width);
+                Some(Ok(msg.as_bytes().to_vec()))
+            }
             Err(err) => Some(Err(err)),
-            _ => None,
         }
     }
 }

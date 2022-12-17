@@ -63,6 +63,6 @@ pub fn create_row(count_columns: usize) -> Vec<TCell<CellInfo<'static>, TextStyl
 }
 
 #[allow(dead_code)]
-pub fn styled_str(s: &str) -> TCell<CellInfo<'static>, TextStyle> {
+pub fn _str(s: &str) -> TCell<CellInfo<'static>, TextStyle> {
     Table::create_cell(s.to_string(), TextStyle::default())
 }
