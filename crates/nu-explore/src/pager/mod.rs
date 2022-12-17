@@ -668,9 +668,9 @@ fn handle_events<V: View>(
 
     // Sometimes we get a BIG list of events;
     // for example when someone scrolls via a mouse either UP or DOWN.
-    // This MIGHT causes freeses as we have a 400 delay for a next command read.
+    // This MIGHT cause freezes as we have a 400 delay for a next command read.
     //
-    // To eliminate that we are trying ot read all possible commands which we should action upon.
+    // To eliminate that we are trying to read all possible commands which we should act upon.
 
     while let Ok(Some(key)) = events.try_next() {
         let result = handle_event(

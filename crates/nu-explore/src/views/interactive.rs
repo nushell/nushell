@@ -27,7 +27,7 @@ use super::{
 pub struct InteractiveView<'a> {
     input: Value,
     command: String,
-    imidiate: bool,
+    immediate: bool,
     table: Option<RecordView<'a>>,
     table_theme: TableTheme,
     view_mode: bool,
@@ -40,7 +40,7 @@ impl<'a> InteractiveView<'a> {
         Self {
             input,
             table: None,
-            imidiate: false,
+            immediate: false,
             table_theme: TableTheme::default(),
             border_color: Style::default(),
             highlighted_color: Style::default(),
@@ -192,7 +192,7 @@ impl View for InteractiveView<'_> {
                 if !self.command.is_empty() {
                     self.command.pop();
 
-                    if self.imidiate {
+                    if self.immediate {
                         match self.try_run(engine_state, stack) {
                             Ok(_) => info.report = Some(Report::default()),
                             Err(err) => {
@@ -207,7 +207,7 @@ impl View for InteractiveView<'_> {
             KeyCode::Char(c) => {
                 self.command.push(*c);
 
-                if self.imidiate {
+                if self.immediate {
                     match self.try_run(engine_state, stack) {
                         Ok(_) => info.report = Some(Report::default()),
                         Err(err) => info.report = Some(Report::error(format!("Error: {}", err))),
@@ -266,7 +266,7 @@ impl View for InteractiveView<'_> {
             }
 
             if let Some(val) = hm.get("reactive").and_then(|v| v.as_bool().ok()) {
-                self.imidiate = val;
+                self.immediate = val;
             }
         }
 

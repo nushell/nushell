@@ -53,7 +53,7 @@ impl ViewCommand for ConfigShowCmd {
         Some(HelpManual {
             name: Self::NAME,
             description:
-                "Return a currently used configuration.\nSome default fields might be missing.",
+                "Show the current `explore` configuration.\nSome default fields might be missing.",
             arguments: vec![HelpExample::new("nu", "Use a nuon format instead")],
             config_options: vec![],
             input: vec![],
