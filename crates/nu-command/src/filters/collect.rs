@@ -85,7 +85,7 @@ impl Command for Collect {
     fn examples(&self) -> Vec<Example> {
         vec![Example {
             description: "Use the second value in the stream",
-            example: "echo 1 2 3 | collect { |x| echo $x.1 }",
+            example: "[1 2 3] | collect { |x| $x.1 }",
             result: Some(Value::test_int(2)),
         }]
     }

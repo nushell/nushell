@@ -1,6 +1,7 @@
 use std::cmp::min;
 
 use crossterm::event::{KeyCode, KeyEvent};
+use nu_color_config::get_color_map;
 use nu_protocol::{
     engine::{EngineState, Stack},
     PipelineData, Value,
@@ -12,27 +13,37 @@ use tui::{
 };
 
 use crate::{
-    nu_common::{collect_pipeline, is_ignored_command, run_nu_command},
-    pager::{Frame, Report, TableConfig, Transition, ViewConfig, ViewInfo},
+    nu_common::{collect_pipeline, run_command_with_value},
+    pager::{report::Report, Frame, Transition, ViewInfo},
+    util::create_map,
 };
 
-use super::{record::RecordView, Layout, View};
+use super::{
+    record::{RecordView, TableTheme},
+    util::nu_style_to_tui,
+    Layout, Orientation, View, ViewConfig,
+};
 
 pub struct InteractiveView<'a> {
     input: Value,
     command: String,
+    immediate: bool,
     table: Option<RecordView<'a>>,
+    table_theme: TableTheme,
     view_mode: bool,
-    // todo: impl Debug for it
-    table_cfg: TableConfig,
+    border_color: Style,
+    highlighted_color: Style,
 }
 
 impl<'a> InteractiveView<'a> {
-    pub fn new(input: Value, table_cfg: TableConfig) -> Self {
+    pub fn new(input: Value) -> Self {
         Self {
             input,
-            table_cfg,
             table: None,
+            immediate: false,
+            table_theme: TableTheme::default(),
+            border_color: Style::default(),
+            highlighted_color: Style::default(),
             view_mode: false,
             command: String::new(),
         }
@@ -41,13 +52,25 @@ impl<'a> InteractiveView<'a> {
     pub fn init(&mut self, command: String) {
         self.command = command;
     }
+
+    pub fn try_run(&mut self, engine_state: &EngineState, stack: &mut Stack) -> Result<(), String> {
+        let mut view = run_command(&self.command, &self.input, engine_state, stack)?;
+        view.set_theme(self.table_theme.clone());
+
+        self.table = Some(view);
+        Ok(())
+    }
 }
 
 impl View for InteractiveView<'_> {
-    fn draw(&mut self, f: &mut Frame, area: Rect, cfg: &ViewConfig, layout: &mut Layout) {
+    fn draw(&mut self, f: &mut Frame, area: Rect, cfg: ViewConfig<'_>, layout: &mut Layout) {
+        let border_color = self.border_color;
+        let highlighted_color = self.highlighted_color;
+
         let cmd_block = tui::widgets::Block::default()
             .borders(Borders::ALL)
-            .border_type(BorderType::Plain);
+            .border_type(BorderType::Plain)
+            .border_style(border_color);
         let cmd_area = Rect::new(area.x + 1, area.y, area.width - 2, 3);
 
         let cmd_block = if self.view_mode {
@@ -56,6 +79,7 @@ impl View for InteractiveView<'_> {
             cmd_block
                 .border_style(Style::default().add_modifier(Modifier::BOLD))
                 .border_type(BorderType::Double)
+                .border_style(highlighted_color)
         };
 
         f.render_widget(cmd_block, cmd_area);
@@ -97,13 +121,15 @@ impl View for InteractiveView<'_> {
 
         let table_block = tui::widgets::Block::default()
             .borders(Borders::ALL)
-            .border_type(BorderType::Plain);
+            .border_type(BorderType::Plain)
+            .border_style(border_color);
         let table_area = Rect::new(area.x + 1, area.y + 3, area.width - 2, area.height - 3);
 
         let table_block = if self.view_mode {
             table_block
                 .border_style(Style::default().add_modifier(Modifier::BOLD))
                 .border_type(BorderType::Double)
+                .border_style(highlighted_color)
         } else {
             table_block
         };
@@ -136,9 +162,14 @@ impl View for InteractiveView<'_> {
                 .as_mut()
                 .expect("we know that we have a table cause of a flag");
 
-            let was_at_the_top = table.get_layer_last().index_row == 0 && table.cursor.y == 0;
+            let was_at_the_top = table.get_current_position().0 == 0;
 
             if was_at_the_top && matches!(key.code, KeyCode::Up | KeyCode::PageUp) {
+                self.view_mode = false;
+                return Some(Transition::Ok);
+            }
+
+            if matches!(key.code, KeyCode::Tab) {
                 self.view_mode = false;
                 return Some(Transition::Ok);
             }
@@ -160,15 +191,32 @@ impl View for InteractiveView<'_> {
             KeyCode::Backspace => {
                 if !self.command.is_empty() {
                     self.command.pop();
+
+                    if self.immediate {
+                        match self.try_run(engine_state, stack) {
+                            Ok(_) => info.report = Some(Report::default()),
+                            Err(err) => {
+                                info.report = Some(Report::error(format!("Error: {}", err)))
+                            }
+                        }
+                    }
                 }
 
                 Some(Transition::Ok)
             }
             KeyCode::Char(c) => {
                 self.command.push(*c);
+
+                if self.immediate {
+                    match self.try_run(engine_state, stack) {
+                        Ok(_) => info.report = Some(Report::default()),
+                        Err(err) => info.report = Some(Report::error(format!("Error: {}", err))),
+                    }
+                }
+
                 Some(Transition::Ok)
             }
-            KeyCode::Down => {
+            KeyCode::Down | KeyCode::Tab => {
                 if self.table.is_some() {
                     self.view_mode = true;
                 }
@@ -176,27 +224,9 @@ impl View for InteractiveView<'_> {
                 Some(Transition::Ok)
             }
             KeyCode::Enter => {
-                if is_ignored_command(&self.command) {
-                    info.report = Some(Report::error(String::from("The command is ignored")));
-                    return Some(Transition::Ok);
-                }
-
-                let pipeline = PipelineData::Value(self.input.clone(), None);
-                let pipeline = run_nu_command(engine_state, stack, &self.command, pipeline);
-
-                match pipeline {
-                    Ok(pipeline_data) => {
-                        let (columns, values) = collect_pipeline(pipeline_data);
-                        let view = RecordView::new(columns, values, self.table_cfg);
-
-                        self.table = Some(view);
-
-                        // in case there was a error before wanna reset it.
-                        info.report = Some(Report::default());
-                    }
-                    Err(err) => {
-                        info.report = Some(Report::error(format!("Error: {}", err)));
-                    }
+                match self.try_run(engine_state, stack) {
+                    Ok(_) => info.report = Some(Report::default()),
+                    Err(err) => info.report = Some(Report::error(format!("Error: {}", err))),
                 }
 
                 Some(Transition::Ok)
@@ -218,4 +248,58 @@ impl View for InteractiveView<'_> {
     fn show_data(&mut self, i: usize) -> bool {
         self.table.as_mut().map_or(false, |v| v.show_data(i))
     }
+
+    fn setup(&mut self, config: ViewConfig<'_>) {
+        if let Some(hm) = config.config.get("try").and_then(create_map) {
+            let colors = get_color_map(&hm);
+
+            if let Some(color) = colors.get("border_color").copied() {
+                self.border_color = nu_style_to_tui(color);
+            }
+
+            if let Some(color) = colors.get("highlighted_color").copied() {
+                self.highlighted_color = nu_style_to_tui(color);
+            }
+
+            if self.border_color != Style::default() && self.highlighted_color == Style::default() {
+                self.highlighted_color = self.border_color;
+            }
+
+            if let Some(val) = hm.get("reactive").and_then(|v| v.as_bool().ok()) {
+                self.immediate = val;
+            }
+        }
+
+        let mut r = RecordView::new(vec![], vec![]);
+        r.setup(config);
+
+        self.table_theme = r.get_theme().clone();
+
+        if let Some(view) = &mut self.table {
+            view.set_theme(self.table_theme.clone());
+            view.set_orientation(r.get_orientation_current());
+            view.set_orientation_current(r.get_orientation_current());
+        }
+    }
+}
+
+fn run_command(
+    command: &str,
+    input: &Value,
+    engine_state: &EngineState,
+    stack: &mut Stack,
+) -> Result<RecordView<'static>, String> {
+    let pipeline =
+        run_command_with_value(command, input, engine_state, stack).map_err(|e| e.to_string())?;
+
+    let is_record = matches!(pipeline, PipelineData::Value(Value::Record { .. }, ..));
+
+    let (columns, values) = collect_pipeline(pipeline);
+
+    let mut view = RecordView::new(columns, values);
+    if is_record {
+        view.set_orientation_current(Orientation::Left);
+    }
+
+    Ok(view)
 }

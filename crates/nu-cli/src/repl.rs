@@ -5,11 +5,9 @@ use crate::{
     util::{eval_source, get_guaranteed_cwd, report_error, report_error_new},
     NuHighlighter, NuValidator, NushellPrompt,
 };
-use fancy_regex::Regex;
-use lazy_static::lazy_static;
 use log::{info, trace, warn};
 use miette::{IntoDiagnostic, Result};
-use nu_color_config::get_color_config;
+use nu_color_config::StyleComputer;
 use nu_engine::{convert_env_values, eval_block, eval_block_with_early_return};
 use nu_parser::{lex, parse, trim_quotes_str};
 use nu_protocol::{
@@ -174,8 +172,6 @@ pub fn evaluate_repl(
 
         info!("setup colors {}:{}:{}", file!(), line!(), column!());
 
-        let color_hm = get_color_config(config);
-
         info!("update reedline {}:{}:{}", file!(), line!(), column!());
         let engine_reference = std::sync::Arc::new(engine_state.clone());
         line_editor = line_editor
@@ -194,10 +190,14 @@ pub fn evaluate_repl(
             .with_partial_completions(config.partial_completions)
             .with_ansi_colors(config.use_ansi_coloring);
 
+        let style_computer = StyleComputer::from_config(engine_state, stack);
+
         line_editor = if config.use_ansi_coloring {
-            line_editor.with_hinter(Box::new(
-                DefaultHinter::default().with_style(color_hm["hints"]),
-            ))
+            line_editor.with_hinter(Box::new({
+                // As of Nov 2022, "hints" color_config closures only get `null` passed in.
+                let style = style_computer.compute("hints", &Value::nothing(Span::unknown()));
+                DefaultHinter::default().with_style(style)
+            }))
         } else {
             line_editor.disable_hints()
         };
@@ -928,7 +928,7 @@ pub fn eval_hook(
     Ok(output)
 }
 
-pub fn run_hook_block(
+fn run_hook_block(
     engine_state: &EngineState,
     stack: &mut Stack,
     block_id: BlockId,
@@ -1009,11 +1009,12 @@ fn run_ansi_sequence(seq: &str) -> Result<(), ShellError> {
     })
 }
 
-lazy_static! {
-    // Absolute paths with a drive letter, like 'C:', 'D:\', 'E:\foo'
-    static ref DRIVE_PATH_REGEX: Regex =
-        Regex::new(r"^[a-zA-Z]:[/\\]?").expect("Internal error: regex creation");
-}
+// Absolute paths with a drive letter, like 'C:', 'D:\', 'E:\foo'
+#[cfg(windows)]
+static DRIVE_PATH_REGEX: once_cell::sync::Lazy<fancy_regex::Regex> =
+    once_cell::sync::Lazy::new(|| {
+        fancy_regex::Regex::new(r"^[a-zA-Z]:[/\\]?").expect("Internal error: regex creation")
+    });
 
 // A best-effort "does this string look kinda like a path?" function to determine whether to auto-cd
 fn looks_like_path(orig: &str) -> bool {

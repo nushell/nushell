@@ -51,7 +51,7 @@ impl Command for Group {
         ];
 
         vec![Example {
-            example: "echo [1 2 3 4] | group 2",
+            example: "[1 2 3 4] | group 2",
             description: "Group the a list by pairs",
             result: Some(Value::List {
                 vals: stream_test_1,

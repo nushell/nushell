@@ -92,7 +92,7 @@ impl Command for SubCommand {
         vec![
             Example {
                 description: "Convert string to integer in table",
-                example: "echo [[num]; ['-5'] [4] [1.5]] | into int num",
+                example: "[[num]; ['-5'] [4] [1.5]] | into int num",
                 result: None,
             },
             Example {

@@ -2540,7 +2540,6 @@ dependencies = [
  "fancy-regex",
  "fuzzy-matcher",
  "is_executable",
- "lazy_static",
  "log",
  "miette",
  "nu-ansi-term",
@@ -2550,8 +2549,10 @@ dependencies = [
  "nu-parser",
  "nu-path",
  "nu-protocol",
+ "nu-table",
  "nu-test-support",
  "nu-utils",
+ "once_cell",
  "percent-encoding",
  "reedline",
  "rstest",
@@ -2564,10 +2565,13 @@ name = "nu-color-config"
 version = "0.72.2"
 dependencies = [
  "nu-ansi-term",
- "nu-json",
+ "nu-engine",
+ "nu-path",
  "nu-protocol",
- "nu-table",
+ "nu-test-support",
+ "nu-utils",
  "serde",
+ "tabled",
 ]
 
 [[package]]
@@ -2602,7 +2606,6 @@ dependencies = [
  "indexmap",
  "is-root",
  "itertools",
- "lazy_static",
  "libc",
  "log",
  "lscolors",
@@ -2691,6 +2694,7 @@ dependencies = [
  "nu-ansi-term",
  "nu-color-config",
  "nu-engine",
+ "nu-json",
  "nu-parser",
  "nu-protocol",
  "nu-table",
@@ -2710,8 +2714,6 @@ dependencies = [
 name = "nu-json"
 version = "0.72.2"
 dependencies = [
- "fancy-regex",
- "lazy_static",
  "linked-hash-map",
  "num-traits",
  "serde",
@@ -2811,9 +2813,14 @@ dependencies = [
 name = "nu-table"
 version = "0.72.2"
 dependencies = [
+ "atty",
  "json_to_table",
  "nu-ansi-term",
+ "nu-color-config",
+ "nu-engine",
+ "nu-path",
  "nu-protocol",
+ "nu-test-support",
  "nu-utils",
  "serde_json",
  "tabled",
@@ -2833,11 +2840,11 @@ version = "0.72.2"
 dependencies = [
  "getset",
  "hamcrest2",
- "lazy_static",
  "nu-glob",
  "nu-path",
  "nu-utils",
  "num-format",
+ "once_cell",
  "tempfile",
 ]
 

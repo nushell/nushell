@@ -20,7 +20,7 @@ static PWD_ENV: &str = "PWD";
 
 // TODO: move to different file? where?
 /// An operation to be performed with the current buffer of the interactive shell.
-#[derive(Clone)]
+#[derive(Debug, Clone)]
 pub enum ReplOperation {
     Append(String),
     Insert(String),

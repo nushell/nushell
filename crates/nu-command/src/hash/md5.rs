@@ -13,7 +13,7 @@ impl HashDigest for Md5 {
         vec![
             Example {
                 description: "Return the md5 hash of a string, hex-encoded",
-                example: "echo 'abcdefghijklmnopqrstuvwxyz' | hash md5",
+                example: "'abcdefghijklmnopqrstuvwxyz' | hash md5",
                 result: Some(Value::String {
                     val: "c3fcd3d76192e4007dfb496cca67e13b".to_owned(),
                     span: Span::test_data(),
@@ -21,7 +21,7 @@ impl HashDigest for Md5 {
             },
             Example {
                 description: "Return the md5 hash of a string, as binary",
-                example: "echo 'abcdefghijklmnopqrstuvwxyz' | hash md5 --binary",
+                example: "'abcdefghijklmnopqrstuvwxyz' | hash md5 --binary",
                 result: Some(Value::Binary {
                     val: vec![
                         0xc3, 0xfc, 0xd3, 0xd7, 0x61, 0x92, 0xe4, 0x00, 0x7d, 0xfb, 0x49, 0x6c,

@@ -78,7 +78,7 @@ impl Command for Format {
             },
             Example {
                 description: "Print elements from some columns of a table",
-                example: "echo [[col1, col2]; [v1, v2] [v3, v4]] | format '{col2}'",
+                example: "[[col1, col2]; [v1, v2] [v3, v4]] | format '{col2}'",
                 result: Some(Value::List {
                     vals: vec![Value::test_string("v2"), Value::test_string("v4")],
                     span: Span::test_data(),

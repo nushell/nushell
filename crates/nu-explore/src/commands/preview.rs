@@ -1,10 +1,8 @@
-use std::io::Result;
-
-use nu_color_config::get_color_config;
 use nu_protocol::{
     engine::{EngineState, Stack},
     Value,
 };
+use std::io::Result;
 
 use crate::{
     nu_common::{self, collect_input},
@@ -54,7 +52,7 @@ impl ViewCommand for PreviewCmd {
     fn spawn(
         &mut self,
         engine_state: &EngineState,
-        _stack: &mut Stack,
+        stack: &mut Stack,
         value: Option<Value>,
     ) -> Result<Self::View> {
         let value = match value {
@@ -69,9 +67,8 @@ impl ViewCommand for PreviewCmd {
                 } else {
                     let ctrlc = engine_state.ctrlc.clone();
                     let config = engine_state.get_config();
-                    let color_hm = get_color_config(config);
 
-                    nu_common::try_build_table(ctrlc, config, &color_hm, value)
+                    nu_common::try_build_table(engine_state, stack, ctrlc, config, value)
                 }
             }
             None => String::new(),

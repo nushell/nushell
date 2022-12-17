@@ -63,7 +63,7 @@ impl Command for DropColumn {
     fn examples(&self) -> Vec<Example> {
         vec![Example {
             description: "Remove the last column of a table",
-            example: "echo [[lib, extension]; [nu-lib, rs] [nu-core, rb]] | drop column",
+            example: "[[lib, extension]; [nu-lib, rs] [nu-core, rb]] | drop column",
             result: Some(Value::List {
                 vals: vec![
                     Value::Record {

@@ -49,7 +49,7 @@ impl Command for SubCommand {
         vec![
             Example {
                 description: "Convert from one row table to record",
-                example: "echo [[value]; [false]] | into record",
+                example: "[[value]; [false]] | into record",
                 result: Some(Value::Record {
                     cols: vec!["value".to_string()],
                     vals: vec![Value::boolean(false, span)],

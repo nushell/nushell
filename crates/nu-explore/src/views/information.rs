@@ -1,14 +1,14 @@
 use crossterm::event::KeyEvent;
+use nu_color_config::TextStyle;
 use nu_protocol::engine::{EngineState, Stack};
-use nu_table::TextStyle;
 use tui::{layout::Rect, widgets::Paragraph};
 
 use crate::{
     nu_common::NuText,
-    pager::{Frame, Transition, ViewConfig, ViewInfo},
+    pager::{Frame, Transition, ViewInfo},
 };
 
-use super::{Layout, View};
+use super::{Layout, View, ViewConfig};
 
 #[derive(Debug, Default)]
 pub struct InformationView;
@@ -26,7 +26,7 @@ impl InformationView {
 }
 
 impl View for InformationView {
-    fn draw(&mut self, f: &mut Frame, area: Rect, _: &ViewConfig, layout: &mut Layout) {
+    fn draw(&mut self, f: &mut Frame, area: Rect, _: ViewConfig<'_>, layout: &mut Layout) {
         let count_lines = Self::MESSAGE.len() as u16;
 
         if area.height < count_lines {
@@ -62,9 +62,12 @@ impl View for InformationView {
         _: &mut Stack,
         _: &Layout,
         _: &mut ViewInfo,
-        _: KeyEvent,
+        event: KeyEvent,
     ) -> Option<Transition> {
-        None
+        match event.code {
+            crossterm::event::KeyCode::Esc => Some(Transition::Exit),
+            _ => None,
+        }
     }
 
     fn collect_data(&self) -> Vec<NuText> {

@@ -10,12 +10,6 @@ use std::num::FpCategory;
 use super::error::{Error, ErrorCode, Result};
 use serde::ser;
 
-//use super::util::ParseNumber;
-
-use fancy_regex::Regex;
-
-use lazy_static::lazy_static;
-
 /// A structure for serializing Rust values into Hjson.
 pub struct Serializer<W, F> {
     writer: W,
@@ -839,15 +833,6 @@ where
     W: io::Write,
     F: Formatter,
 {
-    lazy_static! {
-        // NEEDS_ESCAPE tests if the string can be written without escapes
-        static ref NEEDS_ESCAPE: Regex = Regex::new("[\\\\\"\x00-\x1f\x7f-\u{9f}\u{00ad}\u{0600}-\u{0604}\u{070f}\u{17b4}\u{17b5}\u{200c}-\u{200f}\u{2028}-\u{202f}\u{2060}-\u{206f}\u{feff}\u{fff0}-\u{ffff}]").expect("Internal error: json parsing");
-        // NEEDS_QUOTES tests if the string can be written as a quoteless string (includes needsEscape but without \\ and \")
-        static ref NEEDS_QUOTES: Regex = Regex::new("^\\s|^\"|^'''|^#|^/\\*|^//|^\\{|^\\}|^\\[|^\\]|^:|^,|\\s$|[\x00-\x1f\x7f-\u{9f}\u{00ad}\u{0600}-\u{0604}\u{070f}\u{17b4}\u{17b5}\u{200c}-\u{200f}\u{2028}-\u{202f}\u{2060}-\u{206f}\u{feff}\u{fff0}-\u{ffff}]").expect("Internal error: json parsing");
-        // starts with a keyword and optionally is followed by a comment
-        static ref STARTS_WITH_KEYWORD: Regex = Regex::new(r#"^(true|false|null)\s*((,|\]|\}|#|//|/\*).*)?$"#).expect("Internal error: json parsing");
-    }
-
     if value.is_empty() {
         formatter.start_value(wr)?;
         return escape_bytes(wr, value.as_bytes());
@@ -863,11 +848,6 @@ pub fn escape_key<W>(wr: &mut W, value: &str) -> Result<()>
 where
     W: io::Write,
 {
-    lazy_static! {
-        static ref NEEDS_ESCAPE_NAME: Regex =
-            Regex::new(r#"[,\{\[\}\]\s:#"]|//|/\*|'''|^$"#).expect("Internal error: json parsing");
-    }
-
     escape_bytes(wr, value.as_bytes()).map_err(From::from)
 }
 

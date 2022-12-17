@@ -1,11 +1,11 @@
 use super::DescriptionMenu;
 use crate::{menus::NuMenuCompleter, NuHelpCompleter};
 use crossterm::event::{KeyCode, KeyModifiers};
-use nu_color_config::lookup_ansi_color_style;
+use nu_color_config::{color_record_to_nustyle, lookup_ansi_color_style};
 use nu_engine::eval_block;
 use nu_parser::parse;
 use nu_protocol::{
-    color_value_string, create_menus,
+    create_menus,
     engine::{EngineState, Stack, StateWorkingSet},
     extract_value, Config, IntoPipelineData, ParsedKeybinding, ParsedMenu, PipelineData,
     ShellError, Span, Value,
@@ -159,14 +159,11 @@ macro_rules! add_style {
     ($name:expr, $cols: expr, $vals:expr, $span:expr, $config: expr, $menu:expr, $f:expr) => {
         $menu = match extract_value($name, $cols, $vals, $span) {
             Ok(text) => {
-                let text = match text {
-                    Value::String { val, .. } => val.clone(),
-                    Value::Record { cols, vals, span } => {
-                        color_value_string(span, cols, vals, $config).into_string("", $config)
-                    }
-                    _ => "green".to_string(),
+                let style = match text {
+                    Value::String { val, .. } => lookup_ansi_color_style(&val),
+                    Value::Record { .. } => color_record_to_nustyle(&text),
+                    _ => lookup_ansi_color_style("green"),
                 };
-                let style = lookup_ansi_color_style(&text);
                 $f($menu, style)
             }
             Err(_) => $menu,

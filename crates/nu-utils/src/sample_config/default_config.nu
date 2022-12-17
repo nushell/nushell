@@ -127,7 +127,7 @@ module completions {
 # Get just the extern definitions without the custom completion commands
 use completions *
 
-# for more information on themes see
+# For more information on themes, see
 # https://www.nushell.sh/book/coloring_and_theming.html
 let dark_theme = {
     # color for nushell primitives
@@ -135,11 +135,35 @@ let dark_theme = {
     leading_trailing_space_bg: { attr: n } # no fg, no bg, attr none effectively turns this off
     header: green_bold
     empty: blue
-    bool: white
+    # Closures can be used to choose colors for specific values.
+    # The value (in this case, a bool) is piped into the closure.
+    bool: { if $in { 'light_cyan' } else { 'light_gray' } }
     int: white
-    filesize: white
+    filesize: {|e|
+      if $e == 0b {
+        'white'
+      } else if $e < 1mb {
+        'cyan'
+      } else { 'blue' }
+    }
     duration: white
-    date: white
+    date: { (date now) - $in |
+      if $in < 1hr {
+        '#e61919'
+      } else if $in < 6hr {
+        '#e68019'
+      } else if $in < 1day {
+        '#e5e619'
+      } else if $in < 3day {
+        '#80e619'
+      } else if $in < 1wk {
+        '#19e619'
+      } else if $in < 6wk {
+        '#19e5e6'
+      } else if $in < 52wk {
+        '#197fe6'
+      } else { 'light_gray' }
+    }
     range: white
     float: white
     string: white
@@ -192,11 +216,35 @@ let light_theme = {
     leading_trailing_space_bg: { attr: n } # no fg, no bg, attr none effectively turns this off
     header: green_bold
     empty: blue
-    bool: dark_gray
+    # Closures can be used to choose colors for specific values.
+    # The value (in this case, a bool) is piped into the closure.
+    bool: { if $in { 'dark_cyan' } else { 'dark_gray' } }
     int: dark_gray
-    filesize: dark_gray
+    filesize: {|e|
+      if $e == 0b {
+        'dark_gray'
+      } else if $e < 1mb {
+        'cyan_bold'
+      } else { 'blue_bold' }
+    }
     duration: dark_gray
-    date: dark_gray
+  date: { (date now) - $in |
+    if $in < 1hr {
+      'red3b'
+    } else if $in < 6hr {
+      'orange3'
+    } else if $in < 1day {
+      'yellow3b'
+    } else if $in < 3day {
+      'chartreuse2b'
+    } else if $in < 1wk {
+      'green3b'
+    } else if $in < 6wk {
+      'darkturquoise'
+    } else if $in < 52wk {
+      'deepskyblue3b'
+    } else { 'dark_gray' }
+  }
     range: dark_gray
     float: dark_gray
     string: dark_gray
@@ -270,20 +318,64 @@ let-env config = {
       truncating_suffix: "..." # A suffix used by the 'truncating' methodology
     }
   }
+
   explore: {
-    highlight: { bg: 'yellow', fg: 'black' }
-    status_bar: { bg: '#C4C9C6', fg: '#1D1F21' }
-    command_bar: { fg: '#C4C9C6' }
-    split_line: '#404040'
-    cursor: true
-    # selected_column: 'blue'
-    # selected_row: { fg: 'yellow', bg: '#C1C2A3' }
-    # selected_cell: { fg: 'white', bg: '#777777' }
-    # line_shift: false,
-    # line_index: false,
-    # line_head_top: false,
-    # line_head_bottom: false,
+    help_banner: true
+    exit_esc: true
+
+    command_bar_text: '#C4C9C6'
+    # command_bar: {fg: '#C4C9C6' bg: '#223311' }
+    
+    status_bar_background: {fg: '#1D1F21' bg: '#C4C9C6' }
+    # status_bar_text: {fg: '#C4C9C6' bg: '#223311' }
+
+    highlight: {bg: 'yellow' fg: 'black' }
+
+    status: {
+      # warn: {bg: 'yellow', fg: 'blue'} 
+      # error: {bg: 'yellow', fg: 'blue'} 
+      # info: {bg: 'yellow', fg: 'blue'}
+    }
+
+    try: {
+      # border_color: 'red' 
+      # highlighted_color: 'blue'
+
+      # reactive: false
+    }
+
+    table: {
+      split_line: '#404040' 
+
+      cursor: true
+
+      line_index: true 
+      line_shift: true
+      line_head_top: true
+      line_head_bottom: true
+
+      show_head: true
+      show_index: true
+
+      # selected_cell: {fg: 'white', bg: '#777777'} 
+      # selected_row: {fg: 'yellow', bg: '#C1C2A3'} 
+      # selected_column: blue
+
+      # padding_column_right: 2 
+      # padding_column_left: 2
+
+      # padding_index_left: 2 
+      # padding_index_right: 1
+    }
+
+    config: {
+      cursor_color: {bg: 'yellow' fg: 'black' }
+
+      # border_color: white
+      # list_color: green
+    }
   }
+
   history: {
     max_size: 10000 # Session has to be reloaded for this to take effect
     sync_on_enter: true # Enable to share history between multiple sessions, else you have to close the session to write history to file

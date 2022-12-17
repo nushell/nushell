@@ -2,8 +2,29 @@ use nu_engine::eval_block;
 use nu_parser::parse;
 use nu_protocol::{
     engine::{EngineState, Stack, StateWorkingSet},
-    PipelineData, ShellError,
+    PipelineData, ShellError, Value,
 };
+
+pub fn run_command_with_value(
+    command: &str,
+    input: &Value,
+    engine_state: &EngineState,
+    stack: &mut Stack,
+) -> Result<PipelineData, ShellError> {
+    if is_ignored_command(command) {
+        return Err(ShellError::IOError(String::from("the command is ignored")));
+    }
+
+    let pipeline = PipelineData::Value(input.clone(), None);
+    let pipeline = run_nu_command(engine_state, stack, command, pipeline);
+    match pipeline {
+        Ok(PipelineData::Value(Value::Error { error }, ..)) => {
+            Err(ShellError::IOError(error.to_string()))
+        }
+        Ok(pipeline) => Ok(pipeline),
+        Err(err) => Err(err),
+    }
+}
 
 pub fn run_nu_command(
     engine_state: &EngineState,
@@ -16,7 +37,15 @@ pub fn run_nu_command(
 }
 
 pub fn is_ignored_command(command: &str) -> bool {
-    command.starts_with("clear")
+    let ignore_list = ["clear", "explore", "exit"];
+
+    for cmd in ignore_list {
+        if command.starts_with(cmd) {
+            return true;
+        }
+    }
+
+    false
 }
 
 fn eval_source2(
@@ -56,5 +85,5 @@ fn eval_source2(
         block.pipelines.drain(..block.pipelines.len() - 1);
     }
 
-    eval_block(engine_state, stack, &block, input, false, false)
+    eval_block(engine_state, stack, &block, input, true, true)
 }

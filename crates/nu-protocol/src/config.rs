@@ -197,11 +197,6 @@ impl TrimStrategy {
     }
 }
 
-#[derive(Serialize, Deserialize, Clone, Debug)]
-pub struct ExploreConfig {
-    pub color_config: HashMap<String, Value>,
-}
-
 impl Value {
     pub fn into_config(&mut self, config: &Config) -> (Config, Option<ShellError>) {
         // Clone the passed-in config rather than mutating it.
@@ -717,7 +712,7 @@ impl Value {
                                         }
                                     }
                                     "trim" => {
-                                        match try_parse_trim_strategy(value, &config, &mut errors) {
+                                        match try_parse_trim_strategy(value, &mut errors) {
                                             Ok(v) => config.trim_strategy = v,
                                             Err(e) => {
                                                 // try_parse_trim_strategy() already adds its own errors
@@ -797,7 +792,7 @@ impl Value {
                         }
                     }
                     "explore" => {
-                        if let Ok(map) = create_map(value, &config) {
+                        if let Ok(map) = create_map(value) {
                             config.explore = map;
                         } else {
                             invalid!(vals[index].span().ok(), "should be a record");
@@ -807,7 +802,7 @@ impl Value {
                     }
                     // Misc. options
                     "color_config" => {
-                        if let Ok(map) = create_map(value, &config) {
+                        if let Ok(map) = create_map(value) {
                             config.color_config = map;
                         } else {
                             invalid!(vals[index].span().ok(), "should be a record");
@@ -1123,7 +1118,7 @@ impl Value {
                     }
                     "table_trim" => {
                         legacy_options_used = true;
-                        match try_parse_trim_strategy(value, &config, &mut errors) {
+                        match try_parse_trim_strategy(value, &mut errors) {
                             Ok(v) => config.trim_strategy = v,
                             Err(e) => {
                                 // try_parse_trim_strategy() already calls eprintln!() on error
@@ -1210,10 +1205,9 @@ Please consult https://www.nushell.sh/blog/2022-11-29-nushell-0.72.html for deta
 
 fn try_parse_trim_strategy(
     value: &Value,
-    config: &Config,
     errors: &mut Vec<ShellError>,
 ) -> Result<TrimStrategy, ShellError> {
-    let map = create_map(value, config).map_err(|e| {
+    let map = create_map(value).map_err(|e| {
         ShellError::GenericError(
             "Error while applying config changes".into(),
             "$env.config.table.trim is not a record".into(),
@@ -1293,53 +1287,15 @@ fn try_parse_trim_methodology(value: &Value) -> Option<TrimStrategy> {
     None
 }
 
-fn create_map(value: &Value, config: &Config) -> Result<HashMap<String, Value>, ShellError> {
+fn create_map(value: &Value) -> Result<HashMap<String, Value>, ShellError> {
     let (cols, inner_vals) = value.as_record()?;
     let mut hm: HashMap<String, Value> = HashMap::new();
 
     for (k, v) in cols.iter().zip(inner_vals) {
-        match &v {
-            Value::Record {
-                cols: inner_cols,
-                vals: inner_vals,
-                span,
-            } => {
-                let val = color_value_string(span, inner_cols, inner_vals, config);
-                hm.insert(k.to_string(), val);
-            }
-            _ => {
-                hm.insert(k.to_string(), v.clone());
-            }
-        }
+        hm.insert(k.to_string(), v.clone());
     }
 
     Ok(hm)
-}
-
-pub fn color_value_string(
-    span: &Span,
-    inner_cols: &[String],
-    inner_vals: &[Value],
-    config: &Config,
-) -> Value {
-    // make a string from our config.color_config section that
-    // looks like this: { fg: "#rrggbb" bg: "#rrggbb" attr: "abc", }
-    // the real key here was to have quotes around the values but not
-    // require them around the keys.
-
-    // maybe there's a better way to generate this but i'm not sure
-    // what it is.
-    let val: String = inner_cols
-        .iter()
-        .zip(inner_vals)
-        .map(|(x, y)| format!("{}: \"{}\" ", x, y.into_string(", ", config)))
-        .collect();
-
-    // now insert the braces at the front and the back to fake the json string
-    Value::String {
-        val: format!("{{{}}}", val),
-        span: *span,
-    }
 }
 
 // Parse the hooks to find the blocks to run when the hooks fire
