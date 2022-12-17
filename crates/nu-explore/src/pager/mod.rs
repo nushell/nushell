@@ -180,7 +180,7 @@ impl<'a> PagerConfig<'a> {
             style_computer,
             config,
             peek_value: false,
-            exit_esc: false,
+            exit_esc: true,
             reverse: false,
             show_banner: false,
             style: StyleConfig::default(),
