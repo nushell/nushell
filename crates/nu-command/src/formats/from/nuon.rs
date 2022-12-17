@@ -76,7 +76,8 @@ impl Command for FromNuon {
         let (lexed, err) = nu_parser::lex(string_input.as_bytes(), 0, &[b'\n', b'\r'], &[], true);
         error = error.or(err);
 
-        let (mut block, err) = nu_parser::parse_block(&mut working_set, &lexed, true, &[], false);
+        let (mut block, err) =
+            nu_parser::parse_block(&mut working_set, &lexed, true, &[], false, false);
         error = error.or(err);
 
         if let Some(pipeline) = block.pipelines.get(1) {

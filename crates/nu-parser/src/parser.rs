@@ -285,7 +285,13 @@ pub fn parse_external_call(
 
     let head = if head_contents.starts_with(b"$") || head_contents.starts_with(b"(") {
         // the expression is inside external_call, so it's a subexpression
-        let (arg, err) = parse_expression(working_set, &[head_span], expand_aliases_denylist, true);
+        let (arg, err) = parse_expression(
+            working_set,
+            &[head_span],
+            expand_aliases_denylist,
+            true,
+            false,
+        );
         error = error.or(err);
         Box::new(arg)
     } else {
@@ -690,6 +696,7 @@ pub fn parse_multispan_value(
                 &spans[*spans_idx..],
                 expand_aliases_denylist,
                 false,
+                false,
             );
             error = error.or(err);
             *spans_idx = spans.len() - 1;
@@ -1073,12 +1080,230 @@ pub fn parse_internal_call(
     }
 }
 
+pub fn parse_internal_call_for_completion(
+    working_set: &mut StateWorkingSet,
+    command_span: Span,
+    spans: &[Span],
+    decl_id: usize,
+    expand_aliases_denylist: &[usize],
+) -> ParsedInternalCall {
+    trace!("parsing: internal call (decl id: {})", decl_id);
+
+    let mut error = None;
+
+    let mut call = Call::new(command_span);
+    call.decl_id = decl_id;
+    call.head = command_span;
+
+    let decl = working_set.get_decl(decl_id);
+    let signature = decl.signature();
+    let output = signature.output_type.clone();
+
+    working_set.type_scope.add_type(output.clone());
+
+    if signature.creates_scope {
+        working_set.enter_scope();
+    }
+
+    // The index into the positional parameter in the definition
+    let mut positional_idx = 0;
+
+    // The index into the spans of argument data given to parse
+    // Starting at the first argument
+    let mut spans_idx = 0;
+
+    while spans_idx < spans.len() {
+        let arg_span = spans[spans_idx];
+
+        // Check if we're on a long flag, if so, parse
+        let (long_name, arg, err) = parse_long_flag(
+            working_set,
+            spans,
+            &mut spans_idx,
+            &signature,
+            expand_aliases_denylist,
+        );
+        if let Some(long_name) = long_name {
+            // We found a long flag, like --bar
+            error = error.or(err);
+            call.add_named((long_name, None, arg));
+            spans_idx += 1;
+            continue;
+        }
+
+        // Check if we're on a short flag or group of short flags, if so, parse
+        let (short_flags, _, err) = parse_short_flags(
+            working_set,
+            spans,
+            &mut spans_idx,
+            positional_idx,
+            &signature,
+        );
+
+        if let Some(mut short_flags) = short_flags {
+            if short_flags.is_empty() {
+                short_flags.push(Flag {
+                    long: "".to_string(),
+                    short: Some('a'),
+                    arg: None,
+                    required: false,
+                    desc: "".to_string(),
+                    var_id: None,
+                    default_value: None,
+                })
+            }
+            error = error.or(err);
+            for flag in short_flags {
+                if let Some(arg_shape) = flag.arg {
+                    if let Some(arg) = spans.get(spans_idx + 1) {
+                        let (arg, err) =
+                            parse_value(working_set, *arg, &arg_shape, expand_aliases_denylist);
+                        error = error.or(err);
+
+                        if flag.long.is_empty() {
+                            if let Some(short) = flag.short {
+                                call.add_named((
+                                    Spanned {
+                                        item: String::new(),
+                                        span: spans[spans_idx],
+                                    },
+                                    Some(Spanned {
+                                        item: short.to_string(),
+                                        span: spans[spans_idx],
+                                    }),
+                                    Some(arg),
+                                ));
+                            }
+                        } else {
+                            call.add_named((
+                                Spanned {
+                                    item: flag.long.clone(),
+                                    span: spans[spans_idx],
+                                },
+                                None,
+                                Some(arg),
+                            ));
+                        }
+                        spans_idx += 1;
+                    } else {
+                        error = error.or_else(|| {
+                            Some(ParseError::MissingFlagParam(
+                                arg_shape.to_string(),
+                                arg_span,
+                            ))
+                        })
+                    }
+                } else if flag.long.is_empty() {
+                    if let Some(short) = flag.short {
+                        call.add_named((
+                            Spanned {
+                                item: String::new(),
+                                span: spans[spans_idx],
+                            },
+                            Some(Spanned {
+                                item: short.to_string(),
+                                span: spans[spans_idx],
+                            }),
+                            None,
+                        ));
+                    }
+                } else {
+                    call.add_named((
+                        Spanned {
+                            item: flag.long.clone(),
+                            span: spans[spans_idx],
+                        },
+                        None,
+                        None,
+                    ));
+                }
+            }
+            spans_idx += 1;
+            continue;
+        }
+
+        // Parse a positional arg if there is one
+        if let Some(positional) = signature.get_positional(positional_idx) {
+            let end = calculate_end_span(working_set, &signature, spans, spans_idx, positional_idx);
+
+            let end = if spans.len() > spans_idx && end == spans_idx {
+                end + 1
+            } else {
+                end
+            };
+
+            if spans[..end].is_empty() || spans_idx == end {
+                error = error.or_else(|| {
+                    Some(ParseError::MissingPositional(
+                        positional.name.clone(),
+                        Span::new(spans[spans_idx].end, spans[spans_idx].end),
+                        signature.call_signature(),
+                    ))
+                });
+                positional_idx += 1;
+                continue;
+            }
+
+            let orig_idx = spans_idx;
+            let (arg, err) = parse_multispan_value(
+                working_set,
+                &spans[..end],
+                &mut spans_idx,
+                &positional.shape,
+                expand_aliases_denylist,
+            );
+            error = error.or(err);
+
+            let arg = if !type_compatible(&positional.shape.to_type(), &arg.ty) {
+                let span = span(&spans[orig_idx..spans_idx]);
+                error = error.or_else(|| {
+                    Some(ParseError::TypeMismatch(
+                        positional.shape.to_type(),
+                        arg.ty,
+                        arg.span,
+                    ))
+                });
+                Expression::garbage(span)
+            } else {
+                arg
+            };
+            call.add_positional(arg);
+            positional_idx += 1;
+        } else {
+            call.add_positional(Expression::garbage(arg_span));
+            error = error.or_else(|| {
+                Some(ParseError::ExtraPositional(
+                    signature.call_signature(),
+                    arg_span,
+                ))
+            })
+        }
+
+        error = error.or(err);
+        spans_idx += 1;
+    }
+
+    let err = check_call(command_span, &signature, &call);
+    error = error.or(err);
+
+    if signature.creates_scope {
+        working_set.exit_scope();
+    }
+
+    ParsedInternalCall {
+        call: Box::new(call),
+        output,
+        error,
+    }
+}
+
 pub fn parse_call(
     working_set: &mut StateWorkingSet,
     spans: &[Span],
     head: Span,
     expand_aliases_denylist: &[usize],
     is_subexpression: bool,
+    for_completion: bool,
 ) -> (Expression, Option<ParseError>) {
     trace!("parsing: call");
 
@@ -1148,6 +1373,7 @@ pub fn parse_call(
                     &lite_command,
                     &expand_aliases_denylist,
                     is_subexpression,
+                    for_completion,
                 );
 
                 let result = result.elements.remove(0);
@@ -1214,13 +1440,23 @@ pub fn parse_call(
         trace!("parsing: internal call");
 
         // parse internal command
-        let parsed_call = parse_internal_call(
-            working_set,
-            span(&spans[cmd_start..pos]),
-            &spans[pos..],
-            decl_id,
-            expand_aliases_denylist,
-        );
+        let parsed_call = if for_completion {
+            parse_internal_call_for_completion(
+                working_set,
+                span(&spans[cmd_start..pos]),
+                &spans[pos..],
+                decl_id,
+                expand_aliases_denylist,
+            )
+        } else {
+            parse_internal_call(
+                working_set,
+                span(&spans[cmd_start..pos]),
+                &spans[pos..],
+                decl_id,
+                expand_aliases_denylist,
+            )
+        };
 
         (
             Expression {
@@ -2018,8 +2254,14 @@ pub fn parse_full_cell_path(
 
             // Creating a Type scope to parse the new block. This will keep track of
             // the previous input type found in that block
-            let (output, err) =
-                parse_block(working_set, &output, true, expand_aliases_denylist, true);
+            let (output, err) = parse_block(
+                working_set,
+                &output,
+                true,
+                expand_aliases_denylist,
+                true,
+                false,
+            );
             working_set
                 .type_scope
                 .add_type(working_set.type_scope.get_last_output());
@@ -4073,6 +4315,7 @@ pub fn parse_block_expression(
         false,
         expand_aliases_denylist,
         false,
+        false,
     );
     error = error.or(err);
 
@@ -4233,6 +4476,7 @@ pub fn parse_closure_expression(
         &output[amt_to_skip..],
         false,
         expand_aliases_denylist,
+        false,
         false,
     );
     error = error.or(err);
@@ -4870,6 +5114,7 @@ pub fn parse_expression(
     spans: &[Span],
     expand_aliases_denylist: &[usize],
     is_subexpression: bool,
+    for_completion: bool,
 ) -> (Expression, Option<ParseError>) {
     trace!("parsing: expression");
 
@@ -4942,6 +5187,7 @@ pub fn parse_expression(
                     spans[0],
                     expand_aliases_denylist,
                     is_subexpression,
+                    false,
                 )
                 .0,
                 Some(ParseError::BuiltinCommandInPipeline("def".into(), spans[0])),
@@ -4953,6 +5199,7 @@ pub fn parse_expression(
                     spans[0],
                     expand_aliases_denylist,
                     is_subexpression,
+                    false,
                 )
                 .0,
                 Some(ParseError::BuiltinCommandInPipeline(
@@ -4967,6 +5214,7 @@ pub fn parse_expression(
                     spans[0],
                     expand_aliases_denylist,
                     is_subexpression,
+                    false,
                 )
                 .0,
                 Some(ParseError::BuiltinCommandInPipeline("for".into(), spans[0])),
@@ -4978,6 +5226,7 @@ pub fn parse_expression(
                     spans[0],
                     expand_aliases_denylist,
                     is_subexpression,
+                    false,
                 )
                 .0,
                 Some(ParseError::LetInPipeline(
@@ -5001,6 +5250,7 @@ pub fn parse_expression(
                     spans[0],
                     expand_aliases_denylist,
                     is_subexpression,
+                    false,
                 )
                 .0,
                 Some(ParseError::MutInPipeline(
@@ -5024,6 +5274,7 @@ pub fn parse_expression(
                     spans[0],
                     expand_aliases_denylist,
                     is_subexpression,
+                    false,
                 )
                 .0,
                 Some(ParseError::BuiltinCommandInPipeline(
@@ -5038,6 +5289,7 @@ pub fn parse_expression(
                     spans[0],
                     expand_aliases_denylist,
                     is_subexpression,
+                    false,
                 )
                 .0,
                 Some(ParseError::BuiltinCommandInPipeline(
@@ -5052,6 +5304,7 @@ pub fn parse_expression(
                     spans[0],
                     expand_aliases_denylist,
                     is_subexpression,
+                    false,
                 )
                 .0,
                 Some(ParseError::BuiltinCommandInPipeline("use".into(), spans[0])),
@@ -5065,6 +5318,7 @@ pub fn parse_expression(
                         spans[0],
                         expand_aliases_denylist,
                         is_subexpression,
+                        false,
                     )
                 } else {
                     (
@@ -5074,6 +5328,7 @@ pub fn parse_expression(
                             spans[0],
                             expand_aliases_denylist,
                             is_subexpression,
+                            false,
                         )
                         .0,
                         Some(ParseError::BuiltinCommandInPipeline(
@@ -5090,6 +5345,7 @@ pub fn parse_expression(
                     spans[0],
                     expand_aliases_denylist,
                     is_subexpression,
+                    false,
                 )
                 .0,
                 Some(ParseError::BuiltinCommandInPipeline(
@@ -5104,6 +5360,7 @@ pub fn parse_expression(
                     spans[0],
                     expand_aliases_denylist,
                     is_subexpression,
+                    false,
                 )
                 .0,
                 Some(ParseError::UnexpectedKeyword("export".into(), spans[0])),
@@ -5115,6 +5372,7 @@ pub fn parse_expression(
                     spans[0],
                     expand_aliases_denylist,
                     is_subexpression,
+                    false,
                 )
                 .0,
                 Some(ParseError::BuiltinCommandInPipeline(
@@ -5131,6 +5389,7 @@ pub fn parse_expression(
                     spans[0],
                     expand_aliases_denylist,
                     is_subexpression,
+                    false,
                 )
                 .0,
                 Some(ParseError::BuiltinCommandInPipeline(
@@ -5145,6 +5404,7 @@ pub fn parse_expression(
                 spans[0],
                 expand_aliases_denylist,
                 is_subexpression,
+                for_completion,
             ),
         }
     };
@@ -5233,6 +5493,7 @@ pub fn parse_builtin_commands(
     lite_command: &LiteCommand,
     expand_aliases_denylist: &[usize],
     is_subexpression: bool,
+    for_completion: bool,
 ) -> (Pipeline, Option<ParseError>) {
     let name = working_set.get_span_contents(lite_command.parts[0]);
 
@@ -5267,6 +5528,7 @@ pub fn parse_builtin_commands(
                 &lite_command.parts,
                 expand_aliases_denylist,
                 is_subexpression,
+                for_completion,
             );
             (Pipeline::from_vec(vec![expr]), err)
         }
@@ -5364,6 +5626,7 @@ pub fn parse_block(
     scoped: bool,
     expand_aliases_denylist: &[usize],
     is_subexpression: bool,
+    for_completion: bool,
 ) -> (Block, Option<ParseError>) {
     let mut error = None;
 
@@ -5410,6 +5673,7 @@ pub fn parse_block(
                                 &command.parts,
                                 expand_aliases_denylist,
                                 is_subexpression,
+                                for_completion,
                             );
                             working_set.type_scope.add_type(expr.ty.clone());
 
@@ -5461,6 +5725,7 @@ pub fn parse_block(
                             command,
                             expand_aliases_denylist,
                             is_subexpression,
+                            for_completion,
                         );
 
                         if idx == 0 {
@@ -6311,8 +6576,86 @@ pub fn parse(
     let (output, err) = lex(contents, span_offset, &[], &[], false);
     error = error.or(err);
 
-    let (mut output, err) =
-        parse_block(working_set, &output, scoped, expand_aliases_denylist, false);
+    let (mut output, err) = parse_block(
+        working_set,
+        &output,
+        scoped,
+        expand_aliases_denylist,
+        false,
+        false,
+    );
+    error = error.or(err);
+
+    let mut seen = vec![];
+    let mut seen_blocks = HashMap::new();
+
+    let captures = discover_captures_in_closure(working_set, &output, &mut seen, &mut seen_blocks);
+    match captures {
+        Ok(captures) => output.captures = captures.into_iter().map(|(var_id, _)| var_id).collect(),
+        Err(err) => error = Some(err),
+    }
+
+    // Also check other blocks that might have been imported
+    for (block_idx, block) in working_set.delta.blocks.iter().enumerate() {
+        let block_id = block_idx + working_set.permanent_state.num_blocks();
+
+        if !seen_blocks.contains_key(&block_id) {
+            let captures =
+                discover_captures_in_closure(working_set, block, &mut seen, &mut seen_blocks);
+            match captures {
+                Ok(captures) => {
+                    seen_blocks.insert(block_id, captures);
+                }
+                Err(err) => error = Some(err),
+            }
+        }
+    }
+
+    for (block_id, captures) in seen_blocks.into_iter() {
+        // In theory, we should only be updating captures where we have new information
+        // the only place where this is possible would be blocks that are newly created
+        // by our working set delta. If we ever tried to modify the permanent state, we'd
+        // panic (again, in theory, this shouldn't be possible)
+        let block = working_set.get_block(block_id);
+        let block_captures_empty = block.captures.is_empty();
+        if !captures.is_empty() && block_captures_empty {
+            let block = working_set.get_block_mut(block_id);
+            block.captures = captures.into_iter().map(|(var_id, _)| var_id).collect();
+        }
+    }
+
+    (output, error)
+}
+
+pub fn parse_for_completion(
+    working_set: &mut StateWorkingSet,
+    fname: Option<&str>,
+    contents: &[u8],
+    scoped: bool,
+    expand_aliases_denylist: &[usize],
+) -> (Block, Option<ParseError>) {
+    let mut error = None;
+
+    let span_offset = working_set.next_span_start();
+
+    let name = match fname {
+        Some(fname) => fname.to_string(),
+        None => "source".to_string(),
+    };
+
+    working_set.add_file(name, contents);
+
+    let (output, err) = lex(contents, span_offset, &[], &[], false);
+    error = error.or(err);
+
+    let (mut output, err) = parse_block(
+        working_set,
+        &output,
+        scoped,
+        expand_aliases_denylist,
+        false,
+        true,
+    );
     error = error.or(err);
 
     let mut seen = vec![];

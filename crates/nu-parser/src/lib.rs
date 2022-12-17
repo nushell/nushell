@@ -18,8 +18,8 @@ pub use parse_keywords::*;
 
 pub use parser::{
     is_math_expression_like, lite_parse, parse, parse_block, parse_duration_bytes,
-    parse_expression, parse_external_call, trim_quotes, trim_quotes_str, unescape_unquote_string,
-    Import, LiteBlock, LiteElement,
+    parse_expression, parse_external_call, parse_for_completion, trim_quotes, trim_quotes_str,
+    unescape_unquote_string, Import, LiteBlock, LiteElement,
 };
 
 #[cfg(feature = "plugin")]

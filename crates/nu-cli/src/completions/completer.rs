@@ -3,7 +3,7 @@ use crate::completions::{
     DotNuCompletion, FileCompletion, FlagCompletion, MatchAlgorithm, VariableCompletion,
 };
 use nu_engine::eval_block;
-use nu_parser::{flatten_expression, parse, FlatShape};
+use nu_parser::{flatten_expression, parse_for_completion, FlatShape};
 use nu_protocol::{
     ast::PipelineElement,
     engine::{EngineState, Stack, StateWorkingSet},
@@ -120,7 +120,8 @@ impl NuCompleter {
         let pos = offset + pos;
         let config = self.engine_state.get_config();
 
-        let (output, _err) = parse(&mut working_set, Some("completer"), &new_line, false, &[]);
+        let (output, _err) =
+            parse_for_completion(&mut working_set, Some("completer"), &new_line, false, &[]);
 
         for pipeline in output.pipelines.into_iter() {
             for pipeline_element in pipeline.elements {
