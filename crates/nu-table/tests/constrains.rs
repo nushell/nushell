@@ -1,9 +1,8 @@
 mod common;
 
+use common::{create_row, styled_str, test_table, TestCase, VecCells};
 use nu_protocol::TrimStrategy;
 use nu_table::{Table, TableConfig, TableTheme as theme};
-
-use common::{create_row, styled_str, test_table, TestCase, VecCells};
 
 #[test]
 fn data_and_header_has_different_size() {

@@ -18,6 +18,7 @@ nu-path = { path = "../nu-path", version = "0.72.2"  }
 nu-parser = { path = "../nu-parser", version = "0.72.2"  }
 nu-protocol = { path = "../nu-protocol", version = "0.72.2"  }
 nu-utils = { path = "../nu-utils", version = "0.72.2"  }
+nu-table = { path = "../nu-table", version = "0.72.2"  }
 nu-ansi-term = "0.46.0"
 nu-color-config = { path = "../nu-color-config", version = "0.72.2"  }
 reedline = { version = "0.14.0", features = ["bashisms", "sqlite"]}

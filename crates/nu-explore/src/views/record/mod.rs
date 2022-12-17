@@ -3,7 +3,7 @@ mod tablew;
 use std::{borrow::Cow, collections::HashMap};
 
 use crossterm::event::{KeyCode, KeyEvent};
-use nu_color_config::get_color_map;
+use nu_color_config::{get_color_map, StyleComputer};
 use nu_protocol::{
     engine::{EngineState, Stack},
     Value,
@@ -11,7 +11,7 @@ use nu_protocol::{
 use tui::{layout::Rect, widgets::Block};
 
 use crate::{
-    nu_common::{collect_input, NuConfig, NuSpan, NuStyle, NuStyleTable, NuText},
+    nu_common::{collect_input, NuConfig, NuSpan, NuStyle, NuText},
     pager::{
         report::{Report, Severity},
         ConfigMap, Frame, Transition, ViewInfo,
@@ -208,16 +208,16 @@ impl<'a> RecordView<'a> {
 
     fn create_tablew(&'a self, cfg: ViewConfig<'a>) -> TableW<'a> {
         let layer = self.get_layer_last();
-        let data = convert_records_to_string(&layer.records, cfg.nu_config, cfg.color_hm);
+        let data = convert_records_to_string(&layer.records, cfg.nu_config, cfg.style_computer);
 
         let headers = layer.columns.as_ref();
-        let color_hm = cfg.color_hm;
+        let style_computer = cfg.style_computer;
         let (row, column) = self.get_current_offset();
 
         TableW::new(
             headers,
             data,
-            color_hm,
+            style_computer,
             row,
             column,
             self.theme.table,
@@ -301,10 +301,15 @@ impl View for RecordView<'_> {
     }
 
     fn collect_data(&self) -> Vec<NuText> {
+        // Create a "dummy" style_computer.
+        let dummy_engine_state = EngineState::new();
+        let dummy_stack = Stack::new();
+        let style_computer = StyleComputer::new(&dummy_engine_state, &dummy_stack, HashMap::new());
+
         let data = convert_records_to_string(
             &self.get_layer_last().records,
             &NuConfig::default(),
-            &HashMap::default(),
+            &style_computer,
         );
 
         data.iter().flatten().cloned().collect()
@@ -595,7 +600,7 @@ fn state_reverse_data(state: &mut RecordView<'_>, page_size: usize) {
 fn convert_records_to_string(
     records: &[Vec<Value>],
     cfg: &NuConfig,
-    color_hm: &NuStyleTable,
+    style_computer: &StyleComputer,
 ) -> Vec<Vec<NuText>> {
     records
         .iter()
@@ -603,10 +608,9 @@ fn convert_records_to_string(
             row.iter()
                 .map(|value| {
                     let text = value.clone().into_abbreviated_string(cfg);
-                    let tp = value.get_type().to_string();
                     let float_precision = cfg.float_precision as usize;
 
-                    make_styled_string(text, &tp, 0, false, color_hm, float_precision)
+                    make_styled_string(style_computer, text, Some(value), float_precision)
                 })
                 .collect::<Vec<_>>()
         })

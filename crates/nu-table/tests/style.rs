@@ -1,8 +1,7 @@
 mod common;
 
-use nu_table::{TableConfig, TableTheme as theme};
-
 use common::{create_row as row, VecCells};
+use nu_table::{TableConfig, TableTheme as theme};
 
 #[test]
 fn test_rounded() {

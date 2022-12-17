@@ -129,7 +129,7 @@ impl ConfigView {
         match self.format {
             ConfigFormat::Table => {
                 let value = map_into_value(config.config.clone());
-                try_build_table(None, config.nu_config, config.color_hm, value)
+                try_build_table(None, config.nu_config, config.style_computer, value)
             }
             ConfigFormat::Nu => nu_json::to_string(&config.config).unwrap_or_default(),
         }

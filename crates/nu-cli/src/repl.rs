@@ -9,7 +9,7 @@ use fancy_regex::Regex;
 use lazy_static::lazy_static;
 use log::{info, trace, warn};
 use miette::{IntoDiagnostic, Result};
-use nu_color_config::get_color_config;
+use nu_color_config::StyleComputer;
 use nu_engine::{convert_env_values, eval_block, eval_block_with_early_return};
 use nu_parser::{lex, parse, trim_quotes_str};
 use nu_protocol::{
@@ -174,8 +174,6 @@ pub fn evaluate_repl(
 
         info!("setup colors {}:{}:{}", file!(), line!(), column!());
 
-        let color_hm = get_color_config(config);
-
         info!("update reedline {}:{}:{}", file!(), line!(), column!());
         let engine_reference = std::sync::Arc::new(engine_state.clone());
         line_editor = line_editor
@@ -194,10 +192,14 @@ pub fn evaluate_repl(
             .with_partial_completions(config.partial_completions)
             .with_ansi_colors(config.use_ansi_coloring);
 
+        let style_computer = StyleComputer::from_config(engine_state, stack);
+
         line_editor = if config.use_ansi_coloring {
-            line_editor.with_hinter(Box::new(
-                DefaultHinter::default().with_style(color_hm["hints"]),
-            ))
+            line_editor.with_hinter(Box::new({
+                // As of Nov 2022, "hints" color_config closures only get `null` passed in.
+                let style = style_computer.compute("hints", &Value::nothing(Span::unknown()));
+                DefaultHinter::default().with_style(style)
+            }))
         } else {
             line_editor.disable_hints()
         };
@@ -928,7 +930,7 @@ pub fn eval_hook(
     Ok(output)
 }
 
-pub fn run_hook_block(
+fn run_hook_block(
     engine_state: &EngineState,
     stack: &mut Stack,
     block_id: BlockId,

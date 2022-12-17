@@ -1,9 +1,9 @@
 use fancy_regex::Regex;
 use nu_ansi_term::{
-    Color::{Default, Red, White},
+    Color::{Red, White},
     Style,
 };
-use nu_color_config::get_color_config;
+use nu_color_config::StyleComputer;
 use nu_engine::{get_full_help, CallExt};
 use nu_protocol::{
     ast::Call,
@@ -86,13 +86,13 @@ fn help(
     let find: Option<Spanned<String>> = call.get_flag(engine_state, stack, "find")?;
     let rest: Vec<Spanned<String>> = call.rest(engine_state, stack, 0)?;
     let commands = engine_state.get_decl_ids_sorted(false);
-    let config = engine_state.get_config();
-    let color_hm = get_color_config(config);
-    let default_style = Style::new().fg(Default).on(Default);
-    let string_style = match color_hm.get("string") {
-        Some(style) => style,
-        None => &default_style,
-    };
+
+    // 🚩The following two-lines are copied from filters/find.rs:
+    let style_computer = StyleComputer::from_config(engine_state, stack);
+    // Currently, search results all use the same style.
+    // Also note that this sample string is passed into user-written code (the closure that may or may not be
+    // defined for "string").
+    let string_style = style_computer.compute("string", &Value::string("search result", head));
 
     if let Some(f) = find {
         let org_search_string = f.item.clone();
@@ -123,7 +123,7 @@ fn help(
                 cols.push("name".into());
                 vals.push(Value::String {
                     val: if key_match {
-                        highlight_search_string(&key, &org_search_string, string_style)?
+                        highlight_search_string(&key, &org_search_string, &string_style)?
                     } else {
                         key
                     },
@@ -142,7 +142,7 @@ fn help(
                 cols.push("usage".into());
                 vals.push(Value::String {
                     val: if usage_match {
-                        highlight_search_string(&usage, &org_search_string, string_style)?
+                        highlight_search_string(&usage, &org_search_string, &string_style)?
                     } else {
                         usage
                     },
@@ -172,7 +172,7 @@ fn help(
                                         match highlight_search_string(
                                             term,
                                             &org_search_string,
-                                            string_style,
+                                            &string_style,
                                         ) {
                                             Ok(s) => s,
                                             Err(_) => {

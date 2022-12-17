@@ -2,8 +2,8 @@ use crate::help::highlight_search_string;
 
 use fancy_regex::Regex;
 use lscolors::{Color as LsColors_Color, LsColors, Style as LsColors_Style};
-use nu_ansi_term::{Color, Color::Default, Style};
-use nu_color_config::get_color_config;
+use nu_ansi_term::{Color, Style};
+use nu_color_config::StyleComputer;
 use nu_engine::{env_to_string, CallExt};
 use nu_protocol::{
     ast::Call,
@@ -308,12 +308,12 @@ fn find_with_rest_and_highlight(
         })
         .collect::<Vec<Value>>();
 
-    let color_hm = get_color_config(&config);
-    let default_style = Style::new().fg(Default).on(Default);
-    let string_style = match color_hm.get("string") {
-        Some(style) => *style,
-        None => default_style,
-    };
+    let style_computer = StyleComputer::from_config(&engine_state, stack);
+    // Currently, search results all use the same style.
+    // Also note that this sample string is passed into user-written code (the closure that may or may not be
+    // defined for "string").
+    let string_style = style_computer.compute("string", &Value::string("search result", span));
+
     let ls_colors_env_str = match stack.get_env_var(&engine_state, "LS_COLORS") {
         Some(v) => Some(env_to_string("LS_COLORS", &v, &engine_state, stack)?),
         None => None,

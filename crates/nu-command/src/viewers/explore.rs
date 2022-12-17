@@ -1,7 +1,5 @@
-use std::collections::HashMap;
-
 use nu_ansi_term::{Color, Style};
-use nu_color_config::{get_color_config, get_color_map};
+use nu_color_config::{get_color_map, StyleComputer};
 use nu_engine::CallExt;
 use nu_explore::{
     run_pager,
@@ -13,6 +11,7 @@ use nu_protocol::{
     engine::{Command, EngineState, Stack},
     Category, Example, PipelineData, ShellError, Signature, Span, SyntaxShape, Value,
 };
+use std::collections::HashMap;
 
 /// A `less` like program to render a [Value] as a table.
 #[derive(Clone)]
@@ -70,7 +69,7 @@ impl Command for Explore {
 
         let ctrlc = engine_state.ctrlc.clone();
         let nu_config = engine_state.get_config();
-        let color_hm = get_color_config(nu_config);
+        let style_computer = StyleComputer::from_config(engine_state, stack);
 
         let mut config = nu_config.explore.clone();
         prepare_default_config(&mut config);
@@ -81,7 +80,7 @@ impl Command for Explore {
 
         let style = style_from_config(&config);
 
-        let mut config = PagerConfig::new(nu_config, &color_hm, config);
+        let mut config = PagerConfig::new(nu_config, &style_computer, config);
         config.style = style;
         config.reverse = is_reverse;
         config.peek_value = peek_value;
@@ -89,7 +88,7 @@ impl Command for Explore {
         config.exit_esc = exit_esc;
         config.show_banner = show_banner;
 
-        let result = run_pager(engine_state, stack, ctrlc, input, config);
+        let result = run_pager(engine_state, &mut stack.clone(), ctrlc, input, config);
 
         match result {
             Ok(Some(value)) => Ok(PipelineData::Value(value, None)),
@@ -128,6 +127,8 @@ impl Command for Explore {
     }
 }
 
+// For now, this doesn't use StyleComputer.
+// As such, closures can't be given as styles for Explore.
 fn is_need_banner(config: &HashMap<String, Value>) -> Option<bool> {
     config.get("help_banner").and_then(|v| v.as_bool().ok())
 }
@@ -168,10 +169,6 @@ fn style_from_config(config: &HashMap<String, Value>) -> StyleConfig {
 
     if let Some(s) = colors.get("command_bar_background") {
         style.cmd_bar_background = *s;
-    }
-
-    if let Some(s) = colors.get("highlight") {
-        style.highlight = *s;
     }
 
     if let Some(hm) = config.get("status").and_then(create_map) {

@@ -2550,6 +2550,7 @@ dependencies = [
  "nu-parser",
  "nu-path",
  "nu-protocol",
+ "nu-table",
  "nu-test-support",
  "nu-utils",
  "percent-encoding",
@@ -2564,10 +2565,13 @@ name = "nu-color-config"
 version = "0.72.2"
 dependencies = [
  "nu-ansi-term",
- "nu-json",
+ "nu-engine",
+ "nu-path",
  "nu-protocol",
- "nu-table",
+ "nu-test-support",
+ "nu-utils",
  "serde",
+ "tabled",
 ]
 
 [[package]]
@@ -2812,9 +2816,14 @@ dependencies = [
 name = "nu-table"
 version = "0.72.2"
 dependencies = [
+ "atty",
  "json_to_table",
  "nu-ansi-term",
+ "nu-color-config",
+ "nu-engine",
+ "nu-path",
  "nu-protocol",
+ "nu-test-support",
  "nu-utils",
  "serde_json",
  "tabled",

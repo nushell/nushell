@@ -127,7 +127,7 @@ module completions {
 # Get just the extern definitions without the custom completion commands
 use completions *
 
-# for more information on themes see
+# For more information on themes, see
 # https://www.nushell.sh/book/coloring_and_theming.html
 let dark_theme = {
     # color for nushell primitives
@@ -135,11 +135,35 @@ let dark_theme = {
     leading_trailing_space_bg: { attr: n } # no fg, no bg, attr none effectively turns this off
     header: green_bold
     empty: blue
-    bool: white
+    # Closures can be used to choose colors for specific values.
+    # The value (in this case, a bool) is piped into the closure.
+    bool: { if $in { 'light_cyan' } else { 'light_gray' } }
     int: white
-    filesize: white
+    filesize: {|e|
+      if $e == 0b {
+        'white'
+      } else if $e < 1mb {
+        'cyan'
+      } else { 'blue' }
+    }
     duration: white
-    date: white
+    date: { (date now) - $in |
+      if $in < 1hr {
+        '#e61919'
+      } else if $in < 6hr {
+        '#e68019'
+      } else if $in < 1day {
+        '#e5e619'
+      } else if $in < 3day {
+        '#80e619'
+      } else if $in < 1wk {
+        '#19e619'
+      } else if $in < 6wk {
+        '#19e5e6'
+      } else if $in < 52wk {
+        '#197fe6'
+      } else { 'light_gray' }
+    }
     range: white
     float: white
     string: white
@@ -192,11 +216,35 @@ let light_theme = {
     leading_trailing_space_bg: { attr: n } # no fg, no bg, attr none effectively turns this off
     header: green_bold
     empty: blue
-    bool: dark_gray
+    # Closures can be used to choose colors for specific values.
+    # The value (in this case, a bool) is piped into the closure.
+    bool: { if $in { 'dark_cyan' } else { 'dark_gray' } }
     int: dark_gray
-    filesize: dark_gray
+    filesize: {|e|
+      if $e == 0b {
+        'dark_gray'
+      } else if $e < 1mb {
+        'cyan_bold'
+      } else { 'blue_bold' }
+    }
     duration: dark_gray
-    date: dark_gray
+    date: { (date now) - $in |
+      if $in < 1hr {
+        '#e61919'
+      } else if $in < 6hr {
+        '#e68019'
+      } else if $in < 1day {
+        '#e5e619'
+      } else if $in < 3day {
+        '#80e619'
+      } else if $in < 1wk {
+        '#19e619'
+      } else if $in < 6wk {
+        '#19e5e6'
+      } else if $in < 52wk {
+        '#197fe6'
+      } else { 'dark_gray' }
+    }
     range: dark_gray
     float: dark_gray
     string: dark_gray
