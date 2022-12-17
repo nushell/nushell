@@ -1043,8 +1043,10 @@ pub fn parse_internal_call(
         spans_idx += 1;
     }
 
-    let err = check_call(command_span, &signature, &call);
-    error = error.or(err);
+    if !signature.is_known_external {
+        let err = check_call(command_span, &signature, &call);
+        error = error.or(err);
+    }
 
     if signature.is_known_external {
         // convert all `external_pos` to a string.
