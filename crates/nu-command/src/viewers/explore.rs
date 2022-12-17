@@ -74,6 +74,7 @@ impl Command for Explore {
         let mut config = nu_config.explore.clone();
         prepare_default_config(&mut config);
         update_config(&mut config, show_index, show_head);
+        include_nu_config(&mut config, &style_computer);
 
         let show_banner = is_need_banner(&config).unwrap_or(true);
         let exit_esc = is_need_esc_exit(&config).unwrap_or(true);
@@ -246,6 +247,7 @@ fn prepare_default_config(config: &mut HashMap<String, Value>) {
 
         config.insert(String::from("status"), map_into_value(hm));
     }
+
     {
         let mut hm = config
             .get("table")
@@ -322,8 +324,7 @@ fn insert_style(map: &mut HashMap<String, Value>, key: &str, value: Style) {
     }
 
     let value = nu_color_config::NuStyle::from(value);
-
-    if let Ok(val) = nu_json::to_string(&value) {
+    if let Ok(val) = nu_json::to_string_raw(&value) {
         map.insert(String::from(key), Value::string(val, Span::unknown()));
     }
 }
@@ -367,4 +368,40 @@ fn convert_json_value_into_value(value: nu_json::Value) -> Value {
             map_into_value(hm)
         }
     }
+}
+
+fn include_nu_config(config: &mut HashMap<String, Value>, style_computer: &StyleComputer) {
+    let line_color = lookup_color(style_computer, "separator");
+    if line_color != nu_ansi_term::Style::default() {
+        {
+            let mut map = config
+                .get("table")
+                .and_then(parse_hash_map)
+                .unwrap_or_default();
+            insert_style(&mut map, "split_line", line_color);
+            config.insert(String::from("table"), map_into_value(map));
+        }
+
+        {
+            let mut map = config
+                .get("try")
+                .and_then(parse_hash_map)
+                .unwrap_or_default();
+            insert_style(&mut map, "border_color", line_color);
+            config.insert(String::from("try"), map_into_value(map));
+        }
+
+        {
+            let mut map = config
+                .get("config")
+                .and_then(parse_hash_map)
+                .unwrap_or_default();
+            insert_style(&mut map, "border_color", line_color);
+            config.insert(String::from("config"), map_into_value(map));
+        }
+    }
+}
+
+fn lookup_color(style_computer: &StyleComputer, key: &str) -> nu_ansi_term::Style {
+    style_computer.compute(key, &Value::nothing(Span::unknown()))
 }
