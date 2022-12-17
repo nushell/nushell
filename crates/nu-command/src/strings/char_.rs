@@ -1,11 +1,11 @@
 use indexmap::indexmap;
 use indexmap::map::IndexMap;
-use lazy_static::lazy_static;
 use nu_engine::CallExt;
 use nu_protocol::{
     ast::Call, engine::Command, Category, Example, IntoInterruptiblePipelineData, IntoPipelineData,
     PipelineData, ShellError, Signature, Span, SyntaxShape, Type, Value,
 };
+use once_cell::sync::Lazy;
 
 // Character used to separate directories in a Path Environment variable on windows is ";"
 #[cfg(target_family = "windows")]
@@ -17,8 +17,8 @@ const ENV_PATH_SEPARATOR_CHAR: char = ':';
 #[derive(Clone)]
 pub struct Char;
 
-lazy_static! {
-    static ref CHAR_MAP: IndexMap<&'static str, String> = indexmap! {
+static CHAR_MAP: Lazy<IndexMap<&'static str, String>> = Lazy::new(|| {
+    indexmap! {
         // These are some regular characters that either can't be used or
         // it's just easier to use them like this.
 
@@ -146,8 +146,8 @@ lazy_static! {
         "unit_separator" => '\x1f'.to_string(),
         "unit_sep" => '\x1f'.to_string(),
         "us" => '\x1f'.to_string(),
-    };
-}
+    }
+});
 
 impl Command for Char {
     fn name(&self) -> &str {

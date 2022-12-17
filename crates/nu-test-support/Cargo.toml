@@ -14,7 +14,7 @@ doctest = false
 nu-path = { path="../nu-path", version = "0.72.2"  }
 nu-glob = { path = "../nu-glob", version = "0.72.2" }
 nu-utils = { path="../nu-utils", version = "0.72.2"  }
-lazy_static = "1.4.0"
+once_cell = "1.16.0"
 num-format = "0.4.3"
 
 getset = "0.1.1"

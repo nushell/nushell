@@ -1,10 +1,10 @@
-use lazy_static::lazy_static;
 use nu_ansi_term::*;
 use nu_engine::CallExt;
 use nu_protocol::{
     ast::Call, engine::Command, Category, Example, IntoInterruptiblePipelineData, IntoPipelineData,
     PipelineData, ShellError, Signature, Span, SyntaxShape, Type, Value,
 };
+use once_cell::sync::Lazy;
 use std::collections::HashMap;
 
 #[derive(Clone)]
@@ -16,8 +16,8 @@ struct AnsiCode {
     code: String,
 }
 
-lazy_static! {
-    static ref CODE_LIST: Vec<AnsiCode> = vec!{
+#[rustfmt::skip]
+static CODE_LIST: Lazy<Vec<AnsiCode>> = Lazy::new(|| { vec![
     AnsiCode{ short_name: Some("g"), long_name: "green", code: Color::Green.prefix().to_string()},
     AnsiCode{ short_name: Some("gb"), long_name: "green_bold", code: Color::Green.bold().prefix().to_string()},
     AnsiCode{ short_name: Some("gu"), long_name: "green_underline", code: Color::Green.underline().prefix().to_string()},
@@ -476,10 +476,12 @@ lazy_static! {
 
     // Returns terminal size like "[<r>;<c>R" where r is rows and c is columns
     // This should work assuming your terminal is not greater than 999x999
-    AnsiCode{ short_name: None, long_name:"size", code: "\x1b[s\x1b[999;999H\x1b[6n\x1b[u".to_string()},};
+    AnsiCode{ short_name: None, long_name:"size", code: "\x1b[s\x1b[999;999H\x1b[6n\x1b[u".to_string()}
+    ]
+});
 
-    static ref CODE_MAP: HashMap<&'static str, &'static str > = build_ansi_hashmap(&CODE_LIST);
-}
+static CODE_MAP: Lazy<HashMap<&'static str, &'static str>> =
+    Lazy::new(|| build_ansi_hashmap(&CODE_LIST));
 
 impl Command for AnsiCommand {
     fn name(&self) -> &str {
@@ -783,10 +785,10 @@ fn generate_ansi_code_list(
         .into_pipeline_data(engine_state.ctrlc.clone()));
 }
 
-fn build_ansi_hashmap(v: &'static [AnsiCode]) -> HashMap<&'static str, &'static str> {
+fn build_ansi_hashmap(v: &[AnsiCode]) -> HashMap<&str, &str> {
     let mut result = HashMap::new();
     for code in v.iter() {
-        let value: &'static str = &code.code;
+        let value: &str = &code.code;
         if let Some(sn) = code.short_name {
             result.insert(sn, value);
         }

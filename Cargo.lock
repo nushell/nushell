@@ -2540,7 +2540,6 @@ dependencies = [
  "fancy-regex",
  "fuzzy-matcher",
  "is_executable",
- "lazy_static",
  "log",
  "miette",
  "nu-ansi-term",
@@ -2553,6 +2552,7 @@ dependencies = [
  "nu-table",
  "nu-test-support",
  "nu-utils",
+ "once_cell",
  "percent-encoding",
  "reedline",
  "rstest",
@@ -2606,7 +2606,6 @@ dependencies = [
  "indexmap",
  "is-root",
  "itertools",
- "lazy_static",
  "libc",
  "log",
  "lscolors",
@@ -2715,8 +2714,6 @@ dependencies = [
 name = "nu-json"
 version = "0.72.2"
 dependencies = [
- "fancy-regex",
- "lazy_static",
  "linked-hash-map",
  "num-traits",
  "serde",
@@ -2843,11 +2840,11 @@ version = "0.72.2"
 dependencies = [
  "getset",
  "hamcrest2",
- "lazy_static",
  "nu-glob",
  "nu-path",
  "nu-utils",
  "num-format",
+ "once_cell",
  "tempfile",
 ]
 
