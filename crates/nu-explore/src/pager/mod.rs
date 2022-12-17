@@ -140,7 +140,7 @@ impl<'a> Pager<'a> {
         if let Some(page) = &mut view {
             page.view.setup(ViewConfig::new(
                 self.config.nu_config,
-                self.config.style_computer,
+                self.config.color_hm,
                 &self.config.config,
             ))
         }
@@ -160,7 +160,7 @@ pub enum Transition {
 #[derive(Debug, Clone)]
 pub struct PagerConfig<'a> {
     pub nu_config: &'a NuConfig,
-    pub style_computer: &'a StyleComputer<'a>,
+    pub color_hm: &'a NuStyleTable,
     pub config: ConfigMap,
     pub style: StyleConfig,
     pub peek_value: bool,
@@ -169,14 +169,10 @@ pub struct PagerConfig<'a> {
 }
 
 impl<'a> PagerConfig<'a> {
-    pub fn new(
-        nu_config: &'a NuConfig,
-        style_computer: &'a StyleComputer,
-        config: ConfigMap,
-    ) -> Self {
+    pub fn new(nu_config: &'a NuConfig, color_hm: &'a NuStyleTable, config: ConfigMap) -> Self {
         Self {
             nu_config,
-            style_computer,
+            color_hm,
             config,
             peek_value: false,
             exit_esc: true,
@@ -263,7 +259,7 @@ fn render_ui(
                 if let Some(page) = &mut view {
                     let cfg = ViewConfig::new(
                         pager.config.nu_config,
-                        pager.config.style_computer,
+                        pager.config.color_hm,
                         &pager.config.config,
                     );
 
@@ -418,7 +414,7 @@ fn run_command(
                             if let Some(page) = view.as_mut() {
                                 page.view.setup(ViewConfig::new(
                                     pager.config.nu_config,
-                                    pager.config.style_computer,
+                                    pager.config.color_hm,
                                     &pager.config.config,
                                 ));
                             }
@@ -426,7 +422,7 @@ fn run_command(
                             for page in view_stack {
                                 page.view.setup(ViewConfig::new(
                                     pager.config.nu_config,
-                                    pager.config.style_computer,
+                                    pager.config.color_hm,
                                     &pager.config.config,
                                 ));
                             }
@@ -454,7 +450,7 @@ fn run_command(
 
                     new_view.setup(ViewConfig::new(
                         pager.config.nu_config,
-                        pager.config.style_computer,
+                        pager.config.color_hm,
                         &pager.config.config,
                     ));
 
@@ -469,14 +465,14 @@ fn run_command(
 
 fn set_cursor_cmd_bar(f: &mut Frame, area: Rect, pager: &Pager) {
     if pager.cmd_buf.is_cmd_input {
-        // todo: deal with a situation where we exeed the bar width
+        // todo: deal with a situation where we exceed the bar width
         let next_pos = (pager.cmd_buf.buf_cmd2.len() + 1) as u16;
         // 1 skips a ':' char
         if next_pos < area.width {
             f.set_cursor(next_pos as u16, area.height - 1);
         }
     } else if pager.search_buf.is_search_input {
-        // todo: deal with a situation where we exeed the bar width
+        // todo: deal with a situation where we exceed the bar width
         let next_pos = (pager.search_buf.buf_cmd_input.len() + 1) as u16;
         // 1 skips a ':' char
         if next_pos < area.width {

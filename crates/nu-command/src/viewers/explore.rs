@@ -75,6 +75,7 @@ impl Command for Explore {
         prepare_default_config(&mut config);
         update_config(&mut config, show_index, show_head);
 
+        let show_banner = is_need_banner(&config).unwrap_or(true);
         let exit_esc = is_need_esc_exit(&config).unwrap_or(true);
 
         let style = style_from_config(&config);
@@ -85,6 +86,7 @@ impl Command for Explore {
         config.peek_value = peek_value;
         config.reverse = is_reverse;
         config.exit_esc = exit_esc;
+        config.show_banner = show_banner;
 
         let result = run_pager(engine_state, &mut stack.clone(), ctrlc, input, config);
 
