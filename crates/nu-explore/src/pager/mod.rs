@@ -180,7 +180,7 @@ impl<'a> PagerConfig<'a> {
             style_computer,
             config,
             peek_value: false,
-            exit_esc: false,
+            exit_esc: true,
             reverse: false,
             show_banner: false,
             style: StyleConfig::default(),
@@ -471,14 +471,14 @@ fn run_command(
 
 fn set_cursor_cmd_bar(f: &mut Frame, area: Rect, pager: &Pager) {
     if pager.cmd_buf.is_cmd_input {
-        // todo: deal with a situation where we exeed the bar width
+        // todo: deal with a situation where we exceed the bar width
         let next_pos = (pager.cmd_buf.buf_cmd2.len() + 1) as u16;
         // 1 skips a ':' char
         if next_pos < area.width {
             f.set_cursor(next_pos as u16, area.height - 1);
         }
     } else if pager.search_buf.is_search_input {
-        // todo: deal with a situation where we exeed the bar width
+        // todo: deal with a situation where we exceed the bar width
         let next_pos = (pager.search_buf.buf_cmd_input.len() + 1) as u16;
         // 1 skips a ':' char
         if next_pos < area.width {
@@ -670,9 +670,9 @@ fn handle_events<V: View>(
 
     // Sometimes we get a BIG list of events;
     // for example when someone scrolls via a mouse either UP or DOWN.
-    // This MIGHT causes freeses as we have a 400 delay for a next command read.
+    // This MIGHT cause freezes as we have a 400 delay for a next command read.
     //
-    // To eliminate that we are trying ot read all possible commands which we should action upon.
+    // To eliminate that we are trying to read all possible commands which we should act upon.
 
     while let Ok(Some(key)) = events.try_next() {
         let result = handle_event(

@@ -30,19 +30,15 @@ impl HelpCmd {
 
     const HELP_MESSAGE: &'static str = r#"                        Explore - main help file
 
-          Move around:  Use the cursor keys.
-    Close this window:  Use "<Esc>".
-   Get out of Explore:  Use ":q<Enter>" (or <Ctrl> + <D>).
-
-   Get specific help:   It is possible to go directly to whatewer you want help on,
-                        by adding an argument to the ":help" command.
-                        
-                        Currently you can only get help on a few commands.
-                        To obtain a list of supported commands run ":help :<Enter>"
+              Move around:  Use the cursor keys.
+               Close help:  Press "<Esc>".
+             Exit Explore:  Type ":q" then then <Enter> (or press Ctrl+D).
+ Open an interactive REPL:  Type ":try" then enter
+    List all sub-commands:  Type ":help :" then <Enter>
 
 ------------------------------------------------------------------------------------
 
-Regular expressions ~
+# Regular expressions
 
 Most commands support regular expressions.
 

@@ -76,7 +76,7 @@ impl Command for Explore {
         update_config(&mut config, show_index, show_head);
 
         let show_banner = is_need_banner(&config).unwrap_or(true);
-        let exit_esc = is_need_esc_exit(&config).unwrap_or(false);
+        let exit_esc = is_need_esc_exit(&config).unwrap_or(true);
 
         let style = style_from_config(&config);
 

@@ -207,7 +207,7 @@ impl ViewCommand for TableCmd {
         }
 
         if self.settings.line_shift.unwrap_or(false) {
-            view.set_line_traling(true);
+            view.set_line_trailing(true);
         }
 
         if self.settings.show_cursor.unwrap_or(false) {

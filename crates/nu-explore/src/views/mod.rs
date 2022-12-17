@@ -1,7 +1,7 @@
 mod coloredtextw;
 mod cursor;
 mod information;
-mod interative;
+mod interactive;
 mod preview;
 mod record;
 pub mod util;
@@ -25,7 +25,7 @@ pub mod configuration;
 
 pub use configuration::ConfigurationView;
 pub use information::InformationView;
-pub use interative::InteractiveView;
+pub use interactive::InteractiveView;
 pub use preview::Preview;
 pub use record::{Orientation, RecordView};
 

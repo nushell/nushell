@@ -74,7 +74,7 @@ impl<'a> RecordView<'a> {
     }
 
     pub fn show_cursor(&mut self, b: bool) {
-        self.theme.cursor.show_cursow = b;
+        self.theme.cursor.show_cursor = b;
     }
 
     pub fn set_line_head_top(&mut self, b: bool) {
@@ -85,7 +85,7 @@ impl<'a> RecordView<'a> {
         self.theme.table.header_bottom = b;
     }
 
-    pub fn set_line_traling(&mut self, b: bool) {
+    pub fn set_line_trailing(&mut self, b: bool) {
         self.theme.table.shift_line = b;
     }
 
@@ -636,7 +636,7 @@ fn highlight_cell(f: &mut Frame, area: Rect, info: ElementInfo, theme: &CursorSt
         f.render_widget(hightlight_block.clone(), area);
     }
 
-    if theme.show_cursow {
+    if theme.show_cursor {
         f.set_cursor(info.area.x, info.area.y);
     }
 }
@@ -791,7 +791,7 @@ fn theme_from_config(config: &ConfigMap) -> TableTheme {
     theme.cursor.selected_cell = colors.get("selected_cell").cloned();
     theme.cursor.selected_row = colors.get("selected_row").cloned();
     theme.cursor.selected_column = colors.get("selected_column").cloned();
-    theme.cursor.show_cursow = config_get_bool(config, "show_cursor", true);
+    theme.cursor.show_cursor = config_get_bool(config, "show_cursor", true);
 
     theme.table.header_top = config_get_bool(config, "line_head_top", true);
     theme.table.header_bottom = config_get_bool(config, "line_head_bottom", true);
@@ -835,5 +835,5 @@ struct CursorStyle {
     selected_cell: Option<NuStyle>,
     selected_column: Option<NuStyle>,
     selected_row: Option<NuStyle>,
-    show_cursow: bool,
+    show_cursor: bool,
 }

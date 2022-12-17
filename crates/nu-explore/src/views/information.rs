@@ -62,9 +62,12 @@ impl View for InformationView {
         _: &mut Stack,
         _: &Layout,
         _: &mut ViewInfo,
-        _: KeyEvent,
+        event: KeyEvent,
     ) -> Option<Transition> {
-        None
+        match event.code {
+            crossterm::event::KeyCode::Esc => Some(Transition::Exit),
+            _ => None,
+        }
     }
 
     fn collect_data(&self) -> Vec<NuText> {
