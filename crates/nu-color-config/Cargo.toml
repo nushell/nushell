@@ -19,3 +19,4 @@ nu-engine = { path = "../nu-engine", version = "0.72.2" }
 nu-test-support = { path="../nu-test-support", version = "0.72.2"  }
 # nu-path is used only for test support
 nu-path = { path="../nu-path", version = "0.72.2"  }
+nu-json = { path="../nu-json", version = "0.72.2"  }

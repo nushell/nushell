@@ -1,4 +1,7 @@
-use crate::nu_style::{color_from_hex, lookup_style};
+use crate::{
+    nu_style::{color_from_hex, lookup_style},
+    parse_nustyle, NuStyle,
+};
 use nu_ansi_term::Style;
 use nu_protocol::Value;
 use std::collections::HashMap;
@@ -9,6 +12,8 @@ pub fn lookup_ansi_color_style(s: &str) -> Style {
             .ok()
             .and_then(|c| c.map(|c| c.normal()))
             .unwrap_or_default()
+    } else if s.starts_with('{') {
+        color_string_to_nustyle(s.to_string())
     } else {
         lookup_style(s)
     }
@@ -35,4 +40,22 @@ pub fn get_color_map(colors: &HashMap<String, Value>) -> HashMap<String, Style> 
     }
 
     hm
+}
+
+fn color_string_to_nustyle(color_string: String) -> Style {
+    // eprintln!("color_string: {}", &color_string);
+    if color_string.chars().count() < 1 {
+        Style::default()
+    } else {
+        let nu_style = match nu_json::from_str::<NuStyle>(&color_string) {
+            Ok(s) => s,
+            Err(_) => NuStyle {
+                fg: None,
+                bg: None,
+                attr: None,
+            },
+        };
+
+        parse_nustyle(nu_style)
+    }
 }

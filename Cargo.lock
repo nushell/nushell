@@ -2566,6 +2566,7 @@ version = "0.72.2"
 dependencies = [
  "nu-ansi-term",
  "nu-engine",
+ "nu-json",
  "nu-path",
  "nu-protocol",
  "nu-test-support",
