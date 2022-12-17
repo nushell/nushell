@@ -715,31 +715,33 @@ impl Value {
                     }
                     Value::List { vals, span } => {
                         let mut output = vec![];
-                        let mut hasvalue = false;
-                        let mut temp: Result<Value, ShellError> = Err(ShellError::NotFound(*span));
-                        let vals = vals.iter().filter(|v| matches!(v, Value::Record { .. }));
+                        let mut found_at_least_1_value = false;
                         for val in vals {
-                            temp = val.clone().follow_cell_path(
-                                &[PathMember::String {
-                                    val: column_name.clone(),
-                                    span: *origin_span,
-                                }],
-                                insensitive,
-                            );
-                            if let Ok(result) = temp.clone() {
-                                hasvalue = true;
-                                output.push(result);
+                            // only look in records; this avoids unintentionally recursing into deeply nested tables
+                            if matches!(val, Value::Record { .. }) {
+                                if let Ok(result) = val.clone().follow_cell_path(
+                                    &[PathMember::String {
+                                        val: column_name.clone(),
+                                        span: *origin_span,
+                                    }],
+                                    insensitive,
+                                ) {
+                                    found_at_least_1_value = true;
+                                    output.push(result);
+                                } else {
+                                    output.push(Value::Nothing { span: *span });
+                                }
                             } else {
                                 output.push(Value::Nothing { span: *span });
                             }
                         }
-                        if hasvalue {
+                        if found_at_least_1_value {
                             current = Value::List {
                                 vals: output,
                                 span: *span,
                             };
                         } else {
-                            return temp;
+                            return Err(ShellError::NotFound(*span));
                         }
                     }
                     Value::CustomValue { val, .. } => {
