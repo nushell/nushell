@@ -15,7 +15,10 @@ impl Command for EncodeBase64 {
 
     fn signature(&self) -> Signature {
         Signature::build("encode base64")
-            .input_output_types(vec![(Type::String, Type::String)])
+            .input_output_types(vec![
+                (Type::String, Type::String),
+                (Type::Binary, Type::String),
+            ])
             .vectorizes_over_list(true)
             .named(
                 "character-set",
@@ -33,18 +36,23 @@ impl Command for EncodeBase64 {
     }
 
     fn usage(&self) -> &str {
-        "Base64 encode a value"
+        "Encode a string or binary value using Base64"
     }
 
     fn examples(&self) -> Vec<Example> {
         vec![
             Example {
-                description: "Base64 encode a string with default settings",
+                description: "Encode binary data",
+                example: "0x[09 F9 11 02 9D 74 E3 5B D8 41 56 C5 63 56 88 C0] | encode base64",
+                result: Some(Value::string("CfkRAp1041vYQVbFY1aIwA==", Span::test_data())),
+            },
+            Example {
+                description: "Encode a string with default settings",
                 example: "'Some Data' | encode base64",
                 result: Some(Value::string("U29tZSBEYXRh", Span::test_data())),
             },
             Example {
-                description: "Base64 encode a string with the binhex character set",
+                description: "Encode a string with the binhex character set",
                 example: "'Some Data' | encode base64 --character-set binhex",
                 result: Some(Value::string(r#"7epXB5"%A@4J"#, Span::test_data())),
             },

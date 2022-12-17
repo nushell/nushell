@@ -161,7 +161,7 @@ fn action(
         }
         other => Value::Error {
             error: ShellError::TypeMismatch(
-                format!("value is {}, not string", other.get_type()),
+                format!("string or binary, not {}", other.get_type()),
                 other.span().unwrap_or(command_span),
             ),
         },
