@@ -228,23 +228,23 @@ let light_theme = {
       } else { 'blue_bold' }
     }
     duration: dark_gray
-    date: { (date now) - $in |
-      if $in < 1hr {
-        '#e61919'
-      } else if $in < 6hr {
-        '#e68019'
-      } else if $in < 1day {
-        '#e5e619'
-      } else if $in < 3day {
-        '#80e619'
-      } else if $in < 1wk {
-        '#19e619'
-      } else if $in < 6wk {
-        '#19e5e6'
-      } else if $in < 52wk {
-        '#197fe6'
-      } else { 'dark_gray' }
-    }
+  date: { (date now) - $in |
+    if $in < 1hr {
+      'red3b'
+    } else if $in < 6hr {
+      'orange3'
+    } else if $in < 1day {
+      'yellow3b'
+    } else if $in < 3day {
+      'chartreuse2b'
+    } else if $in < 1wk {
+      'green3b'
+    } else if $in < 6wk {
+      'darkturquoise'
+    } else if $in < 52wk {
+      'deepskyblue3b'
+    } else { 'dark_gray' }
+  }
     range: dark_gray
     float: dark_gray
     string: dark_gray
