@@ -791,15 +791,13 @@ pub struct ParsedInternalCall {
     pub error: Option<ParseError>,
 }
 
-pub fn parse_internal_call(
+fn parse_known_extern_call(
     working_set: &mut StateWorkingSet,
     command_span: Span,
     spans: &[Span],
     decl_id: usize,
     expand_aliases_denylist: &[usize],
 ) -> ParsedInternalCall {
-    trace!("parsing: internal call (decl id: {})", decl_id);
-
     let mut error = None;
 
     let mut call = Call::new(command_span);
@@ -843,9 +841,7 @@ pub fn parse_internal_call(
             // We found a long flag, like --bar
             match err {
                 Some(ParseError::UnknownFlag(_, _, _, _))
-                | Some(ParseError::MissingFlagParam(_, _))
-                    if signature.is_known_external =>
-                {
+                | Some(ParseError::MissingFlagParam(_, _)) => {
                     // the idx may changed in parse_long_flag function
                     // but if it's unknownflag, we need take spans_idx back, get it's content
                     // and push the content to extra_pos.
@@ -879,14 +875,9 @@ pub fn parse_internal_call(
             // will ignore error if `signature` is known external definition
             // and our error is ParseError::UnknownFlag, in case the relative
             // unknown flags will be passed to external command.
-            if let Some(ParseError::UnknownFlag(_, _, _, _)) = err {
-                if !signature.is_known_external {
-                    error = error.or(err);
-                }
-            } else {
-                error = error.or(err);
+            if !matches!(err, Some(ParseError::UnknownFlag(_, _, _, _))) {
+                error = error.or(err)
             }
-
             for flag in short_flags {
                 if let Some(arg_shape) = flag.arg {
                     if let Some(arg) = spans.get(spans_idx + 1) {
@@ -919,13 +910,6 @@ pub fn parse_internal_call(
                             ));
                         }
                         spans_idx += 1;
-                    } else {
-                        error = error.or_else(|| {
-                            Some(ParseError::MissingFlagParam(
-                                arg_shape.to_string(),
-                                arg_span,
-                            ))
-                        })
                     }
                 } else if flag.long.is_empty() {
                     if let Some(short) = flag.short {
@@ -953,17 +937,15 @@ pub fn parse_internal_call(
                 }
             }
 
-            if signature.is_known_external {
-                if let Some(unmatch_span) = unmatch_short_flags_span {
-                    for s in unmatch_span {
-                        let content = working_set.get_span_contents(s);
-                        external_unknown_pos.push(Expression {
-                            expr: Expr::String(format!("-{}", String::from_utf8_lossy(content))),
-                            span: s,
-                            ty: Type::String,
-                            custom_completion: None,
-                        })
-                    }
+            if let Some(unmatch_span) = unmatch_short_flags_span {
+                for s in unmatch_span {
+                    let content = working_set.get_span_contents(s);
+                    external_unknown_pos.push(Expression {
+                        expr: Expr::String(format!("-{}", String::from_utf8_lossy(content))),
+                        span: s,
+                        ty: Type::String,
+                        custom_completion: None,
+                    })
                 }
             }
             spans_idx += 1;
@@ -981,15 +963,7 @@ pub fn parse_internal_call(
             };
 
             if spans[..end].is_empty() || spans_idx == end {
-                if !signature.is_known_external {
-                    error = error.or_else(|| {
-                        Some(ParseError::MissingPositional(
-                            positional.name.clone(),
-                            Span::new(spans[spans_idx].end, spans[spans_idx].end),
-                            signature.call_signature(),
-                        ))
-                    });
-                }
+                // is ParseError::MissingPositional, but we don't need to catch it.
                 positional_idx += 1;
                 continue;
             }
@@ -1019,7 +993,7 @@ pub fn parse_internal_call(
             };
             call.add_positional(arg);
             positional_idx += 1;
-        } else if signature.is_known_external {
+        } else {
             // extra positional arguments will pass to external unknown pos.
             let (external_expr, err) = parse_value(
                 working_set,
@@ -1029,51 +1003,15 @@ pub fn parse_internal_call(
             );
             error = error.or(err);
             external_unknown_pos.push(external_expr);
-        } else {
-            call.add_positional(Expression::garbage(arg_span));
-            error = error.or_else(|| {
-                Some(ParseError::ExtraPositional(
-                    signature.call_signature(),
-                    arg_span,
-                ))
-            })
         }
 
         error = error.or(err);
         spans_idx += 1;
     }
 
-    if !signature.is_known_external {
-        let err = check_call(command_span, &signature, &call);
-        error = error.or(err);
-    }
-
-    if signature.is_known_external {
-        // convert all `external_pos` to a string.
-        let external_arg = external_unknown_pos
-            .into_iter()
-            .filter_map(|expr| {
-                if let Expression {
-                    expr: Expr::String(str_arg_val),
-                    span: _,
-                    ty: _,
-                    custom_completion: _,
-                } = expr
-                {
-                    Some(str_arg_val)
-                } else {
-                    None
-                }
-            })
-            .join(" ");
-        if !external_arg.is_empty() {
-            call.add_positional(Expression {
-                expr: Expr::String(external_arg),
-                span: command_span,
-                ty: Type::String,
-                custom_completion: None,
-            })
-        }
+    // convert all `external_pos` to a string.
+    for arg in external_unknown_pos {
+        call.add_positional(arg)
     }
 
     if signature.creates_scope {
@@ -1087,13 +1025,38 @@ pub fn parse_internal_call(
     }
 }
 
-// It's similar to parse_internal_call, but only used for completion.
-//
-// Difference:
-// 1. if we parse unknown long flag, it will be added to caller for completion.
-// 2. if we parse unknown short flag, it will auto add `-a` to caller for completion.
-// 3. all other unknown will be ignored.
-pub fn parse_internal_call_for_completion(
+pub fn parse_internal_call(
+    working_set: &mut StateWorkingSet,
+    command_span: Span,
+    spans: &[Span],
+    decl_id: usize,
+    expand_aliases_denylist: &[usize],
+) -> ParsedInternalCall {
+    trace!("parsing: internal call (decl id: {})", decl_id);
+    let decl = working_set.get_decl(decl_id);
+    let signature = decl.signature();
+    if signature.is_known_external {
+        parse_known_extern_call(
+            working_set,
+            command_span,
+            spans,
+            decl_id,
+            expand_aliases_denylist,
+        )
+    } else {
+        parse_realcomp_internal_call(
+            working_set,
+            command_span,
+            spans,
+            decl_id,
+            expand_aliases_denylist,
+        )
+    }
+}
+
+// It's used for parse nushell internal command.
+// And parse for completion.
+pub fn parse_realcomp_internal_call(
     working_set: &mut StateWorkingSet,
     command_span: Span,
     spans: &[Span],
@@ -1449,7 +1412,7 @@ pub fn parse_call(
 
         // parse internal command
         let parsed_call = if for_completion {
-            parse_internal_call_for_completion(
+            parse_realcomp_internal_call(
                 working_set,
                 span(&spans[cmd_start..pos]),
                 &spans[pos..],
