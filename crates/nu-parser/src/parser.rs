@@ -842,7 +842,10 @@ pub fn parse_internal_call(
         if let Some(long_name) = long_name {
             // We found a long flag, like --bar
             match err {
-                Some(ParseError::UnknownFlag(_, _, _, _)) if signature.is_known_external => {
+                Some(ParseError::UnknownFlag(_, _, _, _))
+                | Some(ParseError::MissingFlagParam(_, _))
+                    if signature.is_known_external =>
+                {
                     // the idx may changed in parse_long_flag function
                     // but if it's unknownflag, we need take spans_idx back, get it's content
                     // and push the content to extra_pos.
@@ -978,13 +981,15 @@ pub fn parse_internal_call(
             };
 
             if spans[..end].is_empty() || spans_idx == end {
-                error = error.or_else(|| {
-                    Some(ParseError::MissingPositional(
-                        positional.name.clone(),
-                        Span::new(spans[spans_idx].end, spans[spans_idx].end),
-                        signature.call_signature(),
-                    ))
-                });
+                if !signature.is_known_external {
+                    error = error.or_else(|| {
+                        Some(ParseError::MissingPositional(
+                            positional.name.clone(),
+                            Span::new(spans[spans_idx].end, spans[spans_idx].end),
+                            signature.call_signature(),
+                        ))
+                    });
+                }
                 positional_idx += 1;
                 continue;
             }
@@ -1080,6 +1085,12 @@ pub fn parse_internal_call(
     }
 }
 
+// It's similar to parse_internal_call, but only used for completion.
+//
+// Difference:
+// 1. if we parse unknown long flag, it will be added to caller for completion.
+// 2. if we parse unknown short flag, it will auto add `-a` to caller for completion.
+// 3. all other unknown will be ignored.
 pub fn parse_internal_call_for_completion(
     working_set: &mut StateWorkingSet,
     command_span: Span,
@@ -6622,6 +6633,7 @@ pub fn parse(
     (output, error)
 }
 
+// It's similar to parse, but only used in completion.
 pub fn parse_for_completion(
     working_set: &mut StateWorkingSet,
     fname: Option<&str>,
