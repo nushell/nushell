@@ -1132,13 +1132,8 @@ pub fn parse_internal_call_for_completion(
         }
 
         // Check if we're on a short flag or group of short flags, if so, parse
-        let (short_flags, _, err) = parse_short_flags(
-            working_set,
-            spans,
-            &mut spans_idx,
-            positional_idx,
-            &signature,
-        );
+        let (short_flags, _, err) =
+            parse_short_flags(working_set, spans, &spans_idx, positional_idx, &signature);
 
         if let Some(mut short_flags) = short_flags {
             if short_flags.is_empty() {
