@@ -34,8 +34,7 @@ impl SimpleCommand for TweakCmd {
     fn help(&self) -> Option<HelpManual> {
         Some(HelpManual {
             name: "tweak",
-            description:
-                "Set `explore` settings.\nLike a non-interactive version of :config",
+            description: "Set `explore` settings.\nLike a non-interactive version of :config",
             arguments: vec![],
             examples: vec![
                 HelpExample::new(":tweak table.show_index false", "Don't show index anymore"),
