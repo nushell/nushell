@@ -94,6 +94,12 @@ impl Command for Take {
                     span,
                 ))
             }
+            PipelineData::Empty => Err(ShellError::OnlySupportsThisInputType(
+                "list, binary or range".into(),
+                "null".into(),
+                call.head,
+                call.head, // TODO: make PipelineData::Empty spanned, so that the span can be used here.
+            )),
         }
     }
 

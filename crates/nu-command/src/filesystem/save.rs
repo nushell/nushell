@@ -2,8 +2,9 @@ use nu_engine::CallExt;
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
-    Category, Example, PipelineData, RawStream, ShellError, Signature, Spanned, SyntaxShape, Type,
-    Value, Span
+    Category, Example, PipelineData, RawStream, ShellError, Signature, Span, Spanned, SyntaxShape,
+    Type,
+    Value,
 };
 use std::fs::File;
 use std::io::{BufWriter, Write};
@@ -208,9 +209,9 @@ impl Command for Save {
                 } => {
                     // delegate a thread to redirect stderr to result.
                     let handler = stderr.map(|stderr_stream| match stderr_file {
-                        Some(stderr_file) => {
-                            std::thread::spawn(move || stream_to_file(stderr_stream, stderr_file, span))
-                        }
+                        Some(stderr_file) => std::thread::spawn(move || {
+                            stream_to_file(stderr_stream, stderr_file, span)
+                        }),
                         None => std::thread::spawn(move || {
                             let _ = stderr_stream.into_bytes();
                             Ok(PipelineData::empty())
@@ -314,7 +315,11 @@ impl Command for Save {
     }
 }
 
-fn stream_to_file(mut stream: RawStream, file: File, span: Span) -> Result<PipelineData, ShellError> {
+fn stream_to_file(
+    mut stream: RawStream,
+    file: File,
+    span: Span,
+) -> Result<PipelineData, ShellError> {
     let mut writer = BufWriter::new(file);
 
     stream

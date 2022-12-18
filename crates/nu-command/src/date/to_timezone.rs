@@ -56,7 +56,6 @@ impl Command for SubCommand {
         let head = call.head;
         let timezone: Spanned<String> = call.req(engine_state, stack, 0)?;
 
-        //Ok(PipelineData::new())
         input.map(
             move |value| helper(value, head, &timezone),
             engine_state.ctrlc.clone(),
@@ -64,26 +63,15 @@ impl Command for SubCommand {
     }
 
     fn examples(&self) -> Vec<Example> {
-        let example_result_1 = || {
-            let dt = match FixedOffset::east_opt(5 * 3600) {
-                Some(dt) => match dt.with_ymd_and_hms(2020, 10, 10, 13, 00, 00) {
-                    LocalResult::Single(dt) => Some(dt),
-                    _ => None,
-                },
-                _ => None,
-            };
-            match dt {
-                Some(dt) => Some(Value::Date {
-                    val: dt,
-                    span: Span::test_data(),
-                }),
-                None => Some(Value::Error {
-                    error: ShellError::UnsupportedInput(
-                        "The given datetime representation is unsupported.".to_string(),
-                        Span::test_data(),
-                    ),
-                }),
-            }
+        let example_result_1 = || match FixedOffset::east_opt(5 * 3600)
+            .expect("to timezone: help example is invalid")
+            .with_ymd_and_hms(2020, 10, 10, 13, 00, 00)
+        {
+            LocalResult::Single(dt) => Some(Value::Date {
+                val: dt,
+                span: Span::test_data(),
+            }),
+            _ => panic!("to timezone: help example is invalid"),
         };
 
         vec![
