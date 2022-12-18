@@ -264,6 +264,12 @@ impl Signature {
         self
     }
 
+    /// Make signature allow unknown flags.
+    pub fn allows_unknown_flags(mut self) -> Signature {
+        self.is_known_external = true;
+        self
+    }
+
     /// Update signature's fields from a Command trait implementation
     pub fn update_from_command(mut self, command: &dyn Command) -> Signature {
         self.search_terms = command
