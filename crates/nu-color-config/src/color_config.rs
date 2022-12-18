@@ -44,18 +44,14 @@ pub fn get_color_map(colors: &HashMap<String, Value>) -> HashMap<String, Style> 
 
 fn color_string_to_nustyle(color_string: String) -> Style {
     // eprintln!("color_string: {}", &color_string);
-    if color_string.chars().count() < 1 {
-        Style::default()
-    } else {
-        let nu_style = match nu_json::from_str::<NuStyle>(&color_string) {
-            Ok(s) => s,
-            Err(_) => NuStyle {
-                fg: None,
-                bg: None,
-                attr: None,
-            },
-        };
-
-        parse_nustyle(nu_style)
+    if color_string.is_empty() {
+        return Style::default();
     }
+
+    let nu_style = match nu_json::from_str::<NuStyle>(&color_string) {
+        Ok(s) => s,
+        Err(_) => return Style::default(),
+    };
+
+    parse_nustyle(nu_style)
 }

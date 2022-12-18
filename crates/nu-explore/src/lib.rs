@@ -23,7 +23,7 @@ use views::{InformationView, Orientation, Preview, RecordView};
 pub use pager::{PagerConfig, StyleConfig};
 
 pub mod util {
-    pub use super::nu_common::{create_map, map_into_value};
+    pub use super::nu_common::{create_lscolors, create_map, map_into_value};
 }
 
 pub fn run_pager(

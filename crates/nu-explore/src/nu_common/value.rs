@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 
 use nu_engine::get_columns;
-use nu_protocol::{ast::PathMember, PipelineData, Value};
+use nu_protocol::{ast::PathMember, ListStream, PipelineData, PipelineMetadata, RawStream, Value};
 
 use super::NuSpan;
 
@@ -9,25 +9,7 @@ pub fn collect_pipeline(input: PipelineData) -> (Vec<String>, Vec<Vec<Value>>) {
     match input {
         PipelineData::Empty => (vec![], vec![]),
         PipelineData::Value(value, ..) => collect_input(value),
-        PipelineData::ListStream(mut stream, ..) => {
-            let mut records = vec![];
-            for item in stream.by_ref() {
-                records.push(item);
-            }
-
-            let mut cols = get_columns(&records);
-            let data = convert_records_to_dataset(&cols, records);
-
-            // trying to deal with 'not standart input'
-            if cols.is_empty() && !data.is_empty() {
-                let min_column_length = data.iter().map(|row| row.len()).min().unwrap_or(0);
-                if min_column_length > 0 {
-                    cols = (0..min_column_length).map(|i| i.to_string()).collect();
-                }
-            }
-
-            (cols, data)
-        }
+        PipelineData::ListStream(stream, ..) => collect_list_stream(stream),
         PipelineData::ExternalStream {
             stdout,
             stderr,
@@ -35,55 +17,78 @@ pub fn collect_pipeline(input: PipelineData) -> (Vec<String>, Vec<Vec<Value>>) {
             metadata,
             span,
             ..
-        } => {
-            let mut columns = vec![];
-            let mut data = vec![];
+        } => collect_external_stream(stdout, stderr, exit_code, metadata, span),
+    }
+}
 
-            if let Some(stdout) = stdout {
-                let value = stdout.into_string().map_or_else(
-                    |error| Value::Error { error },
-                    |string| Value::string(string.item, span),
-                );
+fn collect_list_stream(mut stream: ListStream) -> (Vec<String>, Vec<Vec<Value>>) {
+    let mut records = vec![];
+    for item in stream.by_ref() {
+        records.push(item);
+    }
 
-                columns.push(String::from("stdout"));
-                data.push(value);
-            }
+    let mut cols = get_columns(&records);
+    let data = convert_records_to_dataset(&cols, records);
 
-            if let Some(stderr) = stderr {
-                let value = stderr.into_string().map_or_else(
-                    |error| Value::Error { error },
-                    |string| Value::string(string.item, span),
-                );
-
-                columns.push(String::from("stderr"));
-                data.push(value);
-            }
-
-            if let Some(exit_code) = exit_code {
-                let list = exit_code.collect::<Vec<_>>();
-                let val = Value::List { vals: list, span };
-
-                columns.push(String::from("exit_code"));
-                data.push(val);
-            }
-
-            if metadata.is_some() {
-                let val = Value::Record {
-                    cols: vec![String::from("data_source")],
-                    vals: vec![Value::String {
-                        val: String::from("ls"),
-                        span,
-                    }],
-                    span,
-                };
-
-                columns.push(String::from("metadata"));
-                data.push(val);
-            }
-
-            (columns, vec![data])
+    // trying to deal with 'not standart input'
+    if cols.is_empty() && !data.is_empty() {
+        let min_column_length = data.iter().map(|row| row.len()).min().unwrap_or(0);
+        if min_column_length > 0 {
+            cols = (0..min_column_length).map(|i| i.to_string()).collect();
         }
     }
+
+    (cols, data)
+}
+
+fn collect_external_stream(
+    stdout: Option<RawStream>,
+    stderr: Option<RawStream>,
+    exit_code: Option<ListStream>,
+    metadata: Option<PipelineMetadata>,
+    span: NuSpan,
+) -> (Vec<String>, Vec<Vec<Value>>) {
+    let mut columns = vec![];
+    let mut data = vec![];
+    if let Some(stdout) = stdout {
+        let value = stdout.into_string().map_or_else(
+            |error| Value::Error { error },
+            |string| Value::string(string.item, span),
+        );
+
+        columns.push(String::from("stdout"));
+        data.push(value);
+    }
+    if let Some(stderr) = stderr {
+        let value = stderr.into_string().map_or_else(
+            |error| Value::Error { error },
+            |string| Value::string(string.item, span),
+        );
+
+        columns.push(String::from("stderr"));
+        data.push(value);
+    }
+    if let Some(exit_code) = exit_code {
+        let list = exit_code.collect::<Vec<_>>();
+        let val = Value::List { vals: list, span };
+
+        columns.push(String::from("exit_code"));
+        data.push(val);
+    }
+    if metadata.is_some() {
+        let val = Value::Record {
+            cols: vec![String::from("data_source")],
+            vals: vec![Value::String {
+                val: String::from("ls"),
+                span,
+            }],
+            span,
+        };
+
+        columns.push(String::from("metadata"));
+        data.push(val);
+    }
+    (columns, vec![data])
 }
 
 /// Try to build column names and a table grid.

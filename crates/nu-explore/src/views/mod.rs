@@ -7,6 +7,7 @@ mod record;
 pub mod util;
 
 use crossterm::event::KeyEvent;
+use lscolors::LsColors;
 use nu_color_config::StyleComputer;
 use nu_protocol::{
     engine::{EngineState, Stack},
@@ -61,6 +62,7 @@ pub struct ViewConfig<'a> {
     pub nu_config: &'a NuConfig,
     pub style_computer: &'a StyleComputer<'a>,
     pub config: &'a ConfigMap,
+    pub lscolors: &'a LsColors,
 }
 
 impl<'a> ViewConfig<'a> {
@@ -68,11 +70,13 @@ impl<'a> ViewConfig<'a> {
         nu_config: &'a NuConfig,
         style_computer: &'a StyleComputer<'a>,
         config: &'a ConfigMap,
+        lscolors: &'a LsColors,
     ) -> Self {
         Self {
             nu_config,
             style_computer,
             config,
+            lscolors,
         }
     }
 }

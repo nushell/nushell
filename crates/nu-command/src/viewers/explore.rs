@@ -81,7 +81,9 @@ impl Command for Explore {
 
         let style = style_from_config(&config);
 
-        let mut config = PagerConfig::new(nu_config, &style_computer, config);
+        let lscolors = nu_explore::util::create_lscolors(engine_state, stack);
+
+        let mut config = PagerConfig::new(nu_config, &style_computer, &lscolors, config);
         config.style = style;
         config.reverse = is_reverse;
         config.peek_value = peek_value;

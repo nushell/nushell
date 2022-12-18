@@ -2692,6 +2692,7 @@ version = "0.72.2"
 dependencies = [
  "ansi-str 0.7.2",
  "crossterm 0.24.0",
+ "lscolors",
  "nu-ansi-term",
  "nu-color-config",
  "nu-engine",
@@ -2699,6 +2700,7 @@ dependencies = [
  "nu-parser",
  "nu-protocol",
  "nu-table",
+ "nu-utils",
  "strip-ansi-escapes",
  "terminal_size 0.2.1",
  "tui",
