@@ -293,12 +293,13 @@ fn prepare_default_config(config: &mut HashMap<String, Value>) {
 }
 
 fn parse_hash_map(value: &Value) -> Option<HashMap<String, Value>> {
-    value
-        .as_string()
-        .ok()
-        .and_then(|s| nu_json::from_str::<nu_json::Value>(&s).ok())
-        .map(convert_json_value_into_value)
-        .and_then(|v| create_map(&v))
+    value.as_record().ok().map(|(cols, vals)| {
+        cols.iter()
+            .take(vals.len())
+            .zip(vals)
+            .map(|(col, val)| (col.clone(), val.clone()))
+            .collect::<HashMap<_, _>>()
+    })
 }
 
 const fn color(foreground: Option<Color>, background: Option<Color>) -> Style {
@@ -339,39 +340,6 @@ fn insert_bool(map: &mut HashMap<String, Value>, key: &str, value: bool) {
     map.insert(String::from(key), Value::boolean(value, Span::unknown()));
 }
 
-fn convert_json_value_into_value(value: nu_json::Value) -> Value {
-    match value {
-        nu_json::Value::Null => Value::nothing(Span::unknown()),
-        nu_json::Value::Bool(val) => Value::boolean(val, Span::unknown()),
-        nu_json::Value::I64(val) => Value::int(val, Span::unknown()),
-        nu_json::Value::U64(val) => Value::int(val as i64, Span::unknown()),
-        nu_json::Value::F64(val) => Value::float(val, Span::unknown()),
-        nu_json::Value::String(val) => Value::string(val, Span::unknown()),
-        nu_json::Value::Array(val) => {
-            let vals = val
-                .into_iter()
-                .map(convert_json_value_into_value)
-                .collect::<Vec<_>>();
-
-            Value::List {
-                vals,
-                span: Span::unknown(),
-            }
-        }
-        nu_json::Value::Object(val) => {
-            let hm = val
-                .into_iter()
-                .map(|(key, value)| {
-                    let val = convert_json_value_into_value(value);
-                    (key, val)
-                })
-                .collect();
-
-            map_into_value(hm)
-        }
-    }
-}
-
 fn include_nu_config(config: &mut HashMap<String, Value>, style_computer: &StyleComputer) {
     let line_color = lookup_color(style_computer, "separator");
     if line_color != nu_ansi_term::Style::default() {
@@ -398,7 +366,9 @@ fn include_nu_config(config: &mut HashMap<String, Value>, style_computer: &Style
                 .get("config")
                 .and_then(parse_hash_map)
                 .unwrap_or_default();
+
             insert_style(&mut map, "border_color", line_color);
+
             config.insert(String::from("config"), map_into_value(map));
         }
     }
