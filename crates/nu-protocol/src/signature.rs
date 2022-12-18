@@ -118,7 +118,7 @@ pub struct Signature {
     pub allow_variants_without_examples: bool,
     pub is_filter: bool,
     pub creates_scope: bool,
-    pub is_known_external: bool,
+    pub allows_unknown_flags: bool,
     // Signature category used to classify commands stored in the list of declarations
     pub category: Category,
 }
@@ -221,7 +221,7 @@ impl Signature {
             is_filter: false,
             creates_scope: false,
             category: Category::Default,
-            is_known_external: false,
+            allows_unknown_flags: false,
         }
     }
 
@@ -266,7 +266,7 @@ impl Signature {
 
     /// Make signature allow unknown flags.
     pub fn allows_unknown_flags(mut self) -> Signature {
-        self.is_known_external = true;
+        self.allows_unknown_flags = true;
         self
     }
 

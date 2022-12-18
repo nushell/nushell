@@ -791,7 +791,7 @@ pub struct ParsedInternalCall {
     pub error: Option<ParseError>,
 }
 
-fn parse_known_extern_call(
+fn parse_internal_call_loosely(
     working_set: &mut StateWorkingSet,
     command_span: Span,
     spans: &[Span],
@@ -1035,8 +1035,8 @@ pub fn parse_internal_call(
     trace!("parsing: internal call (decl id: {})", decl_id);
     let decl = working_set.get_decl(decl_id);
     let signature = decl.signature();
-    if signature.is_known_external {
-        parse_known_extern_call(
+    if signature.allows_unknown_flags {
+        parse_internal_call_loosely(
             working_set,
             command_span,
             spans,
