@@ -60,6 +60,11 @@ pub enum ShellError {
         #[label("input type: {1}")] Span,
     ),
 
+    /// No input value was piped into the command.
+    ///
+    /// ## Resolution
+    ///
+    /// Only use this command to process values from a previous expression.
     #[error("Pipeline empty.")]
     #[diagnostic(code(nu::shell::pipeline_mismatch), url(docsrs))]
     PipelineEmpty(#[label("no input value was piped in")] Span),
