@@ -107,13 +107,7 @@ pub fn nu_ansi_color_to_tui_color(clr: NuColor) -> Option<tui::style::Color> {
 pub fn text_style_to_tui_style(style: TextStyle) -> tui::style::Style {
     let mut out = tui::style::Style::default();
     if let Some(style) = style.color_style {
-        if let Some(clr) = style.background {
-            out.bg = nu_ansi_color_to_tui_color(clr);
-        }
-
-        if let Some(clr) = style.foreground {
-            out.fg = nu_ansi_color_to_tui_color(clr);
-        }
+        out = nu_style_to_tui(style);
     }
 
     out

@@ -106,6 +106,7 @@ pub fn color_record_to_nustyle(value: &Value) -> Style {
             }
         }
     }
+
     parse_nustyle(NuStyle { fg, bg, attr })
 }
 

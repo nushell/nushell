@@ -18,6 +18,7 @@ use crossterm::{
         LeaveAlternateScreen,
     },
 };
+use lscolors::LsColors;
 use nu_color_config::{lookup_ansi_color_style, StyleComputer};
 use nu_protocol::{
     engine::{EngineState, Stack},
@@ -142,6 +143,7 @@ impl<'a> Pager<'a> {
                 self.config.nu_config,
                 self.config.style_computer,
                 &self.config.config,
+                self.config.lscolors,
             ))
         }
 
@@ -161,6 +163,7 @@ pub enum Transition {
 pub struct PagerConfig<'a> {
     pub nu_config: &'a NuConfig,
     pub style_computer: &'a StyleComputer<'a>,
+    pub lscolors: &'a LsColors,
     pub config: ConfigMap,
     pub style: StyleConfig,
     pub peek_value: bool,
@@ -173,12 +176,14 @@ impl<'a> PagerConfig<'a> {
     pub fn new(
         nu_config: &'a NuConfig,
         style_computer: &'a StyleComputer,
+        lscolors: &'a LsColors,
         config: ConfigMap,
     ) -> Self {
         Self {
             nu_config,
             style_computer,
             config,
+            lscolors,
             peek_value: false,
             exit_esc: true,
             reverse: false,
@@ -267,6 +272,7 @@ fn render_ui(
                         pager.config.nu_config,
                         pager.config.style_computer,
                         &pager.config.config,
+                        pager.config.lscolors,
                     );
 
                     page.view.draw(f, available_area, cfg, &mut layout);
@@ -422,6 +428,7 @@ fn run_command(
                                     pager.config.nu_config,
                                     pager.config.style_computer,
                                     &pager.config.config,
+                                    pager.config.lscolors,
                                 ));
                             }
 
@@ -430,6 +437,7 @@ fn run_command(
                                     pager.config.nu_config,
                                     pager.config.style_computer,
                                     &pager.config.config,
+                                    pager.config.lscolors,
                                 ));
                             }
                         }
@@ -458,6 +466,7 @@ fn run_command(
                         pager.config.nu_config,
                         pager.config.style_computer,
                         &pager.config.config,
+                        pager.config.lscolors,
                     ));
 
                     *view = Some(Page::raw(new_view, is_light));

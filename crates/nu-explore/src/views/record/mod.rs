@@ -11,7 +11,7 @@ use nu_protocol::{
 use tui::{layout::Rect, widgets::Block};
 
 use crate::{
-    nu_common::{collect_input, NuConfig, NuSpan, NuStyle, NuText},
+    nu_common::{collect_input, lscolorize, NuConfig, NuSpan, NuStyle, NuText},
     pager::{
         report::{Report, Severity},
         ConfigMap, Frame, Transition, ViewInfo,
@@ -208,7 +208,9 @@ impl<'a> RecordView<'a> {
 
     fn create_tablew(&'a self, cfg: ViewConfig<'a>) -> TableW<'a> {
         let layer = self.get_layer_last();
-        let data = convert_records_to_string(&layer.records, cfg.nu_config, cfg.style_computer);
+        let mut data = convert_records_to_string(&layer.records, cfg.nu_config, cfg.style_computer);
+
+        lscolorize(&layer.columns, &mut data, cfg.lscolors);
 
         let headers = layer.columns.as_ref();
         let style_computer = cfg.style_computer;
