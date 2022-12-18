@@ -218,7 +218,7 @@ fn action(input: &Value, args: &Arguments, head: Span) -> Value {
                     other.get_type().to_string(),
                     head,
                     // This line requires the Value::Error match above.
-                    other.span().unwrap(),
+                    other.span().expect("non-Error Value had no span"),
                 ),
             };
         }
@@ -235,7 +235,7 @@ fn action(input: &Value, args: &Arguments, head: Span) -> Value {
                     format!("timestamp is {:?}", ts),
                     head,
                     // Again, can safely unwrap this from here on
-                    input.span().unwrap(),
+                    input.span().expect("non-Error Value had no span"),
                 ),
             };
         }
@@ -337,7 +337,7 @@ fn action(input: &Value, args: &Arguments, head: Span) -> Value {
                 other.get_type().to_string(),
                 head,
                 // This line requires the Value::Error match above.
-                other.span().unwrap(),
+                other.span().expect("non-Error Value had no span"),
             ),
         },
     }

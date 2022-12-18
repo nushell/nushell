@@ -57,7 +57,7 @@ impl Command for BytesBuild {
                 other => {
                     return Err(ShellError::TypeMismatch(
                         "only binary data arguments are supported".to_string(),
-                        other.span().unwrap(),
+                        other.span().expect("non-Error Value had no span"),
                     ))
                 }
             }

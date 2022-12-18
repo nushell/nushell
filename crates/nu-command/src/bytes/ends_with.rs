@@ -93,12 +93,12 @@ fn ends_with(val: &Value, args: &Arguments, span: Span) -> Value {
         // Propagate errors by explicitly matching them before the final case.
         Value::Error { .. } => val.clone(),
         other => Value::Error {
-            error: ShellError::UnsupportedInput(
-                "Only binary values are supported".into(),
-                format!("input type: {:?}", other.get_type()),
+            error: ShellError::OnlySupportsThisInputType(
+                "binary".into(),
+                other.get_type().to_string(),
                 span,
                 // This line requires the Value::Error match above.
-                other.span().unwrap(),
+                other.span().expect("non-Error Value had no span"),
             ),
         },
     }

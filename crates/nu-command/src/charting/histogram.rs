@@ -161,7 +161,7 @@ fn run_histogram(
                     Value::Error { error } => return Err(error),
                     _ => {
                         let t = v.get_type();
-                        let span = v.span().unwrap();
+                        let span = v.span().expect("non-Error Value had no span");
                         inputs.push(HashableValue::from_value(v, head_span).map_err(|_| {
                         ShellError::UnsupportedInput(
                             "Since --column-name was not provided, only lists of hashable values are supported.".to_string(),

@@ -51,7 +51,10 @@ impl Command for SubCommand {
                 base.span,
             ));
         }
-
+        // This doesn't match explicit nulls
+        if matches!(input, PipelineData::Empty) {
+            return Err(ShellError::PipelineEmpty(head));
+        }
         let base = base.item;
         input.map(
             move |value| operate(value, head, base),
@@ -119,7 +122,7 @@ fn operate(value: Value, head: Span, base: f64) -> Value {
                 "numeric".into(),
                 other.get_type().to_string(),
                 head,
-                other.span().unwrap(),
+                other.span().expect("non-Error Value had no span"),
             ),
         },
     }

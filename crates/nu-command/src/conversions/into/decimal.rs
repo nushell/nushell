@@ -106,18 +106,16 @@ fn action(input: &Value, _args: &CellPathOnlyArgs, head: Span) -> Value {
             span: *span,
         },
         // Propagate errors by explicitly matching them before the final case.
-        Value::Error { .. } => return input.clone(),
-        other => {
-            return Value::Error {
-                error: ShellError::OnlySupportsThisInputType(
-                    "string, integer or bool".into(),
-                    other.get_type().to_string(),
-                    head,
-                    // This line requires the Value::Error match above.
-                    other.span().unwrap(),
-                ),
-            };
-        }
+        Value::Error { .. } => input.clone(),
+        other => Value::Error {
+            error: ShellError::OnlySupportsThisInputType(
+                "string, integer or bool".into(),
+                other.get_type().to_string(),
+                head,
+                // This line requires the Value::Error match above.
+                other.span().expect("non-Error Value had no span"),
+            ),
+        },
     }
 }
 

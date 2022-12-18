@@ -484,18 +484,16 @@ fn action(
             }
         }
         // Propagate errors by explicitly matching them before the final case.
-        Value::Error { .. } => return input.clone(),
-        other => {
-            return Value::Error {
-                error: ShellError::OnlySupportsThisInputType(
-                    "string or duration".into(),
-                    other.get_type().to_string(),
-                    span,
-                    // This line requires the Value::Error match above.
-                    other.span().unwrap(),
-                ),
-            };
-        }
+        Value::Error { .. } => input.clone(),
+        other => Value::Error {
+            error: ShellError::OnlySupportsThisInputType(
+                "string or duration".into(),
+                other.get_type().to_string(),
+                span,
+                // This line requires the Value::Error match above.
+                other.span().expect("non-Error Value had no span"),
+            ),
+        },
     }
 }
 

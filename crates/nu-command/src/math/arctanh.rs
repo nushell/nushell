@@ -33,6 +33,10 @@ impl Command for SubCommand {
         input: PipelineData,
     ) -> Result<nu_protocol::PipelineData, nu_protocol::ShellError> {
         let head = call.head;
+        // This doesn't match explicit nulls
+        if matches!(input, PipelineData::Empty) {
+            return Err(ShellError::PipelineEmpty(head));
+        }
         input.map(
             move |value| operate(value, head),
             engine_state.ctrlc.clone(),
@@ -78,7 +82,7 @@ fn operate(value: Value, head: Span) -> Value {
                 "numeric".into(),
                 other.get_type().to_string(),
                 head,
-                other.span().unwrap(),
+                other.span().expect("non-Error Value had no span"),
             ),
         },
     }

@@ -81,10 +81,10 @@ impl HashableValue {
             // Explictly propagate errors instead of dropping them.
             Value::Error { error } => Err(error),
             _ => Err(ShellError::UnsupportedInput(
-                format!("input value is not hashable"),
+                "input value is not hashable".into(),
                 format!("input type: {:?}", value.get_type()),
                 span,
-                value.span().unwrap(),
+                value.span().expect("non-Error Value had no span"),
             )),
         }
     }

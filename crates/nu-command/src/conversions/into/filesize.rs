@@ -116,16 +116,14 @@ pub fn action(input: &Value, _args: &CellPathOnlyArgs, span: Span) -> Value {
                 val: 0,
                 span: value_span,
             },
-            other => {
-                return Value::Error {
-                    error: ShellError::OnlySupportsThisInputType(
-                        "string and integer".into(),
-                        other.get_type().to_string(),
-                        span,
-                        value_span,
-                    ),
-                }
-            }
+            other => Value::Error {
+                error: ShellError::OnlySupportsThisInputType(
+                    "string and integer".into(),
+                    other.get_type().to_string(),
+                    span,
+                    value_span,
+                ),
+            },
         }
     } else {
         // Propagate existing errors

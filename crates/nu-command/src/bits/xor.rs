@@ -42,7 +42,10 @@ impl Command for SubCommand {
     ) -> Result<nu_protocol::PipelineData, nu_protocol::ShellError> {
         let head = call.head;
         let target: i64 = call.req(engine_state, stack, 0)?;
-
+        // This doesn't match explicit nulls
+        if matches!(input, PipelineData::Empty) {
+            return Err(ShellError::PipelineEmpty(head));
+        }
         input.map(
             move |value| operate(value, target, head),
             engine_state.ctrlc.clone(),
@@ -82,7 +85,7 @@ fn operate(value: Value, target: i64, head: Span) -> Value {
                 other.get_type().to_string(),
                 head,
                 // This line requires the Value::Error match above.
-                other.span().unwrap(),
+                other.span().expect("non-Error Value had no span"),
             ),
         },
     }

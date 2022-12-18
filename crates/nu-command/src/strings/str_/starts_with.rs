@@ -98,7 +98,7 @@ fn action(input: &Value, Arguments { substring, .. }: &Arguments, head: Span) ->
                 "string".into(),
                 input.get_type().to_string(),
                 head,
-                input.span().unwrap(),
+                input.span().expect("non-Error Value had no span"),
             ),
         },
     }

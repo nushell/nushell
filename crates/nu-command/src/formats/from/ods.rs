@@ -99,7 +99,7 @@ fn collect_binary(input: PipelineData, span: Span) -> Result<Vec<u8>, ShellError
                     "Expected binary from pipeline".to_string(),
                     "value originates from here".into(),
                     span,
-                    x.span().unwrap(),
+                    x.span().expect("non-Error Value had no span"),
                 ))
             }
             None => break,
@@ -114,7 +114,7 @@ fn from_ods(
     head: Span,
     sel_sheets: Vec<String>,
 ) -> Result<PipelineData, ShellError> {
-    let span = input.span().unwrap();
+    let span = input.span();
     let bytes = collect_binary(input, head)?;
     let buf: Cursor<Vec<u8>> = Cursor::new(bytes);
     let mut ods = Ods::<_>::new(buf).map_err(|_| {
@@ -122,7 +122,7 @@ fn from_ods(
             "Could not load ODS file".to_string(),
             "value originates from here".into(),
             head,
-            span,
+            span.unwrap_or(head),
         )
     })?;
 
@@ -182,7 +182,7 @@ fn from_ods(
                 "Could not load sheet".to_string(),
                 "value originates from here".into(),
                 head,
-                span,
+                span.unwrap_or(head),
             ));
         }
     }

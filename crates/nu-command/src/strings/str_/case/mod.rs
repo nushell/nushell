@@ -73,7 +73,7 @@ where
                 "string".into(),
                 input.get_type().to_string(),
                 head,
-                input.span().unwrap(),
+                input.span().expect("non-Error Value had no span"),
             ),
         },
     }

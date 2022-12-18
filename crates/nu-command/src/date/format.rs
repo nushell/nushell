@@ -61,9 +61,10 @@ impl Command for SubCommand {
 
         let format = call.opt::<Spanned<String>>(engine_state, stack, 0)?;
 
-        // We don't need to have an explicit check for `null` here separate from the other type checks
-        // in format_helper().
-
+        // This doesn't match explicit nulls
+        if matches!(input, PipelineData::Empty) {
+            return Err(ShellError::PipelineEmpty(head));
+        }
         input.map(
             move |value| match &format {
                 Some(format) => format_helper(value, format.item.as_str(), format.span, head),

@@ -79,7 +79,7 @@ impl Command for Take {
                     other.get_type().to_string(),
                     call.head,
                     // This line requires the Value::Error match above.
-                    other.span().unwrap(),
+                    other.span().expect("non-Error Value had no span"),
                 )),
             },
             PipelineData::ListStream(ls, metadata) => Ok(ls

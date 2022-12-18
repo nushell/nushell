@@ -236,7 +236,7 @@ fn format(
                             "record".to_string(),
                             val.get_type().to_string(),
                             head_span,
-                            val.span().unwrap(),
+                            val.span().expect("non-Error Value had no span"),
                         ))
                     }
                 }
@@ -247,12 +247,15 @@ fn format(
                 None,
             ))
         }
-        Value::Error { error } => return Err(error),
+        // Unwrapping this ShellError is a bit unfortunate.
+        // Ideally, its Span would be preserved.
+        Value::Error { error } => Err(error),
         _ => Err(ShellError::OnlySupportsThisInputType(
             "record".to_string(),
             data_as_value.get_type().to_string(),
             head_span,
-            data_as_value.span().unwrap(),
+            // This line requires the Value::Error match above.
+            data_as_value.span().expect("non-Error Value had no span"),
         )),
     }
 }

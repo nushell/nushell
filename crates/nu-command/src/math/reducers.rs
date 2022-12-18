@@ -118,7 +118,7 @@ pub fn sum(data: Vec<Value>, span: Span, head: Span) -> Result<Value, ShellError
                     "Attempted to compute the sum of a value that cannot be summed".to_string(),
                     "value originates from here".into(),
                     head,
-                    other.span().unwrap(),
+                    other.span().expect("non-Error Value had no span"),
                 ));
             }
         }
@@ -152,7 +152,7 @@ pub fn product(data: Vec<Value>, span: Span, head: Span) -> Result<Value, ShellE
                         .to_string(),
                     "value originates from here".into(),
                     head,
-                    other.span().unwrap(),
+                    other.span().expect("non-Error Value had no span"),
                 ));
             }
         }

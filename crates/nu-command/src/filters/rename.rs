@@ -146,7 +146,7 @@ fn rename(
                                         ),
                                         "value originated from here".into(),
                                         // Arrow 1 points at the specified column name,
-                                        specified_col_span.unwrap(),
+                                        specified_col_span.unwrap_or(head_span),
                                         // Arrow 2 points at the input value.
                                         span,
                                     ),
@@ -180,7 +180,7 @@ fn rename(
                         other.get_type().to_string(),
                         head_span,
                         // This line requires the Value::Error match above.
-                        other.span().unwrap(),
+                        other.span().expect("non-Error Value had no span"),
                     ),
                 },
             },

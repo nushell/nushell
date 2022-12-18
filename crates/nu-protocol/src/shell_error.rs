@@ -60,6 +60,10 @@ pub enum ShellError {
         #[label("input type: {1}")] Span,
     ),
 
+    #[error("Pipeline empty.")]
+    #[diagnostic(code(nu::shell::pipeline_mismatch), url(docsrs))]
+    PipelineEmpty(#[label("no input value was piped in")] Span),
+
     /// A command received an argument of the wrong type.
     ///
     /// ## Resolution
@@ -799,7 +803,7 @@ Either make sure {0} is a string, or add a 'to_string' entry for it in ENV_CONVE
     #[diagnostic(code(nu::shell::missing_config_value), url(docsrs))]
     MissingConfigValue(String, #[label = "missing {0}"] Span),
 
-    /// Negative value passed when positive ons is required.
+    /// Negative value passed when positive one is required.
     ///
     /// ## Resolution
     ///

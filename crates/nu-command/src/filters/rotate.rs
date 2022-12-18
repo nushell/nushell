@@ -208,7 +208,7 @@ pub fn rotate(
 ) -> Result<PipelineData, ShellError> {
     let metadata = input.metadata();
     let col_given_names: Vec<String> = call.rest(engine_state, stack, 0)?;
-    let span = input.span().unwrap();
+    let span = input.span();
     let mut values = input.into_iter().collect::<Vec<_>>();
     let mut old_column_names = vec![];
     let mut new_values = vec![];
@@ -223,17 +223,13 @@ pub fn rotate(
     if !values.is_empty() {
         for val in values.into_iter() {
             match val {
-                Value::Record {
-                    cols,
-                    vals,
-                    span: _,
-                } => {
+                Value::Record { cols, vals, .. } => {
                     old_column_names = cols;
                     for v in vals {
                         new_values.push(v)
                     }
                 }
-                Value::List { vals, span: _ } => {
+                Value::List { vals, .. } => {
                     not_a_record = true;
                     for v in vals {
                         new_values.push(v);
@@ -254,7 +250,8 @@ pub fn rotate(
             "list input is empty".to_string(),
             "value originates from here".into(),
             call.head,
-            span,
+            // TODO: Maybe make all Pipelines have spans, so that this doesn't need to be unwrapped.
+            span.unwrap_or(call.head),
         ));
     }
 

@@ -37,7 +37,11 @@ fn helper_for_tables(
             Value::Error { error } => return Err(error.clone()),
             _ => {
                 //Turns out we are not dealing with a table
-                return mf(values, val.span().unwrap(), &name);
+                return mf(
+                    values,
+                    val.span().expect("non-Error Value had no span"),
+                    &name,
+                );
             }
         }
     }
@@ -75,9 +79,12 @@ pub fn calculate(
             helper_for_tables(&s.collect::<Vec<Value>>(), span, name, mf)
         }
         PipelineData::Value(Value::List { ref vals, span }, ..) => match &vals[..] {
-            [Value::Record { .. }, _end @ ..] => {
-                helper_for_tables(vals, values.span().unwrap(), name, mf)
-            }
+            [Value::Record { .. }, _end @ ..] => helper_for_tables(
+                vals,
+                values.span().expect("non-Error Value had no span"),
+                name,
+                mf,
+            ),
             _ => mf(vals, span, &name),
         },
         PipelineData::Value(Value::Record { vals, cols, span }, ..) => {
@@ -108,7 +115,7 @@ pub fn calculate(
             "value originates from here".into(),
             name,
             // Since this is not a ListStream, this is safe.
-            val.span().unwrap(),
+            val.span().expect("non-Error Value had no span"),
         )),
     }
 }

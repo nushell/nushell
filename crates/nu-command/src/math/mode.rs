@@ -137,7 +137,7 @@ pub fn mode(values: &[Value], _span: Span, head: &Span) -> Result<Value, ShellEr
                 "Unable to give a result with this input".to_string(),
                 "value originates from here".into(),
                 *head,
-                other.span().unwrap(),
+                other.span().expect("non-Error Value had no span"),
             )),
         })
         .collect::<Result<Vec<HashableType>, ShellError>>()?;

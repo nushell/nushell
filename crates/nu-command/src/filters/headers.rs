@@ -139,7 +139,7 @@ fn extract_headers(value: &Value, config: &Config) -> Result<Vec<String>, ShellE
             for v in vals {
                 if !is_valid_header(v) {
                     return Err(ShellError::TypeMismatch(
-                        "compatible type: Null, String, Bool, Float, Int".to_string(),
+                        "needs compatible type: Null, String, Bool, Float, Int".to_string(),
                         v.span()?,
                     ));
                 }

@@ -177,7 +177,7 @@ fn flat_value(columns: &[CellPath], item: &Value, _name_tag: Span, all: bool) ->
                             other.get_type().to_string(),
                             _name_tag,
                             // This line requires the Value::Error match above.
-                            other.span().unwrap(),
+                            other.span().expect("non-Error Value had no span"),
                         ),
                     }];
                 }

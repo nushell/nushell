@@ -99,7 +99,7 @@ fn action(
     };
     match input {
         // Propagate existing errors.
-        Value::Error { .. } => return input.clone(),
+        Value::Error { .. } => input.clone(),
         Value::Binary { val, .. } => match base64_config.action_type {
             ActionType::Encode => {
                 Value::string(encode_config(val, base64_config_enum), command_span)
@@ -109,7 +109,8 @@ fn action(
                     "Binary data can only be encoded".to_string(),
                     "value originates from here".into(),
                     command_span,
-                    input.span().unwrap(),
+                    // This line requires the Value::Error {} match above.
+                    input.span().expect("non-Error Value had no span"),
                 ),
             },
         },

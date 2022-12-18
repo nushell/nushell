@@ -66,7 +66,10 @@ impl Command for SubCommand {
                 ));
             }
         }
-
+        // This doesn't match explicit nulls
+        if matches!(input, PipelineData::Empty) {
+            return Err(ShellError::PipelineEmpty(head));
+        }
         input.map(
             move |value| operate(value, bits, head, signed, bytes_len),
             engine_state.ctrlc.clone(),
@@ -166,7 +169,7 @@ fn operate(value: Value, bits: usize, head: Span, signed: bool, number_size: Num
                 other.get_type().to_string(),
                 head,
                 // This line requires the Value::Error match above.
-                other.span().unwrap(),
+                other.span().expect("non-Error Value had no span"),
             ),
         },
     }

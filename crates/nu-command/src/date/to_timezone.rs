@@ -56,6 +56,10 @@ impl Command for SubCommand {
         let head = call.head;
         let timezone: Spanned<String> = call.req(engine_state, stack, 0)?;
 
+        // This doesn't match explicit nulls
+        if matches!(input, PipelineData::Empty) {
+            return Err(ShellError::PipelineEmpty(head));
+        }
         input.map(
             move |value| helper(value, head, &timezone),
             engine_state.ctrlc.clone(),

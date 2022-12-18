@@ -60,7 +60,7 @@ fn value_to_string(v: &Value, span: Span) -> Result<String, ShellError> {
                         "could not convert binary to string".into(),
                         "value originates from here".into(),
                         span,
-                        v.span().unwrap(),
+                        v.span().expect("non-Error Value had no span"),
                     ));
                 }
             }
@@ -70,13 +70,13 @@ fn value_to_string(v: &Value, span: Span) -> Result<String, ShellError> {
             "blocks are currently not nuon-compatible".into(),
             "value originates from here".into(),
             span,
-            v.span().unwrap(),
+            v.span().expect("non-Error Value had no span"),
         )),
         Value::Closure { .. } => Err(ShellError::UnsupportedInput(
-            "closure are currently not nuon-compatible".into(),
+            "closures are currently not nuon-compatible".into(),
             "value originates from here".into(),
             span,
-            v.span().unwrap(),
+            v.span().expect("non-Error Value had no span"),
         )),
         Value::Bool { val, .. } => {
             if *val {
@@ -89,16 +89,16 @@ fn value_to_string(v: &Value, span: Span) -> Result<String, ShellError> {
             "cellpaths are currently not nuon-compatible".to_string(),
             "value originates from here".into(),
             span,
-            v.span().unwrap(),
+            v.span().expect("non-Error Value had no span"),
         )),
         Value::CustomValue { .. } => Err(ShellError::UnsupportedInput(
-            "customs are currently not nuon-compatible".to_string(),
+            "custom values are currently not nuon-compatible".to_string(),
             "value originates from here".into(),
             span,
-            v.span().unwrap(),
+            v.span().expect("non-Error Value had no span"),
         )),
         Value::Date { val, .. } => Ok(val.to_rfc3339()),
-        // FIXME: make duratiobs use the shortest lossless representation.
+        // FIXME: make durations use the shortest lossless representation.
         Value::Duration { val, .. } => Ok(format!("{}ns", *val)),
         // Propagate existing errors
         Value::Error { error } => Err(error.clone()),

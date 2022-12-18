@@ -70,7 +70,7 @@ fn sum_of_squares(values: &[Value], span: &Span) -> Result<Value, ShellError> {
                     .to_string(),
                 "value originates from here".into(),
                 *span,
-                value.span().unwrap(),
+                value.span().expect("non-Error Value had no span"),
             )),
         }?;
         let v_squared = &v.mul(*span, v, *span)?;
