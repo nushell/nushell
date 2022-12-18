@@ -30,7 +30,7 @@ fn collect_list_stream(mut stream: ListStream) -> (Vec<String>, Vec<Vec<Value>>)
     let mut cols = get_columns(&records);
     let data = convert_records_to_dataset(&cols, records);
 
-    // trying to deal with 'not standard input'
+    // trying to deal with 'non-standard input'
     if cols.is_empty() && !data.is_empty() {
         let min_column_length = data.iter().map(|row| row.len()).min().unwrap_or(0);
         if min_column_length > 0 {
