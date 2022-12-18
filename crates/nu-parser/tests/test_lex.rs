@@ -136,3 +136,101 @@ fn lex_comments() {
         }
     );
 }
+
+#[test]
+fn lex_cell_path() {
+    let file = b"{ a: \"foo\" }.a";
+    let output = lex(file, 0, &[], &[b'.'], true);
+
+    assert_eq!(
+        output.0.get(0).unwrap(),
+        &Token {
+            contents: TokenContents::Item,
+            span: Span::new(0, 12)
+        }
+    );
+    assert_eq!(
+        output.0.get(1).unwrap(),
+        &Token {
+            contents: TokenContents::Item,
+            span: Span::new(12, 13)
+        }
+    );
+    assert_eq!(
+        output.0.get(2).unwrap(),
+        &Token {
+            contents: TokenContents::Item,
+            span: Span::new(13, 14)
+        }
+    );
+}
+
+#[test]
+fn lex_cell_path_optional() {
+    let file = b"{ a: \"foo\" }?.a";
+    let output = lex(file, 0, &[], &[b'.'], true);
+
+    assert_eq!(
+        output.0.get(0).unwrap(),
+        &Token {
+            contents: TokenContents::Item,
+            span: Span::new(0, 12)
+        }
+    );
+    assert_eq!(
+        output.0.get(1).unwrap(),
+        &Token {
+            contents: TokenContents::Item,
+            span: Span::new(12, 14)
+        }
+    );
+    assert_eq!(
+        output.0.get(2).unwrap(),
+        &Token {
+            contents: TokenContents::Item,
+            span: Span::new(14, 15)
+        }
+    );
+}
+
+#[test]
+fn lex_cell_path_both() {
+    let file = b"{ a: \"foo\" }?.a.b";
+    let output = lex(file, 0, &[], &[b'.'], true);
+
+    assert_eq!(
+        output.0.get(0).unwrap(),
+        &Token {
+            contents: TokenContents::Item,
+            span: Span::new(0, 12)
+        }
+    );
+    assert_eq!(
+        output.0.get(1).unwrap(),
+        &Token {
+            contents: TokenContents::Item,
+            span: Span::new(12, 14)
+        }
+    );
+    assert_eq!(
+        output.0.get(2).unwrap(),
+        &Token {
+            contents: TokenContents::Item,
+            span: Span::new(14, 15)
+        }
+    );
+    assert_eq!(
+        output.0.get(3).unwrap(),
+        &Token {
+            contents: TokenContents::Item,
+            span: Span::new(15, 16)
+        }
+    );
+    assert_eq!(
+        output.0.get(4).unwrap(),
+        &Token {
+            contents: TokenContents::Item,
+            span: Span::new(16, 17)
+        }
+    );
+}

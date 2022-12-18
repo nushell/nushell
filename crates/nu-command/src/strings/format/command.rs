@@ -280,6 +280,7 @@ fn format_record(
                     .map(|path| PathMember::String {
                         val: path.to_string(),
                         span: *span,
+                        optional: false,
                     })
                     .collect();
                 match data_as_value.clone().follow_cell_path(&path_members, false) {

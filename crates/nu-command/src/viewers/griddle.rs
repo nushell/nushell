@@ -275,6 +275,7 @@ fn convert_to_list(
                             &[PathMember::String {
                                 val: header.into(),
                                 span: head,
+                                optional: false,
                             }],
                             false,
                         ),

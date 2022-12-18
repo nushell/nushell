@@ -653,47 +653,63 @@ impl Value {
                 PathMember::Int {
                     val: count,
                     span: origin_span,
+                    optional,
                 } => {
                     // Treat a numeric path member as `select <val>`
                     match &mut current {
                         Value::List { vals: val, .. } => {
                             if let Some(item) = val.get(*count) {
                                 current = item.clone();
+                            } else if *optional {
+                                current = Value::nothing(*origin_span);
                             } else if val.is_empty() {
-                                return Err(ShellError::AccessEmptyContent(*origin_span))
+                                return Err(ShellError::AccessEmptyContent(*origin_span));
                             } else {
-                                return Err(ShellError::AccessBeyondEnd(val.len() - 1, *origin_span));
+                                return Err(ShellError::AccessBeyondEnd(
+                                    val.len() - 1,
+                                    *origin_span,
+                                ));
                             }
                         }
                         Value::Binary { val, .. } => {
                             if let Some(item) = val.get(*count) {
                                 current = Value::int(*item as i64, *origin_span);
+                            } else if *optional {
+                                current = Value::nothing(*origin_span);
                             } else if val.is_empty() {
-                                return Err(ShellError::AccessEmptyContent(*origin_span))
+                                return Err(ShellError::AccessEmptyContent(*origin_span));
                             } else {
-                                return Err(ShellError::AccessBeyondEnd(val.len() - 1, *origin_span));
+                                return Err(ShellError::AccessBeyondEnd(
+                                    val.len() - 1,
+                                    *origin_span,
+                                ));
                             }
                         }
                         Value::Range { val, .. } => {
                             if let Some(item) = val.clone().into_range_iter(None)?.nth(*count) {
                                 current = item.clone();
+                            } else if *optional {
+                                current = Value::nothing(*origin_span);
                             } else {
                                 return Err(ShellError::AccessBeyondEndOfStream(*origin_span));
                             }
                         }
                         Value::CustomValue { val, .. } => {
+                            // TODO handle optional
                             current = val.follow_path_int(*count, *origin_span)?;
                         }
                         x => {
+                            // TODO do we return nothing for optional=true even if the type is wrong?
                             return Err(ShellError::TypeMismatchGenericMessage {
                                 err_message: format!("Can't access {} values with a row index. Try specifying a column name instead", x.get_type().to_shape()),
-                                span: *origin_span, })
+                                span: *origin_span, });
                         }
                     }
                 }
                 PathMember::String {
                     val: column_name,
                     span: origin_span,
+                    optional,
                 } => match &mut current {
                     Value::Record { cols, vals, span } => {
                         let cols = cols.clone();
@@ -708,6 +724,8 @@ impl Value {
                             }
                         }) {
                             current = found.1.clone();
+                        } else if *optional {
+                            current = Value::nothing(*origin_span);
                         } else {
                             if from_user_input {
                                 if let Some(suggestion) = did_you_mean(&cols, column_name) {
@@ -723,7 +741,6 @@ impl Value {
                     }
                     Value::List { vals, span } => {
                         let mut output = vec![];
-                        let mut found_at_least_1_value = false;
                         for val in vals {
                             // only look in records; this avoids unintentionally recursing into deeply nested tables
                             if matches!(val, Value::Record { .. }) {
@@ -731,35 +748,42 @@ impl Value {
                                     &[PathMember::String {
                                         val: column_name.clone(),
                                         span: *origin_span,
+                                        optional: *optional,
                                     }],
                                     insensitive,
                                 ) {
-                                    found_at_least_1_value = true;
                                     output.push(result);
                                 } else {
-                                    output.push(Value::Nothing { span: *span });
+                                    if *optional {
+                                        output.push(Value::Nothing { span: *span });
+                                    } else {
+                                        return Err(ShellError::NotFound(*span));
+                                    }
                                 }
                             } else {
-                                output.push(Value::Nothing { span: *span });
+                                if *optional {
+                                    output.push(Value::Nothing { span: *span });
+                                } else {
+                                    return Err(ShellError::NotFound(*span));
+                                }
                             }
                         }
-                        if found_at_least_1_value {
-                            current = Value::List {
-                                vals: output,
-                                span: *span,
-                            };
-                        } else {
-                            return Err(ShellError::NotFound(*span));
-                        }
+
+                        current = Value::List {
+                            vals: output,
+                            span: *span,
+                        };
                     }
                     Value::CustomValue { val, .. } => {
+                        // TODO handle optional
                         current = val.follow_path_string(column_name.clone(), *origin_span)?;
                     }
                     x => {
+                        // TODO should we return nothing for optional=true even if the type is wrong?
                         return Err(ShellError::IncompatiblePathAccess(
                             format!("{}", x.get_type()),
                             *origin_span,
-                        ))
+                        ));
                     }
                 },
             }
@@ -794,6 +818,7 @@ impl Value {
                 PathMember::String {
                     val: col_name,
                     span,
+                    optional,
                 } => match self {
                     Value::List { vals, .. } => {
                         for val in vals.iter_mut() {
@@ -873,7 +898,11 @@ impl Value {
                         ))
                     }
                 },
-                PathMember::Int { val: row_num, span } => match self {
+                PathMember::Int {
+                    val: row_num,
+                    span,
+                    optional,
+                } => match self {
                     Value::List { vals, .. } => {
                         if let Some(v) = vals.get_mut(*row_num) {
                             v.upsert_data_at_cell_path(&cell_path[1..], new_val)?
@@ -921,6 +950,7 @@ impl Value {
                 PathMember::String {
                     val: col_name,
                     span,
+                    optional,
                 } => match self {
                     Value::List { vals, .. } => {
                         for val in vals.iter_mut() {
@@ -989,7 +1019,11 @@ impl Value {
                         ))
                     }
                 },
-                PathMember::Int { val: row_num, span } => match self {
+                PathMember::Int {
+                    val: row_num,
+                    span,
+                    optional,
+                } => match self {
                     Value::List { vals, .. } => {
                         if let Some(v) = vals.get_mut(*row_num) {
                             v.update_data_at_cell_path(&cell_path[1..], new_val)?
@@ -1018,6 +1052,7 @@ impl Value {
                     PathMember::String {
                         val: col_name,
                         span,
+                        optional,
                     } => match self {
                         Value::List { vals, .. } => {
                             for val in vals.iter_mut() {
@@ -1082,7 +1117,11 @@ impl Value {
                             v.span()?,
                         )),
                     },
-                    PathMember::Int { val: row_num, span } => match self {
+                    PathMember::Int {
+                        val: row_num,
+                        span,
+                        optional,
+                    } => match self {
                         Value::List { vals, .. } => {
                             if vals.get_mut(*row_num).is_some() {
                                 vals.remove(*row_num);
@@ -1103,6 +1142,7 @@ impl Value {
                     PathMember::String {
                         val: col_name,
                         span,
+                        optional,
                     } => match self {
                         Value::List { vals, .. } => {
                             for val in vals.iter_mut() {
@@ -1167,7 +1207,11 @@ impl Value {
                             v.span()?,
                         )),
                     },
-                    PathMember::Int { val: row_num, span } => match self {
+                    PathMember::Int {
+                        val: row_num,
+                        span,
+                        optional,
+                    } => match self {
                         Value::List { vals, .. } => {
                             if let Some(v) = vals.get_mut(*row_num) {
                                 v.remove_data_at_cell_path(&cell_path[1..])
@@ -1195,6 +1239,7 @@ impl Value {
                 PathMember::String {
                     val: col_name,
                     span,
+                    optional,
                 } => match self {
                     Value::List { vals, .. } => {
                         for val in vals.iter_mut() {
@@ -1273,7 +1318,11 @@ impl Value {
                         ))
                     }
                 },
-                PathMember::Int { val: row_num, span } => match self {
+                PathMember::Int {
+                    val: row_num,
+                    span,
+                    optional,
+                } => match self {
                     Value::List { vals, .. } => {
                         if let Some(v) = vals.get_mut(*row_num) {
                             v.insert_data_at_cell_path(&cell_path[1..], new_val, head_span)?

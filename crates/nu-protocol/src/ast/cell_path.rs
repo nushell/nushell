@@ -5,8 +5,16 @@ use std::fmt::Write;
 
 #[derive(Debug, Clone, PartialOrd, Serialize, Deserialize)]
 pub enum PathMember {
-    String { val: String, span: Span },
-    Int { val: usize, span: Span },
+    String {
+        val: String,
+        span: Span,
+        optional: bool,
+    },
+    Int {
+        val: usize,
+        span: Span,
+        optional: bool,
+    },
 }
 
 impl PartialEq for PathMember {

@@ -175,7 +175,7 @@ fn update_cell_path_1() -> TestResult {
 fn missing_column_fills_in_nothing() -> TestResult {
     // The empty value will be replaced with null when fetching a column
     run_test(
-        r#"[ { name: ABC, size: 20 }, { name: HIJ } ].size.1 == null"#,
+        r#"[ { name: ABC, size: 20 }, { name: HIJ } ]?.size.1 == $nothing"#,
         "true",
     )
 }

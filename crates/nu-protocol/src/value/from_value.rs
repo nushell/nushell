@@ -302,6 +302,7 @@ impl FromValue for CellPath {
                 members: vec![PathMember::String {
                     val: val.clone(),
                     span,
+                    optional: false,
                 }],
             }),
             Value::Int { val, span } => {
@@ -312,6 +313,7 @@ impl FromValue for CellPath {
                         members: vec![PathMember::Int {
                             val: *val as usize,
                             span: *span,
+                            optional: false,
                         }],
                     })
                 }

@@ -1880,23 +1880,33 @@ pub fn parse_variable_expr(
 pub fn parse_cell_path(
     working_set: &mut StateWorkingSet,
     tokens: impl Iterator<Item = Token>,
-    mut expect_dot: bool,
+    mut expect_dot_or_question_mark: bool,
     expand_aliases_denylist: &[usize],
     span: Span,
 ) -> (Vec<PathMember>, Option<ParseError>) {
     let mut error = None;
     let mut tail = vec![];
 
+    let mut optional = false;
+
     for path_element in tokens {
         let bytes = working_set.get_span_contents(path_element.span);
 
-        if expect_dot {
-            expect_dot = false;
-            if bytes.len() != 1 || bytes[0] != b'.' {
-                error = error.or_else(|| Some(ParseError::Expected('.'.into(), path_element.span)));
+        let token_str = String::from_utf8_lossy(bytes);
+        // TODO remove this
+        log::info!("token: '{token_str}'");
+
+        if expect_dot_or_question_mark {
+            expect_dot_or_question_mark = false;
+
+            if bytes.len() == 2 && bytes[0] == b'?' && bytes[1] == b'.' {
+                optional = true;
+            } else if bytes.len() != 1 || bytes[0] != b'.' {
+                error = error
+                    .or_else(|| Some(ParseError::Expected(". or ?".into(), path_element.span)));
             }
         } else {
-            expect_dot = true;
+            expect_dot_or_question_mark = true;
 
             match parse_int(bytes, path_element.span) {
                 (
@@ -1909,6 +1919,7 @@ pub fn parse_cell_path(
                 ) => tail.push(PathMember::Int {
                     val: val as usize,
                     span,
+                    optional,
                 }),
                 _ => {
                     let (result, err) =
@@ -1920,7 +1931,11 @@ pub fn parse_cell_path(
                             span,
                             ..
                         } => {
-                            tail.push(PathMember::String { val: string, span });
+                            tail.push(PathMember::String {
+                                val: string,
+                                span,
+                                optional,
+                            });
                         }
                         _ => {
                             error =
@@ -1929,6 +1944,8 @@ pub fn parse_cell_path(
                     }
                 }
             }
+
+            optional = false;
         }
     }
 
@@ -1944,8 +1961,12 @@ pub fn parse_full_cell_path(
     trace!("parsing: full cell path");
     let full_cell_span = span;
     let source = working_set.get_span_contents(span);
+
+    let source_str = String::from_utf8_lossy(source);
+    log::info!("full cell path: '{source_str}'");
     let mut error = None;
 
+    // do we need to tweak `special_tokens` for questions marks?
     let (tokens, err) = lex(source, span.start, &[b'\n', b'\r'], &[b'.'], true);
     error = error.or(err);
 
@@ -4424,6 +4445,11 @@ pub fn parse_value(
         }
         SyntaxShape::CellPath => {
             let source = working_set.get_span_contents(span);
+
+            // TODO remove this
+            let source_string = String::from_utf8_lossy(source);
+            log::info!("cell path source: '{source_string}'");
+
             let mut error = None;
 
             let (tokens, err) = lex(source, span.start, &[b'\n', b'\r'], &[b'.'], true);
