@@ -65,18 +65,20 @@ fn operate(value: Value, head: Span) -> Value {
                 Value::Error {
                     error: ShellError::UnsupportedInput(
                         "'arccosh' undefined for values below 1.".into(),
+                        "value originates from here".into(),
+                        head,
                         span,
                     ),
                 }
             }
         }
+        Value::Error { .. } => value,
         other => Value::Error {
-            error: ShellError::UnsupportedInput(
-                format!(
-                    "Only numerical values are supported, input type: {:?}",
-                    other.get_type()
-                ),
-                other.span().unwrap_or(head),
+            error: ShellError::OnlySupportsThisInputType(
+                "numeric".into(),
+                other.get_type().to_string(),
+                head,
+                other.span().unwrap(),
             ),
         },
     }

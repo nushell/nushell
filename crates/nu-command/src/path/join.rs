@@ -160,7 +160,7 @@ fn handle_value(v: Value, args: &Arguments, head: Span) -> Value {
     match v {
         Value::String { ref val, .. } => join_single(Path::new(val), head, args),
         Value::Record { cols, vals, span } => join_record(&cols, &vals, head, span, args),
-        Value::List { vals, span } => join_list(&vals, head, span, head, args),
+        Value::List { vals, span } => join_list(&vals, head, span, args),
 
         _ => super::handle_invalid_values(v, head),
     }
@@ -175,7 +175,7 @@ fn join_single(path: &Path, head: Span, args: &Arguments) -> Value {
     Value::string(result.to_string_lossy(), head)
 }
 
-fn join_list(parts: &[Value], head: Span, span: Span, head: Span, args: &Arguments) -> Value {
+fn join_list(parts: &[Value], head: Span, span: Span, args: &Arguments) -> Value {
     let path: Result<PathBuf, ShellError> = parts.iter().map(Value::as_string).collect();
 
     match path {

@@ -51,12 +51,21 @@ pub enum ShellError {
         #[label("value originates from here")] Span,
     ),
 
+    #[error("Pipeline mismatch.")]
+    #[diagnostic(code(nu::shell::pipeline_mismatch), url(docsrs))]
+    OnlySupportsThisInputType(
+        String,
+        String,
+        #[label("only {0} input data is supported")] Span,
+        #[label("input type: {1}")] Span,
+    ),
+
     /// A command received an argument of the wrong type.
     ///
     /// ## Resolution
     ///
     /// Convert the argument type before passing it in, or change the command to accept the type.
-    #[error("Type mismatch")]
+    #[error("Type mismatch.")]
     #[diagnostic(code(nu::shell::type_mismatch), url(docsrs))]
     TypeMismatch(String, #[label = "{0}"] Span),
 
@@ -65,7 +74,7 @@ pub enum ShellError {
     /// ## Resolution
     ///
     /// Convert the argument type before passing it in, or change the command to accept the type.
-    #[error("Type mismatch")]
+    #[error("Type mismatch.")]
     #[diagnostic(code(nu::shell::type_mismatch), url(docsrs))]
     TypeMismatchGenericMessage {
         err_message: String,
@@ -472,16 +481,7 @@ Either make sure {0} is a string, or add a 'to_string' entry for it in ENV_CONVE
     UnsupportedInput(
         String,
         String,
-        #[label("{0}")] Span,
-        #[label("input type: {1}")] Span,
-    ),
-
-    #[error("Unsupported input")]
-    #[diagnostic(code(nu::shell::unsupported_input), url(docsrs))]
-    OnlySupportsThisInputType(
-        String,
-        String,
-        #[label("only {0} input data is supported")] Span,
+        #[label("{0}")] Span, // call head (the name of the command itself)
         #[label("input type: {1}")] Span,
     ),
 
