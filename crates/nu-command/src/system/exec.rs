@@ -3,7 +3,7 @@ use nu_engine::{current_dir, env_to_strings, CallExt};
 use nu_protocol::{
     ast::{Call, Expr},
     engine::{Command, EngineState, Stack},
-    Category, Example, PipelineData, ShellError, Signature, Spanned, SyntaxShape,
+    Category, Example, PipelineData, ShellError, Signature, Spanned, SyntaxShape, Type,
 };
 use std::os::unix::process::CommandExt;
 
@@ -17,6 +17,7 @@ impl Command for Exec {
 
     fn signature(&self) -> Signature {
         Signature::build("exec")
+            .input_output_types(vec![(Type::Nothing, Type::Any)])
             .required("command", SyntaxShape::String, "the command to execute")
             .rest(
                 "rest",

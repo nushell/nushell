@@ -2,7 +2,7 @@ use nu_engine::env_to_string;
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
-    Category, Example, IntoPipelineData, PipelineData, ShellError, Signature, Value,
+    Category, Example, IntoPipelineData, PipelineData, ShellError, Signature, Type, Value,
 };
 
 #[derive(Clone)]
@@ -18,7 +18,9 @@ impl Command for Env {
     }
 
     fn signature(&self) -> nu_protocol::Signature {
-        Signature::build("env").category(Category::Env)
+        Signature::build("env")
+            .category(Category::Env)
+            .input_output_types(vec![(Type::Nothing, Type::Table(vec![]))])
     }
 
     fn run(

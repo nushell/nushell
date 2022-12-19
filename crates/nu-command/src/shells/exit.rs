@@ -2,7 +2,9 @@ use super::{get_current_shell, get_last_shell, get_shells};
 use nu_engine::{current_dir, CallExt};
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
-use nu_protocol::{Category, Example, PipelineData, ShellError, Signature, SyntaxShape, Value};
+use nu_protocol::{
+    Category, Example, PipelineData, ShellError, Signature, SyntaxShape, Type, Value,
+};
 
 #[derive(Clone)]
 pub struct Exit;
@@ -14,6 +16,7 @@ impl Command for Exit {
 
     fn signature(&self) -> Signature {
         Signature::build("exit")
+            .input_output_types(vec![(Type::Nothing, Type::Nothing)])
             .optional(
                 "exit_code",
                 SyntaxShape::Int,

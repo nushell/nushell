@@ -2,7 +2,7 @@ use nu_engine::CallExt;
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
-    Category, Example, PipelineData, ShellError, Signature, Span, SyntaxShape, Value,
+    Category, Example, PipelineData, ShellError, Signature, Span, SyntaxShape, Type, Value,
 };
 
 #[derive(Clone)]
@@ -15,6 +15,7 @@ impl Command for ErrorMake {
 
     fn signature(&self) -> Signature {
         Signature::build("error make")
+            .input_output_types(vec![(Type::Nothing, Type::Error)])
             .required("error_struct", SyntaxShape::Record, "the error to create")
             .switch(
                 "unspanned",

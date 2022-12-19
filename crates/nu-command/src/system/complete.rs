@@ -1,7 +1,7 @@
 use nu_protocol::{
     ast::Call,
     engine::{Command, EngineState, Stack},
-    Category, Example, IntoPipelineData, PipelineData, ShellError, Signature, Value,
+    Category, Example, IntoPipelineData, PipelineData, ShellError, Signature, Type, Value,
 };
 
 #[derive(Clone)]
@@ -13,7 +13,9 @@ impl Command for Complete {
     }
 
     fn signature(&self) -> Signature {
-        Signature::build("complete").category(Category::System)
+        Signature::build("complete")
+            .category(Category::System)
+            .input_output_types(vec![(Type::Any, Type::Record(vec![]))])
     }
 
     fn usage(&self) -> &str {

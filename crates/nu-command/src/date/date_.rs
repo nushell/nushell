@@ -2,7 +2,7 @@ use nu_engine::get_full_help;
 use nu_protocol::{
     ast::Call,
     engine::{Command, EngineState, Stack},
-    Category, IntoPipelineData, PipelineData, ShellError, Signature, Value,
+    Category, IntoPipelineData, PipelineData, ShellError, Signature, Type, Value,
 };
 
 #[derive(Clone)]
@@ -14,7 +14,9 @@ impl Command for Date {
     }
 
     fn signature(&self) -> Signature {
-        Signature::build("date").category(Category::Date)
+        Signature::build("date")
+            .category(Category::Date)
+            .input_output_types(vec![(Type::Nothing, Type::String)])
     }
 
     fn usage(&self) -> &str {
