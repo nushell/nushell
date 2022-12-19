@@ -181,6 +181,15 @@ fn missing_column_fills_in_nothing() -> TestResult {
 }
 
 #[test]
+fn missing_optional_row_fills_in_nothing() -> TestResult {
+    // ?.3 will return $nothing if there is no 3rd row
+    run_test(
+        r#"[ { name: ABC, size: 20 }, { name: HIJ } ]?.3 == $nothing"#,
+        "true",
+    )
+}
+
+#[test]
 fn string_cell_path() -> TestResult {
     run_test(
         r#"let x = "name"; [["name", "score"]; [a, b], [c, d]] | get $x | get 1"#,
