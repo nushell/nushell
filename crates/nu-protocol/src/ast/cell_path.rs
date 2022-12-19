@@ -63,7 +63,6 @@ impl CellPath {
             if idx > 0 {
                 output.push('.');
             }
-
             match elem {
                 PathMember::Int { val, .. } => {
                     let _ = write!(output, "{}", val);

@@ -1904,8 +1904,6 @@ pub fn parse_cell_path(
 
     for path_element in tokens {
         let bytes = working_set.get_span_contents(path_element.span);
-        // let path_str = String::from_utf8_lossy(bytes);
-        // dbg!(path_str);
         match next_token {
             TokenType::QuestionOrDot => {
                 if bytes.len() == 1 && bytes[0] == b'?' {
@@ -1983,12 +1981,8 @@ pub fn parse_full_cell_path(
     trace!("parsing: full cell path");
     let full_cell_span = span;
     let source = working_set.get_span_contents(span);
-
-    let source_str = String::from_utf8_lossy(source);
-    log::info!("full cell path: '{source_str}'");
     let mut error = None;
 
-    // do we need to tweak `special_tokens` for questions marks?
     let (tokens, err) = lex(source, span.start, &[b'\n', b'\r'], &[b'.', b'?'], true);
     error = error.or(err);
 
@@ -4467,11 +4461,6 @@ pub fn parse_value(
         }
         SyntaxShape::CellPath => {
             let source = working_set.get_span_contents(span);
-
-            // TODO remove this
-            let source_string = String::from_utf8_lossy(source);
-            log::info!("cell path source: '{source_string}'");
-
             let mut error = None;
 
             let (tokens, err) = lex(source, span.start, &[b'\n', b'\r'], &[b'.', b'?'], true);
