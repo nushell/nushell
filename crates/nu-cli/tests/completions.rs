@@ -780,14 +780,14 @@ fn extern_custom_completion_positional(mut extern_completer: NuCompleter) {
 
 #[rstest]
 fn extern_custom_completion_long_flag_1(mut extern_completer: NuCompleter) {
-    let suggestions = extern_completer.complete("spam --foo=", 10);
+    let suggestions = extern_completer.complete("spam --foo=", 11);
     let expected: Vec<String> = vec!["cat".into(), "dog".into(), "eel".into()];
     match_suggestions(expected, suggestions);
 }
 
 #[rstest]
 fn extern_custom_completion_long_flag_2(mut extern_completer: NuCompleter) {
-    let suggestions = extern_completer.complete("spam --foo ", 10);
+    let suggestions = extern_completer.complete("spam --foo ", 11);
     let expected: Vec<String> = vec!["cat".into(), "dog".into(), "eel".into()];
     match_suggestions(expected, suggestions);
 }
@@ -808,7 +808,7 @@ fn extern_custom_completion_short_flag(mut extern_completer: NuCompleter) {
 
 #[rstest]
 fn extern_complete_flags(mut extern_completer: NuCompleter) {
-    let suggestions = extern_completer.complete("spam -", 5);
+    let suggestions = extern_completer.complete("spam -", 6);
     let expected: Vec<String> = vec!["--foo".into(), "-b".into(), "-f".into()];
     match_suggestions(expected, suggestions);
 }
