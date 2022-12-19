@@ -1,7 +1,6 @@
 use super::Expression;
 use crate::Span;
 use serde::{Deserialize, Serialize};
-use core::panic;
 use std::fmt::Write;
 
 #[derive(Debug, Clone, PartialOrd, Serialize, Deserialize)]
@@ -60,11 +59,23 @@ impl CellPath {
         let mut output = String::new();
 
         for (idx, elem) in self.members.iter().enumerate() {
-            // TODO: how should we indicate optionality on the first item?
-            if idx > 0 {
-                // TODO output ?
+            match elem {
+                PathMember::Int { optional, .. } => {
+                    if *optional {
+                        output.push('?');
+                    }
+                }
+                PathMember::String { optional, .. } => {
+                    if *optional {
+                        output.push('?');
+                    }
+                },
+            }
+
+            if idx > 0 || output.len() > 0 {
                 output.push('.');
             }
+
             match elem {
                 PathMember::Int { val, .. } => {
 
