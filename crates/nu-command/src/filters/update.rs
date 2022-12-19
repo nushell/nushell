@@ -156,7 +156,7 @@ fn update(
         if let Some(PathMember::Int {
             val,
             span,
-            optional,
+            .. // the `optional` field doesn't really make sense in the context of updates
         }) = cell_path.members.get(0)
         {
             let mut input = input.into_iter();

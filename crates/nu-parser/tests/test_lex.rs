@@ -149,6 +149,7 @@ fn lex_cell_path() {
             span: Span::new(0, 12)
         }
     );
+    // .
     assert_eq!(
         output.0.get(1).unwrap(),
         &Token {
@@ -156,6 +157,7 @@ fn lex_cell_path() {
             span: Span::new(12, 13)
         }
     );
+    // a
     assert_eq!(
         output.0.get(2).unwrap(),
         &Token {
@@ -165,13 +167,11 @@ fn lex_cell_path() {
     );
 }
 
-// TODO fix these up, ?. should be 2 separate tokens
-// #[test]
+#[test]
 fn lex_cell_path_optional() {
     let file = b"{ a: \"foo\" }?.a";
     let output = lex(file, 0, &[], &[b'.', b'?'], true);
 
-    // now... do we treat
     dbg!(&output);
 
     assert_eq!(
@@ -181,60 +181,28 @@ fn lex_cell_path_optional() {
             span: Span::new(0, 12)
         }
     );
+    // ?
     assert_eq!(
         output.0.get(1).unwrap(),
         &Token {
             contents: TokenContents::Item,
-            span: Span::new(12, 14)
+            span: Span::new(12, 13)
         }
     );
+    // .
     assert_eq!(
         output.0.get(2).unwrap(),
         &Token {
             contents: TokenContents::Item,
-            span: Span::new(14, 15)
+            span: Span::new(13, 14)
         }
     );
-}
-
-// #[test]
-fn lex_cell_path_both() {
-    let file = b"{ a: \"foo\" }?.a.b";
-    let output = lex(file, 0, &[], &[b'.', b'?'], true);
-
-    assert_eq!(
-        output.0.get(0).unwrap(),
-        &Token {
-            contents: TokenContents::Item,
-            span: Span::new(0, 12)
-        }
-    );
-    assert_eq!(
-        output.0.get(1).unwrap(),
-        &Token {
-            contents: TokenContents::Item,
-            span: Span::new(12, 14)
-        }
-    );
-    assert_eq!(
-        output.0.get(2).unwrap(),
-        &Token {
-            contents: TokenContents::Item,
-            span: Span::new(14, 15)
-        }
-    );
+    // a
     assert_eq!(
         output.0.get(3).unwrap(),
         &Token {
             contents: TokenContents::Item,
-            span: Span::new(15, 16)
-        }
-    );
-    assert_eq!(
-        output.0.get(4).unwrap(),
-        &Token {
-            contents: TokenContents::Item,
-            span: Span::new(16, 17)
+            span: Span::new(14, 15)
         }
     );
 }
