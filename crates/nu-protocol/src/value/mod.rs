@@ -1319,9 +1319,7 @@ impl Value {
                     }
                 },
                 PathMember::Int {
-                    val: row_num,
-                    span,
-                    ..
+                    val: row_num, span, ..
                 } => match self {
                     Value::List { vals, .. } => {
                         if let Some(v) = vals.get_mut(*row_num) {

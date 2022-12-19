@@ -66,7 +66,6 @@ impl CellPath {
 
             match elem {
                 PathMember::Int { val, .. } => {
-
                     let _ = write!(output, "{}", val);
                 }
                 PathMember::String { val, .. } => output.push_str(val),
