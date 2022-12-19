@@ -1,6 +1,5 @@
 mod binary;
 mod bool;
-mod cellpath;
 mod command;
 mod datetime;
 mod decimal;
@@ -13,7 +12,6 @@ mod string;
 pub use self::bool::SubCommand as IntoBool;
 pub use self::filesize::SubCommand as IntoFilesize;
 pub use binary::SubCommand as IntoBinary;
-pub use cellpath::SubCommand as IntoCellPath;
 pub use command::Into;
 pub use datetime::SubCommand as IntoDatetime;
 pub use decimal::SubCommand as IntoDecimal;

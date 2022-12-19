@@ -35,7 +35,6 @@ mod headers;
 mod help;
 mod histogram;
 mod insert;
-mod into_cellpath;
 mod into_filesize;
 mod into_int;
 mod last;
