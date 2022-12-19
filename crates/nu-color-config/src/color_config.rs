@@ -19,27 +19,59 @@ pub fn lookup_ansi_color_style(s: &str) -> Style {
     }
 }
 
-// These two are used only for Explore's very limited color config
-fn update_hashmap(key: &str, val: &str, hm: &mut HashMap<String, Style>) {
-    // eprintln!("key: {}, val: {}", &key, &val);
-    let color = lookup_ansi_color_style(val);
-    if let Some(v) = hm.get_mut(key) {
-        *v = color;
-    } else {
-        hm.insert(key.to_string(), color);
-    }
-}
-
 pub fn get_color_map(colors: &HashMap<String, Value>) -> HashMap<String, Style> {
     let mut hm: HashMap<String, Style> = HashMap::new();
 
     for (key, value) in colors {
-        if let Value::String { val, .. } = value {
-            update_hashmap(key, val, &mut hm);
-        }
+        parse_map_entry(&mut hm, key, value);
     }
 
     hm
+}
+
+fn parse_map_entry(hm: &mut HashMap<String, Style>, key: &str, value: &Value) {
+    let value = match value {
+        Value::String { val, .. } => Some(lookup_ansi_color_style(val)),
+        Value::Record { cols, vals, .. } => get_style_from_value(cols, vals).map(parse_nustyle),
+        _ => None,
+    };
+    if let Some(value) = value {
+        hm.entry(key.to_owned()).or_insert(value);
+    }
+}
+
+fn get_style_from_value(cols: &[String], vals: &[Value]) -> Option<NuStyle> {
+    let mut was_set = false;
+    let mut style = NuStyle::from(Style::default());
+    for (col, val) in cols.iter().zip(vals) {
+        match col.as_str() {
+            "bg" => {
+                if let Value::String { val, .. } = val {
+                    style.bg = Some(val.clone());
+                    was_set = true;
+                }
+            }
+            "fg" => {
+                if let Value::String { val, .. } = val {
+                    style.fg = Some(val.clone());
+                    was_set = true;
+                }
+            }
+            "attr" => {
+                if let Value::String { val, .. } = val {
+                    style.attr = Some(val.clone());
+                    was_set = true;
+                }
+            }
+            _ => (),
+        }
+    }
+
+    if was_set {
+        Some(style)
+    } else {
+        None
+    }
 }
 
 fn color_string_to_nustyle(color_string: String) -> Style {
