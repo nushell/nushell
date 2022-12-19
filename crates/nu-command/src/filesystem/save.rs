@@ -2,7 +2,8 @@ use nu_engine::CallExt;
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
-    Category, Example, PipelineData, RawStream, ShellError, Signature, Spanned, SyntaxShape, Value,
+    Category, Example, PipelineData, RawStream, ShellError, Signature, Spanned, SyntaxShape, Type,
+    Value,
 };
 use std::fs::File;
 use std::io::{BufWriter, Write};
@@ -35,6 +36,7 @@ impl Command for Save {
 
     fn signature(&self) -> nu_protocol::Signature {
         Signature::build("save")
+            .input_output_types(vec![(Type::Any, Type::Nothing)])
             .required("filename", SyntaxShape::Filepath, "the filename to use")
             .named(
                 "stderr",

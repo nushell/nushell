@@ -9,7 +9,7 @@ use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
     Category, DataSource, Example, IntoInterruptiblePipelineData, IntoPipelineData, PipelineData,
-    PipelineMetadata, ShellError, Signature, Span, Spanned, SyntaxShape, Value,
+    PipelineMetadata, ShellError, Signature, Span, Spanned, SyntaxShape, Type, Value,
 };
 use pathdiff::diff_paths;
 
@@ -37,6 +37,7 @@ impl Command for Ls {
 
     fn signature(&self) -> nu_protocol::Signature {
         Signature::build("ls")
+            .input_output_types(vec![(Type::Nothing, Type::Table(vec![]))])
             // Using a string instead of a glob pattern shape so it won't auto-expand
             .optional("pattern", SyntaxShape::String, "the glob pattern to use")
             .switch("all", "Show hidden files", Some('a'))

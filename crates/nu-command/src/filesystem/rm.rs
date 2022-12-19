@@ -44,7 +44,13 @@ impl Command for Rm {
     }
 
     fn signature(&self) -> Signature {
-        let sig = Signature::build("rm");
+        let sig = Signature::build("rm")
+            .input_output_types(vec![(Type::Nothing, Type::List(Box::new(Type::String)))])
+            .required(
+                "filename",
+                SyntaxShape::Filepath,
+                "the path of the file you want to remove",
+            );
         #[cfg(all(
             feature = "trash-support",
             not(target_os = "android"),
@@ -73,7 +79,7 @@ impl Command for Rm {
             .rest(
                 "rest",
                 SyntaxShape::GlobPattern,
-                "the file path(s) to remove",
+                "additional file path(s) to remove",
             )
             .category(Category::FileSystem)
     }
