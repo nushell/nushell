@@ -869,6 +869,70 @@ fn add_matched_short_flags(
     error
 }
 
+fn add_positional_args(
+    working_set: &mut StateWorkingSet,
+    signature: &Signature,
+    call: &mut Call,
+    spans: &[Span],
+    spans_idx: &mut usize,
+    positional_idx: &mut usize,
+    expand_aliases_denylist: &[usize],
+    loosely: bool,
+) -> Option<ParseError> {
+    let mut error = None;
+    let positional = signature
+        .get_positional(*positional_idx)
+        .expect("already checked it's exists");
+    let end = calculate_end_span(working_set, &signature, spans, *spans_idx, *positional_idx);
+
+    let end = if spans.len() > *spans_idx && end == *spans_idx {
+        end + 1
+    } else {
+        end
+    };
+
+    if spans[..end].is_empty() || *spans_idx == end {
+        if !loosely {
+            error = error.or_else(|| {
+                Some(ParseError::MissingPositional(
+                    positional.name.clone(),
+                    Span::new(spans[*spans_idx].end, spans[*spans_idx].end),
+                    signature.call_signature(),
+                ))
+            });
+        }
+        *positional_idx += 1;
+        return error;
+    }
+
+    let orig_idx = *spans_idx;
+    let (arg, err) = parse_multispan_value(
+        working_set,
+        &spans[..end],
+        spans_idx,
+        &positional.shape,
+        expand_aliases_denylist,
+    );
+    error = error.or(err);
+
+    let arg = if !type_compatible(&positional.shape.to_type(), &arg.ty) {
+        let span = span(&spans[orig_idx..*spans_idx]);
+        error = error.or_else(|| {
+            Some(ParseError::TypeMismatch(
+                positional.shape.to_type(),
+                arg.ty,
+                arg.span,
+            ))
+        });
+        Expression::garbage(span)
+    } else {
+        arg
+    };
+    call.add_positional(arg);
+    *positional_idx += 1;
+    error
+}
+
 fn parse_internal_call_loosely(
     working_set: &mut StateWorkingSet,
     command_span: Span,
@@ -1006,46 +1070,18 @@ fn parse_internal_call_loosely(
         }
 
         // Parse a positional arg if there is one
-        if let Some(positional) = signature.get_positional(positional_idx) {
-            let end = calculate_end_span(working_set, &signature, spans, spans_idx, positional_idx);
-
-            let end = if spans.len() > spans_idx && end == spans_idx {
-                end + 1
-            } else {
-                end
-            };
-
-            if spans[..end].is_empty() || spans_idx == end {
-                // is ParseError::MissingPositional, but we don't need to catch it.
-                positional_idx += 1;
-                continue;
-            }
-
-            let orig_idx = spans_idx;
-            let (arg, err) = parse_multispan_value(
+        if let Some(_positional) = signature.get_positional(positional_idx) {
+            let err = add_positional_args(
                 working_set,
-                &spans[..end],
+                &signature,
+                &mut call,
+                spans,
                 &mut spans_idx,
-                &positional.shape,
+                &mut positional_idx,
                 expand_aliases_denylist,
+                true,
             );
             error = error.or(err);
-
-            let arg = if !type_compatible(&positional.shape.to_type(), &arg.ty) {
-                let span = span(&spans[orig_idx..spans_idx]);
-                error = error.or_else(|| {
-                    Some(ParseError::TypeMismatch(
-                        positional.shape.to_type(),
-                        arg.ty,
-                        arg.span,
-                    ))
-                });
-                Expression::garbage(span)
-            } else {
-                arg
-            };
-            call.add_positional(arg);
-            positional_idx += 1;
         } else {
             // extra positional arguments will pass to external unknown pos.
             let (external_expr, err) = parse_value(
@@ -1192,52 +1228,18 @@ pub fn parse_realcomp_internal_call(
         }
 
         // Parse a positional arg if there is one
-        if let Some(positional) = signature.get_positional(positional_idx) {
-            let end = calculate_end_span(working_set, &signature, spans, spans_idx, positional_idx);
-
-            let end = if spans.len() > spans_idx && end == spans_idx {
-                end + 1
-            } else {
-                end
-            };
-
-            if spans[..end].is_empty() || spans_idx == end {
-                error = error.or_else(|| {
-                    Some(ParseError::MissingPositional(
-                        positional.name.clone(),
-                        Span::new(spans[spans_idx].end, spans[spans_idx].end),
-                        signature.call_signature(),
-                    ))
-                });
-                positional_idx += 1;
-                continue;
-            }
-
-            let orig_idx = spans_idx;
-            let (arg, err) = parse_multispan_value(
+        if let Some(_positional) = signature.get_positional(positional_idx) {
+            let err = add_positional_args(
                 working_set,
-                &spans[..end],
+                &signature,
+                &mut call,
+                spans,
                 &mut spans_idx,
-                &positional.shape,
+                &mut positional_idx,
                 expand_aliases_denylist,
+                false,
             );
-            error = error.or(err);
-
-            let arg = if !type_compatible(&positional.shape.to_type(), &arg.ty) {
-                let span = span(&spans[orig_idx..spans_idx]);
-                error = error.or_else(|| {
-                    Some(ParseError::TypeMismatch(
-                        positional.shape.to_type(),
-                        arg.ty,
-                        arg.span,
-                    ))
-                });
-                Expression::garbage(span)
-            } else {
-                arg
-            };
-            call.add_positional(arg);
-            positional_idx += 1;
+            error = error.or(err)
         } else {
             call.add_positional(Expression::garbage(arg_span));
             error = error.or_else(|| {
