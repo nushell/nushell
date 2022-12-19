@@ -10,10 +10,7 @@ fn known_external_runs() -> TestResult {
 
 #[test]
 fn known_external_unknown_flag() -> TestResult {
-    fail_test(
-        r#"extern "cargo version" []; cargo version --no-such-flag"#,
-        "command doesn't have flag",
-    )
+    run_test_contains(r#"extern "cargo" []; cargo --version"#, "cargo")
 }
 
 /// GitHub issues #5179, #4618
@@ -31,5 +28,21 @@ fn known_external_subcommand_alias() -> TestResult {
     run_test_contains(
         r#"extern "cargo version" []; alias c = cargo; c version"#,
         "cargo",
+    )
+}
+
+#[test]
+fn known_external_complex_unknown_args() -> TestResult {
+    run_test_contains(
+        "extern echo []; echo foo -b -as -9 --abc -- -Dxmy=AKOO - bar",
+        "foo -b -as -9 --abc -- -Dxmy=AKOO - bar",
+    )
+}
+
+#[test]
+fn known_external_batched_short_flag_arg_disallowed() -> TestResult {
+    fail_test(
+        "extern echo [-a, -b: int]; echo -ab 10",
+        "short flag batches",
     )
 }

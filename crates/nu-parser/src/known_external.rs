@@ -96,6 +96,7 @@ impl Command for KnownExternal {
                         extern_call.add_positional(arg.clone());
                     }
                 }
+                Argument::Unknown(unknown) => extern_call.add_unknown(unknown.clone()),
             }
         }
 

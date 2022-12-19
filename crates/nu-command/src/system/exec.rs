@@ -18,11 +18,7 @@ impl Command for Exec {
     fn signature(&self) -> Signature {
         Signature::build("exec")
             .required("command", SyntaxShape::String, "the command to execute")
-            .rest(
-                "rest",
-                SyntaxShape::String,
-                "any additional arguments for the command",
-            )
+            .allows_unknown_args()
             .category(Category::System)
     }
 
