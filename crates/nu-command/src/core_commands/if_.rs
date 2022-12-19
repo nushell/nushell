@@ -28,7 +28,13 @@ impl Command for If {
             )
             .optional(
                 "else_expression",
-                SyntaxShape::Keyword(b"else".to_vec(), Box::new(SyntaxShape::Expression)),
+                SyntaxShape::Keyword(
+                    b"else".to_vec(),
+                    Box::new(SyntaxShape::OneOf(vec![
+                        SyntaxShape::Block,
+                        SyntaxShape::Expression,
+                    ])),
+                ),
                 "expression or block to run if check fails",
             )
             .category(Category::Core)
@@ -102,7 +108,7 @@ impl Command for If {
                         .map(|res| res.0)
                     }
                 } else {
-                    Ok(PipelineData::new(call.head))
+                    Ok(PipelineData::empty())
                 }
             }
             x => Err(ShellError::CantConvert(

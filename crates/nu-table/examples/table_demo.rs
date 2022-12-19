@@ -1,6 +1,5 @@
-use nu_protocol::Config;
-use nu_table::{Alignments, Table, TableTheme, TextStyle};
-use std::collections::HashMap;
+use nu_color_config::TextStyle;
+use nu_table::{Table, TableConfig, TableTheme};
 use tabled::papergrid::records::{cell_info::CellInfo, tcell::TCell};
 
 fn main() {
@@ -19,30 +18,28 @@ fn main() {
 
     // The mocked up table data
     let (table_headers, row_data) = make_table_data();
+
     // The table headers
     let headers = vec_of_str_to_vec_of_styledstr(&table_headers, true);
+
     // The table rows
     let rows = vec_of_str_to_vec_of_styledstr(&row_data, false);
+
     // The table itself
     let count_cols = std::cmp::max(rows.len(), headers.len());
     let mut rows = vec![rows; 3];
     rows.insert(0, headers);
-    let table = Table::new(rows, (3, count_cols), width, true, false);
-    // FIXME: Config isn't available from here so just put these here to compile
-    let color_hm: HashMap<String, nu_ansi_term::Style> = HashMap::new();
-    // get the default config
-    let config = Config::default();
+
+    let theme = TableTheme::rounded();
+    let table_cfg = TableConfig::new(theme, true, false, false);
+
+    let table = Table::new(rows, (3, count_cols));
+
     // Capture the table as a string
     let output_table = table
-        .draw_table(
-            &config,
-            &color_hm,
-            Alignments::default(),
-            &TableTheme::rounded(),
-            width,
-            false,
-        )
+        .draw(table_cfg, width)
         .unwrap_or_else(|| format!("Couldn't fit table into {} columns!", width));
+
     // Draw the table
     println!("{}", output_table)
 }

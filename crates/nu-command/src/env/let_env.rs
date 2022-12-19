@@ -57,7 +57,7 @@ impl Command for LetEnv {
         } else {
             stack.add_env_var(env_var.item, rhs);
         }
-        Ok(PipelineData::new(call.head))
+        Ok(PipelineData::empty())
     }
 
     fn examples(&self) -> Vec<Example> {

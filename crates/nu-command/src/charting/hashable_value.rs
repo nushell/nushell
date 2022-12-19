@@ -53,7 +53,7 @@ impl Default for HashableValue {
     fn default() -> Self {
         HashableValue::Bool {
             val: false,
-            span: Span { start: 0, end: 0 },
+            span: Span::unknown(),
         }
     }
 }
@@ -214,7 +214,7 @@ mod test {
         ];
         for (val, expect_hashable_val) in values.into_iter() {
             assert_eq!(
-                HashableValue::from_value(val, Span { start: 0, end: 0 }).unwrap(),
+                HashableValue::from_value(val, Span::unknown()).unwrap(),
                 expect_hashable_val
             );
         }
@@ -245,7 +245,7 @@ mod test {
             },
         ];
         for v in values {
-            assert!(HashableValue::from_value(v, Span { start: 0, end: 0 }).is_err())
+            assert!(HashableValue::from_value(v, Span::unknown()).is_err())
         }
     }
 
@@ -266,7 +266,7 @@ mod test {
         for val in values.into_iter() {
             let expected_val = val.clone();
             assert_eq!(
-                HashableValue::from_value(val, Span { start: 0, end: 0 })
+                HashableValue::from_value(val, Span::unknown())
                     .unwrap()
                     .into_value(),
                 expected_val
@@ -279,14 +279,11 @@ mod test {
         assert_eq!(
             HashableValue::Bool {
                 val: true,
-                span: Span { start: 0, end: 1 }
+                span: Span::new(0, 1)
             },
             HashableValue::Bool {
                 val: true,
-                span: Span {
-                    start: 90,
-                    end: 1000
-                }
+                span: Span::new(90, 1000)
             }
         )
     }
@@ -299,7 +296,7 @@ mod test {
         assert!(set.contains(&HashableValue::Bool { val: true, span }));
 
         // hashable value doesn't care about span.
-        let diff_span = Span { start: 1, end: 2 };
+        let diff_span = Span::new(1, 2);
         set.insert(HashableValue::Bool {
             val: true,
             span: diff_span,

@@ -29,25 +29,16 @@ impl Range {
         // Select from & to values if they're not specified
         // TODO: Replace the placeholder values with proper min/max for range based on data type
         let from = if let Value::Nothing { .. } = from {
-            Value::Int {
-                val: 0i64,
-                span: expr_span,
-            }
+            Value::int(0i64, expr_span)
         } else {
             from
         };
 
         let to = if let Value::Nothing { .. } = to {
             if let Ok(Value::Bool { val: true, .. }) = next.lt(expr_span, &from, expr_span) {
-                Value::Int {
-                    val: i64::MIN,
-                    span: expr_span,
-                }
+                Value::int(i64::MIN, expr_span)
             } else {
-                Value::Int {
-                    val: i64::MAX,
-                    span: expr_span,
-                }
+                Value::int(i64::MAX, expr_span)
             }
         } else {
             to
@@ -62,24 +53,15 @@ impl Range {
         // Convert the next value into the inctement
         let incr = if let Value::Nothing { .. } = next {
             if moves_up {
-                Value::Int {
-                    val: 1i64,
-                    span: expr_span,
-                }
+                Value::int(1i64, expr_span)
             } else {
-                Value::Int {
-                    val: -1i64,
-                    span: expr_span,
-                }
+                Value::int(-1i64, expr_span)
             }
         } else {
             next.sub(operator.next_op_span, &from, expr_span)?
         };
 
-        let zero = Value::Int {
-            val: 0i64,
-            span: expr_span,
-        };
+        let zero = Value::int(0i64, expr_span);
 
         // Increment must be non-zero, otherwise we iterate forever
         if matches!(
@@ -221,10 +203,8 @@ impl Iterator for RangeIterator {
             return None;
         }
 
-        if let Some(ctrlc) = &self.ctrlc {
-            if ctrlc.load(core::sync::atomic::Ordering::SeqCst) {
-                return None;
-            }
+        if nu_utils::ctrl_c::was_pressed(&self.ctrlc) {
+            return None;
         }
 
         let ordering = if matches!(self.end, Value::Nothing { .. }) {

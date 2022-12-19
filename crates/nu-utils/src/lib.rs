@@ -1,3 +1,4 @@
+pub mod ctrl_c;
 mod deansi;
 pub mod locale;
 pub mod utils;

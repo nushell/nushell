@@ -44,7 +44,13 @@ impl Command for Rm {
     }
 
     fn signature(&self) -> Signature {
-        let sig = Signature::build("rm");
+        let sig = Signature::build("rm")
+            .input_output_types(vec![(Type::Nothing, Type::List(Box::new(Type::String)))])
+            .required(
+                "filename",
+                SyntaxShape::Filepath,
+                "the path of the file you want to remove",
+            );
         #[cfg(all(
             feature = "trash-support",
             not(target_os = "android"),
@@ -65,10 +71,15 @@ impl Command for Rm {
             .switch("force", "suppress error when no file", Some('f'))
             .switch("verbose", "print names of deleted files", Some('v'))
             .switch("interactive", "ask user to confirm action", Some('i'))
+            .switch(
+                "interactive-once",
+                "ask user to confirm action only once",
+                Some('I'),
+            )
             .rest(
                 "rest",
                 SyntaxShape::GlobPattern,
-                "the file path(s) to remove",
+                "additional file path(s) to remove",
             )
             .category(Category::FileSystem)
     }
@@ -138,6 +149,7 @@ fn rm(
     let force = call.has_flag("force");
     let verbose = call.has_flag("verbose");
     let interactive = call.has_flag("interactive");
+    let interactive_once = call.has_flag("interactive-once") && !interactive;
 
     let ctrlc = engine_state.ctrlc.clone();
 
@@ -199,18 +211,18 @@ fn rm(
         ));
     }
 
-    let targets_span = Span {
-        start: targets
+    let targets_span = Span::new(
+        targets
             .iter()
             .map(|x| x.span.start)
             .min()
             .expect("targets were empty"),
-        end: targets
+        targets
             .iter()
             .map(|x| x.span.end)
             .max()
             .expect("targets were empty"),
-    };
+    );
 
     let path = current_dir(engine_state, stack)?;
 
@@ -299,6 +311,24 @@ fn rm(
         ));
     }
 
+    if interactive_once {
+        let (interaction, confirmed) = try_interaction(
+            interactive_once,
+            format!("rm: remove {} files? ", all_targets.len()),
+        );
+        if let Err(e) = interaction {
+            return Err(ShellError::GenericError(
+                format!("Error during interaction: {:}", e),
+                "could not move".into(),
+                None,
+                None,
+                Vec::new(),
+            ));
+        } else if !confirmed {
+            return Ok(PipelineData::Empty);
+        }
+    }
+
     Ok(all_targets
         .into_keys()
         .map(move |f| {
@@ -325,8 +355,10 @@ fn rm(
                     || is_fifo
                     || is_empty()
                 {
-                    let (interaction, confirmed) =
-                        try_interaction(interactive, "rm: remove", &f.to_string_lossy());
+                    let (interaction, confirmed) = try_interaction(
+                        interactive,
+                        format!("rm: remove '{}'? ", f.to_string_lossy()),
+                    );
 
                     let result;
                     #[cfg(all(

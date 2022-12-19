@@ -7,7 +7,7 @@ fn lines() {
         r#"
             open cargo_sample.toml -r
             | lines
-            | skip while $it != "[dependencies]"
+            | skip while {|it| $it != "[dependencies]" }
             | skip 1
             | first
             | split column "="
@@ -47,4 +47,17 @@ fn lines_multi_value_split() {
     ));
 
     assert_eq!(actual.out, "6");
+}
+
+/// test whether this handles CRLF and LF in the same input
+#[test]
+fn lines_mixed_line_endings() {
+    let actual = nu!(
+        cwd: "tests/fixtures/formats", pipeline(
+        r#"
+            "foo\nbar\r\nquux" | lines | length
+        "#
+    ));
+
+    assert_eq!(actual.out, "3");
 }

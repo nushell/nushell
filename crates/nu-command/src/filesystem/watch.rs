@@ -1,5 +1,4 @@
 use std::path::PathBuf;
-use std::sync::atomic::Ordering;
 use std::sync::mpsc::{channel, RecvTimeoutError};
 use std::time::Duration;
 
@@ -35,7 +34,9 @@ impl Command for Watch {
     fn signature(&self) -> nu_protocol::Signature {
         Signature::build("watch")
             .required("path", SyntaxShape::Filepath, "the path to watch. Can be a file or directory")
-            .required("block", SyntaxShape::Block, "A Nu block of code to run whenever a file changes. The block will be passed `operation`, `path`, and `new_path` (for renames only) arguments in that order")
+            .required("closure",
+            SyntaxShape::Closure(Some(vec![SyntaxShape::String, SyntaxShape::String, SyntaxShape::String])),
+                "Some Nu code to run whenever a file changes. The closure will be passed `operation`, `path`, and `new_path` (for renames only) arguments in that order")
             .named(
                 "debounce-ms",
                 SyntaxShape::Int,
@@ -168,13 +169,7 @@ impl Command for Watch {
 
                     if let Some(position) = block.signature.get_positional(0) {
                         if let Some(position_id) = &position.var_id {
-                            stack.add_var(
-                                *position_id,
-                                Value::String {
-                                    val: operation.to_string(),
-                                    span: call.span(),
-                                },
-                            );
+                            stack.add_var(*position_id, Value::string(operation, call.span()));
                         }
                     }
 
@@ -182,10 +177,7 @@ impl Command for Watch {
                         if let Some(position_id) = &position.var_id {
                             stack.add_var(
                                 *position_id,
-                                Value::String {
-                                    val: path.to_string_lossy().to_string(),
-                                    span: call.span(),
-                                },
+                                Value::string(path.to_string_lossy(), call.span()),
                             );
                         }
                     }
@@ -194,13 +186,10 @@ impl Command for Watch {
                         if let Some(position_id) = &position.var_id {
                             stack.add_var(
                                 *position_id,
-                                Value::String {
-                                    val: new_path
-                                        .unwrap_or_else(|| "".into())
-                                        .to_string_lossy()
-                                        .to_string(),
-                                    span: call.span(),
-                                },
+                                Value::string(
+                                    new_path.unwrap_or_else(|| "".into()).to_string_lossy(),
+                                    call.span(),
+                                ),
                             );
                         }
                     }
@@ -262,14 +251,12 @@ impl Command for Watch {
                 }
                 Err(RecvTimeoutError::Timeout) => {}
             }
-            if let Some(ctrlc) = ctrlc_ref {
-                if ctrlc.load(Ordering::SeqCst) {
-                    break;
-                }
+            if nu_utils::ctrl_c::was_pressed(ctrlc_ref) {
+                break;
             }
         }
 
-        Ok(PipelineData::new(call.head))
+        Ok(PipelineData::empty())
     }
 
     fn examples(&self) -> Vec<Example> {

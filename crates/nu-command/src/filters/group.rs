@@ -36,34 +36,22 @@ impl Command for Group {
         let stream_test_1 = vec![
             Value::List {
                 vals: vec![
-                    Value::Int {
-                        val: 1,
-                        span: Span::test_data(),
-                    },
-                    Value::Int {
-                        val: 2,
-                        span: Span::test_data(),
-                    },
+                    Value::int(1, Span::test_data()),
+                    Value::int(2, Span::test_data()),
                 ],
                 span: Span::test_data(),
             },
             Value::List {
                 vals: vec![
-                    Value::Int {
-                        val: 3,
-                        span: Span::test_data(),
-                    },
-                    Value::Int {
-                        val: 4,
-                        span: Span::test_data(),
-                    },
+                    Value::int(3, Span::test_data()),
+                    Value::int(4, Span::test_data()),
                 ],
                 span: Span::test_data(),
             },
         ];
 
         vec![Example {
-            example: "echo [1 2 3 4] | group 2",
+            example: "[1 2 3 4] | group 2",
             description: "Group the a list by pairs",
             result: Some(Value::List {
                 vals: stream_test_1,

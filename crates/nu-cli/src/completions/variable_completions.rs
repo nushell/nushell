@@ -111,10 +111,7 @@ impl Completer for VariableCompletion {
                     &self.engine_state,
                     &self.stack,
                     nu_protocol::NU_VARIABLE_ID,
-                    nu_protocol::Span {
-                        start: current_span.start,
-                        end: current_span.end,
-                    },
+                    nu_protocol::Span::new(current_span.start, current_span.end),
                 ) {
                     for suggestion in
                         nested_suggestions(nuval, self.var_context.1.clone(), current_span)
@@ -134,13 +131,7 @@ impl Completer for VariableCompletion {
             // Completion other variable types
             if let Some(var_id) = var_id {
                 // Extract the variable value from the stack
-                let var = self.stack.get_var(
-                    var_id,
-                    Span {
-                        start: span.start,
-                        end: span.end,
-                    },
-                );
+                let var = self.stack.get_var(var_id, Span::new(span.start, span.end));
 
                 // If the value exists and it's of type Record
                 if let Ok(value) = var {
@@ -281,7 +272,7 @@ fn recursive_value(val: Value, sublevels: Vec<Vec<u8>>) -> Value {
 
                 // Current sublevel value not found
                 return Value::Nothing {
-                    span: Span { start: 0, end: 0 },
+                    span: Span::unknown(),
                 };
             }
             _ => return val,

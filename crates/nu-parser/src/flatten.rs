@@ -7,71 +7,71 @@ use std::fmt::{Display, Formatter, Result};
 
 #[derive(Debug, Eq, PartialEq, Ord, Clone, PartialOrd)]
 pub enum FlatShape {
-    Garbage,
-    Nothing,
-    Bool,
+    And,
     Binary,
-    Int,
-    Float,
-    Range,
-    InternalCall,
+    Block,
+    Bool,
+    Custom(DeclId),
+    DateTime,
+    Directory,
     External,
     ExternalArg,
+    Filepath,
+    Flag,
+    Float,
+    Garbage,
+    GlobPattern,
+    Int,
+    InternalCall,
+    List,
     Literal,
+    Nothing,
     Operator,
+    Or,
+    Pipe,
+    Range,
+    Record,
+    Redirection,
     Signature,
     String,
     StringInterpolation,
-    List,
     Table,
-    Record,
-    Block,
-    Filepath,
-    Directory,
-    DateTime,
-    GlobPattern,
     Variable,
-    Flag,
-    Pipe,
-    And,
-    Or,
-    Redirection,
-    Custom(DeclId),
 }
 
 impl Display for FlatShape {
     fn fmt(&self, f: &mut Formatter) -> Result {
         match self {
-            FlatShape::Garbage => write!(f, "shape_garbage"),
-            FlatShape::Nothing => write!(f, "shape_nothing"),
+            FlatShape::And => write!(f, "shape_and"),
             FlatShape::Binary => write!(f, "shape_binary"),
+            FlatShape::Block => write!(f, "shape_block"),
             FlatShape::Bool => write!(f, "shape_bool"),
-            FlatShape::Int => write!(f, "shape_int"),
-            FlatShape::Float => write!(f, "shape_float"),
-            FlatShape::Range => write!(f, "shape_range"),
-            FlatShape::InternalCall => write!(f, "shape_internalcall"),
+            FlatShape::Custom(_) => write!(f, "shape_custom"),
+            FlatShape::DateTime => write!(f, "shape_datetime"),
+            FlatShape::Directory => write!(f, "shape_directory"),
             FlatShape::External => write!(f, "shape_external"),
             FlatShape::ExternalArg => write!(f, "shape_externalarg"),
+            FlatShape::Filepath => write!(f, "shape_filepath"),
+            FlatShape::Flag => write!(f, "shape_flag"),
+            FlatShape::Float => write!(f, "shape_float"),
+            FlatShape::Garbage => write!(f, "shape_garbage"),
+            FlatShape::GlobPattern => write!(f, "shape_globpattern"),
+            FlatShape::Int => write!(f, "shape_int"),
+            FlatShape::InternalCall => write!(f, "shape_internalcall"),
+            FlatShape::List => write!(f, "shape_list"),
             FlatShape::Literal => write!(f, "shape_literal"),
+            FlatShape::Nothing => write!(f, "shape_nothing"),
             FlatShape::Operator => write!(f, "shape_operator"),
+            FlatShape::Or => write!(f, "shape_or"),
+            FlatShape::Pipe => write!(f, "shape_pipe"),
+            FlatShape::Range => write!(f, "shape_range"),
+            FlatShape::Record => write!(f, "shape_record"),
+            FlatShape::Redirection => write!(f, "shape_redirection"),
             FlatShape::Signature => write!(f, "shape_signature"),
             FlatShape::String => write!(f, "shape_string"),
-            FlatShape::DateTime => write!(f, "shape_datetime"),
             FlatShape::StringInterpolation => write!(f, "shape_string_interpolation"),
-            FlatShape::List => write!(f, "shape_list"),
             FlatShape::Table => write!(f, "shape_table"),
-            FlatShape::Record => write!(f, "shape_record"),
-            FlatShape::Block => write!(f, "shape_block"),
-            FlatShape::Filepath => write!(f, "shape_filepath"),
-            FlatShape::Directory => write!(f, "shape_directory"),
-            FlatShape::GlobPattern => write!(f, "shape_globpattern"),
             FlatShape::Variable => write!(f, "shape_variable"),
-            FlatShape::Flag => write!(f, "shape_flag"),
-            FlatShape::Pipe => write!(f, "shape_pipe"),
-            FlatShape::And => write!(f, "shape_and"),
-            FlatShape::Or => write!(f, "shape_or"),
-            FlatShape::Redirection => write!(f, "shape_redirection"),
-            FlatShape::Custom(_) => write!(f, "shape_custom"),
         }
     }
 }
@@ -102,10 +102,7 @@ pub fn flatten_expression(
         }
         Expr::UnaryNot(inner_expr) => {
             let mut output = vec![(
-                Span {
-                    start: expr.span.start,
-                    end: expr.span.start + 3,
-                },
+                Span::new(expr.span.start, expr.span.start + 3),
                 FlatShape::Operator,
             )];
             output.extend(flatten_expression(working_set, inner_expr));
@@ -123,25 +120,13 @@ pub fn flatten_expression(
 
             if let Some(first) = flattened.first() {
                 if first.0.start > outer_span.start {
-                    output.push((
-                        Span {
-                            start: outer_span.start,
-                            end: first.0.start,
-                        },
-                        FlatShape::Block,
-                    ));
+                    output.push((Span::new(outer_span.start, first.0.start), FlatShape::Block));
                 }
             }
 
             let last = if let Some(last) = flattened.last() {
                 if last.0.end < outer_span.end {
-                    Some((
-                        Span {
-                            start: last.0.end,
-                            end: outer_span.end,
-                        },
-                        FlatShape::Block,
-                    ))
+                    Some((Span::new(last.0.end, outer_span.end), FlatShape::Block))
                 } else {
                     None
                 }
@@ -313,13 +298,7 @@ pub fn flatten_expression(
 
                 if let Some(first) = flattened.first() {
                     if first.0.start > last_end {
-                        output.push((
-                            Span {
-                                start: last_end,
-                                end: first.0.start,
-                            },
-                            FlatShape::List,
-                        ));
+                        output.push((Span::new(last_end, first.0.start), FlatShape::List));
                     }
                 }
 
@@ -331,13 +310,7 @@ pub fn flatten_expression(
             }
 
             if last_end < outer_span.end {
-                output.push((
-                    Span {
-                        start: last_end,
-                        end: outer_span.end,
-                    },
-                    FlatShape::List,
-                ));
+                output.push((Span::new(last_end, outer_span.end), FlatShape::List));
             }
             output
         }
@@ -353,18 +326,12 @@ pub fn flatten_expression(
                     output.insert(
                         0,
                         (
-                            Span {
-                                start: expr.span.start,
-                                end: expr.span.start + 2,
-                            },
+                            Span::new(expr.span.start, expr.span.start + 2),
                             FlatShape::StringInterpolation,
                         ),
                     );
                     output.push((
-                        Span {
-                            start: expr.span.end - 1,
-                            end: expr.span.end,
-                        },
+                        Span::new(expr.span.end - 1, expr.span.end),
                         FlatShape::StringInterpolation,
                     ));
                 }
@@ -382,13 +349,7 @@ pub fn flatten_expression(
 
                 if let Some(first) = flattened_lhs.first() {
                     if first.0.start > last_end {
-                        output.push((
-                            Span {
-                                start: last_end,
-                                end: first.0.start,
-                            },
-                            FlatShape::Record,
-                        ));
+                        output.push((Span::new(last_end, first.0.start), FlatShape::Record));
                     }
                 }
                 if let Some(last) = flattened_lhs.last() {
@@ -398,13 +359,7 @@ pub fn flatten_expression(
 
                 if let Some(first) = flattened_rhs.first() {
                     if first.0.start > last_end {
-                        output.push((
-                            Span {
-                                start: last_end,
-                                end: first.0.start,
-                            },
-                            FlatShape::Record,
-                        ));
+                        output.push((Span::new(last_end, first.0.start), FlatShape::Record));
                     }
                 }
                 if let Some(last) = flattened_rhs.last() {
@@ -414,13 +369,7 @@ pub fn flatten_expression(
                 output.extend(flattened_rhs);
             }
             if last_end < outer_span.end {
-                output.push((
-                    Span {
-                        start: last_end,
-                        end: outer_span.end,
-                    },
-                    FlatShape::Record,
-                ));
+                output.push((Span::new(last_end, outer_span.end), FlatShape::Record));
             }
 
             output
@@ -448,13 +397,7 @@ pub fn flatten_expression(
                 let flattened = flatten_expression(working_set, e);
                 if let Some(first) = flattened.first() {
                     if first.0.start > last_end {
-                        output.push((
-                            Span {
-                                start: last_end,
-                                end: first.0.start,
-                            },
-                            FlatShape::Table,
-                        ));
+                        output.push((Span::new(last_end, first.0.start), FlatShape::Table));
                     }
                 }
 
@@ -469,13 +412,7 @@ pub fn flatten_expression(
                     let flattened = flatten_expression(working_set, expr);
                     if let Some(first) = flattened.first() {
                         if first.0.start > last_end {
-                            output.push((
-                                Span {
-                                    start: last_end,
-                                    end: first.0.start,
-                                },
-                                FlatShape::Table,
-                            ));
+                            output.push((Span::new(last_end, first.0.start), FlatShape::Table));
                         }
                     }
 
@@ -488,13 +425,7 @@ pub fn flatten_expression(
             }
 
             if last_end < outer_span.end {
-                output.push((
-                    Span {
-                        start: last_end,
-                        end: outer_span.end,
-                    },
-                    FlatShape::Table,
-                ));
+                output.push((Span::new(last_end, outer_span.end), FlatShape::Table));
             }
 
             output

@@ -20,7 +20,7 @@ static PWD_ENV: &str = "PWD";
 
 // TODO: move to different file? where?
 /// An operation to be performed with the current buffer of the interactive shell.
-#[derive(Clone)]
+#[derive(Debug, Clone)]
 pub enum ReplOperation {
     Append(String),
     Insert(String),
@@ -236,10 +236,18 @@ impl EngineState {
                     // Updating existing overlay
                     for (k, v) in env.drain() {
                         if k == "config" {
-                            self.config = v.clone().into_config().unwrap_or_default();
+                            // Don't insert the record as the "config" env var as-is.
+                            // Instead, mutate a clone of it with into_config(), and put THAT in env_vars.
+                            let mut new_record = v.clone();
+                            let (config, error) = new_record.into_config(&self.config);
+                            self.config = config;
+                            env_vars.insert(k, new_record);
+                            if let Some(e) = error {
+                                return Err(e);
+                            }
+                        } else {
+                            env_vars.insert(k, v);
                         }
-
-                        env_vars.insert(k, v);
                     }
                 } else {
                     // Pushing a new overlay
@@ -755,10 +763,7 @@ impl EngineState {
     pub fn get_file_source(&self, file_id: usize) -> String {
         for file in self.files.iter().enumerate() {
             if file.0 == file_id {
-                let contents = self.get_span_contents(&Span {
-                    start: file.1 .1,
-                    end: file.1 .2,
-                });
+                let contents = self.get_span_contents(&Span::new(file.1 .1, file.1 .2));
                 let output = String::from_utf8_lossy(contents).to_string();
 
                 return output;
@@ -1318,10 +1323,9 @@ impl<'a> StateWorkingSet<'a> {
     pub fn get_file_source(&self, file_id: usize) -> String {
         for file in self.files().enumerate() {
             if file.0 == file_id {
-                let output = String::from_utf8_lossy(self.get_span_contents(Span {
-                    start: file.1 .1,
-                    end: file.1 .2,
-                }))
+                let output = String::from_utf8_lossy(
+                    self.get_span_contents(Span::new(file.1 .1, file.1 .2)),
+                )
                 .to_string();
 
                 return output;
@@ -2041,10 +2045,7 @@ impl<'a> miette::SourceCode for &StateWorkingSet<'a> {
                     let found_file = "Found matching file";
                     dbg!(found_file);
                 }
-                let our_span = Span {
-                    start: *start,
-                    end: *end,
-                };
+                let our_span = Span::new(*start, *end);
                 // We need to move to a local span because we're only reading
                 // the specific file contents via self.get_span_contents.
                 let local_span = (span.offset() - *start, span.len()).into();

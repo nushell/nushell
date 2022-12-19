@@ -116,7 +116,7 @@ fn hides_alias_in_scope_4() -> TestResult {
 fn hides_env_in_scope_1() -> TestResult {
     fail_test(
         r#"let-env foo = "foo"; do { hide-env foo; $env.foo }"#,
-        "cannot find column",
+        "not_found",
     )
 }
 

@@ -56,10 +56,7 @@ impl Command for ExportCommand {
         vec![Example {
             description: "Export a definition from a module",
             example: r#"module utils { export def my-command [] { "hello" } }; use utils my-command; my-command"#,
-            result: Some(Value::String {
-                val: "hello".to_string(),
-                span: Span::test_data(),
-            }),
+            result: Some(Value::string("hello", Span::test_data())),
         }]
     }
 

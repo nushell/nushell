@@ -219,3 +219,13 @@ fn quoted_column_access() {
 
     assert_eq!(actual.out, "4");
 }
+
+#[test]
+fn get_does_not_delve_too_deep_in_nested_lists() {
+    let actual = nu!(
+        cwd: ".",
+        r#"[[{foo: bar}]] | get foo"#
+    );
+
+    assert!(actual.err.contains("did not find anything under this name"));
+}

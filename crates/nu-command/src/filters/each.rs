@@ -47,7 +47,7 @@ with 'transpose' first."#
             .switch("keep-empty", "keep empty result cells", Some('k'))
             .switch(
                 "numbered",
-                "iterate with an index (deprecated; use a two-parameter block instead)",
+                "iterate with an index (deprecated; use a two-parameter closure instead)",
                 Some('n'),
             )
             .category(Category::Filters)
@@ -55,28 +55,16 @@ with 'transpose' first."#
 
     fn examples(&self) -> Vec<Example> {
         let stream_test_1 = vec![
-            Value::Int {
-                val: 2,
-                span: Span::test_data(),
-            },
-            Value::Int {
-                val: 4,
-                span: Span::test_data(),
-            },
-            Value::Int {
-                val: 6,
-                span: Span::test_data(),
-            },
+            Value::int(2, Span::test_data()),
+            Value::int(4, Span::test_data()),
+            Value::int(6, Span::test_data()),
         ];
 
         let stream_test_2 = vec![
             Value::Nothing {
                 span: Span::test_data(),
             },
-            Value::String {
-                val: "found 2!".to_string(),
-                span: Span::test_data(),
-            },
+            Value::string("found 2!", Span::test_data()),
             Value::Nothing {
                 span: Span::test_data(),
             },
@@ -96,14 +84,8 @@ with 'transpose' first."#
                 description: "Produce a list that has \"two\" for each 2 in the input",
                 result: Some(Value::List {
                     vals: vec![
-                        Value::String {
-                            val: "two".to_string(),
-                            span: Span::test_data(),
-                        },
-                        Value::String {
-                            val: "two".to_string(),
-                            span: Span::test_data(),
-                        },
+                        Value::string("two", Span::test_data()),
+                        Value::string("two", Span::test_data()),
                     ],
                     span: Span::test_data(),
                 }),
@@ -113,15 +95,12 @@ with 'transpose' first."#
                 description:
                     "Iterate over each element, producing a list showing indexes of any 2s",
                 result: Some(Value::List {
-                    vals: vec![Value::String {
-                        val: "found 2 at 1!".to_string(),
-                        span: Span::test_data(),
-                    }],
+                    vals: vec![Value::string("found 2 at 1!", Span::test_data())],
                     span: Span::test_data(),
                 }),
             },
             Example {
-                example: r#"[1 2 3] | each --keep-empty {|e| if $e == 2 { echo "found 2!"} }"#,
+                example: r#"[1 2 3] | each --keep-empty {|e| if $e == 2 { "found 2!"} }"#,
                 description: "Iterate over each element, keeping all results",
                 result: Some(Value::List {
                     vals: stream_test_2,
@@ -156,6 +135,7 @@ with 'transpose' first."#
         let redirect_stderr = call.redirect_stderr;
 
         match input {
+            PipelineData::Empty => Ok(PipelineData::Empty),
             PipelineData::Value(Value::Range { .. }, ..)
             | PipelineData::Value(Value::List { .. }, ..)
             | PipelineData::ListStream { .. } => Ok(input
@@ -223,7 +203,7 @@ with 'transpose' first."#
                     }
                 })
                 .into_pipeline_data(ctrlc)),
-            PipelineData::ExternalStream { stdout: None, .. } => Ok(PipelineData::new(call.head)),
+            PipelineData::ExternalStream { stdout: None, .. } => Ok(PipelineData::empty()),
             PipelineData::ExternalStream {
                 stdout: Some(stream),
                 ..

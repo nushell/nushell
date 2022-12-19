@@ -34,7 +34,7 @@ impl Command for ParEach {
             )
             .switch(
                 "numbered",
-                "iterate with an index (deprecated; use a two-parameter block instead)",
+                "iterate with an index (deprecated; use a two-parameter closure instead)",
                 Some('n'),
             )
             .category(Category::Filters)
@@ -49,13 +49,10 @@ impl Command for ParEach {
                 result: None,
             },
             Example {
-                example: r#"[1 2 3] | par-each -n { |it| if $it.item == 2 { echo $"found 2 at ($it.index)!"} }"#,
+                example: r#"[1 2 3] | par-each -n { |it| if $it.item == 2 { $"found 2 at ($it.index)!"} }"#,
                 description: "Iterate over each element, print the matching value and its index",
                 result: Some(Value::List {
-                    vals: vec![Value::String {
-                        val: "found 2 at 1!".to_string(),
-                        span: Span::test_data(),
-                    }],
+                    vals: vec![Value::string("found 2 at 1!", Span::test_data())],
                     span: Span::test_data(),
                 }),
             },
@@ -81,6 +78,7 @@ impl Command for ParEach {
         let redirect_stderr = call.redirect_stderr;
 
         match input {
+            PipelineData::Empty => Ok(PipelineData::Empty),
             PipelineData::Value(Value::Range { val, .. }, ..) => Ok(val
                 .into_range_iter(ctrlc.clone())?
                 .enumerate()
@@ -272,7 +270,7 @@ impl Command for ParEach {
                 .into_iter()
                 .flatten()
                 .into_pipeline_data(ctrlc)),
-            PipelineData::ExternalStream { stdout: None, .. } => Ok(PipelineData::new(call.head)),
+            PipelineData::ExternalStream { stdout: None, .. } => Ok(PipelineData::empty()),
             PipelineData::ExternalStream {
                 stdout: Some(stream),
                 ..

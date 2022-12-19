@@ -77,10 +77,7 @@ impl NuCompleter {
                     Value::List {
                         vals: spans
                             .iter()
-                            .map(|it| Value::String {
-                                val: it.to_string(),
-                                span: Span::unknown(),
-                            })
+                            .map(|it| Value::string(it, Span::unknown()))
                             .collect(),
                         span: Span::unknown(),
                     },
@@ -92,7 +89,7 @@ impl NuCompleter {
             &self.engine_state,
             &mut callee_stack,
             block,
-            PipelineData::new(span),
+            PipelineData::empty(),
             true,
             true,
         );
@@ -101,14 +98,8 @@ impl NuCompleter {
             Ok(pd) => {
                 let value = pd.into_value(span);
                 if let Value::List { vals, span: _ } = value {
-                    let result = map_value_completions(
-                        vals.iter(),
-                        Span {
-                            start: span.start,
-                            end: span.end,
-                        },
-                        offset,
-                    );
+                    let result =
+                        map_value_completions(vals.iter(), Span::new(span.start, span.end), offset);
 
                     return Some(result);
                 }
@@ -165,15 +156,12 @@ impl NuCompleter {
 
                                 // Create a new span
                                 let new_span = if flat_idx == 0 {
-                                    Span {
-                                        start: flat.0.start,
-                                        end: flat.0.end - 1 - span_offset,
-                                    }
+                                    Span::new(flat.0.start, flat.0.end - 1 - span_offset)
                                 } else {
-                                    Span {
-                                        start: flat.0.start - span_offset,
-                                        end: flat.0.end - 1 - span_offset,
-                                    }
+                                    Span::new(
+                                        flat.0.start - span_offset,
+                                        flat.0.end - 1 - span_offset,
+                                    )
                                 };
 
                                 // Parses the prefix. Completion should look up to the cursor position, not after.

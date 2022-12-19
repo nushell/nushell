@@ -38,7 +38,7 @@ impl Command for Insert {
     }
 
     fn usage(&self) -> &str {
-        "Insert a new column, using an expression or block to create each row's values."
+        "Insert a new column, using an expression or closure to create each row's values."
     }
 
     fn search_terms(&self) -> Vec<&str> {

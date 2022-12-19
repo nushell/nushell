@@ -51,6 +51,7 @@ pub enum Bits {
 pub enum Assignment {
     Assign,
     PlusAssign,
+    AppendAssign,
     MinusAssign,
     MultiplyAssign,
     DivideAssign,
@@ -70,6 +71,7 @@ impl Display for Operator {
         match self {
             Operator::Assignment(Assignment::Assign) => write!(f, "="),
             Operator::Assignment(Assignment::PlusAssign) => write!(f, "+="),
+            Operator::Assignment(Assignment::AppendAssign) => write!(f, "++="),
             Operator::Assignment(Assignment::MinusAssign) => write!(f, "-="),
             Operator::Assignment(Assignment::MultiplyAssign) => write!(f, "*="),
             Operator::Assignment(Assignment::DivideAssign) => write!(f, "/="),

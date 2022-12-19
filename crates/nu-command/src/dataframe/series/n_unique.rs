@@ -67,10 +67,7 @@ fn command(
         )
     })?;
 
-    let value = Value::Int {
-        val: res as i64,
-        span: call.head,
-    };
+    let value = Value::int(res as i64, call.head);
 
     NuDataFrame::try_from_columns(vec![Column::new("count_unique".to_string(), vec![value])])
         .map(|df| PipelineData::Value(NuDataFrame::into_value(df, call.head), None))

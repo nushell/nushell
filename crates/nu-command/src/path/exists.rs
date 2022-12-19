@@ -69,10 +69,7 @@ If you need to distinguish dirs and files, please use `path type`."#
             Example {
                 description: "Check if a file exists",
                 example: "'C:\\Users\\joe\\todo.txt' | path exists",
-                result: Some(Value::Bool {
-                    val: false,
-                    span: Span::test_data(),
-                }),
+                result: Some(Value::boolean(false, Span::test_data())),
             },
             Example {
                 description: "Check if a file exists in a column",
@@ -88,10 +85,7 @@ If you need to distinguish dirs and files, please use `path type`."#
             Example {
                 description: "Check if a file exists",
                 example: "'/home/joe/todo.txt' | path exists",
-                result: Some(Value::Bool {
-                    val: false,
-                    span: Span::test_data(),
-                }),
+                result: Some(Value::boolean(false, Span::test_data())),
             },
             Example {
                 description: "Check if a file exists in a column",

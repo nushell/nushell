@@ -1,5 +1,3 @@
-use std::sync::atomic::Ordering;
-
 use nu_engine::{eval_block, CallExt};
 
 use nu_protocol::ast::Call;
@@ -36,13 +34,13 @@ impl Command for Reduce {
             )
             .switch(
                 "numbered",
-                "iterate with an index (deprecated; use a 3-parameter block instead)",
+                "iterate with an index (deprecated; use a 3-parameter closure instead)",
                 Some('n'),
             )
     }
 
     fn usage(&self) -> &str {
-        "Aggregate a list to a single value using an accumulator block."
+        "Aggregate a list to a single value using an accumulator closure."
     }
 
     fn search_terms(&self) -> Vec<&str> {
@@ -54,26 +52,17 @@ impl Command for Reduce {
             Example {
                 example: "[ 1 2 3 4 ] | reduce {|it, acc| $it + $acc }",
                 description: "Sum values of a list (same as 'math sum')",
-                result: Some(Value::Int {
-                    val: 10,
-                    span: Span::test_data(),
-                }),
+                result: Some(Value::int(10, Span::test_data())),
             },
             Example {
                 example: "[ 8 7 6 ] | reduce {|it, acc, ind| $acc + $it + $ind }",
                 description: "Sum values of a list, plus their indexes",
-                result: Some(Value::Int {
-                    val: 22,
-                    span: Span::test_data(),
-                }),
+                result: Some(Value::int(22, Span::test_data())),
             },
             Example {
                 example: "[ 1 2 3 4 ] | reduce -f 10 {|it, acc| $acc + $it }",
                 description: "Sum values with a starting value (fold)",
-                result: Some(Value::Int {
-                    val: 20,
-                    span: Span::test_data(),
-                }),
+                result: Some(Value::int(20, Span::test_data())),
             },
             Example {
                 example: r#"[ i o t ] | reduce -f "Arthur, King of the Britons" {|it, acc| $acc | str replace -a $it "X" }"#,
@@ -219,17 +208,15 @@ impl Command for Reduce {
                 engine_state,
                 &mut stack,
                 block,
-                PipelineData::new(span),
+                PipelineData::empty(),
                 // redirect stdout until its the last input value
                 redirect_stdout || input_iter.peek().is_some(),
                 redirect_stderr,
             )?
             .into_value(span);
 
-            if let Some(ctrlc) = &ctrlc {
-                if ctrlc.load(Ordering::SeqCst) {
-                    break;
-                }
+            if nu_utils::ctrl_c::was_pressed(&ctrlc) {
+                break;
             }
         }
 

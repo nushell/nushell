@@ -130,21 +130,18 @@ impl Command for OverlayUse {
             if let Some(block_id) = module.env_block {
                 let maybe_path = find_in_dirs_env(&name_arg.item, engine_state, caller_stack)?;
 
+                let block = engine_state.get_block(block_id);
+                let mut callee_stack = caller_stack.gather_captures(&block.captures);
+
                 if let Some(path) = &maybe_path {
                     // Set the currently evaluated directory, if the argument is a valid path
                     let mut parent = path.clone();
                     parent.pop();
 
-                    let file_pwd = Value::String {
-                        val: parent.to_string_lossy().to_string(),
-                        span: call.head,
-                    };
+                    let file_pwd = Value::string(parent.to_string_lossy(), call.head);
 
-                    caller_stack.add_env_var("FILE_PWD".to_string(), file_pwd);
+                    callee_stack.add_env_var("FILE_PWD".to_string(), file_pwd);
                 }
-
-                let block = engine_state.get_block(block_id);
-                let mut callee_stack = caller_stack.gather_captures(&block.captures);
 
                 let _ = eval_block(
                     engine_state,
@@ -160,11 +157,6 @@ impl Command for OverlayUse {
 
                 // Merge the block's environment to the current stack
                 redirect_env(engine_state, caller_stack, &callee_stack);
-
-                if maybe_path.is_some() {
-                    // Remove the file-relative PWD, if the argument is a valid path
-                    caller_stack.remove_env_var(engine_state, "FILE_PWD");
-                }
             } else {
                 caller_stack.add_overlay(overlay_name);
             }
@@ -172,7 +164,7 @@ impl Command for OverlayUse {
             caller_stack.add_overlay(overlay_name);
         }
 
-        Ok(PipelineData::new(call.head))
+        Ok(PipelineData::empty())
     }
 
     fn examples(&self) -> Vec<Example> {

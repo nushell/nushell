@@ -97,8 +97,8 @@ impl Command for Du {
         let exclude = args.exclude.map_or(Ok(None), move |x| {
             Pattern::new(&x.item).map(Some).map_err(|e| {
                 ShellError::GenericError(
-                    e.msg.to_string(),
                     "glob error".to_string(),
+                    e.msg.to_string(),
                     Some(x.span),
                     None,
                     Vec::new(),
@@ -109,20 +109,25 @@ impl Command for Du {
         let include_files = args.all;
         let mut paths = match args.path {
             Some(p) => {
-                let p = p.item.to_str().expect("Why isn't this encoded properly?");
-                nu_glob::glob_with(p, GLOB_PARAMS)
+                let item = p.item.to_str().expect("Why isn't this encoded properly?");
+                match nu_glob::glob_with(item, GLOB_PARAMS) {
+                    // Convert the PatternError to a ShellError, preserving the span
+                    // of the inputted glob.
+                    Err(e) => {
+                        return Err(ShellError::GenericError(
+                            "glob error".to_string(),
+                            e.msg.to_string(),
+                            Some(p.span),
+                            None,
+                            Vec::new(),
+                        ))
+                    }
+                    Ok(path) => path,
+                }
             }
-            None => nu_glob::glob_with("*", GLOB_PARAMS),
+            // The * pattern should never fail.
+            None => nu_glob::glob_with("*", GLOB_PARAMS).expect("du: * pattern failed to glob"),
         }
-        .map_err(|e| {
-            ShellError::GenericError(
-                e.msg.to_string(),
-                "glob error".to_string(),
-                Some(tag),
-                None,
-                Vec::new(),
-            )
-        })?
         .filter(move |p| {
             if include_files {
                 true

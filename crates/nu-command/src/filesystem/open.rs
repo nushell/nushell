@@ -3,7 +3,8 @@ use nu_engine::{eval_block, CallExt};
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
-    Category, Example, PipelineData, RawStream, ShellError, Signature, Spanned, SyntaxShape, Value,
+    Category, Example, PipelineData, RawStream, ShellError, Signature, Spanned, SyntaxShape, Type,
+    Value,
 };
 use std::io::BufReader;
 
@@ -35,6 +36,7 @@ impl Command for Open {
 
     fn signature(&self) -> nu_protocol::Signature {
         Signature::build("open")
+            .input_output_types(vec![(Type::Nothing, Type::Any), (Type::String, Type::Any)])
             .optional("filename", SyntaxShape::Filepath, "the filename to use")
             .switch("raw", "open file as raw binary", Some('r'))
             .category(Category::FileSystem)
@@ -109,7 +111,7 @@ impl Command for Open {
         } else {
             #[cfg(feature = "sqlite")]
             if !raw {
-                let res = SQLiteDatabase::try_from_path(path, arg_span)
+                let res = SQLiteDatabase::try_from_path(path, arg_span, ctrlc.clone())
                     .map(|db| db.into_value(call.head).into_pipeline_data());
 
                 if res.is_ok() {
@@ -194,7 +196,7 @@ impl Command for Open {
             },
             Example {
                 description: "Open a file, using the input to get filename",
-                example: "echo 'myfile.txt' | open",
+                example: "'myfile.txt' | open",
                 result: None,
             },
             Example {

@@ -392,7 +392,7 @@ fn let_env_hides_variable() {
     );
 
     assert_eq!(actual.out, "hello world");
-    assert!(actual.err.contains("cannot find column"));
+    assert!(actual.err.contains("not_found"));
 }
 
 #[test]
@@ -411,7 +411,7 @@ fn let_env_hides_variable_in_parent_scope() {
     );
 
     assert_eq!(actual.out, "hello world");
-    assert!(actual.err.contains("cannot find column"));
+    assert!(actual.err.contains("not_found"));
 }
 
 #[test]
@@ -424,7 +424,7 @@ fn unlet_env_variable() {
             echo $env.TEST_VAR
         "#
     );
-    assert!(actual.err.contains("cannot find column"));
+    assert!(actual.err.contains("not_found"));
 }
 
 #[test]
@@ -469,7 +469,7 @@ fn let_env_doesnt_leak() {
         "#
     );
 
-    assert!(actual.err.contains("cannot find column"));
+    assert!(actual.err.contains("not_found"));
 }
 
 #[test]
@@ -518,7 +518,7 @@ fn load_env_doesnt_leak() {
         "#
     );
 
-    assert!(actual.err.contains("cannot find column"));
+    assert!(actual.err.contains("not_found"));
 }
 
 #[test]

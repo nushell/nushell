@@ -5,7 +5,7 @@ use nu_parser::parse;
 use nu_protocol::engine::StateWorkingSet;
 use reedline::{Completer, Suggestion};
 use rstest::{fixture, rstest};
-use support::{file, folder, match_suggestions, new_engine};
+use support::{completions_helpers::new_quote_engine, file, folder, match_suggestions, new_engine};
 
 #[fixture]
 fn completer() -> NuCompleter {
@@ -406,6 +406,24 @@ fn command_watch_with_filecompletion() {
         "custom_completion.nu".to_string(),
         ".hidden_file".to_string(),
         ".hidden_folder/".to_string(),
+    ];
+
+    match_suggestions(expected_paths, suggestions)
+}
+
+#[test]
+fn file_completion_quoted() {
+    let (_, _, engine, stack) = new_quote_engine();
+
+    let mut completer = NuCompleter::new(std::sync::Arc::new(engine), stack);
+
+    let target_dir = "open ";
+    let suggestions = completer.complete(target_dir, target_dir.len());
+
+    let expected_paths: Vec<String> = vec![
+        "`te st.txt`".to_string(),
+        "`te#st.txt`".to_string(),
+        "`te'st.txt`".to_string(),
     ];
 
     match_suggestions(expected_paths, suggestions)

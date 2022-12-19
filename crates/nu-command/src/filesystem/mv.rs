@@ -7,7 +7,7 @@ use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
     Category, Example, IntoInterruptiblePipelineData, PipelineData, ShellError, Signature, Span,
-    Spanned, SyntaxShape, Value,
+    Spanned, SyntaxShape, Type, Value,
 };
 
 const GLOB_PARAMS: nu_glob::MatchOptions = nu_glob::MatchOptions {
@@ -35,6 +35,7 @@ impl Command for Mv {
 
     fn signature(&self) -> nu_protocol::Signature {
         Signature::build("mv")
+            .input_output_types(vec![(Type::Nothing, Type::List(Box::new(Type::String)))])
             .required(
                 "source",
                 SyntaxShape::GlobPattern,
@@ -283,8 +284,10 @@ fn move_file(
     }
 
     if interactive && to.exists() {
-        let (interaction, confirmed) =
-            try_interaction(interactive, "mv: overwrite", &to.to_string_lossy());
+        let (interaction, confirmed) = try_interaction(
+            interactive,
+            format!("mv: overwrite '{}'? ", to.to_string_lossy()),
+        );
         if let Err(e) = interaction {
             return Err(ShellError::GenericError(
                 format!("Error during interaction: {:}", e),

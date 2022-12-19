@@ -2,7 +2,7 @@ use chrono::Local;
 use nu_protocol::{
     ast::Call,
     engine::{Command, EngineState, Stack},
-    Category, Example, PipelineData, ShellError, Signature,
+    Category, Example, PipelineData, ShellError, Signature, Type,
 };
 use nu_utils::{get_default_config, get_default_env};
 use std::io::Write;
@@ -20,6 +20,8 @@ impl Command for ConfigReset {
             .switch("nu", "reset only nu config, config.nu", Some('n'))
             .switch("env", "reset only env config, env.nu", Some('e'))
             .switch("without-backup", "do not make a backup", Some('w'))
+            .input_output_types(vec![(Type::Nothing, Type::Nothing)])
+            .allow_variants_without_examples(true)
             .category(Category::Env)
     }
 
@@ -108,6 +110,6 @@ impl Command for ConfigReset {
                 }
             }
         }
-        Ok(PipelineData::new(span))
+        Ok(PipelineData::empty())
     }
 }

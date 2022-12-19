@@ -69,15 +69,43 @@ impl Command for Try {
                         engine_state,
                         stack,
                         catch_block,
-                        PipelineData::new(call.head),
+                        PipelineData::empty(),
                         false,
                         false,
                     )
                 } else {
-                    Ok(PipelineData::new(call.head))
+                    Ok(PipelineData::empty())
                 }
             }
-            Ok(output) => Ok(output),
+            // external command may fail to run
+            Ok(pipeline) => {
+                let (pipeline, external_failed) = pipeline.is_external_failed();
+                if external_failed {
+                    if let Some(catch_block) = catch_block {
+                        let catch_block = engine_state.get_block(catch_block.block_id);
+
+                        if let Some(var) = catch_block.signature.get_positional(0) {
+                            if let Some(var_id) = &var.var_id {
+                                let err_value = Value::nothing(call.head);
+                                stack.add_var(*var_id, err_value);
+                            }
+                        }
+
+                        eval_block(
+                            engine_state,
+                            stack,
+                            catch_block,
+                            PipelineData::empty(),
+                            false,
+                            false,
+                        )
+                    } else {
+                        Ok(PipelineData::empty())
+                    }
+                } else {
+                    Ok(pipeline)
+                }
+            }
         }
     }
 

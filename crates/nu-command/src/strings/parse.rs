@@ -48,69 +48,73 @@ impl Command for Parse {
         vec![
             Example {
                 description: "Parse a string into two named columns",
-                example: "echo \"hi there\" | parse \"{foo} {bar}\"",
+                example: "\"hi there\" | parse \"{foo} {bar}\"",
                 result: Some(result.clone()),
             },
             Example {
                 description: "Parse a string using regex pattern",
-                example: "echo \"hi there\" | parse -r '(?P<foo>\\w+) (?P<bar>\\w+)'",
+                example: "\"hi there\" | parse -r '(?P<foo>\\w+) (?P<bar>\\w+)'",
                 result: Some(result),
             },
             Example {
                 description: "Parse a string using fancy-regex named capture group pattern",
-                example: "echo \"foo bar.\" | parse -r '\\s*(?<name>\\w+)(?=\\.)'",
+                example: "\"foo bar.\" | parse -r '\\s*(?<name>\\w+)(?=\\.)'",
                 result: Some(Value::List {
                     vals: vec![Value::Record {
                         cols: vec!["name".to_string()],
                         vals: vec![Value::test_string("bar")],
-                        span: Span::test_data()
+                        span: Span::test_data(),
                     }],
                     span: Span::test_data(),
                 }),
             },
             Example {
                 description: "Parse a string using fancy-regex capture group pattern",
-                example: "echo \"foo! bar.\" | parse -r '(\\w+)(?=\\.)|(\\w+)(?=!)'",
+                example: "\"foo! bar.\" | parse -r '(\\w+)(?=\\.)|(\\w+)(?=!)'",
                 result: Some(Value::List {
                     vals: vec![
                         Value::Record {
                             cols: vec!["Capture1".to_string(), "Capture2".to_string()],
                             vals: vec![Value::test_string(""), Value::test_string("foo")],
-                            span: Span::test_data()
+                            span: Span::test_data(),
                         },
                         Value::Record {
                             cols: vec!["Capture1".to_string(), "Capture2".to_string()],
                             vals: vec![Value::test_string("bar"), Value::test_string("")],
                             span: Span::test_data(),
-                        }],
+                        },
+                    ],
                     span: Span::test_data(),
                 }),
             },
             Example {
                 description: "Parse a string using fancy-regex look behind pattern",
-                example: "echo \" @another(foo bar)   \" | parse -r '\\s*(?<=[() ])(@\\w+)(\\([^)]*\\))?\\s*'",
+                example:
+                    "\" @another(foo bar)   \" | parse -r '\\s*(?<=[() ])(@\\w+)(\\([^)]*\\))?\\s*'",
                 result: Some(Value::List {
                     vals: vec![Value::Record {
                         cols: vec!["Capture1".to_string(), "Capture2".to_string()],
-                        vals: vec![Value::test_string("@another"), Value::test_string("(foo bar)")],
-                        span: Span::test_data()
+                        vals: vec![
+                            Value::test_string("@another"),
+                            Value::test_string("(foo bar)"),
+                        ],
+                        span: Span::test_data(),
                     }],
                     span: Span::test_data(),
                 }),
             },
             Example {
                 description: "Parse a string using fancy-regex look ahead atomic group pattern",
-                example: "echo \"abcd\" | parse -r '^a(bc(?=d)|b)cd$'",
+                example: "\"abcd\" | parse -r '^a(bc(?=d)|b)cd$'",
                 result: Some(Value::List {
                     vals: vec![Value::Record {
                         cols: vec!["Capture1".to_string()],
                         vals: vec![Value::test_string("b")],
-                        span: Span::test_data()
+                        span: Span::test_data(),
                     }],
                     span: Span::test_data(),
                 }),
             },
-
         ]
     }
 

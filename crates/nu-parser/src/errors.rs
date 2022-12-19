@@ -42,6 +42,34 @@ pub enum ParseError {
     #[diagnostic(code(nu::parser::type_mismatch), url(docsrs))]
     Mismatch(String, String, #[label("expected {0}, found {1}")] Span), // expected, found, span
 
+    #[error("The '&&' operator is not supported in Nushell")]
+    #[diagnostic(
+        code(nu::parser::shell_andand),
+        url(docsrs),
+        help("use ';' instead of the shell '&&', or 'and' instead of the boolean '&&'")
+    )]
+    ShellAndAnd(#[label("instead of '&&', use ';' or 'and'")] Span),
+
+    #[error("The '||' operator is not supported in Nushell")]
+    #[diagnostic(
+        code(nu::parser::shell_oror),
+        url(docsrs),
+        help("use 'try' instead of the shell '||', or 'or' instead of the boolean '||'")
+    )]
+    ShellOrOr(#[label("instead of '||', use 'try' or 'or'")] Span),
+
+    #[error("The '2>' shell operation is 'err>' in Nushell.")]
+    #[diagnostic(code(nu::parser::shell_err), url(docsrs))]
+    ShellErrRedirect(#[label("use 'err>' instead of '2>' in Nushell")] Span),
+
+    #[error("The '2>&1' shell operation is 'out+err>' in Nushell.")]
+    #[diagnostic(
+        code(nu::parser::shell_outerr),
+        url(docsrs),
+        help("Nushell redirection will write all of stdout before stderr.")
+    )]
+    ShellOutErrRedirect(#[label("use 'out+err>' instead of '2>&1' in Nushell")] Span),
+
     #[error("Types mismatched for operation.")]
     #[diagnostic(
         code(nu::parser::unsupported_operation),
@@ -223,12 +251,8 @@ pub enum ParseError {
     NonUtf8(#[label = "non-UTF8 string"] Span),
 
     #[error("The `{0}` command doesn't have flag `{1}`.")]
-    #[diagnostic(
-        code(nu::parser::unknown_flag),
-        url(docsrs),
-        help("use {0} --help for a list of flags")
-    )]
-    UnknownFlag(String, String, #[label = "unknown flag"] Span),
+    #[diagnostic(code(nu::parser::unknown_flag), url(docsrs), help("{3}"))]
+    UnknownFlag(String, String, #[label = "unknown flag"] Span, String),
 
     #[error("Unknown type.")]
     #[diagnostic(code(nu::parser::unknown_type), url(docsrs))]
@@ -394,7 +418,7 @@ impl ParseError {
             ParseError::DuplicateCommandDef(s) => *s,
             ParseError::UnknownCommand(s) => *s,
             ParseError::NonUtf8(s) => *s,
-            ParseError::UnknownFlag(_, _, s) => *s,
+            ParseError::UnknownFlag(_, _, s, _) => *s,
             ParseError::RequiredAfterOptional(_, s) => *s,
             ParseError::UnknownType(s) => *s,
             ParseError::MissingFlagParam(_, s) => *s,
@@ -421,6 +445,10 @@ impl ParseError {
             ParseError::FileNotFound(_, s) => *s,
             ParseError::ReadingFile(_, s) => *s,
             ParseError::LabeledError(_, _, s) => *s,
+            ParseError::ShellAndAnd(s) => *s,
+            ParseError::ShellOrOr(s) => *s,
+            ParseError::ShellErrRedirect(s) => *s,
+            ParseError::ShellOutErrRedirect(s) => *s,
             ParseError::UnknownOperator(_, _, s) => *s,
         }
     }

@@ -7,7 +7,9 @@ use filetime::FileTime;
 use nu_engine::CallExt;
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
-use nu_protocol::{Category, Example, PipelineData, ShellError, Signature, Spanned, SyntaxShape};
+use nu_protocol::{
+    Category, Example, PipelineData, ShellError, Signature, Spanned, SyntaxShape, Type,
+};
 
 #[derive(Clone)]
 pub struct Touch;
@@ -23,6 +25,7 @@ impl Command for Touch {
 
     fn signature(&self) -> Signature {
         Signature::build("touch")
+            .input_output_types(vec![ (Type::Nothing, Type::Nothing) ])
             .required(
                 "filename",
                 SyntaxShape::Filepath,
@@ -190,7 +193,7 @@ impl Command for Touch {
             }
         }
 
-        Ok(PipelineData::new(call.head))
+        Ok(PipelineData::empty())
     }
 
     fn examples(&self) -> Vec<Example> {

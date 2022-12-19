@@ -45,37 +45,22 @@ impl Command for SubCommand {
         vec![
             Example {
                 description: "Get the variance of a list of numbers",
-                example: "echo [1 2 3 4 5] | math variance",
-                result: Some(Value::Float {
-                    val: 2.0,
-                    span: Span::test_data(),
-                }),
+                example: "[1 2 3 4 5] | math variance",
+                result: Some(Value::float(2.0, Span::test_data())),
             },
             Example {
                 description: "Get the sample variance of a list of numbers",
                 example: "[1 2 3 4 5] | math variance -s",
-                result: Some(Value::Float {
-                    val: 2.5,
-                    span: Span::test_data(),
-                }),
+                result: Some(Value::float(2.5, Span::test_data())),
             },
         ]
     }
 }
 
 fn sum_of_squares(values: &[Value], span: &Span) -> Result<Value, ShellError> {
-    let n = Value::Int {
-        val: values.len() as i64,
-        span: *span,
-    };
-    let mut sum_x = Value::Int {
-        val: 0,
-        span: *span,
-    };
-    let mut sum_x2 = Value::Int {
-        val: 0,
-        span: *span,
-    };
+    let n = Value::int(values.len() as i64, *span);
+    let mut sum_x = Value::int(0, *span);
+    let mut sum_x2 = Value::int(0, *span);
     for value in values {
         let v = match &value {
             Value::Int { .. }
@@ -116,10 +101,7 @@ pub fn compute_variance(sample: bool) -> impl Fn(&[Value], &Span) -> Result<Valu
             )),
             other => other,
         }?;
-        let n = Value::Int {
-            val: n as i64,
-            span: *span,
-        };
+        let n = Value::int(n as i64, *span);
         ss.div(*span, &n, *span)
     }
 }

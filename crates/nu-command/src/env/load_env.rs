@@ -46,18 +46,12 @@ impl Command for LoadEnv {
                         let cwd = current_dir(engine_state, stack)?;
                         let rhs = rhs.as_string()?;
                         let rhs = nu_path::expand_path_with(rhs, cwd);
-                        stack.add_env_var(
-                            env_var,
-                            Value::String {
-                                val: rhs.to_string_lossy().to_string(),
-                                span: call.head,
-                            },
-                        );
+                        stack.add_env_var(env_var, Value::string(rhs.to_string_lossy(), call.head));
                     } else {
                         stack.add_env_var(env_var, rhs);
                     }
                 }
-                Ok(PipelineData::new(call.head))
+                Ok(PipelineData::empty())
             }
             None => match input {
                 PipelineData::Value(Value::Record { cols, vals, .. }, ..) => {
@@ -72,16 +66,13 @@ impl Command for LoadEnv {
                             let rhs = nu_path::expand_path_with(rhs, cwd);
                             stack.add_env_var(
                                 env_var,
-                                Value::String {
-                                    val: rhs.to_string_lossy().to_string(),
-                                    span: call.head,
-                                },
+                                Value::string(rhs.to_string_lossy(), call.head),
                             );
                         } else {
                             stack.add_env_var(env_var, rhs);
                         }
                     }
-                    Ok(PipelineData::new(call.head))
+                    Ok(PipelineData::empty())
                 }
                 _ => Err(ShellError::UnsupportedInput(
                     "'load-env' expects a single record".into(),
@@ -95,12 +86,12 @@ impl Command for LoadEnv {
         vec![
             Example {
                 description: "Load variables from an input stream",
-                example: r#"{NAME: ABE, AGE: UNKNOWN} | load-env; echo $env.NAME"#,
+                example: r#"{NAME: ABE, AGE: UNKNOWN} | load-env; $env.NAME"#,
                 result: Some(Value::test_string("ABE")),
             },
             Example {
                 description: "Load variables from an argument",
-                example: r#"load-env {NAME: ABE, AGE: UNKNOWN}; echo $env.NAME"#,
+                example: r#"load-env {NAME: ABE, AGE: UNKNOWN}; $env.NAME"#,
                 result: Some(Value::test_string("ABE")),
             },
         ]

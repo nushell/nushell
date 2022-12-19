@@ -52,13 +52,13 @@ impl Completer for CustomCompletion {
                 head: span,
                 arguments: vec![
                     Argument::Positional(Expression {
-                        span: Span { start: 0, end: 0 },
+                        span: Span::unknown(),
                         ty: Type::String,
                         expr: Expr::String(self.line.clone()),
                         custom_completion: None,
                     }),
                     Argument::Positional(Expression {
-                        span: Span { start: 0, end: 0 },
+                        span: Span::unknown(),
                         ty: Type::Int,
                         expr: Expr::Int(line_pos as i64),
                         custom_completion: None,
@@ -67,7 +67,7 @@ impl Completer for CustomCompletion {
                 redirect_stdout: true,
                 redirect_stderr: true,
             },
-            PipelineData::new(span),
+            PipelineData::empty(),
         );
 
         let mut custom_completion_options = None;

@@ -1,5 +1,3 @@
-use std::sync::atomic::Ordering;
-
 use nu_engine::{eval_block, CallExt};
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Block, Command, EngineState, Stack};
@@ -44,10 +42,8 @@ impl Command for Loop {
         let block: Block = call.req(engine_state, stack, 0)?;
 
         loop {
-            if let Some(ctrlc) = &engine_state.ctrlc {
-                if ctrlc.load(Ordering::SeqCst) {
-                    break;
-                }
+            if nu_utils::ctrl_c::was_pressed(&engine_state.ctrlc) {
+                break;
             }
 
             let block = engine_state.get_block(block.block_id);
@@ -55,7 +51,7 @@ impl Command for Loop {
                 engine_state,
                 stack,
                 block,
-                PipelineData::new(call.head),
+                PipelineData::empty(),
                 call.redirect_stdout,
                 call.redirect_stderr,
             ) {
@@ -69,21 +65,21 @@ impl Command for Loop {
                     return Err(err);
                 }
                 Ok(pipeline) => {
-                    pipeline.into_value(call.head);
+                    let exit_code = pipeline.print(engine_state, stack, false, false)?;
+                    if exit_code != 0 {
+                        break;
+                    }
                 }
             }
         }
-        Ok(PipelineData::new(call.head))
+        Ok(PipelineData::empty())
     }
 
     fn examples(&self) -> Vec<Example> {
         vec![Example {
             description: "Loop while a condition is true",
             example: "mut x = 0; loop { if $x > 10 { break }; $x = $x + 1 }; $x",
-            result: Some(Value::Int {
-                val: 11,
-                span: Span::test_data(),
-            }),
+            result: Some(Value::int(11, Span::test_data())),
         }]
     }
 }

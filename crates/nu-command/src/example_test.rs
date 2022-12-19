@@ -9,8 +9,8 @@ pub fn test_examples(cmd: impl Command + 'static) {
 #[cfg(test)]
 mod test_examples {
     use super::super::{
-        Ansi, Date, Echo, From, If, Into, LetEnv, Math, Path, Random, Split, SplitColumn, SplitRow,
-        Str, StrJoin, StrLength, StrReplace, Url, Wrap,
+        Ansi, Date, Echo, From, If, Into, Let, LetEnv, Math, MathEuler, MathPi, MathRound, Path,
+        Random, Split, SplitColumn, SplitRow, Str, StrJoin, StrLength, StrReplace, Url, Wrap,
     };
     use crate::{Break, Mut, To};
     use itertools::Itertools;
@@ -59,7 +59,8 @@ mod test_examples {
         let delta = {
             // Base functions that are needed for testing
             // Try to keep this working set small to keep tests running as fast as possible
-            let mut working_set = StateWorkingSet::new(&*engine_state);
+            let mut working_set = StateWorkingSet::new(&engine_state);
+            working_set.add_decl(Box::new(Let));
             working_set.add_decl(Box::new(Str));
             working_set.add_decl(Box::new(StrJoin));
             working_set.add_decl(Box::new(StrLength));
@@ -82,6 +83,9 @@ mod test_examples {
             working_set.add_decl(Box::new(Echo));
             working_set.add_decl(Box::new(Break));
             working_set.add_decl(Box::new(Mut));
+            working_set.add_decl(Box::new(MathEuler));
+            working_set.add_decl(Box::new(MathPi));
+            working_set.add_decl(Box::new(MathRound));
             // Adding the command that is being tested to the working set
             working_set.add_decl(cmd);
 
@@ -204,17 +208,14 @@ mod test_examples {
         // Set up PWD
         stack.add_env_var(
             "PWD".to_string(),
-            Value::String {
-                val: cwd.to_string_lossy().to_string(),
-                span: Span::test_data(),
-            },
+            Value::string(cwd.to_string_lossy(), Span::test_data()),
         );
 
         engine_state
-            .merge_env(&mut stack, &cwd)
+            .merge_env(&mut stack, cwd)
             .expect("Error merging environment");
 
-        let empty_input = PipelineData::new(Span::test_data());
+        let empty_input = PipelineData::empty();
         let result = eval(example.example, empty_input, cwd, engine_state);
 
         // Note. Value implements PartialEq for Bool, Int, Float, String and Block
@@ -292,10 +293,7 @@ mod test_examples {
 
         stack.add_env_var(
             "PWD".to_string(),
-            Value::String {
-                val: cwd.to_string_lossy().to_string(),
-                span: Span::test_data(),
-            },
+            Value::string(cwd.to_string_lossy(), Span::test_data()),
         );
 
         match nu_engine::eval_block(engine_state, &mut stack, &block, input, true, true) {
@@ -316,7 +314,7 @@ mod test_examples {
                 block.pipelines[0].elements.truncate(&n_expressions - 1);
 
                 if !block.pipelines[0].elements.is_empty() {
-                    let empty_input = PipelineData::new(Span::test_data());
+                    let empty_input = PipelineData::empty();
                     Some(eval_block(block, empty_input, cwd, engine_state, delta))
                 } else {
                     Some(Value::nothing(Span::test_data()))

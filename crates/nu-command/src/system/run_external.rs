@@ -13,7 +13,7 @@ use std::collections::HashMap;
 use std::io::{BufRead, BufReader, Read, Write};
 use std::path::{Path, PathBuf};
 use std::process::{Command as CommandSys, Stdio};
-use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::atomic::AtomicBool;
 use std::sync::mpsc::{self, SyncSender};
 use std::sync::Arc;
 
@@ -407,17 +407,11 @@ impl ExternalCommand {
                                 }
                             }
                             if let Some(code) = x.code() {
-                                let _ = exit_code_tx.send(Value::Int {
-                                    val: code as i64,
-                                    span: head,
-                                });
+                                let _ = exit_code_tx.send(Value::int(code as i64, head));
                             } else if x.success() {
-                                let _ = exit_code_tx.send(Value::Int { val: 0, span: head });
+                                let _ = exit_code_tx.send(Value::int(0, head));
                             } else {
-                                let _ = exit_code_tx.send(Value::Int {
-                                    val: -1,
-                                    span: head,
-                                });
+                                let _ = exit_code_tx.send(Value::int(-1, head));
                             }
                             Ok(())
                         }
@@ -521,7 +515,7 @@ impl ExternalCommand {
 
         // If there is an input from the pipeline. The stdin from the process
         // is piped so it can be used to send the input information
-        if !matches!(input, PipelineData::Value(Value::Nothing { .. }, ..)) {
+        if !input.is_nothing() {
             process.stdin(Stdio::piped());
         }
 
@@ -747,10 +741,8 @@ fn read_and_redirect_message<R>(
         let length = bytes.len();
         buf_read.consume(length);
 
-        if let Some(ctrlc) = &ctrlc {
-            if ctrlc.load(Ordering::SeqCst) {
-                break;
-            }
+        if nu_utils::ctrl_c::was_pressed(&ctrlc) {
+            break;
         }
 
         match sender.send(bytes) {

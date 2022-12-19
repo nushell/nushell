@@ -149,10 +149,7 @@ pub fn group_by(
                             }
 
                             let value = match collection.get(0) {
-                                Some(Value::Error { .. }) | None => Value::String {
-                                    val: error_key.to_string(),
-                                    span: name,
-                                },
+                                Some(Value::Error { .. }) | None => Value::string(error_key, name),
                                 Some(return_value) => return_value.clone(),
                             };
 

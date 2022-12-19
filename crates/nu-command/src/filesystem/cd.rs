@@ -4,7 +4,7 @@ use nu_engine::{current_dir, CallExt};
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
-    Category, Example, PipelineData, ShellError, Signature, Spanned, SyntaxShape, Value,
+    Category, Example, PipelineData, ShellError, Signature, Spanned, SyntaxShape, Type, Value,
 };
 use std::path::Path;
 
@@ -48,7 +48,13 @@ impl Command for Cd {
 
     fn signature(&self) -> nu_protocol::Signature {
         Signature::build("cd")
+            .input_output_types(vec![(Type::Nothing, Type::Nothing)])
             .optional("path", SyntaxShape::Directory, "the path to change to")
+            .input_output_types(vec![
+                (Type::Nothing, Type::Nothing),
+                (Type::String, Type::Nothing),
+            ])
+            .allow_variants_without_examples(true)
             .category(Category::FileSystem)
     }
 
@@ -163,10 +169,7 @@ impl Command for Cd {
 
         let path_tointo = path.clone();
         let path_value = Value::String { val: path, span };
-        let cwd = Value::String {
-            val: cwd.to_string_lossy().to_string(),
-            span: call.head,
-        };
+        let cwd = Value::string(cwd.to_string_lossy(), call.head);
 
         let mut shells = get_shells(engine_state, stack, cwd);
         let current_shell = get_current_shell(engine_state, stack);
@@ -181,10 +184,7 @@ impl Command for Cd {
         );
         stack.add_env_var(
             "NUSHELL_CURRENT_SHELL".into(),
-            Value::Int {
-                val: current_shell as i64,
-                span: call.head,
-            },
+            Value::int(current_shell as i64, call.head),
         );
 
         if let Some(oldpwd) = stack.get_env_var(engine_state, "PWD") {
@@ -196,7 +196,7 @@ impl Command for Cd {
         match have_permission(&path_tointo) {
             PermissionResult::PermissionOk => {
                 stack.add_env_var("PWD".into(), path_value);
-                Ok(PipelineData::new(call.head))
+                Ok(PipelineData::empty())
             }
             PermissionResult::PermissionDenied(reason) => Err(ShellError::IOError(format!(
                 "Cannot change directory to {}: {}",

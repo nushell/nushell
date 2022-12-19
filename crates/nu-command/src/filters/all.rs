@@ -22,8 +22,8 @@ impl Command for All {
             ])
             .required(
                 "predicate",
-                SyntaxShape::RowCondition,
-                "the expression, or block, that must evaluate to a boolean",
+                SyntaxShape::Closure(Some(vec![SyntaxShape::Any, SyntaxShape::Int])),
+                "a closure that must evaluate to a boolean",
             )
             .category(Category::Filters)
     }
@@ -40,23 +40,17 @@ impl Command for All {
         vec![
             Example {
                 description: "Check if each row's status is the string 'UP'",
-                example: "[[status]; [UP] [UP]] | all status == UP",
-                result: Some(Value::test_bool(true)),
-            },
-            Example {
-                description:
-                    "Check that all of the values are even, using the built-in $it variable",
-                example: "[2 4 6 8] | all ($it mod 2) == 0",
-                result: Some(Value::test_bool(true)),
-            },
-            Example {
-                description: "Check that all of the values are even, using a block",
-                example: "[2 4 6 8] | all {|e| $e mod 2 == 0 }",
+                example: "[[status]; [UP] [UP]] | all {|el| $el.status == UP }",
                 result: Some(Value::test_bool(true)),
             },
             Example {
                 description: "Check that all values are equal to twice their index",
                 example: "[0 2 4 6] | all {|el ind| $el == $ind * 2 }",
+                result: Some(Value::test_bool(true)),
+            },
+            Example {
+                description: "Check that all of the values are even, using a stored closure",
+                example: "let cond = {|el| ($el mod 2) == 0 }; [2 4 6 8] | all $cond",
                 result: Some(Value::test_bool(true)),
             },
         ]

@@ -26,7 +26,7 @@ impl Command for SortBy {
             )
             .switch(
                 "natural",
-                "Sort alphanumeric string-based columns naturally",
+                "Sort alphanumeric string-based columns naturally (1, 9, 10, 99, 100, ...)",
                 Some('n'),
             )
             .category(Category::Filters)

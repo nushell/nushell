@@ -80,10 +80,7 @@ pub fn sum(data: Vec<Value>, head: Span) -> Result<Value, ShellError> {
             val: 0,
             span: *span,
         }),
-        Some(Value::Int { span, .. }) | Some(Value::Float { span, .. }) => Ok(Value::Int {
-            val: 0,
-            span: *span,
-        }),
+        Some(Value::Int { span, .. }) | Some(Value::Float { span, .. }) => Ok(Value::int(0, *span)),
         None => Err(ShellError::UnsupportedInput(
             "Empty input".to_string(),
             head,
@@ -114,10 +111,7 @@ pub fn product(data: Vec<Value>, head: Span) -> Result<Value, ShellError> {
     let initial_value = data.get(0);
 
     let mut acc = match initial_value {
-        Some(Value::Int { span, .. }) | Some(Value::Float { span, .. }) => Ok(Value::Int {
-            val: 1,
-            span: *span,
-        }),
+        Some(Value::Int { span, .. }) | Some(Value::Float { span, .. }) => Ok(Value::int(1, *span)),
         None => Err(ShellError::UnsupportedInput(
             "Empty input".to_string(),
             head,

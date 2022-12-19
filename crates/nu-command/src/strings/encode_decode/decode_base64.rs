@@ -51,12 +51,12 @@ impl Command for DecodeBase64 {
         vec![
             Example {
                 description: "Base64 decode a value and output as UTF-8 string",
-                example: "echo 'U29tZSBEYXRh' | decode base64",
+                example: "'U29tZSBEYXRh' | decode base64",
                 result: Some(Value::string("Some Data", Span::test_data())),
             },
             Example {
                 description: "Base64 decode a value and output as binary",
-                example: "echo 'U29tZSBEYXRh' | decode base64 --binary",
+                example: "'U29tZSBEYXRh' | decode base64 --binary",
                 result: Some(Value::binary(
                     [0x53, 0x6f, 0x6d, 0x65, 0x20, 0x44, 0x61, 0x74, 0x61],
                     Span::test_data(),

@@ -61,10 +61,7 @@ fn switch_shell(
     switch_to: SwitchTo,
 ) -> Result<PipelineData, ShellError> {
     let cwd = current_dir(engine_state, stack)?;
-    let cwd = Value::String {
-        val: cwd.to_string_lossy().to_string(),
-        span: call.head,
-    };
+    let cwd = Value::string(cwd.to_string_lossy(), call.head);
 
     let shells = get_shells(engine_state, stack, cwd);
     let current_shell = get_current_shell(engine_state, stack);
@@ -105,23 +102,17 @@ fn switch_shell(
 
     stack.add_env_var(
         "NUSHELL_CURRENT_SHELL".into(),
-        Value::Int {
-            val: new_shell as i64,
-            span: call.head,
-        },
+        Value::int(new_shell as i64, call.head),
     );
 
     stack.add_env_var(
         "NUSHELL_LAST_SHELL".into(),
-        Value::Int {
-            val: current_shell as i64,
-            span: call.head,
-        },
+        Value::int(current_shell as i64, call.head),
     );
 
     stack.add_env_var("PWD".into(), new_path);
 
-    Ok(PipelineData::new(call.head))
+    Ok(PipelineData::empty())
 }
 
 fn list_shells(

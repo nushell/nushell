@@ -1,3 +1,4 @@
+use log::trace;
 use nu_path::canonicalize_with;
 use nu_protocol::{
     ast::{
@@ -1179,10 +1180,7 @@ pub fn parse_export_in_module(
         error = error.or_else(|| {
             Some(ParseError::MissingPositional(
                 "def, def-env, alias, or env keyword".into(), // TODO: keep filling more keywords as they come
-                Span {
-                    start: export_span.end,
-                    end: export_span.end,
-                },
+                Span::new(export_span.end, export_span.end),
                 "'def', `def-env`, `alias`, or 'env' keyword.".to_string(),
             ))
         });
@@ -1472,11 +1470,10 @@ pub fn parse_module(
         if block_bytes.ends_with(b"}") {
             end -= 1;
         } else {
-            error =
-                error.or_else(|| Some(ParseError::Unclosed("}".into(), Span { start: end, end })));
+            error = error.or_else(|| Some(ParseError::Unclosed("}".into(), Span::new(end, end))));
         }
 
-        let block_span = Span { start, end };
+        let block_span = Span::new(start, end);
 
         let (block, module, err) =
             parse_module_block(working_set, block_span, expand_aliases_denylist);
@@ -3132,6 +3129,97 @@ pub fn parse_source(
             span(spans),
         )),
     )
+}
+
+pub fn parse_where_expr(
+    working_set: &mut StateWorkingSet,
+    spans: &[Span],
+    expand_aliases_denylist: &[usize],
+) -> (Expression, Option<ParseError>) {
+    trace!("parsing: where");
+
+    if !spans.is_empty() && working_set.get_span_contents(spans[0]) != b"where" {
+        return (
+            garbage(span(spans)),
+            Some(ParseError::UnknownState(
+                "internal error: Wrong call name for 'where' command".into(),
+                span(spans),
+            )),
+        );
+    }
+
+    if spans.len() < 2 {
+        return (
+            garbage(span(spans)),
+            Some(ParseError::MissingPositional(
+                "row condition".into(),
+                span(spans),
+                "where <row_condition>".into(),
+            )),
+        );
+    }
+
+    let call = match working_set.find_decl(b"where", &Type::Any) {
+        Some(decl_id) => {
+            let ParsedInternalCall {
+                call,
+                error: mut err,
+                output,
+            } = parse_internal_call(
+                working_set,
+                spans[0],
+                &spans[1..],
+                decl_id,
+                expand_aliases_denylist,
+            );
+            let decl = working_set.get_decl(decl_id);
+
+            let call_span = span(spans);
+
+            err = check_call(call_span, &decl.signature(), &call).or(err);
+            if err.is_some() || call.has_flag("help") {
+                return (
+                    Expression {
+                        expr: Expr::Call(call),
+                        span: call_span,
+                        ty: output,
+                        custom_completion: None,
+                    },
+                    err,
+                );
+            }
+
+            call
+        }
+        None => {
+            return (
+                garbage(span(spans)),
+                Some(ParseError::UnknownState(
+                    "internal error: 'where' declaration not found".into(),
+                    span(spans),
+                )),
+            )
+        }
+    };
+
+    (
+        Expression {
+            expr: Expr::Call(call),
+            span: span(spans),
+            ty: Type::Any,
+            custom_completion: None,
+        },
+        None,
+    )
+}
+
+pub fn parse_where(
+    working_set: &mut StateWorkingSet,
+    spans: &[Span],
+    expand_aliases_denylist: &[usize],
+) -> (Pipeline, Option<ParseError>) {
+    let (expression, err) = parse_where_expr(working_set, spans, expand_aliases_denylist);
+    (Pipeline::from_vec(vec![expression]), err)
 }
 
 #[cfg(feature = "plugin")]

@@ -4,7 +4,7 @@ use nu_engine::{eval_block, CallExt};
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Closure, Command, EngineState, Stack};
 use nu_protocol::{
-    Category, Example, IntoPipelineData, PipelineData, Signature, SyntaxShape, Value,
+    Category, Example, IntoPipelineData, PipelineData, Signature, SyntaxShape, Type, Value,
 };
 
 #[derive(Clone)]
@@ -22,6 +22,8 @@ impl Command for Benchmark {
     fn signature(&self) -> nu_protocol::Signature {
         Signature::build("benchmark")
             .required("block", SyntaxShape::Block, "the block to run")
+            .input_output_types(vec![(Type::Block, Type::String)])
+            .allow_variants_without_examples(true)
             .category(Category::System)
     }
 
@@ -44,7 +46,7 @@ impl Command for Benchmark {
             engine_state,
             &mut stack,
             block,
-            PipelineData::new(call.head),
+            PipelineData::empty(),
             redirect_stdout,
             redirect_stderr,
         )?

@@ -1,0 +1,25 @@
+[package]
+authors = ["The Nushell Project Developers"]
+description = "Nushell table printing"
+repository = "https://github.com/nushell/nushell/tree/main/crates/nu-explore"
+edition = "2021"
+license = "MIT"
+name = "nu-explore"
+version = "0.72.2"
+
+[dependencies]
+nu-ansi-term = "0.46.0"
+nu-protocol = { path = "../nu-protocol", version = "0.72.2" }
+nu-parser = { path = "../nu-parser", version = "0.72.2" }
+nu-color-config = { path = "../nu-color-config", version = "0.72.2" }
+nu-engine = { path = "../nu-engine", version = "0.72.2" }
+nu-table = { path = "../nu-table", version = "0.72.2" }
+nu-json = { path = "../nu-json", version = "0.72.2"  }
+nu-utils = { path = "../nu-utils", version = "0.72.2"  }
+
+terminal_size = "0.2.1"
+strip-ansi-escapes = "0.1.1"
+crossterm = "0.24.0"
+tui = "0.19.0"
+ansi-str = "0.7.2"
+lscolors = { version = "0.12.0", features = ["crossterm"], default-features = false }

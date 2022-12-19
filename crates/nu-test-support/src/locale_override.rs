@@ -2,12 +2,10 @@
 
 use std::sync::{Arc, Mutex};
 
-use lazy_static::lazy_static;
 use nu_utils::locale::LOCALE_OVERRIDE_ENV_VAR;
+use once_cell::sync::Lazy;
 
-lazy_static! {
-    static ref LOCALE_OVERRIDE_MUTEX: Arc<Mutex<()>> = Arc::new(Mutex::new(()));
-}
+static LOCALE_OVERRIDE_MUTEX: Lazy<Arc<Mutex<()>>> = Lazy::new(Default::default);
 
 /// Run a closure in a fake locale environment.
 ///

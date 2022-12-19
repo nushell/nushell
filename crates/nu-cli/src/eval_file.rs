@@ -2,13 +2,13 @@ use crate::util::{eval_source, report_error};
 use log::info;
 use log::trace;
 use miette::{IntoDiagnostic, Result};
-use nu_engine::convert_env_values;
+use nu_engine::{convert_env_values, current_dir};
 use nu_parser::parse;
-use nu_protocol::Type;
+use nu_path::canonicalize_with;
 use nu_protocol::{
     ast::Call,
     engine::{EngineState, Stack, StateWorkingSet},
-    Config, PipelineData, Span, Value,
+    Config, PipelineData, ShellError, Span, Type, Value,
 };
 use nu_utils::stdout_write_all_and_flush;
 
@@ -27,14 +27,75 @@ pub fn evaluate_file(
         std::process::exit(1);
     }
 
-    let file = std::fs::read(&path).into_diagnostic()?;
+    let cwd = current_dir(engine_state, stack)?;
 
-    engine_state.start_in_file(Some(&path));
+    let file_path = {
+        match canonicalize_with(&path, &cwd) {
+            Ok(p) => p,
+            Err(e) => {
+                let working_set = StateWorkingSet::new(engine_state);
+                report_error(
+                    &working_set,
+                    &ShellError::FileNotFoundCustom(
+                        format!("Could not access file '{}': {:?}", path, e.to_string()),
+                        Span::unknown(),
+                    ),
+                );
+                std::process::exit(1);
+            }
+        }
+    };
+
+    let file_path_str = match file_path.to_str() {
+        Some(s) => s,
+        None => {
+            let working_set = StateWorkingSet::new(engine_state);
+            report_error(
+                &working_set,
+                &ShellError::NonUtf8Custom(
+                    format!(
+                        "Input file name '{}' is not valid UTF8",
+                        file_path.to_string_lossy()
+                    ),
+                    Span::unknown(),
+                ),
+            );
+            std::process::exit(1);
+        }
+    };
+
+    let file = match std::fs::read(&file_path).into_diagnostic() {
+        Ok(p) => p,
+        Err(e) => {
+            let working_set = StateWorkingSet::new(engine_state);
+            report_error(
+                &working_set,
+                &ShellError::FileNotFoundCustom(
+                    format!(
+                        "Could not read file '{}': {:?}",
+                        file_path_str,
+                        e.to_string()
+                    ),
+                    Span::unknown(),
+                ),
+            );
+            std::process::exit(1);
+        }
+    };
+
+    engine_state.start_in_file(Some(file_path_str));
+
+    let mut parent = file_path.clone();
+    parent.pop();
+
+    stack.add_env_var(
+        "FILE_PWD".to_string(),
+        Value::string(parent.to_string_lossy(), Span::unknown()),
+    );
 
     let mut working_set = StateWorkingSet::new(engine_state);
-    trace!("parsing file: {}", path);
-
-    let _ = parse(&mut working_set, Some(&path), &file, false, &[]);
+    trace!("parsing file: {}", file_path_str);
+    let _ = parse(&mut working_set, Some(file_path_str), &file, false, &[]);
 
     if working_set.find_decl(b"main", &Type::Any).is_some() {
         let args = format!("main {}", args.join(" "));
@@ -43,15 +104,15 @@ pub fn evaluate_file(
             engine_state,
             stack,
             &file,
-            &path,
-            PipelineData::new(Span::new(0, 0)),
+            file_path_str,
+            PipelineData::empty(),
         ) {
             std::process::exit(1);
         }
         if !eval_source(engine_state, stack, args.as_bytes(), "<commandline>", input) {
             std::process::exit(1);
         }
-    } else if !eval_source(engine_state, stack, &file, &path, input) {
+    } else if !eval_source(engine_state, stack, &file, file_path_str, input) {
         std::process::exit(1);
     }
 

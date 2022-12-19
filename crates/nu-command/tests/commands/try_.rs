@@ -36,3 +36,15 @@ fn catch_can_access_error() {
         assert!(output.err.contains("External command failed"));
     })
 }
+
+#[test]
+fn external_failed_should_be_catched() {
+    Playground::setup("try_catch_test", |dirs, _sandbox| {
+        let output = nu!(
+            cwd: dirs.test(),
+            "try { nu --testbin fail; echo 'success' } catch { echo 'fail' }"
+        );
+
+        assert!(output.out.contains("fail"));
+    })
+}

@@ -5,11 +5,9 @@ use crate::{
     util::{eval_source, get_guaranteed_cwd, report_error, report_error_new},
     NuHighlighter, NuValidator, NushellPrompt,
 };
-use fancy_regex::Regex;
-use lazy_static::lazy_static;
 use log::{info, trace, warn};
 use miette::{IntoDiagnostic, Result};
-use nu_color_config::get_color_config;
+use nu_color_config::StyleComputer;
 use nu_engine::{convert_env_values, eval_block, eval_block_with_early_return};
 use nu_parser::{lex, parse, trim_quotes_str};
 use nu_protocol::{
@@ -74,19 +72,10 @@ pub fn evaluate_repl(
     // seed env vars
     stack.add_env_var(
         "CMD_DURATION_MS".into(),
-        Value::String {
-            val: "0823".to_string(),
-            span: Span { start: 0, end: 0 },
-        },
+        Value::string("0823", Span::unknown()),
     );
 
-    stack.add_env_var(
-        "LAST_EXIT_CODE".into(),
-        Value::Int {
-            val: 0,
-            span: Span { start: 0, end: 0 },
-        },
-    );
+    stack.add_env_var("LAST_EXIT_CODE".into(), Value::int(0, Span::unknown()));
 
     info!(
         "load config initially {}:{}:{}",
@@ -149,7 +138,7 @@ pub fn evaluate_repl(
             stack,
             s.item.as_bytes(),
             &format!("entry #{}", entry_num),
-            PipelineData::new(Span::new(0, 0)),
+            PipelineData::empty(),
         );
         engine_state.merge_env(stack, get_guaranteed_cwd(engine_state, stack))?;
     }
@@ -183,8 +172,6 @@ pub fn evaluate_repl(
 
         info!("setup colors {}:{}:{}", file!(), line!(), column!());
 
-        let color_hm = get_color_config(config);
-
         info!("update reedline {}:{}:{}", file!(), line!(), column!());
         let engine_reference = std::sync::Arc::new(engine_state.clone());
         line_editor = line_editor
@@ -203,10 +190,14 @@ pub fn evaluate_repl(
             .with_partial_completions(config.partial_completions)
             .with_ansi_colors(config.use_ansi_coloring);
 
+        let style_computer = StyleComputer::from_config(engine_state, stack);
+
         line_editor = if config.use_ansi_coloring {
-            line_editor.with_hinter(Box::new(
-                DefaultHinter::default().with_style(color_hm["hints"]),
-            ))
+            line_editor.with_hinter(Box::new({
+                // As of Nov 2022, "hints" color_config closures only get `null` passed in.
+                let style = style_computer.compute("hints", &Value::nothing(Span::unknown()));
+                DefaultHinter::default().with_style(style)
+            }))
         } else {
             line_editor.disable_hints()
         };
@@ -375,7 +366,7 @@ pub fn evaluate_repl(
                         "OLDPWD".into(),
                         Value::String {
                             val: cwd.clone(),
-                            span: Span { start: 0, end: 0 },
+                            span: Span::unknown(),
                         },
                     );
 
@@ -385,7 +376,7 @@ pub fn evaluate_repl(
                         "PWD".into(),
                         Value::String {
                             val: path.clone(),
-                            span: Span { start: 0, end: 0 },
+                            span: Span::unknown(),
                         },
                     );
                     let cwd = Value::String { val: cwd, span };
@@ -431,7 +422,7 @@ pub fn evaluate_repl(
                         stack,
                         s.as_bytes(),
                         &format!("entry #{}", entry_num),
-                        PipelineData::new(Span::new(0, 0)),
+                        PipelineData::empty(),
                     );
                 }
                 let cmd_duration = start_time.elapsed();
@@ -440,7 +431,7 @@ pub fn evaluate_repl(
                     "CMD_DURATION_MS".into(),
                     Value::String {
                         val: format!("{}", cmd_duration.as_millis()),
-                        span: Span { start: 0, end: 0 },
+                        span: Span::unknown(),
                     },
                 );
 
@@ -637,7 +628,7 @@ pub fn eval_string_with_input(
 
     let input_as_pipeline_data = match input {
         Some(input) => PipelineData::Value(input, None),
-        None => PipelineData::new(Span::test_data()),
+        None => PipelineData::empty(),
     };
 
     eval_block(
@@ -718,11 +709,18 @@ pub fn eval_hook(
 ) -> Result<PipelineData, ShellError> {
     let value_span = value.span()?;
 
+    // Hooks can optionally be a record in this form:
+    // {
+    //     condition: {|before, after| ... }  # block that evaluates to true/false
+    //     code: # block or a string
+    // }
+    // The condition block will be run to check whether the main hook (in `code`) should be run.
+    // If it returns true (the default if a condition block is not specified), the hook should be run.
     let condition_path = PathMember::String {
         val: "condition".to_string(),
         span: value_span,
     };
-    let mut output = PipelineData::new(Span::new(0, 0));
+    let mut output = PipelineData::empty();
 
     let code_path = PathMember::String {
         val: "code".to_string(),
@@ -757,16 +755,19 @@ pub fn eval_hook(
                                 arguments.clone(),
                                 block_span,
                             ) {
-                                Ok(value) => match value {
-                                    Value::Bool { val, .. } => val,
-                                    other => {
+                                Ok(pipeline_data) => {
+                                    if let PipelineData::Value(Value::Bool { val, .. }, ..) =
+                                        pipeline_data
+                                    {
+                                        val
+                                    } else {
                                         return Err(ShellError::UnsupportedConfigValue(
                                             "boolean output".to_string(),
-                                            format!("{}", other.get_type()),
-                                            other.span()?,
+                                            "other PipelineData variant".to_string(),
+                                            block_span,
                                         ));
                                     }
-                                },
+                                }
                                 Err(err) => {
                                     return Err(err);
                                 }
@@ -823,7 +824,7 @@ pub fn eval_hook(
                         };
 
                         engine_state.merge_delta(delta)?;
-                        let input = PipelineData::new(value_span);
+                        let input = PipelineData::empty();
 
                         let var_ids: Vec<VarId> = vars
                             .into_iter()
@@ -889,34 +890,28 @@ pub fn eval_hook(
             span: block_span,
             ..
         } => {
-            output = PipelineData::Value(
-                run_hook_block(
-                    engine_state,
-                    stack,
-                    *block_id,
-                    input,
-                    arguments,
-                    *block_span,
-                )?,
-                None,
-            );
+            output = run_hook_block(
+                engine_state,
+                stack,
+                *block_id,
+                input,
+                arguments,
+                *block_span,
+            )?;
         }
         Value::Closure {
             val: block_id,
             span: block_span,
             ..
         } => {
-            output = PipelineData::Value(
-                run_hook_block(
-                    engine_state,
-                    stack,
-                    *block_id,
-                    input,
-                    arguments,
-                    *block_span,
-                )?,
-                None,
-            );
+            output = run_hook_block(
+                engine_state,
+                stack,
+                *block_id,
+                input,
+                arguments,
+                *block_span,
+            )?;
         }
         other => {
             return Err(ShellError::UnsupportedConfigValue(
@@ -933,17 +928,17 @@ pub fn eval_hook(
     Ok(output)
 }
 
-pub fn run_hook_block(
+fn run_hook_block(
     engine_state: &EngineState,
     stack: &mut Stack,
     block_id: BlockId,
     optional_input: Option<PipelineData>,
     arguments: Vec<(String, Value)>,
     span: Span,
-) -> Result<Value, ShellError> {
+) -> Result<PipelineData, ShellError> {
     let block = engine_state.get_block(block_id);
 
-    let input = optional_input.unwrap_or_else(|| PipelineData::new(span));
+    let input = optional_input.unwrap_or_else(PipelineData::empty);
 
     let mut callee_stack = stack.gather_captures(&block.captures);
 
@@ -964,28 +959,28 @@ pub fn run_hook_block(
 
     match eval_block_with_early_return(engine_state, &mut callee_stack, block, input, false, false)
     {
-        Ok(pipeline_data) => match pipeline_data.into_value(span) {
-            Value::Error { error } => Err(error),
-            val => {
-                // If all went fine, preserve the environment of the called block
-                let caller_env_vars = stack.get_env_var_names(engine_state);
-
-                // remove env vars that are present in the caller but not in the callee
-                // (the callee hid them)
-                for var in caller_env_vars.iter() {
-                    if !callee_stack.has_env_var(engine_state, var) {
-                        stack.remove_env_var(engine_state, var);
-                    }
-                }
-
-                // add new env vars from callee to caller
-                for (var, value) in callee_stack.get_stack_env_vars() {
-                    stack.add_env_var(var, value);
-                }
-
-                Ok(val)
+        Ok(pipeline_data) => {
+            if let PipelineData::Value(Value::Error { error }, _) = pipeline_data {
+                return Err(error);
             }
-        },
+
+            // If all went fine, preserve the environment of the called block
+            let caller_env_vars = stack.get_env_var_names(engine_state);
+
+            // remove env vars that are present in the caller but not in the callee
+            // (the callee hid them)
+            for var in caller_env_vars.iter() {
+                if !callee_stack.has_env_var(engine_state, var) {
+                    stack.remove_env_var(engine_state, var);
+                }
+            }
+
+            // add new env vars from callee to caller
+            for (var, value) in callee_stack.get_stack_env_vars() {
+                stack.add_env_var(var, value);
+            }
+            Ok(pipeline_data)
+        }
         Err(err) => Err(err),
     }
 }
@@ -997,7 +992,7 @@ fn run_ansi_sequence(seq: &str) -> Result<(), ShellError> {
             return Err(ShellError::GenericError(
                 "Error writing ansi sequence".into(),
                 err.to_string(),
-                Some(Span { start: 0, end: 0 }),
+                Some(Span::unknown()),
                 None,
                 Vec::new(),
             ));
@@ -1007,18 +1002,19 @@ fn run_ansi_sequence(seq: &str) -> Result<(), ShellError> {
         ShellError::GenericError(
             "Error flushing stdio".into(),
             e.to_string(),
-            Some(Span { start: 0, end: 0 }),
+            Some(Span::unknown()),
             None,
             Vec::new(),
         )
     })
 }
 
-lazy_static! {
-    // Absolute paths with a drive letter, like 'C:', 'D:\', 'E:\foo'
-    static ref DRIVE_PATH_REGEX: Regex =
-        Regex::new(r"^[a-zA-Z]:[/\\]?").expect("Internal error: regex creation");
-}
+// Absolute paths with a drive letter, like 'C:', 'D:\', 'E:\foo'
+#[cfg(windows)]
+static DRIVE_PATH_REGEX: once_cell::sync::Lazy<fancy_regex::Regex> =
+    once_cell::sync::Lazy::new(|| {
+        fancy_regex::Regex::new(r"^[a-zA-Z]:[/\\]?").expect("Internal error: regex creation")
+    });
 
 // A best-effort "does this string look kinda like a path?" function to determine whether to auto-cd
 fn looks_like_path(orig: &str) -> bool {

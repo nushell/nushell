@@ -115,7 +115,7 @@ impl Command for Take {
             },
             Example {
                 description: "Return the first two rows of a table",
-                example: "echo [[editions]; [2015] [2018] [2021]] | take 2",
+                example: "[[editions]; [2015] [2018] [2021]] | take 2",
                 result: Some(Value::List {
                     vals: vec![
                         Value::test_record(vec!["editions"], vec![Value::test_int(2015)]),

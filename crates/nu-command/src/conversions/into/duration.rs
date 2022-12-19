@@ -65,7 +65,8 @@ impl Command for SubCommand {
         vec![
             Example {
                 description: "Convert string to duration in table",
-                example: "echo [[value]; ['1sec'] ['2min'] ['3hr'] ['4day'] ['5wk']] | into duration value",
+                example:
+                    "[[value]; ['1sec'] ['2min'] ['3hr'] ['4day'] ['5wk']] | into duration value",
                 result: Some(Value::List {
                     vals: vec![
                         Value::Record {
@@ -502,7 +503,7 @@ mod test {
 
     #[test]
     fn turns_ns_to_duration() {
-        let span = Span::test_data();
+        let span = Span::new(0, 2);
         let word = Value::test_string("3ns");
         let expected = Value::Duration { val: 3, span };
         let convert_duration = None;
@@ -513,7 +514,7 @@ mod test {
 
     #[test]
     fn turns_us_to_duration() {
-        let span = Span::test_data();
+        let span = Span::new(0, 2);
         let word = Value::test_string("4us");
         let expected = Value::Duration {
             val: 4 * 1000,
@@ -527,7 +528,7 @@ mod test {
 
     #[test]
     fn turns_ms_to_duration() {
-        let span = Span::test_data();
+        let span = Span::new(0, 2);
         let word = Value::test_string("5ms");
         let expected = Value::Duration {
             val: 5 * 1000 * 1000,
@@ -541,7 +542,7 @@ mod test {
 
     #[test]
     fn turns_sec_to_duration() {
-        let span = Span::test_data();
+        let span = Span::new(0, 3);
         let word = Value::test_string("1sec");
         let expected = Value::Duration {
             val: 1000 * 1000 * 1000,
@@ -555,7 +556,7 @@ mod test {
 
     #[test]
     fn turns_min_to_duration() {
-        let span = Span::test_data();
+        let span = Span::new(0, 3);
         let word = Value::test_string("7min");
         let expected = Value::Duration {
             val: 7 * 60 * 1000 * 1000 * 1000,
@@ -569,7 +570,7 @@ mod test {
 
     #[test]
     fn turns_hr_to_duration() {
-        let span = Span::test_data();
+        let span = Span::new(0, 3);
         let word = Value::test_string("42hr");
         let expected = Value::Duration {
             val: 42 * 60 * 60 * 1000 * 1000 * 1000,
@@ -583,7 +584,7 @@ mod test {
 
     #[test]
     fn turns_day_to_duration() {
-        let span = Span::test_data();
+        let span = Span::new(0, 5);
         let word = Value::test_string("123day");
         let expected = Value::Duration {
             val: 123 * 24 * 60 * 60 * 1000 * 1000 * 1000,
@@ -597,7 +598,7 @@ mod test {
 
     #[test]
     fn turns_wk_to_duration() {
-        let span = Span::test_data();
+        let span = Span::new(0, 2);
         let word = Value::test_string("3wk");
         let expected = Value::Duration {
             val: 3 * 7 * 24 * 60 * 60 * 1000 * 1000 * 1000,

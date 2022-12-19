@@ -6,7 +6,7 @@ use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
     Category, Example, IntoInterruptiblePipelineData, PipelineData, ShellError, Signature,
-    SyntaxShape, Value,
+    SyntaxShape, Type, Value,
 };
 
 #[derive(Clone)]
@@ -19,12 +19,13 @@ impl Command for Mkdir {
 
     fn signature(&self) -> Signature {
         Signature::build("mkdir")
+            .input_output_types(vec![(Type::Nothing, Type::List(Box::new(Type::String)))])
             .rest(
                 "rest",
                 SyntaxShape::Directory,
                 "the name(s) of the path(s) to create",
             )
-            .switch("show-created-paths", "show the path(s) created.", Some('s'))
+            .switch("verbose", "print created path(s).", Some('v'))
             .category(Category::FileSystem)
     }
 
@@ -50,7 +51,7 @@ impl Command for Mkdir {
             .map(|dir| path.join(dir))
             .peekable();
 
-        let show_created_paths = call.has_flag("show-created-paths");
+        let is_verbose = call.has_flag("verbose");
         let mut stream: VecDeque<Value> = VecDeque::new();
 
         if directories.peek().is_none() {
@@ -76,7 +77,7 @@ impl Command for Mkdir {
                 ));
             }
 
-            if show_created_paths {
+            if is_verbose {
                 let val = format!("{:}", dir.to_string_lossy());
                 stream.push_back(Value::String { val, span });
             }
@@ -96,7 +97,7 @@ impl Command for Mkdir {
             },
             Example {
                 description: "Make multiple directories and show the paths created",
-                example: "mkdir -s foo/bar foo2",
+                example: "mkdir -v foo/bar foo2",
                 result: None,
             },
         ]
