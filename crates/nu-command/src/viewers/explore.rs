@@ -72,9 +72,9 @@ impl Command for Explore {
         let style_computer = StyleComputer::from_config(engine_state, stack);
 
         let mut config = nu_config.explore.clone();
-        prepare_default_config(&mut config);
-        update_config(&mut config, show_index, show_head);
         include_nu_config(&mut config, &style_computer);
+        update_config(&mut config, show_index, show_head);
+        prepare_default_config(&mut config);
 
         let show_banner = is_need_banner(&config).unwrap_or(true);
         let exit_esc = is_need_esc_exit(&config).unwrap_or(true);
