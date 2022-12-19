@@ -5,7 +5,7 @@ use nu_protocol::IntoPipelineData;
 use std::net::{Ipv4Addr, SocketAddr, SocketAddrV4, TcpListener};
 
 use nu_protocol::{
-    Category, Example, PipelineData, ShellError, Signature, Span, SyntaxShape, Value,
+    Category, Example, PipelineData, ShellError, Signature, Span, SyntaxShape, Type, Value,
 };
 
 #[derive(Clone)]
@@ -18,6 +18,7 @@ impl Command for SubCommand {
 
     fn signature(&self) -> Signature {
         Signature::build("port")
+            .input_output_types(vec![(Type::Nothing, Type::Int)])
             .optional(
                 "start",
                 SyntaxShape::Int,

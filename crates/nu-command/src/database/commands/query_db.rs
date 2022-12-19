@@ -18,6 +18,7 @@ impl Command for QueryDb {
 
     fn signature(&self) -> Signature {
         Signature::build(self.name())
+            .input_output_types(vec![(Type::Any, Type::Any)])
             .required(
                 "SQL",
                 SyntaxShape::String,

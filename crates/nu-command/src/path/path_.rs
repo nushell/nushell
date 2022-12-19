@@ -2,7 +2,7 @@ use nu_engine::get_full_help;
 use nu_protocol::{
     ast::Call,
     engine::{Command, EngineState, Stack},
-    IntoPipelineData, PipelineData, Signature, Value,
+    IntoPipelineData, PipelineData, Signature, Type, Value,
 };
 
 #[derive(Clone)]
@@ -14,7 +14,7 @@ impl Command for PathCommand {
     }
 
     fn signature(&self) -> Signature {
-        Signature::build("path")
+        Signature::build("path").input_output_types(vec![(Type::Nothing, Type::String)])
     }
 
     fn usage(&self) -> &str {

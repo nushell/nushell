@@ -1,7 +1,7 @@
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
-    Category, Example, IntoPipelineData, PipelineData, ShellError, Signature, Span, Value,
+    Category, Example, IntoPipelineData, PipelineData, ShellError, Signature, Span, Type, Value,
 };
 
 #[derive(Clone)]
@@ -17,7 +17,9 @@ impl Command for OverlayList {
     }
 
     fn signature(&self) -> nu_protocol::Signature {
-        Signature::build("overlay list").category(Category::Core)
+        Signature::build("overlay list")
+            .category(Category::Core)
+            .input_output_types(vec![(Type::Nothing, Type::List(Box::new(Type::String)))])
     }
 
     fn extra_usage(&self) -> &str {
