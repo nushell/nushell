@@ -149,7 +149,7 @@ fn extract_formatting_operations(input: String, error_span: Span, span_start: us
         }
 
         if column_span_end < column_span_start {
-            return Err(ShellError::DelimiterError("there are have unmatched curly braces".to_string(), error_span)); 
+            return Err(ShellError::DelimiterError("there are unmatched curly braces".to_string(), error_span)); 
         }
 
         if !column_name.is_empty() {
