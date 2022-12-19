@@ -868,16 +868,34 @@ fn parse_internal_call_loosely(
         }
 
         // Check if we're on a short flag or group of short flags, if so, parse
-        let (short_flags, unmatch_short_flags_span, err) =
+        let (matched_short_flags, unmatched_short_flags_span, err) =
             parse_short_flags(working_set, spans, &spans_idx, positional_idx, &signature);
 
-        if let Some(short_flags) = short_flags {
+        if let Some(short_flags) = matched_short_flags {
             // will ignore error if `signature` is known external definition
             // and our error is ParseError::UnknownFlag, in case the relative
             // unknown flags will be passed to external command.
             if !matches!(err, Some(ParseError::UnknownFlag(_, _, _, _))) {
                 error = error.or(err)
             }
+
+            // when no short flag matched, we just parse the input span entirely
+            // if not, we have to take matched flags out, and put unmatched flag
+            // into one input argument.
+            if short_flags.is_empty() {
+                let arg_span = spans[spans_idx];
+                let (external_exp, err) = parse_value(
+                    working_set,
+                    arg_span,
+                    &SyntaxShape::String,
+                    expand_aliases_denylist,
+                );
+                error = error.or(err);
+                external_unknown_pos.push(external_exp);
+                spans_idx += 1;
+                continue;
+            }
+
             for flag in short_flags {
                 if let Some(arg_shape) = flag.arg {
                     if let Some(arg) = spans.get(spans_idx + 1) {
@@ -937,15 +955,20 @@ fn parse_internal_call_loosely(
                 }
             }
 
-            if let Some(unmatch_span) = unmatch_short_flags_span {
-                for s in unmatch_span {
-                    let content = working_set.get_span_contents(s);
+            if let Some(unmatch_span) = unmatched_short_flags_span {
+                if !unmatch_span.is_empty() {
+                    let arg_span = unmatch_span[0];
+                    let mut arg = String::from("-");
+                    for s in unmatch_span {
+                        let content = working_set.get_span_contents(s);
+                        arg.push_str(&String::from_utf8_lossy(content));
+                    }
                     external_unknown_pos.push(Expression {
-                        expr: Expr::String(format!("-{}", String::from_utf8_lossy(content))),
-                        span: s,
+                        expr: Expr::String(arg),
+                        span: arg_span,
                         ty: Type::String,
                         custom_completion: None,
-                    })
+                    });
                 }
             }
             spans_idx += 1;
