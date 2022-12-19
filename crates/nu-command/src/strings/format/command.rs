@@ -55,7 +55,11 @@ impl Command for Format {
                 let string_span = pattern.span()?;
                 // the string span is start as `"`, we don't need the character
                 // to generate proper span for sub expression.
-                let ops = extract_formatting_operations(string_pattern, call.head, string_span.start + 1)?;
+                let ops = extract_formatting_operations(
+                    string_pattern,
+                    call.head,
+                    string_span.start + 1,
+                )?;
 
                 format(
                     input_val,
@@ -112,7 +116,11 @@ enum FormatOperation {
 /// formatted according to the input pattern.
 /// FormatOperation::ValueNeedEval contains expression which need to eval, it has the following form:
 /// "$it.column1.column2" or "$variable"
-fn extract_formatting_operations(input: String, error_span: Span, span_start: usize) -> Result<Vec<FormatOperation>, ShellError> {
+fn extract_formatting_operations(
+    input: String,
+    error_span: Span,
+    span_start: usize,
+) -> Result<Vec<FormatOperation>, ShellError> {
     let mut output = vec![];
 
     let mut characters = input.char_indices();
@@ -149,7 +157,10 @@ fn extract_formatting_operations(input: String, error_span: Span, span_start: us
         }
 
         if column_span_end < column_span_start {
-            return Err(ShellError::DelimiterError("there are unmatched curly braces".to_string(), error_span)); 
+            return Err(ShellError::DelimiterError(
+                "there are unmatched curly braces".to_string(),
+                error_span,
+            ));
         }
 
         if !column_name.is_empty() {
