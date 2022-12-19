@@ -869,6 +869,7 @@ fn add_matched_short_flags(
     error
 }
 
+#[allow(clippy::too_many_arguments)]
 fn add_positional_args(
     working_set: &mut StateWorkingSet,
     signature: &Signature,
