@@ -695,14 +695,25 @@ impl Value {
                             }
                         }
                         Value::CustomValue { val, .. } => {
-                            // TODO handle optional
-                            current = val.follow_path_int(*count, *origin_span)?;
+                            current = match val.follow_path_int(*count, *origin_span) {
+                                Ok(val) => val,
+                                Err(err) => {
+                                    if *optional {
+                                        Value::nothing(*origin_span)
+                                    } else {
+                                        return Err(err);
+                                    }
+                                },
+                            };
                         }
                         x => {
-                            // TODO do we return nothing for optional=true even if the type is wrong?
-                            return Err(ShellError::TypeMismatchGenericMessage {
-                                err_message: format!("Can't access {} values with a row index. Try specifying a column name instead", x.get_type().to_shape()),
-                                span: *origin_span, });
+                            if *optional {
+                                current = Value::nothing(*origin_span);
+                            } else {
+                                return Err(ShellError::TypeMismatchGenericMessage {
+                                    err_message: format!("Can't access {} values with a row index. Try specifying a column name instead", x.get_type().to_shape()),
+                                    span: *origin_span, });
+                            }
                         }
                     }
                 }
