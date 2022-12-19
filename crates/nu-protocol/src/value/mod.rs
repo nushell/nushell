@@ -755,7 +755,7 @@ impl Value {
                                     output.push(result);
                                 } else {
                                     if *optional {
-                                        output.push(Value::Nothing { span: *span });
+                                        output.push(Value::nothing(*span));
                                     } else {
                                         return Err(ShellError::CantFindColumn(
                                             column_name.to_string(),
@@ -766,7 +766,7 @@ impl Value {
                                 }
                             } else {
                                 if *optional {
-                                    output.push(Value::Nothing { span: *span });
+                                    output.push(Value::nothing(*span));
                                 } else {
                                     return Err(ShellError::CantFindColumn(
                                         column_name.to_string(),
@@ -782,16 +782,27 @@ impl Value {
                             span: *span,
                         };
                     }
-                    Value::CustomValue { val, .. } => {
-                        // TODO handle optional
-                        current = val.follow_path_string(column_name.clone(), *origin_span)?;
+                    Value::CustomValue { val, span } => {
+                        current = match val.follow_path_string(column_name.clone(), *origin_span) {
+                            Ok(val) => val,
+                            Err(err) => {
+                                if *optional {
+                                    Value::nothing(*span)
+                                } else {
+                                    return Err(err);
+                                }
+                            }
+                        };
                     }
                     x => {
-                        // TODO should we return nothing for optional=true even if the type is wrong?
-                        return Err(ShellError::IncompatiblePathAccess(
-                            format!("{}", x.get_type()),
-                            *origin_span,
-                        ));
+                        if *optional {
+                            current = Value::nothing(*origin_span);
+                        } else {
+                            return Err(ShellError::IncompatiblePathAccess(
+                                format!("{}", x.get_type()),
+                                *origin_span,
+                            ));
+                        }
                     }
                 },
             }
