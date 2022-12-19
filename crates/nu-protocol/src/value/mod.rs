@@ -757,14 +757,22 @@ impl Value {
                                     if *optional {
                                         output.push(Value::Nothing { span: *span });
                                     } else {
-                                        return Err(ShellError::NotFound(*span));
+                                        return Err(ShellError::CantFindColumn(
+                                            column_name.to_string(),
+                                            *origin_span,
+                                            *span,
+                                        ));
                                     }
                                 }
                             } else {
                                 if *optional {
                                     output.push(Value::Nothing { span: *span });
                                 } else {
-                                    return Err(ShellError::NotFound(*span));
+                                    return Err(ShellError::CantFindColumn(
+                                        column_name.to_string(),
+                                        *origin_span,
+                                        *span,
+                                    ));
                                 }
                             }
                         }
