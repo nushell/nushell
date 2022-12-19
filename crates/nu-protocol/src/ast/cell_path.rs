@@ -1,6 +1,7 @@
 use super::Expression;
 use crate::Span;
 use serde::{Deserialize, Serialize};
+use core::panic;
 use std::fmt::Write;
 
 #[derive(Debug, Clone, PartialOrd, Serialize, Deserialize)]
@@ -20,8 +21,30 @@ pub enum PathMember {
 impl PartialEq for PathMember {
     fn eq(&self, other: &Self) -> bool {
         match (self, other) {
-            (Self::String { val: l_val, .. }, Self::String { val: r_val, .. }) => l_val == r_val,
-            (Self::Int { val: l_val, .. }, Self::Int { val: r_val, .. }) => l_val == r_val,
+            (
+                Self::String {
+                    val: l_val,
+                    optional: l_optional,
+                    ..
+                },
+                Self::String {
+                    val: r_val,
+                    optional: r_optional,
+                    ..
+                },
+            ) => l_val == r_val && l_optional == r_optional,
+            (
+                Self::Int {
+                    val: l_val,
+                    optional: l_optional,
+                    ..
+                },
+                Self::Int {
+                    val: r_val,
+                    optional: r_optional,
+                    ..
+                },
+            ) => l_val == r_val && l_optional == r_optional,
             _ => false,
         }
     }
@@ -37,11 +60,14 @@ impl CellPath {
         let mut output = String::new();
 
         for (idx, elem) in self.members.iter().enumerate() {
+            // TODO: how should we indicate optionality on the first item?
             if idx > 0 {
+                // TODO output ?
                 output.push('.');
             }
             match elem {
                 PathMember::Int { val, .. } => {
+
                     let _ = write!(output, "{}", val);
                 }
                 PathMember::String { val, .. } => output.push_str(val),

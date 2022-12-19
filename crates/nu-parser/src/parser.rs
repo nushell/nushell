@@ -1880,72 +1880,94 @@ pub fn parse_variable_expr(
 pub fn parse_cell_path(
     working_set: &mut StateWorkingSet,
     tokens: impl Iterator<Item = Token>,
-    mut expect_dot_or_question_mark: bool,
+    // TODO: can we change this so parse always works with or without a dot/question prefix?
+    // that would simplify some things
+    expect_dot_or_question_mark: bool,
     expand_aliases_denylist: &[usize],
     span: Span,
 ) -> (Vec<PathMember>, Option<ParseError>) {
     let mut error = None;
     let mut tail = vec![];
 
+    enum TokenType {
+        QuestionOrDot,
+        Dot,
+        IntOrString,
+    }
+
+    let mut next_token = if expect_dot_or_question_mark {
+        TokenType::QuestionOrDot
+    } else {
+        TokenType::IntOrString
+    };
     let mut optional = false;
 
     for path_element in tokens {
         let bytes = working_set.get_span_contents(path_element.span);
-
-        let token_str = String::from_utf8_lossy(bytes);
-        // TODO remove this
-        log::info!("token: '{token_str}'");
-
-        if expect_dot_or_question_mark {
-            expect_dot_or_question_mark = false;
-
-            if bytes.len() == 2 && bytes[0] == b'?' && bytes[1] == b'.' {
-                optional = true;
-            } else if bytes.len() != 1 || bytes[0] != b'.' {
-                error = error
-                    .or_else(|| Some(ParseError::Expected(". or ?".into(), path_element.span)));
+        // let path_str = String::from_utf8_lossy(bytes);
+        // dbg!(path_str);
+        match next_token {
+            TokenType::QuestionOrDot => {
+                if bytes.len() == 1 && bytes[0] == b'?' {
+                    optional = true;
+                    next_token = TokenType::Dot;
+                } else if bytes.len() == 1 && bytes[0] == b'.' {
+                    next_token = TokenType::IntOrString;
+                } else {
+                    error = error
+                        .or_else(|| Some(ParseError::Expected(". or ?".into(), path_element.span)));
+                }
             }
-        } else {
-            expect_dot_or_question_mark = true;
-
-            match parse_int(bytes, path_element.span) {
-                (
-                    Expression {
-                        expr: Expr::Int(val),
-                        span,
-                        ..
-                    },
-                    None,
-                ) => tail.push(PathMember::Int {
-                    val: val as usize,
-                    span,
-                    optional,
-                }),
-                _ => {
-                    let (result, err) =
-                        parse_string(working_set, path_element.span, expand_aliases_denylist);
-                    error = error.or(err);
-                    match result {
+            TokenType::Dot => {
+                if bytes.len() == 1 && bytes[0] == b'.' {
+                    next_token = TokenType::IntOrString;
+                } else {
+                    error =
+                        error.or_else(|| Some(ParseError::Expected(".".into(), path_element.span)));
+                }
+            }
+            TokenType::IntOrString => {
+                match parse_int(bytes, path_element.span) {
+                    (
                         Expression {
-                            expr: Expr::String(string),
+                            expr: Expr::Int(val),
                             span,
                             ..
-                        } => {
-                            tail.push(PathMember::String {
-                                val: string,
+                        },
+                        None,
+                    ) => tail.push(PathMember::Int {
+                        val: val as usize,
+                        span,
+                        optional,
+                    }),
+                    _ => {
+                        let (result, err) =
+                            parse_string(working_set, path_element.span, expand_aliases_denylist);
+                        error = error.or(err);
+                        match result {
+                            Expression {
+                                expr: Expr::String(string),
                                 span,
-                                optional,
-                            });
-                        }
-                        _ => {
-                            error =
-                                error.or_else(|| Some(ParseError::Expected("string".into(), span)));
+                                ..
+                            } => {
+                                tail.push(PathMember::String {
+                                    val: string,
+                                    span,
+                                    optional,
+                                });
+                            }
+                            _ => {
+                                error = error
+                                    .or_else(|| Some(ParseError::Expected("string".into(), span)));
+                            }
                         }
                     }
                 }
-            }
 
-            optional = false;
+                next_token = TokenType::QuestionOrDot;
+                // reset optional
+                optional = false;
+            }
         }
     }
 
@@ -1967,7 +1989,7 @@ pub fn parse_full_cell_path(
     let mut error = None;
 
     // do we need to tweak `special_tokens` for questions marks?
-    let (tokens, err) = lex(source, span.start, &[b'\n', b'\r'], &[b'.'], true);
+    let (tokens, err) = lex(source, span.start, &[b'\n', b'\r'], &[b'.', b'?'], true);
     error = error.or(err);
 
     let mut tokens = tokens.into_iter().peekable();
@@ -4452,7 +4474,7 @@ pub fn parse_value(
 
             let mut error = None;
 
-            let (tokens, err) = lex(source, span.start, &[b'\n', b'\r'], &[b'.'], true);
+            let (tokens, err) = lex(source, span.start, &[b'\n', b'\r'], &[b'.', b'?'], true);
             error = error.or(err);
 
             let tokens = tokens.into_iter().peekable();
