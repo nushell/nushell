@@ -2,7 +2,9 @@ use super::{list_shells, switch_shell, SwitchTo};
 use nu_engine::CallExt;
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
-use nu_protocol::{Category, Example, PipelineData, ShellError, Signature, Spanned, SyntaxShape};
+use nu_protocol::{
+    Category, Example, PipelineData, ShellError, Signature, Spanned, SyntaxShape, Type,
+};
 
 /// Source a file for environment variables.
 #[derive(Clone)]
@@ -15,6 +17,10 @@ impl Command for GotoShell {
 
     fn signature(&self) -> Signature {
         Signature::build("g")
+            .input_output_types(vec![
+                (Type::Nothing, Type::Nothing),
+                (Type::Nothing, Type::Table(vec![])),
+            ])
             .optional(
                 "shell_number",
                 SyntaxShape::String,

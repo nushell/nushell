@@ -1,7 +1,7 @@
 use nu_engine::get_full_help;
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
-use nu_protocol::{Category, IntoPipelineData, PipelineData, ShellError, Signature, Value};
+use nu_protocol::{Category, IntoPipelineData, PipelineData, ShellError, Signature, Type, Value};
 
 #[derive(Clone)]
 pub struct From;
@@ -16,7 +16,9 @@ impl Command for From {
     }
 
     fn signature(&self) -> nu_protocol::Signature {
-        Signature::build("from").category(Category::Formats)
+        Signature::build("from")
+            .category(Category::Formats)
+            .input_output_types(vec![(Type::Nothing, Type::String)])
     }
 
     fn run(

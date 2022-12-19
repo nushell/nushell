@@ -1,6 +1,6 @@
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
-use nu_protocol::{Category, Example, IntoPipelineData, PipelineData, Signature, Value};
+use nu_protocol::{Category, Example, IntoPipelineData, PipelineData, Signature, Type, Value};
 
 #[derive(Clone)]
 pub struct HistorySession;
@@ -15,7 +15,9 @@ impl Command for HistorySession {
     }
 
     fn signature(&self) -> nu_protocol::Signature {
-        Signature::build("history session").category(Category::Misc)
+        Signature::build("history session")
+            .category(Category::Misc)
+            .input_output_types(vec![(Type::Nothing, Type::Int)])
     }
 
     fn examples(&self) -> Vec<Example> {

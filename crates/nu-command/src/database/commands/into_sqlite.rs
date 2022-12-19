@@ -20,6 +20,9 @@ impl Command for IntoSqliteDb {
 
     fn signature(&self) -> Signature {
         Signature::build("into sqlite")
+            .input_output_types(vec![(Type::Any, Type::Nothing)])
+            .allow_variants_without_examples(true)
+            // TODO: narrow disallowed types
             .required(
                 "file_name",
                 SyntaxShape::String,

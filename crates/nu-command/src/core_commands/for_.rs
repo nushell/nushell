@@ -2,7 +2,7 @@ use nu_engine::{eval_block, eval_expression, CallExt};
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Block, Command, EngineState, Stack};
 use nu_protocol::{
-    Category, Example, ListStream, PipelineData, ShellError, Signature, SyntaxShape, Value,
+    Category, Example, ListStream, PipelineData, ShellError, Signature, SyntaxShape, Type, Value,
 };
 
 #[derive(Clone)]
@@ -19,6 +19,8 @@ impl Command for For {
 
     fn signature(&self) -> nu_protocol::Signature {
         Signature::build("for")
+            .input_output_types(vec![(Type::Nothing, Type::Nothing)])
+            .allow_variants_without_examples(true)
             .required(
                 "var_name",
                 SyntaxShape::VarWithOptType,

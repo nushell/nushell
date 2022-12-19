@@ -9,7 +9,7 @@ use nu_explore::{
 use nu_protocol::{
     ast::Call,
     engine::{Command, EngineState, Stack},
-    Category, Example, PipelineData, ShellError, Signature, Span, SyntaxShape, Value,
+    Category, Example, PipelineData, ShellError, Signature, Span, SyntaxShape, Type, Value,
 };
 use std::collections::HashMap;
 
@@ -31,6 +31,7 @@ impl Command for Explore {
         // if we set h i short flags it panics????
 
         Signature::build("explore")
+            .input_output_types(vec![(Type::Any, Type::Any)])
             .named(
                 "head",
                 SyntaxShape::Boolean,
