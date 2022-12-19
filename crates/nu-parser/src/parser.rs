@@ -884,7 +884,7 @@ fn add_positional_args(
     let positional = signature
         .get_positional(*positional_idx)
         .expect("already checked it's exists");
-    let end = calculate_end_span(working_set, &signature, spans, *spans_idx, *positional_idx);
+    let end = calculate_end_span(working_set, signature, spans, *spans_idx, *positional_idx);
 
     let end = if spans.len() > *spans_idx && end == *spans_idx {
         end + 1
