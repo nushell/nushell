@@ -102,7 +102,7 @@ fn select(
             Some(PathMember::Int {
                 val,
                 span,
-                optional,
+                ..
             }) => {
                 if members.len() > 1 {
                     if ignore_errors {

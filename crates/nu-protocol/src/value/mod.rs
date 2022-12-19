@@ -818,7 +818,7 @@ impl Value {
                 PathMember::String {
                     val: col_name,
                     span,
-                    optional,
+                    .. // ignore the `optional` field for upsert purposes
                 } => match self {
                     Value::List { vals, .. } => {
                         for val in vals.iter_mut() {
@@ -901,7 +901,7 @@ impl Value {
                 PathMember::Int {
                     val: row_num,
                     span,
-                    optional,
+                    .. // ignore the `optional` field for upsert purposes
                 } => match self {
                     Value::List { vals, .. } => {
                         if let Some(v) = vals.get_mut(*row_num) {
@@ -950,7 +950,7 @@ impl Value {
                 PathMember::String {
                     val: col_name,
                     span,
-                    optional,
+                    .. // ignore the `optional` field for update purposes
                 } => match self {
                     Value::List { vals, .. } => {
                         for val in vals.iter_mut() {
@@ -1022,7 +1022,7 @@ impl Value {
                 PathMember::Int {
                     val: row_num,
                     span,
-                    optional,
+                    .. // ignore the `optional` field for update purposes
                 } => match self {
                     Value::List { vals, .. } => {
                         if let Some(v) = vals.get_mut(*row_num) {
@@ -1052,7 +1052,7 @@ impl Value {
                     PathMember::String {
                         val: col_name,
                         span,
-                        optional,
+                        .. // ignore the `optional` field for remove purposes
                     } => match self {
                         Value::List { vals, .. } => {
                             for val in vals.iter_mut() {
@@ -1120,7 +1120,7 @@ impl Value {
                     PathMember::Int {
                         val: row_num,
                         span,
-                        optional,
+                        .. // ignore the `optional` field for remove purposes
                     } => match self {
                         Value::List { vals, .. } => {
                             if vals.get_mut(*row_num).is_some() {
@@ -1142,7 +1142,7 @@ impl Value {
                     PathMember::String {
                         val: col_name,
                         span,
-                        optional,
+                        .. // ignore the `optional` field for remove purposes
                     } => match self {
                         Value::List { vals, .. } => {
                             for val in vals.iter_mut() {
@@ -1210,7 +1210,7 @@ impl Value {
                     PathMember::Int {
                         val: row_num,
                         span,
-                        optional,
+                        .. // ignore the `optional` field for remove purposes
                     } => match self {
                         Value::List { vals, .. } => {
                             if let Some(v) = vals.get_mut(*row_num) {
@@ -1239,7 +1239,7 @@ impl Value {
                 PathMember::String {
                     val: col_name,
                     span,
-                    optional,
+                    ..
                 } => match self {
                     Value::List { vals, .. } => {
                         for val in vals.iter_mut() {
@@ -1321,7 +1321,7 @@ impl Value {
                 PathMember::Int {
                     val: row_num,
                     span,
-                    optional,
+                    ..
                 } => match self {
                     Value::List { vals, .. } => {
                         if let Some(v) = vals.get_mut(*row_num) {
