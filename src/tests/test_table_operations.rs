@@ -1,4 +1,4 @@
-use crate::tests::{run_test, TestResult};
+use crate::tests::{fail_test, run_test, TestResult};
 
 #[test]
 fn cell_path_subexpr1() -> TestResult {
@@ -172,11 +172,29 @@ fn update_cell_path_1() -> TestResult {
 }
 
 #[test]
-fn missing_column_fills_in_nothing() -> TestResult {
-    // The empty value will be replaced with null when fetching a column
+fn missing_column_fails() -> TestResult {
+    // Will fail because of the missing column
+    fail_test(
+        r#"[ { name: ABC, size: 20 }, { name: HIJ } ].size.1"#,
+        "", // we just care if it errors
+    )
+}
+
+#[test]
+fn missing_optional_column_fills_in_nothing() -> TestResult {
+    // The empty value will be replaced with $nothing because of the ?
     run_test(
         r#"[ { name: ABC, size: 20 }, { name: HIJ } ]?.size.1 == $nothing"#,
         "true",
+    )
+}
+
+#[test]
+fn missing_required_row_fails() -> TestResult {
+    // .3 will fail if there is no 3rd row
+    fail_test(
+        r#"[ { name: ABC, size: 20 }, { name: HIJ } ].3"#,
+        "", // we just care if it errors
     )
 }
 
