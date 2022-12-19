@@ -55,24 +55,12 @@ pub struct CellPath {
 }
 
 impl CellPath {
+    // this is used for display purposes and does not include all info necessary to reconstruct a cellpath
     pub fn into_string(&self) -> String {
         let mut output = String::new();
 
         for (idx, elem) in self.members.iter().enumerate() {
-            match elem {
-                PathMember::Int { optional, .. } => {
-                    if *optional {
-                        output.push('?');
-                    }
-                }
-                PathMember::String { optional, .. } => {
-                    if *optional {
-                        output.push('?');
-                    }
-                },
-            }
-
-            if idx > 0 || output.len() > 0 {
+            if idx > 0 {
                 output.push('.');
             }
 
