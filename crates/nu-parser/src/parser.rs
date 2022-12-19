@@ -791,6 +791,84 @@ pub struct ParsedInternalCall {
     pub error: Option<ParseError>,
 }
 
+fn add_matched_short_flags(
+    working_set: &mut StateWorkingSet,
+    call: &mut Call,
+    spans: &[Span],
+    spans_idx: &mut usize,
+    short_flags: Vec<Flag>,
+    expand_aliases_denylist: &[usize],
+    loosely: bool,
+) -> Option<ParseError> {
+    let mut error = None;
+    for flag in short_flags {
+        if let Some(arg_shape) = flag.arg {
+            if let Some(arg) = spans.get(*spans_idx + 1) {
+                let (arg, err) =
+                    parse_value(working_set, *arg, &arg_shape, expand_aliases_denylist);
+                error = error.or(err);
+
+                if flag.long.is_empty() {
+                    if let Some(short) = flag.short {
+                        call.add_named((
+                            Spanned {
+                                item: String::new(),
+                                span: spans[*spans_idx],
+                            },
+                            Some(Spanned {
+                                item: short.to_string(),
+                                span: spans[*spans_idx],
+                            }),
+                            Some(arg),
+                        ));
+                    }
+                } else {
+                    call.add_named((
+                        Spanned {
+                            item: flag.long.clone(),
+                            span: spans[*spans_idx],
+                        },
+                        None,
+                        Some(arg),
+                    ));
+                }
+                *spans_idx += 1;
+            } else if !loosely {
+                error = error.or_else(|| {
+                    Some(ParseError::MissingFlagParam(
+                        arg_shape.to_string(),
+                        spans[*spans_idx],
+                    ))
+                })
+            }
+        } else if flag.long.is_empty() {
+            if let Some(short) = flag.short {
+                call.add_named((
+                    Spanned {
+                        item: String::new(),
+                        span: spans[*spans_idx],
+                    },
+                    Some(Spanned {
+                        item: short.to_string(),
+                        span: spans[*spans_idx],
+                    }),
+                    None,
+                ));
+            }
+        } else {
+            call.add_named((
+                Spanned {
+                    item: flag.long.clone(),
+                    span: spans[*spans_idx],
+                },
+                None,
+                None,
+            ));
+        }
+    }
+    error
+}
+
 fn parse_internal_call_loosely(
     working_set: &mut StateWorkingSet,
     command_span: Span,
@@ -896,64 +974,16 @@ fn parse_internal_call_loosely(
                 continue;
             }
 
-            for flag in short_flags {
-                if let Some(arg_shape) = flag.arg {
-                    if let Some(arg) = spans.get(spans_idx + 1) {
-                        let (arg, err) =
-                            parse_value(working_set, *arg, &arg_shape, expand_aliases_denylist);
-                        error = error.or(err);
-
-                        if flag.long.is_empty() {
-                            if let Some(short) = flag.short {
-                                call.add_named((
-                                    Spanned {
-                                        item: String::new(),
-                                        span: spans[spans_idx],
-                                    },
-                                    Some(Spanned {
-                                        item: short.to_string(),
-                                        span: spans[spans_idx],
-                                    }),
-                                    Some(arg),
-                                ));
-                            }
-                        } else {
-                            call.add_named((
-                                Spanned {
-                                    item: flag.long.clone(),
-                                    span: spans[spans_idx],
-                                },
-                                None,
-                                Some(arg),
-                            ));
-                        }
-                        spans_idx += 1;
-                    }
-                } else if flag.long.is_empty() {
-                    if let Some(short) = flag.short {
-                        call.add_named((
-                            Spanned {
-                                item: String::new(),
-                                span: spans[spans_idx],
-                            },
-                            Some(Spanned {
-                                item: short.to_string(),
-                                span: spans[spans_idx],
-                            }),
-                            None,
-                        ));
-                    }
-                } else {
-                    call.add_named((
-                        Spanned {
-                            item: flag.long.clone(),
-                            span: spans[spans_idx],
-                        },
-                        None,
-                        None,
-                    ));
-                }
-            }
+            let err = add_matched_short_flags(
+                working_set,
+                &mut call,
+                spans,
+                &mut spans_idx,
+                short_flags,
+                expand_aliases_denylist,
+                true,
+            );
+            error = error.or(err);
 
             if let Some(unmatch_span) = unmatched_short_flags_span {
                 if !unmatch_span.is_empty() {
@@ -1147,71 +1177,16 @@ pub fn parse_realcomp_internal_call(
                 })
             }
             error = error.or(err);
-            for flag in short_flags {
-                if let Some(arg_shape) = flag.arg {
-                    if let Some(arg) = spans.get(spans_idx + 1) {
-                        let (arg, err) =
-                            parse_value(working_set, *arg, &arg_shape, expand_aliases_denylist);
-                        error = error.or(err);
-
-                        if flag.long.is_empty() {
-                            if let Some(short) = flag.short {
-                                call.add_named((
-                                    Spanned {
-                                        item: String::new(),
-                                        span: spans[spans_idx],
-                                    },
-                                    Some(Spanned {
-                                        item: short.to_string(),
-                                        span: spans[spans_idx],
-                                    }),
-                                    Some(arg),
-                                ));
-                            }
-                        } else {
-                            call.add_named((
-                                Spanned {
-                                    item: flag.long.clone(),
-                                    span: spans[spans_idx],
-                                },
-                                None,
-                                Some(arg),
-                            ));
-                        }
-                        spans_idx += 1;
-                    } else {
-                        error = error.or_else(|| {
-                            Some(ParseError::MissingFlagParam(
-                                arg_shape.to_string(),
-                                arg_span,
-                            ))
-                        })
-                    }
-                } else if flag.long.is_empty() {
-                    if let Some(short) = flag.short {
-                        call.add_named((
-                            Spanned {
-                                item: String::new(),
-                                span: spans[spans_idx],
-                            },
-                            Some(Spanned {
-                                item: short.to_string(),
-                                span: spans[spans_idx],
-                            }),
-                            None,
-                        ));
-                    }
-                } else {
-                    call.add_named((
-                        Spanned {
-                            item: flag.long.clone(),
-                            span: spans[spans_idx],
-                        },
-                        None,
-                        None,
-                    ));
-                }
-            }
+            let err = add_matched_short_flags(
+                working_set,
+                &mut call,
+                spans,
+                &mut spans_idx,
+                short_flags,
+                expand_aliases_denylist,
+                false,
+            );
+            error = error.or(err);
             spans_idx += 1;
             continue;
         }
