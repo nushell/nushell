@@ -69,7 +69,10 @@ fn record_with_nested_list_column_failure() -> TestResult {
 
 #[test]
 fn deeply_nested_optional_cell_path() -> TestResult {
-    run_test("{foo: [{bar: 'baz'}]}.foo?.3?.bar?.asdfdafg?.234?.foobar", "")
+    run_test(
+        "{foo: [{bar: 'baz'}]}.foo?.3?.bar?.asdfdafg?.234?.foobar",
+        "",
+    )
 }
 
 // tests for lists
@@ -152,8 +155,6 @@ fn list_row_optional_access_succeeds() -> TestResult {
 //     run_test("[{} {foo: 'bar'}] | each {|i| $i } | get 0?.foo", "")?;
 //     run_test("[{} {foo: 'bar'}] | each {|i| $i } | get ?.foo.0", "")
 // }
-
-
 
 // Tests for cell paths as used by `get`
 // Any cell path access (ex: `$foo.a`) can be rewritten with `get` (ex: `$foo | get a`)
