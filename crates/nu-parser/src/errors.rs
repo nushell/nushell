@@ -391,7 +391,7 @@ pub enum ParseError {
     #[diagnostic(
         code(nu::parser::not_a_constant),
         url(docsrs),
-        help("Only a subset of expressions are allowed constants during parsing.")
+        help("Only a subset of expressions are allowed constants during parsing. Try using the 'let' command or typing the value literally.")
     )]
     NotAConstant(#[label = "Value is not a parse-time constant"] Span),
 
