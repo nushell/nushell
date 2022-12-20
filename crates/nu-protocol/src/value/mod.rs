@@ -703,7 +703,7 @@ impl Value {
                                     } else {
                                         return Err(err);
                                     }
-                                },
+                                }
                             };
                         }
                         x => {

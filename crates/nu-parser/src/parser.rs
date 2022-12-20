@@ -1877,12 +1877,17 @@ pub fn parse_variable_expr(
     }
 }
 
+// cell path examples:
+//    a.b.c
+//    .a.1.b
+//    ?a.b
+//    ?.a?.b
+// A cell path is a vec of `PathMember`s. `PathMember`s are either an int (row number) or string (column name)
+// `PathMember`s can be optional, as indicated by a preceding `?`.
+// `PathMember`s are separated by dots (`.`), and the dot before the first `PathMember` is optional
 pub fn parse_cell_path(
     working_set: &mut StateWorkingSet,
     tokens: impl Iterator<Item = Token>,
-    // TODO: can we change this so parse always works with or without a dot/question prefix?
-    // that would simplify some things
-    expect_dot_or_question_mark: bool,
     expand_aliases_denylist: &[usize],
     span: Span,
 ) -> (Vec<PathMember>, Option<ParseError>) {
@@ -1890,27 +1895,82 @@ pub fn parse_cell_path(
     let mut tail = vec![];
 
     enum TokenType {
-        QuestionOrDot,
-        Dot,
-        IntOrString,
+        QuestionOrDot,   // ? or .
+        Dot,             // .
+        PathMember,      // an int or string, like `1` or `foo`
+        DotOrPathMember, // . or a path member
+        Any, // any of the above. possible at the start of a cell path, because a leading . is not required
     }
 
-    let mut next_token = if expect_dot_or_question_mark {
-        TokenType::QuestionOrDot
-    } else {
-        TokenType::IntOrString
-    };
+    // Parsing a cell path is essentially a state machine, and this is the state
+    let mut expected_token = TokenType::Any;
     let mut optional = false;
 
     for path_element in tokens {
         let bytes = working_set.get_span_contents(path_element.span);
-        match next_token {
+
+        // FIXME: this contains an awful lot of duplicated code for parsing int/string path members.
+        // Should clean it up / deduplicate it, but it's a little tricky because of lifetimes
+        match expected_token {
+            TokenType::Any => {
+                if bytes.len() == 1 && bytes[0] == b'?' {
+                    optional = true;
+                    expected_token = TokenType::DotOrPathMember;
+                } else if bytes.len() == 1 && bytes[0] == b'.' {
+                    expected_token = TokenType::PathMember;
+                } else {
+                    match parse_int(bytes, path_element.span) {
+                        (
+                            Expression {
+                                expr: Expr::Int(val),
+                                span,
+                                ..
+                            },
+                            None,
+                        ) => tail.push(PathMember::Int {
+                            val: val as usize,
+                            span,
+                            optional,
+                        }),
+                        _ => {
+                            let (result, err) = parse_string(
+                                working_set,
+                                path_element.span,
+                                expand_aliases_denylist,
+                            );
+                            error = error.or(err);
+                            match result {
+                                Expression {
+                                    expr: Expr::String(string),
+                                    span,
+                                    ..
+                                } => {
+                                    tail.push(PathMember::String {
+                                        val: string,
+                                        span,
+                                        optional,
+                                    });
+                                }
+                                _ => {
+                                    error = error.or_else(|| {
+                                        Some(ParseError::Expected("string".into(), span))
+                                    });
+                                }
+                            }
+                        }
+                    }
+
+                    expected_token = TokenType::QuestionOrDot;
+                    // reset optional
+                    optional = false;
+                }
+            }
             TokenType::QuestionOrDot => {
                 if bytes.len() == 1 && bytes[0] == b'?' {
                     optional = true;
-                    next_token = TokenType::Dot;
+                    expected_token = TokenType::Dot;
                 } else if bytes.len() == 1 && bytes[0] == b'.' {
-                    next_token = TokenType::IntOrString;
+                    expected_token = TokenType::PathMember;
                 } else {
                     error = error
                         .or_else(|| Some(ParseError::Expected(". or ?".into(), path_element.span)));
@@ -1918,13 +1978,13 @@ pub fn parse_cell_path(
             }
             TokenType::Dot => {
                 if bytes.len() == 1 && bytes[0] == b'.' {
-                    next_token = TokenType::IntOrString;
+                    expected_token = TokenType::PathMember;
                 } else {
                     error =
                         error.or_else(|| Some(ParseError::Expected(".".into(), path_element.span)));
                 }
             }
-            TokenType::IntOrString => {
+            TokenType::PathMember => {
                 match parse_int(bytes, path_element.span) {
                     (
                         Expression {
@@ -1962,9 +2022,59 @@ pub fn parse_cell_path(
                     }
                 }
 
-                next_token = TokenType::QuestionOrDot;
+                expected_token = TokenType::QuestionOrDot;
                 // reset optional
                 optional = false;
+            }
+            TokenType::DotOrPathMember => {
+                if bytes.len() == 1 && bytes[0] == b'.' {
+                    expected_token = TokenType::PathMember;
+                } else {
+                    match parse_int(bytes, path_element.span) {
+                        (
+                            Expression {
+                                expr: Expr::Int(val),
+                                span,
+                                ..
+                            },
+                            None,
+                        ) => tail.push(PathMember::Int {
+                            val: val as usize,
+                            span,
+                            optional,
+                        }),
+                        _ => {
+                            let (result, err) = parse_string(
+                                working_set,
+                                path_element.span,
+                                expand_aliases_denylist,
+                            );
+                            error = error.or(err);
+                            match result {
+                                Expression {
+                                    expr: Expr::String(string),
+                                    span,
+                                    ..
+                                } => {
+                                    tail.push(PathMember::String {
+                                        val: string,
+                                        span,
+                                        optional,
+                                    });
+                                }
+                                _ => {
+                                    error = error.or_else(|| {
+                                        Some(ParseError::Expected("string".into(), span))
+                                    });
+                                }
+                            }
+                        }
+                    }
+
+                    expected_token = TokenType::QuestionOrDot;
+                    // reset optional
+                    optional = false;
+                }
             }
         }
     }
@@ -1989,7 +2099,7 @@ pub fn parse_full_cell_path(
     let mut tokens = tokens.into_iter().peekable();
     if let Some(head) = tokens.peek() {
         let bytes = working_set.get_span_contents(head.span);
-        let (head, expect_dot) = if bytes.starts_with(b"(") {
+        let head = if bytes.starts_with(b"(") {
             trace!("parsing: paren-head of full cell path");
 
             let head_span = head.span;
@@ -2046,15 +2156,12 @@ pub fn parse_full_cell_path(
             let block_id = working_set.add_block(output);
             tokens.next();
 
-            (
-                Expression {
-                    expr: Expr::Subexpression(block_id),
-                    span: head_span,
-                    ty,
-                    custom_completion: None,
-                },
-                true,
-            )
+            Expression {
+                expr: Expr::Subexpression(block_id),
+                span: head_span,
+                ty,
+                custom_completion: None,
+            }
         } else if bytes.starts_with(b"[") {
             trace!("parsing: table head of full cell path");
 
@@ -2064,7 +2171,7 @@ pub fn parse_full_cell_path(
 
             tokens.next();
 
-            (output, true)
+            output
         } else if bytes.starts_with(b"{") {
             trace!("parsing: record head of full cell path");
             let (output, err) = parse_record(working_set, head.span, expand_aliases_denylist);
@@ -2072,7 +2179,7 @@ pub fn parse_full_cell_path(
 
             tokens.next();
 
-            (output, true)
+            output
         } else if bytes.starts_with(b"$") {
             trace!("parsing: $variable head of full cell path");
 
@@ -2081,18 +2188,15 @@ pub fn parse_full_cell_path(
 
             tokens.next();
 
-            (out, true)
+            out
         } else if let Some(var_id) = implicit_head {
             trace!("parsing: implicit head of full cell path");
-            (
-                Expression {
-                    expr: Expr::Var(var_id),
-                    span: head.span,
-                    ty: Type::Any,
-                    custom_completion: None,
-                },
-                false,
-            )
+            Expression {
+                expr: Expr::Var(var_id),
+                span: head.span,
+                ty: Type::Any,
+                custom_completion: None,
+            }
         } else {
             return (
                 garbage(span),
@@ -2104,13 +2208,7 @@ pub fn parse_full_cell_path(
             );
         };
 
-        let (tail, err) = parse_cell_path(
-            working_set,
-            tokens,
-            expect_dot,
-            expand_aliases_denylist,
-            span,
-        );
+        let (tail, err) = parse_cell_path(working_set, tokens, expand_aliases_denylist, span);
         error = error.or(err);
 
         (
@@ -4469,7 +4567,7 @@ pub fn parse_value(
             let tokens = tokens.into_iter().peekable();
 
             let (cell_path, err) =
-                parse_cell_path(working_set, tokens, false, expand_aliases_denylist, span);
+                parse_cell_path(working_set, tokens, expand_aliases_denylist, span);
             error = error.or(err);
 
             (
