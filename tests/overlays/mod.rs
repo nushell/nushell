@@ -721,6 +721,23 @@ fn overlay_add_renamed() {
 }
 
 #[test]
+fn overlay_add_renamed_const() {
+    let inp = &[
+        r#"module spam { export def foo [] { "foo" } }"#,
+        r#"const name = 'spam'"#,
+        r#"const new_name = 'eggs'"#,
+        r#"overlay use $name as $new_name --prefix"#,
+        r#"eggs foo"#,
+    ];
+
+    let actual = nu!(cwd: "tests/overlays", pipeline(&inp.join("; ")));
+    let actual_repl = nu!(cwd: "tests/overlays", nu_repl_code(inp));
+
+    assert_eq!(actual.out, "foo");
+    assert_eq!(actual_repl.out, "foo");
+}
+
+#[test]
 fn overlay_add_renamed_from_file() {
     let inp = &[
         r#"overlay use samples/spam.nu as eggs --prefix"#,

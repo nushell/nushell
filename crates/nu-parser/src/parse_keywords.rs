@@ -2409,20 +2409,15 @@ pub fn parse_overlay_use(
 
     let new_name = if let Some(kw_expression) = call.positional_nth(1) {
         if let Some(new_name_expression) = kw_expression.as_keyword() {
-            if let Some(new_name) = new_name_expression.as_string() {
-                Some(Spanned {
-                    item: new_name,
-                    span: new_name_expression.span,
-                })
-            } else {
-                return (
-                    garbage_pipeline(spans),
-                    Some(ParseError::TypeMismatch(
-                        Type::String,
-                        new_name_expression.ty.clone(),
-                        new_name_expression.span,
-                    )),
-                );
+            match eval_constant(working_set, new_name_expression) {
+                Ok(val) => match value_as_string(val, new_name_expression.span) {
+                    Ok(s) => Some(Spanned {
+                        item: s,
+                        span: new_name_expression.span,
+                    }),
+                    Err(err) => return (garbage_pipeline(spans), Some(err)),
+                },
+                Err(err) => return (garbage_pipeline(spans), Some(err)),
             }
         } else {
             return (

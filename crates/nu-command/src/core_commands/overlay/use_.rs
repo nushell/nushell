@@ -82,25 +82,8 @@ impl Command for OverlayUse {
             ));
         };
 
-        let overlay_name = if let Some(kw_expression) = call.positional_nth(1) {
-            // If renamed via the 'as' keyword, use the new name as the overlay name
-            if let Some(new_name_expression) = kw_expression.as_keyword() {
-                if let Some(new_name) = new_name_expression.as_string() {
-                    new_name
-                } else {
-                    return Err(ShellError::NushellFailedSpanned(
-                        "Wrong keyword type".to_string(),
-                        "keyword argument not a string".to_string(),
-                        new_name_expression.span,
-                    ));
-                }
-            } else {
-                return Err(ShellError::NushellFailedSpanned(
-                    "Wrong keyword type".to_string(),
-                    "keyword argument not a keyword".to_string(),
-                    kw_expression.span,
-                ));
-            }
+        let overlay_name = if let Some(name) = call.opt(engine_state, caller_stack, 1)? {
+            name
         } else if engine_state
             .find_overlay(name_arg.item.as_bytes())
             .is_some()
