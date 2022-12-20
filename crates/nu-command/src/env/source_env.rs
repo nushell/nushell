@@ -4,7 +4,7 @@ use nu_engine::{eval_block, find_in_dirs_env, redirect_env, CallExt};
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
-    Category, Example, PipelineData, ShellError, Signature, Spanned, SyntaxShape, Value,
+    Category, Example, PipelineData, ShellError, Signature, Spanned, SyntaxShape, Type, Value,
 };
 
 /// Source a file for environment variables.
@@ -18,6 +18,7 @@ impl Command for SourceEnv {
 
     fn signature(&self) -> Signature {
         Signature::build("source-env")
+            .input_output_types(vec![(Type::Any, Type::Any)])
             .required(
                 "filename",
                 SyntaxShape::String, // type is string to avoid automatically canonicalizing the path

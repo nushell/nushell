@@ -8,7 +8,7 @@ use nu_protocol::ast::Call;
 use nu_protocol::engine::{Closure, Command, EngineState, Stack, StateWorkingSet};
 use nu_protocol::{
     format_error, Category, Example, IntoPipelineData, PipelineData, ShellError, Signature,
-    Spanned, SyntaxShape, Value,
+    Spanned, SyntaxShape, Type, Value,
 };
 
 // durations chosen mostly arbitrarily
@@ -33,6 +33,7 @@ impl Command for Watch {
 
     fn signature(&self) -> nu_protocol::Signature {
         Signature::build("watch")
+        .input_output_types(vec![(Type::Nothing, Type::Table(vec![]))])
             .required("path", SyntaxShape::Filepath, "the path to watch. Can be a file or directory")
             .required("closure",
             SyntaxShape::Closure(Some(vec![SyntaxShape::String, SyntaxShape::String, SyntaxShape::String])),

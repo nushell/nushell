@@ -4,7 +4,7 @@ use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
     Category, Example, IntoPipelineData, PipelineData, ShellError, Signature, Span, SyntaxShape,
-    Value,
+    Type, Value,
 };
 
 #[derive(Clone)]
@@ -21,6 +21,7 @@ impl Command for ViewSource {
 
     fn signature(&self) -> nu_protocol::Signature {
         Signature::build("view-source")
+            .input_output_types(vec![(Type::Nothing, Type::String)])
             .required("item", SyntaxShape::Any, "name or block to view")
             .category(Category::Core)
     }

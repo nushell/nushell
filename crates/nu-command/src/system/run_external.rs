@@ -2,11 +2,13 @@ use fancy_regex::Regex;
 use itertools::Itertools;
 use nu_engine::env_to_strings;
 use nu_engine::CallExt;
-use nu_protocol::ast::{Expr, Expression};
-use nu_protocol::did_you_mean;
-use nu_protocol::engine::{EngineState, Stack};
-use nu_protocol::{ast::Call, engine::Command, ShellError, Signature, SyntaxShape, Value};
-use nu_protocol::{Category, Example, ListStream, PipelineData, RawStream, Span, Spanned};
+use nu_protocol::{
+    ast::{Call, Expr, Expression},
+    did_you_mean,
+    engine::{Command, EngineState, Stack},
+    Category, Example, ListStream, PipelineData, RawStream, ShellError, Signature, Span, Spanned,
+    SyntaxShape, Type, Value,
+};
 use nu_system::ForegroundProcess;
 use pathdiff::diff_paths;
 use std::collections::HashMap;
@@ -34,6 +36,7 @@ impl Command for External {
 
     fn signature(&self) -> nu_protocol::Signature {
         Signature::build(self.name())
+            .input_output_types(vec![(Type::Any, Type::Any)])
             .switch("redirect-stdout", "redirect stdout to the pipeline", None)
             .switch("redirect-stderr", "redirect stderr to the pipeline", None)
             .switch("trim-end-newline", "trimming end newlines", None)
