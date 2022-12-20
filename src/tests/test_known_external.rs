@@ -1,4 +1,4 @@
-use crate::tests::{fail_test, run_test_contains, TestResult};
+use crate::tests::{fail_test, run_test, run_test_contains, TestResult};
 
 // cargo version prints a string of the form:
 // cargo 1.60.0 (d1fd9fe2c 2022-03-01)
@@ -44,5 +44,35 @@ fn known_external_batched_short_flag_arg_disallowed() -> TestResult {
     fail_test(
         "extern echo [-a, -b: int]; echo -ab 10",
         "short flag batches",
+    )
+}
+
+#[test]
+fn known_external_missing_positional() -> TestResult {
+    fail_test("extern echo [a]; echo", "missing_positional")
+}
+
+#[test]
+fn known_external_type_mismatch() -> TestResult {
+    fail_test("extern echo [a: int]; echo 1.234", "mismatch")
+}
+
+#[test]
+fn known_external_missing_flag_param() -> TestResult {
+    fail_test(
+        "extern echo [--foo: string]; echo --foo",
+        "missing_flag_param",
+    )
+}
+
+#[test]
+fn known_external_misc_values() -> TestResult {
+    run_test(
+        r#"
+            let x = 'abc'
+            extern echo []
+            echo $x [ a b c ]
+        "#,
+        "abc a b c",
     )
 }
