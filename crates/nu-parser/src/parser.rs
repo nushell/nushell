@@ -1,4 +1,5 @@
 use crate::{
+    eval::{eval_constant, value_as_string},
     lex, parse_mut,
     type_check::{math_result_type, type_compatible},
     ParseError, Token, TokenContents,
@@ -2805,11 +2806,8 @@ pub fn parse_import_pattern(
 ) -> (Expression, Option<ParseError>) {
     let mut error = None;
 
-    let (head, head_span) = if let Some(head_span) = spans.get(0) {
-        (
-            working_set.get_span_contents(*head_span).to_vec(),
-            head_span,
-        )
+    let head_span = if let Some(head_span) = spans.get(0) {
+        head_span
     } else {
         return (
             garbage(span(spans)),
@@ -2817,7 +2815,25 @@ pub fn parse_import_pattern(
         );
     };
 
-    let maybe_module_id = working_set.find_module(&head);
+    let (head_expr, err) = parse_value(
+        working_set,
+        *head_span,
+        &SyntaxShape::Any,
+        expand_aliases_denylist,
+    );
+    error = error.or(err);
+
+    let (maybe_module_id, head_name) = match eval_constant(working_set, &head_expr) {
+        Ok(val) => match value_as_string(val, head_expr.span) {
+            Ok(s) => (working_set.find_module(s.as_bytes()), s.into_bytes()),
+            Err(err) => {
+                return (garbage(span(spans)), error.or(Some(err)));
+            }
+        },
+        Err(err) => {
+            return (garbage(span(spans)), error.or(Some(err)));
+        }
+    };
 
     let (import_pattern, err) = if let Some(tail_span) = spans.get(1) {
         // FIXME: expand this to handle deeper imports once we support module imports
@@ -2826,7 +2842,7 @@ pub fn parse_import_pattern(
             (
                 ImportPattern {
                     head: ImportPatternHead {
-                        name: head,
+                        name: head_name,
                         id: maybe_module_id,
                         span: *head_span,
                     },
@@ -2859,7 +2875,7 @@ pub fn parse_import_pattern(
                     (
                         ImportPattern {
                             head: ImportPatternHead {
-                                name: head,
+                                name: head_name,
                                 id: maybe_module_id,
                                 span: *head_span,
                             },
@@ -2872,7 +2888,7 @@ pub fn parse_import_pattern(
                 _ => (
                     ImportPattern {
                         head: ImportPatternHead {
-                            name: head,
+                            name: head_name,
                             id: maybe_module_id,
                             span: *head_span,
                         },
@@ -2887,7 +2903,7 @@ pub fn parse_import_pattern(
             (
                 ImportPattern {
                     head: ImportPatternHead {
-                        name: head,
+                        name: head_name,
                         id: maybe_module_id,
                         span: *head_span,
                     },
@@ -2904,7 +2920,7 @@ pub fn parse_import_pattern(
         (
             ImportPattern {
                 head: ImportPatternHead {
-                    name: head,
+                    name: head_name,
                     id: maybe_module_id,
                     span: *head_span,
                 },

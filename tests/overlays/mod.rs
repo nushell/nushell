@@ -182,6 +182,20 @@ fn add_overlay_from_const_file_decl() {
     assert_eq!(actual.out, "foo");
 }
 
+#[test]
+fn add_overlay_from_const_module_name_decl() {
+    let inp = &[
+        r#"module spam { export def foo [] { "foo" } }"#,
+        r#"const mod = 'spam'"#,
+        r#"overlay use $mod"#,
+        r#"foo"#,
+    ];
+
+    let actual = nu!(cwd: "tests/overlays", pipeline(&inp.join("; ")));
+
+    assert_eq!(actual.out, "foo");
+}
+
 // This one tests that the `nu_repl()` loop works correctly
 #[test]
 fn add_overlay_from_file_decl_cd() {
