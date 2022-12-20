@@ -1883,7 +1883,7 @@ pub fn parse_variable_expr(
 //    ?a.b
 //    ?.a?.b
 // A cell path is a vec of `PathMember`s. `PathMember`s are either an int (row number) or string (column name)
-// `PathMember`s can be optional, as indicated by a preceding `?`.
+// `PathMember`s can be optional, as indicated by a preceding `?`. This means a failed attempt to access that `PathMember` will return Nothing
 // `PathMember`s are separated by dots (`.`), and the dot before the first `PathMember` is optional
 pub fn parse_cell_path(
     working_set: &mut StateWorkingSet,
@@ -1895,8 +1895,8 @@ pub fn parse_cell_path(
     let mut tail = vec![];
 
     enum TokenType {
-        QuestionOrDot,   // ? or .
         Dot,             // .
+        QuestionOrDot,   // ? or .
         PathMember,      // an int or string, like `1` or `foo`
         DotOrPathMember, // . or a path member
         Any, // any of the above. possible at the start of a cell path, because a leading . is not required
