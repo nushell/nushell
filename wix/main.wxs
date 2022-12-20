@@ -264,7 +264,7 @@
                                 DiskId='1'
                                 Source='target\$(var.Profile)\nu_plugin_query_json.exe'
                                 KeyPath='yes'/>
-                        </Component> 
+                        </Component>
                         <Component Id='binary21' Guid='*' Win64='$(var.Win64)'>
                             <File
                                 Id='exe21'
@@ -342,7 +342,7 @@
             <ComponentRef Id='binary17'/>
             <ComponentRef Id='binary18'/>
             <ComponentRef Id='binary19'/>
-            <ComponentRef Id='binary20'/> 
+            <ComponentRef Id='binary20'/>
             <ComponentRef Id='binary21'/> -->
             <ComponentRef Id='binary22'/>
 
@@ -375,7 +375,7 @@
         <SetProperty
             Id="ReplacePathsInWindowsTerminalProfile"
             Sequence="execute"
-            Value="&quot;[#exe0]&quot; -c &quot;open '[#WindowsTerminalProfileFile]' | update profiles.commandline '[#exe0]' | update profiles.icon '[#icon0]' | save '[#WindowsTerminalProfileFile]'&quot;"
+            Value="&quot;[#exe0]&quot; -c &quot;open '[#WindowsTerminalProfileFile]' | update profiles.commandline '[#exe0]' | update profiles.icon '[#icon0]' | save -f '[#WindowsTerminalProfileFile]'&quot;"
             After='CostFinalize'/>
         <CustomAction
             Id="ReplacePathsInWindowsTerminalProfile"
