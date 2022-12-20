@@ -123,38 +123,64 @@ fn list_row_optional_access_succeeds() -> TestResult {
 // TODO: re-enable these tests once we have a way to do streaming cell path access
 // I'm using a hack to create ListStreams for testing: pipe a list into `each`
 
-// #[test]
-// fn list_stream_single_field_success() -> TestResult {
-//     run_test("[{foo: 'bar'} {foo: 'baz'}] | each {|i| $i } | get foo.0", "bar")?;
-//     run_test("[{foo: 'bar'} {foo: 'baz'}] | each {|i| $i } | get 0.foo", "bar")?;
-//     run_test("[{foo: 'bar'} {foo: 'baz'}] | each {|i| $i } | get 1.foo", "baz")?;
-//     run_test("[{foo: 'bar'} {foo: 'baz'}] | each {|i| $i } | get foo.1", "baz")
-// }
+#[ignore = "cell path access doesn't handle ListStreams properly yet"]
+#[test]
+fn list_stream_single_field_success() -> TestResult {
+    run_test(
+        "[{foo: 'bar'} {foo: 'baz'}] | each {|i| $i } | get foo.0",
+        "bar",
+    )?;
+    run_test(
+        "[{foo: 'bar'} {foo: 'baz'}] | each {|i| $i } | get 0.foo",
+        "bar",
+    )?;
+    run_test(
+        "[{foo: 'bar'} {foo: 'baz'}] | each {|i| $i } | get 1.foo",
+        "baz",
+    )?;
+    run_test(
+        "[{foo: 'bar'} {foo: 'baz'}] | each {|i| $i } | get foo.1",
+        "baz",
+    )
+}
 
-// #[test]
-// fn list_stream_single_field_failure() -> TestResult {
-//     fail_test("[{foo: 'bar'} {foo: 'baz'}] | each {|i| $i } | get asdf", "")
-// }
+#[ignore = "cell path access doesn't handle ListStreams properly yet"]
+#[test]
+fn list_stream_single_field_failure() -> TestResult {
+    fail_test(
+        "[{foo: 'bar'} {foo: 'baz'}] | each {|i| $i } | get asdf",
+        "",
+    )
+}
 
-// #[test]
-// fn list_stream_single_field_optional() -> TestResult {
-//     run_test("[{foo: 'bar'} {foo: 'baz'}] | each {|i| $i } | get ?.asdf.0", "")?;
-//     run_test("[{foo: 'bar'} {foo: 'baz'}] | each {|i| $i } | get 0?.asdf", "")
-// }
+#[ignore = "cell path access doesn't handle ListStreams properly yet"]
+#[test]
+fn list_stream_single_field_optional() -> TestResult {
+    run_test(
+        "[{foo: 'bar'} {foo: 'baz'}] | each {|i| $i } | get ?.asdf.0",
+        "",
+    )?;
+    run_test(
+        "[{foo: 'bar'} {foo: 'baz'}] | each {|i| $i } | get 0?.asdf",
+        "",
+    )
+}
 
-// #[test]
-// fn jagged_liststream_access_fails() -> TestResult {
-//     fail_test("[{foo: 'bar'} {}] | each {|i| $i } | get foo", "")?;
-//     fail_test("[{} {foo: 'bar'}] | each {|i| $i } | get foo", "")
-// }
+#[ignore = "cell path access doesn't handle ListStreams properly yet"]
+#[test]
+fn jagged_liststream_access_fails() -> TestResult {
+    fail_test("[{foo: 'bar'} {}] | each {|i| $i } | get foo", "")?;
+    fail_test("[{} {foo: 'bar'}] | each {|i| $i } | get foo", "")
+}
 
-// #[test]
-// fn jagged_liststream_optional_access_succeeds() -> TestResult {
-//     run_test("[{} {foo: 'bar'}] | each {|i| $i } | get ?.foo.1", "bar")?;
-//     run_test("[{} {foo: 'bar'}] | each {|i| $i } | get 1?.foo", "bar")?;
-//     run_test("[{} {foo: 'bar'}] | each {|i| $i } | get 0?.foo", "")?;
-//     run_test("[{} {foo: 'bar'}] | each {|i| $i } | get ?.foo.0", "")
-// }
+#[ignore = "cell path access doesn't handle ListStreams properly yet"]
+#[test]
+fn jagged_liststream_optional_access_succeeds() -> TestResult {
+    run_test("[{} {foo: 'bar'}] | each {|i| $i } | get ?.foo.1", "bar")?;
+    run_test("[{} {foo: 'bar'}] | each {|i| $i } | get 1?.foo", "bar")?;
+    run_test("[{} {foo: 'bar'}] | each {|i| $i } | get 0?.foo", "")?;
+    run_test("[{} {foo: 'bar'}] | each {|i| $i } | get ?.foo.0", "")
+}
 
 // Tests for cell paths as used by `get`
 // Any cell path access (ex: `$foo.a`) can be rewritten with `get` (ex: `$foo | get a`)
