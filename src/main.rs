@@ -648,7 +648,11 @@ impl Command for Nu {
     fn signature(&self) -> Signature {
         let signature = Signature::build("nu")
             .usage("The nushell language and shell.")
-            .switch("stdin", "redirect the stdin", None)
+            .switch(
+                "stdin",
+                "redirect standard input to a command (with `-c`) or a script file",
+                None,
+            )
             .switch("login", "start as a login shell", Some('l'))
             .switch("interactive", "start as an interactive shell", Some('i'))
             .switch("version", "print the version", Some('v'))
