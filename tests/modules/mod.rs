@@ -433,3 +433,21 @@ fn module_cyclical_imports_3() {
         assert!(actual.err.contains("cyclical"));
     })
 }
+
+#[test]
+fn module_import_const_file() {
+    Playground::setup("module_import_const_file", |dirs, sandbox| {
+        sandbox.with_files(vec![FileWithContentToBeTrimmed(
+            "spam.nu",
+            r#"
+                    def foo [] { "foo" }
+                "#,
+        )]);
+
+        let inp = &[r#"const file = 'spam.nu'"#, r#"use $file foo"#, r#"foo"#];
+
+        let actual = nu!(cwd: dirs.test(), pipeline(&inp.join("; ")));
+
+        assert_eq!(actual.out, "foo");
+    })
+}

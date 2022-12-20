@@ -12,6 +12,17 @@ fn source_file_relative_to_file() {
 }
 
 #[test]
+fn source_const_file() {
+    let actual = nu!(cwd: "tests/parsing/samples",
+    r#"
+        const file = 'single_line.nu'
+        source $file
+    "#);
+
+    assert_eq!(actual.out, "5");
+}
+
+#[test]
 fn run_nu_script_single_line() {
     let actual = nu!(cwd: "tests/parsing/samples", r#"
         nu single_line.nu

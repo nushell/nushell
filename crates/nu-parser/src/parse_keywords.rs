@@ -2386,16 +2386,16 @@ pub fn parse_overlay_use(
     };
 
     let (overlay_name, overlay_name_span) = if let Some(expr) = call.positional_nth(0) {
-        if let Some(s) = expr.as_string() {
-            (s, expr.span)
-        } else {
-            return (
-                garbage_pipeline(spans),
-                Some(ParseError::UnknownState(
-                    "internal error: Module name not a string".into(),
-                    expr.span,
-                )),
-            );
+        match eval_constant(working_set, expr) {
+            Ok(val) => match value_as_string(val, expr.span) {
+                Ok(s) => (s, expr.span),
+                Err(err) => {
+                    return (garbage_pipeline(spans), Some(err));
+                }
+            },
+            Err(err) => {
+                return (garbage_pipeline(spans), Some(err));
+            }
         }
     } else {
         return (
