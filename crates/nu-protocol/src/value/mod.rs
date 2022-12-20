@@ -764,19 +764,7 @@ impl Value {
                                     insensitive,
                                 ) {
                                     output.push(result);
-                                } else {
-                                    if *optional {
-                                        output.push(Value::nothing(*span));
-                                    } else {
-                                        return Err(ShellError::CantFindColumn(
-                                            column_name.to_string(),
-                                            *origin_span,
-                                            *span,
-                                        ));
-                                    }
-                                }
-                            } else {
-                                if *optional {
+                                } else if *optional {
                                     output.push(Value::nothing(*span));
                                 } else {
                                     return Err(ShellError::CantFindColumn(
@@ -785,6 +773,14 @@ impl Value {
                                         *span,
                                     ));
                                 }
+                            } else if *optional {
+                                output.push(Value::nothing(*span));
+                            } else {
+                                return Err(ShellError::CantFindColumn(
+                                    column_name.to_string(),
+                                    *origin_span,
+                                    *span,
+                                ));
                             }
                         }
 
