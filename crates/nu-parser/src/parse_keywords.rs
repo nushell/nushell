@@ -3565,6 +3565,10 @@ fn eval_constant(working_set: &StateWorkingSet, expr: &Expression) -> Result<Val
             Some(val) => Ok(val.clone()),
             None => Err(ParseError::NotAConstant(expr.span)),
         },
+        Expr::CellPath(cell_path) => Ok(Value::CellPath {
+            val: cell_path.clone(),
+            span: expr.span,
+        }),
         Expr::FullCellPath(cell_path) => {
             let value = eval_constant(working_set, &cell_path.head)?;
 
@@ -3572,22 +3576,14 @@ fn eval_constant(working_set: &StateWorkingSet, expr: &Expression) -> Result<Val
                 Ok(val) => Ok(val),
                 // TODO: Better error conversion
                 Err(shell_error) => Err(ParseError::LabeledError(
-                    "Error following cell path".to_string(),
+                    "Error when following cell path".to_string(),
                     format!("{:?}", shell_error),
                     expr.span,
                 )),
             }
         }
-        Expr::CellPath(cell_path) => Ok(Value::CellPath {
-            val: cell_path.clone(),
-            span: expr.span,
-        }),
         Expr::DateTime(dt) => Ok(Value::Date {
             val: *dt,
-            span: expr.span,
-        }),
-        Expr::Block(block_id) => Ok(Value::Block {
-            val: *block_id,
             span: expr.span,
         }),
         Expr::List(x) => {
