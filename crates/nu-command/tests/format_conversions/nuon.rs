@@ -340,8 +340,8 @@ fn quotes_some_strings_necessarily() {
 
 #[test]
 fn read_code_should_fail_rather_than_panic() {
-    let actual = nu!(cwd: ".", pipeline(
-        r#"open $nu.config-path | from nuon"#
+    let actual = nu!(cwd: "tests/fixtures/formats", pipeline(
+        r#"open code.nu | from nuon"#
     ));
     assert!(actual.err.contains("could not load nuon text"))
 }
