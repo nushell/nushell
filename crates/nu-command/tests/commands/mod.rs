@@ -20,6 +20,7 @@ mod empty;
 mod enter;
 mod error_make;
 mod every;
+mod exec;
 mod export_def;
 mod find;
 mod first;
