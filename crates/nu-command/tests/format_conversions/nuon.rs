@@ -338,6 +338,14 @@ fn quotes_some_strings_necessarily() {
     assert_eq!(actual.out, "list<string>");
 }
 
+#[test]
+fn read_code_should_fail_rather_than_panic() {
+    let actual = nu!(cwd: ".", pipeline(
+        r#"open $nu.config-path | from nuon"#
+    ));
+    assert!(actual.err.contains("could not load nuon text"))
+}
+
 proptest! {
     #[test]
     fn to_nuon_from_nuon(c: char) {
