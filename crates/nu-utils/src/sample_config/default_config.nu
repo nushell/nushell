@@ -101,7 +101,6 @@ module completions {
     --dry-run(-n)                                   # dry run
     --exec: string                                  # receive pack program
     --follow-tags                                   # push missing but relevant tags
-    --force-with-lease                              # require old value of ref to be at this value
     --force(-f)                                     # force updates
     --ipv4(-4)                                      # use IPv4 addresses only
     --ipv6(-6)                                      # use IPv6 addresses only
@@ -292,7 +291,7 @@ let light_theme = {
 }
 
 # External completer example
-# let carapace_completer = {|spans| 
+# let carapace_completer = {|spans|
 #     carapace $spans.0 nushell $spans | from json
 # }
 
@@ -325,31 +324,31 @@ let-env config = {
 
     command_bar_text: '#C4C9C6'
     # command_bar: {fg: '#C4C9C6' bg: '#223311' }
-    
+
     status_bar_background: {fg: '#1D1F21' bg: '#C4C9C6' }
     # status_bar_text: {fg: '#C4C9C6' bg: '#223311' }
 
     highlight: {bg: 'yellow' fg: 'black' }
 
     status: {
-      # warn: {bg: 'yellow', fg: 'blue'} 
-      # error: {bg: 'yellow', fg: 'blue'} 
+      # warn: {bg: 'yellow', fg: 'blue'}
+      # error: {bg: 'yellow', fg: 'blue'}
       # info: {bg: 'yellow', fg: 'blue'}
     }
 
     try: {
-      # border_color: 'red' 
+      # border_color: 'red'
       # highlighted_color: 'blue'
 
       # reactive: false
     }
 
     table: {
-      split_line: '#404040' 
+      split_line: '#404040'
 
       cursor: true
 
-      line_index: true 
+      line_index: true
       line_shift: true
       line_head_top: true
       line_head_bottom: true
@@ -357,14 +356,14 @@ let-env config = {
       show_head: true
       show_index: true
 
-      # selected_cell: {fg: 'white', bg: '#777777'} 
-      # selected_row: {fg: 'yellow', bg: '#C1C2A3'} 
+      # selected_cell: {fg: 'white', bg: '#777777'}
+      # selected_row: {fg: 'yellow', bg: '#C1C2A3'}
       # selected_column: blue
 
-      # padding_column_right: 2 
+      # padding_column_right: 2
       # padding_column_left: 2
 
-      # padding_index_left: 2 
+      # padding_index_left: 2
       # padding_index_right: 1
     }
 
