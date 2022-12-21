@@ -19,7 +19,6 @@ use terminal_size::{Height, Width};
 use url::Url;
 
 const STREAM_PAGE_SIZE: usize = 1000;
-const STREAM_TIMEOUT_CHECK_INTERVAL: usize = 100;
 const INDEX_COLUMN_NAME: &str = "index";
 
 type NuText = (String, TextStyle);
@@ -1685,13 +1684,9 @@ impl Iterator for PagingTableCreator {
             batch.push(item);
             idx += 1;
 
-            if idx % STREAM_TIMEOUT_CHECK_INTERVAL == 0 {
-                let end_time = Instant::now();
-
-                // If we've been buffering over a second, go ahead and send out what we have so far
-                if (end_time - start_time).as_secs() >= 1 {
-                    break;
-                }
+            // If we've been buffering over a second, go ahead and send out what we have so far
+            if (Instant::now() - start_time).as_secs() >= 1 {
+                break;
             }
 
             if idx == STREAM_PAGE_SIZE {
