@@ -4726,9 +4726,8 @@ pub fn parse_math_expression(
                 parse_expression(
                     working_set,
                     &spans[idx..],
-                    // &SyntaxShape::Any,
                     expand_aliases_denylist,
-                    true, // not a sub-expression
+                    false, // not a sub-expression
                 ),
                 spans[idx..].len(),
             )
