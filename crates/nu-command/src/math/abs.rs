@@ -32,6 +32,7 @@ impl Command for SubCommand {
         call: &Call,
         input: PipelineData,
     ) -> Result<nu_protocol::PipelineData, nu_protocol::ShellError> {
+        // println!("math abs input: {:?}", input);
         let head = call.head;
         input.map(
             move |value| abs_helper(value, head),

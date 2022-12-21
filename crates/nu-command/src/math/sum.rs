@@ -33,6 +33,7 @@ impl Command for SubCommand {
         call: &Call,
         input: PipelineData,
     ) -> Result<nu_protocol::PipelineData, nu_protocol::ShellError> {
+        // println!("math sum input: {:?}", input);
         run_with_function(call, input, summation)
     }
 

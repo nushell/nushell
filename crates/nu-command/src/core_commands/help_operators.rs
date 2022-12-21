@@ -110,6 +110,13 @@ fn generate_operator_info() -> Vec<OperatorInfo> {
             precedence: 10,
         },
         OperatorInfo {
+            op_type: "Assignment".into(),
+            operator: "|=".into(),
+            name: "PipeAssign".into(),
+            description: "Pipes a variable into an expression and replaces assigns it the result.".into(),
+            precedence: 10,
+        },
+        OperatorInfo {
             op_type: "Comparison".into(),
             operator: "==".into(),
             name: "Equal".into(),

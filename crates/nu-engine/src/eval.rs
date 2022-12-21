@@ -422,29 +422,50 @@ pub fn eval_expression(
                     }
                 }
                 Operator::Assignment(assignment) => {
-                    let rhs = eval_expression(engine_state, stack, rhs)?;
+                    let rhs = if let Assignment::PipeAssign = assignment {
+                        let lhs = eval_expression(engine_state, stack, lhs)?;
+                        eval_expression_with_input(
+                            engine_state,
+                            stack,
+                            rhs,
+                            lhs.into_pipeline_data(),
+                            false,
+                            false,
+                        )?
+                        .0
+                        .into_value(rhs.span)
+                    } else {
+                        let rhs = eval_expression(engine_state, stack, rhs)?;
 
-                    let rhs = match assignment {
-                        Assignment::Assign => rhs,
-                        Assignment::PlusAssign => {
-                            let lhs = eval_expression(engine_state, stack, lhs)?;
-                            lhs.add(op_span, &rhs, op_span)?
-                        }
-                        Assignment::MinusAssign => {
-                            let lhs = eval_expression(engine_state, stack, lhs)?;
-                            lhs.sub(op_span, &rhs, op_span)?
-                        }
-                        Assignment::MultiplyAssign => {
-                            let lhs = eval_expression(engine_state, stack, lhs)?;
-                            lhs.mul(op_span, &rhs, op_span)?
-                        }
-                        Assignment::DivideAssign => {
-                            let lhs = eval_expression(engine_state, stack, lhs)?;
-                            lhs.div(op_span, &rhs, op_span)?
-                        }
-                        Assignment::AppendAssign => {
-                            let lhs = eval_expression(engine_state, stack, lhs)?;
-                            lhs.append(op_span, &rhs, op_span)?
+                        match assignment {
+                            Assignment::Assign => rhs,
+                            Assignment::PlusAssign => {
+                                let lhs = eval_expression(engine_state, stack, lhs)?;
+                                lhs.add(op_span, &rhs, op_span)?
+                            }
+                            Assignment::MinusAssign => {
+                                let lhs = eval_expression(engine_state, stack, lhs)?;
+                                lhs.sub(op_span, &rhs, op_span)?
+                            }
+                            Assignment::MultiplyAssign => {
+                                let lhs = eval_expression(engine_state, stack, lhs)?;
+                                lhs.mul(op_span, &rhs, op_span)?
+                            }
+                            Assignment::DivideAssign => {
+                                let lhs = eval_expression(engine_state, stack, lhs)?;
+                                lhs.div(op_span, &rhs, op_span)?
+                            }
+                            Assignment::AppendAssign => {
+                                let lhs = eval_expression(engine_state, stack, lhs)?;
+                                lhs.append(op_span, &rhs, op_span)?
+                            }
+                            _ => {
+                                return Err(ShellError::NushellFailedSpanned(
+                                    "Missing operator implementation".to_string(),
+                                    "this operator is missing an implementation".to_string(),
+                                    op_span,
+                                ))
+                            }
                         }
                     };
 

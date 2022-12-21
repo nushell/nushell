@@ -4455,6 +4455,10 @@ pub fn parse_operator(
     working_set: &mut StateWorkingSet,
     span: Span,
 ) -> (Expression, Option<ParseError>) {
+    trace!(
+        "parsing: operator {}",
+        String::from_utf8_lossy(working_set.get_span_contents(span))
+    );
     let contents = working_set.get_span_contents(span);
 
     let operator = match contents {
@@ -4464,6 +4468,7 @@ pub fn parse_operator(
         b"-=" => Operator::Assignment(Assignment::MinusAssign),
         b"*=" => Operator::Assignment(Assignment::MultiplyAssign),
         b"/=" => Operator::Assignment(Assignment::DivideAssign),
+        b"|=" => Operator::Assignment(Assignment::PipeAssign),
         b"==" => Operator::Comparison(Comparison::Equal),
         b"!=" => Operator::Comparison(Comparison::NotEqual),
         b"<" => Operator::Comparison(Comparison::LessThan),
@@ -4669,6 +4674,7 @@ pub fn parse_math_expression(
         }
     }
 
+    trace!("parsing: math expression (lhs)");
     let (mut lhs, err) = parse_value(
         working_set,
         spans[0],
@@ -4688,6 +4694,7 @@ pub fn parse_math_expression(
     expr_stack.push(lhs);
 
     while idx < spans.len() {
+        trace!("parsing: math expression (operator)");
         let (op, err) = parse_operator(working_set, spans[idx]);
         error = error.or(err);
 
@@ -4705,13 +4712,36 @@ pub fn parse_math_expression(
             break;
         }
 
-        let (rhs, err) = parse_value(
-            working_set,
-            spans[idx],
-            &SyntaxShape::Any,
-            expand_aliases_denylist,
-        );
+        trace!("parsing: math expression (rhs)");
+        let ((rhs, err), off) = if let Expression {
+            expr: Expr::Operator(Operator::Assignment(_)),
+            ..
+        } = op
+        {
+            trace!("parsing: assignment: {:?}", String::from_utf8_lossy(working_set.get_span_contents(span(&spans[idx..]))));
+            (
+                parse_expression(
+                    working_set,
+                    &spans[idx..],
+                    // &SyntaxShape::Any,
+                    expand_aliases_denylist,
+                    true, // not a sub-expression
+                ),
+                spans[idx..].len(),
+            )
+        } else {
+            (
+                parse_value(
+                    working_set,
+                    spans[idx],
+                    &SyntaxShape::Any,
+                    expand_aliases_denylist,
+                ),
+                1,
+            )
+        };
         error = error.or(err);
+        idx += off;
 
         while op_prec <= last_prec && expr_stack.len() > 1 {
             // Collapse the right associated operations first
@@ -4754,8 +4784,6 @@ pub fn parse_math_expression(
         expr_stack.push(rhs);
 
         last_prec = op_prec;
-
-        idx += 1;
     }
 
     while expr_stack.len() != 1 {
@@ -4798,7 +4826,10 @@ pub fn parse_expression(
     expand_aliases_denylist: &[usize],
     is_subexpression: bool,
 ) -> (Expression, Option<ParseError>) {
-    trace!("parsing: expression");
+    trace!(
+        "parsing: expression {:?}",
+        String::from_utf8_lossy(working_set.get_span_contents(span(spans)))
+    );
 
     let mut pos = 0;
     let mut shorthand = vec![];
@@ -5383,6 +5414,7 @@ pub fn parse_block(
             } else {
                 match &pipeline.commands[0] {
                     LiteElement::Command(_, command) | LiteElement::Redirection(_, _, command) => {
+                        trace!("parsing: single pipeline element: command or redirection");
                         let (mut pipeline, err) = parse_builtin_commands(
                             working_set,
                             command,
@@ -6236,6 +6268,13 @@ pub fn parse(
     working_set.add_file(name, contents);
 
     let (output, err) = lex(contents, span_offset, &[], &[], false);
+    for token in &output {
+        trace!(
+            "token {}: {:?}",
+            String::from_utf8_lossy(working_set.get_span_contents(token.span)),
+            token
+        );
+    }
     error = error.or(err);
 
     let (mut output, err) =

@@ -55,6 +55,7 @@ pub enum Assignment {
     MinusAssign,
     MultiplyAssign,
     DivideAssign,
+    PipeAssign,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -75,6 +76,7 @@ impl Display for Operator {
             Operator::Assignment(Assignment::MinusAssign) => write!(f, "-="),
             Operator::Assignment(Assignment::MultiplyAssign) => write!(f, "*="),
             Operator::Assignment(Assignment::DivideAssign) => write!(f, "/="),
+            Operator::Assignment(Assignment::PipeAssign) => write!(f, "|="),
             Operator::Comparison(Comparison::Equal) => write!(f, "=="),
             Operator::Comparison(Comparison::NotEqual) => write!(f, "!="),
             Operator::Comparison(Comparison::LessThan) => write!(f, "<"),
