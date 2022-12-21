@@ -93,6 +93,14 @@ impl Command for Get {
                 }),
             },
             Example {
+                description: "Get a column from a table (alternative syntax)",
+                example: "[{A: A0}] | get .A",
+                result: Some(Value::List {
+                    vals: vec![Value::test_string("A0")],
+                    span: Span::test_data(),
+                }),
+            },
+            Example {
                 description: "Get a column from a table, and return null for any rows where that column does not exist",
                 example: "[{A: A0} {}] | get ?.A",
                 result: Some(Value::List {
