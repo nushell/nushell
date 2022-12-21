@@ -499,6 +499,7 @@ pub fn parse_extern(
 
                 signature.name = name.clone();
                 signature.usage = usage.clone();
+                signature.allows_unknown_args = true;
 
                 let decl = KnownExternal {
                     name: name.to_string(),

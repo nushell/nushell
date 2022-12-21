@@ -20,6 +20,8 @@ mod empty;
 mod enter;
 mod error_make;
 mod every;
+#[cfg(not(windows))]
+mod exec;
 mod export_def;
 mod find;
 mod first;
