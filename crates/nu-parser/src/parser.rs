@@ -4718,7 +4718,10 @@ pub fn parse_math_expression(
             ..
         } = op
         {
-            trace!("parsing: assignment: {:?}", String::from_utf8_lossy(working_set.get_span_contents(span(&spans[idx..]))));
+            trace!(
+                "parsing: assignment: {:?}",
+                String::from_utf8_lossy(working_set.get_span_contents(span(&spans[idx..])))
+            );
             (
                 parse_expression(
                     working_set,
