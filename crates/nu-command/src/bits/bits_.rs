@@ -2,7 +2,7 @@ use nu_engine::get_full_help;
 use nu_protocol::{
     ast::Call,
     engine::{Command, EngineState, Stack},
-    Category, IntoPipelineData, PipelineData, Signature, Value,
+    Category, IntoPipelineData, PipelineData, Signature, Type, Value,
 };
 
 #[derive(Clone)]
@@ -14,7 +14,9 @@ impl Command for Bits {
     }
 
     fn signature(&self) -> Signature {
-        Signature::build("bits").category(Category::Bits)
+        Signature::build("bits")
+            .category(Category::Bits)
+            .input_output_types(vec![(Type::Nothing, Type::String)])
     }
 
     fn usage(&self) -> &str {
@@ -39,17 +41,5 @@ impl Command for Bits {
             span: call.head,
         }
         .into_pipeline_data())
-    }
-}
-
-#[cfg(test)]
-mod test {
-    use crate::Bits;
-
-    #[test]
-    fn test_examples() {
-        use crate::test_examples;
-
-        test_examples(Bits {})
     }
 }

@@ -10,7 +10,7 @@ use std::path::PathBuf;
 use std::str::FromStr;
 
 use nu_protocol::{
-    Category, Example, PipelineData, ShellError, Signature, Span, SyntaxShape, Value,
+    Category, Example, PipelineData, ShellError, Signature, Span, SyntaxShape, Type, Value,
 };
 use std::collections::HashMap;
 use std::io::BufReader;
@@ -25,6 +25,7 @@ impl Command for SubCommand {
 
     fn signature(&self) -> Signature {
         Signature::build("post")
+            .input_output_types(vec![(Type::Nothing, Type::Any)])
             .required("path", SyntaxShape::String, "the URL to post to")
             .required("body", SyntaxShape::Any, "the contents of the post body")
             .named(

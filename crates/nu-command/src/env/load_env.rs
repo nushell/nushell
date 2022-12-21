@@ -1,7 +1,9 @@
 use nu_engine::{current_dir, CallExt};
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
-use nu_protocol::{Category, Example, PipelineData, ShellError, Signature, SyntaxShape, Value};
+use nu_protocol::{
+    Category, Example, PipelineData, ShellError, Signature, SyntaxShape, Type, Value,
+};
 
 #[derive(Clone)]
 pub struct LoadEnv;
@@ -17,6 +19,8 @@ impl Command for LoadEnv {
 
     fn signature(&self) -> nu_protocol::Signature {
         Signature::build("load-env")
+            .input_output_types(vec![(Type::Record(vec![]), Type::Nothing)])
+            .allow_variants_without_examples(true)
             .optional(
                 "update",
                 SyntaxShape::Record,

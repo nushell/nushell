@@ -2,7 +2,7 @@ use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
     Category, Example, HistoryFileFormat, IntoInterruptiblePipelineData, PipelineData, ShellError,
-    Signature, Span, Value,
+    Signature, Span, Type, Value,
 };
 use reedline::{
     FileBackedHistory, History as ReedlineHistory, HistoryItem, SearchDirection, SearchQuery,
@@ -23,6 +23,11 @@ impl Command for History {
 
     fn signature(&self) -> nu_protocol::Signature {
         Signature::build("history")
+            .input_output_types(vec![
+                (Type::Nothing, Type::Table(vec![])),
+                (Type::Nothing, Type::Nothing),
+            ])
+            .allow_variants_without_examples(true)
             .switch("clear", "Clears out the history entries", Some('c'))
             .switch(
                 "long",

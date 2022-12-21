@@ -3,7 +3,7 @@ use nu_protocol::{
     ast::Call,
     engine::{Command, EngineState, Stack},
     Category, Example, IntoInterruptiblePipelineData, IntoPipelineData, PipelineData, ShellError,
-    Signature, Span, Spanned, SyntaxShape, Value,
+    Signature, Span, Spanned, SyntaxShape, Type, Value,
 };
 use winreg::{enums::*, RegKey};
 
@@ -31,6 +31,7 @@ impl Command for RegistryQuery {
 
     fn signature(&self) -> Signature {
         Signature::build("registry query")
+            .input_output_types(vec![(Type::Nothing, Type::Any)])
             .switch("hkcr", "query the hkey_classes_root hive", None)
             .switch("hkcu", "query the hkey_current_user hive", None)
             .switch("hklm", "query the hkey_local_machine hive", None)

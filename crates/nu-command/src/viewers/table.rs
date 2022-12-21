@@ -7,7 +7,7 @@ use nu_protocol::{
     engine::{Command, EngineState, Stack, StateWorkingSet},
     format_error, Category, Config, DataSource, Example, FooterMode, IntoPipelineData, ListStream,
     PipelineData, PipelineMetadata, RawStream, ShellError, Signature, Span, SyntaxShape,
-    TableIndexMode, Value,
+    TableIndexMode, Type, Value,
 };
 use nu_table::{string_width, Table as NuTable, TableConfig, TableTheme};
 use nu_utils::get_ls_colors;
@@ -57,6 +57,8 @@ impl Command for Table {
 
     fn signature(&self) -> nu_protocol::Signature {
         Signature::build("table")
+            .input_output_types(vec![(Type::Any, Type::Any)])
+            // TODO: make this more precise: what turns into string and what into raw stream
             .named(
                 "start-number",
                 SyntaxShape::Int,

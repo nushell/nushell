@@ -7,7 +7,7 @@ use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::RawStream;
 
 use nu_protocol::{
-    Category, Example, PipelineData, ShellError, Signature, Span, SyntaxShape, Value,
+    Category, Example, PipelineData, ShellError, Signature, Span, SyntaxShape, Type, Value,
 };
 use reqwest::blocking::Response;
 
@@ -29,6 +29,7 @@ impl Command for SubCommand {
 
     fn signature(&self) -> Signature {
         Signature::build("fetch")
+            .input_output_types(vec![(Type::Nothing, Type::Any)])
             .required(
                 "URL",
                 SyntaxShape::String,

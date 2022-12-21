@@ -51,7 +51,9 @@ impl Command for FromYml {
     }
 
     fn signature(&self) -> Signature {
-        Signature::build("from yml").category(Category::Formats)
+        Signature::build("from yml")
+            .input_output_types(vec![(Type::String, Type::Any)])
+            .category(Category::Formats)
     }
 
     fn usage(&self) -> &str {

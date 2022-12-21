@@ -1,7 +1,9 @@
 use nu_engine::{eval_block, eval_expression, CallExt};
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Block, Command, EngineState, Stack};
-use nu_protocol::{Category, Example, PipelineData, ShellError, Signature, SyntaxShape, Value};
+use nu_protocol::{
+    Category, Example, PipelineData, ShellError, Signature, SyntaxShape, Type, Value,
+};
 
 #[derive(Clone)]
 pub struct While;
@@ -17,6 +19,8 @@ impl Command for While {
 
     fn signature(&self) -> nu_protocol::Signature {
         Signature::build("while")
+            .input_output_types(vec![(Type::Nothing, Type::Nothing)])
+            .allow_variants_without_examples(true)
             .required("cond", SyntaxShape::Expression, "condition to check")
             .required(
                 "block",

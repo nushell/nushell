@@ -2,7 +2,7 @@ use nu_engine::CallExt;
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
-    Category, Example, PipelineData, ShellError, Signature, Spanned, SyntaxShape, Value,
+    Category, Example, PipelineData, ShellError, Signature, Spanned, SyntaxShape, Type, Value,
 };
 use rand::prelude::{thread_rng, Rng};
 
@@ -16,6 +16,8 @@ impl Command for SubCommand {
 
     fn signature(&self) -> Signature {
         Signature::build("random bool")
+            .input_output_types(vec![(Type::Nothing, Type::Bool)])
+            .allow_variants_without_examples(true)
             .named(
                 "bias",
                 SyntaxShape::Number,

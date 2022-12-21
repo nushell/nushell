@@ -2,7 +2,7 @@ use nu_engine::{eval_expression_with_input, CallExt};
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
-    Category, Example, PipelineData, ShellError, Signature, Spanned, SyntaxShape, Value,
+    Category, Example, PipelineData, ShellError, Signature, Spanned, SyntaxShape, Type, Value,
 };
 
 #[derive(Clone)]
@@ -19,6 +19,8 @@ impl Command for LetEnv {
 
     fn signature(&self) -> nu_protocol::Signature {
         Signature::build("let-env")
+            .input_output_types(vec![(Type::Nothing, Type::Nothing)])
+            .allow_variants_without_examples(true)
             .required("var_name", SyntaxShape::String, "variable name")
             .required(
                 "initial_value",

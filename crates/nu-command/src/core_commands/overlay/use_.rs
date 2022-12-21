@@ -3,7 +3,7 @@ use nu_parser::trim_quotes_str;
 use nu_protocol::ast::{Call, Expr};
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
-    Category, Example, PipelineData, ShellError, Signature, Spanned, SyntaxShape, Value,
+    Category, Example, PipelineData, ShellError, Signature, Spanned, SyntaxShape, Type, Value,
 };
 
 use std::path::Path;
@@ -22,6 +22,8 @@ impl Command for OverlayUse {
 
     fn signature(&self) -> nu_protocol::Signature {
         Signature::build("overlay use")
+            .input_output_types(vec![(Type::Nothing, Type::Nothing)])
+            .allow_variants_without_examples(true)
             .required(
                 "name",
                 SyntaxShape::String,

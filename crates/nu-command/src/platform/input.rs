@@ -3,7 +3,8 @@ use nu_engine::CallExt;
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
-    Category, Example, IntoPipelineData, PipelineData, ShellError, Signature, SyntaxShape, Value,
+    Category, Example, IntoPipelineData, PipelineData, ShellError, Signature, SyntaxShape, Type,
+    Value,
 };
 use std::io::{Read, Write};
 
@@ -25,6 +26,11 @@ impl Command for Input {
 
     fn signature(&self) -> Signature {
         Signature::build("input")
+            .input_output_types(vec![
+                (Type::Nothing, Type::String),
+                (Type::Nothing, Type::Binary),
+            ])
+            .allow_variants_without_examples(true)
             .optional("prompt", SyntaxShape::String, "prompt to show the user")
             .named(
                 "bytes-until",

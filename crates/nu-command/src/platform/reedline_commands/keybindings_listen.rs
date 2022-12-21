@@ -3,7 +3,7 @@ use crossterm::{event::Event, event::KeyCode, event::KeyEvent, terminal};
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
-    Category, Example, IntoPipelineData, PipelineData, ShellError, Signature, Span, Value,
+    Category, Example, IntoPipelineData, PipelineData, ShellError, Signature, Span, Type, Value,
 };
 use std::io::{stdout, Write};
 
@@ -20,7 +20,10 @@ impl Command for KeybindingsListen {
     }
 
     fn signature(&self) -> Signature {
-        Signature::build(self.name()).category(Category::Platform)
+        Signature::build(self.name())
+            .category(Category::Platform)
+            .input_output_types(vec![(Type::Nothing, Type::Nothing)])
+            .allow_variants_without_examples(true)
     }
 
     fn run(

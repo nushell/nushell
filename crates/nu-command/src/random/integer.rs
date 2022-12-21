@@ -2,7 +2,7 @@ use nu_engine::CallExt;
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
-    Category, Example, PipelineData, Range, ShellError, Signature, SyntaxShape, Value,
+    Category, Example, PipelineData, Range, ShellError, Signature, SyntaxShape, Type, Value,
 };
 use rand::prelude::{thread_rng, Rng};
 use std::cmp::Ordering;
@@ -17,6 +17,8 @@ impl Command for SubCommand {
 
     fn signature(&self) -> Signature {
         Signature::build("random integer")
+            .input_output_types(vec![(Type::Nothing, Type::Int)])
+            .allow_variants_without_examples(true)
             .optional("range", SyntaxShape::Range, "Range of values")
             .category(Category::Random)
     }

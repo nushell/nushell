@@ -2,7 +2,9 @@ use super::{get_current_shell, get_shells};
 use nu_engine::{current_dir, CallExt};
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
-use nu_protocol::{Category, Example, PipelineData, ShellError, Signature, SyntaxShape, Value};
+use nu_protocol::{
+    Category, Example, PipelineData, ShellError, Signature, SyntaxShape, Type, Value,
+};
 
 /// Source a file for environment variables.
 #[derive(Clone)]
@@ -15,6 +17,7 @@ impl Command for Enter {
 
     fn signature(&self) -> Signature {
         Signature::build("enter")
+            .input_output_types(vec![(Type::Nothing, Type::Nothing)])
             .required(
                 "path",
                 SyntaxShape::Filepath,

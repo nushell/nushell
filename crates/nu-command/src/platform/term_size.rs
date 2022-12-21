@@ -1,6 +1,8 @@
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
-use nu_protocol::{Category, Example, IntoPipelineData, PipelineData, Signature, Span, Value};
+use nu_protocol::{
+    Category, Example, IntoPipelineData, PipelineData, Signature, Span, Type, Value,
+};
 use terminal_size::{terminal_size, Height, Width};
 
 #[derive(Clone)]
@@ -16,7 +18,15 @@ impl Command for TermSize {
     }
 
     fn signature(&self) -> Signature {
-        Signature::build("term size").category(Category::Platform)
+        Signature::build("term size")
+            .category(Category::Platform)
+            .input_output_types(vec![(
+                Type::Nothing,
+                Type::Record(vec![
+                    ("columns".into(), Type::Int),
+                    ("rows".into(), Type::Int),
+                ]),
+            )])
     }
 
     fn examples(&self) -> Vec<Example> {
