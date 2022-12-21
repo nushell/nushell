@@ -1,5 +1,6 @@
 mod deparse;
 mod errors;
+mod eval;
 mod flatten;
 mod known_external;
 mod lex;

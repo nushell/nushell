@@ -1,29 +1,28 @@
-use nu_engine::eval_expression_with_input;
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
-use nu_protocol::{Category, Example, PipelineData, Signature, SyntaxShape, Type};
+use nu_protocol::{Category, Example, PipelineData, ShellError, Signature, SyntaxShape, Type};
 
 #[derive(Clone)]
-pub struct Let;
+pub struct Const;
 
-impl Command for Let {
+impl Command for Const {
     fn name(&self) -> &str {
-        "let"
+        "const"
     }
 
     fn usage(&self) -> &str {
-        "Create a variable and give it a value."
+        "Create a parse-time constant."
     }
 
     fn signature(&self) -> nu_protocol::Signature {
-        Signature::build("let")
+        Signature::build("const")
             .input_output_types(vec![(Type::Nothing, Type::Nothing)])
             .allow_variants_without_examples(true)
-            .required("var_name", SyntaxShape::VarWithOptType, "variable name")
+            .required("const_name", SyntaxShape::VarWithOptType, "constant name")
             .required(
                 "initial_value",
                 SyntaxShape::Keyword(b"=".to_vec(), Box::new(SyntaxShape::Expression)),
-                "equals sign followed by value",
+                "equals sign followed by constant value",
             )
             .category(Category::Core)
     }
@@ -38,7 +37,7 @@ impl Command for Let {
     }
 
     fn search_terms(&self) -> Vec<&str> {
-        vec!["set", "const"]
+        vec!["set", "let"]
     }
 
     fn run(
@@ -46,7 +45,7 @@ impl Command for Let {
         engine_state: &EngineState,
         stack: &mut Stack,
         call: &Call,
-        input: PipelineData,
+        _input: PipelineData,
     ) -> Result<nu_protocol::PipelineData, nu_protocol::ShellError> {
         let var_id = call
             .positional_nth(0)
@@ -54,42 +53,31 @@ impl Command for Let {
             .as_var()
             .expect("internal error: missing variable");
 
-        let keyword_expr = call
-            .positional_nth(1)
-            .expect("checked through parser")
-            .as_keyword()
-            .expect("internal error: missing keyword");
+        if let Some(constval) = engine_state.find_constant(var_id, &[]) {
+            // Instead of creating a second copy of the value in the stack, we could change
+            // stack.get_var() to check engine_state.find_constant().
+            stack.add_var(var_id, constval.clone());
 
-        let rhs = eval_expression_with_input(
-            engine_state,
-            stack,
-            keyword_expr,
-            input,
-            call.redirect_stdout,
-            call.redirect_stderr,
-        )?
-        .0;
-
-        stack.add_var(var_id, rhs.into_value(call.head));
-
-        Ok(PipelineData::empty())
+            Ok(PipelineData::empty())
+        } else {
+            Err(ShellError::NushellFailedSpanned(
+                "Missing Constant".to_string(),
+                "constant not added by the parser".to_string(),
+                call.head,
+            ))
+        }
     }
 
     fn examples(&self) -> Vec<Example> {
         vec![
             Example {
-                description: "Set a variable to a value",
+                description: "Create a new parse-time constant.",
                 example: "let x = 10",
                 result: None,
             },
             Example {
-                description: "Set a variable to the result of an expression",
-                example: "let x = 10 + 100",
-                result: None,
-            },
-            Example {
-                description: "Set a variable based on the condition",
-                example: "let x = if false { -1 } else { 1 }",
+                description: "Create a composite constant value",
+                example: "let x = { a: 10, b: 20 }",
                 result: None,
             },
         ]
@@ -106,11 +94,11 @@ mod test {
     fn test_examples() {
         use crate::test_examples;
 
-        test_examples(Let {})
+        test_examples(Const {})
     }
 
     #[test]
     fn test_command_type() {
-        assert!(matches!(Let.command_type(), CommandType::Keyword));
+        assert!(matches!(Const.command_type(), CommandType::Keyword));
     }
 }

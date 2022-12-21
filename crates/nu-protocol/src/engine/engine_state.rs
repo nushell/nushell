@@ -173,6 +173,9 @@ impl EngineState {
                 for item in delta_overlay.vars.into_iter() {
                     existing_overlay.vars.insert(item.0, item.1);
                 }
+                for item in delta_overlay.constants.into_iter() {
+                    existing_overlay.constants.insert(item.0, item.1);
+                }
                 for item in delta_overlay.aliases.into_iter() {
                     existing_overlay.aliases.insert(item.0, item.1);
                 }
@@ -624,6 +627,16 @@ impl EngineState {
         }
 
         output
+    }
+
+    pub fn find_constant(&self, var_id: VarId, removed_overlays: &[Vec<u8>]) -> Option<&Value> {
+        for overlay_frame in self.active_overlays(removed_overlays).iter().rev() {
+            if let Some(val) = overlay_frame.constants.get(&var_id) {
+                return Some(val);
+            }
+        }
+
+        None
     }
 
     pub fn get_span_contents(&self, span: &Span) -> &[u8] {
@@ -1652,6 +1665,29 @@ impl<'a> StateWorkingSet<'a> {
         } else {
             self.delta.vars[var_id - num_permanent_vars].ty = ty;
         }
+    }
+
+    pub fn add_constant(&mut self, var_id: VarId, val: Value) {
+        self.last_overlay_mut().constants.insert(var_id, val);
+    }
+
+    pub fn find_constant(&self, var_id: VarId) -> Option<&Value> {
+        let mut removed_overlays = vec![];
+
+        for scope_frame in self.delta.scope.iter().rev() {
+            for overlay_frame in scope_frame
+                .active_overlays(&mut removed_overlays)
+                .iter()
+                .rev()
+            {
+                if let Some(val) = overlay_frame.constants.get(&var_id) {
+                    return Some(val);
+                }
+            }
+        }
+
+        self.permanent_state
+            .find_constant(var_id, &removed_overlays)
     }
 
     pub fn get_variable(&self, var_id: VarId) -> &Variable {

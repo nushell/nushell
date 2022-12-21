@@ -1,4 +1,4 @@
-use crate::{AliasId, DeclId, ModuleId, OverlayId, Type, VarId};
+use crate::{AliasId, DeclId, ModuleId, OverlayId, Type, Value, VarId};
 use std::borrow::Borrow;
 use std::collections::HashMap;
 use std::hash::{Hash, Hasher};
@@ -199,6 +199,7 @@ impl ScopeFrame {
 #[derive(Debug, Clone)]
 pub struct OverlayFrame {
     pub vars: HashMap<Vec<u8>, VarId>,
+    pub constants: HashMap<VarId, Value>,
     pub predecls: HashMap<Vec<u8>, DeclId>, // temporary storage for predeclarations
     pub decls: HashMap<(Vec<u8>, Type), DeclId>,
     pub aliases: HashMap<Vec<u8>, AliasId>,
@@ -212,6 +213,7 @@ impl OverlayFrame {
     pub fn from_origin(origin: ModuleId, prefixed: bool) -> Self {
         Self {
             vars: HashMap::new(),
+            constants: HashMap::new(),
             predecls: HashMap::new(),
             decls: HashMap::new(),
             aliases: HashMap::new(),

@@ -1,4 +1,5 @@
 use crate::{
+    eval::{eval_constant, value_as_string},
     lex, parse_mut,
     type_check::{math_result_type, type_compatible},
     ParseError, Token, TokenContents,
@@ -17,8 +18,8 @@ use nu_protocol::{
 
 use crate::parse_keywords::{
     parse_alias, parse_def, parse_def_predecl, parse_export_in_block, parse_extern, parse_for,
-    parse_hide, parse_let, parse_module, parse_overlay, parse_source, parse_use, parse_where,
-    parse_where_expr,
+    parse_hide, parse_let_or_const, parse_module, parse_overlay, parse_source, parse_use,
+    parse_where, parse_where_expr,
 };
 
 use itertools::Itertools;
@@ -2832,11 +2833,8 @@ pub fn parse_import_pattern(
 ) -> (Expression, Option<ParseError>) {
     let mut error = None;
 
-    let (head, head_span) = if let Some(head_span) = spans.get(0) {
-        (
-            working_set.get_span_contents(*head_span).to_vec(),
-            head_span,
-        )
+    let head_span = if let Some(head_span) = spans.get(0) {
+        head_span
     } else {
         return (
             garbage(span(spans)),
@@ -2844,7 +2842,25 @@ pub fn parse_import_pattern(
         );
     };
 
-    let maybe_module_id = working_set.find_module(&head);
+    let (head_expr, err) = parse_value(
+        working_set,
+        *head_span,
+        &SyntaxShape::Any,
+        expand_aliases_denylist,
+    );
+    error = error.or(err);
+
+    let (maybe_module_id, head_name) = match eval_constant(working_set, &head_expr) {
+        Ok(val) => match value_as_string(val, head_expr.span) {
+            Ok(s) => (working_set.find_module(s.as_bytes()), s.into_bytes()),
+            Err(err) => {
+                return (garbage(span(spans)), error.or(Some(err)));
+            }
+        },
+        Err(err) => {
+            return (garbage(span(spans)), error.or(Some(err)));
+        }
+    };
 
     let (import_pattern, err) = if let Some(tail_span) = spans.get(1) {
         // FIXME: expand this to handle deeper imports once we support module imports
@@ -2853,7 +2869,7 @@ pub fn parse_import_pattern(
             (
                 ImportPattern {
                     head: ImportPatternHead {
-                        name: head,
+                        name: head_name,
                         id: maybe_module_id,
                         span: *head_span,
                     },
@@ -2886,7 +2902,7 @@ pub fn parse_import_pattern(
                     (
                         ImportPattern {
                             head: ImportPatternHead {
-                                name: head,
+                                name: head_name,
                                 id: maybe_module_id,
                                 span: *head_span,
                             },
@@ -2899,7 +2915,7 @@ pub fn parse_import_pattern(
                 _ => (
                     ImportPattern {
                         head: ImportPatternHead {
-                            name: head,
+                            name: head_name,
                             id: maybe_module_id,
                             span: *head_span,
                         },
@@ -2914,7 +2930,7 @@ pub fn parse_import_pattern(
             (
                 ImportPattern {
                     head: ImportPatternHead {
-                        name: head,
+                        name: head_name,
                         id: maybe_module_id,
                         span: *head_span,
                     },
@@ -2931,7 +2947,7 @@ pub fn parse_import_pattern(
         (
             ImportPattern {
                 head: ImportPatternHead {
-                    name: head,
+                    name: head_name,
                     id: maybe_module_id,
                     span: *head_span,
                 },
@@ -4898,7 +4914,7 @@ pub fn parse_expression(
                 .0,
                 Some(ParseError::BuiltinCommandInPipeline("for".into(), spans[0])),
             ),
-            b"let" => (
+            b"let" | b"const" => (
                 parse_call(
                     working_set,
                     &spans[pos..],
@@ -5166,7 +5182,9 @@ pub fn parse_builtin_commands(
     match name {
         b"def" | b"def-env" => parse_def(working_set, lite_command, expand_aliases_denylist),
         b"extern" => parse_extern(working_set, lite_command, expand_aliases_denylist),
-        b"let" => parse_let(working_set, &lite_command.parts, expand_aliases_denylist),
+        b"let" | b"const" => {
+            parse_let_or_const(working_set, &lite_command.parts, expand_aliases_denylist)
+        }
         b"mut" => parse_mut(working_set, &lite_command.parts, expand_aliases_denylist),
         b"for" => {
             let (expr, err) = parse_for(working_set, &lite_command.parts, expand_aliases_denylist);
