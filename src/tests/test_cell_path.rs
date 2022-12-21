@@ -122,10 +122,7 @@ fn list_row_optional_access_succeeds() -> TestResult {
 // regression test for an old bug
 #[test]
 fn do_not_delve_too_deep_in_nested_lists() -> TestResult {
-    fail_test(
-        "[[{foo: bar}]].foo",
-        "did not find anything under this name",
-    )
+    fail_test("[[{foo: bar}]].foo", "cannot find column")
 }
 
 // tests for ListStreams, currently unused
