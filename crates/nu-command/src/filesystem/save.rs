@@ -3,8 +3,7 @@ use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
     Category, Example, PipelineData, RawStream, ShellError, Signature, Span, Spanned, SyntaxShape,
-    Type,
-    Value,
+    Type, Value,
 };
 use std::fs::File;
 use std::io::{BufWriter, Write};
