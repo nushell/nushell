@@ -165,7 +165,7 @@ fn from_nothing() {
     let actual = nu!(
         cwd: ".", pipeline(
         r#"
-        $nothing | into string
+        null | into string
         "#
     ));
 
