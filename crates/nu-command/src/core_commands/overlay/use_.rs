@@ -66,7 +66,7 @@ impl Command for OverlayUse {
         let mut name_arg: Spanned<String> = call.req(engine_state, caller_stack, 0)?;
         name_arg.item = trim_quotes_str(&name_arg.item).to_string();
 
-        let maybe_origin_module_id = if let Some(overlay_expr) = call.positional_nth(0) {
+        let maybe_origin_module_id = if let Some(overlay_expr) = call.parser_info_nth(0) {
             if let Expr::Overlay(module_id) = overlay_expr.expr {
                 module_id
             } else {

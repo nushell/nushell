@@ -1,4 +1,3 @@
-use crate::eval::{eval_constant, value_as_string};
 use log::trace;
 use nu_path::canonicalize_with;
 use nu_protocol::{
@@ -17,12 +16,13 @@ static LIB_DIRS_ENV: &str = "NU_LIB_DIRS";
 static PLUGIN_DIRS_ENV: &str = "NU_PLUGIN_DIRS";
 
 use crate::{
+    eval::{eval_constant, value_as_string},
     known_external::KnownExternal,
     lex,
     parser::{
-        check_call, check_name, garbage, garbage_pipeline, lite_parse, parse, parse_internal_call,
-        parse_multispan_value, parse_signature, parse_string, parse_value, parse_var_with_opt_type,
-        trim_quotes, LiteCommand, LiteElement, ParsedInternalCall,
+        check_call, check_name, garbage, garbage_pipeline, lite_parse, parse, parse_import_pattern,
+        parse_internal_call, parse_multispan_value, parse_signature, parse_string, parse_value,
+        parse_var_with_opt_type, trim_quotes, LiteCommand, LiteElement, ParsedInternalCall,
     },
     unescape_unquote_string, ParseError,
 };
@@ -577,6 +577,7 @@ pub fn parse_alias(
                 decl_id,
                 redirect_stdout: true,
                 redirect_stderr: false,
+                parser_info: vec![],
             }));
             return (
                 Pipeline::from_vec(vec![Expression {
@@ -839,6 +840,7 @@ pub fn parse_export_in_module(
         arguments: vec![],
         redirect_stdout: true,
         redirect_stderr: false,
+        parser_info: vec![],
     });
 
     let exportables = if let Some(kw_span) = spans.get(1) {
@@ -1504,6 +1506,7 @@ pub fn parse_module(
             ],
             redirect_stdout: true,
             redirect_stderr: false,
+            parser_info: vec![],
         });
 
         (
@@ -1561,7 +1564,7 @@ pub fn parse_use(
         );
     }
 
-    let (call, call_span, use_decl_id) = match working_set.find_decl(b"use", &Type::Any) {
+    let (call, call_span, args_spans) = match working_set.find_decl(b"use", &Type::Any) {
         Some(decl_id) => {
             let (command_spans, rest_spans) = spans.split_at(split_id);
 
@@ -1594,7 +1597,7 @@ pub fn parse_use(
                 );
             }
 
-            (call, call_span, decl_id)
+            (call, call_span, rest_spans)
         }
         None => {
             return (
@@ -1608,33 +1611,30 @@ pub fn parse_use(
         }
     };
 
-    let import_pattern = if let Some(expr) = call.positional_nth(0) {
-        if let Some(pattern) = expr.as_import_pattern() {
-            pattern
-        } else {
-            return (
-                garbage_pipeline(spans),
-                vec![],
-                Some(ParseError::UnknownState(
-                    "internal error: Import pattern positional is not import pattern".into(),
-                    expr.span,
-                )),
-            );
-        }
+    let mut error = None;
+
+    let (import_pattern_expr, err) =
+        parse_import_pattern(working_set, args_spans, expand_aliases_denylist);
+    error = error.or(err);
+
+    let import_pattern = if let Expression {
+        expr: Expr::ImportPattern(import_pattern),
+        ..
+    } = &import_pattern_expr
+    {
+        import_pattern.clone()
     } else {
         return (
             garbage_pipeline(spans),
             vec![],
             Some(ParseError::UnknownState(
-                "internal error: Missing required positional after call parsing".into(),
-                call_span,
+                "internal error: Import pattern positional is not import pattern".into(),
+                import_pattern_expr.span,
             )),
         );
     };
 
     let cwd = working_set.get_cwd();
-
-    let mut error = None;
 
     // TODO: Add checking for importing too long import patterns, e.g.:
     // > use spam foo non existent names here do not throw error
@@ -1841,18 +1841,13 @@ pub fn parse_use(
     // Create a new Use command call to pass the new import pattern
     let import_pattern_expr = Expression {
         expr: Expr::ImportPattern(import_pattern),
-        span: span(&spans[1..]),
-        ty: Type::List(Box::new(Type::String)),
+        span: span(args_spans),
+        ty: Type::Any,
         custom_completion: None,
     };
 
-    let call = Box::new(Call {
-        head: span(spans.split_at(split_id).0),
-        decl_id: use_decl_id,
-        arguments: vec![Argument::Positional(import_pattern_expr)],
-        redirect_stdout: true,
-        redirect_stderr: false,
-    });
+    let mut call = call;
+    call.add_parser_info(import_pattern_expr);
 
     (
         Pipeline::from_vec(vec![Expression {
@@ -1881,7 +1876,7 @@ pub fn parse_hide(
         );
     }
 
-    let (call, call_span, hide_decl_id) = match working_set.find_decl(b"hide", &Type::Any) {
+    let (call, args_spans) = match working_set.find_decl(b"hide", &Type::Any) {
         Some(decl_id) => {
             let ParsedInternalCall {
                 call,
@@ -1911,7 +1906,7 @@ pub fn parse_hide(
                 );
             }
 
-            (call, call_span, decl_id)
+            (call, &spans[1..])
         }
         None => {
             return (
@@ -1924,29 +1919,28 @@ pub fn parse_hide(
         }
     };
 
-    let import_pattern = if let Some(expr) = call.positional_nth(0) {
-        if let Some(pattern) = expr.as_import_pattern() {
-            pattern
-        } else {
-            return (
-                garbage_pipeline(spans),
-                Some(ParseError::UnknownState(
-                    "internal error: Import pattern positional is not import pattern".into(),
-                    call_span,
-                )),
-            );
-        }
+    let mut error = None;
+
+    let (import_pattern_expr, err) =
+        parse_import_pattern(working_set, args_spans, expand_aliases_denylist);
+    error = error.or(err);
+
+    let import_pattern = if let Expression {
+        expr: Expr::ImportPattern(import_pattern),
+        ..
+    } = &import_pattern_expr
+    {
+        import_pattern.clone()
     } else {
         return (
             garbage_pipeline(spans),
             Some(ParseError::UnknownState(
-                "internal error: Missing required positional after call parsing".into(),
-                call_span,
+                "internal error: Import pattern positional is not import pattern".into(),
+                import_pattern_expr.span,
             )),
         );
     };
 
-    let mut error = None;
     let bytes = working_set.get_span_contents(spans[0]);
 
     if bytes == b"hide" && spans.len() >= 2 {
@@ -2053,18 +2047,13 @@ pub fn parse_hide(
         // Create a new Use command call to pass the new import pattern
         let import_pattern_expr = Expression {
             expr: Expr::ImportPattern(import_pattern),
-            span: span(&spans[1..]),
-            ty: Type::List(Box::new(Type::String)),
+            span: span(args_spans),
+            ty: Type::Any,
             custom_completion: None,
         };
 
-        let call = Box::new(Call {
-            head: spans[0],
-            decl_id: hide_decl_id,
-            arguments: vec![Argument::Positional(import_pattern_expr)],
-            redirect_stdout: true,
-            redirect_stderr: false,
-        });
+        let mut call = call;
+        call.add_parser_info(import_pattern_expr);
 
         (
             Pipeline::from_vec(vec![Expression {
@@ -2611,13 +2600,16 @@ pub fn parse_overlay_use(
 
     // Change the call argument to include the Overlay expression with the module ID
     let mut call = call;
-    if let Some(overlay_expr) = call.positional_nth_mut(0) {
-        overlay_expr.expr = Expr::Overlay(if is_module_updated {
+    call.add_parser_info(Expression {
+        expr: Expr::Overlay(if is_module_updated {
             Some(origin_module_id)
         } else {
             None
-        });
-    } // no need to check for else since it was already checked
+        }),
+        span: overlay_name_span,
+        ty: Type::Any,
+        custom_completion: None,
+    });
 
     let pipeline = Pipeline::from_vec(vec![Expression {
         expr: Expr::Call(call),
@@ -2835,6 +2827,7 @@ pub fn parse_let_or_const(
                             ],
                             redirect_stdout: true,
                             redirect_stderr: false,
+                            parser_info: vec![],
                         });
 
                         return (
@@ -2956,6 +2949,7 @@ pub fn parse_mut(
                             ],
                             redirect_stdout: true,
                             redirect_stderr: false,
+                            parser_info: vec![],
                         });
 
                         return (
@@ -3130,7 +3124,7 @@ pub fn parse_source(
 
                             // FIXME: Adding this expression to the positional creates a syntax highlighting error
                             // after writing `source example.nu`
-                            call_with_block.add_positional(Expression {
+                            call_with_block.add_parser_info(Expression {
                                 expr: Expr::Int(block_id as i64),
                                 span: spans[1],
                                 ty: Type::Any,
