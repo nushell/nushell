@@ -61,7 +61,7 @@ fn picks_up_and_lets_go_env_keys_when_entering_trusted_directory_with_implied_cd
         let actual = nu!(
             cwd: dirs.test(),
             r#"
-            do {autoenv trust -q foo ; = $nothing }
+            do {autoenv trust -q foo ; = null }
             foo
             echo $env.testkey"#
         );
@@ -70,7 +70,7 @@ fn picks_up_and_lets_go_env_keys_when_entering_trusted_directory_with_implied_cd
         let actual = nu!(
             cwd: dirs.test(),
             r#"
-            do {autoenv trust -q foo; = $nothing } ;
+            do {autoenv trust -q foo; = null } ;
             foo
             ..
             echo $env.testkey
@@ -81,8 +81,8 @@ fn picks_up_and_lets_go_env_keys_when_entering_trusted_directory_with_implied_cd
         let actual = nu!(
             cwd: dirs.test(),
             r#"
-            do {autoenv trust -q foo; = $nothing } ;
-            do {autoenv trust -q foo/bar; = $nothing } ;
+            do {autoenv trust -q foo; = null } ;
+            do {autoenv trust -q foo/bar; = null } ;
             foo/bar
             echo $env.testkey
             echo $env.bar
@@ -324,7 +324,7 @@ fn given_a_hierachy_of_trusted_directories_when_entering_in_any_nested_ones_shou
 
         let actual = Trusted::in_path(&dirs, || {
             nu!(cwd: dirs.test().parent().unwrap(), r#"
-                do { autoenv trust -q autoenv_test_9/nu_plugin_rb ; = $nothing } # Silence autoenv trust -q message from output
+                do { autoenv trust -q autoenv_test_9/nu_plugin_rb ; = null } # Silence autoenv trust -q message from output
                 cd autoenv_test_9/nu_plugin_rb
                 echo $env.organization
             "#)
@@ -355,7 +355,7 @@ fn given_a_hierachy_of_trusted_directories_nested_ones_should_overwrite_variable
 
         let actual = Trusted::in_path(&dirs, || {
             nu!(cwd: dirs.test().parent().unwrap(), r#"
-                do { autoenv trust -q autoenv_test_10/nu_plugin_rb ; = $nothing } # Silence autoenv trust -q message from output
+                do { autoenv trust -q autoenv_test_10/nu_plugin_rb ; = null } # Silence autoenv trust -q message from output
                 cd autoenv_test_10/nu_plugin_rb
                 echo $env.organization
             "#)

@@ -75,7 +75,7 @@ fn earlier_errors() -> TestResult {
 #[test]
 fn missing_flags_are_nothing() -> TestResult {
     run_test(
-        r#"def foo [--aaa(-a): int, --bbb(-b): int] { (if $aaa == $nothing { 10 } else { $aaa }) + (if $bbb == $nothing { 100 } else { $bbb }) }; foo"#,
+        r#"def foo [--aaa(-a): int, --bbb(-b): int] { (if $aaa == null { 10 } else { $aaa }) + (if $bbb == null { 100 } else { $bbb }) }; foo"#,
         "110",
     )
 }
@@ -83,7 +83,7 @@ fn missing_flags_are_nothing() -> TestResult {
 #[test]
 fn missing_flags_are_nothing2() -> TestResult {
     run_test(
-        r#"def foo [--aaa(-a): int, --bbb(-b): int] { (if $aaa == $nothing { 10 } else { $aaa }) + (if $bbb == $nothing { 100 } else { $bbb }) }; foo -a 90"#,
+        r#"def foo [--aaa(-a): int, --bbb(-b): int] { (if $aaa == null { 10 } else { $aaa }) + (if $bbb == null { 100 } else { $bbb }) }; foo -a 90"#,
         "190",
     )
 }
@@ -91,7 +91,7 @@ fn missing_flags_are_nothing2() -> TestResult {
 #[test]
 fn missing_flags_are_nothing3() -> TestResult {
     run_test(
-        r#"def foo [--aaa(-a): int, --bbb(-b): int] { (if $aaa == $nothing { 10 } else { $aaa }) + (if $bbb == $nothing { 100 } else { $bbb }) }; foo -b 45"#,
+        r#"def foo [--aaa(-a): int, --bbb(-b): int] { (if $aaa == null { 10 } else { $aaa }) + (if $bbb == null { 100 } else { $bbb }) }; foo -b 45"#,
         "55",
     )
 }
@@ -99,7 +99,7 @@ fn missing_flags_are_nothing3() -> TestResult {
 #[test]
 fn missing_flags_are_nothing4() -> TestResult {
     run_test(
-        r#"def foo [--aaa(-a): int, --bbb(-b): int] { (if $aaa == $nothing { 10 } else { $aaa }) + (if $bbb == $nothing { 100 } else { $bbb }) }; foo -a 3 -b 10000"#,
+        r#"def foo [--aaa(-a): int, --bbb(-b): int] { (if $aaa == null { 10 } else { $aaa }) + (if $bbb == null { 100 } else { $bbb }) }; foo -a 3 -b 10000"#,
         "10003",
     )
 }

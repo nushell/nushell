@@ -532,7 +532,7 @@ fn proper_shadow_load_env_aliases() {
     assert_eq!(actual.out, "truefalsetrue");
 }
 
-//FIXME: jt: load-env can not currently hide variables because $nothing no longer hides
+//FIXME: jt: load-env can not currently hide variables because null no longer hides
 #[ignore]
 #[test]
 fn load_env_can_hide_var_envs() {
@@ -541,7 +541,7 @@ fn load_env_can_hide_var_envs() {
         r#"
         let-env DEBUG = "1"
         echo $env.DEBUG
-        load-env [[name, value]; [DEBUG $nothing]]
+        load-env [[name, value]; [DEBUG null]]
         echo $env.DEBUG
         "#
     );
@@ -550,7 +550,7 @@ fn load_env_can_hide_var_envs() {
     assert!(actual.err.contains("Unknown column"));
 }
 
-//FIXME: jt: load-env can not currently hide variables because $nothing no longer hides
+//FIXME: jt: load-env can not currently hide variables because null no longer hides
 #[ignore]
 #[test]
 fn load_env_can_hide_var_envs_in_parent_scope() {
@@ -560,7 +560,7 @@ fn load_env_can_hide_var_envs_in_parent_scope() {
         let-env DEBUG = "1"
         echo $env.DEBUG
         do {
-            load-env [[name, value]; [DEBUG $nothing]]
+            load-env [[name, value]; [DEBUG null]]
             echo $env.DEBUG
         }
         echo $env.DEBUG
@@ -1176,7 +1176,7 @@ fn nothing_string_1() {
     let actual = nu!(
         cwd: ".", pipeline(
         r#"
-        $nothing == "foo"
+        null == "foo"
         "#)
     );
 
