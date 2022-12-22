@@ -56,7 +56,7 @@ impl Command for FromNuon {
 
     fn run(
         &self,
-        _engine_state: &EngineState,
+        engine_state: &EngineState,
         _stack: &mut Stack,
         call: &Call,
         input: PipelineData,
@@ -64,19 +64,12 @@ impl Command for FromNuon {
         let head = call.head;
         let (string_input, metadata) = input.collect_string_strict(head)?;
 
-        let engine_state = EngineState::new();
+        let engine_state = engine_state.clone();
 
         let mut working_set = StateWorkingSet::new(&engine_state);
-
-        let _ = working_set.add_file("nuon file".to_string(), string_input.as_bytes());
-
         let mut error = None;
-
-        // Most of the 'work' in converting from Nuon is simply pushing it through the Nu parser.
-        let (lexed, err) = nu_parser::lex(string_input.as_bytes(), 0, &[b'\n', b'\r'], &[], true);
-        error = error.or(err);
-
-        let (mut block, err) = nu_parser::parse_block(&mut working_set, &lexed, true, &[], false);
+        let (mut block, err) =
+            nu_parser::parse(&mut working_set, None, string_input.as_bytes(), false, &[]);
         error = error.or(err);
 
         if let Some(pipeline) = block.pipelines.get(1) {

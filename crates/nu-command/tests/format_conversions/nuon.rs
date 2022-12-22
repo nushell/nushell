@@ -340,6 +340,14 @@ fn quotes_some_strings_necessarily() {
     assert_eq!(actual.out, "list<string>");
 }
 
+#[test]
+fn read_code_should_fail_rather_than_panic() {
+    let actual = nu!(cwd: "tests/fixtures/formats", pipeline(
+        r#"open code.nu | from nuon"#
+    ));
+    assert!(actual.err.contains("error when parsing"))
+}
+
 proptest! {
     #[test]
     fn to_nuon_from_nuon(c: char) {
