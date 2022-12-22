@@ -1906,11 +1906,51 @@ pub fn parse_cell_path(
     let mut expected_token = TokenType::Any;
     let mut optional = false;
 
+    // FIXME: can we find a way to reuse this code without a macro?
+    // It's a little tricky to do in a function/closure because working_set is mutably borrowed
+    macro_rules! parse_path_member {
+        ($bytes:expr, $span:expr) => {
+            match parse_int($bytes, $span) {
+                (
+                    Expression {
+                        expr: Expr::Int(val),
+                        span,
+                        ..
+                    },
+                    None,
+                ) => tail.push(PathMember::Int {
+                    val: val as usize,
+                    span,
+                    optional,
+                }),
+                _ => {
+                    let (result, err) = parse_string(working_set, $span, expand_aliases_denylist);
+                    error = error.or(err);
+                    match result {
+                        Expression {
+                            expr: Expr::String(string),
+                            span,
+                            ..
+                        } => {
+                            tail.push(PathMember::String {
+                                val: string,
+                                span,
+                                optional,
+                            });
+                        }
+                        _ => {
+                            error =
+                                error.or_else(|| Some(ParseError::Expected("string".into(), span)));
+                        }
+                    }
+                }
+            }
+        };
+    }
+
     for path_element in tokens {
         let bytes = working_set.get_span_contents(path_element.span);
 
-        // FIXME: this contains an awful lot of duplicated code for parsing int/string path members.
-        // Should clean it up / deduplicate it, but it's a little tricky because of lifetimes
         match expected_token {
             TokenType::Any => {
                 if bytes.len() == 1 && bytes[0] == b'?' {
@@ -1919,49 +1959,8 @@ pub fn parse_cell_path(
                 } else if bytes.len() == 1 && bytes[0] == b'.' {
                     expected_token = TokenType::PathMember;
                 } else {
-                    match parse_int(bytes, path_element.span) {
-                        (
-                            Expression {
-                                expr: Expr::Int(val),
-                                span,
-                                ..
-                            },
-                            None,
-                        ) => tail.push(PathMember::Int {
-                            val: val as usize,
-                            span,
-                            optional,
-                        }),
-                        _ => {
-                            let (result, err) = parse_string(
-                                working_set,
-                                path_element.span,
-                                expand_aliases_denylist,
-                            );
-                            error = error.or(err);
-                            match result {
-                                Expression {
-                                    expr: Expr::String(string),
-                                    span,
-                                    ..
-                                } => {
-                                    tail.push(PathMember::String {
-                                        val: string,
-                                        span,
-                                        optional,
-                                    });
-                                }
-                                _ => {
-                                    error = error.or_else(|| {
-                                        Some(ParseError::Expected("string".into(), span))
-                                    });
-                                }
-                            }
-                        }
-                    }
-
+                    parse_path_member!(bytes, path_element.span);
                     expected_token = TokenType::QuestionOrDot;
-                    // reset optional
                     optional = false;
                 }
             }
@@ -1985,94 +1984,16 @@ pub fn parse_cell_path(
                 }
             }
             TokenType::PathMember => {
-                match parse_int(bytes, path_element.span) {
-                    (
-                        Expression {
-                            expr: Expr::Int(val),
-                            span,
-                            ..
-                        },
-                        None,
-                    ) => tail.push(PathMember::Int {
-                        val: val as usize,
-                        span,
-                        optional,
-                    }),
-                    _ => {
-                        let (result, err) =
-                            parse_string(working_set, path_element.span, expand_aliases_denylist);
-                        error = error.or(err);
-                        match result {
-                            Expression {
-                                expr: Expr::String(string),
-                                span,
-                                ..
-                            } => {
-                                tail.push(PathMember::String {
-                                    val: string,
-                                    span,
-                                    optional,
-                                });
-                            }
-                            _ => {
-                                error = error
-                                    .or_else(|| Some(ParseError::Expected("string".into(), span)));
-                            }
-                        }
-                    }
-                }
-
+                parse_path_member!(bytes, path_element.span);
                 expected_token = TokenType::QuestionOrDot;
-                // reset optional
                 optional = false;
             }
             TokenType::DotOrPathMember => {
                 if bytes.len() == 1 && bytes[0] == b'.' {
                     expected_token = TokenType::PathMember;
                 } else {
-                    match parse_int(bytes, path_element.span) {
-                        (
-                            Expression {
-                                expr: Expr::Int(val),
-                                span,
-                                ..
-                            },
-                            None,
-                        ) => tail.push(PathMember::Int {
-                            val: val as usize,
-                            span,
-                            optional,
-                        }),
-                        _ => {
-                            let (result, err) = parse_string(
-                                working_set,
-                                path_element.span,
-                                expand_aliases_denylist,
-                            );
-                            error = error.or(err);
-                            match result {
-                                Expression {
-                                    expr: Expr::String(string),
-                                    span,
-                                    ..
-                                } => {
-                                    tail.push(PathMember::String {
-                                        val: string,
-                                        span,
-                                        optional,
-                                    });
-                                }
-                                _ => {
-                                    error = error.or_else(|| {
-                                        Some(ParseError::Expected("string".into(), span))
-                                    });
-                                }
-                            }
-                        }
-                    }
-
+                    parse_path_member!(bytes, path_element.span);
                     expected_token = TokenType::QuestionOrDot;
-                    // reset optional
                     optional = false;
                 }
             }
