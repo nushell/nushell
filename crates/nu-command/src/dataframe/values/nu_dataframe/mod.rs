@@ -208,19 +208,20 @@ impl NuDataFrame {
         self.df.dtypes()
     }
 
-    pub fn columns(&self,span:Span) -> Result<Vec<Column>, ShellError> {
+    pub fn columns(&self, span: Span) -> Result<Vec<Column>, ShellError> {
         let height = self.df.height();
-        self.df.get_columns().iter().map(
+        self.df
+            .get_columns()
+            .iter()
+            .map(
                 |col| match conversion::create_column(col, 0 as usize, height, span) {
-                    Ok(col) => {
-                        Ok(col)
-                    }
+                    Ok(col) => Ok(col),
                     Err(e) => Err(e),
                 },
             )
             .collect::<Result<Vec<Column>, ShellError>>()
     }
-    
+
     pub fn try_from_value(value: Value) -> Result<Self, ShellError> {
         if Self::can_downcast(&value) {
             Ok(Self::get_df(value)?)

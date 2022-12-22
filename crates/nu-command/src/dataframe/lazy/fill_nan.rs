@@ -1,4 +1,4 @@
-use crate::dataframe::values::{NuExpression,NuDataFrame,NuLazyFrame,Column};
+use crate::dataframe::values::{Column, NuDataFrame, NuExpression, NuLazyFrame};
 use nu_engine::CallExt;
 use nu_protocol::{
     ast::Call,
@@ -71,24 +71,31 @@ impl Command for LazyFillNA {
             } else {
                 let frame = NuDataFrame::try_from_value(value)?;
                 let columns = frame.columns(span)?;
-                let dataframe = columns.iter().map(|column|{
-                    let values = column.values().iter().map(|value|{
-                        match value {
-                            Value::Float {val,..} => {
-                                if val.is_nan(){
-                                    fill.clone()
-                                } else {
-                                    value.clone()
+                let dataframe = columns
+                    .iter()
+                    .map(|column| {
+                        let values = column
+                            .values()
+                            .iter()
+                            .map(|value| match value {
+                                Value::Float { val, .. } => {
+                                    if val.is_nan() {
+                                        fill.clone()
+                                    } else {
+                                        value.clone()
+                                    }
                                 }
-                            }
-                            _ => value.clone()
-                        }
-                    }).collect::<Vec<Value>>();
-                    Column::new(column.name().to_string(),values)
-                }).collect::<Vec<Column>>();
-                Ok(PipelineData::Value(NuDataFrame::try_from_columns(dataframe)?.into_value(call.head), None))
+                                _ => value.clone(),
+                            })
+                            .collect::<Vec<Value>>();
+                        Column::new(column.name().to_string(), values)
+                    })
+                    .collect::<Vec<Column>>();
+                Ok(PipelineData::Value(
+                    NuDataFrame::try_from_columns(dataframe)?.into_value(call.head),
+                    None,
+                ))
             }
-
         }
     }
 }

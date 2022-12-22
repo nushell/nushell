@@ -36,9 +36,8 @@ impl Column {
     }
 
     pub fn values(&self) -> Vec<Value> {
-        self.values.clone()  
+        self.values.clone()
     }
-    
 }
 
 impl IntoIterator for Column {
