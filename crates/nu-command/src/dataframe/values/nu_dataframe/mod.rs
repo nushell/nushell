@@ -213,12 +213,7 @@ impl NuDataFrame {
         self.df
             .get_columns()
             .iter()
-            .map(
-                |col| match conversion::create_column(col, 0 as usize, height, span) {
-                    Ok(col) => Ok(col),
-                    Err(e) => Err(e),
-                },
-            )
+            .map(|col| conversion::create_column(col, 0 as usize, height, span))
             .collect::<Result<Vec<Column>, ShellError>>()
     }
 

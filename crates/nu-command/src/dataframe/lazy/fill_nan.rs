@@ -3,7 +3,7 @@ use nu_engine::CallExt;
 use nu_protocol::{
     ast::Call,
     engine::{Command, EngineState, Stack},
-    Category, Example, PipelineData, ShellError, Signature, SyntaxShape, Type, Value,
+    Category, Example, PipelineData, ShellError, Signature, Span, SyntaxShape, Type, Value,
 };
 use polars::datatypes::DataType;
 
@@ -34,8 +34,21 @@ impl Command for LazyFillNA {
     fn examples(&self) -> Vec<Example> {
         vec![Example {
             description: "Fills the NaN values by 0",
-            example: "[1 2 2 3 3] | into df | fill-nan 0",
-            result: None,
+            example: "[1 2 NaN 3 NaN] | into df | fill-nan 0",
+            result: Some(
+                NuDataFrame::try_from_columns(vec![Column::new(
+                    "0".to_string(),
+                    vec![
+                        Value::test_int(1),
+                        Value::test_int(2),
+                        Value::test_int(0),
+                        Value::test_int(3),
+                        Value::test_int(0),
+                    ],
+                )])
+                .expect("Df for test should not fail")
+                .into_value(Span::test_data()),
+            ),
         }]
     }
 
