@@ -1,0 +1,9 @@
+# Configuration for cross-rs: https://github.com/cross-rs/cross
+# Run cross-rs like this:
+# cross build --target aarch64-unknown-linux-musl --release
+
+[target.aarch64-unknown-linux-gnu]
+dockerfile = "./docker/cross-rs/aarch64-unknown-linux-gnu.dockerfile"
+
+[target.aarch64-unknown-linux-musl]
+dockerfile = "./docker/cross-rs/aarch64-unknown-linux-musl.dockerfile"
