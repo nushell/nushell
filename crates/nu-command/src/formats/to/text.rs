@@ -3,7 +3,7 @@ use nu_protocol::{
     ast::Call,
     engine::{Command, EngineState, Stack},
     format_duration, format_filesize_from_conf, Category, Config, Example, IntoPipelineData,
-    PipelineData, ShellError, Signature, Type, Value,
+    ListStream, PipelineData, RawStream, ShellError, Signature, Type, Value,
 };
 
 #[derive(Clone)]
@@ -40,13 +40,34 @@ impl Command for ToText {
             "\n"
         };
 
-        let collected_input = local_into_string(input.into_value(span), line_ending, config);
+        if let PipelineData::ListStream(stream, _) = input {
+            Ok(PipelineData::ExternalStream {
+                stdout: Some(RawStream::new(
+                    Box::new(ListStreamIterator {
+                        stream,
+                        separator: line_ending.into(),
+                        config: config.clone(),
+                    }),
+                    engine_state.ctrlc.clone(),
+                    span,
+                )),
+                stderr: None,
+                exit_code: None,
+                span,
+                metadata: None,
+                trim_end_newline: false,
+            })
+        } else {
+            // FIXME: don't collect! stream the output wherever possible!
+            // Even if the data is collected when it arrives at `to text`, we should be able to stream it out
+            let collected_input = local_into_string(input.into_value(span), line_ending, config);
 
-        Ok(Value::String {
-            val: collected_input,
-            span,
+            Ok(Value::String {
+                val: collected_input,
+                span,
+            }
+            .into_pipeline_data())
         }
-        .into_pipeline_data())
     }
 
     fn examples(&self) -> Vec<Example> {
@@ -58,15 +79,35 @@ impl Command for ToText {
             },
             Example {
                 description: "Outputs external data as simple text",
-                example: "git help -a | lines | find -r '^ ' |  to text",
+                example: "git help -a | lines | find -r '^ ' | to text",
                 result: None,
             },
             Example {
                 description: "Outputs records as simple text",
-                example: "ls |  to text",
+                example: "ls | to text",
                 result: None,
             },
         ]
+    }
+}
+
+struct ListStreamIterator {
+    stream: ListStream,
+    separator: String,
+    config: Config,
+}
+
+impl Iterator for ListStreamIterator {
+    type Item = Result<Vec<u8>, ShellError>;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        if let Some(item) = self.stream.next() {
+            let mut string = local_into_string(item, &self.separator, &self.config);
+            string.push_str(&self.separator);
+            Some(Ok(string.as_bytes().to_vec()))
+        } else {
+            None
+        }
     }
 }
 
