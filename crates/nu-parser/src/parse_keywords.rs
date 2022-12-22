@@ -19,10 +19,11 @@ use crate::{
     eval::{eval_constant, value_as_string},
     known_external::KnownExternal,
     lex,
+    lite_parser::{lite_parse, LiteCommand, LiteElement},
     parser::{
-        check_call, check_name, garbage, garbage_pipeline, lite_parse, parse, parse_import_pattern,
+        check_call, check_name, garbage, garbage_pipeline, parse, parse_import_pattern,
         parse_internal_call, parse_multispan_value, parse_signature, parse_string, parse_value,
-        parse_var_with_opt_type, trim_quotes, LiteCommand, LiteElement, ParsedInternalCall,
+        parse_var_with_opt_type, trim_quotes, ParsedInternalCall,
     },
     unescape_unquote_string, ParseError,
 };
