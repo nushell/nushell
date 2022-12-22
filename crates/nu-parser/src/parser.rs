@@ -34,9 +34,6 @@ use std::{
 #[cfg(feature = "plugin")]
 use crate::parse_keywords::parse_register;
 
-#[derive(Debug, Clone)]
-pub enum Import {}
-
 pub fn garbage(span: Span) -> Expression {
     Expression::garbage(span)
 }
