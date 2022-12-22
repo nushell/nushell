@@ -4,6 +4,7 @@ mod eval;
 mod flatten;
 mod known_external;
 mod lex;
+mod lite_parser;
 mod parse_keywords;
 mod parser;
 mod type_check;
@@ -15,12 +16,12 @@ pub use flatten::{
 };
 pub use known_external::KnownExternal;
 pub use lex::{lex, Token, TokenContents};
+pub use lite_parser::{lite_parse, LiteBlock, LiteElement};
 pub use parse_keywords::*;
 
 pub use parser::{
-    is_math_expression_like, lite_parse, parse, parse_block, parse_duration_bytes,
-    parse_expression, parse_external_call, trim_quotes, trim_quotes_str, unescape_unquote_string,
-    Import, LiteBlock, LiteElement,
+    is_math_expression_like, parse, parse_block, parse_duration_bytes, parse_expression,
+    parse_external_call, trim_quotes, trim_quotes_str, unescape_unquote_string,
 };
 
 #[cfg(feature = "plugin")]
