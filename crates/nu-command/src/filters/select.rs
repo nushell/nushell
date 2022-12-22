@@ -21,11 +21,6 @@ impl Command for Select {
                 (Type::Record(vec![]), Type::Record(vec![])),
                 (Type::Table(vec![]), Type::Table(vec![])),
             ])
-            .switch(
-                "ignore-errors",
-                "when an error occurs, instead of erroring out, suppress the error message",
-                Some('i'),
-            )
             .rest(
                 "rest",
                 SyntaxShape::CellPath,
@@ -51,9 +46,8 @@ impl Command for Select {
     ) -> Result<nu_protocol::PipelineData, nu_protocol::ShellError> {
         let columns: Vec<CellPath> = call.rest(engine_state, stack, 0)?;
         let span = call.head;
-        let ignore_errors = call.has_flag("ignore-errors");
 
-        select(engine_state, span, columns, input, ignore_errors)
+        select(engine_state, span, columns, input)
     }
 
     fn examples(&self) -> Vec<Example> {
@@ -90,7 +84,6 @@ fn select(
     call_span: Span,
     columns: Vec<CellPath>,
     input: PipelineData,
-    ignore_errors: bool,
 ) -> Result<PipelineData, ShellError> {
     let mut rows = vec![];
 
@@ -164,12 +157,7 @@ fn select(
                                     columns_with_value.push(path);
                                 }
                             }
-                            Err(e) => {
-                                if ignore_errors {
-                                    return Ok(Value::nothing(call_span).into_pipeline_data());
-                                }
-                                return Err(e);
-                            }
+                            Err(e) => return Err(e),
                         }
                     }
 
@@ -198,12 +186,7 @@ fn select(
                                 cols.push(path.into_string().replace('.', "_"));
                                 vals.push(value);
                             }
-                            Err(e) => {
-                                if ignore_errors {
-                                    return Ok(Value::nothing(call_span).into_pipeline_data());
-                                }
-                                return Err(e);
-                            }
+                            Err(e) => return Err(e),
                         }
                     }
                     values.push(Value::Record {
@@ -232,13 +215,7 @@ fn select(
                             cols.push(cell_path.into_string().replace('.', "_"));
                             vals.push(result);
                         }
-                        Err(e) => {
-                            if ignore_errors {
-                                return Ok(Value::nothing(call_span).into_pipeline_data());
-                            }
-
-                            return Err(e);
-                        }
+                        Err(e) => return Err(e),
                     }
                 }
 

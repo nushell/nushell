@@ -161,73 +161,56 @@ fn selects_many_rows() {
 }
 
 #[test]
-fn select_ignores_errors_succesfully1() {
+fn select_uses_optional_cell_paths_1() {
     let actual = nu!(
         cwd: ".", pipeline(
         r#"
-        [{a: 1, b: 2} {a: 3, b: 5} {a: 3}] | select -i b
+        ([{a: 1, b: 2} {a: 3, b: 5} {a: 3}] | select ?b) == [{b: 2} {b: 5} {b: null}]
+            "#
+    ));
+
+    assert_eq!(actual.out, "true");
+    assert!(actual.err.is_empty());
+}
+
+#[test]
+fn select_uses_optional_cell_paths_2() {
+    let actual = nu!(
+        cwd: ".", pipeline(
+        r#"
+        ([{a: 1, b: 2} {a: 3, b: 5} {a: 3}] | select ?.b) == [{b: 2} {b: 5} {b: null}]
+            "#
+    ));
+
+    assert_eq!(actual.out, "true");
+    assert!(actual.err.is_empty());
+}
+
+#[test]
+fn select_uses_optional_cell_paths_3() {
+    let actual = nu!(
+        cwd: ".", pipeline(
+        r#"
+        ([{a: 1, b: 2} {a: 3, b: 5, c: 7} {a: 3}] | select ?b ?c) == [{b: 2, c: null} {b: 5, c: 7} {b: null, c: null}]
+            "#
+    ));
+
+    assert_eq!(actual.out, "true");
+    assert!(actual.err.is_empty());
+}
+
+#[test]
+fn select_uses_optional_cell_paths_4() {
+    // fail if only 1 of the 2 paths is optional
+    let actual = nu!(
+        cwd: ".", pipeline(
+        r#"
+        ([{a: 1, b: 2, c: 3} {a: 3, b: 5} {a: 3}] | select ?b c) == [{b: 2, c: null} {b: 5, c: 7} {b: null, c: null}]
             "#
     ));
 
     assert!(actual.out.is_empty());
-    assert!(actual.err.is_empty());
-}
-
-#[test]
-fn select_ignores_errors_succesfully2() {
-    let actual = nu!(
-        cwd: ".", pipeline(
-        r#"
-        [{a: 1} {a: 2} {a: 3}] | select -i b
-            "#
-    ));
-
-    assert!(actual.out.is_empty());
-    assert!(actual.err.is_empty());
-}
-
-#[test]
-fn select_ignores_errors_succesfull3() {
-    let actual = nu!(
-        cwd: ".", pipeline(
-        r#"sys | select -i invalid_key"#
-    ));
-
-    assert!(actual.out.is_empty());
-    assert!(actual.err.is_empty());
-}
-
-#[test]
-fn select_ignores_errors_succesfully4() {
-    let actual = nu!(
-        cwd: ".", pipeline(
-        r#"[a b c] | select -i invalid_key"#
-    ));
-
-    assert!(actual.out.is_empty());
-    assert!(actual.err.is_empty());
-}
-
-#[test]
-fn select_ignores_errors_successfully5() {
-    let actual = nu!(
-        cwd: ".", pipeline(
-        r#"[a b c] | select -i 0.0"#
-    ));
-
-    assert!(actual.out.is_empty());
-    assert!(actual.err.is_empty());
-}
-
-#[test]
-fn select_ignores_errors_successfully6() {
-    let actual = nu!(
-        cwd: ".", pipeline(
-        r#""key val\na 1\nb 2\n" | lines | split column -c " " | select -i "100""#
-    ));
-
-    assert!(actual.out.is_empty());
-    assert!(actual.err.is_empty());
+    assert!(actual.err.contains("cannot find column"));
 }
 
 #[test]
