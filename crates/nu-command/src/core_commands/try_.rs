@@ -1,8 +1,9 @@
 use nu_engine::{eval_block, CallExt};
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Block, Closure, Command, EngineState, Stack};
-use nu_protocol::{Category, Example, IntoPipelineData, PipelineData, Signature, SyntaxShape, Type,
-    Value};
+use nu_protocol::{
+    Category, Example, IntoPipelineData, PipelineData, Signature, SyntaxShape, Type, Value,
+};
 
 #[derive(Clone)]
 pub struct Try;
