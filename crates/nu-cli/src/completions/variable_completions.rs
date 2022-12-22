@@ -9,6 +9,8 @@ use reedline::Suggestion;
 use std::str;
 use std::sync::Arc;
 
+use super::MatchAlgorithm;
+
 #[derive(Clone)]
 pub struct VariableCompletion {
     engine_state: Arc<EngineState>, // TODO: Is engine state necessary? It's already a part of working set in fetch()
@@ -73,10 +75,11 @@ impl Completer for VariableCompletion {
                         for suggestion in
                             nested_suggestions(val.clone(), nested_levels, current_span)
                         {
-                            if options
-                                .match_algorithm
-                                .matches_u8(suggestion.value.as_bytes(), &prefix)
-                            {
+                            if options.match_algorithm.matches_u8_insensitive(
+                                options.case_sensitive,
+                                suggestion.value.as_bytes(),
+                                &prefix,
+                            ) {
                                 output.push(suggestion);
                             }
                         }
@@ -86,10 +89,11 @@ impl Completer for VariableCompletion {
                 } else {
                     // No nesting provided, return all env vars
                     for env_var in env_vars {
-                        if options
-                            .match_algorithm
-                            .matches_u8(env_var.0.as_bytes(), &prefix)
-                        {
+                        if options.match_algorithm.matches_u8_insensitive(
+                            options.case_sensitive,
+                            env_var.0.as_bytes(),
+                            &prefix,
+                        ) {
                             output.push(Suggestion {
                                 value: env_var.0,
                                 description: None,
@@ -116,10 +120,11 @@ impl Completer for VariableCompletion {
                     for suggestion in
                         nested_suggestions(nuval, self.var_context.1.clone(), current_span)
                     {
-                        if options
-                            .match_algorithm
-                            .matches_u8(suggestion.value.as_bytes(), &prefix)
-                        {
+                        if options.match_algorithm.matches_u8_insensitive(
+                            options.case_sensitive,
+                            suggestion.value.as_bytes(),
+                            &prefix,
+                        ) {
                             output.push(suggestion);
                         }
                     }
@@ -138,10 +143,11 @@ impl Completer for VariableCompletion {
                     for suggestion in
                         nested_suggestions(value, self.var_context.1.clone(), current_span)
                     {
-                        if options
-                            .match_algorithm
-                            .matches_u8(suggestion.value.as_bytes(), &prefix)
-                        {
+                        if options.match_algorithm.matches_u8_insensitive(
+                            options.case_sensitive,
+                            suggestion.value.as_bytes(),
+                            &prefix,
+                        ) {
                             output.push(suggestion);
                         }
                     }
@@ -153,10 +159,11 @@ impl Completer for VariableCompletion {
 
         // Variable completion (e.g: $en<tab> to complete $env)
         for builtin in builtins {
-            if options
-                .match_algorithm
-                .matches_u8(builtin.as_bytes(), &prefix)
-            {
+            if options.match_algorithm.matches_u8_insensitive(
+                options.case_sensitive,
+                builtin.as_bytes(),
+                &prefix,
+            ) {
                 output.push(Suggestion {
                     value: builtin.to_string(),
                     description: None,
@@ -178,7 +185,11 @@ impl Completer for VariableCompletion {
                 .rev()
             {
                 for v in &overlay_frame.vars {
-                    if options.match_algorithm.matches_u8(v.0, &prefix) {
+                    if options.match_algorithm.matches_u8_insensitive(
+                        options.case_sensitive,
+                        v.0,
+                        &prefix,
+                    ) {
                         output.push(Suggestion {
                             value: String::from_utf8_lossy(v.0).to_string(),
                             description: None,
@@ -200,7 +211,11 @@ impl Completer for VariableCompletion {
             .rev()
         {
             for v in &overlay_frame.vars {
-                if options.match_algorithm.matches_u8(v.0, &prefix) {
+                if options.match_algorithm.matches_u8_insensitive(
+                    options.case_sensitive,
+                    v.0,
+                    &prefix,
+                ) {
                     output.push(Suggestion {
                         value: String::from_utf8_lossy(v.0).to_string(),
                         description: None,
@@ -280,4 +295,14 @@ fn recursive_value(val: Value, sublevels: Vec<Vec<u8>>) -> Value {
     }
 
     val
+}
+
+impl MatchAlgorithm {
+    pub fn matches_u8_insensitive(&self, sensitive: bool, haystack: &[u8], needle: &[u8]) -> bool {
+        if sensitive {
+            self.matches_u8(haystack, needle)
+        } else {
+            self.matches_u8(&haystack.to_ascii_lowercase(), &needle.to_ascii_lowercase())
+        }
+    }
 }
