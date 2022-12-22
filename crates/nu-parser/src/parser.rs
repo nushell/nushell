@@ -695,16 +695,6 @@ pub fn parse_multispan_value(
 
             (arg, error)
         }
-        SyntaxShape::ImportPattern => {
-            trace!("parsing: import pattern");
-
-            let (arg, err) =
-                parse_import_pattern(working_set, &spans[*spans_idx..], expand_aliases_denylist);
-            error = error.or(err);
-            *spans_idx = spans.len() - 1;
-
-            (arg, error)
-        }
         SyntaxShape::Keyword(keyword, arg) => {
             trace!(
                 "parsing: keyword({}) {:?}",
@@ -5171,6 +5161,7 @@ pub fn parse_expression(
                 arguments,
                 redirect_stdout: true,
                 redirect_stderr: false,
+                parser_info: vec![],
             }));
 
             (
@@ -5904,6 +5895,7 @@ fn wrap_expr_with_collect(working_set: &mut StateWorkingSet, expr: &Expression) 
                 decl_id,
                 redirect_stdout: true,
                 redirect_stderr: false,
+                parser_info: vec![],
             })),
             span,
             ty: Type::String,

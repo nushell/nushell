@@ -42,7 +42,7 @@ impl Command for SourceEnv {
 
         // Note: this hidden positional is the block_id that corresponded to the 0th position
         // it is put here by the parser
-        let block_id: i64 = call.req(engine_state, caller_stack, 1)?;
+        let block_id: i64 = call.req_parser_info(engine_state, caller_stack, 0)?;
 
         // Set the currently evaluated directory (file-relative PWD)
         let mut parent = if let Some(path) =

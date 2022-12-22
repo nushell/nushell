@@ -15,7 +15,12 @@ impl Command for Hide {
     fn signature(&self) -> nu_protocol::Signature {
         Signature::build("hide")
             .input_output_types(vec![(Type::Nothing, Type::Nothing)])
-            .required("pattern", SyntaxShape::ImportPattern, "import pattern")
+            .required("module", SyntaxShape::String, "Module or module file")
+            .optional(
+                "members",
+                SyntaxShape::Any,
+                "Which members of the module to import",
+            )
             .category(Category::Core)
     }
 
@@ -44,7 +49,7 @@ This command is a parser keyword. For details, check:
         let env_var_name = if let Some(Expression {
             expr: Expr::ImportPattern(pat),
             ..
-        }) = call.positional_nth(0)
+        }) = call.parser_info_nth(0)
         {
             Spanned {
                 item: String::from_utf8_lossy(&pat.head.name).to_string(),

@@ -814,6 +814,7 @@ pub fn eval_element_with_input(
                             ],
                             redirect_stdout: false,
                             redirect_stderr: false,
+                            parser_info: vec![],
                         },
                         input,
                     )

@@ -66,6 +66,7 @@ impl Completer for CustomCompletion {
                 ],
                 redirect_stdout: true,
                 redirect_stderr: true,
+                parser_info: vec![],
             },
             PipelineData::empty(),
         );
