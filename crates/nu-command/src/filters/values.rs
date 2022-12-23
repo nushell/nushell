@@ -24,7 +24,7 @@ impl Command for Values {
     }
 
     fn usage(&self) -> &str {
-        "For a record or table, produce a list of its columns' values."
+        "Given a record or table, produce a list of its columns' values."
     }
 
     fn extra_usage(&self) -> &str {
