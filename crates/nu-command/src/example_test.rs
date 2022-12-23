@@ -9,8 +9,9 @@ pub fn test_examples(cmd: impl Command + 'static) {
 #[cfg(test)]
 mod test_examples {
     use super::super::{
-        Ansi, Date, Echo, From, If, Into, Let, LetEnv, Math, MathEuler, MathPi, MathRound, Path,
-        Random, Split, SplitColumn, SplitRow, Str, StrJoin, StrLength, StrReplace, Url, Wrap,
+        Ansi, Date, Echo, From, If, Into, IntoString, Let, LetEnv, Math, MathEuler, MathPi,
+        MathRound, Path, Random, Split, SplitColumn, SplitRow, Str, StrJoin, StrLength, StrReplace,
+        Url, Values, Wrap,
     };
     use crate::{Break, Mut, To};
     use itertools::Itertools;
@@ -69,6 +70,7 @@ mod test_examples {
             working_set.add_decl(Box::new(If));
             working_set.add_decl(Box::new(To));
             working_set.add_decl(Box::new(Into));
+            working_set.add_decl(Box::new(IntoString));
             working_set.add_decl(Box::new(Random));
             working_set.add_decl(Box::new(Split));
             working_set.add_decl(Box::new(SplitColumn));
@@ -77,6 +79,7 @@ mod test_examples {
             working_set.add_decl(Box::new(Path));
             working_set.add_decl(Box::new(Date));
             working_set.add_decl(Box::new(Url));
+            working_set.add_decl(Box::new(Values));
             working_set.add_decl(Box::new(Ansi));
             working_set.add_decl(Box::new(Wrap));
             working_set.add_decl(Box::new(LetEnv));
