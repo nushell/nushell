@@ -18,6 +18,7 @@ chrono = { version="0.4.23", features= ["serde", "std"], default-features = fals
 chrono-humanize = "0.2.1"
 fancy-regex = "0.10.0"
 indexmap = { version="1.7" }
+lru = "0.8.1"
 miette = { version = "5.1.0", features = ["fancy-no-backtrace"] }
 num-format = "0.4.3"
 serde = {version = "1.0.143", default-features = false }

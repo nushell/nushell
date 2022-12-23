@@ -1,3 +1,6 @@
+use fancy_regex::Regex;
+use lru::LruCache;
+
 use super::{Command, EnvVars, OverlayFrame, ScopeFrame, Stack, Visibility, DEFAULT_OVERLAY_NAME};
 use crate::Value;
 use crate::{
@@ -6,6 +9,7 @@ use crate::{
 };
 use core::panic;
 use std::borrow::Borrow;
+use std::num::NonZeroUsize;
 use std::path::Path;
 use std::path::PathBuf;
 use std::{
@@ -94,7 +98,11 @@ pub struct EngineState {
     pub history_session_id: i64,
     // If Nushell was started, e.g., with `nu spam.nu`, the file's parent is stored here
     pub currently_parsed_cwd: Option<PathBuf>,
+    pub regex_cache: Arc<Mutex<LruCache<String, Regex>>>,
 }
+
+// The max number of compiled regexes to keep around in a LRU cache, arbitrarily chosen
+const REGEX_CACHE_SIZE: usize = 100; // must be nonzero, otherwise will panic
 
 pub const NU_VARIABLE_ID: usize = 0;
 pub const IN_VARIABLE_ID: usize = 1;
@@ -137,6 +145,9 @@ impl EngineState {
             config_path: HashMap::new(),
             history_session_id: 0,
             currently_parsed_cwd: None,
+            regex_cache: Arc::new(Mutex::new(LruCache::new(
+                NonZeroUsize::new(REGEX_CACHE_SIZE).unwrap(),
+            ))),
         }
     }
 

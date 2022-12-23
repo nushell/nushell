@@ -7,6 +7,7 @@ mod unit;
 
 use crate::ast::{Bits, Boolean, CellPath, Comparison, PathMember};
 use crate::ast::{Math, Operator};
+use crate::engine::EngineState;
 use crate::ShellError;
 use crate::{did_you_mean, BlockId, Config, Span, Spanned, Type, VarId};
 use byte_unit::ByteUnit;
@@ -2627,6 +2628,7 @@ impl Value {
 
     pub fn regex_match(
         &self,
+        engine_state: &EngineState,
         op: Span,
         rhs: &Value,
         invert: bool,
@@ -2640,18 +2642,36 @@ impl Value {
                     span: rhs_span,
                 },
             ) => {
-                // We are leaving some performance on the table by compiling the regex every time.
-                // Small regexes compile in microseconds, and the simplicity of this approach currently
-                // outweighs the performance costs. Revisit this if it ever becomes a bottleneck.
-                let regex = Regex::new(rhs).map_err(|e| {
-                    ShellError::UnsupportedInput(
-                        format!("{e}"),
-                        "value originated from here".into(),
-                        span,
-                        *rhs_span,
-                    )
-                })?;
-                let is_match = regex.is_match(lhs);
+                let is_match = match engine_state.regex_cache.try_lock() {
+                    Ok(mut cache) => match cache.get(rhs) {
+                        Some(regex) => regex.is_match(lhs),
+                        None => {
+                            let regex = Regex::new(rhs).map_err(|e| {
+                                ShellError::UnsupportedInput(
+                                    format!("{e}"),
+                                    "value originated from here".into(),
+                                    span,
+                                    *rhs_span,
+                                )
+                            })?;
+                            let ret = regex.is_match(lhs);
+                            cache.put(rhs.clone(), regex);
+                            ret
+                        }
+                    },
+                    Err(_) => {
+                        let regex = Regex::new(rhs).map_err(|e| {
+                            ShellError::UnsupportedInput(
+                                format!("{e}"),
+                                "value originated from here".into(),
+                                span,
+                                *rhs_span,
+                            )
+                        })?;
+                        regex.is_match(lhs)
+                    }
+                };
+
                 Ok(Value::Bool {
                     val: if invert {
                         !is_match.unwrap_or(false)

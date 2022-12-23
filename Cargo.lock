@@ -2111,6 +2111,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "lru"
+version = "0.8.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b6e8aaa3f231bb4bd57b84b2d5dc3ae7f350265df8aa96492e0bc394a1571909"
+dependencies = [
+ "hashbrown",
+]
+
+[[package]]
 name = "lscolors"
 version = "0.12.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2778,6 +2787,7 @@ dependencies = [
  "chrono-humanize",
  "fancy-regex",
  "indexmap",
+ "lru",
  "miette",
  "nu-json",
  "nu-test-support",
