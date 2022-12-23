@@ -137,7 +137,7 @@ impl Command for Histogram {
                 calc_method,
                 span,
                 // Note that as_list() filters out Value::Error here.
-                data_as_value.expect_span()
+                data_as_value.expect_span(),
             ),
             Err(e) => Err(e),
         }

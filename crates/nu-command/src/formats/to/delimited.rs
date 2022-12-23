@@ -76,12 +76,7 @@ fn from_value_to_delimited_string(
         }
         // Propagate errors by explicitly matching them before the final case.
         Value::Error { error } => Err(error.clone()),
-        other => to_string_tagged_value(
-            value,
-            config,
-            other.expect_span(),
-            head,
-        ),
+        other => to_string_tagged_value(value, config, other.expect_span(), head),
     }
 }
 

@@ -37,11 +37,7 @@ fn helper_for_tables(
             Value::Error { error } => return Err(error.clone()),
             _ => {
                 //Turns out we are not dealing with a table
-                return mf(
-                    values,
-                    val.expect_span(),
-                    &name,
-                );
+                return mf(values, val.expect_span(), &name);
             }
         }
     }
@@ -116,7 +112,8 @@ pub fn calculate(
             "value originates from here".into(),
             name,
             // This requires both the ListStream and Empty match arms to be above it.
-            val.span().expect("non-Empty non-ListStream PipelineData had no span"),
+            val.span()
+                .expect("non-Empty non-ListStream PipelineData had no span"),
         )),
     }
 }

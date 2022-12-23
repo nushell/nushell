@@ -83,7 +83,9 @@ the output of 'path parse' and 'path split' subcommands."#
                 "Input value cannot be joined".to_string(),
                 "value originates from here".into(),
                 head,
-                input.span().expect("non-Empty non-ListStream PipelineData had no span"),
+                input
+                    .span()
+                    .expect("non-Empty non-ListStream PipelineData had no span"),
             )),
         }
     }
