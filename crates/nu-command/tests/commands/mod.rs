@@ -90,6 +90,7 @@ mod split_row;
 mod str_;
 mod table;
 mod take;
+mod to_text;
 mod touch;
 mod transpose;
 mod try_;
