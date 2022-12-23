@@ -150,13 +150,13 @@ fn action(
                 Value::int(-1, head)
             }
         }
-        other => Value::Error {
-            error: ShellError::UnsupportedInput(
-                format!(
-                    "Input's type is {}. This command only works with strings.",
-                    other.get_type()
-                ),
+        Value::Error { .. } => input.clone(),
+        _ => Value::Error {
+            error: ShellError::OnlySupportsThisInputType(
+                "string".into(),
+                input.get_type().to_string(),
                 head,
+                input.expect_span(),
             ),
         },
     }
@@ -185,8 +185,8 @@ fn process_range(
         }
         Value::List { vals, .. } => {
             if vals.len() > 2 {
-                Err(ShellError::UnsupportedInput(
-                    String::from("there shouldn't be more than two indexes. too many indexes"),
+                Err(ShellError::TypeMismatch(
+                    String::from("there shouldn't be more than two indexes"),
                     head,
                 ))
             } else {
@@ -201,12 +201,12 @@ fn process_range(
                 Ok((start_index, end_index))
             }
         }
-        other => Err(ShellError::UnsupportedInput(
-            format!(
-                "Input's type is {}. This command only works with strings.",
-                other.get_type()
-            ),
+        Value::Error { error } => Err(error.clone()),
+        _ => Err(ShellError::OnlySupportsThisInputType(
+            "string".into(),
+            input.get_type().to_string(),
             head,
+            input.expect_span(),
         )),
     }?;
 
@@ -214,18 +214,16 @@ fn process_range(
     let end_index = r.1.parse::<i32>().unwrap_or(input_len as i32);
 
     if start_index < 0 || start_index > end_index {
-        return Err(ShellError::UnsupportedInput(
-            String::from(
-                "start index can't be negative or greater than end index. Invalid start index",
-            ),
+        return Err(ShellError::TypeMismatch(
+            String::from("start index can't be negative or greater than end index"),
             head,
         ));
     }
 
     if end_index < 0 || end_index < start_index || end_index > input_len as i32 {
-        return Err(ShellError::UnsupportedInput(
+        return Err(ShellError::TypeMismatch(
             String::from(
-            "end index can't be negative, smaller than start index or greater than input length. Invalid end index"),
+            "end index can't be negative, smaller than start index or greater than input length"),
             head,
         ));
     }

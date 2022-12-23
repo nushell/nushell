@@ -39,6 +39,8 @@ impl Command for Debug {
         let config = engine_state.get_config().clone();
         let raw = call.has_flag("raw");
 
+        // Should PipelineData::Empty result in an error here?
+
         input.map(
             move |x| {
                 if raw {

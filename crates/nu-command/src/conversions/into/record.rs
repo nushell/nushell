@@ -183,12 +183,16 @@ fn into_record(
             Value::Record { cols, vals, span }
         }
         Value::Record { cols, vals, span } => Value::Record { cols, vals, span },
-        other => {
-            return Err(ShellError::UnsupportedInput(
-                "'into record' does not support this input".into(),
-                other.span().unwrap_or(call.head),
-            ))
-        }
+        Value::Error { .. } => input,
+        other => Value::Error {
+            error: ShellError::OnlySupportsThisInputType(
+                "string".into(),
+                other.get_type().to_string(),
+                call.head,
+                // This line requires the Value::Error match above.
+                other.expect_span(),
+            ),
+        },
     };
     Ok(res.into_pipeline_data())
 }

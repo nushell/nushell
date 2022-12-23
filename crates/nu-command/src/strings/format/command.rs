@@ -230,11 +230,13 @@ fn format(
                             }
                         }
                     }
-
+                    Value::Error { error } => return Err(error.clone()),
                     _ => {
-                        return Err(ShellError::UnsupportedInput(
-                            "Input data is not supported by this command.".to_string(),
+                        return Err(ShellError::OnlySupportsThisInputType(
+                            "record".to_string(),
+                            val.get_type().to_string(),
                             head_span,
+                            val.expect_span(),
                         ))
                     }
                 }
@@ -245,9 +247,15 @@ fn format(
                 None,
             ))
         }
-        _ => Err(ShellError::UnsupportedInput(
-            "Input data is not supported by this command.".to_string(),
+        // Unwrapping this ShellError is a bit unfortunate.
+        // Ideally, its Span would be preserved.
+        Value::Error { error } => Err(error),
+        _ => Err(ShellError::OnlySupportsThisInputType(
+            "record".to_string(),
+            data_as_value.get_type().to_string(),
             head_span,
+            // This line requires the Value::Error match above.
+            data_as_value.expect_span(),
         )),
     }
 }
@@ -291,7 +299,7 @@ fn format_record(
                         }
                     }
                     Some(err) => {
-                        return Err(ShellError::UnsupportedInput(
+                        return Err(ShellError::TypeMismatch(
                             format!("expression is invalid, detail message: {:?}", err),
                             *span,
                         ))

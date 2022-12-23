@@ -124,15 +124,15 @@ impl Command for DropNth {
                 // check for negative range inputs, e.g., (2..-5)
                 if from.is_negative() || to.is_negative() {
                     let span: Spanned<Range> = call.req(engine_state, stack, 0)?;
-                    return Err(ShellError::UnsupportedInput(
-                        "Drop nth accepts only positive integers".to_string(),
+                    return Err(ShellError::TypeMismatch(
+                        "drop nth accepts only positive integers".to_string(),
                         span.span,
                     ));
                 }
                 // check if the upper bound is smaller than the lower bound, e.g., do not accept 4..2
                 if to < from {
                     let span: Spanned<Range> = call.req(engine_state, stack, 0)?;
-                    return Err(ShellError::UnsupportedInput(
+                    return Err(ShellError::TypeMismatch(
                         "The upper bound needs to be equal or larger to the lower bound"
                             .to_string(),
                         span.span,

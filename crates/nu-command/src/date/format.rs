@@ -61,13 +61,10 @@ impl Command for SubCommand {
 
         let format = call.opt::<Spanned<String>>(engine_state, stack, 0)?;
 
-        if input.is_nothing() {
-            return Err(ShellError::UnsupportedInput(
-                "Input was nothing. You must pipe an input to this command.".into(),
-                head,
-            ));
+        // This doesn't match explicit nulls
+        if matches!(input, PipelineData::Empty) {
+            return Err(ShellError::PipelineEmpty(head));
         }
-
         input.map(
             move |value| match &format {
                 Some(format) => format_helper(value, format.item.as_str(), format.span, head),
@@ -135,7 +132,7 @@ where
             span,
         },
         Err(_) => Value::Error {
-            error: ShellError::UnsupportedInput("invalid format".to_string(), span),
+            error: ShellError::TypeMismatch("invalid format".to_string(), span),
         },
     }
 }

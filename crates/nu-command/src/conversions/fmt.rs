@@ -84,10 +84,15 @@ fn action(input: &Value, _args: &CellPathOnlyArgs, span: Span) -> Value {
     match input {
         Value::Int { val, .. } => fmt_it(*val, span),
         Value::Filesize { val, .. } => fmt_it(*val, span),
-        _ => Value::Error {
-            error: ShellError::UnsupportedInput(
-                format!("unsupported input type: {:?}", input.get_type()),
+        // Propagate errors by explicitly matching them before the final case.
+        Value::Error { .. } => input.clone(),
+        other => Value::Error {
+            error: ShellError::OnlySupportsThisInputType(
+                "integer or filesize".into(),
+                other.get_type().to_string(),
                 span,
+                // This line requires the Value::Error match above.
+                other.expect_span(),
             ),
         },
     }

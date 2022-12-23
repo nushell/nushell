@@ -4,7 +4,7 @@ use nu_engine::env::current_dir_str;
 use nu_engine::CallExt;
 use nu_path::{canonicalize_with, expand_path_with};
 use nu_protocol::{
-    engine::Command, Example, ShellError, Signature, Span, SyntaxShape, Type, Value,
+    engine::Command, Example, PipelineData, ShellError, Signature, Span, SyntaxShape, Type, Value,
 };
 
 use super::PathSubcommandArguments;
@@ -65,7 +65,10 @@ impl Command for SubCommand {
             cwd: current_dir_str(engine_state, stack)?,
             not_follow_symlink: call.has_flag("no-symlink"),
         };
-
+        // This doesn't match explicit nulls
+        if matches!(input, PipelineData::Empty) {
+            return Err(ShellError::PipelineEmpty(head));
+        }
         input.map(
             move |value| super::operate(&expand, &args, value, head),
             engine_state.ctrlc.clone(),

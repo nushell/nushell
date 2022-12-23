@@ -56,7 +56,11 @@ b=2' | from ini",
     }
 }
 
-pub fn from_ini_string_to_value(s: String, span: Span) -> Result<Value, ShellError> {
+pub fn from_ini_string_to_value(
+    s: String,
+    span: Span,
+    val_span: Span,
+) -> Result<Value, ShellError> {
     let v: Result<IndexMap<String, IndexMap<String, String>>, serde_ini::de::Error> =
         serde_ini::from_str(&s);
     match v {
@@ -77,15 +81,17 @@ pub fn from_ini_string_to_value(s: String, span: Span) -> Result<Value, ShellErr
         }
         Err(err) => Err(ShellError::UnsupportedInput(
             format!("Could not load ini: {}", err),
+            "value originates from here".into(),
             span,
+            val_span,
         )),
     }
 }
 
 fn from_ini(input: PipelineData, head: Span) -> Result<PipelineData, ShellError> {
-    let (concat_string, metadata) = input.collect_string_strict(head)?;
+    let (concat_string, span, metadata) = input.collect_string_strict(head)?;
 
-    match from_ini_string_to_value(concat_string, head) {
+    match from_ini_string_to_value(concat_string, head, span) {
         Ok(x) => Ok(x.into_pipeline_data_with_metadata(metadata)),
         Err(other) => Err(other),
     }

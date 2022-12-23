@@ -69,7 +69,7 @@ impl Command for SubCommand {
         };
 
         if args.length.expect("this exists") < 0 {
-            return Err(ShellError::UnsupportedInput(
+            return Err(ShellError::TypeMismatch(
                 String::from("The length of the string cannot be negative"),
                 call.head,
             ));
@@ -129,19 +129,16 @@ fn action(
                 }
             }
             None => Value::Error {
-                error: ShellError::UnsupportedInput(
-                    String::from("Length argument is missing"),
-                    head,
-                ),
+                error: ShellError::TypeMismatch(String::from("Length argument is missing"), head),
             },
         },
-        other => Value::Error {
-            error: ShellError::UnsupportedInput(
-                format!(
-                    "Input's type is {}. This command only works with strings.",
-                    other.get_type()
-                ),
+        Value::Error { .. } => input.clone(),
+        _ => Value::Error {
+            error: ShellError::OnlySupportsThisInputType(
+                "string".into(),
+                input.get_type().to_string(),
                 head,
+                input.expect_span(),
             ),
         },
     }

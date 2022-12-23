@@ -130,7 +130,9 @@ fn value_to_toml_value(
         Value::List { ref vals, span } => match &vals[..] {
             [Value::Record { .. }, _end @ ..] => helper(engine_state, v),
             _ => Err(ShellError::UnsupportedInput(
-                "Expected a table with TOML-compatible structure from pipeline".to_string(),
+                "Expected a table with TOML-compatible structure".to_string(),
+                "value originates from here".into(),
+                head,
                 *span,
             )),
         },
@@ -138,14 +140,20 @@ fn value_to_toml_value(
             // Attempt to de-serialize the String
             toml::de::from_str(val).map_err(|_| {
                 ShellError::UnsupportedInput(
-                    format!("{:?} unable to de-serialize string to TOML", val),
+                    "unable to de-serialize string to TOML".into(),
+                    format!("input: '{:?}'", val),
+                    head,
                     *span,
                 )
             })
         }
+        // Propagate existing errors
+        Value::Error { error } => Err(error.clone()),
         _ => Err(ShellError::UnsupportedInput(
-            format!("{:?} is not a valid top-level TOML", v.get_type()),
-            v.span().unwrap_or(head),
+            format!("{:?} is not valid top-level TOML", v.get_type()),
+            "value originates from here".into(),
+            head,
+            v.expect_span(),
         )),
     }
 }

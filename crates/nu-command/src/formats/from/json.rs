@@ -64,7 +64,7 @@ impl Command for FromJson {
         input: PipelineData,
     ) -> Result<nu_protocol::PipelineData, ShellError> {
         let span = call.head;
-        let (string_input, metadata) = input.collect_string_strict(span)?;
+        let (string_input, span, metadata) = input.collect_string_strict(span)?;
 
         if string_input.is_empty() {
             return Ok(PipelineData::new_with_metadata(metadata, span));

@@ -178,13 +178,15 @@ pub fn from_xml_string_to_value(s: String, span: Span) -> Result<Value, roxmltre
 }
 
 fn from_xml(input: PipelineData, head: Span) -> Result<PipelineData, ShellError> {
-    let (concat_string, metadata) = input.collect_string_strict(head)?;
+    let (concat_string, span, metadata) = input.collect_string_strict(head)?;
 
     match from_xml_string_to_value(concat_string, head) {
         Ok(x) => Ok(x.into_pipeline_data_with_metadata(metadata)),
         _ => Err(ShellError::UnsupportedInput(
-            "Could not parse string as xml".to_string(),
+            "Could not parse string as XML".to_string(),
+            "value originates from here".into(),
             head,
+            span,
         )),
     }
 }

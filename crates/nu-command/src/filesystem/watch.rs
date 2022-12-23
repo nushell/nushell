@@ -98,8 +98,8 @@ impl Command for Watch {
             Some(val) => match u64::try_from(val.item) {
                 Ok(val) => Duration::from_millis(val),
                 Err(_) => {
-                    return Err(ShellError::UnsupportedInput(
-                        "Input out of range".to_string(),
+                    return Err(ShellError::TypeMismatch(
+                        "Debounce duration is invalid".to_string(),
                         val.span,
                     ))
                 }
@@ -117,7 +117,12 @@ impl Command for Watch {
 
                 match nu_glob::Pattern::new(&absolute_path.to_string_lossy()) {
                     Ok(pattern) => Some(pattern),
-                    Err(_) => return Err(ShellError::UnsupportedInput("".to_string(), glob.span)),
+                    Err(_) => {
+                        return Err(ShellError::TypeMismatch(
+                            "Glob pattern is invalid".to_string(),
+                            glob.span,
+                        ))
+                    }
                 }
             }
             None => None,

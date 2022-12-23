@@ -80,7 +80,9 @@ impl Command for LoadEnv {
                 }
                 _ => Err(ShellError::UnsupportedInput(
                     "'load-env' expects a single record".into(),
+                    "value originated from here".into(),
                     span,
+                    input.span().unwrap_or(span),
                 )),
             },
         }

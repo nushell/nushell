@@ -161,9 +161,12 @@ fn insert(
 
                 match output {
                     Ok(pd) => {
-                        if let Err(e) =
-                            input.insert_data_at_cell_path(&cell_path.members, pd.into_value(span))
-                        {
+                        let span = pd.span().unwrap_or(span);
+                        if let Err(e) = input.insert_data_at_cell_path(
+                            &cell_path.members,
+                            pd.into_value(span),
+                            span,
+                        ) {
                             return Value::Error { error: e };
                         }
 
@@ -197,7 +200,9 @@ fn insert(
             move |mut input| {
                 let replacement = replacement.clone();
 
-                if let Err(e) = input.insert_data_at_cell_path(&cell_path.members, replacement) {
+                if let Err(e) =
+                    input.insert_data_at_cell_path(&cell_path.members, replacement, span)
+                {
                     return Value::Error { error: e };
                 }
 

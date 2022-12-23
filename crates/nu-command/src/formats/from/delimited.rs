@@ -64,7 +64,7 @@ pub fn from_delimited_data(
     input: PipelineData,
     name: Span,
 ) -> Result<PipelineData, ShellError> {
-    let (concat_string, metadata) = input.collect_string_strict(name)?;
+    let (concat_string, _span, metadata) = input.collect_string_strict(name)?;
 
     Ok(
         from_delimited_string_to_value(concat_string, noheaders, no_infer, sep, trim, name)
@@ -80,7 +80,7 @@ pub fn trim_from_str(trim: Option<Value>) -> Result<Trim, ShellError> {
             "headers" => Ok(Trim::Headers),
             "fields" => Ok(Trim::Fields),
             "none" => Ok(Trim::None),
-            _ => Err(ShellError::UnsupportedInput(
+            _ => Err(ShellError::TypeMismatch(
                 "the only possible values for trim are 'all', 'headers', 'fields' and 'none'"
                     .into(),
                 span,

@@ -45,9 +45,9 @@ impl Command for SubCommand {
     }
 }
 
-pub fn average(values: &[Value], head: &Span) -> Result<Value, ShellError> {
+pub fn average(values: &[Value], span: Span, head: &Span) -> Result<Value, ShellError> {
     let sum = reducer_for(Reduce::Summation);
-    let total = &sum(Value::int(0, *head), values.to_vec(), *head)?;
+    let total = &sum(Value::int(0, *head), values.to_vec(), span, *head)?;
     match total {
         Value::Filesize { val, span } => Ok(Value::Filesize {
             val: val / values.len() as i64,

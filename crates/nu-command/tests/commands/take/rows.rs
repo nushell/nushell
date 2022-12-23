@@ -51,7 +51,7 @@ fn fails_on_string() {
             "#
     ));
 
-    assert!(actual.err.contains("unsupported_input"));
+    assert!(actual.err.contains("pipeline_mismatch"));
 }
 
 #[test]

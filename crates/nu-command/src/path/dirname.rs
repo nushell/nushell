@@ -1,7 +1,10 @@
 use std::path::Path;
 
 use nu_engine::CallExt;
-use nu_protocol::{engine::Command, Example, Signature, Span, Spanned, SyntaxShape, Type, Value};
+use nu_protocol::{
+    engine::Command, Example, PipelineData, ShellError, Signature, Span, Spanned, SyntaxShape,
+    Type, Value,
+};
 
 use super::PathSubcommandArguments;
 
@@ -66,6 +69,10 @@ impl Command for SubCommand {
             num_levels: call.get_flag(engine_state, stack, "num-levels")?,
         };
 
+        // This doesn't match explicit nulls
+        if matches!(input, PipelineData::Empty) {
+            return Err(ShellError::PipelineEmpty(head));
+        }
         input.map(
             move |value| super::operate(&get_dirname, &args, value, head),
             engine_state.ctrlc.clone(),

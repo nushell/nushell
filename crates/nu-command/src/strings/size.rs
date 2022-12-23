@@ -116,6 +116,10 @@ fn size(
     input: PipelineData,
 ) -> Result<PipelineData, ShellError> {
     let span = call.head;
+    // This doesn't match explicit nulls
+    if matches!(input, PipelineData::Empty) {
+        return Err(ShellError::PipelineEmpty(span));
+    }
     input.map(
         move |v| {
             // First, obtain the span. If this fails, propagate the error that results.

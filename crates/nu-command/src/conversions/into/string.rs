@@ -154,7 +154,7 @@ fn string_helper(
     let decimals_value: Option<i64> = call.get_flag(engine_state, stack, "decimals")?;
     if let Some(decimal_val) = decimals_value {
         if decimals && decimal_val.is_negative() {
-            return Err(ShellError::UnsupportedInput(
+            return Err(ShellError::TypeMismatch(
                 "Cannot accept negative integers for decimals arguments".to_string(),
                 head,
             ));
@@ -251,9 +251,11 @@ fn action(input: &Value, args: &Arguments, span: Span) -> Value {
             vals: _,
             span: _,
         } => Value::Error {
-            error: ShellError::UnsupportedInput(
-                "Cannot convert Record into string".to_string(),
+            error: ShellError::CantConvert(
+                "record".into(),
+                "string".into(),
                 span,
+                Some("try using the `to nuon` command".into()),
             ),
         },
         Value::Binary { .. } => Value::Error {

@@ -74,12 +74,25 @@ documentation link at https://docs.rs/encoding_rs/0.8.28/encoding_rs/#statics"#
                 let s = stream.into_string()?.item;
                 super::encoding::encode(head, encoding, &s).map(|val| val.into_pipeline_data())
             }
-            PipelineData::Value(Value::String { val: s, .. }, ..) => {
-                super::encoding::encode(head, encoding, &s).map(|val| val.into_pipeline_data())
-            }
+            PipelineData::Value(v, ..) => match v {
+                Value::String { val: s, .. } => {
+                    super::encoding::encode(head, encoding, &s).map(|val| val.into_pipeline_data())
+                }
+                Value::Error { error } => Err(error),
+                _ => Err(ShellError::OnlySupportsThisInputType(
+                    "string".into(),
+                    v.get_type().to_string(),
+                    head,
+                    v.expect_span(),
+                )),
+            },
+            // This should be more precise, but due to difficulties in getting spans
+            // from PipelineData::ListData, this is as it is.
             _ => Err(ShellError::UnsupportedInput(
                 "non-string input".into(),
+                "value originates from here".into(),
                 head,
+                input.span().unwrap_or(head),
             )),
         }
     }

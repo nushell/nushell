@@ -114,7 +114,7 @@ impl Command for SubCommand {
 }
 
 struct Arguments {
-    url: Option<Value>,
+    url: Value,
     raw: bool,
     user: Option<String>,
     password: Option<String>,
@@ -129,14 +129,14 @@ fn run_fetch(
     _input: PipelineData,
 ) -> Result<nu_protocol::PipelineData, nu_protocol::ShellError> {
     let args = Arguments {
-        url: Some(call.req(engine_state, stack, 0)?),
+        url: call.req(engine_state, stack, 0)?,
         raw: call.has_flag("raw"),
         user: call.get_flag(engine_state, stack, "user")?,
         password: call.get_flag(engine_state, stack, "password")?,
         timeout: call.get_flag(engine_state, stack, "timeout")?,
         headers: call.get_flag(engine_state, stack, "headers")?,
     };
-    helper(engine_state, stack, call, args)
+    helper(engine_state, stack, args)
 }
 
 // Helper function that actually goes to retrieve the resource from the url given
@@ -144,25 +144,18 @@ fn run_fetch(
 fn helper(
     engine_state: &EngineState,
     stack: &mut Stack,
-    call: &Call,
     args: Arguments,
 ) -> std::result::Result<PipelineData, ShellError> {
-    let url_value = if let Some(val) = args.url {
-        val
-    } else {
-        return Err(ShellError::UnsupportedInput(
-            "Expecting a url as a string but got nothing".to_string(),
-            call.head,
-        ));
-    };
+    // There is no need to error-check this, as the URL is already guaranteed by basic nu command argument type checks.
+    let url_value = args.url;
 
     let span = url_value.span()?;
     let requested_url = url_value.as_string()?;
     let url = match url::Url::parse(&requested_url) {
         Ok(u) => u,
         Err(_e) => {
-            return Err(ShellError::UnsupportedInput(
-                "Incomplete or incorrect url. Expected a full url, e.g., https://www.example.com"
+            return Err(ShellError::TypeMismatch(
+                "Incomplete or incorrect URL. Expected a full URL, e.g., https://www.example.com"
                     .to_string(),
                 span,
             ));
@@ -185,9 +178,10 @@ fn helper(
     if let Some(timeout) = timeout {
         let val = timeout.as_i64()?;
         if val.is_negative() || val < 1 {
-            return Err(ShellError::UnsupportedInput(
+            return Err(ShellError::TypeMismatch(
                 "Timeout value must be an integer and larger than 0".to_string(),
-                timeout.span().unwrap_or_else(|_| Span::new(0, 0)),
+                // timeout is already guaranteed to not be an error
+                timeout.expect_span(),
             ));
         }
 
