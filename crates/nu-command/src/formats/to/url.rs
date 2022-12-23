@@ -14,20 +14,30 @@ impl Command for ToUrl {
 
     fn signature(&self) -> Signature {
         Signature::build("to url")
-            .input_output_types(vec![(Type::Table(vec![]), Type::String)])
+            .input_output_types(vec![
+                (Type::Record(vec![]), Type::String),
+                (Type::Table(vec![]), Type::String),
+            ])
             .category(Category::Formats)
     }
 
     fn usage(&self) -> &str {
-        "Convert table into url-encoded text"
+        "Convert record or table into URL-encoded text"
     }
 
     fn examples(&self) -> Vec<Example> {
-        vec![Example {
-            description: "Outputs an URL string representing the contents of this table",
-            example: r#"[[foo bar]; ["1" "2"]] | to url"#,
-            result: Some(Value::test_string("foo=1&bar=2")),
-        }]
+        vec![
+            Example {
+                description: "Outputs a URL string representing the contents of this record",
+                example: r#"{ mode:normal userid:31415 } | to url"#,
+                result: Some(Value::test_string("mode=normal&userid=31415")),
+            },
+            Example {
+                description: "Outputs a URL string representing the contents of this 1-row table",
+                example: r#"[[foo bar]; ["1" "2"]] | to url"#,
+                result: Some(Value::test_string("foo=1&bar=2")),
+            },
+        ]
     }
 
     fn run(

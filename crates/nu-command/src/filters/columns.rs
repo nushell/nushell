@@ -16,10 +16,10 @@ impl Command for Columns {
 
     fn signature(&self) -> Signature {
         Signature::build(self.name())
-            .input_output_types(vec![(
-                Type::Table(vec![]),
-                Type::List(Box::new(Type::String)),
-            )])
+            .input_output_types(vec![
+                (Type::Table(vec![]), Type::List(Box::new(Type::String))),
+                (Type::Record(vec![]), Type::List(Box::new(Type::String))),
+            ])
             .category(Category::Filters)
     }
 
@@ -29,6 +29,17 @@ impl Command for Columns {
 
     fn examples(&self) -> Vec<Example> {
         vec![
+            Example {
+                example: "{ acronym:PWD, meaning:'Print Working Directory' } | columns",
+                description: "Get the columns from the record",
+                result: Some(Value::List {
+                    vals: vec![
+                        Value::test_string("acronym"),
+                        Value::test_string("meaning"),
+                    ],
+                    span: Span::test_data(),
+                }),
+            },
             Example {
                 example: "[[name,age,grade]; [bill,20,a]] | columns",
                 description: "Get the columns from the table",
