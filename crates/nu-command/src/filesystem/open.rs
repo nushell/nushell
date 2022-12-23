@@ -7,6 +7,8 @@ use nu_protocol::{
     Value,
 };
 use std::io::BufReader;
+use std::process::Stdio;
+
 
 #[cfg(feature = "sqlite")]
 use crate::database::SQLiteDatabase;
@@ -88,6 +90,11 @@ impl Command for Open {
         let arg_span = path.span;
         let path_no_whitespace = &path.item.trim_end_matches(|x| matches!(x, '\x09'..='\x0d'));
         let path = Path::new(path_no_whitespace);
+
+        if path.is_dir() {
+            open_path(&path.to_string_lossy())?;
+            return Ok(PipelineData::Empty);
+        }
 
         if permission_denied(path) {
             #[cfg(unix)]
@@ -213,4 +220,36 @@ fn permission_denied(dir: impl AsRef<Path>) -> bool {
         Err(e) => matches!(e.kind(), std::io::ErrorKind::PermissionDenied),
         Ok(_) => false,
     }
+}
+
+#[cfg(target_os = "linux")]
+fn open_path(p: &str) -> Result<std::process::Child, std::io::Error> {
+    std::process::Command::new("xdg-open")
+        .arg(p)
+        .stdin(Stdio::null())
+        .stdout(Stdio::null())
+        .spawn()
+}
+
+#[cfg(target_os = "macos")]
+fn open_path(p: &str) -> Result<std::process::Child, std::io::Error> {
+    std::process::Command::new("open")
+        .arg(p)
+        .stdin(Stdio::null())
+        .stdout(Stdio::null())
+        .spawn()
+}
+
+#[cfg(target_os = "windows")]
+fn open_path(p: &str) -> Result<std::process::Child, std::io::Error> {
+    std::process::Command::new("explorer")
+        .arg(p)
+        .stdin(Stdio::null())
+        .stdout(Stdio::null())
+        .spawn()
+}
+
+#[cfg(not(any(target_os = "windows", target_os = "macos", target_os = "linux")))]
+fn open_path(p: &str) -> Result<std::process::Child, std::io::Error> {
+    std::io::Error::other("not supported on this os.")
 }
