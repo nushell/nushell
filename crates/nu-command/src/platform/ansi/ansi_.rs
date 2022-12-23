@@ -723,7 +723,7 @@ Format: #
                     _ => {
                         return Err(ShellError::IncompatibleParametersSingle(
                             format!("problem with key: {}", k),
-                            code.span().expect("error with span"),
+                            code.expect_span(),
                         ))
                     }
                 }

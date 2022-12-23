@@ -24,7 +24,11 @@ impl Command for Columns {
     }
 
     fn usage(&self) -> &str {
-        "Show the columns in the input."
+        "Given a record or table, produce a list of its columns' names."
+    }
+
+    fn extra_usage(&self) -> &str {
+        "This is a counterpart to `values`, which produces a list of columns' values."
     }
 
     fn examples(&self) -> Vec<Example> {
