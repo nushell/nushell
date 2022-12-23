@@ -146,7 +146,7 @@ impl EngineState {
             history_session_id: 0,
             currently_parsed_cwd: None,
             regex_cache: Arc::new(Mutex::new(LruCache::new(
-                NonZeroUsize::new(REGEX_CACHE_SIZE).unwrap(),
+                NonZeroUsize::new(REGEX_CACHE_SIZE).expect("tried to create cache of size zero"),
             ))),
         }
     }
