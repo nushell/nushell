@@ -402,9 +402,11 @@ pub fn eval_expression(
                         Comparison::NotEqual => lhs.ne(op_span, &rhs, expr.span),
                         Comparison::In => lhs.r#in(op_span, &rhs, expr.span),
                         Comparison::NotIn => lhs.not_in(op_span, &rhs, expr.span),
-                        Comparison::RegexMatch => lhs.regex_match(op_span, &rhs, false, expr.span),
+                        Comparison::RegexMatch => {
+                            lhs.regex_match(engine_state, op_span, &rhs, false, expr.span)
+                        }
                         Comparison::NotRegexMatch => {
-                            lhs.regex_match(op_span, &rhs, true, expr.span)
+                            lhs.regex_match(engine_state, op_span, &rhs, true, expr.span)
                         }
                         Comparison::StartsWith => lhs.starts_with(op_span, &rhs, expr.span),
                         Comparison::EndsWith => lhs.ends_with(op_span, &rhs, expr.span),
