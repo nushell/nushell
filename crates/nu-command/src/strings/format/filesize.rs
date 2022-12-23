@@ -110,7 +110,7 @@ fn format_value_impl(val: &Value, arg: &Arguments, span: Span) -> Value {
                 "filesize".into(),
                 val.get_type().to_string(),
                 span,
-                val.span().expect("non-Error Value had no span"),
+                val.expect_span(),
             ),
         },
     }

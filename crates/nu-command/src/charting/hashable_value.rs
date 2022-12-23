@@ -84,7 +84,7 @@ impl HashableValue {
                 "input value is not hashable".into(),
                 format!("input type: {:?}", value.get_type()),
                 span,
-                value.span().expect("non-Error Value had no span"),
+                value.expect_span(),
             )),
         }
     }

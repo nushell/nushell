@@ -486,7 +486,7 @@ fn find_with_rest_and_highlight(
                                 format!("input: {:?}", other.get_type()),
                                 span,
                                 // This line requires the Value::Error match above.
-                                other.span().expect("non-Error Value had no span"),
+                                other.expect_span(),
                             ));
                         }
                     },

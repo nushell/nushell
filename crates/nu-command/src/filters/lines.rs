@@ -117,7 +117,7 @@ impl Command for Lines {
                         "string or raw data".into(),
                         val.get_type().to_string(),
                         head,
-                        val.span().expect("non-Error Value had no span"),
+                        val.expect_span(),
                     )),
                 }
             }
@@ -240,7 +240,7 @@ impl Iterator for RawStreamLinesAdapter {
                                         other.get_type().to_string(),
                                         self.span,
                                         // This line requires the Value::Error match above.
-                                        other.span().expect("non-Error Value had no span"),
+                                        other.expect_span(),
                                     )));
                                 }
                             }

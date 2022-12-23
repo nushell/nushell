@@ -153,7 +153,7 @@ fn value_to_toml_value(
             format!("{:?} is not valid top-level TOML", v.get_type()),
             "value originates from here".into(),
             head,
-            v.span().expect("non-Error Value had no span"),
+            v.expect_span(),
         )),
     }
 }

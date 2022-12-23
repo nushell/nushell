@@ -39,7 +39,7 @@ fn helper_for_tables(
                 //Turns out we are not dealing with a table
                 return mf(
                     values,
-                    val.span().expect("non-Error Value had no span"),
+                    val.expect_span(),
                     &name,
                 );
             }
@@ -81,7 +81,7 @@ pub fn calculate(
         PipelineData::Value(Value::List { ref vals, span }, ..) => match &vals[..] {
             [Value::Record { .. }, _end @ ..] => helper_for_tables(
                 vals,
-                values.span().expect("non-Error Value had no span"),
+                values.span().expect("PipelineData::Value had no span"),
                 name,
                 mf,
             ),
@@ -110,12 +110,13 @@ pub fn calculate(
             mf(&new_vals?, span, &name)
         }
         PipelineData::Value(val, ..) => mf(&[val], span, &name),
+        PipelineData::Empty { .. } => Err(ShellError::PipelineEmpty(name)),
         val => Err(ShellError::UnsupportedInput(
             "Only integers, floats, lists, records or ranges are supported".into(),
             "value originates from here".into(),
             name,
-            // Since this is not a ListStream, this is safe.
-            val.span().expect("non-Error Value had no span"),
+            // This requires both the ListStream and Empty match arms to be above it.
+            val.span().expect("non-Empty non-ListStream PipelineData had no span"),
         )),
     }
 }

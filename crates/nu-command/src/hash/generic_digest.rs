@@ -116,7 +116,7 @@ where
                     "string or binary".into(),
                     other.get_type().to_string(),
                     span,
-                    other.span().expect("non-Error Value had no span"),
+                    other.expect_span(),
                 ),
             };
         }

@@ -72,7 +72,7 @@ fn abs_helper(val: Value, head: Span) -> Value {
                 "numeric".into(),
                 other.get_type().to_string(),
                 head,
-                other.span().expect("non-Error Value had no span"),
+                other.expect_span(),
             ),
         },
     }

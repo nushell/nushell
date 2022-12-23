@@ -82,7 +82,7 @@ documentation link at https://docs.rs/encoding_rs/0.8.28/encoding_rs/#statics"#
                     "binary".into(),
                     v.get_type().to_string(),
                     head,
-                    v.span().expect("non-Error Value had no span"),
+                    v.expect_span(),
                 )),
             },
             // This should be more precise, but due to difficulties in getting spans

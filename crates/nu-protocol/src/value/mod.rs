@@ -352,6 +352,13 @@ impl Value {
         }
     }
 
+    /// Special variant of the above designed to be called only in
+    /// situations where the value not being a Value::Error has been guaranteed
+    /// by match arms.
+    pub fn expect_span(&self) -> Span {
+        self.span().expect("non-Error Value had no span")
+    }
+
     /// Update the value with a new span
     pub fn with_span(mut self, new_span: Span) -> Value {
         match &mut self {

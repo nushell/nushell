@@ -60,7 +60,7 @@ fn value_to_string(v: &Value, span: Span) -> Result<String, ShellError> {
                         "could not convert binary to string".into(),
                         "value originates from here".into(),
                         span,
-                        v.span().expect("non-Error Value had no span"),
+                        v.expect_span(),
                     ));
                 }
             }
@@ -70,13 +70,13 @@ fn value_to_string(v: &Value, span: Span) -> Result<String, ShellError> {
             "blocks are currently not nuon-compatible".into(),
             "value originates from here".into(),
             span,
-            v.span().expect("non-Error Value had no span"),
+            v.expect_span(),
         )),
         Value::Closure { .. } => Err(ShellError::UnsupportedInput(
             "closures are currently not nuon-compatible".into(),
             "value originates from here".into(),
             span,
-            v.span().expect("non-Error Value had no span"),
+            v.expect_span(),
         )),
         Value::Bool { val, .. } => {
             if *val {
@@ -89,13 +89,13 @@ fn value_to_string(v: &Value, span: Span) -> Result<String, ShellError> {
             "cellpaths are currently not nuon-compatible".to_string(),
             "value originates from here".into(),
             span,
-            v.span().expect("non-Error Value had no span"),
+            v.expect_span(),
         )),
         Value::CustomValue { .. } => Err(ShellError::UnsupportedInput(
             "custom values are currently not nuon-compatible".to_string(),
             "value originates from here".into(),
             span,
-            v.span().expect("non-Error Value had no span"),
+            v.expect_span(),
         )),
         Value::Date { val, .. } => Ok(val.to_rfc3339()),
         // FIXME: make durations use the shortest lossless representation.

@@ -78,11 +78,12 @@ the output of 'path parse' and 'path split' subcommands."#
                 handle_value(input.into_value(head), &args, head),
                 metadata,
             )),
+            PipelineData::Empty { .. } => Err(ShellError::PipelineEmpty(head)),
             _ => Err(ShellError::UnsupportedInput(
                 "Input value cannot be joined".to_string(),
                 "value originates from here".into(),
                 head,
-                input.span().expect("non-Error Value had no span"),
+                input.span().expect("non-Empty non-ListStream PipelineData had no span"),
             )),
         }
     }

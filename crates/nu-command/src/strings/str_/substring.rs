@@ -173,7 +173,7 @@ fn action(input: &Value, args: &Arguments, head: Span) -> Value {
                 format!("input type: {:?}", other.get_type()),
                 head,
                 // This line requires the Value::Error match above.
-                other.span().expect("non-Error Value had no span"),
+                other.expect_span(),
             ),
         },
     }

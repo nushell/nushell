@@ -81,7 +81,7 @@ pub fn eval(
                             format!("Math evaluation error: {}", err),
                             "value originates from here".into(),
                             head,
-                            val.span().expect("non-Error Value had no span"),
+                            val.expect_span(),
                         ),
                     },
                 },

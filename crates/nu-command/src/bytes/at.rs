@@ -47,7 +47,7 @@ fn parse_range(range: Value, head: Span) -> Result<(isize, isize, Span), ShellEr
                             "Only string or list<int> ranges are supported".into(),
                             format!("input type: {:?}", other.get_type()),
                             head,
-                            other.span().expect("non-Error Value had no span"),
+                            other.expect_span(),
                         ))
                     }
                 };
@@ -62,7 +62,7 @@ fn parse_range(range: Value, head: Span) -> Result<(isize, isize, Span), ShellEr
                             "Only string or list<int> ranges are supported".into(),
                             format!("input type: {:?}", other.get_type()),
                             head,
-                            other.span().expect("non-Error Value had no span"),
+                            other.expect_span(),
                         ))
                     }
                 };
@@ -90,7 +90,7 @@ fn parse_range(range: Value, head: Span) -> Result<(isize, isize, Span), ShellEr
                 "could not perform subbytes".to_string(),
                 "with this range".to_string(),
                 head,
-                other.span().expect("non-Error Value had no span"),
+                other.expect_span(),
             ))
         }
     };
@@ -260,7 +260,7 @@ fn at(val: &Value, args: &Arguments, span: Span) -> Value {
                 other.get_type().to_string(),
                 span,
                 // This line requires the Value::Error match above.
-                other.span().expect("non-Error Value had no span"),
+                other.expect_span(),
             ),
         },
     }

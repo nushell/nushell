@@ -84,7 +84,7 @@ fn to_url(input: PipelineData, head: Span) -> Result<PipelineData, ShellError> {
                 "Expected a table from pipeline".to_string(),
                 "value originates from here".into(),
                 head,
-                other.span().expect("non-Error Value had no span"),
+                other.expect_span(),
             )),
         })
         .collect();

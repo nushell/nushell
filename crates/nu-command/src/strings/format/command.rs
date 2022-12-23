@@ -236,7 +236,7 @@ fn format(
                             "record".to_string(),
                             val.get_type().to_string(),
                             head_span,
-                            val.span().expect("non-Error Value had no span"),
+                            val.expect_span(),
                         ))
                     }
                 }
@@ -255,7 +255,7 @@ fn format(
             data_as_value.get_type().to_string(),
             head_span,
             // This line requires the Value::Error match above.
-            data_as_value.span().expect("non-Error Value had no span"),
+            data_as_value.expect_span(),
         )),
     }
 }

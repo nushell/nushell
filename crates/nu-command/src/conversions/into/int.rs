@@ -251,7 +251,7 @@ fn action(input: &Value, args: &Arguments, span: Span) -> Value {
                 other.get_type().to_string(),
                 span,
                 // This line requires the Value::Error match above.
-                other.span().expect("non-Error Value had no span"),
+                other.expect_span(),
             ),
         },
     }
@@ -298,7 +298,7 @@ fn convert_int(input: &Value, head: Span, radix: u32) -> Value {
                     other.get_type().to_string(),
                     head,
                     // This line requires the Value::Error match above.
-                    other.span().expect("non-Error Value had no span"),
+                    other.expect_span(),
                 ),
             };
         }

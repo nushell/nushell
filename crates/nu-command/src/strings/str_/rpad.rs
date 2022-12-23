@@ -138,7 +138,7 @@ fn action(
                 "string".into(),
                 input.get_type().to_string(),
                 head,
-                input.span().expect("non-Error Value had no span"),
+                input.expect_span(),
             ),
         },
     }

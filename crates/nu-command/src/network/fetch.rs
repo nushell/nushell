@@ -181,7 +181,7 @@ fn helper(
             return Err(ShellError::TypeMismatch(
                 "Timeout value must be an integer and larger than 0".to_string(),
                 // timeout is already guaranteed to not be an error
-                timeout.span().expect("non-Error Value had no span"),
+                timeout.expect_span(),
             ));
         }
 

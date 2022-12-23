@@ -86,7 +86,7 @@ fn operate(value: Value, target: i64, head: Span) -> Value {
                 other.get_type().to_string(),
                 head,
                 // This line requires the Value::Error match above.
-                other.span().expect("non-Error Value had no span"),
+                other.expect_span(),
             ),
         },
     }

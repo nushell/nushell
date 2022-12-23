@@ -110,7 +110,7 @@ fn action(
                     "value originates from here".into(),
                     command_span,
                     // This line requires the Value::Error {} match above.
-                    input.span().expect("non-Error Value had no span"),
+                    input.expect_span(),
                 ),
             },
         },

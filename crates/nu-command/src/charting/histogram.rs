@@ -136,6 +136,8 @@ impl Command for Histogram {
                 frequency_column_name,
                 calc_method,
                 span,
+                // Note that as_list() filters out Value::Error here.
+                data_as_value.expect_span()
             ),
             Err(e) => Err(e),
         }
@@ -148,6 +150,7 @@ fn run_histogram(
     freq_column: String,
     calc_method: PercentageCalcMethod,
     head_span: Span,
+    list_span: Span,
 ) -> Result<PipelineData, ShellError> {
     let mut inputs = vec![];
     // convert from inputs to hashable values.
@@ -161,7 +164,7 @@ fn run_histogram(
                     Value::Error { error } => return Err(error),
                     _ => {
                         let t = v.get_type();
-                        let span = v.span().expect("non-Error Value had no span");
+                        let span = v.expect_span();
                         inputs.push(HashableValue::from_value(v, head_span).map_err(|_| {
                         ShellError::UnsupportedInput(
                             "Since --column-name was not provided, only lists of hashable values are supported.".to_string(),
@@ -202,11 +205,10 @@ fn run_histogram(
             }
 
             if inputs.is_empty() {
-                return Err(ShellError::UnsupportedInput(
-                    format!("none of the input values had a '{col_name}' column"),
-                    "".into(),
-                    head_span, // MUSTFIX
+                return Err(ShellError::CantFindColumn(
+                    col_name.clone(),
                     head_span,
+                    list_span,
                 ));
             }
         }

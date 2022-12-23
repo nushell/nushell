@@ -251,7 +251,7 @@ pub fn group(
                     None => Err(ShellError::CantFindColumn(
                         column_name.item.to_string(),
                         column_name.span,
-                        row.span().expect("non-Error Value had no span"),
+                        row.expect_span(),
                     )),
                 }
             });

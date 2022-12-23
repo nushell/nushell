@@ -195,7 +195,7 @@ impl Command for Save {
                     other.get_type().to_string(),
                     span,
                     // This line requires the Value::Error match above.
-                    other.span().expect("non-Error Value had no span"),
+                    other.expect_span(),
                 )),
             }
         } else {
@@ -276,7 +276,7 @@ impl Command for Save {
                         other.get_type().to_string(),
                         span,
                         // This line requires the Value::Error match above.
-                        other.span().expect("non-Error Value had no span"),
+                        other.expect_span(),
                     )),
                 },
             }
@@ -335,7 +335,7 @@ fn stream_to_file(
                             other.get_type().to_string(),
                             span,
                             // This line requires the Value::Error match above.
-                            other.span().expect("non-Error Value had no span"),
+                            other.expect_span(),
                         ));
                     }
                 },

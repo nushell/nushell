@@ -79,7 +79,7 @@ fn from_value_to_delimited_string(
         other => to_string_tagged_value(
             value,
             config,
-            other.span().expect("non-Error Value had no span"),
+            other.expect_span(),
             head,
         ),
     }
