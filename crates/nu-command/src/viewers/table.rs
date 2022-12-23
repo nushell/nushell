@@ -654,7 +654,7 @@ fn handle_row_stream(
                 ctrlc,
             )
         }
-        // Next, `into html -l` sources:
+        // Next, `to html -l` sources:
         Some(PipelineMetadata {
             data_source: DataSource::HtmlThemes,
         }) => {

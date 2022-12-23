@@ -140,30 +140,40 @@ fn values(
     input: PipelineData,
 ) -> Result<PipelineData, ShellError> {
     let ctrlc = engine_state.ctrlc.clone();
+    let metadata = input.metadata();
     match input {
         PipelineData::Empty => Ok(PipelineData::Empty),
         PipelineData::Value(Value::List { vals, span }, ..) => {
             match get_values(&vals, head, span) {
-                Ok(cols) => Ok(cols.into_iter().into_pipeline_data(ctrlc)),
+                Ok(cols) => Ok(cols
+                    .into_iter()
+                    .into_pipeline_data(ctrlc)
+                    .set_metadata(metadata)),
                 Err(err) => Err(err),
             }
         }
         PipelineData::Value(Value::CustomValue { val, span }, ..) => {
             let input_as_base_value = val.to_base_value(span)?;
             match get_values(&[input_as_base_value], head, span) {
-                Ok(cols) => Ok(cols.into_iter().into_pipeline_data(ctrlc)),
+                Ok(cols) => Ok(cols
+                    .into_iter()
+                    .into_pipeline_data(ctrlc)
+                    .set_metadata(metadata)),
                 Err(err) => Err(err),
             }
         }
         PipelineData::ListStream(stream, ..) => {
             let vals: Vec<_> = stream.into_iter().collect();
             match get_values(&vals, head, head) {
-                Ok(cols) => Ok(cols.into_iter().into_pipeline_data(ctrlc)),
+                Ok(cols) => Ok(cols
+                    .into_iter()
+                    .into_pipeline_data(ctrlc)
+                    .set_metadata(metadata)),
                 Err(err) => Err(err),
             }
         }
         PipelineData::Value(Value::Record { vals, .. }, ..) => {
-            Ok(vals.into_pipeline_data(engine_state.ctrlc.clone()))
+            Ok(vals.into_pipeline_data(ctrlc).set_metadata(metadata))
         }
         // Propagate errors
         PipelineData::Value(Value::Error { error: _ }, ..) => Ok(input),
