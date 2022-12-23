@@ -51,8 +51,7 @@ impl Command for RollLeft {
             Example {
                 description: "Rolls columns of a record to the left",
                 example: "{a:1 b:2 c:3} | roll left",
-                result: Some(
-                    Value::Record {
+                result: Some(Value::Record {
                     cols: rotated_columns.clone(),
                     vals: vec![Value::test_int(2), Value::test_int(3), Value::test_int(1)],
                     span: Span::test_data(),

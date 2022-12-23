@@ -33,10 +33,7 @@ impl Command for Columns {
                 example: "{ acronym:PWD, meaning:'Print Working Directory' } | columns",
                 description: "Get the columns from the record",
                 result: Some(Value::List {
-                    vals: vec![
-                        Value::test_string("acronym"),
-                        Value::test_string("meaning"),
-                    ],
+                    vals: vec![Value::test_string("acronym"), Value::test_string("meaning")],
                     span: Span::test_data(),
                 }),
             },
