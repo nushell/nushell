@@ -16,7 +16,10 @@ impl Command for Rotate {
 
     fn signature(&self) -> Signature {
         Signature::build("rotate")
-            .input_output_types(vec![(Type::Table(vec![]), Type::Table(vec![]))])
+            .input_output_types(vec![
+                (Type::Record(vec![]), Type::Table(vec![])),
+                (Type::Table(vec![]), Type::Table(vec![])),
+            ])
             .switch("ccw", "rotate counter clockwise", None)
             .rest(
                 "rest",
@@ -27,14 +30,14 @@ impl Command for Rotate {
     }
 
     fn usage(&self) -> &str {
-        "Rotates a table clockwise (default) or counter-clockwise (use --ccw flag)."
+        "Rotates a table or record clockwise (default) or counter-clockwise (use --ccw flag)."
     }
 
     fn examples(&self) -> Vec<Example> {
         vec![
             Example {
-                description: "Rotate 2x2 table clockwise",
-                example: "[[a b]; [1 2]] | rotate",
+                description: "Rotate a record clockwise, producing a table (like `transpose` but with column order reversed)",
+                example: "{a:1, b:2} | rotate",
                 result: Some(Value::List {
                     vals: vec![
                         Value::Record {
