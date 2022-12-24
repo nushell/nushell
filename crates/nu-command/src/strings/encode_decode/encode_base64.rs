@@ -2,7 +2,7 @@ use super::base64::{operate, ActionType, CHARACTER_SET_DESC};
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
-    Category, Example, PipelineData, ShellError, Signature, Span, SyntaxShape, Type, Value,
+    Category, Example, PipelineData, ShellError, Signature, SyntaxShape, Type, Value,
 };
 
 #[derive(Clone)]
@@ -54,7 +54,7 @@ impl Command for EncodeBase64 {
             Example {
                 description: "Encode a string with the binhex character set",
                 example: "'Some Data' | encode base64 --character-set binhex",
-                result: Some(Value::string(r#"7epXB5"%A@4J"#, Span::test_data())),
+                result: Some(Value::test_string(r#"7epXB5"%A@4J"#)),
             },
         ]
     }

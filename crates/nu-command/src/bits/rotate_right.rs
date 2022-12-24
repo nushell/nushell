@@ -81,7 +81,7 @@ impl Command for SubCommand {
             Example {
                 description: "Rotate right a number with 60 bits",
                 example: "17 | bits ror 60",
-                result: Some(Value::int(272, Span::test_data())),
+                result: Some(Value::test_int(272)),
             },
             Example {
                 description: "Rotate right a list of numbers of one byte",

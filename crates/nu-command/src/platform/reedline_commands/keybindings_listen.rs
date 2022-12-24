@@ -93,7 +93,7 @@ pub fn print_events(engine_state: &EngineState) -> Result<Value, ShellError> {
     }
     terminal::disable_raw_mode()?;
 
-    Ok(Value::nothing(Span::test_data()))
+    Ok(Value::nothing(Span::unknown()))
 }
 
 // this fn is totally ripped off from crossterm's examples
@@ -113,12 +113,12 @@ fn print_events_helper(event: Event) -> Result<Value, ShellError> {
                         "flags".into(),
                     ],
                     vals: vec![
-                        Value::string(format!("{}", c), Span::test_data()),
-                        Value::string(format!("{:#08x}", u32::from(c)), Span::test_data()),
-                        Value::string(format!("{:?}", modifiers), Span::test_data()),
-                        Value::string(format!("{:#08b}", modifiers), Span::test_data()),
+                        Value::string(format!("{}", c), Span::unknown()),
+                        Value::string(format!("{:#08x}", u32::from(c)), Span::unknown()),
+                        Value::string(format!("{:?}", modifiers), Span::unknown()),
+                        Value::string(format!("{:#08b}", modifiers), Span::unknown()),
                     ],
-                    span: Span::test_data(),
+                    span: Span::unknown(),
                 };
                 Ok(record)
             }
@@ -126,11 +126,11 @@ fn print_events_helper(event: Event) -> Result<Value, ShellError> {
                 let record = Value::Record {
                     cols: vec!["code".into(), "modifier".into(), "flags".into()],
                     vals: vec![
-                        Value::string(format!("{:?}", code), Span::test_data()),
-                        Value::string(format!("{:?}", modifiers), Span::test_data()),
-                        Value::string(format!("{:#08b}", modifiers), Span::test_data()),
+                        Value::string(format!("{:?}", code), Span::unknown()),
+                        Value::string(format!("{:?}", modifiers), Span::unknown()),
+                        Value::string(format!("{:#08b}", modifiers), Span::unknown()),
                     ],
-                    span: Span::test_data(),
+                    span: Span::unknown(),
                 };
                 Ok(record)
             }
@@ -138,8 +138,8 @@ fn print_events_helper(event: Event) -> Result<Value, ShellError> {
     } else {
         let record = Value::Record {
             cols: vec!["event".into()],
-            vals: vec![Value::string(format!("{:?}", event), Span::test_data())],
-            span: Span::test_data(),
+            vals: vec![Value::string(format!("{:?}", event), Span::unknown())],
+            span: Span::unknown(),
         };
         Ok(record)
     }

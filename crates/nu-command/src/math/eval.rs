@@ -47,7 +47,7 @@ impl Command for SubCommand {
         vec![Example {
             description: "Evaluate math in the pipeline",
             example: "'10 / 4' | math eval",
-            result: Some(Value::float(2.5, Span::test_data())),
+            result: Some(Value::test_float(2.5)),
         }]
     }
 }

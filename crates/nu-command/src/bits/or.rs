@@ -58,7 +58,7 @@ impl Command for SubCommand {
             Example {
                 description: "Apply bits or to two numbers",
                 example: "2 | bits or 6",
-                result: Some(Value::int(6, Span::test_data())),
+                result: Some(Value::test_int(6)),
             },
             Example {
                 description: "Apply logical or to a list of numbers",

@@ -45,7 +45,7 @@ pub fn execute_json_query(
 
     if query_contains_modifiers(query_string) {
         let json_str = val.json();
-        Ok(Value::string(json_str, Span::test_data()))
+        Ok(Value::string(json_str, call.head))
     } else {
         Ok(convert_gjson_value_to_nu_value(&val, &call.head))
     }

@@ -81,7 +81,7 @@ impl Command for SubCommand {
             Example {
                 description: "Rotate left a number with 2 bits",
                 example: "17 | bits rol 2",
-                result: Some(Value::int(68, Span::test_data())),
+                result: Some(Value::test_int(68)),
             },
             Example {
                 description: "Rotate left a list of numbers with 2 bits",

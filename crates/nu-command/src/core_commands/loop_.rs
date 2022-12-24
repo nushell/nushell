@@ -2,7 +2,7 @@ use nu_engine::{eval_block, CallExt};
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Block, Command, EngineState, Stack};
 use nu_protocol::{
-    Category, Example, PipelineData, ShellError, Signature, Span, SyntaxShape, Type, Value,
+    Category, Example, PipelineData, ShellError, Signature, SyntaxShape, Type, Value,
 };
 
 #[derive(Clone)]
@@ -81,7 +81,7 @@ impl Command for Loop {
         vec![Example {
             description: "Loop while a condition is true",
             example: "mut x = 0; loop { if $x > 10 { break }; $x = $x + 1 }; $x",
-            result: Some(Value::int(11, Span::test_data())),
+            result: Some(Value::test_int(11)),
         }]
     }
 }

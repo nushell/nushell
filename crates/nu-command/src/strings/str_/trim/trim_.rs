@@ -302,7 +302,7 @@ mod tests {
             cols: cols.iter().map(|x| x.to_string()).collect(),
             vals: vals
                 .iter()
-                .map(|x| Value::string(x.to_string(), Span::test_data()))
+                .map(|x| Value::test_string(x.to_string()))
                 .collect(),
             span: Span::test_data(),
         }
@@ -312,7 +312,7 @@ mod tests {
         Value::List {
             vals: vals
                 .iter()
-                .map(|x| Value::string(x.to_string(), Span::test_data()))
+                .map(|x| Value::test_string(x.to_string()))
                 .collect(),
             span: Span::test_data(),
         }
@@ -477,7 +477,7 @@ mod tests {
         let row = Value::List {
             vals: vec![
                 Value::test_string("  nu      shell   "),
-                Value::int(65, Span::test_data()),
+                Value::test_int(65),
                 Value::test_string("  d"),
             ],
             span: Span::test_data(),
@@ -485,7 +485,7 @@ mod tests {
         let expected = Value::List {
             vals: vec![
                 Value::test_string("nushell"),
-                Value::int(65, Span::test_data()),
+                Value::test_int(65),
                 Value::test_string("d"),
             ],
             span: Span::test_data(),
@@ -549,7 +549,7 @@ mod tests {
         let row = Value::List {
             vals: vec![
                 Value::test_string("##nu####shell##"),
-                Value::int(65, Span::test_data()),
+                Value::test_int(65),
                 Value::test_string("#d"),
             ],
             span: Span::test_data(),
@@ -557,7 +557,7 @@ mod tests {
         let expected = Value::List {
             vals: vec![
                 Value::test_string("nushell"),
-                Value::int(65, Span::test_data()),
+                Value::test_int(65),
                 Value::test_string("d"),
             ],
             span: Span::test_data(),
@@ -659,7 +659,7 @@ mod tests {
         let row = Value::List {
             vals: vec![
                 Value::test_string("  a  "),
-                Value::int(65, Span::test_data()),
+                Value::test_int(65),
                 Value::test_string(" d"),
             ],
             span: Span::test_data(),
@@ -667,7 +667,7 @@ mod tests {
         let expected = Value::List {
             vals: vec![
                 Value::test_string("a  "),
-                Value::int(65, Span::test_data()),
+                Value::test_int(65),
                 Value::test_string("d"),
             ],
             span: Span::test_data(),
@@ -784,7 +784,7 @@ mod tests {
         let row = Value::List {
             vals: vec![
                 Value::test_string("  a  "),
-                Value::int(65, Span::test_data()),
+                Value::test_int(65),
                 Value::test_string(" d"),
             ],
             span: Span::test_data(),
@@ -792,7 +792,7 @@ mod tests {
         let expected = Value::List {
             vals: vec![
                 Value::test_string("  a"),
-                Value::int(65, Span::test_data()),
+                Value::test_int(65),
                 Value::test_string(" d"),
             ],
             span: Span::test_data(),
@@ -911,7 +911,7 @@ mod tests {
         let row = Value::List {
             vals: vec![
                 Value::test_string("  a    b     c    d  "),
-                Value::int(65, Span::test_data()),
+                Value::test_int(65),
                 Value::test_string(" b c  d e   f"),
             ],
             span: Span::test_data(),
@@ -919,7 +919,7 @@ mod tests {
         let expected = Value::List {
             vals: vec![
                 Value::test_string("a b c d"),
-                Value::int(65, Span::test_data()),
+                Value::test_int(65),
                 Value::test_string("b c d e f"),
             ],
             span: Span::test_data(),

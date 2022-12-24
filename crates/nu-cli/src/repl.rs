@@ -639,7 +639,7 @@ pub fn eval_string_with_input(
         false,
         true,
     )
-    .map(|x| x.into_value(Span::test_data()))
+    .map(|x| x.into_value(Span::unknown()))
 }
 
 pub fn get_command_finished_marker(stack: &Stack, engine_state: &EngineState) -> String {

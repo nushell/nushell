@@ -249,7 +249,7 @@ mod tests {
 
     #[test]
     fn base64_decode_binhex() {
-        let word = Value::string("A5\"KC9jRB@IIF'8bF!", Span::test_data());
+        let word = Value::test_string("A5\"KC9jRB@IIF'8bF!");
         let expected = Value::binary(b"a binhex test".as_slice(), Span::test_data());
 
         let actual = action(
@@ -272,7 +272,7 @@ mod tests {
 
     #[test]
     fn base64_decode_binhex_with_new_line_input() {
-        let word = Value::string("A5\"KC9jRB\n@IIF'8bF!", Span::test_data());
+        let word = Value::test_string("A5\"KC9jRB\n@IIF'8bF!");
         let expected = Value::binary(b"a binhex test".as_slice(), Span::test_data());
 
         let actual = action(

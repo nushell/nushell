@@ -57,7 +57,7 @@ impl Command for SubCommand {
             Example {
                 description: "Apply bits xor to two numbers",
                 example: "2 | bits xor 2",
-                result: Some(Value::int(0, Span::test_data())),
+                result: Some(Value::test_int(0)),
             },
             Example {
                 description: "Apply logical xor to a list of numbers",
