@@ -61,6 +61,18 @@ fn nested_tables_to_toml() {
 }
 
 #[test]
+fn table_to_toml_fails() {
+    let actual = nu!(
+    cwd: "tests/fixtures/formats", pipeline(
+        r#"
+        try { [[a b]; [1 2] [5 6]] | to toml | false } catch { true }
+        "#
+    ));
+
+    assert_eq!(actual.out, "true");
+}
+
+#[test]
 fn big_record_to_toml_text_and_from_toml_text_back_into_record() {
     let actual = nu!(
         cwd: "tests/fixtures/formats", pipeline(
