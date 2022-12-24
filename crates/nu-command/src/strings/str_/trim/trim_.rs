@@ -302,7 +302,7 @@ mod tests {
             cols: cols.iter().map(|x| x.to_string()).collect(),
             vals: vals
                 .iter()
-                .map(|x| Value::string(x.to_string(), Span::test_data()))
+                .map(|x| Value::test_string(x.to_string()))
                 .collect(),
             span: Span::test_data(),
         }
@@ -312,7 +312,7 @@ mod tests {
         Value::List {
             vals: vals
                 .iter()
-                .map(|x| Value::string(x.to_string(), Span::test_data()))
+                .map(|x| Value::test_string(x.to_string()))
                 .collect(),
             span: Span::test_data(),
         }

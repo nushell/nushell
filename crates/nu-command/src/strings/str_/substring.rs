@@ -333,7 +333,7 @@ mod tests {
                 Span::test_data(),
             );
 
-            assert_eq!(actual, Value::string(expected, Span::test_data()));
+            assert_eq!(actual, Value::test_string(expected));
         }
     }
 }

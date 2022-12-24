@@ -149,10 +149,7 @@ pub fn nu_repl() {
     let mut engine_state = create_default_context();
     let mut stack = Stack::new();
 
-    stack.add_env_var(
-        "PWD".to_string(),
-        Value::string(cwd.to_string_lossy(), Span::test_data()),
-    );
+    stack.add_env_var("PWD".to_string(), Value::test_string(cwd.to_string_lossy()));
 
     let mut last_output = String::new();
 

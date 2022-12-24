@@ -200,7 +200,7 @@ mod tests {
     use nu_protocol::{Spanned, Value};
 
     fn string(input: impl Into<String>) -> Value {
-        Value::string(input, Span::test_data())
+        Value::test_string(input)
     }
 
     fn row(entries: IndexMap<String, Value>) -> Value {

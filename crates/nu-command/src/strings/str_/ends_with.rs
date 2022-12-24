@@ -67,12 +67,12 @@ impl Command for SubCommand {
             Example {
                 description: "Checks if string ends with '.rb'",
                 example: "'my_library.rb' | str ends-with '.rb'",
-                result: Some(Value::boolean(true, Span::test_data())),
+                result: Some(Value::test_bool(true)),
             },
             Example {
                 description: "Checks if string ends with '.txt'",
                 example: "'my_library.rb' | str ends-with '.txt'",
-                result: Some(Value::boolean(false, Span::test_data())),
+                result: Some(Value::test_bool(false)),
             },
         ]
     }

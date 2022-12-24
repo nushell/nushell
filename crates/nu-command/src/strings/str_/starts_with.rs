@@ -70,17 +70,17 @@ impl Command for SubCommand {
             Example {
                 description: "Checks if input string starts with 'my'",
                 example: "'my_library.rb' | str starts-with 'my'",
-                result: Some(Value::boolean(true, Span::test_data())),
+                result: Some(Value::test_bool(true)),
             },
             Example {
                 description: "Checks if input string starts with 'my'",
                 example: "'Cargo.toml' | str starts-with 'Car'",
-                result: Some(Value::boolean(true, Span::test_data())),
+                result: Some(Value::test_bool(true)),
             },
             Example {
                 description: "Checks if input string starts with 'my'",
                 example: "'Cargo.toml' | str starts-with '.toml'",
-                result: Some(Value::boolean(false, Span::test_data())),
+                result: Some(Value::test_bool(false)),
             },
         ]
     }

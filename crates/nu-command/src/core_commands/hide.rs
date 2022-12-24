@@ -85,7 +85,7 @@ This command is a parser keyword. For details, check:
             Example {
                 description: "Hide an environment variable",
                 example: r#"let-env HZ_ENV_ABC = 1; hide HZ_ENV_ABC; 'HZ_ENV_ABC' in (env).name"#,
-                result: Some(Value::boolean(false, Span::test_data())),
+                result: Some(Value::test_bool(false)),
             },
         ]
     }

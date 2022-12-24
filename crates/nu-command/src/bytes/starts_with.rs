@@ -74,17 +74,17 @@ impl Command for BytesStartsWith {
             Example {
                 description: "Checks if binary starts with `0x[1F FF AA]`",
                 example: "0x[1F FF AA AA] | bytes starts-with 0x[1F FF AA]",
-                result: Some(Value::boolean(true, Span::test_data())),
+                result: Some(Value::test_bool(true)),
             },
             Example {
                 description: "Checks if binary starts with `0x[1F]`",
                 example: "0x[1F FF AA AA] | bytes starts-with 0x[1F]",
-                result: Some(Value::boolean(true, Span::test_data())),
+                result: Some(Value::test_bool(true)),
             },
             Example {
                 description: "Checks if binary starts with `0x[1F]`",
                 example: "0x[1F FF AA AA] | bytes starts-with 0x[11]",
-                result: Some(Value::boolean(false, Span::test_data())),
+                result: Some(Value::test_bool(false)),
             },
         ]
     }
