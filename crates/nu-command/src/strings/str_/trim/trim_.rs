@@ -476,17 +476,17 @@ mod tests {
     fn global_trims_table_all_white_space() {
         let row = Value::List {
             vals: vec![
-                Value::string("  nu      shell   ", Span::test_data()),
+                Value::test_string("  nu      shell   "),
                 Value::int(65, Span::test_data()),
-                Value::string("  d", Span::test_data()),
+                Value::test_string("  d"),
             ],
             span: Span::test_data(),
         };
         let expected = Value::List {
             vals: vec![
-                Value::string("nushell", Span::test_data()),
+                Value::test_string("nushell"),
                 Value::int(65, Span::test_data()),
-                Value::string("d", Span::test_data()),
+                Value::test_string("d"),
             ],
             span: Span::test_data(),
         };
@@ -548,17 +548,17 @@ mod tests {
     fn global_trims_table_all_custom_character() {
         let row = Value::List {
             vals: vec![
-                Value::string("##nu####shell##", Span::test_data()),
+                Value::test_string("##nu####shell##"),
                 Value::int(65, Span::test_data()),
-                Value::string("#d", Span::test_data()),
+                Value::test_string("#d"),
             ],
             span: Span::test_data(),
         };
         let expected = Value::List {
             vals: vec![
-                Value::string("nushell", Span::test_data()),
+                Value::test_string("nushell"),
                 Value::int(65, Span::test_data()),
-                Value::string("d", Span::test_data()),
+                Value::test_string("d"),
             ],
             span: Span::test_data(),
         };
@@ -658,17 +658,17 @@ mod tests {
     fn global_trim_left_table() {
         let row = Value::List {
             vals: vec![
-                Value::string("  a  ", Span::test_data()),
+                Value::test_string("  a  "),
                 Value::int(65, Span::test_data()),
-                Value::string(" d", Span::test_data()),
+                Value::test_string(" d"),
             ],
             span: Span::test_data(),
         };
         let expected = Value::List {
             vals: vec![
-                Value::string("a  ", Span::test_data()),
+                Value::test_string("a  "),
                 Value::int(65, Span::test_data()),
-                Value::string("d", Span::test_data()),
+                Value::test_string("d"),
             ],
             span: Span::test_data(),
         };
@@ -783,17 +783,17 @@ mod tests {
     fn global_trim_right_table() {
         let row = Value::List {
             vals: vec![
-                Value::string("  a  ", Span::test_data()),
+                Value::test_string("  a  "),
                 Value::int(65, Span::test_data()),
-                Value::string(" d", Span::test_data()),
+                Value::test_string(" d"),
             ],
             span: Span::test_data(),
         };
         let expected = Value::List {
             vals: vec![
-                Value::string("  a", Span::test_data()),
+                Value::test_string("  a"),
                 Value::int(65, Span::test_data()),
-                Value::string(" d", Span::test_data()),
+                Value::test_string(" d"),
             ],
             span: Span::test_data(),
         };
@@ -910,17 +910,17 @@ mod tests {
     fn global_trim_format_flag_table() {
         let row = Value::List {
             vals: vec![
-                Value::string("  a    b     c    d  ", Span::test_data()),
+                Value::test_string("  a    b     c    d  "),
                 Value::int(65, Span::test_data()),
-                Value::string(" b c  d e   f", Span::test_data()),
+                Value::test_string(" b c  d e   f"),
             ],
             span: Span::test_data(),
         };
         let expected = Value::List {
             vals: vec![
-                Value::string("a b c d", Span::test_data()),
+                Value::test_string("a b c d"),
                 Value::int(65, Span::test_data()),
-                Value::string("b c d e f", Span::test_data()),
+                Value::test_string("b c d e f"),
             ],
             span: Span::test_data(),
         };

@@ -64,7 +64,7 @@ with 'transpose' first."#
             Value::Nothing {
                 span: Span::test_data(),
             },
-            Value::string("found 2!", Span::test_data()),
+            Value::test_string("found 2!"),
             Value::Nothing {
                 span: Span::test_data(),
             },
@@ -104,7 +104,7 @@ with 'transpose' first."#
                 description:
                     "Iterate over each element, producing a list showing indexes of any 2s",
                 result: Some(Value::List {
-                    vals: vec![Value::string("found 2 at 1!", Span::test_data())],
+                    vals: vec![Value::test_string("found 2 at 1!")],
                     span: Span::test_data(),
                 }),
             },

@@ -990,7 +990,7 @@ mod test {
     #[test]
     fn test_send_event() {
         let cols = vec!["send".to_string()];
-        let vals = vec![Value::string("Enter", Span::test_data())];
+        let vals = vec![Value::test_string("Enter")];
 
         let span = Span::test_data();
         let b = EventType::try_from_columns(&cols, &vals, &span).unwrap();
@@ -1010,7 +1010,7 @@ mod test {
     #[test]
     fn test_edit_event() {
         let cols = vec!["edit".to_string()];
-        let vals = vec![Value::string("Clear", Span::test_data())];
+        let vals = vec![Value::test_string("Clear")];
 
         let span = Span::test_data();
         let b = EventType::try_from_columns(&cols, &vals, &span).unwrap();
@@ -1034,8 +1034,8 @@ mod test {
     fn test_send_menu() {
         let cols = vec!["send".to_string(), "name".to_string()];
         let vals = vec![
-            Value::string("Menu", Span::test_data()),
-            Value::string("history_menu", Span::test_data()),
+            Value::test_string("Menu"),
+            Value::test_string("history_menu"),
         ];
 
         let span = Span::test_data();
@@ -1061,8 +1061,8 @@ mod test {
         // Menu event
         let cols = vec!["send".to_string(), "name".to_string()];
         let vals = vec![
-            Value::string("Menu", Span::test_data()),
-            Value::string("history_menu", Span::test_data()),
+            Value::test_string("Menu"),
+            Value::test_string("history_menu"),
         ];
 
         let menu_event = Value::Record {
@@ -1073,7 +1073,7 @@ mod test {
 
         // Enter event
         let cols = vec!["send".to_string()];
-        let vals = vec![Value::string("Enter", Span::test_data())];
+        let vals = vec![Value::test_string("Enter")];
 
         let enter_event = Value::Record {
             cols,
@@ -1114,8 +1114,8 @@ mod test {
         // Menu event
         let cols = vec!["send".to_string(), "name".to_string()];
         let vals = vec![
-            Value::string("Menu", Span::test_data()),
-            Value::string("history_menu", Span::test_data()),
+            Value::test_string("Menu"),
+            Value::test_string("history_menu"),
         ];
 
         let menu_event = Value::Record {
@@ -1126,7 +1126,7 @@ mod test {
 
         // Enter event
         let cols = vec!["send".to_string()];
-        let vals = vec![Value::string("Enter", Span::test_data())];
+        let vals = vec![Value::test_string("Enter")];
 
         let enter_event = Value::Record {
             cols,
@@ -1154,7 +1154,7 @@ mod test {
     #[test]
     fn test_error() {
         let cols = vec!["not_exist".to_string()];
-        let vals = vec![Value::string("Enter", Span::test_data())];
+        let vals = vec![Value::test_string("Enter")];
 
         let span = Span::test_data();
         let b = EventType::try_from_columns(&cols, &vals, &span);

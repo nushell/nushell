@@ -4,7 +4,7 @@ use nu_protocol::{Span, Value};
 fn test_comparison_nothing() {
     let values = vec![
         Value::int(1, Span::test_data()),
-        Value::string("string", Span::test_data()),
+        Value::test_string("string"),
         Value::float(1.0, Span::test_data()),
     ];
 

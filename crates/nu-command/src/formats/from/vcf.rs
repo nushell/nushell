@@ -57,8 +57,8 @@ END:VCARD' | from vcf",
                                     "params".to_string(),
                                 ],
                                 vals: vec![
-                                    Value::string("N", Span::test_data()),
-                                    Value::string("Foo", Span::test_data()),
+                                    Value::test_string("N"),
+                                    Value::test_string("Foo"),
                                     Value::Nothing {
                                         span: Span::test_data(),
                                     },
@@ -72,8 +72,8 @@ END:VCARD' | from vcf",
                                     "params".to_string(),
                                 ],
                                 vals: vec![
-                                    Value::string("FN", Span::test_data()),
-                                    Value::string("Bar", Span::test_data()),
+                                    Value::test_string("FN"),
+                                    Value::test_string("Bar"),
                                     Value::Nothing {
                                         span: Span::test_data(),
                                     },
@@ -87,8 +87,8 @@ END:VCARD' | from vcf",
                                     "params".to_string(),
                                 ],
                                 vals: vec![
-                                    Value::string("EMAIL", Span::test_data()),
-                                    Value::string("foo@bar.com", Span::test_data()),
+                                    Value::test_string("EMAIL"),
+                                    Value::test_string("foo@bar.com"),
                                     Value::Nothing {
                                         span: Span::test_data(),
                                     },

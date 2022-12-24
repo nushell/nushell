@@ -54,7 +54,7 @@ impl Command for FromXml {
                                     cols: vec!["children".to_string(), "attributes".to_string()],
                                     vals: vec![
                                         Value::List {
-                                            vals: vec![Value::string("Event", Span::test_data())],
+                                            vals: vec![Value::test_string("Event")],
                                             span: Span::test_data(),
                                         },
                                         Value::Record {

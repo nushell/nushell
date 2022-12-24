@@ -120,7 +120,7 @@ mod tests {
 
         #[test]
         fn major() {
-            let expected = Value::string("1.0.0", Span::test_data());
+            let expected = Value::test_string("1.0.0");
             let mut inc = Inc::new();
             inc.for_semver(SemVerAction::Major);
             assert_eq!(inc.apply("0.1.3", Span::test_data()), expected)
@@ -128,7 +128,7 @@ mod tests {
 
         #[test]
         fn minor() {
-            let expected = Value::string("0.2.0", Span::test_data());
+            let expected = Value::test_string("0.2.0");
             let mut inc = Inc::new();
             inc.for_semver(SemVerAction::Minor);
             assert_eq!(inc.apply("0.1.3", Span::test_data()), expected)
@@ -136,7 +136,7 @@ mod tests {
 
         #[test]
         fn patch() {
-            let expected = Value::string("0.1.4", Span::test_data());
+            let expected = Value::test_string("0.1.4");
             let mut inc = Inc::new();
             inc.for_semver(SemVerAction::Patch);
             assert_eq!(inc.apply("0.1.3", Span::test_data()), expected)

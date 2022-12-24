@@ -1,6 +1,6 @@
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
-use nu_protocol::{Category, Example, PipelineData, Signature, Span, SyntaxShape, Type, Value};
+use nu_protocol::{Category, Example, PipelineData, Signature, SyntaxShape, Type, Value};
 
 #[derive(Clone)]
 pub struct ExportUse;
@@ -53,7 +53,7 @@ impl Command for ExportUse {
     use eggs foo
     foo
             "#,
-            result: Some(Value::string("foo", Span::test_data())),
+            result: Some(Value::test_string("foo")),
         }]
     }
 

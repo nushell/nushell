@@ -107,7 +107,7 @@ impl Command for SubCommand {
             Example {
                 description: "Format a given date using a given format string.",
                 example: r#""2021-10-22 20:00:12 +01:00" | date format "%Y-%m-%d""#,
-                result: Some(Value::string("2021-10-22", Span::test_data())),
+                result: Some(Value::test_string("2021-10-22")),
             },
         ]
     }

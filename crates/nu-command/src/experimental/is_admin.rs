@@ -1,9 +1,7 @@
 use is_root::is_root;
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
-use nu_protocol::{
-    Category, Example, IntoPipelineData, PipelineData, Signature, Span, Type, Value,
-};
+use nu_protocol::{Category, Example, IntoPipelineData, PipelineData, Signature, Type, Value};
 
 #[derive(Clone)]
 pub struct IsAdmin;
@@ -43,7 +41,7 @@ impl Command for IsAdmin {
             Example {
                 description: "Return 'iamroot' if nushell is running with admin/root privileges, and 'iamnotroot' if not.",
                 example: r#"if is-admin { "iamroot" } else { "iamnotroot" }"#,
-                result: Some(Value::string("iamnotroot", Span::test_data())),
+                result: Some(Value::test_string("iamnotroot")),
             },
         ]
     }

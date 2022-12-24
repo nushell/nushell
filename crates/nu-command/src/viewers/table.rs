@@ -356,17 +356,17 @@ fn handle_table_command(
 
 fn supported_table_modes() -> Vec<Value> {
     vec![
-        Value::string("basic", Span::test_data()),
-        Value::string("compact", Span::test_data()),
-        Value::string("compact_double", Span::test_data()),
-        Value::string("default", Span::test_data()),
-        Value::string("heavy", Span::test_data()),
-        Value::string("light", Span::test_data()),
-        Value::string("none", Span::test_data()),
-        Value::string("reinforced", Span::test_data()),
-        Value::string("rounded", Span::test_data()),
-        Value::string("thin", Span::test_data()),
-        Value::string("with_love", Span::test_data()),
+        Value::test_string("basic"),
+        Value::test_string("compact"),
+        Value::test_string("compact_double"),
+        Value::test_string("default"),
+        Value::test_string("heavy"),
+        Value::test_string("light"),
+        Value::test_string("none"),
+        Value::test_string("reinforced"),
+        Value::test_string("rounded"),
+        Value::test_string("thin"),
+        Value::test_string("with_love"),
     ]
 }
 
