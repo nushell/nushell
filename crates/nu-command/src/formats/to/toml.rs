@@ -127,15 +127,6 @@ fn value_to_toml_value(
 ) -> Result<toml::Value, ShellError> {
     match v {
         Value::Record { .. } => helper(engine_state, v),
-        Value::List { ref vals, span } => match &vals[..] {
-            [Value::Record { .. }, _end @ ..] => helper(engine_state, v),
-            _ => Err(ShellError::UnsupportedInput(
-                "Expected a table with TOML-compatible structure".to_string(),
-                "value originates from here".into(),
-                head,
-                *span,
-            )),
-        },
         Value::String { val, span } => {
             // Attempt to de-serialize the String
             toml::de::from_str(val).map_err(|_| {
