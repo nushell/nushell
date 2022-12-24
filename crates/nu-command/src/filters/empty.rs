@@ -2,7 +2,7 @@ use nu_engine::CallExt;
 use nu_protocol::ast::{Call, CellPath};
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
-    Category, Example, IntoPipelineData, PipelineData, Signature, Span, SyntaxShape, Type, Value,
+    Category, Example, IntoPipelineData, PipelineData, Signature, SyntaxShape, Type, Value,
 };
 
 #[derive(Clone)]

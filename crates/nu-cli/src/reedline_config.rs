@@ -7,8 +7,7 @@ use nu_parser::parse;
 use nu_protocol::{
     create_menus,
     engine::{EngineState, Stack, StateWorkingSet},
-    extract_value, Config, IntoPipelineData, ParsedKeybinding, ParsedMenu, PipelineData,
-    ShellError, Span, Value,
+    extract_value, Config, ParsedKeybinding, ParsedMenu, PipelineData, ShellError, Span, Value,
 };
 use reedline::{
     default_emacs_keybindings, default_vi_insert_keybindings, default_vi_normal_keybindings,
