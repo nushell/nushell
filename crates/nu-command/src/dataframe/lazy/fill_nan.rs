@@ -31,24 +31,44 @@ impl Command for LazyFillNA {
     }
 
     fn examples(&self) -> Vec<Example> {
-        vec![Example {
-            description: "Fills the NaN values with 0",
-            example: "[1 2 NaN 3 NaN] | into df | fill-nan 0",
-            result: Some(
-                NuDataFrame::try_from_columns(vec![Column::new(
-                    "0".to_string(),
-                    vec![
-                        Value::test_int(1),
-                        Value::test_int(2),
-                        Value::test_int(0),
-                        Value::test_int(3),
-                        Value::test_int(0),
-                    ],
-                )])
-                .expect("Df for test should not fail")
-                .into_value(Span::test_data()),
-            ),
-        }]
+        vec![
+            Example {
+                description: "Fills the NaN values with 0",
+                example: "[1 2 NaN 3 NaN] | into df | fill-nan 0",
+                result: Some(
+                    NuDataFrame::try_from_columns(vec![Column::new(
+                        "0".to_string(),
+                        vec![
+                            Value::test_int(1),
+                            Value::test_int(2),
+                            Value::test_int(0),
+                            Value::test_int(3),
+                            Value::test_int(0),
+                        ],
+                    )])
+                    .expect("Df for test should not fail")
+                    .into_value(Span::test_data()),
+                ),
+            },
+            Example {
+                description: "Fills the NaN values of a whole dataframe",
+                example: "[[a b]; [0.2 1] [0.1 NaN]] | into df | fill-nan 0",
+                result: Some(
+                    NuDataFrame::try_from_columns(vec![
+                        Column::new(
+                            "a".to_string(),
+                            vec![Value::test_float(0.2), Value::test_float(0.1)],
+                        ),
+                        Column::new(
+                            "b".to_string(),
+                            vec![Value::test_int(1), Value::test_int(0)],
+                        ),
+                    ])
+                    .expect("Df for test should not fail")
+                    .into_value(Span::test_data()),
+                ),
+            },
+        ]
     }
 
     fn run(
