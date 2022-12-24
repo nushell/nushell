@@ -1,7 +1,7 @@
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
-    Category, Example, IntoPipelineData, PipelineData, ShellError, Signature, Span, Type, Value,
+    Category, Example, IntoPipelineData, PipelineData, ShellError, Signature, Type, Value,
 };
 
 #[derive(Clone)]
@@ -52,7 +52,7 @@ impl Command for OverlayList {
             example: r#"module spam { export def foo [] { "foo" } }
     overlay use spam
     overlay list | last"#,
-            result: Some(Value::string("spam", Span::test_data())),
+            result: Some(Value::test_string("spam")),
         }]
     }
 }

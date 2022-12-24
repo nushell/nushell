@@ -52,7 +52,7 @@ impl Command for DecodeBase64 {
             Example {
                 description: "Base64 decode a value and output as UTF-8 string",
                 example: "'U29tZSBEYXRh' | decode base64",
-                result: Some(Value::string("Some Data", Span::test_data())),
+                result: Some(Value::test_string("Some Data")),
             },
             Example {
                 description: "Base64 decode a value and output as binary",

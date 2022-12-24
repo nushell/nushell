@@ -29,10 +29,7 @@ impl Command for ColumnsDF {
             description: "Dataframe columns",
             example: "[[a b]; [1 2] [3 4]] | into df | columns",
             result: Some(Value::List {
-                vals: vec![
-                    Value::string("a", Span::test_data()),
-                    Value::string("b", Span::test_data()),
-                ],
+                vals: vec![Value::test_string("a"), Value::test_string("b")],
                 span: Span::test_data(),
             }),
         }]

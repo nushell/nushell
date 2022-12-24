@@ -33,10 +33,7 @@ b=2' | from ini",
                 cols: vec!["foo".to_string()],
                 vals: vec![Value::Record {
                     cols: vec!["a".to_string(), "b".to_string()],
-                    vals: vec![
-                        Value::string("1", Span::test_data()),
-                        Value::string("2", Span::test_data()),
-                    ],
+                    vals: vec![Value::test_string("1"), Value::test_string("2")],
                     span: Span::test_data(),
                 }],
                 span: Span::test_data(),

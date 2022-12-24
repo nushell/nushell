@@ -48,12 +48,12 @@ impl Command for SubCommand {
             Example {
                 description: "Downcase contents",
                 example: "'NU' | str downcase",
-                result: Some(Value::string("nu", Span::test_data())),
+                result: Some(Value::test_string("nu")),
             },
             Example {
                 description: "Downcase contents",
                 example: "'TESTa' | str downcase",
-                result: Some(Value::string("testa", Span::test_data())),
+                result: Some(Value::test_string("testa")),
             },
             Example {
                 description: "Downcase contents",
@@ -61,10 +61,7 @@ impl Command for SubCommand {
                 result: Some(Value::List {
                     vals: vec![Value::Record {
                         cols: vec!["ColA".to_string(), "ColB".to_string()],
-                        vals: vec![
-                            Value::string("test", Span::test_data()),
-                            Value::string("ABC", Span::test_data()),
-                        ],
+                        vals: vec![Value::test_string("test"), Value::test_string("ABC")],
                         span: Span::test_data(),
                     }],
                     span: Span::test_data(),
@@ -76,10 +73,7 @@ impl Command for SubCommand {
                 result: Some(Value::List {
                     vals: vec![Value::Record {
                         cols: vec!["ColA".to_string(), "ColB".to_string()],
-                        vals: vec![
-                            Value::string("test", Span::test_data()),
-                            Value::string("abc", Span::test_data()),
-                        ],
+                        vals: vec![Value::test_string("test"), Value::test_string("abc")],
                         span: Span::test_data(),
                     }],
                     span: Span::test_data(),

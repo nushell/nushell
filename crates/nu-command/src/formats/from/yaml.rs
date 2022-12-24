@@ -259,7 +259,7 @@ mod test {
                 input: r#"value: "{{ something }}""#,
                 expected: Ok(Value::Record {
                     cols: vec!["value".to_string()],
-                    vals: vec![Value::string("{{ something }}", Span::test_data())],
+                    vals: vec![Value::test_string("{{ something }}")],
                     span: Span::test_data(),
                 }),
             },
@@ -268,7 +268,7 @@ mod test {
                 input: r#"value: {{ something }}"#,
                 expected: Ok(Value::Record {
                     cols: vec!["value".to_string()],
-                    vals: vec![Value::string("{{ something }}", Span::test_data())],
+                    vals: vec![Value::test_string("{{ something }}")],
                     span: Span::test_data(),
                 }),
             },

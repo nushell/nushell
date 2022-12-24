@@ -180,8 +180,8 @@ mod tests {
 
     #[test]
     fn base64_encode_standard() {
-        let word = Value::string("Some Data Padding", Span::test_data());
-        let expected = Value::string("U29tZSBEYXRhIFBhZGRpbmc=", Span::test_data());
+        let word = Value::test_string("Some Data Padding");
+        let expected = Value::test_string("U29tZSBEYXRhIFBhZGRpbmc=");
 
         let actual = action(
             &word,
@@ -203,8 +203,8 @@ mod tests {
 
     #[test]
     fn base64_encode_standard_no_padding() {
-        let word = Value::string("Some Data Padding", Span::test_data());
-        let expected = Value::string("U29tZSBEYXRhIFBhZGRpbmc", Span::test_data());
+        let word = Value::test_string("Some Data Padding");
+        let expected = Value::test_string("U29tZSBEYXRhIFBhZGRpbmc");
 
         let actual = action(
             &word,
@@ -226,8 +226,8 @@ mod tests {
 
     #[test]
     fn base64_encode_url_safe() {
-        let word = Value::string("this is for url", Span::test_data());
-        let expected = Value::string("dGhpcyBpcyBmb3IgdXJs", Span::test_data());
+        let word = Value::test_string("this is for url");
+        let expected = Value::test_string("dGhpcyBpcyBmb3IgdXJs");
 
         let actual = action(
             &word,
@@ -299,7 +299,7 @@ mod tests {
             val: vec![77, 97, 110],
             span: Span::test_data(),
         };
-        let expected = Value::string("TWFu", Span::test_data());
+        let expected = Value::test_string("TWFu");
 
         let actual = action(
             &word,

@@ -2,7 +2,7 @@ use nu_engine::{eval_block, find_in_dirs_env, redirect_env};
 use nu_protocol::ast::{Call, Expr, Expression};
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
-    Category, Example, PipelineData, ShellError, Signature, Span, SyntaxShape, Type, Value,
+    Category, Example, PipelineData, ShellError, Signature, SyntaxShape, Type, Value,
 };
 
 #[derive(Clone)]
@@ -122,12 +122,12 @@ impl Command for Use {
             Example {
                 description: "Define a custom command in a module and call it",
                 example: r#"module spam { export def foo [] { "foo" } }; use spam foo; foo"#,
-                result: Some(Value::string("foo", Span::test_data())),
+                result: Some(Value::test_string("foo")),
             },
             Example {
                 description: "Define a custom command that participates in the environment in a module and call it",
                 example: r#"module foo { export def-env bar [] { let-env FOO_BAR = "BAZ" } }; use foo bar; bar; $env.FOO_BAR"#,
-                result: Some(Value::string("BAZ", Span::test_data())),
+                result: Some(Value::test_string("BAZ")),
             },
         ]
     }

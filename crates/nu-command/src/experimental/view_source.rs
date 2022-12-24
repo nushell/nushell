@@ -3,8 +3,8 @@ use nu_engine::CallExt;
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
-    Category, Example, IntoPipelineData, PipelineData, ShellError, Signature, Span, SyntaxShape,
-    Type, Value,
+    Category, Example, IntoPipelineData, PipelineData, ShellError, Signature, SyntaxShape, Type,
+    Value,
 };
 
 #[derive(Clone)]
@@ -167,27 +167,27 @@ impl Command for ViewSource {
             Example {
                 description: "View the source of a code block",
                 example: r#"let abc = { echo 'hi' }; view-source $abc"#,
-                result: Some(Value::string("{ echo 'hi' }", Span::test_data())),
+                result: Some(Value::test_string("{ echo 'hi' }")),
             },
             Example {
                 description: "View the source of a custom command",
                 example: r#"def hi [] { echo 'Hi!' }; view-source hi"#,
-                result: Some(Value::string("{ echo 'Hi!' }", Span::test_data())),
+                result: Some(Value::test_string("{ echo 'Hi!' }")),
             },
             Example {
                 description: "View the source of a custom command, which participates in the caller environment",
                 example: r#"def-env foo [] { let-env BAR = 'BAZ' }; view-source foo"#,
-                result: Some(Value::string("{ let-env BAR = 'BAZ' }", Span::test_data())),
+                result: Some(Value::test_string("{ let-env BAR = 'BAZ' }")),
             },
             Example {
                 description: "View the source of a module",
                 example: r#"module mod-foo { export-env { let-env FOO_ENV = 'BAZ' } }; view-source mod-foo"#,
-                result: Some(Value::string(" export-env { let-env FOO_ENV = 'BAZ' }", Span::test_data())),
+                result: Some(Value::test_string(" export-env { let-env FOO_ENV = 'BAZ' }")),
             },
             Example {
                 description: "View the source of an alias",
                 example: r#"alias hello = echo hi; view-source hello"#,
-                result: Some(Value::string("echo hi", Span::test_data())),
+                result: Some(Value::test_string("echo hi")),
             },
         ]
     }

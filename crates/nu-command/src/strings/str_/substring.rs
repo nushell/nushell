@@ -294,7 +294,7 @@ mod tests {
 
     #[test]
     fn substrings_indexes() {
-        let word = Value::string("andres", Span::test_data());
+        let word = Value::test_string("andres");
 
         let cases = vec![
             expectation("a", (0, 1)),

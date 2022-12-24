@@ -82,22 +82,22 @@ impl Command for SubCommand {
             Example {
                 description: "Left-pad a string with asterisks until it's 10 characters wide",
                 example: "'nushell' | str lpad -l 10 -c '*'",
-                result: Some(Value::string("***nushell", Span::test_data())),
+                result: Some(Value::test_string("***nushell")),
             },
             Example {
                 description: "Left-pad a string with zeroes until it's 10 character wide",
                 example: "'123' | str lpad -l 10 -c '0'",
-                result: Some(Value::string("0000000123", Span::test_data())),
+                result: Some(Value::test_string("0000000123")),
             },
             Example {
                 description: "Use lpad to truncate a string to its last three characters",
                 example: "'123456789' | str lpad -l 3 -c '0'",
-                result: Some(Value::string("789", Span::test_data())),
+                result: Some(Value::test_string("789")),
             },
             Example {
                 description: "Use lpad to pad Unicode",
                 example: "'▉' | str lpad -l 10 -c '▉'",
-                result: Some(Value::string("▉▉▉▉▉▉▉▉▉▉", Span::test_data())),
+                result: Some(Value::test_string("▉▉▉▉▉▉▉▉▉▉")),
             },
         ]
     }
