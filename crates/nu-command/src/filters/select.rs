@@ -87,7 +87,7 @@ impl Command for Select {
 
 fn select(
     engine_state: &EngineState,
-    span: Span,
+    call_span: Span,
     columns: Vec<CellPath>,
     input: PipelineData,
     ignore_errors: bool,
@@ -102,7 +102,7 @@ fn select(
             Some(PathMember::Int { val, span }) => {
                 if members.len() > 1 {
                     if ignore_errors {
-                        return Ok(Value::nothing(Span::test_data()).into_pipeline_data());
+                        return Ok(Value::nothing(call_span).into_pipeline_data());
                     }
                     return Err(ShellError::GenericError(
                         "Select only allows row numbers for rows".into(),
@@ -166,9 +166,7 @@ fn select(
                             }
                             Err(e) => {
                                 if ignore_errors {
-                                    return Ok(
-                                        Value::nothing(Span::test_data()).into_pipeline_data()
-                                    );
+                                    return Ok(Value::nothing(call_span).into_pipeline_data());
                                 }
                                 return Err(e);
                             }
@@ -202,15 +200,17 @@ fn select(
                             }
                             Err(e) => {
                                 if ignore_errors {
-                                    return Ok(
-                                        Value::nothing(Span::test_data()).into_pipeline_data()
-                                    );
+                                    return Ok(Value::nothing(call_span).into_pipeline_data());
                                 }
                                 return Err(e);
                             }
                         }
                     }
-                    values.push(Value::Record { cols, vals, span });
+                    values.push(Value::Record {
+                        cols,
+                        vals,
+                        span: call_span,
+                    });
                 } else {
                     values.push(x);
                 }
@@ -234,7 +234,7 @@ fn select(
                         }
                         Err(e) => {
                             if ignore_errors {
-                                return Ok(Value::nothing(Span::test_data()).into_pipeline_data());
+                                return Ok(Value::nothing(call_span).into_pipeline_data());
                             }
 
                             return Err(e);
@@ -242,9 +242,13 @@ fn select(
                     }
                 }
 
-                Ok(Value::Record { cols, vals, span }
-                    .into_pipeline_data()
-                    .set_metadata(metadata))
+                Ok(Value::Record {
+                    cols,
+                    vals,
+                    span: call_span,
+                }
+                .into_pipeline_data()
+                .set_metadata(metadata))
             } else {
                 Ok(v.into_pipeline_data().set_metadata(metadata))
             }
