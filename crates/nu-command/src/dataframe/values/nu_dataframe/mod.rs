@@ -204,16 +204,12 @@ impl NuDataFrame {
         conversion::from_parsed_columns(column_values)
     }
 
-    pub fn get_type(&self) -> Vec<DataType> {
-        self.df.dtypes()
-    }
-
     pub fn columns(&self, span: Span) -> Result<Vec<Column>, ShellError> {
         let height = self.df.height();
         self.df
             .get_columns()
             .iter()
-            .map(|col| conversion::create_column(col, 0 as usize, height, span))
+            .map(|col| conversion::create_column(col, 0, height, span))
             .collect::<Result<Vec<Column>, ShellError>>()
     }
 
