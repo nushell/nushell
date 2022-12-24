@@ -91,30 +91,30 @@ impl Command for LazyFillNA {
                 None,
             ))
         } else {
-            let _span = value.span()?;
+            let val_span = value.span()?;
             let frame = NuDataFrame::try_from_value(value)?;
-            let columns = frame.columns(_span)?;
+            let columns = frame.columns(val_span)?;
             let dataframe = columns
-                .iter()
+                .into_iter()
                 .map(|column| {
+                    let column_name = column.name().to_string();
                     let values = column
-                        .values()
-                        .iter()
+                        .into_iter()
                         .map(|value| match value {
                             Value::Float { val, .. } => {
                                 if val.is_nan() {
                                     fill.clone()
                                 } else {
-                                    value.clone()
+                                    value
                                 }
                             }
                             Value::List { vals, span } => {
-                                NuDataFrame::fill_list_nan(vals, span.clone(), fill.clone())
+                                NuDataFrame::fill_list_nan(vals, span, fill.clone())
                             }
-                            _ => value.clone(),
+                            _ => value,
                         })
                         .collect::<Vec<Value>>();
-                    Column::new(column.name().to_string(), values)
+                    Column::new(column_name, values)
                 })
                 .collect::<Vec<Column>>();
             Ok(PipelineData::Value(

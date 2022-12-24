@@ -34,10 +34,6 @@ impl Column {
     pub fn name(&self) -> &str {
         self.name.as_str()
     }
-
-    pub fn values(&self) -> Vec<Value> {
-        self.values.clone()
-    }
 }
 
 impl IntoIterator for Column {

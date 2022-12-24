@@ -204,19 +204,19 @@ impl NuDataFrame {
         conversion::from_parsed_columns(column_values)
     }
 
-    pub fn fill_list_nan(list: &[Value], list_span: Span, fill: Value) -> Value {
+    pub fn fill_list_nan(list: Vec<Value>, list_span: Span, fill: Value) -> Value {
         let newlist = list
-            .iter()
+            .into_iter()
             .map(|value| match value {
                 Value::Float { val, .. } => {
                     if val.is_nan() {
                         fill.clone()
                     } else {
-                        value.clone()
+                        value
                     }
                 }
-                Value::List { vals, span } => Self::fill_list_nan(vals, span.clone(), fill.clone()),
-                _ => value.clone(),
+                Value::List { vals, span } => Self::fill_list_nan(vals, span, fill.clone()),
+                _ => value,
             })
             .collect::<Vec<Value>>();
         Value::list(newlist, list_span)
