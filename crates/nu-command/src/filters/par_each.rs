@@ -375,7 +375,7 @@ mod test {
             r#"[7,8,9,10] | par-each {|el ind| $ind } | describe"#
         ));
 
-        assert_eq!(actual.out, "list<int>");
+        assert_eq!(actual.out, "list<int> (stream)");
     }
 
     #[test]
