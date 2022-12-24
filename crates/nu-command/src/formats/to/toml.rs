@@ -14,19 +14,19 @@ impl Command for ToToml {
 
     fn signature(&self) -> Signature {
         Signature::build("to toml")
-            .input_output_types(vec![(Type::Any, Type::String)])
+            .input_output_types(vec![(Type::Record(vec![]), Type::String)])
             .category(Category::Formats)
     }
 
     fn usage(&self) -> &str {
-        "Convert table into .toml text"
+        "Convert record into .toml text"
     }
 
     fn examples(&self) -> Vec<Example> {
         vec![Example {
-            description: "Outputs an TOML string representing the contents of this table",
-            example: r#"[[foo bar]; ["1" "2"]] | to toml"#,
-            result: Some(Value::test_string("bar = \"2\"\nfoo = \"1\"\n")),
+            description: "Outputs an TOML string representing the contents of this record",
+            example: r#"{foo: 1 bar: 'qwe'} | to toml"#,
+            result: Some(Value::test_string("bar = \"qwe\"\nfoo = 1\n")),
         }]
     }
 
