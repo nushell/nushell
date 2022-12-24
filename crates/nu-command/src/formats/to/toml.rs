@@ -127,17 +127,6 @@ fn value_to_toml_value(
 ) -> Result<toml::Value, ShellError> {
     match v {
         Value::Record { .. } => helper(engine_state, v),
-        Value::String { val, span } => {
-            // Attempt to de-serialize the String
-            toml::de::from_str(val).map_err(|_| {
-                ShellError::UnsupportedInput(
-                    "unable to de-serialize string to TOML".into(),
-                    format!("input: '{:?}'", val),
-                    head,
-                    *span,
-                )
-            })
-        }
         // Propagate existing errors
         Value::Error { error } => Err(error.clone()),
         _ => Err(ShellError::UnsupportedInput(
