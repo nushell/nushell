@@ -94,6 +94,8 @@ fn registry_query(
     stack: &mut Stack,
     call: &Call,
 ) -> Result<nu_protocol::PipelineData, nu_protocol::ShellError> {
+    let call_span = call.head;
+
     let registry_key: Spanned<String> = call.req(engine_state, stack, 0)?;
     let registry_key_span = &registry_key.clone().span;
     let registry_value: Option<Spanned<String>> = call.opt(engine_state, stack, 1)?;
@@ -112,18 +114,18 @@ fn registry_query(
         key: registry_key.item,
     };
 
-    let reg_key = get_reg_key(reg_params)?;
+    let reg_key = get_reg_key(reg_params, call_span)?;
 
     if registry_value.is_none() {
         let mut reg_values = vec![];
         for (name, val) in reg_key.enum_values().flatten() {
-            let (nu_value, reg_type) = reg_value_to_nu_value(val);
+            let (nu_value, reg_type) = reg_value_to_nu_value(val, call_span);
             reg_values.push(Value::Record {
                 cols: vec!["name".to_string(), "value".to_string(), "type".to_string()],
                 vals: vec![
-                    Value::string(name, Span::test_data()),
+                    Value::string(name, call_span),
                     nu_value,
-                    Value::string(format!("{:?}", reg_type), Span::test_data()),
+                    Value::string(format!("{:?}", reg_type), call_span),
                 ],
                 span: *registry_key_span,
             })
@@ -135,13 +137,13 @@ fn registry_query(
                 let reg_value = reg_key.get_raw_value(value.item.as_str());
                 match reg_value {
                     Ok(val) => {
-                        let (nu_value, reg_type) = reg_value_to_nu_value(val);
+                        let (nu_value, reg_type) = reg_value_to_nu_value(val, call_span);
                         Ok(Value::Record {
                             cols: vec!["name".to_string(), "value".to_string(), "type".to_string()],
                             vals: vec![
-                                Value::string(value.item, Span::test_data()),
+                                Value::string(value.item, call_span),
                                 nu_value,
-                                Value::string(format!("{:?}", reg_type), Span::test_data()),
+                                Value::string(format!("{:?}", reg_type), call_span),
                             ],
                             span: value.span,
                         }
@@ -156,12 +158,12 @@ fn registry_query(
                     )),
                 }
             }
-            None => Ok(Value::nothing(Span::test_data()).into_pipeline_data()),
+            None => Ok(Value::nothing(call_span).into_pipeline_data()),
         }
     }
 }
 
-fn get_reg_key(reg_params: RegistryQueryArgs) -> Result<RegKey, ShellError> {
+fn get_reg_key(reg_params: RegistryQueryArgs, call_span: Span) -> Result<RegKey, ShellError> {
     let mut key_count = 0;
     let registry_key = if reg_params.hkcr {
         key_count += 1;
@@ -201,7 +203,7 @@ fn get_reg_key(reg_params: RegistryQueryArgs) -> Result<RegKey, ShellError> {
         return Err(ShellError::GenericError(
             "Only one registry key can be specified".into(),
             "Only one registry key can be specified".into(),
-            Some(Span::test_data()),
+            Some(call_span),
             None,
             Vec::new(),
         ));
@@ -211,59 +213,57 @@ fn get_reg_key(reg_params: RegistryQueryArgs) -> Result<RegKey, ShellError> {
 
 fn reg_value_to_nu_value(
     reg_value: winreg::RegValue,
+    call_span: Span,
 ) -> (nu_protocol::Value, winreg::enums::RegType) {
     match reg_value.vtype {
-        REG_NONE => (Value::nothing(Span::test_data()), reg_value.vtype),
+        REG_NONE => (Value::nothing(call_span), reg_value.vtype),
         REG_SZ => (
-            Value::string(reg_value.to_string(), Span::test_data()),
+            Value::string(reg_value.to_string(), call_span),
             reg_value.vtype,
         ),
         REG_EXPAND_SZ => (
-            Value::string(reg_value.to_string(), Span::test_data()),
+            Value::string(reg_value.to_string(), call_span),
             reg_value.vtype,
         ),
-        REG_BINARY => (
-            Value::binary(reg_value.bytes, Span::test_data()),
-            reg_value.vtype,
-        ),
+        REG_BINARY => (Value::binary(reg_value.bytes, call_span), reg_value.vtype),
         REG_DWORD => (
             Value::int(
                 unsafe { *(reg_value.bytes.as_ptr() as *const u32) } as i64,
-                Span::test_data(),
+                call_span,
             ),
             reg_value.vtype,
         ),
         REG_DWORD_BIG_ENDIAN => (
             Value::int(
                 unsafe { *(reg_value.bytes.as_ptr() as *const u32) } as i64,
-                Span::test_data(),
+                call_span,
             ),
             reg_value.vtype,
         ),
         REG_LINK => (
-            Value::string(reg_value.to_string(), Span::test_data()),
+            Value::string(reg_value.to_string(), call_span),
             reg_value.vtype,
         ),
         REG_MULTI_SZ => (
-            Value::string(reg_value.to_string(), Span::test_data()),
+            Value::string(reg_value.to_string(), call_span),
             reg_value.vtype,
         ),
         REG_RESOURCE_LIST => (
-            Value::string(reg_value.to_string(), Span::test_data()),
+            Value::string(reg_value.to_string(), call_span),
             reg_value.vtype,
         ),
         REG_FULL_RESOURCE_DESCRIPTOR => (
-            Value::string(reg_value.to_string(), Span::test_data()),
+            Value::string(reg_value.to_string(), call_span),
             reg_value.vtype,
         ),
         REG_RESOURCE_REQUIREMENTS_LIST => (
-            Value::string(reg_value.to_string(), Span::test_data()),
+            Value::string(reg_value.to_string(), call_span),
             reg_value.vtype,
         ),
         REG_QWORD => (
             Value::int(
                 unsafe { *(reg_value.bytes.as_ptr() as *const u32) } as i64,
-                Span::test_data(),
+                call_span,
             ),
             reg_value.vtype,
         ),
