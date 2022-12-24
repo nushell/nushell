@@ -22,7 +22,9 @@ impl Command for PathCommand {
     }
 
     fn extra_usage(&self) -> &str {
-        r#"There are three ways to represent a path:
+        r#"You must use one of the following subcommands. Using this command as-is will only produce this help message.
+        
+There are three ways to represent a path:
 
 * As a path literal, e.g., '/home/viking/spam.txt'
 * As a structured path: a table with 'parent', 'stem', and 'extension' (and

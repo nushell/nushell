@@ -23,6 +23,10 @@ impl Command for Bytes {
         "Various commands for working with byte data"
     }
 
+    fn extra_usage(&self) -> &str {
+        "You must use one of the following subcommands. Using this command as-is will only produce this help message."
+    }
+
     fn run(
         &self,
         engine_state: &EngineState,
