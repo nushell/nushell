@@ -176,7 +176,7 @@ fn values(
             Ok(vals.into_pipeline_data(ctrlc).set_metadata(metadata))
         }
         // Propagate errors
-        PipelineData::Value(Value::Error { error: _ }, ..) => Ok(input),
+        PipelineData::Value(Value::Error { error }, ..) => Err(error),
         PipelineData::Value(other, ..) => {
             Err(ShellError::OnlySupportsThisInputType(
                 "record or table".into(),
