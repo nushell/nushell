@@ -71,9 +71,9 @@ impl Command for LazyFillNA {
                 None,
             ))
         } else {
-            let span = value.span()?;
+            let _span = value.span()?;
             let frame = NuDataFrame::try_from_value(value)?;
-            let columns = frame.columns(span)?;
+            let columns = frame.columns(_span)?;
             let dataframe = columns
                 .iter()
                 .map(|column| {
@@ -88,6 +88,7 @@ impl Command for LazyFillNA {
                                     value.clone()
                                 }
                             }
+                            Value::List {vals,span} => NuDataFrame::fill_list_nan(vals,span.clone(),fill.clone()),
                             _ => value.clone(),
                         })
                         .collect::<Vec<Value>>();
