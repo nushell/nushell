@@ -88,7 +88,9 @@ impl Command for LazyFillNA {
                                     value.clone()
                                 }
                             }
-                            Value::List {vals,span} => NuDataFrame::fill_list_nan(vals,span.clone(),fill.clone()),
+                            Value::List { vals, span } => {
+                                NuDataFrame::fill_list_nan(vals, span.clone(), fill.clone())
+                            }
                             _ => value.clone(),
                         })
                         .collect::<Vec<Value>>();
