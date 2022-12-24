@@ -62,10 +62,24 @@ fn nested_tables_to_toml() {
 
 #[test]
 fn table_to_toml_fails() {
+    // Tables cant be represented in toml
     let actual = nu!(
     cwd: "tests/fixtures/formats", pipeline(
         r#"
         try { [[a b]; [1 2] [5 6]] | to toml | false } catch { true }
+        "#
+    ));
+
+    assert_eq!(actual.out, "true");
+}
+
+#[test]
+fn string_to_toml_fails() {
+    // Strings are not a top-level toml structure
+    let actual = nu!(
+    cwd: "tests/fixtures/formats", pipeline(
+        r#"
+        try { 'not a valid toml' | to toml | false } catch { true }
         "#
     ));
 
