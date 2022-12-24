@@ -46,7 +46,7 @@ impl Command for SubCommand {
             Example {
                 description: "Compute the median of a list of numbers",
                 example: "[3 8 9 12 12 15] | math median",
-                result: Some(Value::float(10.5, Span::test_data())),
+                result: Some(Value::test_float(10.5)),
             },
             Example {
                 description: "Compute the medians of the columns of a table",

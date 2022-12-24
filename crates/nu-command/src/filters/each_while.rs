@@ -42,10 +42,7 @@ impl Command for EachWhile {
     }
 
     fn examples(&self) -> Vec<Example> {
-        let stream_test_1 = vec![
-            Value::int(2, Span::test_data()),
-            Value::int(4, Span::test_data()),
-        ];
+        let stream_test_1 = vec![Value::test_int(2), Value::test_int(4)];
         let stream_test_2 = vec![
             Value::test_string("Output: 1"),
             Value::test_string("Output: 2"),

@@ -59,8 +59,6 @@ impl Command for SeqDate {
     }
 
     fn examples(&self) -> Vec<Example> {
-        let span = Span::test_data();
-
         vec![
             Example {
                 description: "print the next 10 days in YYYY-MM-DD format with newline separator",
@@ -82,18 +80,18 @@ impl Command for SeqDate {
                 example: "seq date -b '2020-01-01' -e '2020-01-10'",
                 result: Some(Value::List {
                     vals: vec![
-                        Value::String { val: "2020-01-01".into(), span, },
-                        Value::String { val: "2020-01-02".into(), span, },
-                        Value::String { val: "2020-01-03".into(), span, },
-                        Value::String { val: "2020-01-04".into(), span, },
-                        Value::String { val: "2020-01-05".into(), span, },
-                        Value::String { val: "2020-01-06".into(), span, },
-                        Value::String { val: "2020-01-07".into(), span, },
-                        Value::String { val: "2020-01-08".into(), span, },
-                        Value::String { val: "2020-01-09".into(), span, },
-                        Value::String { val: "2020-01-10".into(), span, },
+                        Value::test_string("2020-01-01"),
+                        Value::test_string("2020-01-02"),
+                        Value::test_string("2020-01-03"),
+                        Value::test_string("2020-01-04"),
+                        Value::test_string("2020-01-05"),
+                        Value::test_string("2020-01-06"),
+                        Value::test_string("2020-01-07"),
+                        Value::test_string("2020-01-08"),
+                        Value::test_string("2020-01-09"),
+                        Value::test_string("2020-01-10"),
                     ],
-                    span,
+                    span: Span::test_data(),
                 }),
             },
             Example {
@@ -101,15 +99,15 @@ impl Command for SeqDate {
                 example: "seq date -b '2020-01-01' -e '2020-01-31' -n 5",
                 result: Some(Value::List {
                    vals: vec![
-                    Value::String { val: "2020-01-01".into(), span, },
-                    Value::String { val: "2020-01-06".into(), span, },
-                    Value::String { val: "2020-01-11".into(), span, },
-                    Value::String { val: "2020-01-16".into(), span, },
-                    Value::String { val: "2020-01-21".into(), span, },
-                    Value::String { val: "2020-01-26".into(), span, },
-                    Value::String { val: "2020-01-31".into(), span, },
+                    Value::test_string("2020-01-01"),
+                    Value::test_string("2020-01-06"),
+                    Value::test_string("2020-01-11"),
+                    Value::test_string("2020-01-16"),
+                    Value::test_string("2020-01-21"),
+                    Value::test_string("2020-01-26"),
+                    Value::test_string("2020-01-31"),
                     ],
-                    span,
+                    span: Span::test_data(),
                 }),
             },
         ]

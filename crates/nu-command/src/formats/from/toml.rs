@@ -29,7 +29,7 @@ impl Command for FromToml {
                 description: "Converts toml formatted string to record",
                 result: Some(Value::Record {
                     cols: vec!["a".to_string()],
-                    vals: vec![Value::int(1, Span::test_data())],
+                    vals: vec![Value::test_int(1)],
                     span: Span::test_data(),
                 }),
             },
@@ -40,12 +40,9 @@ b = [1, 2]' | from toml",
                 result: Some(Value::Record {
                     cols: vec!["a".to_string(), "b".to_string()],
                     vals: vec![
-                        Value::int(1, Span::test_data()),
+                        Value::test_int(1),
                         Value::List {
-                            vals: vec![
-                                Value::int(1, Span::test_data()),
-                                Value::int(2, Span::test_data()),
-                            ],
+                            vals: vec![Value::test_int(1), Value::test_int(2)],
                             span: Span::test_data(),
                         },
                     ],

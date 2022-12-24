@@ -113,7 +113,7 @@ impl Command for SubCommand {
             Example {
                 description: "Convert file size to integer",
                 example: "4KB | into int",
-                result: Some(Value::int(4000, Span::test_data())),
+                result: Some(Value::test_int(4000)),
             },
             Example {
                 description: "Convert bool to integer",

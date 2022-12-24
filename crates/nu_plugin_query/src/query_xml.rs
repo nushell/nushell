@@ -146,7 +146,7 @@ mod tests {
         let expected = Value::List {
             vals: vec![Value::Record {
                 cols: vec!["count(//a/*[posit...".to_string()],
-                vals: vec![Value::float(1.0, Span::test_data())],
+                vals: vec![Value::test_float(1.0)],
                 span: Span::test_data(),
             }],
             span: Span::test_data(),
@@ -177,7 +177,7 @@ mod tests {
         let expected = Value::List {
             vals: vec![Value::Record {
                 cols: vec!["count(//*[contain...".to_string()],
-                vals: vec![Value::float(1.0, Span::test_data())],
+                vals: vec![Value::test_float(1.0)],
                 span: Span::test_data(),
             }],
             span: Span::test_data(),
