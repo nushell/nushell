@@ -1333,7 +1333,7 @@ fn wrap_text(text: String, width: usize) -> String {
     if string_width(&text) <= width {
         return text;
     }
-    
+
     nu_table::wrap_string(&text, width)
 }
 
@@ -1447,7 +1447,7 @@ fn convert_to_table2_entry(
         _ => {
             let text = value_to_styled_string(item, config, style_computer);
             wrap_nu_text(text, width)
-        }, // unknown type.
+        } // unknown type.
     }
 }
 
