@@ -104,7 +104,7 @@ pub fn sort(
                 for col in &sort_columns {
                     let val = match item.get_data_by_key(col) {
                         Some(v) => v,
-                        None => Value::nothing(Span::test_data()),
+                        None => Value::nothing(Span::unknown()),
                     };
                     vals.push(val);
                 }
