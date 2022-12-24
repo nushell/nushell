@@ -205,30 +205,6 @@ mod tests {
                 toml::Value::String("array".to_owned())
             ]))
         );
-        // TOML string
-        let tv = value_to_toml_value(
-            &engine_state,
-            &Value::test_string(
-                r#"
-            title = "TOML Example"
-
-            [owner]
-            name = "Tom Preston-Werner"
-            dob = 1979-05-27T07:32:00-08:00 # First class dates
-
-            [dependencies]
-            rustyline = "4.1.0"
-            sysinfo = "0.8.4"
-            chrono = { version = "0.4.23", features = ["serde"] }
-            "#,
-            ),
-            Span::test_data(),
-        )
-        .expect("Expected Ok from valid TOML string");
-        assert_eq!(
-            tv.get("title").unwrap(),
-            &toml::Value::String("TOML Example".to_owned())
-        );
         //
         // Negative Tests
         //
