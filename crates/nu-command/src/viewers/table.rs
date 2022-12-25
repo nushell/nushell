@@ -2,6 +2,7 @@ use lscolors::{LsColors, Style};
 use nu_color_config::color_from_hex;
 use nu_color_config::{Alignment, StyleComputer, TextStyle};
 use nu_engine::{column::get_columns, env_to_string, CallExt};
+use nu_protocol::TrimStrategy;
 use nu_protocol::{
     ast::{Call, PathMember},
     engine::{Command, EngineState, Stack, StateWorkingSet},
@@ -550,13 +551,13 @@ fn build_expanded_table(
                                 style_computer,
                             );
 
-                            wrap_text(failed_value.0, remaining_width)
+                            wrap_text(failed_value.0, remaining_width, config)
                         }
                     }
                 }
                 val => {
                     let text = value_to_styled_string(&val, config, style_computer).0;
-                    wrap_text(text, remaining_width)
+                    wrap_text(text, remaining_width, config)
                 }
             }
         };
@@ -1145,7 +1146,7 @@ fn convert_to_table2<'a>(
                 }
 
                 let value = create_table2_entry_basic(item, &header, head, config, style_computer);
-                let value = wrap_nu_text(value, available_width);
+                let value = wrap_nu_text(value, available_width, config);
 
                 let value_width = string_width(&value.0);
                 column_width = max(column_width, value_width);
@@ -1170,7 +1171,7 @@ fn convert_to_table2<'a>(
                 }
 
                 let value = create_table2_entry_basic(item, &header, head, config, style_computer);
-                let value = wrap_nu_text(value, OK_CELL_CONTENT_WIDTH);
+                let value = wrap_nu_text(value, OK_CELL_CONTENT_WIDTH, config);
 
                 let value = NuTable::create_cell(value.0, value.1);
 
@@ -1300,7 +1301,7 @@ fn create_table2_entry(
                     flatten_sep,
                     width,
                 ),
-                Err(_) => wrap_nu_text(error_sign(style_computer), width),
+                Err(_) => wrap_nu_text(error_sign(style_computer), width, config),
             }
         }
         _ => convert_to_table2_entry(
@@ -1320,21 +1321,21 @@ fn error_sign(style_computer: &StyleComputer) -> (String, TextStyle) {
     make_styled_string(style_computer, String::from("❎"), None, 0)
 }
 
-fn wrap_nu_text(mut text: NuText, width: usize) -> NuText {
+fn wrap_nu_text(mut text: NuText, width: usize, config: &Config) -> NuText {
     if string_width(&text.0) <= width {
         return text;
     }
 
-    text.0 = nu_table::wrap_string(&text.0, width);
+    text.0 = nu_table::string_wrap(&text.0, width, is_cfg_trim_keep_words(config));
     text
 }
 
-fn wrap_text(text: String, width: usize) -> String {
+fn wrap_text(text: String, width: usize, config: &Config) -> String {
     if string_width(&text) <= width {
         return text;
     }
 
-    nu_table::wrap_string(&text, width)
+    nu_table::string_wrap(&text, width, is_cfg_trim_keep_words(config))
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -1352,13 +1353,21 @@ fn convert_to_table2_entry(
 ) -> NuText {
     let is_limit_reached = matches!(deep, Some(0));
     if is_limit_reached {
-        return wrap_nu_text(value_to_styled_string(item, config, style_computer), width);
+        return wrap_nu_text(
+            value_to_styled_string(item, config, style_computer),
+            width,
+            config,
+        );
     }
 
     match &item {
         Value::Record { span, cols, vals } => {
             if cols.is_empty() && vals.is_empty() {
-                wrap_nu_text(value_to_styled_string(item, config, style_computer), width)
+                wrap_nu_text(
+                    value_to_styled_string(item, config, style_computer),
+                    width,
+                    config,
+                )
             } else {
                 let table = convert_to_table2(
                     0,
@@ -1392,7 +1401,11 @@ fn convert_to_table2_entry(
                     (table, TextStyle::default())
                 } else {
                     // error so back down to the default
-                    wrap_nu_text(value_to_styled_string(item, config, style_computer), width)
+                    wrap_nu_text(
+                        value_to_styled_string(item, config, style_computer),
+                        width,
+                        config,
+                    )
                 }
             }
         }
@@ -1405,6 +1418,7 @@ fn convert_to_table2_entry(
                 wrap_nu_text(
                     convert_value_list_to_string(vals, config, style_computer, flatten_sep),
                     width,
+                    config,
                 )
             } else {
                 let table = convert_to_table2(
@@ -1440,13 +1454,17 @@ fn convert_to_table2_entry(
                 } else {
                     // error so back down to the default
 
-                    wrap_nu_text(value_to_styled_string(item, config, style_computer), width)
+                    wrap_nu_text(
+                        value_to_styled_string(item, config, style_computer),
+                        width,
+                        config,
+                    )
                 }
             }
         }
         _ => {
             let text = value_to_styled_string(item, config, style_computer);
-            wrap_nu_text(text, width)
+            wrap_nu_text(text, width, config)
         } // unknown type.
     }
 }
@@ -1538,6 +1556,15 @@ fn convert_with_precision(val: &str, precision: usize) -> Result<String, ShellEr
         }
     };
     Ok(format!("{:.prec$}", val_float, prec = precision))
+}
+
+fn is_cfg_trim_keep_words(config: &Config) -> bool {
+    matches!(
+        config.trim_strategy,
+        TrimStrategy::Wrap {
+            try_to_keep_words: true
+        }
+    )
 }
 
 struct PagingTableCreator {
