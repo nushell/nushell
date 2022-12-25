@@ -1,4 +1,4 @@
-use tabled::{builder::Builder, Padding, Style, Width};
+use tabled::{builder::Builder, object::Cell, Modify, Padding, Style, Width};
 
 pub fn string_width(text: &str) -> usize {
     tabled::papergrid::util::string_width_multiline_tab(text, 4)
@@ -16,9 +16,11 @@ pub fn wrap_string(text: &str, width: usize) -> String {
 
     Builder::from_iter([[text]])
         .build()
-        .with(Padding::zero())
         .with(Style::empty())
-        .with(Width::wrap(width))
+        .with(Padding::zero())
+        .with(Modify::new(Cell(0, 0)).with(Width::wrap(width)))
+        .to_string()
+        .trim_end()
         .to_string()
 }
 

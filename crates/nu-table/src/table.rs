@@ -450,7 +450,7 @@ fn truncate_columns_by_content(data: &mut Data, theme: &TableTheme, termwidth: u
     }
 
     // we don't need any truncation then (is it possible?)
-    if truncate_pos + 1 == data.count_columns() {
+    if truncate_pos == data.count_columns() {
         return false;
     }
 

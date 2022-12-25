@@ -550,13 +550,13 @@ fn build_expanded_table(
                                 style_computer,
                             );
 
-                            nu_table::wrap_string(&failed_value.0, remaining_width)
+                            wrap_text(failed_value.0, remaining_width)
                         }
                     }
                 }
                 val => {
                     let text = value_to_styled_string(&val, config, style_computer).0;
-                    nu_table::wrap_string(&text, remaining_width)
+                    wrap_text(text, remaining_width)
                 }
             }
         };
@@ -1321,8 +1321,20 @@ fn error_sign(style_computer: &StyleComputer) -> (String, TextStyle) {
 }
 
 fn wrap_nu_text(mut text: NuText, width: usize) -> NuText {
+    if string_width(&text.0) <= width {
+        return text;
+    }
+
     text.0 = nu_table::wrap_string(&text.0, width);
     text
+}
+
+fn wrap_text(text: String, width: usize) -> String {
+    if string_width(&text) <= width {
+        return text;
+    }
+
+    nu_table::wrap_string(&text, width)
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -1432,7 +1444,10 @@ fn convert_to_table2_entry(
                 }
             }
         }
-        _ => wrap_nu_text(value_to_styled_string(item, config, style_computer), width), // unknown type.
+        _ => {
+            let text = value_to_styled_string(item, config, style_computer);
+            wrap_nu_text(text, width)
+        } // unknown type.
     }
 }
 
@@ -1551,7 +1566,6 @@ impl PagingTableCreator {
         let config = self.engine_state.get_config();
         let style_computer = StyleComputer::from_config(&self.engine_state, &self.stack);
         let term_width = get_width_param(self.width_param);
-        let theme = load_theme_from_config(config);
 
         let table = convert_to_table2(
             self.row_offset,
@@ -1566,12 +1580,10 @@ impl PagingTableCreator {
             term_width,
         )?;
 
-        let (mut table, with_header, with_index) = match table {
+        let (table, with_header, with_index) = match table {
             Some(table) => table,
             None => return Ok(None),
         };
-
-        table.truncate(term_width, &theme);
 
         let table_config = create_table_config(
             config,
