@@ -77,8 +77,8 @@ fn eval_source2(
         return Err(ShellError::IOError(err.to_string()));
     }
 
-    // eval_block outputs all expressions expept the last to STDOUT;
-    // we don't wont that.
+    // eval_block outputs all expressions except the last to STDOUT;
+    // we don't won't that.
     //
     // So we LITERALLY ignore all expressions except the LAST.
     if block.len() > 1 {

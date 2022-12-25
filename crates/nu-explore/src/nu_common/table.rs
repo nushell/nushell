@@ -171,7 +171,7 @@ fn build_expanded_table(
 
                     match table {
                         Some((mut table, with_header, with_index)) => {
-                            // controll width via removing table columns.
+                            // control width via removing table columns.
                             let theme = load_theme_from_config(config);
                             table.truncate(remaining_width, &theme);
 

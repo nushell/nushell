@@ -699,7 +699,7 @@ impl Value {
                         let cols = cols.clone();
                         let span = *span;
 
-                        // Make reverse iterate to avoid duplicate column leads to first value, actuall last value is expected.
+                        // Make reverse iterate to avoid duplicate column leads to first value, actually last value is expected.
                         if let Some(found) = cols.iter().zip(vals.iter()).rev().find(|x| {
                             if insensitive {
                                 x.0.to_lowercase() == column_name.to_lowercase()
@@ -1613,7 +1613,7 @@ impl PartialOrd for Value {
                     ..
                 } => {
                     // reorder cols and vals to make more logically compare.
-                    // more genral, if two record have same col and values,
+                    // more general, if two record have same col and values,
                     // the order of cols shouldn't affect the equal property.
                     let (lhs_cols_ordered, lhs_vals_ordered) =
                         reorder_record_inner(lhs_cols, lhs_vals);

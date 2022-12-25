@@ -698,7 +698,7 @@ pub fn parse_alias(
     (
         garbage_pipeline(spans),
         Some(ParseError::InternalError(
-            "Alias statement unparseable".into(),
+            "Alias statement unparsable".into(),
             span(spans),
         )),
     )
@@ -2486,7 +2486,7 @@ pub fn parse_overlay_use(
                 return (
                     pipeline,
                     Some(ParseError::CantAddOverlayHelp(
-                            format!("Cannot add overlay as '{}' because it already exsits under the name '{}'", new_name.item, overlay_name),
+                            format!("Cannot add overlay as '{}' because it already exists under the name '{}'", new_name.item, overlay_name),
                             new_name.span,
                     )),
                 );
@@ -2883,7 +2883,7 @@ pub fn parse_let_or_const(
     (
         garbage_pipeline(spans),
         Some(ParseError::UnknownState(
-            "internal error: let or const statement unparseable".into(),
+            "internal error: let or const statement unparsable".into(),
             span(spans),
         )),
     )
@@ -3005,7 +3005,7 @@ pub fn parse_mut(
     (
         garbage_pipeline(spans),
         Some(ParseError::UnknownState(
-            "internal error: mut statement unparseable".into(),
+            "internal error: mut statement unparsable".into(),
             span(spans),
         )),
     )
@@ -3175,7 +3175,7 @@ pub fn parse_source(
     (
         garbage_pipeline(spans),
         Some(ParseError::UnknownState(
-            "internal error: source statement unparseable".into(),
+            "internal error: source statement unparsable".into(),
             span(spans),
         )),
     )

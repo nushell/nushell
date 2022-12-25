@@ -179,7 +179,7 @@ impl Iterator for RawStream {
     }
 }
 
-/// A potentially infinite stream of values, optinally with a mean to send a Ctrl-C signal to stop
+/// A potentially infinite stream of values, optionally with a mean to send a Ctrl-C signal to stop
 /// the stream from continuing.
 ///
 /// In practice, a "stream" here means anything which can be iterated and produce Values as it iterates.

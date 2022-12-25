@@ -86,12 +86,12 @@ impl Command for Table {
             .named(
                 "flatten-separator",
                 SyntaxShape::String,
-                "sets a seperator when 'flatten' used",
+                "sets a separator when 'flatten' used",
                 None,
             )
             .switch(
                 "collapse",
-                "expand the table structure in colapse mode.\nBe aware collapse mode currently doesn't support width controll",
+                "expand the table structure in colapse mode.\nBe aware collapse mode currently doesn't support width control",
                 Some('c'),
             )
             .category(Category::Viewers)
@@ -497,7 +497,7 @@ fn build_expanded_table(
 
                     match table {
                         Some((mut table, with_header, with_index)) => {
-                            // controll width via removing table columns.
+                            // control width via removing table columns.
                             table.truncate(remaining_width, &theme);
 
                             is_expanded = true;

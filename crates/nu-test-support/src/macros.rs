@@ -15,7 +15,7 @@
 ///
 /// ```no_run
 /// # // NOTE: The `nu!` macro needs the `nu` binary to exist. The test are
-/// # //       therefore only compiled but not run (thats what the `no_run` at
+/// # //       therefore only compiled but not run (that's what the `no_run` at
 /// # //       the beginning of this code block is for).
 /// #
 /// use nu_test_support::nu;

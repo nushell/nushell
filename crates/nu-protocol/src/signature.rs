@@ -123,7 +123,7 @@ pub struct Signature {
     pub category: Category,
 }
 
-/// Fromat argumet type for user readable output.
+/// Format argument type for user readable output.
 ///
 /// In general:
 /// if argument type is a simple type(like string), we'll wrapped with `<>`, the result will be `<string>`
@@ -147,7 +147,7 @@ fn fmt_type(arg_type: &Type, optional: bool) -> String {
 //
 // <string> | <string>, <int?> => string
 //
-// More detail explaination:
+// More detail explanation:
 // the first one is the input from previous command, aka, pipeline input
 // then followed by `|`, then positional arguments type
 // then optional arguments type, which ends with `?`

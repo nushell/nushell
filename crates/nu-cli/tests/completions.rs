@@ -109,7 +109,7 @@ fn dotnu_completions() {
     // Create a new engine
     let (_, _, engine, stack) = new_engine();
 
-    // Instatiate a new completer
+    // Instantiate a new completer
     let mut completer = NuCompleter::new(std::sync::Arc::new(engine), stack);
 
     // Test source completion
@@ -169,7 +169,7 @@ fn file_completions() {
     // Create a new engine
     let (dir, dir_str, engine, stack) = new_engine();
 
-    // Instatiate a new completer
+    // Instantiate a new completer
     let mut completer = NuCompleter::new(std::sync::Arc::new(engine), stack);
 
     // Test completions for the current folder
@@ -454,7 +454,7 @@ fn flag_completions() {
     // Create a new engine
     let (_, _, engine, stack) = new_engine();
 
-    // Instatiate a new completer
+    // Instantiate a new completer
     let mut completer = NuCompleter::new(std::sync::Arc::new(engine), stack);
     // Test completions for the 'ls' flags
     let suggestions = completer.complete("ls -", 4);
@@ -487,7 +487,7 @@ fn folder_with_directorycompletions() {
     // Create a new engine
     let (dir, dir_str, engine, stack) = new_engine();
 
-    // Instatiate a new completer
+    // Instantiate a new completer
     let mut completer = NuCompleter::new(std::sync::Arc::new(engine), stack);
 
     // Test completions for the current folder
@@ -515,7 +515,7 @@ fn variables_completions() {
     let record = "let actor = { name: 'Tom Hardy', age: 44 }";
     assert!(support::merge_input(record.as_bytes(), &mut engine, &mut stack, dir).is_ok());
 
-    // Instatiate a new completer
+    // Instantiate a new completer
     let mut completer = NuCompleter::new(std::sync::Arc::new(engine), stack);
 
     // Test completions for $nu
@@ -672,7 +672,7 @@ fn run_external_completion(block: &str, input: &str) -> Vec<Suggestion> {
     config.external_completer = Some(latest_block_id);
     engine_state.set_config(&config);
 
-    // Instatiate a new completer
+    // Instantiate a new completer
     let mut completer = NuCompleter::new(std::sync::Arc::new(engine_state), stack);
 
     completer.complete(input, input.len())

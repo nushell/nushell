@@ -177,7 +177,7 @@ impl EngineState {
                 .iter_mut()
                 .find(|(name, _)| name == &delta_name)
             {
-                // Upating existing overlay
+                // Updating existing overlay
                 for item in delta_overlay.decls.into_iter() {
                     existing_overlay.decls.insert(item.0, item.1);
                 }
