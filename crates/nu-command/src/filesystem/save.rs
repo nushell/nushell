@@ -115,7 +115,7 @@ impl Command for Save {
             }
         };
 
-        let ext = get_file_extension(raw, path, &input);
+        let ext = get_file_extension_if_value(raw, path, &input);
 
         if let Some(ext) = ext {
             let result = convert_to_extension(engine_state, &ext, stack, input, span);
@@ -167,51 +167,21 @@ impl Command for Save {
                         res
                     }
                 }
-                input => match input.into_value(span) {
-                    Value::String { val, .. } => {
-                        if let Err(err) = file.write_all(val.as_bytes()) {
-                            return Err(ShellError::IOError(err.to_string()));
-                        } else {
-                            file.flush()?
+                input => {
+                    let value = input.into_value(span);
+                    let bytes = string_binary_list_value_to_bytes(value, span);
+                    match bytes {
+                        Ok(val) => {
+                            if let Err(err) = file.write_all(&val) {
+                                return Err(ShellError::IOError(err.to_string()));
+                            } else {
+                                file.flush()?
+                            }
+                            Ok(PipelineData::empty())
                         }
-
-                        Ok(PipelineData::empty())
+                        Err(err) => Err(err),
                     }
-                    Value::Binary { val, .. } => {
-                        if let Err(err) = file.write_all(&val) {
-                            return Err(ShellError::IOError(err.to_string()));
-                        } else {
-                            file.flush()?
-                        }
-
-                        Ok(PipelineData::empty())
-                    }
-                    Value::List { vals, .. } => {
-                        let val = vals
-                            .into_iter()
-                            .map(|it| it.as_string())
-                            .collect::<Result<Vec<String>, ShellError>>()?
-                            .join("\n")
-                            + "\n";
-
-                        if let Err(err) = file.write_all(val.as_bytes()) {
-                            return Err(ShellError::IOError(err.to_string()));
-                        } else {
-                            file.flush()?
-                        }
-
-                        Ok(PipelineData::empty())
-                    }
-                    // Propagate errors by explicitly matching them before the final case.
-                    Value::Error { error } => Err(error),
-                    other => Err(ShellError::OnlySupportsThisInputType(
-                        "string, binary or list".into(),
-                        other.get_type().to_string(),
-                        span,
-                        // This line requires the Value::Error match above.
-                        other.expect_span(),
-                    )),
-                },
+                }
             }
         }
     }
@@ -264,7 +234,8 @@ fn check_path_not_exists(path: &Path, span: Span) -> Result<(), ShellError> {
     }
 }
 
-fn get_file_extension(raw: bool, path: &Path, input: &PipelineData) -> Option<String> {
+/// Get extension of file, if input is a [`PipelineData::Value`] and not a [`Value::String`]
+fn get_file_extension_if_value(raw: bool, path: &Path, input: &PipelineData) -> Option<String> {
     if raw {
         None
     // if is extern stream , in other words , not value
@@ -278,6 +249,9 @@ fn get_file_extension(raw: bool, path: &Path, input: &PipelineData) -> Option<St
     }
 }
 
+/// Convert given data into content of file of specified extension if
+/// corresponding `to` command exists. Otherwise attempt to convert
+/// data to bytes as is
 fn convert_to_extension(
     engine_state: &EngineState,
     extension: &str,
@@ -301,7 +275,14 @@ fn convert_to_extension(
         None => input.into_value(span),
     };
 
-    match output {
+    string_binary_list_value_to_bytes(output, span)
+}
+
+/// Convert [`Value::String`] [`Value::Binary`] or [`Value::List`] into [`Vec`] of bytes
+///
+/// Propagates [`Value::Error`] and creates error otherwise
+fn string_binary_list_value_to_bytes(value: Value, span: Span) -> Result<Vec<u8>, ShellError> {
+    match value {
         Value::String { val, .. } => Ok(val.into_bytes()),
         Value::Binary { val, .. } => Ok(val),
         Value::List { vals, .. } => {
