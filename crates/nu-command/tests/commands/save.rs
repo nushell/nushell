@@ -177,3 +177,19 @@ fn save_override_works() {
         assert_eq!(actual, "abcd");
     })
 }
+
+#[test]
+fn save_failure_not_overrides() {
+    Playground::setup("save_test_10", |dirs, sandbox| {
+        sandbox.with_files(vec![Stub::FileWithContent("result.toml", "Old content")]);
+
+        let expected_file = dirs.test().join("result.toml");
+        nu!(
+            cwd: dirs.root(),
+            // Writing number to file as toml fails
+            r#"3 | save save_test_10/result.toml -f"#
+        );
+        let actual = file_contents(expected_file);
+        assert_eq!(actual, "Old content");
+    })
+}
