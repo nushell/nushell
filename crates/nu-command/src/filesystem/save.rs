@@ -118,23 +118,10 @@ impl Command for Save {
         let ext = get_file_extension(raw, path, &input);
 
         if let Some(ext) = ext {
-            let output = match engine_state.find_decl(format!("to {}", ext).as_bytes(), &[]) {
-                Some(converter_id) => {
-                    let output = engine_state.get_decl(converter_id).run(
-                        engine_state,
-                        stack,
-                        &Call::new(span),
-                        input,
-                    )?;
-
-                    output.into_value(span)
-                }
-                None => input.into_value(span),
-            };
-
-            match output {
-                Value::String { val, .. } => {
-                    if let Err(err) = file.write_all(val.as_bytes()) {
+            let result = convert_to_extension(engine_state, &ext, stack, input, span);
+            match result {
+                Ok(bytes) => {
+                    if let Err(err) = file.write_all(&bytes) {
                         return Err(ShellError::IOError(err.to_string()));
                     } else {
                         file.flush()?
@@ -142,40 +129,7 @@ impl Command for Save {
 
                     Ok(PipelineData::empty())
                 }
-                Value::Binary { val, .. } => {
-                    if let Err(err) = file.write_all(&val) {
-                        return Err(ShellError::IOError(err.to_string()));
-                    } else {
-                        file.flush()?
-                    }
-
-                    Ok(PipelineData::empty())
-                }
-                Value::List { vals, .. } => {
-                    let val = vals
-                        .into_iter()
-                        .map(|it| it.as_string())
-                        .collect::<Result<Vec<String>, ShellError>>()?
-                        .join("\n")
-                        + "\n";
-
-                    if let Err(err) = file.write_all(val.as_bytes()) {
-                        return Err(ShellError::IOError(err.to_string()));
-                    } else {
-                        file.flush()?
-                    }
-
-                    Ok(PipelineData::empty())
-                }
-                // Propagate errors by explicitly matching them before the final case.
-                Value::Error { error } => Err(error),
-                other => Err(ShellError::OnlySupportsThisInputType(
-                    "string, binary or list".into(),
-                    other.get_type().to_string(),
-                    span,
-                    // This line requires the Value::Error match above.
-                    other.expect_span(),
-                )),
+                Err(err) => Err(err),
             }
         } else {
             match input {
@@ -323,6 +277,55 @@ fn get_file_extension(raw: bool, path: &Path, input: &PipelineData) -> Option<St
             .map(|name| name.to_string_lossy().to_string())
     }
 }
+
+fn convert_to_extension(
+    engine_state: &EngineState,
+    extension: &str,
+    stack: &mut Stack,
+    input: PipelineData,
+    span: Span,
+) -> Result<Vec<u8>, ShellError> {
+    let converter = engine_state.find_decl(format!("to {}", extension).as_bytes(), &[]);
+
+    let output = match converter {
+        Some(converter_id) => {
+            let output = engine_state.get_decl(converter_id).run(
+                engine_state,
+                stack,
+                &Call::new(span),
+                input,
+            )?;
+
+            output.into_value(span)
+        }
+        None => input.into_value(span),
+    };
+
+    match output {
+        Value::String { val, .. } => Ok(val.into_bytes()),
+        Value::Binary { val, .. } => Ok(val),
+        Value::List { vals, .. } => {
+            let val = vals
+                .into_iter()
+                .map(|it| it.as_string())
+                .collect::<Result<Vec<String>, ShellError>>()?
+                .join("\n")
+                + "\n";
+
+            Ok(val.into_bytes())
+        }
+        // Propagate errors by explicitly matching them before the final case.
+        Value::Error { error } => Err(error),
+        other => Err(ShellError::OnlySupportsThisInputType(
+            "string, binary or list".into(),
+            other.get_type().to_string(),
+            span,
+            // This line requires the Value::Error match above.
+            other.expect_span(),
+        )),
+    }
+}
+
 fn stream_to_file(
     mut stream: RawStream,
     file: File,
