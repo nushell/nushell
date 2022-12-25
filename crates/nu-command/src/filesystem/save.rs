@@ -67,28 +67,17 @@ impl Command for Save {
         let arg_span = path.span;
         let path = Path::new(&path.item);
 
-        let path_exists = path.exists();
-        if path_exists && !force && !append {
-            return Err(ShellError::GenericError(
-                "Destination file already exists".into(),
-                format!(
-                    "Destination file '{}' already exists",
-                    path.to_string_lossy()
-                ),
-                Some(arg_span),
-                Some("you can use -f, --force to force overwriting the destination".into()),
-                Vec::new(),
-            ));
+        if !(force || append) {
+            check_path_not_exists(path, arg_span)?
         }
 
-        let file = match (append, path_exists) {
+        let file = match (append, path.exists()) {
             (true, true) => std::fs::OpenOptions::new()
                 .write(true)
                 .append(true)
                 .open(path),
             _ => std::fs::File::create(path),
         };
-
         let mut file = match file {
             Ok(file) => file,
             Err(err) => {
@@ -126,17 +115,7 @@ impl Command for Save {
             }
         };
 
-        let ext = if raw {
-            None
-        // if is extern stream , in other words , not value
-        } else if let PipelineData::ExternalStream { .. } = input {
-            None
-        } else if let PipelineData::Value(Value::String { .. }, ..) = input {
-            None
-        } else {
-            path.extension()
-                .map(|name| name.to_string_lossy().to_string())
-        };
+        let ext = get_file_extension(raw, path, &input);
 
         if let Some(ext) = ext {
             let output = match engine_state.find_decl(format!("to {}", ext).as_bytes(), &[]) {
@@ -314,6 +293,36 @@ impl Command for Save {
     }
 }
 
+fn check_path_not_exists(path: &Path, span: Span) -> Result<(), ShellError> {
+    if path.exists() {
+        Err(ShellError::GenericError(
+            "Destination file already exists".into(),
+            format!(
+                "Destination file '{}' already exists",
+                path.to_string_lossy()
+            ),
+            Some(span),
+            Some("you can use -f, --force to force overwriting the destination".into()),
+            Vec::new(),
+        ))
+    } else {
+        Ok(())
+    }
+}
+
+fn get_file_extension(raw: bool, path: &Path, input: &PipelineData) -> Option<String> {
+    if raw {
+        None
+    // if is extern stream , in other words , not value
+    } else if let PipelineData::ExternalStream { .. } = input {
+        None
+    } else if let PipelineData::Value(Value::String { .. }, ..) = input {
+        None
+    } else {
+        path.extension()
+            .map(|name| name.to_string_lossy().to_string())
+    }
+}
 fn stream_to_file(
     mut stream: RawStream,
     file: File,
