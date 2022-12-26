@@ -237,3 +237,30 @@ fn save_not_overrides_err_by_default() {
         assert!(actual.err.contains("Destination file already exists"));
     })
 }
+
+#[test]
+fn save_override_works_stderr() {
+    Playground::setup("save_test_13", |dirs, sandbox| {
+        sandbox.with_files(vec![
+            Stub::FileWithContent("log.txt", "Old"),
+            Stub::FileWithContent("err.txt", "Old Err"),
+        ]);
+
+        let expected_file = dirs.test().join("log.txt");
+        let expected_stderr_file = dirs.test().join("err.txt");
+
+        nu!(
+            cwd: dirs.root(),
+            r#"
+            let-env FOO = "New";
+            let-env BAZ = "New Err";
+            do -i {nu -c 'nu --testbin echo_env FOO; nu --testbin echo_env_stderr BAZ'} | save -f -r save_test_13/log.txt --stderr save_test_13/err.txt"#,
+        );
+
+        let actual = file_contents(expected_file);
+        assert_eq!(actual, "New\n");
+
+        let actual = file_contents(expected_stderr_file);
+        assert_eq!(actual, "New Err\n");
+    })
+}
