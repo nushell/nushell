@@ -124,18 +124,18 @@ impl Command for SubCommand {
                 result: Some(Value::test_string("dogs_$2_cats")),
             },
             Example {
-                description: "Find and replace the first occurence using string replacement *not* regular expressions",
+                description: "Find and replace the first occurrence using string replacement *not* regular expressions",
                 example: r#"'c:\some\cool\path' | str replace 'c:\some\cool' '~' -s"#,
                 result: Some(Value::test_string("~\\path")),
             },
             Example {
-                description: "Find and replace all occurences using string replacement *not* regular expressions",
+                description: "Find and replace all occurrences using string replacement *not* regular expressions",
                 example: r#"'abc abc abc' | str replace -a 'b' 'z' -s"#,
                 result: Some(Value::test_string("azc azc azc")),
             },
             Example {
                 description: "Find and replace with fancy-regex",
-                example: r#"'a sucessful b' | str replace '\b([sS])uc(?:cs|s?)e(ed(?:ed|ing|s?)|ss(?:es|ful(?:ly)?|i(?:ons?|ve(?:ly)?)|ors?)?)\b' '${1}ucce$2'"#,
+                example: r#"'a successful b' | str replace '\b([sS])uc(?:cs|s?)e(ed(?:ed|ing|s?)|ss(?:es|ful(?:ly)?|i(?:ons?|ve(?:ly)?)|ors?)?)\b' '${1}ucce$2'"#,
                 result: Some(Value::test_string("a successful b")),
             },
             Example {

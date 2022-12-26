@@ -62,7 +62,7 @@ fn nested_tables_to_toml() {
 
 #[test]
 fn table_to_toml_fails() {
-    // Tables cant be represented in toml
+    // Tables can't be represented in toml
     let actual = nu!(
     cwd: "tests/fixtures/formats", pipeline(
         r#"

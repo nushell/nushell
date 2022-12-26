@@ -193,7 +193,7 @@ fn remove_impl(input: &[u8], arg: &Arguments, span: Span) -> Value {
                 right += 1;
             }
         }
-        // append the remaing thing to result, this can happened when
+        // append the remaining thing to result, this can happened when
         // we have something to remove and remove_all is False.
         let mut remain = input[left..].to_vec();
         result.append(&mut remain);

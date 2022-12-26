@@ -54,7 +54,7 @@ impl Command for BytesCollect {
                         output_binary.append(&mut work_sep)
                     }
                 }
-                // Explictly propagate errors instead of dropping them.
+                // Explicitly propagate errors instead of dropping them.
                 Value::Error { error } => return Err(error),
                 other => {
                     return Err(ShellError::OnlySupportsThisInputType(

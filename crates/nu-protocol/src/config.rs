@@ -167,10 +167,10 @@ pub enum TableIndexMode {
 pub enum TrimStrategy {
     /// Wrapping strategy.
     ///
-    /// It it's simmilar to original nu_table, strategy.
+    /// It it's similar to original nu_table, strategy.
     Wrap {
         /// A flag which indicates whether is it necessary to try
-        /// to keep word bounderies.
+        /// to keep word boundaries.
         try_to_keep_words: bool,
     },
     /// Truncating strategy, where we just cut the string.

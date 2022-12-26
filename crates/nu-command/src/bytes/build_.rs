@@ -52,7 +52,7 @@ impl Command for BytesBuild {
             let val = eval_expression(engine_state, stack, expr)?;
             match val {
                 Value::Binary { mut val, .. } => output.append(&mut val),
-                // Explictly propagate errors instead of dropping them.
+                // Explicitly propagate errors instead of dropping them.
                 Value::Error { error } => return Err(error),
                 other => {
                     return Err(ShellError::TypeMismatch(

@@ -78,7 +78,7 @@ impl HashableValue {
             Value::String { val, span } => Ok(HashableValue::String { val, span }),
             Value::Binary { val, span } => Ok(HashableValue::Binary { val, span }),
 
-            // Explictly propagate errors instead of dropping them.
+            // Explicitly propagate errors instead of dropping them.
             Value::Error { error } => Err(error),
             _ => Err(ShellError::UnsupportedInput(
                 "input value is not hashable".into(),

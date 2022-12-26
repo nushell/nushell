@@ -527,7 +527,7 @@ impl PipelineData {
                     let ctrlc = exit_code_stream.ctrlc.clone();
                     let exit_code: Vec<Value> = exit_code_stream.into_iter().collect();
                     if let Some(Value::Int { val: code, .. }) = exit_code.last() {
-                        // if exit_code is not 0, it indicates error occured, return back Err.
+                        // if exit_code is not 0, it indicates error occurred, return back Err.
                         if *code != 0 {
                             failed_to_run = true;
                         }
@@ -564,7 +564,7 @@ impl PipelineData {
     /// Consume and print self data immediately.
     ///
     /// `no_newline` controls if we need to attach newline character to output.
-    /// `to_stderr` controls if data is output to stderr, when the value is false, the data is ouput to stdout.
+    /// `to_stderr` controls if data is output to stderr, when the value is false, the data is output to stdout.
     pub fn print(
         self,
         engine_state: &EngineState,
