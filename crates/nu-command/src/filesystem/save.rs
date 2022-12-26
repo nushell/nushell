@@ -64,64 +64,21 @@ impl Command for Save {
         let span = call.head;
 
         let path = call.req::<Spanned<String>>(engine_state, stack, 0)?;
-        let arg_span = path.span;
-        let path = Path::new(&path.item);
-
-        if !(force || append) {
-            check_path_not_exists(path, arg_span)?
-        }
-
-        let file = match (append, path.exists()) {
-            (true, true) => std::fs::OpenOptions::new()
-                .write(true)
-                .append(true)
-                .open(path),
-            _ => std::fs::File::create(path),
-        };
-        let mut file = match file {
-            Ok(file) => file,
-            Err(err) => {
-                return Err(ShellError::GenericError(
-                    "Permission denied".into(),
-                    err.to_string(),
-                    Some(arg_span),
-                    None,
-                    Vec::new(),
-                ));
-            }
-        };
         let stderr_path = call.get_flag::<Spanned<String>>(engine_state, stack, "stderr")?;
-        let stderr_file = match stderr_path {
-            None => None,
-            Some(stderr_path) => {
-                let stderr_span = stderr_path.span;
-                let stderr_path = Path::new(&stderr_path.item);
-                if stderr_path == path {
-                    Some(file.try_clone()?)
-                } else {
-                    match std::fs::File::create(stderr_path) {
-                        Ok(file) => Some(file),
-                        Err(err) => {
-                            return Err(ShellError::GenericError(
-                                "Permission denied".into(),
-                                err.to_string(),
-                                Some(stderr_span),
-                                None,
-                                Vec::new(),
-                            ))
-                        }
-                    }
-                }
-            }
-        };
 
         match input {
-            PipelineData::ExternalStream { stdout: None, .. } => Ok(PipelineData::empty()),
+            PipelineData::ExternalStream { stdout: None, .. } => {
+                // Open files to possibly truncate them
+                let _ = get_files(&path, &stderr_path, append, force)?;
+                Ok(PipelineData::empty())
+            }
             PipelineData::ExternalStream {
                 stdout: Some(stream),
                 stderr,
                 ..
             } => {
+                let (file, stderr_file) = get_files(&path, &stderr_path, append, force)?;
+
                 // delegate a thread to redirect stderr to result.
                 let handler = stderr.map(|stderr_stream| match stderr_file {
                     Some(stderr_file) => {
@@ -151,7 +108,7 @@ impl Command for Save {
                 }
             }
             input => {
-                let ext = get_file_extension_if_value(raw, path, &input);
+                let ext = get_file_extension_if_value(raw, &Path::new(&path.item), &input);
                 let bytes = if let Some(ext) = ext {
                     convert_to_extension(engine_state, &ext, stack, input, span)
                 } else {
@@ -161,6 +118,8 @@ impl Command for Save {
 
                 match bytes {
                     Ok(val) => {
+                        // Only open file after successful conversion
+                        let (mut file, _) = get_files(&path, &stderr_path, append, force)?;
                         if let Err(err) = file.write_all(&val) {
                             return Err(ShellError::IOError(err.to_string()));
                         } else {
@@ -202,23 +161,6 @@ impl Command for Save {
                 result: None,
             },
         ]
-    }
-}
-
-fn check_path_not_exists(path: &Path, span: Span) -> Result<(), ShellError> {
-    if path.exists() {
-        Err(ShellError::GenericError(
-            "Destination file already exists".into(),
-            format!(
-                "Destination file '{}' already exists",
-                path.to_string_lossy()
-            ),
-            Some(span),
-            Some("you can use -f, --force to force overwriting the destination".into()),
-            Vec::new(),
-        ))
-    } else {
-        Ok(())
     }
 }
 
@@ -293,6 +235,94 @@ fn string_binary_list_value_to_bytes(value: Value, span: Span) -> Result<Vec<u8>
             other.expect_span(),
         )),
     }
+}
+
+/// Convert string path to [`Path`] and [`Span`] and check if this path
+/// can be used with given flags
+fn prepare_path<'a>(
+    path: &'a Spanned<String>,
+    append: bool,
+    force: bool,
+) -> Result<(&'a Path, Span), ShellError> {
+    let span = path.span;
+    let path = Path::new(&path.item);
+
+    if !(force || append) && path.exists() {
+        Err(ShellError::GenericError(
+            "Destination file already exists".into(),
+            format!(
+                "Destination file '{}' already exists",
+                path.to_string_lossy()
+            ),
+            Some(span),
+            Some("you can use -f, --force to force overwriting the destination".into()),
+            Vec::new(),
+        ))
+    } else {
+        Ok((path, span))
+    }
+}
+
+fn open_file(path: &Path, span: Span, append: bool) -> Result<File, ShellError> {
+    let file = match (append, path.exists()) {
+        (true, true) => std::fs::OpenOptions::new()
+            .write(true)
+            .append(true)
+            .open(path),
+        _ => std::fs::File::create(path),
+    };
+
+    file.map_err(|err| {
+        ShellError::GenericError(
+            "Permission denied".into(),
+            err.to_string(),
+            Some(span),
+            None,
+            Vec::new(),
+        )
+    })
+}
+
+fn clone_file(file: &File, span: Span) -> Result<File, ShellError> {
+    file.try_clone().map_err(|err| {
+        ShellError::GenericError(
+            "Permission denied".into(),
+            err.to_string(),
+            Some(span),
+            None,
+            Vec::new(),
+        )
+    })
+}
+
+/// Get output file and optional stderr file
+fn get_files(
+    path: &Spanned<String>,
+    stderr_path: &Option<Spanned<String>>,
+    append: bool,
+    force: bool,
+) -> Result<(File, Option<File>), ShellError> {
+    // First check both paths
+    let (path, path_span) = prepare_path(path, append, force)?;
+    let stderr_path_and_span = stderr_path
+        .as_ref()
+        .map(|stderr_path| prepare_path(&stderr_path, append, force))
+        .transpose()?;
+
+    // Only if both files can be used open and possibly truncate them
+    let file = open_file(path, path_span, append)?;
+
+    let stderr_file = stderr_path_and_span
+        .map(|(stderr_path, stderr_path_span)| {
+            if path == stderr_path {
+                clone_file(&file, stderr_path_span)
+            } else {
+                open_file(stderr_path, stderr_path_span, append)
+            }
+        })
+        .transpose()?;
+
+    Ok((file, stderr_file))
 }
 
 fn stream_to_file(
