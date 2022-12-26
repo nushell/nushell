@@ -169,7 +169,7 @@ fn select_ignores_errors_succesfully1() {
             "#
     ));
 
-    assert!(actual.out.is_empty());
+    assert!(!actual.out.is_empty());
     assert!(actual.err.is_empty());
 }
 
@@ -235,7 +235,7 @@ fn select_failed1() {
     let actual = nu!(
         cwd: ".", pipeline(
         r#"
-        [{a: 1, b: 2} {a: 3, b: 5} {a: 3}] | select b
+        [{a: 1, c: 2} {a: 3, c: 5} {a: 3}] | select b
             "#
     ));
 

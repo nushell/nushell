@@ -116,6 +116,16 @@ fn convert_yaml_value_to_nu_value(v: &serde_yaml::Value, span: Span) -> Result<V
                     span,
                 );
                 match (k, v) {
+                    (serde_yaml::Value::Number(k), _) => {
+                        collected
+                            .item
+                            .insert(k.to_string(), convert_yaml_value_to_nu_value(v, span)?);
+                    }
+                    (serde_yaml::Value::Bool(k), _) => {
+                        collected
+                            .item
+                            .insert(k.to_string(), convert_yaml_value_to_nu_value(v, span)?);
+                    }
                     (serde_yaml::Value::String(k), _) => {
                         collected
                             .item

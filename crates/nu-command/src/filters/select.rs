@@ -85,6 +85,21 @@ impl Command for Select {
     }
 }
 
+fn exists_any(inputs: &Vec<Value>, columns: &Vec<CellPath>) -> bool {
+    for column in columns {
+        if let Some(PathMember::String { val, .. }) = column.members.get(0) {
+            for input in inputs {
+                if let Value::Record { cols, .. } = input {
+                    if cols.contains(val) {
+                        return true;
+                    }
+                }
+            }
+        }
+    }
+    false
+}
+
 fn select(
     engine_state: &EngineState,
     span: Span,
@@ -149,6 +164,7 @@ fn select(
         ) => {
             let mut output = vec![];
             let mut columns_with_value = Vec::new();
+            let exists = exists_any(&input_vals, &columns);
 
             for input_val in input_vals {
                 if !columns.is_empty() {
@@ -165,12 +181,16 @@ fn select(
                                 }
                             }
                             Err(e) => {
-                                if ignore_errors {
-                                    return Ok(
-                                        Value::nothing(Span::test_data()).into_pipeline_data()
-                                    );
+                                if exists && e.to_string() == "Cannot find column" {
+                                    vals.push(Value::nothing(input_val.span()?));
+                                } else {
+                                    if ignore_errors {
+                                        return Ok(
+                                            Value::nothing(Span::test_data()).into_pipeline_data()
+                                        );
+                                    }
+                                    return Err(e);
                                 }
-                                return Err(e);
                             }
                         }
                     }
