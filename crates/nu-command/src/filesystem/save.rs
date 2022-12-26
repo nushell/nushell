@@ -92,43 +92,37 @@ impl Command for Save {
 
                 let res = stream_to_file(stream, file, span);
                 if let Some(h) = handler {
-                    match h.join() {
-                        Err(err) => {
-                            return Err(ShellError::ExternalCommand(
-                                "Fail to receive external commands stderr message".to_string(),
-                                format!("{err:?}"),
-                                span,
-                            ))
-                        }
-                        Ok(res) => res,
-                    }?;
+                    h.join().map_err(|err| {
+                        ShellError::ExternalCommand(
+                            "Fail to receive external commands stderr message".to_string(),
+                            format!("{err:?}"),
+                            span,
+                        )
+                    })??;
                     res
                 } else {
                     res
                 }
             }
             input => {
-                let ext = get_file_extension_if_value(raw, &Path::new(&path.item), &input);
-                let bytes = if let Some(ext) = ext {
-                    convert_to_extension(engine_state, &ext, stack, input, span)
-                } else {
-                    let value = input.into_value(span);
-                    string_binary_list_value_to_bytes(value, span)
-                };
+                let bytes = input_to_bytes(
+                    input,
+                    &Path::new(&path.item),
+                    raw,
+                    engine_state,
+                    stack,
+                    span,
+                )?;
 
-                match bytes {
-                    Ok(val) => {
-                        // Only open file after successful conversion
-                        let (mut file, _) = get_files(&path, &stderr_path, append, force)?;
-                        if let Err(err) = file.write_all(&val) {
-                            return Err(ShellError::IOError(err.to_string()));
-                        } else {
-                            file.flush()?
-                        }
-                        Ok(PipelineData::empty())
-                    }
-                    Err(err) => Err(err),
-                }
+                // Only open file after successful conversion
+                let (mut file, _) = get_files(&path, &stderr_path, append, force)?;
+
+                file.write_all(&bytes)
+                    .map_err(|err| ShellError::IOError(err.to_string()))?;
+
+                file.flush()?;
+
+                Ok(PipelineData::empty())
             }
         }
     }
@@ -164,9 +158,17 @@ impl Command for Save {
     }
 }
 
-/// Get extension of file, if input is a [`PipelineData::Value`] and not a [`Value::String`]
-fn get_file_extension_if_value(raw: bool, path: &Path, input: &PipelineData) -> Option<String> {
-    if raw {
+/// Convert [`PipelineData`] bytes to write in file, possibly converting
+/// to format of output file
+fn input_to_bytes(
+    input: PipelineData,
+    path: &Path,
+    raw: bool,
+    engine_state: &EngineState,
+    stack: &mut Stack,
+    span: Span,
+) -> Result<Vec<u8>, ShellError> {
+    let ext = if raw {
         None
     // if is extern stream , in other words , not value
     } else if let PipelineData::ExternalStream { .. } = input {
@@ -176,6 +178,13 @@ fn get_file_extension_if_value(raw: bool, path: &Path, input: &PipelineData) -> 
     } else {
         path.extension()
             .map(|name| name.to_string_lossy().to_string())
+    };
+
+    if let Some(ext) = ext {
+        convert_to_extension(engine_state, &ext, stack, input, span)
+    } else {
+        let value = input.into_value(span);
+        string_binary_list_value_to_bytes(value, span)
     }
 }
 
