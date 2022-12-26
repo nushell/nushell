@@ -47,6 +47,10 @@ impl Command for SubCommand {
         input: PipelineData,
     ) -> Result<nu_protocol::PipelineData, nu_protocol::ShellError> {
         let head = call.head;
+        // This doesn't match explicit nulls
+        if matches!(input, PipelineData::Empty) {
+            return Err(ShellError::PipelineEmpty(head));
+        }
         input.map(move |value| helper(value, head), engine_state.ctrlc.clone())
     }
 

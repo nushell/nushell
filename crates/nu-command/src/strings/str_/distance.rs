@@ -92,18 +92,18 @@ impl Command for SubCommand {
 
 fn action(input: &Value, args: &Arguments, head: Span) -> Value {
     let compare_string = &args.compare_string;
-    match &input {
+    match input {
         Value::String { val, .. } => {
             let distance = levenshtein_distance(val, compare_string);
             Value::int(distance as i64, head)
         }
-        other => Value::Error {
-            error: ShellError::UnsupportedInput(
-                format!(
-                    "Input's type is {}. This command only works with strings.",
-                    other.get_type()
-                ),
+        Value::Error { .. } => input.clone(),
+        _ => Value::Error {
+            error: ShellError::OnlySupportsThisInputType(
+                "string".into(),
+                input.get_type().to_string(),
                 head,
+                input.expect_span(),
             ),
         },
     }

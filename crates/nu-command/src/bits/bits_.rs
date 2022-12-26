@@ -23,6 +23,10 @@ impl Command for Bits {
         "Various commands for working with bits"
     }
 
+    fn extra_usage(&self) -> &str {
+        "You must use one of the following subcommands. Using this command as-is will only produce this help message."
+    }
+
     fn run(
         &self,
         engine_state: &EngineState,

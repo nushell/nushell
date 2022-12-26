@@ -54,7 +54,7 @@ impl Command for FromXml {
                                     cols: vec!["children".to_string(), "attributes".to_string()],
                                     vals: vec![
                                         Value::List {
-                                            vals: vec![Value::string("Event", Span::test_data())],
+                                            vals: vec![Value::test_string("Event")],
                                             span: Span::test_data(),
                                         },
                                         Value::Record {
@@ -178,13 +178,15 @@ pub fn from_xml_string_to_value(s: String, span: Span) -> Result<Value, roxmltre
 }
 
 fn from_xml(input: PipelineData, head: Span) -> Result<PipelineData, ShellError> {
-    let (concat_string, metadata) = input.collect_string_strict(head)?;
+    let (concat_string, span, metadata) = input.collect_string_strict(head)?;
 
     match from_xml_string_to_value(concat_string, head) {
         Ok(x) => Ok(x.into_pipeline_data_with_metadata(metadata)),
         _ => Err(ShellError::UnsupportedInput(
-            "Could not parse string as xml".to_string(),
+            "Could not parse string as XML".to_string(),
+            "value originates from here".into(),
             head,
+            span,
         )),
     }
 }
@@ -198,7 +200,7 @@ mod tests {
     use nu_protocol::{Spanned, Value};
 
     fn string(input: impl Into<String>) -> Value {
-        Value::string(input, Span::test_data())
+        Value::test_string(input)
     }
 
     fn row(entries: IndexMap<String, Value>) -> Value {

@@ -34,6 +34,13 @@ pub trait CallExt {
         stack: &mut Stack,
         pos: usize,
     ) -> Result<T, ShellError>;
+
+    fn req_parser_info<T: FromValue>(
+        &self,
+        engine_state: &EngineState,
+        stack: &mut Stack,
+        pos: usize,
+    ) -> Result<T, ShellError>;
 }
 
 impl CallExt for Call {
@@ -95,6 +102,25 @@ impl CallExt for Call {
         } else {
             Err(ShellError::AccessBeyondEnd(
                 self.positional_len() - 1,
+                self.head,
+            ))
+        }
+    }
+
+    fn req_parser_info<T: FromValue>(
+        &self,
+        engine_state: &EngineState,
+        stack: &mut Stack,
+        pos: usize,
+    ) -> Result<T, ShellError> {
+        if let Some(expr) = self.parser_info_nth(pos) {
+            let result = eval_expression(engine_state, stack, expr)?;
+            FromValue::from_value(&result)
+        } else if self.parser_info.is_empty() {
+            Err(ShellError::AccessEmptyContent(self.head))
+        } else {
+            Err(ShellError::AccessBeyondEnd(
+                self.parser_info.len() - 1,
                 self.head,
             ))
         }

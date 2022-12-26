@@ -52,7 +52,7 @@ impl Command for ParEach {
                 example: r#"[1 2 3] | par-each -n { |it| if $it.item == 2 { $"found 2 at ($it.index)!"} }"#,
                 description: "Iterate over each element, print the matching value and its index",
                 result: Some(Value::List {
-                    vals: vec![Value::string("found 2 at 1!", Span::test_data())],
+                    vals: vec![Value::test_string("found 2 at 1!")],
                     span: Span::test_data(),
                 }),
             },

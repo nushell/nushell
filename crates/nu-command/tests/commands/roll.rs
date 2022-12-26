@@ -88,12 +88,12 @@ mod columns {
         assert_eq!(actual.out, "origin-stars-commit_author");
     }
 
-    struct ThirtieTwo<'a>(usize, &'a str);
+    struct ThirtyTwo<'a>(usize, &'a str);
 
     #[test]
     fn can_roll_the_cells_only_keeping_the_header_names() {
         let four_bitstring = bitstring_to_nu_row_pipeline("00000100");
-        let expected_value = ThirtieTwo(32, "bit1-bit2-bit3-bit4-bit5-bit6-bit7-bit8");
+        let expected_value = ThirtyTwo(32, "bit1-bit2-bit3-bit4-bit5-bit6-bit7-bit8");
 
         let actual = nu!(
             cwd: ".",
@@ -106,7 +106,7 @@ mod columns {
     #[test]
     fn four_in_bitstring_left_shifted_with_three_bits_should_be_32_in_decimal() {
         let four_bitstring = "00000100";
-        let expected_value = ThirtieTwo(32, "00100000");
+        let expected_value = ThirtyTwo(32, "00100000");
 
         assert_eq!(
             shift_three_bits_to_the_left_to_bitstring(four_bitstring),
@@ -141,7 +141,10 @@ mod columns {
             | math sum
         "#,
         );
-
+        println!(
+            "{} | roll left --by 3 | {}",
+            bitstring_as_nu_row_pipeline, nu_row_literal_bitstring_to_decimal_value_pipeline
+        );
         nu!(
             cwd: ".",
             format!("{} | roll left --by 3 | {}", bitstring_as_nu_row_pipeline, nu_row_literal_bitstring_to_decimal_value_pipeline)

@@ -80,7 +80,7 @@ fn to_csv(
             } else {
                 let vec_s: Vec<char> = s.chars().collect();
                 if vec_s.len() != 1 {
-                    return Err(ShellError::UnsupportedInput(
+                    return Err(ShellError::TypeMismatch(
                         "Expected a single separator char from --separator".to_string(),
                         span,
                     ));

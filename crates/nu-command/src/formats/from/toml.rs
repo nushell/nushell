@@ -29,7 +29,7 @@ impl Command for FromToml {
                 description: "Converts toml formatted string to record",
                 result: Some(Value::Record {
                     cols: vec!["a".to_string()],
-                    vals: vec![Value::int(1, Span::test_data())],
+                    vals: vec![Value::test_int(1)],
                     span: Span::test_data(),
                 }),
             },
@@ -40,12 +40,9 @@ b = [1, 2]' | from toml",
                 result: Some(Value::Record {
                     cols: vec!["a".to_string(), "b".to_string()],
                     vals: vec![
-                        Value::int(1, Span::test_data()),
+                        Value::test_int(1),
                         Value::List {
-                            vals: vec![
-                                Value::int(1, Span::test_data()),
-                                Value::int(2, Span::test_data()),
-                            ],
+                            vals: vec![Value::test_int(1), Value::test_int(2)],
                             span: Span::test_data(),
                         },
                     ],
@@ -63,7 +60,7 @@ b = [1, 2]' | from toml",
         input: PipelineData,
     ) -> Result<nu_protocol::PipelineData, ShellError> {
         let span = call.head;
-        let (mut string_input, metadata) = input.collect_string_strict(span)?;
+        let (mut string_input, span, metadata) = input.collect_string_strict(span)?;
         string_input.push('\n');
         Ok(convert_string_to_value(string_input, span)?.into_pipeline_data_with_metadata(metadata))
     }

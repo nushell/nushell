@@ -467,7 +467,9 @@ pub fn create_column(
                                     error: ShellError::UnsupportedInput(
                                         "The given local datetime representation is invalid."
                                             .to_string(),
+                                        format!("timestamp is {:?}", a),
                                         span,
+                                        Span::unknown(),
                                     ),
                                 }
                             }
@@ -480,7 +482,9 @@ pub fn create_column(
                                     error: ShellError::UnsupportedInput(
                                         "The given local datetime representation is invalid."
                                             .to_string(),
+                                        format!("timestamp is {:?}", a),
                                         span,
+                                        Span::unknown(),
                                     ),
                                 }
                             }
@@ -528,7 +532,9 @@ pub fn create_column(
                                     error: ShellError::UnsupportedInput(
                                         "The given local datetime representation is invalid."
                                             .to_string(),
+                                        format!("timestamp is {:?}", a),
                                         span,
+                                        Span::unknown(),
                                     ),
                                 }
                             }
@@ -541,7 +547,9 @@ pub fn create_column(
                                     error: ShellError::UnsupportedInput(
                                         "The given local datetime representation is invalid."
                                             .to_string(),
+                                        format!("timestamp is {:?}", a),
                                         span,
+                                        Span::unknown(),
                                     ),
                                 }
                             }

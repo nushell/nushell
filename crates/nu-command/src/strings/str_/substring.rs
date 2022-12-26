@@ -136,7 +136,7 @@ fn action(input: &Value, args: &Arguments, head: Span) -> Value {
                 match start.cmp(&end) {
                     Ordering::Equal => Value::string("", head),
                     Ordering::Greater => Value::Error {
-                        error: ShellError::UnsupportedInput(
+                        error: ShellError::TypeMismatch(
                             "End must be greater than or equal to Start".to_string(),
                             head,
                         ),
@@ -165,13 +165,15 @@ fn action(input: &Value, args: &Arguments, head: Span) -> Value {
                 Value::string("", head)
             }
         }
+        // Propagate errors by explicitly matching them before the final case.
+        Value::Error { .. } => input.clone(),
         other => Value::Error {
             error: ShellError::UnsupportedInput(
-                format!(
-                    "Input's type is {}. This command only works with strings.",
-                    other.get_type()
-                ),
+                "Only string values are supported".into(),
+                format!("input type: {:?}", other.get_type()),
                 head,
+                // This line requires the Value::Error match above.
+                other.expect_span(),
             ),
         },
     }
@@ -186,7 +188,7 @@ fn process_arguments(range: &Value, head: Span) -> Result<(isize, isize), ShellE
         }
         Value::List { vals, .. } => {
             if vals.len() > 2 {
-                Err(ShellError::UnsupportedInput(
+                Err(ShellError::TypeMismatch(
                     "More than two indices given".to_string(),
                     head,
                 ))
@@ -197,7 +199,7 @@ fn process_arguments(range: &Value, head: Span) -> Result<(isize, isize), ShellE
                         match v {
                             Value::Int { val, .. } => Ok(val.to_string()),
                             Value::String { val, .. } => Ok(val.to_string()),
-                            _ => Err(ShellError::UnsupportedInput(
+                            _ => Err(ShellError::TypeMismatch(
                                 "could not perform substring. Expecting a string or int"
                                     .to_string(),
                                 head,
@@ -210,19 +212,13 @@ fn process_arguments(range: &Value, head: Span) -> Result<(isize, isize), ShellE
                 let start = idx
                     .get(0)
                     .ok_or_else(|| {
-                        ShellError::UnsupportedInput(
-                            "could not perform substring".to_string(),
-                            head,
-                        )
+                        ShellError::TypeMismatch("could not perform substring".to_string(), head)
                     })?
                     .to_string();
                 let end = idx
                     .get(1)
                     .ok_or_else(|| {
-                        ShellError::UnsupportedInput(
-                            "could not perform substring".to_string(),
-                            head,
-                        )
+                        ShellError::TypeMismatch("could not perform substring".to_string(), head)
                     })?
                     .to_string();
                 Ok(SubstringText(start, end))
@@ -234,19 +230,19 @@ fn process_arguments(range: &Value, head: Span) -> Result<(isize, isize), ShellE
             let start = idx
                 .first()
                 .ok_or_else(|| {
-                    ShellError::UnsupportedInput("could not perform substring".to_string(), head)
+                    ShellError::TypeMismatch("could not perform substring".to_string(), head)
                 })?
                 .to_string();
             let end = idx
                 .get(1)
                 .ok_or_else(|| {
-                    ShellError::UnsupportedInput("could not perform substring".to_string(), head)
+                    ShellError::TypeMismatch("could not perform substring".to_string(), head)
                 })?
                 .to_string();
 
             Ok(SubstringText(start, end))
         }
-        _ => Err(ShellError::UnsupportedInput(
+        _ => Err(ShellError::TypeMismatch(
             "could not perform substring".to_string(),
             head,
         )),
@@ -254,14 +250,14 @@ fn process_arguments(range: &Value, head: Span) -> Result<(isize, isize), ShellE
     let start = match &search {
         SubstringText(start, _) if start.is_empty() || start == "_" => 0,
         SubstringText(start, _) => start.trim().parse().map_err(|_| {
-            ShellError::UnsupportedInput("could not perform substring".to_string(), head)
+            ShellError::TypeMismatch("could not perform substring".to_string(), head)
         })?,
     };
 
     let end = match &search {
         SubstringText(_, end) if end.is_empty() || end == "_" => isize::max_value(),
         SubstringText(_, end) => end.trim().parse().map_err(|_| {
-            ShellError::UnsupportedInput("could not perform substring".to_string(), head)
+            ShellError::TypeMismatch("could not perform substring".to_string(), head)
         })?,
     };
 
@@ -298,7 +294,7 @@ mod tests {
 
     #[test]
     fn substrings_indexes() {
-        let word = Value::string("andres", Span::test_data());
+        let word = Value::test_string("andres");
 
         let cases = vec![
             expectation("a", (0, 1)),
@@ -337,7 +333,7 @@ mod tests {
                 Span::test_data(),
             );
 
-            assert_eq!(actual, Value::string(expected, Span::test_data()));
+            assert_eq!(actual, Value::test_string(expected));
         }
     }
 }

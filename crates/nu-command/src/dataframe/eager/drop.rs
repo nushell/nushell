@@ -70,7 +70,7 @@ fn command(
         .ok_or_else(|| {
             ShellError::GenericError(
                 "Empty names list".into(),
-                "No column names where found".into(),
+                "No column names were found".into(),
                 Some(col_span),
                 None,
                 Vec::new(),

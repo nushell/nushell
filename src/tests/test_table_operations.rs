@@ -173,9 +173,9 @@ fn update_cell_path_1() -> TestResult {
 
 #[test]
 fn missing_column_fills_in_nothing() -> TestResult {
-    // The empty value will be replaced with $nothing when fetching a column
+    // The empty value will be replaced with null when fetching a column
     run_test(
-        r#"[ { name: ABC, size: 20 }, { name: HIJ } ].size.1 == $nothing"#,
+        r#"[ { name: ABC, size: 20 }, { name: HIJ } ].size.1 == null"#,
         "true",
     )
 }
@@ -258,7 +258,7 @@ fn length_defaulted_columns() -> TestResult {
 
 #[test]
 fn get_fuzzy() -> TestResult {
-    run_test("(ls | get -i foo) == $nothing", "true")
+    run_test("(ls | get -i foo) == null", "true")
 }
 
 #[test]

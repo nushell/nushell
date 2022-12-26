@@ -177,13 +177,24 @@ pub fn action(input: &Value, _args: &CellPathOnlyArgs, span: Span) -> Value {
             val: int_to_endian(i64::from(*val)),
             span,
         },
+        Value::Duration { val, .. } => Value::Binary {
+            val: int_to_endian(*val),
+            span,
+        },
         Value::Date { val, .. } => Value::Binary {
             val: val.format("%c").to_string().as_bytes().to_vec(),
             span,
         },
-
-        _ => Value::Error {
-            error: ShellError::UnsupportedInput("'into binary' for unsupported type".into(), span),
+        // Propagate errors by explicitly matching them before the final case.
+        Value::Error { .. } => input.clone(),
+        other => Value::Error {
+            error: ShellError::OnlySupportsThisInputType(
+                "integer, float, filesize, string, date, duration, binary or bool".into(),
+                other.get_type().to_string(),
+                span,
+                // This line requires the Value::Error match above.
+                other.expect_span(),
+            ),
         },
     }
 }

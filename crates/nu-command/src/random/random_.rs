@@ -23,6 +23,10 @@ impl Command for RandomCommand {
         "Generate a random value."
     }
 
+    fn extra_usage(&self) -> &str {
+        "You must use one of the following subcommands. Using this command as-is will only produce this help message."
+    }
+
     fn search_terms(&self) -> Vec<&str> {
         vec!["generate", "generator"]
     }

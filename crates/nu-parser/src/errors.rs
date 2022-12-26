@@ -172,7 +172,13 @@ pub enum ParseError {
 
     #[error("Alias name not supported.")]
     #[diagnostic(code(nu::parser::variable_not_valid), url(docsrs))]
-    AliasNotValid(#[label = "alias name can't be a number or a filesize"] Span),
+    AliasNotValid(#[label = "alias name can't be a number, a filesize, or contain a hash"] Span),
+
+    #[error("Command name not supported.")]
+    #[diagnostic(code(nu::parser::variable_not_valid), url(docsrs))]
+    CommandDefNotValid(
+        #[label = "command name can't be a number, a filesize, or contain a hash"] Span,
+    ),
 
     #[error("Module not found.")]
     #[diagnostic(
@@ -419,6 +425,7 @@ impl ParseError {
             ParseError::VariableNotFound(s) => *s,
             ParseError::VariableNotValid(s) => *s,
             ParseError::AliasNotValid(s) => *s,
+            ParseError::CommandDefNotValid(s) => *s,
             ParseError::ModuleNotFound(s) => *s,
             ParseError::CyclicalModuleImport(_, s) => *s,
             ParseError::ModuleOrOverlayNotFound(s) => *s,

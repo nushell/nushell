@@ -218,12 +218,14 @@ fn action(
             // and we're done
             Ok(Value::Nothing { span: *span })
         }
-        _ => Err(ShellError::UnsupportedInput(
-            format!(
-                "Expected a list but instead received a {}",
-                input.get_type()
-            ),
+        // Propagate errors by explicitly matching them before the final case.
+        Value::Error { error } => Err(error.clone()),
+        other => Err(ShellError::OnlySupportsThisInputType(
+            "list".into(),
+            other.get_type().to_string(),
             span,
+            // This line requires the Value::Error match above.
+            other.expect_span(),
         )),
     }
 }

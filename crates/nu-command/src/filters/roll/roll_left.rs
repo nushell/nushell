@@ -22,7 +22,10 @@ impl Command for RollLeft {
 
     fn signature(&self) -> Signature {
         Signature::build(self.name())
-            .input_output_types(vec![(Type::Table(vec![]), Type::Table(vec![]))])
+            .input_output_types(vec![
+                (Type::Record(vec![]), Type::Record(vec![])),
+                (Type::Table(vec![]), Type::Table(vec![])),
+            ])
             .named(
                 "by",
                 SyntaxShape::Int,
@@ -38,7 +41,7 @@ impl Command for RollLeft {
     }
 
     fn usage(&self) -> &str {
-        "Roll table columns left"
+        "Roll record or table columns left"
     }
 
     fn examples(&self) -> Vec<Example> {
@@ -46,7 +49,16 @@ impl Command for RollLeft {
         let rotated_columns = vec!["b".to_string(), "c".to_string(), "a".to_string()];
         vec![
             Example {
-                description: "Rolls columns to the left",
+                description: "Rolls columns of a record to the left",
+                example: "{a:1 b:2 c:3} | roll left",
+                result: Some(Value::Record {
+                    cols: rotated_columns.clone(),
+                    vals: vec![Value::test_int(2), Value::test_int(3), Value::test_int(1)],
+                    span: Span::test_data(),
+                }),
+            },
+            Example {
+                description: "Rolls columns of a table to the left",
                 example: "[[a b c]; [1 2 3] [4 5 6]] | roll left",
                 result: Some(Value::List {
                     vals: vec![
@@ -65,7 +77,7 @@ impl Command for RollLeft {
                 }),
             },
             Example {
-                description: "Rolls columns to the left with fixed headers",
+                description: "Rolls columns to the left without changing column names",
                 example: "[[a b c]; [1 2 3] [4 5 6]] | roll left --cells-only",
                 result: Some(Value::List {
                     vals: vec![

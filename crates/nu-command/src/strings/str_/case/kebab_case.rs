@@ -50,17 +50,17 @@ impl Command for SubCommand {
             Example {
                 description: "convert a string to kebab-case",
                 example: "'NuShell' | str kebab-case",
-                result: Some(Value::string("nu-shell", Span::test_data())),
+                result: Some(Value::test_string("nu-shell")),
             },
             Example {
                 description: "convert a string to kebab-case",
                 example: "'thisIsTheFirstCase' | str kebab-case",
-                result: Some(Value::string("this-is-the-first-case", Span::test_data())),
+                result: Some(Value::test_string("this-is-the-first-case")),
             },
             Example {
                 description: "convert a string to kebab-case",
                 example: "'THIS_IS_THE_SECOND_CASE' | str kebab-case",
-                result: Some(Value::string("this-is-the-second-case", Span::test_data())),
+                result: Some(Value::test_string("this-is-the-second-case")),
             },
             Example {
                 description: "convert a column from a table to kebab-case",
@@ -69,10 +69,7 @@ impl Command for SubCommand {
                     vals: vec![Value::Record {
                         span: Span::test_data(),
                         cols: vec!["lang".to_string(), "gems".to_string()],
-                        vals: vec![
-                            Value::string("nu-test", Span::test_data()),
-                            Value::test_int(100),
-                        ],
+                        vals: vec![Value::test_string("nu-test"), Value::test_int(100)],
                     }],
                     span: Span::test_data(),
                 }),

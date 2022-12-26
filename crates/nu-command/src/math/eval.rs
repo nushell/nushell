@@ -47,7 +47,7 @@ impl Command for SubCommand {
         vec![Example {
             description: "Evaluate math in the pipeline",
             example: "'10 / 4' | math eval",
-            result: Some(Value::float(2.5, Span::test_data())),
+            result: Some(Value::test_float(2.5)),
         }]
     }
 }
@@ -63,6 +63,8 @@ pub fn eval(
             Ok(value) => Ok(PipelineData::Value(value, None)),
             Err(err) => Err(ShellError::UnsupportedInput(
                 format!("Math evaluation error: {}", err),
+                "value originates from here".into(),
+                head,
                 expr.span,
             )),
         }
@@ -71,25 +73,19 @@ pub fn eval(
             return Ok(input);
         }
         input.map(
-            move |val| {
-                if let Ok(string) = val.as_string() {
-                    match parse(&string, &val.span().unwrap_or(head)) {
-                        Ok(value) => value,
-                        Err(err) => Value::Error {
-                            error: ShellError::UnsupportedInput(
-                                format!("Math evaluation error: {}", err),
-                                val.span().unwrap_or(head),
-                            ),
-                        },
-                    }
-                } else {
-                    Value::Error {
+            move |val| match val.as_string() {
+                Ok(string) => match parse(&string, &val.span().unwrap_or(head)) {
+                    Ok(value) => value,
+                    Err(err) => Value::Error {
                         error: ShellError::UnsupportedInput(
-                            "Expected a string from pipeline".to_string(),
-                            val.span().unwrap_or(head),
+                            format!("Math evaluation error: {}", err),
+                            "value originates from here".into(),
+                            head,
+                            val.expect_span(),
                         ),
-                    }
-                }
+                    },
+                },
+                Err(error) => Value::Error { error },
             },
             engine_state.ctrlc.clone(),
         )

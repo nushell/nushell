@@ -118,6 +118,7 @@ pub struct Signature {
     pub allow_variants_without_examples: bool,
     pub is_filter: bool,
     pub creates_scope: bool,
+    pub allows_unknown_args: bool,
     // Signature category used to classify commands stored in the list of declarations
     pub category: Category,
 }
@@ -220,6 +221,7 @@ impl Signature {
             is_filter: false,
             creates_scope: false,
             category: Category::Default,
+            allows_unknown_args: false,
         }
     }
 
@@ -271,6 +273,12 @@ impl Signature {
             .collect();
         self.extra_usage = command.extra_usage().to_string();
         self.usage = command.usage().to_string();
+        self
+    }
+
+    /// Allow unknown signature parameters
+    pub fn allows_unknown_args(mut self) -> Signature {
+        self.allows_unknown_args = true;
         self
     }
 

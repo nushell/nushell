@@ -120,8 +120,8 @@ impl Command for SubCommand {
 }
 
 struct Arguments {
-    path: Option<Value>,
-    body: Option<Value>,
+    path: Value,
+    body: Value,
     headers: Option<Value>,
     raw: bool,
     insecure: Option<bool>,
@@ -145,8 +145,8 @@ fn run_post(
     _input: PipelineData,
 ) -> Result<nu_protocol::PipelineData, nu_protocol::ShellError> {
     let args = Arguments {
-        path: Some(call.req(engine_state, stack, 0)?),
-        body: Some(call.req(engine_state, stack, 1)?),
+        path: call.req(engine_state, stack, 0)?,
+        body: call.req(engine_state, stack, 1)?,
         headers: call.get_flag(engine_state, stack, "headers")?,
         raw: call.has_flag("raw"),
         user: call.get_flag(engine_state, stack, "user")?,
@@ -165,30 +165,18 @@ fn helper(
     call: &Call,
     args: Arguments,
 ) -> std::result::Result<PipelineData, ShellError> {
-    let url_value = if let Some(val) = args.path {
-        val
-    } else {
-        return Err(ShellError::UnsupportedInput(
-            "Expecting a URL as a string but got nothing".to_string(),
-            call.head,
-        ));
-    };
-    let body = if let Some(body) = args.body {
-        body
-    } else {
-        return Err(ShellError::UnsupportedInput(
-            "Expecting a body parameter but got nothing".to_string(),
-            call.head,
-        ));
-    };
+    let url_value = args.path;
+    let body = args.body;
     let span = url_value.span()?;
     let requested_url = url_value.as_string()?;
     let url = match url::Url::parse(&requested_url) {
         Ok(u) => u,
         Err(_e) => {
             return Err(ShellError::UnsupportedInput(
-                "Incomplete or incorrect url. Expected a full url, e.g., https://www.example.com"
+                "Incomplete or incorrect URL. Expected a full URL, e.g., https://www.example.com"
                     .to_string(),
+                format!("value: '{:?}'", requested_url),
+                call.head,
                 span,
             ));
         }

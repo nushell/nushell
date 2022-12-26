@@ -15,8 +15,22 @@ jobs:
         # builds to link against a too-new-for-many-Linux-installs glibc version. Consider
         # revisiting this when 20.04 is closer to EOL (April 2025)
         platform: [windows-latest, macos-latest, ubuntu-20.04]
+        style: [default, dataframe]
         rust:
           - stable
+        include:
+          - style: default
+            flags: ""
+          - style: dataframe
+            flags: "--features=dataframe "
+        exclude:
+          # only test dataframes on Ubuntu (the fastest platform)
+          - platform: windows-latest
+            style: dataframe
+          - platform: macos-latest
+            style: dataframe
+
+
 
     runs-on: ${{ matrix.platform }}
     env:
@@ -32,7 +46,7 @@ jobs:
         run: cargo fmt --all -- --check
 
       - name: Clippy
-        run: cargo clippy --workspace --exclude nu_plugin_* -- -D warnings -D clippy::unwrap_used -A clippy::needless_collect
+        run: cargo clippy --workspace ${{ matrix.flags }}--exclude nu_plugin_* -- -D warnings -D clippy::unwrap_used -A clippy::needless_collect
 
   nu-tests:
     env:

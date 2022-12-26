@@ -2,8 +2,8 @@ use nu_engine::column::get_columns;
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
-    Category, Example, IntoInterruptiblePipelineData, IntoPipelineData, PipelineData, ShellError,
-    Signature, Span, Type, Value,
+    Category, Example, IntoInterruptiblePipelineData, PipelineData, ShellError, Signature, Span,
+    Type, Value,
 };
 
 #[derive(Clone)]
@@ -16,19 +16,31 @@ impl Command for Columns {
 
     fn signature(&self) -> Signature {
         Signature::build(self.name())
-            .input_output_types(vec![(
-                Type::Table(vec![]),
-                Type::List(Box::new(Type::String)),
-            )])
+            .input_output_types(vec![
+                (Type::Table(vec![]), Type::List(Box::new(Type::String))),
+                (Type::Record(vec![]), Type::List(Box::new(Type::String))),
+            ])
             .category(Category::Filters)
     }
 
     fn usage(&self) -> &str {
-        "Show the columns in the input."
+        "Given a record or table, produce a list of its columns' names."
+    }
+
+    fn extra_usage(&self) -> &str {
+        "This is a counterpart to `values`, which produces a list of columns' values."
     }
 
     fn examples(&self) -> Vec<Example> {
         vec![
+            Example {
+                example: "{ acronym:PWD, meaning:'Print Working Directory' } | columns",
+                description: "Get the columns from the record",
+                result: Some(Value::List {
+                    vals: vec![Value::test_string("acronym"), Value::test_string("meaning")],
+                    span: Span::test_data(),
+                }),
+            },
             Example {
                 example: "[[name,age,grade]; [bill,20,a]] | columns",
                 description: "Get the columns from the table",
@@ -68,9 +80,11 @@ impl Command for Columns {
 
 fn getcol(
     engine_state: &EngineState,
-    span: Span,
+    head: Span,
     input: PipelineData,
 ) -> Result<PipelineData, ShellError> {
+    let ctrlc = engine_state.ctrlc.clone();
+    let metadata = input.metadata();
     match input {
         PipelineData::Empty => Ok(PipelineData::Empty),
         PipelineData::Value(
@@ -84,7 +98,8 @@ fn getcol(
             Ok(input_cols
                 .into_iter()
                 .map(move |x| Value::String { val: x, span })
-                .into_pipeline_data(engine_state.ctrlc.clone()))
+                .into_pipeline_data(ctrlc)
+                .set_metadata(metadata))
         }
         PipelineData::Value(Value::CustomValue { val, span }, ..) => {
             // TODO: should we get CustomValue to expose columns in a more efficient way?
@@ -94,7 +109,8 @@ fn getcol(
             Ok(input_cols
                 .into_iter()
                 .map(move |x| Value::String { val: x, span })
-                .into_pipeline_data(engine_state.ctrlc.clone()))
+                .into_pipeline_data(ctrlc)
+                .set_metadata(metadata))
         }
         PipelineData::ListStream(stream, ..) => {
             let v: Vec<_> = stream.into_iter().collect();
@@ -102,17 +118,36 @@ fn getcol(
 
             Ok(input_cols
                 .into_iter()
-                .map(move |x| Value::String { val: x, span })
-                .into_pipeline_data(engine_state.ctrlc.clone()))
+                .map(move |x| Value::String { val: x, span: head })
+                .into_pipeline_data(ctrlc)
+                .set_metadata(metadata))
         }
         PipelineData::Value(Value::Record { cols, .. }, ..) => Ok(cols
             .into_iter()
-            .map(move |x| Value::String { val: x, span })
-            .into_pipeline_data(engine_state.ctrlc.clone())),
-        PipelineData::Value(..) | PipelineData::ExternalStream { .. } => {
-            let cols = vec![];
-            let vals = vec![];
-            Ok(Value::Record { cols, vals, span }.into_pipeline_data())
+            .map(move |x| Value::String { val: x, span: head })
+            .into_pipeline_data(ctrlc)
+            .set_metadata(metadata)),
+        // Propagate errors
+        PipelineData::Value(Value::Error { error }, ..) => Err(error),
+        PipelineData::Value(other, ..) => {
+            Err(ShellError::OnlySupportsThisInputType(
+                "record or table".into(),
+                other.get_type().to_string(),
+                head,
+                // This line requires the Value::Error match above.
+                other.expect_span(),
+            ))
+        }
+        PipelineData::ExternalStream { .. } => {
+            Err(ShellError::OnlySupportsThisInputType(
+                "record or table".into(),
+                "raw data".into(),
+                head,
+                // This line requires the PipelineData::Empty and PipelineData::ListStream matches above.
+                input
+                    .span()
+                    .expect("PipelineData::ExternalStream had no span"),
+            ))
         }
     }
 }

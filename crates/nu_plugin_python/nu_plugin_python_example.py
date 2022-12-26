@@ -103,6 +103,7 @@ def signatures():
                 "search_terms": ["Python", "Example"],
                 "is_filter": False,
                 "creates_scope": False,
+                "allows_unknown_args": False,
                 "category": "Experimental",
             }
         ]

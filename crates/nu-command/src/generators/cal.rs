@@ -92,6 +92,7 @@ pub fn cal(
     engine_state: &EngineState,
     stack: &mut Stack,
     call: &Call,
+    // TODO: Error if a value is piped in
     _input: PipelineData,
 ) -> Result<nu_protocol::PipelineData, nu_protocol::ShellError> {
     let mut calendar_vec_deque = VecDeque::new();
@@ -141,7 +142,7 @@ pub fn cal(
 }
 
 fn get_invalid_year_shell_error(head: Span) -> ShellError {
-    ShellError::UnsupportedInput("The year is invalid".to_string(), head)
+    ShellError::TypeMismatch("The year is invalid".to_string(), head)
 }
 
 struct MonthHelper {
@@ -274,7 +275,7 @@ fn add_month_to_table(
         if days_of_the_week.contains(&s.as_str()) {
             week_start_day = s.to_string();
         } else {
-            return Err(ShellError::UnsupportedInput(
+            return Err(ShellError::TypeMismatch(
                 "The specified week start day is invalid".to_string(),
                 day.span,
             ));

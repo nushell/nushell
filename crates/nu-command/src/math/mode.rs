@@ -97,7 +97,7 @@ impl Command for SubCommand {
     }
 }
 
-pub fn mode(values: &[Value], head: &Span) -> Result<Value, ShellError> {
+pub fn mode(values: &[Value], _span: Span, head: &Span) -> Result<Value, ShellError> {
     if let Some(Err(values)) = values
         .windows(2)
         .map(|elem| {
@@ -132,9 +132,12 @@ pub fn mode(values: &[Value], head: &Span) -> Result<Value, ShellError> {
             Value::Filesize { val, .. } => {
                 Ok(HashableType::new(val.to_ne_bytes(), NumberTypes::Filesize))
             }
+            Value::Error { error } => Err(error.clone()),
             other => Err(ShellError::UnsupportedInput(
                 "Unable to give a result with this input".to_string(),
-                other.span()?,
+                "value originates from here".into(),
+                *head,
+                other.expect_span(),
             )),
         })
         .collect::<Result<Vec<HashableType>, ShellError>>()?;

@@ -46,10 +46,15 @@ impl Command for SubCommand {
         if base.item <= 0.0f64 {
             return Err(ShellError::UnsupportedInput(
                 "Base has to be greater 0".into(),
+                "value originates from here".into(),
+                head,
                 base.span,
             ));
         }
-
+        // This doesn't match explicit nulls
+        if matches!(input, PipelineData::Empty) {
+            return Err(ShellError::PipelineEmpty(head));
+        }
         let base = base.item;
         input.map(
             move |value| operate(value, head, base),
@@ -94,6 +99,8 @@ fn operate(value: Value, head: Span, base: f64) -> Value {
                     error: ShellError::UnsupportedInput(
                         "'math log' undefined for values outside the open interval (0, Inf)."
                             .into(),
+                        "value originates from here".into(),
+                        head,
                         span,
                     ),
                 };
@@ -109,13 +116,13 @@ fn operate(value: Value, head: Span, base: f64) -> Value {
 
             Value::Float { val, span }
         }
+        Value::Error { .. } => value,
         other => Value::Error {
-            error: ShellError::UnsupportedInput(
-                format!(
-                    "Only numerical values are supported, input type: {:?}",
-                    other.get_type()
-                ),
-                other.span().unwrap_or(head),
+            error: ShellError::OnlySupportsThisInputType(
+                "numeric".into(),
+                other.get_type().to_string(),
+                head,
+                other.expect_span(),
             ),
         },
     }

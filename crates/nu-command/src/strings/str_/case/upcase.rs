@@ -84,12 +84,15 @@ fn action(input: &Value, head: Span) -> Value {
             val: s.to_uppercase(),
             span: head,
         },
-        other => {
-            let got = format!("Expected string but got {}", other.get_type());
-            Value::Error {
-                error: ShellError::UnsupportedInput(got, head),
-            }
-        }
+        Value::Error { .. } => input.clone(),
+        _ => Value::Error {
+            error: ShellError::OnlySupportsThisInputType(
+                "string".into(),
+                input.get_type().to_string(),
+                head,
+                input.expect_span(),
+            ),
+        },
     }
 }
 

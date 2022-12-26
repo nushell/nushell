@@ -74,12 +74,24 @@ documentation link at https://docs.rs/encoding_rs/0.8.28/encoding_rs/#statics"#
                 let bytes: Vec<u8> = stream.into_bytes()?.item;
                 super::encoding::decode(head, encoding, &bytes).map(|val| val.into_pipeline_data())
             }
-            PipelineData::Value(Value::Binary { val: bytes, .. }, ..) => {
-                super::encoding::decode(head, encoding, &bytes).map(|val| val.into_pipeline_data())
-            }
+            PipelineData::Value(v, ..) => match v {
+                Value::Binary { val: bytes, .. } => super::encoding::decode(head, encoding, &bytes)
+                    .map(|val| val.into_pipeline_data()),
+                Value::Error { error } => Err(error),
+                _ => Err(ShellError::OnlySupportsThisInputType(
+                    "binary".into(),
+                    v.get_type().to_string(),
+                    head,
+                    v.expect_span(),
+                )),
+            },
+            // This should be more precise, but due to difficulties in getting spans
+            // from PipelineData::ListData, this is as it is.
             _ => Err(ShellError::UnsupportedInput(
                 "non-binary input".into(),
+                "value originates from here".into(),
                 head,
+                input.span().unwrap_or(head),
             )),
         }
     }

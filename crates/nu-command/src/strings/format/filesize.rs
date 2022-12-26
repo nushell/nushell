@@ -101,16 +101,16 @@ fn format_value_impl(val: &Value, arg: &Arguments, span: Span) -> Value {
     match val {
         Value::Filesize { val, span } => Value::String {
             // don't need to concern about metric, we just format units by what user input.
-            val: format_filesize(*val, &arg.format_value, false),
+            val: format_filesize(*val, &arg.format_value, None),
             span: *span,
         },
-        other => Value::Error {
-            error: ShellError::UnsupportedInput(
-                format!(
-                    "Input's type is not supported, support type: <filesize>, current_type: {}",
-                    other.get_type()
-                ),
+        Value::Error { .. } => val.clone(),
+        _ => Value::Error {
+            error: ShellError::OnlySupportsThisInputType(
+                "filesize".into(),
+                val.get_type().to_string(),
                 span,
+                val.expect_span(),
             ),
         },
     }

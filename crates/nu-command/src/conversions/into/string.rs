@@ -79,22 +79,22 @@ impl Command for SubCommand {
             Example {
                 description: "convert integer to string and append three decimal places",
                 example: "5 | into string -d 3",
-                result: Some(Value::string("5.000", Span::test_data())),
+                result: Some(Value::test_string("5.000")),
             },
             Example {
                 description: "convert decimal to string and round to nearest integer",
                 example: "1.7 | into string -d 0",
-                result: Some(Value::string("2", Span::test_data())),
+                result: Some(Value::test_string("2")),
             },
             Example {
                 description: "convert decimal to string",
                 example: "1.7 | into string -d 1",
-                result: Some(Value::string("1.7", Span::test_data())),
+                result: Some(Value::test_string("1.7")),
             },
             Example {
                 description: "convert decimal to string and limit to 2 decimals",
                 example: "1.734 | into string -d 2",
-                result: Some(Value::string("1.73", Span::test_data())),
+                result: Some(Value::test_string("1.73")),
             },
             Example {
                 description: "try to convert decimal to string and provide negative decimal points",
@@ -111,17 +111,17 @@ impl Command for SubCommand {
             Example {
                 description: "convert decimal to string",
                 example: "4.3 | into string",
-                result: Some(Value::string("4.3", Span::test_data())),
+                result: Some(Value::test_string("4.3")),
             },
             Example {
                 description: "convert string to string",
                 example: "'1234' | into string",
-                result: Some(Value::string("1234", Span::test_data())),
+                result: Some(Value::test_string("1234")),
             },
             Example {
                 description: "convert boolean to string",
                 example: "true | into string",
-                result: Some(Value::string("true", Span::test_data())),
+                result: Some(Value::test_string("true")),
             },
             // TODO: This should work but does not; see https://github.com/nushell/nushell/issues/7032
             // Example {
@@ -154,7 +154,7 @@ fn string_helper(
     let decimals_value: Option<i64> = call.get_flag(engine_state, stack, "decimals")?;
     if let Some(decimal_val) = decimals_value {
         if decimals && decimal_val.is_negative() {
-            return Err(ShellError::UnsupportedInput(
+            return Err(ShellError::TypeMismatch(
                 "Cannot accept negative integers for decimals arguments".to_string(),
                 head,
             ));
@@ -251,9 +251,11 @@ fn action(input: &Value, args: &Arguments, span: Span) -> Value {
             vals: _,
             span: _,
         } => Value::Error {
-            error: ShellError::UnsupportedInput(
-                "Cannot convert Record into string".to_string(),
+            error: ShellError::CantConvert(
+                "record".into(),
+                "string".into(),
                 span,
+                Some("try using the `to nuon` command".into()),
             ),
         },
         Value::Binary { .. } => Value::Error {

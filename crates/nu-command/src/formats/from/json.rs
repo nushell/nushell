@@ -31,7 +31,7 @@ impl Command for FromJson {
                 description: "Converts json formatted string to table",
                 result: Some(Value::Record {
                     cols: vec!["a".to_string()],
-                    vals: vec![Value::int(1, Span::test_data())],
+                    vals: vec![Value::test_int(1)],
                     span: Span::test_data(),
                 }),
             },
@@ -41,12 +41,9 @@ impl Command for FromJson {
                 result: Some(Value::Record {
                     cols: vec!["a".to_string(), "b".to_string()],
                     vals: vec![
-                        Value::int(1, Span::test_data()),
+                        Value::test_int(1),
                         Value::List {
-                            vals: vec![
-                                Value::int(1, Span::test_data()),
-                                Value::int(2, Span::test_data()),
-                            ],
+                            vals: vec![Value::test_int(1), Value::test_int(2)],
                             span: Span::test_data(),
                         },
                     ],
@@ -64,7 +61,7 @@ impl Command for FromJson {
         input: PipelineData,
     ) -> Result<nu_protocol::PipelineData, ShellError> {
         let span = call.head;
-        let (string_input, metadata) = input.collect_string_strict(span)?;
+        let (string_input, span, metadata) = input.collect_string_strict(span)?;
 
         if string_input.is_empty() {
             return Ok(PipelineData::new_with_metadata(metadata, span));

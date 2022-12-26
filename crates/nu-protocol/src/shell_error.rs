@@ -51,21 +51,39 @@ pub enum ShellError {
         #[label("value originates from here")] Span,
     ),
 
-    /// A command received an argument of the wrong type.
+    #[error("Pipeline mismatch.")]
+    #[diagnostic(code(nu::shell::pipeline_mismatch), url(docsrs))]
+    OnlySupportsThisInputType(
+        String,
+        String,
+        #[label("only {0} input data is supported")] Span,
+        #[label("input type: {1}")] Span,
+    ),
+
+    /// No input value was piped into the command.
     ///
     /// ## Resolution
     ///
-    /// Convert the argument type before passing it in, or change the command to accept the type.
-    #[error("Type mismatch")]
-    #[diagnostic(code(nu::shell::type_mismatch), url(docsrs))]
-    TypeMismatch(String, #[label = "needs {0}"] Span),
+    /// Only use this command to process values from a previous expression.
+    #[error("Pipeline empty.")]
+    #[diagnostic(code(nu::shell::pipeline_mismatch), url(docsrs))]
+    PipelineEmpty(#[label("no input value was piped in")] Span),
 
     /// A command received an argument of the wrong type.
     ///
     /// ## Resolution
     ///
     /// Convert the argument type before passing it in, or change the command to accept the type.
-    #[error("Type mismatch")]
+    #[error("Type mismatch.")]
+    #[diagnostic(code(nu::shell::type_mismatch), url(docsrs))]
+    TypeMismatch(String, #[label = "{0}"] Span),
+
+    /// A command received an argument of the wrong type.
+    ///
+    /// ## Resolution
+    ///
+    /// Convert the argument type before passing it in, or change the command to accept the type.
+    #[error("Type mismatch.")]
     #[diagnostic(code(nu::shell::type_mismatch), url(docsrs))]
     TypeMismatchGenericMessage {
         err_message: String,
@@ -469,7 +487,12 @@ Either make sure {0} is a string, or add a 'to_string' entry for it in ENV_CONVE
     /// This error is fairly generic. Refer to the specific error message for further details.
     #[error("Unsupported input")]
     #[diagnostic(code(nu::shell::unsupported_input), url(docsrs))]
-    UnsupportedInput(String, #[label("{0}")] Span),
+    UnsupportedInput(
+        String,
+        String,
+        #[label("{0}")] Span, // call head (the name of the command itself)
+        #[label("input type: {1}")] Span,
+    ),
 
     /// Failed to parse an input into a datetime value.
     ///
@@ -785,7 +808,7 @@ Either make sure {0} is a string, or add a 'to_string' entry for it in ENV_CONVE
     #[diagnostic(code(nu::shell::missing_config_value), url(docsrs))]
     MissingConfigValue(String, #[label = "missing {0}"] Span),
 
-    /// Negative value passed when positive ons is required.
+    /// Negative value passed when positive one is required.
     ///
     /// ## Resolution
     ///

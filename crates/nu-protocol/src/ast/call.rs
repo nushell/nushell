@@ -7,6 +7,7 @@ use crate::{DeclId, Span, Spanned};
 pub enum Argument {
     Positional(Expression),
     Named((Spanned<String>, Option<Spanned<String>>, Option<Expression>)),
+    Unknown(Expression), // unknown argument used in "fall-through" signatures
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -17,6 +18,8 @@ pub struct Call {
     pub arguments: Vec<Argument>,
     pub redirect_stdout: bool,
     pub redirect_stderr: bool,
+    /// this field is used by the parser to pass additional command-specific information
+    pub parser_info: Vec<Expression>,
 }
 
 impl Call {
@@ -27,6 +30,7 @@ impl Call {
             arguments: vec![],
             redirect_stdout: true,
             redirect_stderr: false,
+            parser_info: vec![],
         }
     }
 
@@ -36,6 +40,7 @@ impl Call {
         self.arguments.iter().filter_map(|arg| match arg {
             Argument::Named(named) => Some(named),
             Argument::Positional(_) => None,
+            Argument::Unknown(_) => None,
         })
     }
 
@@ -46,6 +51,7 @@ impl Call {
         self.arguments.iter_mut().filter_map(|arg| match arg {
             Argument::Named(named) => Some(named),
             Argument::Positional(_) => None,
+            Argument::Unknown(_) => None,
         })
     }
 
@@ -64,10 +70,19 @@ impl Call {
         self.arguments.push(Argument::Positional(positional));
     }
 
+    pub fn add_parser_info(&mut self, info: Expression) {
+        self.parser_info.push(info);
+    }
+
+    pub fn add_unknown(&mut self, unknown: Expression) {
+        self.arguments.push(Argument::Unknown(unknown));
+    }
+
     pub fn positional_iter(&self) -> impl Iterator<Item = &Expression> {
         self.arguments.iter().filter_map(|arg| match arg {
             Argument::Named(_) => None,
             Argument::Positional(positional) => Some(positional),
+            Argument::Unknown(unknown) => Some(unknown),
         })
     }
 
@@ -75,6 +90,7 @@ impl Call {
         self.arguments.iter_mut().filter_map(|arg| match arg {
             Argument::Named(_) => None,
             Argument::Positional(positional) => Some(positional),
+            Argument::Unknown(unknown) => Some(unknown),
         })
     }
 
@@ -88,6 +104,10 @@ impl Call {
 
     pub fn positional_len(&self) -> usize {
         self.positional_iter().count()
+    }
+
+    pub fn parser_info_nth(&self, i: usize) -> Option<&Expression> {
+        self.parser_info.get(i)
     }
 
     pub fn has_flag(&self, flag_name: &str) -> bool {

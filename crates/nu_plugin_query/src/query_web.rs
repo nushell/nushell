@@ -17,7 +17,7 @@ impl Selector {
             query: String::new(),
             as_html: false,
             attribute: String::new(),
-            as_table: Value::string("".to_string(), Span::test_data()),
+            as_table: Value::string("".to_string(), Span::unknown()),
             inspect: false,
         }
     }

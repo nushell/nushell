@@ -46,7 +46,7 @@ impl Command for SubCommand {
             Example {
                 description: "Compute the median of a list of numbers",
                 example: "[3 8 9 12 12 15] | math median",
-                result: Some(Value::float(10.5, Span::test_data())),
+                result: Some(Value::test_float(10.5)),
             },
             Example {
                 description: "Compute the medians of the columns of a table",
@@ -66,7 +66,7 @@ enum Pick {
     Median,
 }
 
-pub fn median(values: &[Value], head: &Span) -> Result<Value, ShellError> {
+pub fn median(values: &[Value], span: Span, head: &Span) -> Result<Value, ShellError> {
     let take = if values.len() % 2 == 0 {
         Pick::MedianAverage
     } else {
@@ -103,9 +103,14 @@ pub fn median(values: &[Value], head: &Span) -> Result<Value, ShellError> {
     match take {
         Pick::Median => {
             let idx = (values.len() as f64 / 2.0).floor() as usize;
-            let out = sorted
-                .get(idx)
-                .ok_or_else(|| ShellError::UnsupportedInput("Empty input".to_string(), *head))?;
+            let out = sorted.get(idx).ok_or_else(|| {
+                ShellError::UnsupportedInput(
+                    "Empty input".to_string(),
+                    "value originates from here".into(),
+                    *head,
+                    span,
+                )
+            })?;
             Ok(out.clone())
         }
         Pick::MedianAverage => {
@@ -114,15 +119,29 @@ pub fn median(values: &[Value], head: &Span) -> Result<Value, ShellError> {
 
             let left = sorted
                 .get(idx_start)
-                .ok_or_else(|| ShellError::UnsupportedInput("Empty input".to_string(), *head))?
+                .ok_or_else(|| {
+                    ShellError::UnsupportedInput(
+                        "Empty input".to_string(),
+                        "value originates from here".into(),
+                        *head,
+                        span,
+                    )
+                })?
                 .clone();
 
             let right = sorted
                 .get(idx_end)
-                .ok_or_else(|| ShellError::UnsupportedInput("Empty input".to_string(), *head))?
+                .ok_or_else(|| {
+                    ShellError::UnsupportedInput(
+                        "Empty input".to_string(),
+                        "value originates from here".into(),
+                        *head,
+                        span,
+                    )
+                })?
                 .clone();
 
-            average(&[left, right], head)
+            average(&[left, right], span, head)
         }
     }
 }

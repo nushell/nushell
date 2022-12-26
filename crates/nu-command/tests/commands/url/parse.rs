@@ -154,6 +154,6 @@ fn url_parse_error_empty_url() {
     ));
 
     assert!(actual.err.contains(
-        "Incomplete or incorrect url. Expected a full url, e.g., https://www.example.com"
+        "Incomplete or incorrect URL. Expected a full URL, e.g., https://www.example.com"
     ));
 }

@@ -60,11 +60,16 @@ impl Command for SubCommand {
             if let Some(val) = number_bytes {
                 return Err(ShellError::UnsupportedInput(
                     "Only 1, 2, 4, 8, or 'auto' bytes are supported as word sizes".to_string(),
+                    "value originates from here".to_string(),
+                    head,
                     val.span,
                 ));
             }
         }
-
+        // This doesn't match explicit nulls
+        if matches!(input, PipelineData::Empty) {
+            return Err(ShellError::PipelineEmpty(head));
+        }
         input.map(
             move |value| operate(value, bits, head, signed, bytes_len),
             engine_state.ctrlc.clone(),
@@ -76,7 +81,7 @@ impl Command for SubCommand {
             Example {
                 description: "Shift right a number with 2 bits",
                 example: "8 | bits shr 2",
-                result: Some(Value::int(2, Span::test_data())),
+                result: Some(Value::test_int(2)),
             },
             Example {
                 description: "Shift right a list of numbers",
@@ -146,13 +151,15 @@ fn operate(value: Value, bits: usize, head: Span, signed: bool, number_size: Num
                 SignedEight => get_shift_right(val as i64, bits, span),
             }
         }
+        // Propagate errors by explicitly matching them before the final case.
+        Value::Error { .. } => value,
         other => Value::Error {
-            error: ShellError::UnsupportedInput(
-                format!(
-                    "Only integer values are supported, input type: {:?}",
-                    other.get_type()
-                ),
-                other.span().unwrap_or(head),
+            error: ShellError::OnlySupportsThisInputType(
+                "integer".into(),
+                other.get_type().to_string(),
+                head,
+                // This line requires the Value::Error match above.
+                other.expect_span(),
             ),
         },
     }

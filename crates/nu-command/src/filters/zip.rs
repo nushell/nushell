@@ -36,26 +36,17 @@ impl Command for Zip {
 
     fn examples(&self) -> Vec<Example> {
         let test_row_1 = Value::List {
-            vals: vec![
-                Value::int(1, Span::test_data()),
-                Value::int(4, Span::test_data()),
-            ],
+            vals: vec![Value::test_int(1), Value::test_int(4)],
             span: Span::test_data(),
         };
 
         let test_row_2 = Value::List {
-            vals: vec![
-                Value::int(2, Span::test_data()),
-                Value::int(5, Span::test_data()),
-            ],
+            vals: vec![Value::test_int(2), Value::test_int(5)],
             span: Span::test_data(),
         };
 
         let test_row_3 = Value::List {
-            vals: vec![
-                Value::int(3, Span::test_data()),
-                Value::int(6, Span::test_data()),
-            ],
+            vals: vec![Value::test_int(3), Value::test_int(6)],
             span: Span::test_data(),
         };
 

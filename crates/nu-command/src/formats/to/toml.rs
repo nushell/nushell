@@ -14,19 +14,19 @@ impl Command for ToToml {
 
     fn signature(&self) -> Signature {
         Signature::build("to toml")
-            .input_output_types(vec![(Type::Any, Type::String)])
+            .input_output_types(vec![(Type::Record(vec![]), Type::String)])
             .category(Category::Formats)
     }
 
     fn usage(&self) -> &str {
-        "Convert table into .toml text"
+        "Convert record into .toml text"
     }
 
     fn examples(&self) -> Vec<Example> {
         vec![Example {
-            description: "Outputs an TOML string representing the contents of this table",
-            example: r#"[[foo bar]; ["1" "2"]] | to toml"#,
-            result: Some(Value::test_string("bar = \"2\"\nfoo = \"1\"\n")),
+            description: "Outputs an TOML string representing the contents of this record",
+            example: r#"{foo: 1 bar: 'qwe'} | to toml"#,
+            result: Some(Value::test_string("bar = \"qwe\"\nfoo = 1\n")),
         }]
     }
 
@@ -127,25 +127,13 @@ fn value_to_toml_value(
 ) -> Result<toml::Value, ShellError> {
     match v {
         Value::Record { .. } => helper(engine_state, v),
-        Value::List { ref vals, span } => match &vals[..] {
-            [Value::Record { .. }, _end @ ..] => helper(engine_state, v),
-            _ => Err(ShellError::UnsupportedInput(
-                "Expected a table with TOML-compatible structure from pipeline".to_string(),
-                *span,
-            )),
-        },
-        Value::String { val, span } => {
-            // Attempt to de-serialize the String
-            toml::de::from_str(val).map_err(|_| {
-                ShellError::UnsupportedInput(
-                    format!("{:?} unable to de-serialize string to TOML", val),
-                    *span,
-                )
-            })
-        }
+        // Propagate existing errors
+        Value::Error { error } => Err(error.clone()),
         _ => Err(ShellError::UnsupportedInput(
-            format!("{:?} is not a valid top-level TOML", v.get_type()),
-            v.span().unwrap_or(head),
+            format!("{:?} is not valid top-level TOML", v.get_type()),
+            "value originates from here".into(),
+            head,
+            v.expect_span(),
         )),
     }
 }
@@ -216,30 +204,6 @@ mod tests {
                 toml::Value::String("hello".to_owned()),
                 toml::Value::String("array".to_owned())
             ]))
-        );
-        // TOML string
-        let tv = value_to_toml_value(
-            &engine_state,
-            &Value::test_string(
-                r#"
-            title = "TOML Example"
-
-            [owner]
-            name = "Tom Preston-Werner"
-            dob = 1979-05-27T07:32:00-08:00 # First class dates
-
-            [dependencies]
-            rustyline = "4.1.0"
-            sysinfo = "0.8.4"
-            chrono = { version = "0.4.23", features = ["serde"] }
-            "#,
-            ),
-            Span::test_data(),
-        )
-        .expect("Expected Ok from valid TOML string");
-        assert_eq!(
-            tv.get("title").unwrap(),
-            &toml::Value::String("TOML Example".to_owned())
         );
         //
         // Negative Tests

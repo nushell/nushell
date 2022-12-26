@@ -138,6 +138,7 @@ pub fn create_default_context() -> EngineState {
             Upsert,
             Update,
             UpdateCells,
+            Values,
             Where,
             Window,
             Wrap,

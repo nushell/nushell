@@ -5,7 +5,7 @@ use nu_command::create_default_context;
 use nu_engine::eval_block;
 use nu_parser::parse;
 use nu_protocol::engine::{EngineState, Stack, StateWorkingSet};
-use nu_protocol::{CliError, PipelineData, Span, Value};
+use nu_protocol::{CliError, PipelineData, Value};
 // use nu_test_support::fs::in_directory;
 
 /// Echo's value of env keys from args
@@ -149,10 +149,7 @@ pub fn nu_repl() {
     let mut engine_state = create_default_context();
     let mut stack = Stack::new();
 
-    stack.add_env_var(
-        "PWD".to_string(),
-        Value::string(cwd.to_string_lossy(), Span::test_data()),
-    );
+    stack.add_env_var("PWD".to_string(), Value::test_string(cwd.to_string_lossy()));
 
     let mut last_output = String::new();
 

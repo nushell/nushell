@@ -68,17 +68,17 @@ impl Command for BytesEndsWith {
             Example {
                 description: "Checks if binary ends with `0x[AA]`",
                 example: "0x[1F FF AA AA] | bytes ends-with 0x[AA]",
-                result: Some(Value::boolean(true, Span::test_data())),
+                result: Some(Value::test_bool(true)),
             },
             Example {
                 description: "Checks if binary ends with `0x[FF AA AA]`",
                 example: "0x[1F FF AA AA] | bytes ends-with 0x[FF AA AA]",
-                result: Some(Value::boolean(true, Span::test_data())),
+                result: Some(Value::test_bool(true)),
             },
             Example {
                 description: "Checks if binary ends with `0x[11]`",
                 example: "0x[1F FF AA AA] | bytes ends-with 0x[11]",
-                result: Some(Value::boolean(false, Span::test_data())),
+                result: Some(Value::test_bool(false)),
             },
         ]
     }
@@ -90,13 +90,15 @@ fn ends_with(val: &Value, args: &Arguments, span: Span) -> Value {
             val,
             span: val_span,
         } => Value::boolean(val.ends_with(&args.pattern), *val_span),
+        // Propagate errors by explicitly matching them before the final case.
+        Value::Error { .. } => val.clone(),
         other => Value::Error {
-            error: ShellError::UnsupportedInput(
-                format!(
-                    "Input's type is {}. This command only works with bytes.",
-                    other.get_type()
-                ),
+            error: ShellError::OnlySupportsThisInputType(
+                "binary".into(),
+                other.get_type().to_string(),
                 span,
+                // This line requires the Value::Error match above.
+                other.expect_span(),
             ),
         },
     }

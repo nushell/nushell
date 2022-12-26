@@ -23,7 +23,7 @@ fn fails_without_input() {
         )
     );
 
-    assert!(actual.err.contains("Unsupported input"));
+    assert!(actual.err.contains("Pipeline empty"));
 }
 
 #[test]

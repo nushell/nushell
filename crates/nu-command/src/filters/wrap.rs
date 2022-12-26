@@ -37,6 +37,7 @@ impl Command for Wrap {
     ) -> Result<nu_protocol::PipelineData, nu_protocol::ShellError> {
         let span = call.head;
         let name: String = call.req(engine_state, stack, 0)?;
+        let metadata = input.metadata();
 
         match input {
             PipelineData::Empty => Ok(PipelineData::Empty),
@@ -49,19 +50,22 @@ impl Command for Wrap {
                     vals: vec![x],
                     span,
                 })
-                .into_pipeline_data(engine_state.ctrlc.clone())),
+                .into_pipeline_data(engine_state.ctrlc.clone())
+                .set_metadata(metadata)),
             PipelineData::ExternalStream { .. } => Ok(Value::Record {
                 cols: vec![name],
                 vals: vec![input.into_value(call.head)],
                 span,
             }
-            .into_pipeline_data()),
+            .into_pipeline_data()
+            .set_metadata(metadata)),
             PipelineData::Value(input, ..) => Ok(Value::Record {
                 cols: vec![name],
                 vals: vec![input],
                 span,
             }
-            .into_pipeline_data()),
+            .into_pipeline_data()
+            .set_metadata(metadata)),
         }
     }
 

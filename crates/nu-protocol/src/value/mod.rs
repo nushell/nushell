@@ -7,6 +7,7 @@ mod unit;
 
 use crate::ast::{Bits, Boolean, CellPath, Comparison, PathMember};
 use crate::ast::{Math, Operator};
+use crate::engine::EngineState;
 use crate::ShellError;
 use crate::{did_you_mean, BlockId, Config, Span, Spanned, Type, VarId};
 use byte_unit::ByteUnit;
@@ -350,6 +351,13 @@ impl Value {
             Value::CellPath { span, .. } => Ok(*span),
             Value::CustomValue { span, .. } => Ok(*span),
         }
+    }
+
+    /// Special variant of the above designed to be called only in
+    /// situations where the value not being a Value::Error has been guaranteed
+    /// by match arms.
+    pub fn expect_span(&self) -> Span {
+        self.span().expect("non-Error Value had no span")
     }
 
     /// Update the value with a new span
@@ -1180,6 +1188,7 @@ impl Value {
         &mut self,
         cell_path: &[PathMember],
         new_val: Value,
+        head_span: Span,
     ) -> Result<(), ShellError> {
         match cell_path.first() {
             Some(path_member) => match path_member {
@@ -1207,6 +1216,7 @@ impl Value {
                                                 return col.1.insert_data_at_cell_path(
                                                     &cell_path[1..],
                                                     new_val,
+                                                    head_span,
                                                 );
                                             }
                                         }
@@ -1215,9 +1225,13 @@ impl Value {
                                     cols.push(col_name.clone());
                                     vals.push(new_val.clone());
                                 }
+                                // SIGH...
+                                Value::Error { error } => return Err(error.clone()),
                                 _ => {
                                     return Err(ShellError::UnsupportedInput(
-                                        "table or record".into(),
+                                        "expected table or record".into(),
+                                        format!("input type: {:?}", val.get_type()),
+                                        head_span,
                                         *span,
                                     ))
                                 }
@@ -1238,9 +1252,11 @@ impl Value {
                                         *v_span,
                                     ));
                                 } else {
-                                    return col
-                                        .1
-                                        .insert_data_at_cell_path(&cell_path[1..], new_val);
+                                    return col.1.insert_data_at_cell_path(
+                                        &cell_path[1..],
+                                        new_val,
+                                        head_span,
+                                    );
                                 }
                             }
                         }
@@ -1248,9 +1264,11 @@ impl Value {
                         cols.push(col_name.clone());
                         vals.push(new_val);
                     }
-                    _ => {
+                    other => {
                         return Err(ShellError::UnsupportedInput(
                             "table or record".into(),
+                            format!("input type: {:?}", other.get_type()),
+                            head_span,
                             *span,
                         ))
                     }
@@ -1258,7 +1276,7 @@ impl Value {
                 PathMember::Int { val: row_num, span } => match self {
                     Value::List { vals, .. } => {
                         if let Some(v) = vals.get_mut(*row_num) {
-                            v.insert_data_at_cell_path(&cell_path[1..], new_val)?
+                            v.insert_data_at_cell_path(&cell_path[1..], new_val, head_span)?
                         } else if vals.len() == *row_num && cell_path.len() == 1 {
                             // If the insert is at 1 + the end of the list, it's OK.
                             // Otherwise, it's prohibited.
@@ -2610,6 +2628,7 @@ impl Value {
 
     pub fn regex_match(
         &self,
+        engine_state: &EngineState,
         op: Span,
         rhs: &Value,
         invert: bool,
@@ -2623,12 +2642,36 @@ impl Value {
                     span: rhs_span,
                 },
             ) => {
-                // We are leaving some performance on the table by compiling the regex every time.
-                // Small regexes compile in microseconds, and the simplicity of this approach currently
-                // outweighs the performance costs. Revisit this if it ever becomes a bottleneck.
-                let regex = Regex::new(rhs)
-                    .map_err(|e| ShellError::UnsupportedInput(format!("{e}"), *rhs_span))?;
-                let is_match = regex.is_match(lhs);
+                let is_match = match engine_state.regex_cache.try_lock() {
+                    Ok(mut cache) => match cache.get(rhs) {
+                        Some(regex) => regex.is_match(lhs),
+                        None => {
+                            let regex = Regex::new(rhs).map_err(|e| {
+                                ShellError::UnsupportedInput(
+                                    format!("{e}"),
+                                    "value originated from here".into(),
+                                    span,
+                                    *rhs_span,
+                                )
+                            })?;
+                            let ret = regex.is_match(lhs);
+                            cache.put(rhs.clone(), regex);
+                            ret
+                        }
+                    },
+                    Err(_) => {
+                        let regex = Regex::new(rhs).map_err(|e| {
+                            ShellError::UnsupportedInput(
+                                format!("{e}"),
+                                "value originated from here".into(),
+                                span,
+                                *rhs_span,
+                            )
+                        })?;
+                        regex.is_match(lhs)
+                    }
+                };
+
                 Ok(Value::Bool {
                     val: if invert {
                         !is_match.unwrap_or(false)
@@ -3211,25 +3254,35 @@ pub fn format_duration_as_timeperiod(duration: i64) -> (i32, Vec<TimePeriod>) {
 
 pub fn format_filesize_from_conf(num_bytes: i64, config: &Config) -> String {
     // We need to take into account config.filesize_metric so, if someone asks for KB
-    // filesize_metric is true, return KiB
+    // and filesize_metric is false, return KiB
     format_filesize(
         num_bytes,
         config.filesize_format.as_str(),
-        config.filesize_metric,
+        Some(config.filesize_metric),
     )
 }
 
-pub fn format_filesize(num_bytes: i64, format_value: &str, filesize_metric: bool) -> String {
+// filesize_metric is explicit when printed a value according to user config;
+// other places (such as `format filesize`) don't.
+pub fn format_filesize(
+    num_bytes: i64,
+    format_value: &str,
+    filesize_metric: Option<bool>,
+) -> String {
     // Allow the user to specify how they want their numbers formatted
+
+    // When format_value is "auto" or an invalid value, the returned ByteUnit doesn't matter
+    // and is always B.
     let filesize_format_var = get_filesize_format(format_value, filesize_metric);
 
     let byte = byte_unit::Byte::from_bytes(num_bytes.unsigned_abs() as u128);
-    let adj_byte =
-        if filesize_format_var.0 == byte_unit::ByteUnit::B && filesize_format_var.1 == "auto" {
-            byte.get_appropriate_unit(!filesize_metric)
-        } else {
-            byte.get_adjusted_unit(filesize_format_var.0)
-        };
+    let adj_byte = if filesize_format_var.1 == "auto" {
+        // When filesize_metric is None, format_value should never be "auto", so this
+        // unwrap_or() should always work.
+        byte.get_appropriate_unit(!filesize_metric.unwrap_or(false))
+    } else {
+        byte.get_adjusted_unit(filesize_format_var.0)
+    };
 
     match adj_byte.get_unit() {
         byte_unit::ByteUnit::B => {
@@ -3258,65 +3311,36 @@ pub fn format_filesize(num_bytes: i64, format_value: &str, filesize_metric: bool
     }
 }
 
-fn get_filesize_format(format_value: &str, filesize_metric: bool) -> (ByteUnit, &str) {
+fn get_filesize_format(format_value: &str, filesize_metric: Option<bool>) -> (ByteUnit, &str) {
+    macro_rules! either {
+        ($in:ident, $metric:ident, $binary:ident) => {
+            (
+                // filesize_metric always overrides the unit of
+                // filesize_format.
+                match filesize_metric {
+                    Some(true) => byte_unit::ByteUnit::$metric,
+                    Some(false) => byte_unit::ByteUnit::$binary,
+                    None => {
+                        if $in.ends_with("ib") {
+                            byte_unit::ByteUnit::$binary
+                        } else {
+                            byte_unit::ByteUnit::$metric
+                        }
+                    }
+                },
+                "",
+            )
+        };
+    }
     match format_value {
         "b" => (byte_unit::ByteUnit::B, ""),
-        "kb" => {
-            if filesize_metric {
-                (byte_unit::ByteUnit::KiB, "")
-            } else {
-                (byte_unit::ByteUnit::KB, "")
-            }
-        }
-        "kib" => (byte_unit::ByteUnit::KiB, ""),
-        "mb" => {
-            if filesize_metric {
-                (byte_unit::ByteUnit::MiB, "")
-            } else {
-                (byte_unit::ByteUnit::MB, "")
-            }
-        }
-        "mib" => (byte_unit::ByteUnit::MiB, ""),
-        "gb" => {
-            if filesize_metric {
-                (byte_unit::ByteUnit::GiB, "")
-            } else {
-                (byte_unit::ByteUnit::GB, "")
-            }
-        }
-        "gib" => (byte_unit::ByteUnit::GiB, ""),
-        "tb" => {
-            if filesize_metric {
-                (byte_unit::ByteUnit::TiB, "")
-            } else {
-                (byte_unit::ByteUnit::TB, "")
-            }
-        }
-        "tib" => (byte_unit::ByteUnit::TiB, ""),
-        "pb" => {
-            if filesize_metric {
-                (byte_unit::ByteUnit::PiB, "")
-            } else {
-                (byte_unit::ByteUnit::PB, "")
-            }
-        }
-        "pib" => (byte_unit::ByteUnit::PiB, ""),
-        "eb" => {
-            if filesize_metric {
-                (byte_unit::ByteUnit::EiB, "")
-            } else {
-                (byte_unit::ByteUnit::EB, "")
-            }
-        }
-        "eib" => (byte_unit::ByteUnit::EiB, ""),
-        "zb" => {
-            if filesize_metric {
-                (byte_unit::ByteUnit::ZiB, "")
-            } else {
-                (byte_unit::ByteUnit::ZB, "")
-            }
-        }
-        "zib" => (byte_unit::ByteUnit::ZiB, ""),
+        "kb" | "kib" => either!(format_value, KB, KiB),
+        "mb" | "mib" => either!(format_value, MB, MiB),
+        "gb" | "gib" => either!(format_value, GB, GiB),
+        "tb" | "tib" => either!(format_value, TB, TiB),
+        "pb" | "pib" => either!(format_value, TB, TiB),
+        "eb" | "eib" => either!(format_value, EB, EiB),
+        "zb" | "zib" => either!(format_value, ZB, ZiB),
         _ => (byte_unit::ByteUnit::B, "auto"),
     }
 }

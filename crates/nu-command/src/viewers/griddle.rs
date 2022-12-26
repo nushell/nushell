@@ -140,27 +140,27 @@ prints out the list properly."#
             Example {
                 description: "Render a simple list to a grid",
                 example: "[1 2 3 a b c] | grid",
-                result: Some(Value::string("1 │ 2 │ 3 │ a │ b │ c\n", Span::test_data())),
+                result: Some(Value::test_string("1 │ 2 │ 3 │ a │ b │ c\n")),
             },
             Example {
                 description: "The above example is the same as:",
                 example: "[1 2 3 a b c] | wrap name | grid",
-                result: Some(Value::string("1 │ 2 │ 3 │ a │ b │ c\n", Span::test_data())),
+                result: Some(Value::test_string("1 │ 2 │ 3 │ a │ b │ c\n")),
             },
             Example {
                 description: "Render a record to a grid",
                 example: "{name: 'foo', b: 1, c: 2} | grid",
-                result: Some(Value::string("foo\n", Span::test_data())),
+                result: Some(Value::test_string("foo\n")),
             },
             Example {
                 description: "Render a list of records to a grid",
                 example: "[{name: 'A', v: 1} {name: 'B', v: 2} {name: 'C', v: 3}] | grid",
-                result: Some(Value::string("A │ B │ C\n", Span::test_data())),
+                result: Some(Value::test_string("A │ B │ C\n")),
             },
             Example {
                 description: "Render a table with 'name' column in it to a grid",
                 example: "[[name patch]; [0.1.0 false] [0.1.1 true] [0.2.0 false]] | grid",
-                result: Some(Value::string("0.1.0 │ 0.1.1 │ 0.2.0\n", Span::test_data())),
+                result: Some(Value::test_string("0.1.0 │ 0.1.1 │ 0.2.0\n")),
             },
         ]
     }

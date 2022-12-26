@@ -330,12 +330,22 @@ fn quotes_some_strings_necessarily() {
             '-11.0..-15.0', '11.0..-15.0', '-11.0..15.0',
             '-11.0..<-15.0', '11.0..<-15.0', '-11.0..<15.0',
             '-11.0..', '11.0..', '..15.0', '..-15.0', '..<15.0', '..<-15.0',
-            '2000-01-01', '2022-02-02T14:30:00', '2022-02-02T14:30:00+05:00'
+            '2000-01-01', '2022-02-02T14:30:00', '2022-02-02T14:30:00+05:00',
+            ',',
+            '&&'
             ] | to nuon | from nuon | describe
         "#
     ));
 
     assert_eq!(actual.out, "list<string>");
+}
+
+#[test]
+fn read_code_should_fail_rather_than_panic() {
+    let actual = nu!(cwd: "tests/fixtures/formats", pipeline(
+        r#"open code.nu | from nuon"#
+    ));
+    assert!(actual.err.contains("error when parsing"))
 }
 
 proptest! {

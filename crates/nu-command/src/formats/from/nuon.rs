@@ -29,7 +29,7 @@ impl Command for FromNuon {
                 description: "Converts nuon formatted string to table",
                 result: Some(Value::Record {
                     cols: vec!["a".to_string()],
-                    vals: vec![Value::int(1, Span::test_data())],
+                    vals: vec![Value::test_int(1)],
                     span: Span::test_data(),
                 }),
             },
@@ -39,12 +39,9 @@ impl Command for FromNuon {
                 result: Some(Value::Record {
                     cols: vec!["a".to_string(), "b".to_string()],
                     vals: vec![
-                        Value::int(1, Span::test_data()),
+                        Value::test_int(1),
                         Value::List {
-                            vals: vec![
-                                Value::int(1, Span::test_data()),
-                                Value::int(2, Span::test_data()),
-                            ],
+                            vals: vec![Value::test_int(1), Value::test_int(2)],
                             span: Span::test_data(),
                         },
                     ],
@@ -56,27 +53,20 @@ impl Command for FromNuon {
 
     fn run(
         &self,
-        _engine_state: &EngineState,
+        engine_state: &EngineState,
         _stack: &mut Stack,
         call: &Call,
         input: PipelineData,
     ) -> Result<nu_protocol::PipelineData, ShellError> {
         let head = call.head;
-        let (string_input, metadata) = input.collect_string_strict(head)?;
+        let (string_input, _span, metadata) = input.collect_string_strict(head)?;
 
-        let engine_state = EngineState::new();
+        let engine_state = engine_state.clone();
 
         let mut working_set = StateWorkingSet::new(&engine_state);
-
-        let _ = working_set.add_file("nuon file".to_string(), string_input.as_bytes());
-
         let mut error = None;
-
-        // Most of the 'work' in converting from Nuon is simply pushing it through the Nu parser.
-        let (lexed, err) = nu_parser::lex(string_input.as_bytes(), 0, &[b'\n', b'\r'], &[], true);
-        error = error.or(err);
-
-        let (mut block, err) = nu_parser::parse_block(&mut working_set, &lexed, true, &[], false);
+        let (mut block, err) =
+            nu_parser::parse(&mut working_set, None, string_input.as_bytes(), false, &[]);
         error = error.or(err);
 
         if let Some(pipeline) = block.pipelines.get(1) {

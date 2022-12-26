@@ -60,11 +60,16 @@ impl Command for SubCommand {
             if let Some(val) = number_bytes {
                 return Err(ShellError::UnsupportedInput(
                     "Only 1, 2, 4, 8, or 'auto' bytes are supported as word sizes".to_string(),
+                    "value originates from here".to_string(),
+                    head,
                     val.span,
                 ));
             }
         }
-
+        // This doesn't match explicit nulls
+        if matches!(input, PipelineData::Empty) {
+            return Err(ShellError::PipelineEmpty(head));
+        }
         input.map(
             move |value| operate(value, bits, head, signed, bytes_len),
             engine_state.ctrlc.clone(),
@@ -76,7 +81,7 @@ impl Command for SubCommand {
             Example {
                 description: "Rotate right a number with 60 bits",
                 example: "17 | bits ror 60",
-                result: Some(Value::int(272, Span::test_data())),
+                result: Some(Value::test_int(272)),
             },
             Example {
                 description: "Rotate right a list of numbers of one byte",
@@ -134,13 +139,15 @@ fn operate(value: Value, bits: usize, head: Span, signed: bool, number_size: Num
                 SignedEight => get_rotate_right(val as i64, bits, span),
             }
         }
+        // Propagate errors by explicitly matching them before the final case.
+        Value::Error { .. } => value,
         other => Value::Error {
-            error: ShellError::UnsupportedInput(
-                format!(
-                    "Only integer values are supported, input type: {:?}",
-                    other.get_type()
-                ),
-                other.span().unwrap_or(head),
+            error: ShellError::OnlySupportsThisInputType(
+                "integer".into(),
+                other.get_type().to_string(),
+                head,
+                // This line requires the Value::Error match above.
+                other.expect_span(),
             ),
         },
     }
