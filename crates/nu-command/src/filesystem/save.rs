@@ -115,72 +115,60 @@ impl Command for Save {
             }
         };
 
-        let ext = get_file_extension_if_value(raw, path, &input);
-
-        if let Some(ext) = ext {
-            let result = convert_to_extension(engine_state, &ext, stack, input, span);
-            match result {
-                Ok(bytes) => {
-                    if let Err(err) = file.write_all(&bytes) {
-                        return Err(ShellError::IOError(err.to_string()));
-                    } else {
-                        file.flush()?
+        match input {
+            PipelineData::ExternalStream { stdout: None, .. } => Ok(PipelineData::empty()),
+            PipelineData::ExternalStream {
+                stdout: Some(stream),
+                stderr,
+                ..
+            } => {
+                // delegate a thread to redirect stderr to result.
+                let handler = stderr.map(|stderr_stream| match stderr_file {
+                    Some(stderr_file) => {
+                        std::thread::spawn(move || stream_to_file(stderr_stream, stderr_file, span))
                     }
+                    None => std::thread::spawn(move || {
+                        let _ = stderr_stream.into_bytes();
+                        Ok(PipelineData::empty())
+                    }),
+                });
 
-                    Ok(PipelineData::empty())
-                }
-                Err(err) => Err(err),
-            }
-        } else {
-            match input {
-                PipelineData::ExternalStream { stdout: None, .. } => Ok(PipelineData::empty()),
-                PipelineData::ExternalStream {
-                    stdout: Some(stream),
-                    stderr,
-                    ..
-                } => {
-                    // delegate a thread to redirect stderr to result.
-                    let handler = stderr.map(|stderr_stream| match stderr_file {
-                        Some(stderr_file) => std::thread::spawn(move || {
-                            stream_to_file(stderr_stream, stderr_file, span)
-                        }),
-                        None => std::thread::spawn(move || {
-                            let _ = stderr_stream.into_bytes();
-                            Ok(PipelineData::empty())
-                        }),
-                    });
-
-                    let res = stream_to_file(stream, file, span);
-                    if let Some(h) = handler {
-                        match h.join() {
-                            Err(err) => {
-                                return Err(ShellError::ExternalCommand(
-                                    "Fail to receive external commands stderr message".to_string(),
-                                    format!("{err:?}"),
-                                    span,
-                                ))
-                            }
-                            Ok(res) => res,
-                        }?;
-                        res
-                    } else {
-                        res
-                    }
-                }
-                input => {
-                    let value = input.into_value(span);
-                    let bytes = string_binary_list_value_to_bytes(value, span);
-                    match bytes {
-                        Ok(val) => {
-                            if let Err(err) = file.write_all(&val) {
-                                return Err(ShellError::IOError(err.to_string()));
-                            } else {
-                                file.flush()?
-                            }
-                            Ok(PipelineData::empty())
+                let res = stream_to_file(stream, file, span);
+                if let Some(h) = handler {
+                    match h.join() {
+                        Err(err) => {
+                            return Err(ShellError::ExternalCommand(
+                                "Fail to receive external commands stderr message".to_string(),
+                                format!("{err:?}"),
+                                span,
+                            ))
                         }
-                        Err(err) => Err(err),
+                        Ok(res) => res,
+                    }?;
+                    res
+                } else {
+                    res
+                }
+            }
+            input => {
+                let ext = get_file_extension_if_value(raw, path, &input);
+                let bytes = if let Some(ext) = ext {
+                    convert_to_extension(engine_state, &ext, stack, input, span)
+                } else {
+                    let value = input.into_value(span);
+                    string_binary_list_value_to_bytes(value, span)
+                };
+
+                match bytes {
+                    Ok(val) => {
+                        if let Err(err) = file.write_all(&val) {
+                            return Err(ShellError::IOError(err.to_string()));
+                        } else {
+                            file.flush()?
+                        }
+                        Ok(PipelineData::empty())
                     }
+                    Err(err) => Err(err),
                 }
             }
         }
