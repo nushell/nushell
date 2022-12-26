@@ -1042,6 +1042,10 @@ fn convert_to_table2<'a>(
     }
 
     if !with_header {
+        if available_width >= ADDITIONAL_CELL_SPACE {
+            available_width -= PADDING_SPACE;
+        }
+
         for (row, item) in input.into_iter().enumerate() {
             if nu_utils::ctrl_c::was_pressed(&ctrlc) {
                 return Ok(None);

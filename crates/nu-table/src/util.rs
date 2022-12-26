@@ -26,8 +26,6 @@ pub fn string_wrap(text: &str, width: usize, keep_words: bool) -> String {
         .with(Padding::zero())
         .with(Modify::new(Cell(0, 0)).with(wrap))
         .to_string()
-        .trim_end()
-        .to_string()
 }
 
 pub fn string_truncate(text: &str, width: usize) -> String {
