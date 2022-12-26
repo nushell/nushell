@@ -50,9 +50,7 @@ fn alias_fails_with_invalid_name() {
             alias 1234 = echo "test"   
         "#
     ));
-    assert!(actual
-        .err
-        .contains(err_msg));
+    assert!(actual.err.contains(err_msg));
 
     let actual = nu!(
         cwd: ".", pipeline(
@@ -60,9 +58,7 @@ fn alias_fails_with_invalid_name() {
             alias 5gib = echo "test"   
         "#
     ));
-    assert!(actual
-        .err
-        .contains(err_msg));
+    assert!(actual.err.contains(err_msg));
 
     let actual = nu!(
         cwd: ".", pipeline(
@@ -70,9 +66,7 @@ fn alias_fails_with_invalid_name() {
             alias "te#t" = echo "test"   
         "#
     ));
-    assert!(actual
-        .err
-        .contains(err_msg));
+    assert!(actual.err.contains(err_msg));
 
     let actual = nu!(
         cwd: ".", pipeline(
@@ -80,9 +74,7 @@ fn alias_fails_with_invalid_name() {
             alias ^foo = "bar"
         "#
     ));
-    assert!(actual
-        .err
-        .contains(err_msg));
+    assert!(actual.err.contains(err_msg));
 }
 
 #[test]
