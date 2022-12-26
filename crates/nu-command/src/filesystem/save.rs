@@ -105,14 +105,8 @@ impl Command for Save {
                 }
             }
             input => {
-                let bytes = input_to_bytes(
-                    input,
-                    &Path::new(&path.item),
-                    raw,
-                    engine_state,
-                    stack,
-                    span,
-                )?;
+                let bytes =
+                    input_to_bytes(input, Path::new(&path.item), raw, engine_state, stack, span)?;
 
                 // Only open file after successful conversion
                 let (mut file, _) = get_files(&path, &stderr_path, append, force)?;
@@ -248,11 +242,11 @@ fn string_binary_list_value_to_bytes(value: Value, span: Span) -> Result<Vec<u8>
 
 /// Convert string path to [`Path`] and [`Span`] and check if this path
 /// can be used with given flags
-fn prepare_path<'a>(
-    path: &'a Spanned<String>,
+fn prepare_path(
+    path: &Spanned<String>,
     append: bool,
     force: bool,
-) -> Result<(&'a Path, Span), ShellError> {
+) -> Result<(&Path, Span), ShellError> {
     let span = path.span;
     let path = Path::new(&path.item);
 
@@ -315,7 +309,7 @@ fn get_files(
     let (path, path_span) = prepare_path(path, append, force)?;
     let stderr_path_and_span = stderr_path
         .as_ref()
-        .map(|stderr_path| prepare_path(&stderr_path, append, force))
+        .map(|stderr_path| prepare_path(stderr_path, append, force))
         .transpose()?;
 
     // Only if both files can be used open and possibly truncate them
