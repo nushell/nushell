@@ -177,7 +177,8 @@ pub enum ParseError {
     #[error("Command name not supported.")]
     #[diagnostic(code(nu::parser::variable_not_valid), url(docsrs))]
     CommandDefNotValid(
-        #[label = "command name can't be a number, a filesize, or contain a hash"] Span,
+        #[label = "command name can't be a number, a filesize, or contain a hash # or caret ^"]
+        Span,
     ),
 
     #[error("Module not found.")]

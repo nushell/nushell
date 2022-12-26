@@ -28,38 +28,33 @@ fn def_errors_with_multiple_short_flags() {
         "#
     ));
 
-    assert!(actual.err.contains("expected one short flag"));
+    assert!(actual.err.contains("expected only one short flag"));
 }
 
 #[test]
 fn def_fails_with_invalid_name() {
+    let err_msg = "command name can't be a number, a filesize, or contain a hash # or caret ^";
     let actual = nu!(
-        cwd: "tests/fixtures/formats", pipeline(
+        cwd: ".", pipeline(
         r#"
             def 1234 = echo "test"
         "#
     ));
-    assert!(actual
-        .err
-        .contains("command name can't be a number, a filesize, or contain a hash"));
+    assert!(actual.err.contains(err_msg));
 
     let actual = nu!(
-        cwd: "tests/fixtures/formats", pipeline(
+        cwd: ".", pipeline(
         r#"
             def 5gib = echo "test"
         "#
     ));
-    assert!(actual
-        .err
-        .contains("command name can't be a number, a filesize, or contain a hash"));
+    assert!(actual.err.contains(err_msg));
 
     let actual = nu!(
-        cwd: "tests/fixtures/formats", pipeline(
+        cwd: ".", pipeline(
         r#"
-            def "te#t" = echo "test"
+            def ^foo [] {}
         "#
     ));
-    assert!(actual
-        .err
-        .contains("command name can't be a number, a filesize, or contain a hash"));
+    assert!(actual.err.contains(err_msg));
 }
