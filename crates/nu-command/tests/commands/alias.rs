@@ -3,7 +3,7 @@ use nu_test_support::{nu, pipeline};
 #[test]
 fn alias_simple() {
     let actual = nu!(
-        cwd: ".", pipeline(
+        cwd: "tests/fixtures/formats", pipeline(
         r#"
             alias bar = use sample_def.nu greet;
             bar;
@@ -17,7 +17,7 @@ fn alias_simple() {
 #[test]
 fn alias_hiding_1() {
     let actual = nu!(
-        cwd: ".", pipeline(
+        cwd: "tests/fixtures/formats", pipeline(
         r#"
             overlay use ./activate-foo.nu;
             $nu.scope.aliases | find deactivate-foo | length
@@ -30,7 +30,7 @@ fn alias_hiding_1() {
 #[test]
 fn alias_hiding_2() {
     let actual = nu!(
-        cwd: ".", pipeline(
+        cwd: "tests/fixtures/formats", pipeline(
         r#"
             overlay use ./activate-foo.nu;
             deactivate-foo;
