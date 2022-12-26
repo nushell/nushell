@@ -234,8 +234,6 @@ fn save_not_overrides_err_by_default() {
             do -i {nu -c 'nu --testbin echo_env FOO; nu --testbin echo_env_stderr BAZ'} | save -r save_test_12/log.txt --stderr save_test_12/err.txt"#,
         );
 
-        assert!(actual
-            .err
-            .contains("Destination file already exists"));
+        assert!(actual.err.contains("Destination file already exists"));
     })
 }
