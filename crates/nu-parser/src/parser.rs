@@ -3294,18 +3294,6 @@ pub fn parse_signature_helper(
                 } else {
                     match parse_mode {
                         ParseMode::ArgMode => {
-                            macro_rules! valid_variable_name {
-                                ($name:expr) => {
-                                    if !is_variable($name) {
-                                        error = error.or_else(|| {
-                                            Some(ParseError::Expected(
-                                                "valid variable name".into(),
-                                                span,
-                                            ))
-                                        })
-                                    }
-                                };
-                            }
                             // Long flag with optional short form, e.g. --output, --age (-a)
                             if contents.starts_with(b"--") && contents.len() > 2 {
                                 // Split the long flag from the short flag with the ( character as delimiter.
@@ -3322,7 +3310,14 @@ pub fn parse_signature_helper(
                                     }
                                 });
 
-                                valid_variable_name!(&variable_name);
+                                if !is_variable(&variable_name) {
+                                    error = error.or_else(|| {
+                                        Some(ParseError::Expected(
+                                            "valid variable name".into(),
+                                            span,
+                                        ))
+                                    })
+                                }
 
                                 let var_id =
                                     working_set.add_variable(variable_name, span, Type::Any, false);
@@ -3376,7 +3371,14 @@ pub fn parse_signature_helper(
                                         }
                                     });
 
-                                    valid_variable_name!(&variable_name);
+                                    if !is_variable(&variable_name) {
+                                        error = error.or_else(|| {
+                                            Some(ParseError::Expected(
+                                                "valid variable name".into(),
+                                                span,
+                                            ))
+                                        })
+                                    }
 
                                     let var_id = working_set.add_variable(
                                         variable_name,
@@ -3417,7 +3419,15 @@ pub fn parse_signature_helper(
                                 let mut encoded_var_name = vec![0u8; 4];
                                 let len = chars[0].encode_utf8(&mut encoded_var_name).len();
                                 let variable_name = encoded_var_name[0..len].to_vec();
-                                valid_variable_name!(&variable_name);
+
+                                if !is_variable(&variable_name) {
+                                    error = error.or_else(|| {
+                                        Some(ParseError::Expected(
+                                            "valid variable name".into(),
+                                            span,
+                                        ))
+                                    })
+                                }
 
                                 let var_id =
                                     working_set.add_variable(variable_name, span, Type::Any, false);
@@ -3483,7 +3493,14 @@ pub fn parse_signature_helper(
                                 let contents: Vec<_> = contents[..(contents.len() - 1)].into();
                                 let name = String::from_utf8_lossy(&contents).to_string();
 
-                                valid_variable_name!(&contents);
+                                if !is_variable(&contents) {
+                                    error = error.or_else(|| {
+                                        Some(ParseError::Expected(
+                                            "valid variable name".into(),
+                                            span,
+                                        ))
+                                    })
+                                }
 
                                 let var_id =
                                     working_set.add_variable(contents, span, Type::Any, false);
@@ -3503,7 +3520,15 @@ pub fn parse_signature_helper(
                             else if let Some(contents) = contents.strip_prefix(b"...") {
                                 let name = String::from_utf8_lossy(contents).to_string();
                                 let contents_vec: Vec<u8> = contents.to_vec();
-                                valid_variable_name!(&contents_vec);
+
+                                if !is_variable(&contents_vec) {
+                                    error = error.or_else(|| {
+                                        Some(ParseError::Expected(
+                                            "valid variable name".into(),
+                                            span,
+                                        ))
+                                    })
+                                }
 
                                 let var_id =
                                     working_set.add_variable(contents_vec, span, Type::Any, false);
@@ -3521,7 +3546,14 @@ pub fn parse_signature_helper(
                                 let name = String::from_utf8_lossy(contents).to_string();
                                 let contents_vec = contents.to_vec();
 
-                                valid_variable_name!(&contents_vec);
+                                if !is_variable(&contents_vec) {
+                                    error = error.or_else(|| {
+                                        Some(ParseError::Expected(
+                                            "valid variable name".into(),
+                                            span,
+                                        ))
+                                    })
+                                }
 
                                 let var_id =
                                     working_set.add_variable(contents_vec, span, Type::Any, false);
