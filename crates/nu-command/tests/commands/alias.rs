@@ -3,7 +3,7 @@ use nu_test_support::{nu, pipeline};
 #[test]
 fn alias_simple() {
     let actual = nu!(
-        cwd: "tests/fixtures/formats", pipeline(
+        cwd: ".", pipeline(
         r#"
             alias bar = use sample_def.nu greet;
             bar;
@@ -17,7 +17,7 @@ fn alias_simple() {
 #[test]
 fn alias_hiding_1() {
     let actual = nu!(
-        cwd: "tests/fixtures/formats", pipeline(
+        cwd: ".", pipeline(
         r#"
             overlay use ./activate-foo.nu;
             $nu.scope.aliases | find deactivate-foo | length
@@ -30,7 +30,7 @@ fn alias_hiding_1() {
 #[test]
 fn alias_hiding_2() {
     let actual = nu!(
-        cwd: "tests/fixtures/formats", pipeline(
+        cwd: ".", pipeline(
         r#"
             overlay use ./activate-foo.nu;
             deactivate-foo;
@@ -43,35 +43,46 @@ fn alias_hiding_2() {
 
 #[test]
 fn alias_fails_with_invalid_name() {
+    let err_msg = "alias name can't be a number, a filesize, or contain a hash # or caret ^";
     let actual = nu!(
-        cwd: "tests/fixtures/formats", pipeline(
+        cwd: ".", pipeline(
         r#"
             alias 1234 = echo "test"   
         "#
     ));
     assert!(actual
         .err
-        .contains("alias name can't be a number, a filesize, or contain a hash"));
+        .contains(err_msg));
 
     let actual = nu!(
-        cwd: "tests/fixtures/formats", pipeline(
+        cwd: ".", pipeline(
         r#"
             alias 5gib = echo "test"   
         "#
     ));
     assert!(actual
         .err
-        .contains("alias name can't be a number, a filesize, or contain a hash"));
+        .contains(err_msg));
 
     let actual = nu!(
-        cwd: "tests/fixtures/formats", pipeline(
+        cwd: ".", pipeline(
         r#"
             alias "te#t" = echo "test"   
         "#
     ));
     assert!(actual
         .err
-        .contains("alias name can't be a number, a filesize, or contain a hash"));
+        .contains(err_msg));
+
+    let actual = nu!(
+        cwd: ".", pipeline(
+        r#"
+            alias ^foo = "bar"
+        "#
+    ));
+    assert!(actual
+        .err
+        .contains(err_msg));
 }
 
 #[test]
