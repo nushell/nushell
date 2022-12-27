@@ -1698,7 +1698,7 @@ pub fn parse_string_interpolation(
                 0
             };
 
-            if current_byte == b'(' && (escaped_string || preceding_consecutive_backslashes % 2 == 0)
+            if current_byte == b'(' && (!escaped_string || preceding_consecutive_backslashes % 2 == 0)
             {
                 mode = InterpolationMode::Expression;
                 if token_start < b {
