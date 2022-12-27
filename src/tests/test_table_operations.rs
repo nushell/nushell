@@ -284,11 +284,6 @@ fn length_defaulted_columns() -> TestResult {
 }
 
 #[test]
-fn get_fuzzy() -> TestResult {
-    run_test("(ls | get -i foo) == null", "true")
-}
-
-#[test]
 fn get_insensitive() -> TestResult {
     run_test(
         r#"[[name, age]; [a, 1] [b, 2]] | get NAmE | select 0 | get 0"#,
