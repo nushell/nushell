@@ -3963,6 +3963,13 @@ pub fn parse_block_expression(
 ) -> (Expression, Option<ParseError>) {
     trace!("parsing: block expression");
 
+    if let SyntaxShape::Closure(_) = shape {
+        return (
+            garbage(span),
+            Some(ParseError::Mismatch("block".into(), "closure".into(), span)),
+        );
+    }
+
     let bytes = working_set.get_span_contents(span);
     let mut error = None;
 
@@ -4094,6 +4101,13 @@ pub fn parse_closure_expression(
 ) -> (Expression, Option<ParseError>) {
     trace!("parsing: closure expression");
 
+    if let SyntaxShape::Block = shape {
+        return (
+            garbage(span),
+            Some(ParseError::Mismatch("closure".into(), "block".into(), span)),
+        );
+    }
+
     let bytes = working_set.get_span_contents(span);
     let mut error = None;
 
@@ -4105,7 +4119,7 @@ pub fn parse_closure_expression(
     } else {
         return (
             garbage(span),
-            Some(ParseError::Expected("block".into(), span)),
+            Some(ParseError::Expected("closure".into(), span)),
         );
     }
     if bytes.ends_with(b"}") {
@@ -4177,7 +4191,7 @@ pub fn parse_closure_expression(
                 error = error.or_else(|| {
                     Some(ParseError::Expected(
                         format!(
-                            "{} block parameter{}",
+                            "{} closure parameter{}",
                             v.len(),
                             if v.len() > 1 { "s" } else { "" }
                         ),
