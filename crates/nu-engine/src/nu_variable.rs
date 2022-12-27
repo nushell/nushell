@@ -8,8 +8,8 @@ use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use sysinfo::SystemExt;
 
-// a CustomValue for the special $nu variable
-// $nu used to be a plain old Record, but CustomValue lets us load different fields/columns lazily. This is important for performance;
+// a LazyRecord for the special $nu variable
+// $nu used to be a plain old Record, but LazyRecord lets us load different fields/columns lazily. This is important for performance;
 // collecting all the information in $nu is expensive and unnecessary if  you just want a subset of the data
 #[derive(Serialize, Deserialize)]
 pub struct NuVariable {
