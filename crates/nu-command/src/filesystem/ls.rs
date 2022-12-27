@@ -63,25 +63,14 @@ impl Command for Ls {
                 Some('D'),
             )
             .switch(
-                "type",
-                "Display the mime type for files, this flag is overridden by --full-type and --base-type",
-                Some('t'),
-            )
-            .switch(
-                "full-type",
-                "Display the full mime type instead of the short form",
-                Some('T'),
-            )
-            .switch(
-                "base-type",
-                "Display the base mime type instead of the subtype",
-                Some('b'),
-            )
-            .switch(
                 "git",
                 "Display the git status of files",
                 Some('g')
             )
+            .switch(
+                "mime-type",
+                "Show mime-type in type column",
+                Some('m'))
             .category(Category::FileSystem)
     }
 
@@ -102,6 +91,7 @@ impl Command for Ls {
         let show_type = call.has_flag("type") || full_type || base_type;
         let git = call.has_flag("git");
         let directory = call.has_flag("directory");
+        let use_mime_type = call.has_flag("mime-type");
         let ctrl_c = engine_state.ctrlc.clone();
         let call_span = call.head;
         let cwd = current_dir(engine_state, stack)?;
@@ -274,10 +264,8 @@ impl Command for Ls {
                                 long,
                                 du,
                                 ctrl_c.clone(),
-                                show_type,
-                                full_type,
-                                base_type,
-                                git
+                                git,
+                                use_mime_type,
                             );
                             match entry {
                                 Ok(value) => Some(value),
@@ -398,19 +386,13 @@ use std::os::unix::fs::FileTypeExt;
 use std::path::Path;
 use std::sync::atomic::AtomicBool;
 
-pub fn get_file_type(md: &std::fs::Metadata, p: Option<String>, show_type: bool, full_type: bool, base_type: bool) -> String {
+pub fn get_file_type(md: &std::fs::Metadata, display_name: &str, use_mime_type: bool) -> String {
     let ft = md.file_type();
     let mut file_type: String = String::from("unknown");
     if ft.is_dir() {
         file_type = String::from("dir");
     } else if ft.is_file() {
-        if !show_type {
-            return String::from("file");
-        }
-        match p {
-            Some(p) => file_type = get_file_mime_type(Path::new(&p), full_type, base_type).unwrap_or("file".to_string()).to_string(),
-            None => file_type = String::from("file"),
-        }
+        file_type = String::from("file");
     } else if ft.is_symlink() {
         file_type = String::from("symlink");
     } else {
@@ -427,21 +409,19 @@ pub fn get_file_type(md: &std::fs::Metadata, p: Option<String>, show_type: bool,
             }
         }
     }
-    return file_type
-}
-
-pub fn get_file_mime_type(path: &Path, show_full: bool, base_type: bool) -> Option<String> {
-    use new_mime_guess::from_path;
-    let mime = from_path(path).first_or_octet_stream();
-
-    if show_full {
-        return Some(mime.to_string());
-    } else {
-        if base_type {
-            return Some(mime.type_().to_string());
+    if use_mime_type {
+        let guess = mime_guess::from_path(display_name);
+        let mime_guess = match guess.first() {
+            Some(mime_type) => mime_type.essence_str().to_string(),
+            None => "unknown".to_string(),
+        };
+        if file_type == "file" {
+            mime_guess
         } else {
-            return Some(mime.subtype().to_string());
+            file_type.to_string()
         }
+    } else {
+        file_type.to_string()
     }
 }
 
@@ -530,16 +510,14 @@ pub fn get_file_git_status(path: &Path) -> Option<GitStatus> {
 #[allow(clippy::too_many_arguments)]
 pub(crate) fn dir_entry_dict(
     filename: &std::path::Path, // absolute path
-    display_name: &str,         // gile name to be displayed
+    display_name: &str,         // file name to be displayed
     metadata: Option<&std::fs::Metadata>,
     span: Span,
     long: bool,
     du: bool,
     ctrl_c: Option<Arc<AtomicBool>>,
-    show_type: bool,
-    full_type: bool,
-    base_type: bool,
     use_git: bool,
+    use_mime_type: bool,
 ) -> Result<Value, ShellError> {
     #[cfg(windows)]
     if metadata.is_none() {
@@ -548,7 +526,7 @@ pub(crate) fn dir_entry_dict(
 
     let mut cols = vec![];
     let mut vals = vec![];
-    let mut file_type = String::from("unknown");
+    let mut file_type = "unknown".to_string();
 
     cols.push("name".into());
     vals.push(Value::String {
@@ -557,10 +535,10 @@ pub(crate) fn dir_entry_dict(
     });
 
     if let Some(md) = metadata {
-        file_type = get_file_type(md, filename.to_str().map(|s| s.to_string()), show_type, full_type, base_type);
+        file_type = get_file_type(md, display_name, use_mime_type);
         cols.push("type".into());
         vals.push(Value::String {
-            val: file_type.to_string(),
+            val: file_type.clone(),
             span,
         });
     } else {
