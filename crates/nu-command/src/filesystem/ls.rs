@@ -314,7 +314,7 @@ impl Command for Ls {
             },
             Example {
                 description: "List all images in the current directory",
-                example: "ls -at | where type =~ image/",
+                example: "ls -am | where type =~ image/",
                 result: None,
             },
             Example {
