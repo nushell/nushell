@@ -68,6 +68,11 @@ impl Command for Ls {
                 Some('t'),
             )
             .switch(
+                "base-type",
+                "Display the base mime type instead of the subtype",
+                Some('b'),
+            )
+            .switch(
                 "legacy-type",
                 "Do not display the mime type for files",
                 Some('T'),
@@ -89,6 +94,7 @@ impl Command for Ls {
         let du = call.has_flag("du");
         let full_type = call.has_flag("full-type");
         let legacy_type = call.has_flag("legacy-type");
+        let base_type = call.has_flag("base-type");
         let directory = call.has_flag("directory");
         let ctrl_c = engine_state.ctrlc.clone();
         let call_span = call.head;
@@ -263,7 +269,8 @@ impl Command for Ls {
                                 du,
                                 ctrl_c.clone(),
                                 full_type,
-                                legacy_type
+                                legacy_type,
+                                base_type
                             );
                             match entry {
                                 Ok(value) => Some(value),
@@ -308,6 +315,11 @@ impl Command for Ls {
             Example {
                 description: "List files and directories whose name do not contain 'bar'",
                 example: "ls -s | where name !~ bar",
+                result: None,
+            },
+            Example {
+                description: "List all images in the current directory",
+                example: "ls -b | where type == image",
                 result: None,
             },
             Example {
@@ -379,7 +391,7 @@ use std::os::unix::fs::FileTypeExt;
 use std::path::Path;
 use std::sync::atomic::AtomicBool;
 
-pub fn get_file_type(md: &std::fs::Metadata, p: Option<String>, show_full: bool, legacy_type: bool) -> String {
+pub fn get_file_type(md: &std::fs::Metadata, p: Option<String>, show_full: bool, legacy_type: bool, base_type: bool) -> String {
     let ft = md.file_type();
     let mut file_type: String = String::from("unknown");
     if ft.is_dir() {
@@ -389,7 +401,7 @@ pub fn get_file_type(md: &std::fs::Metadata, p: Option<String>, show_full: bool,
             return String::from("file");
         }
         match p {
-            Some(p) => file_type = get_file_mime_type(Path::new(&p), show_full).unwrap_or("file".to_string()).to_string(),
+            Some(p) => file_type = get_file_mime_type(Path::new(&p), show_full, base_type).unwrap_or("file".to_string()).to_string(),
             None => file_type = String::from("file"),
         }
     } else if ft.is_symlink() {
@@ -412,7 +424,7 @@ pub fn get_file_type(md: &std::fs::Metadata, p: Option<String>, show_full: bool,
 }
 
 #[cfg(unix)]
-pub fn get_file_mime_type(path: &Path, show_full: bool) -> Option<String> {
+pub fn get_file_mime_type(path: &Path, show_full: bool, base_type: bool) -> Option<String> {
     use std::os::unix::fs::MetadataExt;
     use std::process::Command;
 
@@ -455,7 +467,7 @@ pub fn get_file_mime_type(path: &Path, show_full: bool) -> Option<String> {
     } else {
         let mime_type = mime_type.trim().to_string();
         let mime_type = mime_type.split('/').collect::<Vec<&str>>();
-        return Some(mime_type[0].to_string());
+        return Some(mime_type[if base_type { 0 } else { 1 } ].to_string());
     }
 }
 
@@ -470,6 +482,7 @@ pub(crate) fn dir_entry_dict(
     ctrl_c: Option<Arc<AtomicBool>>,
     full_type: bool,
     legacy_type: bool,
+    base_type: bool
 ) -> Result<Value, ShellError> {
     #[cfg(windows)]
     if metadata.is_none() {
@@ -487,7 +500,7 @@ pub(crate) fn dir_entry_dict(
     });
 
     if let Some(md) = metadata {
-        file_type = get_file_type(md, filename.to_str().map(|s| s.to_string()), full_type, legacy_type);
+        file_type = get_file_type(md, filename.to_str().map(|s| s.to_string()), full_type, legacy_type, base_type);
         cols.push("type".into());
         vals.push(Value::String {
             val: file_type.to_string(),
