@@ -62,15 +62,8 @@ impl Command for Ls {
                 "List the specified directory itself instead of its contents",
                 Some('D'),
             )
-            .switch(
-                "git",
-                "Display the git status of files",
-                Some('g')
-            )
-            .switch(
-                "mime-type",
-                "Show mime-type in type column",
-                Some('m'))
+            .switch("git", "Display the git status of files", Some('g'))
+            .switch("mime-type", "Show mime-type in type column", Some('m'))
             .category(Category::FileSystem)
     }
 
@@ -316,7 +309,7 @@ impl Command for Ls {
             },
             Example {
                 description: "List all files untracked by git in the current directory",
-                example: "ls -g | where git_status == untracked",
+                example: "ls -ag | where git_status == untracked",
                 result: None,
             },
             Example {
@@ -420,10 +413,10 @@ pub fn get_file_type(md: &std::fs::Metadata, display_name: &str, use_mime_type: 
         if file_type == "file" {
             mime_guess
         } else {
-            file_type.to_string()
+            file_type
         }
     } else {
-        file_type.to_string()
+        file_type
     }
 }
 
@@ -442,7 +435,7 @@ pub enum GitStatus {
 }
 
 pub fn status_to_friendly_name(status: GitStatus) -> String {
-    return match status {
+    match status {
         GitStatus::Untracked => String::from("untracked"),
         GitStatus::Modified => String::from("modified"),
         GitStatus::Added => String::from("added"),
@@ -472,10 +465,14 @@ pub fn get_file_git_status(path: &Path) -> Option<GitStatus> {
     if git_repo.is_err() {
         return None;
     }
-    let git_repo = git_repo.unwrap();
+    let git_repo = git_repo.expect("This should never be reached, we just checked if the repo was valid");
 
+    let repo_path = match git_repo.workdir() {
+        Some(path) => path,
+        None => return None,
+    };
     // Now transform the path into a path relative to the repo
-    let relative_path = path.strip_prefix(git_repo.workdir().unwrap()).unwrap();
+    let relative_path = path.strip_prefix(repo_path).expect("This should never happen, we just checked if the path was a child of the repo");
 
     let git_status = git_repo.status_file(relative_path);
     // status_file returns an Ambiguous error if it tried to run on a directory or when the file is ambiguous, checking if the path is a directory is slower but safer
@@ -484,15 +481,15 @@ pub fn get_file_git_status(path: &Path) -> Option<GitStatus> {
             return Some(GitStatus::Directory);
         }
 
-        match git_status.err().unwrap().code() {
+        match git_status.expect_err("This should never happen, we just made sure that this is an error!").code() {
             git2::ErrorCode::Ambiguous => return Some(GitStatus::Ambiguous),
             _ => return Some(GitStatus::Untracked),
         }
     }
 
-    let git_status = git_status.unwrap();
+    let git_status = git_status.expect("This should never happen, we just checked if the status was an error");
 
-    return match git_status {
+    match git_status {
         git2::Status::WT_NEW => Some(GitStatus::Added),
         git2::Status::WT_MODIFIED => Some(GitStatus::Modified),
         git2::Status::WT_DELETED => Some(GitStatus::Deleted),
@@ -506,7 +503,7 @@ pub fn get_file_git_status(path: &Path) -> Option<GitStatus> {
         git2::Status::IGNORED => Some(GitStatus::Ignored),
         git2::Status::CURRENT => Some(GitStatus::Unmodified),
         _ => Some(GitStatus::Unknown),
-    };
+    }
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -560,7 +557,6 @@ pub(crate) fn dir_entry_dict(
                 span,
             }),
         }
-        
     }
 
     if long {
@@ -644,8 +640,6 @@ pub(crate) fn dir_entry_dict(
             }
         }
     }
-
-    
 
     cols.push("size".to_string());
     if let Some(md) = metadata {
