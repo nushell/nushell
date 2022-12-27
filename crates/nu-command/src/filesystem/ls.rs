@@ -62,6 +62,16 @@ impl Command for Ls {
                 "List the specified directory itself instead of its contents",
                 Some('D'),
             )
+            .switch(
+                "full-type",
+                "Display the full mime type instead of the short form",
+                Some('t'),
+            )
+            .switch(
+                "legacy-type",
+                "Do not display the mime type for files",
+                Some('T'),
+            )
             .category(Category::FileSystem)
     }
 
@@ -77,6 +87,8 @@ impl Command for Ls {
         let short_names = call.has_flag("short-names");
         let full_paths = call.has_flag("full-paths");
         let du = call.has_flag("du");
+        let full_type = call.has_flag("full-type");
+        let legacy_type = call.has_flag("legacy-type");
         let directory = call.has_flag("directory");
         let ctrl_c = engine_state.ctrlc.clone();
         let call_span = call.head;
@@ -250,6 +262,8 @@ impl Command for Ls {
                                 long,
                                 du,
                                 ctrl_c.clone(),
+                                full_type,
+                                legacy_type
                             );
                             match entry {
                                 Ok(value) => Some(value),
@@ -365,30 +379,84 @@ use std::os::unix::fs::FileTypeExt;
 use std::path::Path;
 use std::sync::atomic::AtomicBool;
 
-pub fn get_file_type(md: &std::fs::Metadata) -> &str {
+pub fn get_file_type(md: &std::fs::Metadata, p: Option<String>, show_full: bool, legacy_type: bool) -> String {
     let ft = md.file_type();
-    let mut file_type = "unknown";
+    let mut file_type: String = String::from("unknown");
     if ft.is_dir() {
-        file_type = "dir";
+        file_type = String::from("dir");
     } else if ft.is_file() {
-        file_type = "file";
+        if legacy_type {
+            return String::from("file");
+        }
+        match p {
+            Some(p) => file_type = get_file_mime_type(Path::new(&p), show_full).unwrap_or("file".to_string()).to_string(),
+            None => file_type = String::from("file"),
+        }
     } else if ft.is_symlink() {
-        file_type = "symlink";
+        file_type = String::from("symlink");
     } else {
         #[cfg(unix)]
         {
             if ft.is_block_device() {
-                file_type = "block device";
+                file_type = String::from("block device");
             } else if ft.is_char_device() {
-                file_type = "char device";
+                file_type = String::from("char device");
             } else if ft.is_fifo() {
-                file_type = "pipe";
+                file_type = String::from("fifo");
             } else if ft.is_socket() {
-                file_type = "socket";
+                file_type = String::from("socket");
             }
         }
     }
-    file_type
+    return file_type
+}
+
+#[cfg(unix)]
+pub fn get_file_mime_type(path: &Path, show_full: bool) -> Option<String> {
+    use std::os::unix::fs::MetadataExt;
+    use std::process::Command;
+
+    let md = match path.metadata() {
+        Ok(md) => md,
+        Err(_) => return None,
+    };
+
+    let mime_type = match md.mode() & 0o170000 {
+        0o100000 => "regular file",
+        0o120000 => "symbolic link",
+        0o040000 => "directory",
+        0o060000 => "block device",
+        0o020000 => "character device",
+        0o010000 => "named pipe",
+        0o140000 => "socket",
+        _ => return None,
+    };
+
+    let mime_type = match mime_type {
+        "regular file" => {
+            let output = Command::new("file")
+                .arg("--mime-type")
+                .arg("-b")
+                .arg(path)
+                .output()
+                .ok()?;
+
+            if output.status.success() {
+                String::from_utf8(output.stdout).ok()?
+            } else {
+                return None;
+            }
+        }
+        _ => mime_type.to_string(),
+    };
+
+    if show_full {
+        return Some(mime_type.trim().to_string());
+    } else {
+        let mime_type = mime_type.trim().to_string();
+        let mime_type = mime_type.split('/').collect::<Vec<&str>>();
+        return Some(mime_type[0].to_string());
+    }
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -400,6 +468,8 @@ pub(crate) fn dir_entry_dict(
     long: bool,
     du: bool,
     ctrl_c: Option<Arc<AtomicBool>>,
+    full_type: bool,
+    legacy_type: bool,
 ) -> Result<Value, ShellError> {
     #[cfg(windows)]
     if metadata.is_none() {
@@ -408,7 +478,7 @@ pub(crate) fn dir_entry_dict(
 
     let mut cols = vec![];
     let mut vals = vec![];
-    let mut file_type = "unknown";
+    let mut file_type = String::from("unknown");
 
     cols.push("name".into());
     vals.push(Value::String {
@@ -417,7 +487,7 @@ pub(crate) fn dir_entry_dict(
     });
 
     if let Some(md) = metadata {
-        file_type = get_file_type(md);
+        file_type = get_file_type(md, filename.to_str().map(|s| s.to_string()), full_type, legacy_type);
         cols.push("type".into());
         vals.push(Value::String {
             val: file_type.to_string(),
