@@ -77,6 +77,11 @@ impl Command for Ls {
                 "Display the base mime type instead of the subtype",
                 Some('b'),
             )
+            .switch(
+                "git",
+                "Display the git status of files",
+                Some('g')
+            )
             .category(Category::FileSystem)
     }
 
@@ -95,6 +100,7 @@ impl Command for Ls {
         let full_type = call.has_flag("full-type");
         let base_type = call.has_flag("base-type");
         let show_type = call.has_flag("type") || full_type || base_type;
+        let git = call.has_flag("git");
         let directory = call.has_flag("directory");
         let ctrl_c = engine_state.ctrlc.clone();
         let call_span = call.head;
@@ -270,7 +276,8 @@ impl Command for Ls {
                                 ctrl_c.clone(),
                                 show_type,
                                 full_type,
-                                base_type
+                                base_type,
+                                git
                             );
                             match entry {
                                 Ok(value) => Some(value),
@@ -438,6 +445,87 @@ pub fn get_file_mime_type(path: &Path, show_full: bool, base_type: bool) -> Opti
     }
 }
 
+pub enum GitStatus {
+    Untracked,
+    Modified,
+    Added,
+    Deleted,
+    Renamed,
+    Copied,
+    Ignored,
+    Unmodified,
+    Unknown,
+    Directory,
+    Ambiguous,
+}
+
+pub fn status_to_friendly_name(status: GitStatus) -> String {
+    return match status {
+        GitStatus::Untracked => String::from("untracked"),
+        GitStatus::Modified => String::from("modified"),
+        GitStatus::Added => String::from("added"),
+        GitStatus::Deleted => String::from("deleted"),
+        GitStatus::Renamed => String::from("renamed"),
+        GitStatus::Copied => String::from("copied"),
+        GitStatus::Ignored => String::from("ignored"),
+        GitStatus::Unmodified => String::from("unmodified"),
+        GitStatus::Unknown => String::from("unknown"),
+        GitStatus::Directory => String::from("dir"),
+        GitStatus::Ambiguous => String::from("ambiguous"),
+    }
+}
+
+pub fn path_in_git_repo(path: &Path) -> bool {
+    let git_repo = git2::Repository::discover(path);
+    if git_repo.is_err() {
+        return false;
+    }
+    true
+}
+
+// TODO: Cache the repos that we have already checked for the sake of speed
+pub fn get_file_git_status(path: &Path) -> Option<GitStatus> {
+    // First check if the file is in a git repo
+    let git_repo = git2::Repository::discover(path);
+    if git_repo.is_err() {
+        return None;
+    }
+    let git_repo = git_repo.unwrap();
+
+    // Now transform the path into a path relative to the repo
+    let relative_path = path.strip_prefix(git_repo.workdir().unwrap()).unwrap();
+
+    let git_status = git_repo.status_file(relative_path);
+    // status_file returns an Ambiguous error if it tried to run on a directory or when the file is ambiguous, checking if the path is a directory is slower but safer
+    if git_status.is_err() {
+        if path.is_dir() {
+            return Some(GitStatus::Directory);
+        }
+
+        match git_status.err().unwrap().code() {
+            git2::ErrorCode::Ambiguous => return Some(GitStatus::Ambiguous),
+            _ => return Some(GitStatus::Untracked),
+        }
+    }
+
+    let git_status = git_status.unwrap();
+
+    return match git_status {
+        git2::Status::WT_NEW => Some(GitStatus::Added),
+        git2::Status::WT_MODIFIED => Some(GitStatus::Modified),
+        git2::Status::WT_DELETED => Some(GitStatus::Deleted),
+        git2::Status::WT_RENAMED => Some(GitStatus::Renamed),
+        git2::Status::WT_TYPECHANGE => Some(GitStatus::Copied),
+        git2::Status::INDEX_NEW => Some(GitStatus::Added),
+        git2::Status::INDEX_MODIFIED => Some(GitStatus::Modified),
+        git2::Status::INDEX_DELETED => Some(GitStatus::Deleted),
+        git2::Status::INDEX_RENAMED => Some(GitStatus::Renamed),
+        git2::Status::INDEX_TYPECHANGE => Some(GitStatus::Copied),
+        git2::Status::IGNORED => Some(GitStatus::Ignored),
+        git2::Status::CURRENT => Some(GitStatus::Unmodified),
+        _ => Some(GitStatus::Unknown),
+    };
+}
 
 #[allow(clippy::too_many_arguments)]
 pub(crate) fn dir_entry_dict(
@@ -450,7 +538,8 @@ pub(crate) fn dir_entry_dict(
     ctrl_c: Option<Arc<AtomicBool>>,
     show_type: bool,
     full_type: bool,
-    base_type: bool
+    base_type: bool,
+    use_git: bool,
 ) -> Result<Value, ShellError> {
     #[cfg(windows)]
     if metadata.is_none() {
@@ -477,6 +566,21 @@ pub(crate) fn dir_entry_dict(
     } else {
         cols.push("type".into());
         vals.push(Value::nothing(span));
+    }
+
+    if use_git && path_in_git_repo(filename) {
+        cols.push("git_status".into());
+        match get_file_git_status(filename) {
+            Some(status) => vals.push(Value::String {
+                val: status_to_friendly_name(status),
+                span,
+            }),
+            None => vals.push(Value::String {
+                val: "error".to_string(),
+                span,
+            }),
+        }
+        
     }
 
     if long {
