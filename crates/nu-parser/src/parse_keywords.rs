@@ -58,6 +58,7 @@ pub fn parse_def_predecl(
         working_set.exit_scope();
         if let (Some(name), Some(mut signature)) = (name, signature) {
             if name.contains('#')
+                || name.contains('^')
                 || name.parse::<bytesize::ByteSize>().is_ok()
                 || name.parse::<f64>().is_ok()
             {
@@ -661,6 +662,7 @@ pub fn parse_alias(
 
                 let checked_name = String::from_utf8_lossy(&alias_name);
                 if checked_name.contains('#')
+                    || checked_name.contains('^')
                     || checked_name.parse::<bytesize::ByteSize>().is_ok()
                     || checked_name.parse::<f64>().is_ok()
                 {
