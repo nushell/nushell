@@ -381,6 +381,7 @@ fn find_with_rest_and_highlight(
                             }
                         }),
                         Value::Binary { .. } => false,
+                        Value::LazyRecord { val, span } => todo!(),
                     }) != invert
                 },
                 ctrlc,
@@ -441,6 +442,7 @@ fn find_with_rest_and_highlight(
                             }
                         }),
                         Value::Binary { .. } => false,
+                        Value::LazyRecord { val, span } => todo!(),
                     }) != invert
                 }),
             ctrlc.clone(),

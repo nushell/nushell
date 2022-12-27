@@ -95,6 +95,7 @@ impl Command for PluginDeclaration {
                     }
                 }
             }
+            Value::LazyRecord { val, span } => CallInput::Value(val.collect(span)?),
             value => CallInput::Value(value),
         };
 

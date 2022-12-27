@@ -4,6 +4,7 @@ pub mod documentation;
 pub mod env;
 mod eval;
 mod glob_from;
+mod nu_variable;
 mod scope;
 
 pub use call_ext::CallExt;

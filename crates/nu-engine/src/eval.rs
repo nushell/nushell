@@ -1,4 +1,4 @@
-use crate::{current_dir_str, get_full_help, scope::create_scope};
+use crate::{current_dir_str, get_full_help, nu_variable::NuVariable, scope::create_scope};
 use nu_path::expand_path_with;
 use nu_protocol::{
     ast::{
@@ -1046,6 +1046,16 @@ pub fn eval_variable(
     match var_id {
         nu_protocol::NU_VARIABLE_ID => {
             // $nu
+
+            // let variable = NuVariable {..};
+            let nuvar = NuVariable {
+                engine_state: engine_state.clone(),
+            }; // is cloning fast enough?
+            return Ok(Value::LazyRecord {
+                val: Box::new(nuvar),
+                span: span,
+            });
+
             let mut output_cols = vec![];
             let mut output_vals = vec![];
 

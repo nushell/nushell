@@ -1,6 +1,7 @@
 mod custom_value;
 mod from;
 mod from_value;
+mod lazy_record;
 mod range;
 mod stream;
 mod unit;
@@ -17,6 +18,7 @@ pub use custom_value::CustomValue;
 use fancy_regex::Regex;
 pub use from_value::FromValue;
 use indexmap::map::IndexMap;
+pub use lazy_record::LazyRecord;
 use nu_utils::get_system_locale;
 use num_format::ToFormattedString;
 pub use range::*;
@@ -105,6 +107,10 @@ pub enum Value {
         val: Box<dyn CustomValue>,
         span: Span,
     },
+    LazyRecord {
+        val: Box<dyn LazyRecord>,
+        span: Span,
+    },
 }
 
 impl Clone for Value {
@@ -168,6 +174,7 @@ impl Clone for Value {
                 span: *span,
             },
             Value::CustomValue { val, span } => val.clone_value(*span),
+            Value::LazyRecord { val, span } => todo!(),
         }
     }
 }
@@ -350,6 +357,7 @@ impl Value {
             Value::Binary { span, .. } => Ok(*span),
             Value::CellPath { span, .. } => Ok(*span),
             Value::CustomValue { span, .. } => Ok(*span),
+            Value::LazyRecord { val, span } => todo!(),
         }
     }
 
@@ -380,6 +388,7 @@ impl Value {
             Value::Binary { span, .. } => *span = new_span,
             Value::CellPath { span, .. } => *span = new_span,
             Value::CustomValue { span, .. } => *span = new_span,
+            Value::LazyRecord { val, span } => todo!(),
         }
 
         self
@@ -433,6 +442,11 @@ impl Value {
             Value::Binary { .. } => Type::Binary,
             Value::CellPath { .. } => Type::CellPath,
             Value::CustomValue { val, .. } => Type::Custom(val.typetag_name().into()),
+            Value::LazyRecord { val, span } => {
+                // fuuuuuuuck do I need to get the types of each value too?
+                // let cols = val.get_column_map(span).into_iter().map(|kv| kv.0).collect();
+                Type::Record(vec![])
+            }
         }
     }
 
@@ -507,6 +521,7 @@ impl Value {
             Value::Binary { val, .. } => format!("{:?}", val),
             Value::CellPath { val, .. } => val.into_string(),
             Value::CustomValue { val, .. } => val.value_string(),
+            Value::LazyRecord { val, span } => val.value_string(),
         }
     }
 
@@ -551,6 +566,7 @@ impl Value {
             Value::Binary { val, .. } => format!("{:?}", val),
             Value::CellPath { val, .. } => val.into_string(),
             Value::CustomValue { val, .. } => val.value_string(),
+            Value::LazyRecord { val, span } => todo!(),
         }
     }
 
@@ -598,6 +614,7 @@ impl Value {
             Value::Binary { val, .. } => format!("{:?}", val),
             Value::CellPath { val, .. } => val.into_string(),
             Value::CustomValue { val, .. } => val.value_string(),
+            Value::LazyRecord { val, span } => todo!(),
         }
     }
 
@@ -754,6 +771,18 @@ impl Value {
                     }
                     Value::CustomValue { val, .. } => {
                         current = val.follow_path_string(column_name.clone(), *origin_span)?;
+                    }
+                    Value::LazyRecord { val, span } => {
+                        let hashmap = val.get_column_map(*span);
+                        if let Some(closure) = hashmap.get(column_name) {
+                            current = closure()?
+                        } else {
+                            return Err(ShellError::CantFindColumn(
+                                column_name.to_string(),
+                                *origin_span,
+                                *span,
+                            ));
+                        }
                     }
                     x => {
                         return Err(ShellError::IncompatiblePathAccess(
@@ -1457,6 +1486,7 @@ impl PartialOrd for Value {
                 Value::Binary { .. } => Some(Ordering::Less),
                 Value::CellPath { .. } => Some(Ordering::Less),
                 Value::CustomValue { .. } => Some(Ordering::Less),
+                Value::LazyRecord { val, span } => todo!(),
             },
             (Value::Int { val: lhs, .. }, rhs) => match rhs {
                 Value::Bool { .. } => Some(Ordering::Greater),
@@ -1476,6 +1506,7 @@ impl PartialOrd for Value {
                 Value::Binary { .. } => Some(Ordering::Less),
                 Value::CellPath { .. } => Some(Ordering::Less),
                 Value::CustomValue { .. } => Some(Ordering::Less),
+                Value::LazyRecord { val, span } => todo!(),
             },
             (Value::Float { val: lhs, .. }, rhs) => match rhs {
                 Value::Bool { .. } => Some(Ordering::Greater),
@@ -1495,6 +1526,7 @@ impl PartialOrd for Value {
                 Value::Binary { .. } => Some(Ordering::Less),
                 Value::CellPath { .. } => Some(Ordering::Less),
                 Value::CustomValue { .. } => Some(Ordering::Less),
+                Value::LazyRecord { val, span } => todo!(),
             },
             (Value::Filesize { val: lhs, .. }, rhs) => match rhs {
                 Value::Bool { .. } => Some(Ordering::Greater),
@@ -1514,6 +1546,7 @@ impl PartialOrd for Value {
                 Value::Binary { .. } => Some(Ordering::Less),
                 Value::CellPath { .. } => Some(Ordering::Less),
                 Value::CustomValue { .. } => Some(Ordering::Less),
+                Value::LazyRecord { val, span } => todo!(),
             },
             (Value::Duration { val: lhs, .. }, rhs) => match rhs {
                 Value::Bool { .. } => Some(Ordering::Greater),
@@ -1533,6 +1566,7 @@ impl PartialOrd for Value {
                 Value::Binary { .. } => Some(Ordering::Less),
                 Value::CellPath { .. } => Some(Ordering::Less),
                 Value::CustomValue { .. } => Some(Ordering::Less),
+                Value::LazyRecord { val, span } => todo!(),
             },
             (Value::Date { val: lhs, .. }, rhs) => match rhs {
                 Value::Bool { .. } => Some(Ordering::Greater),
@@ -1552,6 +1586,7 @@ impl PartialOrd for Value {
                 Value::Binary { .. } => Some(Ordering::Less),
                 Value::CellPath { .. } => Some(Ordering::Less),
                 Value::CustomValue { .. } => Some(Ordering::Less),
+                Value::LazyRecord { val, span } => todo!(),
             },
             (Value::Range { val: lhs, .. }, rhs) => match rhs {
                 Value::Bool { .. } => Some(Ordering::Greater),
@@ -1571,6 +1606,7 @@ impl PartialOrd for Value {
                 Value::Binary { .. } => Some(Ordering::Less),
                 Value::CellPath { .. } => Some(Ordering::Less),
                 Value::CustomValue { .. } => Some(Ordering::Less),
+                Value::LazyRecord { val, span } => todo!(),
             },
             (Value::String { val: lhs, .. }, rhs) => match rhs {
                 Value::Bool { .. } => Some(Ordering::Greater),
@@ -1590,6 +1626,7 @@ impl PartialOrd for Value {
                 Value::Binary { .. } => Some(Ordering::Less),
                 Value::CellPath { .. } => Some(Ordering::Less),
                 Value::CustomValue { .. } => Some(Ordering::Less),
+                Value::LazyRecord { val, span } => todo!(),
             },
             (
                 Value::Record {
@@ -1635,6 +1672,7 @@ impl PartialOrd for Value {
                 Value::Binary { .. } => Some(Ordering::Less),
                 Value::CellPath { .. } => Some(Ordering::Less),
                 Value::CustomValue { .. } => Some(Ordering::Less),
+                Value::LazyRecord { val, span } => todo!(),
             },
             (Value::List { vals: lhs, .. }, rhs) => match rhs {
                 Value::Bool { .. } => Some(Ordering::Greater),
@@ -1654,6 +1692,7 @@ impl PartialOrd for Value {
                 Value::Binary { .. } => Some(Ordering::Less),
                 Value::CellPath { .. } => Some(Ordering::Less),
                 Value::CustomValue { .. } => Some(Ordering::Less),
+                Value::LazyRecord { val, span } => todo!(),
             },
             (Value::Block { val: lhs, .. }, rhs) => match rhs {
                 Value::Bool { .. } => Some(Ordering::Greater),
@@ -1673,6 +1712,7 @@ impl PartialOrd for Value {
                 Value::Binary { .. } => Some(Ordering::Less),
                 Value::CellPath { .. } => Some(Ordering::Less),
                 Value::CustomValue { .. } => Some(Ordering::Less),
+                Value::LazyRecord { val, span } => todo!(),
             },
             (Value::Closure { val: lhs, .. }, rhs) => match rhs {
                 Value::Bool { .. } => Some(Ordering::Greater),
@@ -1692,6 +1732,7 @@ impl PartialOrd for Value {
                 Value::Binary { .. } => Some(Ordering::Less),
                 Value::CellPath { .. } => Some(Ordering::Less),
                 Value::CustomValue { .. } => Some(Ordering::Less),
+                Value::LazyRecord { val, span } => todo!(),
             },
             (Value::Nothing { .. }, rhs) => match rhs {
                 Value::Bool { .. } => Some(Ordering::Greater),
@@ -1711,6 +1752,7 @@ impl PartialOrd for Value {
                 Value::Binary { .. } => Some(Ordering::Less),
                 Value::CellPath { .. } => Some(Ordering::Less),
                 Value::CustomValue { .. } => Some(Ordering::Less),
+                Value::LazyRecord { val, span } => todo!(),
             },
             (Value::Error { .. }, rhs) => match rhs {
                 Value::Bool { .. } => Some(Ordering::Greater),
@@ -1730,6 +1772,7 @@ impl PartialOrd for Value {
                 Value::Binary { .. } => Some(Ordering::Less),
                 Value::CellPath { .. } => Some(Ordering::Less),
                 Value::CustomValue { .. } => Some(Ordering::Less),
+                Value::LazyRecord { val, span } => todo!(),
             },
             (Value::Binary { val: lhs, .. }, rhs) => match rhs {
                 Value::Bool { .. } => Some(Ordering::Greater),
@@ -1749,6 +1792,7 @@ impl PartialOrd for Value {
                 Value::Binary { val: rhs, .. } => lhs.partial_cmp(rhs),
                 Value::CellPath { .. } => Some(Ordering::Less),
                 Value::CustomValue { .. } => Some(Ordering::Less),
+                Value::LazyRecord { val, span } => todo!(),
             },
             (Value::CellPath { val: lhs, .. }, rhs) => match rhs {
                 Value::Bool { .. } => Some(Ordering::Greater),
@@ -1768,8 +1812,10 @@ impl PartialOrd for Value {
                 Value::Binary { .. } => Some(Ordering::Greater),
                 Value::CellPath { val: rhs, .. } => lhs.partial_cmp(rhs),
                 Value::CustomValue { .. } => Some(Ordering::Less),
+                Value::LazyRecord { val, span } => todo!(),
             },
             (Value::CustomValue { val: lhs, .. }, rhs) => lhs.partial_cmp(rhs),
+            (Value::LazyRecord { val, .. }, rhs) => todo!(),
         }
     }
 }
