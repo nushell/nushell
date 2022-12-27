@@ -262,6 +262,20 @@ fn nested_suggestions(
 
             output
         }
+        Value::LazyRecord { val, span } => {
+            // Add all the columns as completion
+            for (column_name, _) in val.get_column_map() {
+                output.push(Suggestion {
+                    value: column_name,
+                    description: None,
+                    extra: None,
+                    span: current_span,
+                    append_whitespace: false,
+                });
+            }
+
+            output
+        }
 
         _ => output,
     }

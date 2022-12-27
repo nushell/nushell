@@ -897,6 +897,16 @@ Either make sure {0} is a string, or add a 'to_string' entry for it in ENV_CONVE
     /// Return event, which may become an error if used outside of a function
     #[error("Return used outside of function")]
     Return(#[label = "used outside of function"] Span, Box<Value>),
+
+    /// An attempt to access a record column failed.
+    #[error("Access failure: {message}")]
+    #[diagnostic(code(nu::shell::lazy_record_access_failed), url(docsrs))]
+    LazyRecordAccessFailed {
+        message: String,
+        column_name: String,
+        #[label("Could not access '{column_name}' on this record")]
+        span: Span,
+    },
 }
 
 impl From<std::io::Error> for ShellError {
