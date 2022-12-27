@@ -86,9 +86,6 @@ impl Command for Ls {
         let short_names = call.has_flag("short-names");
         let full_paths = call.has_flag("full-paths");
         let du = call.has_flag("du");
-        let full_type = call.has_flag("full-type");
-        let base_type = call.has_flag("base-type");
-        let show_type = call.has_flag("type") || full_type || base_type;
         let git = call.has_flag("git");
         let directory = call.has_flag("directory");
         let use_mime_type = call.has_flag("mime-type");
@@ -408,7 +405,7 @@ pub fn get_file_type(md: &std::fs::Metadata, display_name: &str, use_mime_type: 
             } else if ft.is_char_device() {
                 file_type = String::from("char device");
             } else if ft.is_fifo() {
-                file_type = String::from("fifo");
+                file_type = String::from("pipe");
             } else if ft.is_socket() {
                 file_type = String::from("socket");
             }

@@ -2422,16 +2422,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e4a24736216ec316047a1fc4252e27dabb04218aa4a3f37c6e7ddbf1f9782b54"
 
 [[package]]
-name = "new_mime_guess"
-version = "4.0.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c2d684d1b59e0dc07b37e2203ef576987473288f530082512aff850585c61b1f"
-dependencies = [
- "mime",
- "unicase",
-]
-
-[[package]]
 name = "nix"
 version = "0.25.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2642,7 +2632,6 @@ dependencies = [
  "meval",
  "mime",
  "mime_guess",
- "new_mime_guess",
  "notify",
  "nu-ansi-term",
  "nu-color-config",
