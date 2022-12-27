@@ -103,10 +103,12 @@ pub enum Value {
         val: CellPath,
         span: Span,
     },
+    #[serde(skip_serializing)]
     CustomValue {
         val: Box<dyn CustomValue>,
         span: Span,
     },
+    #[serde(skip_serializing)]
     LazyRecord {
         val: Box<dyn LazyRecord>,
         span: Span,
@@ -773,16 +775,7 @@ impl Value {
                         current = val.follow_path_string(column_name.clone(), *origin_span)?;
                     }
                     Value::LazyRecord { val, span } => {
-                        let hashmap = val.get_column_map(*span);
-                        if let Some(closure) = hashmap.get(column_name) {
-                            current = closure()?
-                        } else {
-                            return Err(ShellError::CantFindColumn(
-                                column_name.to_string(),
-                                *origin_span,
-                                *span,
-                            ));
-                        }
+                        current = val.get_column_value(column_name, *span)?;
                     }
                     x => {
                         return Err(ShellError::IncompatiblePathAccess(

@@ -46,11 +46,17 @@ pub trait LazyRecord: fmt::Debug + Send + Sync {
     // Any representation used to downcast object to its original type
     // fn as_any(&self) -> &dyn std::any::Any;
 
-    fn get_column_value(&self, column: String, span: Span) -> Result<Value, ShellError> {
-        let f = || Value::string("asdf", Span::test_data());
-
-        todo!()
-        // TODO: implement
+    fn get_column_value(&self, column: &String, span: Span) -> Result<Value, ShellError> {
+        let hashmap = self.get_column_map(span);
+        if let Some(closure) = hashmap.get(column) {
+            closure()
+        } else {
+            Err(ShellError::CantFindColumn(
+                column.to_string(),
+                span,
+                span,
+            ))
+        }
     }
 
     // fn follow_cell_path(&self, cell_path: &[PathMember], span: Span) -> Result<Value, ShellError> {
