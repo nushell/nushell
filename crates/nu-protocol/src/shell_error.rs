@@ -84,15 +84,6 @@ pub enum ShellError {
     ///
     /// Convert the argument type before passing it in, or change the command to accept the type.
     #[error("Type mismatch.")]
-    #[diagnostic(code(nu::shell::type_mismatch_help), url(docsrs))]
-    TypeMismatchHelp(String, #[label = "{0}"] Span, #[help] String),
-
-    /// A command received an argument of the wrong type.
-    ///
-    /// ## Resolution
-    ///
-    /// Convert the argument type before passing it in, or change the command to accept the type.
-    #[error("Type mismatch.")]
     #[diagnostic(code(nu::shell::type_mismatch), url(docsrs))]
     TypeMismatchGenericMessage {
         err_message: String,

@@ -1,17 +1,16 @@
+use crate::help_commands::help_commands;
 use fancy_regex::Regex;
 use nu_ansi_term::{
     Color::{Red, White},
     Style,
 };
-use nu_color_config::StyleComputer;
-use nu_engine::{get_full_help, CallExt};
+use nu_engine::CallExt;
 use nu_protocol::{
     ast::Call,
     engine::{Command, EngineState, Stack},
-    span, Category, Example, IntoInterruptiblePipelineData, IntoPipelineData, PipelineData,
-    ShellError, Signature, Span, Spanned, SyntaxShape, Type, Value,
+    Category, Example, IntoPipelineData, PipelineData, ShellError, Signature, Span, Spanned,
+    SyntaxShape, Type, Value,
 };
-use std::borrow::Borrow;
 #[derive(Clone)]
 pub struct Help;
 
@@ -48,7 +47,38 @@ impl Command for Help {
         call: &Call,
         _input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
-        help(engine_state, stack, call)
+        let head = call.head;
+        let find: Option<Spanned<String>> = call.get_flag(engine_state, stack, "find")?;
+        let rest: Vec<Spanned<String>> = call.rest(engine_state, stack, 0)?;
+
+        if rest.is_empty() && find.is_none() {
+            let msg = r#"Welcome to Nushell.
+
+Here are some tips to help you get started.
+  * help commands - list all available commands
+  * help <command name> - display help about a particular command
+  * help --find <text to search> - search through all of help
+
+Nushell works on the idea of a "pipeline". Pipelines are commands connected with the '|' character.
+Each stage in the pipeline works together to load, parse, and display information to you.
+
+[Examples]
+
+List the files in the current directory, sorted by size:
+    ls | sort-by size
+
+Get information about the current system:
+    sys | get host
+
+Get the processes on your system actively using CPU:
+    ps | where cpu > 0
+
+You can also learn more at https://www.nushell.sh/book/"#;
+
+            Ok(Value::string(msg, head).into_pipeline_data())
+        } else {
+            help_commands(engine_state, stack, call)
+        }
     }
 
     fn examples(&self) -> Vec<Example> {
@@ -77,161 +107,7 @@ impl Command for Help {
     }
 }
 
-fn help(
-    engine_state: &EngineState,
-    stack: &mut Stack,
-    call: &Call,
-) -> Result<PipelineData, ShellError> {
-    let head = call.head;
-    let find: Option<Spanned<String>> = call.get_flag(engine_state, stack, "find")?;
-    let rest: Vec<Spanned<String>> = call.rest(engine_state, stack, 0)?;
-
-    // 🚩The following two-lines are copied from filters/find.rs:
-    let style_computer = StyleComputer::from_config(engine_state, stack);
-    // Currently, search results all use the same style.
-    // Also note that this sample string is passed into user-written code (the closure that may or may not be
-    // defined for "string").
-    let string_style = style_computer.compute("string", &Value::string("search result", head));
-
-    if let Some(f) = find {
-        let all_cmds_vec = build_help_commands(engine_state, head);
-        let found_cmds_vec = highlight_search_in_table(
-            all_cmds_vec,
-            &f.item,
-            &["name", "usage", "search_terms"],
-            &string_style,
-        )?;
-
-        return Ok(found_cmds_vec
-            .into_iter()
-            .into_pipeline_data(engine_state.ctrlc.clone()));
-    }
-
-    if !rest.is_empty() {
-        if rest[0].item == "commands" {
-            let found_cmds_vec = build_help_commands(engine_state, head);
-
-            Ok(found_cmds_vec
-                .into_iter()
-                .into_pipeline_data(engine_state.ctrlc.clone()))
-        } else {
-            let mut name = String::new();
-
-            for r in &rest {
-                if !name.is_empty() {
-                    name.push(' ');
-                }
-                name.push_str(&r.item);
-            }
-
-            let output = engine_state
-                .get_signatures_with_examples(false)
-                .iter()
-                .filter(|(signature, _, _, _, _)| signature.name == name)
-                .map(|(signature, examples, _, _, is_parser_keyword)| {
-                    get_full_help(signature, examples, engine_state, stack, *is_parser_keyword)
-                })
-                .collect::<Vec<String>>();
-
-            if !output.is_empty() {
-                Ok(Value::String {
-                    val: output.join("======================\n\n"),
-                    span: call.head,
-                }
-                .into_pipeline_data())
-            } else {
-                Err(ShellError::CommandNotFound(span(&[
-                    rest[0].span,
-                    rest[rest.len() - 1].span,
-                ])))
-            }
-        }
-    } else {
-        let msg = r#"Welcome to Nushell.
-
-Here are some tips to help you get started.
-  * help commands - list all available commands
-  * help <command name> - display help about a particular command
-  * help --find <text to search> - search through all of help
-
-Nushell works on the idea of a "pipeline". Pipelines are commands connected with the '|' character.
-Each stage in the pipeline works together to load, parse, and display information to you.
-
-[Examples]
-
-List the files in the current directory, sorted by size:
-    ls | sort-by size
-
-Get information about the current system:
-    sys | get host
-
-Get the processes on your system actively using CPU:
-    ps | where cpu > 0
-
-You can also learn more at https://www.nushell.sh/book/"#;
-
-        Ok(Value::string(msg, head).into_pipeline_data())
-    }
-}
-
-fn build_help_commands(engine_state: &EngineState, span: Span) -> Vec<Value> {
-    let command_ids = engine_state.get_decl_ids_sorted(false);
-    let mut found_cmds_vec = Vec::new();
-
-    for decl_id in command_ids {
-        let mut cols = vec![];
-        let mut vals = vec![];
-
-        let decl = engine_state.get_decl(decl_id);
-        let sig = decl.signature().update_from_command(decl.borrow());
-
-        let signatures = sig.to_string();
-        let key = sig.name;
-        let usage = sig.usage;
-        let search_terms = sig.search_terms;
-
-        cols.push("name".into());
-        vals.push(Value::String { val: key, span });
-
-        cols.push("category".into());
-        vals.push(Value::string(sig.category.to_string(), span));
-
-        cols.push("command_type".into());
-        vals.push(Value::String {
-            val: format!("{:?}", decl.command_type()).to_lowercase(),
-            span,
-        });
-
-        cols.push("usage".into());
-        vals.push(Value::String { val: usage, span });
-
-        cols.push("signatures".into());
-        vals.push(Value::String {
-            val: if decl.is_parser_keyword() {
-                "".to_string()
-            } else {
-                signatures
-            },
-            span,
-        });
-
-        cols.push("search_terms".into());
-        vals.push(if search_terms.is_empty() {
-            Value::nothing(span)
-        } else {
-            Value::String {
-                val: search_terms.join(", "),
-                span,
-            }
-        });
-
-        found_cmds_vec.push(Value::Record { cols, vals, span });
-    }
-
-    found_cmds_vec
-}
-
-fn highlight_search_in_table(
+pub fn highlight_search_in_table(
     table: Vec<Value>, // list of records
     search_string: &str,
     searched_cols: &[&str],
@@ -264,12 +140,8 @@ fn highlight_search_in_table(
                             };
                             Ok(true)
                         } else {
-                            Err(ShellError::TypeMismatchHelp(
-                                format!("expected string, got {}", val.get_type()),
-                                val.span()?,
-                                "Only columns containing strings can be searched with highlighting."
-                                    .to_string(),
-                            ))
+                            // column does not contain the searched string
+                            acc
                         }
                     } else {
                         // ignore non-string values
