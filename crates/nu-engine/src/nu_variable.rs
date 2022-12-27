@@ -1,19 +1,16 @@
+use crate::scope::create_scope;
 use core::fmt;
-use std::collections::HashMap;
-
 use nu_protocol::{
     engine::{EngineState, Stack},
     HistoryFileFormat, LazyRecord, ShellError, Span, Value,
 };
 use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
 use sysinfo::SystemExt;
-
-use crate::scope::create_scope;
 
 // a CustomValue for the special $nu variable
 // $nu used to be a plain old Record, but CustomValue lets us load different fields/columns lazily. This is important for performance;
 // collecting all the information in $nu is expensive and unnecessary if  you just want a subset of the data
-// should this use #[typetag::serde] instead?
 #[derive(Serialize, Deserialize)]
 pub struct NuVariable {
     #[serde(skip)]
@@ -21,13 +18,6 @@ pub struct NuVariable {
     #[serde(skip)]
     pub stack: Stack,
     pub span: Span,
-}
-
-// manually implement so we can skip engine_state which doesn't implement Debug
-impl fmt::Debug for NuVariable {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.debug_struct("NuVariable").finish()
-    }
 }
 
 impl LazyRecord for NuVariable {
@@ -218,7 +208,12 @@ impl LazyRecord for NuVariable {
     fn span(&self) -> Span {
         self.span
     }
+}
 
-    // fn get_column_map(&self) -> HashMap<String, Box<dyn Fn() -> Value>> {
-    // }
+// manually implemented so we can skip engine_state which doesn't implement Debug
+// FIXME: find a better way
+impl fmt::Debug for NuVariable {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("NuVariable").finish()
+    }
 }

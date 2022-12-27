@@ -2,22 +2,14 @@ use crate::{ShellError, Span, Value};
 use std::{cmp::Ordering, collections::HashMap, fmt};
 
 // Trait definition for a lazy record (where columns are evaluated on-demand)
-// really not sure about this...
+// typetag is needed to make this implement Serialize+Deserialize... even though we should never actually serialize a LazyRecord.
+// To serialize a LazyRecord, collect it into a Value::Record first.
 #[typetag::serde(tag = "type")]
 pub trait LazyRecord: fmt::Debug + Send + Sync {
-    // fn clone_value(&self, span: Span) -> Value;
-
-    //fn category(&self) -> Category;
-
-    // String representation of the custom value
-    // TODO is this right?
-    fn value_string(&self) -> String;
-
+    // Get a map of
     fn get_column_map(&self) -> HashMap<String, Box<dyn Fn() -> Result<Value, ShellError> + '_>>;
 
-    fn span(&self) -> Span;
-
-    // Converts the custom value to a base nushell value
+    // Convert the lazy record into a regular Value::Record by collecting all its columns
     // This is used to represent the custom value using the table representations
     // That already exist in nushell
     fn collect(&self) -> Result<Value, ShellError> {
@@ -39,13 +31,6 @@ pub trait LazyRecord: fmt::Debug + Send + Sync {
         })
     }
 
-    // fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error> where S: Serializer {
-    //     todo!()
-    // }
-
-    // Any representation used to downcast object to its original type
-    // fn as_any(&self) -> &dyn std::any::Any;
-
     fn get_column_value(&self, column: &String, span: Span) -> Result<Value, ShellError> {
         let hashmap = self.get_column_map();
         if let Some(closure) = hashmap.get(column) {
@@ -59,11 +44,12 @@ pub trait LazyRecord: fmt::Debug + Send + Sync {
         }
     }
 
-    // fn follow_cell_path(&self, cell_path: &[PathMember], span: Span) -> Result<Value, ShellError> {
-    //     // TODO: get insensitive from config?
-    //     self.collect(span)?.follow_cell_path(cell_path, true)
-    // }
+    fn span(&self) -> Span;
 
+    // String representation of the lazy record.
+    fn value_string(&self) -> String {
+        "LazyRecord".into()
+    }
     // ordering with other value
     fn partial_cmp(&self, _other: &Value) -> Option<Ordering> {
         None
