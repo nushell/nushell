@@ -84,6 +84,15 @@ pub enum ShellError {
     ///
     /// Convert the argument type before passing it in, or change the command to accept the type.
     #[error("Type mismatch.")]
+    #[diagnostic(code(nu::shell::type_mismatch_help), url(docsrs))]
+    TypeMismatchHelp(String, #[label = "{0}"] Span, #[help] String),
+
+    /// A command received an argument of the wrong type.
+    ///
+    /// ## Resolution
+    ///
+    /// Convert the argument type before passing it in, or change the command to accept the type.
+    #[error("Type mismatch.")]
     #[diagnostic(code(nu::shell::type_mismatch), url(docsrs))]
     TypeMismatchGenericMessage {
         err_message: String,
@@ -868,9 +877,6 @@ Either make sure {0} is a string, or add a 'to_string' entry for it in ENV_CONVE
     #[diagnostic(code(nu::shell::non_unicode_input), url(docsrs))]
     NonUnicodeInput,
 
-    // /// Path not found.
-    // #[error("Path not found.")]
-    // PathNotFound,
     /// Unexpected abbr component.
     ///
     /// ## Resolution

@@ -85,7 +85,6 @@ fn help(
     let head = call.head;
     let find: Option<Spanned<String>> = call.get_flag(engine_state, stack, "find")?;
     let rest: Vec<Spanned<String>> = call.rest(engine_state, stack, 0)?;
-    let commands = engine_state.get_decl_ids_sorted(false);
 
     // 🚩The following two-lines are copied from filters/find.rs:
     let style_computer = StyleComputer::from_config(engine_state, stack);
@@ -95,110 +94,13 @@ fn help(
     let string_style = style_computer.compute("string", &Value::string("search result", head));
 
     if let Some(f) = find {
-        let org_search_string = f.item.clone();
-        let search_string = f.item.to_lowercase();
-        let mut found_cmds_vec = Vec::new();
-
-        for decl_id in commands {
-            let mut cols = vec![];
-            let mut vals = vec![];
-            let decl = engine_state.get_decl(decl_id);
-            let sig = decl.signature().update_from_command(decl.borrow());
-            let signatures = sig.to_string();
-            let key = sig.name;
-            let usage = sig.usage;
-            let search_terms = sig.search_terms;
-
-            let matches_term = if !search_terms.is_empty() {
-                search_terms
-                    .iter()
-                    .any(|term| term.to_lowercase().contains(&search_string))
-            } else {
-                false
-            };
-
-            let key_match = key.to_lowercase().contains(&search_string);
-            let usage_match = usage.to_lowercase().contains(&search_string);
-            if key_match || usage_match || matches_term {
-                cols.push("name".into());
-                vals.push(Value::String {
-                    val: if key_match {
-                        highlight_search_string(&key, &org_search_string, &string_style)?
-                    } else {
-                        key
-                    },
-                    span: head,
-                });
-
-                cols.push("category".into());
-                vals.push(Value::string(sig.category.to_string(), head));
-
-                cols.push("command_type".into());
-                vals.push(Value::String {
-                    val: format!("{:?}", decl.command_type()).to_lowercase(),
-                    span: head,
-                });
-
-                cols.push("usage".into());
-                vals.push(Value::String {
-                    val: if usage_match {
-                        highlight_search_string(&usage, &org_search_string, &string_style)?
-                    } else {
-                        usage
-                    },
-                    span: head,
-                });
-
-                cols.push("signatures".into());
-                vals.push(Value::String {
-                    val: if decl.is_parser_keyword() {
-                        "".to_string()
-                    } else {
-                        signatures
-                    },
-                    span: head,
-                });
-
-                cols.push("search_terms".into());
-                vals.push(if search_terms.is_empty() {
-                    Value::nothing(head)
-                } else {
-                    Value::String {
-                        val: if matches_term {
-                            search_terms
-                                .iter()
-                                .map(|term| {
-                                    if term.to_lowercase().contains(&search_string) {
-                                        match highlight_search_string(
-                                            term,
-                                            &org_search_string,
-                                            &string_style,
-                                        ) {
-                                            Ok(s) => s,
-                                            Err(_) => {
-                                                string_style.paint(term.to_string()).to_string()
-                                            }
-                                        }
-                                    } else {
-                                        string_style.paint(term.to_string()).to_string()
-                                    }
-                                })
-                                .collect::<Vec<_>>()
-                                .join(", ")
-                        } else {
-                            search_terms.join(", ")
-                        },
-                        span: head,
-                    }
-                });
-
-                found_cmds_vec.push(Value::Record {
-                    cols,
-                    vals,
-                    span: head,
-                });
-            }
-        }
+        let all_cmds_vec = build_help_commands(engine_state, head);
+        let found_cmds_vec = highlight_search_in_table(
+            all_cmds_vec,
+            &f.item,
+            &["name", "usage", "search_terms"],
+            &string_style,
+        )?;
 
         return Ok(found_cmds_vec
             .into_iter()
@@ -206,68 +108,8 @@ fn help(
     }
 
     if !rest.is_empty() {
-        let mut found_cmds_vec = Vec::new();
-
         if rest[0].item == "commands" {
-            for decl_id in commands {
-                let mut cols = vec![];
-                let mut vals = vec![];
-
-                let decl = engine_state.get_decl(decl_id);
-                let sig = decl.signature().update_from_command(decl.borrow());
-
-                let signatures = sig.to_string();
-                let key = sig.name;
-                let usage = sig.usage;
-                let search_terms = sig.search_terms;
-
-                cols.push("name".into());
-                vals.push(Value::String {
-                    val: key,
-                    span: head,
-                });
-
-                cols.push("category".into());
-                vals.push(Value::string(sig.category.to_string(), head));
-
-                cols.push("command_type".into());
-                vals.push(Value::String {
-                    val: format!("{:?}", decl.command_type()).to_lowercase(),
-                    span: head,
-                });
-
-                cols.push("usage".into());
-                vals.push(Value::String {
-                    val: usage,
-                    span: head,
-                });
-
-                cols.push("signatures".into());
-                vals.push(Value::String {
-                    val: if decl.is_parser_keyword() {
-                        "".to_string()
-                    } else {
-                        signatures
-                    },
-                    span: head,
-                });
-
-                cols.push("search_terms".into());
-                vals.push(if search_terms.is_empty() {
-                    Value::nothing(head)
-                } else {
-                    Value::String {
-                        val: search_terms.join(", "),
-                        span: head,
-                    }
-                });
-
-                found_cmds_vec.push(Value::Record {
-                    cols,
-                    vals,
-                    span: head,
-                });
-            }
+            let found_cmds_vec = build_help_commands(engine_state, head);
 
             Ok(found_cmds_vec
                 .into_iter()
@@ -330,6 +172,126 @@ You can also learn more at https://www.nushell.sh/book/"#;
 
         Ok(Value::string(msg, head).into_pipeline_data())
     }
+}
+
+fn build_help_commands(engine_state: &EngineState, span: Span) -> Vec<Value> {
+    let command_ids = engine_state.get_decl_ids_sorted(false);
+    let mut found_cmds_vec = Vec::new();
+
+    for decl_id in command_ids {
+        let mut cols = vec![];
+        let mut vals = vec![];
+
+        let decl = engine_state.get_decl(decl_id);
+        let sig = decl.signature().update_from_command(decl.borrow());
+
+        let signatures = sig.to_string();
+        let key = sig.name;
+        let usage = sig.usage;
+        let search_terms = sig.search_terms;
+
+        cols.push("name".into());
+        vals.push(Value::String { val: key, span });
+
+        cols.push("category".into());
+        vals.push(Value::string(sig.category.to_string(), span));
+
+        cols.push("command_type".into());
+        vals.push(Value::String {
+            val: format!("{:?}", decl.command_type()).to_lowercase(),
+            span,
+        });
+
+        cols.push("usage".into());
+        vals.push(Value::String { val: usage, span });
+
+        cols.push("signatures".into());
+        vals.push(Value::String {
+            val: if decl.is_parser_keyword() {
+                "".to_string()
+            } else {
+                signatures
+            },
+            span,
+        });
+
+        cols.push("search_terms".into());
+        vals.push(if search_terms.is_empty() {
+            Value::nothing(span)
+        } else {
+            Value::String {
+                val: search_terms.join(", "),
+                span,
+            }
+        });
+
+        found_cmds_vec.push(Value::Record { cols, vals, span });
+    }
+
+    found_cmds_vec
+}
+
+fn highlight_search_in_table(
+    table: Vec<Value>, // list of records
+    search_string: &str,
+    searched_cols: &[&str],
+    string_style: &Style,
+) -> Result<Vec<Value>, ShellError> {
+    let orig_search_string = search_string;
+    let search_string = search_string.to_lowercase();
+    let mut matches = vec![];
+
+    for record in table {
+        let (cols, mut vals, record_span) = if let Value::Record { cols, vals, span } = record {
+            (cols, vals, span)
+        } else {
+            return Err(ShellError::NushellFailedSpanned(
+                "Expected record".to_string(),
+                format!("got {}", record.get_type()),
+                record.span()?,
+            ));
+        };
+
+        let has_match = cols.iter().zip(vals.iter_mut()).fold(
+            Ok(false),
+            |acc: Result<bool, ShellError>, (col, val)| {
+                if searched_cols.contains(&col.as_str()) {
+                    if let Value::String { val: s, span } = val {
+                        if s.to_lowercase().contains(&search_string) {
+                            *val = Value::String {
+                                val: highlight_search_string(s, orig_search_string, string_style)?,
+                                span: *span,
+                            };
+                            Ok(true)
+                        } else {
+                            Err(ShellError::TypeMismatchHelp(
+                                format!("expected string, got {}", val.get_type()),
+                                val.span()?,
+                                "Only columns containing strings can be searched with highlighting."
+                                    .to_string(),
+                            ))
+                        }
+                    } else {
+                        // ignore non-string values
+                        acc
+                    }
+                } else {
+                    // don't search this column
+                    acc
+                }
+            },
+        )?;
+
+        if has_match {
+            matches.push(Value::Record {
+                cols,
+                vals,
+                span: record_span,
+            });
+        }
+    }
+
+    Ok(matches)
 }
 
 // Highlight the search string using ANSI escape sequences and regular expressions.
