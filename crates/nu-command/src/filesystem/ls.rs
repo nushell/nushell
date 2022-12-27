@@ -318,6 +318,11 @@ impl Command for Ls {
                 result: None,
             },
             Example {
+                description: "List all files untracked by git in the current directory",
+                example: "ls -g | where git_status == untracked",
+                result: None,
+            },
+            Example {
                 description: "List all dirs in your home directory",
                 example: "ls -a ~ | where type == dir",
                 result: None,
