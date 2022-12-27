@@ -1,8 +1,5 @@
+use crate::{ShellError, Span, Value};
 use std::{cmp::Ordering, collections::HashMap, fmt};
-
-use serde::{Deserialize, Serialize, Serializer};
-
-use crate::{ast::PathMember, ShellError, Span, Value};
 
 // Trait definition for a lazy record (where columns are evaluated on-demand)
 // really not sure about this...
@@ -16,16 +13,15 @@ pub trait LazyRecord: fmt::Debug + Send + Sync {
     // TODO is this right?
     fn value_string(&self) -> String;
 
-    fn get_column_map(
-        &self,
-        span: Span,
-    ) -> HashMap<String, Box<dyn Fn() -> Result<Value, ShellError>>>;
+    fn get_column_map(&self) -> HashMap<String, Box<dyn Fn() -> Result<Value, ShellError> + '_>>;
+
+    fn span(&self) -> Span;
 
     // Converts the custom value to a base nushell value
     // This is used to represent the custom value using the table representations
     // That already exist in nushell
-    fn collect(&self, span: Span) -> Result<Value, ShellError> {
-        let map = self.get_column_map(span);
+    fn collect(&self) -> Result<Value, ShellError> {
+        let map = self.get_column_map();
 
         let mut cols = vec![];
         let mut vals = vec![];
@@ -36,7 +32,11 @@ pub trait LazyRecord: fmt::Debug + Send + Sync {
             vals.push(value);
         }
 
-        Ok(Value::Record { cols, vals, span })
+        Ok(Value::Record {
+            cols,
+            vals,
+            span: self.span(),
+        })
     }
 
     // fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error> where S: Serializer {
@@ -47,14 +47,14 @@ pub trait LazyRecord: fmt::Debug + Send + Sync {
     // fn as_any(&self) -> &dyn std::any::Any;
 
     fn get_column_value(&self, column: &String, span: Span) -> Result<Value, ShellError> {
-        let hashmap = self.get_column_map(span);
+        let hashmap = self.get_column_map();
         if let Some(closure) = hashmap.get(column) {
             closure()
         } else {
             Err(ShellError::CantFindColumn(
                 column.to_string(),
                 span,
-                span,
+                self.span(),
             ))
         }
     }

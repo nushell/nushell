@@ -342,7 +342,7 @@ fn handle_table_command(
             Table.run(engine_state, stack, call, base_pipeline)
         }
         PipelineData::Value(Value::LazyRecord { val, span }, ..) => {
-            let base_pipeline = val.collect(span)?.into_pipeline_data();
+            let base_pipeline = val.collect()?.into_pipeline_data();
             Table.run(engine_state, stack, call, base_pipeline)
         }
         PipelineData::Value(Value::Range { val, .. }, metadata) => handle_row_stream(

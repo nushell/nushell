@@ -1047,9 +1047,10 @@ pub fn eval_variable(
         nu_protocol::NU_VARIABLE_ID => {
             // $nu
 
-            // let variable = NuVariable {..};
             let nuvar = NuVariable {
                 engine_state: engine_state.clone(),
+                stack: stack.clone(),
+                span,
             }; // is cloning fast enough?
             return Ok(Value::LazyRecord {
                 val: Box::new(nuvar),
