@@ -58,7 +58,7 @@ fn requests_more_rows_than_table_has() {
     let actual = nu!(
         cwd: ".", pipeline(
         r#"
-        date | last 50 | length
+        [date] | last 50 | length
         "#
     ));
 
