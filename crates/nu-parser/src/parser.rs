@@ -5256,14 +5256,21 @@ pub fn parse_builtin_commands(
     }
 }
 
-fn balanced_pair(open: u8, closed: u8, input: &[u8]) -> bool {
+fn balanced_pair_between_qoutes(open: u8, closed: u8, input: &[u8]) -> bool {
     let mut count = 0;
+    let mut in_qoute = false;
 
     for c in input.iter() {
-        if *c == open {
-            count += 1;
+        if *c == b'"' {
+            in_qoute = !in_qoute;
+        } else if *c == open {
+            if !in_qoute {
+                count += 1;
+            }
         } else if *c == closed {
-            count -= 1;
+            if !in_qoute {
+                count -= 1;
+            }
         }
     }
 
@@ -5298,7 +5305,7 @@ pub fn parse_record(
         error = error.or_else(|| Some(ParseError::Unclosed("}".into(), Span::new(end, end))));
     }
 
-    if let false = balanced_pair(b'{', b'}', bytes) {
+    if let false = balanced_pair_between_qoutes(b'{', b'}', bytes) {
         return (
             garbage(span),
             Some(ParseError::Unbalanced(
