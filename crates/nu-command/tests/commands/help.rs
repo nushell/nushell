@@ -1,9 +1,11 @@
-use nu_test_support::{nu, pipeline};
+use nu_test_support::fs::Stub::FileWithContent;
+use nu_test_support::playground::Playground;
+use nu_test_support::{nu, nu_repl_code, pipeline};
 
 #[test]
 fn help_commands_length() {
     let actual = nu!(
-        cwd: ".", pipeline(
+    cwd: ".", pipeline(
         r#"
         help commands | length
         "#
@@ -25,4 +27,109 @@ fn help_shows_signature() {
     // don't show signature for parser keyword
     let actual = nu!(cwd: ".", pipeline("help alias"));
     assert!(!actual.out.contains("Signatures"));
+}
+
+#[test]
+fn help_aliases() {
+    let code = &[
+        "alias SPAM = print 'spam'",
+        "help aliases | where alias == SPAM | length",
+    ];
+    let actual = nu!(cwd: ".", nu_repl_code(code));
+
+    assert_eq!(actual.out, "1");
+}
+
+#[test]
+fn help_alias_usage_1() {
+    Playground::setup("help_alias_usage_1", |dirs, sandbox| {
+        sandbox.with_files(vec![FileWithContent(
+            "spam.nu",
+            r#"
+                # line1
+                alias SPAM = print 'spam'
+            "#,
+        )]);
+
+        let code = &[
+            "source spam.nu",
+            "help aliases | where alias == SPAM | get 0.usage",
+        ];
+        let actual = nu!(cwd: dirs.test(), nu_repl_code(code));
+
+        assert_eq!(actual.out, "line1");
+    })
+}
+
+#[test]
+fn help_alias_usage_2() {
+    let code = &[
+        "alias SPAM = print 'spam'  # line2",
+        "help aliases | where alias == SPAM | get 0.usage",
+    ];
+    let actual = nu!(cwd: ".", nu_repl_code(code));
+
+    assert_eq!(actual.out, "line2");
+}
+
+#[test]
+fn help_alias_usage_3() {
+    Playground::setup("help_alias_usage_3", |dirs, sandbox| {
+        sandbox.with_files(vec![FileWithContent(
+            "spam.nu",
+            r#"
+                # line1
+                alias SPAM = print 'spam' # line2
+            "#,
+        )]);
+
+        let code = &[
+            "source spam.nu",
+            "help aliases | where alias == SPAM | get 0.usage",
+        ];
+        let actual = nu!(cwd: dirs.test(), nu_repl_code(code));
+
+        assert!(actual.out.contains("line1"));
+        assert!(actual.out.contains("line2"));
+    })
+}
+
+#[test]
+fn help_alias_name() {
+    Playground::setup("help_alias_name", |dirs, sandbox| {
+        sandbox.with_files(vec![FileWithContent(
+            "spam.nu",
+            r#"
+                # line1
+                alias SPAM = print 'spam' # line2
+            "#,
+        )]);
+
+        let code = &["source spam.nu", "help aliases SPAM"];
+        let actual = nu!(cwd: dirs.test(), nu_repl_code(code));
+
+        assert!(actual.out.contains("line1"));
+        assert!(actual.out.contains("line2"));
+        assert!(actual.out.contains("SPAM"));
+        assert!(actual.out.contains("print 'spam'"));
+    })
+}
+
+#[test]
+fn help_alias_name_f() {
+    Playground::setup("help_alias_name_f", |dirs, sandbox| {
+        sandbox.with_files(vec![FileWithContent(
+            "spam.nu",
+            r#"
+                # line1
+                alias SPAM = print 'spam' # line2
+            "#,
+        )]);
+
+        let code = &["source spam.nu", "help aliases -f SPAM | get 0.usage"];
+        let actual = nu!(cwd: dirs.test(), nu_repl_code(code));
+
+        assert!(actual.out.contains("line1"));
+        assert!(actual.out.contains("line2"));
+    })
 }
