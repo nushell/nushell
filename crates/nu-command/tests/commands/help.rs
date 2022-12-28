@@ -33,7 +33,7 @@ fn help_shows_signature() {
 fn help_aliases() {
     let code = &[
         "alias SPAM = print 'spam'",
-        "help aliases | where alias == SPAM | length",
+        "help aliases | where name == SPAM | length",
     ];
     let actual = nu!(cwd: ".", nu_repl_code(code));
 
@@ -53,7 +53,7 @@ fn help_alias_usage_1() {
 
         let code = &[
             "source spam.nu",
-            "help aliases | where alias == SPAM | get 0.usage",
+            "help aliases | where name == SPAM | get 0.usage",
         ];
         let actual = nu!(cwd: dirs.test(), nu_repl_code(code));
 
@@ -65,7 +65,7 @@ fn help_alias_usage_1() {
 fn help_alias_usage_2() {
     let code = &[
         "alias SPAM = print 'spam'  # line2",
-        "help aliases | where alias == SPAM | get 0.usage",
+        "help aliases | where name == SPAM | get 0.usage",
     ];
     let actual = nu!(cwd: ".", nu_repl_code(code));
 
@@ -85,7 +85,7 @@ fn help_alias_usage_3() {
 
         let code = &[
             "source spam.nu",
-            "help aliases | where alias == SPAM | get 0.usage",
+            "help aliases | where name == SPAM | get 0.usage",
         ];
         let actual = nu!(cwd: dirs.test(), nu_repl_code(code));
 
@@ -131,5 +131,47 @@ fn help_alias_name_f() {
 
         assert!(actual.out.contains("line1"));
         assert!(actual.out.contains("line2"));
+    })
+}
+
+#[test]
+fn help_export_alias_name_single_word() {
+    Playground::setup("help_export_alias_name_single_word", |dirs, sandbox| {
+        sandbox.with_files(vec![FileWithContent(
+            "spam.nu",
+            r#"
+                # line1
+                export alias SPAM = print 'spam' # line2
+            "#,
+        )]);
+
+        let code = &["use spam.nu SPAM", "help aliases SPAM"];
+        let actual = nu!(cwd: dirs.test(), nu_repl_code(code));
+
+        assert!(actual.out.contains("line1"));
+        assert!(actual.out.contains("line2"));
+        assert!(actual.out.contains("SPAM"));
+        assert!(actual.out.contains("print 'spam'"));
+    })
+}
+
+#[test]
+fn help_export_alias_name_multi_word() {
+    Playground::setup("help_export_alias_name_multi_word", |dirs, sandbox| {
+        sandbox.with_files(vec![FileWithContent(
+            "spam.nu",
+            r#"
+                # line1
+                export alias SPAM = print 'spam' # line2
+            "#,
+        )]);
+
+        let code = &["use spam.nu", "help aliases spam SPAM"];
+        let actual = nu!(cwd: dirs.test(), nu_repl_code(code));
+
+        assert!(actual.out.contains("line1"));
+        assert!(actual.out.contains("line2"));
+        assert!(actual.out.contains("SPAM"));
+        assert!(actual.out.contains("print 'spam'"));
     })
 }

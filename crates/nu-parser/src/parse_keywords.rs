@@ -228,57 +228,6 @@ pub fn parse_for(
     )
 }
 
-// fn build_usage(working_set: &StateWorkingSet, spans: &[Span]) -> String {
-//     let mut usage = String::new();
-
-//     let mut num_spaces = 0;
-//     let mut first = true;
-
-//     // Use the comments to build the usage
-//     for comment_part in spans {
-//         let contents = working_set.get_span_contents(*comment_part);
-
-//         let comment_line = if first {
-//             // Count the number of spaces still at the front, skipping the '#'
-//             let mut pos = 1;
-//             while pos < contents.len() {
-//                 if let Some(b' ') = contents.get(pos) {
-//                     // continue
-//                 } else {
-//                     break;
-//                 }
-//                 pos += 1;
-//             }
-
-//             num_spaces = pos;
-
-//             first = false;
-
-//             String::from_utf8_lossy(&contents[pos..]).to_string()
-//         } else {
-//             let mut pos = 1;
-
-//             while pos < contents.len() && pos < num_spaces {
-//                 if let Some(b' ') = contents.get(pos) {
-//                     // continue
-//                 } else {
-//                     break;
-//                 }
-//                 pos += 1;
-//             }
-
-//             String::from_utf8_lossy(&contents[pos..]).to_string()
-//         };
-
-//         if !usage.is_empty() {
-//             usage.push('\n');
-//         }
-//         usage.push_str(&comment_line);
-//     }
-
-//     usage
-// }
-
 pub fn parse_def(
     working_set: &mut StateWorkingSet,
     lite_command: &LiteCommand,

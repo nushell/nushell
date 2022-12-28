@@ -27,12 +27,12 @@ impl Command for HelpAliases {
             .rest(
                 "rest",
                 SyntaxShape::String,
-                "the name of command to get help on",
+                "the name of alias to get help on",
             )
             .named(
                 "find",
                 SyntaxShape::String,
-                "string to find in command names, usage, and search terms",
+                "string to find in alias names and usage",
                 Some('f'),
             )
             .input_output_types(vec![(Type::Nothing, Type::Table(vec![]))])
@@ -69,7 +69,7 @@ pub fn help_aliases(
     if let Some(f) = find {
         let all_cmds_vec = build_help_aliases(engine_state, stack, head);
         let found_cmds_vec =
-            highlight_search_in_table(all_cmds_vec, &f.item, &["alias", "usage"], &string_style)?;
+            highlight_search_in_table(all_cmds_vec, &f.item, &["name", "usage"], &string_style)?;
 
         return Ok(found_cmds_vec
             .into_iter()
@@ -107,7 +107,7 @@ pub fn help_aliases(
             .collect::<Vec<Cow<str>>>()
             .join(" ");
 
-        let alias_usage = engine_state.build_alias_usage(alias_id, &[]);
+        let alias_usage = engine_state.build_alias_usage(alias_id);
 
         // TODO: merge this into documentation.rs at some point
         const G: &str = "\x1b[32m"; // green

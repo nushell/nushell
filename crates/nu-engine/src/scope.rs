@@ -472,11 +472,11 @@ impl<'e, 's> ScopeData<'e, 's> {
 
                 let alias_usage = self
                     .engine_state
-                    .build_alias_usage(**alias_id, &[])
+                    .build_alias_usage(**alias_id)
                     .unwrap_or_default();
 
                 aliases.push(Value::Record {
-                    cols: vec!["alias".into(), "expansion".into(), "usage".into()],
+                    cols: vec!["name".into(), "expansion".into(), "usage".into()],
                     vals: vec![
                         Value::string(String::from_utf8_lossy(alias_name), span),
                         Value::string(alias_text, span),

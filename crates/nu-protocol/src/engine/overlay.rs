@@ -1,47 +1,9 @@
-use crate::{AliasId, DeclId, ModuleId, OverlayId, Span, Type, Value, VarId};
+use crate::{AliasId, DeclId, ModuleId, OverlayId, Type, Value, VarId};
 use std::borrow::Borrow;
 use std::collections::HashMap;
 use std::hash::{Hash, Hasher};
 
 pub static DEFAULT_OVERLAY_NAME: &str = "zero";
-
-/// Organizes usage messages for various primitives
-#[derive(Debug, Clone)]
-pub struct Usage {
-    decl_comments: HashMap<DeclId, Vec<Span>>,
-    alias_comments: HashMap<AliasId, Vec<Span>>,
-}
-
-impl Usage {
-    pub fn new() -> Self {
-        Usage {
-            decl_comments: HashMap::new(),
-            alias_comments: HashMap::new(),
-        }
-    }
-
-    pub fn add_decl_comments(&mut self, decl_id: DeclId, comments: Vec<Span>) {
-        self.decl_comments.insert(decl_id, comments);
-    }
-
-    pub fn add_alias_comments(&mut self, alias_id: AliasId, comments: Vec<Span>) {
-        self.alias_comments.insert(alias_id, comments);
-    }
-
-    pub fn get_decl_comments(&self, decl_id: DeclId) -> Option<&[Span]> {
-        self.decl_comments.get(&decl_id).map(|v| v.as_ref())
-    }
-
-    pub fn get_alias_comments(&self, alias_id: AliasId) -> Option<&[Span]> {
-        self.alias_comments.get(&alias_id).map(|v| v.as_ref())
-    }
-
-    /// Overwrite own values with the other
-    pub fn merge_with(&mut self, other: Usage) {
-        self.decl_comments.extend(other.decl_comments);
-        self.alias_comments.extend(other.alias_comments);
-    }
-}
 
 /// Tells whether a decl or alias is visible or not
 #[derive(Debug, Clone)]
@@ -238,7 +200,6 @@ pub struct OverlayFrame {
     pub decls: HashMap<(Vec<u8>, Type), DeclId>,
     pub aliases: HashMap<Vec<u8>, AliasId>,
     pub modules: HashMap<Vec<u8>, ModuleId>,
-    pub usage: Usage,
     pub visibility: Visibility,
     pub origin: ModuleId, // The original module the overlay was created from
     pub prefixed: bool,   // Whether the overlay has definitions prefixed with its name
@@ -253,7 +214,6 @@ impl OverlayFrame {
             decls: HashMap::new(),
             aliases: HashMap::new(),
             modules: HashMap::new(),
-            usage: Usage::new(),
             visibility: Visibility::new(),
             origin,
             prefixed,
@@ -315,12 +275,6 @@ impl DeclKey for (Vec<u8>, Type) {
 impl<'a> Borrow<dyn DeclKey + 'a> for (Vec<u8>, Type) {
     fn borrow(&self) -> &(dyn DeclKey + 'a) {
         self
-    }
-}
-
-impl Default for Usage {
-    fn default() -> Self {
-        Self::new()
     }
 }
 

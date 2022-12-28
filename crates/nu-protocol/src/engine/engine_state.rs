@@ -31,6 +31,39 @@ pub enum ReplOperation {
     Replace(String),
 }
 
+/// Organizes usage messages for various primitives
+#[derive(Debug, Clone)]
+pub struct Usage {
+    alias_comments: HashMap<AliasId, Vec<Span>>,
+}
+
+impl Usage {
+    pub fn new() -> Self {
+        Usage {
+            alias_comments: HashMap::new(),
+        }
+    }
+
+    pub fn add_alias_comments(&mut self, alias_id: AliasId, comments: Vec<Span>) {
+        self.alias_comments.insert(alias_id, comments);
+    }
+
+    pub fn get_alias_comments(&self, alias_id: AliasId) -> Option<&[Span]> {
+        self.alias_comments.get(&alias_id).map(|v| v.as_ref())
+    }
+
+    /// Overwrite own values with the other
+    pub fn merge_with(&mut self, other: Usage) {
+        self.alias_comments.extend(other.alias_comments);
+    }
+}
+
+impl Default for Usage {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 /// The core global engine state. This includes all global definitions as well as any global state that
 /// will persist for the whole session.
 ///
@@ -82,6 +115,7 @@ pub struct EngineState {
     aliases: Vec<Vec<Span>>,
     blocks: Vec<Block>,
     modules: Vec<Module>,
+    usage: Usage,
     pub scope: ScopeFrame,
     pub ctrlc: Option<Arc<AtomicBool>>,
     pub env_vars: EnvVars,
@@ -125,6 +159,7 @@ impl EngineState {
             aliases: vec![],
             blocks: vec![],
             modules: vec![Module::new()],
+            usage: Usage::new(),
             // make sure we have some default overlay:
             scope: ScopeFrame::with_empty_overlay(
                 DEFAULT_OVERLAY_NAME.as_bytes().to_vec(),
@@ -167,6 +202,7 @@ impl EngineState {
         self.vars.extend(delta.vars);
         self.blocks.extend(delta.blocks);
         self.modules.extend(delta.modules);
+        self.usage.merge_with(delta.usage);
 
         let first = delta.scope.remove(0);
 
@@ -193,8 +229,6 @@ impl EngineState {
                 for item in delta_overlay.modules.into_iter() {
                     existing_overlay.modules.insert(item.0, item.1);
                 }
-
-                existing_overlay.usage.merge_with(delta_overlay.usage);
 
                 existing_overlay
                     .visibility
@@ -555,18 +589,8 @@ impl EngineState {
         None
     }
 
-    pub fn get_alias_comments(
-        &self,
-        alias_id: AliasId,
-        removed_overlays: &[Vec<u8>],
-    ) -> Option<&[Span]> {
-        for overlay_frame in self.active_overlays(removed_overlays).iter().rev() {
-            if let Some(comments) = overlay_frame.usage.get_alias_comments(alias_id) {
-                return Some(comments);
-            }
-        }
-
-        None
+    pub fn get_alias_comments(&self, alias_id: AliasId) -> Option<&[Span]> {
+        self.usage.get_alias_comments(alias_id)
     }
 
     #[cfg(feature = "plugin")]
@@ -864,12 +888,8 @@ impl EngineState {
         build_usage(&comment_lines)
     }
 
-    pub fn build_alias_usage(
-        &self,
-        alias_id: AliasId,
-        removed_overlays: &[Vec<u8>],
-    ) -> Option<String> {
-        self.get_alias_comments(alias_id, removed_overlays)
+    pub fn build_alias_usage(&self, alias_id: AliasId) -> Option<String> {
+        self.get_alias_comments(alias_id)
             .map(|comment_spans| self.build_usage(comment_spans))
     }
 }
@@ -948,6 +968,7 @@ pub struct StateDelta {
     aliases: Vec<Vec<Span>>,      // indexed by AliasId
     pub blocks: Vec<Block>,       // indexed by BlockId
     modules: Vec<Module>,         // indexed by ModuleId
+    usage: Usage,
     pub scope: Vec<ScopeFrame>,
     #[cfg(feature = "plugin")]
     plugins_changed: bool, // marks whether plugin file should be updated
@@ -971,6 +992,7 @@ impl StateDelta {
             blocks: vec![],
             modules: vec![],
             scope: vec![scope_frame],
+            usage: Usage::new(),
             #[cfg(feature = "plugin")]
             plugins_changed: false,
         }
@@ -1670,13 +1692,14 @@ impl<'a> StateWorkingSet<'a> {
         self.delta.aliases.push(replacement);
         let alias_id = self.num_aliases() - 1;
 
+        if !comments.is_empty() {
+            self.delta.usage.add_alias_comments(alias_id, comments);
+        }
+
         let last = self.last_overlay_mut();
 
         last.aliases.insert(name, alias_id);
         last.visibility.use_alias_id(&alias_id);
-        if !comments.is_empty() {
-            last.usage.add_alias_comments(alias_id, comments);
-        }
     }
 
     pub fn get_cwd(&self) -> String {
