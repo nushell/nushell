@@ -34,6 +34,10 @@ pub enum ParseError {
     #[diagnostic(code(nu::parser::unclosed_delimiter), url(docsrs))]
     Unclosed(String, #[label("unclosed {0}")] Span),
 
+    #[error("Unbalanced delimiter.")]
+    #[diagnostic(code(nu::parser::unclosed_delimiter), url(docsrs))]
+    Unbalanced(String, String, #[label("unbalanced {0} and {1}")] Span),
+
     #[error("Parse mismatch during operation.")]
     #[diagnostic(code(nu::parser::parse_mismatch), url(docsrs))]
     Expected(String, #[label("expected {0}")] Span),
@@ -409,6 +413,7 @@ impl ParseError {
             ParseError::ExtraPositional(_, s) => *s,
             ParseError::UnexpectedEof(_, s) => *s,
             ParseError::Unclosed(_, s) => *s,
+            ParseError::Unbalanced(_, _, s) => *s,
             ParseError::Expected(_, s) => *s,
             ParseError::Mismatch(_, _, s) => *s,
             ParseError::UnsupportedOperation(_, _, _, s, _) => *s,

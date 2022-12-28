@@ -4337,10 +4337,15 @@ pub fn parse_value(
         }
         b'{' => {
             if !matches!(shape, SyntaxShape::Closure(..)) && !matches!(shape, SyntaxShape::Block) {
-                if let (expr, None) =
-                    parse_full_cell_path(working_set, None, span, expand_aliases_denylist)
-                {
-                    return (expr, None);
+                let (expr, err) =
+                    parse_full_cell_path(working_set, None, span, expand_aliases_denylist);
+                match err {
+                    Some(err) => {
+                        if let ParseError::Unbalanced(_, _, _) = err {
+                            return (expr, Some(err));
+                        }
+                    }
+                    None => return (expr, None),
                 }
             }
             if matches!(shape, SyntaxShape::Closure(_)) || matches!(shape, SyntaxShape::Any) {
@@ -5251,6 +5256,20 @@ pub fn parse_builtin_commands(
     }
 }
 
+fn balanced_pair(open: u8, closed: u8, input: &[u8]) -> bool {
+    let mut count = 0;
+
+    for c in input.iter() {
+        if *c == open {
+            count += 1;
+        } else if *c == closed {
+            count -= 1;
+        }
+    }
+
+    count == 0
+}
+
 pub fn parse_record(
     working_set: &mut StateWorkingSet,
     span: Span,
@@ -5277,6 +5296,17 @@ pub fn parse_record(
         end -= 1;
     } else {
         error = error.or_else(|| Some(ParseError::Unclosed("}".into(), Span::new(end, end))));
+    }
+
+    if let false = balanced_pair(b'{', b'}', bytes) {
+        return (
+            garbage(span),
+            Some(ParseError::Unbalanced(
+                "{".into(),
+                "}".into(),
+                Span::new(end, end),
+            )),
+        );
     }
 
     let inner_span = Span::new(start, end);
