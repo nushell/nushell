@@ -34,6 +34,7 @@ pub enum ReplOperation {
 /// Organizes usage messages for various primitives
 #[derive(Debug, Clone)]
 pub struct Usage {
+    // TODO: Move decl usages here
     alias_comments: HashMap<AliasId, Vec<Span>>,
 }
 
