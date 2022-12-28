@@ -5257,22 +5257,33 @@ pub fn parse_builtin_commands(
 }
 
 fn balanced_pair_between_qoutes(open: u8, closed: u8, input: &[u8]) -> bool {
-    let mut count = 0;
-    let mut in_qoute = false;
+    let mut stack = Vec::new();
+    let mut escaped = false;
+    let mut in_quotes = false;
 
     for c in input.iter() {
-        if *c == b'"' {
-            in_qoute = !in_qoute;
-        } else if *c == open {
-            if !in_qoute {
-                count += 1;
+        if escaped {
+            escaped = false;
+        } else if *c == b'\\' {
+            escaped = true;
+        } else if *c == b'"' {
+            in_quotes = !in_quotes;
+        } else if !in_quotes {
+            if *c == open {
+                stack.push(*c);
+            } else if *c == closed {
+                if let Some(last) = stack.pop() {
+                    if last != open {
+                        return false;
+                    }
+                } else {
+                    return false;
+                }
             }
-        } else if *c == closed && !in_qoute {
-            count -= 1;
         }
     }
 
-    count == 0
+    stack.is_empty()
 }
 
 pub fn parse_record(
