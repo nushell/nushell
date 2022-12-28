@@ -194,6 +194,8 @@ impl EngineState {
                     existing_overlay.modules.insert(item.0, item.1);
                 }
 
+                existing_overlay.usage.merge_with(delta_overlay.usage);
+
                 existing_overlay
                     .visibility
                     .merge_with(delta_overlay.visibility);
@@ -553,6 +555,20 @@ impl EngineState {
         None
     }
 
+    pub fn get_alias_comments(
+        &self,
+        alias_id: AliasId,
+        removed_overlays: &[Vec<u8>],
+    ) -> Option<&[Span]> {
+        for overlay_frame in self.active_overlays(removed_overlays).iter().rev() {
+            if let Some(comments) = overlay_frame.usage.get_alias_comments(alias_id) {
+                return Some(comments);
+            }
+        }
+
+        None
+    }
+
     #[cfg(feature = "plugin")]
     pub fn plugin_decls(&self) -> impl Iterator<Item = &Box<dyn Command + 'static>> {
         let mut unique_plugin_decls = HashMap::new();
@@ -838,6 +854,23 @@ impl EngineState {
 
     pub fn get_config_path(&self, key: &str) -> Option<&PathBuf> {
         self.config_path.get(key)
+    }
+
+    pub fn build_usage(&self, spans: &[Span]) -> String {
+        let comment_lines: Vec<&[u8]> = spans
+            .iter()
+            .map(|span| self.get_span_contents(span))
+            .collect();
+        build_usage(&comment_lines)
+    }
+
+    pub fn build_alias_usage(
+        &self,
+        alias_id: AliasId,
+        removed_overlays: &[Vec<u8>],
+    ) -> Option<String> {
+        self.get_alias_comments(alias_id, removed_overlays)
+            .map(|comment_spans| self.build_usage(comment_spans))
     }
 }
 
@@ -1633,7 +1666,7 @@ impl<'a> StateWorkingSet<'a> {
         next_id
     }
 
-    pub fn add_alias(&mut self, name: Vec<u8>, replacement: Vec<Span>) {
+    pub fn add_alias(&mut self, name: Vec<u8>, replacement: Vec<Span>, comments: Vec<Span>) {
         self.delta.aliases.push(replacement);
         let alias_id = self.num_aliases() - 1;
 
@@ -1641,6 +1674,9 @@ impl<'a> StateWorkingSet<'a> {
 
         last.aliases.insert(name, alias_id);
         last.visibility.use_alias_id(&alias_id);
+        if !comments.is_empty() {
+            last.usage.add_alias_comments(alias_id, comments);
+        }
     }
 
     pub fn get_cwd(&self) -> String {
@@ -2051,17 +2087,13 @@ impl<'a> StateWorkingSet<'a> {
     pub fn render(self) -> StateDelta {
         self.delta
     }
-}
 
-impl Default for Visibility {
-    fn default() -> Self {
-        Self::new()
-    }
-}
-
-impl Default for ScopeFrame {
-    fn default() -> Self {
-        Self::new()
+    pub fn build_usage(&self, spans: &[Span]) -> String {
+        let comment_lines: Vec<&[u8]> = spans
+            .iter()
+            .map(|span| self.get_span_contents(*span))
+            .collect();
+        build_usage(&comment_lines)
     }
 }
 
@@ -2146,6 +2178,55 @@ impl<'a> miette::SourceCode for &StateWorkingSet<'a> {
         }
         Err(miette::MietteError::OutOfBounds)
     }
+}
+
+fn build_usage(comment_lines: &[&[u8]]) -> String {
+    let mut usage = String::new();
+
+    let mut num_spaces = 0;
+    let mut first = true;
+
+    // Use the comments to build the usage
+    for contents in comment_lines {
+        let comment_line = if first {
+            // Count the number of spaces still at the front, skipping the '#'
+            let mut pos = 1;
+            while pos < contents.len() {
+                if let Some(b' ') = contents.get(pos) {
+                    // continue
+                } else {
+                    break;
+                }
+                pos += 1;
+            }
+
+            num_spaces = pos;
+
+            first = false;
+
+            String::from_utf8_lossy(&contents[pos..]).to_string()
+        } else {
+            let mut pos = 1;
+
+            while pos < contents.len() && pos < num_spaces {
+                if let Some(b' ') = contents.get(pos) {
+                    // continue
+                } else {
+                    break;
+                }
+                pos += 1;
+            }
+
+            String::from_utf8_lossy(&contents[pos..]).to_string()
+        };
+
+        if !usage.is_empty() {
+            usage.push('\n');
+        }
+        usage.push_str(&comment_line);
+    }
+
+    usage
 }
 
 #[cfg(test)]

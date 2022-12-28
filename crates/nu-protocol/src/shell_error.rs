@@ -542,6 +542,15 @@ Either make sure {0} is a string, or add a 'to_string' entry for it in ENV_CONVE
     #[diagnostic(code(nu::shell::command_not_found), url(docsrs))]
     CommandNotFound(#[label("command not found")] Span),
 
+    /// This alias could not be found
+    ///
+    /// ## Resolution
+    ///
+    /// The alias does not exist in the current scope. It might exist in another scope or overlay or be hidden.
+    #[error("Alias not found")]
+    #[diagnostic(code(nu::shell::alias_not_found), url(docsrs))]
+    AliasNotFound(#[label("alias not found")] Span),
+
     /// A flag was not found.
     #[error("Flag not found")]
     #[diagnostic(code(nu::shell::flag_not_found), url(docsrs))]

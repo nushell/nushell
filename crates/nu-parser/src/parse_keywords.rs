@@ -228,56 +228,56 @@ pub fn parse_for(
     )
 }
 
-fn build_usage(working_set: &StateWorkingSet, spans: &[Span]) -> String {
-    let mut usage = String::new();
+// fn build_usage(working_set: &StateWorkingSet, spans: &[Span]) -> String {
+//     let mut usage = String::new();
 
-    let mut num_spaces = 0;
-    let mut first = true;
+//     let mut num_spaces = 0;
+//     let mut first = true;
 
-    // Use the comments to build the usage
-    for comment_part in spans {
-        let contents = working_set.get_span_contents(*comment_part);
+//     // Use the comments to build the usage
+//     for comment_part in spans {
+//         let contents = working_set.get_span_contents(*comment_part);
 
-        let comment_line = if first {
-            // Count the number of spaces still at the front, skipping the '#'
-            let mut pos = 1;
-            while pos < contents.len() {
-                if let Some(b' ') = contents.get(pos) {
-                    // continue
-                } else {
-                    break;
-                }
-                pos += 1;
-            }
+//         let comment_line = if first {
+//             // Count the number of spaces still at the front, skipping the '#'
+//             let mut pos = 1;
+//             while pos < contents.len() {
+//                 if let Some(b' ') = contents.get(pos) {
+//                     // continue
+//                 } else {
+//                     break;
+//                 }
+//                 pos += 1;
+//             }
 
-            num_spaces = pos;
+//             num_spaces = pos;
 
-            first = false;
+//             first = false;
 
-            String::from_utf8_lossy(&contents[pos..]).to_string()
-        } else {
-            let mut pos = 1;
+//             String::from_utf8_lossy(&contents[pos..]).to_string()
+//         } else {
+//             let mut pos = 1;
 
-            while pos < contents.len() && pos < num_spaces {
-                if let Some(b' ') = contents.get(pos) {
-                    // continue
-                } else {
-                    break;
-                }
-                pos += 1;
-            }
+//             while pos < contents.len() && pos < num_spaces {
+//                 if let Some(b' ') = contents.get(pos) {
+//                     // continue
+//                 } else {
+//                     break;
+//                 }
+//                 pos += 1;
+//             }
 
-            String::from_utf8_lossy(&contents[pos..]).to_string()
-        };
+//             String::from_utf8_lossy(&contents[pos..]).to_string()
+//         };
 
-        if !usage.is_empty() {
-            usage.push('\n');
-        }
-        usage.push_str(&comment_line);
-    }
+//         if !usage.is_empty() {
+//             usage.push('\n');
+//         }
+//         usage.push_str(&comment_line);
+//     }
 
-    usage
-}
+//     usage
+// }
 
 pub fn parse_def(
     working_set: &mut StateWorkingSet,
@@ -286,7 +286,7 @@ pub fn parse_def(
 ) -> (Pipeline, Option<ParseError>) {
     let spans = &lite_command.parts[..];
 
-    let usage = build_usage(working_set, &lite_command.comments);
+    let usage = working_set.build_usage(&lite_command.comments);
 
     // Checking that the function is used with the correct name
     // Maybe this is not necessary but it is a sanity check
@@ -443,7 +443,7 @@ pub fn parse_extern(
     let spans = &lite_command.parts;
     let mut error = None;
 
-    let usage = build_usage(working_set, &lite_command.comments);
+    let usage = working_set.build_usage(&lite_command.comments);
 
     // Checking that the function is used with the correct name
     // Maybe this is not necessary but it is a sanity check
@@ -558,9 +558,11 @@ pub fn parse_extern(
 
 pub fn parse_alias(
     working_set: &mut StateWorkingSet,
-    spans: &[Span],
+    lite_command: &LiteCommand,
     expand_aliases_denylist: &[usize],
 ) -> (Pipeline, Option<ParseError>) {
+    let spans = &lite_command.parts;
+
     // if the call is "alias", turn it into "print $nu.scope.aliases"
     if spans.len() == 1 {
         let head = Expression {
@@ -670,7 +672,7 @@ pub fn parse_alias(
                     );
                 }
 
-                working_set.add_alias(alias_name, replacement);
+                working_set.add_alias(alias_name, replacement, lite_command.comments.clone());
             }
 
             let err = if spans.len() < 4 {
@@ -783,7 +785,7 @@ pub fn parse_export_in_block(
     }
 
     match full_name.as_slice() {
-        b"export alias" => parse_alias(working_set, &lite_command.parts, expand_aliases_denylist),
+        b"export alias" => parse_alias(working_set, lite_command, expand_aliases_denylist),
         b"export def" | b"export def-env" => {
             parse_def(working_set, lite_command, expand_aliases_denylist)
         }
@@ -1073,7 +1075,7 @@ pub fn parse_export_in_module(
                     parts: spans[1..].to_vec(),
                 };
                 let (pipeline, err) =
-                    parse_alias(working_set, &lite_command.parts, expand_aliases_denylist);
+                    parse_alias(working_set, &lite_command, expand_aliases_denylist);
                 error = error.or(err);
 
                 let export_alias_decl_id =
@@ -1376,11 +1378,8 @@ pub fn parse_module_block(
                                 (pipeline, err)
                             }
                             b"alias" => {
-                                let (pipeline, err) = parse_alias(
-                                    working_set,
-                                    &command.parts,
-                                    expand_aliases_denylist,
-                                );
+                                let (pipeline, err) =
+                                    parse_alias(working_set, command, expand_aliases_denylist);
 
                                 (pipeline, err)
                             }

@@ -50,6 +50,7 @@ pub fn create_default_context() -> EngineState {
             Extern,
             For,
             Help,
+            HelpAliases,
             HelpCommands,
             HelpOperators,
             Hide,
