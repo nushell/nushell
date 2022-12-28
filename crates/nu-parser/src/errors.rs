@@ -35,7 +35,7 @@ pub enum ParseError {
     Unclosed(String, #[label("unclosed {0}")] Span),
 
     #[error("Unbalanced delimiter.")]
-    #[diagnostic(code(nu::parser::unclosed_delimiter), url(docsrs))]
+    #[diagnostic(code(nu::parser::unbalanced_delimiter), url(docsrs))]
     Unbalanced(String, String, #[label("unbalanced {0} and {1}")] Span),
 
     #[error("Parse mismatch during operation.")]

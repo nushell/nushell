@@ -5297,6 +5297,17 @@ pub fn parse_record(
     let mut start = span.start;
     let mut end = span.end;
 
+    if let false = balanced_pair_between_qoutes(b'{', b'}', bytes) {
+        return (
+            garbage(span),
+            Some(ParseError::Unbalanced(
+                "{".into(),
+                "}".into(),
+                Span::new(end, end),
+            )),
+        );
+    }
+
     if bytes.starts_with(b"{") {
         start += 1;
     } else {
@@ -5312,17 +5323,6 @@ pub fn parse_record(
         end -= 1;
     } else {
         error = error.or_else(|| Some(ParseError::Unclosed("}".into(), Span::new(end, end))));
-    }
-
-    if let false = balanced_pair_between_qoutes(b'{', b'}', bytes) {
-        return (
-            garbage(span),
-            Some(ParseError::Unbalanced(
-                "{".into(),
-                "}".into(),
-                Span::new(end, end),
-            )),
-        );
     }
 
     let inner_span = Span::new(start, end);
