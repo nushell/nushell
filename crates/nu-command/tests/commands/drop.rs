@@ -90,3 +90,10 @@ fn nth_missing_first_argument() {
 
     assert!(actual.err.contains("int or range"));
 }
+
+#[test]
+fn fail_on_non_iterator() {
+    let actual = nu!(cwd: ".", pipeline("1 | drop 50"));
+
+    assert!(actual.err.contains("Only supports for specific types."));
+}

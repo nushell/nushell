@@ -119,3 +119,10 @@ fn no_column_specified_fails() {
 
     assert!(actual.err.contains("missing parameter"));
 }
+
+#[test]
+fn fail_on_non_iterator() {
+    let actual = nu!(cwd: ".", pipeline("1 | sort-by"));
+
+    assert!(actual.err.contains("Only supports for specific types."));
+}

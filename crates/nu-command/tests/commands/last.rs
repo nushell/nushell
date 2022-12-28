@@ -91,3 +91,10 @@ fn last_errors_on_negative_index() {
 
     assert!(actual.err.contains("use a positive value"));
 }
+
+#[test]
+fn fail_on_non_iterator() {
+    let actual = nu!(cwd: ".", pipeline("1 | last"));
+
+    assert!(actual.err.contains("Only supports for specific types."));
+}

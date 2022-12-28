@@ -51,7 +51,7 @@ pub enum ShellError {
         #[label("value originates from here")] Span,
     ),
 
-    #[error("Pipeline mismatch.")]
+    #[error("Only supports for specific types.")]
     #[diagnostic(code(nu::shell::pipeline_mismatch), url(docsrs))]
     OnlySupportsThisInputType(
         String,

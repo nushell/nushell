@@ -50,3 +50,10 @@ fn condition_is_met() {
         assert_eq!(actual.out, "8");
     })
 }
+
+#[test]
+fn fail_on_non_iterator() {
+    let actual = nu!(cwd: ".", pipeline("1 | take until {|row| $row == 2}"));
+
+    assert!(actual.err.contains("Only supports for specific types."));
+}

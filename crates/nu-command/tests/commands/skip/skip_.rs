@@ -14,3 +14,10 @@ fn binary_skip() {
 
     assert_eq!(actual.out, "772");
 }
+
+#[test]
+fn fail_on_non_iterator() {
+    let actual = nu!(cwd: ".", pipeline("1 | skip 2"));
+
+    assert!(actual.err.contains("Only supports for specific types."));
+}
