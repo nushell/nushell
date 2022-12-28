@@ -84,7 +84,7 @@ not supported."#
         let redirect_stdout = call.redirect_stdout;
         let redirect_stderr = call.redirect_stderr;
         Ok(input
-            .into_iter()
+            .into_iter_strict(span)?
             .enumerate()
             .filter_map(move |(idx, value)| {
                 stack.with_env(&orig_env_vars, &orig_env_hidden);

@@ -196,6 +196,56 @@ impl PipelineData {
         }
     }
 
+    /// Try convert from self into iterator
+    ///
+    /// It returns Err if the `self` cannot be converted to an iterator.
+    pub fn into_iter_strict(self, span: Span) -> Result<PipelineIterator, ShellError> {
+        match self {
+            PipelineData::Value(val, metadata) => match val {
+                Value::List { vals, .. } => Ok(PipelineIterator(PipelineData::ListStream(
+                    ListStream {
+                        stream: Box::new(vals.into_iter()),
+                        ctrlc: None,
+                    },
+                    metadata,
+                ))),
+                Value::Binary { val, span } => Ok(PipelineIterator(PipelineData::ListStream(
+                    ListStream {
+                        stream: Box::new(val.into_iter().map(move |x| Value::int(x as i64, span))),
+                        ctrlc: None,
+                    },
+                    metadata,
+                ))),
+                Value::Range { val, .. } => match val.into_range_iter(None) {
+                    Ok(iter) => Ok(PipelineIterator(PipelineData::ListStream(
+                        ListStream {
+                            stream: Box::new(iter),
+                            ctrlc: None,
+                        },
+                        metadata,
+                    ))),
+                    Err(error) => Err(error),
+                },
+                // Propagate errors by explicitly matching them before the final case.
+                Value::Error { error } => Err(error),
+                other => Err(ShellError::OnlySupportsThisInputType(
+                    "list, binary, exernal stream or range".into(),
+                    other.get_type().to_string(),
+                    span,
+                    // This line requires the Value::Error match above.
+                    other.expect_span(),
+                )),
+            },
+            PipelineData::Empty => Err(ShellError::OnlySupportsThisInputType(
+                "list, binary, external stream or range".into(),
+                "null".into(),
+                span,
+                span, // TODO: make PipelineData::Empty spanned, so that the span can be used here.
+            )),
+            other => Ok(PipelineIterator(other)),
+        }
+    }
+
     pub fn into_interruptible_iter(self, ctrlc: Option<Arc<AtomicBool>>) -> PipelineIterator {
         let mut iter = self.into_iter();
 
