@@ -52,7 +52,7 @@ pub enum ShellError {
     ),
 
     #[error("Only supports for specific types.")]
-    #[diagnostic(code(nu::shell::pipeline_mismatch), url(docsrs))]
+    #[diagnostic(code(nu::shell::only_supports_this_input_type), url(docsrs))]
     OnlySupportsThisInputType(
         String,
         String,
