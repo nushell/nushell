@@ -5267,10 +5267,8 @@ fn balanced_pair_between_qoutes(open: u8, closed: u8, input: &[u8]) -> bool {
             if !in_qoute {
                 count += 1;
             }
-        } else if *c == closed {
-            if !in_qoute {
-                count -= 1;
-            }
+        } else if *c == closed && !in_qoute {
+            count -= 1;
         }
     }
 
