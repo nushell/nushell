@@ -86,6 +86,12 @@ impl<'e, 's> ScopeData<'e, 's> {
         }
     }
 
+    pub fn populate_modules(&mut self) {
+        for overlay_frame in self.engine_state.active_overlays(&[]) {
+            self.modules_map.extend(&overlay_frame.modules);
+        }
+    }
+
     pub fn collect_vars(&self, span: Span) -> Vec<Value> {
         let mut vars = vec![];
         for var in &self.vars_map {
@@ -494,9 +500,55 @@ impl<'e, 's> ScopeData<'e, 's> {
     pub fn collect_modules(&self, span: Span) -> Vec<Value> {
         let mut modules = vec![];
 
-        for module in &self.modules_map {
-            modules.push(Value::String {
-                val: String::from_utf8_lossy(module.0).to_string(),
+        for (module_name, module_id) in &self.modules_map {
+            let module = self.engine_state.get_module(**module_id);
+
+            let export_commands: Vec<Value> = module
+                .decls
+                .keys()
+                .map(|bytes| Value::string(String::from_utf8_lossy(bytes), span))
+                .collect();
+
+            let export_aliases: Vec<Value> = module
+                .aliases
+                .keys()
+                .map(|bytes| Value::string(String::from_utf8_lossy(bytes), span))
+                .collect();
+
+            let export_env_block = module.env_block.map_or_else(
+                || Value::nothing(span),
+                |block_id| Value::Block {
+                    val: block_id,
+                    span,
+                },
+            );
+
+            let module_usage = self
+                .engine_state
+                .build_module_usage(**module_id)
+                .unwrap_or_default();
+
+            modules.push(Value::Record {
+                cols: vec![
+                    "name".into(),
+                    "commands".into(),
+                    "aliases".into(),
+                    "env_block".into(),
+                    "usage".into(),
+                ],
+                vals: vec![
+                    Value::string(String::from_utf8_lossy(module_name), span),
+                    Value::List {
+                        vals: export_commands,
+                        span,
+                    },
+                    Value::List {
+                        vals: export_aliases,
+                        span,
+                    },
+                    export_env_block,
+                    Value::string(module_usage, span),
+                ],
                 span,
             });
         }

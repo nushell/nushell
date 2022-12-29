@@ -25,7 +25,7 @@ use crate::{
         parse_internal_call, parse_multispan_value, parse_signature, parse_string, parse_value,
         parse_var_with_opt_type, trim_quotes, ParsedInternalCall,
     },
-    unescape_unquote_string, ParseError,
+    unescape_unquote_string, ParseError, Token, TokenContents,
 };
 
 pub fn parse_def_predecl(
@@ -1277,11 +1277,41 @@ pub fn parse_export_env(
     (pipeline, Some(block_id), None)
 }
 
+fn collect_first_comments(tokens: &[Token]) -> Vec<Span> {
+    let mut comments = vec![];
+
+    let mut tokens_iter = tokens.iter().peekable();
+    while let Some(token) = tokens_iter.next() {
+        match token.contents {
+            TokenContents::Comment => {
+                comments.push(token.span);
+            }
+            TokenContents::Eol => {
+                if let Some(Token {
+                    contents: TokenContents::Eol,
+                    ..
+                }) = tokens_iter.peek()
+                {
+                    if !comments.is_empty() {
+                        break;
+                    }
+                }
+            }
+            _ => {
+                comments.clear();
+                break;
+            }
+        }
+    }
+
+    comments
+}
+
 pub fn parse_module_block(
     working_set: &mut StateWorkingSet,
     span: Span,
     expand_aliases_denylist: &[usize],
-) -> (Block, Module, Option<ParseError>) {
+) -> (Block, Module, Vec<Span>, Option<ParseError>) {
     let mut error = None;
 
     working_set.enter_scope();
@@ -1290,6 +1320,8 @@ pub fn parse_module_block(
 
     let (output, err) = lex(source, span.start, &[], &[], false);
     error = error.or(err);
+
+    let module_comments = collect_first_comments(&output);
 
     let (output, err) = lite_parse(&output);
     error = error.or(err);
@@ -1398,16 +1430,19 @@ pub fn parse_module_block(
 
     working_set.exit_scope();
 
-    (block, module, error)
+    (block, module, module_comments, error)
 }
 
 pub fn parse_module(
     working_set: &mut StateWorkingSet,
-    spans: &[Span],
+    lite_command: &LiteCommand,
     expand_aliases_denylist: &[usize],
 ) -> (Pipeline, Option<ParseError>) {
     // TODO: Currently, module is closing over its parent scope (i.e., defs in the parent scope are
     // visible and usable in this module's scope). We want to disable that for files.
+
+    let spans = &lite_command.parts;
+    let mut module_comments = lite_command.comments.clone();
 
     let mut error = None;
     let bytes = working_set.get_span_contents(spans[0]);
@@ -1442,12 +1477,14 @@ pub fn parse_module(
 
         let block_span = Span::new(start, end);
 
-        let (block, module, err) =
+        let (block, module, inner_comments, err) =
             parse_module_block(working_set, block_span, expand_aliases_denylist);
         error = error.or(err);
 
         let block_id = working_set.add_block(block);
-        let _ = working_set.add_module(&module_name, module);
+
+        module_comments.extend(inner_comments);
+        let _ = working_set.add_module(&module_name, module, module_comments);
 
         let block_expr = Expression {
             expr: Expr::Block(block_id),
@@ -1680,7 +1717,7 @@ pub fn parse_use(
                     working_set.parsed_module_files.push(module_path);
 
                     // Parse the module
-                    let (block, module, err) = parse_module_block(
+                    let (block, module, module_comments, err) = parse_module_block(
                         working_set,
                         Span::new(span_start, span_end),
                         expand_aliases_denylist,
@@ -1694,7 +1731,8 @@ pub fn parse_use(
                     working_set.currently_parsed_cwd = prev_currently_parsed_cwd;
 
                     let _ = working_set.add_block(block);
-                    let module_id = working_set.add_module(&module_name, module.clone());
+                    let module_id =
+                        working_set.add_module(&module_name, module.clone(), module_comments);
 
                     (
                         ImportPattern {
@@ -2266,7 +2304,7 @@ pub fn parse_overlay_new(
         custom_completion: None,
     }]);
 
-    let module_id = working_set.add_module(&overlay_name, Module::new());
+    let module_id = working_set.add_module(&overlay_name, Module::new(), vec![]);
 
     working_set.add_overlay(
         overlay_name.as_bytes().to_vec(),
@@ -2503,7 +2541,7 @@ pub fn parse_overlay_use(
                             working_set.currently_parsed_cwd.clone()
                         };
 
-                        let (block, module, err) = parse_module_block(
+                        let (block, module, module_comments, err) = parse_module_block(
                             working_set,
                             Span::new(span_start, span_end),
                             expand_aliases_denylist,
@@ -2514,7 +2552,8 @@ pub fn parse_overlay_use(
                         working_set.currently_parsed_cwd = prev_currently_parsed_cwd;
 
                         let _ = working_set.add_block(block);
-                        let module_id = working_set.add_module(&overlay_name, module.clone());
+                        let module_id =
+                            working_set.add_module(&overlay_name, module.clone(), module_comments);
 
                         (
                             new_name.map(|spanned| spanned.item).unwrap_or(overlay_name),
