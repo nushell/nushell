@@ -19,7 +19,7 @@ pub enum ParseError {
     #[diagnostic(code(nu::parser::extra_positional), url(docsrs), help("Usage: {0}"))]
     ExtraPositional(String, #[label = "extra positional argument"] Span),
 
-    #[error("Require positional parameter after optional parameter")]
+    #[error("Required positional parameter after optional parameter")]
     #[diagnostic(code(nu::parser::required_after_optional), url(docsrs))]
     RequiredAfterOptional(
         String,

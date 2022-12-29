@@ -20,6 +20,24 @@ export def e [arg] {echo $arg}
 }
 
 #[test]
+fn def_with_param_comment() {
+    Playground::setup("def_with_param_comment", |dirs, _| {
+        let data = r#"
+export def e [
+param:string #My cool attractive param
+] {echo $param};
+            "#;
+        fs::write(dirs.root().join("def_test"), data).expect("Unable to write file");
+        let actual = nu!(
+            cwd: dirs.root(),
+            "use def_test e; help e"
+        );
+
+        assert!(actual.out.contains(r#"My cool attractive param"#));
+    })
+}
+
+#[test]
 fn def_errors_with_multiple_short_flags() {
     let actual = nu!(
         cwd: ".", pipeline(
@@ -29,6 +47,79 @@ fn def_errors_with_multiple_short_flags() {
     ));
 
     assert!(actual.err.contains("expected only one short flag"));
+}
+
+#[test]
+fn def_errors_with_comma_before_alternative_short_flag() {
+    let actual = nu!(
+        cwd: ".", pipeline(
+        r#"
+        def test-command [ --long, (-l) ] {}
+        "#
+    ));
+
+    assert!(actual.err.contains("expected parameter"));
+}
+
+#[test]
+fn def_errors_with_comma_before_equals() {
+    let actual = nu!(
+        cwd: ".", pipeline(
+        r#"
+        def test-command [ foo, = 1 ] {}
+        "#
+    ));
+
+    assert!(actual.err.contains("expected parameter"));
+}
+
+#[test]
+fn def_errors_with_comma_before_colon() {
+    let actual = nu!(
+        cwd: ".", pipeline(
+        r#"
+        def test-command [ foo, : int ] {}
+        "#
+    ));
+
+    assert!(actual.err.contains("expected parameter"));
+}
+
+#[test]
+fn def_errors_with_multiple_colons() {
+    let actual = nu!(
+        cwd: ".", pipeline(
+        r#"
+        def test-command [ foo::int ] {}
+        "#
+    ));
+
+    assert!(actual.err.contains("expected type"));
+}
+
+#[ignore = "This error condition is not implemented yet"]
+#[test]
+fn def_errors_with_multiple_types() {
+    let actual = nu!(
+        cwd: ".", pipeline(
+        r#"
+        def test-command [ foo:int:string ] {}
+        "#
+    ));
+
+    assert!(actual.err.contains("expected parameter"));
+}
+
+#[test]
+fn def_errors_with_multiple_commas() {
+    let actual = nu!(
+        cwd: ".", pipeline(
+        r#"
+        def test-command [ foo,,bar ] {}
+        "#
+    ));
+
+    assert!(actual.err.contains("expected parameter"));
 }
 
 #[test]
