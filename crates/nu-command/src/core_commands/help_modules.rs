@@ -108,7 +108,6 @@ pub fn help_modules(
         const G: &str = "\x1b[32m"; // green
         const C: &str = "\x1b[36m"; // cyan
         const CB: &str = "\x1b[1;36m"; // cyan bold
-        const DB: &str = "\x1b[1;39m"; // default bold
         const RESET: &str = "\x1b[0m"; // reset
 
         let mut long_desc = String::new();
@@ -178,10 +177,10 @@ pub fn help_modules(
         }
 
         if module.env_block.is_some() {
-            long_desc.push_str(&format!("This module {DB}exports{RESET} environment."));
+            long_desc.push_str(&format!("This module {C}exports{RESET} environment."));
         } else {
             long_desc.push_str(&format!(
-                "This module {DB}does not export{RESET} environment."
+                "This module {C}does not export{RESET} environment."
             ));
         }
 
