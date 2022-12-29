@@ -28,12 +28,7 @@ impl Command for Ls {
     }
 
     fn usage(&self) -> &str {
-        "List the filenames, sizes, and modification times of items in a directory"
-    }
-
-    fn extra_usage(&self) -> &str {
-        r#"If you want to simply obtain a list of filenames matching a pattern,
-consider using `glob` instead."#
+        "List the filenames, sizes, and modification times of items in a directory."
     }
 
     fn search_terms(&self) -> Vec<&str> {
