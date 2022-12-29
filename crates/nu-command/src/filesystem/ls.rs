@@ -28,7 +28,7 @@ impl Command for Ls {
     }
 
     fn usage(&self) -> &str {
-        "List the files in a directory."
+        "List the filenames, sizes, and modification times of items in a directory."
     }
 
     fn search_terms(&self) -> Vec<&str> {
@@ -54,7 +54,7 @@ impl Command for Ls {
             .switch("full-paths", "display paths as absolute paths", Some('f'))
             .switch(
                 "du",
-                "Display the apparent directory size in place of the directory metadata size",
+                "Display the apparent directory size (\"disk usage\") in place of the directory metadata size",
                 Some('d'),
             )
             .switch(
@@ -62,7 +62,7 @@ impl Command for Ls {
                 "List the specified directory itself instead of its contents",
                 Some('D'),
             )
-            .switch("mime-type", "Show mime-type in type column", Some('m'))
+            .switch("mime-type", "Show mime-type in type column instead of 'file' (based on filenames only; files' contents are not examined)", Some('m'))
             .category(Category::FileSystem)
     }
 
