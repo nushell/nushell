@@ -51,7 +51,7 @@ fn fails_on_string() {
             "#
     ));
 
-    assert!(actual.err.contains("pipeline_mismatch"));
+    assert!(actual.err.contains("Only supports for specific types."));
 }
 
 #[test]
