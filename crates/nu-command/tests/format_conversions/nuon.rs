@@ -320,7 +320,6 @@ fn to_nuon_quotes_empty_string_in_list() {
     assert_eq!(actual.out, "true")
 }
 
-
 #[test]
 fn to_nuon_quotes_empty_string_in_table() {
     let actual = nu!(
