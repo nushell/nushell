@@ -70,11 +70,16 @@ impl Command for Zip {
             },
             Example {
                 example: "1..3 | zip 4..6",
-                description: "Zip two streams",
+                description: "Zip two ranges",
                 result: Some(Value::List {
                     vals: vec![test_row_1, test_row_2, test_row_3],
                     span: Span::test_data(),
                 }),
+            },
+            Example {
+                example: "glob *.ogg | zip ['bang.ogg', 'fanfare.ogg', 'laser.ogg'] | each { mv $in.0 $in.1 }",
+                description: "Rename .ogg files to match an existing list of filenames",
+                result: None,
             },
         ]
     }
