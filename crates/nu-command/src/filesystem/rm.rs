@@ -126,7 +126,7 @@ impl Command for Rm {
         });
         examples.push(Example {
             description: "Delete all 0KB files in the current directory",
-            example: "ls | where size == 0KB && type == file | each { rm $in.name } | null",
+            example: "ls | where size == 0KB and type == file | each { rm $in.name } | null",
             result: None,
         });
         examples
