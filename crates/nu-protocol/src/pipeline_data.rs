@@ -229,7 +229,7 @@ impl PipelineData {
                 // Propagate errors by explicitly matching them before the final case.
                 Value::Error { error } => Err(error),
                 other => Err(ShellError::OnlySupportsThisInputType(
-                    "list, binary, exernal stream or range".into(),
+                    "list, binary, raw data or range".into(),
                     other.get_type().to_string(),
                     span,
                     // This line requires the Value::Error match above.
@@ -237,7 +237,7 @@ impl PipelineData {
                 )),
             },
             PipelineData::Empty => Err(ShellError::OnlySupportsThisInputType(
-                "list, binary, external stream or range".into(),
+                "list, binary, raw data or range".into(),
                 "null".into(),
                 span,
                 span, // TODO: make PipelineData::Empty spanned, so that the span can be used here.
