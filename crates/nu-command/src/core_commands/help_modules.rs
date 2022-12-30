@@ -123,8 +123,14 @@ pub fn help_modules(
         if !module.decls.is_empty() {
             let commands: Vec<(Vec<u8>, DeclId)> = engine_state.get_decls_sorted(false).collect();
 
-            let commands_str = module
+            let mut module_commands: Vec<(&[u8], DeclId)> = module
                 .decls
+                .iter()
+                .map(|(name, id)| (name.as_ref(), *id))
+                .collect();
+            module_commands.sort_by(|a, b| a.0.cmp(b.0));
+
+            let commands_str = module_commands
                 .iter()
                 .map(|(name_bytes, id)| {
                     let name = String::from_utf8_lossy(name_bytes);
@@ -151,8 +157,14 @@ pub fn help_modules(
         if !module.aliases.is_empty() {
             let aliases: Vec<(Vec<u8>, AliasId)> = engine_state.get_aliases_sorted(false).collect();
 
-            let aliases_str = module
+            let mut module_aliases: Vec<(&[u8], AliasId)> = module
                 .aliases
+                .iter()
+                .map(|(name, id)| (name.as_ref(), *id))
+                .collect();
+            module_aliases.sort_by(|a, b| a.0.cmp(b.0));
+
+            let aliases_str = module_aliases
                 .iter()
                 .map(|(name_bytes, id)| {
                     let name = String::from_utf8_lossy(name_bytes);

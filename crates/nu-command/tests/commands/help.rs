@@ -223,3 +223,43 @@ fn help_module_name() {
         assert!(actual.out.contains("SPAM"));
     })
 }
+
+#[test]
+fn help_module_sorted_decls() {
+    Playground::setup("help_module_sorted_decls", |dirs, sandbox| {
+        sandbox.with_files(vec![FileWithContent(
+            "spam.nu",
+            r#"
+                module SPAM {
+                    export def z [] {}
+                    export def a [] {}
+                }
+            "#,
+        )]);
+
+        let code = &["source spam.nu", "help modules SPAM"];
+        let actual = nu!(cwd: dirs.test(), nu_repl_code(code));
+
+        assert!(actual.out.contains("a, z"));
+    })
+}
+
+#[test]
+fn help_module_sorted_aliases() {
+    Playground::setup("help_module_sorted_aliases", |dirs, sandbox| {
+        sandbox.with_files(vec![FileWithContent(
+            "spam.nu",
+            r#"
+                module SPAM {
+                    export alias z = 'z'
+                    export alias a = 'a'
+                }
+            "#,
+        )]);
+
+        let code = &["source spam.nu", "help modules SPAM"];
+        let actual = nu!(cwd: dirs.test(), nu_repl_code(code));
+
+        assert!(actual.out.contains("a, z"));
+    })
+}
