@@ -5845,7 +5845,7 @@ pub fn discover_captures_in_expr(
 
 fn wrap_element_with_collect(
     working_set: &mut StateWorkingSet,
-    element: &PipelineElement,
+    element: &mut PipelineElement,
 ) -> PipelineElement {
     match element {
         PipelineElement::Expression(span, expression) => {
@@ -5867,7 +5867,7 @@ fn wrap_element_with_collect(
     }
 }
 
-fn wrap_expr_with_collect(working_set: &mut StateWorkingSet, expr: &Expression) -> Expression {
+fn wrap_expr_with_collect(working_set: &mut StateWorkingSet, expr: &mut Expression) -> Expression {
     let span = expr.span;
 
     if let Some(decl_id) = working_set.find_decl(b"collect", &Type::Any) {
@@ -5883,7 +5883,7 @@ fn wrap_expr_with_collect(working_set: &mut StateWorkingSet, expr: &Expression) 
             default_value: None,
         });
 
-        let mut expr = expr.clone();
+        let mut expr = std::mem::take(expr);
         expr.replace_in_variable(working_set, var_id);
 
         let block = Block {

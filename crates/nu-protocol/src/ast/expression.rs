@@ -13,6 +13,17 @@ pub struct Expression {
     pub custom_completion: Option<DeclId>,
 }
 
+impl Default for Expression {
+    fn default() -> Self {
+        Expression {
+            expr: Expr::Nothing,
+            span: Span::unknown(),
+            ty: Type::Nothing,
+            custom_completion: None,
+        }
+    }
+}
+
 impl Expression {
     pub fn garbage(span: Span) -> Expression {
         Expression {
