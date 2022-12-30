@@ -31,7 +31,7 @@ impl Command for Shuffle {
         &self,
         engine_state: &EngineState,
         _stack: &mut Stack,
-        _call: &Call,
+        call: &Call,
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
         let metadata = input.metadata();
@@ -39,7 +39,7 @@ impl Command for Shuffle {
         v.shuffle(&mut thread_rng());
         let iter = v.into_iter();
         Ok(iter
-            .into_pipeline_data(engine_state.ctrlc.clone())
+            .into_pipeline_data(call.head, engine_state.ctrlc.clone())
             .set_metadata(metadata))
     }
 

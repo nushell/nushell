@@ -260,7 +260,7 @@ fn handle_table_command(
         PipelineData::Value(Value::List { vals, .. }, metadata) => handle_row_stream(
             engine_state,
             stack,
-            ListStream::from_stream(vals.into_iter(), ctrlc.clone()),
+            ListStream::from_stream(vals.into_iter(), call.head, ctrlc.clone()),
             call,
             row_offset,
             ctrlc,
@@ -345,7 +345,11 @@ fn handle_table_command(
         PipelineData::Value(Value::Range { val, .. }, metadata) => handle_row_stream(
             engine_state,
             stack,
-            ListStream::from_stream(val.into_range_iter(ctrlc.clone())?, ctrlc.clone()),
+            ListStream::from_stream(
+                val.into_range_iter(ctrlc.clone())?,
+                call.head,
+                ctrlc.clone(),
+            ),
             call,
             row_offset,
             ctrlc,
@@ -652,6 +656,7 @@ fn handle_row_stream(
                     }
                     _ => x,
                 }),
+                call.head,
                 ctrlc,
             )
         }
@@ -692,6 +697,7 @@ fn handle_row_stream(
                     }
                     _ => x,
                 }),
+                call.head,
                 ctrlc,
             )
         }

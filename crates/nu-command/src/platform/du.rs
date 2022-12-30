@@ -174,7 +174,7 @@ impl Command for Du {
             }
         }
 
-        Ok(output.into_pipeline_data(engine_state.ctrlc.clone()))
+        Ok(output.into_pipeline_data(call.head, engine_state.ctrlc.clone()))
     }
 
     fn examples(&self) -> Vec<Example> {

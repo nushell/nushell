@@ -147,6 +147,6 @@ impl Command for Glob {
 
         Ok(glob_results
             .into_iter()
-            .into_pipeline_data(engine_state.ctrlc.clone()))
+            .into_pipeline_data(call.head, engine_state.ctrlc.clone()))
     }
 }

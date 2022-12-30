@@ -93,7 +93,7 @@ pub fn help_aliases(
 
         return Ok(found_cmds_vec
             .into_iter()
-            .into_pipeline_data(engine_state.ctrlc.clone()));
+            .into_pipeline_data(call.head, engine_state.ctrlc.clone()));
     }
 
     if rest.is_empty() {
@@ -101,7 +101,7 @@ pub fn help_aliases(
 
         Ok(found_cmds_vec
             .into_iter()
-            .into_pipeline_data(engine_state.ctrlc.clone()))
+            .into_pipeline_data(call.head, engine_state.ctrlc.clone()))
     } else {
         let mut name = String::new();
 

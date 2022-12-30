@@ -270,7 +270,7 @@ fn which(
         output.extend(values);
     }
 
-    Ok(output.into_iter().into_pipeline_data(ctrlc))
+    Ok(output.into_iter().into_pipeline_data(call.head, ctrlc))
 }
 
 #[cfg(test)]

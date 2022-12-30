@@ -210,7 +210,7 @@ fn operate(
     }
 
     Ok(PipelineData::ListStream(
-        ListStream::from_stream(parsed.into_iter(), ctrlc),
+        ListStream::from_stream(parsed.into_iter(), call.head, ctrlc),
         None,
     ))
 }

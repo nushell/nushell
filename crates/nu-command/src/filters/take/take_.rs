@@ -58,7 +58,7 @@ impl Command for Take {
                 Value::List { vals, .. } => Ok(vals
                     .into_iter()
                     .take(rows_desired)
-                    .into_pipeline_data(ctrlc)
+                    .into_pipeline_data(call.head, ctrlc)
                     .set_metadata(metadata)),
                 Value::Binary { val, span } => {
                     let slice: Vec<u8> = val.into_iter().take(rows_desired).collect();
@@ -70,7 +70,7 @@ impl Command for Take {
                 Value::Range { val, .. } => Ok(val
                     .into_range_iter(ctrlc.clone())?
                     .take(rows_desired)
-                    .into_pipeline_data(ctrlc)
+                    .into_pipeline_data(call.head, ctrlc)
                     .set_metadata(metadata)),
                 // Propagate errors by explicitly matching them before the final case.
                 Value::Error { error } => Err(error),
@@ -84,7 +84,7 @@ impl Command for Take {
             },
             PipelineData::ListStream(ls, metadata) => Ok(ls
                 .take(rows_desired)
-                .into_pipeline_data(ctrlc)
+                .into_pipeline_data(call.head, ctrlc)
                 .set_metadata(metadata)),
             PipelineData::ExternalStream { span, .. } => {
                 Err(ShellError::OnlySupportsThisInputType(

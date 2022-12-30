@@ -143,7 +143,7 @@ impl Command for Skip {
             _ => Ok(input
                 .into_iter()
                 .skip(n)
-                .into_pipeline_data(ctrlc)
+                .into_pipeline_data(call.head, ctrlc)
                 .set_metadata(metadata)),
         }
     }

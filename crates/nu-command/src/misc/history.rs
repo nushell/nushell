@@ -111,7 +111,7 @@ impl Command for History {
                                 })
                         })
                         .ok_or(ShellError::FileNotFound(head))?
-                        .into_pipeline_data(ctrlc)),
+                        .into_pipeline_data(call.head, ctrlc)),
                     HistoryFileFormat::Sqlite => Ok(history_reader
                         .and_then(|h| {
                             h.search(SearchQuery::everything(SearchDirection::Forward))
@@ -123,7 +123,7 @@ impl Command for History {
                             })
                         })
                         .ok_or(ShellError::FileNotFound(head))?
-                        .into_pipeline_data(ctrlc)),
+                        .into_pipeline_data(call.head, ctrlc)),
                 }
             }
         } else {

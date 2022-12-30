@@ -782,7 +782,7 @@ fn generate_ansi_code_list(
                 span: call_span,
             }
         })
-        .into_pipeline_data(engine_state.ctrlc.clone()));
+        .into_pipeline_data(call_span, engine_state.ctrlc.clone()));
 }
 
 fn build_ansi_hashmap(v: &[AnsiCode]) -> HashMap<&str, &str> {

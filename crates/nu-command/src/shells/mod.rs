@@ -143,5 +143,5 @@ fn list_shells(
             ],
             span,
         })
-        .into_pipeline_data(None))
+        .into_pipeline_data(span, None))
 }

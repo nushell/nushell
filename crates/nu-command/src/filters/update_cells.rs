@@ -165,7 +165,7 @@ impl Command for UpdateCells {
             redirect_stderr,
             span,
         }
-        .into_pipeline_data(ctrlc)
+        .into_pipeline_data(call.head, ctrlc)
         .set_metadata(metadata))
     }
 }

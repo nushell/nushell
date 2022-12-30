@@ -136,7 +136,7 @@ impl Command for Window {
         };
 
         Ok(each_group_iterator
-            .into_pipeline_data(ctrlc)
+            .into_pipeline_data(call.head, ctrlc)
             .set_metadata(metadata))
     }
 }

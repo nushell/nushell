@@ -164,9 +164,9 @@ impl Command for Move {
                 });
 
                 if let Some(md) = metadata {
-                    Ok(res.into_pipeline_data_with_metadata(md, ctrlc))
+                    Ok(res.into_pipeline_data_with_metadata(call.head, md, ctrlc))
                 } else {
-                    Ok(res.into_pipeline_data(ctrlc))
+                    Ok(res.into_pipeline_data(call.head, ctrlc))
                 }
             }
             PipelineData::Value(

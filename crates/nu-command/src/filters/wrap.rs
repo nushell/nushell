@@ -50,7 +50,7 @@ impl Command for Wrap {
                     vals: vec![x],
                     span,
                 })
-                .into_pipeline_data(engine_state.ctrlc.clone())
+                .into_pipeline_data(call.head, engine_state.ctrlc.clone())
                 .set_metadata(metadata)),
             PipelineData::ExternalStream { .. } => Ok(Value::Record {
                 cols: vec![name],

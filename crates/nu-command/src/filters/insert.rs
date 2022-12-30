@@ -190,7 +190,7 @@ fn insert(
                 .into_iter()
                 .chain(vec![replacement])
                 .chain(input)
-                .into_pipeline_data(ctrlc));
+                .into_pipeline_data(call.head, ctrlc));
         }
         input.map(
             move |mut input| {

@@ -132,7 +132,7 @@ fn select(
             skip: false,
             current: 0,
         }
-        .into_pipeline_data(engine_state.ctrlc.clone())
+        .into_pipeline_data(call_span, engine_state.ctrlc.clone())
         .set_metadata(metadata)
     } else {
         input
@@ -181,7 +181,7 @@ fn select(
 
             Ok(output
                 .into_iter()
-                .into_pipeline_data(engine_state.ctrlc.clone())
+                .into_pipeline_data(call_span, engine_state.ctrlc.clone())
                 .set_metadata(metadata))
         }
         PipelineData::ListStream(stream, metadata, ..) => {
@@ -217,7 +217,7 @@ fn select(
             }
 
             Ok(values
-                .into_pipeline_data(engine_state.ctrlc.clone())
+                .into_pipeline_data(call_span, engine_state.ctrlc.clone())
                 .set_metadata(metadata))
         }
         PipelineData::Value(v, metadata, ..) => {

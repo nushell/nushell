@@ -150,5 +150,5 @@ fn run_ps(engine_state: &EngineState, call: &Call) -> Result<PipelineData, Shell
 
     Ok(output
         .into_iter()
-        .into_pipeline_data(engine_state.ctrlc.clone()))
+        .into_pipeline_data(call.head, engine_state.ctrlc.clone()))
 }

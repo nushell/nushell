@@ -95,7 +95,7 @@ impl Command for Get {
                 }
             }
 
-            Ok(output.into_iter().into_pipeline_data(ctrlc))
+            Ok(output.into_iter().into_pipeline_data(call.head, ctrlc))
         }
         .map(|x| x.set_metadata(metadata))
     }

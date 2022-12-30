@@ -354,7 +354,9 @@ pub fn transpose(
             metadata,
         ))
     } else {
-        Ok(result_data.into_pipeline_data(ctrlc).set_metadata(metadata))
+        Ok(result_data
+            .into_pipeline_data(call.head, ctrlc)
+            .set_metadata(metadata))
     }
 }
 

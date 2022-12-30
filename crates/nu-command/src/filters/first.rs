@@ -118,7 +118,7 @@ fn first_helper(
                     Ok(vals
                         .into_iter()
                         .take(rows_desired)
-                        .into_pipeline_data(ctrlc)
+                        .into_pipeline_data(call.head, ctrlc)
                         .set_metadata(metadata))
                 }
             }
@@ -136,7 +136,7 @@ fn first_helper(
                     Ok(val
                         .into_range_iter(ctrlc.clone())?
                         .take(rows_desired)
-                        .into_pipeline_data(ctrlc)
+                        .into_pipeline_data(call.head, ctrlc)
                         .set_metadata(metadata))
                 }
             }
@@ -160,7 +160,7 @@ fn first_helper(
             } else {
                 Ok(ls
                     .take(rows_desired)
-                    .into_pipeline_data(ctrlc)
+                    .into_pipeline_data(call.head, ctrlc)
                     .set_metadata(metadata))
             }
         }

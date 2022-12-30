@@ -142,7 +142,7 @@ impl Command for ParEach {
                 .collect::<Vec<_>>()
                 .into_iter()
                 .flatten()
-                .into_pipeline_data(ctrlc)),
+                .into_pipeline_data(call.head, ctrlc)),
             PipelineData::Value(Value::List { vals: val, .. }, ..) => Ok(val
                 .into_iter()
                 .enumerate()
@@ -206,7 +206,7 @@ impl Command for ParEach {
                 .collect::<Vec<_>>()
                 .into_iter()
                 .flatten()
-                .into_pipeline_data(ctrlc)),
+                .into_pipeline_data(call.head, ctrlc)),
             PipelineData::ListStream(stream, ..) => Ok(stream
                 .enumerate()
                 .par_bridge()
@@ -269,7 +269,7 @@ impl Command for ParEach {
                 .collect::<Vec<_>>()
                 .into_iter()
                 .flatten()
-                .into_pipeline_data(ctrlc)),
+                .into_pipeline_data(call.head, ctrlc)),
             PipelineData::ExternalStream { stdout: None, .. } => Ok(PipelineData::empty()),
             PipelineData::ExternalStream {
                 stdout: Some(stream),
@@ -337,7 +337,7 @@ impl Command for ParEach {
                 .collect::<Vec<_>>()
                 .into_iter()
                 .flatten()
-                .into_pipeline_data(ctrlc)),
+                .into_pipeline_data(call.head, ctrlc)),
             // This match allows non-iterables to be accepted,
             // which is currently considered undesirable (Nov 2022).
             PipelineData::Value(x, ..) => {

@@ -112,7 +112,7 @@ impl Command for SkipUntil {
                     pipeline_data.into_value(span).is_true()
                 })
             })
-            .into_pipeline_data(ctrlc)
+            .into_pipeline_data(call.head, ctrlc)
             .set_metadata(metadata))
     }
 }

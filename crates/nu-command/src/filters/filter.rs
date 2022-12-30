@@ -118,7 +118,7 @@ a variable. On the other hand, the "row condition" syntax is not supported."#
                         }),
                     }
                 })
-                .into_pipeline_data(ctrlc)),
+                .into_pipeline_data(call.head, ctrlc)),
             PipelineData::ExternalStream { stdout: None, .. } => Ok(PipelineData::empty()),
             PipelineData::ExternalStream {
                 stdout: Some(stream),
@@ -174,7 +174,7 @@ a variable. On the other hand, the "row condition" syntax is not supported."#
                         }),
                     }
                 })
-                .into_pipeline_data(ctrlc)),
+                .into_pipeline_data(call.head, ctrlc)),
             // This match allows non-iterables to be accepted,
             // which is currently considered undesirable (Nov 2022).
             PipelineData::Value(x, ..) => {
@@ -206,7 +206,7 @@ a variable. On the other hand, the "row condition" syntax is not supported."#
                         error: chain_error_with_input(error, x.span()),
                     }),
                 }
-                .into_pipeline_data(ctrlc))
+                .into_pipeline_data(call.head, ctrlc))
             }
         }
         .map(|x| x.set_metadata(metadata))

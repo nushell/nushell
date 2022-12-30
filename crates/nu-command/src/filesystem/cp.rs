@@ -280,13 +280,13 @@ impl Command for Cp {
         }
 
         if verbose {
-            Ok(result.into_iter().into_pipeline_data(ctrlc))
+            Ok(result.into_iter().into_pipeline_data(call.head, ctrlc))
         } else {
             // filter to only errors
             Ok(result
                 .into_iter()
                 .filter(|v| matches!(v, Value::Error { .. }))
-                .into_pipeline_data(ctrlc))
+                .into_pipeline_data(call.head, ctrlc))
         }
     }
 

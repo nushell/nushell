@@ -133,9 +133,9 @@ repeating this process with row 1, and so on."#
                         });
 
                 if let Some(md) = metadata {
-                    Ok(res.into_pipeline_data_with_metadata(md, ctrlc))
+                    Ok(res.into_pipeline_data_with_metadata(call.head, md, ctrlc))
                 } else {
-                    Ok(res.into_pipeline_data(ctrlc))
+                    Ok(res.into_pipeline_data(call.head, ctrlc))
                 }
             }
             // record

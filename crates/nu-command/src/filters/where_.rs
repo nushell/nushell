@@ -128,7 +128,7 @@ not supported."#
                     Err(err) => Some(Value::Error { error: err }),
                 }
             })
-            .into_pipeline_data(ctrlc))
+            .into_pipeline_data(call.head, ctrlc))
         .map(|x| x.set_metadata(metadata))
     }
 

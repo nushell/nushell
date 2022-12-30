@@ -81,7 +81,7 @@ impl Command for Last {
             0 => {
                 // early exit for `last 0`
                 return Ok(Vec::<Value>::new()
-                    .into_pipeline_data(engine_state.ctrlc.clone())
+                    .into_pipeline_data(call.head, engine_state.ctrlc.clone())
                     .set_metadata(metadata));
             }
             i if i < 0 => {
@@ -102,7 +102,7 @@ impl Command for Last {
 
         if rows.is_some() {
             Ok(buf
-                .into_pipeline_data(engine_state.ctrlc.clone())
+                .into_pipeline_data(call.head, engine_state.ctrlc.clone())
                 .set_metadata(metadata))
         } else {
             let last = buf.pop_back();

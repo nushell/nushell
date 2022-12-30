@@ -103,7 +103,7 @@ impl Command for Zip {
                 vals: vec![x, y],
                 span: head,
             })
-            .into_pipeline_data(ctrlc)
+            .into_pipeline_data(call.head, ctrlc)
             .set_metadata(metadata))
     }
 }

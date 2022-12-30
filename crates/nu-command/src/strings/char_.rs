@@ -239,7 +239,7 @@ impl Command for Char {
                         span: call_span,
                     }
                 })
-                .into_pipeline_data(engine_state.ctrlc.clone()));
+                .into_pipeline_data(call.head, engine_state.ctrlc.clone()));
         }
         // handle -u flag
         if call.has_flag("integer") {

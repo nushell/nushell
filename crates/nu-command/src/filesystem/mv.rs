@@ -212,7 +212,7 @@ impl Command for Mv {
                     None
                 }
             })
-            .into_pipeline_data(ctrlc))
+            .into_pipeline_data(call.head, ctrlc))
     }
 
     fn examples(&self) -> Vec<Example> {

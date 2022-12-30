@@ -69,7 +69,7 @@ impl Command for Lines {
                     }
                 });
 
-                Ok(iter.into_pipeline_data(engine_state.ctrlc.clone()))
+                Ok(iter.into_pipeline_data(call.head, engine_state.ctrlc.clone()))
             }
             PipelineData::Empty => Ok(PipelineData::Empty),
             PipelineData::ListStream(stream, ..) => {
@@ -107,7 +107,7 @@ impl Command for Lines {
                     })
                     .flatten();
 
-                Ok(iter.into_pipeline_data(engine_state.ctrlc.clone()))
+                Ok(iter.into_pipeline_data(call.head, engine_state.ctrlc.clone()))
             }
             PipelineData::Value(val, ..) => {
                 match val {
@@ -132,7 +132,7 @@ impl Command for Lines {
                     Ok(x) => x,
                     Err(err) => Value::Error { error: err },
                 })
-                .into_pipeline_data(ctrlc)),
+                .into_pipeline_data(call.head, ctrlc)),
         }
     }
 

@@ -102,7 +102,7 @@ impl Command for Drop {
 
         if rows_to_drop == 0 {
             Ok(v.into_iter()
-                .into_pipeline_data(engine_state.ctrlc.clone())
+                .into_pipeline_data(call.head, engine_state.ctrlc.clone())
                 .set_metadata(metadata))
         } else {
             let k = if vlen < rows_to_drop {
@@ -113,7 +113,7 @@ impl Command for Drop {
 
             let iter = v.into_iter().take(k as usize);
             Ok(iter
-                .into_pipeline_data(engine_state.ctrlc.clone())
+                .into_pipeline_data(call.head, engine_state.ctrlc.clone())
                 .set_metadata(metadata))
         }
     }

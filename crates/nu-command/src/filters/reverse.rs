@@ -66,7 +66,7 @@ impl Command for Reverse {
         &self,
         engine_state: &EngineState,
         _stack: &mut Stack,
-        _call: &Call,
+        call: &Call,
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
         let metadata = input.metadata();
@@ -75,7 +75,7 @@ impl Command for Reverse {
         let v: Vec<_> = input.into_iter().collect();
         let iter = v.into_iter().rev();
         Ok(iter
-            .into_pipeline_data(engine_state.ctrlc.clone())
+            .into_pipeline_data(call.head, engine_state.ctrlc.clone())
             .set_metadata(metadata))
     }
 }

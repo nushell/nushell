@@ -187,6 +187,7 @@ impl Iterator for RawStream {
 /// and the stream cannot be replayed.
 pub struct ListStream {
     pub stream: Box<dyn Iterator<Item = Value> + Send + 'static>,
+    pub span: Span,
     pub ctrlc: Option<Arc<AtomicBool>>,
 }
 
@@ -199,11 +200,13 @@ impl ListStream {
 
     pub fn from_stream(
         input: impl Iterator<Item = Value> + Send + 'static,
+        span: Span,
         ctrlc: Option<Arc<AtomicBool>>,
     ) -> ListStream {
         ListStream {
             stream: Box::new(input),
             ctrlc,
+            span,
         }
     }
 }

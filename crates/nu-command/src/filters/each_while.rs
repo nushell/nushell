@@ -168,7 +168,7 @@ impl Command for EachWhile {
                     }
                 })
                 .fuse()
-                .into_pipeline_data(ctrlc)),
+                .into_pipeline_data(call.head, ctrlc)),
             PipelineData::ExternalStream { stdout: None, .. } => Ok(PipelineData::empty()),
             PipelineData::ExternalStream {
                 stdout: Some(stream),
@@ -230,7 +230,7 @@ impl Command for EachWhile {
                     }
                 })
                 .fuse()
-                .into_pipeline_data(ctrlc)),
+                .into_pipeline_data(call.head, ctrlc)),
             // This match allows non-iterables to be accepted,
             // which is currently considered undesirable (Nov 2022).
             PipelineData::Value(x, ..) => {

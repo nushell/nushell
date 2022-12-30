@@ -178,7 +178,7 @@ fn detect_columns(
                 span: name_span,
             }
         })
-        .into_pipeline_data(ctrlc))
+        .into_pipeline_data(call.head, ctrlc))
     } else {
         Ok(PipelineData::empty())
     }

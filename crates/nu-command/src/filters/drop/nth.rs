@@ -167,14 +167,14 @@ impl Command for DropNth {
                 .into_iter()
                 .take(lower_bound)
                 .collect::<Vec<_>>()
-                .into_pipeline_data(engine_state.ctrlc.clone()))
+                .into_pipeline_data(call.head, engine_state.ctrlc.clone()))
         } else {
             Ok(DropNthIterator {
                 input: input.into_iter(),
                 rows,
                 current: 0,
             }
-            .into_pipeline_data(engine_state.ctrlc.clone()))
+            .into_pipeline_data(call.head, engine_state.ctrlc.clone()))
         }
     }
 }

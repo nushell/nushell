@@ -146,6 +146,7 @@ impl Command for Do {
                     stderr,
                     exit_code: Some(ListStream::from_stream(
                         exit_code.into_iter(),
+                        call.head,
                         exit_code_ctrlc,
                     )),
                     span,

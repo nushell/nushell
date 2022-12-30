@@ -85,7 +85,7 @@ impl Command for Every {
                     None
                 }
             })
-            .into_pipeline_data(engine_state.ctrlc.clone())
+            .into_pipeline_data(call.head, engine_state.ctrlc.clone())
             .set_metadata(metadata))
     }
 }

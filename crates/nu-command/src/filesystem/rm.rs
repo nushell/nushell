@@ -450,5 +450,5 @@ fn rm(
             }
         })
         .filter(|x| !matches!(x.get_type(), Type::Nothing))
-        .into_pipeline_data(ctrlc))
+        .into_pipeline_data(call.head, ctrlc))
 }

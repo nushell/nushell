@@ -118,7 +118,7 @@ fn dropcol(
 
             Ok(output
                 .into_iter()
-                .into_pipeline_data(engine_state.ctrlc.clone()))
+                .into_pipeline_data(span, engine_state.ctrlc.clone()))
         }
         PipelineData::ListStream(stream, ..) => {
             let mut output = vec![];
@@ -142,7 +142,7 @@ fn dropcol(
 
             Ok(output
                 .into_iter()
-                .into_pipeline_data(engine_state.ctrlc.clone()))
+                .into_pipeline_data(span, engine_state.ctrlc.clone()))
         }
         PipelineData::Value(v, ..) => {
             let mut cols = vec![];

@@ -147,7 +147,7 @@ fn values(
             match get_values(&vals, head, span) {
                 Ok(cols) => Ok(cols
                     .into_iter()
-                    .into_pipeline_data(ctrlc)
+                    .into_pipeline_data(head, ctrlc)
                     .set_metadata(metadata)),
                 Err(err) => Err(err),
             }
@@ -157,7 +157,7 @@ fn values(
             match get_values(&[input_as_base_value], head, span) {
                 Ok(cols) => Ok(cols
                     .into_iter()
-                    .into_pipeline_data(ctrlc)
+                    .into_pipeline_data(head, ctrlc)
                     .set_metadata(metadata)),
                 Err(err) => Err(err),
             }
@@ -167,13 +167,13 @@ fn values(
             match get_values(&vals, head, head) {
                 Ok(cols) => Ok(cols
                     .into_iter()
-                    .into_pipeline_data(ctrlc)
+                    .into_pipeline_data(head, ctrlc)
                     .set_metadata(metadata)),
                 Err(err) => Err(err),
             }
         }
         PipelineData::Value(Value::Record { vals, .. }, ..) => {
-            Ok(vals.into_pipeline_data(ctrlc).set_metadata(metadata))
+            Ok(vals.into_pipeline_data(head, ctrlc).set_metadata(metadata))
         }
         // Propagate errors
         PipelineData::Value(Value::Error { error }, ..) => Err(error),

@@ -175,9 +175,12 @@ impl Command for Sort {
 
                 let iter = vec.into_iter();
                 match metadata {
-                    Some(m) => Ok(iter
-                        .into_pipeline_data_with_metadata(m.clone(), engine_state.ctrlc.clone())),
-                    None => Ok(iter.into_pipeline_data(engine_state.ctrlc.clone())),
+                    Some(m) => Ok(iter.into_pipeline_data_with_metadata(
+                        call.head,
+                        m.clone(),
+                        engine_state.ctrlc.clone(),
+                    )),
+                    None => Ok(iter.into_pipeline_data(call.head, engine_state.ctrlc.clone())),
                 }
             }
         }

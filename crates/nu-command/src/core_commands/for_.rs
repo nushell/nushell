@@ -82,8 +82,8 @@ impl Command for For {
         let redirect_stderr = call.redirect_stderr;
 
         match values {
-            Value::List { vals, .. } => {
-                for (idx, x) in ListStream::from_stream(vals.into_iter(), ctrlc).enumerate() {
+            Value::List { vals, span } => {
+                for (idx, x) in ListStream::from_stream(vals.into_iter(), span, ctrlc).enumerate() {
                     // with_env() is used here to ensure that each iteration uses
                     // a different set of environment variables.
                     // Hence, a 'cd' in the first loop won't affect the next loop.

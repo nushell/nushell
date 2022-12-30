@@ -596,7 +596,7 @@ pub fn eval_expression(
 
             parts
                 .into_iter()
-                .into_pipeline_data(None)
+                .into_pipeline_data(expr.span, None)
                 .collect_string("", config)
                 .map(|x| Value::String {
                     val: x,

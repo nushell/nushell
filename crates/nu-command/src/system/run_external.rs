@@ -491,6 +491,7 @@ impl ExternalCommand {
                     },
                     exit_code: Some(ListStream::from_stream(
                         Box::new(exit_code_receiver),
+                        head,
                         output_ctrlc,
                     )),
                     span: head,

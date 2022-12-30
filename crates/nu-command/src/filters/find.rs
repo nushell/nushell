@@ -443,9 +443,10 @@ fn find_with_rest_and_highlight(
                         Value::Binary { .. } => false,
                     }) != invert
                 }),
+            call.head,
             ctrlc.clone(),
         )
-        .into_pipeline_data(ctrlc)
+        .into_pipeline_data(call.head, ctrlc)
         .set_metadata(meta)),
         PipelineData::ExternalStream { stdout: None, .. } => Ok(PipelineData::empty()),
         PipelineData::ExternalStream {
@@ -494,7 +495,7 @@ fn find_with_rest_and_highlight(
                     Err(e) => return Err(e),
                 };
             }
-            Ok(output.into_pipeline_data(ctrlc))
+            Ok(output.into_pipeline_data(call.head, ctrlc))
         }
     }
 }

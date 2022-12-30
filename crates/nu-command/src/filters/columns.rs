@@ -98,7 +98,7 @@ fn getcol(
             Ok(input_cols
                 .into_iter()
                 .map(move |x| Value::String { val: x, span })
-                .into_pipeline_data(ctrlc)
+                .into_pipeline_data(head, ctrlc)
                 .set_metadata(metadata))
         }
         PipelineData::Value(Value::CustomValue { val, span }, ..) => {
@@ -109,7 +109,7 @@ fn getcol(
             Ok(input_cols
                 .into_iter()
                 .map(move |x| Value::String { val: x, span })
-                .into_pipeline_data(ctrlc)
+                .into_pipeline_data(head, ctrlc)
                 .set_metadata(metadata))
         }
         PipelineData::ListStream(stream, ..) => {
@@ -119,13 +119,13 @@ fn getcol(
             Ok(input_cols
                 .into_iter()
                 .map(move |x| Value::String { val: x, span: head })
-                .into_pipeline_data(ctrlc)
+                .into_pipeline_data(head, ctrlc)
                 .set_metadata(metadata))
         }
         PipelineData::Value(Value::Record { cols, .. }, ..) => Ok(cols
             .into_iter()
             .map(move |x| Value::String { val: x, span: head })
-            .into_pipeline_data(ctrlc)
+            .into_pipeline_data(head, ctrlc)
             .set_metadata(metadata)),
         // Propagate errors
         PipelineData::Value(Value::Error { error }, ..) => Err(error),

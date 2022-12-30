@@ -179,7 +179,7 @@ impl Command for Kill {
                 span: call.head,
             }]
             .into_iter()
-            .into_pipeline_data(engine_state.ctrlc.clone()))
+            .into_pipeline_data(call.head, engine_state.ctrlc.clone()))
         }
     }
 
