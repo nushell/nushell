@@ -636,24 +636,39 @@ impl EngineState {
         None
     }
 
-    pub fn which_module_has_decl(&self, name: &[u8]) -> Option<&[u8]> {
-        for (module_id, m) in self.modules.iter().enumerate() {
-            if m.has_decl(name) {
-                for overlay_frame in self.active_overlays(&[]).iter() {
-                    let module_name = overlay_frame.modules.iter().find_map(|(key, &val)| {
-                        if val == module_id {
-                            Some(key)
-                        } else {
-                            None
-                        }
-                    });
-                    if let Some(final_name) = module_name {
-                        return Some(&final_name[..]);
-                    }
+    pub fn which_module_has_decl(
+        &self,
+        decl_name: &[u8],
+        removed_overlays: &[Vec<u8>],
+    ) -> Option<&[u8]> {
+        for overlay_frame in self.active_overlays(removed_overlays).iter().rev() {
+            for (module_name, module_id) in overlay_frame.modules.iter() {
+                let module = self.get_module(*module_id);
+                if module.has_decl(decl_name) {
+                    return Some(module_name);
                 }
             }
         }
+
         None
+
+        // for (module_id, m) in self.modules.iter().enumerate() {
+        //     if m.has_decl(name) {
+        //         for overlay_frame in self.active_overlays(&[]).iter() {
+        //             let module_name = overlay_frame.modules.iter().find_map(|(key, &val)| {
+        //                 if val == module_id {
+        //                     Some(key)
+        //                 } else {
+        //                     None
+        //                 }
+        //             });
+        //             if let Some(final_name) = module_name {
+        //                 return Some(&final_name[..]);
+        //             }
+        //         }
+        //     }
+        // }
+        // None
     }
 
     pub fn find_overlay(&self, name: &[u8]) -> Option<OverlayId> {
@@ -771,11 +786,6 @@ impl EngineState {
         aliases.into_iter()
     }
 
-    /// Get all IDs of all aliases within scope, sorted by the alias names
-    pub fn get_alias_ids_sorted(&self, include_hidden: bool) -> impl Iterator<Item = DeclId> {
-        self.get_aliases_sorted(include_hidden).map(|(_, id)| id)
-    }
-
     /// Get all commands within scope, sorted by the commads' names
     pub fn get_decls_sorted(
         &self,
@@ -805,18 +815,16 @@ impl EngineState {
         decls.into_iter()
     }
 
-    /// Get all IDs of all commands within scope, sorted by the commads' names
-    pub fn get_decl_ids_sorted(&self, include_hidden: bool) -> impl Iterator<Item = DeclId> {
-        self.get_decls_sorted(include_hidden).map(|(_, id)| id)
-    }
-
     /// Get signatures of all commands within scope.
     pub fn get_signatures(&self, include_hidden: bool) -> Vec<Signature> {
-        self.get_decl_ids_sorted(include_hidden)
-            .map(|id| {
+        self.get_decls_sorted(include_hidden)
+            .map(|(name_bytes, id)| {
                 let decl = self.get_decl(id);
+                // the reason to create the name this way is because the command could be renamed
+                // during module imports but the signature still contains the old name
+                let name = String::from_utf8_lossy(&name_bytes).to_string();
 
-                (*decl).signature().update_from_command(decl.borrow())
+                (*decl).signature().update_from_command(name, decl.borrow())
             })
             .collect()
     }
@@ -830,11 +838,14 @@ impl EngineState {
         &self,
         include_hidden: bool,
     ) -> Vec<(Signature, Vec<Example>, bool, bool, bool)> {
-        self.get_decl_ids_sorted(include_hidden)
-            .map(|id| {
+        self.get_decls_sorted(include_hidden)
+            .map(|(name_bytes, id)| {
                 let decl = self.get_decl(id);
+                // the reason to create the name this way is because the command could be renamed
+                // during module imports but the signature still contains the old name
+                let name = String::from_utf8_lossy(&name_bytes).to_string();
 
-                let signature = (*decl).signature().update_from_command(decl.borrow());
+                let signature = (*decl).signature().update_from_command(name, decl.borrow());
 
                 (
                     signature,

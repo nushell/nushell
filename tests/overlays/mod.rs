@@ -795,8 +795,8 @@ fn overlay_remove_renamed_overlay() {
     let actual = nu!(cwd: "tests/overlays", pipeline(&inp.join("; ")));
     let actual_repl = nu!(cwd: "tests/overlays", nu_repl_code(inp));
 
-    assert!(actual.err.contains("did you mean 'for'?"));
-    assert!(actual_repl.err.contains("did you mean 'for'?"));
+    assert!(actual.err.contains("external_command"));
+    assert!(actual_repl.err.contains("external_command"));
 }
 
 #[test]
