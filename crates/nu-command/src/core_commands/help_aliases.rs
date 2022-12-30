@@ -4,8 +4,8 @@ use nu_engine::{scope::ScopeData, CallExt};
 use nu_protocol::{
     ast::Call,
     engine::{Command, EngineState, Stack},
-    span, Category, IntoInterruptiblePipelineData, IntoPipelineData, PipelineData, ShellError,
-    Signature, Span, Spanned, SyntaxShape, Type, Value,
+    span, Category, Example, IntoInterruptiblePipelineData, IntoPipelineData, PipelineData,
+    ShellError, Signature, Span, Spanned, SyntaxShape, Type, Value,
 };
 use std::borrow::Cow;
 
@@ -37,6 +37,26 @@ impl Command for HelpAliases {
             )
             .input_output_types(vec![(Type::Nothing, Type::Table(vec![]))])
             .allow_variants_without_examples(true)
+    }
+
+    fn examples(&self) -> Vec<Example> {
+        vec![
+            Example {
+                description: "show all aliases",
+                example: "help aliases",
+                result: None,
+            },
+            Example {
+                description: "show help for single alias",
+                example: "help aliases my-alias",
+                result: None,
+            },
+            Example {
+                description: "search for string in alias names and usages",
+                example: "help aliases --find my-alias",
+                result: None,
+            },
+        ]
     }
 
     fn run(

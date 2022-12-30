@@ -4,8 +4,8 @@ use nu_engine::{scope::ScopeData, CallExt};
 use nu_protocol::{
     ast::Call,
     engine::{Command, EngineState, Stack},
-    span, AliasId, Category, DeclId, IntoInterruptiblePipelineData, IntoPipelineData, PipelineData,
-    ShellError, Signature, Span, Spanned, SyntaxShape, Type, Value,
+    span, AliasId, Category, DeclId, Example, IntoInterruptiblePipelineData, IntoPipelineData,
+    PipelineData, ShellError, Signature, Span, Spanned, SyntaxShape, Type, Value,
 };
 
 #[derive(Clone)]
@@ -18,6 +18,12 @@ impl Command for HelpModules {
 
     fn usage(&self) -> &str {
         "Show help on nushell modules."
+    }
+
+    fn extra_usage(&self) -> &str {
+        r#"When requesting help for a single module, its commands and aliases will be highlighted if they
+are also available in the current scope. Commands/aliases that were imported under a different name
+(such as with a prefix after `use some-module`) will be highlighted in parentheses."#
     }
 
     fn signature(&self) -> Signature {
@@ -36,6 +42,26 @@ impl Command for HelpModules {
             )
             .input_output_types(vec![(Type::Nothing, Type::Table(vec![]))])
             .allow_variants_without_examples(true)
+    }
+
+    fn examples(&self) -> Vec<Example> {
+        vec![
+            Example {
+                description: "show all modules",
+                example: "help modules",
+                result: None,
+            },
+            Example {
+                description: "show help for single module",
+                example: "help modules my-module",
+                result: None,
+            },
+            Example {
+                description: "search for string in module names and usages",
+                example: "help modules --find my-module",
+                result: None,
+            },
+        ]
     }
 
     fn run(

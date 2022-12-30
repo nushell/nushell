@@ -27,7 +27,7 @@ impl Command for Help {
             .rest(
                 "rest",
                 SyntaxShape::String,
-                "the name of command to get help on",
+                "the name of command, alias or module to get help on",
             )
             .named(
                 "find",
@@ -39,7 +39,11 @@ impl Command for Help {
     }
 
     fn usage(&self) -> &str {
-        "Display help information about commands."
+        "Display help information about different parts of Nushell."
+    }
+
+    fn extra_usage(&self) -> &str {
+        r#"`help word` searches for "word" in commands, aliases and modules, in that order."#
     }
 
     fn run(
@@ -57,9 +61,10 @@ impl Command for Help {
             let msg = r#"Welcome to Nushell.
 
 Here are some tips to help you get started.
+  * help -h or help help - show available `help` subcommands and examples
   * help commands - list all available commands
-  * help <command name> - display help about a particular command
-  * help --find <text to search> - search through all of help
+  * help <name> - display help about a particular command, alias, or module
+  * help --find <text to search> - search through all help commands table
 
 Nushell works on the idea of a "pipeline". Pipelines are commands connected with the '|' character.
 Each stage in the pipeline works together to load, parse, and display information to you.
@@ -107,17 +112,12 @@ You can also learn more at https://www.nushell.sh/book/"#;
     fn examples(&self) -> Vec<Example> {
         vec![
             Example {
-                description: "show all commands and sub-commands",
-                example: "help commands",
-                result: None,
-            },
-            Example {
-                description: "show help for single command",
+                description: "show help for single command, alias, or module",
                 example: "help match",
                 result: None,
             },
             Example {
-                description: "show help for single sub-command",
+                description: "show help for single sub-command, alias, or module",
                 example: "help str lpad",
                 result: None,
             },
