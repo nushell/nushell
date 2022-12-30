@@ -175,3 +175,54 @@ fn help_export_alias_name_multi_word() {
         assert!(actual.out.contains("print 'spam'"));
     })
 }
+
+#[test]
+fn help_module_usage_1() {
+    Playground::setup("help_module_usage", |dirs, sandbox| {
+        sandbox.with_files(vec![FileWithContent(
+            "spam.nu",
+            r#"
+                # line1
+                module SPAM {
+                    # line2
+                } #line3
+            "#,
+        )]);
+
+        let code = &[
+            "source spam.nu",
+            "help modules | where name == SPAM | get 0.usage",
+        ];
+        let actual = nu!(cwd: dirs.test(), nu_repl_code(code));
+
+        assert!(actual.out.contains("line1"));
+        assert!(actual.out.contains("line2"));
+        assert!(actual.out.contains("line3"));
+    })
+}
+
+#[test]
+fn help_module_name() {
+    Playground::setup("help_module_name", |dirs, sandbox| {
+        sandbox.with_files(vec![FileWithContent(
+            "spam.nu",
+            r#"
+                # line1
+                module SPAM {
+                    # line2
+                } #line3
+            "#,
+        )]);
+
+        let code = &[
+            "source spam.nu",
+            "help modules SPAM",
+        ];
+        let actual = nu!(cwd: dirs.test(), nu_repl_code(code));
+
+        assert!(actual.out.contains("line1"));
+        assert!(actual.out.contains("line2"));
+        assert!(actual.out.contains("line3"));
+        assert!(actual.out.contains("SPAM"));
+    })
+}
