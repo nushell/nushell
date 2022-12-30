@@ -1,4 +1,6 @@
+use crate::help_aliases::help_aliases;
 use crate::help_commands::help_commands;
+use crate::help_modules::help_modules;
 use fancy_regex::Regex;
 use nu_ansi_term::{
     Color::{Red, White},
@@ -8,7 +10,7 @@ use nu_engine::CallExt;
 use nu_protocol::{
     ast::Call,
     engine::{Command, EngineState, Stack},
-    Category, Example, IntoPipelineData, PipelineData, ShellError, Signature, Span, Spanned,
+    span, Category, Example, IntoPipelineData, PipelineData, ShellError, Signature, Span, Spanned,
     SyntaxShape, Type, Value,
 };
 #[derive(Clone)]
@@ -76,8 +78,29 @@ Get the processes on your system actively using CPU:
 You can also learn more at https://www.nushell.sh/book/"#;
 
             Ok(Value::string(msg, head).into_pipeline_data())
-        } else {
+        } else if find.is_some() {
             help_commands(engine_state, stack, call)
+        } else {
+            let result = help_commands(engine_state, stack, call);
+
+            let result = if let Err(ShellError::CommandNotFound(_)) = result {
+                help_aliases(engine_state, stack, call)
+            } else {
+                result
+            };
+
+            let result = if let Err(ShellError::AliasNotFound(_)) = result {
+                help_modules(engine_state, stack, call)
+            } else {
+                result
+            };
+
+            if let Err(ShellError::ModuleNotFoundAtRuntime(_, _)) = result {
+                let rest_spans: Vec<Span> = rest.iter().map(|arg| arg.span).collect();
+                Err(ShellError::NotFound(span(&rest_spans)))
+            } else {
+                result
+            }
         }
     }
 

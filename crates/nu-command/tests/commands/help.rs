@@ -214,10 +214,7 @@ fn help_module_name() {
             "#,
         )]);
 
-        let code = &[
-            "source spam.nu",
-            "help modules SPAM",
-        ];
+        let code = &["source spam.nu", "help modules SPAM"];
         let actual = nu!(cwd: dirs.test(), nu_repl_code(code));
 
         assert!(actual.out.contains("line1"));
