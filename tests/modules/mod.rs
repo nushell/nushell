@@ -292,7 +292,7 @@ fn module_nested_imports_in_dirs_prefixed() {
 
 #[test]
 fn module_import_env_1() {
-    Playground::setup("module_imprt_env_1", |dirs, sandbox| {
+    Playground::setup("module_import_env_1", |dirs, sandbox| {
         sandbox
             .with_files(vec![FileWithContentToBeTrimmed(
                 "main.nu",

@@ -948,7 +948,7 @@ impl EngineState {
         self.config_path.get(key)
     }
 
-    pub fn build_usage(&self, spans: &[Span]) -> String {
+    pub fn build_usage(&self, spans: &[Span]) -> (String, String) {
         let comment_lines: Vec<&[u8]> = spans
             .iter()
             .map(|span| self.get_span_contents(span))
@@ -956,12 +956,12 @@ impl EngineState {
         build_usage(&comment_lines)
     }
 
-    pub fn build_alias_usage(&self, alias_id: AliasId) -> Option<String> {
+    pub fn build_alias_usage(&self, alias_id: AliasId) -> Option<(String, String)> {
         self.get_alias_comments(alias_id)
             .map(|comment_spans| self.build_usage(comment_spans))
     }
 
-    pub fn build_module_usage(&self, module_id: ModuleId) -> Option<String> {
+    pub fn build_module_usage(&self, module_id: ModuleId) -> Option<(String, String)> {
         self.get_module_comments(module_id)
             .map(|comment_spans| self.build_usage(comment_spans))
     }
@@ -2188,7 +2188,7 @@ impl<'a> StateWorkingSet<'a> {
         self.delta
     }
 
-    pub fn build_usage(&self, spans: &[Span]) -> String {
+    pub fn build_usage(&self, spans: &[Span]) -> (String, String) {
         let comment_lines: Vec<&[u8]> = spans
             .iter()
             .map(|span| self.get_span_contents(*span))
@@ -2280,7 +2280,7 @@ impl<'a> miette::SourceCode for &StateWorkingSet<'a> {
     }
 }
 
-fn build_usage(comment_lines: &[&[u8]]) -> String {
+fn build_usage(comment_lines: &[&[u8]]) -> (String, String) {
     let mut usage = String::new();
 
     let mut num_spaces = 0;
@@ -2326,7 +2326,11 @@ fn build_usage(comment_lines: &[&[u8]]) -> String {
         usage.push_str(&comment_line);
     }
 
-    usage
+    if let Some((brief_usage, extra_usage)) = usage.split_once("\n\n") {
+        (brief_usage.to_string(), extra_usage.to_string())
+    } else {
+        (usage, String::default())
+    }
 }
 
 #[cfg(test)]

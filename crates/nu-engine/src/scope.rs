@@ -479,6 +479,7 @@ impl<'e, 's> ScopeData<'e, 's> {
                 let alias_usage = self
                     .engine_state
                     .build_alias_usage(**alias_id)
+                    .map(|(usage, _)| usage)
                     .unwrap_or_default();
 
                 aliases.push(Value::Record {
@@ -526,6 +527,7 @@ impl<'e, 's> ScopeData<'e, 's> {
             let module_usage = self
                 .engine_state
                 .build_module_usage(**module_id)
+                .map(|(usage, _)| usage)
                 .unwrap_or_default();
 
             modules.push(Value::Record {

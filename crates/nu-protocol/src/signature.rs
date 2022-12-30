@@ -670,6 +670,10 @@ impl Command for Predeclaration {
         &self.signature.usage
     }
 
+    fn extra_usage(&self) -> &str {
+        &self.signature.extra_usage
+    }
+
     fn run(
         &self,
         _engine_state: &EngineState,
@@ -717,6 +721,10 @@ impl Command for BlockCommand {
 
     fn usage(&self) -> &str {
         &self.signature.usage
+    }
+
+    fn extra_usage(&self) -> &str {
+        &self.signature.extra_usage
     }
 
     fn run(

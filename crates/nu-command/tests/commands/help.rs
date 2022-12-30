@@ -263,3 +263,54 @@ fn help_module_sorted_aliases() {
         assert!(actual.out.contains("a, z"));
     })
 }
+
+#[test]
+fn help_usage_extra_usage() {
+    Playground::setup("help_usage_extra_usage", |dirs, sandbox| {
+        sandbox.with_files(vec![FileWithContent(
+            "spam.nu",
+            r#"
+                # module_line1
+                #
+                # module_line2
+
+                # def_line1
+                #
+                # def_line2
+                export def foo [] {}
+
+                # alias_line1
+                #
+                # alias_line2
+                export alias bar = 'bar'
+            "#,
+        )]);
+
+        let actual = nu!(cwd: dirs.test(), pipeline("use spam.nu *; help modules spam"));
+        assert!(actual.out.contains("module_line1"));
+        assert!(actual.out.contains("module_line2"));
+
+        let actual = nu!(cwd: dirs.test(),
+            pipeline("use spam.nu *; help modules | where name == spam | get 0.usage"));
+        assert!(actual.out.contains("module_line1"));
+        assert!(!actual.out.contains("module_line2"));
+
+        let actual = nu!(cwd: dirs.test(), pipeline("use spam.nu *; help commands foo"));
+        assert!(actual.out.contains("def_line1"));
+        assert!(actual.out.contains("def_line2"));
+
+        let actual = nu!(cwd: dirs.test(),
+            pipeline("use spam.nu *; help commands | where name == foo | get 0.usage"));
+        assert!(actual.out.contains("def_line1"));
+        assert!(!actual.out.contains("def_line2"));
+
+        let actual = nu!(cwd: dirs.test(), pipeline("use spam.nu *; help aliases bar"));
+        assert!(actual.out.contains("alias_line1"));
+        assert!(actual.out.contains("alias_line2"));
+
+        let actual = nu!(cwd: dirs.test(),
+            pipeline("use spam.nu *; help aliases | where name == bar | get 0.usage"));
+        assert!(actual.out.contains("alias_line1"));
+        assert!(!actual.out.contains("alias_line2"));
+    })
+}

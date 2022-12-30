@@ -235,7 +235,7 @@ pub fn parse_def(
 ) -> (Pipeline, Option<ParseError>) {
     let spans = &lite_command.parts[..];
 
-    let usage = working_set.build_usage(&lite_command.comments);
+    let (usage, extra_usage) = working_set.build_usage(&lite_command.comments);
 
     // Checking that the function is used with the correct name
     // Maybe this is not necessary but it is a sanity check
@@ -345,6 +345,7 @@ pub fn parse_def(
             signature.name = name.clone();
             *signature = signature.add_help();
             signature.usage = usage;
+            signature.extra_usage = extra_usage;
 
             *declaration = signature.clone().into_block_command(block_id);
 
@@ -392,7 +393,7 @@ pub fn parse_extern(
     let spans = &lite_command.parts;
     let mut error = None;
 
-    let usage = working_set.build_usage(&lite_command.comments);
+    let (usage, extra_usage) = working_set.build_usage(&lite_command.comments);
 
     // Checking that the function is used with the correct name
     // Maybe this is not necessary but it is a sanity check
@@ -463,11 +464,12 @@ pub fn parse_extern(
 
                 signature.name = name.clone();
                 signature.usage = usage.clone();
+                signature.extra_usage = extra_usage.clone();
                 signature.allows_unknown_args = true;
 
                 let decl = KnownExternal {
                     name: name.to_string(),
-                    usage,
+                    usage: [usage, extra_usage].join("\n"),
                     signature,
                 };
 

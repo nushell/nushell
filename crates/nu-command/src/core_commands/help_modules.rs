@@ -138,9 +138,14 @@ pub fn help_modules(
 
         let mut long_desc = String::new();
 
-        if let Some(usage) = module_usage {
+        if let Some((usage, extra_usage)) = module_usage {
             long_desc.push_str(&usage);
             long_desc.push_str("\n\n");
+
+            if !extra_usage.is_empty() {
+                long_desc.push_str(&extra_usage);
+                long_desc.push_str("\n\n");
+            }
         }
 
         long_desc.push_str(&format!("{G}Module{RESET}: {C}{name}{RESET}"));
