@@ -14,5 +14,5 @@ fn can_get_reverse_first() {
 fn fail_on_non_iterator() {
     let actual = nu!(cwd: ".", pipeline("1 | reverse"));
 
-    assert!(actual.err.contains("Only supports for specific types."));
+    assert!(actual.err.contains("only_supports_this_input_type"));
 }

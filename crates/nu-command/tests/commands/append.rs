@@ -18,5 +18,5 @@ fn adds_a_row_to_the_end() {
 fn fail_on_non_iterator() {
     let actual = nu!(cwd: ".", pipeline("1 | append 3"));
 
-    assert!(actual.err.contains("Only supports for specific types."));
+    assert!(actual.err.contains("only_supports_this_input_type"));
 }

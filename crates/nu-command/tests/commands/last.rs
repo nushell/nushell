@@ -96,5 +96,5 @@ fn last_errors_on_negative_index() {
 fn fail_on_non_iterator() {
     let actual = nu!(cwd: ".", pipeline("1 | last"));
 
-    assert!(actual.err.contains("Only supports for specific types."));
+    assert!(actual.err.contains("only_supports_this_input_type"));
 }
