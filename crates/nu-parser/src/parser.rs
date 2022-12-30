@@ -5248,8 +5248,8 @@ pub fn parse_builtin_commands(
             let (expr, err) = parse_for(working_set, &lite_command.parts, expand_aliases_denylist);
             (Pipeline::from_vec(vec![expr]), err)
         }
-        b"alias" => parse_alias(working_set, &lite_command.parts, expand_aliases_denylist),
-        b"module" => parse_module(working_set, &lite_command.parts, expand_aliases_denylist),
+        b"alias" => parse_alias(working_set, lite_command, expand_aliases_denylist),
+        b"module" => parse_module(working_set, lite_command, expand_aliases_denylist),
         b"use" => {
             let (pipeline, _, err) =
                 parse_use(working_set, &lite_command.parts, expand_aliases_denylist);

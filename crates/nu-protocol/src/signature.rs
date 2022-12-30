@@ -265,7 +265,8 @@ impl Signature {
     }
 
     /// Update signature's fields from a Command trait implementation
-    pub fn update_from_command(mut self, command: &dyn Command) -> Signature {
+    pub fn update_from_command(mut self, name: String, command: &dyn Command) -> Signature {
+        self.name = name;
         self.search_terms = command
             .search_terms()
             .into_iter()
@@ -669,6 +670,10 @@ impl Command for Predeclaration {
         &self.signature.usage
     }
 
+    fn extra_usage(&self) -> &str {
+        &self.signature.extra_usage
+    }
+
     fn run(
         &self,
         _engine_state: &EngineState,
@@ -716,6 +721,10 @@ impl Command for BlockCommand {
 
     fn usage(&self) -> &str {
         &self.signature.usage
+    }
+
+    fn extra_usage(&self) -> &str {
+        &self.signature.extra_usage
     }
 
     fn run(

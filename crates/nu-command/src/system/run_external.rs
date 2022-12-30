@@ -296,16 +296,25 @@ impl ExternalCommand {
                                         "'{}' was not found; did you mean '{s}'?",
                                         self.name.item
                                     )
-                                } else if self.name.item == s {
-                                    let sugg = engine_state.which_module_has_decl(s.as_bytes());
-                                    if let Some(sugg) = sugg {
-                                        let sugg = String::from_utf8_lossy(sugg);
-                                        format!("command '{s}' was not found but it exists in module '{sugg}'; try using `{sugg} {s}`")
+                                } else {
+                                    let cmd_name = &self.name.item;
+                                    let maybe_module = engine_state
+                                        .which_module_has_decl(cmd_name.as_bytes(), &[]);
+                                    if let Some(module_name) = maybe_module {
+                                        let module_name = String::from_utf8_lossy(module_name);
+                                        let new_name = &[module_name.as_ref(), cmd_name].join(" ");
+
+                                        if engine_state
+                                            .find_decl(new_name.as_bytes(), &[])
+                                            .is_some()
+                                        {
+                                            format!("command '{cmd_name}' was not found but it was imported from module '{module_name}'; try using `{new_name}`")
+                                        } else {
+                                            format!("command '{cmd_name}' was not found but it exists in module '{module_name}'; try importing it with `use`")
+                                        }
                                     } else {
                                         format!("did you mean '{s}'?")
                                     }
-                                } else {
-                                    format!("did you mean '{s}'?")
                                 }
                             }
                             None => {
