@@ -5297,7 +5297,7 @@ pub fn parse_record(
     let mut start = span.start;
     let mut end = span.end;
 
-    if let false = balanced_pair_between_qoutes(b'{', b'}', bytes) {
+    if !balanced_pair_between_qoutes(b'{', b'}', bytes) {
         return (
             garbage(span),
             Some(ParseError::Unbalanced(
