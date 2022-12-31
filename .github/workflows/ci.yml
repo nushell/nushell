@@ -113,8 +113,9 @@ jobs:
 
       - run: python -m pip install tox
 
+        # Get only the latest tagged version for stability reasons
       - name: Install virtualenv
-        run: git clone https://github.com/pypa/virtualenv.git
+        run: git clone https://github.com/pypa/virtualenv.git && cd virtualenv && git checkout $(git describe --tags | cut -d - -f 1)
         shell: bash
 
       - name: Test Nushell in virtualenv
