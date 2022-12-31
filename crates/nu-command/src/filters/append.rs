@@ -99,7 +99,7 @@ only unwrap the outer list, and leave the variable's contents untouched."#
         let metadata = input.metadata();
 
         Ok(input
-            .into_iter()
+            .into_iter_strict(call.head)?
             .chain(vec)
             .into_iter()
             .into_pipeline_data(engine_state.ctrlc.clone())

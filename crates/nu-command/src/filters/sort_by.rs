@@ -84,7 +84,7 @@ impl Command for SortBy {
         let insensitive = call.has_flag("ignore-case");
         let natural = call.has_flag("natural");
         let metadata = &input.metadata();
-        let mut vec: Vec<_> = input.into_iter().collect();
+        let mut vec: Vec<_> = input.into_iter_strict(call.head)?.collect();
 
         if columns.is_empty() {
             return Err(ShellError::MissingParameter("columns".into(), call.head));
