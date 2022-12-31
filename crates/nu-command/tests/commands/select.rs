@@ -165,11 +165,11 @@ fn select_ignores_errors_succesfully1() {
     let actual = nu!(
         cwd: ".", pipeline(
         r#"
-        [{a: 1, b: 2} {a: 3, b: 5} {a: 3}] | select -i b
-            "#
+        [{a: 1, b: 2} {a: 3, b: 5} {a: 3}] | select -i b | length
+        "#
     ));
 
-    assert!(actual.out.is_empty());
+    assert_eq!(actual.out, "3".to_string());
     assert!(actual.err.is_empty());
 }
 
