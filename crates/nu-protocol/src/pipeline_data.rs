@@ -104,7 +104,7 @@ impl PipelineData {
     /// PipelineData doesn't always have a Span, but we can try!
     pub fn span(&self) -> Option<Span> {
         match self {
-            PipelineData::ListStream(..) => None,
+            PipelineData::ListStream(ListStream { span, .. }, ..) => Some(*span),
             PipelineData::ExternalStream { span, .. } => Some(*span),
             PipelineData::Value(v, _) => v.span().ok(),
             PipelineData::Empty => None,
