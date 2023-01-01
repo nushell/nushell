@@ -468,6 +468,18 @@ impl Value {
         }
     }
 
+    // Convert Value into String, but propagate errors.
+    pub fn nonerror_into_string(
+        &self,
+        separator: &str,
+        config: &Config,
+    ) -> Result<String, ShellError> {
+        match self {
+            Value::Error { error } => Err(error.to_owned()),
+            _ => Ok(self.into_string(separator, config)),
+        }
+    }
+
     /// Convert Value into string. Note that Streams will be consumed.
     pub fn into_string(&self, separator: &str, config: &Config) -> String {
         match self {
@@ -684,10 +696,19 @@ impl Value {
                         Value::CustomValue { val, .. } => {
                             current = val.follow_path_int(*count, *origin_span)?;
                         }
-                        x => {
+                        // Records (and tables) are the only built-in which support column names,
+                        // so only use this message for them.
+                        Value::Record { .. } => {
                             return Err(ShellError::TypeMismatchGenericMessage {
-                                err_message: format!("Can't access {} values with a row index. Try specifying a column name instead", x.get_type().to_shape()),
+                                err_message: format!("Can't access record values with a row index. Try specifying a column name instead"),
                                 span: *origin_span, })
+                        }
+                        Value::Error { error } => return Err(error.to_owned()),
+                        x => {
+                            return Err(ShellError::IncompatiblePathAccess(
+                                format!("{}", x.get_type()),
+                                *origin_span,
+                            ))
                         }
                     }
                 }
@@ -737,22 +758,37 @@ impl Value {
                                     found_at_least_1_value = true;
                                     output.push(result);
                                 } else {
-                                    return Err(ShellError::CantFindColumn(
+                                    // Consider [{a:1 b:2} {a:3}]:
+                                    // [{a:1 b:2} {a:3}].b should error.
+                                    // [{a:1 b:2} {a:3}].b.1 should error.
+                                    // [{a:1 b:2} {a:3}].b.0 should NOT error because the path can find a proper value (2)
+                                    // but if this returns an error immediately, it will.
+                                    //
+                                    // Solution: push a Value::Error into this result list instead of returning it.
+                                    // This also means that `[{a:1 b:2} {a:2}].b | reject 1` also doesn't error.
+                                    // Anything that needs to use every value inside the list should propagate
+                                    // the error outward, though.
+                                    output.push(Value::Error {
+                                        error: ShellError::CantFindColumn(
+                                            column_name.to_string(),
+                                            *origin_span,
+                                            // Get the exact span of the value, falling back to
+                                            // the list's span if it's a Value::Empty
+                                            val.span().unwrap_or(*span),
+                                        ),
+                                    });
+                                }
+                            } else {
+                                // See comment above.
+                                output.push(Value::Error {
+                                    error: ShellError::CantFindColumn(
                                         column_name.to_string(),
                                         *origin_span,
                                         // Get the exact span of the value, falling back to
                                         // the list's span if it's a Value::Empty
                                         val.span().unwrap_or(*span),
-                                    ));
-                                }
-                            } else {
-                                return Err(ShellError::CantFindColumn(
-                                    column_name.to_string(),
-                                    *origin_span,
-                                    // Get the exact span of the value, falling back to
-                                    // the list's span if it's a Value::Empty
-                                    val.span().unwrap_or(*span),
-                                ));
+                                    ),
+                                });
                             }
                         }
                         if found_at_least_1_value {
@@ -771,6 +807,7 @@ impl Value {
                     Value::CustomValue { val, .. } => {
                         current = val.follow_path_string(column_name.clone(), *origin_span)?;
                     }
+                    Value::Error { error } => return Err(error.to_owned()),
                     x => {
                         return Err(ShellError::IncompatiblePathAccess(
                             format!("{}", x.get_type()),
@@ -780,8 +817,14 @@ impl Value {
                 },
             }
         }
-
-        Ok(current)
+        // If a single Value::Error was produced by the above, unwrap it now.
+        // Note that Value::Errors inside Lists remain as they are,
+        // so that the rest of the list can still potentially be used.
+        if let Value::Error { error } = current {
+            Err(error)
+        } else {
+            Ok(current)
+        }
     }
 
     /// Follow a given cell path into the value: for example accessing select elements in a stream or list

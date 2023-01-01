@@ -5,10 +5,10 @@ use nu_engine::{column::get_columns, env_to_string, CallExt};
 use nu_protocol::TrimStrategy;
 use nu_protocol::{
     ast::{Call, PathMember},
-    engine::{Command, EngineState, Stack, StateWorkingSet},
-    format_error, Category, Config, DataSource, Example, FooterMode, IntoPipelineData, ListStream,
-    PipelineData, PipelineMetadata, RawStream, ShellError, Signature, Span, SyntaxShape,
-    TableIndexMode, Type, Value,
+    engine::{Command, EngineState, Stack},
+    Category, Config, DataSource, Example, FooterMode, IntoPipelineData, ListStream, PipelineData,
+    PipelineMetadata, RawStream, ShellError, Signature, Span, SyntaxShape, TableIndexMode, Type,
+    Value,
 };
 use nu_table::{string_width, Table as NuTable, TableConfig, TableTheme};
 use nu_utils::get_ls_colors;
@@ -331,12 +331,9 @@ fn handle_table_command(
             Ok(val.into_pipeline_data())
         }
         PipelineData::Value(Value::Error { error }, ..) => {
-            let working_set = StateWorkingSet::new(engine_state);
-            Ok(Value::String {
-                val: format_error(&working_set, &error),
-                span: call.head,
-            }
-            .into_pipeline_data())
+            // Propagate this error outward, so that it goes to stderr
+            // instead of stdout.
+            Err(error)
         }
         PipelineData::Value(Value::CustomValue { val, span }, ..) => {
             let base_pipeline = val.to_base_value(span)?.into_pipeline_data();

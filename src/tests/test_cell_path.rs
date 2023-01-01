@@ -8,7 +8,7 @@ fn nothing_fails_string() -> TestResult {
 
 #[test]
 fn nothing_fails_int() -> TestResult {
-    fail_test("$nothing.3", "Can't access")
+    fail_test("$nothing.3", "doesn't support cell paths")
 }
 
 // Tests for records
@@ -67,7 +67,7 @@ fn list_single_field_failure() -> TestResult {
 
 // Test the scenario where the requested column is not present in all rows
 #[test]
-fn jagged_list_access_succeeds() -> TestResult {
+fn jagged_list_access_fails() -> TestResult {
     fail_test("[{foo: 'bar'}, {}].foo", "cannot find column")?;
     fail_test("[{}, {foo: 'bar'}].foo", "cannot find column")
 }

@@ -76,7 +76,7 @@ prints out the list properly."#
         match input {
             PipelineData::Value(Value::List { vals, .. }, ..) => {
                 // dbg!("value::list");
-                let data = convert_to_list(vals, config, call.head);
+                let data = convert_to_list(vals, config, call.head)?;
                 if let Some(items) = data {
                     Ok(create_grid_output(
                         items,
@@ -93,7 +93,7 @@ prints out the list properly."#
             }
             PipelineData::ListStream(stream, ..) => {
                 // dbg!("value::stream");
-                let data = convert_to_list(stream, config, call.head);
+                let data = convert_to_list(stream, config, call.head)?;
                 if let Some(items) = data {
                     Ok(create_grid_output(
                         items,
@@ -251,7 +251,7 @@ fn convert_to_list(
     iter: impl IntoIterator<Item = Value>,
     config: &Config,
     head: Span,
-) -> Option<Vec<(usize, String, String)>> {
+) -> Result<Option<Vec<(usize, String, String)>>, ShellError> {
     let mut iter = iter.into_iter().peekable();
 
     if let Some(first) = iter.peek() {
@@ -267,7 +267,7 @@ fn convert_to_list(
             let mut row = vec![row_num.to_string()];
 
             if headers.is_empty() {
-                row.push(item.into_string(", ", config))
+                row.push(item.nonerror_into_string(", ", config)?)
             } else {
                 for header in headers.iter().skip(1) {
                     let result = match item {
@@ -282,7 +282,7 @@ fn convert_to_list(
                     };
 
                     match result {
-                        Ok(value) => row.push(value.into_string(", ", config)),
+                        Ok(value) => row.push(value.nonerror_into_string(", ", config)?),
                         Err(_) => row.push(String::new()),
                     }
                 }
@@ -315,9 +315,9 @@ fn convert_to_list(
             }
         }
 
-        Some(interleaved)
+        Ok(Some(interleaved))
     } else {
-        None
+        Ok(None)
     }
 }
 

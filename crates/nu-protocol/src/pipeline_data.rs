@@ -671,9 +671,11 @@ impl PipelineData {
         to_stderr: bool,
     ) -> Result<i64, ShellError> {
         for item in self {
+            let mut is_err = false;
             let mut out = if let Value::Error { error } = item {
                 let working_set = StateWorkingSet::new(engine_state);
-
+                // Value::Errors must always go to stderr, not stdout.
+                is_err = true;
                 format_error(&working_set, &error)
             } else if no_newline {
                 item.into_string("", config)
@@ -685,7 +687,7 @@ impl PipelineData {
                 out.push('\n');
             }
 
-            if !to_stderr {
+            if !to_stderr && !is_err {
                 stdout_write_all_and_flush(out)?
             } else {
                 stderr_write_all_and_flush(out)?
