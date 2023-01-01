@@ -4176,7 +4176,7 @@ pub fn parse_closure_expression(
     } else {
         return (
             garbage(span),
-            Some(ParseError::Expected("block".into(), span)),
+            Some(ParseError::Expected("closure".into(), span)),
         );
     }
     if bytes.ends_with(b"}") {
@@ -4248,7 +4248,7 @@ pub fn parse_closure_expression(
                 error = error.or_else(|| {
                     Some(ParseError::Expected(
                         format!(
-                            "{} block parameter{}",
+                            "{} closure parameter{}",
                             v.len(),
                             if v.len() > 1 { "s" } else { "" }
                         ),
