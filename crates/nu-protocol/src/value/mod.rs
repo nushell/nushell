@@ -737,10 +737,22 @@ impl Value {
                                     found_at_least_1_value = true;
                                     output.push(result);
                                 } else {
-                                    output.push(Value::Nothing { span: *span });
+                                    return Err(ShellError::CantFindColumn(
+                                        column_name.to_string(),
+                                        *origin_span,
+                                        // Get the exact span of the value, falling back to
+                                        // the list's span if it's a Value::Empty
+                                        val.span().unwrap_or(*span),
+                                    ));
                                 }
                             } else {
-                                output.push(Value::Nothing { span: *span });
+                                return Err(ShellError::CantFindColumn(
+                                    column_name.to_string(),
+                                    *origin_span,
+                                    // Get the exact span of the value, falling back to
+                                    // the list's span if it's a Value::Empty
+                                    val.span().unwrap_or(*span),
+                                ));
                             }
                         }
                         if found_at_least_1_value {
@@ -749,7 +761,11 @@ impl Value {
                                 span: *span,
                             };
                         } else {
-                            return Err(ShellError::NotFound(*span));
+                            return Err(ShellError::CantFindColumn(
+                                column_name.to_string(),
+                                *origin_span,
+                                *span,
+                            ));
                         }
                     }
                     Value::CustomValue { val, .. } => {
