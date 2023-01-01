@@ -247,6 +247,7 @@ fn create_grid_output(
     )
 }
 
+#[allow(clippy::type_complexity)]
 fn convert_to_list(
     iter: impl IntoIterator<Item = Value>,
     config: &Config,
