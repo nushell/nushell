@@ -700,7 +700,7 @@ impl Value {
                         // so only use this message for them.
                         Value::Record { .. } => {
                             return Err(ShellError::TypeMismatchGenericMessage {
-                                err_message: format!("Can't access record values with a row index. Try specifying a column name instead"),
+                                err_message: "Can't access record values with a row index. Try specifying a column name instead".into(),
                                 span: *origin_span, })
                         }
                         Value::Error { error } => return Err(error.to_owned()),
