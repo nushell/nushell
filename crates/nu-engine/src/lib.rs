@@ -5,7 +5,7 @@ pub mod env;
 mod eval;
 mod glob_from;
 mod nu_variable;
-mod scope;
+pub mod scope;
 
 pub use call_ext::CallExt;
 pub use column::get_columns;

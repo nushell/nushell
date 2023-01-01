@@ -74,7 +74,29 @@ impl Command for Get {
                     Err(_) => Ok(Value::Nothing { span: call.head }.into_pipeline_data()),
                 }
             } else {
-                output
+                match output {
+                    Ok(val) => {
+                        let val_check = val.into_value(span);
+                        match val_check {
+                            Value::List {
+                                ref vals,
+                                span: spanchild,
+                            } => {
+                                if vals.iter().any(|unit| unit.is_empty()) {
+                                    Err(nu_protocol::ShellError::CantFindColumn(
+                                        "Empty cell".to_string(),
+                                        spanchild,
+                                        span,
+                                    ))
+                                } else {
+                                    Ok(val_check.into_pipeline_data())
+                                }
+                            }
+                            val => Ok(val.into_pipeline_data()),
+                        }
+                    }
+                    Err(e) => Err(e),
+                }
             }
         } else {
             let mut output = vec![];
@@ -87,8 +109,18 @@ impl Command for Get {
                 let val = input.clone().follow_cell_path(&path.members, !sensitive);
 
                 if ignore_errors {
-                    if let Ok(val) = val {
-                        output.push(val);
+                    match val {
+                        Ok(Value::Nothing { span: spanchild }) => {
+                            return Err(nu_protocol::ShellError::CantFindColumn(
+                                "Nothing".to_string(),
+                                spanchild,
+                                span,
+                            ));
+                        }
+                        Ok(val) => {
+                            output.push(val);
+                        }
+                        Err(_) => {}
                     }
                 } else {
                     output.push(val?);

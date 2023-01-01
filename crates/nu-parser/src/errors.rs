@@ -19,7 +19,7 @@ pub enum ParseError {
     #[diagnostic(code(nu::parser::extra_positional), url(docsrs), help("Usage: {0}"))]
     ExtraPositional(String, #[label = "extra positional argument"] Span),
 
-    #[error("Require positional parameter after optional parameter")]
+    #[error("Required positional parameter after optional parameter")]
     #[diagnostic(code(nu::parser::required_after_optional), url(docsrs))]
     RequiredAfterOptional(
         String,
@@ -172,12 +172,15 @@ pub enum ParseError {
 
     #[error("Alias name not supported.")]
     #[diagnostic(code(nu::parser::variable_not_valid), url(docsrs))]
-    AliasNotValid(#[label = "alias name can't be a number, a filesize, or contain a hash"] Span),
+    AliasNotValid(
+        #[label = "alias name can't be a number, a filesize, or contain a hash # or caret ^"] Span,
+    ),
 
     #[error("Command name not supported.")]
     #[diagnostic(code(nu::parser::variable_not_valid), url(docsrs))]
     CommandDefNotValid(
-        #[label = "command name can't be a number, a filesize, or contain a hash"] Span,
+        #[label = "command name can't be a number, a filesize, or contain a hash # or caret ^"]
+        Span,
     ),
 
     #[error("Module not found.")]

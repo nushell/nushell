@@ -3230,6 +3230,7 @@ pub fn parse_signature_helper(
     #[allow(clippy::enum_variant_names)]
     enum ParseMode {
         ArgMode,
+        AfterCommaArgMode,
         TypeMode,
         DefaultValueMode,
     }
@@ -3247,8 +3248,8 @@ pub fn parse_signature_helper(
     let (output, err) = lex(
         source,
         span.start,
-        &[b'\n', b'\r', b','],
-        &[b':', b'='],
+        &[b'\n', b'\r'],
+        &[b':', b'=', b','],
         false,
     );
     error = error.or(err);
@@ -3265,10 +3266,16 @@ pub fn parse_signature_helper(
                 let span = *span;
                 let contents = working_set.get_span_contents(span);
 
+                // The : symbol separates types
                 if contents == b":" {
                     match parse_mode {
                         ParseMode::ArgMode => {
                             parse_mode = ParseMode::TypeMode;
+                        }
+                        ParseMode::AfterCommaArgMode => {
+                            error = error.or_else(|| {
+                                Some(ParseError::Expected("parameter or flag".into(), span))
+                            });
                         }
                         ParseMode::TypeMode | ParseMode::DefaultValueMode => {
                             // We're seeing two types for the same thing for some reason, error
@@ -3276,10 +3283,17 @@ pub fn parse_signature_helper(
                                 error.or_else(|| Some(ParseError::Expected("type".into(), span)));
                         }
                     }
-                } else if contents == b"=" {
+                }
+                // The = symbol separates a variable from its default value
+                else if contents == b"=" {
                     match parse_mode {
                         ParseMode::ArgMode | ParseMode::TypeMode => {
                             parse_mode = ParseMode::DefaultValueMode;
+                        }
+                        ParseMode::AfterCommaArgMode => {
+                            error = error.or_else(|| {
+                                Some(ParseError::Expected("parameter or flag".into(), span))
+                            });
                         }
                         ParseMode::DefaultValueMode => {
                             // We're seeing two default values for some reason, error
@@ -3288,11 +3302,33 @@ pub fn parse_signature_helper(
                             });
                         }
                     }
+                }
+                // The , symbol separates params only
+                else if contents == b"," {
+                    match parse_mode {
+                        ParseMode::ArgMode => parse_mode = ParseMode::AfterCommaArgMode,
+                        ParseMode::AfterCommaArgMode => {
+                            error = error.or_else(|| {
+                                Some(ParseError::Expected("parameter or flag".into(), span))
+                            });
+                        }
+                        ParseMode::TypeMode => {
+                            error =
+                                error.or_else(|| Some(ParseError::Expected("type".into(), span)));
+                        }
+                        ParseMode::DefaultValueMode => {
+                            error = error.or_else(|| {
+                                Some(ParseError::Expected("default value".into(), span))
+                            });
+                        }
+                    }
                 } else {
                     match parse_mode {
-                        ParseMode::ArgMode => {
+                        ParseMode::ArgMode | ParseMode::AfterCommaArgMode => {
+                            // Long flag with optional short form following with no whitespace, e.g. --output, --age(-a)
                             if contents.starts_with(b"--") && contents.len() > 2 {
-                                // Long flag
+                                // Split the long flag from the short flag with the ( character as delimiter.
+                                // The trailing ) is removed further down.
                                 let flags: Vec<_> =
                                     contents.split(|x| x == &b'(').map(|x| x.to_vec()).collect();
 
@@ -3308,7 +3344,7 @@ pub fn parse_signature_helper(
                                 if !is_variable(&variable_name) {
                                     error = error.or_else(|| {
                                         Some(ParseError::Expected(
-                                            "valid variable name".into(),
+                                            "valid variable name for this long flag".into(),
                                             span,
                                         ))
                                     })
@@ -3317,6 +3353,7 @@ pub fn parse_signature_helper(
                                 let var_id =
                                     working_set.add_variable(variable_name, span, Type::Any, false);
 
+                                // If there's no short flag, exit now. Otherwise, parse it.
                                 if flags.len() == 1 {
                                     args.push(Arg::Flag(Flag {
                                         arg: None,
@@ -3329,7 +3366,10 @@ pub fn parse_signature_helper(
                                     }));
                                 } else if flags.len() >= 3 {
                                     error = error.or_else(|| {
-                                        Some(ParseError::Expected("one short flag".into(), span))
+                                        Some(ParseError::Expected(
+                                            "only one short flag alternative".into(),
+                                            span,
+                                        ))
                                     });
                                 } else {
                                     let short_flag = &flags[1];
@@ -3337,12 +3377,18 @@ pub fn parse_signature_helper(
                                         || !short_flag.ends_with(b")")
                                     {
                                         error = error.or_else(|| {
-                                            Some(ParseError::Expected("short flag".into(), span))
+                                            Some(ParseError::Expected(
+                                                "short flag alternative for the long flag".into(),
+                                                span,
+                                            ))
                                         });
                                         short_flag
                                     } else {
+                                        // Obtain the flag's name by removing the starting - and trailing )
                                         &short_flag[1..(short_flag.len() - 1)]
                                     };
+                                    // Note that it is currently possible to make a short flag with non-alphanumeric characters,
+                                    // like -).
 
                                     let short_flag =
                                         String::from_utf8_lossy(short_flag).to_string();
@@ -3359,7 +3405,7 @@ pub fn parse_signature_helper(
                                     if !is_variable(&variable_name) {
                                         error = error.or_else(|| {
                                             Some(ParseError::Expected(
-                                                "valid variable name".into(),
+                                                "valid variable name for this short flag".into(),
                                                 span,
                                             ))
                                         })
@@ -3388,9 +3434,10 @@ pub fn parse_signature_helper(
                                         });
                                     }
                                 }
-                            } else if contents.starts_with(b"-") && contents.len() > 1 {
-                                // Short flag
-
+                                parse_mode = ParseMode::ArgMode;
+                            }
+                            // Mandatory short flag, e.g. -e (must be one character)
+                            else if contents.starts_with(b"-") && contents.len() > 1 {
                                 let short_flag = &contents[1..];
                                 let short_flag = String::from_utf8_lossy(short_flag).to_string();
                                 let chars: Vec<char> = short_flag.chars().collect();
@@ -3404,10 +3451,11 @@ pub fn parse_signature_helper(
                                 let mut encoded_var_name = vec![0u8; 4];
                                 let len = chars[0].encode_utf8(&mut encoded_var_name).len();
                                 let variable_name = encoded_var_name[0..len].to_vec();
+
                                 if !is_variable(&variable_name) {
                                     error = error.or_else(|| {
                                         Some(ParseError::Expected(
-                                            "valid variable name".into(),
+                                            "valid variable name for this short flag".into(),
                                             span,
                                         ))
                                     })
@@ -3425,7 +3473,16 @@ pub fn parse_signature_helper(
                                     var_id: Some(var_id),
                                     default_value: None,
                                 }));
-                            } else if contents.starts_with(b"(-") {
+                                parse_mode = ParseMode::ArgMode;
+                            }
+                            // Short flag alias for long flag, e.g. --b (-a)
+                            // This is the same as the short flag in --b(-a)
+                            else if contents.starts_with(b"(-") {
+                                if matches!(parse_mode, ParseMode::AfterCommaArgMode) {
+                                    error = error.or_else(|| {
+                                        Some(ParseError::Expected("parameter or flag".into(), span))
+                                    });
+                                }
                                 let short_flag = &contents[2..];
 
                                 let short_flag = if !short_flag.ends_with(b")") {
@@ -3468,14 +3525,17 @@ pub fn parse_signature_helper(
                                         Some(ParseError::Expected("short flag".into(), span))
                                     });
                                 }
-                            } else if contents.ends_with(b"?") {
+                            }
+                            // Positional arg, optional
+                            else if contents.ends_with(b"?") {
                                 let contents: Vec<_> = contents[..(contents.len() - 1)].into();
                                 let name = String::from_utf8_lossy(&contents).to_string();
 
                                 if !is_variable(&contents) {
                                     error = error.or_else(|| {
                                         Some(ParseError::Expected(
-                                            "valid variable name".into(),
+                                            "valid variable name for this optional parameter"
+                                                .into(),
                                             span,
                                         ))
                                     })
@@ -3484,7 +3544,6 @@ pub fn parse_signature_helper(
                                 let var_id =
                                     working_set.add_variable(contents, span, Type::Any, false);
 
-                                // Positional arg, optional
                                 args.push(Arg::Positional(
                                     PositionalArg {
                                         desc: String::new(),
@@ -3494,14 +3553,18 @@ pub fn parse_signature_helper(
                                         default_value: None,
                                     },
                                     false,
-                                ))
-                            } else if let Some(contents) = contents.strip_prefix(b"...") {
+                                ));
+                                parse_mode = ParseMode::ArgMode;
+                            }
+                            // Rest param
+                            else if let Some(contents) = contents.strip_prefix(b"...") {
                                 let name = String::from_utf8_lossy(contents).to_string();
                                 let contents_vec: Vec<u8> = contents.to_vec();
+
                                 if !is_variable(&contents_vec) {
                                     error = error.or_else(|| {
                                         Some(ParseError::Expected(
-                                            "valid variable name".into(),
+                                            "valid variable name for this rest parameter".into(),
                                             span,
                                         ))
                                     })
@@ -3517,14 +3580,17 @@ pub fn parse_signature_helper(
                                     var_id: Some(var_id),
                                     default_value: None,
                                 }));
-                            } else {
+                                parse_mode = ParseMode::ArgMode;
+                            }
+                            // Normal param
+                            else {
                                 let name = String::from_utf8_lossy(contents).to_string();
                                 let contents_vec = contents.to_vec();
 
                                 if !is_variable(&contents_vec) {
                                     error = error.or_else(|| {
                                         Some(ParseError::Expected(
-                                            "valid variable name".into(),
+                                            "valid variable name for this parameter".into(),
                                             span,
                                         ))
                                     })
@@ -3543,7 +3609,8 @@ pub fn parse_signature_helper(
                                         default_value: None,
                                     },
                                     true,
-                                ))
+                                ));
+                                parse_mode = ParseMode::ArgMode;
                             }
                         }
                         ParseMode::TypeMode => {
@@ -3623,7 +3690,7 @@ pub fn parse_signature_helper(
                                     Arg::RestPositional(..) => {
                                         error = error.or_else(|| {
                                             Some(ParseError::AssignmentMismatch(
-                                                "Rest parameter given default value".into(),
+                                                "Rest parameter was given a default value".into(),
                                                 "can't have default value".into(),
                                                 expression.span,
                                             ))
@@ -3655,8 +3722,12 @@ pub fn parse_signature_helper(
                                                     if t != &expression_ty {
                                                         error = error.or_else(|| {
                                                             Some(ParseError::AssignmentMismatch(
-                                                                "Default value wrong type".into(),
-                                                                format!("default value not {}", t),
+                                                                "Default value is the wrong type"
+                                                                    .into(),
+                                                                format!(
+                                                                    "default value should be {}",
+                                                                    t
+                                                                ),
                                                                 expression_span,
                                                             ))
                                                         })
@@ -5223,8 +5294,8 @@ pub fn parse_builtin_commands(
             let (expr, err) = parse_for(working_set, &lite_command.parts, expand_aliases_denylist);
             (Pipeline::from_vec(vec![expr]), err)
         }
-        b"alias" => parse_alias(working_set, &lite_command.parts, expand_aliases_denylist),
-        b"module" => parse_module(working_set, &lite_command.parts, expand_aliases_denylist),
+        b"alias" => parse_alias(working_set, lite_command, expand_aliases_denylist),
+        b"module" => parse_module(working_set, lite_command, expand_aliases_denylist),
         b"use" => {
             let (pipeline, _, err) =
                 parse_use(working_set, &lite_command.parts, expand_aliases_denylist);

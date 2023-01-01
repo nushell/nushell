@@ -72,12 +72,12 @@ impl Command for Const {
         vec![
             Example {
                 description: "Create a new parse-time constant.",
-                example: "let x = 10",
+                example: "const x = 10",
                 result: None,
             },
             Example {
                 description: "Create a composite constant value",
-                example: "let x = { a: 10, b: 20 }",
+                example: "const x = { a: 10, b: 20 }",
                 result: None,
             },
         ]

@@ -222,6 +222,9 @@ static NEEDS_QUOTES_REGEX: Lazy<Regex> = Lazy::new(|| {
 });
 
 fn needs_quotes(string: &str) -> bool {
+    if string.is_empty() {
+        return true;
+    }
     // These are case-sensitive keywords
     match string {
         // `true`/`false`/`null` are active keywords in JSON and NUON
