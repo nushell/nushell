@@ -128,6 +128,11 @@ impl Command for Try {
                 example: "try { asdfasdf } catch { echo 'missing' } ",
                 result: Some(Value::test_string("missing")),
             },
+            Example {
+                description: "Try to run a missing command, and parse the error",
+                example: "try { asdfasdf } catch {|err| if ('executable was not found' in ($err | to text)) { 'Missing Command' } else { 'Unexpected Error' }}",
+                result: Some(Value::test_string("Missing Command")),
+            },
         ]
     }
 }
