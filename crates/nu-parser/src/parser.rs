@@ -3963,13 +3963,6 @@ pub fn parse_block_expression(
 ) -> (Expression, Option<ParseError>) {
     trace!("parsing: block expression");
 
-    if let SyntaxShape::Closure(_) = shape {
-        return (
-            garbage(span),
-            Some(ParseError::Mismatch("block".into(), "closure".into(), span)),
-        );
-    }
-
     let bytes = working_set.get_span_contents(span);
     let mut error = None;
 
@@ -4100,13 +4093,6 @@ pub fn parse_closure_expression(
     expand_aliases_denylist: &[usize],
 ) -> (Expression, Option<ParseError>) {
     trace!("parsing: closure expression");
-
-    if let SyntaxShape::Block = shape {
-        return (
-            garbage(span),
-            Some(ParseError::Mismatch("closure".into(), "block".into(), span)),
-        );
-    }
 
     let bytes = working_set.get_span_contents(span);
     let mut error = None;
