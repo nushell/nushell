@@ -51,7 +51,7 @@ pub enum ShellError {
         #[label("value originates from here")] Span,
     ),
 
-    #[error("Only supports for specific input types.")]
+    #[error("Input type not supported.")]
     #[diagnostic(code(nu::shell::only_supports_this_input_type), url(docsrs))]
     OnlySupportsThisInputType(
         String,
