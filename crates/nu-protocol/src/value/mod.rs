@@ -639,8 +639,9 @@ impl Value {
         self,
         cell_path: &[PathMember],
         insensitive: bool,
+        nullify_errors: bool,
     ) -> Result<Value, ShellError> {
-        self.follow_cell_path_helper(cell_path, insensitive, true)
+        self.follow_cell_path_helper(cell_path, insensitive, nullify_errors, true)
     }
 
     pub fn follow_cell_path_not_from_user_input(
@@ -648,16 +649,26 @@ impl Value {
         cell_path: &[PathMember],
         insensitive: bool,
     ) -> Result<Value, ShellError> {
-        self.follow_cell_path_helper(cell_path, insensitive, false)
+        self.follow_cell_path_helper(cell_path, insensitive, false, false)
     }
 
     fn follow_cell_path_helper(
         self,
         cell_path: &[PathMember],
         insensitive: bool,
+        nullify_errors: bool, // Turn all errors into Value::Nothing
         from_user_input: bool,
     ) -> Result<Value, ShellError> {
         let mut current = self;
+        macro_rules! err_or_null {
+            ($e:expr, $span:expr) => {
+                return if nullify_errors {
+                    Ok(Value::nothing($span))
+                } else {
+                    Err($e)
+                }
+            };
+        }
         for member in cell_path {
             // FIXME: this uses a few extra clones for simplicity, but there may be a way
             // to traverse the path without them
@@ -672,25 +683,40 @@ impl Value {
                             if let Some(item) = val.get(*count) {
                                 current = item.clone();
                             } else if val.is_empty() {
-                                return Err(ShellError::AccessEmptyContent(*origin_span))
+                                err_or_null!(
+                                    ShellError::AccessEmptyContent(*origin_span),
+                                    *origin_span
+                                )
                             } else {
-                                return Err(ShellError::AccessBeyondEnd(val.len() - 1, *origin_span));
+                                err_or_null!(
+                                    ShellError::AccessBeyondEnd(val.len() - 1, *origin_span),
+                                    *origin_span
+                                );
                             }
                         }
                         Value::Binary { val, .. } => {
                             if let Some(item) = val.get(*count) {
                                 current = Value::int(*item as i64, *origin_span);
                             } else if val.is_empty() {
-                                return Err(ShellError::AccessEmptyContent(*origin_span))
+                                err_or_null!(
+                                    ShellError::AccessEmptyContent(*origin_span),
+                                    *origin_span
+                                )
                             } else {
-                                return Err(ShellError::AccessBeyondEnd(val.len() - 1, *origin_span));
+                                err_or_null!(
+                                    ShellError::AccessBeyondEnd(val.len() - 1, *origin_span),
+                                    *origin_span
+                                );
                             }
                         }
                         Value::Range { val, .. } => {
                             if let Some(item) = val.clone().into_range_iter(None)?.nth(*count) {
                                 current = item.clone();
                             } else {
-                                return Err(ShellError::AccessBeyondEndOfStream(*origin_span));
+                                err_or_null!(
+                                    ShellError::AccessBeyondEndOfStream(*origin_span),
+                                    *origin_span
+                                );
                             }
                         }
                         Value::CustomValue { val, .. } => {
@@ -699,16 +725,19 @@ impl Value {
                         // Records (and tables) are the only built-in which support column names,
                         // so only use this message for them.
                         Value::Record { .. } => {
-                            return Err(ShellError::TypeMismatchGenericMessage {
+                            err_or_null!(ShellError::TypeMismatchGenericMessage {
                                 err_message: "Can't access record values with a row index. Try specifying a column name instead".into(),
-                                span: *origin_span, })
+                                span: *origin_span, }, *origin_span)
                         }
                         Value::Error { error } => return Err(error.to_owned()),
                         x => {
-                            return Err(ShellError::IncompatiblePathAccess(
-                                format!("{}", x.get_type()),
-                                *origin_span,
-                            ))
+                            err_or_null!(
+                                ShellError::IncompatiblePathAccess(
+                                    format!("{}", x.get_type()),
+                                    *origin_span,
+                                ),
+                                *origin_span
+                            )
                         }
                     }
                 }
@@ -732,16 +761,26 @@ impl Value {
                         } else {
                             if from_user_input {
                                 if let Some(suggestion) = did_you_mean(&cols, column_name) {
-                                    return Err(ShellError::DidYouMean(suggestion, *origin_span));
+                                    err_or_null!(
+                                        ShellError::DidYouMean(suggestion, *origin_span),
+                                        *origin_span
+                                    );
                                 }
                             }
-                            return Err(ShellError::CantFindColumn(
-                                column_name.to_string(),
-                                *origin_span,
-                                span,
-                            ));
+                            err_or_null!(
+                                ShellError::CantFindColumn(
+                                    column_name.to_string(),
+                                    *origin_span,
+                                    span,
+                                ),
+                                *origin_span
+                            );
                         }
                     }
+                    // String access of Lists always means Table access.
+                    // Create a List which contains each matching value for contained
+                    // records in the source list.
+                    // If nullify_errors is true, table holes are converted to null.
                     Value::List { vals, span } => {
                         let mut output = vec![];
                         let mut found_at_least_1_value = false;
@@ -754,6 +793,7 @@ impl Value {
                                         span: *origin_span,
                                     }],
                                     insensitive,
+                                    nullify_errors,
                                 ) {
                                     found_at_least_1_value = true;
                                     output.push(result);
@@ -768,7 +808,26 @@ impl Value {
                                     // This also means that `[{a:1 b:2} {a:2}].b | reject 1` also doesn't error.
                                     // Anything that needs to use every value inside the list should propagate
                                     // the error outward, though.
-                                    output.push(Value::Error {
+                                    output.push(if nullify_errors {
+                                        Value::nothing(*origin_span)
+                                    } else {
+                                        Value::Error {
+                                            error: ShellError::CantFindColumn(
+                                                column_name.to_string(),
+                                                *origin_span,
+                                                // Get the exact span of the value, falling back to
+                                                // the list's span if it's a Value::Empty
+                                                val.span().unwrap_or(*span),
+                                            ),
+                                        }
+                                    });
+                                }
+                            } else {
+                                // See comment above.
+                                output.push(if nullify_errors {
+                                    Value::nothing(*origin_span)
+                                } else {
+                                    Value::Error {
                                         error: ShellError::CantFindColumn(
                                             column_name.to_string(),
                                             *origin_span,
@@ -776,18 +835,7 @@ impl Value {
                                             // the list's span if it's a Value::Empty
                                             val.span().unwrap_or(*span),
                                         ),
-                                    });
-                                }
-                            } else {
-                                // See comment above.
-                                output.push(Value::Error {
-                                    error: ShellError::CantFindColumn(
-                                        column_name.to_string(),
-                                        *origin_span,
-                                        // Get the exact span of the value, falling back to
-                                        // the list's span if it's a Value::Empty
-                                        val.span().unwrap_or(*span),
-                                    ),
+                                    }
                                 });
                             }
                         }
@@ -797,29 +845,34 @@ impl Value {
                                 span: *span,
                             };
                         } else {
-                            return Err(ShellError::CantFindColumn(
-                                column_name.to_string(),
-                                *origin_span,
-                                *span,
-                            ));
+                            err_or_null!(
+                                ShellError::CantFindColumn(
+                                    column_name.to_string(),
+                                    *origin_span,
+                                    *span,
+                                ),
+                                *origin_span
+                            );
                         }
                     }
                     Value::CustomValue { val, .. } => {
                         current = val.follow_path_string(column_name.clone(), *origin_span)?;
                     }
-                    Value::Error { error } => return Err(error.to_owned()),
+                    Value::Error { error } => err_or_null!(error.to_owned(), *origin_span),
                     x => {
-                        return Err(ShellError::IncompatiblePathAccess(
-                            format!("{}", x.get_type()),
-                            *origin_span,
-                        ))
+                        err_or_null!(
+                            ShellError::IncompatiblePathAccess(
+                                format!("{}", x.get_type()),
+                                *origin_span,
+                            ),
+                            *origin_span
+                        )
                     }
                 },
             }
         }
-        // If a single Value::Error was produced by the above, unwrap it now.
-        // Note that Value::Errors inside Lists remain as they are,
-        // so that the rest of the list can still potentially be used.
+        // If a single Value::Error was produced by the above (which won't happen if nullify_errors is true), unwrap it now.
+        // Note that Value::Errors inside Lists remain as they are, so that the rest of the list can still potentially be used.
         if let Value::Error { error } = current {
             Err(error)
         } else {
@@ -835,7 +888,7 @@ impl Value {
     ) -> Result<(), ShellError> {
         let orig = self.clone();
 
-        let new_val = callback(&orig.follow_cell_path(cell_path, false)?);
+        let new_val = callback(&orig.follow_cell_path(cell_path, false, false)?);
 
         match new_val {
             Value::Error { error } => Err(error),
@@ -888,6 +941,7 @@ impl Value {
                                         }
                                     }
                                 }
+                                Value::Error { error } => return Err(error.to_owned()),
                                 v => {
                                     return Err(ShellError::CantFindColumn(
                                         col_name.to_string(),
@@ -924,6 +978,7 @@ impl Value {
                             }
                         }
                     }
+                    Value::Error { error } => return Err(error.to_owned()),
                     v => {
                         return Err(ShellError::CantFindColumn(
                             col_name.to_string(),
@@ -944,6 +999,7 @@ impl Value {
                             return Err(ShellError::InsertAfterNextFreeIndex(vals.len(), *span));
                         }
                     }
+                    Value::Error { error } => return Err(error.to_owned()),
                     v => return Err(ShellError::NotAList(*span, v.span()?)),
                 },
             },
@@ -962,7 +1018,7 @@ impl Value {
     ) -> Result<(), ShellError> {
         let orig = self.clone();
 
-        let new_val = callback(&orig.follow_cell_path(cell_path, false)?);
+        let new_val = callback(&orig.follow_cell_path(cell_path, false, false)?);
 
         match new_val {
             Value::Error { error } => Err(error),
@@ -1007,6 +1063,7 @@ impl Value {
                                         ));
                                     }
                                 }
+                                Value::Error { error } => return Err(error.to_owned()),
                                 v => {
                                     return Err(ShellError::CantFindColumn(
                                         col_name.to_string(),
@@ -1040,6 +1097,7 @@ impl Value {
                             ));
                         }
                     }
+                    Value::Error { error } => return Err(error.to_owned()),
                     v => {
                         return Err(ShellError::CantFindColumn(
                             col_name.to_string(),
@@ -1058,6 +1116,7 @@ impl Value {
                             return Err(ShellError::AccessBeyondEnd(vals.len() - 1, *span));
                         }
                     }
+                    Value::Error { error } => return Err(error.to_owned()),
                     v => return Err(ShellError::NotAList(*span, v.span()?)),
                 },
             },

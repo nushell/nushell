@@ -24,7 +24,7 @@ fn adds_row_data_if_column_missing() {
             r#"
                 open los_tres_amigos.json
                 | get amigos
-                | default rusty_luck 1
+                | default 1 rusty_luck
                 | where rusty_luck == 1
                 | length
             "#

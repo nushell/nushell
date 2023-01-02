@@ -278,6 +278,7 @@ fn convert_to_list(
                                 span: head,
                             }],
                             false,
+                            false,
                         ),
                         _ => Ok(item.clone()),
                     };

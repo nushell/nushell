@@ -605,7 +605,7 @@ fn create_table2_entry_basic(
         Value::Record { .. } => {
             let val = header.to_owned();
             let path = PathMember::String { val, span: head };
-            let val = item.clone().follow_cell_path(&[path], false);
+            let val = item.clone().follow_cell_path(&[path], false, false);
 
             match val {
                 Ok(val) => value_to_styled_string(&val, config, style_computer),
@@ -633,7 +633,7 @@ fn create_table2_entry(
         Value::Record { .. } => {
             let val = header.to_owned();
             let path = PathMember::String { val, span: head };
-            let val = item.clone().follow_cell_path(&[path], false);
+            let val = item.clone().follow_cell_path(&[path], false, false);
 
             match val {
                 Ok(val) => convert_to_table2_entry(

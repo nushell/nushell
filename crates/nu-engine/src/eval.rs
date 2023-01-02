@@ -302,7 +302,7 @@ pub fn eval_expression(
         Expr::FullCellPath(cell_path) => {
             let value = eval_expression(engine_state, stack, &cell_path.head)?;
 
-            value.follow_cell_path(&cell_path.tail, false)
+            value.follow_cell_path(&cell_path.tail, false, false)
         }
         Expr::ImportPattern(_) => Ok(Value::Nothing { span: expr.span }),
         Expr::Overlay(_) => {
@@ -476,6 +476,7 @@ pub fn eval_expression(
                                         // as the "config" environment variable.
                                         let vardata = lhs.follow_cell_path(
                                             &[cell_path.tail[0].clone()],
+                                            false,
                                             false,
                                         )?;
                                         match &cell_path.tail[0] {

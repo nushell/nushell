@@ -256,8 +256,20 @@ fn length_defaulted_columns() -> TestResult {
 }
 
 #[test]
-fn get_fuzzy() -> TestResult {
-    run_test("(ls | get -i foo) == null", "true")
+fn nullify_errors() -> TestResult {
+    run_test("([{a:1} {a:2} {a:3}] | get -i foo | length) == 3", "true")?;
+    run_test(
+        "([{a:1} {a:2} {a:3}] | get -i foo | to nuon) == '[null, null, null]'",
+        "true",
+    )
+}
+
+#[test]
+fn nullify_holes() -> TestResult {
+    run_test(
+        "([{a:1} {b:2} {a:3}] | get -i a | to nuon) == '[1, null, 3]'",
+        "true",
+    )
 }
 
 #[test]
