@@ -2697,10 +2697,12 @@ name = "nu-engine"
 version = "0.73.1"
 dependencies = [
  "chrono",
+ "indexmap",
  "nu-glob",
  "nu-path",
  "nu-protocol",
  "nu-utils",
+ "once_cell",
  "serde",
  "sysinfo",
 ]
