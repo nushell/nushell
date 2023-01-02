@@ -355,6 +355,7 @@ fn handle_table_command(
             // into_string() is used for serialising primitives in PipelineData::write_all_and_flush(),
             // so the same is used here.
             let str_representation = v.into_string("", config);
+
             Ok(Value::String {
                 val: StyleComputer::from_config(engine_state, stack)
                     .style_primitive(&v)
