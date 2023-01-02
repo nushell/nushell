@@ -875,6 +875,15 @@ pub fn eval_block(
     redirect_stdout: bool,
     redirect_stderr: bool,
 ) -> Result<PipelineData, ShellError> {
+    if let Some(recursion) = block.recursion {
+        if recursion {
+            if *stack.recursion_limit == engine_state.config.recursion {
+                stack.recursion_limit = Box::new(0);
+                return Ok(PipelineData::Empty);
+            }
+            *stack.recursion_limit += 1;
+        }
+    }
     let num_pipelines = block.len();
     for (pipeline_idx, pipeline) in block.pipelines.iter().enumerate() {
         let mut i = 0;

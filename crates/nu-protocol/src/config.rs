@@ -88,6 +88,7 @@ pub struct Config {
     pub show_clickable_links_in_ls: bool,
     pub render_right_prompt_on_last_line: bool,
     pub explore: HashMap<String, Value>,
+    pub recursion: i64,
 }
 
 impl Default for Config {
@@ -127,6 +128,7 @@ impl Default for Config {
             show_clickable_links_in_ls: true,
             render_right_prompt_on_last_line: false,
             explore: HashMap::new(),
+            recursion: 120,
         }
     }
 }
