@@ -128,7 +128,7 @@ impl Default for Config {
             show_clickable_links_in_ls: true,
             render_right_prompt_on_last_line: false,
             explore: HashMap::new(),
-            recursion: 100,
+            recursion: 50,
         }
     }
 }
