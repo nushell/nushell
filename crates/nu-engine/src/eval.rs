@@ -877,7 +877,7 @@ pub fn eval_block(
 ) -> Result<PipelineData, ShellError> {
     if let Some(recursion) = block.recursion {
         if recursion {
-            if *stack.recursion_limit == engine_state.config.recursion {
+            if *stack.recursion_limit == engine_state.config.recursion_limit {
                 stack.recursion_limit = Box::new(0);
                 return Ok(PipelineData::Empty);
             }

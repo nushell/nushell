@@ -88,7 +88,7 @@ pub struct Config {
     pub show_clickable_links_in_ls: bool,
     pub render_right_prompt_on_last_line: bool,
     pub explore: HashMap<String, Value>,
-    pub recursion: i64,
+    pub recursion_limit: i64,
 }
 
 impl Default for Config {
@@ -128,7 +128,7 @@ impl Default for Config {
             show_clickable_links_in_ls: true,
             render_right_prompt_on_last_line: false,
             explore: HashMap::new(),
-            recursion: 50,
+            recursion_limit: 50,
         }
     }
 }
@@ -992,6 +992,9 @@ impl Value {
                             });
                         }
                     },
+                    "recursion_limit" => {
+                        try_int!(cols, vals, index, span, recursion_limit);
+                    }
                     "shell_integration" => {
                         try_bool!(cols, vals, index, span, shell_integration);
                     }
