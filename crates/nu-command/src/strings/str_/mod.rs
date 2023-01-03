@@ -13,6 +13,7 @@ mod rpad;
 mod starts_with;
 mod substring;
 mod trim;
+mod encode_url;
 
 pub use case::*;
 pub use collect::*;
@@ -29,3 +30,4 @@ pub use rpad::SubCommand as StrRpad;
 pub use starts_with::SubCommand as StrStartsWith;
 pub use substring::SubCommand as StrSubstring;
 pub use trim::Trim as StrTrim;
+pub use encode_url::SubCommand as StrEncodeUrl;

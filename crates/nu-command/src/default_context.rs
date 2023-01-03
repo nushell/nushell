@@ -233,6 +233,7 @@ pub fn create_default_context() -> EngineState {
             StrSnakeCase,
             StrStartsWith,
             StrSubstring,
+            StrEncodeUrl,
             StrTrim,
             StrTitleCase,
             StrUpcase
