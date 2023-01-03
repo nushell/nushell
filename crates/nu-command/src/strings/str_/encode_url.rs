@@ -5,7 +5,6 @@ use nu_protocol::ast::CellPath;
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::Category;
 use nu_protocol::{Example, PipelineData, ShellError, Signature, Span, SyntaxShape, Type, Value};
-use url_escape;
 
 #[derive(Clone)]
 pub struct SubCommand;
@@ -18,7 +17,7 @@ impl Command for SubCommand {
     fn signature(&self) -> Signature {
         Signature::build("str encode-url")
             .input_output_types(vec![(Type::String, Type::String)])
-            // .vectorizes_over_list(true)
+            .vectorizes_over_list(true)
             .rest(
                 "rest",
                 SyntaxShape::CellPath,
@@ -32,7 +31,7 @@ impl Command for SubCommand {
     }
 
     fn search_terms(&self) -> Vec<&str> {
-        vec!["string", "url", "encode"]
+        vec!["string", "text", "convert"]
     }
 
     fn run(
@@ -46,6 +45,7 @@ impl Command for SubCommand {
         let args = CellPathOnlyArgs::from(cell_paths);
         operate(action, args, input, call.head, engine_state.ctrlc.clone())
     }
+
     fn examples(&self) -> Vec<Example> {
         vec![
             Example {
