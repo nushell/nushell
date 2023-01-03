@@ -89,7 +89,7 @@ impl Command for Start {
                 result: None,
             },
             Example {
-                description: "Open the current directory with the defauly file manager",
+                description: "Open the current directory with the default file manager",
                 example: "start .",
                 result: None,
             },
