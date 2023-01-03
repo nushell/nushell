@@ -405,7 +405,7 @@ let-env config = {
   shell_integration: true # enables terminal markers and a workaround to arrow keys stop working issue
   show_banner: true # true or false to enable or disable the banner
   render_right_prompt_on_last_line: false # true or false to enable or disable right prompt to be rendered on last line of the prompt.
-  recursion_limit: 50
+
   hooks: {
     pre_prompt: [{
       null  # replace with source code to run before the prompt is shown
