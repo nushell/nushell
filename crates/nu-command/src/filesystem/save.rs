@@ -64,221 +64,59 @@ impl Command for Save {
         let span = call.head;
 
         let path = call.req::<Spanned<String>>(engine_state, stack, 0)?;
-        let arg_span = path.span;
-        let path = Path::new(&path.item);
-
-        let path_exists = path.exists();
-        if path_exists && !force && !append {
-            return Err(ShellError::GenericError(
-                "Destination file already exists".into(),
-                format!(
-                    "Destination file '{}' already exists",
-                    path.to_string_lossy()
-                ),
-                Some(arg_span),
-                Some("you can use -f, --force to force overwriting the destination".into()),
-                Vec::new(),
-            ));
-        }
-
-        let file = match (append, path_exists) {
-            (true, true) => std::fs::OpenOptions::new()
-                .write(true)
-                .append(true)
-                .open(path),
-            _ => std::fs::File::create(path),
-        };
-
-        let mut file = match file {
-            Ok(file) => file,
-            Err(err) => {
-                return Err(ShellError::GenericError(
-                    "Permission denied".into(),
-                    err.to_string(),
-                    Some(arg_span),
-                    None,
-                    Vec::new(),
-                ));
-            }
-        };
         let stderr_path = call.get_flag::<Spanned<String>>(engine_state, stack, "stderr")?;
-        let stderr_file = match stderr_path {
-            None => None,
-            Some(stderr_path) => {
-                let stderr_span = stderr_path.span;
-                let stderr_path = Path::new(&stderr_path.item);
-                if stderr_path == path {
-                    Some(file.try_clone()?)
+
+        match input {
+            PipelineData::ExternalStream { stdout: None, .. } => {
+                // Open files to possibly truncate them
+                let _ = get_files(&path, &stderr_path, append, force)?;
+                Ok(PipelineData::empty())
+            }
+            PipelineData::ExternalStream {
+                stdout: Some(stream),
+                stderr,
+                ..
+            } => {
+                let (file, stderr_file) = get_files(&path, &stderr_path, append, force)?;
+
+                // delegate a thread to redirect stderr to result.
+                let handler = stderr.map(|stderr_stream| match stderr_file {
+                    Some(stderr_file) => {
+                        std::thread::spawn(move || stream_to_file(stderr_stream, stderr_file, span))
+                    }
+                    None => std::thread::spawn(move || {
+                        let _ = stderr_stream.into_bytes();
+                        Ok(PipelineData::empty())
+                    }),
+                });
+
+                let res = stream_to_file(stream, file, span);
+                if let Some(h) = handler {
+                    h.join().map_err(|err| {
+                        ShellError::ExternalCommand(
+                            "Fail to receive external commands stderr message".to_string(),
+                            format!("{err:?}"),
+                            span,
+                        )
+                    })??;
+                    res
                 } else {
-                    match std::fs::File::create(stderr_path) {
-                        Ok(file) => Some(file),
-                        Err(err) => {
-                            return Err(ShellError::GenericError(
-                                "Permission denied".into(),
-                                err.to_string(),
-                                Some(stderr_span),
-                                None,
-                                Vec::new(),
-                            ))
-                        }
-                    }
+                    res
                 }
             }
-        };
+            input => {
+                let bytes =
+                    input_to_bytes(input, Path::new(&path.item), raw, engine_state, stack, span)?;
 
-        let ext = if raw {
-            None
-        // if is extern stream , in other words , not value
-        } else if let PipelineData::ExternalStream { .. } = input {
-            None
-        } else if let PipelineData::Value(Value::String { .. }, ..) = input {
-            None
-        } else {
-            path.extension()
-                .map(|name| name.to_string_lossy().to_string())
-        };
+                // Only open file after successful conversion
+                let (mut file, _) = get_files(&path, &stderr_path, append, force)?;
 
-        if let Some(ext) = ext {
-            let output = match engine_state.find_decl(format!("to {}", ext).as_bytes(), &[]) {
-                Some(converter_id) => {
-                    let output = engine_state.get_decl(converter_id).run(
-                        engine_state,
-                        stack,
-                        &Call::new(span),
-                        input,
-                    )?;
+                file.write_all(&bytes)
+                    .map_err(|err| ShellError::IOError(err.to_string()))?;
 
-                    output.into_value(span)
-                }
-                None => input.into_value(span),
-            };
+                file.flush()?;
 
-            match output {
-                Value::String { val, .. } => {
-                    if let Err(err) = file.write_all(val.as_bytes()) {
-                        return Err(ShellError::IOError(err.to_string()));
-                    } else {
-                        file.flush()?
-                    }
-
-                    Ok(PipelineData::empty())
-                }
-                Value::Binary { val, .. } => {
-                    if let Err(err) = file.write_all(&val) {
-                        return Err(ShellError::IOError(err.to_string()));
-                    } else {
-                        file.flush()?
-                    }
-
-                    Ok(PipelineData::empty())
-                }
-                Value::List { vals, .. } => {
-                    let val = vals
-                        .into_iter()
-                        .map(|it| it.as_string())
-                        .collect::<Result<Vec<String>, ShellError>>()?
-                        .join("\n")
-                        + "\n";
-
-                    if let Err(err) = file.write_all(val.as_bytes()) {
-                        return Err(ShellError::IOError(err.to_string()));
-                    } else {
-                        file.flush()?
-                    }
-
-                    Ok(PipelineData::empty())
-                }
-                // Propagate errors by explicitly matching them before the final case.
-                Value::Error { error } => Err(error),
-                other => Err(ShellError::OnlySupportsThisInputType(
-                    "string, binary or list".into(),
-                    other.get_type().to_string(),
-                    span,
-                    // This line requires the Value::Error match above.
-                    other.expect_span(),
-                )),
-            }
-        } else {
-            match input {
-                PipelineData::ExternalStream { stdout: None, .. } => Ok(PipelineData::empty()),
-                PipelineData::ExternalStream {
-                    stdout: Some(stream),
-                    stderr,
-                    ..
-                } => {
-                    // delegate a thread to redirect stderr to result.
-                    let handler = stderr.map(|stderr_stream| match stderr_file {
-                        Some(stderr_file) => std::thread::spawn(move || {
-                            stream_to_file(stderr_stream, stderr_file, span)
-                        }),
-                        None => std::thread::spawn(move || {
-                            let _ = stderr_stream.into_bytes();
-                            Ok(PipelineData::empty())
-                        }),
-                    });
-
-                    let res = stream_to_file(stream, file, span);
-                    if let Some(h) = handler {
-                        match h.join() {
-                            Err(err) => {
-                                return Err(ShellError::ExternalCommand(
-                                    "Fail to receive external commands stderr message".to_string(),
-                                    format!("{err:?}"),
-                                    span,
-                                ))
-                            }
-                            Ok(res) => res,
-                        }?;
-                        res
-                    } else {
-                        res
-                    }
-                }
-                input => match input.into_value(span) {
-                    Value::String { val, .. } => {
-                        if let Err(err) = file.write_all(val.as_bytes()) {
-                            return Err(ShellError::IOError(err.to_string()));
-                        } else {
-                            file.flush()?
-                        }
-
-                        Ok(PipelineData::empty())
-                    }
-                    Value::Binary { val, .. } => {
-                        if let Err(err) = file.write_all(&val) {
-                            return Err(ShellError::IOError(err.to_string()));
-                        } else {
-                            file.flush()?
-                        }
-
-                        Ok(PipelineData::empty())
-                    }
-                    Value::List { vals, .. } => {
-                        let val = vals
-                            .into_iter()
-                            .map(|it| it.as_string())
-                            .collect::<Result<Vec<String>, ShellError>>()?
-                            .join("\n")
-                            + "\n";
-
-                        if let Err(err) = file.write_all(val.as_bytes()) {
-                            return Err(ShellError::IOError(err.to_string()));
-                        } else {
-                            file.flush()?
-                        }
-
-                        Ok(PipelineData::empty())
-                    }
-                    // Propagate errors by explicitly matching them before the final case.
-                    Value::Error { error } => Err(error),
-                    other => Err(ShellError::OnlySupportsThisInputType(
-                        "string, binary or list".into(),
-                        other.get_type().to_string(),
-                        span,
-                        // This line requires the Value::Error match above.
-                        other.expect_span(),
-                    )),
-                },
+                Ok(PipelineData::empty())
             }
         }
     }
@@ -312,6 +150,182 @@ impl Command for Save {
             },
         ]
     }
+}
+
+/// Convert [`PipelineData`] bytes to write in file, possibly converting
+/// to format of output file
+fn input_to_bytes(
+    input: PipelineData,
+    path: &Path,
+    raw: bool,
+    engine_state: &EngineState,
+    stack: &mut Stack,
+    span: Span,
+) -> Result<Vec<u8>, ShellError> {
+    let ext = if raw {
+        None
+    // if is extern stream , in other words , not value
+    } else if let PipelineData::ExternalStream { .. } = input {
+        None
+    } else if let PipelineData::Value(Value::String { .. }, ..) = input {
+        None
+    } else {
+        path.extension()
+            .map(|name| name.to_string_lossy().to_string())
+    };
+
+    if let Some(ext) = ext {
+        convert_to_extension(engine_state, &ext, stack, input, span)
+    } else {
+        let value = input.into_value(span);
+        string_binary_list_value_to_bytes(value, span)
+    }
+}
+
+/// Convert given data into content of file of specified extension if
+/// corresponding `to` command exists. Otherwise attempt to convert
+/// data to bytes as is
+fn convert_to_extension(
+    engine_state: &EngineState,
+    extension: &str,
+    stack: &mut Stack,
+    input: PipelineData,
+    span: Span,
+) -> Result<Vec<u8>, ShellError> {
+    let converter = engine_state.find_decl(format!("to {}", extension).as_bytes(), &[]);
+
+    let output = match converter {
+        Some(converter_id) => {
+            let output = engine_state.get_decl(converter_id).run(
+                engine_state,
+                stack,
+                &Call::new(span),
+                input,
+            )?;
+
+            output.into_value(span)
+        }
+        None => input.into_value(span),
+    };
+
+    string_binary_list_value_to_bytes(output, span)
+}
+
+/// Convert [`Value::String`] [`Value::Binary`] or [`Value::List`] into [`Vec`] of bytes
+///
+/// Propagates [`Value::Error`] and creates error otherwise
+fn string_binary_list_value_to_bytes(value: Value, span: Span) -> Result<Vec<u8>, ShellError> {
+    match value {
+        Value::String { val, .. } => Ok(val.into_bytes()),
+        Value::Binary { val, .. } => Ok(val),
+        Value::List { vals, .. } => {
+            let val = vals
+                .into_iter()
+                .map(|it| it.as_string())
+                .collect::<Result<Vec<String>, ShellError>>()?
+                .join("\n")
+                + "\n";
+
+            Ok(val.into_bytes())
+        }
+        // Propagate errors by explicitly matching them before the final case.
+        Value::Error { error } => Err(error),
+        other => Err(ShellError::OnlySupportsThisInputType(
+            "string, binary or list".into(),
+            other.get_type().to_string(),
+            span,
+            // This line requires the Value::Error match above.
+            other.expect_span(),
+        )),
+    }
+}
+
+/// Convert string path to [`Path`] and [`Span`] and check if this path
+/// can be used with given flags
+fn prepare_path(
+    path: &Spanned<String>,
+    append: bool,
+    force: bool,
+) -> Result<(&Path, Span), ShellError> {
+    let span = path.span;
+    let path = Path::new(&path.item);
+
+    if !(force || append) && path.exists() {
+        Err(ShellError::GenericError(
+            "Destination file already exists".into(),
+            format!(
+                "Destination file '{}' already exists",
+                path.to_string_lossy()
+            ),
+            Some(span),
+            Some("you can use -f, --force to force overwriting the destination".into()),
+            Vec::new(),
+        ))
+    } else {
+        Ok((path, span))
+    }
+}
+
+fn open_file(path: &Path, span: Span, append: bool) -> Result<File, ShellError> {
+    let file = match (append, path.exists()) {
+        (true, true) => std::fs::OpenOptions::new()
+            .write(true)
+            .append(true)
+            .open(path),
+        _ => std::fs::File::create(path),
+    };
+
+    file.map_err(|err| {
+        ShellError::GenericError(
+            "Permission denied".into(),
+            err.to_string(),
+            Some(span),
+            None,
+            Vec::new(),
+        )
+    })
+}
+
+fn clone_file(file: &File, span: Span) -> Result<File, ShellError> {
+    file.try_clone().map_err(|err| {
+        ShellError::GenericError(
+            "Permission denied".into(),
+            err.to_string(),
+            Some(span),
+            None,
+            Vec::new(),
+        )
+    })
+}
+
+/// Get output file and optional stderr file
+fn get_files(
+    path: &Spanned<String>,
+    stderr_path: &Option<Spanned<String>>,
+    append: bool,
+    force: bool,
+) -> Result<(File, Option<File>), ShellError> {
+    // First check both paths
+    let (path, path_span) = prepare_path(path, append, force)?;
+    let stderr_path_and_span = stderr_path
+        .as_ref()
+        .map(|stderr_path| prepare_path(stderr_path, append, force))
+        .transpose()?;
+
+    // Only if both files can be used open and possibly truncate them
+    let file = open_file(path, path_span, append)?;
+
+    let stderr_file = stderr_path_and_span
+        .map(|(stderr_path, stderr_path_span)| {
+            if path == stderr_path {
+                clone_file(&file, stderr_path_span)
+            } else {
+                open_file(stderr_path, stderr_path_span, append)
+            }
+        })
+        .transpose()?;
+
+    Ok((file, stderr_file))
 }
 
 fn stream_to_file(
