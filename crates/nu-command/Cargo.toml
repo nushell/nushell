@@ -88,6 +88,7 @@ titlecase = "2.0.0"
 toml = "0.5.8"
 unicode-segmentation = "1.8.0"
 url = "2.2.1"
+url-escape = "0.1.1"
 uuid = { version = "1.1.2", features = ["v4"] }
 which = { version = "4.3.0", optional = true }
 reedline = { version = "0.14.0", features = ["bashisms", "sqlite"]}

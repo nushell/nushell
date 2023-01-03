@@ -1,26 +1,14 @@
-use crate::input_handler::{operate, CmdArgument};
+use crate::input_handler::{operate, CellPathOnlyArgs};
 use nu_engine::CallExt;
 use nu_protocol::ast::Call;
 use nu_protocol::ast::CellPath;
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::Category;
 use nu_protocol::{Example, PipelineData, ShellError, Signature, Span, SyntaxShape, Type, Value};
+use url_escape;
 
 #[derive(Clone)]
 pub struct SubCommand;
-
-struct Arguments {
-    substring: String,
-    cell_paths: Option<Vec<CellPath>>,
-    case_insensitive: bool,
-    not_contain: bool,
-}
-
-impl CmdArgument for Arguments {
-    fn take_cell_paths(&mut self) -> Option<Vec<CellPath>> {
-        self.cell_paths.take()
-    }
-}
 
 impl Command for SubCommand {
     fn name(&self) -> &str {
@@ -40,7 +28,7 @@ impl Command for SubCommand {
     }
 
     fn usage(&self) -> &str {
-        "Convert a url string to encoding/escaping special characters"
+        "Convert a url/string to encoding/escaping special characters"
     }
 
     fn search_terms(&self) -> Vec<&str> {
@@ -54,90 +42,25 @@ impl Command for SubCommand {
         call: &Call,
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
-        let cell_paths: Vec<CellPath> = call.rest(engine_state, stack, 1)?;
-        let cell_paths = (!cell_paths.is_empty()).then_some(cell_paths);
-        let args = Arguments {
-            substring: call.req::<String>(engine_state, stack, 0)?,
-            cell_paths,
-            case_insensitive: call.has_flag("ignore-case"),
-            not_contain: call.has_flag("not"),
-        };
+        let cell_paths: Vec<CellPath> = call.rest(engine_state, stack, 0)?;
+        let args = CellPathOnlyArgs::from(cell_paths);
         operate(action, args, input, call.head, engine_state.ctrlc.clone())
     }
-
     fn examples(&self) -> Vec<Example> {
         vec![
             Example {
-                description: "Check if input contains string",
-                example: "'my_library.rb' | str contains '.rb'",
-                result: Some(Value::test_bool(true)),
+                description: "Encode a url with escape characters",
+                example: "'https://example.com/foo bar' | str encode-url",
+                result: Some(Value::test_string("https://example.com/foo%20bar")),
             },
             Example {
-                description: "Check if input contains string case insensitive",
-                example: "'my_library.rb' | str contains -i '.RB'",
-                result: Some(Value::test_bool(true)),
-            },
-            Example {
-                description: "Check if input contains string in a table",
-                example: " [[ColA ColB]; [test 100]] | str contains 'e' ColA",
-                result: Some(Value::List {
-                    vals: vec![Value::Record {
-                        cols: vec!["ColA".to_string(), "ColB".to_string()],
-                        vals: vec![Value::test_bool(true), Value::test_int(100)],
-                        span: Span::test_data(),
-                    }],
-                    span: Span::test_data(),
-                }),
-            },
-            Example {
-                description: "Check if input contains string in a table",
-                example: " [[ColA ColB]; [test 100]] | str contains -i 'E' ColA",
-                result: Some(Value::List {
-                    vals: vec![Value::Record {
-                        cols: vec!["ColA".to_string(), "ColB".to_string()],
-                        vals: vec![Value::test_bool(true), Value::test_int(100)],
-                        span: Span::test_data(),
-                    }],
-                    span: Span::test_data(),
-                }),
-            },
-            Example {
-                description: "Check if input contains string in a table",
-                example: " [[ColA ColB]; [test hello]] | str contains 'e' ColA ColB",
-                result: Some(Value::List {
-                    vals: vec![Value::Record {
-                        cols: vec!["ColA".to_string(), "ColB".to_string()],
-                        vals: vec![Value::test_bool(true), Value::test_bool(true)],
-                        span: Span::test_data(),
-                    }],
-                    span: Span::test_data(),
-                }),
-            },
-            Example {
-                description: "Check if input string contains 'banana'",
-                example: "'hello' | str contains 'banana'",
-                result: Some(Value::test_bool(false)),
-            },
-            Example {
-                description: "Check if list contains string",
-                example: "[one two three] | str contains o",
+                description: "Encode multiple urls with escape characters in list",
+                example: "['https://example.com/foo bar' 'https://example.com/a>b' '中文字/eng/12 34'] | str encode-url",
                 result: Some(Value::List {
                     vals: vec![
-                        Value::test_bool(true),
-                        Value::test_bool(true),
-                        Value::test_bool(false),
-                    ],
-                    span: Span::test_data(),
-                }),
-            },
-            Example {
-                description: "Check if list does not contain string",
-                example: "[one two three] | str contains -n o",
-                result: Some(Value::List {
-                    vals: vec![
-                        Value::test_bool(false),
-                        Value::test_bool(false),
-                        Value::test_bool(true),
+                        Value::test_string("https://example.com/foo%20bar"),
+                        Value::test_string("https://example.com/a%3Eb"),
+                        Value::test_string("%E4%B8%AD%E6%96%87%E5%AD%97/eng/12%2034"),
                     ],
                     span: Span::test_data(),
                 }),
@@ -146,38 +69,12 @@ impl Command for SubCommand {
     }
 }
 
-fn action(
-    input: &Value,
-    Arguments {
-        case_insensitive,
-        not_contain,
-        substring,
-        ..
-    }: &Arguments,
-    head: Span,
-) -> Value {
+fn action(input: &Value, _arg: &CellPathOnlyArgs, head: Span) -> Value {
     match input {
-        Value::String { val, .. } => Value::boolean(
-            match case_insensitive {
-                true => {
-                    if *not_contain {
-                        !val.to_lowercase()
-                            .contains(substring.to_lowercase().as_str())
-                    } else {
-                        val.to_lowercase()
-                            .contains(substring.to_lowercase().as_str())
-                    }
-                }
-                false => {
-                    if *not_contain {
-                        !val.contains(substring)
-                    } else {
-                        val.contains(substring)
-                    }
-                }
-            },
-            head,
-        ),
+        Value::String { val, .. } => Value::String {
+            val: url_escape::encode_fragment(val).to_string(),
+            span: head,
+        },
         Value::Error { .. } => input.clone(),
         _ => Value::Error {
             error: ShellError::OnlySupportsThisInputType(

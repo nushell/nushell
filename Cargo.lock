@@ -2684,6 +2684,7 @@ dependencies = [
  "umask",
  "unicode-segmentation",
  "url",
+ "url-escape",
  "users 0.11.0",
  "uuid",
  "wax",
@@ -5324,6 +5325,15 @@ checksum = "0d68c799ae75762b8c3fe375feb6600ef5602c883c5d21eb51c09f22b83c4643"
 dependencies = [
  "form_urlencoded",
  "idna",
+ "percent-encoding",
+]
+
+[[package]]
+name = "url-escape"
+version = "0.1.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "44e0ce4d1246d075ca5abec4b41d33e87a6054d08e2366b63205665e950db218"
+dependencies = [
  "percent-encoding",
 ]
 
