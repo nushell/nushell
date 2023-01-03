@@ -315,6 +315,7 @@ fn main() -> Result<()> {
                         Box::new(BufferedReader::new(buf_reader)),
                         Some(ctrlc),
                         redirect_stdin.span,
+                        None,
                     )),
                     stderr: None,
                     exit_code: None,

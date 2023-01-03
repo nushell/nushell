@@ -139,6 +139,7 @@ impl Command for Open {
                     Box::new(BufferedReader { input: buf_reader }),
                     ctrlc,
                     call_span,
+                    None,
                 )),
                 stderr: None,
                 exit_code: None,

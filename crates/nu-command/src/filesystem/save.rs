@@ -6,13 +6,10 @@ use nu_protocol::{
     Type, Value,
 };
 use std::fs::File;
-use std::io::{BufWriter, Write, stdout};
+use std::io::{BufWriter, Write};
 use std::path::Path;
 
-use crossterm::{
-    QueueableCommand, style::Print,
-    cursor
-};
+use crate::progress_bar;
 
 #[derive(Clone)]
 pub struct Save;
@@ -325,23 +322,20 @@ fn stream_to_file(
     mut stream: RawStream,
     file: File,
     span: Span,
-    progress: bool
+    progress: bool,
 ) -> Result<PipelineData, ShellError> {
     let mut writer = BufWriter::new(file);
 
-    let mut counter = 0.0;
-    let cc = &mut counter;
-    let test = std::mem::size_of_val(&stream);
-    println!("test: {:?}", test);
-    println!("[                    ] ");
-    let cursor_pos = cursor::position().unwrap();
-    let max_cursor = 20;
-    let cursor_dir = 1;
-    let mut current_x_cursor: u16 = 0;
+    let mut bytes_processed: u64 = 0;
+    let bytes_processed_p = &mut bytes_processed;
+    let file_total_size = stream.known_size.map(|n| (n as u64)); // type TBD
 
-    println!("cursor pos: {:?}", cursor_pos);
+    // Create the progress bar and set the style.
+    let mut bar = progress_bar::NuProgressBar::new(file_total_size);
+    bar.create_style();
+    let f_bar = bar.clone();
 
-    stream
+    let r_stream = stream
         .try_for_each(move |result| {
             let buf = match result {
                 Ok(v) => match v {
@@ -362,33 +356,11 @@ fn stream_to_file(
                 Err(err) => return Err(err),
             };
 
-            current_x_cursor += 1;
-            if current_x_cursor >= max_cursor { current_x_cursor = 0 };
-
-            let tmp_bar1 = " ".repeat(current_x_cursor as usize)+"#";
-            let tmp_bar2 = " ".repeat((max_cursor - current_x_cursor - 1) as usize);
-            let tmp_bar1 = format!("{}{}", tmp_bar1, tmp_bar2);
-
-            if progress{
-                *cc +=  buf.len() as f64 / 1000000.0;
-                let amount_downloaded = format!("{:.2}MB", *cc);
-    
-                stdout()
-                    .queue(cursor::SavePosition)
-                    .unwrap()
-                    .queue(cursor::MoveTo(cursor_pos.0+1, cursor_pos.1-2))
-                    .unwrap()
-                    .queue(Print(tmp_bar1))
-                    .unwrap()
-                    .queue(cursor::MoveTo(cursor_pos.0+30, cursor_pos.1-2))
-                    .unwrap()
-                    .queue(Print(amount_downloaded))
-                    .unwrap()
-                    .queue(cursor::RestorePosition)
-                    .unwrap();
-    
-                stdout().flush().unwrap();
-                //println!("{}", *cc);
+            // If the `progress` flag is set then
+            if progress {
+                // Update the total amount of bytes that has been saved and then print the progress bar
+                *bytes_processed_p += buf.len() as u64;
+                bar.update_bar(*bytes_processed_p);
             }
 
             if let Err(err) = writer.write(&buf) {
@@ -396,5 +368,11 @@ fn stream_to_file(
             }
             Ok(())
         })
-        .map(|_| PipelineData::empty())
+        .map(|_| PipelineData::empty());
+
+    // When the file is successfully saved then print a finish message.
+    f_bar.bar_finished_msg("File successfully Saved!".to_owned());
+
+    // And finally return the stream.
+    r_stream
 }
