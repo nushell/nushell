@@ -679,9 +679,9 @@ fn add_parsed_keybinding(
             let fn_num: u8 = c[1..]
                 .parse()
                 .ok()
-                .filter(|num| matches!(num, 1..=12))
+                .filter(|num| matches!(num, 1..=20))
                 .ok_or(ShellError::UnsupportedConfigValue(
-                    "(f1|f2|...|f12)".to_string(),
+                    "(f1|f2|...|f20)".to_string(),
                     format!("unknown function key: {}", c),
                     keybinding.keycode.span()?,
                 ))?;
