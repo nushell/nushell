@@ -79,23 +79,23 @@ impl Command for Start {
     fn examples(&self) -> Vec<nu_protocol::Example> {
         vec![
             Example {
-                description: "Open a file, with structure (based on file extension or SQLite database header)",
-                example: "open myfile.json",
+                description: "Open a text file with the default text editor",
+                example: "start file.txt",
                 result: None,
             },
             Example {
-                description: "Open a file, as raw bytes",
-                example: "open myfile.json --raw",
+                description: "Open an image with the default image viewer",
+                example: "start file.jpg",
                 result: None,
             },
             Example {
-                description: "Open a file, using the input to get filename",
-                example: "'myfile.txt' | open",
+                description: "Open the current directory with the defauly file manager",
+                example: "start .",
                 result: None,
             },
             Example {
-                description: "Open a file, and decode it by the specified encoding",
-                example: "open myfile.txt --raw | decode utf-8",
+                description: "Open a pdf with the default pdf viewer",
+                example: "start file.pdf",
                 result: None,
             },
         ]
