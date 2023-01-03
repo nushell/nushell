@@ -174,7 +174,7 @@ These binaries interact with nu via a simple JSON-RPC protocol where the command
 If the plugin is a filter, data streams to it one element at a time, and it can stream data back in return via stdin/stdout.
 If the plugin is a sink, it is given the full vector of final data and is given free reign over stdin/stdout to use as it pleases.
 
-[Here](https://github.com/nushell/awesome-nu#plugins) is a list of nu-plugins.
+The [awesome-nu repo](https://github.com/nushell/awesome-nu#plugins) lists a variety of nu-plugins.
 
 ## Goals
 
