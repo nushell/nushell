@@ -7,25 +7,25 @@ use nu_protocol::{
 use std::path::Path;
 
 #[derive(Clone)]
-pub struct OpenDir;
+pub struct Start;
 
-impl Command for OpenDir {
+impl Command for Start {
     fn name(&self) -> &str {
-        "open-dir"
+        "start"
     }
 
     fn usage(&self) -> &str {
-        "Open a folder/directory in the default viewer."
+        "Open a folder or file in the default application or viewer."
     }
 
     fn search_terms(&self) -> Vec<&str> {
-        vec!["load", "folder", "directory"]
+        vec!["load", "folder", "directory", "run", "open"]
     }
 
     fn signature(&self) -> nu_protocol::Signature {
-        Signature::build("open-dir")
+        Signature::build("start")
             .input_output_types(vec![(Type::Nothing, Type::Any), (Type::String, Type::Any)])
-            .optional("directory", SyntaxShape::Filepath, "the directory to open")
+            .optional("filepath", SyntaxShape::Filepath, "the filepath to open")
             .category(Category::FileSystem)
     }
 
@@ -36,7 +36,6 @@ impl Command for OpenDir {
         call: &Call,
         input: PipelineData,
     ) -> Result<nu_protocol::PipelineData, nu_protocol::ShellError> {
-        let call_span = call.head;
         let path = call.opt::<Spanned<String>>(engine_state, stack, 0)?;
 
         let path = {
@@ -73,12 +72,8 @@ impl Command for OpenDir {
         let path_no_whitespace = &path.item.trim_end_matches(|x| matches!(x, '\x09'..='\x0d'));
         let path = Path::new(path_no_whitespace);
 
-        if path.is_dir() {
-            open::that(path)?;
-            Ok(PipelineData::Empty)
-        } else {
-            Err(ShellError::DirectoryNotFound(call_span, None))
-        }
+        open::that(path)?;
+        Ok(PipelineData::Empty)
     }
 
     fn examples(&self) -> Vec<nu_protocol::Example> {

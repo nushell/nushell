@@ -275,7 +275,7 @@ pub fn create_default_context() -> EngineState {
             Mkdir,
             Mv,
             Open,
-            OpenDir,
+            Start,
             Rm,
             Save,
             Touch,
