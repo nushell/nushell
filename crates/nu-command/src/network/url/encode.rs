@@ -5,6 +5,7 @@ use nu_protocol::ast::CellPath;
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::Category;
 use nu_protocol::{Example, PipelineData, ShellError, Signature, Span, SyntaxShape, Type, Value};
+use percent_encoding::{utf8_percent_encode, AsciiSet, NON_ALPHANUMERIC};
 
 #[derive(Clone)]
 pub struct SubCommand;
@@ -71,10 +72,13 @@ impl Command for SubCommand {
 
 fn action(input: &Value, _arg: &CellPathOnlyArgs, head: Span) -> Value {
     match input {
-        Value::String { val, .. } => Value::String {
-            val: url_escape::encode_fragment(val).to_string(),
-            span: head,
-        },
+        Value::String { val, .. } => {
+            const FRAGMENT: &AsciiSet = &NON_ALPHANUMERIC.remove(b'/').remove(b':').remove(b'.');
+            Value::String {
+                val: utf8_percent_encode(val, FRAGMENT).to_string(),
+                span: head,
+            }
+        }
         Value::Error { .. } => input.clone(),
         _ => Value::Error {
             error: ShellError::OnlySupportsThisInputType(
