@@ -6,7 +6,7 @@ fn test_default_config_path() {
     let cwd = std::env::current_dir().expect("Could not get current working directory");
 
     let config_path = config_dir.join("nushell").join("config.nu");
-    let actual = nu!(cwd: &cwd, no_minimal_config: true, "$nu.config-path");
+    let actual = nu!(cwd: &cwd, minimal_config: false, "$nu.config-path");
     assert_eq!(
         nu_utils::strip_ansi_string_likely(actual.out),
         config_path.to_string_lossy().to_string()
@@ -31,7 +31,7 @@ fn test_alternate_config_path() {
         nu_path::canonicalize_with(config_file, &cwd).expect("Could not get config path");
     let actual = nu!(
         cwd: &cwd,
-        no_minimal_config: true,
+        minimal_config: false,
         format!("nu --config {:?} -c '$nu.config-path'", config_path)
     );
     assert_eq!(

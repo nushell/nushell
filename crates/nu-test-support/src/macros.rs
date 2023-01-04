@@ -158,7 +158,7 @@ macro_rules! nu {
 
         let target_cwd = $opts.cwd.unwrap_or(".".to_string());
         let locale = $opts.locale.unwrap_or("en_US.UTF-8".to_string());
-        let no_minimal_config = $opts.no_minimal_config.unwrap_or(false);
+        let minimal_config = $opts.minimal_config.unwrap_or(true);
 
         let mut command = Command::new($crate::fs::executable_path());
         command
@@ -174,7 +174,7 @@ macro_rules! nu {
             .stderr(Stdio::piped());
         // Use this minimal config in most tests.
         // Notably, this disables color_config to allow string output to be more easily compared.
-        if !no_minimal_config {
+        if minimal_config {
             command.arg("--config")
                 .arg($crate::fs::fixtures().join("playground/config/minimal.nu").display().to_string());
         }
@@ -208,7 +208,7 @@ macro_rules! nu {
         struct NuOpts {
             cwd: Option<String>,
             locale: Option<String>,
-            no_minimal_config: Option<bool>,
+            minimal_config: Option<bool>,
         }
 
         nu!(@options [ ] $($token)*)
