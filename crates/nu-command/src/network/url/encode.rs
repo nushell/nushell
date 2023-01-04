@@ -1,4 +1,4 @@
-use crate::input_handler::{operate, CellPathOnlyArgs};
+use crate::input_handler::CellPathOnlyArgs;
 use nu_engine::CallExt;
 use nu_protocol::ast::Call;
 use nu_protocol::ast::CellPath;
@@ -48,7 +48,7 @@ impl Command for SubCommand {
     ) -> Result<PipelineData, ShellError> {
         let cell_paths: Vec<CellPath> = call.rest(engine_state, stack, 0)?;
         let args = CellPathOnlyArgs::from(cell_paths);
-        operate(action, args, input, call.head, engine_state.ctrlc.clone())
+        action(input.into_value(call.head), &args, call.head)
     }
 
     fn examples(&self) -> Vec<Example> {
@@ -74,24 +74,25 @@ impl Command for SubCommand {
     }
 }
 
-fn action(input: &Value, _arg: &CellPathOnlyArgs, head: Span) -> Value {
+fn action(input: Value, _arg: &CellPathOnlyArgs, head: Span) -> Result<PipelineData, ShellError> {
     match input {
         Value::String { val, .. } => {
             const FRAGMENT: &AsciiSet = &NON_ALPHANUMERIC.remove(b'/').remove(b':').remove(b'.');
-            Value::String {
-                val: utf8_percent_encode(val, FRAGMENT).to_string(),
-                span: head,
-            }
+            Ok(PipelineData::Value(
+                Value::String {
+                    val: utf8_percent_encode(&val, FRAGMENT).to_string(),
+                    span: head,
+                },
+                None,
+            ))
         }
-        Value::Error { .. } => input.clone(),
-        _ => Value::Error {
-            error: ShellError::OnlySupportsThisInputType(
+        // Value::Error { .. } => input.clone(),
+        _ =>  Err(ShellError::OnlySupportsThisInputType(
                 "string".into(),
                 input.get_type().to_string(),
                 head,
                 input.expect_span(),
-            ),
-        },
+            ))
     }
 }
 
