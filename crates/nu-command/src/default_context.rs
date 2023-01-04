@@ -233,7 +233,6 @@ pub fn create_default_context() -> EngineState {
             StrSnakeCase,
             StrStartsWith,
             StrSubstring,
-            StrEncodeUrl,
             StrTrim,
             StrTitleCase,
             StrUpcase
@@ -437,6 +436,7 @@ pub fn create_default_context() -> EngineState {
             Fetch,
             Post,
             Url,
+            UrlEncode,
             UrlParse,
             Port,
         }

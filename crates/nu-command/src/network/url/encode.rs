@@ -11,11 +11,11 @@ pub struct SubCommand;
 
 impl Command for SubCommand {
     fn name(&self) -> &str {
-        "str encode-url"
+        "url encode"
     }
 
     fn signature(&self) -> Signature {
-        Signature::build("str encode-url")
+        Signature::build("url encode")
             .input_output_types(vec![(Type::String, Type::String)])
             .vectorizes_over_list(true)
             .rest(
@@ -50,12 +50,12 @@ impl Command for SubCommand {
         vec![
             Example {
                 description: "Encode a url with escape characters",
-                example: "'https://example.com/foo bar' | str encode-url",
+                example: "'https://example.com/foo bar' | url encode",
                 result: Some(Value::test_string("https://example.com/foo%20bar")),
             },
             Example {
                 description: "Encode multiple urls with escape characters in list",
-                example: "['https://example.com/foo bar' 'https://example.com/a>b' '中文字/eng/12 34'] | str encode-url",
+                example: "['https://example.com/foo bar' 'https://example.com/a>b' '中文字/eng/12 34'] | url encode",
                 result: Some(Value::List {
                     vals: vec![
                         Value::test_string("https://example.com/foo%20bar"),
