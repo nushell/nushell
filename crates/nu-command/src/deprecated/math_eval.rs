@@ -1,6 +1,6 @@
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
-use nu_protocol::{Category, PipelineData, ShellError, Signature};
+use nu_protocol::{Category, PipelineData, ShellError, Signature, SyntaxShape};
 
 #[derive(Clone)]
 pub struct SubCommand;
@@ -11,7 +11,13 @@ impl Command for SubCommand {
     }
 
     fn signature(&self) -> Signature {
-        Signature::build("math eval").category(Category::Deprecated)
+        Signature::build("math eval")
+            .rest(
+                "ignored",
+                SyntaxShape::Any,
+                "arguments to deprecated command are ignored",
+            )
+            .category(Category::Deprecated)
     }
 
     fn usage(&self) -> &str {
