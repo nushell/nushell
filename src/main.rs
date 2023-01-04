@@ -698,7 +698,7 @@ impl Command for Nu {
             );
         }
 
-        signature
+        signature = signature
             .named(
                 "log-level",
                 SyntaxShape::String,
@@ -732,7 +732,9 @@ impl Command for Nu {
                 SyntaxShape::String,
                 "parameters to the script file",
             )
-            .category(Category::System)
+            .category(Category::System);
+
+        signature
     }
 
     fn usage(&self) -> &str {
