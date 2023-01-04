@@ -401,7 +401,6 @@ pub fn create_default_context() -> EngineState {
             MathAbs,
             MathAvg,
             MathCeil,
-            MathEval,
             MathFloor,
             MathMax,
             MathMedian,
@@ -481,6 +480,7 @@ pub fn create_default_context() -> EngineState {
             StrDecimalDeprecated,
             StrIntDeprecated,
             StrFindReplaceDeprecated,
+            MathEvalDeprecated,
         };
 
         #[cfg(feature = "plugin")]
