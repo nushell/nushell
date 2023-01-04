@@ -50,7 +50,7 @@ impl Command for ToNuon {
     }
 }
 
-fn value_to_string(v: &Value, span: Span) -> Result<String, ShellError> {
+pub fn value_to_string(v: &Value, span: Span) -> Result<String, ShellError> {
     match v {
         Value::Binary { val, .. } => {
             let mut s = String::with_capacity(2 * val.len());
