@@ -163,8 +163,9 @@ fn values(
             }
         }
         PipelineData::ListStream(stream, ..) => {
+            let span = stream.span;
             let vals: Vec<_> = stream.into_iter().collect();
-            match get_values(&vals, head, head) {
+            match get_values(&vals, head, span) {
                 Ok(cols) => Ok(cols
                     .into_iter()
                     .into_pipeline_data(head, ctrlc)
