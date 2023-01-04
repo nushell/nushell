@@ -877,6 +877,7 @@ pub fn eval_block(
 ) -> Result<PipelineData, ShellError> {
     if let Some(recursion) = block.recursion {
         if recursion {
+            // picked 50 arbitrarily, should work on all architectures
             if *stack.recursion_limit == 50 {
                 stack.recursion_limit = Box::new(0);
                 return Ok(PipelineData::Empty);

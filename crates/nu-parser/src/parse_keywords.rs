@@ -401,8 +401,8 @@ pub fn parse_def(
             *declaration = signature.clone().into_block_command(block_id);
 
             let mut block = working_set.get_block_mut(block_id);
-            let call_itself = block.pipelines.iter().any(|pipline| {
-                pipline
+            let calls_itself = block.pipelines.iter().any(|pipeline| {
+                pipeline
                     .elements
                     .iter()
                     .any(|pipe_element| match pipe_element {
@@ -435,7 +435,7 @@ pub fn parse_def(
                         _ => false,
                     })
             });
-            block.recursion = Some(call_itself);
+            block.recursion = Some(calls_itself);
             block.signature = signature;
             block.redirect_env = def_call == b"def-env";
         } else {

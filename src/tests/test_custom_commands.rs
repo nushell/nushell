@@ -151,7 +151,7 @@ fn recursion_successful() {
     let actual = nu!(
         cwd: ".",
         r#"
-            def bang [] { bang }
+            def bang [] { bang };bang
         "#
     );
     assert!(actual.err.is_empty());
