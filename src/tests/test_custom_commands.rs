@@ -146,7 +146,7 @@ fn override_table_eval_file() {
     assert_eq!(actual.out, "hi");
 }
 
-#[cfg(not(target_os="windows"))]
+#[cfg(not(target_os = "windows"))]
 #[test]
 fn recursion_successful() {
     let actual = nu!(
@@ -158,7 +158,7 @@ fn recursion_successful() {
     assert!(actual.err.is_empty());
 }
 
-#[cfg(not(target_os="windows"))]
+#[cfg(not(target_os = "windows"))]
 #[test]
 fn call_def_in_def_should_be_successful() {
     let actual = nu!(
@@ -172,7 +172,7 @@ fn call_def_in_def_should_be_successful() {
     assert!(actual.err.is_empty());
 }
 
-#[cfg(not(target_os="windows"))]
+#[cfg(not(target_os = "windows"))]
 #[test]
 fn call_def_in_def_should_be_successful2() {
     let actual = nu!(
