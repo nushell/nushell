@@ -18,6 +18,10 @@ impl Command for SubCommand {
     fn signature(&self) -> Signature {
         Signature::build("url encode")
             .input_output_types(vec![(Type::String, Type::String)])
+            .switch(
+            "all", 
+            "to encode all non alphaneumeric chars including `/`, `.`, `:`",
+            Some('a'))
             .vectorizes_over_list(true)
             .rest(
                 "rest",
