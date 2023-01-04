@@ -116,10 +116,13 @@ impl PipelineData {
             PipelineData::Empty => Value::nothing(span),
             PipelineData::Value(Value::Nothing { .. }, ..) => Value::nothing(span),
             PipelineData::Value(v, ..) => v,
-            PipelineData::ListStream(s, ..) => Value::List {
-                vals: s.collect(),
-                span, // FIXME?
-            },
+            PipelineData::ListStream(s, ..) => {
+                let span = s.span;
+                Value::List {
+                    vals: s.collect(),
+                    span, 
+                }
+            }
             PipelineData::ExternalStream {
                 stdout: None,
                 exit_code,
