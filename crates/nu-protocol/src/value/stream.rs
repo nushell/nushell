@@ -10,7 +10,7 @@ pub struct RawStream {
     pub ctrlc: Option<Arc<AtomicBool>>,
     pub is_binary: bool,
     pub span: Span,
-    pub known_size: Option<usize>,
+    pub known_size: Option<u64>, // (bytes)
 }
 
 impl RawStream {
@@ -18,7 +18,7 @@ impl RawStream {
         stream: Box<dyn Iterator<Item = Result<Vec<u8>, ShellError>> + Send + 'static>,
         ctrlc: Option<Arc<AtomicBool>>,
         span: Span,
-        known_size: Option<usize>,
+        known_size: Option<u64>,
     ) -> Self {
         Self {
             stream,
