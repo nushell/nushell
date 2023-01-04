@@ -83,11 +83,17 @@ atty = "0.2"
 nu-test-support = { path="./crates/nu-test-support", version = "0.73.1"  }
 tempfile = "3.2.0"
 assert_cmd = "2.0.2"
+criterion = "0.4"
 pretty_assertions = "1.0.0"
 serial_test = "0.8.0"
 hamcrest2 = "0.3.0"
 rstest = {version = "0.15.0", default-features = false}
 itertools = "0.10.3"
+
+# for criterion; is this necessary?
+[[bench]]
+name = "parser"
+harness = false
 
 [features]
 plugin = ["nu-plugin", "nu-cli/plugin", "nu-parser/plugin", "nu-command/plugin", "nu-protocol/plugin", "nu-engine/plugin"]
