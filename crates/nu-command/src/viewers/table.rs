@@ -360,7 +360,7 @@ fn handle_table_command(
                 val: StyleComputer::from_config(engine_state, stack)
                     .style_primitive(&v)
                     .color_style
-                    .map(|e| e.paint(str_representation.clone()).to_string())
+                    .map(|e| e.paint(&str_representation).to_string())
                     .unwrap_or(str_representation),
                 span: call.head,
             }
