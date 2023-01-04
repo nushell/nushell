@@ -96,7 +96,9 @@ fn collect_binary(input: PipelineData, span: Span) -> Result<Vec<u8>, ShellError
             Some(x) => {
                 return Err(ShellError::UnsupportedInput(
                     "Expected binary from pipeline".to_string(),
-                    x.span().unwrap_or(span),
+                    "value originates from here".into(),
+                    span,
+                    x.expect_span(),
                 ))
             }
             None => break,
@@ -111,10 +113,17 @@ fn from_xlsx(
     head: Span,
     sel_sheets: Vec<String>,
 ) -> Result<PipelineData, ShellError> {
+    let span = input.span();
     let bytes = collect_binary(input, head)?;
     let buf: Cursor<Vec<u8>> = Cursor::new(bytes);
-    let mut xlsx = Xlsx::<_>::new(buf)
-        .map_err(|_| ShellError::UnsupportedInput("Could not load xlsx file".to_string(), head))?;
+    let mut xlsx = Xlsx::<_>::new(buf).map_err(|_| {
+        ShellError::UnsupportedInput(
+            "Could not load XLSX file".to_string(),
+            "value originates from here".into(),
+            head,
+            span.unwrap_or(head),
+        )
+    })?;
 
     let mut dict = IndexMap::new();
 
@@ -170,7 +179,9 @@ fn from_xlsx(
         } else {
             return Err(ShellError::UnsupportedInput(
                 "Could not load sheet".to_string(),
+                "value originates from here".into(),
                 head,
+                span.unwrap_or(head),
             ));
         }
     }

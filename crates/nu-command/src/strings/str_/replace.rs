@@ -94,12 +94,12 @@ impl Command for SubCommand {
             Example {
                 description: "Find and replace contents with capture group",
                 example: "'my_library.rb' | str replace '(.+).rb' '$1.nu'",
-                result: Some(Value::string("my_library.nu", Span::test_data())),
+                result: Some(Value::test_string("my_library.nu")),
             },
             Example {
                 description: "Find and replace all occurrences of find string",
                 example: "'abc abc abc' | str replace -a 'b' 'z'",
-                result: Some(Value::string("azc azc azc", Span::test_data())),
+                result: Some(Value::test_string("azc azc azc")),
             },
             Example {
                 description: "Find and replace all occurrences of find string in table",
@@ -109,9 +109,9 @@ impl Command for SubCommand {
                     vals: vec![Value::Record {
                         cols: vec!["ColA".to_string(), "ColB".to_string(), "ColC".to_string()],
                         vals: vec![
-                            Value::string("azc", Span::test_data()),
-                            Value::string("abc", Span::test_data()),
-                            Value::string("ads", Span::test_data()),
+                            Value::test_string("azc"),
+                            Value::test_string("abc"),
+                            Value::test_string("ads"),
                         ],
                         span: Span::test_data(),
                     }],
@@ -121,27 +121,27 @@ impl Command for SubCommand {
             Example {
                 description: "Find and replace contents without using the replace parameter as a regular expression",
                 example: r#"'dogs_$1_cats' | str replace '\$1' '$2' -n"#,
-                result: Some(Value::string("dogs_$2_cats", Span::test_data())),
+                result: Some(Value::test_string("dogs_$2_cats")),
             },
             Example {
-                description: "Find and replace the first occurence using string replacement *not* regular expressions",
+                description: "Find and replace the first occurrence using string replacement *not* regular expressions",
                 example: r#"'c:\some\cool\path' | str replace 'c:\some\cool' '~' -s"#,
-                result: Some(Value::string("~\\path", Span::test_data())),
+                result: Some(Value::test_string("~\\path")),
             },
             Example {
-                description: "Find and replace all occurences using string replacement *not* regular expressions",
+                description: "Find and replace all occurrences using string replacement *not* regular expressions",
                 example: r#"'abc abc abc' | str replace -a 'b' 'z' -s"#,
-                result: Some(Value::string("azc azc azc", Span::test_data())),
+                result: Some(Value::test_string("azc azc azc")),
             },
             Example {
                 description: "Find and replace with fancy-regex",
-                example: r#"'a sucessful b' | str replace '\b([sS])uc(?:cs|s?)e(ed(?:ed|ing|s?)|ss(?:es|ful(?:ly)?|i(?:ons?|ve(?:ly)?)|ors?)?)\b' '${1}ucce$2'"#,
-                result: Some(Value::string("a successful b", Span::test_data())),
+                example: r#"'a successful b' | str replace '\b([sS])uc(?:cs|s?)e(ed(?:ed|ing|s?)|ss(?:es|ful(?:ly)?|i(?:ons?|ve(?:ly)?)|ors?)?)\b' '${1}ucce$2'"#,
+                result: Some(Value::test_string("a successful b")),
             },
             Example {
                 description: "Find and replace with fancy-regex",
                 example: r#"'GHIKK-9+*' | str replace '[*[:xdigit:]+]' 'z'"#,
-                result: Some(Value::string("GHIKK-z+*", Span::test_data())),
+                result: Some(Value::test_string("GHIKK-z+*")),
             },
 
         ]
@@ -209,18 +209,23 @@ fn action(
                         }
                     }
                     Err(e) => Value::Error {
-                        error: ShellError::UnsupportedInput(format!("{e}"), find.span),
+                        error: ShellError::UnsupportedInput(
+                            format!("{e}"),
+                            "value originates from here".into(),
+                            head,
+                            find.span,
+                        ),
                     },
                 }
             }
         }
-        other => Value::Error {
-            error: ShellError::UnsupportedInput(
-                format!(
-                    "Input's type is {}. This command only works with strings.",
-                    other.get_type()
-                ),
+        Value::Error { .. } => input.clone(),
+        _ => Value::Error {
+            error: ShellError::OnlySupportsThisInputType(
+                "string".into(),
+                input.get_type().to_string(),
                 head,
+                input.expect_span(),
             ),
         },
     }
@@ -247,7 +252,7 @@ mod tests {
 
     #[test]
     fn can_have_capture_groups() {
-        let word = Value::string("Cargo.toml", Span::test_data());
+        let word = Value::test_string("Cargo.toml");
 
         let options = Arguments {
             find: test_spanned_string("Cargo.(.+)"),
@@ -259,6 +264,6 @@ mod tests {
         };
 
         let actual = action(&word, &options, Span::test_data());
-        assert_eq!(actual, Value::string("Carga.toml", Span::test_data()));
+        assert_eq!(actual, Value::test_string("Carga.toml"));
     }
 }

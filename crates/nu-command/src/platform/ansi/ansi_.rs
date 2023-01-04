@@ -154,7 +154,7 @@ static CODE_LIST: Lazy<Vec<AnsiCode>> = Lazy::new(|| { vec![
     AnsiCode{ short_name: Some("defr"), long_name: "default_reverse", code: Color::Default.reverse().prefix().to_string()},
     AnsiCode{ short_name: Some("bg_def"), long_name: "bg_default", code: Style::new().on(Color::Default).prefix().to_string()},
 
-    // Xterm 256 colors with conflicting names names preceeded by x
+    // Xterm 256 colors with conflicting names names preceded by x
     AnsiCode { short_name: Some("xblack"), long_name: "xterm_black", code: Color::Fixed(0).prefix().to_string()},
     AnsiCode { short_name: Some("maroon"), long_name: "xterm_maroon", code: Color::Fixed(1).prefix().to_string()},
     AnsiCode { short_name: Some("xgreen"), long_name: "xterm_green", code: Color::Fixed(2).prefix().to_string()},
@@ -656,8 +656,8 @@ Format: #
         if (escape || osc) && (param_is_valid_string) {
             let code_vec: Vec<char> = code_string.chars().collect();
             if code_vec[0] == '\\' {
-                return Err(ShellError::UnsupportedInput(
-                    String::from("no need for escape characters"),
+                return Err(ShellError::TypeMismatch(
+                    "no need for escape characters".into(),
                     call.get_flag_expr("escape")
                         .expect("Unexpected missing argument")
                         .span,
@@ -695,7 +695,7 @@ Format: #
                 match str_to_ansi(&code_string) {
                     Some(c) => c,
                     None => {
-                        return Err(ShellError::UnsupportedInput(
+                        return Err(ShellError::TypeMismatch(
                             String::from("Unknown ansi code"),
                             call.positional_nth(0)
                                 .expect("Unexpected missing argument")
@@ -723,7 +723,7 @@ Format: #
                     _ => {
                         return Err(ShellError::IncompatibleParametersSingle(
                             format!("problem with key: {}", k),
-                            code.span().expect("error with span"),
+                            code.expect_span(),
                         ))
                     }
                 }

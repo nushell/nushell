@@ -5,7 +5,7 @@
 @echo.
 
 echo Building nushell.exe
-cargo build cargo build --features=dataframe
+cargo build --features=dataframe
 @echo.
 
 @cd crates\nu_plugin_example

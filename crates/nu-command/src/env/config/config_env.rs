@@ -2,7 +2,7 @@ use nu_engine::env_to_strings;
 use nu_protocol::{
     ast::Call,
     engine::{Command, EngineState, Stack},
-    Category, Example, PipelineData, ShellError, Signature, Span, Spanned,
+    Category, Example, PipelineData, ShellError, Signature, Span, Spanned, Type,
 };
 
 use crate::ExternalCommand;
@@ -18,7 +18,10 @@ impl Command for ConfigEnv {
     }
 
     fn signature(&self) -> Signature {
-        Signature::build(self.name()).category(Category::Env)
+        Signature::build(self.name())
+            .category(Category::Env)
+            .input_output_types(vec![(Type::Nothing, Type::Nothing)])
+        // TODO: Signature narrower than what run actually supports theoretically
     }
 
     fn usage(&self) -> &str {

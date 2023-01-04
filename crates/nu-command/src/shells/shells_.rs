@@ -1,7 +1,7 @@
 use super::list_shells;
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
-use nu_protocol::{Category, Example, PipelineData, ShellError, Signature};
+use nu_protocol::{Category, Example, PipelineData, ShellError, Signature, Type};
 
 /// Source a file for environment variables.
 #[derive(Clone)]
@@ -13,7 +13,9 @@ impl Command for Shells {
     }
 
     fn signature(&self) -> Signature {
-        Signature::build("shells").category(Category::Shells)
+        Signature::build("shells")
+            .category(Category::Shells)
+            .input_output_types(vec![(Type::Nothing, Type::Table(vec![]))])
     }
 
     fn usage(&self) -> &str {

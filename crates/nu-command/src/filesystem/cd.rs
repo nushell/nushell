@@ -8,7 +8,7 @@ use nu_protocol::{
 };
 use std::path::Path;
 
-// when the file under the fold executeable
+// when the file under the fold executable
 #[cfg(unix)]
 mod permission_mods {
     pub type Mode = u32;

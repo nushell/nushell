@@ -8,6 +8,17 @@ fn source_file_relative_to_file() {
         nu source_file_relative.nu
         "#);
 
+    assert_eq!(nu_utils::strip_ansi_string_likely(actual.out), "5");
+}
+
+#[test]
+fn source_const_file() {
+    let actual = nu!(cwd: "tests/parsing/samples",
+    r#"
+        const file = 'single_line.nu'
+        source $file
+    "#);
+
     assert_eq!(actual.out, "5");
 }
 
@@ -17,7 +28,7 @@ fn run_nu_script_single_line() {
         nu single_line.nu
         "#);
 
-    assert_eq!(actual.out, "5");
+    assert_eq!(nu_utils::strip_ansi_string_likely(actual.out), "5");
 }
 
 #[test]
@@ -26,7 +37,7 @@ fn run_nu_script_multiline_start_pipe() {
         nu multiline_start_pipe.nu
         "#);
 
-    assert_eq!(actual.out, "4");
+    assert_eq!(nu_utils::strip_ansi_string_likely(actual.out), "4");
 }
 
 #[test]
@@ -35,7 +46,7 @@ fn run_nu_script_multiline_start_pipe_win() {
         nu multiline_start_pipe_win.nu
         "#);
 
-    assert_eq!(actual.out, "3");
+    assert_eq!(nu_utils::strip_ansi_string_likely(actual.out), "3");
 }
 
 #[test]
@@ -44,7 +55,7 @@ fn run_nu_script_multiline_end_pipe() {
         nu multiline_end_pipe.nu
         "#);
 
-    assert_eq!(actual.out, "2");
+    assert_eq!(nu_utils::strip_ansi_string_likely(actual.out), "2");
 }
 
 #[test]
@@ -53,7 +64,7 @@ fn run_nu_script_multiline_end_pipe_win() {
         nu multiline_end_pipe_win.nu
         "#);
 
-    assert_eq!(actual.out, "3");
+    assert_eq!(nu_utils::strip_ansi_string_likely(actual.out), "3");
 }
 
 #[test]

@@ -274,7 +274,7 @@ pub fn transpose(
                                 }
                                 v => Value::List {
                                     vals: vec![v.clone(), x.clone()],
-                                    span: v.span().expect("this should be a valid span"),
+                                    span: v.expect_span(),
                                 },
                             };
                             cols.remove(index);
@@ -313,7 +313,7 @@ pub fn transpose(
                                 }
                                 v => Value::List {
                                     vals: vec![v.clone(), Value::nothing(name)],
-                                    span: v.span().expect("this should be a valid span"),
+                                    span: v.expect_span(),
                                 },
                             };
                             cols.remove(index);

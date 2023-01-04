@@ -74,7 +74,16 @@ pub(crate) fn read_config_file(
                 "y" | "" => match File::create(&config_path) {
                     Ok(mut output) => match write!(output, "{}", config_file) {
                         Ok(_) => {
-                            println!("Config file created at: {}", config_path.to_string_lossy())
+                            let config_type = if is_env_config {
+                                "Environment config"
+                            } else {
+                                "Config"
+                            };
+                            println!(
+                                "{} file created at: {}",
+                                config_type,
+                                config_path.to_string_lossy()
+                            );
                         }
                         Err(_) => {
                             eprintln!(

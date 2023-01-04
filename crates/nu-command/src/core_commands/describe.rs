@@ -19,6 +19,11 @@ impl Command for Describe {
     fn signature(&self) -> Signature {
         Signature::build("describe")
             .input_output_types(vec![(Type::Any, Type::String)])
+            .switch(
+                "no-collect",
+                "do not collect streams of structured data",
+                Some('n'),
+            )
             .category(Category::Core)
     }
 
@@ -30,32 +35,58 @@ impl Command for Describe {
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
         let head = call.head;
-        if matches!(input, PipelineData::ExternalStream { .. }) {
-            Ok(PipelineData::Value(
-                Value::string("raw input", call.head),
-                None,
-            ))
-        } else {
-            let value = input.into_value(call.head);
-            let description = match value {
-                Value::CustomValue { val, .. } => val.value_string(),
-                _ => value.get_type().to_string(),
-            };
 
-            Ok(Value::String {
-                val: description,
-                span: head,
+        let no_collect: bool = call.has_flag("no-collect");
+
+        let description = match input {
+            PipelineData::ExternalStream { .. } => "raw input".into(),
+            PipelineData::ListStream(_, _) => {
+                if no_collect {
+                    "stream".into()
+                } else {
+                    let value = input.into_value(head);
+                    let base_description = match value {
+                        Value::CustomValue { val, .. } => val.value_string(),
+                        _ => value.get_type().to_string(),
+                    };
+
+                    format!("{base_description} (stream)")
+                }
             }
-            .into_pipeline_data())
+            _ => {
+                let value = input.into_value(head);
+                match value {
+                    Value::CustomValue { val, .. } => val.value_string(),
+                    _ => value.get_type().to_string(),
+                }
+            }
+        };
+
+        Ok(Value::String {
+            val: description,
+            span: head,
         }
+        .into_pipeline_data())
     }
 
     fn examples(&self) -> Vec<Example> {
-        vec![Example {
-            description: "Describe the type of a string",
-            example: "'hello' | describe",
-            result: Some(Value::test_string("string")),
-        }]
+        vec![
+            Example {
+                description: "Describe the type of a string",
+                example: "'hello' | describe",
+                result: Some(Value::test_string("string")),
+            },
+            Example {
+                description: "Describe a stream of data, collecting it first",
+                example: "[1 2 3] | each {|i| $i} | describe",
+                result: Some(Value::test_string("list<int> (stream)")),
+            },
+            Example {
+                description: "Describe the input but do not collect streams",
+                example: "[1 2 3] | each {|i| $i} | describe --no-collect",
+                result: Some(Value::test_string("stream")),
+            },
+        ]
     }
 
     fn search_terms(&self) -> Vec<&str> {

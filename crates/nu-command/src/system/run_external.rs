@@ -2,11 +2,13 @@ use fancy_regex::Regex;
 use itertools::Itertools;
 use nu_engine::env_to_strings;
 use nu_engine::CallExt;
-use nu_protocol::ast::{Expr, Expression};
-use nu_protocol::did_you_mean;
-use nu_protocol::engine::{EngineState, Stack};
-use nu_protocol::{ast::Call, engine::Command, ShellError, Signature, SyntaxShape, Value};
-use nu_protocol::{Category, Example, ListStream, PipelineData, RawStream, Span, Spanned};
+use nu_protocol::{
+    ast::{Call, Expr, Expression},
+    did_you_mean,
+    engine::{Command, EngineState, Stack},
+    Category, Example, ListStream, PipelineData, RawStream, ShellError, Signature, Span, Spanned,
+    SyntaxShape, Type, Value,
+};
 use nu_system::ForegroundProcess;
 use pathdiff::diff_paths;
 use std::collections::HashMap;
@@ -34,6 +36,7 @@ impl Command for External {
 
     fn signature(&self) -> nu_protocol::Signature {
         Signature::build(self.name())
+            .input_output_types(vec![(Type::Any, Type::Any)])
             .switch("redirect-stdout", "redirect stdout to the pipeline", None)
             .switch("redirect-stderr", "redirect stderr to the pipeline", None)
             .switch("trim-end-newline", "trimming end newlines", None)
@@ -49,70 +52,19 @@ impl Command for External {
         call: &Call,
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
-        let name: Spanned<String> = call.req(engine_state, stack, 0)?;
-        let args: Vec<Value> = call.rest(engine_state, stack, 1)?;
         let redirect_stdout = call.has_flag("redirect-stdout");
         let redirect_stderr = call.has_flag("redirect-stderr");
         let trim_end_newline = call.has_flag("trim-end-newline");
 
-        // Translate environment variables from Values to Strings
-        let env_vars_str = env_to_strings(engine_state, stack)?;
-
-        fn value_as_spanned(value: Value) -> Result<Spanned<String>, ShellError> {
-            let span = value.span()?;
-
-            value
-                .as_string()
-                .map(|item| Spanned { item, span })
-                .map_err(|_| {
-                    ShellError::ExternalCommand(
-                        format!("Cannot convert {} to a string", value.get_type()),
-                        "All arguments to an external command need to be string-compatible".into(),
-                        span,
-                    )
-                })
-        }
-
-        let mut spanned_args = vec![];
-        let args_expr: Vec<Expression> = call.positional_iter().skip(1).cloned().collect();
-        let mut arg_keep_raw = vec![];
-        for (one_arg, one_arg_expr) in args.into_iter().zip(args_expr) {
-            match one_arg {
-                Value::List { vals, .. } => {
-                    // turn all the strings in the array into params.
-                    // Example: one_arg may be something like ["ls" "-a"]
-                    // convert it to "ls" "-a"
-                    for v in vals {
-                        spanned_args.push(value_as_spanned(v)?);
-                        // for arguments in list, it's always treated as a whole arguments
-                        arg_keep_raw.push(true);
-                    }
-                }
-                val => {
-                    spanned_args.push(value_as_spanned(val)?);
-                    match one_arg_expr.expr {
-                        // refer to `parse_dollar_expr` function
-                        // the expression type of $variable_name, $"($variable_name)"
-                        // will be Expr::StringInterpolation, Expr::FullCellPath
-                        Expr::StringInterpolation(_) | Expr::FullCellPath(_) => {
-                            arg_keep_raw.push(true)
-                        }
-                        _ => arg_keep_raw.push(false),
-                    }
-                    {}
-                }
-            }
-        }
-
-        let command = ExternalCommand {
-            name,
-            args: spanned_args,
-            arg_keep_raw,
+        let command = create_external_command(
+            engine_state,
+            stack,
+            call,
             redirect_stdout,
             redirect_stderr,
-            env_vars: env_vars_str,
             trim_end_newline,
-        };
+        )?;
+
         command.run_with_input(engine_state, stack, input, false)
     }
 
@@ -130,6 +82,76 @@ impl Command for External {
             },
         ]
     }
+}
+
+/// Creates ExternalCommand from a call
+pub fn create_external_command(
+    engine_state: &EngineState,
+    stack: &mut Stack,
+    call: &Call,
+    redirect_stdout: bool,
+    redirect_stderr: bool,
+    trim_end_newline: bool,
+) -> Result<ExternalCommand, ShellError> {
+    let name: Spanned<String> = call.req(engine_state, stack, 0)?;
+    let args: Vec<Value> = call.rest(engine_state, stack, 1)?;
+
+    // Translate environment variables from Values to Strings
+    let env_vars_str = env_to_strings(engine_state, stack)?;
+
+    fn value_as_spanned(value: Value) -> Result<Spanned<String>, ShellError> {
+        let span = value.span()?;
+
+        value
+            .as_string()
+            .map(|item| Spanned { item, span })
+            .map_err(|_| {
+                ShellError::ExternalCommand(
+                    format!("Cannot convert {} to a string", value.get_type()),
+                    "All arguments to an external command need to be string-compatible".into(),
+                    span,
+                )
+            })
+    }
+
+    let mut spanned_args = vec![];
+    let args_expr: Vec<Expression> = call.positional_iter().skip(1).cloned().collect();
+    let mut arg_keep_raw = vec![];
+    for (one_arg, one_arg_expr) in args.into_iter().zip(args_expr) {
+        match one_arg {
+            Value::List { vals, .. } => {
+                // turn all the strings in the array into params.
+                // Example: one_arg may be something like ["ls" "-a"]
+                // convert it to "ls" "-a"
+                for v in vals {
+                    spanned_args.push(value_as_spanned(v)?);
+                    // for arguments in list, it's always treated as a whole arguments
+                    arg_keep_raw.push(true);
+                }
+            }
+            val => {
+                spanned_args.push(value_as_spanned(val)?);
+                match one_arg_expr.expr {
+                    // refer to `parse_dollar_expr` function
+                    // the expression type of $variable_name, $"($variable_name)"
+                    // will be Expr::StringInterpolation, Expr::FullCellPath
+                    Expr::StringInterpolation(_) | Expr::FullCellPath(_) => arg_keep_raw.push(true),
+                    _ => arg_keep_raw.push(false),
+                }
+                {}
+            }
+        }
+    }
+
+    Ok(ExternalCommand {
+        name,
+        args: spanned_args,
+        arg_keep_raw,
+        redirect_stdout,
+        redirect_stderr,
+        env_vars: env_vars_str,
+        trim_end_newline,
+    })
 }
 
 #[derive(Clone)]
@@ -274,16 +296,25 @@ impl ExternalCommand {
                                         "'{}' was not found; did you mean '{s}'?",
                                         self.name.item
                                     )
-                                } else if self.name.item == s {
-                                    let sugg = engine_state.which_module_has_decl(s.as_bytes());
-                                    if let Some(sugg) = sugg {
-                                        let sugg = String::from_utf8_lossy(sugg);
-                                        format!("command '{s}' was not found but it exists in module '{sugg}'; try using `{sugg} {s}`")
+                                } else {
+                                    let cmd_name = &self.name.item;
+                                    let maybe_module = engine_state
+                                        .which_module_has_decl(cmd_name.as_bytes(), &[]);
+                                    if let Some(module_name) = maybe_module {
+                                        let module_name = String::from_utf8_lossy(module_name);
+                                        let new_name = &[module_name.as_ref(), cmd_name].join(" ");
+
+                                        if engine_state
+                                            .find_decl(new_name.as_bytes(), &[])
+                                            .is_some()
+                                        {
+                                            format!("command '{cmd_name}' was not found but it was imported from module '{module_name}'; try using `{new_name}`")
+                                        } else {
+                                            format!("command '{cmd_name}' was not found but it exists in module '{module_name}'; try importing it with `use`")
+                                        }
                                     } else {
                                         format!("did you mean '{s}'?")
                                     }
-                                } else {
-                                    format!("did you mean '{s}'?")
                                 }
                             }
                             None => {

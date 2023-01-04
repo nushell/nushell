@@ -36,26 +36,17 @@ impl Command for Zip {
 
     fn examples(&self) -> Vec<Example> {
         let test_row_1 = Value::List {
-            vals: vec![
-                Value::int(1, Span::test_data()),
-                Value::int(4, Span::test_data()),
-            ],
+            vals: vec![Value::test_int(1), Value::test_int(4)],
             span: Span::test_data(),
         };
 
         let test_row_2 = Value::List {
-            vals: vec![
-                Value::int(2, Span::test_data()),
-                Value::int(5, Span::test_data()),
-            ],
+            vals: vec![Value::test_int(2), Value::test_int(5)],
             span: Span::test_data(),
         };
 
         let test_row_3 = Value::List {
-            vals: vec![
-                Value::int(3, Span::test_data()),
-                Value::int(6, Span::test_data()),
-            ],
+            vals: vec![Value::test_int(3), Value::test_int(6)],
             span: Span::test_data(),
         };
 
@@ -79,11 +70,16 @@ impl Command for Zip {
             },
             Example {
                 example: "1..3 | zip 4..6",
-                description: "Zip two streams",
+                description: "Zip two ranges",
                 result: Some(Value::List {
                     vals: vec![test_row_1, test_row_2, test_row_3],
                     span: Span::test_data(),
                 }),
+            },
+            Example {
+                example: "glob *.ogg | zip ['bang.ogg', 'fanfare.ogg', 'laser.ogg'] | each { mv $in.0 $in.1 }",
+                description: "Rename .ogg files to match an existing list of filenames",
+                result: None,
             },
         ]
     }

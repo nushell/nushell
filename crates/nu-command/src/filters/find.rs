@@ -185,7 +185,7 @@ fn find_with_regex(
     let regex = flags.to_string() + regex.as_str();
 
     let re = Regex::new(regex.as_str())
-        .map_err(|e| ShellError::UnsupportedInput(format!("incorrect regex: {}", e), span))?;
+        .map_err(|e| ShellError::TypeMismatch(format!("invalid regex: {}", e), span))?;
 
     input.filter(
         move |value| match value {
@@ -478,22 +478,20 @@ fn find_with_rest_and_highlight(
                                 }
                             }
                         }
-                        _ => {
+                        // Propagate errors by explicitly matching them before the final case.
+                        Value::Error { error } => return Err(error),
+                        other => {
                             return Err(ShellError::UnsupportedInput(
-                                format!(
-                                    "Unsupport value type '{}' from raw stream",
-                                    value.get_type()
-                                ),
+                                "unsupported type from raw stream".into(),
+                                format!("input: {:?}", other.get_type()),
                                 span,
-                            ))
+                                // This line requires the Value::Error match above.
+                                other.expect_span(),
+                            ));
                         }
                     },
-                    _ => {
-                        return Err(ShellError::UnsupportedInput(
-                            "Unsupport type from raw stream".to_string(),
-                            span,
-                        ))
-                    }
+                    // Propagate any errors that were in the stream
+                    Err(e) => return Err(e),
                 };
             }
             Ok(output.into_pipeline_data(ctrlc))
@@ -516,7 +514,7 @@ fn to_nu_ansi_term_style(style: &LsColors_Style) -> Style {
             LsColors_Color::White => Color::White,
 
             // Below items are a rough translations to 256 colors as
-            // nu-ansi-term do not have bright varients
+            // nu-ansi-term do not have bright variants
             LsColors_Color::BrightBlack => Color::Fixed(8),
             LsColors_Color::BrightRed => Color::Fixed(9),
             LsColors_Color::BrightGreen => Color::Fixed(10),

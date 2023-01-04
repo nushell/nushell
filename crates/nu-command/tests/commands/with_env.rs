@@ -72,7 +72,7 @@ fn with_env_hides_variables_in_parent_scope() {
         r#"
         let-env FOO = "1"
         echo $env.FOO
-        with-env [FOO $nothing] {
+        with-env [FOO null] {
             echo $env.FOO
         }
         echo $env.FOO
@@ -91,10 +91,10 @@ fn with_env_shorthand_can_not_hide_variables() {
         r#"
         let-env FOO = "1"
         echo $env.FOO
-        FOO=$nothing echo $env.FOO
+        FOO=null echo $env.FOO
         echo $env.FOO
         "#
     );
 
-    assert_eq!(actual.out, "1$nothing1");
+    assert_eq!(actual.out, "1null1");
 }

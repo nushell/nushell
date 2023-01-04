@@ -288,7 +288,7 @@ impl Command for Char {
             if let Some(output) = special_character {
                 Ok(Value::string(output, call_span).into_pipeline_data())
             } else {
-                Err(ShellError::UnsupportedInput(
+                Err(ShellError::TypeMismatch(
                     "error finding named character".into(),
                     call.positional_nth(0)
                         .expect("Unexpected missing argument")
@@ -305,7 +305,7 @@ fn integer_to_unicode_char(value: i64, t: &Span) -> Result<char, ShellError> {
     if let Some(ch) = decoded_char {
         Ok(ch)
     } else {
-        Err(ShellError::UnsupportedInput(
+        Err(ShellError::TypeMismatch(
             "not a valid Unicode codepoint".into(),
             *t,
         ))
@@ -320,7 +320,7 @@ fn string_to_unicode_char(s: &str, t: &Span) -> Result<char, ShellError> {
     if let Some(ch) = decoded_char {
         Ok(ch)
     } else {
-        Err(ShellError::UnsupportedInput(
+        Err(ShellError::TypeMismatch(
             "error decoding Unicode character".into(),
             *t,
         ))

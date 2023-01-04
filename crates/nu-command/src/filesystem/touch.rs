@@ -94,7 +94,7 @@ impl Command for Touch {
                 Some(reference) => {
                     let reference_path = Path::new(&reference.item);
                     if !reference_path.exists() {
-                        return Err(ShellError::UnsupportedInput(
+                        return Err(ShellError::TypeMismatch(
                             "path provided is invalid".to_string(),
                             reference.span,
                         ));

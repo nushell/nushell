@@ -20,17 +20,17 @@ fn from_value_to_delimited_string(
             for (k, v) in cols.iter().zip(vals.iter()) {
                 fields.push_back(k.clone());
 
-                values.push_back(to_string_tagged_value(v, config, *span)?);
+                values.push_back(to_string_tagged_value(v, config, head, *span)?);
             }
 
             wtr.write_record(fields).expect("can not write.");
             wtr.write_record(values).expect("can not write.");
 
             let v = String::from_utf8(wtr.into_inner().map_err(|_| {
-                ShellError::UnsupportedInput("Could not convert record".to_string(), *span)
+                ShellError::CantConvert("record".to_string(), "string".to_string(), *span, None)
             })?)
             .map_err(|_| {
-                ShellError::UnsupportedInput("Could not convert record".to_string(), *span)
+                ShellError::CantConvert("record".to_string(), "string".to_string(), *span, None)
             })?;
             Ok(v)
         }
@@ -45,7 +45,7 @@ fn from_value_to_delimited_string(
                 wtr.write_record(
                     vals.iter()
                         .map(|ele| {
-                            to_string_tagged_value(ele, config, *span)
+                            to_string_tagged_value(ele, config, head, *span)
                                 .unwrap_or_else(|_| String::new())
                         })
                         .collect::<Vec<_>>(),
@@ -59,7 +59,7 @@ fn from_value_to_delimited_string(
                     let mut row = vec![];
                     for desc in &merged_descriptors {
                         row.push(match l.to_owned().get_data_by_key(desc) {
-                            Some(s) => to_string_tagged_value(&s, config, *span)?,
+                            Some(s) => to_string_tagged_value(&s, config, head, *span)?,
                             None => String::new(),
                         });
                     }
@@ -67,18 +67,25 @@ fn from_value_to_delimited_string(
                 }
             }
             let v = String::from_utf8(wtr.into_inner().map_err(|_| {
-                ShellError::UnsupportedInput("Could not convert record".to_string(), *span)
+                ShellError::CantConvert("record".to_string(), "string".to_string(), *span, None)
             })?)
             .map_err(|_| {
-                ShellError::UnsupportedInput("Could not convert record".to_string(), *span)
+                ShellError::CantConvert("record".to_string(), "string".to_string(), *span, None)
             })?;
             Ok(v)
         }
-        _ => to_string_tagged_value(value, config, head),
+        // Propagate errors by explicitly matching them before the final case.
+        Value::Error { error } => Err(error.clone()),
+        other => to_string_tagged_value(value, config, other.expect_span(), head),
     }
 }
 
-fn to_string_tagged_value(v: &Value, config: &Config, span: Span) -> Result<String, ShellError> {
+fn to_string_tagged_value(
+    v: &Value,
+    config: &Config,
+    span: Span,
+    head: Span,
+) -> Result<String, ShellError> {
     match &v {
         Value::String { .. }
         | Value::Bool { .. }
@@ -86,7 +93,6 @@ fn to_string_tagged_value(v: &Value, config: &Config, span: Span) -> Result<Stri
         | Value::Duration { .. }
         | Value::Binary { .. }
         | Value::CustomValue { .. }
-        | Value::Error { .. }
         | Value::Filesize { .. }
         | Value::CellPath { .. }
         | Value::List { .. }
@@ -94,9 +100,13 @@ fn to_string_tagged_value(v: &Value, config: &Config, span: Span) -> Result<Stri
         | Value::Float { .. } => Ok(v.clone().into_abbreviated_string(config)),
         Value::Date { val, .. } => Ok(val.to_string()),
         Value::Nothing { .. } => Ok(String::new()),
+        // Propagate existing errors
+        Value::Error { error } => Err(error.clone()),
         _ => Err(ShellError::UnsupportedInput(
-            "Unexpected value".to_string(),
-            v.span().unwrap_or(span),
+            "Unexpected type".to_string(),
+            format!("input type: {:?}", v.get_type()),
+            head,
+            span,
         )),
     }
 }

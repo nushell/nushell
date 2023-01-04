@@ -58,7 +58,7 @@ fn requests_more_rows_than_table_has() {
     let actual = nu!(
         cwd: ".", pipeline(
         r#"
-        date | last 50 | length
+        [date] | last 50 | length
         "#
     ));
 
@@ -76,7 +76,7 @@ fn gets_last_row_as_list_when_amount_given() {
             "#
     ));
 
-    assert_eq!(actual.out, "list<int>");
+    assert_eq!(actual.out, "list<int> (stream)");
 }
 
 #[test]
@@ -90,4 +90,11 @@ fn last_errors_on_negative_index() {
     ));
 
     assert!(actual.err.contains("use a positive value"));
+}
+
+#[test]
+fn fail_on_non_iterator() {
+    let actual = nu!(cwd: ".", pipeline("1 | last"));
+
+    assert!(actual.err.contains("only_supports_this_input_type"));
 }

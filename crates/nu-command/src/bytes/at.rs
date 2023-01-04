@@ -30,7 +30,9 @@ fn parse_range(range: Value, head: Span) -> Result<(isize, isize, Span), ShellEr
         Value::List { mut vals, span } => {
             if vals.len() != 2 {
                 return Err(ShellError::UnsupportedInput(
-                    "More than two indices given".to_string(),
+                    "More than two indices in range".to_string(),
+                    "value originates from here".to_string(),
+                    head,
                     span,
                 ));
             } else {
@@ -38,10 +40,14 @@ fn parse_range(range: Value, head: Span) -> Result<(isize, isize, Span), ShellEr
                 let end = match end {
                     Value::Int { val, .. } => val.to_string(),
                     Value::String { val, .. } => val,
+                    // Explicitly propagate errors instead of dropping them.
+                    Value::Error { error } => return Err(error),
                     other => {
                         return Err(ShellError::UnsupportedInput(
-                            "could not perform subbytes. Expecting a string or int".to_string(),
-                            other.span().unwrap_or(head),
+                            "Only string or list<int> ranges are supported".into(),
+                            format!("input type: {:?}", other.get_type()),
+                            head,
+                            other.expect_span(),
                         ))
                     }
                 };
@@ -49,10 +55,14 @@ fn parse_range(range: Value, head: Span) -> Result<(isize, isize, Span), ShellEr
                 let start = match start {
                     Value::Int { val, .. } => val.to_string(),
                     Value::String { val, .. } => val,
+                    // Explicitly propagate errors instead of dropping them.
+                    Value::Error { error } => return Err(error),
                     other => {
                         return Err(ShellError::UnsupportedInput(
-                            "could not perform subbytes. Expecting a string or int".to_string(),
-                            other.span().unwrap_or(head),
+                            "Only string or list<int> ranges are supported".into(),
+                            format!("input type: {:?}", other.get_type()),
+                            head,
+                            other.expect_span(),
                         ))
                     }
                 };
@@ -66,15 +76,21 @@ fn parse_range(range: Value, head: Span) -> Result<(isize, isize, Span), ShellEr
                 None => {
                     return Err(ShellError::UnsupportedInput(
                         "could not perform subbytes".to_string(),
+                        "with this range".to_string(),
+                        head,
                         span,
                     ))
                 }
             }
         }
+        // Explicitly propagate errors instead of dropping them.
+        Value::Error { error } => return Err(error),
         other => {
             return Err(ShellError::UnsupportedInput(
                 "could not perform subbytes".to_string(),
-                other.span().unwrap_or(head),
+                "with this range".to_string(),
+                head,
+                other.expect_span(),
             ))
         }
     };
@@ -87,6 +103,8 @@ fn parse_range(range: Value, head: Span) -> Result<(isize, isize, Span), ShellEr
             Err(_) => {
                 return Err(ShellError::UnsupportedInput(
                     "could not perform subbytes".to_string(),
+                    "with this range".to_string(),
+                    head,
                     span,
                 ))
             }
@@ -100,6 +118,8 @@ fn parse_range(range: Value, head: Span) -> Result<(isize, isize, Span), ShellEr
             Err(_) => {
                 return Err(ShellError::UnsupportedInput(
                     "could not perform subbytes".to_string(),
+                    "with this range".to_string(),
+                    head,
                     span,
                 ))
             }
@@ -232,13 +252,15 @@ fn at(val: &Value, args: &Arguments, span: Span) -> Value {
             val,
             span: val_span,
         } => at_impl(val, args, *val_span),
+        // Propagate errors by explicitly matching them before the final case.
+        Value::Error { .. } => val.clone(),
         other => Value::Error {
-            error: ShellError::UnsupportedInput(
-                format!(
-                    "Input's type is {}. This command only works with bytes.",
-                    other.get_type()
-                ),
+            error: ShellError::OnlySupportsThisInputType(
+                "integer".into(),
+                other.get_type().to_string(),
                 span,
+                // This line requires the Value::Error match above.
+                other.expect_span(),
             ),
         },
     }
@@ -262,7 +284,7 @@ fn at_impl(input: &[u8], arg: &Arguments, span: Span) -> Value {
         match start.cmp(&end) {
             Ordering::Equal => Value::Binary { val: vec![], span },
             Ordering::Greater => Value::Error {
-                error: ShellError::UnsupportedInput(
+                error: ShellError::TypeMismatch(
                     "End must be greater than or equal to Start".to_string(),
                     arg.arg_span,
                 ),

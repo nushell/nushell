@@ -1,7 +1,7 @@
 use nu_protocol::{
     ast::Call,
     engine::{Command, EngineState, Stack},
-    Category, Example, IntoPipelineData, PipelineData, Signature, Value,
+    Category, Example, IntoPipelineData, PipelineData, Signature, Type, Value,
 };
 use reedline::get_reedline_default_keybindings;
 
@@ -14,7 +14,9 @@ impl Command for KeybindingsDefault {
     }
 
     fn signature(&self) -> Signature {
-        Signature::build(self.name()).category(Category::Platform)
+        Signature::build(self.name())
+            .category(Category::Platform)
+            .input_output_types(vec![(Type::Nothing, Type::Table(vec![]))])
     }
 
     fn usage(&self) -> &str {

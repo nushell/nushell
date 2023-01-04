@@ -69,7 +69,7 @@ impl Command for SubCommand {
         };
 
         if args.length.expect("this exists") < 0 {
-            return Err(ShellError::UnsupportedInput(
+            return Err(ShellError::TypeMismatch(
                 String::from("The length of the string cannot be negative"),
                 call.head,
             ));
@@ -82,22 +82,22 @@ impl Command for SubCommand {
             Example {
                 description: "Left-pad a string with asterisks until it's 10 characters wide",
                 example: "'nushell' | str lpad -l 10 -c '*'",
-                result: Some(Value::string("***nushell", Span::test_data())),
+                result: Some(Value::test_string("***nushell")),
             },
             Example {
                 description: "Left-pad a string with zeroes until it's 10 character wide",
                 example: "'123' | str lpad -l 10 -c '0'",
-                result: Some(Value::string("0000000123", Span::test_data())),
+                result: Some(Value::test_string("0000000123")),
             },
             Example {
                 description: "Use lpad to truncate a string to its last three characters",
                 example: "'123456789' | str lpad -l 3 -c '0'",
-                result: Some(Value::string("789", Span::test_data())),
+                result: Some(Value::test_string("789")),
             },
             Example {
                 description: "Use lpad to pad Unicode",
                 example: "'▉' | str lpad -l 10 -c '▉'",
-                result: Some(Value::string("▉▉▉▉▉▉▉▉▉▉", Span::test_data())),
+                result: Some(Value::test_string("▉▉▉▉▉▉▉▉▉▉")),
             },
         ]
     }
@@ -137,19 +137,16 @@ fn action(
                 }
             }
             None => Value::Error {
-                error: ShellError::UnsupportedInput(
-                    String::from("Length argument is missing"),
-                    head,
-                ),
+                error: ShellError::TypeMismatch(String::from("Length argument is missing"), head),
             },
         },
-        other => Value::Error {
-            error: ShellError::UnsupportedInput(
-                format!(
-                    "Input's type is {}. This command only works with strings.",
-                    other.get_type()
-                ),
+        Value::Error { .. } => input.clone(),
+        _ => Value::Error {
+            error: ShellError::OnlySupportsThisInputType(
+                "string".into(),
+                input.get_type().to_string(),
                 head,
+                input.expect_span(),
             ),
         },
     }

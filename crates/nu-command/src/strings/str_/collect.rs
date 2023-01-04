@@ -2,8 +2,8 @@ use nu_engine::CallExt;
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
-    Category, Example, IntoPipelineData, PipelineData, ShellError, Signature, Span, SyntaxShape,
-    Type, Value,
+    Category, Example, IntoPipelineData, PipelineData, ShellError, Signature, SyntaxShape, Type,
+    Value,
 };
 
 #[derive(Clone)]
@@ -74,12 +74,12 @@ impl Command for StrCollect {
             Example {
                 description: "Create a string from input",
                 example: "['nu', 'shell'] | str collect",
-                result: Some(Value::string("nushell", Span::test_data())),
+                result: Some(Value::test_string("nushell")),
             },
             Example {
                 description: "Create a string from input with a separator",
                 example: "['nu', 'shell'] | str collect '-'",
-                result: Some(Value::string("nu-shell", Span::test_data())),
+                result: Some(Value::test_string("nu-shell")),
             },
         ]
     }

@@ -116,20 +116,18 @@ pub fn action(input: &Value, _args: &CellPathOnlyArgs, span: Span) -> Value {
                 val: 0,
                 span: value_span,
             },
-            _ => Value::Error {
-                error: ShellError::UnsupportedInput(
-                    "'into filesize' for unsupported type".into(),
+            other => Value::Error {
+                error: ShellError::OnlySupportsThisInputType(
+                    "string and integer".into(),
+                    other.get_type().to_string(),
+                    span,
                     value_span,
                 ),
             },
         }
     } else {
-        Value::Error {
-            error: ShellError::UnsupportedInput(
-                "'into filesize' for unsupported type".into(),
-                span,
-            ),
-        }
+        // Propagate existing errors
+        input.clone()
     }
 }
 fn int_from_string(a_string: &str, span: Span) -> Result<i64, ShellError> {

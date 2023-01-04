@@ -1,3 +1,5 @@
+mod test_bits;
+mod test_cell_path;
 mod test_conditionals;
 mod test_config_path;
 mod test_converters;
@@ -30,7 +32,17 @@ pub fn run_test_with_env(input: &str, expected: &str, env: &HashMap<&str, &str>)
     let name = file.path();
 
     let mut cmd = Command::cargo_bin("nu")?;
-    cmd.arg(name).envs(env);
+    // Use this minimal config in most tests.
+    // Notably, this disables color_config to allow string output to be more easily compared.
+    cmd.arg("--config")
+        .arg(
+            nu_test_support::fs::fixtures()
+                .join("playground/config/minimal.nu")
+                .display()
+                .to_string(),
+        )
+        .arg(name)
+        .envs(env);
 
     writeln!(file, "{}", input)?;
 
@@ -43,7 +55,16 @@ pub fn run_test(input: &str, expected: &str) -> TestResult {
     let name = file.path();
 
     let mut cmd = Command::cargo_bin("nu")?;
-    cmd.arg(name);
+    // Use this minimal config in most tests.
+    // Notably, this disables color_config to allow string output to be more easily compared.
+    cmd.arg("--config")
+        .arg(
+            nu_test_support::fs::fixtures()
+                .join("playground/config/minimal.nu")
+                .display()
+                .to_string(),
+        )
+        .arg(name);
     cmd.env(
         "PWD",
         std::env::current_dir().expect("Can't get current dir"),

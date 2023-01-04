@@ -1,6 +1,6 @@
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
-use nu_protocol::{Category, Example, PipelineData, ShellError, Signature, Value};
+use nu_protocol::{Category, Example, PipelineData, ShellError, Signature, Type, Value};
 use uuid::Uuid;
 
 #[derive(Clone)]
@@ -12,7 +12,10 @@ impl Command for SubCommand {
     }
 
     fn signature(&self) -> Signature {
-        Signature::build("random uuid").category(Category::Random)
+        Signature::build("random uuid")
+            .category(Category::Random)
+            .input_output_types(vec![(Type::Nothing, Type::String)])
+            .allow_variants_without_examples(true)
     }
 
     fn usage(&self) -> &str {

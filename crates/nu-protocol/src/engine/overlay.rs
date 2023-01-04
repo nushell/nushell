@@ -1,4 +1,4 @@
-use crate::{AliasId, DeclId, ModuleId, OverlayId, Type, VarId};
+use crate::{AliasId, DeclId, ModuleId, OverlayId, Type, Value, VarId};
 use std::borrow::Borrow;
 use std::collections::HashMap;
 use std::hash::{Hash, Hasher};
@@ -44,14 +44,14 @@ impl Visibility {
         self.alias_ids.insert(*alias_id, true);
     }
 
+    /// Overwrite own values with the other
     pub fn merge_with(&mut self, other: Visibility) {
-        // overwrite own values with the other
         self.decl_ids.extend(other.decl_ids);
         self.alias_ids.extend(other.alias_ids);
     }
 
+    /// Take new values from the other but keep own values
     pub fn append(&mut self, other: &Visibility) {
-        // take new values from the other but keep own values
         for (decl_id, visible) in other.decl_ids.iter() {
             if !self.decl_ids.contains_key(decl_id) {
                 self.decl_ids.insert(*decl_id, *visible);
@@ -78,10 +78,6 @@ pub struct ScopeFrame {
     ///
     /// Order is significant: The last item points at the last activated overlay.
     pub active_overlays: Vec<OverlayId>,
-
-    /// Deactivated overlays from permanent state.
-    /// ! Stores OverlayIds from the permanent state, not from this frame. !
-    // removed_overlays: Vec<OverlayId>,
 
     /// Removed overlays from previous scope frames / permanent state
     pub removed_overlays: Vec<Vec<u8>>,
@@ -199,6 +195,7 @@ impl ScopeFrame {
 #[derive(Debug, Clone)]
 pub struct OverlayFrame {
     pub vars: HashMap<Vec<u8>, VarId>,
+    pub constants: HashMap<VarId, Value>,
     pub predecls: HashMap<Vec<u8>, DeclId>, // temporary storage for predeclarations
     pub decls: HashMap<(Vec<u8>, Type), DeclId>,
     pub aliases: HashMap<Vec<u8>, AliasId>,
@@ -212,6 +209,7 @@ impl OverlayFrame {
     pub fn from_origin(origin: ModuleId, prefixed: bool) -> Self {
         Self {
             vars: HashMap::new(),
+            constants: HashMap::new(),
             predecls: HashMap::new(),
             decls: HashMap::new(),
             aliases: HashMap::new(),
@@ -277,5 +275,17 @@ impl DeclKey for (Vec<u8>, Type) {
 impl<'a> Borrow<dyn DeclKey + 'a> for (Vec<u8>, Type) {
     fn borrow(&self) -> &(dyn DeclKey + 'a) {
         self
+    }
+}
+
+impl Default for Visibility {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl Default for ScopeFrame {
+    fn default() -> Self {
+        Self::new()
     }
 }

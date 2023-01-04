@@ -57,8 +57,8 @@ END:VCARD' | from vcf",
                                     "params".to_string(),
                                 ],
                                 vals: vec![
-                                    Value::string("N", Span::test_data()),
-                                    Value::string("Foo", Span::test_data()),
+                                    Value::test_string("N"),
+                                    Value::test_string("Foo"),
                                     Value::Nothing {
                                         span: Span::test_data(),
                                     },
@@ -72,8 +72,8 @@ END:VCARD' | from vcf",
                                     "params".to_string(),
                                 ],
                                 vals: vec![
-                                    Value::string("FN", Span::test_data()),
-                                    Value::string("Bar", Span::test_data()),
+                                    Value::test_string("FN"),
+                                    Value::test_string("Bar"),
                                     Value::Nothing {
                                         span: Span::test_data(),
                                     },
@@ -87,8 +87,8 @@ END:VCARD' | from vcf",
                                     "params".to_string(),
                                 ],
                                 vals: vec![
-                                    Value::string("EMAIL", Span::test_data()),
-                                    Value::string("foo@bar.com", Span::test_data()),
+                                    Value::test_string("EMAIL"),
+                                    Value::test_string("foo@bar.com"),
                                     Value::Nothing {
                                         span: Span::test_data(),
                                     },
@@ -107,7 +107,7 @@ END:VCARD' | from vcf",
 }
 
 fn from_vcf(input: PipelineData, head: Span) -> Result<PipelineData, ShellError> {
-    let (input_string, metadata) = input.collect_string_strict(head)?;
+    let (input_string, span, metadata) = input.collect_string_strict(head)?;
 
     let input_string = input_string
         .lines()
@@ -124,7 +124,9 @@ fn from_vcf(input: PipelineData, head: Span) -> Result<PipelineData, ShellError>
         Err(e) => Value::Error {
             error: ShellError::UnsupportedInput(
                 format!("input cannot be parsed as .vcf ({})", e),
+                "value originates from here".into(),
                 head,
+                span,
             ),
         },
     });

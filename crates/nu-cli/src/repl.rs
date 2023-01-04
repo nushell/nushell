@@ -639,7 +639,7 @@ pub fn eval_string_with_input(
         false,
         true,
     )
-    .map(|x| x.into_value(Span::test_data()))
+    .map(|x| x.into_value(Span::unknown()))
 }
 
 pub fn get_command_finished_marker(stack: &Stack, engine_state: &EngineState) -> String {
@@ -734,60 +734,63 @@ pub fn eval_hook(
             }
         }
         Value::Record { .. } => {
-            let do_run_hook =
-                if let Ok(condition) = value.clone().follow_cell_path(&[condition_path], false) {
-                    match condition {
-                        Value::Block {
-                            val: block_id,
-                            span: block_span,
-                            ..
-                        }
-                        | Value::Closure {
-                            val: block_id,
-                            span: block_span,
-                            ..
-                        } => {
-                            match run_hook_block(
-                                engine_state,
-                                stack,
-                                block_id,
-                                None,
-                                arguments.clone(),
-                                block_span,
-                            ) {
-                                Ok(pipeline_data) => {
-                                    if let PipelineData::Value(Value::Bool { val, .. }, ..) =
-                                        pipeline_data
-                                    {
-                                        val
-                                    } else {
-                                        return Err(ShellError::UnsupportedConfigValue(
-                                            "boolean output".to_string(),
-                                            "other PipelineData variant".to_string(),
-                                            block_span,
-                                        ));
-                                    }
-                                }
-                                Err(err) => {
-                                    return Err(err);
+            let do_run_hook = if let Ok(condition) =
+                value
+                    .clone()
+                    .follow_cell_path(&[condition_path], false, false)
+            {
+                match condition {
+                    Value::Block {
+                        val: block_id,
+                        span: block_span,
+                        ..
+                    }
+                    | Value::Closure {
+                        val: block_id,
+                        span: block_span,
+                        ..
+                    } => {
+                        match run_hook_block(
+                            engine_state,
+                            stack,
+                            block_id,
+                            None,
+                            arguments.clone(),
+                            block_span,
+                        ) {
+                            Ok(pipeline_data) => {
+                                if let PipelineData::Value(Value::Bool { val, .. }, ..) =
+                                    pipeline_data
+                                {
+                                    val
+                                } else {
+                                    return Err(ShellError::UnsupportedConfigValue(
+                                        "boolean output".to_string(),
+                                        "other PipelineData variant".to_string(),
+                                        block_span,
+                                    ));
                                 }
                             }
-                        }
-                        other => {
-                            return Err(ShellError::UnsupportedConfigValue(
-                                "block".to_string(),
-                                format!("{}", other.get_type()),
-                                other.span()?,
-                            ));
+                            Err(err) => {
+                                return Err(err);
+                            }
                         }
                     }
-                } else {
-                    // always run the hook
-                    true
-                };
+                    other => {
+                        return Err(ShellError::UnsupportedConfigValue(
+                            "block".to_string(),
+                            format!("{}", other.get_type()),
+                            other.span()?,
+                        ));
+                    }
+                }
+            } else {
+                // always run the hook
+                true
+            };
 
             if do_run_hook {
-                match value.clone().follow_cell_path(&[code_path], false)? {
+                match value.clone().follow_cell_path(&[code_path], false, false)? {
                     Value::String {
                         val,
                         span: source_span,

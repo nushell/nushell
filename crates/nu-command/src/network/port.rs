@@ -5,7 +5,7 @@ use nu_protocol::IntoPipelineData;
 use std::net::{Ipv4Addr, SocketAddr, SocketAddrV4, TcpListener};
 
 use nu_protocol::{
-    Category, Example, PipelineData, ShellError, Signature, Span, SyntaxShape, Value,
+    Category, Example, PipelineData, ShellError, Signature, SyntaxShape, Type, Value,
 };
 
 #[derive(Clone)]
@@ -18,6 +18,7 @@ impl Command for SubCommand {
 
     fn signature(&self) -> Signature {
         Signature::build("port")
+            .input_output_types(vec![(Type::Nothing, Type::Int)])
             .optional(
                 "start",
                 SyntaxShape::Int,
@@ -50,7 +51,7 @@ impl Command for SubCommand {
             Example {
                 description: "get a free port between 3121 and 4000",
                 example: "port 3121 4000",
-                result: Some(Value::int(3121, Span::test_data())),
+                result: Some(Value::test_int(3121)),
             },
             Example {
                 description: "get a free port from system",

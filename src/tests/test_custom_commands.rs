@@ -114,7 +114,7 @@ fn def_with_no_dollar() -> TestResult {
 #[test]
 fn allow_missing_optional_params() -> TestResult {
     run_test(
-        "def foo [x?:int] { if $x != $nothing { $x + 10 } else { 5 } }; foo",
+        "def foo [x?:int] { if $x != null { $x + 10 } else { 5 } }; foo",
         "5",
     )
 }
@@ -130,7 +130,7 @@ fn help_present_in_def() -> TestResult {
 #[test]
 fn help_not_present_in_extern() -> TestResult {
     run_test(
-        "module test {export extern \"git fetch\" []}; use test; help git fetch | ansi strip",
+        "module test {export extern \"git fetch\" []}; use test `git fetch`; help git fetch | ansi strip",
         "Usage:\n  > git fetch",
     )
 }

@@ -292,7 +292,7 @@ fn module_nested_imports_in_dirs_prefixed() {
 
 #[test]
 fn module_import_env_1() {
-    Playground::setup("module_imprt_env_1", |dirs, sandbox| {
+    Playground::setup("module_import_env_1", |dirs, sandbox| {
         sandbox
             .with_files(vec![FileWithContentToBeTrimmed(
                 "main.nu",
@@ -431,5 +431,46 @@ fn module_cyclical_imports_3() {
         let actual = nu!(cwd: dirs.test(), pipeline(&inp.join("; ")));
 
         assert!(actual.err.contains("cyclical"));
+    })
+}
+
+#[test]
+fn module_import_const_file() {
+    Playground::setup("module_import_const_file", |dirs, sandbox| {
+        sandbox.with_files(vec![FileWithContentToBeTrimmed(
+            "spam.nu",
+            r#"
+                export def foo [] { "foo" }
+            "#,
+        )]);
+
+        let inp = &[r#"const file = 'spam.nu'"#, r#"use $file foo"#, r#"foo"#];
+
+        let actual = nu!(cwd: dirs.test(), pipeline(&inp.join("; ")));
+
+        assert_eq!(actual.out, "foo");
+    })
+}
+
+#[test]
+fn module_import_const_module_name() {
+    Playground::setup("module_import_const_file", |dirs, sandbox| {
+        sandbox.with_files(vec![FileWithContentToBeTrimmed(
+            "spam.nu",
+            r#"
+                export def foo [] { "foo" }
+            "#,
+        )]);
+
+        let inp = &[
+            r#"module spam { export def foo [] { "foo" } }"#,
+            r#"const mod = 'spam'"#,
+            r#"use $mod foo"#,
+            r#"foo"#,
+        ];
+
+        let actual = nu!(cwd: dirs.test(), pipeline(&inp.join("; ")));
+
+        assert_eq!(actual.out, "foo");
     })
 }

@@ -2,7 +2,7 @@ use nu_engine::CallExt;
 use nu_protocol::ast::{Call, CellPath};
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
-    Category, Example, IntoPipelineData, PipelineData, Signature, Span, SyntaxShape, Type, Value,
+    Category, Example, IntoPipelineData, PipelineData, Signature, SyntaxShape, Type, Value,
 };
 
 #[derive(Clone)]
@@ -43,18 +43,18 @@ impl Command for Empty {
             Example {
                 description: "Check if a string is empty",
                 example: "'' | is-empty",
-                result: Some(Value::boolean(true, Span::test_data())),
+                result: Some(Value::test_bool(true)),
             },
             Example {
                 description: "Check if a list is empty",
                 example: "[] | is-empty",
-                result: Some(Value::boolean(true, Span::test_data())),
+                result: Some(Value::test_bool(true)),
             },
             Example {
                 // TODO: revisit empty cell path semantics for a record.
                 description: "Check if more than one column are empty",
                 example: "[[meal size]; [arepa small] [taco '']] | is-empty meal size",
-                result: Some(Value::boolean(false, Span::test_data())),
+                result: Some(Value::test_bool(false)),
             },
         ]
     }
@@ -73,7 +73,7 @@ fn empty(
         for val in input {
             for column in &columns {
                 let val = val.clone();
-                match val.follow_cell_path(&column.members, false) {
+                match val.follow_cell_path(&column.members, false, false) {
                     Ok(Value::Nothing { .. }) => {}
                     Ok(_) => return Ok(Value::boolean(false, head).into_pipeline_data()),
                     Err(err) => return Err(err),

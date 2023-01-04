@@ -54,28 +54,32 @@ impl Command for SubCommand {
             Example {
                 description: "Compute the standard deviation of a list of numbers",
                 example: "[1 2 3 4 5] | math stddev",
-                result: Some(Value::float(std::f64::consts::SQRT_2, Span::test_data())),
+                result: Some(Value::test_float(std::f64::consts::SQRT_2)),
             },
             Example {
                 description: "Compute the sample standard deviation of a list of numbers",
                 example: "[1 2 3 4 5] | math stddev -s",
-                result: Some(Value::float(1.5811388300841898, Span::test_data())),
+                result: Some(Value::test_float(1.5811388300841898)),
             },
         ]
     }
 }
 
-pub fn compute_stddev(sample: bool) -> impl Fn(&[Value], &Span) -> Result<Value, ShellError> {
-    move |values: &[Value], span: &Span| {
-        let variance = variance(sample)(values, span);
+pub fn compute_stddev(sample: bool) -> impl Fn(&[Value], Span, &Span) -> Result<Value, ShellError> {
+    move |values: &[Value], span: Span, head: &Span| {
+        let variance = variance(sample)(values, span, head);
         match variance {
-            Ok(Value::Float { val, span }) => Ok(Value::Float { val: val.sqrt(), span }),
-            Ok(Value::Int { val, span }) => Ok(Value::Float { val: (val as f64).sqrt(), span }),
-            Err(ShellError::UnsupportedInput(_, err_span)) => Err(ShellError::UnsupportedInput(
-                    "Attempted to compute the standard deviation with an item that cannot be used for that.".to_string(),
-                    err_span,
-                )),
-            other => other
+            Ok(Value::Float { val, span }) => Ok(Value::Float {
+                val: val.sqrt(),
+                span,
+            }),
+            Ok(Value::Int { val, span }) => Ok(Value::Float {
+                val: (val as f64).sqrt(),
+                span,
+            }),
+            // variance() produces its own usable error, which can simply be propagated.
+            Err(e) => Err(e),
+            other => other,
         }
     }
 }

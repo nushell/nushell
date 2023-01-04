@@ -52,10 +52,12 @@ impl Command for BytesBuild {
             let val = eval_expression(engine_state, stack, expr)?;
             match val {
                 Value::Binary { mut val, .. } => output.append(&mut val),
+                // Explicitly propagate errors instead of dropping them.
+                Value::Error { error } => return Err(error),
                 other => {
-                    return Err(ShellError::UnsupportedInput(
-                        "only support expression which yields to binary data".to_string(),
-                        other.span().unwrap_or(call.head),
+                    return Err(ShellError::TypeMismatch(
+                        "only binary data arguments are supported".to_string(),
+                        other.expect_span(),
                     ))
                 }
             }

@@ -55,11 +55,11 @@ impl Command for Size {
                         "graphemes".into(),
                     ],
                     vals: vec![
-                        Value::int(1, Span::test_data()),
-                        Value::int(7, Span::test_data()),
-                        Value::int(38, Span::test_data()),
-                        Value::int(38, Span::test_data()),
-                        Value::int(38, Span::test_data()),
+                        Value::test_int(1),
+                        Value::test_int(7),
+                        Value::test_int(38),
+                        Value::test_int(38),
+                        Value::test_int(38),
                     ],
                     span: Span::test_data(),
                 }),
@@ -76,11 +76,11 @@ impl Command for Size {
                         "graphemes".into(),
                     ],
                     vals: vec![
-                        Value::int(1, Span::test_data()),
-                        Value::int(6, Span::test_data()),
-                        Value::int(18, Span::test_data()),
-                        Value::int(6, Span::test_data()),
-                        Value::int(6, Span::test_data()),
+                        Value::test_int(1),
+                        Value::test_int(6),
+                        Value::test_int(18),
+                        Value::test_int(6),
+                        Value::test_int(6),
                     ],
                     span: Span::test_data(),
                 }),
@@ -97,11 +97,11 @@ impl Command for Size {
                         "graphemes".into(),
                     ],
                     vals: vec![
-                        Value::int(1, Span::test_data()),
-                        Value::int(2, Span::test_data()),
-                        Value::int(15, Span::test_data()),
-                        Value::int(14, Span::test_data()),
-                        Value::int(13, Span::test_data()),
+                        Value::test_int(1),
+                        Value::test_int(2),
+                        Value::test_int(15),
+                        Value::test_int(14),
+                        Value::test_int(13),
                     ],
                     span: Span::test_data(),
                 }),
@@ -116,6 +116,10 @@ fn size(
     input: PipelineData,
 ) -> Result<PipelineData, ShellError> {
     let span = call.head;
+    // This doesn't match explicit nulls
+    if matches!(input, PipelineData::Empty) {
+        return Err(ShellError::PipelineEmpty(span));
+    }
     input.map(
         move |v| {
             // First, obtain the span. If this fails, propagate the error that results.

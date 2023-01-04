@@ -51,16 +51,16 @@ impl Command for SubCommand {
             Example {
                 description: "Reverse a single string",
                 example: "'Nushell' | str reverse",
-                result: Some(Value::string("llehsuN", Span::test_data())),
+                result: Some(Value::test_string("llehsuN")),
             },
             Example {
                 description: "Reverse multiple strings in a list",
                 example: "['Nushell' 'is' 'cool'] | str reverse",
                 result: Some(Value::List {
                     vals: vec![
-                        Value::string("llehsuN", Span::test_data()),
-                        Value::string("si", Span::test_data()),
-                        Value::string("looc", Span::test_data()),
+                        Value::test_string("llehsuN"),
+                        Value::test_string("si"),
+                        Value::test_string("looc"),
                     ],
                     span: Span::test_data(),
                 }),
@@ -75,14 +75,13 @@ fn action(input: &Value, _arg: &CellPathOnlyArgs, head: Span) -> Value {
             val: val.chars().rev().collect::<String>(),
             span: head,
         },
-
-        other => Value::Error {
-            error: ShellError::UnsupportedInput(
-                format!(
-                    "Input's type is {}. This command only works with strings.",
-                    other.get_type()
-                ),
+        Value::Error { .. } => input.clone(),
+        _ => Value::Error {
+            error: ShellError::OnlySupportsThisInputType(
+                "string".into(),
+                input.get_type().to_string(),
                 head,
+                input.expect_span(),
             ),
         },
     }

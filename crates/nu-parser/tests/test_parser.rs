@@ -323,10 +323,10 @@ pub fn parse_call_missing_req_flag() {
 }
 
 #[test]
-fn test_nothing_comparisson_eq() {
+fn test_nothing_comparison_eq() {
     let engine_state = EngineState::new();
     let mut working_set = StateWorkingSet::new(&engine_state);
-    let (block, err) = parse(&mut working_set, None, b"2 == $nothing", true, &[]);
+    let (block, err) = parse(&mut working_set, None, b"2 == null", true, &[]);
 
     assert!(err.is_none());
     assert!(block.len() == 1);
@@ -346,10 +346,10 @@ fn test_nothing_comparisson_eq() {
 }
 
 #[test]
-fn test_nothing_comparisson_neq() {
+fn test_nothing_comparison_neq() {
     let engine_state = EngineState::new();
     let mut working_set = StateWorkingSet::new(&engine_state);
-    let (block, err) = parse(&mut working_set, None, b"2 != $nothing", true, &[]);
+    let (block, err) = parse(&mut working_set, None, b"2 != null", true, &[]);
 
     assert!(err.is_none());
     assert!(block.len() == 1);

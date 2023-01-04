@@ -196,6 +196,56 @@ impl PipelineData {
         }
     }
 
+    /// Try convert from self into iterator
+    ///
+    /// It returns Err if the `self` cannot be converted to an iterator.
+    pub fn into_iter_strict(self, span: Span) -> Result<PipelineIterator, ShellError> {
+        match self {
+            PipelineData::Value(val, metadata) => match val {
+                Value::List { vals, .. } => Ok(PipelineIterator(PipelineData::ListStream(
+                    ListStream {
+                        stream: Box::new(vals.into_iter()),
+                        ctrlc: None,
+                    },
+                    metadata,
+                ))),
+                Value::Binary { val, span } => Ok(PipelineIterator(PipelineData::ListStream(
+                    ListStream {
+                        stream: Box::new(val.into_iter().map(move |x| Value::int(x as i64, span))),
+                        ctrlc: None,
+                    },
+                    metadata,
+                ))),
+                Value::Range { val, .. } => match val.into_range_iter(None) {
+                    Ok(iter) => Ok(PipelineIterator(PipelineData::ListStream(
+                        ListStream {
+                            stream: Box::new(iter),
+                            ctrlc: None,
+                        },
+                        metadata,
+                    ))),
+                    Err(error) => Err(error),
+                },
+                // Propagate errors by explicitly matching them before the final case.
+                Value::Error { error } => Err(error),
+                other => Err(ShellError::OnlySupportsThisInputType(
+                    "list, binary, raw data or range".into(),
+                    other.get_type().to_string(),
+                    span,
+                    // This line requires the Value::Error match above.
+                    other.expect_span(),
+                )),
+            },
+            PipelineData::Empty => Err(ShellError::OnlySupportsThisInputType(
+                "list, binary, raw data or range".into(),
+                "null".into(),
+                span,
+                span, // TODO: make PipelineData::Empty spanned, so that the span can be used here.
+            )),
+            other => Ok(PipelineIterator(other)),
+        }
+    }
+
     pub fn into_interruptible_iter(self, ctrlc: Option<Arc<AtomicBool>>) -> PipelineIterator {
         let mut iter = self.into_iter();
 
@@ -243,10 +293,10 @@ impl PipelineData {
     pub fn collect_string_strict(
         self,
         span: Span,
-    ) -> Result<(String, Option<PipelineMetadata>), ShellError> {
+    ) -> Result<(String, Span, Option<PipelineMetadata>), ShellError> {
         match self {
-            PipelineData::Empty => Ok((String::new(), None)),
-            PipelineData::Value(Value::String { val, .. }, metadata) => Ok((val, metadata)),
+            PipelineData::Empty => Ok((String::new(), span, None)),
+            PipelineData::Value(Value::String { val, span }, metadata) => Ok((val, span, metadata)),
             PipelineData::Value(val, _) => {
                 Err(ShellError::TypeMismatch("string".into(), val.span()?))
             }
@@ -254,13 +304,15 @@ impl PipelineData {
             PipelineData::ExternalStream {
                 stdout: None,
                 metadata,
+                span,
                 ..
-            } => Ok((String::new(), metadata)),
+            } => Ok((String::new(), span, metadata)),
             PipelineData::ExternalStream {
                 stdout: Some(stdout),
                 metadata,
+                span,
                 ..
-            } => Ok((stdout.into_string()?.item, metadata)),
+            } => Ok((stdout.into_string()?.item, span, metadata)),
         }
     }
 
@@ -269,6 +321,7 @@ impl PipelineData {
         cell_path: &[PathMember],
         head: Span,
         insensitive: bool,
+        ignore_errors: bool,
     ) -> Result<Value, ShellError> {
         match self {
             // FIXME: there are probably better ways of doing this
@@ -276,8 +329,8 @@ impl PipelineData {
                 vals: stream.collect(),
                 span: head,
             }
-            .follow_cell_path(cell_path, insensitive),
-            PipelineData::Value(v, ..) => v.follow_cell_path(cell_path, insensitive),
+            .follow_cell_path(cell_path, insensitive, ignore_errors),
+            PipelineData::Value(v, ..) => v.follow_cell_path(cell_path, insensitive, ignore_errors),
             _ => Err(ShellError::IOError("can't follow stream paths".into())),
         }
     }
@@ -525,7 +578,7 @@ impl PipelineData {
                     let ctrlc = exit_code_stream.ctrlc.clone();
                     let exit_code: Vec<Value> = exit_code_stream.into_iter().collect();
                     if let Some(Value::Int { val: code, .. }) = exit_code.last() {
-                        // if exit_code is not 0, it indicates error occured, return back Err.
+                        // if exit_code is not 0, it indicates error occurred, return back Err.
                         if *code != 0 {
                             failed_to_run = true;
                         }
@@ -562,7 +615,7 @@ impl PipelineData {
     /// Consume and print self data immediately.
     ///
     /// `no_newline` controls if we need to attach newline character to output.
-    /// `to_stderr` controls if data is output to stderr, when the value is false, the data is ouput to stdout.
+    /// `to_stderr` controls if data is output to stderr, when the value is false, the data is output to stdout.
     pub fn print(
         self,
         engine_state: &EngineState,
@@ -619,9 +672,11 @@ impl PipelineData {
         to_stderr: bool,
     ) -> Result<i64, ShellError> {
         for item in self {
+            let mut is_err = false;
             let mut out = if let Value::Error { error } = item {
                 let working_set = StateWorkingSet::new(engine_state);
-
+                // Value::Errors must always go to stderr, not stdout.
+                is_err = true;
                 format_error(&working_set, &error)
             } else if no_newline {
                 item.into_string("", config)
@@ -633,7 +688,7 @@ impl PipelineData {
                 out.push('\n');
             }
 
-            if !to_stderr {
+            if !to_stderr && !is_err {
                 stdout_write_all_and_flush(out)?
             } else {
                 stderr_write_all_and_flush(out)?

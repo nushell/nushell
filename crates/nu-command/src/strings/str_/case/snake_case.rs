@@ -49,17 +49,17 @@ impl Command for SubCommand {
             Example {
                 description: "convert a string to snake_case",
                 example: r#" "NuShell" | str snake-case"#,
-                result: Some(Value::string("nu_shell", Span::test_data())),
+                result: Some(Value::test_string("nu_shell")),
             },
             Example {
                 description: "convert a string to snake_case",
                 example: r#" "this_is_the_second_case" | str snake-case"#,
-                result: Some(Value::string("this_is_the_second_case", Span::test_data())),
+                result: Some(Value::test_string("this_is_the_second_case")),
             },
             Example {
                 description: "convert a string to snake_case",
                 example: r#""this-is-the-first-case" | str snake-case"#,
-                result: Some(Value::string("this_is_the_first_case", Span::test_data())),
+                result: Some(Value::test_string("this_is_the_first_case")),
             },
             Example {
                 description: "convert a column from a table to snake_case",
@@ -68,10 +68,7 @@ impl Command for SubCommand {
                     vals: vec![Value::Record {
                         span: Span::test_data(),
                         cols: vec!["lang".to_string(), "gems".to_string()],
-                        vals: vec![
-                            Value::string("nu_test", Span::test_data()),
-                            Value::test_int(100),
-                        ],
+                        vals: vec![Value::test_string("nu_test"), Value::test_int(100)],
                     }],
                     span: Span::test_data(),
                 }),

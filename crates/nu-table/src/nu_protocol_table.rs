@@ -10,7 +10,7 @@ use tabled::{
 
 /// NuTable has a recursive table representation of nu_protocol::Value.
 ///
-/// It doesn't support alignement and a proper width control.
+/// It doesn't support alignment and a proper width control.
 pub struct NuTable {
     inner: tabled::Table,
 }

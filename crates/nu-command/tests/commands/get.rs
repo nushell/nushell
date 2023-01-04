@@ -3,6 +3,18 @@ use nu_test_support::playground::Playground;
 use nu_test_support::{nu, pipeline};
 
 #[test]
+fn simple_get_record() {
+    let actual = nu!(r#"({foo: 'bar'} | get foo) == "bar""#);
+    assert_eq!(actual.out, "true");
+}
+
+#[test]
+fn simple_get_list() {
+    let actual = nu!(r#"([{foo: 'bar'}] | get foo) == [bar]"#);
+    assert_eq!(actual.out, "true");
+}
+
+#[test]
 fn fetches_a_row() {
     Playground::setup("get_test_1", |dirs, sandbox| {
         sandbox.with_files(vec![FileWithContent(
@@ -227,5 +239,5 @@ fn get_does_not_delve_too_deep_in_nested_lists() {
         r#"[[{foo: bar}]] | get foo"#
     );
 
-    assert!(actual.err.contains("did not find anything under this name"));
+    assert!(actual.err.contains("cannot find column"));
 }

@@ -1,7 +1,7 @@
 use nu_protocol::{
     ast::Call,
     engine::{Command, EngineState, Stack},
-    Category, IntoInterruptiblePipelineData, PipelineData, ShellError, Signature, Value,
+    Category, IntoInterruptiblePipelineData, PipelineData, ShellError, Signature, Type, Value,
 };
 
 #[derive(Clone)]
@@ -17,7 +17,10 @@ impl Command for HelpOperators {
     }
 
     fn signature(&self) -> Signature {
-        Signature::build("help operators").category(Category::Core)
+        Signature::build("help operators")
+            .category(Category::Core)
+            .input_output_types(vec![(Type::Nothing, Type::Table(vec![]))])
+            .allow_variants_without_examples(true)
     }
 
     fn run(

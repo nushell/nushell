@@ -67,12 +67,12 @@ impl Command for SubCommand {
             Example {
                 description: "Checks if string ends with '.rb'",
                 example: "'my_library.rb' | str ends-with '.rb'",
-                result: Some(Value::boolean(true, Span::test_data())),
+                result: Some(Value::test_bool(true)),
             },
             Example {
                 description: "Checks if string ends with '.txt'",
                 example: "'my_library.rb' | str ends-with '.txt'",
-                result: Some(Value::boolean(false, Span::test_data())),
+                result: Some(Value::test_bool(false)),
             },
         ]
     }
@@ -81,13 +81,13 @@ impl Command for SubCommand {
 fn action(input: &Value, args: &Arguments, head: Span) -> Value {
     match input {
         Value::String { val, .. } => Value::boolean(val.ends_with(&args.substring), head),
-        other => Value::Error {
-            error: ShellError::UnsupportedInput(
-                format!(
-                    "Input's type is {}. This command only works with strings.",
-                    other.get_type()
-                ),
+        Value::Error { .. } => input.clone(),
+        _ => Value::Error {
+            error: ShellError::OnlySupportsThisInputType(
+                "string".into(),
+                input.get_type().to_string(),
                 head,
+                input.expect_span(),
             ),
         },
     }

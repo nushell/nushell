@@ -16,7 +16,10 @@ impl Command for Rotate {
 
     fn signature(&self) -> Signature {
         Signature::build("rotate")
-            .input_output_types(vec![(Type::Table(vec![]), Type::Table(vec![]))])
+            .input_output_types(vec![
+                (Type::Record(vec![]), Type::Table(vec![])),
+                (Type::Table(vec![]), Type::Table(vec![])),
+            ])
             .switch("ccw", "rotate counter clockwise", None)
             .rest(
                 "rest",
@@ -27,14 +30,14 @@ impl Command for Rotate {
     }
 
     fn usage(&self) -> &str {
-        "Rotates a table clockwise (default) or counter-clockwise (use --ccw flag)."
+        "Rotates a table or record clockwise (default) or counter-clockwise (use --ccw flag)."
     }
 
     fn examples(&self) -> Vec<Example> {
         vec![
             Example {
-                description: "Rotate 2x2 table clockwise",
-                example: "[[a b]; [1 2]] | rotate",
+                description: "Rotate a record clockwise, producing a table (like `transpose` but with column order reversed)",
+                example: "{a:1, b:2} | rotate",
                 result: Some(Value::List {
                     vals: vec![
                         Value::Record {
@@ -208,6 +211,7 @@ pub fn rotate(
 ) -> Result<PipelineData, ShellError> {
     let metadata = input.metadata();
     let col_given_names: Vec<String> = call.rest(engine_state, stack, 0)?;
+    let span = input.span();
     let mut values = input.into_iter().collect::<Vec<_>>();
     let mut old_column_names = vec![];
     let mut new_values = vec![];
@@ -222,17 +226,13 @@ pub fn rotate(
     if !values.is_empty() {
         for val in values.into_iter() {
             match val {
-                Value::Record {
-                    cols,
-                    vals,
-                    span: _,
-                } => {
+                Value::Record { cols, vals, .. } => {
                     old_column_names = cols;
                     for v in vals {
                         new_values.push(v)
                     }
                 }
-                Value::List { vals, span: _ } => {
+                Value::List { vals, .. } => {
                     not_a_record = true;
                     for v in vals {
                         new_values.push(v);
@@ -250,8 +250,11 @@ pub fn rotate(
         }
     } else {
         return Err(ShellError::UnsupportedInput(
-            "Rotate command requires a Nu value as input".to_string(),
+            "list input is empty".to_string(),
+            "value originates from here".into(),
             call.head,
+            // TODO: Maybe make all Pipelines have spans, so that this doesn't need to be unwrapped.
+            span.unwrap_or(call.head),
         ));
     }
 

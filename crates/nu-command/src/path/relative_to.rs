@@ -3,7 +3,8 @@ use std::path::Path;
 use nu_engine::CallExt;
 use nu_path::expand_to_real_path;
 use nu_protocol::{
-    engine::Command, Example, ShellError, Signature, Span, Spanned, SyntaxShape, Type, Value,
+    engine::Command, Example, PipelineData, ShellError, Signature, Span, Spanned, SyntaxShape,
+    Type, Value,
 };
 
 use super::PathSubcommandArguments;
@@ -66,6 +67,10 @@ path."#
             columns: call.get_flag(engine_state, stack, "columns")?,
         };
 
+        // This doesn't match explicit nulls
+        if matches!(input, PipelineData::Empty) {
+            return Err(ShellError::PipelineEmpty(head));
+        }
         input.map(
             move |value| super::operate(&relative_to, &args, value, head),
             engine_state.ctrlc.clone(),

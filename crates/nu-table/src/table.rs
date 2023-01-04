@@ -34,7 +34,7 @@ impl Table {
     ///
     /// If `headers.is_empty` then no headers will be rendered.
     pub fn new(data: Vec<Vec<TCell<CellInfo<'static>, TextStyle>>>, size: (usize, usize)) -> Table {
-        // it's not guaranted that data will have all rows with the same number of columns.
+        // it's not guaranteed that data will have all rows with the same number of columns.
         // but VecRecords::with_hint require this constrain.
         //
         // so we do a check to make it certainly true
@@ -450,7 +450,7 @@ fn truncate_columns_by_content(data: &mut Data, theme: &TableTheme, termwidth: u
     }
 
     // we don't need any truncation then (is it possible?)
-    if truncate_pos + 1 == data.count_columns() {
+    if truncate_pos == data.count_columns() {
         return false;
     }
 

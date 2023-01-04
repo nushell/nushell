@@ -54,14 +54,16 @@ impl Command for BytesCollect {
                         output_binary.append(&mut work_sep)
                     }
                 }
+                // Explicitly propagate errors instead of dropping them.
+                Value::Error { error } => return Err(error),
                 other => {
-                    return Err(ShellError::UnsupportedInput(
-                        format!(
-                            "The element type is {}, this command only works with bytes.",
-                            other.get_type()
-                        ),
-                        other.span().unwrap_or(call.head),
-                    ))
+                    return Err(ShellError::OnlySupportsThisInputType(
+                        "integer".into(),
+                        other.get_type().to_string(),
+                        call.head,
+                        // This line requires the Value::Error match above.
+                        other.expect_span(),
+                    ));
                 }
             }
         }

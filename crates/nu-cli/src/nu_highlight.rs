@@ -1,6 +1,6 @@
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
-use nu_protocol::{Category, Example, PipelineData, ShellError, Signature, Value};
+use nu_protocol::{Category, Example, PipelineData, ShellError, Signature, Type, Value};
 use reedline::Highlighter;
 
 #[derive(Clone)]
@@ -12,7 +12,9 @@ impl Command for NuHighlight {
     }
 
     fn signature(&self) -> Signature {
-        Signature::build("nu-highlight").category(Category::Strings)
+        Signature::build("nu-highlight")
+            .category(Category::Strings)
+            .input_output_types(vec![(Type::String, Type::String)])
     }
 
     fn usage(&self) -> &str {

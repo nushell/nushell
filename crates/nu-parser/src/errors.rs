@@ -19,7 +19,7 @@ pub enum ParseError {
     #[diagnostic(code(nu::parser::extra_positional), url(docsrs), help("Usage: {0}"))]
     ExtraPositional(String, #[label = "extra positional argument"] Span),
 
-    #[error("Require positional parameter after optional parameter")]
+    #[error("Required positional parameter after optional parameter")]
     #[diagnostic(code(nu::parser::required_after_optional), url(docsrs))]
     RequiredAfterOptional(
         String,
@@ -172,7 +172,16 @@ pub enum ParseError {
 
     #[error("Alias name not supported.")]
     #[diagnostic(code(nu::parser::variable_not_valid), url(docsrs))]
-    AliasNotValid(#[label = "alias name can't be a number or a filesize"] Span),
+    AliasNotValid(
+        #[label = "alias name can't be a number, a filesize, or contain a hash # or caret ^"] Span,
+    ),
+
+    #[error("Command name not supported.")]
+    #[diagnostic(code(nu::parser::variable_not_valid), url(docsrs))]
+    CommandDefNotValid(
+        #[label = "command name can't be a number, a filesize, or contain a hash # or caret ^"]
+        Span,
+    ),
 
     #[error("Module not found.")]
     #[diagnostic(
@@ -378,6 +387,19 @@ pub enum ParseError {
     #[diagnostic(code(nu::shell::error_reading_file), url(docsrs))]
     ReadingFile(String, #[label("{0}")] Span),
 
+    /// Tried assigning non-constant value to a constant
+    ///
+    /// ## Resolution
+    ///
+    /// Only a subset of expressions are allowed to be assigned as a constant during parsing.
+    #[error("Not a constant.")]
+    #[diagnostic(
+        code(nu::parser::not_a_constant),
+        url(docsrs),
+        help("Only a subset of expressions are allowed constants during parsing. Try using the 'let' command or typing the value literally.")
+    )]
+    NotAConstant(#[label = "Value is not a parse-time constant"] Span),
+
     #[error("{0}")]
     #[diagnostic()]
     LabeledError(String, String, #[label("{1}")] Span),
@@ -406,6 +428,7 @@ impl ParseError {
             ParseError::VariableNotFound(s) => *s,
             ParseError::VariableNotValid(s) => *s,
             ParseError::AliasNotValid(s) => *s,
+            ParseError::CommandDefNotValid(s) => *s,
             ParseError::ModuleNotFound(s) => *s,
             ParseError::CyclicalModuleImport(_, s) => *s,
             ParseError::ModuleOrOverlayNotFound(s) => *s,
@@ -450,6 +473,7 @@ impl ParseError {
             ParseError::ShellErrRedirect(s) => *s,
             ParseError::ShellOutErrRedirect(s) => *s,
             ParseError::UnknownOperator(_, _, s) => *s,
+            ParseError::NotAConstant(s) => *s,
         }
     }
 }

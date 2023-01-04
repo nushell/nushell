@@ -91,7 +91,7 @@ impl Command for Drop {
     ) -> Result<PipelineData, ShellError> {
         let metadata = input.metadata();
         let rows: Option<i64> = call.opt(engine_state, stack, 0)?;
-        let v: Vec<_> = input.into_iter().collect();
+        let v: Vec<_> = input.into_iter_strict(call.head)?.collect();
         let vlen: i64 = v.len() as i64;
 
         let rows_to_drop = if let Some(quantity) = rows {

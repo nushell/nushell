@@ -410,7 +410,7 @@ fn ensure_path(scope: &mut HashMap<String, Value>, env_path_name: &str) -> Optio
                 Ok(sp) => sp,
                 Err(e) => {
                     error = error.or(Some(e));
-                    Span::test_data() // FIXME: any better span to use here?
+                    Span::unknown() // FIXME: any better span to use here?
                 }
             };
 

@@ -122,13 +122,15 @@ fn add(val: &Value, args: &Arguments, span: Span) -> Value {
             val,
             span: val_span,
         } => add_impl(val, args, *val_span),
+        // Propagate errors by explicitly matching them before the final case.
+        Value::Error { .. } => val.clone(),
         other => Value::Error {
-            error: ShellError::UnsupportedInput(
-                format!(
-                    "Input's type is {}. This command only works with bytes.",
-                    other.get_type()
-                ),
+            error: ShellError::OnlySupportsThisInputType(
+                "integer".into(),
+                other.get_type().to_string(),
                 span,
+                // This line requires the Value::Error match above.
+                other.expect_span(),
             ),
         },
     }

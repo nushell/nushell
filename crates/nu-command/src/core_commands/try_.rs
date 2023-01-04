@@ -1,7 +1,9 @@
 use nu_engine::{eval_block, CallExt};
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Block, Closure, Command, EngineState, Stack};
-use nu_protocol::{Category, Example, PipelineData, Signature, SyntaxShape, Type, Value};
+use nu_protocol::{
+    Category, Example, IntoPipelineData, PipelineData, Signature, SyntaxShape, Type, Value,
+};
 
 #[derive(Clone)]
 pub struct Try;
@@ -57,11 +59,11 @@ impl Command for Try {
             Err(error) | Ok(PipelineData::Value(Value::Error { error }, ..)) => {
                 if let Some(catch_block) = catch_block {
                     let catch_block = engine_state.get_block(catch_block.block_id);
-
+                    let err_value = Value::Error { error };
+                    // Put the error value in the positional closure var
                     if let Some(var) = catch_block.signature.get_positional(0) {
                         if let Some(var_id) = &var.var_id {
-                            let err_value = Value::Error { error };
-                            stack.add_var(*var_id, err_value);
+                            stack.add_var(*var_id, err_value.clone());
                         }
                     }
 
@@ -69,7 +71,8 @@ impl Command for Try {
                         engine_state,
                         stack,
                         catch_block,
-                        PipelineData::empty(),
+                        // Make the error accessible with $in, too
+                        err_value.into_pipeline_data(),
                         false,
                         false,
                     )
@@ -86,6 +89,9 @@ impl Command for Try {
 
                         if let Some(var) = catch_block.signature.get_positional(0) {
                             if let Some(var_id) = &var.var_id {
+                                // Because external command errors aren't "real" errors,
+                                // (unless do -c is in effect)
+                                // they can't be passed in as Nushell values.
                                 let err_value = Value::nothing(call.head);
                                 stack.add_var(*var_id, err_value);
                             }
@@ -95,7 +101,8 @@ impl Command for Try {
                             engine_state,
                             stack,
                             catch_block,
-                            PipelineData::empty(),
+                            // The same null as in the above block is set as the $in value.
+                            Value::nothing(call.head).into_pipeline_data(),
                             false,
                             false,
                         )

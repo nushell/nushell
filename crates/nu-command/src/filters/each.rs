@@ -54,17 +54,13 @@ with 'transpose' first."#
     }
 
     fn examples(&self) -> Vec<Example> {
-        let stream_test_1 = vec![
-            Value::int(2, Span::test_data()),
-            Value::int(4, Span::test_data()),
-            Value::int(6, Span::test_data()),
-        ];
+        let stream_test_1 = vec![Value::test_int(2), Value::test_int(4), Value::test_int(6)];
 
         let stream_test_2 = vec![
             Value::Nothing {
                 span: Span::test_data(),
             },
-            Value::string("found 2!", Span::test_data()),
+            Value::test_string("found 2!"),
             Value::Nothing {
                 span: Span::test_data(),
             },
@@ -73,9 +69,21 @@ with 'transpose' first."#
         vec![
             Example {
                 example: "[1 2 3] | each {|e| 2 * $e }",
-                description: "Multiplies elements in list",
+                description: "Multiplies elements in the list",
                 result: Some(Value::List {
                     vals: stream_test_1,
+                    span: Span::test_data(),
+                }),
+            },
+            Example {
+                example: "{major:2, minor:1, patch:4} | values | each { into string }",
+                description: "Produce a list of values in the record, converted to string",
+                result: Some(Value::List {
+                    vals: vec![
+                        Value::test_string("2"),
+                        Value::test_string("1"),
+                        Value::test_string("4"),
+                    ],
                     span: Span::test_data(),
                 }),
             },
@@ -83,10 +91,7 @@ with 'transpose' first."#
                 example: r#"[1 2 3 2] | each {|e| if $e == 2 { "two" } }"#,
                 description: "Produce a list that has \"two\" for each 2 in the input",
                 result: Some(Value::List {
-                    vals: vec![
-                        Value::string("two", Span::test_data()),
-                        Value::string("two", Span::test_data()),
-                    ],
+                    vals: vec![Value::test_string("two"), Value::test_string("two")],
                     span: Span::test_data(),
                 }),
             },
@@ -95,7 +100,7 @@ with 'transpose' first."#
                 description:
                     "Iterate over each element, producing a list showing indexes of any 2s",
                 result: Some(Value::List {
-                    vals: vec![Value::string("found 2 at 1!", Span::test_data())],
+                    vals: vec![Value::test_string("found 2 at 1!")],
                     span: Span::test_data(),
                 }),
             },

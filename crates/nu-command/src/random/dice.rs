@@ -2,7 +2,7 @@ use nu_engine::CallExt;
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
-    Category, Example, ListStream, PipelineData, ShellError, Signature, SyntaxShape, Value,
+    Category, Example, ListStream, PipelineData, ShellError, Signature, SyntaxShape, Type, Value,
 };
 use rand::prelude::{thread_rng, Rng};
 
@@ -16,6 +16,8 @@ impl Command for SubCommand {
 
     fn signature(&self) -> Signature {
         Signature::build("random dice")
+            .input_output_types(vec![(Type::Nothing, Type::ListStream)])
+            .allow_variants_without_examples(true)
             .named(
                 "dice",
                 SyntaxShape::Int,

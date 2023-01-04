@@ -98,14 +98,19 @@ fn action(
         )}
     };
     match input {
+        // Propagate existing errors.
+        Value::Error { .. } => input.clone(),
         Value::Binary { val, .. } => match base64_config.action_type {
             ActionType::Encode => {
                 Value::string(encode_config(val, base64_config_enum), command_span)
             }
             ActionType::Decode => Value::Error {
                 error: ShellError::UnsupportedInput(
-                    "Binary data can only support encoding".to_string(),
+                    "Binary data can only be encoded".to_string(),
+                    "value originates from here".into(),
                     command_span,
+                    // This line requires the Value::Error {} match above.
+                    input.expect_span(),
                 ),
             },
         },
@@ -175,8 +180,8 @@ mod tests {
 
     #[test]
     fn base64_encode_standard() {
-        let word = Value::string("Some Data Padding", Span::test_data());
-        let expected = Value::string("U29tZSBEYXRhIFBhZGRpbmc=", Span::test_data());
+        let word = Value::test_string("Some Data Padding");
+        let expected = Value::test_string("U29tZSBEYXRhIFBhZGRpbmc=");
 
         let actual = action(
             &word,
@@ -198,8 +203,8 @@ mod tests {
 
     #[test]
     fn base64_encode_standard_no_padding() {
-        let word = Value::string("Some Data Padding", Span::test_data());
-        let expected = Value::string("U29tZSBEYXRhIFBhZGRpbmc", Span::test_data());
+        let word = Value::test_string("Some Data Padding");
+        let expected = Value::test_string("U29tZSBEYXRhIFBhZGRpbmc");
 
         let actual = action(
             &word,
@@ -221,8 +226,8 @@ mod tests {
 
     #[test]
     fn base64_encode_url_safe() {
-        let word = Value::string("this is for url", Span::test_data());
-        let expected = Value::string("dGhpcyBpcyBmb3IgdXJs", Span::test_data());
+        let word = Value::test_string("this is for url");
+        let expected = Value::test_string("dGhpcyBpcyBmb3IgdXJs");
 
         let actual = action(
             &word,
@@ -244,7 +249,7 @@ mod tests {
 
     #[test]
     fn base64_decode_binhex() {
-        let word = Value::string("A5\"KC9jRB@IIF'8bF!", Span::test_data());
+        let word = Value::test_string("A5\"KC9jRB@IIF'8bF!");
         let expected = Value::binary(b"a binhex test".as_slice(), Span::test_data());
 
         let actual = action(
@@ -267,7 +272,7 @@ mod tests {
 
     #[test]
     fn base64_decode_binhex_with_new_line_input() {
-        let word = Value::string("A5\"KC9jRB\n@IIF'8bF!", Span::test_data());
+        let word = Value::test_string("A5\"KC9jRB\n@IIF'8bF!");
         let expected = Value::binary(b"a binhex test".as_slice(), Span::test_data());
 
         let actual = action(
@@ -294,7 +299,7 @@ mod tests {
             val: vec![77, 97, 110],
             span: Span::test_data(),
         };
-        let expected = Value::string("TWFu", Span::test_data());
+        let expected = Value::test_string("TWFu");
 
         let actual = action(
             &word,

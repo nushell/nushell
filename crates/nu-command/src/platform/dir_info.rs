@@ -255,13 +255,13 @@ impl From<FileInfo> for Value {
         });
 
         cols.push("directories".into());
-        vals.push(Value::nothing(Span::test_data()));
+        vals.push(Value::nothing(Span::unknown()));
 
         cols.push("files".into());
-        vals.push(Value::nothing(Span::test_data()));
+        vals.push(Value::nothing(Span::unknown()));
 
         // cols.push("errors".into());
-        // vals.push(Value::nothing(Span::test_data()));
+        // vals.push(Value::nothing(Span::unknown()));
 
         Value::Record {
             cols,

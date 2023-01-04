@@ -732,7 +732,7 @@ fn handle_event<V: View>(
         }
     }
 
-    // was not handled so we must check our default controlls
+    // was not handled so we must check our default controls
     handle_general_key_events2(&key, search, command, view, info);
 
     None

@@ -61,7 +61,7 @@ impl Command for BytesRemove {
         let cell_paths = (!cell_paths.is_empty()).then_some(cell_paths);
         let pattern_to_remove = call.req::<Spanned<Vec<u8>>>(engine_state, stack, 0)?;
         if pattern_to_remove.item.is_empty() {
-            return Err(ShellError::UnsupportedInput(
+            return Err(ShellError::TypeMismatch(
                 "the pattern to remove cannot be empty".to_string(),
                 pattern_to_remove.span,
             ));
@@ -139,13 +139,15 @@ fn remove(val: &Value, args: &Arguments, span: Span) -> Value {
             val,
             span: val_span,
         } => remove_impl(val, args, *val_span),
+        // Propagate errors by explicitly matching them before the final case.
+        Value::Error { .. } => val.clone(),
         other => Value::Error {
-            error: ShellError::UnsupportedInput(
-                format!(
-                    "Input's type is {}. This command only works with bytes.",
-                    other.get_type()
-                ),
+            error: ShellError::OnlySupportsThisInputType(
+                "binary".into(),
+                other.get_type().to_string(),
                 span,
+                // This line requires the Value::Error match above.
+                other.expect_span(),
             ),
         },
     }
@@ -191,7 +193,7 @@ fn remove_impl(input: &[u8], arg: &Arguments, span: Span) -> Value {
                 right += 1;
             }
         }
-        // append the remaing thing to result, this can happened when
+        // append the remaining thing to result, this can happened when
         // we have something to remove and remove_all is False.
         let mut remain = input[left..].to_vec();
         result.append(&mut remain);

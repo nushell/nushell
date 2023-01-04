@@ -20,6 +20,8 @@ mod empty;
 mod enter;
 mod error_make;
 mod every;
+#[cfg(not(windows))]
+mod exec;
 mod export_def;
 mod find;
 mod first;
@@ -88,6 +90,7 @@ mod split_row;
 mod str_;
 mod table;
 mod take;
+mod to_text;
 mod touch;
 mod transpose;
 mod try_;

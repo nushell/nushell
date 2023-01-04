@@ -78,9 +78,14 @@ the output of 'path parse' and 'path split' subcommands."#
                 handle_value(input.into_value(head), &args, head),
                 metadata,
             )),
+            PipelineData::Empty { .. } => Err(ShellError::PipelineEmpty(head)),
             _ => Err(ShellError::UnsupportedInput(
-                "Input data is not supported by this command.".to_string(),
+                "Input value cannot be joined".to_string(),
+                "value originates from here".into(),
                 head,
+                input
+                    .span()
+                    .expect("non-Empty non-ListStream PipelineData had no span"),
             )),
         }
     }
@@ -156,35 +161,35 @@ the output of 'path parse' and 'path split' subcommands."#
 
 fn handle_value(v: Value, args: &Arguments, head: Span) -> Value {
     match v {
-        Value::String { ref val, span } => join_single(Path::new(val), span, args),
-        Value::Record { cols, vals, span } => join_record(&cols, &vals, span, args),
-        Value::List { vals, span } => join_list(&vals, span, head, args),
+        Value::String { ref val, .. } => join_single(Path::new(val), head, args),
+        Value::Record { cols, vals, span } => join_record(&cols, &vals, head, span, args),
+        Value::List { vals, span } => join_list(&vals, head, span, args),
 
         _ => super::handle_invalid_values(v, head),
     }
 }
 
-fn join_single(path: &Path, span: Span, args: &Arguments) -> Value {
+fn join_single(path: &Path, head: Span, args: &Arguments) -> Value {
     let mut result = path.to_path_buf();
     for path_to_append in &args.append {
         result.push(&path_to_append.item)
     }
 
-    Value::string(result.to_string_lossy(), span)
+    Value::string(result.to_string_lossy(), head)
 }
 
-fn join_list(parts: &[Value], span: Span, head: Span, args: &Arguments) -> Value {
+fn join_list(parts: &[Value], head: Span, span: Span, args: &Arguments) -> Value {
     let path: Result<PathBuf, ShellError> = parts.iter().map(Value::as_string).collect();
 
     match path {
-        Ok(ref path) => join_single(path, span, args),
+        Ok(ref path) => join_single(path, head, args),
         Err(_) => {
             let records: Result<Vec<_>, ShellError> = parts.iter().map(Value::as_record).collect();
             match records {
                 Ok(vals) => {
                     let vals = vals
                         .iter()
-                        .map(|(k, v)| join_record(k, v, span, args))
+                        .map(|(k, v)| join_record(k, v, head, span, args))
                         .collect();
 
                     Value::List { vals, span }
@@ -197,7 +202,7 @@ fn join_list(parts: &[Value], span: Span, head: Span, args: &Arguments) -> Value
     }
 }
 
-fn join_record(cols: &[String], vals: &[Value], span: Span, args: &Arguments) -> Value {
+fn join_record(cols: &[String], vals: &[Value], head: Span, span: Span, args: &Arguments) -> Value {
     if args.columns.is_some() {
         super::operate(
             &join_single,
@@ -210,22 +215,31 @@ fn join_record(cols: &[String], vals: &[Value], span: Span, args: &Arguments) ->
             span,
         )
     } else {
-        match merge_record(cols, vals, span) {
-            Ok(p) => join_single(p.as_path(), span, args),
+        match merge_record(cols, vals, head, span) {
+            Ok(p) => join_single(p.as_path(), head, args),
             Err(error) => Value::Error { error },
         }
     }
 }
 
-fn merge_record(cols: &[String], vals: &[Value], span: Span) -> Result<PathBuf, ShellError> {
+fn merge_record(
+    cols: &[String],
+    vals: &[Value],
+    head: Span,
+    span: Span,
+) -> Result<PathBuf, ShellError> {
     for key in cols {
         if !super::ALLOWED_COLUMNS.contains(&key.as_str()) {
             let allowed_cols = super::ALLOWED_COLUMNS.join(", ");
-            let msg = format!(
-                "Column '{}' is not valid for a structured path. Allowed columns are: {}",
-                key, allowed_cols
-            );
-            return Err(ShellError::UnsupportedInput(msg, span));
+            return Err(ShellError::UnsupportedInput(
+                format!(
+                    "Column '{}' is not valid for a structured path. Allowed columns on this platform are: {}",
+                    key, allowed_cols
+                ),
+                "value originates from here".into(),
+                head,
+                span
+            ));
         }
     }
 

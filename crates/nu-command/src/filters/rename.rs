@@ -114,7 +114,7 @@ fn rename(
 
     if let Some(ref cols) = specified_column {
         if cols.len() != 2 {
-            return Err(ShellError::UnsupportedInput(
+            return Err(ShellError::TypeMismatch(
                     "The list must contain only two values: the column's name and its replacement value"
                         .to_string(),
                         list_span,
@@ -140,8 +140,15 @@ fn rename(
                             if !cols.contains(&c[0]) {
                                 return Value::Error {
                                     error: ShellError::UnsupportedInput(
-                                        "The specified column does not exist".to_string(),
-                                        specified_col_span.unwrap_or(span),
+                                        format!(
+                                            "The column '{}' does not exist in the input",
+                                            &c[0]
+                                        ),
+                                        "value originated from here".into(),
+                                        // Arrow 1 points at the specified column name,
+                                        specified_col_span.unwrap_or(head_span),
+                                        // Arrow 2 points at the input value.
+                                        span,
                                     ),
                                 };
                             }
@@ -165,11 +172,15 @@ fn rename(
 
                     Value::Record { cols, vals, span }
                 }
-                x => Value::Error {
-                    error: ShellError::UnsupportedInput(
-                        "can't rename: input is not table, so no column names available for rename"
-                            .to_string(),
-                        x.span().unwrap_or(head_span),
+                // Propagate errors by explicitly matching them before the final case.
+                Value::Error { .. } => item.clone(),
+                other => Value::Error {
+                    error: ShellError::OnlySupportsThisInputType(
+                        "record".into(),
+                        other.get_type().to_string(),
+                        head_span,
+                        // This line requires the Value::Error match above.
+                        other.expect_span(),
                     ),
                 },
             },

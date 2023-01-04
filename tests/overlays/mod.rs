@@ -169,6 +169,33 @@ fn add_overlay_from_file_decl() {
     assert_eq!(actual_repl.out, "foo");
 }
 
+#[test]
+fn add_overlay_from_const_file_decl() {
+    let inp = &[
+        r#"const file = 'samples/spam.nu'"#,
+        r#"overlay use $file"#,
+        r#"foo"#,
+    ];
+
+    let actual = nu!(cwd: "tests/overlays", pipeline(&inp.join("; ")));
+
+    assert_eq!(actual.out, "foo");
+}
+
+#[test]
+fn add_overlay_from_const_module_name_decl() {
+    let inp = &[
+        r#"module spam { export def foo [] { "foo" } }"#,
+        r#"const mod = 'spam'"#,
+        r#"overlay use $mod"#,
+        r#"foo"#,
+    ];
+
+    let actual = nu!(cwd: "tests/overlays", pipeline(&inp.join("; ")));
+
+    assert_eq!(actual.out, "foo");
+}
+
 // This one tests that the `nu_repl()` loop works correctly
 #[test]
 fn add_overlay_from_file_decl_cd() {
@@ -694,6 +721,23 @@ fn overlay_add_renamed() {
 }
 
 #[test]
+fn overlay_add_renamed_const() {
+    let inp = &[
+        r#"module spam { export def foo [] { "foo" } }"#,
+        r#"const name = 'spam'"#,
+        r#"const new_name = 'eggs'"#,
+        r#"overlay use $name as $new_name --prefix"#,
+        r#"eggs foo"#,
+    ];
+
+    let actual = nu!(cwd: "tests/overlays", pipeline(&inp.join("; ")));
+    let actual_repl = nu!(cwd: "tests/overlays", nu_repl_code(inp));
+
+    assert_eq!(actual.out, "foo");
+    assert_eq!(actual_repl.out, "foo");
+}
+
+#[test]
 fn overlay_add_renamed_from_file() {
     let inp = &[
         r#"overlay use samples/spam.nu as eggs --prefix"#,
@@ -751,8 +795,8 @@ fn overlay_remove_renamed_overlay() {
     let actual = nu!(cwd: "tests/overlays", pipeline(&inp.join("; ")));
     let actual_repl = nu!(cwd: "tests/overlays", nu_repl_code(inp));
 
-    assert!(actual.err.contains("did you mean 'for'?"));
-    assert!(actual_repl.err.contains("did you mean 'for'?"));
+    assert!(actual.err.contains("external_command"));
+    assert!(actual_repl.err.contains("external_command"));
 }
 
 #[test]

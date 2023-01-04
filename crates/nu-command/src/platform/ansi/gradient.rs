@@ -192,7 +192,7 @@ fn action(
                     Value::string(gradient_string, *span)
                 }
                 (None, Some(fg_end), None, Some(bg_end)) => {
-                    // missin fg_start and bg_start, so assume black
+                    // missing fg_start and bg_start, so assume black
                     let fg_start = Rgb::new(0, 0, 0);
                     let bg_start = Rgb::new(0, 0, 0);
                     let fg_gradient = Gradient::new(fg_start, fg_end);

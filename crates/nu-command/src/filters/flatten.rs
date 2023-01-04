@@ -168,13 +168,18 @@ fn flat_value(columns: &[CellPath], item: &Value, _name_tag: Span, all: bool) ->
                     vals,
                     span: _,
                 } => (cols, vals),
-                x => {
+                // Propagate errors by explicitly matching them before the final case.
+                Value::Error { .. } => return vec![item.clone()],
+                other => {
                     return vec![Value::Error {
-                        error: ShellError::UnsupportedInput(
-                            format!("This should be a record, but instead got {}", x.get_type()),
-                            tag,
+                        error: ShellError::OnlySupportsThisInputType(
+                            "record".into(),
+                            other.get_type().to_string(),
+                            _name_tag,
+                            // This line requires the Value::Error match above.
+                            other.expect_span(),
                         ),
-                    }]
+                    }];
                 }
             };
 
@@ -221,13 +226,15 @@ fn flat_value(columns: &[CellPath], item: &Value, _name_tag: Span, all: bool) ->
                             out.insert(column.to_string(), value.clone());
                         }
                     }
-                    Value::List { vals, span: _ }
+                    Value::List { vals, span }
                         if all && vals.iter().all(|f| f.as_record().is_ok()) =>
                     {
                         if need_flatten && inner_table.is_some() {
                             return vec![Value::Error{ error: ShellError::UnsupportedInput(
-                                    "can only flatten one inner list at the same time. tried flattening more than one column with inner lists... but is flattened already".to_string(),
-                                    s
+                                    "can only flatten one inner list at a time. tried flattening more than one column with inner lists... but is flattened already".to_string(),
+                                    "value originates from here".into(),
+                                    s,
+                                    *span
                                 )}
                             ];
                         }
@@ -259,14 +266,13 @@ fn flat_value(columns: &[CellPath], item: &Value, _name_tag: Span, all: bool) ->
                             out.insert(column.to_string(), value.clone());
                         }
                     }
-                    Value::List {
-                        vals: values,
-                        span: _,
-                    } => {
+                    Value::List { vals: values, span } => {
                         if need_flatten && inner_table.is_some() {
                             return vec![Value::Error{ error: ShellError::UnsupportedInput(
-                                    "can only flatten one inner list at the same time. tried flattening more than one column with inner lists... but is flattened already".to_string(),
-                                    s
+                                    "can only flatten one inner list at a time. tried flattening more than one column with inner lists... but is flattened already".to_string(),
+                                    "value originates from here".into(),
+                                    s,
+                                    *span
                                 )}
                             ];
                         }

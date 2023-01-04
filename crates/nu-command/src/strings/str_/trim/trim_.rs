@@ -181,6 +181,8 @@ fn action(input: &Value, arg: &Arguments, head: Span) -> Value {
             val: trim(s, char_, closure_flags),
             span: head,
         },
+        // Propagate errors by explicitly matching them before the final case.
+        Value::Error { .. } => input.clone(),
         other => match mode {
             ActionMode::Global => match other {
                 Value::Record { cols, vals, span } => {
@@ -203,9 +205,14 @@ fn action(input: &Value, arg: &Arguments, head: Span) -> Value {
                 _ => input.clone(),
             },
             ActionMode::Local => {
-                let got = format!("Input must be a string. Found {}", other.get_type());
                 Value::Error {
-                    error: ShellError::UnsupportedInput(got, head),
+                    error: ShellError::UnsupportedInput(
+                        "Only string values are supported".into(),
+                        format!("input type: {:?}", other.get_type()),
+                        head,
+                        // This line requires the Value::Error match above.
+                        other.expect_span(),
+                    ),
                 }
             }
         },
@@ -265,7 +272,7 @@ fn trim(s: &str, char_: Option<char>, closure_flags: &ClosureFlags) -> String {
             let re_str = format!("{}{{2,}}", reg);
             // create the regex
             let re = Regex::new(&re_str).expect("Error creating regular expression");
-            // replace all mutliple occurances with single occurences represented by r
+            // replace all multiple occurrences with single occurrences represented by r
             let new_str = re.replace_all(&return_string, r.to_string());
             // update the return string so the next loop has the latest changes
             return_string = new_str.to_string();
@@ -295,7 +302,7 @@ mod tests {
             cols: cols.iter().map(|x| x.to_string()).collect(),
             vals: vals
                 .iter()
-                .map(|x| Value::string(x.to_string(), Span::test_data()))
+                .map(|x| Value::test_string(x.to_string()))
                 .collect(),
             span: Span::test_data(),
         }
@@ -305,7 +312,7 @@ mod tests {
         Value::List {
             vals: vals
                 .iter()
-                .map(|x| Value::string(x.to_string(), Span::test_data()))
+                .map(|x| Value::test_string(x.to_string()))
                 .collect(),
             span: Span::test_data(),
         }
@@ -469,17 +476,17 @@ mod tests {
     fn global_trims_table_all_white_space() {
         let row = Value::List {
             vals: vec![
-                Value::string("  nu      shell   ", Span::test_data()),
-                Value::int(65, Span::test_data()),
-                Value::string("  d", Span::test_data()),
+                Value::test_string("  nu      shell   "),
+                Value::test_int(65),
+                Value::test_string("  d"),
             ],
             span: Span::test_data(),
         };
         let expected = Value::List {
             vals: vec![
-                Value::string("nushell", Span::test_data()),
-                Value::int(65, Span::test_data()),
-                Value::string("d", Span::test_data()),
+                Value::test_string("nushell"),
+                Value::test_int(65),
+                Value::test_string("d"),
             ],
             span: Span::test_data(),
         };
@@ -541,17 +548,17 @@ mod tests {
     fn global_trims_table_all_custom_character() {
         let row = Value::List {
             vals: vec![
-                Value::string("##nu####shell##", Span::test_data()),
-                Value::int(65, Span::test_data()),
-                Value::string("#d", Span::test_data()),
+                Value::test_string("##nu####shell##"),
+                Value::test_int(65),
+                Value::test_string("#d"),
             ],
             span: Span::test_data(),
         };
         let expected = Value::List {
             vals: vec![
-                Value::string("nushell", Span::test_data()),
-                Value::int(65, Span::test_data()),
-                Value::string("d", Span::test_data()),
+                Value::test_string("nushell"),
+                Value::test_int(65),
+                Value::test_string("d"),
             ],
             span: Span::test_data(),
         };
@@ -651,17 +658,17 @@ mod tests {
     fn global_trim_left_table() {
         let row = Value::List {
             vals: vec![
-                Value::string("  a  ", Span::test_data()),
-                Value::int(65, Span::test_data()),
-                Value::string(" d", Span::test_data()),
+                Value::test_string("  a  "),
+                Value::test_int(65),
+                Value::test_string(" d"),
             ],
             span: Span::test_data(),
         };
         let expected = Value::List {
             vals: vec![
-                Value::string("a  ", Span::test_data()),
-                Value::int(65, Span::test_data()),
-                Value::string("d", Span::test_data()),
+                Value::test_string("a  "),
+                Value::test_int(65),
+                Value::test_string("d"),
             ],
             span: Span::test_data(),
         };
@@ -776,17 +783,17 @@ mod tests {
     fn global_trim_right_table() {
         let row = Value::List {
             vals: vec![
-                Value::string("  a  ", Span::test_data()),
-                Value::int(65, Span::test_data()),
-                Value::string(" d", Span::test_data()),
+                Value::test_string("  a  "),
+                Value::test_int(65),
+                Value::test_string(" d"),
             ],
             span: Span::test_data(),
         };
         let expected = Value::List {
             vals: vec![
-                Value::string("  a", Span::test_data()),
-                Value::int(65, Span::test_data()),
-                Value::string(" d", Span::test_data()),
+                Value::test_string("  a"),
+                Value::test_int(65),
+                Value::test_string(" d"),
             ],
             span: Span::test_data(),
         };
@@ -903,17 +910,17 @@ mod tests {
     fn global_trim_format_flag_table() {
         let row = Value::List {
             vals: vec![
-                Value::string("  a    b     c    d  ", Span::test_data()),
-                Value::int(65, Span::test_data()),
-                Value::string(" b c  d e   f", Span::test_data()),
+                Value::test_string("  a    b     c    d  "),
+                Value::test_int(65),
+                Value::test_string(" b c  d e   f"),
             ],
             span: Span::test_data(),
         };
         let expected = Value::List {
             vals: vec![
-                Value::string("a b c d", Span::test_data()),
-                Value::int(65, Span::test_data()),
-                Value::string("b c d e f", Span::test_data()),
+                Value::test_string("a b c d"),
+                Value::test_int(65),
+                Value::test_string("b c d e f"),
             ],
             span: Span::test_data(),
         };

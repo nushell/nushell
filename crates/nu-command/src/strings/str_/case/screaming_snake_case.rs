@@ -49,17 +49,17 @@ impl Command for SubCommand {
             Example {
                 description: "convert a string to SCREAMING_SNAKE_CASE",
                 example: r#" "NuShell" | str screaming-snake-case"#,
-                result: Some(Value::string("NU_SHELL", Span::test_data())),
+                result: Some(Value::test_string("NU_SHELL")),
             },
             Example {
                 description: "convert a string to SCREAMING_SNAKE_CASE",
                 example: r#" "this_is_the_second_case" | str screaming-snake-case"#,
-                result: Some(Value::string("THIS_IS_THE_SECOND_CASE", Span::test_data())),
+                result: Some(Value::test_string("THIS_IS_THE_SECOND_CASE")),
             },
             Example {
                 description: "convert a string to SCREAMING_SNAKE_CASE",
                 example: r#""this-is-the-first-case" | str screaming-snake-case"#,
-                result: Some(Value::string("THIS_IS_THE_FIRST_CASE", Span::test_data())),
+                result: Some(Value::test_string("THIS_IS_THE_FIRST_CASE")),
             },
             Example {
                 description: "convert a column from a table to SCREAMING_SNAKE_CASE",
@@ -68,10 +68,7 @@ impl Command for SubCommand {
                     vals: vec![Value::Record {
                         span: Span::test_data(),
                         cols: vec!["lang".to_string(), "gems".to_string()],
-                        vals: vec![
-                            Value::string("NU_TEST", Span::test_data()),
-                            Value::test_int(100),
-                        ],
+                        vals: vec![Value::test_string("NU_TEST"), Value::test_int(100)],
                     }],
                     span: Span::test_data(),
                 }),

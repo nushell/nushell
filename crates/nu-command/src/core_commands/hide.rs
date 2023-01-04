@@ -1,7 +1,7 @@
 use nu_protocol::ast::{Call, Expr, Expression};
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
-    Category, Example, PipelineData, ShellError, Signature, Span, Spanned, SyntaxShape, Type, Value,
+    Category, Example, PipelineData, ShellError, Signature, Spanned, SyntaxShape, Type, Value,
 };
 
 #[derive(Clone)]
@@ -15,7 +15,12 @@ impl Command for Hide {
     fn signature(&self) -> nu_protocol::Signature {
         Signature::build("hide")
             .input_output_types(vec![(Type::Nothing, Type::Nothing)])
-            .required("pattern", SyntaxShape::ImportPattern, "import pattern")
+            .required("module", SyntaxShape::String, "Module or module file")
+            .optional(
+                "members",
+                SyntaxShape::Any,
+                "Which members of the module to import",
+            )
             .category(Category::Core)
     }
 
@@ -44,7 +49,7 @@ This command is a parser keyword. For details, check:
         let env_var_name = if let Some(Expression {
             expr: Expr::ImportPattern(pat),
             ..
-        }) = call.positional_nth(0)
+        }) = call.parser_info_nth(0)
         {
             Spanned {
                 item: String::from_utf8_lossy(&pat.head.name).to_string(),
@@ -80,7 +85,7 @@ This command is a parser keyword. For details, check:
             Example {
                 description: "Hide an environment variable",
                 example: r#"let-env HZ_ENV_ABC = 1; hide HZ_ENV_ABC; 'HZ_ENV_ABC' in (env).name"#,
-                result: Some(Value::boolean(false, Span::test_data())),
+                result: Some(Value::test_bool(false)),
             },
         ]
     }
