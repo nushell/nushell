@@ -13,7 +13,7 @@ mod test_examples {
         MathRound, Path, Random, Split, SplitColumn, SplitRow, Str, StrJoin, StrLength, StrReplace,
         Url, Values, Wrap,
     };
-    use crate::{Break, Mut, To};
+    use crate::{Break, Each, Mut, To};
     use itertools::Itertools;
     use nu_protocol::{
         ast::Block,
@@ -61,6 +61,7 @@ mod test_examples {
             // Base functions that are needed for testing
             // Try to keep this working set small to keep tests running as fast as possible
             let mut working_set = StateWorkingSet::new(&engine_state);
+            working_set.add_decl(Box::new(Each));
             working_set.add_decl(Box::new(Let));
             working_set.add_decl(Box::new(Str));
             working_set.add_decl(Box::new(StrJoin));
