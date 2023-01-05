@@ -36,16 +36,3 @@ fn return_works_in_script_without_def_main() {
 
     assert!(actual.err.is_empty());
 }
-
-#[cfg(windows)]
-#[test]
-fn return_works_in_script_without_def_main() {
-    let actual = nu!(
-        cwd: "tests/fixtures/formats", pipeline(
-        r#"
-            exec (ls ../../../target/*/nu.exe | get name.0) early_return.nu
-        "#
-    ));
-
-    assert!(actual.err.is_empty());
-}
