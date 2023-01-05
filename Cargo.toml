@@ -90,11 +90,6 @@ hamcrest2 = "0.3.0"
 rstest = {version = "0.15.0", default-features = false}
 itertools = "0.10.3"
 
-# for criterion; is this necessary?
-[[bench]]
-name = "parser"
-harness = false
-
 [features]
 plugin = ["nu-plugin", "nu-cli/plugin", "nu-parser/plugin", "nu-command/plugin", "nu-protocol/plugin", "nu-engine/plugin"]
 # extra used to be more useful but now it's the same as default. Leaving it in for backcompat with existing build scripts
@@ -146,3 +141,9 @@ path = "src/main.rs"
 # changing versions in each sub-crate of the workspace is tedious
 [patch.crates-io]
 # reedline = { git = "https://github.com/nushell/reedline.git", branch = "main" }
+
+# Criterion benchmarking setup
+[[bench]]
+name = "parser"
+harness = false
+
