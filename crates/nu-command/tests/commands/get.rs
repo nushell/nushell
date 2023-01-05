@@ -239,5 +239,5 @@ fn get_does_not_delve_too_deep_in_nested_lists() {
         r#"[[{foo: bar}]] | get foo"#
     );
 
-    assert!(actual.err.contains("did not find anything under this name"));
+    assert!(actual.err.contains("cannot find column"));
 }

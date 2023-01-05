@@ -169,6 +169,7 @@ fn helper(
     let login = match (user, password) {
         (Some(user), Some(password)) => Some(encode(format!("{}:{}", user, password))),
         (Some(user), _) => Some(encode(format!("{}:", user))),
+        (_, Some(password)) => Some(encode(format!(":{}", password))),
         _ => None,
     };
 

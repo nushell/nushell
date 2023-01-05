@@ -125,7 +125,7 @@ fn has_file_pwd() {
 
         let actual = nu!(cwd: dirs.test(), "nu spam.nu");
 
-        assert!(actual.out.ends_with("has_file_pwd"));
+        assert!(nu_utils::strip_ansi_string_likely(actual.out).ends_with("has_file_pwd"));
     })
 }
 

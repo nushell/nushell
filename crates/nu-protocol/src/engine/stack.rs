@@ -34,6 +34,7 @@ pub struct Stack {
     pub env_hidden: HashMap<String, HashSet<String>>,
     /// List of active overlays
     pub active_overlays: Vec<String>,
+    pub recursion_count: Box<u64>,
 }
 
 impl Stack {
@@ -43,6 +44,7 @@ impl Stack {
             env_vars: vec![],
             env_hidden: HashMap::new(),
             active_overlays: vec![DEFAULT_OVERLAY_NAME.to_string()],
+            recursion_count: Box::new(0),
         }
     }
 
@@ -123,6 +125,7 @@ impl Stack {
             env_vars,
             env_hidden: HashMap::new(),
             active_overlays: self.active_overlays.clone(),
+            recursion_count: self.recursion_count.to_owned(),
         }
     }
 
@@ -147,6 +150,7 @@ impl Stack {
             env_vars,
             env_hidden: HashMap::new(),
             active_overlays: self.active_overlays.clone(),
+            recursion_count: self.recursion_count.to_owned(),
         }
     }
 

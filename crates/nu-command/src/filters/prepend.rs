@@ -105,7 +105,7 @@ only unwrap the outer list, and leave the variable's contents untouched."#
 
         Ok(vec
             .into_iter()
-            .chain(input.into_iter_strict(call.head)?)
+            .chain(input.into_iter())
             .into_iter()
             .into_pipeline_data(engine_state.ctrlc.clone())
             .set_metadata(metadata))
