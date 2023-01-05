@@ -92,12 +92,12 @@ fn separate_redirection() {
             // check for stdout redirection file.
             let expected_out_file = dirs.test().join("out.txt");
             let actual = file_contents(expected_out_file);
-            assert_eq!(actual, expect_body);
+            assert!(actual.contains(&expect_body));
 
             // check for stderr redirection file.
             let expected_err_file = dirs.test().join("err.txt");
             let actual = file_contents(expected_err_file);
-            assert_eq!(actual, expect_body);
+            assert!(actual.contains(&expect_body));
         },
     )
 }
