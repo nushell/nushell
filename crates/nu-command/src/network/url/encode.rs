@@ -32,7 +32,7 @@ impl Command for SubCommand {
     }
 
     fn usage(&self) -> &str {
-        "Convert a url/string to encoding/escaping special characters"
+        "Converts a string to a percent encoded web safe string"
     }
 
     fn search_terms(&self) -> Vec<&str> {
