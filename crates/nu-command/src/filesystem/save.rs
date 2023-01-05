@@ -9,7 +9,7 @@ use std::fs::File;
 use std::io::{BufWriter, Write};
 use std::path::Path;
 
-use crate::progress_bar;
+use crate::progress_bar::{self, NuProgressBar};
 
 #[derive(Clone)]
 pub struct Save;
@@ -49,7 +49,7 @@ impl Command for Save {
             .switch("raw", "save file as raw binary", Some('r'))
             .switch("append", "append input to the end of the file", Some('a'))
             .switch("force", "overwrite the destination", Some('f'))
-            .switch("progress", "overwrite the destination", Some('p'))
+            .switch("progress", "enable progress bar", Some('p'))
             .category(Category::FileSystem)
     }
 
@@ -328,14 +328,23 @@ fn stream_to_file(
 
     let mut bytes_processed: u64 = 0;
     let bytes_processed_p = &mut bytes_processed;
-    let file_total_size = stream.known_size.map(|n| (n as u64)); // type TBD
+    let file_total_size = stream.known_size;
+    let mut process_failed = false;
+    let process_failed_p = &mut process_failed;
 
-    // Create the progress bar and set the style.
-    let mut bar = progress_bar::NuProgressBar::new(file_total_size);
-    bar.create_style();
-    let f_bar = bar.clone();
+    // Create the progress bar
+    // It looks a bit messy but I am doing it this way to avoid 
+    // creating the bar when is not needed
+    let (mut bar_opt, bar_opt_clone) = if progress {
+        let tmp_bar = progress_bar::NuProgressBar::new(file_total_size);
+        let tmp_bar_clone = tmp_bar.clone();
 
-    let r_stream = stream
+        (Some(tmp_bar), Some(tmp_bar_clone))
+    } else {
+        (None, None)
+    };
+
+    let result = stream
         .try_for_each(move |result| {
             let buf = match result {
                 Ok(v) => match v {
@@ -353,14 +362,19 @@ fn stream_to_file(
                         ));
                     }
                 },
-                Err(err) => return Err(err),
+                Err(err) => {
+                    *process_failed_p = true;
+                    return Err(err)
+                },
             };
 
             // If the `progress` flag is set then
             if progress {
                 // Update the total amount of bytes that has been saved and then print the progress bar
                 *bytes_processed_p += buf.len() as u64;
-                bar.update_bar(*bytes_processed_p);
+                if let Some(bar) = &mut bar_opt {
+                    bar.update_bar(*bytes_processed_p);
+                }
             }
 
             if let Err(err) = writer.write(&buf) {
@@ -370,9 +384,22 @@ fn stream_to_file(
         })
         .map(|_| PipelineData::empty());
 
-    // When the file is successfully saved then print a finish message.
-    f_bar.bar_finished_msg("File successfully Saved!".to_owned());
+    // If the `progress` flag is set then
+    if progress {
+        // If the process failed, stop the progress bar with an error message.
+        if process_failed {
+            if let Some(bar) = bar_opt_clone {
+                bar.abandoned_msg("# Error while saving #".to_owned());
+            }
+        }
+        else {
+            // If the file is successfully saved then print a finish message.
+            if let Some(bar) = bar_opt_clone {
+                bar.finished_msg("File successfully saved!".to_owned());
+            }
+        }
+    }
 
-    // And finally return the stream.
-    r_stream
+    // And finally return the stream result.
+    result
 }
