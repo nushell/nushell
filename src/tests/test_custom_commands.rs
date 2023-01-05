@@ -151,12 +151,12 @@ fn override_table_eval_file() {
 // TODO: investigate so we can enable these on Windows
 #[cfg(not(target_os = "windows"))]
 #[test]
-fn recursion_successful() {
+fn recursion_failture() {
     let actual = nu!(
         cwd: ".",
         r#"
             def bang [] { bang };bang
         "#
     );
-    assert!(actual.err.contains("maximum recursion depth exceeded"));
+    assert!(actual.err.contains("maximum recursion depth (50) exceeded"));
 }
