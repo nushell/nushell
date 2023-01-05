@@ -1,4 +1,4 @@
-use crate::input_handler::CellPathOnlyArgs;
+use crate::input_handler::{operate, CellPathOnlyArgs};
 use nu_engine::CallExt;
 use nu_protocol::ast::Call;
 use nu_protocol::ast::CellPath;
@@ -18,11 +18,11 @@ impl Command for SubCommand {
     fn signature(&self) -> Signature {
         Signature::build("url encode")
             .input_output_types(vec![(Type::String, Type::String)])
+            .vectorizes_over_list(true)
             .switch(
             "all", 
             "to encode all non alphaneumeric chars including `/`, `.`, `:`",
             Some('a'))
-            .vectorizes_over_list(true)
             .rest(
                 "rest",
                 SyntaxShape::CellPath,
@@ -48,7 +48,17 @@ impl Command for SubCommand {
     ) -> Result<PipelineData, ShellError> {
         let cell_paths: Vec<CellPath> = call.rest(engine_state, stack, 0)?;
         let args = CellPathOnlyArgs::from(cell_paths);
-        action(input.into_value(call.head), &args, call.head)
+        if call.has_flag("all") {
+            operate(
+                action_all,
+                args,
+                input,
+                call.head,
+                engine_state.ctrlc.clone(),
+            )
+        } else {
+            operate(action, args, input, call.head, engine_state.ctrlc.clone())
+        }
     }
 
     fn examples(&self) -> Vec<Example> {
@@ -70,29 +80,54 @@ impl Command for SubCommand {
                     span: Span::test_data(),
                 }),
             },
+            Example {
+                description: "Encode all non anphanumeric chars with all flag",
+                example: "'https://example.com/foo bar' | url encode --all",
+                result: Some(Value::test_string("https%3A%2F%2Fexample%2Ecom%2Ffoo%20bar")),
+            },
         ]
     }
 }
 
-fn action(input: Value, _arg: &CellPathOnlyArgs, head: Span) -> Result<PipelineData, ShellError> {
+fn action_all(input: &Value, _arg: &CellPathOnlyArgs, head: Span) -> Value {
     match input {
         Value::String { val, .. } => {
-            const FRAGMENT: &AsciiSet = &NON_ALPHANUMERIC.remove(b'/').remove(b':').remove(b'.');
-            Ok(PipelineData::Value(
-                Value::String {
-                    val: utf8_percent_encode(&val, FRAGMENT).to_string(),
-                    span: head,
-                },
-                None,
-            ))
+            const FRAGMENT: &AsciiSet = NON_ALPHANUMERIC;
+            Value::String {
+                val: utf8_percent_encode(val, FRAGMENT).to_string(),
+                span: head,
+            }
         }
-        // Value::Error { .. } => input.clone(),
-        _ =>  Err(ShellError::OnlySupportsThisInputType(
+        Value::Error { .. } => input.clone(),
+        _ => Value::Error {
+            error: ShellError::OnlySupportsThisInputType(
                 "string".into(),
                 input.get_type().to_string(),
                 head,
                 input.expect_span(),
-            ))
+            ),
+        },
+    }
+}
+
+fn action(input: &Value, _arg: &CellPathOnlyArgs, head: Span) -> Value {
+    match input {
+        Value::String { val, .. } => {
+            const FRAGMENT: &AsciiSet = &NON_ALPHANUMERIC.remove(b'/').remove(b':').remove(b'.');
+            Value::String {
+                val: utf8_percent_encode(val, FRAGMENT).to_string(),
+                span: head,
+            }
+        }
+        Value::Error { .. } => input.clone(),
+        _ => Value::Error {
+            error: ShellError::OnlySupportsThisInputType(
+                "string".into(),
+                input.get_type().to_string(),
+                head,
+                input.expect_span(),
+            ),
+        },
     }
 }
 
