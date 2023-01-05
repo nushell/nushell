@@ -137,7 +137,7 @@ impl LiteBlock {
                 LiteElement::Redirection(err_span, _, err_command),
             ) = (out_redirect, err_redirect)
             {
-                // using insert with specific to keep original
+                // using insert with specific index to keep original
                 // pipeline commands order.
                 pipeline.insert(
                     new_indx,
