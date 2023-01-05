@@ -57,7 +57,7 @@ fn loop_try_break_should_be_successful() {
         "loop { try { echo 'successful'; break } catch { echo 'failed'; continue } }"
     );
 
-    assert!(output.out.contains("successful"));
+    assert_eq!(output.out, "successful");
 }
 
 #[test]
@@ -71,7 +71,7 @@ fn loop_catch_break_should_show_failed() {
         "
     );
 
-    assert!(output.out.contains("failed"));
+    assert_eq!(output.out, "failed");
 }
 
 #[test]
