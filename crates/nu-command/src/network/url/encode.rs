@@ -21,7 +21,7 @@ impl Command for SubCommand {
             .vectorizes_over_list(true)
             .switch(
             "all", 
-            "to encode all non alphaneumeric chars including `/`, `.`, `:`",
+            "encode all non-alphanumeric chars including `/`, `.`, `:`",
             Some('a'))
             .rest(
                 "rest",
