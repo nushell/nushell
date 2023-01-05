@@ -12,7 +12,6 @@ pub struct NuProgressBar {
 
 impl NuProgressBar {
     pub fn new(total_bytes: Option<u64>) -> NuProgressBar {
-
         // Let's create the progress bar template.
         let template = match total_bytes {
             Some(_) => {
@@ -29,19 +28,19 @@ impl NuProgressBar {
 
         let total_bytes = match total_bytes {
             Some(total_size) => total_size,
-            _ => 0
+            _ => 0,
         };
 
         let new_progress_bar = ProgressBar::new(total_bytes);
         new_progress_bar.set_style(
             template
-            .unwrap_or_else(|_| ProgressStyle::default_bar())
-            .with_key("eta", |state: &ProgressState, w: &mut dyn fmt::Write| {
-                fmt::write(w, format_args!("{:.1}s", state.eta().as_secs_f64())).unwrap()
-            })
-            .progress_chars("#>-"),
+                .unwrap_or_else(|_| ProgressStyle::default_bar())
+                .with_key("eta", |state: &ProgressState, w: &mut dyn fmt::Write| {
+                    fmt::write(w, format_args!("{:.1}s", state.eta().as_secs_f64())).unwrap()
+                })
+                .progress_chars("#>-"),
         );
-        
+
         NuProgressBar {
             pb: new_progress_bar,
             total_bytes: None,

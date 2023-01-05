@@ -367,11 +367,12 @@ fn response_to_buffer(
         Some(content_length) => {
             let tmp_header = content_length.clone(); // binding
 
-            Some(tmp_header
-                .to_str()
-                .unwrap_or_else(|_| "")
-                .parse::<u64>()
-                .unwrap_or_else(|_| 0)
+            Some(
+                tmp_header
+                    .to_str()
+                    .unwrap_or_else(|_| "")
+                    .parse::<u64>()
+                    .unwrap_or_else(|_| 0),
             )
         }
         _ => None,

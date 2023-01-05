@@ -333,7 +333,7 @@ fn stream_to_file(
     let process_failed_p = &mut process_failed;
 
     // Create the progress bar
-    // It looks a bit messy but I am doing it this way to avoid 
+    // It looks a bit messy but I am doing it this way to avoid
     // creating the bar when is not needed
     let (mut bar_opt, bar_opt_clone) = if progress {
         let tmp_bar = progress_bar::NuProgressBar::new(file_total_size);
@@ -364,8 +364,8 @@ fn stream_to_file(
                 },
                 Err(err) => {
                     *process_failed_p = true;
-                    return Err(err)
-                },
+                    return Err(err);
+                }
             };
 
             // If the `progress` flag is set then
@@ -391,8 +391,7 @@ fn stream_to_file(
             if let Some(bar) = bar_opt_clone {
                 bar.abandoned_msg("# Error while saving #".to_owned());
             }
-        }
-        else {
+        } else {
             // If the file is successfully saved then print a finish message.
             if let Some(bar) = bar_opt_clone {
                 bar.finished_msg("File successfully saved!".to_owned());
