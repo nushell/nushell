@@ -12,7 +12,7 @@ fn criterion_benchmark(c: &mut Criterion) {
     );
 
     let default_env = get_default_env().as_bytes();
-    c.bench_function("Parse env.nu", |b| {
+    c.bench_function("parse_default_env_file", |b| {
         b.iter_batched(
             || nu_protocol::engine::StateWorkingSet::new(&engine_state),
             |mut working_set| parse(&mut working_set, None, default_env, false, &[]),
@@ -21,7 +21,7 @@ fn criterion_benchmark(c: &mut Criterion) {
     });
 
     let default_config = get_default_config().as_bytes();
-    c.bench_function("Parse config.nu", |b| {
+    c.bench_function("parse_default_config_file", |b| {
         b.iter_batched(
             || nu_protocol::engine::StateWorkingSet::new(&engine_state),
             |mut working_set| parse(&mut working_set, None, default_config, false, &[]),

@@ -2799,7 +2799,6 @@ name = "nu-plugin"
 version = "0.73.1"
 dependencies = [
  "bincode",
- "criterion",
  "nu-engine",
  "nu-protocol",
  "rmp",

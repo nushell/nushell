@@ -143,7 +143,12 @@ path = "src/main.rs"
 # reedline = { git = "https://github.com/nushell/reedline.git", branch = "main" }
 
 # Criterion benchmarking setup
+# Run all benchmarks with `cargo bench`
+# Run individual benchmarks like `cargo bench -- <regex>` e.g. `cargo bench -- parse`
 [[bench]]
-name = "parser"
+name = "parser_benchmark"
 harness = false
 
+[[bench]]
+name = "encoder_benchmark"
+harness = false
