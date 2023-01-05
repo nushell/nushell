@@ -75,6 +75,24 @@ fn loop_catch_break_should_show_failed() {
 }
 
 #[test]
+fn loop_try_ignores_continue() {
+    let output = nu!(
+        cwd: ".",
+        "mut total = 0;
+        for i in 0..10 {
+            try { if ($i mod 2) == 0 { 
+            continue;} 
+            $total += 1
+        } catch { echo 'failed'; break } 
+        }
+        echo $total
+        "
+    );
+
+    assert_eq!(output.out, "5");
+}
+
+#[test]
 fn loop_try_break_on_command_should_show_successful() {
     let output = nu!(
         cwd: ".",
