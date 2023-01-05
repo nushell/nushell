@@ -49,3 +49,37 @@ fn external_failed_should_be_catched() {
 
     assert!(output.out.contains("fail"));
 }
+
+#[test]
+fn loop_try_break_should_be_successful() {
+    let output = nu!(
+        cwd: ".",
+        "loop { try { echo 'successful'; break } catch { echo 'failed'; continue } }"
+    );
+
+    assert!(output.out.contains("successful"));
+}
+
+#[test]
+fn loop_catch_break_should_show_failed() {
+    let output = nu!(
+        cwd: ".",
+        "loop {
+            try { invalid 1;
+            continue; } catch { echo 'failed'; break } 
+        }
+        "
+    );
+
+    assert!(output.out.contains("failed"));
+}
+
+#[test]
+fn loop_try_break_on_command_should_show_successful() {
+    let output = nu!(
+        cwd: ".",
+        "loop { try { ls; break } catch { echo 'failed';continue }}"
+    );
+
+    assert!(!output.out.contains("failed"));
+}
