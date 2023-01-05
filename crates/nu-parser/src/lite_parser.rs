@@ -65,6 +65,10 @@ impl LitePipeline {
         self.commands.push(element);
     }
 
+    pub fn insert(&mut self, index: usize, element: LiteElement) {
+        self.commands.insert(index, element);
+    }
+
     pub fn is_empty(&self) -> bool {
         self.commands.is_empty()
     }
@@ -115,16 +119,16 @@ impl LiteBlock {
         }
 
         if let (Some(out_indx), Some(err_indx)) = (stdout_index, stderr_index) {
-            let (out_redirect, err_redirect) = {
+            let (out_redirect, err_redirect, new_indx) = {
                 // to avoid panic, we need to remove commands which have larger index first.
                 if out_indx > err_indx {
                     let out_redirect = pipeline.commands.remove(out_indx);
                     let err_redirect = pipeline.commands.remove(err_indx);
-                    (out_redirect, err_redirect)
+                    (out_redirect, err_redirect, err_indx)
                 } else {
                     let err_redirect = pipeline.commands.remove(err_indx);
                     let out_redirect = pipeline.commands.remove(out_indx);
-                    (out_redirect, err_redirect)
+                    (out_redirect, err_redirect, out_indx)
                 }
             };
             // `out_redirect` and `err_redirect` should always be `LiteElement::Redirection`
@@ -133,10 +137,15 @@ impl LiteBlock {
                 LiteElement::Redirection(err_span, _, err_command),
             ) = (out_redirect, err_redirect)
             {
-                pipeline.push(LiteElement::SeparateRedirection {
-                    out: (out_span, out_command),
-                    err: (err_span, err_command),
-                })
+                // using insert with specific to keep original
+                // pipeline commands order.
+                pipeline.insert(
+                    new_indx,
+                    LiteElement::SeparateRedirection {
+                        out: (out_span, out_command),
+                        err: (err_span, err_command),
+                    },
+                )
             }
         }
     }

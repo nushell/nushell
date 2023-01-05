@@ -101,3 +101,35 @@ fn separate_redirection() {
         },
     )
 }
+
+#[cfg(not(windows))]
+#[test]
+fn redirection_with_pipeline_works() {
+    use nu_test_support::fs::{file_contents, Stub::FileWithContent};
+    use nu_test_support::playground::Playground;
+    Playground::setup(
+        "external with stdout message with pipeline should write data",
+        |dirs, sandbox| {
+            let script_body = r#"
+        x=$(printf '=%.0s' {1..100})
+        echo $x
+        echo $x 1>&2
+        "#;
+            let mut expect_body = String::new();
+            for _ in 0..100 {
+                expect_body.push('=');
+            }
+
+            sandbox.with_files(vec![FileWithContent("test.sh", script_body)]);
+
+            nu!(
+                cwd: dirs.test(),
+                r#"bash test.sh out> out.txt | describe"#
+            );
+            // check for stdout redirection file.
+            let expected_out_file = dirs.test().join("out.txt");
+            let actual = file_contents(expected_out_file);
+            assert!(actual.contains(&expect_body));
+        },
+    )
+}
