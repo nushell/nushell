@@ -392,6 +392,7 @@ fn stream_to_file(
             }
 
             if let Err(err) = writer.write(&buf) {
+                *process_failed_p = true;
                 return Err(ShellError::IOError(err.to_string()));
             }
             Ok(())
@@ -404,11 +405,6 @@ fn stream_to_file(
         if process_failed {
             if let Some(bar) = bar_opt_clone {
                 bar.abandoned_msg("# Error while saving #".to_owned());
-            }
-        } else {
-            // If the file is successfully saved then print a finish message.
-            if let Some(bar) = bar_opt_clone {
-                bar.finished_msg("File successfully saved!".to_owned());
             }
         }
     }
