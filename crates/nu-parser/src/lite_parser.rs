@@ -38,6 +38,10 @@ impl LiteCommand {
 pub enum LiteElement {
     Command(Option<Span>, LiteCommand),
     Redirection(Span, Redirection, LiteCommand),
+    SeparateRedirection {
+        out: (Span, LiteCommand),
+        err: (Span, LiteCommand),
+    },
 }
 
 #[derive(Debug)]
@@ -81,12 +85,57 @@ impl LiteBlock {
         Self { block: vec![] }
     }
 
-    pub fn push(&mut self, pipeline: LitePipeline) {
+    pub fn push(&mut self, mut pipeline: LitePipeline) {
+        // once we push `pipeline` to our block
+        // the block takes ownership of `pipeline`, which means that
+        // our `pipeline` is complete on collecting commands.
+        self.merge_redirections(&mut pipeline);
+
         self.block.push(pipeline);
     }
 
     pub fn is_empty(&self) -> bool {
         self.block.is_empty()
+    }
+
+    fn merge_redirections(&self, pipeline: &mut LitePipeline) {
+        // In case our commands may contains stdout and stderr redirection.
+        // We pick them out and Combine them into one LiteElement::SeparateRedirection variant.
+        let mut stdout_index = None;
+        let mut stderr_index = None;
+        for (index, cmd) in pipeline.commands.iter().enumerate() {
+            if let LiteElement::Redirection(_span, redirection, _target_cmd) = cmd {
+                match redirection {
+                    &Redirection::Stderr => stderr_index = Some(index),
+                    &Redirection::Stdout => stdout_index = Some(index),
+                    &Redirection::StdoutAndStderr => {}
+                }
+            }
+        }
+
+        if let (Some(out_indx), Some(err_indx)) = (stdout_index, stderr_index) {
+            let (out_redirect, err_redirect) = {
+                if out_indx > err_indx {
+                    let out_redirect = pipeline.commands.remove(out_indx);
+                    let err_redirect = pipeline.commands.remove(err_indx);
+                    (out_redirect, err_redirect)
+                } else {
+                    let err_redirect = pipeline.commands.remove(err_indx);
+                    let out_redirect = pipeline.commands.remove(out_indx);
+                    (out_redirect, err_redirect)
+                }
+            };
+            match (out_redirect, err_redirect) {
+                (
+                    LiteElement::Redirection(out_span, _, out_command),
+                    LiteElement::Redirection(err_span, _, err_command),
+                ) => pipeline.push(LiteElement::SeparateRedirection {
+                    out: (out_span, out_command),
+                    err: (err_span, err_command),
+                }),
+                _ => {}
+            }
+        }
     }
 }
 
