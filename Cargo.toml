@@ -146,9 +146,13 @@ path = "src/main.rs"
 # Run all benchmarks with `cargo bench`
 # Run individual benchmarks like `cargo bench -- <regex>` e.g. `cargo bench -- parse`
 [[bench]]
-name = "parser_benchmark"
+name = "encoder_benchmark"
 harness = false
 
 [[bench]]
-name = "encoder_benchmark"
+name = "eval_benchmark"
+harness = false
+
+[[bench]]
+name = "parser_benchmark"
 harness = false
