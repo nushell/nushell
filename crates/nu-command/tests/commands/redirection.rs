@@ -64,3 +64,40 @@ fn redirect_out() {
         assert!(output.out.contains("hello"));
     })
 }
+
+#[cfg(not(windows))]
+#[test]
+fn separate_redirection() {
+    use nu_test_support::fs::{file_contents, Stub::FileWithContent};
+    use nu_test_support::playground::Playground;
+    Playground::setup(
+        "external with both stdout and stderr messages, to different file",
+        |dirs, sandbox| {
+            let script_body = r#"
+        x=$(printf '=%.0s' {1..100})
+        echo $x
+        echo $x 1>&2
+        "#;
+            let mut expect_body = String::new();
+            for _ in 0..100 {
+                expect_body.push('=');
+            }
+
+            sandbox.with_files(vec![FileWithContent("test.sh", script_body)]);
+
+            nu!(
+                cwd: dirs.test(),
+                r#"bash test.sh out> out.txt err> err.txt"#
+            );
+            // check for stdout redirection file.
+            let expected_out_file = dirs.test().join("out.txt");
+            let actual = file_contents(expected_out_file);
+            assert_eq!(actual, expect_body);
+
+            // check for stderr redirection file.
+            let expected_err_file = dirs.test().join("err.txt");
+            let actual = file_contents(expected_err_file);
+            assert_eq!(actual, expect_body);
+        },
+    )
+}
