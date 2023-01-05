@@ -2636,6 +2636,7 @@ dependencies = [
  "once_cell",
  "open",
  "pathdiff",
+ "percent-encoding",
  "polars",
  "powierza-coefficient",
  "proptest",
