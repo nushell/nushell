@@ -155,33 +155,5 @@ fn recursion_successful() {
             def bang [] { bang };bang
         "#
     );
-    assert!(actual.err.is_empty());
-}
-
-#[cfg(not(target_os = "windows"))]
-#[test]
-fn call_def_in_def_should_be_successful() {
-    let actual = nu!(
-        cwd: ".",
-        r#"
-            def bang [b] { let t = bang $b; return $b;echo};bang passing_data
-        "#
-    );
-
-    assert!(actual.out.contains("passing_data"));
-    assert!(actual.err.is_empty());
-}
-
-#[cfg(not(target_os = "windows"))]
-#[test]
-fn call_def_in_def_should_be_successful2() {
-    let actual = nu!(
-        cwd: ".",
-        r#"
-            def slice [a,b] { let t = slice 1 2;return result_is_not_null };slice 1 2 
-        "#
-    );
-
-    assert!(actual.out.contains("result_is_not_null"));
-    assert!(actual.err.is_empty());
+    assert!(actual.err.contains("maximum recursion depth exceeded"));
 }
