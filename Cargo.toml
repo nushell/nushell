@@ -83,6 +83,7 @@ atty = "0.2"
 nu-test-support = { path="./crates/nu-test-support", version = "0.73.1"  }
 tempfile = "3.2.0"
 assert_cmd = "2.0.2"
+criterion = "0.4"
 pretty_assertions = "1.0.0"
 serial_test = "0.8.0"
 hamcrest2 = "0.3.0"
@@ -140,3 +141,14 @@ path = "src/main.rs"
 # changing versions in each sub-crate of the workspace is tedious
 [patch.crates-io]
 # reedline = { git = "https://github.com/nushell/reedline.git", branch = "main" }
+
+# Criterion benchmarking setup
+# Run all benchmarks with `cargo bench`
+# Run individual benchmarks like `cargo bench -- <regex>` e.g. `cargo bench -- parse`
+[[bench]]
+name = "parser_benchmark"
+harness = false
+
+[[bench]]
+name = "encoder_benchmark"
+harness = false
