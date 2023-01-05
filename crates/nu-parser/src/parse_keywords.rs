@@ -435,7 +435,7 @@ pub fn parse_def(
                         _ => false,
                     })
             });
-            block.recursion = Some(calls_itself);
+            block.recursive = Some(calls_itself);
             block.signature = signature;
             block.redirect_env = def_call == b"def-env";
         } else {

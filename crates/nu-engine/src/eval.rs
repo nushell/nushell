@@ -875,17 +875,19 @@ pub fn eval_block(
     redirect_stdout: bool,
     redirect_stderr: bool,
 ) -> Result<PipelineData, ShellError> {
-    // if Block contains recursion , calls itself to reaches to recursion limit
-    // picked 50 arbitrarily, should work on all architectures
-    if let Some(recursion) = block.recursion {
-        if recursion {
-            if *stack.recursion_limit == 50 {
-                stack.recursion_limit = Box::new(0);
-                return Err(ShellError::NushellFailed(
-                    "maximum recursion depth (50) exceeded".to_string(),
-                ));
+    // if Block contains recursion, make sure we don't recurse too deeply (to avoid stack overflow)
+    if let Some(recursive) = block.recursive {
+        // picked 50 arbitrarily, should work on all architectures
+        const RECURSION_LIMIT: u64 = 50;
+        if recursive {
+            if *stack.recursion_count >= RECURSION_LIMIT {
+                stack.recursion_count = Box::new(0);
+                return Err(ShellError::RecursionLimitReached {
+                    recursion_limit: RECURSION_LIMIT,
+                    span: block.span,
+                });
             }
-            *stack.recursion_limit += 1;
+            *stack.recursion_count += 1;
         }
     }
     let num_pipelines = block.len();

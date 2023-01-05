@@ -11,7 +11,7 @@ pub struct Block {
     pub captures: Vec<VarId>,
     pub redirect_env: bool,
     pub span: Option<Span>, // None option encodes no span to avoid using test_span()
-    pub recursion: Option<bool>,
+    pub recursive: Option<bool>, // does the block call itself?
 }
 
 impl Block {
@@ -52,7 +52,7 @@ impl Block {
             captures: vec![],
             redirect_env: false,
             span: None,
-            recursion: None,
+            recursive: None,
         }
     }
 }
@@ -68,7 +68,7 @@ where
             captures: vec![],
             redirect_env: false,
             span: None,
-            recursion: None,
+            recursive: None,
         }
     }
 }

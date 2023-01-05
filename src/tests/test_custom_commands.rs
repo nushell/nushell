@@ -146,17 +146,17 @@ fn override_table_eval_file() {
     assert_eq!(actual.out, "hi");
 }
 
-// // These tests are disabled on Windows because they cause a stack overflow in CI (but not locally!).
+// This test is disabled on Windows because they cause a stack overflow in CI (but not locally!).
 // For reasons we don't understand, the Windows CI runners are prone to stack overflow.
-// TODO: investigate so we can enable these on Windows
+// TODO: investigate so we can enable on Windows
 #[cfg(not(target_os = "windows"))]
 #[test]
-fn recursion_failture() {
+fn infinite_recursion_does_not_panic() {
     let actual = nu!(
         cwd: ".",
         r#"
-            def bang [] { bang };bang
+            def bang [] { bang }; bang
         "#
     );
-    assert!(actual.err.contains("maximum recursion depth (50) exceeded"));
+    assert!(actual.err.contains("Recursion limit (50) reached"));
 }
