@@ -130,21 +130,24 @@ pub fn lite_parse(tokens: &[Token]) -> (LiteBlock, Option<ParseError>) {
                     match last_connector {
                         TokenContents::OutGreaterThan => {
                             curr_pipeline.push(LiteElement::Redirection(
-                                token.span,
+                                last_connector_span
+                                    .expect("internal error: redirection missing span information"),
                                 Redirection::Stdout,
                                 curr_command,
                             ));
                         }
                         TokenContents::ErrGreaterThan => {
                             curr_pipeline.push(LiteElement::Redirection(
-                                token.span,
+                                last_connector_span
+                                    .expect("internal error: redirection missing span information"),
                                 Redirection::Stderr,
                                 curr_command,
                             ));
                         }
                         TokenContents::OutErrGreaterThan => {
                             curr_pipeline.push(LiteElement::Redirection(
-                                token.span,
+                                last_connector_span
+                                    .expect("internal error: redirection missing span information"),
                                 Redirection::StdoutAndStderr,
                                 curr_command,
                             ));
