@@ -85,9 +85,9 @@ impl Command for Save {
 
                 // delegate a thread to redirect stderr to result.
                 let handler = stderr.map(|stderr_stream| match stderr_file {
-                    Some(stderr_file) => {
-                        std::thread::spawn(move || stream_to_file(stderr_stream, stderr_file, span, progress))
-                    }
+                    Some(stderr_file) => std::thread::spawn(move || {
+                        stream_to_file(stderr_stream, stderr_file, span, progress)
+                    }),
                     None => std::thread::spawn(move || {
                         let _ = stderr_stream.into_bytes();
                         Ok(PipelineData::empty())
