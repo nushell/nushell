@@ -456,13 +456,13 @@ pub fn flatten_pipeline_element(
             output
         }
         PipelineElement::SeparateRedirection {
-            out: (out_span, out_exp),
-            err: (err_span, err_exp),
+            out: (out_span, out_expr),
+            err: (err_span, err_expr),
         } => {
             let mut output = vec![(*out_span, FlatShape::Redirection)];
-            output.append(&mut flatten_expression(working_set, out_exp));
+            output.append(&mut flatten_expression(working_set, out_expr));
             output.push((*err_span, FlatShape::Redirection));
-            output.append(&mut flatten_expression(working_set, err_exp));
+            output.append(&mut flatten_expression(working_set, err_expr));
             output
         }
         PipelineElement::And(span, expr) => {

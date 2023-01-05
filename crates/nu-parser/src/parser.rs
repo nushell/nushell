@@ -5697,13 +5697,13 @@ pub fn discover_captures_in_pipeline_element(
             discover_captures_in_expr(working_set, expression, seen, seen_blocks)
         }
         PipelineElement::SeparateRedirection {
-            out: (_, out_exp),
-            err: (_, err_exp),
+            out: (_, out_expr),
+            err: (_, err_expr),
         } => {
-            let mut result = discover_captures_in_expr(working_set, out_exp, seen, seen_blocks)?;
+            let mut result = discover_captures_in_expr(working_set, out_expr, seen, seen_blocks)?;
             result.append(&mut discover_captures_in_expr(
                 working_set,
-                err_exp,
+                err_expr,
                 seen,
                 seen_blocks,
             )?);
