@@ -275,6 +275,7 @@ pub fn create_default_context() -> EngineState {
             Mkdir,
             Mv,
             Open,
+            Start,
             Rm,
             Save,
             Touch,
@@ -400,7 +401,6 @@ pub fn create_default_context() -> EngineState {
             MathAbs,
             MathAvg,
             MathCeil,
-            MathEval,
             MathFloor,
             MathMax,
             MathMedian,
@@ -480,6 +480,7 @@ pub fn create_default_context() -> EngineState {
             StrDecimalDeprecated,
             StrIntDeprecated,
             StrFindReplaceDeprecated,
+            MathEvalDeprecated,
         };
 
         #[cfg(feature = "plugin")]

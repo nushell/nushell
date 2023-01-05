@@ -5,10 +5,10 @@ use nu_engine::{column::get_columns, env_to_string, CallExt};
 use nu_protocol::TrimStrategy;
 use nu_protocol::{
     ast::{Call, PathMember},
-    engine::{Command, EngineState, Stack, StateWorkingSet},
-    format_error, Category, Config, DataSource, Example, FooterMode, IntoPipelineData, ListStream,
-    PipelineData, PipelineMetadata, RawStream, ShellError, Signature, Span, SyntaxShape,
-    TableIndexMode, Type, Value,
+    engine::{Command, EngineState, Stack},
+    Category, Config, DataSource, Example, FooterMode, IntoPipelineData, ListStream, PipelineData,
+    PipelineMetadata, RawStream, ShellError, Signature, Span, SyntaxShape, TableIndexMode, Type,
+    Value,
 };
 use nu_table::{string_width, Table as NuTable, TableConfig, TableTheme};
 use nu_utils::get_ls_colors;
@@ -332,12 +332,9 @@ fn handle_table_command(
             Ok(val.into_pipeline_data())
         }
         PipelineData::Value(Value::Error { error }, ..) => {
-            let working_set = StateWorkingSet::new(engine_state);
-            Ok(Value::String {
-                val: format_error(&working_set, &error),
-                span: call.head,
-            }
-            .into_pipeline_data())
+            // Propagate this error outward, so that it goes to stderr
+            // instead of stdout.
+            Err(error)
         }
         PipelineData::Value(Value::CustomValue { val, span }, ..) => {
             let base_pipeline = val.to_base_value(span)?.into_pipeline_data();
@@ -352,7 +349,22 @@ fn handle_table_command(
             ctrlc,
             metadata,
         ),
-        x => Ok(x),
+        PipelineData::Value(v, ..) => {
+            // into_string() is used for serialising primitives in PipelineData::write_all_and_flush(),
+            // so the same is used here.
+            let str_representation = v.into_string("", config);
+
+            Ok(Value::String {
+                val: StyleComputer::from_config(engine_state, stack)
+                    .style_primitive(&v)
+                    .color_style
+                    .map(|e| e.paint(&str_representation).to_string())
+                    .unwrap_or(str_representation),
+                span: call.head,
+            }
+            .into_pipeline_data())
+        }
+        PipelineData::Empty {} => Ok(input),
     }
 }
 
@@ -905,7 +917,7 @@ fn convert_to_table(
                                 val: text.clone(),
                                 span: head,
                             };
-                            let val = item.clone().follow_cell_path(&[path], false);
+                            let val = item.clone().follow_cell_path(&[path], false, false);
 
                             match val {
                                 Ok(val) => DeferredStyleComputation::Value { value: val },
@@ -1266,7 +1278,7 @@ fn create_table2_entry_basic(
         Value::Record { .. } => {
             let val = header.to_owned();
             let path = PathMember::String { val, span: head };
-            let val = item.clone().follow_cell_path(&[path], false);
+            let val = item.clone().follow_cell_path(&[path], false, false);
 
             match val {
                 Ok(val) => value_to_styled_string(&val, config, style_computer),
@@ -1294,7 +1306,7 @@ fn create_table2_entry(
         Value::Record { .. } => {
             let val = header.to_owned();
             let path = PathMember::String { val, span: head };
-            let val = item.clone().follow_cell_path(&[path], false);
+            let val = item.clone().follow_cell_path(&[path], false, false);
 
             match val {
                 Ok(val) => convert_to_table2_entry(

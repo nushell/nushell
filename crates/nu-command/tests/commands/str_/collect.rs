@@ -38,16 +38,3 @@ fn construct_a_path() {
 
     assert_eq!(actual.out, "sample.txt");
 }
-
-#[test]
-fn sum_one_to_four() {
-    let actual = nu!(
-        cwd: ".", pipeline(
-        r#"
-        1..4 | each { |it| $it } | into string | str join "+" | math eval
-        "#
-        )
-    );
-
-    assert!(actual.out.contains("10"));
-}

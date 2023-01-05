@@ -158,6 +158,7 @@ macro_rules! nu {
 
         let target_cwd = $opts.cwd.unwrap_or(".".to_string());
         let locale = $opts.locale.unwrap_or("en_US.UTF-8".to_string());
+        let minimal_config = $opts.minimal_config.unwrap_or(true);
 
         let mut command = Command::new($crate::fs::executable_path());
         command
@@ -167,12 +168,16 @@ macro_rules! nu {
             .env(NATIVE_PATH_ENV_VAR, paths_joined)
             // .arg("--skip-plugins")
             // .arg("--no-history")
-            // .arg("--config-file")
-            // .arg($crate::fs::DisplayPath::display_path(&$crate::fs::fixtures().join("playground/config/default.toml")))
             .arg(format!("-c {}", escape_quote_string(path)))
             .stdout(Stdio::piped())
             // .stdin(Stdio::piped())
             .stderr(Stdio::piped());
+        // Use this minimal config in most tests.
+        // Notably, this disables color_config to allow string output to be more easily compared.
+        if minimal_config {
+            command.arg("--config")
+                .arg($crate::fs::fixtures().join("playground/config/minimal.nu").display().to_string());
+        }
 
         let mut process = match command.spawn()
         {
@@ -203,6 +208,7 @@ macro_rules! nu {
         struct NuOpts {
             cwd: Option<String>,
             locale: Option<String>,
+            minimal_config: Option<bool>,
         }
 
         nu!(@options [ ] $($token)*)
@@ -276,6 +282,8 @@ macro_rules! nu_with_plugins {
             .arg(commands)
             .arg("--plugin-config")
             .arg(temp_plugin_file)
+            .arg("--config")
+            .arg($crate::fs::fixtures().join("playground/config/minimal.nu").display().to_string())
             .stdout(Stdio::piped())
             .stderr(Stdio::piped())
             .spawn()
