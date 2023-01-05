@@ -903,6 +903,19 @@ Either make sure {0} is a string, or add a 'to_string' entry for it in ENV_CONVE
     /// Return event, which may become an error if used outside of a function
     #[error("Return used outside of function")]
     Return(#[label = "used outside of function"] Span, Box<Value>),
+
+    /// The code being executed called itself too many times.
+    ///
+    /// ## Resolution
+    ///
+    /// Adjust your Nu code to
+    #[error("Recursion limit ({recursion_limit}) reached")]
+    #[diagnostic(code(nu::shell::recursion_limit_reached), url(docsrs))]
+    RecursionLimitReached {
+        recursion_limit: u64,
+        #[label("This called itself too many times")]
+        span: Option<Span>,
+    },
 }
 
 impl From<std::io::Error> for ShellError {

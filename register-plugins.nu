@@ -5,7 +5,7 @@ def windows? [] {
 
 # filter out files that end in .d
 def keep-plugin-executables [] {
-    if (windows?) { $in } else { where name !~ '\.d' }
+    if (windows?) { where name ends-with '.exe' } else { where name !~ '\.d' }
 }
 
 # get list of all plugin files from their installed directory

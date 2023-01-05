@@ -351,6 +351,41 @@ pub fn parse_def(
             *declaration = signature.clone().into_block_command(block_id);
 
             let mut block = working_set.get_block_mut(block_id);
+            let calls_itself = block.pipelines.iter().any(|pipeline| {
+                pipeline
+                    .elements
+                    .iter()
+                    .any(|pipe_element| match pipe_element {
+                        PipelineElement::Expression(
+                            _,
+                            Expression {
+                                expr: Expr::Call(call_expr),
+                                ..
+                            },
+                        ) => {
+                            if call_expr.decl_id == decl_id {
+                                return true;
+                            }
+                            call_expr.arguments.iter().any(|arg| match arg {
+                                Argument::Positional(Expression { expr, .. }) => match expr {
+                                    Expr::Keyword(.., expr) => {
+                                        let expr = expr.as_ref();
+                                        let Expression { expr, .. } = expr;
+                                        match expr {
+                                            Expr::Call(call_expr2) => call_expr2.decl_id == decl_id,
+                                            _ => false,
+                                        }
+                                    }
+                                    Expr::Call(call_expr2) => call_expr2.decl_id == decl_id,
+                                    _ => false,
+                                },
+                                _ => false,
+                            })
+                        }
+                        _ => false,
+                    })
+            });
+            block.recursive = Some(calls_itself);
             block.signature = signature;
             block.redirect_env = def_call == b"def-env";
         } else {
