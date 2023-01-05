@@ -9,7 +9,7 @@ use std::fs::File;
 use std::io::{BufWriter, Write};
 use std::path::Path;
 
-use crate::progress_bar::{self, NuProgressBar};
+use crate::progress_bar;
 
 #[derive(Clone)]
 pub struct Save;

@@ -365,14 +365,14 @@ fn response_to_buffer(
     // This is helpful to show the progress of the stream.
     let buffer_size = match &response.headers().get("content-length") {
         Some(content_length) => {
-            let tmp_header = content_length.clone(); // binding
+            let tmp_header = &(*content_length).clone(); // binding
 
             Some(
                 tmp_header
                     .to_str()
-                    .unwrap_or_else(|_| "")
+                    .unwrap_or("")
                     .parse::<u64>()
-                    .unwrap_or_else(|_| 0),
+                    .unwrap_or(0),
             )
         }
         _ => None,

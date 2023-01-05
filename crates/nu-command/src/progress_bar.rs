@@ -36,7 +36,7 @@ impl NuProgressBar {
             template
                 .unwrap_or_else(|_| ProgressStyle::default_bar())
                 .with_key("eta", |state: &ProgressState, w: &mut dyn fmt::Write| {
-                    fmt::write(w, format_args!("{:.1}s", state.eta().as_secs_f64())).unwrap()
+                    let _ = fmt::write(w, format_args!("{:.1}s", state.eta().as_secs_f64()));
                 })
                 .progress_chars("#>-"),
         );
@@ -63,8 +63,8 @@ impl NuProgressBar {
     pub fn clone(&self) -> NuProgressBar {
         NuProgressBar {
             pb: self.pb.clone(),
-            bytes_processed: self.bytes_processed.clone(),
-            total_bytes: self.total_bytes.clone(),
+            bytes_processed: self.bytes_processed,
+            total_bytes: self.total_bytes,
         }
     }
 }
