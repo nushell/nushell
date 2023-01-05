@@ -455,6 +455,16 @@ pub fn flatten_pipeline_element(
             output.append(&mut flatten_expression(working_set, expr));
             output
         }
+        PipelineElement::SeparateRedirection {
+            out: (out_span, out_exp),
+            err: (err_span, err_exp),
+        } => {
+            let mut output = vec![(*out_span, FlatShape::Redirection)];
+            output.append(&mut flatten_expression(working_set, out_exp));
+            output.push((*err_span, FlatShape::Redirection));
+            output.append(&mut flatten_expression(working_set, err_exp));
+            output
+        }
         PipelineElement::And(span, expr) => {
             let mut output = vec![(*span, FlatShape::And)];
             output.append(&mut flatten_expression(working_set, expr));

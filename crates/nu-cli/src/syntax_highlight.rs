@@ -233,7 +233,8 @@ fn find_matching_block_end_in_block(
                 PipelineElement::Expression(_, e)
                 | PipelineElement::Redirection(_, _, e)
                 | PipelineElement::And(_, e)
-                | PipelineElement::Or(_, e) => {
+                | PipelineElement::Or(_, e)
+                | PipelineElement::SeparateRedirection { out: (_, e), .. } => {
                     if e.span.contains(global_cursor_offset) {
                         if let Some(pos) = find_matching_block_end_in_expr(
                             line,

@@ -105,10 +105,10 @@ impl LiteBlock {
         let mut stderr_index = None;
         for (index, cmd) in pipeline.commands.iter().enumerate() {
             if let LiteElement::Redirection(_span, redirection, _target_cmd) = cmd {
-                match redirection {
-                    &Redirection::Stderr => stderr_index = Some(index),
-                    &Redirection::Stdout => stdout_index = Some(index),
-                    &Redirection::StdoutAndStderr => {}
+                match *redirection {
+                    Redirection::Stderr => stderr_index = Some(index),
+                    Redirection::Stdout => stdout_index = Some(index),
+                    Redirection::StdoutAndStderr => {}
                 }
             }
         }
@@ -125,15 +125,15 @@ impl LiteBlock {
                     (out_redirect, err_redirect)
                 }
             };
-            match (out_redirect, err_redirect) {
-                (
-                    LiteElement::Redirection(out_span, _, out_command),
-                    LiteElement::Redirection(err_span, _, err_command),
-                ) => pipeline.push(LiteElement::SeparateRedirection {
+            if let (
+                LiteElement::Redirection(out_span, _, out_command),
+                LiteElement::Redirection(err_span, _, err_command),
+            ) = (out_redirect, err_redirect)
+            {
+                pipeline.push(LiteElement::SeparateRedirection {
                     out: (out_span, out_command),
                     err: (err_span, err_command),
-                }),
-                _ => {}
+                })
             }
         }
     }
