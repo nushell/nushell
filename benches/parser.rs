@@ -5,32 +5,26 @@ use nu_utils::{get_default_config, get_default_env};
 
 fn criterion_benchmark(c: &mut Criterion) {
     let mut engine_state = nu_command::create_default_context();
-    // parsing breaks without PWD set
+    // parsing config.nu breaks without PWD set
     engine_state.add_env_var(
         "PWD".into(),
-        Value::string(
-            std::env::current_dir()
-                .unwrap()
-                .to_string_lossy()
-                .to_owned(),
-            Span::test_data(),
-        ),
+        Value::string("/some/dir".to_string(), Span::test_data()),
     );
 
-    let default_config = get_default_config().as_bytes();
-    c.bench_function("parse config.nu", |b| {
+    let default_env = get_default_env().as_bytes();
+    c.bench_function("Parse env.nu", |b| {
         b.iter_batched(
             || nu_protocol::engine::StateWorkingSet::new(&engine_state),
-            |mut working_set| parse(&mut working_set, None, default_config, false, &[]),
+            |mut working_set| parse(&mut working_set, None, default_env, false, &[]),
             BatchSize::SmallInput,
         )
     });
 
-    let default_env = get_default_env().as_bytes();
-    c.bench_function("parse env.nu", |b| {
+    let default_config = get_default_config().as_bytes();
+    c.bench_function("Parse config.nu", |b| {
         b.iter_batched(
             || nu_protocol::engine::StateWorkingSet::new(&engine_state),
-            |mut working_set| parse(&mut working_set, None, default_env, false, &[]),
+            |mut working_set| parse(&mut working_set, None, default_config, false, &[]),
             BatchSize::SmallInput,
         )
     });
