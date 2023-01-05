@@ -139,6 +139,7 @@ pub fn evaluate_repl(
             s.item.as_bytes(),
             &format!("entry #{}", entry_num),
             PipelineData::empty(),
+            false,
         );
         engine_state.merge_env(stack, get_guaranteed_cwd(engine_state, stack))?;
     }
@@ -423,6 +424,7 @@ pub fn evaluate_repl(
                         s.as_bytes(),
                         &format!("entry #{}", entry_num),
                         PipelineData::empty(),
+                        false,
                     );
                 }
                 let cmd_duration = start_time.elapsed();

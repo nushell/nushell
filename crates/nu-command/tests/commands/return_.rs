@@ -23,3 +23,15 @@ fn early_return_if_false() {
 
     assert_eq!(actual.out, r#"100"#);
 }
+
+#[test]
+fn return_works_in_script_without_def_main() {
+    let actual = nu!(
+        cwd: "tests/fixtures/formats", pipeline(
+        r#"
+            exec (ls ../../../target/*/nu | get name.0) early_return.nu
+        "#
+    ));
+
+    assert!(actual.err.is_empty());
+}

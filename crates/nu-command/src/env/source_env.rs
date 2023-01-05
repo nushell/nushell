@@ -1,6 +1,6 @@
 use std::path::PathBuf;
 
-use nu_engine::{eval_block, find_in_dirs_env, redirect_env, CallExt};
+use nu_engine::{eval_block_with_early_return, find_in_dirs_env, redirect_env, CallExt};
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
@@ -62,7 +62,7 @@ impl Command for SourceEnv {
         let block = engine_state.get_block(block_id as usize).clone();
         let mut callee_stack = caller_stack.gather_captures(&block.captures);
 
-        let result = eval_block(
+        let result = eval_block_with_early_return(
             engine_state,
             &mut callee_stack,
             &block,

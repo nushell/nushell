@@ -106,13 +106,21 @@ pub fn evaluate_file(
             &file,
             file_path_str,
             PipelineData::empty(),
+            true,
         ) {
             std::process::exit(1);
         }
-        if !eval_source(engine_state, stack, args.as_bytes(), "<commandline>", input) {
+        if !eval_source(
+            engine_state,
+            stack,
+            args.as_bytes(),
+            "<commandline>",
+            input,
+            true,
+        ) {
             std::process::exit(1);
         }
-    } else if !eval_source(engine_state, stack, &file, file_path_str, input) {
+    } else if !eval_source(engine_state, stack, &file, file_path_str, input, true) {
         std::process::exit(1);
     }
 

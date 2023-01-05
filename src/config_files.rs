@@ -138,6 +138,7 @@ pub(crate) fn read_default_env_file(engine_state: &mut EngineState, stack: &mut 
         config_file.as_bytes(),
         "default_env.nu",
         PipelineData::empty(),
+        false,
     );
 
     info!("read_config_file {}:{}:{}", file!(), line!(), column!());
@@ -174,6 +175,7 @@ fn eval_default_config(
             "default_config.nu"
         },
         PipelineData::empty(),
+        false,
     );
 
     // Merge the environment in case env vars changed in the config
