@@ -145,3 +145,18 @@ fn override_table_eval_file() {
     let actual = nu!(cwd: ".", r#"def table [] { "hi" }; table"#);
     assert_eq!(actual.out, "hi");
 }
+
+// This test is disabled on Windows because they cause a stack overflow in CI (but not locally!).
+// For reasons we don't understand, the Windows CI runners are prone to stack overflow.
+// TODO: investigate so we can enable on Windows
+#[cfg(not(target_os = "windows"))]
+#[test]
+fn infinite_recursion_does_not_panic() {
+    let actual = nu!(
+        cwd: ".",
+        r#"
+            def bang [] { bang }; bang
+        "#
+    );
+    assert!(actual.err.contains("Recursion limit (50) reached"));
+}
