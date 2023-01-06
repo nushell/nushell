@@ -436,6 +436,7 @@ pub fn create_default_context() -> EngineState {
             Fetch,
             Post,
             Url,
+            UrlEncode,
             UrlParse,
             Port,
         }

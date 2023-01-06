@@ -57,6 +57,13 @@ impl Command for Try {
 
         match result {
             Err(error) | Ok(PipelineData::Value(Value::Error { error }, ..)) => {
+                if let nu_protocol::ShellError::Break(_) = error {
+                    return Err(error);
+                } else if let nu_protocol::ShellError::Continue(_) = error {
+                    return Err(error);
+                } else if let nu_protocol::ShellError::Return(_, _) = error {
+                    return Err(error);
+                }
                 if let Some(catch_block) = catch_block {
                     let catch_block = engine_state.get_block(catch_block.block_id);
                     let err_value = Value::Error { error };
