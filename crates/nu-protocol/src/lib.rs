@@ -13,6 +13,7 @@ mod signature;
 pub mod span;
 mod syntax_shape;
 mod ty;
+pub mod util;
 mod value;
 mod variable;
 
@@ -29,5 +30,6 @@ pub use signature::*;
 pub use span::*;
 pub use syntax_shape::*;
 pub use ty::*;
+pub use util::BufferedReader;
 pub use value::*;
 pub use variable::*;

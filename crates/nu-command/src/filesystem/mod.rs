@@ -25,5 +25,4 @@ pub use rm::Rm;
 pub use save::Save;
 pub use start::Start;
 pub use touch::Touch;
-pub use util::BufferedReader;
 pub use watch::Watch;

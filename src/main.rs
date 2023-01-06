@@ -15,13 +15,14 @@ use nu_cli::{
     evaluate_commands, evaluate_file, evaluate_repl, gather_parent_env_vars, get_init_cwd,
     report_error, report_error_new,
 };
-use nu_command::{create_default_context, BufferedReader};
+use nu_command::create_default_context;
 use nu_engine::{get_full_help, CallExt};
 use nu_parser::{escape_for_script_arg, escape_quote_string, parse};
 use nu_path::canonicalize_with;
 use nu_protocol::{
     ast::{Call, Expr, Expression, PipelineElement},
     engine::{Command, EngineState, Stack, StateWorkingSet},
+    util::BufferedReader,
     Category, Example, IntoPipelineData, PipelineData, RawStream, ShellError, Signature, Spanned,
     SyntaxShape, Value,
 };
