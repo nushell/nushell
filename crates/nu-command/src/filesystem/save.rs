@@ -104,7 +104,9 @@ impl Command for Save {
                     res
                 }
             }
-            PipelineData::ListStream(ls, _) => {
+            PipelineData::ListStream(ls, _)
+                if raw || prepare_path(&path, append, force)?.0.extension().is_none() =>
+            {
                 let (mut file, _) = get_files(&path, &stderr_path, append, force)?;
                 for val in ls {
                     file.write_all(&value_to_bytes(val)?)
@@ -113,6 +115,7 @@ impl Command for Save {
                         .map_err(|err| ShellError::IOError(err.to_string()))?;
                 }
                 file.flush()?;
+
                 Ok(PipelineData::empty())
             }
             input => {
