@@ -354,7 +354,7 @@ pub fn create_default_context() -> EngineState {
             Use,
             Upsert,
             Where,
-            ToUrl,
+            ToUrlQuery,
             ToXml,
             ToYaml,
         };

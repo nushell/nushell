@@ -14,7 +14,7 @@ mod yaml;
 
 pub use self::csv::ToCsv;
 pub use self::toml::ToToml;
-pub use self::url::ToUrl;
+pub use self::url::ToUrlQuery;
 pub use command::To;
 pub use html::ToHtml;
 pub use json::ToJson;

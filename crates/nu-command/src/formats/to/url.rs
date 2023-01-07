@@ -5,15 +5,15 @@ use nu_protocol::{
 };
 
 #[derive(Clone)]
-pub struct ToUrl;
+pub struct ToUrlQuery;
 
-impl Command for ToUrl {
+impl Command for ToUrlQuery {
     fn name(&self) -> &str {
-        "to url"
+        "to url query"
     }
 
     fn signature(&self) -> Signature {
-        Signature::build("to url")
+        Signature::build("to url query")
             .input_output_types(vec![
                 (Type::Record(vec![]), Type::String),
                 (Type::Table(vec![]), Type::String),
@@ -22,20 +22,25 @@ impl Command for ToUrl {
     }
 
     fn usage(&self) -> &str {
-        "Convert record or table into URL-encoded text"
+        "Convert record or table into query string applying percent-encoding."
     }
 
     fn examples(&self) -> Vec<Example> {
         vec![
             Example {
-                description: "Outputs a URL string representing the contents of this record",
-                example: r#"{ mode:normal userid:31415 } | to url"#,
+                description: "Outputs a query string representing the contents of this record",
+                example: r#"{ mode:normal userid:31415 } | to url query"#,
                 result: Some(Value::test_string("mode=normal&userid=31415")),
             },
             Example {
-                description: "Outputs a URL string representing the contents of this 1-row table",
-                example: r#"[[foo bar]; ["1" "2"]] | to url"#,
+                description: "Outputs a query string representing the contents of this 1-row table",
+                example: r#"[[foo bar]; ["1" "2"]] | to url query"#,
                 result: Some(Value::test_string("foo=1&bar=2")),
+            },
+            Example {
+                description: "Outputs a query string representing the contents of this record",
+                example: r#"{a:"AT&T", b: "AT T"} | to url query"#,
+                result: Some(Value::test_string("a=AT%26T&b=AT+T")),
             },
         ]
     }
@@ -110,6 +115,6 @@ mod test {
     fn test_examples() {
         use crate::test_examples;
 
-        test_examples(ToUrl {})
+        test_examples(ToUrlQuery {})
     }
 }
