@@ -5272,8 +5272,12 @@ fn balanced_pair_between_qoutes(open: u8, closed: u8, input: &[u8]) -> bool {
             if *c == open {
                 stack.push(*c);
             } else if *c == closed {
-                if let Some(last) = stack.pop() {
-                    if last != open {
+                if stack.pop().is_some() {
+                    if (open == b'{' && closed != b'}')
+                        || (open == b'<' && closed != b'>')
+                        || (open == b'(' && closed != b')')
+                        || (open == b'[' && closed != b']')
+                    {
                         return false;
                     }
                 } else {
