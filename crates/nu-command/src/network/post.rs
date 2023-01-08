@@ -1,9 +1,9 @@
 use crate::formats::value_to_json_value;
-use crate::BufferedReader;
 use base64::encode;
 use nu_engine::CallExt;
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
+use nu_protocol::util::BufferedReader;
 use nu_protocol::RawStream;
 use reqwest::{blocking::Response, StatusCode};
 use std::path::PathBuf;

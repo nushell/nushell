@@ -6,11 +6,7 @@ use crate::{
 use nu_utils::{stderr_write_all_and_flush, stdout_write_all_and_flush};
 use std::sync::{atomic::AtomicBool, Arc};
 
-const LINE_ENDING: &str = if cfg!(target_os = "windows") {
-    "\r\n"
-} else {
-    "\n"
-};
+const LINE_ENDING_PATTERN: &[char] = &['\r', '\n'];
 
 /// The foundational abstraction for input and output to commands
 ///
@@ -185,7 +181,7 @@ impl PipelineData {
                         }
                     }
                     if trim_end_newline {
-                        output.truncate(output.trim_end_matches(LINE_ENDING).len())
+                        output.truncate(output.trim_end_matches(LINE_ENDING_PATTERN).len())
                     }
                     Value::String {
                         val: output,
@@ -279,7 +275,7 @@ impl PipelineData {
                     }
                 }
                 if trim_end_newline {
-                    output.truncate(output.trim_end_matches(LINE_ENDING).len());
+                    output.truncate(output.trim_end_matches(LINE_ENDING_PATTERN).len());
                 }
                 Ok(output)
             }
@@ -379,7 +375,7 @@ impl PipelineData {
 
                 if let Ok(mut st) = String::from_utf8(collected.clone().item) {
                     if trim_end_newline {
-                        st.truncate(st.trim_end_matches(LINE_ENDING).len());
+                        st.truncate(st.trim_end_matches(LINE_ENDING_PATTERN).len());
                     }
                     Ok(f(Value::String {
                         val: st,
@@ -436,7 +432,7 @@ impl PipelineData {
 
                 if let Ok(mut st) = String::from_utf8(collected.clone().item) {
                     if trim_end_newline {
-                        st.truncate(st.trim_end_matches(LINE_ENDING).len())
+                        st.truncate(st.trim_end_matches(LINE_ENDING_PATTERN).len())
                     }
                     Ok(f(Value::String {
                         val: st,
@@ -488,7 +484,7 @@ impl PipelineData {
 
                 if let Ok(mut st) = String::from_utf8(collected.clone().item) {
                     if trim_end_newline {
-                        st.truncate(st.trim_end_matches(LINE_ENDING).len())
+                        st.truncate(st.trim_end_matches(LINE_ENDING_PATTERN).len())
                     }
                     let v = Value::String {
                         val: st,
