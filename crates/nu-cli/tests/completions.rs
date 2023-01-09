@@ -444,6 +444,7 @@ fn file_completion_quoted() {
         "`te st.txt`".to_string(),
         "`te#st.txt`".to_string(),
         "`te'st.txt`".to_string(),
+        "`te(st).txt`".to_string()
     ];
 
     match_suggestions(expected_paths, suggestions)
