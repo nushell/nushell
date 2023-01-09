@@ -147,6 +147,7 @@ pub fn file_path_completion(
                             || path.contains(' ')
                             || path.contains('#')
                             || path.contains('(')
+                            || path.contains(')')
                         {
                             path = format!("`{}`", path);
                         }
