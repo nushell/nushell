@@ -1,0 +1,3 @@
+skip_welcome_message = true
+
+startup = ["def hello-world [] { echo 'Nu World' }"]
