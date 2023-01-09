@@ -201,13 +201,12 @@ fn external_command_escape_args() {
     })
 }
 
-#[cfg(not(windows))]
 #[test]
 fn external_command_not_expand_tilde_with_quotes() {
     Playground::setup(
         "external command not expand tilde with quotes",
         |dirs, _| {
-            let actual = nu!(cwd: dirs.test(), pipeline(r#"^echo "~""#));
+            let actual = nu!(cwd: dirs.test(), pipeline(r#"nu --testbin nonu "~""#));
             assert_eq!(actual.out, r#"~"#);
         },
     )
