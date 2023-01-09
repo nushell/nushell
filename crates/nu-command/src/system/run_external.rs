@@ -598,9 +598,11 @@ impl ExternalCommand {
                 span: arg.span,
             };
 
-            arg.item = nu_path::expand_tilde(arg.item)
-                .to_string_lossy()
-                .to_string();
+            if !keep_raw {
+                arg.item = nu_path::expand_tilde(arg.item)
+                    .to_string_lossy()
+                    .to_string();
+            }
 
             let cwd = PathBuf::from(cwd);
 
