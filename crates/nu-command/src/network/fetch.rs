@@ -372,7 +372,7 @@ fn response_to_buffer(
                 .unwrap_or("")
                 .parse::<u64>()
                 .unwrap_or(0);
-                
+
             if content_length == 0 {
                 None
             } else {
