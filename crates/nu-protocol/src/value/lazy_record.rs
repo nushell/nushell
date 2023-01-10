@@ -9,12 +9,25 @@ pub trait LazyRecord: fmt::Debug + Send + Sync {
     // All column names
     fn columns(&self) -> Vec<&'static str>;
 
-    // Convert the lazy record into a regular Value::Record by collecting all its columns
-    // This is used to represent the custom value using the table representations
-    // That already exist in nushell
-    fn collect(&self) -> Result<Value, ShellError>;
-
     fn get_column_value(&self, column: &str) -> Result<Value, ShellError>;
+
+    // Convert the lazy record into a regular Value::Record by collecting all its columns
+    fn collect(&self) -> Result<Value, ShellError> {
+        let mut cols = vec![];
+        let mut vals = vec![];
+
+        for column in self.columns() {
+            cols.push(column.into());
+            let val = self.get_column_value(column)?;
+            vals.push(val);
+        }
+
+        Ok(Value::Record {
+            cols,
+            vals,
+            span: self.span(),
+        })
+    }
 
     fn span(&self) -> Span;
 
