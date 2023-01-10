@@ -329,7 +329,7 @@ mod nu_commands {
         nu -c "echo 'foo'"
         "#);
 
-        assert_eq!(nu_utils::strip_ansi_string_likely(actual.out), "foo");
+        assert_eq!(actual.out, "foo");
     }
 
     #[test]
@@ -340,7 +340,7 @@ mod nu_commands {
             "#);
 
             // cargo for non rust project's exit code is 101.
-            assert_eq!(nu_utils::strip_ansi_string_likely(actual.out), "101")
+            assert_eq!(actual.out, "101")
         })
     }
 
@@ -387,7 +387,7 @@ mod nu_script {
         nu script.nu
         "#);
 
-        assert_eq!(nu_utils::strip_ansi_string_likely(actual.out), "done");
+        assert_eq!(actual.out, "done");
     }
 
     #[test]
@@ -396,7 +396,7 @@ mod nu_script {
         nu script_multiline.nu
         "#);
 
-        assert_eq!(nu_utils::strip_ansi_string_likely(actual.out), "23");
+        assert_eq!(actual.out, "23");
     }
 }
 

@@ -352,22 +352,7 @@ fn handle_table_command(
             ctrlc,
             metadata,
         ),
-        PipelineData::Value(v, ..) => {
-            // into_string() is used for serialising primitives in PipelineData::write_all_and_flush(),
-            // so the same is used here.
-            let str_representation = v.into_string("", config);
-
-            Ok(Value::String {
-                val: StyleComputer::from_config(engine_state, stack)
-                    .style_primitive(&v)
-                    .color_style
-                    .map(|e| e.paint(&str_representation).to_string())
-                    .unwrap_or(str_representation),
-                span: call.head,
-            }
-            .into_pipeline_data())
-        }
-        PipelineData::Empty {} => Ok(input),
+        x => Ok(x),
     }
 }
 

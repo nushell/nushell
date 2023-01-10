@@ -1,9 +1,8 @@
-use crate::BufferedReader;
-
 use base64::encode;
 use nu_engine::CallExt;
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
+use nu_protocol::util::BufferedReader;
 use nu_protocol::RawStream;
 
 use nu_protocol::{
