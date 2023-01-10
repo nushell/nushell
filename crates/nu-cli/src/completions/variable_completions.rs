@@ -266,7 +266,7 @@ fn nested_suggestions(
             // Add all the columns as completion
             for column_name in val.columns() {
                 output.push(Suggestion {
-                    value: column_name,
+                    value: column_name.to_string(),
                     description: None,
                     extra: None,
                     span: current_span,

@@ -7,14 +7,14 @@ use std::{cmp::Ordering, fmt};
 #[typetag::serde(tag = "type")]
 pub trait LazyRecord: fmt::Debug + Send + Sync {
     // All column names
-    fn columns(&self) -> Vec<String>;
+    fn columns(&self) -> Vec<&'static str>;
 
     // Convert the lazy record into a regular Value::Record by collecting all its columns
     // This is used to represent the custom value using the table representations
     // That already exist in nushell
     fn collect(&self) -> Result<Value, ShellError>;
 
-    fn get_column_value(&self, column: &String) -> Result<Value, ShellError>;
+    fn get_column_value(&self, column: &str) -> Result<Value, ShellError>;
 
     fn span(&self) -> Span;
 

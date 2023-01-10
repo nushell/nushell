@@ -4,6 +4,9 @@ use nu_protocol::{
     LazyRecord, ShellError, Span, Value,
 };
 use serde::{Deserialize, Serialize};
+use sysinfo::SystemExt;
+
+use crate::scope::create_scope;
 
 // a LazyRecord for the special $nu variable
 // $nu used to be a plain old Record, but LazyRecord lets us load different fields/columns lazily. This is important for performance;
@@ -32,15 +35,27 @@ impl LazyRecord for NuVariable {
         "$nu".to_string()
     }
 
-    fn columns(&self) -> Vec<String> {
-        vec!["config-path".into(), "env-path".into(), "foo".into()]
+    fn columns(&self) -> Vec<&'static str> {
+        let mut cols = vec!["config-path", "env-path", "history-path", "loginshell-path"];
+
+        #[cfg(feature = "plugin")]
+        cols.push("plugin-path");
+
+        cols.push("scope");
+        cols.push("home-path");
+        cols.push("temp-path");
+        cols.push("pid");
+        cols.push("os-info");
+
+        cols
     }
 
     fn collect(&self) -> Result<Value, ShellError> {
-        let cols = self.columns();
+        let mut cols = vec![];
         let mut vals = vec![];
 
-        for column in &cols {
+        for column in self.columns() {
+            cols.push(column.into());
             let val = self.get_column_value(column)?;
             vals.push(val);
         }
@@ -52,8 +67,16 @@ impl LazyRecord for NuVariable {
         })
     }
 
-    fn get_column_value(&self, column: &String) -> Result<Value, ShellError> {
-        match column.as_str() {
+    fn get_column_value(&self, column: &str) -> Result<Value, ShellError> {
+        let err = |message: &str| -> Result<Value, ShellError> {
+            Err(ShellError::LazyRecordAccessFailed {
+                message: message.into(),
+                column_name: column.to_string(),
+                span: self.span,
+            })
+        };
+
+        match column {
             "config-path" => {
                 if let Some(path) = self.engine_state.get_config_path("config-path") {
                     Ok(Value::String {
@@ -67,13 +90,9 @@ impl LazyRecord for NuVariable {
                         span: self.span,
                     })
                 } else {
-                    Err(ShellError::LazyRecordAccessFailed {
-                        message: "Could not get config directory".into(),
-                        column_name: column.to_string(),
-                        span: self.span,
-                    })
+                    err("Could not get config directory")
                 }
-            },
+            }
             "env-path" => {
                 if let Some(path) = self.engine_state.get_config_path("env-path") {
                     Ok(Value::String {
@@ -87,18 +106,104 @@ impl LazyRecord for NuVariable {
                         span: self.span,
                     })
                 } else {
-                    Err(ShellError::LazyRecordAccessFailed {
-                        message: "Could not get config directory".into(),
-                        column_name: column.to_string(),
+                    err("Could not get config directory")
+                }
+            }
+            "history-path" => {
+                if let Some(mut path) = nu_path::config_dir() {
+                    path.push("nushell");
+                    match self.engine_state.config.history_file_format {
+                        nu_protocol::HistoryFileFormat::Sqlite => {
+                            path.push("history.sqlite3");
+                        }
+                        nu_protocol::HistoryFileFormat::PlainText => {
+                            path.push("history.txt");
+                        }
+                    }
+                    Ok(Value::String {
+                        val: path.to_string_lossy().to_string(),
                         span: self.span,
                     })
+                } else {
+                    err("Could not get config directory")
                 }
-            },
-            "foo" => Ok(Value::String {
-                val: "bar".into(),
-                span: self.span,
-            }),
-            _ => todo!(),
+            }
+            "loginshell-path" => {
+                if let Some(mut path) = nu_path::config_dir() {
+                    path.push("nushell/login.nu");
+                    Ok(Value::String {
+                        val: path.to_string_lossy().to_string(),
+                        span: self.span,
+                    })
+                } else {
+                    err("Could not get config directory")
+                }
+            }
+            "plugin-path" => {
+                #[cfg(feature = "plugin")]
+                {
+                    if let Some(path) = &self.engine_state.plugin_signatures {
+                        Ok(Value::String {
+                            val: path.to_string_lossy().to_string(),
+                            span: self.span,
+                        })
+                    } else {
+                        err("Could not get plugin signature location")
+                    }
+                }
+
+                #[cfg(not(feature = "plugin"))]
+                {
+                    err("Plugin feature not enabled")
+                }
+            }
+            "scope" => Ok(create_scope(&self.engine_state, &self.stack, self.span())?),
+            "home-path" => {
+                if let Some(home_path) = nu_path::home_dir() {
+                    Ok(Value::String {
+                        val: home_path.to_string_lossy().into(),
+                        span: self.span(),
+                    })
+                } else {
+                    err("Could not get home path")
+                }
+            }
+            "temp-path" => {
+                let temp_path = std::env::temp_dir();
+                Ok(Value::String {
+                    val: temp_path.to_string_lossy().into(),
+                    span: self.span(),
+                })
+            }
+            "pid" => Ok(Value::int(std::process::id().into(), self.span())),
+            "os-info" => {
+                let sys = sysinfo::System::new();
+                let ver = match sys.kernel_version() {
+                    Some(v) => v,
+                    None => "unknown".into(),
+                };
+
+                let os_record = Value::Record {
+                    cols: vec![
+                        "name".into(),
+                        "arch".into(),
+                        "family".into(),
+                        "kernel_version".into(),
+                    ],
+                    vals: vec![
+                        Value::string(std::env::consts::OS, self.span()),
+                        Value::string(std::env::consts::ARCH, self.span()),
+                        Value::string(std::env::consts::FAMILY, self.span()),
+                        Value::string(ver, self.span()),
+                    ],
+                    span: self.span(),
+                };
+
+                Ok(os_record)
+            }
+            _ => {
+                todo!()
+            }
         }
     }
 

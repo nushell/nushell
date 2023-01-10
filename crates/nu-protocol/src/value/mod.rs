@@ -359,7 +359,7 @@ impl Value {
             Value::Binary { span, .. } => Ok(*span),
             Value::CellPath { span, .. } => Ok(*span),
             Value::CustomValue { span, .. } => Ok(*span),
-            Value::LazyRecord { val, span } => todo!(),
+            Value::LazyRecord { span, .. } => Ok(*span),
         }
     }
 
@@ -796,6 +796,30 @@ impl Value {
                             );
                         }
                     }
+                    Value::LazyRecord { val, span } => {
+                        let columns = val.columns();
+
+                        if columns.contains(&column_name.as_str()) {
+                            current = val.get_column_value(column_name)?;
+                        } else {
+                            if from_user_input {
+                                if let Some(suggestion) = did_you_mean(&columns, column_name) {
+                                    err_or_null!(
+                                        ShellError::DidYouMean(suggestion, *origin_span),
+                                        *origin_span
+                                    );
+                                }
+                            }
+                            err_or_null!(
+                                ShellError::CantFindColumn(
+                                    column_name.to_string(),
+                                    *origin_span,
+                                    *span,
+                                ),
+                                *origin_span
+                            );
+                        }
+                    }
                     // String access of Lists always means Table access.
                     // Create a List which contains each matching value for contained
                     // records in the source list.
@@ -878,9 +902,6 @@ impl Value {
                         current = val.follow_path_string(column_name.clone(), *origin_span)?;
                     }
                     Value::Error { error } => err_or_null!(error.to_owned(), *origin_span),
-                    Value::LazyRecord { val, .. } => {
-                        current = val.get_column_value(column_name)?;
-                    }
                     x => {
                         err_or_null!(
                             ShellError::IncompatiblePathAccess(
