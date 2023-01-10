@@ -878,8 +878,8 @@ impl Value {
                         current = val.follow_path_string(column_name.clone(), *origin_span)?;
                     }
                     Value::Error { error } => err_or_null!(error.to_owned(), *origin_span),
-                    Value::LazyRecord { val, span } => {
-                        current = val.get_column_value(column_name, *span)?;
+                    Value::LazyRecord { val, .. } => {
+                        current = val.get_column_value(column_name)?;
                     }
                     x => {
                         err_or_null!(
