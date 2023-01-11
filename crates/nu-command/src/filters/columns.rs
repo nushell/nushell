@@ -122,7 +122,7 @@ fn getcol(
                 .into_pipeline_data(ctrlc)
                 .set_metadata(metadata))
         }
-        PipelineData::Value(Value::LazyRecord { val, span }, ..) => Ok(val
+        PipelineData::Value(Value::LazyRecord { val, .. }, ..) => Ok(val
             .columns()
             .into_iter()
             .map(move |x| Value::String {

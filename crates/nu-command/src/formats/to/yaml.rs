@@ -62,6 +62,10 @@ pub fn value_to_yaml_value(v: &Value) -> Result<serde_yaml::Value, ShellError> {
             }
             serde_yaml::Value::Mapping(m)
         }
+        Value::LazyRecord { val, span } => {
+            let collected = val.collect()?;
+            value_to_yaml_value(&collected)?
+        }
         Value::List { vals, .. } => {
             let mut out = vec![];
 
@@ -92,7 +96,6 @@ pub fn value_to_yaml_value(v: &Value) -> Result<serde_yaml::Value, ShellError> {
                 .collect::<Result<Vec<serde_yaml::Value>, ShellError>>()?,
         ),
         Value::CustomValue { .. } => serde_yaml::Value::Null,
-        Value::LazyRecord { val, span } => todo!(),
     })
 }
 

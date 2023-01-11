@@ -262,6 +262,10 @@ fn nu_value_to_string(value: Value, separator: &str) -> String {
             .map(|(x, y)| format!("{}: {}", x, nu_value_to_string(y.clone(), ", ")))
             .collect::<Vec<_>>()
             .join(separator),
+        Value::LazyRecord { val, .. } => match val.collect() {
+            Ok(val) => nu_value_to_string(val, separator),
+            Err(error) => format!("{:?}", error),
+        },
         Value::Block { val, .. } => format!("<Block {}>", val),
         Value::Closure { val, .. } => format!("<Closure {}>", val),
         Value::Nothing { .. } => String::new(),
@@ -269,7 +273,6 @@ fn nu_value_to_string(value: Value, separator: &str) -> String {
         Value::Binary { val, .. } => format!("{:?}", val),
         Value::CellPath { val, .. } => val.into_string(),
         Value::CustomValue { val, .. } => val.value_string(),
-        Value::LazyRecord { val, span } => todo!(),
     }
 }
 
