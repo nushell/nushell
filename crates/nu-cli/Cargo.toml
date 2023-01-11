@@ -24,7 +24,7 @@ reedline = { version = "0.14.0", features = ["bashisms", "sqlite"]}
 
 atty = "0.2.14"
 chrono = { default-features = false, features = ["std"], version = "0.4.23" }
-crossterm = "0.24.0"
+crossterm = "0.25.0"
 fancy-regex = "0.10.0"
 fuzzy-matcher = "0.3.7"
 is_executable = "1.0.1"
