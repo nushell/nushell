@@ -1,15 +1,18 @@
 use crate::{ShellError, Span, Value};
-use std::{cmp::Ordering, fmt};
+use std::fmt;
 
 // Trait definition for a lazy record (where columns are evaluated on-demand)
 // typetag is needed to make this implement Serialize+Deserialize... even though we should never actually serialize a LazyRecord.
-// To serialize a LazyRecord, collect it into a Value::Record first.
+// To serialize a LazyRecord, collect it into a Value::Record with collect() first.
 #[typetag::serde(tag = "type")]
 pub trait LazyRecord: fmt::Debug + Send + Sync {
     // All column names
     fn column_names(&self) -> Vec<&'static str>;
 
+    // Get 1 specific column value
     fn get_column_value(&self, column: &str) -> Result<Value, ShellError>;
+
+    fn span(&self) -> Span;
 
     // Convert the lazy record into a regular Value::Record by collecting all its columns
     fn collect(&self) -> Result<Value, ShellError> {
@@ -27,16 +30,5 @@ pub trait LazyRecord: fmt::Debug + Send + Sync {
             vals,
             span: self.span(),
         })
-    }
-
-    fn span(&self) -> Span;
-
-    // String representation of the lazy record.
-    fn value_string(&self) -> String {
-        "LazyRecord".into()
-    }
-    // ordering with other value
-    fn partial_cmp(&self, _other: &Value) -> Option<Ordering> {
-        None
     }
 }

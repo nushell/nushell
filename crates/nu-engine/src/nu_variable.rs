@@ -30,10 +30,6 @@ impl NuVariable {
 }
 
 impl LazyRecord for NuVariable {
-    fn value_string(&self) -> String {
-        "$nu".to_string()
-    }
-
     fn column_names(&self) -> Vec<&'static str> {
         let mut cols = vec!["config-path", "env-path", "history-path", "loginshell-path"];
 
@@ -191,16 +187,16 @@ impl LazyRecord for NuVariable {
         }
     }
 
+    fn span(&self) -> Span {
+        self.span
+    }
+
     fn typetag_name(&self) -> &'static str {
-        todo!()
+        "nu_variable"
     }
 
     fn typetag_deserialize(&self) {
-        todo!()
-    }
-
-    fn span(&self) -> Span {
-        self.span
+        unimplemented!("typetag_deserialize")
     }
 }
 
