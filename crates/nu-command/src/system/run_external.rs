@@ -476,6 +476,7 @@ impl ExternalCommand {
                             Box::new(stdout_receiver),
                             output_ctrlc.clone(),
                             head,
+                            None,
                         ))
                     } else {
                         None
@@ -485,6 +486,7 @@ impl ExternalCommand {
                             Box::new(stderr_receiver),
                             output_ctrlc.clone(),
                             head,
+                            None,
                         ))
                     } else {
                         None

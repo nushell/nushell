@@ -415,6 +415,7 @@ fn response_to_buffer(
             }),
             engine_state.ctrlc.clone(),
             span,
+            None,
         )),
         stderr: None,
         exit_code: None,

@@ -35,7 +35,7 @@ impl Command for NuHighlight {
         let head = call.head;
 
         let ctrlc = engine_state.ctrlc.clone();
-        let engine_state = engine_state.clone();
+        let engine_state = std::sync::Arc::new(engine_state.clone());
         let config = engine_state.get_config().clone();
 
         let highlighter = crate::NuHighlighter {

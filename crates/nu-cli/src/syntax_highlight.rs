@@ -6,9 +6,10 @@ use nu_protocol::ast::{Argument, Block, Expr, Expression, PipelineElement};
 use nu_protocol::engine::{EngineState, StateWorkingSet};
 use nu_protocol::{Config, Span};
 use reedline::{Highlighter, StyledText};
+use std::sync::Arc;
 
 pub struct NuHighlighter {
-    pub engine_state: EngineState,
+    pub engine_state: Arc<EngineState>,
     pub config: Config,
 }
 

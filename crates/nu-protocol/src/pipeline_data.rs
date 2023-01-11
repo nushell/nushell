@@ -566,6 +566,7 @@ impl PipelineData {
                     Box::new(vec![Ok(stderr_bytes)].into_iter()),
                     stderr_ctrlc,
                     stderr_span,
+                    None,
                 )
             });
 
