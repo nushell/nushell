@@ -330,6 +330,10 @@ fn handle_table_command(
 
             Ok(val.into_pipeline_data())
         }
+        PipelineData::Value(Value::LazyRecord { val, .. }, ..) => {
+            let collected = val.collect()?.into_pipeline_data();
+            handle_table_command(engine_state, stack, call, collected, row_offset, table_view, term_width)
+        }
         PipelineData::Value(Value::Error { error }, ..) => {
             // Propagate this error outward, so that it goes to stderr
             // instead of stdout.
@@ -337,10 +341,6 @@ fn handle_table_command(
         }
         PipelineData::Value(Value::CustomValue { val, span }, ..) => {
             let base_pipeline = val.to_base_value(span)?.into_pipeline_data();
-            Table.run(engine_state, stack, call, base_pipeline)
-        }
-        PipelineData::Value(Value::LazyRecord { val, span }, ..) => {
-            let base_pipeline = val.collect()?.into_pipeline_data();
             Table.run(engine_state, stack, call, base_pipeline)
         }
         PipelineData::Value(Value::Range { val, .. }, metadata) => handle_row_stream(

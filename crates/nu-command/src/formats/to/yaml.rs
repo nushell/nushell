@@ -62,7 +62,7 @@ pub fn value_to_yaml_value(v: &Value) -> Result<serde_yaml::Value, ShellError> {
             }
             serde_yaml::Value::Mapping(m)
         }
-        Value::LazyRecord { val, span } => {
+        Value::LazyRecord { val, .. } => {
             let collected = val.collect()?;
             value_to_yaml_value(&collected)?
         }
