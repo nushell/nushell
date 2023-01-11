@@ -176,11 +176,11 @@ pub fn evaluate_repl(
         let engine_reference = std::sync::Arc::new(engine_state.clone());
         line_editor = line_editor
             .with_highlighter(Box::new(NuHighlighter {
-                engine_state: engine_state.clone(),
+                engine_state: engine_reference.clone(),
                 config: config.clone(),
             }))
             .with_validator(Box::new(NuValidator {
-                engine_state: engine_state.clone(),
+                engine_state: engine_reference.clone(),
             }))
             .with_completer(Box::new(NuCompleter::new(
                 engine_reference.clone(),
