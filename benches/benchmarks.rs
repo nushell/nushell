@@ -2,7 +2,7 @@ use criterion::{criterion_group, criterion_main, BatchSize, Criterion};
 use nu_cli::eval_source;
 use nu_parser::parse;
 use nu_plugin::{EncodingType, PluginResponse};
-use nu_protocol::{Span, Value, PipelineData};
+use nu_protocol::{PipelineData, Span, Value};
 use nu_utils::{get_default_config, get_default_env};
 
 // FIXME: All benchmarks live in this 1 file to speed up build times when benchmarking.
@@ -70,7 +70,6 @@ fn parser_benchmarks(c: &mut Criterion) {
     });
 }
 
-
 fn eval_benchmarks(c: &mut Criterion) {
     c.bench_function("eval default_env.nu", |b| {
         b.iter(|| {
@@ -104,7 +103,6 @@ fn eval_benchmarks(c: &mut Criterion) {
             )
         })
     });
-   
 }
 
 // generate a new table data with `row_cnt` rows, `col_cnt` columns.
@@ -137,7 +135,8 @@ fn encoding_benchmarks(c: &mut Criterion) {
         for fmt in ["json", "msgpack"] {
             group.bench_function(&format!("{fmt} encode {row_cnt} * {col_cnt}"), |b| {
                 let mut res = vec![];
-                let test_data = PluginResponse::Value(Box::new(encoding_test_data(row_cnt, col_cnt)));
+                let test_data =
+                    PluginResponse::Value(Box::new(encoding_test_data(row_cnt, col_cnt)));
                 let encoder = EncodingType::try_from_bytes(fmt.as_bytes()).unwrap();
                 b.iter(|| encoder.encode_response(&test_data, &mut res))
             });
@@ -163,7 +162,8 @@ fn decoding_benchmarks(c: &mut Criterion) {
         for fmt in ["json", "msgpack"] {
             group.bench_function(&format!("{fmt} decode for {row_cnt} * {col_cnt}"), |b| {
                 let mut res = vec![];
-                let test_data = PluginResponse::Value(Box::new(encoding_test_data(row_cnt, col_cnt)));
+                let test_data =
+                    PluginResponse::Value(Box::new(encoding_test_data(row_cnt, col_cnt)));
                 let encoder = EncodingType::try_from_bytes(fmt.as_bytes()).unwrap();
                 encoder.encode_response(&test_data, &mut res).unwrap();
                 let mut binary_data = std::io::Cursor::new(res);
@@ -177,6 +177,11 @@ fn decoding_benchmarks(c: &mut Criterion) {
     group.finish();
 }
 
-
-criterion_group!(benches, parser_benchmarks, eval_benchmarks, encoding_benchmarks, decoding_benchmarks);
+criterion_group!(
+    benches,
+    parser_benchmarks,
+    eval_benchmarks,
+    encoding_benchmarks,
+    decoding_benchmarks
+);
 criterion_main!(benches);
