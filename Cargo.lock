@@ -2184,6 +2184,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "lscolors"
+version = "0.13.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "c2dedc85d67baf5327114fad78ab9418f8893b1121c17d5538dd11005ad1ddf2"
+dependencies = [
+ "crossterm 0.25.0",
+]
+
+[[package]]
 name = "lz4"
 version = "1.24.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2667,7 +2676,7 @@ dependencies = [
  "itertools",
  "libc",
  "log",
- "lscolors",
+ "lscolors 0.13.0",
  "md-5",
  "mime",
  "mime_guess",
@@ -2752,7 +2761,7 @@ version = "0.74.1"
 dependencies = [
  "ansi-str 0.7.2",
  "crossterm 0.24.0",
- "lscolors",
+ "lscolors 0.12.0",
  "nu-ansi-term",
  "nu-color-config",
  "nu-engine",
@@ -2915,7 +2924,7 @@ name = "nu-utils"
 version = "0.74.1"
 dependencies = [
  "crossterm_winapi",
- "lscolors",
+ "lscolors 0.13.0",
  "num-format",
  "strip-ansi-escapes",
  "sys-locale",

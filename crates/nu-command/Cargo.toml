@@ -56,7 +56,7 @@ Inflector = "0.11"
 is-root = "0.1.2"
 itertools = "0.10.0"
 log = "0.4.14"
-lscolors = { version = "0.12.0", features = ["crossterm"], default-features = false }
+lscolors = { version = "0.13.0", features = ["crossterm"], default-features = false }
 md5 = { package = "md-5", version = "0.10.0" }
 mime = "0.3.16"
 mime_guess = "2.0.4"
