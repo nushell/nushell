@@ -951,10 +951,9 @@ pub fn into_code(err: &ShellError) -> Option<String> {
 }
 
 pub fn did_you_mean<S: AsRef<str>>(possibilities: &[S], input: &str) -> Option<String> {
-    // let iter = possibilities.into_iter();
-    let asdf: Vec<&str> = possibilities.iter().map(|s| s.as_ref()).collect();
+    let possibilities: Vec<&str> = possibilities.iter().map(|s| s.as_ref()).collect();
     let suggestion =
-        crate::lev_distance::find_best_match_for_name_with_substrings(&asdf, input, None)
+        crate::lev_distance::find_best_match_for_name_with_substrings(&possibilities, input, None)
             .map(|s| s.to_string());
     if let Some(suggestion) = &suggestion {
         if suggestion.len() == 1 && suggestion.to_lowercase() != input.to_lowercase() {
