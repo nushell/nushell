@@ -64,7 +64,7 @@ fn helper(engine_state: &EngineState, v: &Value) -> Result<toml::Value, ShellErr
         Value::LazyRecord { val, .. } => {
             let collected = val.collect()?;
             helper(engine_state, &collected)?
-        },
+        }
         Value::List { vals, .. } => toml::Value::Array(toml_list(engine_state, vals)?),
         Value::Block { span, .. } => {
             let code = engine_state.get_span_contents(span);

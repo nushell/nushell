@@ -1,4 +1,4 @@
-use crate::{current_dir_str, get_full_help, nu_variable::NuVariable, scope::create_scope};
+use crate::{current_dir_str, get_full_help, nu_variable::NuVariable};
 use nu_path::expand_path_with;
 use nu_protocol::{
     ast::{
@@ -6,12 +6,11 @@ use nu_protocol::{
         Operator, PathMember, PipelineElement, Redirection,
     },
     engine::{EngineState, Stack},
-    Config, HistoryFileFormat, IntoInterruptiblePipelineData, IntoPipelineData, PipelineData,
-    Range, ShellError, Span, Spanned, Unit, Value, VarId, ENV_VARIABLE_ID,
+    Config, IntoInterruptiblePipelineData, IntoPipelineData, PipelineData, Range, ShellError, Span,
+    Spanned, Unit, Value, VarId, ENV_VARIABLE_ID,
 };
 use nu_utils::stdout_write_all_and_flush;
 use std::collections::HashMap;
-use sysinfo::SystemExt;
 
 pub fn eval_operator(op: &Expression) -> Result<Operator, ShellError> {
     match op {

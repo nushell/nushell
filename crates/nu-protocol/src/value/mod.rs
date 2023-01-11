@@ -146,6 +146,13 @@ impl Clone for Value {
                 vals: vals.clone(),
                 span: *span,
             },
+            Value::LazyRecord { val, .. } => {
+                match val.collect() {
+                    Ok(val) => val,
+                    // this is a bit weird, but because clone() is infallible...
+                    Err(error) => Value::Error { error },
+                }
+            }
             Value::List { vals, span } => Value::List {
                 vals: vals.clone(),
                 span: *span,
@@ -176,7 +183,6 @@ impl Clone for Value {
                 span: *span,
             },
             Value::CustomValue { val, span } => val.clone_value(*span),
-            Value::LazyRecord { val, span } => todo!(),
         }
     }
 }
@@ -382,6 +388,7 @@ impl Value {
             Value::Range { span, .. } => *span = new_span,
             Value::String { span, .. } => *span = new_span,
             Value::Record { span, .. } => *span = new_span,
+            Value::LazyRecord { span, .. } => *span = new_span,
             Value::List { span, .. } => *span = new_span,
             Value::Closure { span, .. } => *span = new_span,
             Value::Block { span, .. } => *span = new_span,
@@ -390,7 +397,6 @@ impl Value {
             Value::Binary { span, .. } => *span = new_span,
             Value::CellPath { span, .. } => *span = new_span,
             Value::CustomValue { span, .. } => *span = new_span,
-            Value::LazyRecord { val, span } => todo!(),
         }
 
         self
@@ -437,6 +443,10 @@ impl Value {
                     None => Type::List(Box::new(ty.unwrap_or(Type::Any))),
                 }
             }
+            Value::LazyRecord { val, .. } => match val.collect() {
+                Ok(val) => val.get_type(),
+                Err(..) => Type::Error,
+            },
             Value::Nothing { .. } => Type::Nothing,
             Value::Block { .. } => Type::Block,
             Value::Closure { .. } => Type::Closure,
@@ -444,11 +454,6 @@ impl Value {
             Value::Binary { .. } => Type::Binary,
             Value::CellPath { .. } => Type::CellPath,
             Value::CustomValue { val, .. } => Type::Custom(val.typetag_name().into()),
-            Value::LazyRecord { val, span } => {
-                // fuuuuuuuck do I need to get the types of each value too?
-                // let cols = val.get_column_map(span).into_iter().map(|kv| kv.0).collect();
-                Type::Record(vec![])
-            }
         }
     }
 
@@ -528,6 +533,13 @@ impl Value {
                     .collect::<Vec<_>>()
                     .join(separator)
             ),
+            Value::LazyRecord { val, .. } => {
+                let collected = match val.collect() {
+                    Ok(val) => val,
+                    Err(error) => Value::Error { error },
+                };
+                collected.into_string(separator, config)
+            }
             Value::Block { val, .. } => format!("<Block {}>", val),
             Value::Closure { val, .. } => format!("<Closure {}>", val),
             Value::Nothing { .. } => String::new(),
@@ -535,7 +547,6 @@ impl Value {
             Value::Binary { val, .. } => format!("{:?}", val),
             Value::CellPath { val, .. } => val.into_string(),
             Value::CustomValue { val, .. } => val.value_string(),
-            Value::LazyRecord { val, span } => val.value_string(),
         }
     }
 
@@ -573,6 +584,10 @@ impl Value {
                 cols.len(),
                 if cols.len() == 1 { "" } else { "s" }
             ),
+            Value::LazyRecord { val, .. } => match val.collect() {
+                Ok(val) => val.into_abbreviated_string(config),
+                Err(error) => format!("{:?}", error),
+            },
             Value::Block { val, .. } => format!("<Block {}>", val),
             Value::Closure { val, .. } => format!("<Closure {}>", val),
             Value::Nothing { .. } => String::new(),
@@ -580,7 +595,6 @@ impl Value {
             Value::Binary { val, .. } => format!("{:?}", val),
             Value::CellPath { val, .. } => val.into_string(),
             Value::CustomValue { val, .. } => val.value_string(),
-            Value::LazyRecord { val, span } => todo!(),
         }
     }
 
@@ -621,6 +635,10 @@ impl Value {
                     .collect::<Vec<_>>()
                     .join(separator)
             ),
+            Value::LazyRecord { val, .. } => match val.collect() {
+                Ok(val) => val.debug_string(separator, config),
+                Err(error) => format!("{:?}", error),
+            },
             Value::Block { val, .. } => format!("<Block {}>", val),
             Value::Closure { val, .. } => format!("<Closure {}>", val),
             Value::Nothing { .. } => String::new(),
@@ -628,7 +646,6 @@ impl Value {
             Value::Binary { val, .. } => format!("{:?}", val),
             Value::CellPath { val, .. } => val.into_string(),
             Value::CustomValue { val, .. } => val.value_string(),
-            Value::LazyRecord { val, span } => todo!(),
         }
     }
 
