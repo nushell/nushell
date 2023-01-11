@@ -814,7 +814,7 @@ impl Value {
                         }
                     }
                     Value::LazyRecord { val, span } => {
-                        let columns = val.columns();
+                        let columns = val.column_names();
 
                         if columns.contains(&column_name.as_str()) {
                             current = val.get_column_value(column_name)?;

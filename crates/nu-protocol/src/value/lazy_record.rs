@@ -7,7 +7,7 @@ use std::{cmp::Ordering, fmt};
 #[typetag::serde(tag = "type")]
 pub trait LazyRecord: fmt::Debug + Send + Sync {
     // All column names
-    fn columns(&self) -> Vec<&'static str>;
+    fn column_names(&self) -> Vec<&'static str>;
 
     fn get_column_value(&self, column: &str) -> Result<Value, ShellError>;
 
@@ -16,7 +16,7 @@ pub trait LazyRecord: fmt::Debug + Send + Sync {
         let mut cols = vec![];
         let mut vals = vec![];
 
-        for column in self.columns() {
+        for column in self.column_names() {
             cols.push(column.into());
             let val = self.get_column_value(column)?;
             vals.push(val);

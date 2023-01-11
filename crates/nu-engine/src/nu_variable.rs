@@ -34,7 +34,7 @@ impl LazyRecord for NuVariable {
         "$nu".to_string()
     }
 
-    fn columns(&self) -> Vec<&'static str> {
+    fn column_names(&self) -> Vec<&'static str> {
         let mut cols = vec!["config-path", "env-path", "history-path", "loginshell-path"];
 
         #[cfg(feature = "plugin")]

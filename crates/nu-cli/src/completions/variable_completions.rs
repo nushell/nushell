@@ -264,7 +264,7 @@ fn nested_suggestions(
         }
         Value::LazyRecord { val, .. } => {
             // Add all the columns as completion
-            for column_name in val.columns() {
+            for column_name in val.column_names() {
                 output.push(Suggestion {
                     value: column_name.to_string(),
                     description: None,

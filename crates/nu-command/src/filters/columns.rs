@@ -123,7 +123,7 @@ fn getcol(
                 .set_metadata(metadata))
         }
         PipelineData::Value(Value::LazyRecord { val, .. }, ..) => Ok(val
-            .columns()
+            .column_names()
             .into_iter()
             .map(move |x| Value::String {
                 val: x.into(),
