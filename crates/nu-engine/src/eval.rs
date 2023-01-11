@@ -1060,13 +1060,14 @@ pub fn eval_variable(
 ) -> Result<Value, ShellError> {
     match var_id {
         // $nu
-        nu_protocol::NU_VARIABLE_ID => {
-            let nuvar = NuVariable::new(engine_state.clone(), stack.clone(), span);
-            Ok(Value::LazyRecord {
-                val: Box::new(nuvar),
+        nu_protocol::NU_VARIABLE_ID => Ok(Value::LazyRecord {
+            val: Box::new(NuVariable {
+                engine_state: engine_state.clone(),
+                stack: stack.clone(),
                 span,
-            })
-        }
+            }),
+            span,
+        }),
         ENV_VARIABLE_ID => {
             let env_vars = stack.get_env_vars(engine_state);
             let env_columns = env_vars.keys();

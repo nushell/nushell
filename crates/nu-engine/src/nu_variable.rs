@@ -7,9 +7,12 @@ use nu_protocol::{
 use serde::{Deserialize, Serialize};
 use sysinfo::SystemExt;
 
-// a LazyRecord for the special $nu variable
+// NuVariable: a LazyRecord for the special $nu variable
 // $nu used to be a plain old Record, but LazyRecord lets us load different fields/columns lazily. This is important for performance;
-// collecting all the information in $nu is expensive and unnecessary if  you just want a subset of the data
+// collecting all the information in $nu is expensive and unnecessary if you just want a subset of the data
+
+// Note: NuVariable is not meaningfully serializable, this #[derive] is a lie to satisfy the type checker.
+// Make sure to collect() the record before serializing it
 #[derive(Serialize, Deserialize)]
 pub struct NuVariable {
     #[serde(skip)]
@@ -17,16 +20,6 @@ pub struct NuVariable {
     #[serde(skip)]
     pub stack: Stack,
     pub span: Span,
-}
-
-impl NuVariable {
-    pub fn new(engine_state: EngineState, stack: Stack, span: Span) -> NuVariable {
-        NuVariable {
-            engine_state,
-            stack,
-            span,
-        }
-    }
 }
 
 impl LazyRecord for NuVariable {
@@ -181,9 +174,7 @@ impl LazyRecord for NuVariable {
 
                 Ok(os_record)
             }
-            _ => {
-                todo!()
-            }
+            _ => err(&format!("Could not find column '{column}'")),
         }
     }
 
