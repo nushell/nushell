@@ -7,18 +7,24 @@
 #   1. https://github.com/volks73/cargo-wix
 
 # Added 2022-11-29 when Windows packaging wouldn't work
-# because softprops/action-gh-release was broken
 # To run this manual for windows
+# unset CARGO_TARGET_DIR if set
+# hide-env CARGO_TARGET_DIR
 # let-env TARGET = 'x86_64-pc-windows-msvc'
 # let-env TARGET_RUSTFLAGS = ''
 # let-env GITHUB_WORKSPACE = 'C:\Users\dschroeder\source\repos\forks\nushell'
+# let-env GITHUB_OUTPUT = 'C:\Users\dschroeder\source\repos\forks\nushell\output\out.txt'
+# let-env OS = 'windows-latest'
+# You need to run this twice. The first pass makes the output folder and builds everything
+# The second pass generates the msi file
 # Pass 1 let-env _EXTRA_ = 'bin'
 # Pass 2 let-env _EXTRA_ = 'msi'
 # make sure 7z.exe is in your path https://www.7-zip.org/download.html
+# let-env Path = ($env.Path | append 'c:\apps\7-zip')
 # make sure aria2c.exe is in your path https://github.com/aria2/aria2
+# let-env Path = ($env.Path | append 'c:\path\to\aria2c')
 # make sure you have the wixtools installed https://wixtoolset.org/
-# set os below like this because it's what github's runner is named
-# let os = 'windows-latest'
+# let-env Path = ($env.Path | append 'C:\Users\dschroeder\AppData\Local\tauri\WixTools')
 
 
 # The main binary file to be released
