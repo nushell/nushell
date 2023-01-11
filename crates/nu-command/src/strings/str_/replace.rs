@@ -36,21 +36,21 @@ impl Command for SubCommand {
             .input_output_types(vec![(Type::String, Type::String)])
             .vectorizes_over_list(true)
             .required("find", SyntaxShape::String, "the pattern to find")
-            .required("replace", SyntaxShape::String, "the replacement pattern")
+            .required("replace", SyntaxShape::String, "the replacement string")
             .rest(
                 "rest",
                 SyntaxShape::CellPath,
                 "For a data structure input, operate on strings at the given cell paths",
             )
-            .switch("all", "replace all occurrences of find string", Some('a'))
+            .switch("all", "replace all occurrences of the pattern", Some('a'))
             .switch(
                 "no-expand",
-                "do not expand the replace parameter as a regular expression",
+                "do not expand capture groups (like $name) in the replacement string",
                 Some('n'),
             )
             .switch(
                 "string",
-                "do not use regular expressions for string find and replace",
+                "match the pattern as a substring of the input, instead of a regular expression",
                 Some('s'),
             )
             .category(Category::Strings)
