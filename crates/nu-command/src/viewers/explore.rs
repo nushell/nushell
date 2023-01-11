@@ -53,7 +53,7 @@ impl Command for Explore {
     }
 
     fn extra_usage(&self) -> &str {
-        r#"Press <:> then <h> to get a help menu."#
+        r#"Press `:` then `h` to get a help menu."#
     }
 
     fn run(
