@@ -361,6 +361,26 @@ fn response_to_buffer(
     engine_state: &EngineState,
     span: Span,
 ) -> nu_protocol::PipelineData {
+    // Try to get the size of the file to be downloaded.
+    // This is helpful to show the progress of the stream.
+    let buffer_size = match &response.headers().get("content-length") {
+        Some(content_length) => {
+            let content_length = &(*content_length).clone(); // binding
+
+            let content_length = content_length
+                .to_str()
+                .unwrap_or("")
+                .parse::<u64>()
+                .unwrap_or(0);
+
+            if content_length == 0 {
+                None
+            } else {
+                Some(content_length)
+            }
+        }
+        _ => None,
+    };
     let buffered_input = BufReader::new(response);
 
     PipelineData::ExternalStream {
@@ -370,6 +390,7 @@ fn response_to_buffer(
             }),
             engine_state.ctrlc.clone(),
             span,
+            buffer_size,
         )),
         stderr: None,
         exit_code: None,

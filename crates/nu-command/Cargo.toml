@@ -51,6 +51,7 @@ fs_extra = "1.2.0"
 htmlescape = "0.3.1"
 ical = "0.7.0"
 indexmap = { version="1.7", features=["serde-1"] }
+indicatif = "0.17.2"
 Inflector = "0.11"
 is-root = "0.1.2"
 itertools = "0.10.0"
