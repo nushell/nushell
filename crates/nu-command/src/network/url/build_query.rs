@@ -5,41 +5,45 @@ use nu_protocol::{
 };
 
 #[derive(Clone)]
-pub struct ToUrlQuery;
+pub struct SubCommand;
 
-impl Command for ToUrlQuery {
+impl Command for SubCommand {
     fn name(&self) -> &str {
-        "to url query"
+        "url build-query"
     }
 
     fn signature(&self) -> Signature {
-        Signature::build("to url query")
+        Signature::build("url build-query")
             .input_output_types(vec![
                 (Type::Record(vec![]), Type::String),
                 (Type::Table(vec![]), Type::String),
             ])
-            .category(Category::Formats)
+            .category(Category::Network)
     }
 
     fn usage(&self) -> &str {
-        "Convert record or table into query string applying percent-encoding."
+        "Converts record or table into query string applying percent-encoding."
+    }
+
+    fn search_terms(&self) -> Vec<&str> {
+        vec!["query", "convert", "record", "table"]
     }
 
     fn examples(&self) -> Vec<Example> {
         vec![
             Example {
                 description: "Outputs a query string representing the contents of this record",
-                example: r#"{ mode:normal userid:31415 } | to url query"#,
+                example: r#"{ mode:normal userid:31415 } | url build-query"#,
                 result: Some(Value::test_string("mode=normal&userid=31415")),
             },
             Example {
                 description: "Outputs a query string representing the contents of this 1-row table",
-                example: r#"[[foo bar]; ["1" "2"]] | to url query"#,
+                example: r#"[[foo bar]; ["1" "2"]] | url build-query"#,
                 result: Some(Value::test_string("foo=1&bar=2")),
             },
             Example {
                 description: "Outputs a query string representing the contents of this record",
-                example: r#"{a:"AT&T", b: "AT T"} | to url query"#,
+                example: r#"{a:"AT&T", b: "AT T"} | url build-query"#,
                 result: Some(Value::test_string("a=AT%26T&b=AT+T")),
             },
         ]
@@ -115,6 +119,6 @@ mod test {
     fn test_examples() {
         use crate::test_examples;
 
-        test_examples(ToUrlQuery {})
+        test_examples(SubCommand {})
     }
 }
