@@ -74,30 +74,36 @@ fn separate_redirection() {
         "external with both stdout and stderr messages, to different file",
         |dirs, sandbox| {
             let script_body = r#"
-        x=$(printf '=%.0s' {1..100})
-        echo $x
-        echo $x 1>&2
+        echo message
+        echo message 1>&2
         "#;
-            let mut expect_body = String::new();
-            for _ in 0..100 {
-                expect_body.push('=');
+            let expect_body = "message";
+
+            #[cfg(not(windows))]
+            {
+                sandbox.with_files(vec![FileWithContent("test.sh", script_body)]);
+                nu!(
+                    cwd: dirs.test(),
+                    r#"bash test.sh out> out.txt err> err.txt"#
+                );
             }
-
-            sandbox.with_files(vec![FileWithContent("test.sh", script_body)]);
-
-            nu!(
-                cwd: dirs.test(),
-                r#"bash test.sh out> out.txt err> err.txt"#
-            );
+            #[cfg(windows)]
+            {
+                sandbox.with_files(vec![FileWithContent("test.bat", script_body)]);
+                nu!(
+                    cwd: dirs.test(),
+                    r#"cmd /D /c test.bat out> out.txt err> err.txt"#
+                );
+            }
             // check for stdout redirection file.
             let expected_out_file = dirs.test().join("out.txt");
             let actual = file_contents(expected_out_file);
-            assert!(actual.contains(&expect_body));
+            assert!(actual.contains(expect_body));
 
             // check for stderr redirection file.
             let expected_err_file = dirs.test().join("err.txt");
             let actual = file_contents(expected_err_file);
-            assert!(actual.contains(&expect_body));
+            assert!(actual.contains(expect_body));
         },
     )
 }
