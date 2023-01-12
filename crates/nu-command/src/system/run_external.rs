@@ -429,7 +429,7 @@ impl ExternalCommand {
                                             let sigstr: &'static CStr = CStr::from_ptr(sigstr_ptr);
                                             sigstr.to_str().ok()
                                         })
-                                        .unwrap_or("Unknown cause");
+                                        .unwrap_or("Something went wrong");
 
                                     let style = Style::new().bold().on(Color::Red);
                                     eprintln!(
