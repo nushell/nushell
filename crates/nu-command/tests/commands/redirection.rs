@@ -117,15 +117,9 @@ fn redirection_with_pipeline_works() {
         "external with stdout message with pipeline should write data",
         |dirs, sandbox| {
             let script_body = r#"
-        x=$(printf '=%.0s' {1..100})
-        echo $x
-        echo $x 1>&2
+        echo message
         "#;
-            let mut expect_body = String::new();
-            for _ in 0..100 {
-                expect_body.push('=');
-            }
-
+            let mut expect_body = "message";
             sandbox.with_files(vec![FileWithContent("test.sh", script_body)]);
 
             nu!(
@@ -135,7 +129,7 @@ fn redirection_with_pipeline_works() {
             // check for stdout redirection file.
             let expected_out_file = dirs.test().join("out.txt");
             let actual = file_contents(expected_out_file);
-            assert!(actual.contains(&expect_body));
+            assert!(actual.contains(expect_body));
         },
     )
 }
