@@ -39,7 +39,7 @@ impl Command for Encode {
     }
 
     fn extra_usage(&self) -> &str {
-        r#"Multiple encodings are supported; here is a few:
+        r#"Multiple encodings are supported; here are a few:
 big5, euc-jp, euc-kr, gbk, iso-8859-1, cp1252, latin5
 
 Note that since the Encoding Standard doesn't specify encoders for utf-16le and utf-16be, these are not yet supported.
