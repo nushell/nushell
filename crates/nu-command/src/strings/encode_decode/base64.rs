@@ -108,9 +108,22 @@ fn action(
             ActionType::Encode => {
                 let mut enc_vec = Vec::new();
                 enc_vec.resize(val.len() * 4 / 3 + 4, 0);
-                let bytes_written = base64_engine.encode_slice(val, &mut enc_vec).unwrap();
+                let bytes_written = match base64_engine.encode_slice(val, &mut enc_vec) {
+                    Ok(bytes_written) => bytes_written,
+                    Err(err) => {
+                        return Value::Error {
+                            error: ShellError::GenericError(
+                                "Error encoding data".into(),
+                                err.to_string(),
+                                Some(Span::unknown()),
+                                None,
+                                Vec::new(),
+                            ),
+                        }
+                    }
+                };
                 enc_vec.truncate(bytes_written);
-                Value::string(std::str::from_utf8(&enc_vec).unwrap(), command_span)
+                Value::string(std::str::from_utf8(&enc_vec).unwrap_or(""), command_span)
             }
             ActionType::Decode => Value::Error {
                 error: ShellError::UnsupportedInput(
