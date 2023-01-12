@@ -425,6 +425,7 @@ impl ExternalCommand {
                                     let cause = x
                                         .signal()
                                         .and_then(|sig| unsafe {
+                                            // SAFETY: We should be the first to call `char * strsignal(int sig)`
                                             let sigstr_ptr = libc::strsignal(sig);
                                             let sigstr: &'static CStr = CStr::from_ptr(sigstr_ptr);
                                             sigstr.to_str().ok()
