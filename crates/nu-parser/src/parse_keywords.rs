@@ -1459,6 +1459,9 @@ pub fn parse_module_block(
                         pipeline
                     }
                     LiteElement::Redirection(_, _, command) => garbage_pipeline(&command.parts),
+                    LiteElement::SeparateRedirection {
+                        out: (_, command), ..
+                    } => garbage_pipeline(&command.parts),
                 }
             } else {
                 error = Some(ParseError::Expected("not a pipeline".into(), span));

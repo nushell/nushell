@@ -828,6 +828,64 @@ pub fn eval_element_with_input(
             }
             _ => Err(ShellError::CommandNotFound(*span)),
         },
+        PipelineElement::SeparateRedirection {
+            out: (out_span, out_expr),
+            err: (err_span, err_expr),
+        } => match (&out_expr.expr, &err_expr.expr) {
+            (Expr::String(_), Expr::String(_)) => {
+                if let Some(save_command) = engine_state.find_decl(b"save", &[]) {
+                    eval_call(
+                        engine_state,
+                        stack,
+                        &Call {
+                            decl_id: save_command,
+                            head: *out_span,
+                            arguments: vec![
+                                Argument::Positional(out_expr.clone()),
+                                Argument::Named((
+                                    Spanned {
+                                        item: "stderr".into(),
+                                        span: *err_span,
+                                    },
+                                    None,
+                                    Some(err_expr.clone()),
+                                )),
+                                Argument::Named((
+                                    Spanned {
+                                        item: "raw".into(),
+                                        span: *out_span,
+                                    },
+                                    None,
+                                    None,
+                                )),
+                                Argument::Named((
+                                    Spanned {
+                                        item: "force".into(),
+                                        span: *out_span,
+                                    },
+                                    None,
+                                    None,
+                                )),
+                            ],
+                            redirect_stdout: false,
+                            redirect_stderr: false,
+                            parser_info: vec![],
+                        },
+                        input,
+                    )
+                    .map(|x| (x, false))
+                } else {
+                    Err(ShellError::CommandNotFound(*out_span))
+                }
+            }
+            (_out_other, err_other) => {
+                if let Expr::String(_) = err_other {
+                    Err(ShellError::CommandNotFound(*out_span))
+                } else {
+                    Err(ShellError::CommandNotFound(*err_span))
+                }
+            }
+        },
         PipelineElement::And(_, expr) => eval_expression_with_input(
             engine_state,
             stack,
@@ -902,6 +960,7 @@ pub fn eval_block(
                         pipeline.elements[i + 1],
                         PipelineElement::Redirection(_, Redirection::Stderr, _)
                             | PipelineElement::Redirection(_, Redirection::StdoutAndStderr, _)
+                            | PipelineElement::SeparateRedirection { .. }
                     )));
 
             // if eval internal command failed, it can just make early return with `Err(ShellError)`.
@@ -917,6 +976,7 @@ pub fn eval_block(
                             PipelineElement::Redirection(_, Redirection::Stdout, _)
                                 | PipelineElement::Redirection(_, Redirection::StdoutAndStderr, _)
                                 | PipelineElement::Expression(..)
+                                | PipelineElement::SeparateRedirection { .. }
                         )),
                 redirect_stderr,
             );
