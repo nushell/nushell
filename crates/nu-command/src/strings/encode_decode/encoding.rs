@@ -1,8 +1,17 @@
 use encoding_rs::Encoding;
 use nu_protocol::{ShellError, Span, Spanned, Value};
 
-pub fn decode(head: Span, encoding: Spanned<String>, bytes: &[u8]) -> Result<Value, ShellError> {
-    let encoding = parse_encoding(encoding.span, &encoding.item)?;
+pub fn decode(
+    head: Span,
+    encoding_name: Spanned<String>,
+    bytes: &[u8],
+) -> Result<Value, ShellError> {
+    // Workaround for a bug in the Encodings Specification.
+    let encoding = if encoding_name.item.to_lowercase() == "utf16" {
+        parse_encoding(encoding_name.span, "utf-16")
+    } else {
+        parse_encoding(encoding_name.span, &encoding_name.item)
+    }?;
     let (result, ..) = encoding.decode(bytes);
     Ok(Value::String {
         val: result.into_owned(),
