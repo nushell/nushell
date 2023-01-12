@@ -442,7 +442,7 @@ impl ExternalCommand {
                                     let _ = exit_code_tx.send(Value::Error {
                                         error: ShellError::ExternalCommand(
                                             "core dumped".to_string(),
-                                            format!("Child process '{commandname}' core dumped"),
+                                            format!("{cause}: child process '{commandname}' core dumped"),
                                             head,
                                         ),
                                     });
