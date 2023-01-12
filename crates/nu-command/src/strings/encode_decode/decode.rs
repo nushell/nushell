@@ -30,7 +30,7 @@ impl Command for Decode {
     }
 
     fn extra_usage(&self) -> &str {
-        r#"Multiple encodings are supported; here is a few:
+        r#"Multiple encodings are supported; here are a few:
 big5, euc-jp, euc-kr, gbk, iso-8859-1, utf-16, cp1252, latin5
 
 For a more complete list of encodings please refer to the encoding_rs
