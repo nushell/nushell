@@ -582,7 +582,7 @@ impl ExternalCommand {
         let mut process = std::process::Command::new(head);
 
         for (arg, arg_keep_raw) in self.args.iter().zip(self.arg_keep_raw.iter()) {
-            clean_expand_and_apply_arg(&mut process, arg, arg_keep_raw, cwd);
+            trim_expand_and_apply_arg(&mut process, arg, arg_keep_raw, cwd);
         }
 
         Ok(process)
@@ -607,7 +607,7 @@ impl ExternalCommand {
                 span: arg.span,
             };
 
-            clean_expand_and_apply_arg(&mut process, &arg, arg_keep_raw, cwd)
+            trim_expand_and_apply_arg(&mut process, &arg, arg_keep_raw, cwd)
         }
 
         process
@@ -627,7 +627,7 @@ impl ExternalCommand {
     }
 }
 
-fn clean_expand_and_apply_arg(
+fn trim_expand_and_apply_arg(
     process: &mut CommandSys,
     arg: &Spanned<String>,
     arg_keep_raw: &bool,
