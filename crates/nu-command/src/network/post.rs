@@ -1,19 +1,18 @@
 use crate::formats::value_to_json_value;
-use base64::encode;
+use base64::{alphabet, engine::general_purpose::PAD, engine::GeneralPurpose, Engine};
 use nu_engine::CallExt;
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::util::BufferedReader;
 use nu_protocol::RawStream;
-use reqwest::{blocking::Response, StatusCode};
-use std::path::PathBuf;
-use std::str::FromStr;
-
 use nu_protocol::{
     Category, Example, PipelineData, ShellError, Signature, Span, SyntaxShape, Type, Value,
 };
+use reqwest::{blocking::Response, StatusCode};
 use std::collections::HashMap;
 use std::io::BufReader;
+use std::path::PathBuf;
+use std::str::FromStr;
 
 #[derive(Clone)]
 pub struct SubCommand;
@@ -186,9 +185,19 @@ fn helper(
     let headers = args.headers;
     let location = url;
     let raw = args.raw;
+    let base64_engine = GeneralPurpose::new(&alphabet::STANDARD, PAD);
+
     let login = match (user, password) {
-        (Some(user), Some(password)) => Some(encode(&format!("{}:{}", user, password))),
-        (Some(user), _) => Some(encode(&format!("{}:", user))),
+        (Some(user), Some(password)) => {
+            let mut enc_str = String::new();
+            base64_engine.encode_string(&format!("{}:{}", user, password), &mut enc_str);
+            Some(enc_str)
+        }
+        (Some(user), _) => {
+            let mut enc_str = String::new();
+            base64_engine.encode_string(&format!("{}:", user), &mut enc_str);
+            Some(enc_str)
+        }
         _ => None,
     };
 

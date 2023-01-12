@@ -1,19 +1,16 @@
-use base64::encode;
+use base64::{alphabet, engine::general_purpose::PAD, engine::GeneralPurpose, Engine};
 use nu_engine::CallExt;
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::util::BufferedReader;
 use nu_protocol::RawStream;
-
 use nu_protocol::{
     Category, Example, PipelineData, ShellError, Signature, Span, SyntaxShape, Type, Value,
 };
 use reqwest::blocking::Response;
-
+use reqwest::StatusCode;
 use std::collections::HashMap;
 use std::io::BufReader;
-
-use reqwest::StatusCode;
 use std::path::PathBuf;
 use std::str::FromStr;
 use std::time::Duration;
@@ -165,10 +162,24 @@ fn helper(
     let timeout = args.timeout;
     let headers = args.headers;
     let raw = args.raw;
+    let base64_engine = GeneralPurpose::new(&alphabet::STANDARD, PAD);
+
     let login = match (user, password) {
-        (Some(user), Some(password)) => Some(encode(format!("{}:{}", user, password))),
-        (Some(user), _) => Some(encode(format!("{}:", user))),
-        (_, Some(password)) => Some(encode(format!(":{}", password))),
+        (Some(user), Some(password)) => {
+            let mut enc_str = String::new();
+            base64_engine.encode_string(&format!("{}:{}", user, password), &mut enc_str);
+            Some(enc_str)
+        }
+        (Some(user), _) => {
+            let mut enc_str = String::new();
+            base64_engine.encode_string(&format!("{}:", user), &mut enc_str);
+            Some(enc_str)
+        }
+        (_, Some(password)) => {
+            let mut enc_str = String::new();
+            base64_engine.encode_string(&format!(":{}", password), &mut enc_str);
+            Some(enc_str)
+        }
         _ => None,
     };
 
