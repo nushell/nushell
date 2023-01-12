@@ -418,13 +418,24 @@ impl ExternalCommand {
                             #[cfg(unix)]
                             {
                                 use nu_ansi_term::{Color, Style};
+                                use std::ffi::CStr;
                                 use std::os::unix::process::ExitStatusExt;
+
                                 if x.core_dumped() {
+                                    let cause = x
+                                        .signal()
+                                        .and_then(|sig| unsafe {
+                                            let sigstr_ptr = libc::strsignal(sig);
+                                            let sigstr: &'static CStr = CStr::from_ptr(sigstr_ptr);
+                                            sigstr.to_str().ok()
+                                        })
+                                        .unwrap_or("Unknown cause");
+
                                     let style = Style::new().bold().on(Color::Red);
                                     eprintln!(
                                         "{}",
                                         style.paint(format!(
-                                            "nushell: oops, process '{commandname}' core dumped"
+                                            "{cause}: oops, process '{commandname}' core dumped"
                                         ))
                                     );
                                     let _ = exit_code_tx.send(Value::Error {
