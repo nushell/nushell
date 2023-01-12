@@ -15,7 +15,11 @@ impl Command for Encode {
     }
 
     fn usage(&self) -> &str {
-        "Encode an UTF-8 string into other kind of representations."
+        // Note: "Encode a UTF-8 string into other forms" is semantically incorrect because
+        // Nushell strings, as abstract values, have no user-facing encoding.
+        // (Remember that "encoding" exclusively means "how the characters are
+        // observably represented by bytes").
+        "Encode a string into bytes."
     }
 
     fn search_terms(&self) -> Vec<&str> {
