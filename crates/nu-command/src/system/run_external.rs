@@ -427,6 +427,11 @@ impl ExternalCommand {
                                         .and_then(|sig| unsafe {
                                             // SAFETY: We should be the first to call `char * strsignal(int sig)`
                                             let sigstr_ptr = libc::strsignal(sig);
+                                            if sigstr_ptr.is_null() {
+                                                return None;
+                                            }
+
+                                            // SAFETY: The pointer points to a valid non-null string
                                             let sigstr: &'static CStr = CStr::from_ptr(sigstr_ptr);
                                             sigstr.to_str().ok()
                                         })
