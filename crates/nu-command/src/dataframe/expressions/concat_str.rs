@@ -69,6 +69,10 @@ impl Command for ExprConcatStr {
         }]
     }
 
+    fn search_terms(&self) -> Vec<&str> {
+        vec!["join", "connect", "update"]
+    }
+
     fn run(
         &self,
         engine_state: &EngineState,

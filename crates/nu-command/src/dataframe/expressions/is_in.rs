@@ -65,6 +65,10 @@ impl Command for ExprIsIn {
         }]
     }
 
+    fn search_terms(&self) -> Vec<&str> {
+        vec!["check", "contained", "is-contain", "match"]
+    }
+
     fn run(
         &self,
         engine_state: &EngineState,

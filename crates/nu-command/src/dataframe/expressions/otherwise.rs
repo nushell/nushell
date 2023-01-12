@@ -79,6 +79,10 @@ impl Command for ExprOtherwise {
         ]
     }
 
+    fn search_terms(&self) -> Vec<&str> {
+        vec!["condition", "else"]
+    }
+
     fn run(
         &self,
         engine_state: &EngineState,

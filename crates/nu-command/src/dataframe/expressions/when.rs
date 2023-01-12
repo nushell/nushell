@@ -85,6 +85,10 @@ impl Command for ExprWhen {
         ]
     }
 
+    fn search_terms(&self) -> Vec<&str> {
+        vec!["condition", "match", "if", "else"]
+    }
+
     fn run(
         &self,
         engine_state: &EngineState,

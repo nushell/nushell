@@ -27,6 +27,10 @@ impl Command for SubCommand {
         "Generate a random integer [min..max]"
     }
 
+    fn search_terms(&self) -> Vec<&str> {
+        vec!["generate", "natural", "number"]
+    }
+
     fn run(
         &self,
         engine_state: &EngineState,

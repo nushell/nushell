@@ -55,6 +55,10 @@ impl Command for ExprQuantile {
         }]
     }
 
+    fn search_terms(&self) -> Vec<&str> {
+        vec!["statistics", "percentile", "distribution"]
+    }
+
     fn run(
         &self,
         engine_state: &EngineState,
