@@ -65,7 +65,6 @@ fn redirect_out() {
     })
 }
 
-#[cfg(not(windows))]
 #[test]
 fn separate_redirection() {
     use nu_test_support::fs::{file_contents, Stub::FileWithContent};
