@@ -117,7 +117,7 @@ fn redirection_with_pipeline_works() {
         "external with stdout message with pipeline should write data",
         |dirs, sandbox| {
             let script_body = r"echo message";
-            let mut expect_body = "message";
+            let expect_body = "message";
             sandbox.with_files(vec![FileWithContent("test.sh", script_body)]);
 
             nu!(
