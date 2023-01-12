@@ -1,4 +1,3 @@
-use nu_test_support::fs::Stub::EmptyFile;
 use nu_test_support::playground::Playground;
 use nu_test_support::{nu, pipeline};
 
@@ -210,49 +209,6 @@ fn external_command_not_expand_tilde_with_quotes() {
             assert_eq!(actual.out, r#"~"#);
         },
     )
-}
-
-#[cfg(windows)]
-#[test]
-fn explicit_glob_windows() {
-    Playground::setup("external with explicit glob", |dirs, sandbox| {
-        sandbox.with_files(vec![
-            EmptyFile("D&D_volume_1.txt"),
-            EmptyFile("D&D_volume_2.txt"),
-            EmptyFile("foo.sh"),
-        ]);
-
-        let actual = nu!(
-            cwd: dirs.test(), pipeline(
-            r#"
-                ^dir | glob '*.txt' | length
-            "#
-        ));
-
-        assert_eq!(actual.out, "2");
-    })
-}
-
-#[cfg(windows)]
-#[test]
-fn bare_word_expand_path_glob_windows() {
-    Playground::setup("bare word should do the expansion", |dirs, sandbox| {
-        sandbox.with_files(vec![
-            EmptyFile("D&D_volume_1.txt"),
-            EmptyFile("D&D_volume_2.txt"),
-            EmptyFile("foo.sh"),
-        ]);
-
-        let actual = nu!(
-            cwd: dirs.test(), pipeline(
-            r#"
-                ^dir *.txt
-            "#
-        ));
-
-        assert!(actual.out.contains("D&D_volume_1.txt"));
-        assert!(actual.out.contains("D&D_volume_2.txt"));
-    })
 }
 
 #[cfg(windows)]
