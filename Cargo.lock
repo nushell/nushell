@@ -1194,6 +1194,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "fancy-regex"
+version = "0.11.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b95f7c0680e4142284cf8b22c14a476e87d61b004a3a0861872b32ef7ead40a2"
+dependencies = [
+ "bit-set",
+ "regex",
+]
+
+[[package]]
 name = "fastrand"
 version = "1.8.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1563,7 +1573,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "ce69ed202df415a3d4a01e6f3341320ca88b9bd4f0bf37be6fa239cdea06d9bf"
 dependencies = [
  "fxhash",
- "hashbrown",
+ "hashbrown 0.12.3",
  "serde",
 ]
 
@@ -1603,12 +1613,21 @@ dependencies = [
 ]
 
 [[package]]
+name = "hashbrown"
+version = "0.13.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "43a3c133739dddd0d2990f9a4bdf8eb4b21ef50e4851ca85ab661199821d510e"
+dependencies = [
+ "ahash 0.8.1",
+]
+
+[[package]]
 name = "hashlink"
 version = "0.8.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "69fe1fcf8b4278d860ad0548329f892a3631fb63f82574df68275f34cdbe0ffa"
 dependencies = [
- "hashbrown",
+ "hashbrown 0.12.3",
 ]
 
 [[package]]
@@ -1781,7 +1800,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "10a35a97730320ffe8e2d410b5d3b69279b98d2c14bdb8b70ea89ecf7888d41e"
 dependencies = [
  "autocfg",
- "hashbrown",
+ "hashbrown 0.12.3",
  "serde",
 ]
 
@@ -2167,11 +2186,11 @@ dependencies = [
 
 [[package]]
 name = "lru"
-version = "0.8.1"
+version = "0.9.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b6e8aaa3f231bb4bd57b84b2d5dc3ae7f350265df8aa96492e0bc394a1571909"
+checksum = "71e7d46de488603ffdd5f30afbc64fbba2378214a2c3a2fb83abf3d33126df17"
 dependencies = [
- "hashbrown",
+ "hashbrown 0.13.2",
 ]
 
 [[package]]
@@ -2596,7 +2615,7 @@ dependencies = [
  "atty",
  "chrono",
  "crossterm 0.24.0",
- "fancy-regex",
+ "fancy-regex 0.10.0",
  "fuzzy-matcher",
  "is_executable",
  "log",
@@ -2654,7 +2673,7 @@ dependencies = [
  "dtparse",
  "eml-parser",
  "encoding_rs",
- "fancy-regex",
+ "fancy-regex 0.10.0",
  "filesize",
  "filetime",
  "fs_extra",
@@ -2837,8 +2856,7 @@ dependencies = [
  "byte-unit",
  "chrono",
  "chrono-humanize",
- "crossterm 0.24.0",
- "fancy-regex",
+ "fancy-regex 0.11.0",
  "indexmap",
  "lru",
  "miette",
@@ -2846,7 +2864,6 @@ dependencies = [
  "nu-test-support",
  "nu-utils",
  "num-format",
- "reedline",
  "serde",
  "serde_json",
  "strum",
@@ -3570,7 +3587,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "7aac9a1d70c683cda8dd4958bd489d8c0206c5ab1435a656a14563c6415f5a64"
 dependencies = [
  "arrow2",
- "hashbrown",
+ "hashbrown 0.12.3",
  "num 0.4.0",
  "serde",
  "thiserror",
@@ -3588,7 +3605,7 @@ dependencies = [
  "bitflags",
  "chrono",
  "comfy-table",
- "hashbrown",
+ "hashbrown 0.12.3",
  "indexmap",
  "num 0.4.0",
  "once_cell",
@@ -3671,7 +3688,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "fa865a4fc6dcfb9967505c4714c29277898e21dd29ea7633a3f9d1abbe879a7d"
 dependencies = [
  "enum_dispatch",
- "hashbrown",
+ "hashbrown 0.12.3",
  "num 0.4.0",
  "polars-core",
  "polars-io",
@@ -5336,7 +5353,7 @@ version = "0.1.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "c5faade31a542b8b35855fff6e8def199853b2da8da256da52f52f1316ee3137"
 dependencies = [
- "hashbrown",
+ "hashbrown 0.12.3",
  "regex",
 ]
 
