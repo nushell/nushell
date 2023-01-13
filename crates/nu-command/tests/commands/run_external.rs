@@ -1,3 +1,4 @@
+#[cfg(not(windows))]
 use nu_test_support::fs::Stub::EmptyFile;
 use nu_test_support::playground::Playground;
 use nu_test_support::{nu, pipeline};
@@ -214,49 +215,6 @@ fn external_command_not_expand_tilde_with_quotes() {
 
 #[cfg(windows)]
 #[test]
-fn explicit_glob_windows() {
-    Playground::setup("external with explicit glob", |dirs, sandbox| {
-        sandbox.with_files(vec![
-            EmptyFile("D&D_volume_1.txt"),
-            EmptyFile("D&D_volume_2.txt"),
-            EmptyFile("foo.sh"),
-        ]);
-
-        let actual = nu!(
-            cwd: dirs.test(), pipeline(
-            r#"
-                ^dir | glob '*.txt' | length
-            "#
-        ));
-
-        assert_eq!(actual.out, "2");
-    })
-}
-
-#[cfg(windows)]
-#[test]
-fn bare_word_expand_path_glob_windows() {
-    Playground::setup("bare word should do the expansion", |dirs, sandbox| {
-        sandbox.with_files(vec![
-            EmptyFile("D&D_volume_1.txt"),
-            EmptyFile("D&D_volume_2.txt"),
-            EmptyFile("foo.sh"),
-        ]);
-
-        let actual = nu!(
-            cwd: dirs.test(), pipeline(
-            r#"
-                ^dir *.txt
-            "#
-        ));
-
-        assert!(actual.out.contains("D&D_volume_1.txt"));
-        assert!(actual.out.contains("D&D_volume_2.txt"));
-    })
-}
-
-#[cfg(windows)]
-#[test]
 fn failed_command_with_semicolon_will_not_execute_following_cmds_windows() {
     Playground::setup("external failed command with semicolon", |dirs, _| {
         let actual = nu!(
@@ -328,4 +286,17 @@ fn can_run_batch_files_without_bat_extension() {
             assert!(actual.out.contains("Hello World"));
         },
     );
+}
+
+#[cfg(windows)]
+#[test]
+fn quotes_trimmed_when_shelling_out() {
+    // regression test for a bug where we weren't trimming quotes around string args before shelling out to cmd.exe
+    let actual = nu!(cwd: ".", pipeline(
+        r#"
+            ^echo "foo"
+        "#
+    ));
+
+    assert_eq!(actual.out, "foo");
 }
