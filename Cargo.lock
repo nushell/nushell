@@ -2837,6 +2837,7 @@ dependencies = [
  "byte-unit",
  "chrono",
  "chrono-humanize",
+ "crossterm 0.24.0",
  "fancy-regex",
  "indexmap",
  "lru",
@@ -2845,6 +2846,7 @@ dependencies = [
  "nu-test-support",
  "nu-utils",
  "num-format",
+ "reedline",
  "serde",
  "serde_json",
  "strum",
@@ -4080,8 +4082,7 @@ dependencies = [
 [[package]]
 name = "reedline"
 version = "0.14.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "75d91d2a38dbdaf0c748a96055c14aa4746be9add5f4aea4b1460e6e6492f770"
+source = "git+https://github.com/nushell/reedline.git?branch=main#3d83306b2dadd17d065d9d25ea62a36c3a0a76b2"
 dependencies = [
  "chrono",
  "crossterm 0.24.0",

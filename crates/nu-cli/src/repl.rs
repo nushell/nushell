@@ -5,6 +5,7 @@ use crate::{
     util::{eval_source, get_guaranteed_cwd, report_error, report_error_new},
     NuHighlighter, NuValidator, NushellPrompt,
 };
+use crossterm::cursor::CursorShape;
 use log::{info, trace, warn};
 use miette::{IntoDiagnostic, Result};
 use nu_color_config::StyleComputer;
@@ -16,7 +17,7 @@ use nu_protocol::{
     format_duration, BlockId, HistoryFileFormat, PipelineData, PositionalArg, ShellError, Span,
     Spanned, Type, Value, VarId,
 };
-use reedline::{DefaultHinter, EditCommand, Emacs, SqliteBackedHistory, Vi};
+use reedline::{CursorConfig, DefaultHinter, EditCommand, Emacs, SqliteBackedHistory, Vi};
 use std::{
     io::{self, Write},
     sync::atomic::Ordering,
@@ -174,6 +175,10 @@ pub fn evaluate_repl(
 
         info!("update reedline {}:{}:{}", file!(), line!(), column!());
         let engine_reference = std::sync::Arc::new(engine_state.clone());
+        let mut cursor_config = CursorConfig::default();
+        cursor_config.emacs = Some(CursorShape::Line);
+        cursor_config.vi_insert = Some(CursorShape::Block);
+        cursor_config.vi_normal = Some(CursorShape::UnderScore);
         line_editor = line_editor
             .with_highlighter(Box::new(NuHighlighter {
                 engine_state: engine_reference.clone(),
@@ -188,7 +193,8 @@ pub fn evaluate_repl(
             )))
             .with_quick_completions(config.quick_completions)
             .with_partial_completions(config.partial_completions)
-            .with_ansi_colors(config.use_ansi_coloring);
+            .with_ansi_colors(config.use_ansi_coloring)
+            .with_cursor_config(cursor_config);
 
         let style_computer = StyleComputer::from_config(engine_state, stack);
 

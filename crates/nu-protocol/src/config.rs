@@ -1,4 +1,6 @@
 use crate::{ShellError, Span, Value};
+use crossterm::cursor::CursorShape;
+use reedline::CursorConfig;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
@@ -52,6 +54,14 @@ impl Default for Hooks {
     }
 }
 
+/// Definition of a Nushell CursorShape
+#[derive(Serialize, Deserialize, Clone, Debug)]
+pub enum NuCursorShape {
+    UnderScore,
+    Line,
+    Block,
+}
+
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct Config {
     pub external_completer: Option<usize>,
@@ -88,6 +98,9 @@ pub struct Config {
     pub show_clickable_links_in_ls: bool,
     pub render_right_prompt_on_last_line: bool,
     pub explore: HashMap<String, Value>,
+    pub cursor_shape_vi_insert: NuCursorShape,
+    pub cursor_shape_vi_normal: NuCursorShape,
+    pub cursor_shape_emacs: NuCursorShape,
 }
 
 impl Default for Config {
@@ -127,6 +140,9 @@ impl Default for Config {
             show_clickable_links_in_ls: true,
             render_right_prompt_on_last_line: false,
             explore: HashMap::new(),
+            cursor_shape_vi_insert: NuCursorShape::Block,
+            cursor_shape_vi_normal: NuCursorShape::UnderScore,
+            cursor_shape_emacs: NuCursorShape::Line,
         }
     }
 }
@@ -628,6 +644,109 @@ impl Value {
                             );
                         }
                     }
+                    "cursor_shape" => {
+                        macro_rules! reconstruct_cursor_shape_vi_insert {
+                            ($span:expr) => {
+                                Value::string(
+                                    match config.cursor_shape_vi_insert {
+                                        NuCursorShape::Line => "line",
+                                        NuCursorShape::Block => "block",
+                                        NuCursorShape::UnderScore => "underscore",
+                                    },
+                                    *$span,
+                                )
+                            };
+                        }
+                        macro_rules! reconstruct_cursor_shape_vi_normal {
+                            ($span:expr) => {
+                                Value::string(
+                                    match config.cursor_shape_vi_normal {
+                                        NuCursorShape::Line => "line",
+                                        NuCursorShape::Block => "block",
+                                        NuCursorShape::UnderScore => "underscore",
+                                    },
+                                    *$span,
+                                )
+                            };
+                        }
+                        macro_rules! reconstruct_cursor_shape_emacs {
+                            ($span:expr) => {
+                                Value::string(
+                                    match config.cursor_shape_emacs {
+                                        NuCursorShape::Line => "line",
+                                        NuCursorShape::Block => "block",
+                                        NuCursorShape::UnderScore => "underscore",
+                                    },
+                                    *$span,
+                                )
+                            };
+                        }
+                        if let Value::Record { cols, vals, span } = &mut vals[index] {
+                            for index in (0..cols.len()).rev() {
+                                let value = &vals[index];
+                                let key2 = cols[index].as_str();
+                                match key2 {
+                                    "cursor_shape_vi_insert" => {
+                                        if let Ok(v) = value.as_string() {
+                                            let val_str = v.to_lowercase();
+                                            match val_str.as_ref() {
+                                                "line" => {
+                                                    config.cursor_shape_vi_insert =
+                                                        NuCursorShape::Line;
+                                                }
+                                                "block" => {
+                                                    config.cursor_shape_vi_insert =
+                                                        NuCursorShape::Block;
+                                                }
+                                                "underline" => {
+                                                    config.cursor_shape_vi_insert =
+                                                        NuCursorShape::UnderScore;
+                                                }
+                                                _ => {
+                                                    invalid!(Some(*span),
+                                                        "unrecognized $env.config.{key}.{key2} '{val_str}'; expected either 'line', 'block', or 'underscore'"
+                                                    );
+                                                    // Reconstruct
+                                                    vals[index] =
+                                                        reconstruct_cursor_shape_vi_insert!(span);
+                                                }
+                                            };
+                                        } else {
+                                            invalid!(Some(*span), "should be a string");
+                                            // Reconstruct
+                                            vals[index] = reconstruct_cursor_shape_vi_insert!(span);
+                                        }
+                                    }
+                                    x => {
+                                        invalid_key!(
+                                            cols,
+                                            vals,
+                                            index,
+                                            value.span().ok(),
+                                            "$env.config.{key}.{x} is an unknown config setting"
+                                        );
+                                    }
+                                }
+                            }
+                        } else {
+                            invalid!(vals[index].span().ok(), "should be a record");
+                            // Reconstruct
+                            vals[index] = Value::record(
+                                vec![
+                                    "cursor_shape_vi_insert".into(),
+                                    "cursor_shape_vi_normal".into(),
+                                    "cursor_shape_emacs".into(),
+                                ],
+                                vec![
+                                    reconstruct_cursor_shape_vi_insert!(span),
+                                    reconstruct_cursor_shape_vi_normal!(span),
+                                    reconstruct_cursor_shape_emacs!(span),
+                                ],
+                                *span,
+                            );
+                        }
+                    }
+
                     "table" => {
                         macro_rules! reconstruct_index_mode {
                             ($span:expr) => {
