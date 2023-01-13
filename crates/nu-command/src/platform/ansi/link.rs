@@ -33,9 +33,9 @@ impl Command for SubCommand {
         engine_state: &EngineState,
         stack: &mut Stack,
         call: &Call,
-        input: PipelineData,
+        _input: PipelineData,
     ) -> Result<nu_protocol::PipelineData, ShellError> {
-        operate(engine_state, stack, call, input)
+        operate(engine_state, stack, call)
     }
 
     fn examples(&self) -> Vec<Example> {
@@ -72,7 +72,6 @@ fn operate(
     engine_state: &EngineState,
     stack: &mut Stack,
     call: &Call,
-    input: PipelineData,
 ) -> Result<PipelineData, ShellError> {
     let uri: Spanned<String> = call.req(engine_state, stack, 0)?;
     let text: Option<Spanned<String>> = call.opt(engine_state, stack, 1)?;
