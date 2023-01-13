@@ -1231,6 +1231,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "fancy-regex"
+version = "0.11.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b95f7c0680e4142284cf8b22c14a476e87d61b004a3a0861872b32ef7ead40a2"
+dependencies = [
+ "bit-set",
+ "regex",
+]
+
+[[package]]
 name = "fastrand"
 version = "1.8.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2213,11 +2223,11 @@ dependencies = [
 
 [[package]]
 name = "lru"
-version = "0.8.1"
+version = "0.9.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b6e8aaa3f231bb4bd57b84b2d5dc3ae7f350265df8aa96492e0bc394a1571909"
+checksum = "71e7d46de488603ffdd5f30afbc64fbba2378214a2c3a2fb83abf3d33126df17"
 dependencies = [
- "hashbrown 0.12.3",
+ "hashbrown 0.13.2",
 ]
 
 [[package]]
@@ -2651,7 +2661,7 @@ dependencies = [
  "atty",
  "chrono",
  "crossterm 0.24.0",
- "fancy-regex",
+ "fancy-regex 0.10.0",
  "fuzzy-matcher",
  "is_executable",
  "log",
@@ -2709,7 +2719,7 @@ dependencies = [
  "dtparse",
  "eml-parser",
  "encoding_rs",
- "fancy-regex",
+ "fancy-regex 0.10.0",
  "filesize",
  "filetime",
  "fs_extra",
@@ -2892,7 +2902,7 @@ dependencies = [
  "byte-unit",
  "chrono",
  "chrono-humanize",
- "fancy-regex",
+ "fancy-regex 0.11.0",
  "indexmap",
  "lru",
  "miette",
@@ -4143,8 +4153,7 @@ dependencies = [
 [[package]]
 name = "reedline"
 version = "0.14.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "75d91d2a38dbdaf0c748a96055c14aa4746be9add5f4aea4b1460e6e6492f770"
+source = "git+https://github.com/nushell/reedline.git?branch=main#3d83306b2dadd17d065d9d25ea62a36c3a0a76b2"
 dependencies = [
  "chrono",
  "crossterm 0.24.0",
