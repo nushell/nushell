@@ -1,6 +1,4 @@
 use crate::{ShellError, Span, Value};
-// use crossterm::cursor::CursorShape;
-// use reedline::CursorConfig;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
