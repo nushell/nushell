@@ -284,6 +284,7 @@ pub fn create_default_context() -> EngineState {
             Ansi,
             AnsiGradient,
             AnsiStrip,
+            AnsiLink,
             Clear,
             Du,
             KeybindingsDefault,
