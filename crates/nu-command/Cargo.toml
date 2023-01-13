@@ -11,17 +11,17 @@ build = "build.rs"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-nu-color-config = { path = "../nu-color-config", version = "0.74.1"  }
-nu-engine = { path = "../nu-engine", version = "0.74.1"  }
+nu-color-config = { path = "../nu-color-config", version = "0.74.1" }
+nu-engine = { path = "../nu-engine", version = "0.74.1" }
 nu-glob = { path = "../nu-glob", version = "0.74.1" }
-nu-json = { path = "../nu-json", version = "0.74.1"  }
-nu-parser = { path = "../nu-parser", version = "0.74.1"  }
-nu-path = { path = "../nu-path", version = "0.74.1"  }
-nu-pretty-hex = { path = "../nu-pretty-hex", version = "0.74.1"  }
-nu-protocol = { path = "../nu-protocol", version = "0.74.1"  }
-nu-system = { path = "../nu-system", version = "0.74.1"  }
-nu-table = { path = "../nu-table", version = "0.74.1"  }
-nu-term-grid = { path = "../nu-term-grid", version = "0.74.1"  }
+nu-json = { path = "../nu-json", version = "0.74.1" }
+nu-parser = { path = "../nu-parser", version = "0.74.1" }
+nu-path = { path = "../nu-path", version = "0.74.1" }
+nu-pretty-hex = { path = "../nu-pretty-hex", version = "0.74.1" }
+nu-protocol = { path = "../nu-protocol", version = "0.74.1" }
+nu-system = { path = "../nu-system", version = "0.74.1" }
+nu-table = { path = "../nu-table", version = "0.74.1" }
+nu-term-grid = { path = "../nu-term-grid", version = "0.74.1" }
 nu-utils = { path = "../nu-utils", version = "0.74.1" }
 nu-explore = { path = "../nu-explore", version = "0.74.1" }
 nu-ansi-term = "0.46.0"
@@ -30,11 +30,14 @@ num-format = { version = "0.4.3" }
 # Potential dependencies for extras
 alphanumeric-sort = "1.4.4"
 atty = "0.2.14"
-base64 = "0.13.0"
+base64 = "0.21.0"
 byteorder = "1.4.3"
 bytesize = "1.1.0"
 calamine = "0.19.1"
-chrono = { version = "0.4.23", features = ["unstable-locales", "std"], default-features = false }
+chrono = { version = "0.4.23", features = [
+	"unstable-locales",
+	"std",
+], default-features = false }
 chrono-humanize = "0.2.1"
 chrono-tz = "0.6.3"
 crossterm = "0.24.0"
@@ -50,13 +53,15 @@ filetime = "0.2.15"
 fs_extra = "1.2.0"
 htmlescape = "0.3.1"
 ical = "0.7.0"
-indexmap = { version="1.7", features=["serde-1"] }
+indexmap = { version = "1.7", features = ["serde-1"] }
 indicatif = "0.17.2"
 Inflector = "0.11"
 is-root = "0.1.2"
 itertools = "0.10.0"
 log = "0.4.14"
-lscolors = { version = "0.12.0", features = ["crossterm"], default-features = false }
+lscolors = { version = "0.12.0", features = [
+	"crossterm",
+], default-features = false }
 md5 = { package = "md-5", version = "0.10.0" }
 mime = "0.3.16"
 mime_guess = "2.0.4"
@@ -71,11 +76,11 @@ quick-xml = "0.25"
 rand = "0.8"
 rayon = "1.5.1"
 regex = "1.6.0"
-reqwest = {version = "0.11", features = ["blocking", "json"] }
+reqwest = { version = "0.11", features = ["blocking", "json"] }
 roxmltree = "0.16.0"
 rust-embed = "6.3.0"
 same-file = "1.0.6"
-serde = { version="1.0.123", features=["derive"] }
+serde = { version = "1.0.123", features = ["derive"] }
 serde_ini = "0.2.0"
 serde_urlencoded = "0.7.0"
 serde_yaml = "0.9.4"
@@ -92,8 +97,8 @@ url = "2.2.1"
 percent-encoding = "2.2.0"
 uuid = { version = "1.2.2", features = ["v4"] }
 which = { version = "4.3.0", optional = true }
-reedline = { version = "0.14.0", features = ["bashisms", "sqlite"]}
-wax = { version =  "0.5.0" }
+reedline = { version = "0.14.0", features = ["bashisms", "sqlite"] }
+wax = { version = "0.5.0" }
 rusqlite = { version = "0.28.0", features = ["bundled"], optional = true }
 sqlparser = { version = "0.23.0", features = ["serde"], optional = true }
 
@@ -110,7 +115,7 @@ version = "3.0.0"
 optional = true
 
 [dependencies.polars]
-version = "0.25.0"
+version = "0.26.1"
 optional = true
 features = [
 	"arg_where",
@@ -143,8 +148,8 @@ features = [
 [target.'cfg(windows)'.dependencies.windows]
 version = "0.43.0"
 features = [
-    "Win32_Foundation",
-    "Win32_Storage_FileSystem",
+	"Win32_Foundation",
+	"Win32_Storage_FileSystem",
 	"Win32_System_SystemServices",
 ]
 
@@ -153,17 +158,19 @@ trash-support = ["trash"]
 which-support = ["which"]
 plugin = ["nu-parser/plugin"]
 dataframe = ["polars", "num", "sqlparser"]
-sqlite = ["rusqlite"] # TODO: given that rusqlite is included in reedline, should we just always include it?
+sqlite = [
+	"rusqlite",
+] # TODO: given that rusqlite is included in reedline, should we just always include it?
 
 [build-dependencies]
 shadow-rs = { version = "0.16.1", default-features = false }
 
 [dev-dependencies]
-nu-test-support = { path = "../nu-test-support", version = "0.74.1"  }
+nu-test-support = { path = "../nu-test-support", version = "0.74.1" }
 
 hamcrest2 = "0.3.0"
 dirs-next = "2.0.0"
 proptest = "1.0.0"
 quickcheck = "1.0.3"
 quickcheck_macros = "1.0.0"
-rstest = {version = "0.15.0", default-features = false}
+rstest = { version = "0.15.0", default-features = false }

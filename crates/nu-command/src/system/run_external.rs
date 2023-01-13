@@ -418,19 +418,35 @@ impl ExternalCommand {
                             #[cfg(unix)]
                             {
                                 use nu_ansi_term::{Color, Style};
+                                use std::ffi::CStr;
                                 use std::os::unix::process::ExitStatusExt;
+
                                 if x.core_dumped() {
+                                    let cause = x.signal().and_then(|sig| unsafe {
+                                        // SAFETY: We should be the first to call `char * strsignal(int sig)`
+                                        let sigstr_ptr = libc::strsignal(sig);
+                                        if sigstr_ptr.is_null() {
+                                            return None;
+                                        }
+
+                                        // SAFETY: The pointer points to a valid non-null string
+                                        let sigstr = CStr::from_ptr(sigstr_ptr);
+                                        sigstr.to_str().map(String::from).ok()
+                                    });
+
+                                    let cause = cause.as_deref().unwrap_or("Something went wrong");
+
                                     let style = Style::new().bold().on(Color::Red);
                                     eprintln!(
                                         "{}",
                                         style.paint(format!(
-                                            "nushell: oops, process '{commandname}' core dumped"
+                                            "{cause}: oops, process '{commandname}' core dumped"
                                         ))
                                     );
                                     let _ = exit_code_tx.send(Value::Error {
                                         error: ShellError::ExternalCommand(
                                             "core dumped".to_string(),
-                                            format!("Child process '{commandname}' core dumped"),
+                                            format!("{cause}: child process '{commandname}' core dumped"),
                                             head,
                                         ),
                                     });
