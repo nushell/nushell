@@ -1,6 +1,6 @@
 pub mod ast;
 mod cli_error;
-mod config;
+pub mod config;
 pub mod engine;
 mod example;
 mod exportable;

@@ -13,6 +13,7 @@ use nu_engine::{convert_env_values, eval_block, eval_block_with_early_return};
 use nu_parser::{lex, parse, trim_quotes_str};
 use nu_protocol::{
     ast::PathMember,
+    config::NuCursorShape,
     engine::{EngineState, ReplOperation, Stack, StateWorkingSet},
     format_duration, BlockId, HistoryFileFormat, PipelineData, PositionalArg, ShellError, Span,
     Spanned, Type, Value, VarId,
@@ -175,10 +176,18 @@ pub fn evaluate_repl(
 
         info!("update reedline {}:{}:{}", file!(), line!(), column!());
         let engine_reference = std::sync::Arc::new(engine_state.clone());
-        let mut cursor_config = CursorConfig::default();
-        cursor_config.emacs = Some(CursorShape::Line);
-        cursor_config.vi_insert = Some(CursorShape::Block);
-        cursor_config.vi_normal = Some(CursorShape::UnderScore);
+
+        // Find the configured cursor shapes for each mode
+        let cursor_config = CursorConfig {
+            vi_insert: Some(map_nucursorshape_to_cursorshape(
+                config.cursor_shape_vi_insert,
+            )),
+            vi_normal: Some(map_nucursorshape_to_cursorshape(
+                config.cursor_shape_vi_normal,
+            )),
+            emacs: Some(map_nucursorshape_to_cursorshape(config.cursor_shape_emacs)),
+        };
+
         line_editor = line_editor
             .with_highlighter(Box::new(NuHighlighter {
                 engine_state: engine_reference.clone(),
@@ -539,6 +548,14 @@ pub fn evaluate_repl(
     }
 
     Ok(())
+}
+
+fn map_nucursorshape_to_cursorshape(shape: NuCursorShape) -> CursorShape {
+    match shape {
+        NuCursorShape::Block => CursorShape::Block,
+        NuCursorShape::UnderScore => CursorShape::UnderScore,
+        NuCursorShape::Line => CursorShape::Line,
+    }
 }
 
 fn get_banner(engine_state: &mut EngineState, stack: &mut Stack) -> String {

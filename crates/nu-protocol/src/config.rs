@@ -1,6 +1,6 @@
 use crate::{ShellError, Span, Value};
-use crossterm::cursor::CursorShape;
-use reedline::CursorConfig;
+// use crossterm::cursor::CursorShape;
+// use reedline::CursorConfig;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
@@ -54,8 +54,8 @@ impl Default for Hooks {
     }
 }
 
-/// Definition of a Nushell CursorShape
-#[derive(Serialize, Deserialize, Clone, Debug)]
+/// Definition of a Nushell CursorShape (to be mapped to crossterm::cursor::CursorShape)
+#[derive(Serialize, Deserialize, Clone, Debug, Copy)]
 pub enum NuCursorShape {
     UnderScore,
     Line,
@@ -645,34 +645,10 @@ impl Value {
                         }
                     }
                     "cursor_shape" => {
-                        macro_rules! reconstruct_cursor_shape_vi_insert {
-                            ($span:expr) => {
+                        macro_rules! reconstruct_cursor_shape {
+                            ($name:expr, $span:expr) => {
                                 Value::string(
-                                    match config.cursor_shape_vi_insert {
-                                        NuCursorShape::Line => "line",
-                                        NuCursorShape::Block => "block",
-                                        NuCursorShape::UnderScore => "underscore",
-                                    },
-                                    *$span,
-                                )
-                            };
-                        }
-                        macro_rules! reconstruct_cursor_shape_vi_normal {
-                            ($span:expr) => {
-                                Value::string(
-                                    match config.cursor_shape_vi_normal {
-                                        NuCursorShape::Line => "line",
-                                        NuCursorShape::Block => "block",
-                                        NuCursorShape::UnderScore => "underscore",
-                                    },
-                                    *$span,
-                                )
-                            };
-                        }
-                        macro_rules! reconstruct_cursor_shape_emacs {
-                            ($span:expr) => {
-                                Value::string(
-                                    match config.cursor_shape_emacs {
+                                    match $name {
                                         NuCursorShape::Line => "line",
                                         NuCursorShape::Block => "block",
                                         NuCursorShape::UnderScore => "underscore",
@@ -686,7 +662,7 @@ impl Value {
                                 let value = &vals[index];
                                 let key2 = cols[index].as_str();
                                 match key2 {
-                                    "cursor_shape_vi_insert" => {
+                                    "vi_insert" => {
                                         if let Ok(v) = value.as_string() {
                                             let val_str = v.to_lowercase();
                                             match val_str.as_ref() {
@@ -698,7 +674,7 @@ impl Value {
                                                     config.cursor_shape_vi_insert =
                                                         NuCursorShape::Block;
                                                 }
-                                                "underline" => {
+                                                "underscore" => {
                                                     config.cursor_shape_vi_insert =
                                                         NuCursorShape::UnderScore;
                                                 }
@@ -707,14 +683,90 @@ impl Value {
                                                         "unrecognized $env.config.{key}.{key2} '{val_str}'; expected either 'line', 'block', or 'underscore'"
                                                     );
                                                     // Reconstruct
-                                                    vals[index] =
-                                                        reconstruct_cursor_shape_vi_insert!(span);
+                                                    vals[index] = reconstruct_cursor_shape!(
+                                                        config.cursor_shape_vi_insert,
+                                                        span
+                                                    );
                                                 }
                                             };
                                         } else {
                                             invalid!(Some(*span), "should be a string");
                                             // Reconstruct
-                                            vals[index] = reconstruct_cursor_shape_vi_insert!(span);
+                                            vals[index] = reconstruct_cursor_shape!(
+                                                config.cursor_shape_vi_insert,
+                                                span
+                                            );
+                                        }
+                                    }
+                                    "vi_normal" => {
+                                        if let Ok(v) = value.as_string() {
+                                            let val_str = v.to_lowercase();
+                                            match val_str.as_ref() {
+                                                "line" => {
+                                                    config.cursor_shape_vi_normal =
+                                                        NuCursorShape::Line;
+                                                }
+                                                "block" => {
+                                                    config.cursor_shape_vi_normal =
+                                                        NuCursorShape::Block;
+                                                }
+                                                "underscore" => {
+                                                    config.cursor_shape_vi_normal =
+                                                        NuCursorShape::UnderScore;
+                                                }
+                                                _ => {
+                                                    invalid!(Some(*span),
+                                                        "unrecognized $env.config.{key}.{key2} '{val_str}'; expected either 'line', 'block', or 'underscore'"
+                                                    );
+                                                    // Reconstruct
+                                                    vals[index] = reconstruct_cursor_shape!(
+                                                        config.cursor_shape_vi_normal,
+                                                        span
+                                                    );
+                                                }
+                                            };
+                                        } else {
+                                            invalid!(Some(*span), "should be a string");
+                                            // Reconstruct
+                                            vals[index] = reconstruct_cursor_shape!(
+                                                config.cursor_shape_vi_normal,
+                                                span
+                                            );
+                                        }
+                                    }
+                                    "emacs" => {
+                                        if let Ok(v) = value.as_string() {
+                                            let val_str = v.to_lowercase();
+                                            match val_str.as_ref() {
+                                                "line" => {
+                                                    config.cursor_shape_emacs = NuCursorShape::Line;
+                                                }
+                                                "block" => {
+                                                    config.cursor_shape_emacs =
+                                                        NuCursorShape::Block;
+                                                }
+                                                "underscore" => {
+                                                    config.cursor_shape_emacs =
+                                                        NuCursorShape::UnderScore;
+                                                }
+                                                _ => {
+                                                    invalid!(Some(*span),
+                                                        "unrecognized $env.config.{key}.{key2} '{val_str}'; expected either 'line', 'block', or 'underscore'"
+                                                    );
+                                                    // Reconstruct
+                                                    vals[index] = reconstruct_cursor_shape!(
+                                                        config.cursor_shape_emacs,
+                                                        span
+                                                    );
+                                                }
+                                            };
+                                        } else {
+                                            invalid!(Some(*span), "should be a string");
+                                            // Reconstruct
+                                            vals[index] = reconstruct_cursor_shape!(
+                                                config.cursor_shape_emacs,
+                                                span
+                                            );
                                         }
                                     }
                                     x => {
@@ -732,21 +784,16 @@ impl Value {
                             invalid!(vals[index].span().ok(), "should be a record");
                             // Reconstruct
                             vals[index] = Value::record(
+                                vec!["vi_insert".into(), "vi_normal".into(), "emacs".into()],
                                 vec![
-                                    "cursor_shape_vi_insert".into(),
-                                    "cursor_shape_vi_normal".into(),
-                                    "cursor_shape_emacs".into(),
-                                ],
-                                vec![
-                                    reconstruct_cursor_shape_vi_insert!(span),
-                                    reconstruct_cursor_shape_vi_normal!(span),
-                                    reconstruct_cursor_shape_emacs!(span),
+                                    reconstruct_cursor_shape!(config.cursor_shape_vi_insert, span),
+                                    reconstruct_cursor_shape!(config.cursor_shape_vi_normal, span),
+                                    reconstruct_cursor_shape!(config.cursor_shape_emacs, span),
                                 ],
                                 *span,
                             );
                         }
                     }
-
                     "table" => {
                         macro_rules! reconstruct_index_mode {
                             ($span:expr) => {
@@ -1267,6 +1314,67 @@ impl Value {
                             invalid!(Some(*span), "should be a string");
                         }
                     }
+                    "cursor_shape_vi_insert" => {
+                        legacy_options_used = true;
+                        if let Ok(b) = value.as_string() {
+                            let val_str = b.to_lowercase();
+                            config.cursor_shape_vi_insert = match val_str.as_ref() {
+                                "block" => NuCursorShape::Block,
+                                "underline" => NuCursorShape::UnderScore,
+                                "line" => NuCursorShape::Line,
+                                _ => {
+                                    invalid!(
+                                        Some(*span),
+                                        "unrecognized $env.config.{key} '{val_str}'"
+                                    );
+                                    NuCursorShape::Line
+                                }
+                            };
+                        } else {
+                            invalid!(Some(*span), "should be a string");
+                        }
+                    }
+                    "cursor_shape_vi_normal" => {
+                        legacy_options_used = true;
+                        if let Ok(b) = value.as_string() {
+                            let val_str = b.to_lowercase();
+                            config.cursor_shape_vi_normal = match val_str.as_ref() {
+                                "block" => NuCursorShape::Block,
+                                "underline" => NuCursorShape::UnderScore,
+                                "line" => NuCursorShape::Line,
+                                _ => {
+                                    invalid!(
+                                        Some(*span),
+                                        "unrecognized $env.config.{key} '{val_str}'"
+                                    );
+                                    NuCursorShape::Line
+                                }
+                            };
+                        } else {
+                            invalid!(Some(*span), "should be a string");
+                        }
+                    }
+                    "cursor_shape_emacs" => {
+                        legacy_options_used = true;
+                        if let Ok(b) = value.as_string() {
+                            let val_str = b.to_lowercase();
+                            config.cursor_shape_emacs = match val_str.as_ref() {
+                                "block" => NuCursorShape::Block,
+                                "underline" => NuCursorShape::UnderScore,
+                                "line" => NuCursorShape::Line,
+                                _ => {
+                                    invalid!(
+                                        Some(*span),
+                                        "unrecognized $env.config.{key} '{val_str}'"
+                                    );
+                                    NuCursorShape::Line
+                                }
+                            };
+                        } else {
+                            invalid!(Some(*span), "should be a string");
+                        }
+                    }
+
                     // End legacy options
                     x => {
                         invalid_key!(
