@@ -1659,15 +1659,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "hashbrown"
-version = "0.13.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "43a3c133739dddd0d2990f9a4bdf8eb4b21ef50e4851ca85ab661199821d510e"
-dependencies = [
- "ahash 0.8.1",
-]
-
-[[package]]
 name = "hashlink"
 version = "0.8.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3643,7 +3634,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "6d5e894b6908d288ea24b56c8d99c2944f4b94af51ba662d58631c04806511b7"
 dependencies = [
  "arrow2",
- "hashbrown 0.12.3",
+ "hashbrown 0.13.2",
  "num 0.4.0",
  "serde",
  "thiserror",
@@ -3661,7 +3652,7 @@ dependencies = [
  "bitflags",
  "chrono",
  "comfy-table",
- "hashbrown 0.12.3",
+ "hashbrown 0.13.2",
  "indexmap",
  "num 0.4.0",
  "once_cell",
@@ -3747,7 +3738,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d1bb37bd32c44defa19be36fcab9387d5b3ad4c683596479caf414e5a00e82af"
 dependencies = [
  "enum_dispatch",
- "hashbrown 0.12.3",
+ "hashbrown 0.13.2",
  "num 0.4.0",
  "polars-arrow",
  "polars-core",
