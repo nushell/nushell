@@ -85,14 +85,12 @@ fn operate(
 }
 
 fn add_osc_link(text: &str, link: &str) -> String {
-    nu_ansi_term::format!("\u{1b}]8;;{}\u{1b}\\{}\u{1b}]8;;\u{1b}\\", link, text)
+    format!("\u{1b}]8;;{}\u{1b}\\{}\u{1b}]8;;\u{1b}\\", link, text)
 }
 
 #[cfg(test)]
 mod tests {
     use super::SubCommand;
-    use nu_ansi_term::Rgb;
-    use nu_protocol::{Span, Value};
 
     #[test]
     fn examples_work_as_expected() {
