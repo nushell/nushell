@@ -26,12 +26,12 @@ fn quickcheck_parse(data: String) -> bool {
 #[test]
 fn signature_name_matches_command_name() {
     let ctx = crate::create_default_context();
-    let decls = ctx.get_decl_ids_sorted(true);
+    let decls = ctx.get_decls_sorted(true);
     let mut failures = Vec::new();
 
-    for decl_id in decls {
+    for (name_bytes, decl_id) in decls {
         let cmd = ctx.get_decl(decl_id);
-        let cmd_name = cmd.name();
+        let cmd_name = String::from_utf8_lossy(&name_bytes);
         let sig_name = cmd.signature().name;
         let category = cmd.signature().category;
 
@@ -52,10 +52,10 @@ fn signature_name_matches_command_name() {
 #[test]
 fn commands_declare_input_output_types() {
     let ctx = crate::create_default_context();
-    let decls = ctx.get_decl_ids_sorted(true);
+    let decls = ctx.get_decls_sorted(true);
     let mut failures = Vec::new();
 
-    for decl_id in decls {
+    for (_, decl_id) in decls {
         let cmd = ctx.get_decl(decl_id);
         let sig_name = cmd.signature().name;
         let category = cmd.signature().category;
@@ -83,12 +83,12 @@ fn commands_declare_input_output_types() {
 #[test]
 fn no_search_term_duplicates() {
     let ctx = crate::create_default_context();
-    let decls = ctx.get_decl_ids_sorted(true);
+    let decls = ctx.get_decls_sorted(true);
     let mut failures = Vec::new();
 
-    for decl_id in decls {
+    for (name_bytes, decl_id) in decls {
         let cmd = ctx.get_decl(decl_id);
-        let cmd_name = cmd.name();
+        let cmd_name = String::from_utf8_lossy(&name_bytes);
         let search_terms = cmd.search_terms();
         let category = cmd.signature().category;
 

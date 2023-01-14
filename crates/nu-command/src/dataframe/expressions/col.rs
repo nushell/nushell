@@ -43,6 +43,10 @@ impl Command for ExprCol {
         }]
     }
 
+    fn search_terms(&self) -> Vec<&str> {
+        vec!["create"]
+    }
+
     fn run(
         &self,
         engine_state: &EngineState,

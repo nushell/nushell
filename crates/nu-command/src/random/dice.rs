@@ -37,6 +37,10 @@ impl Command for SubCommand {
         "Generate a random dice roll"
     }
 
+    fn search_terms(&self) -> Vec<&str> {
+        vec!["generate", "die", "1-6"]
+    }
+
     fn run(
         &self,
         engine_state: &EngineState,

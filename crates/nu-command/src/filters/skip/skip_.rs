@@ -141,7 +141,7 @@ impl Command for Skip {
                     .set_metadata(metadata))
             }
             _ => Ok(input
-                .into_iter()
+                .into_iter_strict(call.head)?
                 .skip(n)
                 .into_pipeline_data(ctrlc)
                 .set_metadata(metadata)),

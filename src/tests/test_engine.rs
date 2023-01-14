@@ -316,7 +316,15 @@ fn default_value11() -> TestResult {
 
 #[test]
 fn default_value12() -> TestResult {
-    fail_test(r#"def foo [--x:int = "a"] { $x }"#, "default value not int")
+    fail_test(
+        r#"def foo [--x:int = "a"] { $x }"#,
+        "default value should be int",
+    )
+}
+
+#[test]
+fn default_value_expression() -> TestResult {
+    run_test(r#"def foo [x = ("foo" | str length)] { $x }; foo"#, "3")
 }
 
 #[test]

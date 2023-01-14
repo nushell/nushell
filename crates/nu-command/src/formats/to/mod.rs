@@ -19,6 +19,7 @@ pub use command::To;
 pub use html::ToHtml;
 pub use json::ToJson;
 pub use md::ToMd;
+pub use nuon::value_to_string;
 pub use nuon::ToNuon;
 pub use text::ToText;
 pub use tsv::ToTsv;

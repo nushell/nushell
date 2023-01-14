@@ -185,22 +185,22 @@ fn command(
                 .cast(&DataType::Float64)
                 .ok()
                 .and_then(|ca| match ca.get(0) {
-                    AnyValue::Float64(v) => Some(v),
+                    Ok(AnyValue::Float64(v)) => Some(v),
                     _ => None,
                 });
 
             let mean = match col.mean_as_series().get(0) {
-                AnyValue::Float64(v) => Some(v),
+                Ok(AnyValue::Float64(v)) => Some(v),
                 _ => None,
             };
 
             let median = match col.median_as_series().get(0) {
-                AnyValue::Float64(v) => Some(v),
+                Ok(AnyValue::Float64(v)) => Some(v),
                 _ => None,
             };
 
             let std = match col.std_as_series(0).get(0) {
-                AnyValue::Float64(v) => Some(v),
+                Ok(AnyValue::Float64(v)) => Some(v),
                 _ => None,
             };
 
@@ -209,7 +209,7 @@ fn command(
                 .cast(&DataType::Float64)
                 .ok()
                 .and_then(|ca| match ca.get(0) {
-                    AnyValue::Float64(v) => Some(v),
+                    Ok(AnyValue::Float64(v)) => Some(v),
                     _ => None,
                 });
 
@@ -221,7 +221,7 @@ fn command(
                         .ok()
                         .and_then(|ca| ca.cast(&DataType::Float64).ok())
                         .and_then(|ca| match ca.get(0) {
-                            AnyValue::Float64(v) => Some(v),
+                            Ok(AnyValue::Float64(v)) => Some(v),
                             _ => None,
                         })
                 })
@@ -232,7 +232,7 @@ fn command(
                 .cast(&DataType::Float64)
                 .ok()
                 .and_then(|ca| match ca.get(0) {
-                    AnyValue::Float64(v) => Some(v),
+                    Ok(AnyValue::Float64(v)) => Some(v),
                     _ => None,
                 });
 

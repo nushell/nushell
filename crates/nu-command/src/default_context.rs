@@ -50,6 +50,9 @@ pub fn create_default_context() -> EngineState {
             Extern,
             For,
             Help,
+            HelpAliases,
+            HelpCommands,
+            HelpModules,
             HelpOperators,
             Hide,
             HideEnv,
@@ -272,6 +275,7 @@ pub fn create_default_context() -> EngineState {
             Mkdir,
             Mv,
             Open,
+            Start,
             Rm,
             Save,
             Touch,
@@ -398,7 +402,6 @@ pub fn create_default_context() -> EngineState {
             MathAbs,
             MathAvg,
             MathCeil,
-            MathEval,
             MathFloor,
             MathMax,
             MathMedian,
@@ -434,6 +437,7 @@ pub fn create_default_context() -> EngineState {
             Fetch,
             Post,
             Url,
+            UrlEncode,
             UrlParse,
             Port,
         }
@@ -478,6 +482,7 @@ pub fn create_default_context() -> EngineState {
             StrDecimalDeprecated,
             StrIntDeprecated,
             StrFindReplaceDeprecated,
+            MathEvalDeprecated,
         };
 
         #[cfg(feature = "plugin")]

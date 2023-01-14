@@ -15,13 +15,14 @@ use nu_cli::{
     evaluate_commands, evaluate_file, evaluate_repl, gather_parent_env_vars, get_init_cwd,
     report_error, report_error_new,
 };
-use nu_command::{create_default_context, BufferedReader};
+use nu_command::create_default_context;
 use nu_engine::{get_full_help, CallExt};
 use nu_parser::{escape_for_script_arg, escape_quote_string, parse};
 use nu_path::canonicalize_with;
 use nu_protocol::{
     ast::{Call, Expr, Expression, PipelineElement},
     engine::{Command, EngineState, Stack, StateWorkingSet},
+    util::BufferedReader,
     Category, Example, IntoPipelineData, PipelineData, RawStream, ShellError, Signature, Spanned,
     SyntaxShape, Value,
 };
@@ -315,6 +316,7 @@ fn main() -> Result<()> {
                         Box::new(BufferedReader::new(buf_reader)),
                         Some(ctrlc),
                         redirect_stdin.span,
+                        None,
                     )),
                     stderr: None,
                     exit_code: None,
@@ -646,28 +648,35 @@ impl Command for Nu {
     }
 
     fn signature(&self) -> Signature {
-        let signature = Signature::build("nu")
+        let mut signature = Signature::build("nu")
             .usage("The nushell language and shell.")
-            .switch(
-                "stdin",
-                "redirect standard input to a command (with `-c`) or a script file",
-                None,
-            )
-            .switch("login", "start as a login shell", Some('l'))
-            .switch("interactive", "start as an interactive shell", Some('i'))
-            .switch("version", "print the version", Some('v'))
-            .named(
-                "testbin",
-                SyntaxShape::String,
-                "run internal test binary",
-                None,
-            )
             .named(
                 "commands",
                 SyntaxShape::String,
                 "run the given commands and then exit",
                 Some('c'),
             )
+            .named(
+                "execute",
+                SyntaxShape::String,
+                "run the given commands and then enter an interactive shell",
+                Some('e'),
+            )
+            .switch("interactive", "start as an interactive shell", Some('i'))
+            .switch("login", "start as a login shell", Some('l'))
+            .named(
+                "table-mode",
+                SyntaxShape::String,
+                "the table mode to use. rounded is default.",
+                Some('m'),
+            )
+            .named(
+                "threads",
+                SyntaxShape::Int,
+                "threads to use for parallel commands",
+                Some('t'),
+            )
+            .switch("version", "print the version", Some('v'))
             .named(
                 "config",
                 SyntaxShape::String,
@@ -679,7 +688,19 @@ impl Command for Nu {
                 SyntaxShape::String,
                 "start with an alternate environment config file",
                 None,
-            )
+            );
+
+        #[cfg(feature = "plugin")]
+        {
+            signature = signature.named(
+                "plugin-config",
+                SyntaxShape::String,
+                "start with an alternate plugin signature file",
+                None,
+            );
+        }
+
+        signature = signature
             .named(
                 "log-level",
                 SyntaxShape::String,
@@ -692,23 +713,16 @@ impl Command for Nu {
                 "set the target for the log to output. stdout, stderr(default), mixed or file",
                 None,
             )
-            .named(
-                "execute",
-                SyntaxShape::String,
-                "run the given commands and then enter an interactive shell",
-                Some('e'),
+            .switch(
+                "stdin",
+                "redirect standard input to a command (with `-c`) or a script file",
+                None,
             )
             .named(
-                "threads",
-                SyntaxShape::Int,
-                "threads to use for parallel commands",
-                Some('t'),
-            )
-            .named(
-                "table-mode",
+                "testbin",
                 SyntaxShape::String,
-                "the table mode to use. rounded is default.",
-                Some('m'),
+                "run internal test binary",
+                None,
             )
             .optional(
                 "script file",
@@ -722,20 +736,7 @@ impl Command for Nu {
             )
             .category(Category::System);
 
-        #[cfg(feature = "plugin")]
-        {
-            signature.named(
-                "plugin-config",
-                SyntaxShape::String,
-                "start with an alternate plugin signature file",
-                None,
-            )
-        }
-
-        #[cfg(not(feature = "plugin"))]
-        {
-            signature
-        }
+        signature
     }
 
     fn usage(&self) -> &str {

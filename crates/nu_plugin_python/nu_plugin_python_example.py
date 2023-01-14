@@ -8,7 +8,7 @@
 # To register the plugin use:
 # 	register <path-to-py-file>
 #
-# Be carefull with the spans. Miette will crash if a span is outside the
+# Be careful with the spans. Miette will crash if a span is outside the
 # size of the contents vector. For this example we are using 0 and 1, which will
 # point to the beginning of the contents vector. We strongly suggest using the span
 # found in the plugin call head

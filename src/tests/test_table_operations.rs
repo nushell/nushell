@@ -1,4 +1,4 @@
-use crate::tests::{run_test, TestResult};
+use crate::tests::{fail_test, run_test, TestResult};
 
 #[test]
 fn cell_path_subexpr1() -> TestResult {
@@ -172,11 +172,10 @@ fn update_cell_path_1() -> TestResult {
 }
 
 #[test]
-fn missing_column_fills_in_nothing() -> TestResult {
-    // The empty value will be replaced with null when fetching a column
-    run_test(
+fn missing_column_errors() -> TestResult {
+    fail_test(
         r#"[ { name: ABC, size: 20 }, { name: HIJ } ].size.1 == null"#,
-        "true",
+        "cannot find column",
     )
 }
 
@@ -257,8 +256,20 @@ fn length_defaulted_columns() -> TestResult {
 }
 
 #[test]
-fn get_fuzzy() -> TestResult {
-    run_test("(ls | get -i foo) == null", "true")
+fn nullify_errors() -> TestResult {
+    run_test("([{a:1} {a:2} {a:3}] | get -i foo | length) == 3", "true")?;
+    run_test(
+        "([{a:1} {a:2} {a:3}] | get -i foo | to nuon) == '[null, null, null]'",
+        "true",
+    )
+}
+
+#[test]
+fn nullify_holes() -> TestResult {
+    run_test(
+        "([{a:1} {b:2} {a:3}] | get -i a | to nuon) == '[1, null, 3]'",
+        "true",
+    )
 }
 
 #[test]

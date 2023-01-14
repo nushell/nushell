@@ -352,7 +352,7 @@ impl Grid {
 
         let theoretical_max_num_lines = self.theoretical_max_num_lines(maximum_width);
         if theoretical_max_num_lines == 1 {
-            // This if—statement is neccesary for the function to work correctly
+            // This if—statement is necessary for the function to work correctly
             // for small inputs.
             return Some(Dimensions {
                 num_lines: 1,

@@ -5,7 +5,7 @@ use nu_protocol::{
     engine::{Command, EngineState, Stack},
     Category, Example, PipelineData, ShellError, Signature, Span, SyntaxShape, Type, Value,
 };
-use polars::prelude::QuantileInterpolOptions;
+use polars::prelude::{lit, QuantileInterpolOptions};
 
 #[derive(Clone)]
 pub struct ExprQuantile;
@@ -55,6 +55,10 @@ impl Command for ExprQuantile {
         }]
     }
 
+    fn search_terms(&self) -> Vec<&str> {
+        vec!["statistics", "percentile", "distribution"]
+    }
+
     fn run(
         &self,
         engine_state: &EngineState,
@@ -68,7 +72,7 @@ impl Command for ExprQuantile {
         let expr = NuExpression::try_from_value(value)?;
         let expr: NuExpression = expr
             .into_polars()
-            .quantile(quantile, QuantileInterpolOptions::default())
+            .quantile(lit(quantile), QuantileInterpolOptions::default())
             .into();
 
         Ok(PipelineData::Value(

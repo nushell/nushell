@@ -8,7 +8,7 @@ fn nothing_fails_string() -> TestResult {
 
 #[test]
 fn nothing_fails_int() -> TestResult {
-    fail_test("$nothing.3", "Can't access")
+    fail_test("$nothing.3", "doesn't support cell paths")
 }
 
 // Tests for records
@@ -67,9 +67,9 @@ fn list_single_field_failure() -> TestResult {
 
 // Test the scenario where the requested column is not present in all rows
 #[test]
-fn jagged_list_access_succeeds() -> TestResult {
-    run_test("[{foo: 'bar'}, {}].foo == ['bar', $nothing]", "true")?;
-    run_test("[{}, {foo: 'bar'}].foo == [$nothing, 'bar']", "true")
+fn jagged_list_access_fails() -> TestResult {
+    fail_test("[{foo: 'bar'}, {}].foo", "cannot find column")?;
+    fail_test("[{}, {foo: 'bar'}].foo", "cannot find column")
 }
 
 // test that accessing a nonexistent row fails
@@ -81,8 +81,5 @@ fn list_row_access_failure() -> TestResult {
 // regression test for an old bug
 #[test]
 fn do_not_delve_too_deep_in_nested_lists() -> TestResult {
-    fail_test(
-        "[[{foo: bar}]].foo",
-        "did not find anything under this name",
-    )
+    fail_test("[[{foo: bar}]].foo", "cannot find column")
 }

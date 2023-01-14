@@ -25,7 +25,7 @@ struct Finding {
     congruence: Vec<Congruence>,
 }
 
-/// Returns an interator over directory's children matching the abbreviation.
+/// Returns an iterator over directory's children matching the abbreviation.
 fn get_matching_children<'a, P>(
     path: &'a P,
     abbr: &'a Abbr,

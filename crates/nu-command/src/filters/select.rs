@@ -149,15 +149,20 @@ fn select(
         ) => {
             let mut output = vec![];
             let mut columns_with_value = Vec::new();
-
+            let mut allempty = true;
             for input_val in input_vals {
                 if !columns.is_empty() {
                     let mut cols = vec![];
                     let mut vals = vec![];
                     for path in &columns {
                         //FIXME: improve implementation to not clone
-                        match input_val.clone().follow_cell_path(&path.members, false) {
+                        match input_val.clone().follow_cell_path(
+                            &path.members,
+                            false,
+                            ignore_errors,
+                        ) {
                             Ok(fetcher) => {
+                                allempty = false;
                                 cols.push(path.into_string().replace('.', "_"));
                                 vals.push(fetcher);
                                 if !columns_with_value.contains(&path) {
@@ -165,9 +170,6 @@ fn select(
                                 }
                             }
                             Err(e) => {
-                                if ignore_errors {
-                                    return Ok(Value::nothing(call_span).into_pipeline_data());
-                                }
                                 return Err(e);
                             }
                         }
@@ -178,11 +180,14 @@ fn select(
                     output.push(input_val)
                 }
             }
-
-            Ok(output
-                .into_iter()
-                .into_pipeline_data(engine_state.ctrlc.clone())
-                .set_metadata(metadata))
+            if allempty {
+                Ok(Value::nothing(call_span).into_pipeline_data())
+            } else {
+                Ok(output
+                    .into_iter()
+                    .into_pipeline_data(engine_state.ctrlc.clone())
+                    .set_metadata(metadata))
+            }
         }
         PipelineData::ListStream(stream, metadata, ..) => {
             let mut values = vec![];
@@ -193,17 +198,15 @@ fn select(
                     let mut vals = vec![];
                     for path in &columns {
                         //FIXME: improve implementation to not clone
-                        match x.clone().follow_cell_path(&path.members, false) {
+                        match x
+                            .clone()
+                            .follow_cell_path(&path.members, false, ignore_errors)
+                        {
                             Ok(value) => {
                                 cols.push(path.into_string().replace('.', "_"));
                                 vals.push(value);
                             }
-                            Err(e) => {
-                                if ignore_errors {
-                                    return Ok(Value::nothing(call_span).into_pipeline_data());
-                                }
-                                return Err(e);
-                            }
+                            Err(e) => return Err(e),
                         }
                     }
                     values.push(Value::Record {
@@ -227,18 +230,15 @@ fn select(
 
                 for cell_path in columns {
                     // FIXME: remove clone
-                    match v.clone().follow_cell_path(&cell_path.members, false) {
+                    match v
+                        .clone()
+                        .follow_cell_path(&cell_path.members, false, ignore_errors)
+                    {
                         Ok(result) => {
                             cols.push(cell_path.into_string().replace('.', "_"));
                             vals.push(result);
                         }
-                        Err(e) => {
-                            if ignore_errors {
-                                return Ok(Value::nothing(call_span).into_pipeline_data());
-                            }
-
-                            return Err(e);
-                        }
+                        Err(e) => return Err(e),
                     }
                 }
 

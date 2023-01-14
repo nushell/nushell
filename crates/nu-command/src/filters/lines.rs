@@ -5,7 +5,7 @@ use nu_protocol::{
     Signature, Span, Type, Value,
 };
 use once_cell::sync::Lazy;
-// regex can be replaced with fancy-regex once it suppports `split()`
+// regex can be replaced with fancy-regex once it supports `split()`
 // https://github.com/fancy-regex/fancy-regex/issues/104
 use regex::Regex;
 

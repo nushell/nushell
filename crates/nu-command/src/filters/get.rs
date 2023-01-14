@@ -64,18 +64,9 @@ impl Command for Get {
         let metadata = input.metadata();
 
         if rest.is_empty() {
-            let output = input
-                .follow_cell_path(&cell_path.members, call.head, !sensitive)
-                .map(|x| x.into_pipeline_data());
-
-            if ignore_errors {
-                match output {
-                    Ok(output) => Ok(output),
-                    Err(_) => Ok(Value::Nothing { span: call.head }.into_pipeline_data()),
-                }
-            } else {
-                output
-            }
+            input
+                .follow_cell_path(&cell_path.members, call.head, !sensitive, ignore_errors)
+                .map(|x| x.into_pipeline_data())
         } else {
             let mut output = vec![];
 
@@ -84,15 +75,11 @@ impl Command for Get {
             let input = input.into_value(span);
 
             for path in paths {
-                let val = input.clone().follow_cell_path(&path.members, !sensitive);
+                let val = input
+                    .clone()
+                    .follow_cell_path(&path.members, !sensitive, false);
 
-                if ignore_errors {
-                    if let Ok(val) = val {
-                        output.push(val);
-                    }
-                } else {
-                    output.push(val?);
-                }
+                output.push(val?);
             }
 
             Ok(output.into_iter().into_pipeline_data(ctrlc))
@@ -120,17 +107,13 @@ impl Command for Get {
                 result: Some(Value::test_string("A0")),
             },
             Example {
-                description: "Extract the name of files as a list",
-                example: "ls | get name",
-                result: None,
-            },
-            Example {
-                description: "Extract the name of the 3rd entry of a file list",
+                description:
+                    "Extract the name of the 3rd record in a list (same as `ls | $in.name`)",
                 example: "ls | get name.2",
                 result: None,
             },
             Example {
-                description: "Extract the name of the 3rd entry of a file list (alternative)",
+                description: "Extract the name of the 3rd record in a list",
                 example: "ls | get 2.name",
                 result: None,
             },

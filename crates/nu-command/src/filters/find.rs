@@ -514,7 +514,7 @@ fn to_nu_ansi_term_style(style: &LsColors_Style) -> Style {
             LsColors_Color::White => Color::White,
 
             // Below items are a rough translations to 256 colors as
-            // nu-ansi-term do not have bright varients
+            // nu-ansi-term do not have bright variants
             LsColors_Color::BrightBlack => Color::Fixed(8),
             LsColors_Color::BrightRed => Color::Fixed(9),
             LsColors_Color::BrightGreen => Color::Fixed(10),
