@@ -157,7 +157,7 @@ fn item_mapper_by_col(cols: Vec<String>) -> impl Fn(crate::ItemMapperState) -> c
             span: Span::unknown(),
         };
 
-        crate::ValueCounter::new_vals_to_compare(ms.item, ms.flag_ignore_case, col_vals)
+        crate::ValueCounter::new_vals_to_compare(ms.item, ms.flag_ignore_case, col_vals, ms.index)
     })
 }
 

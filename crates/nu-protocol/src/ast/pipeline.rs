@@ -14,6 +14,10 @@ pub enum Redirection {
 pub enum PipelineElement {
     Expression(Option<Span>, Expression),
     Redirection(Span, Redirection, Expression),
+    SeparateRedirection {
+        out: (Span, Expression),
+        err: (Span, Expression),
+    },
     And(Span, Expression),
     Or(Span, Expression),
 }
@@ -24,6 +28,10 @@ impl PipelineElement {
             PipelineElement::Expression(None, expression) => expression.span,
             PipelineElement::Expression(Some(span), expression)
             | PipelineElement::Redirection(span, _, expression)
+            | PipelineElement::SeparateRedirection {
+                out: (span, expression),
+                ..
+            }
             | PipelineElement::And(span, expression)
             | PipelineElement::Or(span, expression) => Span {
                 start: span.start,
@@ -37,6 +45,10 @@ impl PipelineElement {
             | PipelineElement::Redirection(_, _, expression)
             | PipelineElement::And(_, expression)
             | PipelineElement::Or(_, expression) => expression.has_in_variable(working_set),
+            PipelineElement::SeparateRedirection {
+                out: (_, out_expr),
+                err: (_, err_expr),
+            } => out_expr.has_in_variable(working_set) || err_expr.has_in_variable(working_set),
         }
     }
 
@@ -47,6 +59,17 @@ impl PipelineElement {
             | PipelineElement::And(_, expression)
             | PipelineElement::Or(_, expression) => {
                 expression.replace_in_variable(working_set, new_var_id)
+            }
+            PipelineElement::SeparateRedirection {
+                out: (_, out_expr),
+                err: (_, err_expr),
+            } => {
+                if out_expr.has_in_variable(working_set) {
+                    out_expr.replace_in_variable(working_set, new_var_id)
+                }
+                if err_expr.has_in_variable(working_set) {
+                    err_expr.replace_in_variable(working_set, new_var_id)
+                }
             }
         }
     }
@@ -61,9 +84,11 @@ impl PipelineElement {
             PipelineElement::Expression(_, expression)
             | PipelineElement::Redirection(_, _, expression)
             | PipelineElement::And(_, expression)
-            | PipelineElement::Or(_, expression) => {
-                expression.replace_span(working_set, replaced, new_span)
-            }
+            | PipelineElement::Or(_, expression)
+            | PipelineElement::SeparateRedirection {
+                out: (_, expression),
+                ..
+            } => expression.replace_span(working_set, replaced, new_span),
         }
     }
 }

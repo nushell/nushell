@@ -40,7 +40,7 @@ fn parse_range(range: Value, head: Span) -> Result<(isize, isize, Span), ShellEr
                 let end = match end {
                     Value::Int { val, .. } => val.to_string(),
                     Value::String { val, .. } => val,
-                    // Explictly propagate errors instead of dropping them.
+                    // Explicitly propagate errors instead of dropping them.
                     Value::Error { error } => return Err(error),
                     other => {
                         return Err(ShellError::UnsupportedInput(
@@ -55,7 +55,7 @@ fn parse_range(range: Value, head: Span) -> Result<(isize, isize, Span), ShellEr
                 let start = match start {
                     Value::Int { val, .. } => val.to_string(),
                     Value::String { val, .. } => val,
-                    // Explictly propagate errors instead of dropping them.
+                    // Explicitly propagate errors instead of dropping them.
                     Value::Error { error } => return Err(error),
                     other => {
                         return Err(ShellError::UnsupportedInput(
@@ -83,7 +83,7 @@ fn parse_range(range: Value, head: Span) -> Result<(isize, isize, Span), ShellEr
                 }
             }
         }
-        // Explictly propagate errors instead of dropping them.
+        // Explicitly propagate errors instead of dropping them.
         Value::Error { error } => return Err(error),
         other => {
             return Err(ShellError::UnsupportedInput(

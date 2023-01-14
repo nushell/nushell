@@ -84,7 +84,7 @@ not supported."#
         let redirect_stdout = call.redirect_stdout;
         let redirect_stderr = call.redirect_stderr;
         Ok(input
-            .into_iter()
+            .into_iter_strict(span)?
             .enumerate()
             .filter_map(move |(idx, value)| {
                 stack.with_env(&orig_env_vars, &orig_env_hidden);
@@ -128,8 +128,8 @@ not supported."#
                     Err(err) => Some(Value::Error { error: err }),
                 }
             })
-            .into_pipeline_data(ctrlc))
-        .map(|x| x.set_metadata(metadata))
+            .into_pipeline_data(ctrlc)
+            .set_metadata(metadata))
     }
 
     fn examples(&self) -> Vec<Example> {
@@ -174,25 +174,6 @@ not supported."#
                 example: "ls | where modified >= (date now) - 2wk",
                 result: None,
             },
-            // TODO: This should work but does not. (Note that `Let` must be present in the working_set in `example_test.rs`).
-            // See https://github.com/nushell/nushell/issues/7034
-            // Example {
-            //     description: "List all numbers above 3, using an existing closure condition",
-            //     example: "let a = {$in > 3}; [1, 2, 5, 6] | where -b $a",
-            //     result: Some(Value::List {
-            //         vals: vec![
-            //             Value::Int {
-            //                 val: 5,
-            //                 span: Span::test_data(),
-            //             },
-            //             Value::Int {
-            //                 val: 6,
-            //                 span: Span::test_data(),
-            //             },
-            //         ],
-            //         span: Span::test_data(),
-            //     }),
-            // },
         ]
     }
 }

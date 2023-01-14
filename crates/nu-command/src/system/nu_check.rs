@@ -307,7 +307,7 @@ fn parse_module(
     let end = working_set.next_span_start();
 
     let new_span = Span::new(start, end);
-    let (_, _, err) = parse_module_block(working_set, new_span, &[]);
+    let (_, _, _, err) = parse_module_block(working_set, new_span, &[]);
 
     if err.is_some() {
         if is_debug {

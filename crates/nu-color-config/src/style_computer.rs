@@ -126,7 +126,7 @@ impl<'a> StyleComputer<'a> {
 
             Value::Filesize { .. } => TextStyle::with_style(AlignmentHorizontal::Right, s),
 
-            Value::Duration { .. } => TextStyle::with_style(AlignmentHorizontal::Left, s),
+            Value::Duration { .. } => TextStyle::with_style(AlignmentHorizontal::Right, s),
 
             Value::Date { .. } => TextStyle::with_style(AlignmentHorizontal::Left, s),
 

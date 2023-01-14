@@ -50,7 +50,7 @@ impl Command for ToNuon {
     }
 }
 
-fn value_to_string(v: &Value, span: Span) -> Result<String, ShellError> {
+pub fn value_to_string(v: &Value, span: Span) -> Result<String, ShellError> {
     match v {
         Value::Binary { val, .. } => {
             let mut s = String::with_capacity(2 * val.len());
@@ -221,6 +221,9 @@ static NEEDS_QUOTES_REGEX: Lazy<Regex> = Lazy::new(|| {
 });
 
 fn needs_quotes(string: &str) -> bool {
+    if string.is_empty() {
+        return true;
+    }
     // These are case-sensitive keywords
     match string {
         // `true`/`false`/`null` are active keywords in JSON and NUON

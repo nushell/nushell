@@ -137,7 +137,11 @@ impl Command for FromNuon {
                     PipelineElement::Expression(_, expression)
                     | PipelineElement::Redirection(_, _, expression)
                     | PipelineElement::And(_, expression)
-                    | PipelineElement::Or(_, expression) => expression,
+                    | PipelineElement::Or(_, expression)
+                    | PipelineElement::SeparateRedirection {
+                        out: (_, expression),
+                        ..
+                    } => expression,
                 }
             }
         };

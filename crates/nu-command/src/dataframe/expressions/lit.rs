@@ -42,6 +42,10 @@ impl Command for ExprLit {
         }]
     }
 
+    fn search_terms(&self) -> Vec<&str> {
+        vec!["string", "literal", "expression"]
+    }
+
     fn run(
         &self,
         engine_state: &EngineState,

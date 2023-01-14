@@ -73,7 +73,7 @@ impl ViewCommand for TableCmd {
             Shortcode::new("Esc",    "",        "Exits cursor mode. Exits the just explored dataset."),
             Shortcode::new("i",      "view",    "Enters cursor mode to inspect individual cells"),
             Shortcode::new("t",      "view",    "Transpose table, so that columns become rows and vice versa"),
-            Shortcode::new("e",      "view",    "Open expand view (equvalent of :expand)"),
+            Shortcode::new("e",      "view",    "Open expand view (equivalent of :expand)"),
             Shortcode::new("Enter",  "cursor",  "In cursor mode, explore the data of the selected cell"),
         ];
 

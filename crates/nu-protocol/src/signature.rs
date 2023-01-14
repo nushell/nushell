@@ -123,7 +123,7 @@ pub struct Signature {
     pub category: Category,
 }
 
-/// Fromat argumet type for user readable output.
+/// Format argument type for user readable output.
 ///
 /// In general:
 /// if argument type is a simple type(like string), we'll wrapped with `<>`, the result will be `<string>`
@@ -147,7 +147,7 @@ fn fmt_type(arg_type: &Type, optional: bool) -> String {
 //
 // <string> | <string>, <int?> => string
 //
-// More detail explaination:
+// More detail explanation:
 // the first one is the input from previous command, aka, pipeline input
 // then followed by `|`, then positional arguments type
 // then optional arguments type, which ends with `?`
@@ -265,7 +265,8 @@ impl Signature {
     }
 
     /// Update signature's fields from a Command trait implementation
-    pub fn update_from_command(mut self, command: &dyn Command) -> Signature {
+    pub fn update_from_command(mut self, name: String, command: &dyn Command) -> Signature {
+        self.name = name;
         self.search_terms = command
             .search_terms()
             .into_iter()
@@ -669,6 +670,10 @@ impl Command for Predeclaration {
         &self.signature.usage
     }
 
+    fn extra_usage(&self) -> &str {
+        &self.signature.extra_usage
+    }
+
     fn run(
         &self,
         _engine_state: &EngineState,
@@ -716,6 +721,10 @@ impl Command for BlockCommand {
 
     fn usage(&self) -> &str {
         &self.signature.usage
+    }
+
+    fn extra_usage(&self) -> &str {
+        &self.signature.extra_usage
     }
 
     fn run(

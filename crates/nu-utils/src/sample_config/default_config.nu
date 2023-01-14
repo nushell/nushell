@@ -33,7 +33,7 @@ module completions {
     --write-fetch-head                            # Write fetched refs in FETCH_HEAD (default)
     --no-write-fetch-head                         # Do not write FETCH_HEAD
     --force(-f)                                   # Always update the local branch
-    --keep(-k)                                    # Keep dowloaded pack
+    --keep(-k)                                    # Keep downloaded pack
     --multiple                                    # Allow several arguments to be specified
     --auto-maintenance                            # Run 'git maintenance run --auto' at the end (default)
     --no-auto-maintenance                         # Don't run 'git maintenance' at the end
@@ -395,6 +395,11 @@ let-env config = {
     metric: true # true => KB, MB, GB (ISO standard), false => KiB, MiB, GiB (Windows standard)
     format: "auto" # b, kb, kib, mb, mib, gb, gib, tb, tib, pb, pib, eb, eib, zb, zib, auto
   }
+  cursor_shape: {
+    emacs: line # block, underscore, line (line is the default)
+    vi_insert: block # block, underscore, line (block is the default)
+    vi_normal: underscore # block, underscore, line  (underscore is the default)
+  }
   color_config: $dark_theme   # if you want a light theme, replace `$dark_theme` to `$light_theme`
   use_grid_icons: true
   footer_mode: "25" # always, never, number_of_rows, auto
@@ -424,7 +429,7 @@ let-env config = {
   }
   menus: [
       # Configuration for default nushell menus
-      # Note the lack of souce parameter
+      # Note the lack of source parameter
       {
         name: completion_menu
         only_buffer_difference: false

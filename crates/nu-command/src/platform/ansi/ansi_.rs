@@ -154,7 +154,7 @@ static CODE_LIST: Lazy<Vec<AnsiCode>> = Lazy::new(|| { vec![
     AnsiCode{ short_name: Some("defr"), long_name: "default_reverse", code: Color::Default.reverse().prefix().to_string()},
     AnsiCode{ short_name: Some("bg_def"), long_name: "bg_default", code: Style::new().on(Color::Default).prefix().to_string()},
 
-    // Xterm 256 colors with conflicting names names preceeded by x
+    // Xterm 256 colors with conflicting names names preceded by x
     AnsiCode { short_name: Some("xblack"), long_name: "xterm_black", code: Color::Fixed(0).prefix().to_string()},
     AnsiCode { short_name: Some("maroon"), long_name: "xterm_maroon", code: Color::Fixed(1).prefix().to_string()},
     AnsiCode { short_name: Some("xgreen"), long_name: "xterm_green", code: Color::Fixed(2).prefix().to_string()},

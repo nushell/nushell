@@ -37,6 +37,10 @@ impl Command for ExprAsNu {
         }]
     }
 
+    fn search_terms(&self) -> Vec<&str> {
+        vec!["convert", "conversion"]
+    }
+
     fn run(
         &self,
         _engine_state: &EngineState,

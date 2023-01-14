@@ -59,6 +59,10 @@ impl Command for ExprAlias {
         }]
     }
 
+    fn search_terms(&self) -> Vec<&str> {
+        vec!["aka", "abbr", "otherwise"]
+    }
+
     fn run(
         &self,
         engine_state: &EngineState,

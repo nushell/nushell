@@ -349,7 +349,10 @@ fn proper_missing_param() -> TestResult {
 
 #[test]
 fn block_arity_check1() -> TestResult {
-    fail_test(r#"ls | each { |x, y, z| 1}"#, "expected 2 block parameters")
+    fail_test(
+        r#"ls | each { |x, y, z| 1}"#,
+        "expected 2 closure parameters",
+    )
 }
 
 #[test]

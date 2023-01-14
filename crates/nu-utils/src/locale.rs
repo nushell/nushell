@@ -1,6 +1,5 @@
 use num_format::Locale;
 
-#[cfg(debug_assertions)]
 pub const LOCALE_OVERRIDE_ENV_VAR: &str = "NU_TEST_LOCALE_OVERRIDE";
 
 pub fn get_system_locale() -> Locale {

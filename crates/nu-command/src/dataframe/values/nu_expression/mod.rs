@@ -126,7 +126,7 @@ impl NuExpression {
         expr_to_value(self.as_ref(), span)
     }
 
-    // Convenient function to extrac multiple Expr that could be inside a nushell Value
+    // Convenient function to extract multiple Expr that could be inside a nushell Value
     pub fn extract_exprs(value: Value) -> Result<Vec<Expr>, ShellError> {
         ExtractedExpr::extract_exprs(value).map(ExtractedExpr::into_exprs)
     }
@@ -289,10 +289,7 @@ pub fn expr_to_value(expr: &Expr, span: Span) -> Value {
                     interpol,
                 } => {
                     let expr = expr_to_value(expr.as_ref(), span);
-                    let quantile = Value::Float {
-                        val: *quantile,
-                        span,
-                    };
+                    let quantile = expr_to_value(quantile.as_ref(), span);
                     let interpol = Value::String {
                         val: format!("{:?}", interpol),
                         span,

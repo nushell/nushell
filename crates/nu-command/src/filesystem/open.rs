@@ -1,7 +1,7 @@
-use crate::filesystem::util::BufferedReader;
 use nu_engine::{eval_block, CallExt};
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
+use nu_protocol::util::BufferedReader;
 use nu_protocol::{
     Category, Example, PipelineData, RawStream, ShellError, Signature, Spanned, SyntaxShape, Type,
     Value,
@@ -139,6 +139,7 @@ impl Command for Open {
                     Box::new(BufferedReader { input: buf_reader }),
                     ctrlc,
                     call_span,
+                    None,
                 )),
                 stderr: None,
                 exit_code: None,
