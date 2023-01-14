@@ -70,7 +70,7 @@ impl Command for SubCommand {
             },
             Example {
                 description: "Create a link without text",
-                example: "ansi link 'https://www.nushell.sh/'",
+                example: "'https://www.nushell.sh/' | ansi link",
                 result: Some(Value::string(
                     "\u{1b}]8;;https://www.nushell.sh/\u{1b}\\https://www.nushell.sh/\u{1b}]8;;\u{1b}\\",
                     Span::unknown(),
@@ -119,7 +119,7 @@ fn process_each_path(
     for path in column_paths {
         let ret = value.update_cell_path(
             &path.members,
-            Box::new(|v| process_value(&v, text, command_span)),
+            Box::new(|v| process_value(v, text, command_span)),
         );
         if let Err(error) = ret {
             return Value::Error { error };
@@ -131,7 +131,7 @@ fn process_each_path(
 fn process_value(value: &Value, text: &Option<String>, command_span: &Span) -> Value {
     match value {
         Value::String { val, span } => {
-            let text = text.as_deref().unwrap_or_else(|| val.as_str());
+            let text = text.as_deref().unwrap_or(val.as_str());
             let result = add_osc_link(text, val.as_str());
             Value::string(result, *span)
         }
