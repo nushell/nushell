@@ -1,7 +1,11 @@
 use nu_engine::CallExt;
 use nu_protocol::{
-    ast::Call, engine::Command, engine::EngineState, engine::Stack, Category, Example,
-    IntoPipelineData, PipelineData, ShellError, Signature, Span, Spanned, SyntaxShape, Type, Value,
+    ast::{Call, CellPath},
+    engine::Command,
+    engine::EngineState,
+    engine::Stack,
+    Category, Example, PipelineData, ShellError, Signature, Span, Spanned, SyntaxShape, Type,
+    Value,
 };
 
 #[derive(Clone)]
@@ -14,13 +18,29 @@ impl Command for SubCommand {
 
     fn signature(&self) -> Signature {
         Signature::build("ansi link")
-            .input_output_types(vec![(Type::Nothing, Type::String)])
-            .required("uri", SyntaxShape::String, "URI link to embed in text")
-            .optional(
+            .input_output_types(vec![
+                (Type::String, Type::String),
+                (
+                    Type::List(Box::new(Type::String)),
+                    Type::List(Box::new(Type::String)),
+                ),
+                (Type::Table(vec![]), Type::Table(vec![])),
+                (Type::Record(vec![]), Type::Record(vec![])),
+            ])
+            .named(
                 "text",
                 SyntaxShape::String,
-                "Link text. Uses uri as text if absent",
+                "Link text. Uses uri as text if absent. In case of 
+                tables, records and lists applies this text to all elements",
+                Some('t'),
             )
+            .rest(
+                "cell path",
+                SyntaxShape::CellPath,
+                "for a data structure input, add links to all strings at the given cell paths",
+            )
+            .vectorizes_over_list(true)
+            .allow_variants_without_examples(true)
             .category(Category::Platform)
     }
 
@@ -33,9 +53,9 @@ impl Command for SubCommand {
         engine_state: &EngineState,
         stack: &mut Stack,
         call: &Call,
-        _input: PipelineData,
+        input: PipelineData,
     ) -> Result<nu_protocol::PipelineData, ShellError> {
-        operate(engine_state, stack, call)
+        operate(engine_state, stack, call, input)
     }
 
     fn examples(&self) -> Vec<Example> {
@@ -72,15 +92,58 @@ fn operate(
     engine_state: &EngineState,
     stack: &mut Stack,
     call: &Call,
+    input: PipelineData,
 ) -> Result<PipelineData, ShellError> {
-    let uri: Spanned<String> = call.req(engine_state, stack, 0)?;
-    let text: Option<Spanned<String>> = call.opt(engine_state, stack, 1)?;
+    let text: Option<Spanned<String>> = call.get_flag(engine_state, stack, "text")?;
+    let text = text.map(|e| e.item);
+    let column_paths: Vec<CellPath> = call.rest(engine_state, stack, 0)?;
 
-    // If text is absent use provided URI
-    let text = text.unwrap_or_else(|| uri.clone());
+    let command_span = call.head;
 
-    let output = add_osc_link(&text.item, &uri.item);
-    Ok(Value::string(output, call.head).into_pipeline_data())
+    if column_paths.is_empty() {
+        input.map(
+            move |v| process_value(&v, &text, &command_span),
+            engine_state.ctrlc.clone(),
+        )
+    } else {
+        input.map(
+            move |mut v| {
+                for path in &column_paths {
+                    let at_path = v.clone().follow_cell_path(&path.members, false);
+
+                    let at_path = match at_path {
+                        Err(error) => return Value::Error { error },
+                        Ok(val) => val,
+                    };
+
+                    let new_val = process_value(&at_path, &text, &command_span);
+                    let res = v.update_data_at_cell_path(&path.members, new_val);
+                    if let Err(error) = res {
+                        return Value::Error { error };
+                    }
+                }
+                v
+            },
+            engine_state.ctrlc.clone(),
+        )
+    }
+}
+
+fn process_value(value: &Value, text: &Option<String>, command_span: &Span) -> Value {
+    match value {
+        Value::String { val, span } => {
+            let text = text.as_deref().unwrap_or_else(|| val.as_str());
+            let result = add_osc_link(text, val.as_str());
+            Value::string(result, *span)
+        }
+        other => {
+            let got = format!("value is {}, not string", other.get_type());
+
+            Value::Error {
+                error: ShellError::TypeMismatch(got, other.span().unwrap_or(*command_span)),
+            }
+        }
+    }
 }
 
 fn add_osc_link(text: &str, link: &str) -> String {
