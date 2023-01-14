@@ -81,7 +81,7 @@ impl Command for SubCommand {
                 }),
             },
             Example {
-                description: "Encode all non anphanumeric chars with all flag",
+                description: "Encode all non alphanumeric chars with all flag",
                 example: "'https://example.com/foo bar' | url encode --all",
                 result: Some(Value::test_string("https%3A%2F%2Fexample%2Ecom%2Ffoo%20bar")),
             },
