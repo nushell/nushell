@@ -62,17 +62,9 @@ impl Command for SubCommand {
         vec![
             Example {
                 description: "Create a link to open some file",
-                example: "ansi link 'file:///file.txt' 'Open Me!'",
+                example: "'file:///file.txt' | ansi link --text 'Open Me!'",
                 result: Some(Value::string(
                     "\u{1b}]8;;file:///file.txt\u{1b}\\Open Me!\u{1b}]8;;\u{1b}\\",
-                    Span::unknown(),
-                )),
-            },
-            Example {
-                description: "Create link to nushell website",
-                example: "ansi link 'https://www.nushell.sh/' 'Nushell'",
-                result: Some(Value::string(
-                    "\u{1b}]8;;https://www.nushell.sh/\u{1b}\\Nushell\u{1b}]8;;\u{1b}\\",
                     Span::unknown(),
                 )),
             },
@@ -83,6 +75,11 @@ impl Command for SubCommand {
                     "\u{1b}]8;;https://www.nushell.sh/\u{1b}\\https://www.nushell.sh/\u{1b}]8;;\u{1b}\\",
                     Span::unknown(),
                 )),
+            },
+            Example {
+                description: "Format a table column into links",
+                example: "[[url text]; [https://example.com Text]] | ansi link url",
+                result: None,
             },
         ]
     }
