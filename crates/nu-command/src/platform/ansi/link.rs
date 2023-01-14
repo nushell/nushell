@@ -117,16 +117,11 @@ fn process_each_path(
     command_span: &Span,
 ) -> Value {
     for path in column_paths {
-        let at_path = value.clone().follow_cell_path(&path.members, false);
-
-        let at_path = match at_path {
-            Err(error) => return Value::Error { error },
-            Ok(val) => val,
-        };
-
-        let new_val = process_value(&at_path, &text, &command_span);
-        let res = value.update_data_at_cell_path(&path.members, new_val);
-        if let Err(error) = res {
+        let ret = value.update_cell_path(
+            &path.members,
+            Box::new(|v| process_value(&v, text, command_span)),
+        );
+        if let Err(error) = ret {
             return Value::Error { error };
         }
     }
