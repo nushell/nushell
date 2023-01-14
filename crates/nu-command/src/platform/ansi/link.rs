@@ -104,26 +104,33 @@ fn operate(
         )
     } else {
         input.map(
-            move |mut v| {
-                for path in &column_paths {
-                    let at_path = v.clone().follow_cell_path(&path.members, false);
-
-                    let at_path = match at_path {
-                        Err(error) => return Value::Error { error },
-                        Ok(val) => val,
-                    };
-
-                    let new_val = process_value(&at_path, &text, &command_span);
-                    let res = v.update_data_at_cell_path(&path.members, new_val);
-                    if let Err(error) = res {
-                        return Value::Error { error };
-                    }
-                }
-                v
-            },
+            move |v| process_each_path(v, &column_paths, &text, &command_span),
             engine_state.ctrlc.clone(),
         )
     }
+}
+
+fn process_each_path(
+    mut value: Value,
+    column_paths: &Vec<CellPath>,
+    text: &Option<String>,
+    command_span: &Span,
+) -> Value {
+    for path in column_paths {
+        let at_path = value.clone().follow_cell_path(&path.members, false);
+
+        let at_path = match at_path {
+            Err(error) => return Value::Error { error },
+            Ok(val) => val,
+        };
+
+        let new_val = process_value(&at_path, &text, &command_span);
+        let res = value.update_data_at_cell_path(&path.members, new_val);
+        if let Err(error) = res {
+            return Value::Error { error };
+        }
+    }
+    value
 }
 
 fn process_value(value: &Value, text: &Option<String>, command_span: &Span) -> Value {
