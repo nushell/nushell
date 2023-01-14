@@ -6,6 +6,7 @@ use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::Category;
 use nu_protocol::Spanned;
 use nu_protocol::{Example, PipelineData, ShellError, Signature, Span, SyntaxShape, Type, Value};
+use unicode_segmentation::UnicodeSegmentation;
 
 struct Arguments {
     end: bool,
@@ -86,6 +87,11 @@ impl Command for SubCommand {
                 result: Some(Value::test_int(10)),
             },
             Example {
+                description: "Length is computed by counting grapheme clusters",
+                example: "'🇯🇵ほげ ふが ぴよ' | str index-of 'ふが'",
+                result: Some(Value::test_int(4)),
+            },
+            Example {
                 description: "Returns index of string in input with start index",
                 example: " '.rb.rb' | str index-of '.rb' -r '1,'",
                 result: Some(Value::test_int(3)),
@@ -138,14 +144,24 @@ fn action(
                 Err(e) => return Value::Error { error: e },
             };
 
-            if *end {
-                if let Some(result) = s[start_index..end_index].rfind(&**substring) {
-                    Value::int(result as i64 + start_index as i64, head)
-                } else {
-                    Value::int(-1, head)
-                }
-            } else if let Some(result) = s[start_index..end_index].find(&**substring) {
-                Value::int(result as i64 + start_index as i64, head)
+            // When the -e flag is present, search using rfind instead of find.s
+            if let Some(result) = if *end {
+                s[start_index..end_index].rfind(&**substring)
+            } else {
+                s[start_index..end_index].find(&**substring)
+            } {
+                let result = result + start_index;
+                // Having found the substring's byte index, convert to grapheme index.
+                // grapheme_indices iterates graphemes alongside their UTF-8 byte indices, so .enumerate()
+                // is used to get the grapheme index alongside it.
+                let grapheme_index = s
+                    .grapheme_indices(true)
+                    .enumerate()
+                    .find(|e| e.1 .0 >= result)
+                    .expect("No grapheme index for substring")
+                    .0;
+
+                Value::int(grapheme_index as i64, head)
             } else {
                 Value::int(-1, head)
             }

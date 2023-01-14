@@ -5,6 +5,7 @@ use nu_protocol::ast::CellPath;
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{Example, PipelineData, ShellError, Signature, Span, SyntaxShape, Type, Value};
 use std::cmp::Ordering;
+use unicode_segmentation::UnicodeSegmentation;
 
 #[derive(Clone)]
 pub struct SubCommand;
@@ -111,6 +112,11 @@ impl Command for SubCommand {
                 example: " 'good nushell' | str substring ',7'",
                 result: Some(Value::test_string("good nu")),
             },
+            Example {
+                description: "Grapheme clusters are considered single characters",
+                example: " '🇯🇵ほげ ふが ぴよ' | str substring 4..6",
+                result: Some(Value::test_string("ふが")),
+            },
         ]
     }
 }
@@ -144,18 +150,16 @@ fn action(input: &Value, args: &Arguments, head: Span) -> Value {
                     Ordering::Less => Value::String {
                         val: {
                             if end == isize::max_value() {
-                                String::from_utf8_lossy(
-                                    &s.bytes().skip(start as usize).collect::<Vec<_>>(),
-                                )
-                                .to_string()
+                                s.graphemes(true)
+                                    .skip(start as usize)
+                                    .collect::<Vec<&str>>()
+                                    .join("")
                             } else {
-                                String::from_utf8_lossy(
-                                    &s.bytes()
-                                        .skip(start as usize)
-                                        .take((end - start) as usize)
-                                        .collect::<Vec<_>>(),
-                                )
-                                .to_string()
+                                s.graphemes(true)
+                                    .skip(start as usize)
+                                    .take((end - start) as usize)
+                                    .collect::<Vec<&str>>()
+                                    .join("")
                             }
                         },
                         span: head,

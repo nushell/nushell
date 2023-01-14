@@ -5,7 +5,10 @@ use nu_protocol::ast::CellPath;
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::Category;
 use nu_protocol::{Example, PipelineData, ShellError, Signature, Span, SyntaxShape, Type, Value};
+use unicode_segmentation::UnicodeSegmentation;
+
 #[derive(Clone)]
+
 pub struct SubCommand;
 
 impl Command for SubCommand {
@@ -48,9 +51,14 @@ impl Command for SubCommand {
     fn examples(&self) -> Vec<Example> {
         vec![
             Example {
-                description: "Return the lengths of multiple strings",
+                description: "Return the lengths of a string",
                 example: "'hello' | str length",
                 result: Some(Value::test_int(5)),
+            },
+            Example {
+                description: "Length is computed by counting grapheme clusters",
+                example: "'🇯🇵ほげ ふが ぴよ' | str length",
+                result: Some(Value::test_int(9)),
             },
             Example {
                 description: "Return the lengths of multiple strings",
@@ -66,7 +74,9 @@ impl Command for SubCommand {
 
 fn action(input: &Value, _arg: &CellPathOnlyArgs, head: Span) -> Value {
     match input {
-        Value::String { val, .. } => Value::int(val.len() as i64, head),
+        Value::String { val, .. } => {
+            Value::int(val.graphemes(true).collect::<Vec<_>>().len() as i64, head)
+        }
         Value::Error { .. } => input.clone(),
         _ => Value::Error {
             error: ShellError::OnlySupportsThisInputType(
