@@ -49,9 +49,9 @@ pub fn parse_int() {
     let (block, err) = parse(&mut working_set, None, b"3", true, &[]);
 
     assert!(err.is_none());
-    assert!(block.len() == 1);
+    assert_eq!(block.len(), 1);
     let expressions = &block[0];
-    assert!(expressions.len() == 1);
+    assert_eq!(expressions.len(), 1);
     assert!(matches!(
         expressions[0],
         PipelineElement::Expression(
@@ -72,9 +72,9 @@ pub fn parse_binary_with_hex_format() {
     let (block, err) = parse(&mut working_set, None, b"0x[13]", true, &[]);
 
     assert!(err.is_none());
-    assert!(block.len() == 1);
+    assert_eq!(block.len(), 1);
     let expressions = &block[0];
-    assert!(expressions.len() == 1);
+    assert_eq!(expressions.len(), 1);
     if let PipelineElement::Expression(_, expr) = &expressions[0] {
         assert_eq!(expr.expr, Expr::Binary(vec![0x13]))
     } else {
@@ -90,9 +90,9 @@ pub fn parse_binary_with_incomplete_hex_format() {
     let (block, err) = parse(&mut working_set, None, b"0x[3]", true, &[]);
 
     assert!(err.is_none());
-    assert!(block.len() == 1);
+    assert_eq!(block.len(), 1);
     let expressions = &block[0];
-    assert!(expressions.len() == 1);
+    assert_eq!(expressions.len(), 1);
     if let PipelineElement::Expression(_, expr) = &expressions[0] {
         assert_eq!(expr.expr, Expr::Binary(vec![0x03]))
     } else {
@@ -108,9 +108,9 @@ pub fn parse_binary_with_binary_format() {
     let (block, err) = parse(&mut working_set, None, b"0b[1010 1000]", true, &[]);
 
     assert!(err.is_none());
-    assert!(block.len() == 1);
+    assert_eq!(block.len(), 1);
     let expressions = &block[0];
-    assert!(expressions.len() == 1);
+    assert_eq!(expressions.len(), 1);
     if let PipelineElement::Expression(_, expr) = &expressions[0] {
         assert_eq!(expr.expr, Expr::Binary(vec![0b10101000]))
     } else {
@@ -126,9 +126,9 @@ pub fn parse_binary_with_incomplete_binary_format() {
     let (block, err) = parse(&mut working_set, None, b"0b[10]", true, &[]);
 
     assert!(err.is_none());
-    assert!(block.len() == 1);
+    assert_eq!(block.len(), 1);
     let expressions = &block[0];
-    assert!(expressions.len() == 1);
+    assert_eq!(expressions.len(), 1);
     if let PipelineElement::Expression(_, expr) = &expressions[0] {
         assert_eq!(expr.expr, Expr::Binary(vec![0b00000010]))
     } else {
@@ -144,9 +144,9 @@ pub fn parse_binary_with_octal_format() {
     let (block, err) = parse(&mut working_set, None, b"0o[250]", true, &[]);
 
     assert!(err.is_none());
-    assert!(block.len() == 1);
+    assert_eq!(block.len(), 1);
     let expressions = &block[0];
-    assert!(expressions.len() == 1);
+    assert_eq!(expressions.len(), 1);
     if let PipelineElement::Expression(_, expr) = &expressions[0] {
         assert_eq!(expr.expr, Expr::Binary(vec![0o250]))
     } else {
@@ -162,9 +162,9 @@ pub fn parse_binary_with_incomplete_octal_format() {
     let (block, err) = parse(&mut working_set, None, b"0o[2]", true, &[]);
 
     assert!(err.is_none());
-    assert!(block.len() == 1);
+    assert_eq!(block.len(), 1);
     let expressions = &block[0];
-    assert!(expressions.len() == 1);
+    assert_eq!(expressions.len(), 1);
     if let PipelineElement::Expression(_, expr) = &expressions[0] {
         assert_eq!(expr.expr, Expr::Binary(vec![0o2]))
     } else {
@@ -180,9 +180,9 @@ pub fn parse_binary_with_invalid_octal_format() {
     let (block, err) = parse(&mut working_set, None, b"0b[90]", true, &[]);
 
     assert!(err.is_none());
-    assert!(block.len() == 1);
+    assert_eq!(block.len(), 1);
     let expressions = &block[0];
-    assert!(expressions.len() == 1);
+    assert_eq!(expressions.len(), 1);
     if let PipelineElement::Expression(_, expr) = &expressions[0] {
         assert!(!matches!(&expr.expr, Expr::Binary(_)))
     } else {
@@ -200,9 +200,9 @@ pub fn parse_binary_with_multi_byte_char() {
     let (block, err) = parse(&mut working_set, None, contents, true, &[]);
 
     assert!(err.is_none());
-    assert!(block.len() == 1);
+    assert_eq!(block.len(), 1);
     let expressions = &block[0];
-    assert!(expressions.len() == 1);
+    assert_eq!(expressions.len(), 1);
     if let PipelineElement::Expression(_, expr) = &expressions[0] {
         assert!(!matches!(&expr.expr, Expr::Binary(_)))
     } else {
@@ -221,7 +221,7 @@ pub fn parse_call() {
     let (block, err) = parse(&mut working_set, None, b"foo", true, &[]);
 
     assert!(err.is_none());
-    assert!(block.len() == 1);
+    assert_eq!(block.len(), 1);
 
     let expressions = &block[0];
     assert_eq!(expressions.len(), 1);
@@ -329,10 +329,10 @@ fn test_nothing_comparison_eq() {
     let (block, err) = parse(&mut working_set, None, b"2 == null", true, &[]);
 
     assert!(err.is_none());
-    assert!(block.len() == 1);
+    assert_eq!(block.len(), 1);
 
     let expressions = &block[0];
-    assert!(expressions.len() == 1);
+    assert_eq!(expressions.len(), 1);
     assert!(matches!(
         &expressions[0],
         PipelineElement::Expression(
@@ -352,10 +352,10 @@ fn test_nothing_comparison_neq() {
     let (block, err) = parse(&mut working_set, None, b"2 != null", true, &[]);
 
     assert!(err.is_none());
-    assert!(block.len() == 1);
+    assert_eq!(block.len(), 1);
 
     let expressions = &block[0];
-    assert!(expressions.len() == 1);
+    assert_eq!(expressions.len(), 1);
     assert!(matches!(
         &expressions[0],
         PipelineElement::Expression(
@@ -379,9 +379,9 @@ mod string {
         let (block, err) = parse(&mut working_set, None, b"\"hello nushell\"", true, &[]);
 
         assert!(err.is_none());
-        assert!(block.len() == 1);
+        assert_eq!(block.len(), 1);
         let expressions = &block[0];
-        assert!(expressions.len() == 1);
+        assert_eq!(expressions.len(), 1);
         if let PipelineElement::Expression(_, expr) = &expressions[0] {
             assert_eq!(expr.expr, Expr::String("hello nushell".to_string()))
         } else {
@@ -403,9 +403,9 @@ mod string {
         );
 
         assert!(err.is_none());
-        assert!(block.len() == 1);
+        assert_eq!(block.len(), 1);
         let expressions = &block[0];
-        assert!(expressions.len() == 1);
+        assert_eq!(expressions.len(), 1);
         if let PipelineElement::Expression(_, expr) = &expressions[0] {
             assert_eq!(expr.expr, Expr::String("hello nushell".to_string()))
         } else {
@@ -426,10 +426,10 @@ mod string {
             let (block, err) = parse(&mut working_set, None, b"$\"hello (39 + 3)\"", true, &[]);
 
             assert!(err.is_none());
-            assert!(block.len() == 1);
+            assert_eq!(block.len(), 1);
 
             let expressions = &block[0];
-            assert!(expressions.len() == 1);
+            assert_eq!(expressions.len(), 1);
 
             if let PipelineElement::Expression(_, expr) = &expressions[0] {
                 let subexprs: Vec<&Expr>;
@@ -462,10 +462,10 @@ mod string {
 
             assert!(err.is_none());
 
-            assert!(block.len() == 1);
+            assert_eq!(block.len(), 1);
             let expressions = &block[0];
 
-            assert!(expressions.len() == 1);
+            assert_eq!(expressions.len(), 1);
 
             if let PipelineElement::Expression(_, expr) = &expressions[0] {
                 let subexprs: Vec<&Expr>;
@@ -502,10 +502,10 @@ mod string {
 
             assert!(err.is_none());
 
-            assert!(block.len() == 1);
+            assert_eq!(block.len(), 1);
             let expressions = &block[0];
 
-            assert!(expressions.len() == 1);
+            assert_eq!(expressions.len(), 1);
 
             if let PipelineElement::Expression(_, expr) = &expressions[0] {
                 let subexprs: Vec<&Expr>;
@@ -544,10 +544,10 @@ mod string {
 
             assert!(err.is_none());
 
-            assert!(block.len() == 1);
+            assert_eq!(block.len(), 1);
             let expressions = &block[0];
 
-            assert!(expressions.len() == 1);
+            assert_eq!(expressions.len(), 1);
 
             if let PipelineElement::Expression(_, expr) = &expressions[0] {
                 let subexprs: Vec<&Expr>;
@@ -632,10 +632,10 @@ mod range {
         let (block, err) = parse(&mut working_set, None, b"0..10", true, &[]);
 
         assert!(err.is_none());
-        assert!(block.len() == 1);
+        assert_eq!(block.len(), 1);
 
         let expressions = &block[0];
-        assert!(expressions.len() == 1);
+        assert_eq!(expressions.len(), 1);
         assert!(matches!(
             expressions[0],
             PipelineElement::Expression(
@@ -664,10 +664,10 @@ mod range {
         let (block, err) = parse(&mut working_set, None, b"0..<10", true, &[]);
 
         assert!(err.is_none());
-        assert!(block.len() == 1);
+        assert_eq!(block.len(), 1);
 
         let expressions = &block[0];
-        assert!(expressions.len() == 1);
+        assert_eq!(expressions.len(), 1);
         assert!(matches!(
             expressions[0],
             PipelineElement::Expression(
@@ -696,10 +696,10 @@ mod range {
         let (block, err) = parse(&mut working_set, None, b"10..0", true, &[]);
 
         assert!(err.is_none());
-        assert!(block.len() == 1);
+        assert_eq!(block.len(), 1);
 
         let expressions = &block[0];
-        assert!(expressions.len() == 1);
+        assert_eq!(expressions.len(), 1);
         assert!(matches!(
             expressions[0],
             PipelineElement::Expression(
@@ -728,10 +728,10 @@ mod range {
         let (block, err) = parse(&mut working_set, None, b"(3 - 3)..<(8 + 2)", true, &[]);
 
         assert!(err.is_none());
-        assert!(block.len() == 1);
+        assert_eq!(block.len(), 1);
 
         let expressions = &block[0];
-        assert!(expressions.len() == 1);
+        assert_eq!(expressions.len(), 1);
         assert!(matches!(
             expressions[0],
             PipelineElement::Expression(
@@ -762,10 +762,10 @@ mod range {
         let (block, err) = parse(&mut working_set, None, b"let a = 2; $a..10", true, &[]);
 
         assert!(err.is_none());
-        assert!(block.len() == 2);
+        assert_eq!(block.len(), 2);
 
         let expressions = &block[1];
-        assert!(expressions.len() == 1);
+        assert_eq!(expressions.len(), 1);
         assert!(matches!(
             expressions[0],
             PipelineElement::Expression(
@@ -802,10 +802,10 @@ mod range {
         );
 
         assert!(err.is_none());
-        assert!(block.len() == 2);
+        assert_eq!(block.len(), 2);
 
         let expressions = &block[1];
-        assert!(expressions.len() == 1);
+        assert_eq!(expressions.len(), 1);
         assert!(matches!(
             expressions[0],
             PipelineElement::Expression(
@@ -834,10 +834,10 @@ mod range {
         let (block, err) = parse(&mut working_set, None, b"0..", true, &[]);
 
         assert!(err.is_none());
-        assert!(block.len() == 1);
+        assert_eq!(block.len(), 1);
 
         let expressions = &block[0];
-        assert!(expressions.len() == 1);
+        assert_eq!(expressions.len(), 1);
         assert!(matches!(
             expressions[0],
             PipelineElement::Expression(
@@ -866,10 +866,10 @@ mod range {
         let (block, err) = parse(&mut working_set, None, b"..10", true, &[]);
 
         assert!(err.is_none());
-        assert!(block.len() == 1);
+        assert_eq!(block.len(), 1);
 
         let expressions = &block[0];
-        assert!(expressions.len() == 1);
+        assert_eq!(expressions.len(), 1);
         assert!(matches!(
             expressions[0],
             PipelineElement::Expression(
@@ -898,10 +898,10 @@ mod range {
         let (block, err) = parse(&mut working_set, None, b"-10..-3", true, &[]);
 
         assert!(err.is_none());
-        assert!(block.len() == 1);
+        assert_eq!(block.len(), 1);
 
         let expressions = &block[0];
-        assert!(expressions.len() == 1);
+        assert_eq!(expressions.len(), 1);
         assert!(matches!(
             expressions[0],
             PipelineElement::Expression(
@@ -930,10 +930,10 @@ mod range {
         let (block, err) = parse(&mut working_set, None, b"2.0..4.0..10.0", true, &[]);
 
         assert!(err.is_none());
-        assert!(block.len() == 1);
+        assert_eq!(block.len(), 1);
 
         let expressions = &block[0];
-        assert!(expressions.len() == 1);
+        assert_eq!(expressions.len(), 1);
         assert!(matches!(
             expressions[0],
             PipelineElement::Expression(
@@ -1278,10 +1278,10 @@ mod input_types {
         let (block, err) = parse(&mut working_set, None, input.as_bytes(), true, &[]);
 
         assert!(err.is_none());
-        assert!(block.len() == 1);
+        assert_eq!(block.len(), 1);
 
         let expressions = &block[0];
-        assert!(expressions.len() == 3);
+        assert_eq!(expressions.len(), 3);
 
         match &expressions[0] {
             PipelineElement::Expression(
@@ -1342,7 +1342,7 @@ mod input_types {
         let (block, err) = parse(&mut working_set, None, input.as_bytes(), true, &[]);
 
         assert!(err.is_none());
-        assert!(block.len() == 3);
+        assert_eq!(block.len(), 3);
 
         let expressions = &block[2];
         match &expressions[1] {
@@ -1373,7 +1373,7 @@ mod input_types {
         let (block, err) = parse(&mut working_set, None, input.as_bytes(), true, &[]);
 
         assert!(err.is_none());
-        assert!(block.len() == 2);
+        assert_eq!(block.len(), 2);
 
         let expressions = &block[1];
         match &expressions[1] {
@@ -1405,7 +1405,7 @@ mod input_types {
         let (block, err) = parse(&mut working_set, None, input.as_bytes(), true, &[]);
 
         assert!(err.is_none());
-        assert!(block.len() == 3);
+        assert_eq!(block.len(), 3);
 
         let expressions = &block[1];
         match &expressions[1] {
@@ -1449,10 +1449,10 @@ mod input_types {
         let (block, err) = parse(&mut working_set, None, input.as_bytes(), true, &[]);
 
         assert!(err.is_none());
-        assert!(block.len() == 1);
+        assert_eq!(block.len(), 1);
 
         let expressions = &block[0];
-        assert!(expressions.len() == 2);
+        assert_eq!(expressions.len(), 2);
 
         match &expressions[0] {
             PipelineElement::Expression(
@@ -1515,7 +1515,7 @@ mod input_types {
                                 let block = engine_state.get_block(*id);
 
                                 let expressions = &block[0];
-                                assert!(expressions.len() == 2);
+                                assert_eq!(expressions.len(), 2);
 
                                 match &expressions[1] {
                                     PipelineElement::Expression(
@@ -1555,7 +1555,7 @@ mod input_types {
         let (block, err) = parse(&mut working_set, None, input.as_bytes(), true, &[]);
 
         assert!(err.is_none());
-        assert!(block.len() == 1);
+        assert_eq!(block.len(), 1);
 
         let expressions = &block[0];
         match &expressions[2] {
@@ -1609,7 +1609,7 @@ mod input_types {
             let (block, err) = parse(&mut working_set, None, input.as_bytes(), true, &[]);
 
             assert!(err.is_none(), "testing: {}", input);
-            assert!(block.len() == 2, "testing: {}", input);
+            assert_eq!(block.len(), 2, "testing: {}", input);
         }
     }
 
