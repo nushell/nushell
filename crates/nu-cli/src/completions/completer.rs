@@ -115,12 +115,14 @@ impl NuCompleter {
         // e.g. lets say you have an alias -> `alias ll = ls -l` and you type in the shell:
         // > ll -a | c
         // and your cursor is right after `c` then `pos` = 9
-        
+
         let mut working_set = StateWorkingSet::new(&self.engine_state);
-        let mut offset = working_set.next_span_start(); // This is the offset of 
+        let mut offset = working_set.next_span_start();
         let (mut new_line, alias_offset) = try_find_alias(line.as_bytes(), &working_set);
-        let initial_line = line.to_string();
-        let alias_total_offset: usize = alias_offset.iter().sum();
+        // new_line: vector containing all alias "translations" so if it was `ll` now is `ls -l`.
+        // alias_offset:vector the offset between the name and the alias)
+        let initial_line = line.to_string(); // Entire line in the shell input.
+        let alias_total_offset: usize = alias_offset.iter().sum(); // the sum of all alias offsets.
         new_line.insert(alias_total_offset + pos, b'a');
         let pos = offset + pos;
         let config = self.engine_state.get_config();
