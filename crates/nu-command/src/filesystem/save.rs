@@ -108,6 +108,20 @@ impl Command for Save {
                     res
                 }
             }
+            PipelineData::ListStream(ls, _)
+                if raw || prepare_path(&path, append, force)?.0.extension().is_none() =>
+            {
+                let (mut file, _) = get_files(&path, &stderr_path, append, force)?;
+                for val in ls {
+                    file.write_all(&value_to_bytes(val)?)
+                        .map_err(|err| ShellError::IOError(err.to_string()))?;
+                    file.write_all("\n".as_bytes())
+                        .map_err(|err| ShellError::IOError(err.to_string()))?;
+                }
+                file.flush()?;
+
+                Ok(PipelineData::empty())
+            }
             input => {
                 let bytes =
                     input_to_bytes(input, Path::new(&path.item), raw, engine_state, stack, span)?;
@@ -182,7 +196,7 @@ fn input_to_bytes(
         convert_to_extension(engine_state, &ext, stack, input, span)
     } else {
         let value = input.into_value(span);
-        string_binary_list_value_to_bytes(value, span)
+        value_to_bytes(value)
     }
 }
 
@@ -212,13 +226,13 @@ fn convert_to_extension(
         None => input.into_value(span),
     };
 
-    string_binary_list_value_to_bytes(output, span)
+    value_to_bytes(output)
 }
 
 /// Convert [`Value::String`] [`Value::Binary`] or [`Value::List`] into [`Vec`] of bytes
 ///
 /// Propagates [`Value::Error`] and creates error otherwise
-fn string_binary_list_value_to_bytes(value: Value, span: Span) -> Result<Vec<u8>, ShellError> {
+fn value_to_bytes(value: Value) -> Result<Vec<u8>, ShellError> {
     match value {
         Value::String { val, .. } => Ok(val.into_bytes()),
         Value::Binary { val, .. } => Ok(val),
@@ -234,13 +248,7 @@ fn string_binary_list_value_to_bytes(value: Value, span: Span) -> Result<Vec<u8>
         }
         // Propagate errors by explicitly matching them before the final case.
         Value::Error { error } => Err(error),
-        other => Err(ShellError::OnlySupportsThisInputType(
-            "string, binary or list".into(),
-            other.get_type().to_string(),
-            span,
-            // This line requires the Value::Error match above.
-            other.expect_span(),
-        )),
+        other => Ok(other.as_string()?.into_bytes()),
     }
 }
 
