@@ -29,32 +29,34 @@ impl Command for SubCommand {
     }
 
     fn examples(&self) -> Vec<Example> {
-        vec![Example {
-            description: "Split the string into a list of characters",
-            example: "'hello' | split chars",
-            result: Some(Value::List {
-                vals: vec![
-                    Value::test_string("h"),
-                    Value::test_string("e"),
-                    Value::test_string("l"),
-                    Value::test_string("l"),
-                    Value::test_string("o"),
-                ],
-                span: Span::test_data(),
-            }),
-        },
-        Example {
-            description: "Grapheme clusters are considered single characters",
-            example: "'🇯🇵ほげ' | split chars",
-            result: Some(Value::List {
-                vals: vec![
-                    Value::test_string("🇯🇵"),
-                    Value::test_string("ほ"),
-                    Value::test_string("げ"),
-                ],
-                span: Span::test_data(),
-            }),
-        }]
+        vec![
+            Example {
+                description: "Split the string into a list of characters",
+                example: "'hello' | split chars",
+                result: Some(Value::List {
+                    vals: vec![
+                        Value::test_string("h"),
+                        Value::test_string("e"),
+                        Value::test_string("l"),
+                        Value::test_string("l"),
+                        Value::test_string("o"),
+                    ],
+                    span: Span::test_data(),
+                }),
+            },
+            Example {
+                description: "Grapheme clusters are considered single characters",
+                example: "'🇯🇵ほげ' | split chars",
+                result: Some(Value::List {
+                    vals: vec![
+                        Value::test_string("🇯🇵"),
+                        Value::test_string("ほ"),
+                        Value::test_string("げ"),
+                    ],
+                    span: Span::test_data(),
+                }),
+            },
+        ]
     }
 
     fn run(

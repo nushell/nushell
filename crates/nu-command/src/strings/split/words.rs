@@ -1,3 +1,4 @@
+use fancy_regex::Regex;
 use nu_engine::CallExt;
 use nu_protocol::{
     ast::Call,
@@ -112,10 +113,23 @@ fn split_words(
 }
 
 fn split_words_helper(v: &Value, word_length: Option<usize>, span: Span) -> Vec<Value> {
+    // There are some options here with this regex.
+    // [^A-Za-z\'] = do not match uppercase or lowercase letters or apostrophes
+    // [^[:alpha:]\'] = do not match any uppercase or lowercase letters or apostrophes
+    // [^\p{L}\'] = do not match any unicode uppercase or lowercase letters or apostrophes
+    // Let's go with the unicode one in hopes that it works on more than just ascii characters
+    let regex_replace = Regex::new(r"[^\p{L}\']").expect("regular expression error");
+
     match v.span() {
         Ok(v_span) => {
             if let Ok(s) = v.as_string() {
-                s.unicode_words()
+                // let splits = s.unicode_words();
+                // let words = trim_to_words(s);
+                // let words: Vec<&str> = s.split_whitespace().collect();
+
+                let replaced_string = regex_replace.replace_all(&s, " ").to_string();
+                replaced_string
+                    .split(' ')
                     .filter_map(|s| {
                         if s.trim() != "" {
                             if let Some(len) = word_length {
