@@ -29,6 +29,21 @@ fn floats_with_underscores() -> TestResult {
 }
 
 #[test]
+fn bin_ints_with_underscores() -> TestResult {
+    run_test("0b_10100_11101_10010", "21426")
+}
+
+#[test]
+fn oct_ints_with_underscores() -> TestResult {
+    run_test("0o2443_6442_7652_0044", "90422533333028")
+}
+
+#[test]
+fn hex_ints_with_underscores() -> TestResult {
+   run_test("0x68__9d__6a", "6856042")
+}
+
+#[test]
 fn alias_2() -> TestResult {
     run_test(
         "def foo [$x $y] { $x + $y + 10 }; alias f = foo 33; f 100",
