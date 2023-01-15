@@ -50,7 +50,7 @@ impl Range {
             Ok(Value::Bool { val: true, .. })
         );
 
-        // Convert the next value into the inctement
+        // Convert the next value into the increment
         let incr = if let Value::Nothing { .. } = next {
             if moves_up {
                 Value::int(1i64, expr_span)

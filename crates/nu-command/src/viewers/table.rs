@@ -92,7 +92,7 @@ impl Command for Table {
             )
             .switch(
                 "collapse",
-                "expand the table structure in colapse mode.\nBe aware collapse mode currently doesn't support width control",
+                "expand the table structure in collapse mode.\nBe aware collapse mode currently doesn't support width control",
                 Some('c'),
             )
             .category(Category::Viewers)
@@ -1083,12 +1083,12 @@ fn convert_to_table2<'a>(
     for (col, header) in headers.into_iter().enumerate() {
         let is_last_col = col + 1 == count_columns;
 
-        let mut nessary_space = PADDING_SPACE;
+        let mut necessary_space = PADDING_SPACE;
         if !is_last_col {
-            nessary_space += SPLIT_LINE_SPACE;
+            necessary_space += SPLIT_LINE_SPACE;
         }
 
-        if available_width == 0 || available_width <= nessary_space {
+        if available_width == 0 || available_width <= necessary_space {
             // MUST NEVER HAPPEN (ideally)
             // but it does...
 
@@ -1096,7 +1096,7 @@ fn convert_to_table2<'a>(
             break;
         }
 
-        available_width -= nessary_space;
+        available_width -= necessary_space;
 
         let mut column_width = string_width(&header);
 
@@ -1136,7 +1136,7 @@ fn convert_to_table2<'a>(
         }
 
         if column_width >= available_width
-            || (!is_last_col && column_width + nessary_space >= available_width)
+            || (!is_last_col && column_width + necessary_space >= available_width)
         {
             // so we try to do soft landing
             // by doing a truncating in case there will be enough space for it.
@@ -1188,7 +1188,7 @@ fn convert_to_table2<'a>(
                 row.pop();
             }
 
-            available_width += nessary_space;
+            available_width += necessary_space;
 
             truncate = true;
             break;
@@ -1629,14 +1629,14 @@ impl PagingTableCreator {
         let table = match table_s {
             Some(s) => {
                 // check whether we need to expand table or not,
-                // todo: we can make it more effitient
+                // todo: we can make it more efficient
 
-                const EXPAND_TREASHHOLD: f32 = 0.80;
+                const EXPAND_THRESHOLD: f32 = 0.80;
 
                 let width = string_width(&s);
                 let used_percent = width as f32 / term_width as f32;
 
-                if width < term_width && used_percent > EXPAND_TREASHHOLD {
+                if width < term_width && used_percent > EXPAND_THRESHOLD {
                     let table_config = table_config.expand();
                     table.draw(table_config, term_width)
                 } else {

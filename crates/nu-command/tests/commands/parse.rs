@@ -34,7 +34,7 @@ mod simple {
     }
 
     #[test]
-    fn double_open_curly_evalutes_to_a_single_curly() {
+    fn double_open_curly_evaluates_to_a_single_curly() {
         Playground::setup("parse_test_regex_2", |dirs, _sandbox| {
             let actual = nu!(
                 cwd: dirs.test(), pipeline(

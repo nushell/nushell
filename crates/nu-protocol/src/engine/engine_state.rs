@@ -786,7 +786,7 @@ impl EngineState {
         aliases.into_iter()
     }
 
-    /// Get all commands within scope, sorted by the commads' names
+    /// Get all commands within scope, sorted by the commands' names
     pub fn get_decls_sorted(
         &self,
         include_hidden: bool,
