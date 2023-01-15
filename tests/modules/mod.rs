@@ -474,3 +474,73 @@ fn module_import_const_module_name() {
         assert_eq!(actual.out, "foo");
     })
 }
+
+#[test]
+fn module_main_export_1() {
+    let inp = &[
+        r#"module spam { export def main [] { "spam" } }"#,
+        r#"use spam"#,
+        r#"spam"#,
+    ];
+
+    let actual = nu!(cwd: ".", pipeline(&inp.join("; ")));
+
+    assert_eq!(actual.out, "spam");
+}
+
+#[test]
+fn module_main_export_2() {
+    let inp = &[
+        r#"module spam { export def main [] { "spam" } }"#,
+        r#"use spam main"#,
+        r#"spam"#,
+    ];
+
+    let actual = nu!(cwd: ".", pipeline(&inp.join("; ")));
+
+    assert_eq!(actual.out, "spam");
+}
+
+#[test]
+fn module_main_export_3() {
+    let inp = &[
+        r#"module spam { export def main [] { "spam" } }"#,
+        r#"use spam *"#,
+        r#"spam"#,
+    ];
+
+    let actual = nu!(cwd: ".", pipeline(&inp.join("; ")));
+
+    assert_eq!(actual.out, "spam");
+}
+
+#[test]
+fn module_main_not_exported() {
+    let inp = &[
+        r#"module spam { def main [] { "spam" } }"#,
+        r#"use spam"#,
+        r#"spam"#,
+    ];
+
+    let actual = nu!(cwd: ".", pipeline(&inp.join("; ")));
+
+    assert!(actual.err.contains("external_command"));
+}
+
+#[test]
+fn module_invalid_def_name() {
+    let inp = &[r#"module spam { export def spam [] { "spam" } }"#];
+
+    let actual = nu!(cwd: ".", pipeline(&inp.join("; ")));
+
+    assert_eq!(actual.err, "TODO");
+}
+
+#[test]
+fn module_invalid_alias_name() {
+    let inp = &[r#"module spam { export alias spam = "spam" }"#];
+
+    let actual = nu!(cwd: ".", pipeline(&inp.join("; ")));
+
+    assert_eq!(actual.err, "TODO");
+}
