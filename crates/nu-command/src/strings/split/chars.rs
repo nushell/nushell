@@ -42,6 +42,18 @@ impl Command for SubCommand {
                 ],
                 span: Span::test_data(),
             }),
+        },
+        Example {
+            description: "Grapheme clusters are considered single characters",
+            example: "'🇯🇵ほげ' | split chars",
+            result: Some(Value::List {
+                vals: vec![
+                    Value::test_string("🇯🇵"),
+                    Value::test_string("ほ"),
+                    Value::test_string("げ"),
+                ],
+                span: Span::test_data(),
+            }),
         }]
     }
 
