@@ -65,6 +65,29 @@ pub fn parse_int() {
 }
 
 #[test]
+pub fn parse_int_with_underscores() {
+    let engine_state = EngineState::new();
+    let mut working_set = StateWorkingSet::new(&engine_state);
+
+    let (block, err) = parse(&mut working_set, None, b"420_69_2023", true, &[]);
+
+    assert!(err.is_none());
+    assert_eq!(block.len(), 1);
+    let expressions = &block[0];
+    assert_eq!(expressions.len(), 1);
+    assert!(matches!(
+        expressions[0],
+        PipelineElement::Expression(
+            _,
+            Expression {
+                expr: Expr::Int(420692023),
+                ..
+            }
+        )
+    ))
+}
+
+#[test]
 pub fn parse_binary_with_hex_format() {
     let engine_state = EngineState::new();
     let mut working_set = StateWorkingSet::new(&engine_state);

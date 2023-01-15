@@ -1329,12 +1329,19 @@ fn decode_with_base(s: &str, base: u32, digits_per_byte: usize) -> Result<Vec<u8
         .collect()
 }
 
+fn strip_underscores(token: &[u8]) -> String {
+    String::from_utf8_lossy(token)
+        .chars()
+        .filter(|c| *c != '_')
+        .collect()
+}
+
 pub fn parse_int(token: &[u8], span: Span) -> (Expression, Option<ParseError>) {
-    if let Some(token) = token.strip_prefix(b"0x") {
-        if let Ok(v) = i64::from_str_radix(&String::from_utf8_lossy(token), 16) {
+    fn extract_int(token: &str, span: Span, radix: u32) -> (Expression, Option<ParseError>) {
+        if let Ok(num) = i64::from_str_radix(token, radix) {
             (
                 Expression {
-                    expr: Expr::Int(v),
+                    expr: Expr::Int(num),
                     span,
                     ty: Type::Int,
                     custom_completion: None,
@@ -1351,52 +1358,20 @@ pub fn parse_int(token: &[u8], span: Span) -> (Expression, Option<ParseError>) {
                 )),
             )
         }
-    } else if let Some(token) = token.strip_prefix(b"0b") {
-        if let Ok(v) = i64::from_str_radix(&String::from_utf8_lossy(token), 2) {
-            (
-                Expression {
-                    expr: Expr::Int(v),
-                    span,
-                    ty: Type::Int,
-                    custom_completion: None,
-                },
-                None,
-            )
-        } else {
-            (
-                garbage(span),
-                Some(ParseError::Mismatch(
-                    "int".into(),
-                    "incompatible int".into(),
-                    span,
-                )),
-            )
-        }
-    } else if let Some(token) = token.strip_prefix(b"0o") {
-        if let Ok(v) = i64::from_str_radix(&String::from_utf8_lossy(token), 8) {
-            (
-                Expression {
-                    expr: Expr::Int(v),
-                    span,
-                    ty: Type::Int,
-                    custom_completion: None,
-                },
-                None,
-            )
-        } else {
-            (
-                garbage(span),
-                Some(ParseError::Mismatch(
-                    "int".into(),
-                    "incompatible int".into(),
-                    span,
-                )),
-            )
-        }
-    } else if let Ok(x) = String::from_utf8_lossy(token).parse::<i64>() {
+    }
+
+    let token = strip_underscores(token);
+
+    if let Some(num) = token.strip_prefix("0b") {
+        extract_int(num, span, 2)
+    } else if let Some(num) = token.strip_prefix("0o") {
+        extract_int(num, span, 8)
+    } else if let Some(num) = token.strip_prefix("0x") {
+        extract_int(num, span, 16)
+    } else if let Ok(num) = token.parse::<i64>() {
         (
             Expression {
-                expr: Expr::Int(x),
+                expr: Expr::Int(num),
                 span,
                 ty: Type::Int,
                 custom_completion: None,
@@ -1412,7 +1387,9 @@ pub fn parse_int(token: &[u8], span: Span) -> (Expression, Option<ParseError>) {
 }
 
 pub fn parse_float(token: &[u8], span: Span) -> (Expression, Option<ParseError>) {
-    if let Ok(x) = String::from_utf8_lossy(token).parse::<f64>() {
+    let token = strip_underscores(token);
+
+    if let Ok(x) = token.parse::<f64>() {
         (
             Expression {
                 expr: Expr::Float(x),

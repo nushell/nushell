@@ -19,6 +19,16 @@ fn alias_1() -> TestResult {
 }
 
 #[test]
+fn ints_with_underscores() -> TestResult {
+    run_test("1_0000_0000_0000 + 10", "1000000000010")
+}
+
+#[test]
+fn floats_with_underscores() -> TestResult {
+    run_test("3.1415_9265_3589_793 * 2", "6.283185307179586")
+}
+
+#[test]
 fn alias_2() -> TestResult {
     run_test(
         "def foo [$x $y] { $x + $y + 10 }; alias f = foo 33; f 100",
