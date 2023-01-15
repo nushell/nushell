@@ -40,7 +40,7 @@ fn oct_ints_with_underscores() -> TestResult {
 
 #[test]
 fn hex_ints_with_underscores() -> TestResult {
-   run_test("0x68__9d__6a", "6856042")
+    run_test("0x68__9d__6a", "6856042")
 }
 
 #[test]
