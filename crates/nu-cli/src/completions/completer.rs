@@ -175,7 +175,7 @@ impl NuCompleter {
                                 if span_end < span_start {
                                     span_start = flat.0.start;
                                     span_end = flat.0.end - 1;
-                                    offset = offset + span_offset;
+                                    offset += span_offset
                                 }
 
                                 let new_span = Span::new(span_start, span_end);
