@@ -74,9 +74,7 @@ impl Command for SubCommand {
 
 fn action(input: &Value, _arg: &CellPathOnlyArgs, head: Span) -> Value {
     match input {
-        Value::String { val, .. } => {
-            Value::int(val.graphemes(true).collect::<Vec<_>>().len() as i64, head)
-        }
+        Value::String { val, .. } => Value::int(val.graphemes(true).count() as i64, head),
         Value::Error { .. } => input.clone(),
         _ => Value::Error {
             error: ShellError::OnlySupportsThisInputType(

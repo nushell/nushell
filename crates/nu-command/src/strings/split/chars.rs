@@ -3,6 +3,7 @@ use nu_protocol::{
     engine::{Command, EngineState, Stack},
     Category, Example, PipelineData, ShellError, Signature, Span, Type, Value,
 };
+use unicode_segmentation::UnicodeSegmentation;
 
 #[derive(Clone)]
 pub struct SubCommand;
@@ -72,7 +73,7 @@ fn split_chars_helper(v: &Value, name: Span) -> Vec<Value> {
     match v.span() {
         Ok(v_span) => {
             if let Ok(s) = v.as_string() {
-                s.chars()
+                s.graphemes(true)
                     .collect::<Vec<_>>()
                     .into_iter()
                     .map(move |x| Value::string(x, v_span))
