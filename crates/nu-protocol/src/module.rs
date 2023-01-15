@@ -2,33 +2,36 @@ use crate::{AliasId, BlockId, DeclId, Span};
 
 use indexmap::IndexMap;
 
-// TODO: Move the import pattern matching logic here from use/hide commands and
-// parse_use/parse_hide
-
 /// Collection of definitions that can be exported from a module
 #[derive(Debug, Clone)]
 pub struct Module {
+    pub name: Vec<u8>,
     pub decls: IndexMap<Vec<u8>, DeclId>,
     pub aliases: IndexMap<Vec<u8>, AliasId>,
-    pub env_block: Option<BlockId>,
+    pub env_block: Option<BlockId>, // `export-env { ... }` block
+    pub main: Option<DeclId>,       // `export def main`
     pub span: Option<Span>,
 }
 
 impl Module {
-    pub fn new() -> Self {
+    pub fn new(name: Vec<u8>) -> Self {
         Module {
+            name,
             decls: IndexMap::new(),
             aliases: IndexMap::new(),
             env_block: None,
+            main: None,
             span: None,
         }
     }
 
-    pub fn from_span(span: Span) -> Self {
+    pub fn from_span(name: Vec<u8>, span: Span) -> Self {
         Module {
+            name,
             decls: IndexMap::new(),
             aliases: IndexMap::new(),
             env_block: None,
+            main: None,
             span: Some(span),
         }
     }
@@ -63,6 +66,10 @@ impl Module {
     }
 
     pub fn has_decl(&self, name: &[u8]) -> bool {
+        if name == self.name && self.main.is_some() {
+            return true;
+        }
+
         self.decls.contains_key(name)
     }
 
@@ -93,7 +100,8 @@ impl Module {
     }
 
     pub fn decls_with_head(&self, head: &[u8]) -> Vec<(Vec<u8>, DeclId)> {
-        self.decls
+        let mut result: Vec<(Vec<u8>, DeclId)> = self
+            .decls
             .iter()
             .map(|(name, id)| {
                 let mut new_name = head.to_vec();
@@ -101,11 +109,18 @@ impl Module {
                 new_name.extend(name);
                 (new_name, *id)
             })
-            .collect()
+            .collect();
+
+        if let Some(decl_id) = self.main {
+            result.push((self.name.clone(), decl_id));
+        }
+
+        result
     }
 
     pub fn decl_names_with_head(&self, head: &[u8]) -> Vec<Vec<u8>> {
-        self.decls
+        let mut result: Vec<Vec<u8>> = self
+            .decls
             .keys()
             .map(|name| {
                 let mut new_name = head.to_vec();
@@ -113,7 +128,13 @@ impl Module {
                 new_name.extend(name);
                 new_name
             })
-            .collect()
+            .collect();
+
+        if self.main.is_some() {
+            result.push(self.name.clone());
+        }
+
+        result
     }
 
     pub fn aliases_with_head(&self, head: &[u8]) -> Vec<(Vec<u8>, AliasId)> {
@@ -141,14 +162,27 @@ impl Module {
     }
 
     pub fn decls(&self) -> Vec<(Vec<u8>, DeclId)> {
-        self.decls
+        let mut result: Vec<(Vec<u8>, DeclId)> = self
+            .decls
             .iter()
             .map(|(name, id)| (name.clone(), *id))
-            .collect()
+            .collect();
+
+        if let Some(decl_id) = self.main {
+            result.push((self.name.clone(), decl_id));
+        }
+
+        result
     }
 
     pub fn decl_names(&self) -> Vec<Vec<u8>> {
-        self.decls.keys().cloned().collect()
+        let mut result: Vec<Vec<u8>> = self.decls.keys().cloned().collect();
+
+        if self.main.is_some() {
+            result.push(self.name.clone());
+        }
+
+        result
     }
 
     pub fn alias_names(&self) -> Vec<Vec<u8>> {
@@ -160,11 +194,5 @@ impl Module {
             .iter()
             .map(|(name, id)| (name.clone(), *id))
             .collect()
-    }
-}
-
-impl Default for Module {
-    fn default() -> Self {
-        Self::new()
     }
 }

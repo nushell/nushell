@@ -195,6 +195,18 @@ pub enum ParseError {
     #[diagnostic(code(nu::parser::cyclical_module_import), url(docsrs), help("{0}"))]
     CyclicalModuleImport(String, #[label = "detected cyclical module import"] Span),
 
+    #[error("Can't export {0} named same as the module.")]
+    #[diagnostic(
+        code(nu::parser::named_as_module),
+        url(docsrs),
+        help("Module {1} can't export {0} named the same as the module. Either change the module name, or export `main` custom command.")
+    )]
+    NamedAsModule(
+        String,
+        String,
+        #[label = "can't export from module {1}"] Span,
+    ),
+
     #[error("Active overlay not found.")]
     #[diagnostic(code(nu::parser::active_overlay_not_found), url(docsrs))]
     ActiveOverlayNotFound(#[label = "not an active overlay"] Span),
@@ -430,6 +442,7 @@ impl ParseError {
             ParseError::AliasNotValid(s) => *s,
             ParseError::CommandDefNotValid(s) => *s,
             ParseError::ModuleNotFound(s) => *s,
+            ParseError::NamedAsModule(_, _, s) => *s,
             ParseError::CyclicalModuleImport(_, s) => *s,
             ParseError::ModuleOrOverlayNotFound(s) => *s,
             ParseError::ActiveOverlayNotFound(s) => *s,
