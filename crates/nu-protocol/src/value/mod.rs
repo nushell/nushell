@@ -1011,10 +1011,10 @@ impl Value {
     }
 
     /// Follow a given cell path into the value: for example accessing select elements in a stream or list
-    pub fn update_cell_path(
+    pub fn update_cell_path<'a>(
         &mut self,
         cell_path: &[PathMember],
-        callback: Box<dyn FnOnce(&Value) -> Value>,
+        callback: Box<dyn FnOnce(&Value) -> Value + 'a>,
     ) -> Result<(), ShellError> {
         let orig = self.clone();
 
