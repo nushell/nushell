@@ -116,10 +116,10 @@ pub fn create_commands(registry: &mut CommandRegistry) {
 }
 
 pub fn create_aliases(regestry: &mut CommandRegistry) {
-    regestry.create_aliase("h", HelpCmd::NAME);
-    regestry.create_aliase("e", ExpandCmd::NAME);
-    regestry.create_aliase("q", QuitCmd::NAME);
-    regestry.create_aliase("q!", QuitCmd::NAME);
+    regestry.create_aliases("h", HelpCmd::NAME);
+    regestry.create_aliases("e", ExpandCmd::NAME);
+    regestry.create_aliases("q", QuitCmd::NAME);
+    regestry.create_aliases("q!", QuitCmd::NAME);
 }
 
 #[rustfmt::skip]
