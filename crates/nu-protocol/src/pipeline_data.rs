@@ -293,7 +293,7 @@ impl PipelineData {
         }
     }
 
-    /// Retrieves string from pipline data.
+    /// Retrieves string from pipeline data.
     ///
     /// As opposed to `collect_string` this raises error rather than converting non-string values.
     /// The `span` will be used if `ListStream` is encountered since it doesn't carry a span.

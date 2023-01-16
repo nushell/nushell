@@ -76,7 +76,7 @@ fn filesystem_switch_back_to_previous_working_directory() {
 // FIXME: jt: needs more work
 #[ignore]
 #[test]
-fn filesytem_change_from_current_directory_using_relative_path_and_dash() {
+fn filesystem_change_from_current_directory_using_relative_path_and_dash() {
     Playground::setup("cd_test_4", |dirs, sandbox| {
         sandbox.within("odin").mkdir("-");
 
@@ -292,7 +292,7 @@ fn test_change_windows_drive() {
 
 #[cfg(unix)]
 #[test]
-fn cd_permission_deined_folder() {
+fn cd_permission_denied_folder() {
     Playground::setup("cd_test_21", |dirs, sandbox| {
         sandbox.mkdir("banned");
         let actual = nu!(
@@ -312,11 +312,11 @@ fn cd_permission_deined_folder() {
         );
     });
 }
-// FIXME: cd_permission_deined_folder on windows
+// FIXME: cd_permission_denied_folder on windows
 #[ignore]
 #[cfg(windows)]
 #[test]
-fn cd_permission_deined_folder() {
+fn cd_permission_denied_folder() {
     Playground::setup("cd_test_21", |dirs, sandbox| {
         sandbox.mkdir("banned");
         let actual = nu!(
