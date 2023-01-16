@@ -1079,6 +1079,7 @@ fn convert_to_table2<'a>(
 
     let mut widths = Vec::new();
     let mut truncate = false;
+    let mut last_column_type_is_string = false;
     let count_columns = headers.len();
     for (col, header) in headers.into_iter().enumerate() {
         let is_last_col = col + 1 == count_columns;
@@ -1090,7 +1091,7 @@ fn convert_to_table2<'a>(
 
         if available_width == 0 || available_width <= necessary_space {
             // MUST NEVER HAPPEN (ideally)
-            // but it does...
+            // but it does...?
 
             truncate = true;
             break;
@@ -1105,6 +1106,7 @@ fn convert_to_table2<'a>(
             header_style(style_computer, header.clone()),
         ));
 
+        let mut is_string_column = true;
         for (row, item) in input.clone().into_iter().enumerate() {
             if nu_utils::ctrl_c::was_pressed(&ctrlc) {
                 return Ok(None);
@@ -1113,6 +1115,8 @@ fn convert_to_table2<'a>(
             if let Value::Error { error } = item {
                 return Err(error.clone());
             }
+
+            is_string_column = is_string_column && is_string_value(&item, &header);
 
             let value = create_table2_entry(
                 item,
@@ -1134,6 +1138,8 @@ fn convert_to_table2<'a>(
 
             data[row + 1].push(value);
         }
+
+        // todo: It seems like we can eliminate the loops bellow by considering column_width == available_width && == OK_CELL_CONTENT_WIDTH
 
         if column_width >= available_width
             || (!is_last_col && column_width + necessary_space >= available_width)
@@ -1194,23 +1200,48 @@ fn convert_to_table2<'a>(
             break;
         }
 
+        last_column_type_is_string = is_string_column;
         available_width -= column_width;
         widths.push(column_width);
     }
 
     if truncate {
         if available_width <= TRUNCATE_CELL_WIDTH + PADDING_SPACE {
-            // back up by removing last column.
-            // it's ALWAYS MUST has us enough space for a shift column
-            while let Some(width) = widths.pop() {
-                for row in &mut data {
-                    row.pop();
+            if last_column_type_is_string {
+                // first of all we will try to wrap the last column in case it's a string column.
+
+                // +1 is used cause we have <= sign (which is unclear whereas we shall to? (it seems to be a split line related))
+                let left = TRUNCATE_CELL_WIDTH + PADDING_SPACE + 1 - available_width;
+                let width = widths.last_mut().expect("...");
+                if *width > MIN_CELL_CONTENT_WIDTH + left {
+                    *width -= left;
+                    available_width += left;
+
+                    for row in &mut data {
+                        let cell = row.last_mut().expect("...");
+                        let value = wrap_text(cell.as_ref().to_owned(), *width, config);
+                        *cell = NuTable::create_cell(value, cell.get_data().clone());
+                    }
                 }
+            }
 
-                available_width += width + PADDING_SPACE + SPLIT_LINE_SPACE;
+            // double check because of above if statement
+            if available_width <= TRUNCATE_CELL_WIDTH + PADDING_SPACE {
+                // back up by removing last column.
+                // it's ALWAYS MUST has us enough space for a shift column
+                //
+                // then why we have a loop :)?
+                // todo: remove loop
+                while let Some(width) = widths.pop() {
+                    for row in &mut data {
+                        row.pop();
+                    }
 
-                if available_width > TRUNCATE_CELL_WIDTH + PADDING_SPACE {
-                    break;
+                    available_width += width + PADDING_SPACE + SPLIT_LINE_SPACE;
+
+                    if available_width > TRUNCATE_CELL_WIDTH + PADDING_SPACE {
+                        break;
+                    }
                 }
             }
         }
@@ -1236,6 +1267,23 @@ fn convert_to_table2<'a>(
     let table = NuTable::new(data, size);
 
     Ok(Some((table, with_header, with_index)))
+}
+
+fn is_string_value(val: &Value, head: &str) -> bool {
+    match val {
+        Value::Record { .. } => {
+            let path = PathMember::String {
+                val: head.to_owned(),
+                span: Span::unknown(),
+            };
+
+            let val = val.clone().follow_cell_path(&[path], false, false);
+
+            !matches!(val, Ok(Value::Record { .. } | Value::List { .. }))
+        }
+        Value::List { .. } => false,
+        _ => true,
+    }
 }
 
 fn lookup_index_value(item: &Value, config: &Config) -> Option<String> {
