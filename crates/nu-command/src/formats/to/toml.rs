@@ -89,6 +89,7 @@ fn helper(engine_state: &EngineState, v: &Value) -> Result<toml::Value, ShellErr
                 .collect::<Result<Vec<toml::Value>, ShellError>>()?,
         ),
         Value::CustomValue { .. } => toml::Value::String("<Custom Value>".to_string()),
+        Value::ValueWithMetadata { val, .. } => helper(engine_state, val)?,
     })
 }
 

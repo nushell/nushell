@@ -92,6 +92,7 @@ pub fn value_to_yaml_value(v: &Value) -> Result<serde_yaml::Value, ShellError> {
                 .collect::<Result<Vec<serde_yaml::Value>, ShellError>>()?,
         ),
         Value::CustomValue { .. } => serde_yaml::Value::Null,
+        Value::ValueWithMetadata { val, .. } => value_to_yaml_value(val)?,
     })
 }
 

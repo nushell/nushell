@@ -357,6 +357,7 @@ fn find_with_rest_and_highlight(
                         | Value::Block { .. }
                         | Value::Closure { .. }
                         | Value::Nothing { .. }
+                        | Value::ValueWithMetadata { .. }
                         | Value::Error { .. } => lower_value
                             .eq(span, term, span)
                             .map_or(false, |val| val.is_true()),
@@ -417,6 +418,7 @@ fn find_with_rest_and_highlight(
                         | Value::Block { .. }
                         | Value::Closure { .. }
                         | Value::Nothing { .. }
+                        | Value::ValueWithMetadata { .. }
                         | Value::Error { .. } => lower_value
                             .eq(span, term, span)
                             .map_or(false, |value| value.is_true()),

@@ -269,6 +269,7 @@ fn nu_value_to_string(value: Value, separator: &str) -> String {
         Value::Binary { val, .. } => format!("{:?}", val),
         Value::CellPath { val, .. } => val.into_string(),
         Value::CustomValue { val, .. } => val.value_string(),
+        Value::ValueWithMetadata { val, .. } => nu_value_to_string(*val, separator),
     }
 }
 

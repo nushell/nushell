@@ -256,6 +256,18 @@ fn handle_table_command(
             metadata: None,
             trim_end_newline: false,
         }),
+        PipelineData::Value(Value::ValueWithMetadata { val, metadata }, ..) => match *val {
+            Value::List { vals, .. } => handle_row_stream(
+                engine_state,
+                stack,
+                ListStream::from_stream(vals.into_iter(), ctrlc.clone()),
+                call,
+                row_offset,
+                ctrlc,
+                Some(metadata),
+            ),
+            _ => Err(ShellError::NushellFailed("Error on converting".to_owned())),
+        },
         // None of these two receive a StyleComputer because handle_row_stream() can produce it by itself using engine_state and stack.
         PipelineData::Value(Value::List { vals, .. }, metadata) => handle_row_stream(
             engine_state,
@@ -564,6 +576,95 @@ fn build_expanded_table(
                             );
 
                             wrap_text(failed_value.0, remaining_width, config)
+                        }
+                    }
+                }
+                Value::ValueWithMetadata { val, .. } => {
+                    match *val {
+                        Value::List { vals, span } => {
+                            let table = convert_to_table2(
+                                0,
+                                vals.iter(),
+                                ctrlc.clone(),
+                                config,
+                                span,
+                                style_computer,
+                                deep,
+                                flatten,
+                                flatten_sep,
+                                remaining_width,
+                            )?;
+
+                            match table {
+                                Some((mut table, with_header, with_index)) => {
+                                    // control width via removing table columns.
+                                    table.truncate(remaining_width, &theme);
+
+                                    is_expanded = true;
+
+                                    let table_config = create_table_config(
+                                        config,
+                                        style_computer,
+                                        table.count_rows(),
+                                        with_header,
+                                        with_index,
+                                        false,
+                                    );
+
+                                    let val = table.draw(table_config, remaining_width);
+                                    match val {
+                                        Some(result) => result,
+                                        None => return Ok(None),
+                                    }
+                                }
+                                None => {
+                                    // it means that the list is empty
+                                    let value = Value::List { vals, span };
+                                    value_to_styled_string(&value, config, style_computer).0
+                                }
+                            }
+                        }
+                        Value::Record {
+                            cols: cols_record,
+                            vals,
+                            span,
+                        } => {
+                            let result = build_expanded_table(
+                                cols_record.clone(),
+                                vals.clone(),
+                                span,
+                                ctrlc.clone(),
+                                config,
+                                style_computer,
+                                remaining_width,
+                                deep,
+                                flatten,
+                                flatten_sep,
+                            )?;
+
+                            match result {
+                                Some(result) => {
+                                    is_expanded = true;
+                                    result
+                                }
+                                None => {
+                                    let failed_value = value_to_styled_string(
+                                        &Value::Record {
+                                            cols: cols_record,
+                                            vals,
+                                            span,
+                                        },
+                                        config,
+                                        style_computer,
+                                    );
+
+                                    wrap_text(failed_value.0, remaining_width, config)
+                                }
+                            }
+                        }
+                        val => {
+                            let text = value_to_styled_string(&val, config, style_computer).0;
+                            wrap_text(text, remaining_width, config)
                         }
                     }
                 }
@@ -1478,6 +1579,16 @@ fn convert_to_table2_entry(
                 }
             }
         }
+        Value::ValueWithMetadata { val, .. } => convert_to_table2_entry(
+            val,
+            config,
+            ctrlc,
+            style_computer,
+            deep,
+            flatten,
+            flatten_sep,
+            width,
+        ),
         _ => {
             let text = value_to_styled_string(item, config, style_computer);
             wrap_nu_text(text, width, config)

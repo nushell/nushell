@@ -141,7 +141,8 @@ with 'transpose' first."#
 
         match input {
             PipelineData::Empty => Ok(PipelineData::Empty),
-            PipelineData::Value(Value::Range { .. }, ..)
+            PipelineData::Value(Value::ValueWithMetadata { .. }, ..)
+            | PipelineData::Value(Value::Range { .. }, ..)
             | PipelineData::Value(Value::List { .. }, ..)
             | PipelineData::ListStream { .. } => Ok(input
                 // To enumerate over the input (for the index argument),

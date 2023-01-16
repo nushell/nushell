@@ -8,8 +8,8 @@ mod unit;
 use crate::ast::{Bits, Boolean, CellPath, Comparison, PathMember};
 use crate::ast::{Math, Operator};
 use crate::engine::EngineState;
-use crate::ShellError;
 use crate::{did_you_mean, BlockId, Config, Span, Spanned, Type, VarId};
+use crate::{PipelineMetadata, ShellError};
 use byte_unit::ByteUnit;
 use chrono::{DateTime, Duration, FixedOffset};
 use chrono_humanize::HumanTime;
@@ -105,6 +105,10 @@ pub enum Value {
         val: Box<dyn CustomValue>,
         span: Span,
     },
+    ValueWithMetadata {
+        val: Box<Value>,
+        metadata: PipelineMetadata,
+    },
 }
 
 impl Clone for Value {
@@ -168,6 +172,7 @@ impl Clone for Value {
                 span: *span,
             },
             Value::CustomValue { val, span } => val.clone_value(*span),
+            Value::ValueWithMetadata { val, .. } => *val.clone(),
         }
     }
 }
@@ -350,6 +355,7 @@ impl Value {
             Value::Binary { span, .. } => Ok(*span),
             Value::CellPath { span, .. } => Ok(*span),
             Value::CustomValue { span, .. } => Ok(*span),
+            Value::ValueWithMetadata { val, .. } => Ok(val.span()?),
         }
     }
 
@@ -380,6 +386,9 @@ impl Value {
             Value::Binary { span, .. } => *span = new_span,
             Value::CellPath { span, .. } => *span = new_span,
             Value::CustomValue { span, .. } => *span = new_span,
+            Value::ValueWithMetadata { val, .. } => {
+                val.clone().with_span(new_span);
+            }
         }
 
         self
@@ -433,6 +442,7 @@ impl Value {
             Value::Binary { .. } => Type::Binary,
             Value::CellPath { .. } => Type::CellPath,
             Value::CustomValue { val, .. } => Type::Custom(val.typetag_name().into()),
+            Value::ValueWithMetadata { val, .. } => val.get_type(),
         }
     }
 
@@ -519,6 +529,7 @@ impl Value {
             Value::Binary { val, .. } => format!("{:?}", val),
             Value::CellPath { val, .. } => val.into_string(),
             Value::CustomValue { val, .. } => val.value_string(),
+            Value::ValueWithMetadata { val, .. } => val.into_string(separator, config),
         }
     }
 
@@ -563,6 +574,7 @@ impl Value {
             Value::Binary { val, .. } => format!("{:?}", val),
             Value::CellPath { val, .. } => val.into_string(),
             Value::CustomValue { val, .. } => val.value_string(),
+            Value::ValueWithMetadata { val, .. } => val.into_abbreviated_string(config),
         }
     }
 
@@ -610,6 +622,7 @@ impl Value {
             Value::Binary { val, .. } => format!("{:?}", val),
             Value::CellPath { val, .. } => val.into_string(),
             Value::CustomValue { val, .. } => val.value_string(),
+            Value::ValueWithMetadata { val, .. } => val.debug_string(separator, config),
         }
     }
 
@@ -1575,6 +1588,7 @@ impl PartialOrd for Value {
                 Value::Binary { .. } => Some(Ordering::Less),
                 Value::CellPath { .. } => Some(Ordering::Less),
                 Value::CustomValue { .. } => Some(Ordering::Less),
+                Value::ValueWithMetadata { val, .. } => val.as_ref().partial_cmp(other),
             },
             (Value::Int { val: lhs, .. }, rhs) => match rhs {
                 Value::Bool { .. } => Some(Ordering::Greater),
@@ -1594,6 +1608,7 @@ impl PartialOrd for Value {
                 Value::Binary { .. } => Some(Ordering::Less),
                 Value::CellPath { .. } => Some(Ordering::Less),
                 Value::CustomValue { .. } => Some(Ordering::Less),
+                Value::ValueWithMetadata { val, .. } => val.as_ref().partial_cmp(other),
             },
             (Value::Float { val: lhs, .. }, rhs) => match rhs {
                 Value::Bool { .. } => Some(Ordering::Greater),
@@ -1613,6 +1628,7 @@ impl PartialOrd for Value {
                 Value::Binary { .. } => Some(Ordering::Less),
                 Value::CellPath { .. } => Some(Ordering::Less),
                 Value::CustomValue { .. } => Some(Ordering::Less),
+                Value::ValueWithMetadata { val, .. } => val.as_ref().partial_cmp(other),
             },
             (Value::Filesize { val: lhs, .. }, rhs) => match rhs {
                 Value::Bool { .. } => Some(Ordering::Greater),
@@ -1632,6 +1648,7 @@ impl PartialOrd for Value {
                 Value::Binary { .. } => Some(Ordering::Less),
                 Value::CellPath { .. } => Some(Ordering::Less),
                 Value::CustomValue { .. } => Some(Ordering::Less),
+                Value::ValueWithMetadata { val, .. } => val.as_ref().partial_cmp(other),
             },
             (Value::Duration { val: lhs, .. }, rhs) => match rhs {
                 Value::Bool { .. } => Some(Ordering::Greater),
@@ -1651,6 +1668,7 @@ impl PartialOrd for Value {
                 Value::Binary { .. } => Some(Ordering::Less),
                 Value::CellPath { .. } => Some(Ordering::Less),
                 Value::CustomValue { .. } => Some(Ordering::Less),
+                Value::ValueWithMetadata { val, .. } => val.as_ref().partial_cmp(other),
             },
             (Value::Date { val: lhs, .. }, rhs) => match rhs {
                 Value::Bool { .. } => Some(Ordering::Greater),
@@ -1670,6 +1688,7 @@ impl PartialOrd for Value {
                 Value::Binary { .. } => Some(Ordering::Less),
                 Value::CellPath { .. } => Some(Ordering::Less),
                 Value::CustomValue { .. } => Some(Ordering::Less),
+                Value::ValueWithMetadata { val, .. } => val.as_ref().partial_cmp(other),
             },
             (Value::Range { val: lhs, .. }, rhs) => match rhs {
                 Value::Bool { .. } => Some(Ordering::Greater),
@@ -1689,6 +1708,7 @@ impl PartialOrd for Value {
                 Value::Binary { .. } => Some(Ordering::Less),
                 Value::CellPath { .. } => Some(Ordering::Less),
                 Value::CustomValue { .. } => Some(Ordering::Less),
+                Value::ValueWithMetadata { val, .. } => val.as_ref().partial_cmp(other),
             },
             (Value::String { val: lhs, .. }, rhs) => match rhs {
                 Value::Bool { .. } => Some(Ordering::Greater),
@@ -1708,6 +1728,7 @@ impl PartialOrd for Value {
                 Value::Binary { .. } => Some(Ordering::Less),
                 Value::CellPath { .. } => Some(Ordering::Less),
                 Value::CustomValue { .. } => Some(Ordering::Less),
+                Value::ValueWithMetadata { val, .. } => val.as_ref().partial_cmp(other),
             },
             (
                 Value::Record {
@@ -1753,6 +1774,7 @@ impl PartialOrd for Value {
                 Value::Binary { .. } => Some(Ordering::Less),
                 Value::CellPath { .. } => Some(Ordering::Less),
                 Value::CustomValue { .. } => Some(Ordering::Less),
+                Value::ValueWithMetadata { val, .. } => val.as_ref().partial_cmp(other),
             },
             (Value::List { vals: lhs, .. }, rhs) => match rhs {
                 Value::Bool { .. } => Some(Ordering::Greater),
@@ -1772,6 +1794,7 @@ impl PartialOrd for Value {
                 Value::Binary { .. } => Some(Ordering::Less),
                 Value::CellPath { .. } => Some(Ordering::Less),
                 Value::CustomValue { .. } => Some(Ordering::Less),
+                Value::ValueWithMetadata { val, .. } => val.as_ref().partial_cmp(other),
             },
             (Value::Block { val: lhs, .. }, rhs) => match rhs {
                 Value::Bool { .. } => Some(Ordering::Greater),
@@ -1791,6 +1814,7 @@ impl PartialOrd for Value {
                 Value::Binary { .. } => Some(Ordering::Less),
                 Value::CellPath { .. } => Some(Ordering::Less),
                 Value::CustomValue { .. } => Some(Ordering::Less),
+                Value::ValueWithMetadata { val, .. } => val.as_ref().partial_cmp(other),
             },
             (Value::Closure { val: lhs, .. }, rhs) => match rhs {
                 Value::Bool { .. } => Some(Ordering::Greater),
@@ -1810,6 +1834,7 @@ impl PartialOrd for Value {
                 Value::Binary { .. } => Some(Ordering::Less),
                 Value::CellPath { .. } => Some(Ordering::Less),
                 Value::CustomValue { .. } => Some(Ordering::Less),
+                Value::ValueWithMetadata { val, .. } => val.as_ref().partial_cmp(other),
             },
             (Value::Nothing { .. }, rhs) => match rhs {
                 Value::Bool { .. } => Some(Ordering::Greater),
@@ -1829,6 +1854,7 @@ impl PartialOrd for Value {
                 Value::Binary { .. } => Some(Ordering::Less),
                 Value::CellPath { .. } => Some(Ordering::Less),
                 Value::CustomValue { .. } => Some(Ordering::Less),
+                Value::ValueWithMetadata { val, .. } => val.as_ref().partial_cmp(other),
             },
             (Value::Error { .. }, rhs) => match rhs {
                 Value::Bool { .. } => Some(Ordering::Greater),
@@ -1848,6 +1874,7 @@ impl PartialOrd for Value {
                 Value::Binary { .. } => Some(Ordering::Less),
                 Value::CellPath { .. } => Some(Ordering::Less),
                 Value::CustomValue { .. } => Some(Ordering::Less),
+                Value::ValueWithMetadata { val, .. } => val.as_ref().partial_cmp(other),
             },
             (Value::Binary { val: lhs, .. }, rhs) => match rhs {
                 Value::Bool { .. } => Some(Ordering::Greater),
@@ -1867,6 +1894,7 @@ impl PartialOrd for Value {
                 Value::Binary { val: rhs, .. } => lhs.partial_cmp(rhs),
                 Value::CellPath { .. } => Some(Ordering::Less),
                 Value::CustomValue { .. } => Some(Ordering::Less),
+                Value::ValueWithMetadata { val, .. } => val.as_ref().partial_cmp(other),
             },
             (Value::CellPath { val: lhs, .. }, rhs) => match rhs {
                 Value::Bool { .. } => Some(Ordering::Greater),
@@ -1886,8 +1914,10 @@ impl PartialOrd for Value {
                 Value::Binary { .. } => Some(Ordering::Greater),
                 Value::CellPath { val: rhs, .. } => lhs.partial_cmp(rhs),
                 Value::CustomValue { .. } => Some(Ordering::Less),
+                Value::ValueWithMetadata { val, .. } => val.as_ref().partial_cmp(other),
             },
             (Value::CustomValue { val: lhs, .. }, rhs) => lhs.partial_cmp(rhs),
+            (Value::ValueWithMetadata { val: lhs, .. }, rhs) => lhs.as_ref().partial_cmp(rhs),
         }
     }
 }

@@ -4,6 +4,7 @@ use crate::{
     format_error, Config, ListStream, RawStream, ShellError, Span, Value,
 };
 use nu_utils::{stderr_write_all_and_flush, stdout_write_all_and_flush};
+use serde::{Deserialize, Serialize};
 use std::sync::{atomic::AtomicBool, Arc};
 
 const LINE_ENDING: &str = if cfg!(target_os = "windows") {
@@ -56,12 +57,12 @@ pub enum PipelineData {
     Empty,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct PipelineMetadata {
     pub data_source: DataSource,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum DataSource {
     Ls,
     HtmlThemes,
@@ -116,10 +117,20 @@ impl PipelineData {
             PipelineData::Empty => Value::nothing(span),
             PipelineData::Value(Value::Nothing { .. }, ..) => Value::nothing(span),
             PipelineData::Value(v, ..) => v,
-            PipelineData::ListStream(s, ..) => Value::List {
-                vals: s.collect(),
-                span, // FIXME?
-            },
+            PipelineData::ListStream(s, metadata) => {
+                let value = Value::List {
+                    vals: s.collect(),
+                    span, // FIXME?
+                };
+                if let Some(metadata) = metadata {
+                    Value::ValueWithMetadata {
+                        val: Box::new(value),
+                        metadata,
+                    }
+                } else {
+                    value
+                }
+            }
             PipelineData::ExternalStream {
                 stdout: None,
                 exit_code,

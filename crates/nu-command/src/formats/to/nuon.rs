@@ -188,6 +188,7 @@ pub fn value_to_string(v: &Value, span: Span) -> Result<String, ShellError> {
         // All strings outside data structures are quoted because they are in 'command position'
         // (could be mistaken for commands by the Nu parser)
         Value::String { val, .. } => Ok(escape_quote_string(val)),
+        Value::ValueWithMetadata { val, .. } => value_to_string(val, span),
     }
 }
 

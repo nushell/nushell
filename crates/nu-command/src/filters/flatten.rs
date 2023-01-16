@@ -407,7 +407,10 @@ fn flat_value(columns: &[CellPath], item: &Value, _name_tag: Span, all: bool) ->
                 vec![]
             }
         } else {
-            vec![item.clone()]
+            match item {
+                Value::ValueWithMetadata { val, .. } => flat_value(columns, val, _name_tag, all),
+                _ => vec![item.clone()],
+            }
         }
     };
     res
