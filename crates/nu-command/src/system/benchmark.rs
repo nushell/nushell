@@ -26,7 +26,7 @@ impl Command for Benchmark {
                 SyntaxShape::Closure(Some(vec![SyntaxShape::Any])),
                 "the closure to run",
             )
-            .input_output_types(vec![(Type::Closure, Type::String)])
+            .input_output_types(vec![(Type::Any, Type::Duration),(Type::Nothing, Type::Duration)])
             .allow_variants_without_examples(true)
             .category(Category::System)
     }
