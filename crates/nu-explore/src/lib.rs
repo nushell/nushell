@@ -115,11 +115,11 @@ pub fn create_commands(registry: &mut CommandRegistry) {
     registry.register_command_reactive(TweakCmd::default());
 }
 
-pub fn create_aliases(regestry: &mut CommandRegistry) {
-    regestry.create_aliase("h", HelpCmd::NAME);
-    regestry.create_aliase("e", ExpandCmd::NAME);
-    regestry.create_aliase("q", QuitCmd::NAME);
-    regestry.create_aliase("q!", QuitCmd::NAME);
+pub fn create_aliases(registry: &mut CommandRegistry) {
+    registry.create_aliases("h", HelpCmd::NAME);
+    registry.create_aliases("e", ExpandCmd::NAME);
+    registry.create_aliases("q", QuitCmd::NAME);
+    registry.create_aliases("q!", QuitCmd::NAME);
 }
 
 #[rustfmt::skip]

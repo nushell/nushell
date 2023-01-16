@@ -1268,7 +1268,7 @@ mod input_types {
         }
     }
 
-    fn add_declations(engine_state: &mut EngineState) {
+    fn add_declarations(engine_state: &mut EngineState) {
         let delta = {
             let mut working_set = StateWorkingSet::new(engine_state);
             working_set.add_decl(Box::new(Let));
@@ -1293,7 +1293,7 @@ mod input_types {
     #[test]
     fn call_types_test() {
         let mut engine_state = EngineState::new();
-        add_declations(&mut engine_state);
+        add_declarations(&mut engine_state);
 
         let mut working_set = StateWorkingSet::new(&engine_state);
         let input = r#"ls | to-custom | group-by name other"#;
@@ -1356,7 +1356,7 @@ mod input_types {
     #[test]
     fn storing_variable_test() {
         let mut engine_state = EngineState::new();
-        add_declations(&mut engine_state);
+        add_declarations(&mut engine_state);
 
         let mut working_set = StateWorkingSet::new(&engine_state);
         let input =
@@ -1388,7 +1388,7 @@ mod input_types {
     #[test]
     fn stored_variable_operation_test() {
         let mut engine_state = EngineState::new();
-        add_declations(&mut engine_state);
+        add_declarations(&mut engine_state);
 
         let mut working_set = StateWorkingSet::new(&engine_state);
         let input = r#"let a = (ls | to-custom | group-by name other); ($a + $a) | agg sum"#;
@@ -1419,7 +1419,7 @@ mod input_types {
     #[test]
     fn multiple_stored_variable_test() {
         let mut engine_state = EngineState::new();
-        add_declations(&mut engine_state);
+        add_declarations(&mut engine_state);
 
         let mut working_set = StateWorkingSet::new(&engine_state);
         let input = r#"
@@ -1464,7 +1464,7 @@ mod input_types {
     #[test]
     fn call_non_custom_types_test() {
         let mut engine_state = EngineState::new();
-        add_declations(&mut engine_state);
+        add_declarations(&mut engine_state);
 
         let mut working_set = StateWorkingSet::new(&engine_state);
         let input = r#"ls | group-by name"#;
@@ -1509,7 +1509,7 @@ mod input_types {
     #[test]
     fn nested_operations_test() {
         let mut engine_state = EngineState::new();
-        add_declations(&mut engine_state);
+        add_declarations(&mut engine_state);
 
         let (block, delta) = {
             let mut working_set = StateWorkingSet::new(&engine_state);
@@ -1570,7 +1570,7 @@ mod input_types {
     #[test]
     fn call_with_list_test() {
         let mut engine_state = EngineState::new();
-        add_declations(&mut engine_state);
+        add_declarations(&mut engine_state);
 
         let mut working_set = StateWorkingSet::new(&engine_state);
         let input = r#"[[a b]; [1 2] [3 4]] | to-custom | with-column [ ("a" | min) ("b" | min) ] | collect"#;
@@ -1617,7 +1617,7 @@ mod input_types {
     #[test]
     fn operations_within_blocks_test() {
         let mut engine_state = EngineState::new();
-        add_declations(&mut engine_state);
+        add_declarations(&mut engine_state);
 
         let mut working_set = StateWorkingSet::new(&engine_state);
         let inputs = vec![
@@ -1639,7 +1639,7 @@ mod input_types {
     #[test]
     fn else_errors_correctly() {
         let mut engine_state = EngineState::new();
-        add_declations(&mut engine_state);
+        add_declarations(&mut engine_state);
 
         let mut working_set = StateWorkingSet::new(&engine_state);
         let (_, err) = parse(

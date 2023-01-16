@@ -41,7 +41,7 @@ fn catch_can_access_error_as_dollar_in() {
 }
 
 #[test]
-fn external_failed_should_be_catched() {
+fn external_failed_should_be_caught() {
     let output = nu!(
         cwd: ".",
         "try { nu --testbin fail; echo 'success' } catch { echo 'fail' }"
@@ -66,7 +66,7 @@ fn loop_catch_break_should_show_failed() {
         cwd: ".",
         "loop {
             try { invalid 1;
-            continue; } catch { echo 'failed'; break } 
+            continue; } catch { echo 'failed'; break }
         }
         "
     );
@@ -80,10 +80,10 @@ fn loop_try_ignores_continue() {
         cwd: ".",
         "mut total = 0;
         for i in 0..10 {
-            try { if ($i mod 2) == 0 { 
-            continue;} 
+            try { if ($i mod 2) == 0 {
+            continue;}
             $total += 1
-        } catch { echo 'failed'; break } 
+        } catch { echo 'failed'; break }
         }
         echo $total
         "
