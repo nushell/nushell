@@ -32,11 +32,6 @@ impl Command for Reduce {
                 ])),
                 "reducing function",
             )
-            .switch(
-                "numbered",
-                "iterate with an index (deprecated; use a 3-parameter closure instead)",
-                Some('n'),
-            )
     }
 
     fn usage(&self) -> &str {
@@ -88,7 +83,6 @@ impl Command for Reduce {
         let span = call.head;
 
         let fold: Option<Value> = call.get_flag(engine_state, stack, "fold")?;
-        let numbered = call.has_flag("numbered");
         let capture_block: Closure = call.req(engine_state, stack, 0)?;
         let mut stack = stack.captures_to_stack(&capture_block.captures);
         let block = engine_state.get_block(capture_block.block_id);
@@ -104,10 +98,10 @@ impl Command for Reduce {
         // it must be converted into an iterator using into_iter().
         let mut input_iter = input.into_iter();
 
-        let (off, start_val) = if let Some(val) = fold {
-            (0, val)
+        let start_val = if let Some(val) = fold {
+            val
         } else if let Some(val) = input_iter.next() {
-            (1, val)
+            val
         } else {
             return Err(ShellError::GenericError(
                 "Expected input".to_string(),
@@ -118,39 +112,9 @@ impl Command for Reduce {
             ));
         };
 
-        let mut acc = if numbered {
-            Value::Record {
-                cols: vec!["index".to_string(), "item".to_string()],
-                vals: vec![Value::Int { val: 0, span }, start_val],
-                span,
-            }
-        } else {
-            start_val
-        };
+        let mut acc = start_val;
 
-        let mut input_iter = input_iter
-            .enumerate()
-            .map(|(idx, x)| {
-                if numbered {
-                    (
-                        idx,
-                        Value::Record {
-                            cols: vec!["index".to_string(), "item".to_string()],
-                            vals: vec![
-                                Value::Int {
-                                    val: idx as i64 + off,
-                                    span,
-                                },
-                                x,
-                            ],
-                            span,
-                        },
-                    )
-                } else {
-                    (idx, x)
-                }
-            })
-            .peekable();
+        let mut input_iter = input_iter.enumerate().map(|(idx, x)| (idx, x)).peekable();
 
         while let Some((idx, x)) = input_iter.next() {
             // with_env() is used here to ensure that each iteration uses
@@ -168,26 +132,6 @@ impl Command for Reduce {
             // Accumulator argument
             if let Some(var) = block.signature.get_positional(1) {
                 if let Some(var_id) = &var.var_id {
-                    acc = if numbered {
-                        if let Value::Record { .. } = &acc {
-                            acc
-                        } else {
-                            Value::Record {
-                                cols: vec!["index".to_string(), "item".to_string()],
-                                vals: vec![
-                                    Value::Int {
-                                        val: idx as i64 + off,
-                                        span,
-                                    },
-                                    acc,
-                                ],
-                                span,
-                            }
-                        }
-                    } else {
-                        acc
-                    };
-
                     stack.add_var(*var_id, acc);
                 }
             }

@@ -47,35 +47,6 @@ fn reduce_rows_example() {
 }
 
 #[test]
-fn reduce_numbered_example() {
-    let actual = nu!(
-        cwd: ".", pipeline(
-        r#"
-        echo one longest three bar
-        | reduce -n { |it, acc| if ($it.item | str length) > ($acc.item | str length) {echo $it} else {echo $acc}}
-        | get index
-        "#
-        )
-    );
-
-    assert_eq!(actual.out, "1");
-}
-
-#[test]
-fn reduce_numbered_integer_addition_example() {
-    let actual = nu!(
-        cwd: ".", pipeline(
-        r#"
-        echo [1 2 3 4]
-        | reduce -n { |it, acc| $acc.item + $it.item }
-        "#
-        )
-    );
-
-    assert_eq!(actual.out, "10");
-}
-
-#[test]
 fn folding_with_tables() {
     let actual = nu!(
         cwd: ".", pipeline(

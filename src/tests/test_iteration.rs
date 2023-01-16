@@ -3,7 +3,7 @@ use crate::tests::{run_test, TestResult};
 #[test]
 fn better_block_types() -> TestResult {
     run_test(
-        r#"([1, 2, 3] | each -n { |it| $"($it.index) is ($it.item)" }).1"#,
+        r#"([1, 2, 3] | each { |item index| $"($index) is ($item)" }).1"#,
         "1 is 2",
     )
 }
@@ -35,7 +35,7 @@ fn row_condition2() -> TestResult {
 #[test]
 fn par_each() -> TestResult {
     run_test(
-        r#"1..10 | par-each --numbered { |it| ([[index, item]; [$it.index, ($it.item > 5)]]).0 } | where index == 4 | get item.0"#,
+        r#"1..10 | par-each { |it index| ([[index, item]; [$index, ($it > 5)]]).0 } | where index == 4 | get item.0"#,
         "false",
     )
 }

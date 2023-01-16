@@ -45,11 +45,6 @@ with 'transpose' first."#
                 "the closure to run",
             )
             .switch("keep-empty", "keep empty result cells", Some('k'))
-            .switch(
-                "numbered",
-                "iterate with an index (deprecated; use a two-parameter closure instead)",
-                Some('n'),
-            )
             .category(Category::Filters)
     }
 
@@ -106,7 +101,7 @@ with 'transpose' first."#
             },
             Example {
                 example: r#"[1 2 3] | each --keep-empty {|e| if $e == 2 { "found 2!"} }"#,
-                description: "Iterate over each element, keeping all results",
+                description: "Iterate over each element, keeping null results",
                 result: Some(Value::List {
                     vals: stream_test_2,
                     span: Span::test_data(),
@@ -124,7 +119,6 @@ with 'transpose' first."#
     ) -> Result<nu_protocol::PipelineData, nu_protocol::ShellError> {
         let capture_block: Closure = call.req(engine_state, stack, 0)?;
 
-        let numbered = call.has_flag("numbered");
         let keep_empty = call.has_flag("keep-empty");
 
         let metadata = input.metadata();
@@ -156,25 +150,7 @@ with 'transpose' first."#
 
                     if let Some(var) = block.signature.get_positional(0) {
                         if let Some(var_id) = &var.var_id {
-                            // -n changes the first argument into an {index, item} record.
-                            if numbered {
-                                stack.add_var(
-                                    *var_id,
-                                    Value::Record {
-                                        cols: vec!["index".into(), "item".into()],
-                                        vals: vec![
-                                            Value::Int {
-                                                val: idx as i64,
-                                                span,
-                                            },
-                                            x.clone(),
-                                        ],
-                                        span,
-                                    },
-                                );
-                            } else {
-                                stack.add_var(*var_id, x.clone());
-                            }
+                            stack.add_var(*var_id, x.clone());
                         }
                     }
                     // Optional second index argument
@@ -214,8 +190,7 @@ with 'transpose' first."#
                 ..
             } => Ok(stream
                 .into_iter()
-                .enumerate()
-                .map_while(move |(idx, x)| {
+                .map_while(move |x| {
                     // with_env() is used here to ensure that each iteration uses
                     // a different set of environment variables.
                     // Hence, a 'cd' in the first loop won't affect the next loop.
@@ -229,24 +204,7 @@ with 'transpose' first."#
 
                     if let Some(var) = block.signature.get_positional(0) {
                         if let Some(var_id) = &var.var_id {
-                            if numbered {
-                                stack.add_var(
-                                    *var_id,
-                                    Value::Record {
-                                        cols: vec!["index".into(), "item".into()],
-                                        vals: vec![
-                                            Value::Int {
-                                                val: idx as i64,
-                                                span,
-                                            },
-                                            x.clone(),
-                                        ],
-                                        span,
-                                    },
-                                );
-                            } else {
-                                stack.add_var(*var_id, x.clone());
-                            }
+                            stack.add_var(*var_id, x.clone());
                         }
                     }
 

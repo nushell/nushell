@@ -33,11 +33,6 @@ impl Command for EachWhile {
                 SyntaxShape::Closure(Some(vec![SyntaxShape::Any, SyntaxShape::Int])),
                 "the closure to run",
             )
-            .switch(
-                "numbered",
-                "iterate with an index (deprecated; use a two-parameter closure instead)",
-                Some('n'),
-            )
             .category(Category::Filters)
     }
 
@@ -84,7 +79,6 @@ impl Command for EachWhile {
         input: PipelineData,
     ) -> Result<nu_protocol::PipelineData, nu_protocol::ShellError> {
         let capture_block: Closure = call.req(engine_state, stack, 0)?;
-        let numbered = call.has_flag("numbered");
 
         let metadata = input.metadata();
         let ctrlc = engine_state.ctrlc.clone();
@@ -115,24 +109,7 @@ impl Command for EachWhile {
 
                     if let Some(var) = block.signature.get_positional(0) {
                         if let Some(var_id) = &var.var_id {
-                            if numbered {
-                                stack.add_var(
-                                    *var_id,
-                                    Value::Record {
-                                        cols: vec!["index".into(), "item".into()],
-                                        vals: vec![
-                                            Value::Int {
-                                                val: idx as i64,
-                                                span,
-                                            },
-                                            x.clone(),
-                                        ],
-                                        span,
-                                    },
-                                );
-                            } else {
-                                stack.add_var(*var_id, x.clone());
-                            }
+                            stack.add_var(*var_id, x.clone());
                         }
                     }
                     // Optional second index argument
@@ -175,8 +152,7 @@ impl Command for EachWhile {
                 ..
             } => Ok(stream
                 .into_iter()
-                .enumerate()
-                .map_while(move |(idx, x)| {
+                .map_while(move |x| {
                     // with_env() is used here to ensure that each iteration uses
                     // a different set of environment variables.
                     // Hence, a 'cd' in the first loop won't affect the next loop.
@@ -189,24 +165,7 @@ impl Command for EachWhile {
 
                     if let Some(var) = block.signature.get_positional(0) {
                         if let Some(var_id) = &var.var_id {
-                            if numbered {
-                                stack.add_var(
-                                    *var_id,
-                                    Value::Record {
-                                        cols: vec!["index".into(), "item".into()],
-                                        vals: vec![
-                                            Value::Int {
-                                                val: idx as i64,
-                                                span,
-                                            },
-                                            x.clone(),
-                                        ],
-                                        span,
-                                    },
-                                );
-                            } else {
-                                stack.add_var(*var_id, x.clone());
-                            }
+                            stack.add_var(*var_id, x.clone());
                         }
                     }
 

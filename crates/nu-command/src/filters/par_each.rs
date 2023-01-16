@@ -32,11 +32,6 @@ impl Command for ParEach {
                 SyntaxShape::Closure(Some(vec![SyntaxShape::Any, SyntaxShape::Int])),
                 "the closure to run",
             )
-            .switch(
-                "numbered",
-                "iterate with an index (deprecated; use a two-parameter closure instead)",
-                Some('n'),
-            )
             .category(Category::Filters)
     }
 
@@ -49,7 +44,7 @@ impl Command for ParEach {
                 result: None,
             },
             Example {
-                example: r#"[1 2 3] | par-each -n { |it| if $it.item == 2 { $"found 2 at ($it.index)!"} }"#,
+                example: r#"[1 2 3] | par-each { |item index| if $item == 2 { $"found 2 at ($index)!"} }"#,
                 description: "Iterate over each element, print the matching value and its index",
                 result: Some(Value::List {
                     vals: vec![Value::test_string("found 2 at 1!")],
@@ -68,7 +63,6 @@ impl Command for ParEach {
     ) -> Result<nu_protocol::PipelineData, nu_protocol::ShellError> {
         let capture_block: Closure = call.req(engine_state, stack, 0)?;
 
-        let numbered = call.has_flag("numbered");
         let metadata = input.metadata();
         let ctrlc = engine_state.ctrlc.clone();
         let block_id = capture_block.block_id;
@@ -90,24 +84,7 @@ impl Command for ParEach {
 
                     if let Some(var) = block.signature.get_positional(0) {
                         if let Some(var_id) = &var.var_id {
-                            if numbered {
-                                stack.add_var(
-                                    *var_id,
-                                    Value::Record {
-                                        cols: vec!["index".into(), "item".into()],
-                                        vals: vec![
-                                            Value::Int {
-                                                val: idx as i64,
-                                                span,
-                                            },
-                                            x.clone(),
-                                        ],
-                                        span,
-                                    },
-                                );
-                            } else {
-                                stack.add_var(*var_id, x.clone());
-                            }
+                            stack.add_var(*var_id, x.clone());
                         }
                     }
                     // Optional second index argument
@@ -154,24 +131,7 @@ impl Command for ParEach {
 
                     if let Some(var) = block.signature.get_positional(0) {
                         if let Some(var_id) = &var.var_id {
-                            if numbered {
-                                stack.add_var(
-                                    *var_id,
-                                    Value::Record {
-                                        cols: vec!["index".into(), "item".into()],
-                                        vals: vec![
-                                            Value::Int {
-                                                val: idx as i64,
-                                                span,
-                                            },
-                                            x.clone(),
-                                        ],
-                                        span,
-                                    },
-                                );
-                            } else {
-                                stack.add_var(*var_id, x.clone());
-                            }
+                            stack.add_var(*var_id, x.clone());
                         }
                     }
                     // Optional second index argument
@@ -217,24 +177,7 @@ impl Command for ParEach {
 
                     if let Some(var) = block.signature.get_positional(0) {
                         if let Some(var_id) = &var.var_id {
-                            if numbered {
-                                stack.add_var(
-                                    *var_id,
-                                    Value::Record {
-                                        cols: vec!["index".into(), "item".into()],
-                                        vals: vec![
-                                            Value::Int {
-                                                val: idx as i64,
-                                                span,
-                                            },
-                                            x.clone(),
-                                        ],
-                                        span,
-                                    },
-                                );
-                            } else {
-                                stack.add_var(*var_id, x.clone());
-                            }
+                            stack.add_var(*var_id, x.clone());
                         }
                     }
                     // Optional second index argument
@@ -289,24 +232,7 @@ impl Command for ParEach {
 
                     if let Some(var) = block.signature.get_positional(0) {
                         if let Some(var_id) = &var.var_id {
-                            if numbered {
-                                stack.add_var(
-                                    *var_id,
-                                    Value::Record {
-                                        cols: vec!["index".into(), "item".into()],
-                                        vals: vec![
-                                            Value::Int {
-                                                val: idx as i64,
-                                                span,
-                                            },
-                                            x.clone(),
-                                        ],
-                                        span,
-                                    },
-                                );
-                            } else {
-                                stack.add_var(*var_id, x.clone());
-                            }
+                            stack.add_var(*var_id, x.clone());
                         }
                     }
                     // Optional second index argument
