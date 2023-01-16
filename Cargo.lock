@@ -3020,7 +3020,7 @@ version = "0.74.1"
 dependencies = [
  "nu-plugin",
  "nu-protocol",
- "semver 0.11.0",
+ "semver 1.0.16",
 ]
 
 [[package]]
@@ -3416,16 +3416,6 @@ name = "peresil"
 version = "0.3.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f658886ed52e196e850cfbbfddab9eaa7f6d90dd0929e264c31e5cec07e09e57"
-
-[[package]]
-name = "pest"
-version = "2.3.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "cb779fcf4bb850fbbb0edc96ff6cf34fd90c4b1a112ce042653280d9a7364048"
-dependencies = [
- "thiserror",
- "ucd-trie",
-]
 
 [[package]]
 name = "phf"
@@ -4400,7 +4390,7 @@ version = "0.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "bfa0f585226d2e68097d4f95d113b15b83a82e819ab25717ec0590d9584ef366"
 dependencies = [
- "semver 1.0.14",
+ "semver 1.0.16",
 ]
 
 [[package]]
@@ -4530,38 +4520,20 @@ version = "0.9.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "1d7eb9ef2c18661902cc47e535f9bc51b78acd254da71d375c2f6720d9a40403"
 dependencies = [
- "semver-parser 0.7.0",
+ "semver-parser",
 ]
 
 [[package]]
 name = "semver"
-version = "0.11.0"
+version = "1.0.16"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f301af10236f6df4160f7c3f04eec6dbc70ace82d23326abad5edee88801c6b6"
-dependencies = [
- "semver-parser 0.10.2",
-]
-
-[[package]]
-name = "semver"
-version = "1.0.14"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e25dfac463d778e353db5be2449d1cce89bd6fd23c9f1ea21310ce6e5a1b29c4"
+checksum = "58bc9567378fc7690d6b2addae4e60ac2eeea07becb2c64b9f218b53865cba2a"
 
 [[package]]
 name = "semver-parser"
 version = "0.7.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "388a1df253eca08550bef6c72392cfe7c30914bf41df5269b68cbd6ff8f570a3"
-
-[[package]]
-name = "semver-parser"
-version = "0.10.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "00b0bef5b7f9e0df16536d3961cfb6e84331c065b4066afb39768d0e319411f7"
-dependencies = [
- "pest",
-]
 
 [[package]]
 name = "seq-macro"
@@ -5368,12 +5340,6 @@ dependencies = [
  "quote",
  "syn",
 ]
-
-[[package]]
-name = "ucd-trie"
-version = "0.1.5"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9e79c4d996edb816c91e4308506774452e55e95c3c9de07b6729e17e15a5ef81"
 
 [[package]]
 name = "umask"
