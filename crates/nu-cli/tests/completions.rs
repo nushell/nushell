@@ -825,7 +825,12 @@ fn alias_offset_bug_7754() {
     assert!(support::merge_input(alias.as_bytes(), &mut engine, &mut stack, dir.clone()).is_ok());
 
     let mut completer = NuCompleter::new(std::sync::Arc::new(engine), stack);
-    let suggestions = completer.complete("ll -a | c", 9);
+
+    // Issue #7754
+    // Nushell crashes when an alias name is shorter than the alias command 
+    // and the alias command contains pipes.
+    // This crashes before PR #7756
+    let _suggestions = completer.complete("ll -a | c", 9);
 
     //println!(" --------- suggestions: {:?}", suggestions);
 }
