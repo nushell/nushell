@@ -253,16 +253,25 @@ fn have_permission(dir: impl AsRef<Path>) -> PermissionResult<'static> {
 
             let current_user_gid = users::get_current_gid();
             let mut current_user_groups = match users::get_current_username() {
-                None => return PermissionResult::PermissionDenied("Unable to get current user name"),
-                Some(name) => match users::get_user_groups(&name, current_user_gid) {
-                    None => return PermissionResult::PermissionDenied("Unable to get current user groups"),
-                    Some(groups) => groups.into_iter()
+                None => {
+                    return PermissionResult::PermissionDenied("Unable to get current user name")
                 }
+                Some(name) => match users::get_user_groups(&name, current_user_gid) {
+                    None => {
+                        return PermissionResult::PermissionDenied(
+                            "Unable to get current user groups",
+                        )
+                    }
+                    Some(groups) => groups.into_iter(),
+                },
             };
 
             let owner_user = metadata.uid();
             let owner_group = metadata.gid();
-            match (current_user_gid == owner_user, current_user_groups.any(|group| group.gid() == owner_group)) {
+            match (
+                current_user_gid == owner_user,
+                current_user_groups.any(|group| group.gid() == owner_group),
+            ) {
                 (true, _) => {
                     if has_bit(permission_mods::unix::USER_EXECUTE) {
                         PermissionResult::PermissionOk
