@@ -815,3 +815,17 @@ fn extern_complete_flags(mut extern_completer: NuCompleter) {
     let expected: Vec<String> = vec!["--foo".into(), "-b".into(), "-f".into()];
     match_suggestions(expected, suggestions);
 }
+
+#[rstest]
+fn alias_offset_bug_7754() {
+    let (dir, _, mut engine, mut stack) = new_engine();
+
+    // Create an alias
+    let alias = r#"alias ll = ls -l"#;
+    assert!(support::merge_input(alias.as_bytes(), &mut engine, &mut stack, dir.clone()).is_ok());
+
+    let mut completer = NuCompleter::new(std::sync::Arc::new(engine), stack);
+    let suggestions = completer.complete("ll -a | c", 9);
+
+    //println!(" --------- suggestions: {:?}", suggestions);
+}
