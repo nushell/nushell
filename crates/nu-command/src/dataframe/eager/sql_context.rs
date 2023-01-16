@@ -85,7 +85,7 @@ impl SQLContext {
                         raw_projection_before_alias.insert(format!("{:?}", expr), i);
                         expr.alias(&alias.value)
                     }
-                    SelectItem::QualifiedWildcard(_) | SelectItem::Wildcard => {
+                    SelectItem::QualifiedWildcard(_, _) | SelectItem::Wildcard(_) => {
                         contain_wildcard = true;
                         col("*")
                     }
