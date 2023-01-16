@@ -105,7 +105,7 @@ impl Prompt for NushellPrompt {
         if let Some(prompt_string) = &self.left_prompt_string {
             prompt_string.replace('\n', "\r\n").into()
         } else {
-            let default = DefaultPrompt::new();
+            let default = DefaultPrompt::default();
             default
                 .render_prompt_left()
                 .to_string()
@@ -118,7 +118,7 @@ impl Prompt for NushellPrompt {
         if let Some(prompt_string) = &self.right_prompt_string {
             prompt_string.replace('\n', "\r\n").into()
         } else {
-            let default = DefaultPrompt::new();
+            let default = DefaultPrompt::default();
             default
                 .render_prompt_right()
                 .to_string()

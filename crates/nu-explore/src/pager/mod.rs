@@ -615,7 +615,7 @@ fn highlight_search_results(f: &mut Frame, pager: &Pager, layout: &Layout, style
         return;
     }
 
-    let hightlight_block = Block::default().style(nu_style_to_tui(style));
+    let highlight_block = Block::default().style(nu_style_to_tui(style));
 
     for e in &layout.data {
         let text = ansi_str::AnsiStr::ansi_strip(&e.text);
@@ -626,7 +626,7 @@ fn highlight_search_results(f: &mut Frame, pager: &Pager, layout: &Layout, style
             let w = pager.search_buf.buf_cmd_input.len() as u16;
             let area = Rect::new(e.area.x + p as u16, e.area.y, w, 1);
 
-            f.render_widget(hightlight_block.clone(), area);
+            f.render_widget(highlight_block.clone(), area);
         }
     }
 }

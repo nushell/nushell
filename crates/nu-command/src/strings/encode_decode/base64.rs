@@ -1,5 +1,8 @@
 use crate::input_handler::{operate as general_operate, CmdArgument};
-use base64::{decode_config, encode_config};
+use base64::{
+    alphabet, engine::general_purpose::NO_PAD, engine::general_purpose::PAD,
+    engine::GeneralPurpose, Engine,
+};
 use nu_engine::CallExt;
 use nu_protocol::ast::{Call, CellPath};
 use nu_protocol::engine::{EngineState, Stack};
@@ -7,7 +10,7 @@ use nu_protocol::{PipelineData, ShellError, Span, Spanned, Value};
 
 pub const CHARACTER_SET_DESC: &str = "specify the character rules for encoding the input.\n\
                     \tValid values are 'standard', 'standard-no-padding', 'url-safe', 'url-safe-no-padding',\
-                    'binhex', 'bcrypt', 'crypt'";
+                    'binhex', 'bcrypt', 'crypt', 'mutf7'";
 
 #[derive(Clone)]
 pub struct Base64Config {
@@ -78,14 +81,15 @@ fn action(
     let output_binary = args.binary;
 
     let config_character_set = &base64_config.character_set;
-    let base64_config_enum: base64::Config = match config_character_set.item.as_str() {
-        "standard" => base64::STANDARD,
-        "standard-no-padding" => base64::STANDARD_NO_PAD,
-        "url-safe" => base64::URL_SAFE,
-        "url-safe-no-padding" => base64::URL_SAFE_NO_PAD,
-        "binhex" => base64::BINHEX,
-        "bcrypt" => base64::BCRYPT,
-        "crypt" => base64::CRYPT,
+    let base64_engine: GeneralPurpose = match config_character_set.item.as_str() {
+        "standard" => GeneralPurpose::new(&alphabet::STANDARD, PAD),
+        "standard-no-padding" => GeneralPurpose::new(&alphabet::STANDARD, NO_PAD),
+        "url-safe" => GeneralPurpose::new(&alphabet::URL_SAFE, PAD),
+        "url-safe-no-padding" => GeneralPurpose::new(&alphabet::URL_SAFE, NO_PAD),
+        "bcrypt" => GeneralPurpose::new(&alphabet::BCRYPT, NO_PAD),
+        "binhex" => GeneralPurpose::new(&alphabet::BIN_HEX, NO_PAD),
+        "crypt" => GeneralPurpose::new(&alphabet::CRYPT, NO_PAD),
+        "mutf7" => GeneralPurpose::new(&alphabet::IMAP_MUTF7, NO_PAD),
         not_valid => return Value::Error { error:ShellError::GenericError(
             "value is not an accepted character set".to_string(),
             format!(
@@ -102,7 +106,24 @@ fn action(
         Value::Error { .. } => input.clone(),
         Value::Binary { val, .. } => match base64_config.action_type {
             ActionType::Encode => {
-                Value::string(encode_config(val, base64_config_enum), command_span)
+                let mut enc_vec = Vec::new();
+                enc_vec.resize(val.len() * 4 / 3 + 4, 0);
+                let bytes_written = match base64_engine.encode_slice(val, &mut enc_vec) {
+                    Ok(bytes_written) => bytes_written,
+                    Err(err) => {
+                        return Value::Error {
+                            error: ShellError::GenericError(
+                                "Error encoding data".into(),
+                                err.to_string(),
+                                Some(Span::unknown()),
+                                None,
+                                Vec::new(),
+                            ),
+                        }
+                    }
+                };
+                enc_vec.truncate(bytes_written);
+                Value::string(std::str::from_utf8(&enc_vec).unwrap_or(""), command_span)
             }
             ActionType::Decode => Value::Error {
                 error: ShellError::UnsupportedInput(
@@ -120,7 +141,9 @@ fn action(
         } => {
             match base64_config.action_type {
                 ActionType::Encode => {
-                    Value::string(encode_config(val, base64_config_enum), command_span)
+                    let mut enc_str = String::new();
+                    base64_engine.encode_string(val, &mut enc_str);
+                    Value::string(enc_str, command_span)
                 }
 
                 ActionType::Decode => {
@@ -128,7 +151,8 @@ fn action(
                     let val = val.clone();
                     let val = val.replace("\r\n", "").replace('\n', "");
 
-                    match decode_config(&val, base64_config_enum) {
+                    //match Engine::decode_string(&val, base64_engine) {
+                    match base64_engine.decode(&val) {
                         Ok(decoded_value) => {
                             if output_binary {
                                 Value::binary(decoded_value, command_span)

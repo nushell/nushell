@@ -161,7 +161,7 @@ fn remove_impl(input: &[u8], arg: &Arguments, span: Span) -> Value {
 
     // Note:
     // remove_all from start and end will generate the same result.
-    // so we'll put `remove_all` relative logic into else clouse.
+    // so we'll put `remove_all` relative logic into else clause.
     if arg.end && !remove_all {
         let (mut left, mut right) = (
             input.len() as isize - arg.pattern.len() as isize,
@@ -172,7 +172,7 @@ fn remove_impl(input: &[u8], arg: &Arguments, span: Span) -> Value {
             left -= 1;
             right -= 1;
         }
-        // append the remaining thing to result, this can be happeneed when
+        // append the remaining thing to result, this can be happening when
         // we have something to remove and remove_all is False.
         let mut remain = input[..left as usize].iter().copied().rev().collect();
         result.append(&mut remain);

@@ -130,8 +130,8 @@ fn convert_records_to_dataset(cols: &Vec<String>, records: Vec<Value>) -> Vec<Ve
     } else if cols.len() == records.len() {
         vec![records]
     } else {
-        // I am not sure whether it's good to return records as its length LIKELY will not match columns,
-        // which makes no scense......
+        // I am not sure whether it's good to return records as its length LIKELY
+        // will not match columns, which makes no sense......
         //
         // BUT...
         // we can represent it as a list; which we do

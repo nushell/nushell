@@ -5,7 +5,7 @@ use nu_protocol::{
     engine::{Command, EngineState, Stack},
     Category, Example, PipelineData, ShellError, Signature, Span, SyntaxShape, Type, Value,
 };
-use polars::prelude::QuantileInterpolOptions;
+use polars::prelude::{lit, QuantileInterpolOptions};
 
 #[derive(Clone)]
 pub struct LazyQuantile;
@@ -60,7 +60,7 @@ impl Command for LazyQuantile {
         let lazy = NuLazyFrame::new(
             lazy.from_eager,
             lazy.into_polars()
-                .quantile(quantile, QuantileInterpolOptions::default()),
+                .quantile(lit(quantile), QuantileInterpolOptions::default()),
         );
 
         Ok(PipelineData::Value(lazy.into_value(call.head)?, None))

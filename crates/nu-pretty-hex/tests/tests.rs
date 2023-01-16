@@ -157,7 +157,7 @@ fn test_config() {
 // This test case checks that hex_write works even without the alloc crate.
 // Decorators to this function like simple_hex_write or PrettyHex::hex_dump()
 // will be tested when the alloc feature is selected because it feels quite
-// cumbersome to set up these tests without the comodity from `alloc`.
+// cumbersome to set up these tests without the commodity from `alloc`.
 #[test]
 fn test_hex_write_with_simple_config() {
     let config = HexConfig::simple();

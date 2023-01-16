@@ -27,6 +27,10 @@ impl Command for SubCommand {
         "Generate a random decimal within a range [min..max]"
     }
 
+    fn search_terms(&self) -> Vec<&str> {
+        vec!["generate", "float"]
+    }
+
     fn run(
         &self,
         engine_state: &EngineState,

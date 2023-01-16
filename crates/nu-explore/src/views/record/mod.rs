@@ -621,21 +621,21 @@ fn convert_records_to_string(
 
 fn highlight_cell(f: &mut Frame, area: Rect, info: ElementInfo, theme: &CursorStyle) {
     if let Some(style) = theme.selected_column {
-        let hightlight_block = Block::default().style(nu_style_to_tui(style));
+        let highlight_block = Block::default().style(nu_style_to_tui(style));
         let area = Rect::new(info.area.x, area.y, info.area.width, area.height);
-        f.render_widget(hightlight_block.clone(), area);
+        f.render_widget(highlight_block.clone(), area);
     }
 
     if let Some(style) = theme.selected_row {
-        let hightlight_block = Block::default().style(nu_style_to_tui(style));
+        let highlight_block = Block::default().style(nu_style_to_tui(style));
         let area = Rect::new(area.x, info.area.y, area.width, 1);
-        f.render_widget(hightlight_block.clone(), area);
+        f.render_widget(highlight_block.clone(), area);
     }
 
     if let Some(style) = theme.selected_cell {
-        let hightlight_block = Block::default().style(nu_style_to_tui(style));
+        let highlight_block = Block::default().style(nu_style_to_tui(style));
         let area = Rect::new(info.area.x, info.area.y, info.area.width, 1);
-        f.render_widget(hightlight_block.clone(), area);
+        f.render_widget(highlight_block.clone(), area);
     }
 
     if theme.show_cursor {

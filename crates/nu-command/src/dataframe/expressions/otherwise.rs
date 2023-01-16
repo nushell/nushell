@@ -23,7 +23,7 @@ impl Command for ExprOtherwise {
             .required(
                 "otherwise expression",
                 SyntaxShape::Any,
-                "expressioini to apply when no when predicate matches",
+                "expression to apply when no when predicate matches",
             )
             .input_type(Type::Any)
             .output_type(Type::Custom("expression".into()))
@@ -77,6 +77,10 @@ impl Command for ExprOtherwise {
                 ),
             },
         ]
+    }
+
+    fn search_terms(&self) -> Vec<&str> {
+        vec!["condition", "else"]
     }
 
     fn run(

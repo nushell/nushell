@@ -9,6 +9,8 @@ use std::fs::File;
 use std::io::{BufWriter, Write};
 use std::path::Path;
 
+use crate::progress_bar;
+
 #[derive(Clone)]
 pub struct Save;
 
@@ -47,6 +49,7 @@ impl Command for Save {
             .switch("raw", "save file as raw binary", Some('r'))
             .switch("append", "append input to the end of the file", Some('a'))
             .switch("force", "overwrite the destination", Some('f'))
+            .switch("progress", "enable progress bar", Some('p'))
             .category(Category::FileSystem)
     }
 
@@ -60,6 +63,7 @@ impl Command for Save {
         let raw = call.has_flag("raw");
         let append = call.has_flag("append");
         let force = call.has_flag("force");
+        let progress = call.has_flag("progress");
 
         let span = call.head;
 
@@ -81,16 +85,16 @@ impl Command for Save {
 
                 // delegate a thread to redirect stderr to result.
                 let handler = stderr.map(|stderr_stream| match stderr_file {
-                    Some(stderr_file) => {
-                        std::thread::spawn(move || stream_to_file(stderr_stream, stderr_file, span))
-                    }
+                    Some(stderr_file) => std::thread::spawn(move || {
+                        stream_to_file(stderr_stream, stderr_file, span, progress)
+                    }),
                     None => std::thread::spawn(move || {
                         let _ = stderr_stream.into_bytes();
                         Ok(PipelineData::empty())
                     }),
                 });
 
-                let res = stream_to_file(stream, file, span);
+                let res = stream_to_file(stream, file, span, progress);
                 if let Some(h) = handler {
                     h.join().map_err(|err| {
                         ShellError::ExternalCommand(
@@ -332,10 +336,29 @@ fn stream_to_file(
     mut stream: RawStream,
     file: File,
     span: Span,
+    progress: bool,
 ) -> Result<PipelineData, ShellError> {
     let mut writer = BufWriter::new(file);
 
-    stream
+    let mut bytes_processed: u64 = 0;
+    let bytes_processed_p = &mut bytes_processed;
+    let file_total_size = stream.known_size;
+    let mut process_failed = false;
+    let process_failed_p = &mut process_failed;
+
+    // Create the progress bar
+    // It looks a bit messy but I am doing it this way to avoid
+    // creating the bar when is not needed
+    let (mut bar_opt, bar_opt_clone) = if progress {
+        let tmp_bar = progress_bar::NuProgressBar::new(file_total_size);
+        let tmp_bar_clone = tmp_bar.clone();
+
+        (Some(tmp_bar), Some(tmp_bar_clone))
+    } else {
+        (None, None)
+    };
+
+    let result = stream
         .try_for_each(move |result| {
             let buf = match result {
                 Ok(v) => match v {
@@ -353,13 +376,39 @@ fn stream_to_file(
                         ));
                     }
                 },
-                Err(err) => return Err(err),
+                Err(err) => {
+                    *process_failed_p = true;
+                    return Err(err);
+                }
             };
 
+            // If the `progress` flag is set then
+            if progress {
+                // Update the total amount of bytes that has been saved and then print the progress bar
+                *bytes_processed_p += buf.len() as u64;
+                if let Some(bar) = &mut bar_opt {
+                    bar.update_bar(*bytes_processed_p);
+                }
+            }
+
             if let Err(err) = writer.write(&buf) {
+                *process_failed_p = true;
                 return Err(ShellError::IOError(err.to_string()));
             }
             Ok(())
         })
-        .map(|_| PipelineData::empty())
+        .map(|_| PipelineData::empty());
+
+    // If the `progress` flag is set then
+    if progress {
+        // If the process failed, stop the progress bar with an error message.
+        if process_failed {
+            if let Some(bar) = bar_opt_clone {
+                bar.abandoned_msg("# Error while saving #".to_owned());
+            }
+        }
+    }
+
+    // And finally return the stream result.
+    result
 }

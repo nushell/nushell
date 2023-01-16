@@ -31,6 +31,10 @@ impl Command for SubCommand {
         "Generate random chars"
     }
 
+    fn search_terms(&self) -> Vec<&str> {
+        vec!["generate", "character", "symbol", "alphanumeric"]
+    }
+
     fn run(
         &self,
         engine_state: &EngineState,

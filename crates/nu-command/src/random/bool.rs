@@ -31,6 +31,10 @@ impl Command for SubCommand {
         "Generate a random boolean value"
     }
 
+    fn search_terms(&self) -> Vec<&str> {
+        vec!["generate", "boolean", "true", "false", "1", "0"]
+    }
+
     fn run(
         &self,
         engine_state: &EngineState,

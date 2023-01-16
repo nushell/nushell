@@ -50,6 +50,7 @@ impl Command for ToText {
                     }),
                     engine_state.ctrlc.clone(),
                     span,
+                    None,
                 )),
                 stderr: None,
                 exit_code: None,

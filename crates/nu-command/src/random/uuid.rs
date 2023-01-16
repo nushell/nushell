@@ -22,6 +22,10 @@ impl Command for SubCommand {
         "Generate a random uuid4 string"
     }
 
+    fn search_terms(&self) -> Vec<&str> {
+        vec!["generate", "uuid4"]
+    }
+
     fn run(
         &self,
         _engine_state: &EngineState,
