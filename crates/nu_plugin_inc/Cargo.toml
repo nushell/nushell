@@ -14,4 +14,4 @@ doctest = false
 nu-plugin = { path="../nu-plugin", version = "0.74.1" }
 nu-protocol = { path="../nu-protocol", version = "0.74.1", features = ["plugin"]}
 
-semver = "0.11.0"
+semver = "1.0.14"
