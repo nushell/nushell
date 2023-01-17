@@ -136,7 +136,7 @@ pub enum ParseError {
             "Assigning '{0}' to '{1}' does not produce a value to be piped. If the pipeline result is meant to be assigned to '{1}', use 'mut {1} = ({0} | ...)'."
         )
     )]
-    MutInPipeline(String, String, #[label("let in pipeline")] Span),
+    MutInPipeline(String, String, #[label("mut in pipeline")] Span),
 
     #[error("Let used with builtin variable name.")]
     #[diagnostic(
