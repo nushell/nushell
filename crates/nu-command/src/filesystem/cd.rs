@@ -291,7 +291,6 @@ fn have_permission(dir: impl AsRef<Path>) -> PermissionResult<'static> {
                                             groups.pop();
                                         }
 
-                                        println!("groups: {:?}", groups);
                                         groups
                                     })
                                     .unwrap_or_default()
