@@ -164,7 +164,7 @@ impl Completer for CommandCompletion {
             .flattened
             .iter()
             .rev()
-            .skip_while(|x| x.0.end > pos)
+            .skip_while(|x| x.0.end + offset > pos)
             .take_while(|x| {
                 matches!(
                     x.1,

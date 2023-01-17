@@ -111,11 +111,18 @@ impl NuCompleter {
     }
 
     fn completion_helper(&mut self, line: &str, pos: usize) -> Vec<Suggestion> {
+        // pos: is the position of the cursor in the shell input.
+        // e.g. lets say you have an alias -> `alias ll = ls -l` and you type in the shell:
+        // > ll -a | c
+        // and your cursor is right after `c` then `pos` = 9
+
         let mut working_set = StateWorkingSet::new(&self.engine_state);
-        let offset = working_set.next_span_start();
+        let mut offset = working_set.next_span_start();
         let (mut new_line, alias_offset) = try_find_alias(line.as_bytes(), &working_set);
-        let initial_line = line.to_string();
-        let alias_total_offset: usize = alias_offset.iter().sum();
+        // new_line: vector containing all alias "translations" so if it was `ll` now is `ls -l`.
+        // alias_offset:vector the offset between the name and the alias)
+        let initial_line = line.to_string(); // Entire line in the shell input.
+        let alias_total_offset: usize = alias_offset.iter().sum(); // the sum of all alias offsets.
         new_line.insert(alias_total_offset + pos, b'a');
         let pos = offset + pos;
         let config = self.engine_state.get_config();
@@ -156,14 +163,22 @@ impl NuCompleter {
                                     most_left_variable(flat_idx, &working_set, flattened.clone());
 
                                 // Create a new span
-                                let new_span = if flat_idx == 0 {
-                                    Span::new(flat.0.start, flat.0.end - 1 - span_offset)
-                                } else {
-                                    Span::new(
-                                        flat.0.start - span_offset,
-                                        flat.0.end - 1 - span_offset,
-                                    )
-                                };
+                                // if flat_idx == 0
+                                let mut span_start = flat.0.start;
+                                let mut span_end = flat.0.end - 1 - span_offset;
+
+                                if flat_idx != 0 {
+                                    span_start = flat.0.start - span_offset;
+                                    span_end = flat.0.end - 1 - span_offset;
+                                }
+
+                                if span_end < span_start {
+                                    span_start = flat.0.start;
+                                    span_end = flat.0.end - 1;
+                                    offset += span_offset
+                                }
+
+                                let new_span = Span::new(span_start, span_end);
 
                                 // Parses the prefix. Completion should look up to the cursor position, not after.
                                 let mut prefix = working_set.get_span_contents(flat.0).to_vec();
@@ -177,6 +192,10 @@ impl NuCompleter {
                                         self.stack.clone(),
                                         most_left_var.unwrap_or((vec![], vec![])),
                                     );
+
+                                    if offset > new_span.start {
+                                        offset -= span_offset;
+                                    }
 
                                     return self.process_completion(
                                         &mut completer,
