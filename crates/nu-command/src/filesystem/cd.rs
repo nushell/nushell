@@ -1,5 +1,6 @@
 use crate::filesystem::cd_query::query;
 use crate::{get_current_shell, get_shells};
+#[cfg(unix)]
 use libc::gid_t;
 use nu_engine::{current_dir, CallExt};
 use nu_protocol::ast::Call;
