@@ -815,3 +815,22 @@ fn extern_complete_flags(mut extern_completer: NuCompleter) {
     let expected: Vec<String> = vec!["--foo".into(), "-b".into(), "-f".into()];
     match_suggestions(expected, suggestions);
 }
+
+#[rstest]
+fn alias_offset_bug_7748() {
+    let (dir, _, mut engine, mut stack) = new_engine();
+
+    // Create an alias
+    let alias = r#"alias ea = ^$env.EDITOR /tmp/test.s"#;
+    assert!(support::merge_input(alias.as_bytes(), &mut engine, &mut stack, dir.clone()).is_ok());
+
+    let mut completer = NuCompleter::new(std::sync::Arc::new(engine), stack);
+
+    // Issue #7748
+    // Nushell crashes when an alias name is shorter than the alias command
+    // and the alias command is a external command
+    // This happens because of offset is not correct.
+    // This crashes before PR #7779
+    let _suggestions = completer.complete("e", 1);
+    //println!(" --------- suggestions: {:?}", suggestions);
+}
