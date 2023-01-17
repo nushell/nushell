@@ -830,7 +830,7 @@ fn alias_offset_bug_7748() {
     // Nushell crashes when an alias name is shorter than the alias command
     // and the alias command is a external command
     // This happens because of offset is not correct.
-    // This crashes before PR #77XX
+    // This crashes before PR #7779
     let _suggestions = completer.complete("e", 1);
     //println!(" --------- suggestions: {:?}", suggestions);
 }
