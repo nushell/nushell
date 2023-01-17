@@ -193,6 +193,10 @@ impl NuCompleter {
                                         most_left_var.unwrap_or((vec![], vec![])),
                                     );
 
+                                    if offset > new_span.start {
+                                        offset -= span_offset;
+                                    }
+
                                     return self.process_completion(
                                         &mut completer,
                                         &working_set,
