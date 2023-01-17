@@ -303,7 +303,11 @@ fn any_group(current_user_gid: gid_t, owner_group: u32) -> bool {
                     // Fixes https://github.com/ogham/rust-users/issues/44
                     // If a user isn't in more than one group then this fix won't work,
                     // However its common for a user to be in more than one group, so this should work for most.
-                    if groups.len() >= 2 {
+                    if groups.len() == 2 && groups[1].gid() == 0 {
+                        // We have no way of knowing if this is due to the issue or the user is actually in the root group
+                        // So we will assume they are in the root group and leave it.
+                        // It's not the end of the world if we are wrong, they will just get a permission denied error once inside.
+                    } else {
                         groups.pop();
                     }
 
