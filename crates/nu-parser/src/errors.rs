@@ -128,6 +128,16 @@ pub enum ParseError {
     )]
     LetInPipeline(String, String, #[label("let in pipeline")] Span),
 
+    #[error("Const statement used in pipeline.")]
+    #[diagnostic(
+        code(nu::parser::unexpected_keyword),
+        url(docsrs),
+        help(
+            "Assigning '{0}' to '{1}' does not produce a value to be piped. If the pipeline result is meant to be assigned to '{1}', use 'const {1} = ({0} | ...)'."
+        )
+    )]
+    ConstInPipeline(String, String, #[label("const in pipeline")] Span),
+
     #[error("Mut statement used in pipeline.")]
     #[diagnostic(
         code(nu::parser::unexpected_keyword),
@@ -420,6 +430,7 @@ impl ParseError {
             ParseError::BuiltinCommandInPipeline(_, s) => *s,
             ParseError::LetInPipeline(_, _, s) => *s,
             ParseError::MutInPipeline(_, _, s) => *s,
+            ParseError::ConstInPipeline(_, _, s) => *s,
             ParseError::LetBuiltinVar(_, s) => *s,
             ParseError::MutBuiltinVar(_, s) => *s,
             ParseError::CaptureOfMutableVar(s) => *s,
