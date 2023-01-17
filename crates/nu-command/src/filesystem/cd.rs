@@ -1,5 +1,6 @@
 use crate::filesystem::cd_query::query;
 use crate::{get_current_shell, get_shells};
+use itertools::Itertools;
 use nu_engine::{current_dir, CallExt};
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
@@ -262,7 +263,18 @@ fn have_permission(dir: impl AsRef<Path>) -> PermissionResult<'static> {
                             "Unable to get current user groups",
                         )
                     }
-                    Some(groups) => groups.into_iter(),
+                    Some(groups) => {
+                        let mut iter = groups.into_iter();
+
+                        // Fixes https://github.com/ogham/rust-users/issues/44
+                        // If a user isn't in more than one group then this fix won't work,
+                        // However its common for a user to be in more than one group, so this should work for most.
+                        if iter.len() >= 2 {
+                            iter = iter.dropping_back(1);
+                        }
+
+                        iter
+                    }
                 },
             };
 
