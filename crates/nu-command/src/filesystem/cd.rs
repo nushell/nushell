@@ -1,12 +1,12 @@
 use crate::filesystem::cd_query::query;
 use crate::{get_current_shell, get_shells};
-use itertools::Itertools;
 use nu_engine::{current_dir, CallExt};
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
     Category, Example, PipelineData, ShellError, Signature, Spanned, SyntaxShape, Type, Value,
 };
+use std::ops::BitAnd;
 use std::path::Path;
 
 // when the file under the fold executable
@@ -251,31 +251,12 @@ fn have_permission(dir: impl AsRef<Path>) -> PermissionResult<'static> {
             if current_user_uid == 0 {
                 return PermissionResult::PermissionOk;
             }
-
             let current_user_gid = users::get_current_gid();
-            let current_user_groups = users::get_current_username()
-                .map(|name| {
-                    users::get_user_groups(&name, current_user_gid)
-                        .map(|mut groups| {
-                            // Fixes https://github.com/ogham/rust-users/issues/44
-                            // If a user isn't in more than one group then this fix won't work,
-                            // However its common for a user to be in more than one group, so this should work for most.
-                            if groups.len() >= 2 {
-                                groups.pop();
-                            }
-                            groups
-                        })
-                        .unwrap_or_default()
-                })
-                .unwrap_or_default();
-
             let owner_user = metadata.uid();
             let owner_group = metadata.gid();
             match (
-                current_user_gid == owner_user,
-                current_user_groups
-                    .into_iter()
-                    .any(|group| group.gid() == owner_group),
+                current_user_uid == owner_user,
+                current_user_gid == owner_group,
             ) {
                 (true, _) => {
                     if has_bit(permission_mods::unix::USER_EXECUTE) {
@@ -295,14 +276,35 @@ fn have_permission(dir: impl AsRef<Path>) -> PermissionResult<'static> {
                         )
                     }
                 }
-                // other_user or root
                 (false, false) => {
                     if has_bit(permission_mods::unix::OTHER_EXECUTE) {
                         PermissionResult::PermissionOk
                     } else {
-                        PermissionResult::PermissionDenied(
-                            "You are neither the owner, in the group, nor the super user and do not have permission",
-                        )
+                        match users::get_current_username()
+                            .map(|name| {
+                                users::get_user_groups(&name, current_user_gid)
+                                    .map(|mut groups| {
+                                        // Fixes https://github.com/ogham/rust-users/issues/44
+                                        // If a user isn't in more than one group then this fix won't work,
+                                        // However its common for a user to be in more than one group, so this should work for most.
+                                        if groups.len() >= 2 {
+                                            groups.pop();
+                                        }
+
+                                        println!("groups: {:?}", groups);
+                                        groups
+                                    })
+                                    .unwrap_or_default()
+                            })
+                            .unwrap_or_default()
+                            .into_iter()
+                            .any(|group| group.gid() == owner_group)
+                            .bitand(has_bit(permission_mods::unix::GROUP_EXECUTE)) {
+                            true => PermissionResult::PermissionOk,
+                            false => PermissionResult::PermissionDenied(
+                                "You are neither the owner, in the group, nor the super user and do not have permission",
+                            )
+                        }
                     }
                 }
             }
