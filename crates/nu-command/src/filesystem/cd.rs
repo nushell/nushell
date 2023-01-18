@@ -1,5 +1,7 @@
 use crate::filesystem::cd_query::query;
 use crate::{get_current_shell, get_shells};
+#[cfg(unix)]
+use libc::gid_t;
 use nu_engine::{current_dir, CallExt};
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
@@ -246,14 +248,17 @@ fn have_permission(dir: impl AsRef<Path>) -> PermissionResult<'static> {
             use std::os::unix::fs::MetadataExt;
             let bits = metadata.mode();
             let has_bit = |bit| bits & bit == bit;
-            let current_user = users::get_current_uid();
-            if current_user == 0 {
+            let current_user_uid = users::get_current_uid();
+            if current_user_uid == 0 {
                 return PermissionResult::PermissionOk;
             }
-            let current_group = users::get_current_gid();
+            let current_user_gid = users::get_current_gid();
             let owner_user = metadata.uid();
             let owner_group = metadata.gid();
-            match (current_user == owner_user, current_group == owner_group) {
+            match (
+                current_user_uid == owner_user,
+                current_user_gid == owner_group,
+            ) {
                 (true, _) => {
                     if has_bit(permission_mods::unix::USER_EXECUTE) {
                         PermissionResult::PermissionOk
@@ -272,9 +277,11 @@ fn have_permission(dir: impl AsRef<Path>) -> PermissionResult<'static> {
                         )
                     }
                 }
-                // other_user or root
                 (false, false) => {
-                    if has_bit(permission_mods::unix::OTHER_EXECUTE) {
+                    if has_bit(permission_mods::unix::OTHER_EXECUTE)
+                        || (has_bit(permission_mods::unix::GROUP_EXECUTE)
+                            && any_group(current_user_gid, owner_group))
+                    {
                         PermissionResult::PermissionOk
                     } else {
                         PermissionResult::PermissionDenied(
@@ -286,4 +293,30 @@ fn have_permission(dir: impl AsRef<Path>) -> PermissionResult<'static> {
         }
         Err(_) => PermissionResult::PermissionDenied("Could not retrieve the metadata"),
     }
+}
+
+#[cfg(unix)]
+fn any_group(current_user_gid: gid_t, owner_group: u32) -> bool {
+    users::get_current_username()
+        .map(|name| {
+            users::get_user_groups(&name, current_user_gid)
+                .map(|mut groups| {
+                    // Fixes https://github.com/ogham/rust-users/issues/44
+                    // If a user isn't in more than one group then this fix won't work,
+                    // However its common for a user to be in more than one group, so this should work for most.
+                    if groups.len() == 2 && groups[1].gid() == 0 {
+                        // We have no way of knowing if this is due to the issue or the user is actually in the root group
+                        // So we will assume they are in the root group and leave it.
+                        // It's not the end of the world if we are wrong, they will just get a permission denied error once inside.
+                    } else {
+                        groups.pop();
+                    }
+
+                    groups
+                })
+                .unwrap_or_default()
+        })
+        .unwrap_or_default()
+        .into_iter()
+        .any(|group| group.gid() == owner_group)
 }
