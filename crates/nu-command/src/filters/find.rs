@@ -8,8 +8,8 @@ use nu_engine::{env_to_string, CallExt};
 use nu_protocol::{
     ast::Call,
     engine::{Command, EngineState, Stack},
-    Category, Config, Example, IntoInterruptiblePipelineData, ListStream, PipelineData, ShellError,
-    Signature, Span, SyntaxShape, Type, Value,
+    Category, Config, Example, IntoInterruptiblePipelineData, IntoPipelineData, ListStream,
+    PipelineData, ShellError, Signature, Span, SyntaxShape, Type, Value,
 };
 use nu_utils::get_ls_colors;
 
@@ -322,6 +322,21 @@ fn find_with_rest_and_highlight(
 
     match input {
         PipelineData::Empty => Ok(PipelineData::Empty),
+        PipelineData::Value(Value::String { val, span }, _) => {
+            let list = Value::List {
+                vals: {
+                    let split_char = if val.contains("\r\n") { "\r\n" } else { "\n" };
+                    val.split(split_char)
+                        .map(|s| Value::String {
+                            val: s.to_string(),
+                            span,
+                        })
+                        .collect()
+                },
+                span,
+            };
+            find_with_rest_and_highlight(&engine_state, stack, call, list.into_pipeline_data())
+        }
         PipelineData::Value(_, _) => input
             .map(
                 move |mut x| match &mut x {
