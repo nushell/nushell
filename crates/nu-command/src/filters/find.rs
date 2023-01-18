@@ -320,10 +320,9 @@ fn find_with_rest_and_highlight(
     };
     let ls_colors = get_ls_colors(ls_colors_env_str);
 
-    match input {
-        PipelineData::Empty => Ok(PipelineData::Empty),
-        PipelineData::Value(Value::String { val, span }, _) => {
-            let list = Value::List {
+    let input = if let PipelineData::Value(Value::String { ref val, span }, _) = input {
+        if val.contains('\n') {
+            Value::List {
                 vals: {
                     let split_char = if val.contains("\r\n") { "\r\n" } else { "\n" };
                     val.split(split_char)
@@ -334,9 +333,18 @@ fn find_with_rest_and_highlight(
                         .collect()
                 },
                 span,
-            };
-            find_with_rest_and_highlight(&engine_state, stack, call, list.into_pipeline_data())
+            }
+            .into_pipeline_data()
+            .set_metadata(input.metadata())
+        } else {
+            input
         }
+    } else {
+        input
+    };
+
+    match input {
+        PipelineData::Empty => Ok(PipelineData::Empty),
         PipelineData::Value(_, _) => input
             .map(
                 move |mut x| match &mut x {
