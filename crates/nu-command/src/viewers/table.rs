@@ -962,9 +962,9 @@ fn convert_to_table2<'a>(
     const PADDING_SPACE: usize = 2;
     const SPLIT_LINE_SPACE: usize = 1;
     const ADDITIONAL_CELL_SPACE: usize = PADDING_SPACE + SPLIT_LINE_SPACE;
-    const TRUNCATE_CELL_WIDTH: usize = 3;
     const MIN_CELL_CONTENT_WIDTH: usize = 1;
     const OK_CELL_CONTENT_WIDTH: usize = 25;
+    const TRUNCATE_CELL_WIDTH: usize = 3 + PADDING_SPACE;
 
     if input.len() == 0 {
         return Ok(None);
@@ -1077,34 +1077,30 @@ fn convert_to_table2<'a>(
         return Ok(Some((table, with_header, with_index)));
     }
 
+    let min_width = PADDING_SPACE + MIN_CELL_CONTENT_WIDTH;
+    if available_width < min_width {
+        return Ok(None);
+    }
+
     let mut widths = Vec::new();
     let mut truncate = false;
     let mut last_column_type_is_string = false;
     let count_columns = headers.len();
     for (col, header) in headers.into_iter().enumerate() {
-        let is_last_col = col + 1 == count_columns;
+        let is_last_column = col + 1 == count_columns;
 
         let mut necessary_space = PADDING_SPACE;
-        if !is_last_col {
+        if !is_last_column {
             necessary_space += SPLIT_LINE_SPACE;
         }
 
-        if available_width == 0 || available_width <= necessary_space {
-            // MUST NEVER HAPPEN (ideally)
-            // but it does...?
-
-            truncate = true;
-            break;
-        }
-
-        available_width -= necessary_space;
+        let available = available_width - necessary_space;
 
         let mut column_width = string_width(&header);
 
-        data[0].push(NuTable::create_cell(
-            header.clone(),
-            header_style(style_computer, header.clone()),
-        ));
+        let headc =
+            NuTable::create_cell(header.clone(), header_style(style_computer, header.clone()));
+        data[0].push(headc);
 
         let mut is_string_column = true;
         for (row, item) in input.clone().into_iter().enumerate() {
@@ -1116,7 +1112,7 @@ fn convert_to_table2<'a>(
                 return Err(error.clone());
             }
 
-            is_string_column = is_string_column && is_string_value(&item, &header);
+            is_string_column = is_string_column && is_string_value(item, &header);
 
             let value = create_table2_entry(
                 item,
@@ -1128,7 +1124,7 @@ fn convert_to_table2<'a>(
                 deep,
                 flatten,
                 flatten_sep,
-                available_width,
+                available,
             );
 
             let value_width = string_width(&value.0);
@@ -1139,125 +1135,102 @@ fn convert_to_table2<'a>(
             data[row + 1].push(value);
         }
 
-        // todo: It seems like we can eliminate the loops bellow by considering column_width == available_width && == OK_CELL_CONTENT_WIDTH
+        last_column_type_is_string = is_string_column;
+        widths.push(column_width);
 
-        if column_width >= available_width
-            || (!is_last_col && column_width + necessary_space >= available_width)
-        {
-            // so we try to do soft landing
-            // by doing a truncating in case there will be enough space for it.
-
-            column_width = string_width(&header);
-
-            for (row, item) in input.clone().into_iter().enumerate() {
-                if nu_utils::ctrl_c::was_pressed(&ctrlc) {
-                    return Ok(None);
-                }
-
-                let value = create_table2_entry_basic(item, &header, head, config, style_computer);
-                let value = wrap_nu_text(value, available_width, config);
-
-                let value_width = string_width(&value.0);
-                column_width = max(column_width, value_width);
-
-                let value = NuTable::create_cell(value.0, value.1);
-
-                *data[row + 1].last_mut().expect("unwrap") = value;
-            }
-        }
-
-        let is_suitable_for_wrap =
-            available_width >= string_width(&header) && available_width >= OK_CELL_CONTENT_WIDTH;
-        if column_width >= available_width && is_suitable_for_wrap {
-            // so we try to do soft landing ONCE AGAIN
-            // but including a wrap
-
-            column_width = string_width(&header);
-
-            for (row, item) in input.clone().into_iter().enumerate() {
-                if nu_utils::ctrl_c::was_pressed(&ctrlc) {
-                    return Ok(None);
-                }
-
-                let value = create_table2_entry_basic(item, &header, head, config, style_computer);
-                let value = wrap_nu_text(value, OK_CELL_CONTENT_WIDTH, config);
-
-                let value = NuTable::create_cell(value.0, value.1);
-
-                *data[row + 1].last_mut().expect("unwrap") = value;
-            }
-        }
-
-        if column_width > available_width {
-            // remove just added column
-            for row in &mut data {
-                row.pop();
-            }
-
-            available_width += necessary_space;
-
+        if column_width > available {
             truncate = true;
             break;
         }
 
-        last_column_type_is_string = is_string_column;
-        available_width -= column_width;
-        widths.push(column_width);
+        if !is_last_column {
+            let is_next_last = col + 2 == count_columns;
+            let mut next_nessary_space = PADDING_SPACE;
+            if !is_next_last {
+                next_nessary_space += SPLIT_LINE_SPACE;
+            }
+
+            let has_space_for_next =
+                available_width > column_width + necessary_space + next_nessary_space;
+            if !has_space_for_next {
+                truncate = true;
+                break;
+            }
+        }
+
+        available_width -= necessary_space + column_width;
     }
 
     if truncate {
-        if available_width <= TRUNCATE_CELL_WIDTH + PADDING_SPACE {
-            if last_column_type_is_string {
-                // first of all we will try to wrap the last column in case it's a string column.
+        let is_last_column = widths.len() == count_columns;
+        let mut additional_space = PADDING_SPACE;
+        if !is_last_column {
+            additional_space += SPLIT_LINE_SPACE;
+        }
 
-                // +1 is used cause we have <= sign (which is unclear whereas we shall to? (it seems to be a split line related))
-                let left = TRUNCATE_CELL_WIDTH + PADDING_SPACE + 1 - available_width;
-                let width = widths.last_mut().expect("...");
-                if *width > MIN_CELL_CONTENT_WIDTH + left {
-                    *width -= left;
-                    available_width += left;
+        let mut truncate_cell_width = TRUNCATE_CELL_WIDTH;
+        if is_last_column {
+            truncate_cell_width = 0;
+        }
 
-                    for row in &mut data {
-                        let cell = row.last_mut().expect("...");
-                        let value = wrap_text(cell.as_ref().to_owned(), *width, config);
-                        *cell = NuTable::create_cell(value, cell.get_data().clone());
-                    }
-                }
+        let can_be_wrapped =
+            available_width >= OK_CELL_CONTENT_WIDTH + additional_space + truncate_cell_width;
+        if can_be_wrapped && last_column_type_is_string {
+            // we can wrap the last column instead of just dropping it.
+            let width = available_width - additional_space - truncate_cell_width;
+            available_width -= additional_space + width;
+            *widths.last_mut().unwrap() = width;
+
+            for row in &mut data {
+                let cell = row.last_mut().expect("...");
+                let value = wrap_text(cell.as_ref().to_owned(), width, config);
+                *cell = NuTable::create_cell(value, *cell.get_data());
             }
+        } else {
+            // we can't do anything about it so get back to dropping
 
-            // double check because of above if statement
-            if available_width <= TRUNCATE_CELL_WIDTH + PADDING_SPACE {
-                // back up by removing last column.
-                // it's ALWAYS MUST has us enough space for a shift column
-                //
-                // then why we have a loop :)?
-                // todo: remove loop
-                while let Some(width) = widths.pop() {
-                    for row in &mut data {
-                        row.pop();
-                    }
+            widths.pop();
 
-                    available_width += width + PADDING_SPACE + SPLIT_LINE_SPACE;
+            for row in &mut data {
+                row.pop();
+            }
+        }
 
-                    if available_width > TRUNCATE_CELL_WIDTH + PADDING_SPACE {
-                        break;
-                    }
+        if available_width < TRUNCATE_CELL_WIDTH {
+            // back up by removing last column.
+            // it's LIKELY that removing only 1 column will leave us enough space for a shift column.
+
+            while let Some(width) = widths.pop() {
+                for row in &mut data {
+                    row.pop();
+                }
+
+                available_width += width + PADDING_SPACE;
+                if !widths.is_empty() {
+                    available_width += SPLIT_LINE_SPACE;
+                }
+
+                if available_width > TRUNCATE_CELL_WIDTH {
+                    break;
                 }
             }
         }
 
         // this must be a RARE case or even NEVER happen,
         // but we do check it just in case.
-        if widths.is_empty() {
+        if available_width < TRUNCATE_CELL_WIDTH {
             return Ok(None);
         }
 
-        let shift = NuTable::create_cell(String::from("..."), TextStyle::default());
-        for row in &mut data {
-            row.push(shift.clone());
-        }
+        let is_last_column = widths.len() == count_columns;
+        if !is_last_column {
+            let shift = NuTable::create_cell(String::from("..."), TextStyle::default());
+            for row in &mut data {
+                row.push(shift.clone());
+            }
 
-        widths.push(3);
+            widths.push(3);
+        }
     }
 
     let count_columns = widths.len() + with_index as usize;
@@ -1296,29 +1269,6 @@ fn header_style(style_computer: &StyleComputer, header: String) -> TextStyle {
     TextStyle {
         alignment: Alignment::Center,
         color_style: Some(style),
-    }
-}
-
-#[allow(clippy::too_many_arguments)]
-fn create_table2_entry_basic(
-    item: &Value,
-    header: &str,
-    head: Span,
-    config: &Config,
-    style_computer: &StyleComputer,
-) -> NuText {
-    match item {
-        Value::Record { .. } => {
-            let val = header.to_owned();
-            let path = PathMember::String { val, span: head };
-            let val = item.clone().follow_cell_path(&[path], false, false);
-
-            match val {
-                Ok(val) => value_to_styled_string(&val, config, style_computer),
-                Err(_) => error_sign(style_computer),
-            }
-        }
-        _ => value_to_styled_string(item, config, style_computer),
     }
 }
 
