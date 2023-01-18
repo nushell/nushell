@@ -921,21 +921,21 @@ mod test {
     #[test]
     fn test_pattern_from_str() {
         assert!("a*b".parse::<Pattern>().unwrap().matches("a_b"));
-        assert!("a/**b".parse::<Pattern>().unwrap_err().pos == 4);
+        assert_eq!("a/**b".parse::<Pattern>().unwrap_err().pos, 4);
     }
 
     #[test]
     fn test_wildcard_errors() {
-        assert!(Pattern::new("a/**b").unwrap_err().pos == 4);
-        assert!(Pattern::new("a/bc**").unwrap_err().pos == 3);
-        assert!(Pattern::new("a/*****").unwrap_err().pos == 4);
-        assert!(Pattern::new("a/b**c**d").unwrap_err().pos == 2);
-        assert!(Pattern::new("a**b").unwrap_err().pos == 0);
+        assert_eq!(Pattern::new("a/**b").unwrap_err().pos, 4);
+        assert_eq!(Pattern::new("a/bc**").unwrap_err().pos, 3);
+        assert_eq!(Pattern::new("a/*****").unwrap_err().pos, 4);
+        assert_eq!(Pattern::new("a/b**c**d").unwrap_err().pos, 2);
+        assert_eq!(Pattern::new("a**b").unwrap_err().pos, 0);
     }
 
     #[test]
     fn test_glob_errors() {
-        assert!(glob("a/**b").err().unwrap().pos == 4);
+        assert_eq!(glob("a/**b").err().unwrap().pos, 4);
     }
 
     // this test assumes that there is a /root directory and that

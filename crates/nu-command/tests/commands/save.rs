@@ -264,3 +264,20 @@ fn save_override_works_stderr() {
         assert_eq!(actual, "New Err\n");
     })
 }
+
+#[test]
+fn save_list_stream() {
+    Playground::setup("save_test_13", |dirs, sandbox| {
+        sandbox.with_files(vec![]);
+
+        let expected_file = dirs.test().join("list_sample.txt");
+
+        nu!(
+            cwd: dirs.root(),
+            r#"[a b c d] | each {|i| $i} | save -r save_test_13/list_sample.txt"#,
+        );
+
+        let actual = file_contents(expected_file);
+        assert_eq!(actual, "a\nb\nc\nd\n")
+    })
+}

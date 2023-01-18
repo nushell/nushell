@@ -46,7 +46,7 @@ impl Command for SubCommand {
     fn examples(&self) -> Vec<Example> {
         let e = std::f64::consts::E;
         vec![Example {
-            description: "Apply the hyperpolic cosine to 1",
+            description: "Apply the hyperbolic cosine to 1",
             example: "1 | math cosh",
             result: Some(Value::test_float(((e * e) + 1.0) / (2.0 * e))),
         }]

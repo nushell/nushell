@@ -68,9 +68,9 @@ impl Visibility {
 
 #[derive(Debug, Clone)]
 pub struct ScopeFrame {
-    /// List of both active and incactive overlays in this ScopeFrame.
+    /// List of both active and inactive overlays in this ScopeFrame.
     ///
-    /// The order does not have any menaning. Indexed locally (within this ScopeFrame) by
+    /// The order does not have any meaning. Indexed locally (within this ScopeFrame) by
     /// OverlayIds in active_overlays.
     pub overlays: Vec<(Vec<u8>, OverlayFrame)>,
 

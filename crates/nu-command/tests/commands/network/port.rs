@@ -41,7 +41,7 @@ fn port_with_already_usage() {
             return;
         }
     }
-    panic!("already check port report AddrInUse for seveval times, but still failed.");
+    panic!("already check port report AddrInUse for several times, but still failed.");
 }
 
 #[test]

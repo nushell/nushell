@@ -7,7 +7,7 @@ pub fn string_width(text: &str) -> usize {
 pub fn string_wrap(text: &str, width: usize, keep_words: bool) -> String {
     // todo: change me...
     //
-    // well... it's not effitient to build a table to wrap a string,
+    // well... it's not efficient to build a table to wrap a string,
     // but ... it's better than a copy paste (is it?)
 
     if text.is_empty() {

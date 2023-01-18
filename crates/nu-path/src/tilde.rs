@@ -168,7 +168,7 @@ mod tests {
     fn check_not_expanded(s: &str) {
         let home = PathBuf::from("/home");
         let expanded = expand_tilde_with_home(Path::new(s), Some(home));
-        assert!(expanded == Path::new(s));
+        assert_eq!(expanded, Path::new(s));
     }
 
     #[test]

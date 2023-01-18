@@ -268,7 +268,7 @@ fn add_overlay_scoped() {
 
     assert!(!actual.err.is_empty());
     #[cfg(windows)]
-    assert!(actual_repl.out != "foo");
+    assert_ne!(actual_repl.out, "foo");
     #[cfg(not(windows))]
     assert!(!actual_repl.err.is_empty());
 }
@@ -339,7 +339,7 @@ fn remove_overlay() {
 
     assert!(!actual.err.is_empty());
     #[cfg(windows)]
-    assert!(actual_repl.out != "foo");
+    assert_ne!(actual_repl.out, "foo");
     #[cfg(not(windows))]
     assert!(!actual_repl.err.is_empty());
 }
@@ -358,7 +358,7 @@ fn remove_last_overlay() {
 
     assert!(!actual.err.is_empty());
     #[cfg(windows)]
-    assert!(actual_repl.out != "foo");
+    assert_ne!(actual_repl.out, "foo");
     #[cfg(not(windows))]
     assert!(!actual_repl.err.is_empty());
 }
@@ -466,7 +466,7 @@ fn remove_overlay_discard_decl() {
 
     assert!(!actual.err.is_empty());
     #[cfg(windows)]
-    assert!(actual_repl.out != "bagr");
+    assert_ne!(actual_repl.out, "bagr");
     #[cfg(not(windows))]
     assert!(!actual_repl.err.is_empty());
 }
@@ -485,7 +485,7 @@ fn remove_overlay_discard_alias() {
 
     assert!(!actual.err.is_empty());
     #[cfg(windows)]
-    assert!(actual_repl.out != "bagr");
+    assert_ne!(actual_repl.out, "bagr");
     #[cfg(not(windows))]
     assert!(!actual_repl.err.is_empty());
 }
@@ -568,7 +568,7 @@ fn remove_overlay_dont_keep_overwritten_decl() {
 
     assert!(!actual.err.is_empty());
     #[cfg(windows)]
-    assert!(actual_repl.out != "bagr");
+    assert_ne!(actual_repl.out, "bagr");
     #[cfg(not(windows))]
     assert!(!actual_repl.err.is_empty());
 }
@@ -587,7 +587,7 @@ fn remove_overlay_dont_keep_overwritten_alias() {
 
     assert!(!actual.err.is_empty());
     #[cfg(windows)]
-    assert!(actual_repl.out != "bagr");
+    assert_ne!(actual_repl.out, "bagr");
     #[cfg(not(windows))]
     assert!(!actual_repl.err.is_empty());
 }
@@ -1091,7 +1091,7 @@ fn overlay_trim_single_quote_hide() {
 
     assert!(!actual.err.is_empty());
     #[cfg(windows)]
-    assert!(actual_repl.out != "foo");
+    assert_ne!(actual_repl.out, "foo");
     #[cfg(not(windows))]
     assert!(!actual_repl.err.is_empty());
 }
@@ -1122,7 +1122,7 @@ fn overlay_trim_double_quote_hide() {
 
     assert!(!actual.err.is_empty());
     #[cfg(windows)]
-    assert!(actual_repl.out != "foo");
+    assert_ne!(actual_repl.out, "foo");
     #[cfg(not(windows))]
     assert!(!actual_repl.err.is_empty());
 }
