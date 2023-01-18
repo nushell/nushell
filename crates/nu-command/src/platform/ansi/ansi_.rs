@@ -114,6 +114,22 @@ static CODE_LIST: Lazy<Vec<AnsiCode>> = Lazy::new(|| { vec![
     AnsiCode{ short_name: Some("lpr"), long_name: "light_purple_reverse", code: Color::LightPurple.reverse().prefix().to_string()},
     AnsiCode{ short_name: Some("bg_lp"), long_name: "bg_light_purple", code: Style::new().on(Color::LightPurple).prefix().to_string()},
 
+    AnsiCode{ short_name: Some("m"), long_name: "magenta", code: Color::Purple.prefix().to_string()},
+    AnsiCode{ short_name: Some("mb"), long_name: "magenta_bold", code: Color::Purple.bold().prefix().to_string()},
+    AnsiCode{ short_name: Some("mu"), long_name: "magenta_underline", code: Color::Purple.underline().prefix().to_string()},
+    AnsiCode{ short_name: Some("mi"), long_name: "magenta_italic", code: Color::Purple.italic().prefix().to_string()},
+    AnsiCode{ short_name: Some("md"), long_name: "magenta_dimmed", code: Color::Purple.dimmed().prefix().to_string()},
+    AnsiCode{ short_name: Some("mr"), long_name: "magenta_reverse", code: Color::Purple.reverse().prefix().to_string()},
+    AnsiCode{ short_name: Some("bg_m"), long_name: "bg_magenta", code: Style::new().on(Color::Purple).prefix().to_string()},
+
+    AnsiCode{ short_name: Some("lm"), long_name: "light_magenta", code: Color::LightPurple.prefix().to_string()},
+    AnsiCode{ short_name: Some("lmb"), long_name: "light_magenta_bold", code: Color::LightPurple.bold().prefix().to_string()},
+    AnsiCode{ short_name: Some("lmu"), long_name: "light_magenta_underline", code: Color::LightPurple.underline().prefix().to_string()},
+    AnsiCode{ short_name: Some("lmi"), long_name: "light_magenta_italic", code: Color::LightPurple.italic().prefix().to_string()},
+    AnsiCode{ short_name: Some("lmd"), long_name: "light_magenta_dimmed", code: Color::LightPurple.dimmed().prefix().to_string()},
+    AnsiCode{ short_name: Some("lmr"), long_name: "light_magenta_reverse", code: Color::LightPurple.reverse().prefix().to_string()},
+    AnsiCode{ short_name: Some("bg_lm"), long_name: "bg_light_magenta", code: Style::new().on(Color::LightPurple).prefix().to_string()},
+
     AnsiCode{ short_name: Some("c"), long_name: "cyan", code: Color::Cyan.prefix().to_string()},
     AnsiCode{ short_name: Some("cb"), long_name: "cyan_bold", code: Color::Cyan.bold().prefix().to_string()},
     AnsiCode{ short_name: Some("cu"), long_name: "cyan_underline", code: Color::Cyan.underline().prefix().to_string()},
@@ -764,7 +780,7 @@ fn generate_ansi_code_list(
             let name: Value = Value::string(String::from(ansi_code.long_name), call_span);
             let short_name = Value::string(ansi_code.short_name.unwrap_or(""), call_span);
             // The first 102 items in the ansi array are colors
-            let preview = if i < 375 {
+            let preview = if i < 389 {
                 Value::string(format!("{}NUSHELL\u{1b}[0m", &ansi_code.code), call_span)
             } else {
                 Value::string("\u{1b}[0m", call_span)
