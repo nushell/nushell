@@ -1179,7 +1179,7 @@ fn convert_to_table2<'a>(
             // we can wrap the last column instead of just dropping it.
             let width = available_width - additional_space - truncate_cell_width;
             available_width -= additional_space + width;
-            *widths.last_mut().unwrap() = width;
+            *widths.last_mut().expect("...") = width;
 
             for row in &mut data {
                 let cell = row.last_mut().expect("...");
