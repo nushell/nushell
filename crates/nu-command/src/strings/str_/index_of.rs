@@ -1,3 +1,4 @@
+use crate::grapheme_flags;
 use crate::input_handler::{operate, CmdArgument};
 use nu_engine::CallExt;
 use nu_protocol::ast::Call;
@@ -13,6 +14,7 @@ struct Arguments {
     substring: String,
     range: Option<Value>,
     cell_paths: Option<Vec<CellPath>>,
+    graphemes: bool,
 }
 
 impl CmdArgument for Arguments {
@@ -36,7 +38,17 @@ impl Command for SubCommand {
         Signature::build("str index-of")
             .input_output_types(vec![(Type::String, Type::Int)])
             .vectorizes_over_list(true) // TODO: no test coverage
-            .required("string", SyntaxShape::String, "the string to find index of")
+            .required("string", SyntaxShape::String, "the string to find in the input")
+            .switch(
+                "grapheme-clusters",
+                "count indexes using grapheme clusters (overrides 'grapheme_clusters' config option)",
+                Some('g'),
+            )
+            .switch(
+                "utf-8-bytes",
+                "count indexes using UTF-8 bytes (overrides 'grapheme_clusters' config option)",
+                Some('b'),
+            )
             .rest(
                 "rest",
                 SyntaxShape::CellPath,
@@ -75,6 +87,7 @@ impl Command for SubCommand {
             range: call.get_flag(engine_state, stack, "range")?,
             end: call.has_flag("end"),
             cell_paths,
+            graphemes: grapheme_flags!(engine_state, call, 'b'),
         };
         operate(action, args, input, call.head, engine_state.ctrlc.clone())
     }
@@ -87,8 +100,8 @@ impl Command for SubCommand {
                 result: Some(Value::test_int(10)),
             },
             Example {
-                description: "Length is computed by counting grapheme clusters",
-                example: "'🇯🇵ほげ ふが ぴよ' | str index-of 'ふが'",
+                description: "Count length using grapheme clusters",
+                example: "'🇯🇵ほげ ふが ぴよ' | str index-of -g 'ふが'",
                 result: Some(Value::test_int(4)),
             },
             Example {
@@ -126,6 +139,7 @@ fn action(
         ref substring,
         range,
         end,
+        graphemes,
         ..
     }: &Arguments,
     head: Span,
@@ -151,17 +165,21 @@ fn action(
                 s[start_index..end_index].find(&**substring)
             } {
                 let result = result + start_index;
-                // Having found the substring's byte index, convert to grapheme index.
-                // grapheme_indices iterates graphemes alongside their UTF-8 byte indices, so .enumerate()
-                // is used to get the grapheme index alongside it.
-                let grapheme_index = s
-                    .grapheme_indices(true)
-                    .enumerate()
-                    .find(|e| e.1 .0 >= result)
-                    .expect("No grapheme index for substring")
-                    .0;
-
-                Value::int(grapheme_index as i64, head)
+                Value::int(
+                    if *graphemes {
+                        // Having found the substring's byte index, convert to grapheme index.
+                        // grapheme_indices iterates graphemes alongside their UTF-8 byte indices, so .enumerate()
+                        // is used to get the grapheme index alongside it.
+                        s.grapheme_indices(true)
+                            .enumerate()
+                            .find(|e| e.1 .0 >= result)
+                            .expect("No grapheme index for substring")
+                            .0
+                    } else {
+                        result
+                    } as i64,
+                    head,
+                )
             } else {
                 Value::int(-1, head)
             }
@@ -260,10 +278,7 @@ mod tests {
 
     #[test]
     fn returns_index_of_substring() {
-        let word = Value::String {
-            val: String::from("Cargo.tomL"),
-            span: Span::test_data(),
-        };
+        let word = Value::test_string("Cargo.tomL");
 
         let options = Arguments {
             substring: String::from(".tomL"),
@@ -274,6 +289,7 @@ mod tests {
             }),
             cell_paths: None,
             end: false,
+            graphemes: false,
         };
 
         let actual = action(&word, &options, Span::test_data());
@@ -282,10 +298,7 @@ mod tests {
     }
     #[test]
     fn index_of_does_not_exist_in_string() {
-        let word = Value::String {
-            val: String::from("Cargo.tomL"),
-            span: Span::test_data(),
-        };
+        let word = Value::test_string("Cargo.tomL");
 
         let options = Arguments {
             substring: String::from("Lm"),
@@ -296,6 +309,7 @@ mod tests {
             }),
             cell_paths: None,
             end: false,
+            graphemes: false,
         };
 
         let actual = action(&word, &options, Span::test_data());
@@ -305,10 +319,7 @@ mod tests {
 
     #[test]
     fn returns_index_of_next_substring() {
-        let word = Value::String {
-            val: String::from("Cargo.Cargo"),
-            span: Span::test_data(),
-        };
+        let word = Value::test_string("Cargo.Cargo");
 
         let options = Arguments {
             substring: String::from("Cargo"),
@@ -319,6 +330,7 @@ mod tests {
             }),
             cell_paths: None,
             end: false,
+            graphemes: false,
         };
 
         let actual = action(&word, &options, Span::test_data());
@@ -327,10 +339,7 @@ mod tests {
 
     #[test]
     fn index_does_not_exist_due_to_end_index() {
-        let word = Value::String {
-            val: String::from("Cargo.Banana"),
-            span: Span::test_data(),
-        };
+        let word = Value::test_string("Cargo.Banana");
 
         let options = Arguments {
             substring: String::from("Banana"),
@@ -341,6 +350,7 @@ mod tests {
             }),
             cell_paths: None,
             end: false,
+            graphemes: false,
         };
 
         let actual = action(&word, &options, Span::test_data());
@@ -349,10 +359,7 @@ mod tests {
 
     #[test]
     fn returns_index_of_nums_in_middle_due_to_index_limit_from_both_ends() {
-        let word = Value::String {
-            val: String::from("123123123"),
-            span: Span::test_data(),
-        };
+        let word = Value::test_string("123123123");
 
         let options = Arguments {
             substring: String::from("123"),
@@ -363,6 +370,7 @@ mod tests {
             }),
             cell_paths: None,
             end: false,
+            graphemes: false,
         };
 
         let actual = action(&word, &options, Span::test_data());
@@ -371,10 +379,7 @@ mod tests {
 
     #[test]
     fn index_does_not_exists_due_to_strict_bounds() {
-        let word = Value::String {
-            val: String::from("123456"),
-            span: Span::test_data(),
-        };
+        let word = Value::test_string("123456");
 
         let options = Arguments {
             substring: String::from("1"),
@@ -385,9 +390,30 @@ mod tests {
             }),
             cell_paths: None,
             end: false,
+            graphemes: false,
         };
 
         let actual = action(&word, &options, Span::test_data());
         assert_eq!(actual, Value::test_int(-1));
+    }
+
+    #[test]
+    fn use_utf8_bytes() {
+        let word = Value::String {
+            val: String::from("🇯🇵ほげ ふが ぴよ"),
+            span: Span::test_data(),
+        };
+
+        let options = Arguments {
+            substring: String::from("ふが"),
+
+            range: None,
+            cell_paths: None,
+            end: false,
+            graphemes: false,
+        };
+
+        let actual = action(&word, &options, Span::test_data());
+        assert_eq!(actual, Value::test_int(15));
     }
 }

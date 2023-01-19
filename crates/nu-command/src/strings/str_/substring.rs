@@ -1,3 +1,4 @@
+use crate::grapheme_flags;
 use crate::input_handler::{operate, CmdArgument};
 use nu_engine::CallExt;
 use nu_protocol::ast::Call;
@@ -13,6 +14,7 @@ pub struct SubCommand;
 struct Arguments {
     indexes: Substring,
     cell_paths: Option<Vec<CellPath>>,
+    graphemes: bool,
 }
 
 impl CmdArgument for Arguments {
@@ -41,6 +43,16 @@ impl Command for SubCommand {
         Signature::build("str substring")
             .input_output_types(vec![(Type::String, Type::String)])
             .vectorizes_over_list(true)
+            .switch(
+                "grapheme-clusters",
+                "count indexes and split using grapheme clusters (overrides 'grapheme_clusters' config option)",
+                Some('g'),
+            )
+            .switch(
+                "utf-8-bytes",
+                "count indexes and split using UTF-8 bytes (overrides 'grapheme_clusters' config option)",
+                Some('b'),
+            )
             .required(
                 "range",
                 SyntaxShape::Any,
@@ -75,6 +87,7 @@ impl Command for SubCommand {
         let args = Arguments {
             indexes,
             cell_paths,
+            graphemes: grapheme_flags!(engine_state, call, 'b'),
         };
         operate(action, args, input, call.head, engine_state.ctrlc.clone())
     }
@@ -113,8 +126,8 @@ impl Command for SubCommand {
                 result: Some(Value::test_string("good nu")),
             },
             Example {
-                description: "Grapheme clusters are considered single characters",
-                example: " '🇯🇵ほげ ふが ぴよ' | str substring 4..6",
+                description: "Count indexes and split using grapheme clusters",
+                example: " '🇯🇵ほげ ふが ぴよ' | str substring -g 4..6",
                 result: Some(Value::test_string("ふが")),
             },
         ]
@@ -150,16 +163,31 @@ fn action(input: &Value, args: &Arguments, head: Span) -> Value {
                     Ordering::Less => Value::String {
                         val: {
                             if end == isize::max_value() {
-                                s.graphemes(true)
-                                    .skip(start as usize)
-                                    .collect::<Vec<&str>>()
-                                    .join("")
-                            } else {
+                                if args.graphemes {
+                                    s.graphemes(true)
+                                        .skip(start as usize)
+                                        .collect::<Vec<&str>>()
+                                        .join("")
+                                } else {
+                                    String::from_utf8_lossy(
+                                        &s.bytes().skip(start as usize).collect::<Vec<_>>(),
+                                    )
+                                    .to_string()
+                                }
+                            } else if args.graphemes {
                                 s.graphemes(true)
                                     .skip(start as usize)
                                     .take((end - start) as usize)
                                     .collect::<Vec<&str>>()
                                     .join("")
+                            } else {
+                                String::from_utf8_lossy(
+                                    &s.bytes()
+                                        .skip(start as usize)
+                                        .take((end - start) as usize)
+                                        .collect::<Vec<_>>(),
+                                )
+                                .to_string()
                             }
                         },
                         span: head,
@@ -270,7 +298,7 @@ fn process_arguments(range: &Value, head: Span) -> Result<(isize, isize), ShellE
 
 #[cfg(test)]
 mod tests {
-    use super::{action, Span, SubCommand, Substring, Value};
+    use super::{action, Arguments, Span, SubCommand, Substring, Value};
 
     #[test]
     fn test_examples() {
@@ -330,14 +358,32 @@ mod tests {
             let expected = expectation.expected;
             let actual = action(
                 &word,
-                &super::Arguments {
+                &Arguments {
                     indexes: expectation.options(),
                     cell_paths: None,
+                    graphemes: false,
                 },
                 Span::test_data(),
             );
 
             assert_eq!(actual, Value::test_string(expected));
         }
+    }
+
+    #[test]
+    fn use_utf8_bytes() {
+        let word = Value::String {
+            val: String::from("🇯🇵ほげ ふが ぴよ"),
+            span: Span::test_data(),
+        };
+
+        let options = Arguments {
+            cell_paths: None,
+            indexes: Substring(4, 5),
+            graphemes: false,
+        };
+
+        let actual = action(&word, &options, Span::test_data());
+        assert_eq!(actual, Value::test_string("�"));
     }
 }

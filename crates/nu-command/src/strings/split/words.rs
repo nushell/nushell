@@ -1,3 +1,4 @@
+use crate::grapheme_flags;
 use fancy_regex::Regex;
 use nu_engine::CallExt;
 use nu_protocol::{
@@ -40,6 +41,16 @@ impl Command for SubCommand {
                 SyntaxShape::Int,
                 "The minimum word length",
                 Some('l'),
+            )
+            .switch(
+                "grapheme-clusters",
+                "measure word length in grapheme clusters (requires -l; overrides 'grapheme_clusters' config option)",
+                Some('g'),
+            )
+            .switch(
+                "code-points",
+                "measure word length in code points (requires -l; overrides 'grapheme_clusters' config option)",
+                Some('c'),
             )
     }
 
@@ -106,13 +117,34 @@ fn split_words(
     // let ignore_punctuation = call.has_flag("ignore-punctuation");
     let word_length: Option<usize> = call.get_flag(engine_state, stack, "min-word-length")?;
 
+    if matches!(word_length, None) {
+        if call.has_flag("grapheme-clusters") {
+            return Err(ShellError::IncompatibleParametersSingle(
+                "--grapheme-clusters (-g) requires --min-word-length (-l)".to_string(),
+                span,
+            ));
+        }
+        if call.has_flag("code-points") {
+            return Err(ShellError::IncompatibleParametersSingle(
+                "--code-points (-c) requires --min-word-length (-l)".to_string(),
+                span,
+            ));
+        }
+    }
+    let graphemes = grapheme_flags!(engine_state, call, 'c');
+
     input.flat_map(
-        move |x| split_words_helper(&x, word_length, span),
+        move |x| split_words_helper(&x, word_length, span, graphemes),
         engine_state.ctrlc.clone(),
     )
 }
 
-fn split_words_helper(v: &Value, word_length: Option<usize>, span: Span) -> Vec<Value> {
+fn split_words_helper(
+    v: &Value,
+    word_length: Option<usize>,
+    span: Span,
+    graphemes: bool,
+) -> Vec<Value> {
     // There are some options here with this regex.
     // [^A-Za-z\'] = do not match uppercase or lowercase letters or apostrophes
     // [^[:alpha:]\'] = do not match any uppercase or lowercase letters or apostrophes
@@ -133,7 +165,12 @@ fn split_words_helper(v: &Value, word_length: Option<usize>, span: Span) -> Vec<
                     .filter_map(|s| {
                         if s.trim() != "" {
                             if let Some(len) = word_length {
-                                if s.graphemes(true).count() >= len {
+                                if if graphemes {
+                                    s.graphemes(true).count()
+                                } else {
+                                    s.len()
+                                } >= len
+                                {
                                     Some(Value::string(s, v_span))
                                 } else {
                                     None
@@ -320,6 +357,19 @@ fn split_words_helper(v: &Value, word_length: Option<usize>, span: Span) -> Vec<
 #[cfg(test)]
 mod test {
     use super::*;
+    use nu_test_support::{nu, pipeline};
+
+    #[test]
+    fn test_incompat_flags() {
+        let out = nu!(cwd: ".", pipeline("'a' | split words -cg -l 2"));
+        assert!(out.err.contains("incompatible_parameters"));
+    }
+
+    #[test]
+    fn test_incompat_flags_2() {
+        let out = nu!(cwd: ".", pipeline("'a' | split words -g"));
+        assert!(out.err.contains("incompatible_parameters"));
+    }
 
     #[test]
     fn test_examples() {

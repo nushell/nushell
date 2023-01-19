@@ -1,3 +1,4 @@
+use crate::grapheme_flags;
 use nu_protocol::{
     ast::Call,
     engine::{Command, EngineState, Stack},
@@ -16,6 +17,16 @@ impl Command for SubCommand {
     fn signature(&self) -> Signature {
         Signature::build("split chars")
             .input_output_types(vec![(Type::String, Type::List(Box::new(Type::String)))])
+            .switch(
+                "grapheme-clusters",
+                "split on grapheme clusters (overrides 'grapheme_clusters' config option)",
+                Some('g'),
+            )
+            .switch(
+                "code-points",
+                "split on code points (overrides 'grapheme_clusters' config option)",
+                Some('c'),
+            )
             .vectorizes_over_list(true)
             .category(Category::Strings)
     }
@@ -45,8 +56,8 @@ impl Command for SubCommand {
                 }),
             },
             Example {
-                description: "Grapheme clusters are considered single characters",
-                example: "'🇯🇵ほげ' | split chars",
+                description: "Split on grapheme clusters (based on flags or the 'grapheme_clusters' config option)",
+                example: "'🇯🇵ほげ' | split chars -g",
                 result: Some(Value::List {
                     vals: vec![
                         Value::test_string("🇯🇵"),
@@ -77,21 +88,30 @@ fn split_chars(
 ) -> Result<nu_protocol::PipelineData, nu_protocol::ShellError> {
     let span = call.head;
 
+    let graphemes = grapheme_flags!(engine_state, call, 'c');
     input.flat_map(
-        move |x| split_chars_helper(&x, span),
+        move |x| split_chars_helper(&x, span, graphemes),
         engine_state.ctrlc.clone(),
     )
 }
 
-fn split_chars_helper(v: &Value, name: Span) -> Vec<Value> {
+fn split_chars_helper(v: &Value, name: Span, graphemes: bool) -> Vec<Value> {
     match v.span() {
         Ok(v_span) => {
             if let Ok(s) = v.as_string() {
-                s.graphemes(true)
-                    .collect::<Vec<_>>()
-                    .into_iter()
-                    .map(move |x| Value::string(x, v_span))
-                    .collect()
+                if graphemes {
+                    s.graphemes(true)
+                        .collect::<Vec<_>>()
+                        .into_iter()
+                        .map(move |x| Value::string(x, v_span))
+                        .collect()
+                } else {
+                    s.chars()
+                        .collect::<Vec<_>>()
+                        .into_iter()
+                        .map(move |x| Value::string(x, v_span))
+                        .collect()
+                }
             } else {
                 vec![Value::Error {
                     error: ShellError::PipelineMismatch("string".into(), name, v_span),
