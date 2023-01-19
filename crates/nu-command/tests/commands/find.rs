@@ -115,7 +115,7 @@ fn find_takes_into_account_linebreaks_in_string() {
     let actual = nu!(
     cwd: ".", pipeline(
     r#"
-        "atest\nanothertest" | find a | length
+        "atest\nanothertest\nnohit\n" | find a | length
         "#
     ));
 

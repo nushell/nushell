@@ -147,6 +147,8 @@ impl Command for Find {
     ) -> Result<PipelineData, ShellError> {
         let regex = call.get_flag::<String>(engine_state, stack, "regex")?;
 
+        let input = split_string_if_multiline(input);
+
         if let Some(regex) = regex {
             find_with_regex(regex, engine_state, stack, call, input)
         } else {
@@ -319,29 +321,6 @@ fn find_with_rest_and_highlight(
         None => None,
     };
     let ls_colors = get_ls_colors(ls_colors_env_str);
-
-    let input = if let PipelineData::Value(Value::String { ref val, span }, _) = input {
-        if val.contains('\n') {
-            Value::List {
-                vals: {
-                    let split_char = if val.contains("\r\n") { "\r\n" } else { "\n" };
-                    val.split(split_char)
-                        .map(|s| Value::String {
-                            val: s.to_string(),
-                            span,
-                        })
-                        .collect()
-                },
-                span,
-            }
-            .into_pipeline_data()
-            .set_metadata(input.metadata())
-        } else {
-            input
-        }
-    } else {
-        input
-    };
 
     match input {
         PipelineData::Empty => Ok(PipelineData::Empty),
@@ -572,5 +551,30 @@ mod tests {
         use crate::test_examples;
 
         test_examples(Find)
+    }
+}
+
+fn split_string_if_multiline(input: PipelineData) -> PipelineData {
+    match input {
+        PipelineData::Value(Value::String { ref val, span }, _) => {
+            if val.contains('\n') {
+                Value::List {
+                    vals: {
+                        val.lines()
+                            .map(|s| Value::String {
+                                val: s.to_string(),
+                                span,
+                            })
+                            .collect()
+                    },
+                    span,
+                }
+                .into_pipeline_data()
+                .set_metadata(input.metadata())
+            } else {
+                input
+            }
+        }
+        _ => input,
     }
 }
