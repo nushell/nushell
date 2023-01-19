@@ -147,11 +147,10 @@ impl Command for Find {
     ) -> Result<PipelineData, ShellError> {
         let regex = call.get_flag::<String>(engine_state, stack, "regex")?;
 
-        let input = split_string_if_multiline(input);
-
         if let Some(regex) = regex {
             find_with_regex(regex, engine_state, stack, call, input)
         } else {
+            let input = split_string_if_multiline(input);
             find_with_rest_and_highlight(engine_state, stack, call, input)
         }
     }
