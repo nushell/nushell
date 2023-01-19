@@ -331,6 +331,18 @@ fn handle_table_command(
 
             Ok(val.into_pipeline_data())
         }
+        PipelineData::Value(Value::LazyRecord { val, .. }, ..) => {
+            let collected = val.collect()?.into_pipeline_data();
+            handle_table_command(
+                engine_state,
+                stack,
+                call,
+                collected,
+                row_offset,
+                table_view,
+                term_width,
+            )
+        }
         PipelineData::Value(Value::Error { error }, ..) => {
             // Propagate this error outward, so that it goes to stderr
             // instead of stdout.

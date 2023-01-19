@@ -1,6 +1,7 @@
 mod custom_value;
 mod from;
 mod from_value;
+mod lazy_record;
 mod range;
 mod stream;
 mod unit;
@@ -17,6 +18,7 @@ pub use custom_value::CustomValue;
 use fancy_regex::Regex;
 pub use from_value::FromValue;
 use indexmap::map::IndexMap;
+pub use lazy_record::LazyRecord;
 use nu_utils::get_system_locale;
 use num_format::ToFormattedString;
 pub use range::*;
@@ -101,8 +103,14 @@ pub enum Value {
         val: CellPath,
         span: Span,
     },
+    #[serde(skip_serializing)]
     CustomValue {
         val: Box<dyn CustomValue>,
+        span: Span,
+    },
+    #[serde(skip_serializing)]
+    LazyRecord {
+        val: Box<dyn LazyRecord>,
         span: Span,
     },
 }
@@ -138,6 +146,13 @@ impl Clone for Value {
                 vals: vals.clone(),
                 span: *span,
             },
+            Value::LazyRecord { val, .. } => {
+                match val.collect() {
+                    Ok(val) => val,
+                    // this is a bit weird, but because clone() is infallible...
+                    Err(error) => Value::Error { error },
+                }
+            }
             Value::List { vals, span } => Value::List {
                 vals: vals.clone(),
                 span: *span,
@@ -350,6 +365,7 @@ impl Value {
             Value::Binary { span, .. } => Ok(*span),
             Value::CellPath { span, .. } => Ok(*span),
             Value::CustomValue { span, .. } => Ok(*span),
+            Value::LazyRecord { span, .. } => Ok(*span),
         }
     }
 
@@ -372,6 +388,7 @@ impl Value {
             Value::Range { span, .. } => *span = new_span,
             Value::String { span, .. } => *span = new_span,
             Value::Record { span, .. } => *span = new_span,
+            Value::LazyRecord { span, .. } => *span = new_span,
             Value::List { span, .. } => *span = new_span,
             Value::Closure { span, .. } => *span = new_span,
             Value::Block { span, .. } => *span = new_span,
@@ -426,6 +443,10 @@ impl Value {
                     None => Type::List(Box::new(ty.unwrap_or(Type::Any))),
                 }
             }
+            Value::LazyRecord { val, .. } => match val.collect() {
+                Ok(val) => val.get_type(),
+                Err(..) => Type::Error,
+            },
             Value::Nothing { .. } => Type::Nothing,
             Value::Block { .. } => Type::Block,
             Value::Closure { .. } => Type::Closure,
@@ -512,6 +533,13 @@ impl Value {
                     .collect::<Vec<_>>()
                     .join(separator)
             ),
+            Value::LazyRecord { val, .. } => {
+                let collected = match val.collect() {
+                    Ok(val) => val,
+                    Err(error) => Value::Error { error },
+                };
+                collected.into_string(separator, config)
+            }
             Value::Block { val, .. } => format!("<Block {}>", val),
             Value::Closure { val, .. } => format!("<Closure {}>", val),
             Value::Nothing { .. } => String::new(),
@@ -556,6 +584,10 @@ impl Value {
                 cols.len(),
                 if cols.len() == 1 { "" } else { "s" }
             ),
+            Value::LazyRecord { val, .. } => match val.collect() {
+                Ok(val) => val.into_abbreviated_string(config),
+                Err(error) => format!("{:?}", error),
+            },
             Value::Block { val, .. } => format!("<Block {}>", val),
             Value::Closure { val, .. } => format!("<Closure {}>", val),
             Value::Nothing { .. } => String::new(),
@@ -603,6 +635,10 @@ impl Value {
                     .collect::<Vec<_>>()
                     .join(separator)
             ),
+            Value::LazyRecord { val, .. } => match val.collect() {
+                Ok(val) => val.debug_string(separator, config),
+                Err(error) => format!("{:?}", error),
+            },
             Value::Block { val, .. } => format!("<Block {}>", val),
             Value::Closure { val, .. } => format!("<Closure {}>", val),
             Value::Nothing { .. } => String::new(),
@@ -772,6 +808,30 @@ impl Value {
                                     column_name.to_string(),
                                     *origin_span,
                                     span,
+                                ),
+                                *origin_span
+                            );
+                        }
+                    }
+                    Value::LazyRecord { val, span } => {
+                        let columns = val.column_names();
+
+                        if columns.contains(&column_name.as_str()) {
+                            current = val.get_column_value(column_name)?;
+                        } else {
+                            if from_user_input {
+                                if let Some(suggestion) = did_you_mean(&columns, column_name) {
+                                    err_or_null!(
+                                        ShellError::DidYouMean(suggestion, *origin_span),
+                                        *origin_span
+                                    );
+                                }
+                            }
+                            err_or_null!(
+                                ShellError::CantFindColumn(
+                                    column_name.to_string(),
+                                    *origin_span,
+                                    *span,
                                 ),
                                 *origin_span
                             );
@@ -1567,6 +1627,7 @@ impl PartialOrd for Value {
                 Value::Range { .. } => Some(Ordering::Less),
                 Value::String { .. } => Some(Ordering::Less),
                 Value::Record { .. } => Some(Ordering::Less),
+                Value::LazyRecord { .. } => Some(Ordering::Less),
                 Value::List { .. } => Some(Ordering::Less),
                 Value::Block { .. } => Some(Ordering::Less),
                 Value::Closure { .. } => Some(Ordering::Less),
@@ -1586,6 +1647,7 @@ impl PartialOrd for Value {
                 Value::Range { .. } => Some(Ordering::Less),
                 Value::String { .. } => Some(Ordering::Less),
                 Value::Record { .. } => Some(Ordering::Less),
+                Value::LazyRecord { .. } => Some(Ordering::Less),
                 Value::List { .. } => Some(Ordering::Less),
                 Value::Block { .. } => Some(Ordering::Less),
                 Value::Closure { .. } => Some(Ordering::Less),
@@ -1605,6 +1667,7 @@ impl PartialOrd for Value {
                 Value::Range { .. } => Some(Ordering::Less),
                 Value::String { .. } => Some(Ordering::Less),
                 Value::Record { .. } => Some(Ordering::Less),
+                Value::LazyRecord { .. } => Some(Ordering::Less),
                 Value::List { .. } => Some(Ordering::Less),
                 Value::Block { .. } => Some(Ordering::Less),
                 Value::Closure { .. } => Some(Ordering::Less),
@@ -1624,6 +1687,7 @@ impl PartialOrd for Value {
                 Value::Range { .. } => Some(Ordering::Less),
                 Value::String { .. } => Some(Ordering::Less),
                 Value::Record { .. } => Some(Ordering::Less),
+                Value::LazyRecord { .. } => Some(Ordering::Less),
                 Value::List { .. } => Some(Ordering::Less),
                 Value::Block { .. } => Some(Ordering::Less),
                 Value::Closure { .. } => Some(Ordering::Less),
@@ -1643,6 +1707,7 @@ impl PartialOrd for Value {
                 Value::Range { .. } => Some(Ordering::Less),
                 Value::String { .. } => Some(Ordering::Less),
                 Value::Record { .. } => Some(Ordering::Less),
+                Value::LazyRecord { .. } => Some(Ordering::Less),
                 Value::List { .. } => Some(Ordering::Less),
                 Value::Block { .. } => Some(Ordering::Less),
                 Value::Closure { .. } => Some(Ordering::Less),
@@ -1662,6 +1727,7 @@ impl PartialOrd for Value {
                 Value::Range { .. } => Some(Ordering::Less),
                 Value::String { .. } => Some(Ordering::Less),
                 Value::Record { .. } => Some(Ordering::Less),
+                Value::LazyRecord { .. } => Some(Ordering::Less),
                 Value::List { .. } => Some(Ordering::Less),
                 Value::Block { .. } => Some(Ordering::Less),
                 Value::Closure { .. } => Some(Ordering::Less),
@@ -1681,6 +1747,7 @@ impl PartialOrd for Value {
                 Value::Range { val: rhs, .. } => lhs.partial_cmp(rhs),
                 Value::String { .. } => Some(Ordering::Less),
                 Value::Record { .. } => Some(Ordering::Less),
+                Value::LazyRecord { .. } => Some(Ordering::Less),
                 Value::List { .. } => Some(Ordering::Less),
                 Value::Block { .. } => Some(Ordering::Less),
                 Value::Closure { .. } => Some(Ordering::Less),
@@ -1700,6 +1767,7 @@ impl PartialOrd for Value {
                 Value::Range { .. } => Some(Ordering::Greater),
                 Value::String { val: rhs, .. } => lhs.partial_cmp(rhs),
                 Value::Record { .. } => Some(Ordering::Less),
+                Value::LazyRecord { .. } => Some(Ordering::Less),
                 Value::List { .. } => Some(Ordering::Less),
                 Value::Block { .. } => Some(Ordering::Less),
                 Value::Closure { .. } => Some(Ordering::Less),
@@ -1745,6 +1813,10 @@ impl PartialOrd for Value {
                         result
                     }
                 }
+                Value::LazyRecord { val, .. } => match val.collect() {
+                    Ok(rhs) => self.partial_cmp(&rhs),
+                    Err(_) => None,
+                },
                 Value::List { .. } => Some(Ordering::Less),
                 Value::Block { .. } => Some(Ordering::Less),
                 Value::Closure { .. } => Some(Ordering::Less),
@@ -1764,6 +1836,7 @@ impl PartialOrd for Value {
                 Value::Range { .. } => Some(Ordering::Greater),
                 Value::String { .. } => Some(Ordering::Greater),
                 Value::Record { .. } => Some(Ordering::Greater),
+                Value::LazyRecord { .. } => Some(Ordering::Greater),
                 Value::List { vals: rhs, .. } => lhs.partial_cmp(rhs),
                 Value::Block { .. } => Some(Ordering::Less),
                 Value::Closure { .. } => Some(Ordering::Less),
@@ -1784,6 +1857,7 @@ impl PartialOrd for Value {
                 Value::String { .. } => Some(Ordering::Greater),
                 Value::Record { .. } => Some(Ordering::Greater),
                 Value::List { .. } => Some(Ordering::Greater),
+                Value::LazyRecord { .. } => Some(Ordering::Greater),
                 Value::Block { val: rhs, .. } => lhs.partial_cmp(rhs),
                 Value::Closure { .. } => Some(Ordering::Less),
                 Value::Nothing { .. } => Some(Ordering::Less),
@@ -1802,6 +1876,7 @@ impl PartialOrd for Value {
                 Value::Range { .. } => Some(Ordering::Greater),
                 Value::String { .. } => Some(Ordering::Greater),
                 Value::Record { .. } => Some(Ordering::Greater),
+                Value::LazyRecord { .. } => Some(Ordering::Greater),
                 Value::List { .. } => Some(Ordering::Greater),
                 Value::Block { .. } => Some(Ordering::Greater),
                 Value::Closure { val: rhs, .. } => lhs.partial_cmp(rhs),
@@ -1821,6 +1896,7 @@ impl PartialOrd for Value {
                 Value::Range { .. } => Some(Ordering::Greater),
                 Value::String { .. } => Some(Ordering::Greater),
                 Value::Record { .. } => Some(Ordering::Greater),
+                Value::LazyRecord { .. } => Some(Ordering::Greater),
                 Value::List { .. } => Some(Ordering::Greater),
                 Value::Block { .. } => Some(Ordering::Greater),
                 Value::Closure { .. } => Some(Ordering::Greater),
@@ -1840,6 +1916,7 @@ impl PartialOrd for Value {
                 Value::Range { .. } => Some(Ordering::Greater),
                 Value::String { .. } => Some(Ordering::Greater),
                 Value::Record { .. } => Some(Ordering::Greater),
+                Value::LazyRecord { .. } => Some(Ordering::Greater),
                 Value::List { .. } => Some(Ordering::Greater),
                 Value::Block { .. } => Some(Ordering::Greater),
                 Value::Closure { .. } => Some(Ordering::Greater),
@@ -1859,6 +1936,7 @@ impl PartialOrd for Value {
                 Value::Range { .. } => Some(Ordering::Greater),
                 Value::String { .. } => Some(Ordering::Greater),
                 Value::Record { .. } => Some(Ordering::Greater),
+                Value::LazyRecord { .. } => Some(Ordering::Greater),
                 Value::List { .. } => Some(Ordering::Greater),
                 Value::Block { .. } => Some(Ordering::Greater),
                 Value::Closure { .. } => Some(Ordering::Greater),
@@ -1878,6 +1956,7 @@ impl PartialOrd for Value {
                 Value::Range { .. } => Some(Ordering::Greater),
                 Value::String { .. } => Some(Ordering::Greater),
                 Value::Record { .. } => Some(Ordering::Greater),
+                Value::LazyRecord { .. } => Some(Ordering::Greater),
                 Value::List { .. } => Some(Ordering::Greater),
                 Value::Block { .. } => Some(Ordering::Greater),
                 Value::Closure { .. } => Some(Ordering::Greater),
@@ -1888,6 +1967,10 @@ impl PartialOrd for Value {
                 Value::CustomValue { .. } => Some(Ordering::Less),
             },
             (Value::CustomValue { val: lhs, .. }, rhs) => lhs.partial_cmp(rhs),
+            (Value::LazyRecord { val, .. }, rhs) => match val.collect() {
+                Ok(val) => val.partial_cmp(rhs),
+                Err(_) => None,
+            },
         }
     }
 }

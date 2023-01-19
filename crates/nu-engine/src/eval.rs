@@ -1,4 +1,4 @@
-use crate::{current_dir_str, get_full_help, scope::create_scope};
+use crate::{current_dir_str, get_full_help, nu_variable::NuVariable};
 use nu_path::expand_path_with;
 use nu_protocol::{
     ast::{
@@ -6,12 +6,11 @@ use nu_protocol::{
         Operator, PathMember, PipelineElement, Redirection,
     },
     engine::{EngineState, Stack},
-    Config, HistoryFileFormat, IntoInterruptiblePipelineData, IntoPipelineData, PipelineData,
-    Range, ShellError, Span, Spanned, Unit, Value, VarId, ENV_VARIABLE_ID,
+    Config, IntoInterruptiblePipelineData, IntoPipelineData, PipelineData, Range, ShellError, Span,
+    Spanned, Unit, Value, VarId, ENV_VARIABLE_ID,
 };
 use nu_utils::stdout_write_all_and_flush;
 use std::collections::HashMap;
-use sysinfo::SystemExt;
 
 pub fn eval_operator(op: &Expression) -> Result<Operator, ShellError> {
     match op {
@@ -1120,146 +1119,15 @@ pub fn eval_variable(
     span: Span,
 ) -> Result<Value, ShellError> {
     match var_id {
-        nu_protocol::NU_VARIABLE_ID => {
-            // $nu
-            let mut output_cols = vec![];
-            let mut output_vals = vec![];
-
-            if let Some(path) = engine_state.get_config_path("config-path") {
-                output_cols.push("config-path".into());
-                output_vals.push(Value::String {
-                    val: path.to_string_lossy().to_string(),
-                    span,
-                });
-            }
-
-            if let Some(path) = engine_state.get_config_path("env-path") {
-                output_cols.push("env-path".into());
-                output_vals.push(Value::String {
-                    val: path.to_string_lossy().to_string(),
-                    span,
-                });
-            }
-
-            if let Some(mut config_path) = nu_path::config_dir() {
-                config_path.push("nushell");
-                let mut env_config_path = config_path.clone();
-                let mut loginshell_path = config_path.clone();
-
-                let mut history_path = config_path.clone();
-
-                match engine_state.config.history_file_format {
-                    HistoryFileFormat::Sqlite => {
-                        history_path.push("history.sqlite3");
-                    }
-                    HistoryFileFormat::PlainText => {
-                        history_path.push("history.txt");
-                    }
-                }
-                // let mut history_path = config_files::get_history_path(); // todo: this should use the get_history_path method but idk where to put that function
-
-                output_cols.push("history-path".into());
-                output_vals.push(Value::String {
-                    val: history_path.to_string_lossy().to_string(),
-                    span,
-                });
-
-                if engine_state.get_config_path("config-path").is_none() {
-                    config_path.push("config.nu");
-
-                    output_cols.push("config-path".into());
-                    output_vals.push(Value::String {
-                        val: config_path.to_string_lossy().to_string(),
-                        span,
-                    });
-                }
-
-                if engine_state.get_config_path("env-path").is_none() {
-                    env_config_path.push("env.nu");
-
-                    output_cols.push("env-path".into());
-                    output_vals.push(Value::String {
-                        val: env_config_path.to_string_lossy().to_string(),
-                        span,
-                    });
-                }
-
-                loginshell_path.push("login.nu");
-
-                output_cols.push("loginshell-path".into());
-                output_vals.push(Value::String {
-                    val: loginshell_path.to_string_lossy().to_string(),
-                    span,
-                });
-            }
-
-            #[cfg(feature = "plugin")]
-            if let Some(path) = &engine_state.plugin_signatures {
-                if let Some(path_str) = path.to_str() {
-                    output_cols.push("plugin-path".into());
-                    output_vals.push(Value::String {
-                        val: path_str.into(),
-                        span,
-                    });
-                }
-            }
-
-            output_cols.push("scope".into());
-            output_vals.push(create_scope(engine_state, stack, span)?);
-
-            if let Some(home_path) = nu_path::home_dir() {
-                if let Some(home_path_str) = home_path.to_str() {
-                    output_cols.push("home-path".into());
-                    output_vals.push(Value::String {
-                        val: home_path_str.into(),
-                        span,
-                    })
-                }
-            }
-
-            let temp = std::env::temp_dir();
-            if let Some(temp_path) = temp.to_str() {
-                output_cols.push("temp-path".into());
-                output_vals.push(Value::String {
-                    val: temp_path.into(),
-                    span,
-                })
-            }
-
-            let pid = std::process::id();
-            output_cols.push("pid".into());
-            output_vals.push(Value::int(pid as i64, span));
-
-            let sys = sysinfo::System::new();
-            let ver = match sys.kernel_version() {
-                Some(v) => v,
-                None => "unknown".into(),
-            };
-
-            let os_record = Value::Record {
-                cols: vec![
-                    "name".into(),
-                    "arch".into(),
-                    "family".into(),
-                    "kernel_version".into(),
-                ],
-                vals: vec![
-                    Value::string(std::env::consts::OS, span),
-                    Value::string(std::env::consts::ARCH, span),
-                    Value::string(std::env::consts::FAMILY, span),
-                    Value::string(ver, span),
-                ],
+        // $nu
+        nu_protocol::NU_VARIABLE_ID => Ok(Value::LazyRecord {
+            val: Box::new(NuVariable {
+                engine_state: engine_state.clone(),
+                stack: stack.clone(),
                 span,
-            };
-            output_cols.push("os-info".into());
-            output_vals.push(os_record);
-
-            Ok(Value::Record {
-                cols: output_cols,
-                vals: output_vals,
-                span,
-            })
-        }
+            }),
+            span,
+        }),
         ENV_VARIABLE_ID => {
             let env_vars = stack.get_env_vars(engine_state);
             let env_columns = env_vars.keys();

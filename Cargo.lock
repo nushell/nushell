@@ -2821,6 +2821,7 @@ dependencies = [
  "nu-path",
  "nu-protocol",
  "nu-utils",
+ "serde",
  "sysinfo",
 ]
 

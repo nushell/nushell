@@ -916,6 +916,16 @@ Either make sure {0} is a string, or add a 'to_string' entry for it in ENV_CONVE
         #[label("This called itself too many times")]
         span: Option<Span>,
     },
+
+    /// An attempt to access a record column failed.
+    #[error("Access failure: {message}")]
+    #[diagnostic(code(nu::shell::lazy_record_access_failed), url(docsrs))]
+    LazyRecordAccessFailed {
+        message: String,
+        column_name: String,
+        #[label("Could not access '{column_name}' on this record")]
+        span: Span,
+    },
 }
 
 impl From<std::io::Error> for ShellError {
@@ -940,9 +950,8 @@ pub fn into_code(err: &ShellError) -> Option<String> {
     err.code().map(|code| code.to_string())
 }
 
-pub fn did_you_mean(possibilities: &[String], input: &str) -> Option<String> {
-    let possibilities: Vec<&str> = possibilities.iter().map(|s| s.as_str()).collect();
-
+pub fn did_you_mean<S: AsRef<str>>(possibilities: &[S], input: &str) -> Option<String> {
+    let possibilities: Vec<&str> = possibilities.iter().map(|s| s.as_ref()).collect();
     let suggestion =
         crate::lev_distance::find_best_match_for_name_with_substrings(&possibilities, input, None)
             .map(|s| s.to_string());
@@ -1018,7 +1027,6 @@ mod tests {
             ),
         ];
         for (possibilities, cases) in all_cases {
-            let possibilities: Vec<String> = possibilities.iter().map(|s| s.to_string()).collect();
             for (input, expected_suggestion, discussion) in cases {
                 let suggestion = did_you_mean(&possibilities, input);
                 assert_eq!(

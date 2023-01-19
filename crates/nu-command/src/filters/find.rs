@@ -380,6 +380,26 @@ fn find_with_rest_and_highlight(
                                     .map_or(false, |aval| aval.is_true())
                             }
                         }),
+                        Value::LazyRecord { val, .. } => match val.collect() {
+                            Ok(val) => match val {
+                                Value::Record { vals, .. } => vals.iter().any(|val| {
+                                    if let Ok(span) = val.span() {
+                                        let lower_val = Value::string(
+                                            val.into_string("", &filter_config).to_lowercase(),
+                                            Span::test_data(),
+                                        );
+
+                                        term.r#in(span, &lower_val, span)
+                                            .map_or(false, |aval| aval.is_true())
+                                    } else {
+                                        term.r#in(span, val, span)
+                                            .map_or(false, |aval| aval.is_true())
+                                    }
+                                }),
+                                _ => false,
+                            },
+                            Err(_) => false,
+                        },
                         Value::Binary { .. } => false,
                     }) != invert
                 },
@@ -440,6 +460,26 @@ fn find_with_rest_and_highlight(
                                     .map_or(false, |value| value.is_true())
                             }
                         }),
+                        Value::LazyRecord { val, .. } => match val.collect() {
+                            Ok(val) => match val {
+                                Value::Record { vals, .. } => vals.iter().any(|val| {
+                                    if let Ok(span) = val.span() {
+                                        let lower_val = Value::string(
+                                            val.into_string("", &filter_config).to_lowercase(),
+                                            Span::test_data(),
+                                        );
+
+                                        term.r#in(span, &lower_val, span)
+                                            .map_or(false, |value| value.is_true())
+                                    } else {
+                                        term.r#in(span, val, span)
+                                            .map_or(false, |value| value.is_true())
+                                    }
+                                }),
+                                _ => false,
+                            },
+                            Err(_) => false,
+                        },
                         Value::Binary { .. } => false,
                     }) != invert
                 }),
