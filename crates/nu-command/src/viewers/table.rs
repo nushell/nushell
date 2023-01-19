@@ -963,7 +963,6 @@ fn convert_to_table2<'a>(
     const SPLIT_LINE_SPACE: usize = 1;
     const ADDITIONAL_CELL_SPACE: usize = PADDING_SPACE + SPLIT_LINE_SPACE;
     const MIN_CELL_CONTENT_WIDTH: usize = 1;
-    const OK_CELL_CONTENT_WIDTH: usize = 25;
     const TRUNCATE_CELL_WIDTH: usize = 3 + PADDING_SPACE;
 
     if input.len() == 0 {
@@ -1082,10 +1081,11 @@ fn convert_to_table2<'a>(
         return Ok(None);
     }
 
+    let count_columns = headers.len();
     let mut widths = Vec::new();
     let mut truncate = false;
     let mut last_column_type_is_string = false;
-    let count_columns = headers.len();
+    let mut last_column_head_width = 0;
     for (col, header) in headers.into_iter().enumerate() {
         let is_last_column = col + 1 == count_columns;
 
@@ -1097,6 +1097,7 @@ fn convert_to_table2<'a>(
         let available = available_width - necessary_space;
 
         let mut column_width = string_width(&header);
+        last_column_head_width = column_width;
 
         let headc =
             NuTable::create_cell(header.clone(), header_style(style_computer, header.clone()));
@@ -1174,7 +1175,7 @@ fn convert_to_table2<'a>(
         }
 
         let can_be_wrapped =
-            available_width >= OK_CELL_CONTENT_WIDTH + additional_space + truncate_cell_width;
+            available_width >= last_column_head_width + additional_space + truncate_cell_width;
         if can_be_wrapped && last_column_type_is_string {
             // we can wrap the last column instead of just dropping it.
             let width = available_width - additional_space - truncate_cell_width;
