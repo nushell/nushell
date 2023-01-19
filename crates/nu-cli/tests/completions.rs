@@ -834,3 +834,22 @@ fn alias_offset_bug_7748() {
     let _suggestions = completer.complete("e", 1);
     //println!(" --------- suggestions: {:?}", suggestions);
 }
+
+#[rstest]
+fn alias_offset_bug_7754() {
+    let (dir, _, mut engine, mut stack) = new_engine();
+
+    // Create an alias
+    let alias = r#"alias ll = ls -l"#;
+    assert!(support::merge_input(alias.as_bytes(), &mut engine, &mut stack, dir.clone()).is_ok());
+
+    let mut completer = NuCompleter::new(std::sync::Arc::new(engine), stack);
+
+    // Issue #7754
+    // Nushell crashes when an alias name is shorter than the alias command
+    // and the alias command contains pipes.
+    // This crashes before PR #7756
+    let _suggestions = completer.complete("ll -a | c", 9);
+
+    //println!(" --------- suggestions: {:?}", suggestions);
+}
