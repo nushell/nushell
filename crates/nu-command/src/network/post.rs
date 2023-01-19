@@ -19,11 +19,11 @@ pub struct SubCommand;
 
 impl Command for SubCommand {
     fn name(&self) -> &str {
-        "post"
+        "http post"
     }
 
     fn signature(&self) -> Signature {
-        Signature::build("post")
+        Signature::build("http post")
             .input_output_types(vec![(Type::Nothing, Type::Any)])
             .required("path", SyntaxShape::String, "the URL to post to")
             .required("body", SyntaxShape::Any, "the contents of the post body")
@@ -80,7 +80,7 @@ impl Command for SubCommand {
     }
 
     fn search_terms(&self) -> Vec<&str> {
-        vec!["network", "send", "push", "http"]
+        vec!["network", "send", "push"]
     }
 
     fn run(
@@ -96,22 +96,22 @@ impl Command for SubCommand {
         vec![
             Example {
                 description: "Post content to url.com",
-                example: "post url.com 'body'",
+                example: "http post url.com 'body'",
                 result: None,
             },
             Example {
                 description: "Post content to url.com, with username and password",
-                example: "post -u myuser -p mypass url.com 'body'",
+                example: "http post -u myuser -p mypass url.com 'body'",
                 result: None,
             },
             Example {
                 description: "Post content to url.com, with custom header",
-                example: "post -H [my-header-key my-header-value] url.com",
+                example: "http post -H [my-header-key my-header-value] url.com",
                 result: None,
             },
             Example {
                 description: "Post content to url.com with a json body",
-                example: "post -t application/json url.com { field: value }",
+                example: "http post -t application/json url.com { field: value }",
                 result: None,
             },
         ]

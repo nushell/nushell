@@ -29,7 +29,7 @@ impl Command for Http {
 
     fn search_terms(&self) -> Vec<&str> {
         vec![ 
-            "network", "fetch", "get", "post", "pull", "request", "http", "download", "curl", "wget",
+            "network", "fetch", "pull", "request", "download", "curl", "wget",
             ]
     }
 
