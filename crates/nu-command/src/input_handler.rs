@@ -99,8 +99,8 @@ macro_rules! grapheme_flags {
                 $call.head,
             ))?
         }
-        // Grapheme cluster usage is decided by the flags if given, and the config if not.
-        g_flag || (!b_flag && $engine_state.get_config().str_grapheme_clusters)
+        // Grapheme cluster usage is decided by the non-default -g flag
+        g_flag
     }};
 
     ($engine_state:ident, $call:ident, 'c') => {{
@@ -112,7 +112,7 @@ macro_rules! grapheme_flags {
                 $call.head,
             ))?
         }
-        // Grapheme cluster usage is decided by the flags if given, and the config if not.
-        g_flag || (!c_flag && $engine_state.get_config().str_grapheme_clusters)
+        // Grapheme cluster usage is decided by the non-default -g flag
+        g_flag
     }};
 }

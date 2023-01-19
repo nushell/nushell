@@ -44,13 +44,13 @@ impl Command for SubCommand {
             )
             .switch(
                 "grapheme-clusters",
-                "measure word length in grapheme clusters (requires -l; overrides 'grapheme_clusters' config option)",
+                "measure word length in grapheme clusters (requires -l)",
                 Some('g'),
             )
             .switch(
-                "code-points",
-                "measure word length in code points (requires -l; overrides 'grapheme_clusters' config option)",
-                Some('c'),
+                "utf-8-bytes",
+                "measure word length in UTF-8 bytes (default; requires -l; non-ASCII chars are length 2+)",
+                Some('b'),
             )
     }
 
@@ -124,14 +124,14 @@ fn split_words(
                 span,
             ));
         }
-        if call.has_flag("code-points") {
+        if call.has_flag("utf-8-bytes") {
             return Err(ShellError::IncompatibleParametersSingle(
-                "--code-points (-c) requires --min-word-length (-l)".to_string(),
+                "--utf-8-bytes (-b) requires --min-word-length (-l)".to_string(),
                 span,
             ));
         }
     }
-    let graphemes = grapheme_flags!(engine_state, call, 'c');
+    let graphemes = grapheme_flags!(engine_state, call, 'b');
 
     input.flat_map(
         move |x| split_words_helper(&x, word_length, span, graphemes),
@@ -361,7 +361,7 @@ mod test {
 
     #[test]
     fn test_incompat_flags() {
-        let out = nu!(cwd: ".", pipeline("'a' | split words -cg -l 2"));
+        let out = nu!(cwd: ".", pipeline("'a' | split words -bg -l 2"));
         assert!(out.err.contains("incompatible_parameters"));
     }
 

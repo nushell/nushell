@@ -41,12 +41,12 @@ impl Command for SubCommand {
             .required("string", SyntaxShape::String, "the string to find in the input")
             .switch(
                 "grapheme-clusters",
-                "count indexes using grapheme clusters (overrides 'grapheme_clusters' config option)",
+                "count indexes using grapheme clusters (all visible chars have length 1)",
                 Some('g'),
             )
             .switch(
                 "utf-8-bytes",
-                "count indexes using UTF-8 bytes (overrides 'grapheme_clusters' config option)",
+                "count indexes using UTF-8 bytes (default; non-ASCII chars have length 2+)",
                 Some('b'),
             )
             .rest(

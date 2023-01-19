@@ -17,14 +17,10 @@ impl Command for SubCommand {
     fn signature(&self) -> Signature {
         Signature::build("split chars")
             .input_output_types(vec![(Type::String, Type::List(Box::new(Type::String)))])
-            .switch(
-                "grapheme-clusters",
-                "split on grapheme clusters (overrides 'grapheme_clusters' config option)",
-                Some('g'),
-            )
+            .switch("grapheme-clusters", "split on grapheme clusters", Some('g'))
             .switch(
                 "code-points",
-                "split on code points (overrides 'grapheme_clusters' config option)",
+                "split on code points (default; splits combined characters)",
                 Some('c'),
             )
             .vectorizes_over_list(true)
@@ -56,7 +52,7 @@ impl Command for SubCommand {
                 }),
             },
             Example {
-                description: "Split on grapheme clusters (based on flags or the 'grapheme_clusters' config option)",
+                description: "Split on grapheme clusters",
                 example: "'🇯🇵ほげ' | split chars -g",
                 result: Some(Value::List {
                     vals: vec![

@@ -77,7 +77,6 @@ pub struct Config {
     pub menus: Vec<ParsedMenu>,
     pub hooks: Hooks,
     pub rm_always_trash: bool,
-    pub str_grapheme_clusters: bool,
     pub shell_integration: bool,
     pub buffer_editor: String,
     pub table_index_mode: TableIndexMode,
@@ -117,7 +116,6 @@ impl Default for Config {
             menus: Vec::new(),
             hooks: Hooks::new(),
             rm_always_trash: false,
-            str_grapheme_clusters: false,
             shell_integration: false,
             buffer_editor: String::new(),
             table_index_mode: TableIndexMode::Always,
@@ -379,36 +377,6 @@ impl Value {
                             vals[index] = Value::record(
                                 vec!["always_trash".into()],
                                 vec![Value::boolean(config.rm_always_trash, *span)],
-                                *span,
-                            );
-                        }
-                    }
-                    "str" => {
-                        if let Value::Record { cols, vals, span } = &mut vals[index] {
-                            for index in (0..cols.len()).rev() {
-                                let value = &vals[index];
-                                let key2 = cols[index].as_str();
-                                match key2 {
-                                    "grapheme_clusters" => {
-                                        try_bool!(cols, vals, index, span, str_grapheme_clusters)
-                                    }
-                                    x => {
-                                        invalid_key!(
-                                            cols,
-                                            vals,
-                                            index,
-                                            value.span().ok(),
-                                            "$env.config.{key}.{x} is an unknown config setting"
-                                        );
-                                    }
-                                }
-                            }
-                        } else {
-                            invalid!(vals[index].span().ok(), "should be a record");
-                            // Reconstruct
-                            vals[index] = Value::record(
-                                vec!["grapheme_clusters".into()],
-                                vec![Value::boolean(config.str_grapheme_clusters, *span)],
                                 *span,
                             );
                         }
