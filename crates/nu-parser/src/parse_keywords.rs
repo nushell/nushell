@@ -2842,8 +2842,11 @@ pub fn parse_let_or_const(
                                 .to_string();
 
                         if ["in", "nu", "env", "nothing"].contains(&var_name.as_str()) {
-                            error =
-                                error.or(Some(ParseError::LetBuiltinVar(var_name, lvalue.span)));
+                            error = if is_const {
+                                error.or(Some(ParseError::ConstBuiltinVar(var_name, lvalue.span)))
+                            } else {
+                                error.or(Some(ParseError::LetBuiltinVar(var_name, lvalue.span)))
+                            };
                         }
 
                         let var_id = lvalue.as_var();
