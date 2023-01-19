@@ -22,19 +22,19 @@ impl Command for Http {
     fn usage(&self) -> &str {
         "Various commands for working with http methods"
     }
-    
+
     fn extra_usage(&self) -> &str {
         "You must use one of the following subcommands. Using this command as-is will only produce this help message."
     }
 
     fn search_terms(&self) -> Vec<&str> {
-        vec![ 
+        vec![
             "network", "fetch", "pull", "request", "download", "curl", "wget",
-            ]
+        ]
     }
 
     fn run(
-        &self, 
+        &self,
         engine_state: &EngineState,
         stack: &mut Stack,
         call: &Call,
@@ -50,6 +50,6 @@ impl Command for Http {
             ),
             span: call.head,
         }
-        .into_pipeline_data())    
-   }
+        .into_pipeline_data())
+    }
 }
