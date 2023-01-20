@@ -87,7 +87,7 @@ impl Command for SubCommand {
         let args = Arguments {
             indexes,
             cell_paths,
-            graphemes: grapheme_flags!(engine_state, call, 'b'),
+            graphemes: grapheme_flags(call)?,
         };
         operate(action, args, input, call.head, engine_state.ctrlc.clone())
     }

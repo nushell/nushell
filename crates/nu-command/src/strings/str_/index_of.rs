@@ -87,7 +87,7 @@ impl Command for SubCommand {
             range: call.get_flag(engine_state, stack, "range")?,
             end: call.has_flag("end"),
             cell_paths,
-            graphemes: grapheme_flags!(engine_state, call, 'b'),
+            graphemes: grapheme_flags(call)?,
         };
         operate(action, args, input, call.head, engine_state.ctrlc.clone())
     }

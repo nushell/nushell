@@ -84,7 +84,7 @@ fn split_chars(
 ) -> Result<nu_protocol::PipelineData, nu_protocol::ShellError> {
     let span = call.head;
 
-    let graphemes = grapheme_flags!(engine_state, call, 'c');
+    let graphemes = grapheme_flags(call)?;
     input.flat_map(
         move |x| split_chars_helper(&x, span, graphemes),
         engine_state.ctrlc.clone(),

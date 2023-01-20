@@ -131,7 +131,7 @@ fn split_words(
             ));
         }
     }
-    let graphemes = grapheme_flags!(engine_state, call, 'b');
+    let graphemes = grapheme_flags(call)?;
 
     input.flat_map(
         move |x| split_words_helper(&x, word_length, span, graphemes),

@@ -67,7 +67,7 @@ impl Command for SubCommand {
         let cell_paths: Vec<CellPath> = call.rest(engine_state, stack, 0)?;
         let args = Arguments {
             cell_paths: (!cell_paths.is_empty()).then_some(cell_paths),
-            graphemes: grapheme_flags!(engine_state, call, 'b'),
+            graphemes: grapheme_flags(call)?,
         };
         operate(action, args, input, call.head, engine_state.ctrlc.clone())
     }

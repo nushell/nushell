@@ -86,33 +86,3 @@ where
         }
     }
 }
-
-// A macro for handling the grapheme_cluster related flags.
-#[macro_export]
-macro_rules! grapheme_flags {
-    ($engine_state:ident, $call:ident, 'b') => {{
-        let g_flag = $call.has_flag("grapheme-clusters");
-        let b_flag = $call.has_flag("utf-8-bytes");
-        if g_flag && b_flag {
-            Err(ShellError::IncompatibleParametersSingle(
-                "Incompatible flags: --grapheme-clusters (-g) and --utf-8-bytes (-b)".to_string(),
-                $call.head,
-            ))?
-        }
-        // Grapheme cluster usage is decided by the non-default -g flag
-        g_flag
-    }};
-
-    ($engine_state:ident, $call:ident, 'c') => {{
-        let g_flag = $call.has_flag("grapheme-clusters");
-        let c_flag = $call.has_flag("code-points");
-        if g_flag && c_flag {
-            Err(ShellError::IncompatibleParametersSingle(
-                "Incompatible flags: --grapheme-clusters (-g) and --code-points (-c)".to_string(),
-                $call.head,
-            ))?
-        }
-        // Grapheme cluster usage is decided by the non-default -g flag
-        g_flag
-    }};
-}
