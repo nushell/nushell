@@ -2803,6 +2803,7 @@ dependencies = [
  "trash",
  "umask",
  "unicode-segmentation",
+ "unicode-width",
  "url",
  "users 0.11.0",
  "uuid",

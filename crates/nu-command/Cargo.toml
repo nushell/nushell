@@ -92,7 +92,7 @@ terminal_size = "0.2.1"
 thiserror = "1.0.31"
 titlecase = "2.0.0"
 toml = "0.5.8"
-unicode-segmentation = "1.8.0"
+unicode-segmentation = "1.10.0"
 url = "2.2.1"
 percent-encoding = "2.2.0"
 uuid = { version = "1.2.2", features = ["v4"] }
@@ -101,6 +101,7 @@ reedline = { version = "0.14.0", features = ["bashisms", "sqlite"] }
 wax = { version = "0.5.0" }
 rusqlite = { version = "0.28.0", features = ["bundled"], optional = true }
 sqlparser = { version = "0.30.0", features = ["serde"], optional = true }
+unicode-width = "0.1.10"
 
 [target.'cfg(windows)'.dependencies]
 winreg = "0.10.1"
