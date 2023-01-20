@@ -69,7 +69,10 @@ fn get_documentation(
     if !config.no_subcommands {
         let signatures = engine_state.get_signatures(true);
         for sig in signatures {
-            if sig.name.starts_with(&format!("{} ", cmd_name)) {
+            if sig.name.starts_with(&format!("{} ", cmd_name))
+                // Don't display deprecated commands in the Subcommands list
+                    && !sig.usage.starts_with("Deprecated command")
+            {
                 subcommands.push(format!("  {C}{}{RESET} - {}", sig.name, sig.usage));
             }
         }
