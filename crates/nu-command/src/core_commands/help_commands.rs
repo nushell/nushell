@@ -132,7 +132,7 @@ fn build_help_commands(engine_state: &EngineState, span: Span) -> Vec<Value> {
         let decl = engine_state.get_decl(decl_id);
         let sig = decl.signature().update_from_command(name, decl.borrow());
 
-        let signatures = sig.to_string();
+        let signatures = sig.to_string().trim_start().replace("\n  ", "\n");
         let key = sig.name;
         let usage = sig.usage;
         let search_terms = sig.search_terms;
