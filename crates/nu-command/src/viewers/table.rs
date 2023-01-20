@@ -549,13 +549,13 @@ fn build_expanded_table(
                                 style_computer,
                             );
 
-                            wrap_text(failed_value.0, remaining_width, config)
+                            wrap_text(&failed_value.0, remaining_width, config)
                         }
                     }
                 }
                 val => {
                     let text = value_to_styled_string(&val, config, style_computer).0;
-                    wrap_text(text, remaining_width, config)
+                    wrap_text(&text, remaining_width, config)
                 }
             }
         };
@@ -604,7 +604,6 @@ fn build_expanded_table(
     Ok(table)
 }
 
-#[allow(clippy::too_many_arguments)]
 fn handle_row_stream(
     engine_state: &EngineState,
     stack: &mut Stack,
@@ -1184,7 +1183,7 @@ fn convert_to_table2<'a>(
 
             for row in &mut data {
                 let cell = row.last_mut().expect("...");
-                let value = wrap_text(cell.as_ref().to_owned(), width, config);
+                let value = wrap_text(cell.as_ref(), width, config);
                 *cell = NuTable::create_cell(value, *cell.get_data());
             }
         } else {
@@ -1303,7 +1302,7 @@ fn create_table2_entry(
                     flatten_sep,
                     width,
                 ),
-                Err(_) => wrap_nu_text(error_sign(style_computer), width, config),
+                Err(_) => error_sign(style_computer),
             }
         }
         _ => convert_to_table2_entry(
@@ -1323,21 +1322,8 @@ fn error_sign(style_computer: &StyleComputer) -> (String, TextStyle) {
     make_styled_string(style_computer, String::from("❎"), None, 0)
 }
 
-fn wrap_nu_text(mut text: NuText, width: usize, config: &Config) -> NuText {
-    if string_width(&text.0) <= width {
-        return text;
-    }
-
-    text.0 = nu_table::string_wrap(&text.0, width, is_cfg_trim_keep_words(config));
-    text
-}
-
-fn wrap_text(text: String, width: usize, config: &Config) -> String {
-    if string_width(&text) <= width {
-        return text;
-    }
-
-    nu_table::string_wrap(&text, width, is_cfg_trim_keep_words(config))
+fn wrap_text(text: &str, width: usize, config: &Config) -> String {
+    nu_table::string_wrap(text, width, is_cfg_trim_keep_words(config))
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -1355,119 +1341,68 @@ fn convert_to_table2_entry(
 ) -> NuText {
     let is_limit_reached = matches!(deep, Some(0));
     if is_limit_reached {
-        return wrap_nu_text(
-            value_to_styled_string(item, config, style_computer),
-            width,
-            config,
-        );
+        return value_to_styled_string(item, config, style_computer);
     }
 
-    match &item {
+    let table = match &item {
         Value::Record { span, cols, vals } => {
             if cols.is_empty() && vals.is_empty() {
-                wrap_nu_text(
-                    value_to_styled_string(item, config, style_computer),
-                    width,
-                    config,
-                )
-            } else {
-                let table = convert_to_table2(
-                    0,
-                    std::iter::once(item),
-                    ctrlc.clone(),
-                    config,
-                    *span,
-                    style_computer,
-                    deep.map(|i| i - 1),
-                    flatten,
-                    flatten_sep,
-                    width,
-                );
-
-                let inner_table = table.map(|table| {
-                    table.and_then(|(table, with_header, with_index)| {
-                        let table_config = create_table_config(
-                            config,
-                            style_computer,
-                            table.count_rows(),
-                            with_header,
-                            with_index,
-                            false,
-                        );
-
-                        table.draw(table_config, usize::MAX)
-                    })
-                });
-
-                if let Ok(Some(table)) = inner_table {
-                    (table, TextStyle::default())
-                } else {
-                    // error so back down to the default
-                    wrap_nu_text(
-                        value_to_styled_string(item, config, style_computer),
-                        width,
-                        config,
-                    )
-                }
+                return value_to_styled_string(item, config, style_computer);
             }
+
+            convert_to_table2(
+                0,
+                std::iter::once(item),
+                ctrlc.clone(),
+                config,
+                *span,
+                style_computer,
+                deep.map(|i| i - 1),
+                flatten,
+                flatten_sep,
+                width,
+            )
         }
         Value::List { vals, span } => {
-            let is_simple_list = vals
-                .iter()
-                .all(|v| !matches!(v, Value::Record { .. } | Value::List { .. }));
+            if flatten {
+                let is_simple_list = vals
+                    .iter()
+                    .all(|v| !matches!(v, Value::Record { .. } | Value::List { .. }));
 
-            if flatten && is_simple_list {
-                wrap_nu_text(
-                    convert_value_list_to_string(vals, config, style_computer, flatten_sep),
-                    width,
-                    config,
-                )
-            } else {
-                let table = convert_to_table2(
-                    0,
-                    vals.iter(),
-                    ctrlc.clone(),
-                    config,
-                    *span,
-                    style_computer,
-                    deep.map(|i| i - 1),
-                    flatten,
-                    flatten_sep,
-                    width,
-                );
-
-                let inner_table = table.map(|table| {
-                    table.and_then(|(table, with_header, with_index)| {
-                        let table_config = create_table_config(
-                            config,
-                            style_computer,
-                            table.count_rows(),
-                            with_header,
-                            with_index,
-                            false,
-                        );
-
-                        table.draw(table_config, usize::MAX)
-                    })
-                });
-
-                if let Ok(Some(table)) = inner_table {
-                    (table, TextStyle::default())
-                } else {
-                    // error so back down to the default
-
-                    wrap_nu_text(
-                        value_to_styled_string(item, config, style_computer),
-                        width,
-                        config,
-                    )
+                if is_simple_list {
+                    return convert_value_list_to_string(vals, config, style_computer, flatten_sep);
                 }
             }
+
+            convert_to_table2(
+                0,
+                vals.iter(),
+                ctrlc.clone(),
+                config,
+                *span,
+                style_computer,
+                deep.map(|i| i - 1),
+                flatten,
+                flatten_sep,
+                width,
+            )
         }
-        _ => {
-            let text = value_to_styled_string(item, config, style_computer);
-            wrap_nu_text(text, width, config)
-        } // unknown type.
+        _ => return value_to_styled_string(item, config, style_computer), // unknown type.
+    };
+
+    let (table, whead, windex) = match table {
+        Ok(Some(out)) => out,
+        _ => return value_to_styled_string(item, config, style_computer),
+    };
+
+    let count_rows = table.count_rows();
+    let table_config =
+        create_table_config(config, style_computer, count_rows, whead, windex, false);
+
+    let table = table.draw(table_config, usize::MAX);
+    match table {
+        Some(table) => (table, TextStyle::default()),
+        None => value_to_styled_string(item, config, style_computer),
     }
 }
 
