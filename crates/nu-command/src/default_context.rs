@@ -433,8 +433,9 @@ pub fn create_default_context() -> EngineState {
 
         // Network
         bind_command! {
-            Fetch,
-            Post,
+            Http,
+            HttpGet,
+            HttpPost,
             Url,
             UrlBuildQuery,
             UrlEncode,
