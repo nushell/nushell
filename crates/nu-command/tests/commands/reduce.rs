@@ -100,3 +100,16 @@ fn uses_optional_index_argument() {
 
     assert_eq!(actual.out, "3");
 }
+
+#[test]
+fn reduce_numbered_example() {
+    let actual = nu!(
+        cwd: ".", pipeline(
+        r#"
+        [one longest three bar] | reduce --fold ['', -1] {|it, acc, idx| if ($it | str length) > ($acc.0 | str length) { [$it $idx] } else { $acc }} | get 0
+        "#
+        )
+    );
+
+    assert_eq!(actual.out, "1");
+}
