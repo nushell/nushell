@@ -1,5 +1,6 @@
 mod config_files;
 mod logger;
+mod signals;
 mod test_bins;
 #[cfg(test)]
 mod tests;
@@ -27,12 +28,10 @@ use nu_protocol::{
     SyntaxShape, Value,
 };
 use nu_utils::stdout_write_all_and_flush;
+use signals::{ctrlc_protection, sigquit_protection};
 use std::{
     io::BufReader,
-    sync::{
-        atomic::{AtomicBool, Ordering},
-        Arc,
-    },
+    sync::{atomic::AtomicBool, Arc},
 };
 use std::{path::Path, str::FromStr};
 
@@ -136,7 +135,6 @@ fn acquire_terminal(interactive: bool) {
 fn acquire_terminal(_: bool) {}
 
 fn main() -> Result<()> {
-    // miette::set_panic_hook();
     let miette_hook = std::panic::take_hook();
     std::panic::set_hook(Box::new(move |x| {
         crossterm::terminal::disable_raw_mode().expect("unable to disable raw mode");
@@ -152,7 +150,6 @@ fn main() -> Result<()> {
         let mut working_set = nu_protocol::engine::StateWorkingSet::new(&engine_state);
         working_set.add_decl(Box::new(nu_cli::NuHighlight));
         working_set.add_decl(Box::new(nu_cli::Print));
-
         working_set.render()
     };
 
@@ -160,29 +157,10 @@ fn main() -> Result<()> {
         report_error_new(&engine_state, &err);
     }
 
-    // TODO: make this conditional in the future
-    // Ctrl-c protection section
     let ctrlc = Arc::new(AtomicBool::new(false));
-    let handler_ctrlc = ctrlc.clone();
-    let engine_state_ctrlc = ctrlc.clone();
-
-    ctrlc::set_handler(move || {
-        handler_ctrlc.store(true, Ordering::SeqCst);
-    })
-    .expect("Error setting Ctrl-C handler");
-
-    engine_state.ctrlc = Some(engine_state_ctrlc);
-    // End ctrl-c protection section
-
-    // SIGQUIT protection section (only works for POSIX system)
-    #[cfg(not(windows))]
-    {
-        use signal_hook::consts::SIGQUIT;
-        let sig_quit = Arc::new(AtomicBool::new(false));
-        signal_hook::flag::register(SIGQUIT, sig_quit.clone()).expect("Error setting SIGQUIT flag");
-        engine_state.set_sig_quit(sig_quit);
-    }
-    // End SIGQUIT protection section
+    // TODO: make this conditional in the future
+    ctrlc_protection(&mut engine_state, &ctrlc);
+    sigquit_protection(&mut engine_state);
 
     let mut args_to_nushell = vec![];
     let mut script_name = String::new();
