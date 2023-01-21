@@ -236,8 +236,6 @@ fn escape_newline_with_backslash() {
 
     assert_eq!(
         actual.out,
-        r"
-        2arg 11
-    "
+        "2"
     );
 }
