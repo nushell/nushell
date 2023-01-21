@@ -226,3 +226,15 @@ fn parse_export_env_missing_block() {
 
     assert!(actual.err.contains("missing block"));
 }
+
+#[test]
+fn escape_newline_with_backslash() {
+    let actual = nu!(cwd: "tests/parsing/samples",
+        r#"
+            nu multiline_command.nu
+        "#);
+
+    assert_eq!(actual.out, r"
+        2arg 11
+    ");
+}

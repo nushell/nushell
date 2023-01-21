@@ -78,9 +78,9 @@ pub fn evaluate_file(
     for (idx, arr_chars) in file.clone().windows(3).enumerate() {
         if arr_chars.first() == Some(&b'\\') {
             if arr_chars.get(1) == Some(&b'\n') {
-                file.drain(idx..(idx + 1));
-            } else if arr_chars.get(1) == Some(&b'\r') && arr_chars.get(2) == Some(&b'\n') {
                 file.drain(idx..(idx + 2));
+            } else if arr_chars.get(1) == Some(&b'\r') && arr_chars.get(2) == Some(&b'\n') {
+                file.drain(idx..(idx + 3));
             }
         }
     }
