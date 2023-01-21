@@ -338,7 +338,6 @@ fn hides_env_import_1() -> TestResult {
 }
 
 #[test]
-#[ignore = "Re-enable after virtualenv update"]
 fn hides_def_runs_env_import() -> TestResult {
     run_test(
         r#"module spam { export-env { let-env foo = "foo" }; export def foo [] { "bar" } }; use spam foo; hide foo; $env.foo"#,
