@@ -30,14 +30,7 @@ impl Completer for FileCompletion {
         _: usize,
         options: &CompletionOptions,
     ) -> Vec<Suggestion> {
-        let cwd = if let Some(d) = self.engine_state.get_env_var("PWD") {
-            match d.as_string() {
-                Ok(s) => s,
-                Err(_) => "".to_string(),
-            }
-        } else {
-            "".to_string()
-        };
+        let cwd = self.engine_state.current_work_dir();
         let prefix = String::from_utf8_lossy(&prefix).to_string();
         let output: Vec<_> = file_path_completion(span, &prefix, &cwd, options)
             .into_iter()

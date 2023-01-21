@@ -965,6 +965,12 @@ impl EngineState {
         self.get_module_comments(module_id)
             .map(|comment_spans| self.build_usage(comment_spans))
     }
+
+    pub fn current_work_dir(&self) -> String {
+        self.get_env_var("PWD")
+            .map(|d| d.as_string().unwrap_or_default())
+            .unwrap_or_default()
+    }
 }
 
 /// A temporary extension to the global state. This handles bridging between the global state and the
