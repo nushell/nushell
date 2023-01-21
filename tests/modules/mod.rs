@@ -546,3 +546,19 @@ fn module_invalid_known_external_name() {
 
     assert!(actual.err.contains("named_as_module"));
 }
+
+#[test]
+fn main_inside_module_is_main() {
+    let inp = &[
+        r#"module spam {
+            export def main [] { 'foo' };
+            export def foo [] { main }
+        }"#,
+        "use spam foo",
+        "foo",
+    ];
+
+    let actual = nu!(cwd: ".", pipeline(&inp.join("; ")));
+
+    assert_eq!(actual.out, "foo");
+}
