@@ -1944,12 +1944,18 @@ pub fn parse_use(
                 let mut decl_output = vec![];
                 let mut alias_output = vec![];
 
-                if let Some(id) = module.get_decl_id(name) {
+                if name == b"main" {
+                    if let Some(id) = &module.main {
+                        decl_output.push((import_pattern.head.name.clone(), *id));
+                    } else {
+                        error = error.or(Some(ParseError::ExportNotFound(*span)));
+                    }
+                } else if let Some(id) = module.get_decl_id(name) {
                     decl_output.push((name.clone(), id));
                 } else if let Some(id) = module.get_alias_id(name) {
                     alias_output.push((name.clone(), id));
                 } else {
-                    error = error.or(Some(ParseError::ExportNotFound(*span)))
+                    error = error.or(Some(ParseError::ExportNotFound(*span)));
                 }
 
                 (decl_output, alias_output)
@@ -1959,7 +1965,13 @@ pub fn parse_use(
                 let mut alias_output = vec![];
 
                 for (name, span) in names {
-                    if let Some(id) = module.get_decl_id(name) {
+                    if name == b"main" {
+                        if let Some(id) = &module.main {
+                            decl_output.push((import_pattern.head.name.clone(), *id));
+                        } else {
+                            error = error.or(Some(ParseError::ExportNotFound(*span)));
+                        }
+                    } else if let Some(id) = module.get_decl_id(name) {
                         decl_output.push((name.clone(), id));
                     } else if let Some(id) = module.get_alias_id(name) {
                         alias_output.push((name.clone(), id));
@@ -2105,6 +2117,7 @@ pub fn parse_hide(
             error = error.or(err);
         }
 
+        // module used only internally, not saved anywhere
         let (is_module, module) = if let Some(module_id) =
             working_set.find_module(&import_pattern.head.name)
         {
@@ -2151,7 +2164,14 @@ pub fn parse_hide(
                     let mut aliases = vec![];
                     let mut decls = vec![];
 
-                    if let Some(item) = module.alias_name_with_head(name, &import_pattern.head.name)
+                    if name == b"main" {
+                        if module.main.is_some() {
+                            decls.push(import_pattern.head.name.clone());
+                        } else {
+                            error = error.or(Some(ParseError::ExportNotFound(*span)));
+                        }
+                    } else if let Some(item) =
+                        module.alias_name_with_head(name, &import_pattern.head.name)
                     {
                         aliases.push(item);
                     } else if let Some(item) =
@@ -2169,7 +2189,14 @@ pub fn parse_hide(
                     let mut decls = vec![];
 
                     for (name, span) in names {
-                        if let Some(item) =
+                        if name == b"main" {
+                            if module.main.is_some() {
+                                decls.push(import_pattern.head.name.clone());
+                            } else {
+                                error = error.or(Some(ParseError::ExportNotFound(*span)));
+                                break;
+                            }
+                        } else if let Some(item) =
                             module.alias_name_with_head(name, &import_pattern.head.name)
                         {
                             aliases.push(item);
