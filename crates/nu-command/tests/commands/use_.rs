@@ -211,3 +211,95 @@ fn use_module_creates_accurate_did_you_mean_2() {
         "command 'foo' was not found but it exists in module 'spam'; try importing it with `use`"
     ));
 }
+
+#[test]
+fn use_main_1() {
+    let inp = &[
+        r#"module spam { export def main [] { "spam" } }"#,
+        r#"use spam"#,
+        r#"spam"#,
+    ];
+
+    let actual = nu!(cwd: ".", pipeline(&inp.join("; ")));
+
+    assert_eq!(actual.out, "spam");
+}
+
+#[test]
+fn use_main_2() {
+    let inp = &[
+        r#"module spam { export def main [] { "spam" } }"#,
+        r#"use spam spam"#,
+        r#"spam"#,
+    ];
+
+    let actual = nu!(cwd: ".", pipeline(&inp.join("; ")));
+
+    assert_eq!(actual.out, "spam");
+}
+
+#[test]
+fn use_main_3() {
+    let inp = &[
+        r#"module spam { export def main [] { "spam" } }"#,
+        r#"use spam [ spam ]"#,
+        r#"spam"#,
+    ];
+
+    let actual = nu!(cwd: ".", pipeline(&inp.join("; ")));
+
+    assert_eq!(actual.out, "spam");
+}
+
+#[test]
+fn use_main_4() {
+    let inp = &[
+        r#"module spam { export def main [] { "spam" } }"#,
+        r#"use spam *"#,
+        r#"spam"#,
+    ];
+
+    let actual = nu!(cwd: ".", pipeline(&inp.join("; ")));
+
+    assert_eq!(actual.out, "spam");
+}
+
+#[test]
+fn use_main_def_env() {
+    let inp = &[
+        r#"module spam { export def-env main [] { "spam" } }"#,
+        r#"use spam"#,
+        r#"spam"#,
+    ];
+
+    let actual = nu!(cwd: ".", pipeline(&inp.join("; ")));
+
+    assert_eq!(actual.out, "spam");
+}
+
+#[test]
+fn use_main_def_known_external() {
+    // note: requires installed cargo
+    let inp = &[
+        r#"module cargo { export extern main [] }"#,
+        r#"use cargo"#,
+        r#"cargo --version"#,
+    ];
+
+    let actual = nu!(cwd: ".", pipeline(&inp.join("; ")));
+
+    assert!(actual.out.contains("cargo"));
+}
+
+#[test]
+fn use_main_not_exported() {
+    let inp = &[
+        r#"module spam { def main [] { "spam" } }"#,
+        r#"use spam"#,
+        r#"spam"#,
+    ];
+
+    let actual = nu!(cwd: ".", pipeline(&inp.join("; ")));
+
+    assert!(actual.err.contains("external_command"));
+}
