@@ -207,6 +207,14 @@ pub enum ParseError {
         #[label = "can't export from module {1}"] Span,
     ),
 
+    #[error("Can't export alias defined as 'main'.")]
+    #[diagnostic(
+        code(nu::parser::export_main_alias_not_allowed),
+        url(docsrs),
+        help("Exporting aliases as 'main' is not allowed. Either rename the alias or convert it to a custom command.")
+    )]
+    ExportMainAliasNotAllowed(#[label = "can't export from module"] Span),
+
     #[error("Active overlay not found.")]
     #[diagnostic(code(nu::parser::active_overlay_not_found), url(docsrs))]
     ActiveOverlayNotFound(#[label = "not an active overlay"] Span),
@@ -443,6 +451,7 @@ impl ParseError {
             ParseError::CommandDefNotValid(s) => *s,
             ParseError::ModuleNotFound(s) => *s,
             ParseError::NamedAsModule(_, _, s) => *s,
+            ParseError::ExportMainAliasNotAllowed(s) => *s,
             ParseError::CyclicalModuleImport(_, s) => *s,
             ParseError::ModuleOrOverlayNotFound(s) => *s,
             ParseError::ActiveOverlayNotFound(s) => *s,

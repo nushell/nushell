@@ -512,6 +512,15 @@ fn module_invalid_alias_name() {
 }
 
 #[test]
+fn module_main_alias_not_allowed() {
+    let inp = &[r#"module spam { export alias main = 'spam' }"#];
+
+    let actual = nu!(cwd: ".", pipeline(&inp.join("; ")));
+
+    assert!(actual.err.contains("export_main_alias_not_allowed"));
+}
+
+#[test]
 fn module_valid_known_external_name() {
     let inp = &[r#"module spam { extern spam [] }"#];
 

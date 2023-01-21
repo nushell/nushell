@@ -401,3 +401,35 @@ fn hides_all_envs_within_scope() -> TestResult {
         "",
     )
 }
+
+#[test]
+fn hides_main_import_1() -> TestResult {
+    fail_test(
+        r#"module spam { export def main [] { "foo" } }; use spam; hide spam; spam"#,
+        "", // we just care if it errors
+    )
+}
+
+#[test]
+fn hides_main_import_2() -> TestResult {
+    fail_test(
+        r#"module spam { export def main [] { "foo" } }; use spam; hide spam main; spam"#,
+        "", // we just care if it errors
+    )
+}
+
+#[test]
+fn hides_main_import_3() -> TestResult {
+    fail_test(
+        r#"module spam { export def main [] { "foo" } }; use spam; hide spam [ main ]; spam"#,
+        "", // we just care if it errors
+    )
+}
+
+#[test]
+fn hides_main_import_4() -> TestResult {
+    fail_test(
+        r#"module spam { export def main [] { "foo" } }; use spam; hide spam *; spam"#,
+        "", // we just care if it errors
+    )
+}

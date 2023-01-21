@@ -229,7 +229,7 @@ fn use_main_1() {
 fn use_main_2() {
     let inp = &[
         r#"module spam { export def main [] { "spam" } }"#,
-        r#"use spam spam"#,
+        r#"use spam main"#,
         r#"spam"#,
     ];
 
@@ -242,7 +242,7 @@ fn use_main_2() {
 fn use_main_3() {
     let inp = &[
         r#"module spam { export def main [] { "spam" } }"#,
-        r#"use spam [ spam ]"#,
+        r#"use spam [ main ]"#,
         r#"spam"#,
     ];
 
@@ -267,9 +267,10 @@ fn use_main_4() {
 #[test]
 fn use_main_def_env() {
     let inp = &[
-        r#"module spam { export def-env main [] { "spam" } }"#,
+        r#"module spam { export def-env main [] { let-env SPAM = "spam" } }"#,
         r#"use spam"#,
         r#"spam"#,
+        r#"$env.SPAM"#,
     ];
 
     let actual = nu!(cwd: ".", pipeline(&inp.join("; ")));
