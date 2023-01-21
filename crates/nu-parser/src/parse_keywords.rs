@@ -701,6 +701,18 @@ pub fn parse_alias(
                             )),
                         );
                     }
+
+                    if &alias_name == b"main" {
+                        return (
+                            Pipeline::from_vec(vec![Expression {
+                                expr: Expr::Call(call),
+                                span: span(spans),
+                                ty: output,
+                                custom_completion: None,
+                            }]),
+                            Some(ParseError::ExportMainAliasNotAllowed(spans[split_id])),
+                        );
+                    }
                 }
 
                 let _equals = working_set.get_span_contents(spans[split_id + 1]);

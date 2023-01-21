@@ -494,8 +494,17 @@ fn module_invalid_def_name() {
 }
 
 #[test]
-fn module_valid_alias_name() {
+fn module_valid_alias_name_1() {
     let inp = &[r#"module spam { alias spam = "spam" }"#];
+
+    let actual = nu!(cwd: ".", pipeline(&inp.join("; ")));
+
+    assert_eq!(actual.out, "");
+}
+
+#[test]
+fn module_valid_alias_name_2() {
+    let inp = &[r#"module spam { alias main = "spam" }"#];
 
     let actual = nu!(cwd: ".", pipeline(&inp.join("; ")));
 
