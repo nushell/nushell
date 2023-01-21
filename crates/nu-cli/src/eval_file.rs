@@ -56,7 +56,7 @@ pub fn evaluate_file(
         std::process::exit(1);
     });
 
-    let file = std::fs::read(&file_path)
+    let mut file = std::fs::read(&file_path)
         .into_diagnostic()
         .unwrap_or_else(|e| {
             let working_set = StateWorkingSet::new(engine_state);
@@ -73,6 +73,17 @@ pub fn evaluate_file(
             );
             std::process::exit(1);
         });
+
+    // Replace backslash escapes for newlines with nothing
+    for (idx, arr_chars) in file.clone().windows(3).enumerate() {
+        if arr_chars.first() == Some(&b'\\') {
+            if arr_chars.get(1) == Some(&b'\n') {
+                file.drain(idx..(idx + 1));
+            } else if arr_chars.get(1) == Some(&b'\r') && arr_chars.get(2) == Some(&b'\n') {
+                file.drain(idx..(idx + 2));
+            }
+        }
+    }
 
     engine_state.start_in_file(Some(file_path_str));
 
