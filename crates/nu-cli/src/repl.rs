@@ -91,10 +91,10 @@ pub fn evaluate_repl(
     let mut line_editor = Reedline::create();
 
     // Now that reedline is created, get the history session id and store it in engine_state
-    let hist_sesh = match line_editor.get_history_session_id() {
-        Some(id) => i64::from(id),
-        None => 0,
-    };
+    let hist_sesh = line_editor
+        .get_history_session_id()
+        .map(i64::from)
+        .unwrap_or(0);
     engine_state.history_session_id = hist_sesh;
 
     let config = engine_state.get_config();
@@ -217,14 +217,11 @@ pub fn evaluate_repl(
             line_editor.disable_hints()
         };
 
-        line_editor = match add_menus(line_editor, engine_reference, stack, config) {
-            Ok(line_editor) => line_editor,
-            Err(e) => {
-                let working_set = StateWorkingSet::new(engine_state);
-                report_error(&working_set, &e);
-                Reedline::create()
-            }
-        };
+        line_editor = add_menus(line_editor, engine_reference, stack, config).unwrap_or_else(|e| {
+            let working_set = StateWorkingSet::new(engine_state);
+            report_error(&working_set, &e);
+            Reedline::create()
+        });
 
         let buffer_editor = if !config.buffer_editor.is_empty() {
             Some(config.buffer_editor.clone())
@@ -983,32 +980,29 @@ fn run_hook_block(
         }
     }
 
-    match eval_block_with_early_return(engine_state, &mut callee_stack, block, input, false, false)
-    {
-        Ok(pipeline_data) => {
-            if let PipelineData::Value(Value::Error { error }, _) = pipeline_data {
-                return Err(error);
-            }
+    let pipeline_data =
+        eval_block_with_early_return(engine_state, &mut callee_stack, block, input, false, false)?;
 
-            // If all went fine, preserve the environment of the called block
-            let caller_env_vars = stack.get_env_var_names(engine_state);
-
-            // remove env vars that are present in the caller but not in the callee
-            // (the callee hid them)
-            for var in caller_env_vars.iter() {
-                if !callee_stack.has_env_var(engine_state, var) {
-                    stack.remove_env_var(engine_state, var);
-                }
-            }
-
-            // add new env vars from callee to caller
-            for (var, value) in callee_stack.get_stack_env_vars() {
-                stack.add_env_var(var, value);
-            }
-            Ok(pipeline_data)
-        }
-        Err(err) => Err(err),
+    if let PipelineData::Value(Value::Error { error }, _) = pipeline_data {
+        return Err(error);
     }
+
+    // If all went fine, preserve the environment of the called block
+    let caller_env_vars = stack.get_env_var_names(engine_state);
+
+    // remove env vars that are present in the caller but not in the callee
+    // (the callee hid them)
+    for var in caller_env_vars.iter() {
+        if !callee_stack.has_env_var(engine_state, var) {
+            stack.remove_env_var(engine_state, var);
+        }
+    }
+
+    // add new env vars from callee to caller
+    for (var, value) in callee_stack.get_stack_env_vars() {
+        stack.add_env_var(var, value);
+    }
+    Ok(pipeline_data)
 }
 
 fn run_ansi_sequence(seq: &str) -> Result<(), ShellError> {
