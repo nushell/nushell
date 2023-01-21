@@ -1,7 +1,8 @@
-use csv::WriterBuilder;
+use csv::{Writer, WriterBuilder};
 use indexmap::{indexset, IndexSet};
 use nu_protocol::{Config, IntoPipelineData, PipelineData, ShellError, Span, Value};
 use std::collections::VecDeque;
+use std::error::Error;
 
 fn from_value_to_delimited_string(
     value: &Value,
@@ -11,73 +12,86 @@ fn from_value_to_delimited_string(
 ) -> Result<String, ShellError> {
     match value {
         Value::Record { cols, vals, span } => {
-            let mut wtr = WriterBuilder::new()
-                .delimiter(separator as u8)
-                .from_writer(vec![]);
-            let mut fields: VecDeque<String> = VecDeque::new();
-            let mut values: VecDeque<String> = VecDeque::new();
-
-            for (k, v) in cols.iter().zip(vals.iter()) {
-                fields.push_back(k.clone());
-
-                values.push_back(to_string_tagged_value(v, config, head, *span)?);
-            }
-
-            wtr.write_record(fields).expect("can not write.");
-            wtr.write_record(values).expect("can not write.");
-
-            let v = String::from_utf8(wtr.into_inner().map_err(|_| {
-                ShellError::CantConvert("record".to_string(), "string".to_string(), *span, None)
-            })?)
-            .map_err(|_| {
-                ShellError::CantConvert("record".to_string(), "string".to_string(), *span, None)
-            })?;
-            Ok(v)
+            record_to_delimited(cols, vals, span, separator, config, head)
         }
-        Value::List { vals, span } => {
-            let mut wtr = WriterBuilder::new()
-                .delimiter(separator as u8)
-                .from_writer(vec![]);
-
-            let merged_descriptors = merge_descriptors(vals);
-
-            if merged_descriptors.is_empty() {
-                wtr.write_record(
-                    vals.iter()
-                        .map(|ele| {
-                            to_string_tagged_value(ele, config, head, *span)
-                                .unwrap_or_else(|_| String::new())
-                        })
-                        .collect::<Vec<_>>(),
-                )
-                .expect("can not write");
-            } else {
-                wtr.write_record(merged_descriptors.iter().map(|item| &item[..]))
-                    .expect("can not write.");
-
-                for l in vals {
-                    let mut row = vec![];
-                    for desc in &merged_descriptors {
-                        row.push(match l.to_owned().get_data_by_key(desc) {
-                            Some(s) => to_string_tagged_value(&s, config, head, *span)?,
-                            None => String::new(),
-                        });
-                    }
-                    wtr.write_record(&row).expect("can not write");
-                }
-            }
-            let v = String::from_utf8(wtr.into_inner().map_err(|_| {
-                ShellError::CantConvert("record".to_string(), "string".to_string(), *span, None)
-            })?)
-            .map_err(|_| {
-                ShellError::CantConvert("record".to_string(), "string".to_string(), *span, None)
-            })?;
-            Ok(v)
-        }
+        Value::List { vals, span } => table_to_delimited(vals, span, separator, config, head),
         // Propagate errors by explicitly matching them before the final case.
         Value::Error { error } => Err(error.clone()),
         other => to_string_tagged_value(value, config, other.expect_span(), head),
     }
+}
+
+fn record_to_delimited(
+    cols: &Vec<String>,
+    vals: &Vec<Value>,
+    span: &Span,
+    separator: char,
+    config: &Config,
+    head: Span,
+) -> Result<String, ShellError> {
+    let mut wtr = WriterBuilder::new()
+        .delimiter(separator as u8)
+        .from_writer(vec![]);
+    let mut fields: VecDeque<String> = VecDeque::new();
+    let mut values: VecDeque<String> = VecDeque::new();
+
+    for (k, v) in cols.iter().zip(vals.iter()) {
+        fields.push_back(k.clone());
+
+        values.push_back(to_string_tagged_value(v, config, head, *span)?);
+    }
+
+    wtr.write_record(fields).expect("can not write.");
+    wtr.write_record(values).expect("can not write.");
+
+    writer_to_string(wtr).map_err(|_| make_conversion_error("record", span))
+}
+
+fn table_to_delimited(
+    vals: &Vec<Value>,
+    span: &Span,
+    separator: char,
+    config: &Config,
+    head: Span,
+) -> Result<String, ShellError> {
+    let mut wtr = WriterBuilder::new()
+        .delimiter(separator as u8)
+        .from_writer(vec![]);
+
+    let merged_descriptors = merge_descriptors(vals);
+
+    if merged_descriptors.is_empty() {
+        let vals = vals
+            .iter()
+            .map(|ele| {
+                to_string_tagged_value(ele, config, head, *span).unwrap_or_else(|_| String::new())
+            })
+            .collect::<Vec<_>>();
+        wtr.write_record(vals).expect("can not write");
+    } else {
+        wtr.write_record(merged_descriptors.iter().map(|item| &item[..]))
+            .expect("can not write.");
+
+        for l in vals {
+            let mut row = vec![];
+            for desc in &merged_descriptors {
+                row.push(match l.to_owned().get_data_by_key(desc) {
+                    Some(s) => to_string_tagged_value(&s, config, head, *span)?,
+                    None => String::new(),
+                });
+            }
+            wtr.write_record(&row).expect("can not write");
+        }
+    }
+    writer_to_string(wtr).map_err(|_| make_conversion_error("table", span))
+}
+
+fn writer_to_string(writer: Writer<Vec<u8>>) -> Result<String, Box<dyn Error>> {
+    Ok(String::from_utf8(writer.into_inner()?)?)
+}
+
+fn make_conversion_error(type_from: &str, span: &Span) -> ShellError {
+    ShellError::CantConvert(type_from.to_string(), "string".to_string(), *span, None)
 }
 
 fn to_string_tagged_value(
