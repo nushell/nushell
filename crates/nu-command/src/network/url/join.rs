@@ -1,5 +1,5 @@
 use nu_protocol::engine::{Command, EngineState, Stack};
-use nu_protocol::{Category, IntoPipelineData, ShellError, Signature, Span, Type, Value};
+use nu_protocol::{Category, Example, IntoPipelineData, ShellError, Signature, Span, Type, Value};
 
 #[derive(Clone)]
 pub struct SubCommand;
@@ -17,6 +17,64 @@ impl Command for SubCommand {
 
     fn usage(&self) -> &str {
         "Converts a record to url"
+    }
+
+    fn search_terms(&self) -> Vec<&str> {
+        vec![
+            "scheme", "username", "password", "hostname", "port", "path", "query", "fragment",
+        ]
+    }
+
+    fn examples(&self) -> Vec<Example> {
+        vec![
+            Example {
+                description: "Outputs a url representing the contents of this record",
+                example: r#"{
+                    "scheme": "http",
+                    "username": "",
+                    "password": "",
+                    "host": "www.pixiv.net",
+                    "port": "",
+                    "path": "/member_illust.php",
+                    "query": "mode=medium&illust_id=99260204",
+                    "fragment": "",
+                    "params":
+                    {
+                      "mode": "medium",
+                      "illust_id": "99260204"
+                    }
+                  } | url join"#,
+                result: Some(Value::test_string(
+                    "http://www.pixiv.net/member_illust.php?mode=medium&illust_id=99260204",
+                )),
+            },
+            Example {
+                description: "Outputs a url representing the contents of this record",
+                example: r#"{
+                    "scheme": "http",
+                    "username": "user",
+                    "password": "pwd",
+                    "host": "www.pixiv.net",
+                    "port": "1234",
+                    "query": "test=a",
+                    "fragment": ""
+                  } | url join"#,
+                result: Some(Value::test_string(
+                    "http://user:pwd@www.pixiv.net:1234?test=a",
+                )),
+            },
+            Example {
+                description: "Outputs a url representing the contents of this record",
+                example: r#"{
+                    "scheme": "http",
+                    "host": "www.pixiv.net",
+                    "port": "1234",
+                    "path": "user",
+                    "fragment": "frag"
+                  } | url join"#,
+                result: Some(Value::test_string("http://www.pixiv.net:1234/user#frag")),
+            },
+        ]
     }
 
     fn run(
@@ -43,7 +101,7 @@ impl Command for SubCommand {
                             url?.add_component(k.clone(), v.clone(), span)
                         });
 
-                    url_components?.to_url(head, span)
+                    url_components?.to_url(span)
                 }
                 Value::Error { error } => Err(error),
                 other => Err(ShellError::UnsupportedInput(
@@ -59,7 +117,7 @@ impl Command for SubCommand {
     }
 }
 
-#[derive(Default, Debug)]
+#[derive(Default)]
 struct UrlComponents {
     scheme: Option<String>,
     username: Option<String>,
@@ -69,6 +127,8 @@ struct UrlComponents {
     path: Option<String>,
     query: Option<String>,
     fragment: Option<String>,
+    query_span: Option<Span>,
+    params_span: Option<Span>,
 }
 
 impl UrlComponents {
@@ -80,7 +140,7 @@ impl UrlComponents {
         self: Self,
         key: String,
         value: Value,
-        span: Span,
+        _span: Span,
     ) -> Result<Self, ShellError> {
         if key == "port" {
             return match value {
@@ -100,10 +160,11 @@ impl UrlComponents {
                         }
                     }
                 }
-                Value::Int { val, span } => Ok(Self {
+                Value::Int { val, span: _ } => Ok(Self {
                     port: Some(val),
                     ..self
                 }),
+                Value::Error { error } => Err(error),
                 other => Err(ShellError::IncompatibleParametersSingle(
                     String::from(
                         "Port parameter should be an unsigned integer or a string representing it",
@@ -135,15 +196,19 @@ impl UrlComponents {
 
                     if let Some(q) = self.query {
                         if q != qs {
-                            return Err(ShellError::IncompatibleParametersSingle(
-                                String::from("Parameters query and params are in conflict"),
-                                span,
-                            ));
+                            // if query is present it means that also query_span is setted.
+                            return Err(ShellError::IncompatibleParameters {
+                                left_message: format!("Mismatch, qs from params is: {}", qs),
+                                left_span: value.expect_span(),
+                                right_message: format!("instead query is: {}", q),
+                                right_span: self.query_span.unwrap(),
+                            });
                         }
                     }
 
                     Ok(Self {
                         query: Some(qs),
+                        params_span: Some(span),
                         ..self
                     })
                 }
@@ -155,62 +220,73 @@ impl UrlComponents {
             };
         }
 
+        // a part from port and params all other keys are strings.
         match value.as_string() {
-            Ok(s) => match key.as_str() {
-                "host" => Ok(Self {
-                    host: Some(s),
-                    ..self
-                }),
-                "scheme" => Ok(Self {
-                    scheme: Some(s),
-                    ..self
-                }),
-                "username" => Ok(Self {
-                    username: Some(s),
-                    ..self
-                }),
-                "password" => Ok(Self {
-                    password: Some(s),
-                    ..self
-                }),
-                "path" => Ok(Self {
-                    path: Some(if s.starts_with('/') {
-                        s
-                    } else {
-                        format!("/{}", s)
-                    }),
-                    ..self
-                }),
-                "query" => {
-                    if let Some(q) = self.query {
-                        if q != s {
-                            return Err(ShellError::IncompatibleParametersSingle(
-                                String::from("Parameters query and params are in conflict"),
-                                span,
-                            ));
-                        }
-                    }
+            Ok(s) => {
+                if s.trim().is_empty() {
+                    Ok(self)
+                } else {
+                    match key.as_str() {
+                        "host" => Ok(Self {
+                            host: Some(s),
+                            ..self
+                        }),
+                        "scheme" => Ok(Self {
+                            scheme: Some(s),
+                            ..self
+                        }),
+                        "username" => Ok(Self {
+                            username: Some(s),
+                            ..self
+                        }),
+                        "password" => Ok(Self {
+                            password: Some(s),
+                            ..self
+                        }),
+                        "path" => Ok(Self {
+                            path: Some(if s.starts_with('/') {
+                                s
+                            } else {
+                                format!("/{}", s)
+                            }),
+                            ..self
+                        }),
+                        "query" => {
+                            if let Some(q) = self.query {
+                                if q != s {
+                                    // if query is present it means that also params_span is setted.
+                                    return Err(ShellError::IncompatibleParameters {
+                                        left_message: format!("Mismatch, query param is: {}", s),
+                                        left_span: value.expect_span(),
+                                        right_message: format!("instead qs from params is: {}", q),
+                                        right_span: self.params_span.unwrap(),
+                                    });
+                                }
+                            }
 
-                    Ok(Self {
-                        query: Some(format!("?{}", s)),
-                        ..self
-                    })
+                            Ok(Self {
+                                query: Some(format!("?{}", s)),
+                                query_span: Some(value.expect_span()),
+                                ..self
+                            })
+                        }
+                        "fragment" => Ok(Self {
+                            fragment: Some(if s.starts_with("#") {
+                                s
+                            } else {
+                                format!("#{}", s)
+                            }),
+                            ..self
+                        }),
+                        _ => Ok(self),
+                    }
                 }
-                "fragment" => Ok(Self {
-                    fragment: Some(if s.starts_with("#") {
-                        s
-                    } else {
-                        format!("#{}", s)
-                    }),
-                    ..self
-                }),
-                _ => Ok(self),
-            },
+            }
             _ => Ok(self),
         }
     }
 
-    pub fn to_url(self: &Self, head: Span, span: Span) -> Result<String, ShellError> {
+    pub fn to_url(self: &Self, span: Span) -> Result<String, ShellError> {
         let mut user_and_pwd: String = String::from("");
 
         if let Some(usr) = &self.username {
@@ -222,13 +298,17 @@ impl UrlComponents {
         Ok(format!(
             "{}://{}{}{}{}{}{}",
             self.scheme.as_ref().ok_or(
-                UrlComponents::generate_shell_error_for_missing_parameter("scheme", head, span)
+                UrlComponents::generate_shell_error_for_missing_parameter(
+                    String::from("scheme"),
+                    span
+                )
             )?,
             user_and_pwd,
             self.host
                 .as_ref()
                 .ok_or(UrlComponents::generate_shell_error_for_missing_parameter(
-                    "host", head, span
+                    String::from("host"),
+                    span
                 ))?,
             self.port
                 .map(|p| format!(":{}", p))
@@ -240,16 +320,19 @@ impl UrlComponents {
         ))
     }
 
-    fn generate_shell_error_for_missing_parameter(
-        pname: &str,
-        head: Span,
-        span: Span,
-    ) -> ShellError {
-        ShellError::UnsupportedInput(
-            format!("Missing required param: {}", pname),
-            String::from("value originates from here"),
-            head,
-            span,
-        )
+    fn generate_shell_error_for_missing_parameter(pname: String, span: Span) -> ShellError {
+        ShellError::MissingParameter(pname, span)
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use super::*;
+
+    #[test]
+    fn test_examples() {
+        use crate::test_examples;
+
+        test_examples(SubCommand {})
     }
 }
