@@ -540,13 +540,23 @@ pub fn parse_extern(
             if let Some(decl_id) = working_set.find_predecl(name.as_bytes()) {
                 let declaration = working_set.get_decl_mut(decl_id);
 
-                signature.name = name.clone();
+                let external_name = if let Some(mod_name) = module_name {
+                    if name.as_bytes() == b"main" {
+                        String::from_utf8_lossy(mod_name).to_string()
+                    } else {
+                        name.clone()
+                    }
+                } else {
+                    name.clone()
+                };
+
+                signature.name = external_name.clone();
                 signature.usage = usage.clone();
                 signature.extra_usage = extra_usage.clone();
                 signature.allows_unknown_args = true;
 
                 let decl = KnownExternal {
-                    name: name.to_string(),
+                    name: external_name,
                     usage: [usage, extra_usage].join("\n"),
                     signature,
                 };
