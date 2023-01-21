@@ -234,8 +234,5 @@ fn escape_newline_with_backslash() {
             nu multiline_command.nu
         "#);
 
-    assert_eq!(
-        actual.out,
-        "2"
-    );
+    assert_eq!(actual.out, "2");
 }
