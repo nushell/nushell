@@ -130,32 +130,36 @@ impl Prompt for NushellPrompt {
     fn render_prompt_indicator(&self, edit_mode: PromptEditMode) -> Cow<str> {
         match edit_mode {
             PromptEditMode::Default => match &self.default_prompt_indicator {
-                Some(indicator) => indicator.as_str().into(),
-                None => "〉".into(),
-            },
+                Some(indicator) => indicator,
+                None => "〉",
+            }
+            .into(),
             PromptEditMode::Emacs => match &self.default_prompt_indicator {
-                Some(indicator) => indicator.as_str().into(),
-                None => "〉".into(),
-            },
+                Some(indicator) => indicator,
+                None => "〉",
+            }
+            .into(),
             PromptEditMode::Vi(vi_mode) => match vi_mode {
                 PromptViMode::Normal => match &self.default_vi_normal_prompt_indicator {
-                    Some(indicator) => indicator.as_str().into(),
-                    None => ": ".into(),
+                    Some(indicator) => indicator,
+                    None => ": ",
                 },
                 PromptViMode::Insert => match &self.default_vi_insert_prompt_indicator {
-                    Some(indicator) => indicator.as_str().into(),
-                    None => "〉".into(),
+                    Some(indicator) => indicator,
+                    None => "〉",
                 },
-            },
+            }
+            .into(),
             PromptEditMode::Custom(str) => self.default_wrapped_custom_string(str).into(),
         }
     }
 
     fn render_prompt_multiline_indicator(&self) -> Cow<str> {
         match &self.default_multiline_indicator {
-            Some(indicator) => indicator.as_str().into(),
-            None => "::: ".into(),
+            Some(indicator) => indicator,
+            None => "::: ",
         }
+        .into()
     }
 
     fn render_prompt_history_search_indicator(
