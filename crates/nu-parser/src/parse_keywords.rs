@@ -341,9 +341,11 @@ pub fn parse_def(
     let name = if let Some(name) = name_expr.as_string() {
         if let Some(mod_name) = module_name {
             if name.as_bytes() == mod_name {
+                let name_expr_span = name_expr.span;
+
                 return (
                     Pipeline::from_vec(vec![Expression {
-                        expr: Expr::Call(call.clone()),
+                        expr: Expr::Call(call),
                         span: call_span,
                         ty: Type::Any,
                         custom_completion: None,
@@ -351,7 +353,7 @@ pub fn parse_def(
                     Some(ParseError::NamedAsModule(
                         "command".to_string(),
                         name,
-                        name_expr.span,
+                        name_expr_span,
                     )),
                 );
             }
@@ -432,7 +434,7 @@ pub fn parse_def(
 
     (
         Pipeline::from_vec(vec![Expression {
-            expr: Expr::Call(call.clone()),
+            expr: Expr::Call(call),
             span: call_span,
             ty: Type::Any,
             custom_completion: None,
@@ -518,9 +520,10 @@ pub fn parse_extern(
         if let (Some(name), Some(mut signature)) = (&name_expr.as_string(), sig.as_signature()) {
             if let Some(mod_name) = module_name {
                 if name.as_bytes() == mod_name {
+                    let name_expr_span = name_expr.span;
                     return (
                         Pipeline::from_vec(vec![Expression {
-                            expr: Expr::Call(call.clone()),
+                            expr: Expr::Call(call),
                             span: call_span,
                             ty: Type::Any,
                             custom_completion: None,
@@ -528,7 +531,7 @@ pub fn parse_extern(
                         Some(ParseError::NamedAsModule(
                             "known external".to_string(),
                             name.clone(),
-                            name_expr.span,
+                            name_expr_span,
                         )),
                     );
                 }
@@ -686,7 +689,7 @@ pub fn parse_alias(
                 };
 
                 if let Some(mod_name) = module_name {
-                    if &alias_name == mod_name {
+                    if alias_name == mod_name {
                         return (
                             Pipeline::from_vec(vec![Expression {
                                 expr: Expr::Call(call),
