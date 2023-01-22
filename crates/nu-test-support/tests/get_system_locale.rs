@@ -1,3 +1,5 @@
+#![cfg(debug_assertions)]
+
 use nu_test_support::locale_override::with_locale_override;
 use nu_utils::get_system_locale;
 use num_format::Grouping;
