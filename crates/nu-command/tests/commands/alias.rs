@@ -119,5 +119,5 @@ fn alias_short_attr2() {
         "#
     ));
 
-    assert!(actual.out.contains("first_one"));
+    assert_eq!(actual.out, "first_one");
 }
