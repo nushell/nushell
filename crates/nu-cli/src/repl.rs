@@ -1006,18 +1006,15 @@ fn run_hook_block(
 }
 
 fn run_ansi_sequence(seq: &str) -> Result<(), ShellError> {
-    match io::stdout().write_all(seq.as_bytes()) {
-        Ok(it) => it,
-        Err(err) => {
-            return Err(ShellError::GenericError(
-                "Error writing ansi sequence".into(),
-                err.to_string(),
-                Some(Span::unknown()),
-                None,
-                Vec::new(),
-            ));
-        }
-    };
+    io::stdout().write_all(seq.as_bytes()).map_err(|e| {
+        ShellError::GenericError(
+            "Error writing ansi sequence".into(),
+            e.to_string(),
+            Some(Span::unknown()),
+            None,
+            Vec::new(),
+        )
+    })?;
     io::stdout().flush().map_err(|e| {
         ShellError::GenericError(
             "Error flushing stdio".into(),

@@ -315,27 +315,19 @@ pub fn report_error_new(
 }
 
 pub fn get_init_cwd() -> PathBuf {
-    match std::env::current_dir() {
-        Ok(cwd) => cwd,
-        Err(_) => match std::env::var("PWD") {
-            Ok(cwd) => PathBuf::from(cwd),
-            Err(_) => match nu_path::home_dir() {
-                Some(cwd) => cwd,
-                None => PathBuf::new(),
-            },
-        },
-    }
+    std::env::current_dir().unwrap_or_else(|_| {
+        std::env::var("PWD")
+            .map(Into::into)
+            .unwrap_or_else(|_| nu_path::home_dir().unwrap_or_default())
+    })
 }
 
 pub fn get_guaranteed_cwd(engine_state: &EngineState, stack: &Stack) -> PathBuf {
-    match nu_engine::env::current_dir(engine_state, stack) {
-        Ok(p) => p,
-        Err(e) => {
-            let working_set = StateWorkingSet::new(engine_state);
-            report_error(&working_set, &e);
-            get_init_cwd()
-        }
-    }
+    nu_engine::env::current_dir(engine_state, stack).unwrap_or_else(|e| {
+        let working_set = StateWorkingSet::new(engine_state);
+        report_error(&working_set, &e);
+        get_init_cwd()
+    })
 }
 
 #[cfg(test)]
