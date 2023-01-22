@@ -110,7 +110,7 @@ fn alias_short_attr2() {
     ));
 
     assert!(actual.err.is_empty());
-    assert!(actual.out.contains("second_one"));
+    assert_eq!(actual.out, "second_one");
 
     let actual = nu!(
         cwd: ".", pipeline(
