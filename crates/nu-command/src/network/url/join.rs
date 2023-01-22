@@ -136,12 +136,7 @@ impl UrlComponents {
         Default::default()
     }
 
-    pub fn add_component(
-        self: Self,
-        key: String,
-        value: Value,
-        _span: Span,
-    ) -> Result<Self, ShellError> {
+    pub fn add_component(self, key: String, value: Value, _span: Span) -> Result<Self, ShellError> {
         if key == "port" {
             return match value {
                 Value::String { val, span } => {
@@ -189,8 +184,7 @@ impl UrlComponents {
                             Err(err) => Err(err),
                         })
                         .collect::<Result<Vec<String>, ShellError>>()?
-                        .join("&")
-                        .to_string();
+                        .join("&");
 
                     qs = format!("?{}", qs);
 
@@ -201,7 +195,9 @@ impl UrlComponents {
                                 left_message: format!("Mismatch, qs from params is: {}", qs),
                                 left_span: value.expect_span(),
                                 right_message: format!("instead query is: {}", q),
-                                right_span: self.query_span.unwrap(),
+                                right_span: self
+                                    .query_span
+                                    .expect("query param span should be present"),
                             });
                         }
                     }
@@ -259,7 +255,9 @@ impl UrlComponents {
                                         left_message: format!("Mismatch, query param is: {}", s),
                                         left_span: value.expect_span(),
                                         right_message: format!("instead qs from params is: {}", q),
-                                        right_span: self.params_span.unwrap(),
+                                        right_span: self
+                                            .params_span
+                                            .expect("params span should be present"),
                                     });
                                 }
                             }
@@ -271,7 +269,7 @@ impl UrlComponents {
                             })
                         }
                         "fragment" => Ok(Self {
-                            fragment: Some(if s.starts_with("#") {
+                            fragment: Some(if s.starts_with('#') {
                                 s
                             } else {
                                 format!("#{}", s)
@@ -286,7 +284,7 @@ impl UrlComponents {
         }
     }
 
-    pub fn to_url(self: &Self, span: Span) -> Result<String, ShellError> {
+    pub fn to_url(&self, span: Span) -> Result<String, ShellError> {
         let mut user_and_pwd: String = String::from("");
 
         if let Some(usr) = &self.username {
@@ -295,21 +293,27 @@ impl UrlComponents {
             }
         }
 
+        let scheme_result = match &self.scheme {
+            Some(s) => Ok(s),
+            None => Err(UrlComponents::generate_shell_error_for_missing_parameter(
+                String::from("scheme"),
+                span,
+            )),
+        };
+
+        let host_result = match &self.host {
+            Some(h) => Ok(h),
+            None => Err(UrlComponents::generate_shell_error_for_missing_parameter(
+                String::from("host"),
+                span,
+            )),
+        };
+
         Ok(format!(
             "{}://{}{}{}{}{}{}",
-            self.scheme.as_ref().ok_or(
-                UrlComponents::generate_shell_error_for_missing_parameter(
-                    String::from("scheme"),
-                    span
-                )
-            )?,
+            scheme_result?,
             user_and_pwd,
-            self.host
-                .as_ref()
-                .ok_or(UrlComponents::generate_shell_error_for_missing_parameter(
-                    String::from("host"),
-                    span
-                ))?,
+            host_result?,
             self.port
                 .map(|p| format!(":{}", p))
                 .as_ref()
