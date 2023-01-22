@@ -87,3 +87,37 @@ fn alias_alone_lists_aliases() {
     ));
     assert!(actual.out.contains("name") && actual.out.contains("expansion"));
 }
+
+#[test]
+fn alias_short_attr1() {
+    let actual = nu!(
+        cwd: ".", pipeline(
+        r#"
+            alias t = if not true { ls } else { echo "should_type_this"}; t
+        "#
+    ));
+
+    assert_eq!(actual.out, "should_type_this");
+}
+
+#[test]
+fn alias_short_attr2() {
+    let actual = nu!(
+        cwd: ".", pipeline(
+        r#"
+            alias vi = if not ( [] | is-empty) { echo "first_one" } else if not ( [1] | is-empty) { echo "second_one" } ; vi;
+        "#
+    ));
+
+    assert!(actual.err.is_empty());
+    assert!(actual.out.contains("second_one"));
+
+    let actual = nu!(
+        cwd: ".", pipeline(
+        r#"
+            alias v = if not false { echo "first_one" } else { echo "second_one" }; v;
+        "#
+    ));
+
+    assert!(actual.out.contains("first_one"));
+}
