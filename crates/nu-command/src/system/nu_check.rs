@@ -302,12 +302,14 @@ fn parse_module(
     is_debug: bool,
     span: Span,
 ) -> Result<PipelineData, ShellError> {
+    let filename = filename.unwrap_or_else(|| "empty".to_string());
+
     let start = working_set.next_span_start();
-    working_set.add_file(filename.unwrap_or_else(|| "empty".to_string()), contents);
+    working_set.add_file(filename.clone(), contents);
     let end = working_set.next_span_start();
 
     let new_span = Span::new(start, end);
-    let (_, _, _, err) = parse_module_block(working_set, new_span, &[]);
+    let (_, _, _, err) = parse_module_block(working_set, new_span, filename.as_bytes(), &[]);
 
     if err.is_some() {
         if is_debug {

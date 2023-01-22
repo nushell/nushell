@@ -314,3 +314,31 @@ fn help_usage_extra_usage() {
         assert!(!actual.out.contains("alias_line2"));
     })
 }
+
+#[test]
+fn help_modules_main_1() {
+    let inp = &[
+        r#"module spam {
+            export def main [] { 'foo' };
+        }"#,
+        "help spam",
+    ];
+
+    let actual = nu!(cwd: ".", pipeline(&inp.join("; ")));
+
+    assert!(actual.out.contains("  spam"));
+}
+
+#[test]
+fn help_modules_main_2() {
+    let inp = &[
+        r#"module spam {
+            export def main [] { 'foo' };
+        }"#,
+        "help modules | where name == spam | get 0.commands.0",
+    ];
+
+    let actual = nu!(cwd: ".", pipeline(&inp.join("; ")));
+
+    assert_eq!(actual.out, "spam");
+}

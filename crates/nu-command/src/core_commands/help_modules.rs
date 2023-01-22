@@ -151,15 +151,11 @@ pub fn help_modules(
         long_desc.push_str(&format!("{G}Module{RESET}: {C}{name}{RESET}"));
         long_desc.push_str("\n\n");
 
-        if !module.decls.is_empty() {
+        if !module.decls.is_empty() || module.main.is_some() {
             let commands: Vec<(Vec<u8>, DeclId)> = engine_state.get_decls_sorted(false).collect();
 
-            let mut module_commands: Vec<(&[u8], DeclId)> = module
-                .decls
-                .iter()
-                .map(|(name, id)| (name.as_ref(), *id))
-                .collect();
-            module_commands.sort_by(|a, b| a.0.cmp(b.0));
+            let mut module_commands = module.decls();
+            module_commands.sort_by(|a, b| a.0.cmp(&b.0));
 
             let commands_str = module_commands
                 .iter()
