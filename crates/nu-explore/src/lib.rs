@@ -171,15 +171,8 @@ fn create_help_manual(cmd: &Command) -> HelpManual {
 }
 
 fn __create_help_manual(manual: Option<HelpManual>, name: &'static str) -> HelpManual {
-    match manual {
-        Some(manual) => manual,
-        None => HelpManual {
-            name,
-            description: "",
-            arguments: Vec::new(),
-            examples: Vec::new(),
-            input: Vec::new(),
-            config_options: Vec::new(),
-        },
-    }
+    manual.unwrap_or(HelpManual {
+        name,
+        ..HelpManual::default()
+    })
 }
