@@ -197,7 +197,7 @@ impl UrlComponents {
                                 right_message: format!("instead query is: {}", q),
                                 right_span: self
                                     .query_span
-                                    .expect("query param span should be present"),
+                                    .unwrap_or(Span::unknown()),
                             });
                         }
                     }
@@ -257,7 +257,7 @@ impl UrlComponents {
                                         right_message: format!("instead qs from params is: {}", q),
                                         right_span: self
                                             .params_span
-                                            .expect("params span should be present"),
+                                            .unwrap_or(Span::unknown()),
                                     });
                                 }
                             }
@@ -316,11 +316,11 @@ impl UrlComponents {
             host_result?,
             self.port
                 .map(|p| format!(":{}", p))
-                .as_ref()
-                .unwrap_or(&String::from("")),
-            self.path.as_ref().unwrap_or(&String::from("")),
-            self.query.as_ref().unwrap_or(&String::from("")),
-            self.fragment.as_ref().unwrap_or(&String::from(""))
+                .as_deref()
+                .unwrap_or_default(),
+            self.path.as_deref().unwrap_or_default(),
+            self.query.as_deref().unwrap_or_default(),
+            self.fragment.as_deref().unwrap_or_default()
         ))
     }
 
