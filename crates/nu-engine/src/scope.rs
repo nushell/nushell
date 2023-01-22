@@ -505,9 +505,9 @@ impl<'e, 's> ScopeData<'e, 's> {
             let module = self.engine_state.get_module(**module_id);
 
             let export_commands: Vec<Value> = module
-                .decls
-                .keys()
-                .map(|bytes| Value::string(String::from_utf8_lossy(bytes), span))
+                .decls()
+                .iter()
+                .map(|(bytes, _)| Value::string(String::from_utf8_lossy(bytes), span))
                 .collect();
 
             let export_aliases: Vec<Value> = module
