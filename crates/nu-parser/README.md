@@ -93,6 +93,6 @@ When the command runs, it will now be able to evaluate the whole math expression
 
 As some Shapes can consume multiple tokens, it's important that the parser allow for multiple Shapes to coexist as peacefully as possible.
 
-The simplest way it does this, is to ensure there is at least one token for each required parameter. If the Signature of the command says that it takes a MathExpression and a Number as two required arguments, then the parser will stop the math parser one token short. This allows the second Shape to consume the final token.
+The simplest way it does this is to ensure there is at least one token for each required parameter. If the Signature of the command says that it takes a MathExpression and a Number as two required arguments, then the parser will stop the math parser one token short. This allows the second Shape to consume the final token.
 
 Another way that the parser makes space is to look for Keyword shapes in the Signature. A Keyword is a word that's special to this command. For example in the `if` command, `else` is a keyword. When it is found in the arguments, the parser will use it as a signpost for where to make space for each Shape. The tokens leading up to the `else` will then feed into the parts of the Signature before the `else`, and the tokens following are consumed by the `else` and the Shapes that follow.
