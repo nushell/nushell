@@ -27,14 +27,11 @@ pub(crate) fn read_config_file(
         let working_set = StateWorkingSet::new(engine_state);
         let cwd = working_set.get_cwd();
 
-        match canonicalize_with(&file.item, cwd) {
-            Ok(path) => {
-                eval_config_contents(path, engine_state, stack);
-            }
-            Err(_) => {
-                let e = ParseError::FileNotFound(file.item, file.span);
-                report_error(&working_set, &e);
-            }
+        if let Ok(path) = canonicalize_with(&file.item, cwd) {
+            eval_config_contents(path, engine_state, stack);
+        } else {
+            let e = ParseError::FileNotFound(file.item, file.span);
+            report_error(&working_set, &e);
         }
     } else if let Some(mut config_path) = nu_path::config_dir() {
         config_path.push(NUSHELL_FOLDER);
@@ -74,9 +71,9 @@ pub(crate) fn read_config_file(
             };
 
             match answer.to_lowercase().trim() {
-                "y" | "" => match File::create(&config_path) {
-                    Ok(mut output) => match write!(output, "{}", config_file) {
-                        Ok(_) => {
+                "y" | "" => {
+                    if let Ok(mut output) = File::create(&config_path) {
+                        if write!(output, "{}", config_file).is_ok() {
                             let config_type = if is_env_config {
                                 "Environment config"
                             } else {
@@ -87,8 +84,7 @@ pub(crate) fn read_config_file(
                                 config_type,
                                 config_path.to_string_lossy()
                             );
-                        }
-                        Err(_) => {
+                        } else {
                             eprintln!(
                                 "Unable to write to {}, sourcing default file instead",
                                 config_path.to_string_lossy(),
@@ -96,8 +92,7 @@ pub(crate) fn read_config_file(
                             eval_default_config(engine_state, stack, config_file, is_env_config);
                             return;
                         }
-                    },
-                    Err(_) => {
+                    } else {
                         eprintln!(
                             "Unable to create {}, sourcing default file instead",
                             config_file
@@ -105,7 +100,7 @@ pub(crate) fn read_config_file(
                         eval_default_config(engine_state, stack, config_file, is_env_config);
                         return;
                     }
-                },
+                }
                 _ => {
                     eval_default_config(engine_state, stack, config_file, is_env_config);
                     return;

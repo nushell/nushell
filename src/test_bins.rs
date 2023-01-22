@@ -154,12 +154,8 @@ pub fn nu_repl() {
     let mut last_output = String::new();
 
     for (i, line) in source_lines.iter().enumerate() {
-        let cwd = match nu_engine::env::current_dir(&engine_state, &stack) {
-            Ok(d) => d,
-            Err(err) => {
-                outcome_err(&engine_state, &err);
-            }
-        };
+        let cwd = nu_engine::env::current_dir(&engine_state, &stack)
+            .unwrap_or_else(|err| outcome_err(&engine_state, &err));
 
         // Before doing anything, merge the environment from the previous REPL iteration into the
         // permanent state.
@@ -226,10 +222,9 @@ pub fn nu_repl() {
         }
 
         if let Some(cwd) = stack.get_env_var(&engine_state, "PWD") {
-            let path = match cwd.as_string() {
-                Ok(p) => p,
-                Err(err) => outcome_err(&engine_state, &err),
-            };
+            let path = cwd
+                .as_string()
+                .unwrap_or_else(|err| outcome_err(&engine_state, &err));
             let _ = std::env::set_current_dir(path);
             engine_state.add_env_var("PWD".into(), cwd);
         }
