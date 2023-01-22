@@ -29,21 +29,21 @@ impl Command for SubCommand {
         vec![
             Example {
                 description: "Outputs a url representing the contents of this record",
-                example: r#"{
-                    "scheme": "http",
-                    "username": "",
-                    "password": "",
-                    "host": "www.pixiv.net",
-                    "port": "",
-                    "path": "/member_illust.php",
-                    "query": "mode=medium&illust_id=99260204",
-                    "fragment": "",
-                    "params":
-                    {
-                      "mode": "medium",
-                      "illust_id": "99260204"
-                    }
-                  } | url join"#,
+                example: r#"{ 
+        "scheme": "http",
+        "username": "",
+        "password": "",
+        "host": "www.pixiv.net",
+        "port": "",
+        "path": "/member_illust.php",
+        "query": "mode=medium&illust_id=99260204",
+        "fragment": "",
+        "params":
+        {
+            "mode": "medium",
+            "illust_id": "99260204"
+        }
+    } | url join"#,
                 result: Some(Value::test_string(
                     "http://www.pixiv.net/member_illust.php?mode=medium&illust_id=99260204",
                 )),
@@ -51,14 +51,14 @@ impl Command for SubCommand {
             Example {
                 description: "Outputs a url representing the contents of this record",
                 example: r#"{
-                    "scheme": "http",
-                    "username": "user",
-                    "password": "pwd",
-                    "host": "www.pixiv.net",
-                    "port": "1234",
-                    "query": "test=a",
-                    "fragment": ""
-                  } | url join"#,
+        "scheme": "http",
+        "username": "user",
+        "password": "pwd",
+        "host": "www.pixiv.net",
+        "port": "1234",
+        "query": "test=a",
+        "fragment": ""
+    } | url join"#,
                 result: Some(Value::test_string(
                     "http://user:pwd@www.pixiv.net:1234?test=a",
                 )),
@@ -66,12 +66,12 @@ impl Command for SubCommand {
             Example {
                 description: "Outputs a url representing the contents of this record",
                 example: r#"{
-                    "scheme": "http",
-                    "host": "www.pixiv.net",
-                    "port": "1234",
-                    "path": "user",
-                    "fragment": "frag"
-                  } | url join"#,
+        "scheme": "http",
+        "host": "www.pixiv.net",
+        "port": "1234",
+        "path": "user",
+        "fragment": "frag"
+    } | url join"#,
                 result: Some(Value::test_string("http://www.pixiv.net:1234/user#frag")),
             },
         ]
