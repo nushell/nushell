@@ -6,6 +6,7 @@ use crate::{
     NuHighlighter, NuValidator, NushellPrompt,
 };
 use crossterm::cursor::CursorShape;
+use devtimer::SimpleTimer;
 use log::{info, trace, warn};
 use miette::{IntoDiagnostic, Result};
 use nu_color_config::StyleComputer;
@@ -41,6 +42,7 @@ pub fn evaluate_repl(
     stack: &mut Stack,
     nushell_path: &str,
     prerun_command: Option<Spanned<String>>,
+    start_time: &mut SimpleTimer,
 ) -> Result<()> {
     use reedline::{FileBackedHistory, Reedline, Signal};
 
@@ -306,6 +308,14 @@ pub fn evaluate_repl(
             line!(),
             column!()
         );
+
+        if entry_num == 1 && show_banner == true {
+            start_time.stop();
+            println!(
+                "Startup Time: {}",
+                format_duration(start_time.time_in_nanos().unwrap_or(0) as i64)
+            );
+        }
 
         let input = line_editor.read_line(prompt);
         let shell_integration = config.shell_integration;

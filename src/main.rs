@@ -15,6 +15,7 @@ use crate::{
     logger::{configure, logger},
     terminal::acquire_terminal,
 };
+use devtimer::DevTime;
 use log::{info, Level};
 use miette::Result;
 #[cfg(feature = "plugin")]
@@ -34,6 +35,8 @@ use std::{
 };
 
 fn main() -> Result<()> {
+    let mut start_time = DevTime::new_simple();
+    start_time.start();
     let miette_hook = std::panic::take_hook();
     std::panic::set_hook(Box::new(move |x| {
         crossterm::terminal::disable_raw_mode().expect("unable to disable raw mode");
@@ -316,6 +319,7 @@ fn main() -> Result<()> {
             &mut stack,
             config_files::NUSHELL_FOLDER,
             parsed_nu_cli_args.execute,
+            &mut start_time,
         );
         info!("repl eval {}:{}:{}", file!(), line!(), column!());
 

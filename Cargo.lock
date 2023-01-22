@@ -1006,6 +1006,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "devtimer"
+version = "4.0.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "907339959a92f6b98846570500c0a567c9aecbb3871cef00561eb5d20d47b7c1"
+
+[[package]]
 name = "dialoguer"
 version = "0.10.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2622,6 +2628,7 @@ dependencies = [
  "criterion",
  "crossterm 0.24.0",
  "ctrlc",
+ "devtimer",
  "hamcrest2",
  "is_executable",
  "itertools",
@@ -2648,7 +2655,7 @@ dependencies = [
  "pretty_assertions",
  "rayon",
  "reedline",
- "rstest",
+ "rstest 0.15.0",
  "serial_test",
  "signal-hook",
  "simplelog",
@@ -2674,7 +2681,8 @@ dependencies = [
  "atty",
  "chrono",
  "crossterm 0.24.0",
- "fancy-regex 0.10.0",
+ "devtimer",
+ "fancy-regex 0.11.0",
  "fuzzy-matcher",
  "is_executable",
  "log",
@@ -2691,8 +2699,8 @@ dependencies = [
  "once_cell",
  "percent-encoding",
  "reedline",
- "rstest",
- "sysinfo",
+ "rstest 0.16.0",
+ "sysinfo 0.27.7",
  "thiserror",
 ]
 
@@ -2784,7 +2792,7 @@ dependencies = [
  "regex",
  "reqwest",
  "roxmltree",
- "rstest",
+ "rstest 0.15.0",
  "rusqlite",
  "rust-embed",
  "same-file",
@@ -2795,7 +2803,7 @@ dependencies = [
  "sha2",
  "shadow-rs",
  "sqlparser",
- "sysinfo",
+ "sysinfo 0.26.4",
  "terminal_size 0.2.1",
  "thiserror",
  "titlecase",
@@ -2822,7 +2830,7 @@ dependencies = [
  "nu-protocol",
  "nu-utils",
  "serde",
- "sysinfo",
+ "sysinfo 0.26.4",
 ]
 
 [[package]]
@@ -4317,7 +4325,17 @@ version = "0.15.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e9c9dc66cc29792b663ffb5269be669f1613664e69ad56441fdb895c2347b930"
 dependencies = [
- "rstest_macros",
+ "rstest_macros 0.14.0",
+ "rustc_version 0.4.0",
+]
+
+[[package]]
+name = "rstest"
+version = "0.16.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b07f2d176c472198ec1e6551dc7da28f1c089652f66a7b722676c2238ebc0edf"
+dependencies = [
+ "rstest_macros 0.16.0",
  "rustc_version 0.4.0",
 ]
 
@@ -4332,6 +4350,20 @@ dependencies = [
  "quote",
  "rustc_version 0.4.0",
  "syn",
+]
+
+[[package]]
+name = "rstest_macros"
+version = "0.16.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "7229b505ae0706e64f37ffc54a9c163e11022a6636d58fe1f3f52018257ff9f7"
+dependencies = [
+ "cfg-if 1.0.0",
+ "proc-macro2",
+ "quote",
+ "rustc_version 0.4.0",
+ "syn",
+ "unicode-ident",
 ]
 
 [[package]]
@@ -5012,6 +5044,21 @@ dependencies = [
 ]
 
 [[package]]
+name = "sysinfo"
+version = "0.27.7"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "975fe381e0ecba475d4acff52466906d95b153a40324956552e027b2a9eaa89e"
+dependencies = [
+ "cfg-if 1.0.0",
+ "core-foundation-sys",
+ "libc",
+ "ntapi",
+ "once_cell",
+ "rayon",
+ "winapi 0.3.9",
+]
+
+[[package]]
 name = "tabled"
 version = "0.10.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -5401,9 +5448,9 @@ checksum = "099b7128301d285f79ddd55b9a83d5e6b9e97c92e0ea0daebee7263e932de992"
 
 [[package]]
 name = "unicode-ident"
-version = "1.0.4"
+version = "1.0.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "dcc811dc4066ac62f84f11307873c4850cb653bfa9b1719cee2bd2204a4bc5dd"
+checksum = "84a22b9f218b40614adcb3f4ff08b703773ad44fa9423e4e0d346d5db86e4ebc"
 
 [[package]]
 name = "unicode-linebreak"
