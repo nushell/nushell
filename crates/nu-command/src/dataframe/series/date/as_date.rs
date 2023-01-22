@@ -79,7 +79,7 @@ fn command(
     let res = if not_exact {
         casted.as_date_not_exact(Some(format.as_str()))
     } else {
-        casted.as_date(Some(format.as_str()))
+        casted.as_date(Some(format.as_str()), false)
     };
 
     let mut res = res

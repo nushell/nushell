@@ -19,7 +19,7 @@ pub enum ParseError {
     #[diagnostic(code(nu::parser::extra_positional), url(docsrs), help("Usage: {0}"))]
     ExtraPositional(String, #[label = "extra positional argument"] Span),
 
-    #[error("Require positional parameter after optional parameter")]
+    #[error("Required positional parameter after optional parameter")]
     #[diagnostic(code(nu::parser::required_after_optional), url(docsrs))]
     RequiredAfterOptional(
         String,
@@ -132,6 +132,16 @@ pub enum ParseError {
     )]
     LetInPipeline(String, String, #[label("let in pipeline")] Span),
 
+    #[error("Const statement used in pipeline.")]
+    #[diagnostic(
+        code(nu::parser::unexpected_keyword),
+        url(docsrs),
+        help(
+            "Assigning '{0}' to '{1}' does not produce a value to be piped. If the pipeline result is meant to be assigned to '{1}', use 'const {1} = ({0} | ...)'."
+        )
+    )]
+    ConstInPipeline(String, String, #[label("const in pipeline")] Span),
+
     #[error("Mut statement used in pipeline.")]
     #[diagnostic(
         code(nu::parser::unexpected_keyword),
@@ -140,7 +150,7 @@ pub enum ParseError {
             "Assigning '{0}' to '{1}' does not produce a value to be piped. If the pipeline result is meant to be assigned to '{1}', use 'mut {1} = ({0} | ...)'."
         )
     )]
-    MutInPipeline(String, String, #[label("let in pipeline")] Span),
+    MutInPipeline(String, String, #[label("mut in pipeline")] Span),
 
     #[error("Let used with builtin variable name.")]
     #[diagnostic(
@@ -149,6 +159,14 @@ pub enum ParseError {
         help("'{0}' is the name of a builtin Nushell variable. `let` cannot assign to it.")
     )]
     LetBuiltinVar(String, #[label("already a builtin variable")] Span),
+
+    #[error("Const used with builtin variable name.")]
+    #[diagnostic(
+        code(nu::parser::let_builtin_var),
+        url(docsrs),
+        help("'{0}' is the name of a builtin Nushell variable. `const` cannot assign to it.")
+    )]
+    ConstBuiltinVar(String, #[label("already a builtin variable")] Span),
 
     #[error("Mut used with builtin variable name.")]
     #[diagnostic(
@@ -176,12 +194,15 @@ pub enum ParseError {
 
     #[error("Alias name not supported.")]
     #[diagnostic(code(nu::parser::variable_not_valid), url(docsrs))]
-    AliasNotValid(#[label = "alias name can't be a number, a filesize, or contain a hash"] Span),
+    AliasNotValid(
+        #[label = "alias name can't be a number, a filesize, or contain a hash # or caret ^"] Span,
+    ),
 
     #[error("Command name not supported.")]
     #[diagnostic(code(nu::parser::variable_not_valid), url(docsrs))]
     CommandDefNotValid(
-        #[label = "command name can't be a number, a filesize, or contain a hash"] Span,
+        #[label = "command name can't be a number, a filesize, or contain a hash # or caret ^"]
+        Span,
     ),
 
     #[error("Module not found.")]
@@ -422,8 +443,10 @@ impl ParseError {
             ParseError::BuiltinCommandInPipeline(_, s) => *s,
             ParseError::LetInPipeline(_, _, s) => *s,
             ParseError::MutInPipeline(_, _, s) => *s,
+            ParseError::ConstInPipeline(_, _, s) => *s,
             ParseError::LetBuiltinVar(_, s) => *s,
             ParseError::MutBuiltinVar(_, s) => *s,
+            ParseError::ConstBuiltinVar(_, s) => *s,
             ParseError::CaptureOfMutableVar(s) => *s,
             ParseError::IncorrectValue(_, s, _) => *s,
             ParseError::MultipleRestParams(s) => *s,

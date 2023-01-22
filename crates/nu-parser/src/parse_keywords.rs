@@ -25,7 +25,7 @@ use crate::{
         parse_internal_call, parse_multispan_value, parse_signature, parse_string, parse_value,
         parse_var_with_opt_type, trim_quotes, ParsedInternalCall,
     },
-    unescape_unquote_string, ParseError,
+    unescape_unquote_string, ParseError, Token, TokenContents,
 };
 
 pub fn parse_def_predecl(
@@ -58,6 +58,7 @@ pub fn parse_def_predecl(
         working_set.exit_scope();
         if let (Some(name), Some(mut signature)) = (name, signature) {
             if name.contains('#')
+                || name.contains('^')
                 || name.parse::<bytesize::ByteSize>().is_ok()
                 || name.parse::<f64>().is_ok()
             {
@@ -228,57 +229,6 @@ pub fn parse_for(
     )
 }
 
-fn build_usage(working_set: &StateWorkingSet, spans: &[Span]) -> String {
-    let mut usage = String::new();
-
-    let mut num_spaces = 0;
-    let mut first = true;
-
-    // Use the comments to build the usage
-    for comment_part in spans {
-        let contents = working_set.get_span_contents(*comment_part);
-
-        let comment_line = if first {
-            // Count the number of spaces still at the front, skipping the '#'
-            let mut pos = 1;
-            while pos < contents.len() {
-                if let Some(b' ') = contents.get(pos) {
-                    // continue
-                } else {
-                    break;
-                }
-                pos += 1;
-            }
-
-            num_spaces = pos;
-
-            first = false;
-
-            String::from_utf8_lossy(&contents[pos..]).to_string()
-        } else {
-            let mut pos = 1;
-
-            while pos < contents.len() && pos < num_spaces {
-                if let Some(b' ') = contents.get(pos) {
-                    // continue
-                } else {
-                    break;
-                }
-                pos += 1;
-            }
-
-            String::from_utf8_lossy(&contents[pos..]).to_string()
-        };
-
-        if !usage.is_empty() {
-            usage.push('\n');
-        }
-        usage.push_str(&comment_line);
-    }
-
-    usage
-}
-
 pub fn parse_def(
     working_set: &mut StateWorkingSet,
     lite_command: &LiteCommand,
@@ -286,7 +236,7 @@ pub fn parse_def(
 ) -> (Pipeline, Option<ParseError>) {
     let spans = &lite_command.parts[..];
 
-    let usage = build_usage(working_set, &lite_command.comments);
+    let (usage, extra_usage) = working_set.build_usage(&lite_command.comments);
 
     // Checking that the function is used with the correct name
     // Maybe this is not necessary but it is a sanity check
@@ -396,10 +346,46 @@ pub fn parse_def(
             signature.name = name.clone();
             *signature = signature.add_help();
             signature.usage = usage;
+            signature.extra_usage = extra_usage;
 
             *declaration = signature.clone().into_block_command(block_id);
 
             let mut block = working_set.get_block_mut(block_id);
+            let calls_itself = block.pipelines.iter().any(|pipeline| {
+                pipeline
+                    .elements
+                    .iter()
+                    .any(|pipe_element| match pipe_element {
+                        PipelineElement::Expression(
+                            _,
+                            Expression {
+                                expr: Expr::Call(call_expr),
+                                ..
+                            },
+                        ) => {
+                            if call_expr.decl_id == decl_id {
+                                return true;
+                            }
+                            call_expr.arguments.iter().any(|arg| match arg {
+                                Argument::Positional(Expression { expr, .. }) => match expr {
+                                    Expr::Keyword(.., expr) => {
+                                        let expr = expr.as_ref();
+                                        let Expression { expr, .. } = expr;
+                                        match expr {
+                                            Expr::Call(call_expr2) => call_expr2.decl_id == decl_id,
+                                            _ => false,
+                                        }
+                                    }
+                                    Expr::Call(call_expr2) => call_expr2.decl_id == decl_id,
+                                    _ => false,
+                                },
+                                _ => false,
+                            })
+                        }
+                        _ => false,
+                    })
+            });
+            block.recursive = Some(calls_itself);
             block.signature = signature;
             block.redirect_env = def_call == b"def-env";
         } else {
@@ -443,7 +429,7 @@ pub fn parse_extern(
     let spans = &lite_command.parts;
     let mut error = None;
 
-    let usage = build_usage(working_set, &lite_command.comments);
+    let (usage, extra_usage) = working_set.build_usage(&lite_command.comments);
 
     // Checking that the function is used with the correct name
     // Maybe this is not necessary but it is a sanity check
@@ -514,11 +500,12 @@ pub fn parse_extern(
 
                 signature.name = name.clone();
                 signature.usage = usage.clone();
+                signature.extra_usage = extra_usage.clone();
                 signature.allows_unknown_args = true;
 
                 let decl = KnownExternal {
                     name: name.to_string(),
-                    usage,
+                    usage: [usage, extra_usage].join("\n"),
                     signature,
                 };
 
@@ -558,9 +545,11 @@ pub fn parse_extern(
 
 pub fn parse_alias(
     working_set: &mut StateWorkingSet,
-    spans: &[Span],
+    lite_command: &LiteCommand,
     expand_aliases_denylist: &[usize],
 ) -> (Pipeline, Option<ParseError>) {
+    let spans = &lite_command.parts;
+
     // if the call is "alias", turn it into "print $nu.scope.aliases"
     if spans.len() == 1 {
         let head = Expression {
@@ -661,6 +650,7 @@ pub fn parse_alias(
 
                 let checked_name = String::from_utf8_lossy(&alias_name);
                 if checked_name.contains('#')
+                    || checked_name.contains('^')
                     || checked_name.parse::<bytesize::ByteSize>().is_ok()
                     || checked_name.parse::<f64>().is_ok()
                 {
@@ -670,7 +660,7 @@ pub fn parse_alias(
                     );
                 }
 
-                working_set.add_alias(alias_name, replacement);
+                working_set.add_alias(alias_name, replacement, lite_command.comments.clone());
             }
 
             let err = if spans.len() < 4 {
@@ -783,7 +773,7 @@ pub fn parse_export_in_block(
     }
 
     match full_name.as_slice() {
-        b"export alias" => parse_alias(working_set, &lite_command.parts, expand_aliases_denylist),
+        b"export alias" => parse_alias(working_set, lite_command, expand_aliases_denylist),
         b"export def" | b"export def-env" => {
             parse_def(working_set, lite_command, expand_aliases_denylist)
         }
@@ -1073,7 +1063,7 @@ pub fn parse_export_in_module(
                     parts: spans[1..].to_vec(),
                 };
                 let (pipeline, err) =
-                    parse_alias(working_set, &lite_command.parts, expand_aliases_denylist);
+                    parse_alias(working_set, &lite_command, expand_aliases_denylist);
                 error = error.or(err);
 
                 let export_alias_decl_id =
@@ -1326,11 +1316,41 @@ pub fn parse_export_env(
     (pipeline, Some(block_id), None)
 }
 
+fn collect_first_comments(tokens: &[Token]) -> Vec<Span> {
+    let mut comments = vec![];
+
+    let mut tokens_iter = tokens.iter().peekable();
+    while let Some(token) = tokens_iter.next() {
+        match token.contents {
+            TokenContents::Comment => {
+                comments.push(token.span);
+            }
+            TokenContents::Eol => {
+                if let Some(Token {
+                    contents: TokenContents::Eol,
+                    ..
+                }) = tokens_iter.peek()
+                {
+                    if !comments.is_empty() {
+                        break;
+                    }
+                }
+            }
+            _ => {
+                comments.clear();
+                break;
+            }
+        }
+    }
+
+    comments
+}
+
 pub fn parse_module_block(
     working_set: &mut StateWorkingSet,
     span: Span,
     expand_aliases_denylist: &[usize],
-) -> (Block, Module, Option<ParseError>) {
+) -> (Block, Module, Vec<Span>, Option<ParseError>) {
     let mut error = None;
 
     working_set.enter_scope();
@@ -1339,6 +1359,8 @@ pub fn parse_module_block(
 
     let (output, err) = lex(source, span.start, &[], &[], false);
     error = error.or(err);
+
+    let module_comments = collect_first_comments(&output);
 
     let (output, err) = lite_parse(&output);
     error = error.or(err);
@@ -1376,11 +1398,8 @@ pub fn parse_module_block(
                                 (pipeline, err)
                             }
                             b"alias" => {
-                                let (pipeline, err) = parse_alias(
-                                    working_set,
-                                    &command.parts,
-                                    expand_aliases_denylist,
-                                );
+                                let (pipeline, err) =
+                                    parse_alias(working_set, command, expand_aliases_denylist);
 
                                 (pipeline, err)
                             }
@@ -1440,6 +1459,9 @@ pub fn parse_module_block(
                         pipeline
                     }
                     LiteElement::Redirection(_, _, command) => garbage_pipeline(&command.parts),
+                    LiteElement::SeparateRedirection {
+                        out: (_, command), ..
+                    } => garbage_pipeline(&command.parts),
                 }
             } else {
                 error = Some(ParseError::Expected("not a pipeline".into(), span));
@@ -1450,16 +1472,19 @@ pub fn parse_module_block(
 
     working_set.exit_scope();
 
-    (block, module, error)
+    (block, module, module_comments, error)
 }
 
 pub fn parse_module(
     working_set: &mut StateWorkingSet,
-    spans: &[Span],
+    lite_command: &LiteCommand,
     expand_aliases_denylist: &[usize],
 ) -> (Pipeline, Option<ParseError>) {
     // TODO: Currently, module is closing over its parent scope (i.e., defs in the parent scope are
     // visible and usable in this module's scope). We want to disable that for files.
+
+    let spans = &lite_command.parts;
+    let mut module_comments = lite_command.comments.clone();
 
     let mut error = None;
     let bytes = working_set.get_span_contents(spans[0]);
@@ -1494,12 +1519,14 @@ pub fn parse_module(
 
         let block_span = Span::new(start, end);
 
-        let (block, module, err) =
+        let (block, module, inner_comments, err) =
             parse_module_block(working_set, block_span, expand_aliases_denylist);
         error = error.or(err);
 
         let block_id = working_set.add_block(block);
-        let _ = working_set.add_module(&module_name, module);
+
+        module_comments.extend(inner_comments);
+        let _ = working_set.add_module(&module_name, module, module_comments);
 
         let block_expr = Expression {
             expr: Expr::Block(block_id),
@@ -1732,7 +1759,7 @@ pub fn parse_use(
                     working_set.parsed_module_files.push(module_path);
 
                     // Parse the module
-                    let (block, module, err) = parse_module_block(
+                    let (block, module, module_comments, err) = parse_module_block(
                         working_set,
                         Span::new(span_start, span_end),
                         expand_aliases_denylist,
@@ -1746,7 +1773,8 @@ pub fn parse_use(
                     working_set.currently_parsed_cwd = prev_currently_parsed_cwd;
 
                     let _ = working_set.add_block(block);
-                    let module_id = working_set.add_module(&module_name, module.clone());
+                    let module_id =
+                        working_set.add_module(&module_name, module.clone(), module_comments);
 
                     (
                         ImportPattern {
@@ -2290,16 +2318,16 @@ pub fn parse_overlay_new(
     };
 
     let (overlay_name, _) = if let Some(expr) = call.positional_nth(0) {
-        if let Some(s) = expr.as_string() {
-            (s, expr.span)
-        } else {
-            return (
-                garbage_pipeline(spans),
-                Some(ParseError::UnknownState(
-                    "internal error: Module name not a string".into(),
-                    expr.span,
-                )),
-            );
+        match eval_constant(working_set, expr) {
+            Ok(val) => match value_as_string(val, expr.span) {
+                Ok(s) => (s, expr.span),
+                Err(err) => {
+                    return (garbage_pipeline(spans), Some(err));
+                }
+            },
+            Err(err) => {
+                return (garbage_pipeline(spans), Some(err));
+            }
         }
     } else {
         return (
@@ -2318,7 +2346,7 @@ pub fn parse_overlay_new(
         custom_completion: None,
     }]);
 
-    let module_id = working_set.add_module(&overlay_name, Module::new());
+    let module_id = working_set.add_module(&overlay_name, Module::new(), vec![]);
 
     working_set.add_overlay(
         overlay_name.as_bytes().to_vec(),
@@ -2555,7 +2583,7 @@ pub fn parse_overlay_use(
                             working_set.currently_parsed_cwd.clone()
                         };
 
-                        let (block, module, err) = parse_module_block(
+                        let (block, module, module_comments, err) = parse_module_block(
                             working_set,
                             Span::new(span_start, span_end),
                             expand_aliases_denylist,
@@ -2566,7 +2594,8 @@ pub fn parse_overlay_use(
                         working_set.currently_parsed_cwd = prev_currently_parsed_cwd;
 
                         let _ = working_set.add_block(block);
-                        let module_id = working_set.add_module(&overlay_name, module.clone());
+                        let module_id =
+                            working_set.add_module(&overlay_name, module.clone(), module_comments);
 
                         (
                             new_name.map(|spanned| spanned.item).unwrap_or(overlay_name),
@@ -2695,16 +2724,16 @@ pub fn parse_overlay_hide(
     };
 
     let (overlay_name, overlay_name_span) = if let Some(expr) = call.positional_nth(0) {
-        if let Some(s) = expr.as_string() {
-            (s, expr.span)
-        } else {
-            return (
-                garbage_pipeline(spans),
-                Some(ParseError::UnknownState(
-                    "internal error: Module name not a string".into(),
-                    expr.span,
-                )),
-            );
+        match eval_constant(working_set, expr) {
+            Ok(val) => match value_as_string(val, expr.span) {
+                Ok(s) => (s, expr.span),
+                Err(err) => {
+                    return (garbage_pipeline(spans), Some(err));
+                }
+            },
+            Err(err) => {
+                return (garbage_pipeline(spans), Some(err));
+            }
         }
     } else {
         (
@@ -2813,8 +2842,11 @@ pub fn parse_let_or_const(
                                 .to_string();
 
                         if ["in", "nu", "env", "nothing"].contains(&var_name.as_str()) {
-                            error =
-                                error.or(Some(ParseError::LetBuiltinVar(var_name, lvalue.span)));
+                            error = if is_const {
+                                error.or(Some(ParseError::ConstBuiltinVar(var_name, lvalue.span)))
+                            } else {
+                                error.or(Some(ParseError::LetBuiltinVar(var_name, lvalue.span)))
+                            };
                         }
 
                         let var_id = lvalue.as_var();

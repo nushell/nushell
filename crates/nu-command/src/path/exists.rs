@@ -107,7 +107,11 @@ fn exists(path: &Path, span: Span, args: &Arguments) -> Value {
     Value::Bool {
         val: match path.try_exists() {
             Ok(exists) => exists,
-            Err(err) => return Value::Error { error: err.into() },
+            Err(err) => {
+                return Value::Error {
+                    error: ShellError::IOErrorSpanned(err.to_string(), span),
+                }
+            }
         },
         span,
     }

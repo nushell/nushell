@@ -46,7 +46,7 @@ impl CommandRegistry {
         );
     }
 
-    pub fn create_aliase(&mut self, aliases: &str, command: &str) {
+    pub fn create_aliases(&mut self, aliases: &str, command: &str) {
         self.aliases.insert(
             Cow::Owned(aliases.to_owned()),
             Cow::Owned(command.to_owned()),

@@ -6,7 +6,7 @@ fn can_encode_and_decode_urlencoding() {
         cwd: "tests/fixtures/formats", pipeline(
             r#"
                 open sample.url
-                | to url
+                | url build-query
                 | from url
                 | get cheese
             "#

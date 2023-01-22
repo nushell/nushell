@@ -1,4 +1,6 @@
 use log::info;
+#[cfg(feature = "plugin")]
+use nu_cli::read_plugin_file;
 use nu_cli::{eval_config_contents, eval_source, report_error};
 use nu_parser::ParseError;
 use nu_path::canonicalize_with;
@@ -7,6 +9,7 @@ use nu_protocol::{PipelineData, Spanned};
 use nu_utils::{get_default_config, get_default_env};
 use std::fs::File;
 use std::io::Write;
+use std::path::Path;
 
 pub(crate) const NUSHELL_FOLDER: &str = "nushell";
 const CONFIG_FILE: &str = "config.nu";
@@ -188,5 +191,55 @@ fn eval_default_config(
             let working_set = StateWorkingSet::new(engine_state);
             report_error(&working_set, &e);
         }
+    }
+}
+
+pub(crate) fn setup_config(
+    engine_state: &mut EngineState,
+    stack: &mut Stack,
+    #[cfg(feature = "plugin")] plugin_file: Option<Spanned<String>>,
+    config_file: Option<Spanned<String>>,
+    env_file: Option<Spanned<String>>,
+    is_login_shell: bool,
+) {
+    #[cfg(feature = "plugin")]
+    read_plugin_file(engine_state, stack, plugin_file, NUSHELL_FOLDER);
+
+    info!("read_config_file {}:{}:{}", file!(), line!(), column!());
+
+    read_config_file(engine_state, stack, env_file, true);
+    read_config_file(engine_state, stack, config_file, false);
+
+    if is_login_shell {
+        read_loginshell_file(engine_state, stack);
+    }
+
+    // Give a warning if we see `$config` for a few releases
+    {
+        let working_set = StateWorkingSet::new(engine_state);
+        if working_set.find_variable(b"$config").is_some() {
+            println!("warning: use `let-env config = ...` instead of `let config = ...`");
+        }
+    }
+}
+
+pub(crate) fn set_config_path(
+    engine_state: &mut EngineState,
+    cwd: &Path,
+    default_config_name: &str,
+    key: &str,
+    config_file: &Option<Spanned<String>>,
+) {
+    let config_path = match config_file {
+        Some(s) => canonicalize_with(&s.item, cwd).ok(),
+        None => nu_path::config_dir().map(|mut p| {
+            p.push(NUSHELL_FOLDER);
+            p.push(default_config_name);
+            p
+        }),
+    };
+
+    if let Some(path) = config_path {
+        engine_state.set_config_path(key, path);
     }
 }

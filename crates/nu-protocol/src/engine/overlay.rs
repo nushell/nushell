@@ -44,14 +44,14 @@ impl Visibility {
         self.alias_ids.insert(*alias_id, true);
     }
 
+    /// Overwrite own values with the other
     pub fn merge_with(&mut self, other: Visibility) {
-        // overwrite own values with the other
         self.decl_ids.extend(other.decl_ids);
         self.alias_ids.extend(other.alias_ids);
     }
 
+    /// Take new values from the other but keep own values
     pub fn append(&mut self, other: &Visibility) {
-        // take new values from the other but keep own values
         for (decl_id, visible) in other.decl_ids.iter() {
             if !self.decl_ids.contains_key(decl_id) {
                 self.decl_ids.insert(*decl_id, *visible);
@@ -68,9 +68,9 @@ impl Visibility {
 
 #[derive(Debug, Clone)]
 pub struct ScopeFrame {
-    /// List of both active and incactive overlays in this ScopeFrame.
+    /// List of both active and inactive overlays in this ScopeFrame.
     ///
-    /// The order does not have any menaning. Indexed locally (within this ScopeFrame) by
+    /// The order does not have any meaning. Indexed locally (within this ScopeFrame) by
     /// OverlayIds in active_overlays.
     pub overlays: Vec<(Vec<u8>, OverlayFrame)>,
 
@@ -78,10 +78,6 @@ pub struct ScopeFrame {
     ///
     /// Order is significant: The last item points at the last activated overlay.
     pub active_overlays: Vec<OverlayId>,
-
-    /// Deactivated overlays from permanent state.
-    /// ! Stores OverlayIds from the permanent state, not from this frame. !
-    // removed_overlays: Vec<OverlayId>,
 
     /// Removed overlays from previous scope frames / permanent state
     pub removed_overlays: Vec<Vec<u8>>,
@@ -279,5 +275,17 @@ impl DeclKey for (Vec<u8>, Type) {
 impl<'a> Borrow<dyn DeclKey + 'a> for (Vec<u8>, Type) {
     fn borrow(&self) -> &(dyn DeclKey + 'a) {
         self
+    }
+}
+
+impl Default for Visibility {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl Default for ScopeFrame {
+    fn default() -> Self {
+        Self::new()
     }
 }

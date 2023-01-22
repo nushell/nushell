@@ -41,9 +41,9 @@ fn table_expand_0() {
     );
 }
 
-// I am not sure whether the test is platform depent, cause we don't set a term_width on our own
+// I am not sure whether the test is platform dependent, cause we don't set a term_width on our own
 #[test]
-fn table_expand_exeed_overlap_0() {
+fn table_expand_exceed_overlap_0() {
     // no expand
 
     let actual = nu!(r#"[[a b, c]; [xxxxxxxxxxxxxxxxxxxxxx 2 3] [4 5 [1 2 3]]] | table --expand"#);

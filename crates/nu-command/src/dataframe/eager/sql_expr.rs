@@ -28,12 +28,17 @@ fn map_sql_polars_datatype(data_type: &SQLDataType) -> Result<DataType> {
 
         SQLDataType::Boolean => DataType::Boolean,
         SQLDataType::Date => DataType::Date,
-        SQLDataType::Time => DataType::Time,
-        SQLDataType::Timestamp => DataType::Datetime(TimeUnit::Milliseconds, None),
+        SQLDataType::Time(_, _) => DataType::Time,
+        SQLDataType::Timestamp(_, _) => DataType::Datetime(TimeUnit::Milliseconds, None),
         SQLDataType::Interval => DataType::Duration(TimeUnit::Milliseconds),
-        SQLDataType::Array(inner_type) => {
-            DataType::List(Box::new(map_sql_polars_datatype(inner_type)?))
-        }
+        SQLDataType::Array(inner_type) => match inner_type {
+            Some(inner_type) => DataType::List(Box::new(map_sql_polars_datatype(inner_type)?)),
+            None => {
+                return Err(PolarsError::ComputeError(
+                    "SQL Datatype Array(None) was not supported in polars-sql yet!".into(),
+                ))
+            }
+        },
         _ => {
             return Err(PolarsError::ComputeError(
                 format!(

@@ -1,5 +1,6 @@
 use nu_plugin::LabeledError;
 use nu_protocol::{ast::CellPath, Span, Value};
+use semver::{BuildMetadata, Prerelease, Version};
 
 #[derive(Debug, Eq, PartialEq)]
 pub enum Action {
@@ -35,9 +36,9 @@ impl Inc {
                 };
 
                 match act_on {
-                    SemVerAction::Major => ver.increment_major(),
-                    SemVerAction::Minor => ver.increment_minor(),
-                    SemVerAction::Patch => ver.increment_patch(),
+                    SemVerAction::Major => Self::increment_major(&mut ver),
+                    SemVerAction::Minor => Self::increment_minor(&mut ver),
+                    SemVerAction::Patch => Self::increment_patch(&mut ver),
                 }
 
                 Value::string(ver.to_string(), head)
@@ -47,6 +48,27 @@ impl Inc {
                 Err(_) => Value::string(input, head),
             },
         }
+    }
+
+    pub fn increment_patch(v: &mut Version) {
+        v.patch += 1;
+        v.pre = Prerelease::EMPTY;
+        v.build = BuildMetadata::EMPTY;
+    }
+
+    pub fn increment_minor(v: &mut Version) {
+        v.minor += 1;
+        v.patch = 0;
+        v.pre = Prerelease::EMPTY;
+        v.build = BuildMetadata::EMPTY;
+    }
+
+    pub fn increment_major(v: &mut Version) {
+        v.major += 1;
+        v.minor = 0;
+        v.patch = 0;
+        v.pre = Prerelease::EMPTY;
+        v.build = BuildMetadata::EMPTY;
     }
 
     pub fn for_semver(&mut self, part: SemVerAction) {
@@ -72,7 +94,7 @@ impl Inc {
     pub fn inc(&self, head: Span, value: &Value) -> Result<Value, LabeledError> {
         if let Some(cell_path) = &self.cell_path {
             let working_value = value.clone();
-            let cell_value = working_value.follow_cell_path(&cell_path.members, false)?;
+            let cell_value = working_value.follow_cell_path(&cell_path.members, false, false)?;
 
             let cell_value = self.inc_value(head, &cell_value)?;
 

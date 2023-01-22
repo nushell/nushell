@@ -5,6 +5,7 @@ use crate::{
     util::{eval_source, get_guaranteed_cwd, report_error, report_error_new},
     NuHighlighter, NuValidator, NushellPrompt,
 };
+use crossterm::cursor::CursorShape;
 use log::{info, trace, warn};
 use miette::{IntoDiagnostic, Result};
 use nu_color_config::StyleComputer;
@@ -12,11 +13,12 @@ use nu_engine::{convert_env_values, eval_block, eval_block_with_early_return};
 use nu_parser::{lex, parse, trim_quotes_str};
 use nu_protocol::{
     ast::PathMember,
+    config::NuCursorShape,
     engine::{EngineState, ReplOperation, Stack, StateWorkingSet},
     format_duration, BlockId, HistoryFileFormat, PipelineData, PositionalArg, ShellError, Span,
     Spanned, Type, Value, VarId,
 };
-use reedline::{DefaultHinter, EditCommand, Emacs, SqliteBackedHistory, Vi};
+use reedline::{CursorConfig, DefaultHinter, EditCommand, Emacs, SqliteBackedHistory, Vi};
 use std::{
     io::{self, Write},
     sync::atomic::Ordering,
@@ -89,10 +91,10 @@ pub fn evaluate_repl(
     let mut line_editor = Reedline::create();
 
     // Now that reedline is created, get the history session id and store it in engine_state
-    let hist_sesh = match line_editor.get_history_session_id() {
-        Some(id) => i64::from(id),
-        None => 0,
-    };
+    let hist_sesh = line_editor
+        .get_history_session_id()
+        .map(i64::from)
+        .unwrap_or(0);
     engine_state.history_session_id = hist_sesh;
 
     let config = engine_state.get_config();
@@ -174,13 +176,25 @@ pub fn evaluate_repl(
 
         info!("update reedline {}:{}:{}", file!(), line!(), column!());
         let engine_reference = std::sync::Arc::new(engine_state.clone());
+
+        // Find the configured cursor shapes for each mode
+        let cursor_config = CursorConfig {
+            vi_insert: Some(map_nucursorshape_to_cursorshape(
+                config.cursor_shape_vi_insert,
+            )),
+            vi_normal: Some(map_nucursorshape_to_cursorshape(
+                config.cursor_shape_vi_normal,
+            )),
+            emacs: Some(map_nucursorshape_to_cursorshape(config.cursor_shape_emacs)),
+        };
+
         line_editor = line_editor
             .with_highlighter(Box::new(NuHighlighter {
-                engine_state: engine_state.clone(),
+                engine_state: engine_reference.clone(),
                 config: config.clone(),
             }))
             .with_validator(Box::new(NuValidator {
-                engine_state: engine_state.clone(),
+                engine_state: engine_reference.clone(),
             }))
             .with_completer(Box::new(NuCompleter::new(
                 engine_reference.clone(),
@@ -188,7 +202,8 @@ pub fn evaluate_repl(
             )))
             .with_quick_completions(config.quick_completions)
             .with_partial_completions(config.partial_completions)
-            .with_ansi_colors(config.use_ansi_coloring);
+            .with_ansi_colors(config.use_ansi_coloring)
+            .with_cursor_config(cursor_config);
 
         let style_computer = StyleComputer::from_config(engine_state, stack);
 
@@ -202,14 +217,11 @@ pub fn evaluate_repl(
             line_editor.disable_hints()
         };
 
-        line_editor = match add_menus(line_editor, engine_reference, stack, config) {
-            Ok(line_editor) => line_editor,
-            Err(e) => {
-                let working_set = StateWorkingSet::new(engine_state);
-                report_error(&working_set, &e);
-                Reedline::create()
-            }
-        };
+        line_editor = add_menus(line_editor, engine_reference, stack, config).unwrap_or_else(|e| {
+            let working_set = StateWorkingSet::new(engine_state);
+            report_error(&working_set, &e);
+            Reedline::create()
+        });
 
         let buffer_editor = if !config.buffer_editor.is_empty() {
             Some(config.buffer_editor.clone())
@@ -535,6 +547,14 @@ pub fn evaluate_repl(
     Ok(())
 }
 
+fn map_nucursorshape_to_cursorshape(shape: NuCursorShape) -> CursorShape {
+    match shape {
+        NuCursorShape::Block => CursorShape::Block,
+        NuCursorShape::UnderScore => CursorShape::UnderScore,
+        NuCursorShape::Line => CursorShape::Line,
+    }
+}
+
 fn get_banner(engine_state: &mut EngineState, stack: &mut Stack) -> String {
     let age = match eval_string_with_input(
         engine_state,
@@ -734,60 +754,63 @@ pub fn eval_hook(
             }
         }
         Value::Record { .. } => {
-            let do_run_hook =
-                if let Ok(condition) = value.clone().follow_cell_path(&[condition_path], false) {
-                    match condition {
-                        Value::Block {
-                            val: block_id,
-                            span: block_span,
-                            ..
-                        }
-                        | Value::Closure {
-                            val: block_id,
-                            span: block_span,
-                            ..
-                        } => {
-                            match run_hook_block(
-                                engine_state,
-                                stack,
-                                block_id,
-                                None,
-                                arguments.clone(),
-                                block_span,
-                            ) {
-                                Ok(pipeline_data) => {
-                                    if let PipelineData::Value(Value::Bool { val, .. }, ..) =
-                                        pipeline_data
-                                    {
-                                        val
-                                    } else {
-                                        return Err(ShellError::UnsupportedConfigValue(
-                                            "boolean output".to_string(),
-                                            "other PipelineData variant".to_string(),
-                                            block_span,
-                                        ));
-                                    }
-                                }
-                                Err(err) => {
-                                    return Err(err);
+            let do_run_hook = if let Ok(condition) =
+                value
+                    .clone()
+                    .follow_cell_path(&[condition_path], false, false)
+            {
+                match condition {
+                    Value::Block {
+                        val: block_id,
+                        span: block_span,
+                        ..
+                    }
+                    | Value::Closure {
+                        val: block_id,
+                        span: block_span,
+                        ..
+                    } => {
+                        match run_hook_block(
+                            engine_state,
+                            stack,
+                            block_id,
+                            None,
+                            arguments.clone(),
+                            block_span,
+                        ) {
+                            Ok(pipeline_data) => {
+                                if let PipelineData::Value(Value::Bool { val, .. }, ..) =
+                                    pipeline_data
+                                {
+                                    val
+                                } else {
+                                    return Err(ShellError::UnsupportedConfigValue(
+                                        "boolean output".to_string(),
+                                        "other PipelineData variant".to_string(),
+                                        block_span,
+                                    ));
                                 }
                             }
-                        }
-                        other => {
-                            return Err(ShellError::UnsupportedConfigValue(
-                                "block".to_string(),
-                                format!("{}", other.get_type()),
-                                other.span()?,
-                            ));
+                            Err(err) => {
+                                return Err(err);
+                            }
                         }
                     }
-                } else {
-                    // always run the hook
-                    true
-                };
+                    other => {
+                        return Err(ShellError::UnsupportedConfigValue(
+                            "block".to_string(),
+                            format!("{}", other.get_type()),
+                            other.span()?,
+                        ));
+                    }
+                }
+            } else {
+                // always run the hook
+                true
+            };
 
             if do_run_hook {
-                match value.clone().follow_cell_path(&[code_path], false)? {
+                match value.clone().follow_cell_path(&[code_path], false, false)? {
                     Value::String {
                         val,
                         span: source_span,
@@ -957,32 +980,29 @@ fn run_hook_block(
         }
     }
 
-    match eval_block_with_early_return(engine_state, &mut callee_stack, block, input, false, false)
-    {
-        Ok(pipeline_data) => {
-            if let PipelineData::Value(Value::Error { error }, _) = pipeline_data {
-                return Err(error);
-            }
+    let pipeline_data =
+        eval_block_with_early_return(engine_state, &mut callee_stack, block, input, false, false)?;
 
-            // If all went fine, preserve the environment of the called block
-            let caller_env_vars = stack.get_env_var_names(engine_state);
-
-            // remove env vars that are present in the caller but not in the callee
-            // (the callee hid them)
-            for var in caller_env_vars.iter() {
-                if !callee_stack.has_env_var(engine_state, var) {
-                    stack.remove_env_var(engine_state, var);
-                }
-            }
-
-            // add new env vars from callee to caller
-            for (var, value) in callee_stack.get_stack_env_vars() {
-                stack.add_env_var(var, value);
-            }
-            Ok(pipeline_data)
-        }
-        Err(err) => Err(err),
+    if let PipelineData::Value(Value::Error { error }, _) = pipeline_data {
+        return Err(error);
     }
+
+    // If all went fine, preserve the environment of the called block
+    let caller_env_vars = stack.get_env_var_names(engine_state);
+
+    // remove env vars that are present in the caller but not in the callee
+    // (the callee hid them)
+    for var in caller_env_vars.iter() {
+        if !callee_stack.has_env_var(engine_state, var) {
+            stack.remove_env_var(engine_state, var);
+        }
+    }
+
+    // add new env vars from callee to caller
+    for (var, value) in callee_stack.get_stack_env_vars() {
+        stack.add_env_var(var, value);
+    }
+    Ok(pipeline_data)
 }
 
 fn run_ansi_sequence(seq: &str) -> Result<(), ShellError> {

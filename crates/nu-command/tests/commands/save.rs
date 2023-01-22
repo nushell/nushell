@@ -177,3 +177,107 @@ fn save_override_works() {
         assert_eq!(actual, "abcd");
     })
 }
+
+#[test]
+fn save_failure_not_overrides() {
+    Playground::setup("save_test_10", |dirs, sandbox| {
+        sandbox.with_files(vec![Stub::FileWithContent("result.toml", "Old content")]);
+
+        let expected_file = dirs.test().join("result.toml");
+        nu!(
+            cwd: dirs.root(),
+            // Writing number to file as toml fails
+            r#"3 | save save_test_10/result.toml -f"#
+        );
+        let actual = file_contents(expected_file);
+        assert_eq!(actual, "Old content");
+    })
+}
+
+#[test]
+fn save_append_works_on_stderr() {
+    Playground::setup("save_test_11", |dirs, sandbox| {
+        sandbox.with_files(vec![
+            Stub::FileWithContent("log.txt", "Old"),
+            Stub::FileWithContent("err.txt", "Old Err"),
+        ]);
+
+        let expected_file = dirs.test().join("log.txt");
+        let expected_stderr_file = dirs.test().join("err.txt");
+
+        nu!(
+            cwd: dirs.root(),
+            r#"
+            let-env FOO = " New";
+            let-env BAZ = " New Err";
+            do -i {nu -c 'nu --testbin echo_env FOO; nu --testbin echo_env_stderr BAZ'} | save -a -r save_test_11/log.txt --stderr save_test_11/err.txt"#,
+        );
+
+        let actual = file_contents(expected_file);
+        assert_eq!(actual, "Old New\n");
+
+        let actual = file_contents(expected_stderr_file);
+        assert_eq!(actual, "Old Err New Err\n");
+    })
+}
+
+#[test]
+fn save_not_overrides_err_by_default() {
+    Playground::setup("save_test_12", |dirs, sandbox| {
+        sandbox.with_files(vec![Stub::FileWithContent("err.txt", "Old Err")]);
+
+        let actual = nu!(
+            cwd: dirs.root(),
+            r#"
+            let-env FOO = " New";
+            let-env BAZ = " New Err";
+            do -i {nu -c 'nu --testbin echo_env FOO; nu --testbin echo_env_stderr BAZ'} | save -r save_test_12/log.txt --stderr save_test_12/err.txt"#,
+        );
+
+        assert!(actual.err.contains("Destination file already exists"));
+    })
+}
+
+#[test]
+fn save_override_works_stderr() {
+    Playground::setup("save_test_13", |dirs, sandbox| {
+        sandbox.with_files(vec![
+            Stub::FileWithContent("log.txt", "Old"),
+            Stub::FileWithContent("err.txt", "Old Err"),
+        ]);
+
+        let expected_file = dirs.test().join("log.txt");
+        let expected_stderr_file = dirs.test().join("err.txt");
+
+        nu!(
+            cwd: dirs.root(),
+            r#"
+            let-env FOO = "New";
+            let-env BAZ = "New Err";
+            do -i {nu -c 'nu --testbin echo_env FOO; nu --testbin echo_env_stderr BAZ'} | save -f -r save_test_13/log.txt --stderr save_test_13/err.txt"#,
+        );
+
+        let actual = file_contents(expected_file);
+        assert_eq!(actual, "New\n");
+
+        let actual = file_contents(expected_stderr_file);
+        assert_eq!(actual, "New Err\n");
+    })
+}
+
+#[test]
+fn save_list_stream() {
+    Playground::setup("save_test_13", |dirs, sandbox| {
+        sandbox.with_files(vec![]);
+
+        let expected_file = dirs.test().join("list_sample.txt");
+
+        nu!(
+            cwd: dirs.root(),
+            r#"[a b c d] | each {|i| $i} | save -r save_test_13/list_sample.txt"#,
+        );
+
+        let actual = file_contents(expected_file);
+        assert_eq!(actual, "a\nb\nc\nd\n")
+    })
+}

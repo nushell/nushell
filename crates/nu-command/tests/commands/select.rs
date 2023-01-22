@@ -161,50 +161,53 @@ fn selects_many_rows() {
 }
 
 #[test]
-fn select_ignores_errors_succesfully1() {
+fn select_ignores_errors_successfully1() {
     let actual = nu!(
         cwd: ".", pipeline(
         r#"
-        [{a: 1, b: 2} {a: 3, b: 5} {a: 3}] | select -i b
-            "#
+        [{a: 1, b: 2} {a: 3, b: 5} {a: 3}] | select -i b | length
+        "#
     ));
 
-    assert!(actual.out.is_empty());
+    assert_eq!(actual.out, "3".to_string());
     assert!(actual.err.is_empty());
 }
 
 #[test]
-fn select_ignores_errors_succesfully2() {
+fn select_ignores_errors_successfully2() {
     let actual = nu!(
         cwd: ".", pipeline(
         r#"
-        [{a: 1} {a: 2} {a: 3}] | select -i b
+        [{a: 1} {a: 2} {a: 3}] | select -i b | to nuon
             "#
     ));
 
-    assert!(actual.out.is_empty());
+    assert_eq!(actual.out, "[[b]; [null], [null], [null]]".to_string());
     assert!(actual.err.is_empty());
 }
 
 #[test]
-fn select_ignores_errors_succesfull3() {
+fn select_ignores_errors_successfully3() {
     let actual = nu!(
         cwd: ".", pipeline(
-        r#"sys | select -i invalid_key"#
+        r#"sys | select -i invalid_key | to nuon"#
     ));
 
-    assert!(actual.out.is_empty());
+    assert_eq!(actual.out, "{invalid_key: null}".to_string());
     assert!(actual.err.is_empty());
 }
 
 #[test]
-fn select_ignores_errors_succesfully4() {
+fn select_ignores_errors_successfully4() {
     let actual = nu!(
         cwd: ".", pipeline(
-        r#"[a b c] | select -i invalid_key"#
+        r#"[a b c] | select -i invalid_key | to nuon"#
     ));
 
-    assert!(actual.out.is_empty());
+    assert_eq!(
+        actual.out,
+        "[[invalid_key]; [null], [null], [null]]".to_string()
+    );
     assert!(actual.err.is_empty());
 }
 
@@ -223,10 +226,13 @@ fn select_ignores_errors_successfully5() {
 fn select_ignores_errors_successfully6() {
     let actual = nu!(
         cwd: ".", pipeline(
-        r#""key val\na 1\nb 2\n" | lines | split column -c " " | select -i "100""#
+        r#""key val\na 1\nb 2\n" | lines | split column -c " " | select -i "100" | to nuon"#
     ));
 
-    assert!(actual.out.is_empty());
+    assert_eq!(
+        actual.out,
+        r#"[["100"]; [null], [null], [null]]"#.to_string()
+    );
     assert!(actual.err.is_empty());
 }
 

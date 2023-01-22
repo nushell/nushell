@@ -8,8 +8,8 @@ use nu_engine::{env_to_string, CallExt};
 use nu_protocol::{
     ast::Call,
     engine::{Command, EngineState, Stack},
-    Category, Config, Example, IntoInterruptiblePipelineData, ListStream, PipelineData, ShellError,
-    Signature, Span, SyntaxShape, Type, Value,
+    Category, Config, Example, IntoInterruptiblePipelineData, IntoPipelineData, ListStream,
+    PipelineData, ShellError, Signature, Span, SyntaxShape, Type, Value,
 };
 use nu_utils::get_ls_colors;
 
@@ -150,6 +150,7 @@ impl Command for Find {
         if let Some(regex) = regex {
             find_with_regex(regex, engine_state, stack, call, input)
         } else {
+            let input = split_string_if_multiline(input);
             find_with_rest_and_highlight(engine_state, stack, call, input)
         }
     }
@@ -380,6 +381,26 @@ fn find_with_rest_and_highlight(
                                     .map_or(false, |aval| aval.is_true())
                             }
                         }),
+                        Value::LazyRecord { val, .. } => match val.collect() {
+                            Ok(val) => match val {
+                                Value::Record { vals, .. } => vals.iter().any(|val| {
+                                    if let Ok(span) = val.span() {
+                                        let lower_val = Value::string(
+                                            val.into_string("", &filter_config).to_lowercase(),
+                                            Span::test_data(),
+                                        );
+
+                                        term.r#in(span, &lower_val, span)
+                                            .map_or(false, |aval| aval.is_true())
+                                    } else {
+                                        term.r#in(span, val, span)
+                                            .map_or(false, |aval| aval.is_true())
+                                    }
+                                }),
+                                _ => false,
+                            },
+                            Err(_) => false,
+                        },
                         Value::Binary { .. } => false,
                     }) != invert
                 },
@@ -440,6 +461,26 @@ fn find_with_rest_and_highlight(
                                     .map_or(false, |value| value.is_true())
                             }
                         }),
+                        Value::LazyRecord { val, .. } => match val.collect() {
+                            Ok(val) => match val {
+                                Value::Record { vals, .. } => vals.iter().any(|val| {
+                                    if let Ok(span) = val.span() {
+                                        let lower_val = Value::string(
+                                            val.into_string("", &filter_config).to_lowercase(),
+                                            Span::test_data(),
+                                        );
+
+                                        term.r#in(span, &lower_val, span)
+                                            .map_or(false, |value| value.is_true())
+                                    } else {
+                                        term.r#in(span, val, span)
+                                            .map_or(false, |value| value.is_true())
+                                    }
+                                }),
+                                _ => false,
+                            },
+                            Err(_) => false,
+                        },
                         Value::Binary { .. } => false,
                     }) != invert
                 }),
@@ -549,5 +590,30 @@ mod tests {
         use crate::test_examples;
 
         test_examples(Find)
+    }
+}
+
+fn split_string_if_multiline(input: PipelineData) -> PipelineData {
+    match input {
+        PipelineData::Value(Value::String { ref val, span }, _) => {
+            if val.contains('\n') {
+                Value::List {
+                    vals: {
+                        val.lines()
+                            .map(|s| Value::String {
+                                val: s.to_string(),
+                                span,
+                            })
+                            .collect()
+                    },
+                    span,
+                }
+                .into_pipeline_data()
+                .set_metadata(input.metadata())
+            } else {
+                input
+            }
+        }
+        _ => input,
     }
 }

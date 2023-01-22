@@ -413,7 +413,7 @@
 
 
         <!--
-          Uncomment the next `WixVaraible` tag to customize the installer's
+          Uncomment the next `WixVariable` tag to customize the installer's
           Graphical User Interface (GUI) and add a custom banner image across
           the top of each screen. See the WiX Toolset documentation for details
           about customization.

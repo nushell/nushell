@@ -1,6 +1,7 @@
 mod custom_value;
 mod from;
 mod from_value;
+mod lazy_record;
 mod range;
 mod stream;
 mod unit;
@@ -17,6 +18,7 @@ pub use custom_value::CustomValue;
 use fancy_regex::Regex;
 pub use from_value::FromValue;
 use indexmap::map::IndexMap;
+pub use lazy_record::LazyRecord;
 use nu_utils::get_system_locale;
 use num_format::ToFormattedString;
 pub use range::*;
@@ -101,8 +103,14 @@ pub enum Value {
         val: CellPath,
         span: Span,
     },
+    #[serde(skip_serializing)]
     CustomValue {
         val: Box<dyn CustomValue>,
+        span: Span,
+    },
+    #[serde(skip_serializing)]
+    LazyRecord {
+        val: Box<dyn LazyRecord>,
         span: Span,
     },
 }
@@ -138,6 +146,13 @@ impl Clone for Value {
                 vals: vals.clone(),
                 span: *span,
             },
+            Value::LazyRecord { val, .. } => {
+                match val.collect() {
+                    Ok(val) => val,
+                    // this is a bit weird, but because clone() is infallible...
+                    Err(error) => Value::Error { error },
+                }
+            }
             Value::List { vals, span } => Value::List {
                 vals: vals.clone(),
                 span: *span,
@@ -350,6 +365,7 @@ impl Value {
             Value::Binary { span, .. } => Ok(*span),
             Value::CellPath { span, .. } => Ok(*span),
             Value::CustomValue { span, .. } => Ok(*span),
+            Value::LazyRecord { span, .. } => Ok(*span),
         }
     }
 
@@ -372,6 +388,7 @@ impl Value {
             Value::Range { span, .. } => *span = new_span,
             Value::String { span, .. } => *span = new_span,
             Value::Record { span, .. } => *span = new_span,
+            Value::LazyRecord { span, .. } => *span = new_span,
             Value::List { span, .. } => *span = new_span,
             Value::Closure { span, .. } => *span = new_span,
             Value::Block { span, .. } => *span = new_span,
@@ -426,6 +443,10 @@ impl Value {
                     None => Type::List(Box::new(ty.unwrap_or(Type::Any))),
                 }
             }
+            Value::LazyRecord { val, .. } => match val.collect() {
+                Ok(val) => val.get_type(),
+                Err(..) => Type::Error,
+            },
             Value::Nothing { .. } => Type::Nothing,
             Value::Block { .. } => Type::Block,
             Value::Closure { .. } => Type::Closure,
@@ -468,6 +489,18 @@ impl Value {
         }
     }
 
+    // Convert Value into String, but propagate errors.
+    pub fn nonerror_into_string(
+        &self,
+        separator: &str,
+        config: &Config,
+    ) -> Result<String, ShellError> {
+        match self {
+            Value::Error { error } => Err(error.to_owned()),
+            _ => Ok(self.into_string(separator, config)),
+        }
+    }
+
     /// Convert Value into string. Note that Streams will be consumed.
     pub fn into_string(&self, separator: &str, config: &Config) -> String {
         match self {
@@ -500,6 +533,13 @@ impl Value {
                     .collect::<Vec<_>>()
                     .join(separator)
             ),
+            Value::LazyRecord { val, .. } => {
+                let collected = match val.collect() {
+                    Ok(val) => val,
+                    Err(error) => Value::Error { error },
+                };
+                collected.into_string(separator, config)
+            }
             Value::Block { val, .. } => format!("<Block {}>", val),
             Value::Closure { val, .. } => format!("<Closure {}>", val),
             Value::Nothing { .. } => String::new(),
@@ -544,6 +584,10 @@ impl Value {
                 cols.len(),
                 if cols.len() == 1 { "" } else { "s" }
             ),
+            Value::LazyRecord { val, .. } => match val.collect() {
+                Ok(val) => val.into_abbreviated_string(config),
+                Err(error) => format!("{:?}", error),
+            },
             Value::Block { val, .. } => format!("<Block {}>", val),
             Value::Closure { val, .. } => format!("<Closure {}>", val),
             Value::Nothing { .. } => String::new(),
@@ -591,6 +635,10 @@ impl Value {
                     .collect::<Vec<_>>()
                     .join(separator)
             ),
+            Value::LazyRecord { val, .. } => match val.collect() {
+                Ok(val) => val.debug_string(separator, config),
+                Err(error) => format!("{:?}", error),
+            },
             Value::Block { val, .. } => format!("<Block {}>", val),
             Value::Closure { val, .. } => format!("<Closure {}>", val),
             Value::Nothing { .. } => String::new(),
@@ -627,8 +675,9 @@ impl Value {
         self,
         cell_path: &[PathMember],
         insensitive: bool,
+        nullify_errors: bool,
     ) -> Result<Value, ShellError> {
-        self.follow_cell_path_helper(cell_path, insensitive, true)
+        self.follow_cell_path_helper(cell_path, insensitive, nullify_errors, true)
     }
 
     pub fn follow_cell_path_not_from_user_input(
@@ -636,16 +685,26 @@ impl Value {
         cell_path: &[PathMember],
         insensitive: bool,
     ) -> Result<Value, ShellError> {
-        self.follow_cell_path_helper(cell_path, insensitive, false)
+        self.follow_cell_path_helper(cell_path, insensitive, false, false)
     }
 
     fn follow_cell_path_helper(
         self,
         cell_path: &[PathMember],
         insensitive: bool,
+        nullify_errors: bool, // Turn all errors into Value::Nothing
         from_user_input: bool,
     ) -> Result<Value, ShellError> {
         let mut current = self;
+        macro_rules! err_or_null {
+            ($e:expr, $span:expr) => {
+                return if nullify_errors {
+                    Ok(Value::nothing($span))
+                } else {
+                    Err($e)
+                }
+            };
+        }
         for member in cell_path {
             // FIXME: this uses a few extra clones for simplicity, but there may be a way
             // to traverse the path without them
@@ -660,34 +719,61 @@ impl Value {
                             if let Some(item) = val.get(*count) {
                                 current = item.clone();
                             } else if val.is_empty() {
-                                return Err(ShellError::AccessEmptyContent(*origin_span))
+                                err_or_null!(
+                                    ShellError::AccessEmptyContent(*origin_span),
+                                    *origin_span
+                                )
                             } else {
-                                return Err(ShellError::AccessBeyondEnd(val.len() - 1, *origin_span));
+                                err_or_null!(
+                                    ShellError::AccessBeyondEnd(val.len() - 1, *origin_span),
+                                    *origin_span
+                                );
                             }
                         }
                         Value::Binary { val, .. } => {
                             if let Some(item) = val.get(*count) {
                                 current = Value::int(*item as i64, *origin_span);
                             } else if val.is_empty() {
-                                return Err(ShellError::AccessEmptyContent(*origin_span))
+                                err_or_null!(
+                                    ShellError::AccessEmptyContent(*origin_span),
+                                    *origin_span
+                                )
                             } else {
-                                return Err(ShellError::AccessBeyondEnd(val.len() - 1, *origin_span));
+                                err_or_null!(
+                                    ShellError::AccessBeyondEnd(val.len() - 1, *origin_span),
+                                    *origin_span
+                                );
                             }
                         }
                         Value::Range { val, .. } => {
                             if let Some(item) = val.clone().into_range_iter(None)?.nth(*count) {
                                 current = item.clone();
                             } else {
-                                return Err(ShellError::AccessBeyondEndOfStream(*origin_span));
+                                err_or_null!(
+                                    ShellError::AccessBeyondEndOfStream(*origin_span),
+                                    *origin_span
+                                );
                             }
                         }
                         Value::CustomValue { val, .. } => {
                             current = val.follow_path_int(*count, *origin_span)?;
                         }
+                        // Records (and tables) are the only built-in which support column names,
+                        // so only use this message for them.
+                        Value::Record { .. } => {
+                            err_or_null!(ShellError::TypeMismatchGenericMessage {
+                                err_message: "Can't access record values with a row index. Try specifying a column name instead".into(),
+                                span: *origin_span, }, *origin_span)
+                        }
+                        Value::Error { error } => return Err(error.to_owned()),
                         x => {
-                            return Err(ShellError::TypeMismatchGenericMessage {
-                                err_message: format!("Can't access {} values with a row index. Try specifying a column name instead", x.get_type().to_shape()),
-                                span: *origin_span, })
+                            err_or_null!(
+                                ShellError::IncompatiblePathAccess(
+                                    format!("{}", x.get_type()),
+                                    *origin_span,
+                                ),
+                                *origin_span
+                            )
                         }
                     }
                 }
@@ -711,16 +797,50 @@ impl Value {
                         } else {
                             if from_user_input {
                                 if let Some(suggestion) = did_you_mean(&cols, column_name) {
-                                    return Err(ShellError::DidYouMean(suggestion, *origin_span));
+                                    err_or_null!(
+                                        ShellError::DidYouMean(suggestion, *origin_span),
+                                        *origin_span
+                                    );
                                 }
                             }
-                            return Err(ShellError::CantFindColumn(
-                                column_name.to_string(),
-                                *origin_span,
-                                span,
-                            ));
+                            err_or_null!(
+                                ShellError::CantFindColumn(
+                                    column_name.to_string(),
+                                    *origin_span,
+                                    span,
+                                ),
+                                *origin_span
+                            );
                         }
                     }
+                    Value::LazyRecord { val, span } => {
+                        let columns = val.column_names();
+
+                        if columns.contains(&column_name.as_str()) {
+                            current = val.get_column_value(column_name)?;
+                        } else {
+                            if from_user_input {
+                                if let Some(suggestion) = did_you_mean(&columns, column_name) {
+                                    err_or_null!(
+                                        ShellError::DidYouMean(suggestion, *origin_span),
+                                        *origin_span
+                                    );
+                                }
+                            }
+                            err_or_null!(
+                                ShellError::CantFindColumn(
+                                    column_name.to_string(),
+                                    *origin_span,
+                                    *span,
+                                ),
+                                *origin_span
+                            );
+                        }
+                    }
+                    // String access of Lists always means Table access.
+                    // Create a List which contains each matching value for contained
+                    // records in the source list.
+                    // If nullify_errors is true, table holes are converted to null.
                     Value::List { vals, span } => {
                         let mut output = vec![];
                         let mut found_at_least_1_value = false;
@@ -733,14 +853,50 @@ impl Value {
                                         span: *origin_span,
                                     }],
                                     insensitive,
+                                    nullify_errors,
                                 ) {
                                     found_at_least_1_value = true;
                                     output.push(result);
                                 } else {
-                                    output.push(Value::Nothing { span: *span });
+                                    // Consider [{a:1 b:2} {a:3}]:
+                                    // [{a:1 b:2} {a:3}].b should error.
+                                    // [{a:1 b:2} {a:3}].b.1 should error.
+                                    // [{a:1 b:2} {a:3}].b.0 should NOT error because the path can find a proper value (2)
+                                    // but if this returns an error immediately, it will.
+                                    //
+                                    // Solution: push a Value::Error into this result list instead of returning it.
+                                    // This also means that `[{a:1 b:2} {a:2}].b | reject 1` also doesn't error.
+                                    // Anything that needs to use every value inside the list should propagate
+                                    // the error outward, though.
+                                    output.push(if nullify_errors {
+                                        Value::nothing(*origin_span)
+                                    } else {
+                                        Value::Error {
+                                            error: ShellError::CantFindColumn(
+                                                column_name.to_string(),
+                                                *origin_span,
+                                                // Get the exact span of the value, falling back to
+                                                // the list's span if it's a Value::Empty
+                                                val.span().unwrap_or(*span),
+                                            ),
+                                        }
+                                    });
                                 }
                             } else {
-                                output.push(Value::Nothing { span: *span });
+                                // See comment above.
+                                output.push(if nullify_errors {
+                                    Value::nothing(*origin_span)
+                                } else {
+                                    Value::Error {
+                                        error: ShellError::CantFindColumn(
+                                            column_name.to_string(),
+                                            *origin_span,
+                                            // Get the exact span of the value, falling back to
+                                            // the list's span if it's a Value::Empty
+                                            val.span().unwrap_or(*span),
+                                        ),
+                                    }
+                                });
                             }
                         }
                         if found_at_least_1_value {
@@ -749,23 +905,39 @@ impl Value {
                                 span: *span,
                             };
                         } else {
-                            return Err(ShellError::NotFound(*span));
+                            err_or_null!(
+                                ShellError::CantFindColumn(
+                                    column_name.to_string(),
+                                    *origin_span,
+                                    *span,
+                                ),
+                                *origin_span
+                            );
                         }
                     }
                     Value::CustomValue { val, .. } => {
                         current = val.follow_path_string(column_name.clone(), *origin_span)?;
                     }
+                    Value::Error { error } => err_or_null!(error.to_owned(), *origin_span),
                     x => {
-                        return Err(ShellError::IncompatiblePathAccess(
-                            format!("{}", x.get_type()),
-                            *origin_span,
-                        ))
+                        err_or_null!(
+                            ShellError::IncompatiblePathAccess(
+                                format!("{}", x.get_type()),
+                                *origin_span,
+                            ),
+                            *origin_span
+                        )
                     }
                 },
             }
         }
-
-        Ok(current)
+        // If a single Value::Error was produced by the above (which won't happen if nullify_errors is true), unwrap it now.
+        // Note that Value::Errors inside Lists remain as they are, so that the rest of the list can still potentially be used.
+        if let Value::Error { error } = current {
+            Err(error)
+        } else {
+            Ok(current)
+        }
     }
 
     /// Follow a given cell path into the value: for example accessing select elements in a stream or list
@@ -776,7 +948,7 @@ impl Value {
     ) -> Result<(), ShellError> {
         let orig = self.clone();
 
-        let new_val = callback(&orig.follow_cell_path(cell_path, false)?);
+        let new_val = callback(&orig.follow_cell_path(cell_path, false, false)?);
 
         match new_val {
             Value::Error { error } => Err(error),
@@ -829,6 +1001,7 @@ impl Value {
                                         }
                                     }
                                 }
+                                Value::Error { error } => return Err(error.to_owned()),
                                 v => {
                                     return Err(ShellError::CantFindColumn(
                                         col_name.to_string(),
@@ -865,6 +1038,7 @@ impl Value {
                             }
                         }
                     }
+                    Value::Error { error } => return Err(error.to_owned()),
                     v => {
                         return Err(ShellError::CantFindColumn(
                             col_name.to_string(),
@@ -885,6 +1059,7 @@ impl Value {
                             return Err(ShellError::InsertAfterNextFreeIndex(vals.len(), *span));
                         }
                     }
+                    Value::Error { error } => return Err(error.to_owned()),
                     v => return Err(ShellError::NotAList(*span, v.span()?)),
                 },
             },
@@ -896,14 +1071,14 @@ impl Value {
     }
 
     /// Follow a given cell path into the value: for example accessing select elements in a stream or list
-    pub fn update_cell_path(
+    pub fn update_cell_path<'a>(
         &mut self,
         cell_path: &[PathMember],
-        callback: Box<dyn FnOnce(&Value) -> Value>,
+        callback: Box<dyn FnOnce(&Value) -> Value + 'a>,
     ) -> Result<(), ShellError> {
         let orig = self.clone();
 
-        let new_val = callback(&orig.follow_cell_path(cell_path, false)?);
+        let new_val = callback(&orig.follow_cell_path(cell_path, false, false)?);
 
         match new_val {
             Value::Error { error } => Err(error),
@@ -948,6 +1123,7 @@ impl Value {
                                         ));
                                     }
                                 }
+                                Value::Error { error } => return Err(error.to_owned()),
                                 v => {
                                     return Err(ShellError::CantFindColumn(
                                         col_name.to_string(),
@@ -981,6 +1157,7 @@ impl Value {
                             ));
                         }
                     }
+                    Value::Error { error } => return Err(error.to_owned()),
                     v => {
                         return Err(ShellError::CantFindColumn(
                             col_name.to_string(),
@@ -999,6 +1176,7 @@ impl Value {
                             return Err(ShellError::AccessBeyondEnd(vals.len() - 1, *span));
                         }
                     }
+                    Value::Error { error } => return Err(error.to_owned()),
                     v => return Err(ShellError::NotAList(*span, v.span()?)),
                 },
             },
@@ -1449,6 +1627,7 @@ impl PartialOrd for Value {
                 Value::Range { .. } => Some(Ordering::Less),
                 Value::String { .. } => Some(Ordering::Less),
                 Value::Record { .. } => Some(Ordering::Less),
+                Value::LazyRecord { .. } => Some(Ordering::Less),
                 Value::List { .. } => Some(Ordering::Less),
                 Value::Block { .. } => Some(Ordering::Less),
                 Value::Closure { .. } => Some(Ordering::Less),
@@ -1468,6 +1647,7 @@ impl PartialOrd for Value {
                 Value::Range { .. } => Some(Ordering::Less),
                 Value::String { .. } => Some(Ordering::Less),
                 Value::Record { .. } => Some(Ordering::Less),
+                Value::LazyRecord { .. } => Some(Ordering::Less),
                 Value::List { .. } => Some(Ordering::Less),
                 Value::Block { .. } => Some(Ordering::Less),
                 Value::Closure { .. } => Some(Ordering::Less),
@@ -1487,6 +1667,7 @@ impl PartialOrd for Value {
                 Value::Range { .. } => Some(Ordering::Less),
                 Value::String { .. } => Some(Ordering::Less),
                 Value::Record { .. } => Some(Ordering::Less),
+                Value::LazyRecord { .. } => Some(Ordering::Less),
                 Value::List { .. } => Some(Ordering::Less),
                 Value::Block { .. } => Some(Ordering::Less),
                 Value::Closure { .. } => Some(Ordering::Less),
@@ -1506,6 +1687,7 @@ impl PartialOrd for Value {
                 Value::Range { .. } => Some(Ordering::Less),
                 Value::String { .. } => Some(Ordering::Less),
                 Value::Record { .. } => Some(Ordering::Less),
+                Value::LazyRecord { .. } => Some(Ordering::Less),
                 Value::List { .. } => Some(Ordering::Less),
                 Value::Block { .. } => Some(Ordering::Less),
                 Value::Closure { .. } => Some(Ordering::Less),
@@ -1525,6 +1707,7 @@ impl PartialOrd for Value {
                 Value::Range { .. } => Some(Ordering::Less),
                 Value::String { .. } => Some(Ordering::Less),
                 Value::Record { .. } => Some(Ordering::Less),
+                Value::LazyRecord { .. } => Some(Ordering::Less),
                 Value::List { .. } => Some(Ordering::Less),
                 Value::Block { .. } => Some(Ordering::Less),
                 Value::Closure { .. } => Some(Ordering::Less),
@@ -1544,6 +1727,7 @@ impl PartialOrd for Value {
                 Value::Range { .. } => Some(Ordering::Less),
                 Value::String { .. } => Some(Ordering::Less),
                 Value::Record { .. } => Some(Ordering::Less),
+                Value::LazyRecord { .. } => Some(Ordering::Less),
                 Value::List { .. } => Some(Ordering::Less),
                 Value::Block { .. } => Some(Ordering::Less),
                 Value::Closure { .. } => Some(Ordering::Less),
@@ -1563,6 +1747,7 @@ impl PartialOrd for Value {
                 Value::Range { val: rhs, .. } => lhs.partial_cmp(rhs),
                 Value::String { .. } => Some(Ordering::Less),
                 Value::Record { .. } => Some(Ordering::Less),
+                Value::LazyRecord { .. } => Some(Ordering::Less),
                 Value::List { .. } => Some(Ordering::Less),
                 Value::Block { .. } => Some(Ordering::Less),
                 Value::Closure { .. } => Some(Ordering::Less),
@@ -1582,6 +1767,7 @@ impl PartialOrd for Value {
                 Value::Range { .. } => Some(Ordering::Greater),
                 Value::String { val: rhs, .. } => lhs.partial_cmp(rhs),
                 Value::Record { .. } => Some(Ordering::Less),
+                Value::LazyRecord { .. } => Some(Ordering::Less),
                 Value::List { .. } => Some(Ordering::Less),
                 Value::Block { .. } => Some(Ordering::Less),
                 Value::Closure { .. } => Some(Ordering::Less),
@@ -1627,6 +1813,10 @@ impl PartialOrd for Value {
                         result
                     }
                 }
+                Value::LazyRecord { val, .. } => match val.collect() {
+                    Ok(rhs) => self.partial_cmp(&rhs),
+                    Err(_) => None,
+                },
                 Value::List { .. } => Some(Ordering::Less),
                 Value::Block { .. } => Some(Ordering::Less),
                 Value::Closure { .. } => Some(Ordering::Less),
@@ -1646,6 +1836,7 @@ impl PartialOrd for Value {
                 Value::Range { .. } => Some(Ordering::Greater),
                 Value::String { .. } => Some(Ordering::Greater),
                 Value::Record { .. } => Some(Ordering::Greater),
+                Value::LazyRecord { .. } => Some(Ordering::Greater),
                 Value::List { vals: rhs, .. } => lhs.partial_cmp(rhs),
                 Value::Block { .. } => Some(Ordering::Less),
                 Value::Closure { .. } => Some(Ordering::Less),
@@ -1666,6 +1857,7 @@ impl PartialOrd for Value {
                 Value::String { .. } => Some(Ordering::Greater),
                 Value::Record { .. } => Some(Ordering::Greater),
                 Value::List { .. } => Some(Ordering::Greater),
+                Value::LazyRecord { .. } => Some(Ordering::Greater),
                 Value::Block { val: rhs, .. } => lhs.partial_cmp(rhs),
                 Value::Closure { .. } => Some(Ordering::Less),
                 Value::Nothing { .. } => Some(Ordering::Less),
@@ -1684,6 +1876,7 @@ impl PartialOrd for Value {
                 Value::Range { .. } => Some(Ordering::Greater),
                 Value::String { .. } => Some(Ordering::Greater),
                 Value::Record { .. } => Some(Ordering::Greater),
+                Value::LazyRecord { .. } => Some(Ordering::Greater),
                 Value::List { .. } => Some(Ordering::Greater),
                 Value::Block { .. } => Some(Ordering::Greater),
                 Value::Closure { val: rhs, .. } => lhs.partial_cmp(rhs),
@@ -1703,6 +1896,7 @@ impl PartialOrd for Value {
                 Value::Range { .. } => Some(Ordering::Greater),
                 Value::String { .. } => Some(Ordering::Greater),
                 Value::Record { .. } => Some(Ordering::Greater),
+                Value::LazyRecord { .. } => Some(Ordering::Greater),
                 Value::List { .. } => Some(Ordering::Greater),
                 Value::Block { .. } => Some(Ordering::Greater),
                 Value::Closure { .. } => Some(Ordering::Greater),
@@ -1722,6 +1916,7 @@ impl PartialOrd for Value {
                 Value::Range { .. } => Some(Ordering::Greater),
                 Value::String { .. } => Some(Ordering::Greater),
                 Value::Record { .. } => Some(Ordering::Greater),
+                Value::LazyRecord { .. } => Some(Ordering::Greater),
                 Value::List { .. } => Some(Ordering::Greater),
                 Value::Block { .. } => Some(Ordering::Greater),
                 Value::Closure { .. } => Some(Ordering::Greater),
@@ -1741,6 +1936,7 @@ impl PartialOrd for Value {
                 Value::Range { .. } => Some(Ordering::Greater),
                 Value::String { .. } => Some(Ordering::Greater),
                 Value::Record { .. } => Some(Ordering::Greater),
+                Value::LazyRecord { .. } => Some(Ordering::Greater),
                 Value::List { .. } => Some(Ordering::Greater),
                 Value::Block { .. } => Some(Ordering::Greater),
                 Value::Closure { .. } => Some(Ordering::Greater),
@@ -1760,6 +1956,7 @@ impl PartialOrd for Value {
                 Value::Range { .. } => Some(Ordering::Greater),
                 Value::String { .. } => Some(Ordering::Greater),
                 Value::Record { .. } => Some(Ordering::Greater),
+                Value::LazyRecord { .. } => Some(Ordering::Greater),
                 Value::List { .. } => Some(Ordering::Greater),
                 Value::Block { .. } => Some(Ordering::Greater),
                 Value::Closure { .. } => Some(Ordering::Greater),
@@ -1770,6 +1967,10 @@ impl PartialOrd for Value {
                 Value::CustomValue { .. } => Some(Ordering::Less),
             },
             (Value::CustomValue { val: lhs, .. }, rhs) => lhs.partial_cmp(rhs),
+            (Value::LazyRecord { val, .. }, rhs) => match val.collect() {
+                Ok(val) => val.partial_cmp(rhs),
+                Err(_) => None,
+            },
         }
     }
 }

@@ -444,6 +444,7 @@ fn file_completion_quoted() {
         "`te st.txt`".to_string(),
         "`te#st.txt`".to_string(),
         "`te'st.txt`".to_string(),
+        "`te(st).txt`".to_string(),
     ];
 
     match_suggestions(expected_paths, suggestions)
@@ -459,7 +460,7 @@ fn flag_completions() {
     // Test completions for the 'ls' flags
     let suggestions = completer.complete("ls -", 4);
 
-    assert_eq!(14, suggestions.len());
+    assert_eq!(16, suggestions.len());
 
     let expected: Vec<String> = vec![
         "--all".into(),
@@ -468,6 +469,7 @@ fn flag_completions() {
         "--full-paths".into(),
         "--help".into(),
         "--long".into(),
+        "--mime-type".into(),
         "--short-names".into(),
         "-D".into(),
         "-a".into(),
@@ -475,6 +477,7 @@ fn flag_completions() {
         "-f".into(),
         "-h".into(),
         "-l".into(),
+        "-m".into(),
         "-s".into(),
     ];
 
@@ -811,4 +814,42 @@ fn extern_complete_flags(mut extern_completer: NuCompleter) {
     let suggestions = extern_completer.complete("spam -", 6);
     let expected: Vec<String> = vec!["--foo".into(), "-b".into(), "-f".into()];
     match_suggestions(expected, suggestions);
+}
+
+#[rstest]
+fn alias_offset_bug_7748() {
+    let (dir, _, mut engine, mut stack) = new_engine();
+
+    // Create an alias
+    let alias = r#"alias ea = ^$env.EDITOR /tmp/test.s"#;
+    assert!(support::merge_input(alias.as_bytes(), &mut engine, &mut stack, dir.clone()).is_ok());
+
+    let mut completer = NuCompleter::new(std::sync::Arc::new(engine), stack);
+
+    // Issue #7748
+    // Nushell crashes when an alias name is shorter than the alias command
+    // and the alias command is a external command
+    // This happens because of offset is not correct.
+    // This crashes before PR #7779
+    let _suggestions = completer.complete("e", 1);
+    //println!(" --------- suggestions: {:?}", suggestions);
+}
+
+#[rstest]
+fn alias_offset_bug_7754() {
+    let (dir, _, mut engine, mut stack) = new_engine();
+
+    // Create an alias
+    let alias = r#"alias ll = ls -l"#;
+    assert!(support::merge_input(alias.as_bytes(), &mut engine, &mut stack, dir.clone()).is_ok());
+
+    let mut completer = NuCompleter::new(std::sync::Arc::new(engine), stack);
+
+    // Issue #7754
+    // Nushell crashes when an alias name is shorter than the alias command
+    // and the alias command contains pipes.
+    // This crashes before PR #7756
+    let _suggestions = completer.complete("ll -a | c", 9);
+
+    //println!(" --------- suggestions: {:?}", suggestions);
 }

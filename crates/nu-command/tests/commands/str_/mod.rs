@@ -123,7 +123,7 @@ fn converts_to_int() {
     let actual = nu!(
         cwd: "tests/fixtures/formats", pipeline(
         r#"
-            echo '{number_as_string: "1"}'
+            echo '[{number_as_string: "1"}]'
             | from json
             | into int number_as_string
             | rename number

@@ -20,7 +20,7 @@ At this point, the parser has little to no understanding of the shape of the com
 
 ## Lite parsing
 
-As nushell is a language of pipelines, pipes form a key role in both separating commands from each other as well as denoting the flow of information between commands. The lite parse phase, as the name suggests, helps to group the lexed tokens into units.
+As Nushell is a language of pipelines, pipes form a key role in both separating commands from each other as well as denoting the flow of information between commands. The lite parse phase, as the name suggests, helps to group the lexed tokens into units.
 
 The above tokens are converted the following during the lite parse phase:
 
@@ -36,12 +36,12 @@ Pipeline:
 
 The real magic begins to happen when the parse moves on to the parsing stage. At this point, it traverses the lite parse tree and for each command makes a decision:
 
-* If the command looks like an internal/external command literal: eg) `foo` or `/usr/bin/ls`, it parses it as an internal or external command
+* If the command looks like an internal/external command literal: e.g. `foo` or `/usr/bin/ls`, it parses it as an internal or external command
 * Otherwise, it parses the command as part of a mathematical expression
 
 ### Types/shapes
 
-Each command has a shape assigned to each of the arguments in reads in. These shapes help define how the parser will handle the parse.
+Each command has a shape assigned to each of the arguments it reads in. These shapes help define how the parser will handle the parse.
 
 For example, if the command is written as:
 
@@ -49,7 +49,7 @@ For example, if the command is written as:
 where $x > 10
 ```
 
-When the parsing happens, the parser will look up the `where` command and find its Signature. The Signature states what flags are allowed and what positional arguments are allowed (both required and optional). Each argument comes with it a Shape that defines how to parse values to get that position.
+When the parsing happens, the parser will look up the `where` command and find its Signature. The Signature states what flags are allowed and what positional arguments are allowed (both required and optional). Each argument comes with a Shape that defines how to parse values to get that position.
 
 In the above example, if the Signature of `where` said that it took three String values, the result would be:
 
@@ -96,4 +96,3 @@ As some Shapes can consume multiple tokens, it's important that the parser allow
 The simplest way it does this is to ensure there is at least one token for each required parameter. If the Signature of the command says that it takes a MathExpression and a Number as two required arguments, then the parser will stop the math parser one token short. This allows the second Shape to consume the final token.
 
 Another way that the parser makes space is to look for Keyword shapes in the Signature. A Keyword is a word that's special to this command. For example in the `if` command, `else` is a keyword. When it is found in the arguments, the parser will use it as a signpost for where to make space for each Shape. The tokens leading up to the `else` will then feed into the parts of the Signature before the `else`, and the tokens following are consumed by the `else` and the Shapes that follow.
-

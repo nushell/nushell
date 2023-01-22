@@ -19,6 +19,31 @@ fn alias_1() -> TestResult {
 }
 
 #[test]
+fn ints_with_underscores() -> TestResult {
+    run_test("1_0000_0000_0000 + 10", "1000000000010")
+}
+
+#[test]
+fn floats_with_underscores() -> TestResult {
+    run_test("3.1415_9265_3589_793 * 2", "6.283185307179586")
+}
+
+#[test]
+fn bin_ints_with_underscores() -> TestResult {
+    run_test("0b_10100_11101_10010", "21426")
+}
+
+#[test]
+fn oct_ints_with_underscores() -> TestResult {
+    run_test("0o2443_6442_7652_0044", "90422533333028")
+}
+
+#[test]
+fn hex_ints_with_underscores() -> TestResult {
+    run_test("0x68__9d__6a", "6856042")
+}
+
+#[test]
 fn alias_2() -> TestResult {
     run_test(
         "def foo [$x $y] { $x + $y + 10 }; alias f = foo 33; f 100",
@@ -349,7 +374,10 @@ fn proper_missing_param() -> TestResult {
 
 #[test]
 fn block_arity_check1() -> TestResult {
-    fail_test(r#"ls | each { |x, y, z| 1}"#, "expected 2 block parameters")
+    fail_test(
+        r#"ls | each { |x, y, z| 1}"#,
+        "expected 2 closure parameters",
+    )
 }
 
 #[test]

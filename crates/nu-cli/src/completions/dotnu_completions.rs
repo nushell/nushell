@@ -70,14 +70,7 @@ impl Completer for DotNuCompletion {
             partial = base_dir_partial;
         } else {
             // Fetch the current folder
-            let current_folder = if let Some(d) = self.engine_state.get_env_var("PWD") {
-                match d.as_string() {
-                    Ok(s) => s,
-                    Err(_) => "".to_string(),
-                }
-            } else {
-                "".to_string()
-            };
+            let current_folder = self.engine_state.current_work_dir();
             is_current_folder = true;
 
             // Add the current folder and the lib dirs into the

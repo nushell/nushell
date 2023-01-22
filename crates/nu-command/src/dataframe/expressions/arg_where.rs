@@ -43,6 +43,10 @@ impl Command for ExprArgWhere {
         }]
     }
 
+    fn search_terms(&self) -> Vec<&str> {
+        vec!["condition", "match", "if"]
+    }
+
     fn run(
         &self,
         engine_state: &EngineState,

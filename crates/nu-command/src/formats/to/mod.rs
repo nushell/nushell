@@ -8,17 +8,16 @@ mod nuon;
 mod text;
 mod toml;
 mod tsv;
-mod url;
 mod xml;
 mod yaml;
 
 pub use self::csv::ToCsv;
 pub use self::toml::ToToml;
-pub use self::url::ToUrl;
 pub use command::To;
 pub use html::ToHtml;
 pub use json::ToJson;
 pub use md::ToMd;
+pub use nuon::value_to_string;
 pub use nuon::ToNuon;
 pub use text::ToText;
 pub use tsv::ToTsv;

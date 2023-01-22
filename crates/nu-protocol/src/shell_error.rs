@@ -51,8 +51,8 @@ pub enum ShellError {
         #[label("value originates from here")] Span,
     ),
 
-    #[error("Pipeline mismatch.")]
-    #[diagnostic(code(nu::shell::pipeline_mismatch), url(docsrs))]
+    #[error("Input type not supported.")]
+    #[diagnostic(code(nu::shell::only_supports_this_input_type), url(docsrs))]
     OnlySupportsThisInputType(
         String,
         String,
@@ -542,6 +542,15 @@ Either make sure {0} is a string, or add a 'to_string' entry for it in ENV_CONVE
     #[diagnostic(code(nu::shell::command_not_found), url(docsrs))]
     CommandNotFound(#[label("command not found")] Span),
 
+    /// This alias could not be found
+    ///
+    /// ## Resolution
+    ///
+    /// The alias does not exist in the current scope. It might exist in another scope or overlay or be hidden.
+    #[error("Alias not found")]
+    #[diagnostic(code(nu::shell::alias_not_found), url(docsrs))]
+    AliasNotFound(#[label("alias not found")] Span),
+
     /// A flag was not found.
     #[error("Flag not found")]
     #[diagnostic(code(nu::shell::flag_not_found), url(docsrs))]
@@ -868,9 +877,6 @@ Either make sure {0} is a string, or add a 'to_string' entry for it in ENV_CONVE
     #[diagnostic(code(nu::shell::non_unicode_input), url(docsrs))]
     NonUnicodeInput,
 
-    // /// Path not found.
-    // #[error("Path not found.")]
-    // PathNotFound,
     /// Unexpected abbr component.
     ///
     /// ## Resolution
@@ -897,6 +903,29 @@ Either make sure {0} is a string, or add a 'to_string' entry for it in ENV_CONVE
     /// Return event, which may become an error if used outside of a function
     #[error("Return used outside of function")]
     Return(#[label = "used outside of function"] Span, Box<Value>),
+
+    /// The code being executed called itself too many times.
+    ///
+    /// ## Resolution
+    ///
+    /// Adjust your Nu code to
+    #[error("Recursion limit ({recursion_limit}) reached")]
+    #[diagnostic(code(nu::shell::recursion_limit_reached), url(docsrs))]
+    RecursionLimitReached {
+        recursion_limit: u64,
+        #[label("This called itself too many times")]
+        span: Option<Span>,
+    },
+
+    /// An attempt to access a record column failed.
+    #[error("Access failure: {message}")]
+    #[diagnostic(code(nu::shell::lazy_record_access_failed), url(docsrs))]
+    LazyRecordAccessFailed {
+        message: String,
+        column_name: String,
+        #[label("Could not access '{column_name}' on this record")]
+        span: Span,
+    },
 }
 
 impl From<std::io::Error> for ShellError {
@@ -921,9 +950,8 @@ pub fn into_code(err: &ShellError) -> Option<String> {
     err.code().map(|code| code.to_string())
 }
 
-pub fn did_you_mean(possibilities: &[String], input: &str) -> Option<String> {
-    let possibilities: Vec<&str> = possibilities.iter().map(|s| s.as_str()).collect();
-
+pub fn did_you_mean<S: AsRef<str>>(possibilities: &[S], input: &str) -> Option<String> {
+    let possibilities: Vec<&str> = possibilities.iter().map(|s| s.as_ref()).collect();
     let suggestion =
         crate::lev_distance::find_best_match_for_name_with_substrings(&possibilities, input, None)
             .map(|s| s.to_string());
@@ -999,7 +1027,6 @@ mod tests {
             ),
         ];
         for (possibilities, cases) in all_cases {
-            let possibilities: Vec<String> = possibilities.iter().map(|s| s.to_string()).collect();
             for (input, expected_suggestion, discussion) in cases {
                 let suggestion = did_you_mean(&possibilities, input);
                 assert_eq!(

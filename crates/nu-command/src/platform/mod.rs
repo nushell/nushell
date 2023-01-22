@@ -8,7 +8,7 @@ mod reedline_commands;
 mod sleep;
 mod term_size;
 
-pub use ansi::{Ansi, AnsiGradient, AnsiStrip};
+pub use ansi::{Ansi, AnsiGradient, AnsiLink, AnsiStrip};
 pub use clear::Clear;
 pub use dir_info::{DirBuilder, DirInfo, FileInfo};
 pub use du::Du;

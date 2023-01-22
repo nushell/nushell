@@ -1,4 +1,4 @@
-use crate::{current_dir_str, get_full_help, scope::create_scope};
+use crate::{current_dir_str, get_full_help, nu_variable::NuVariable};
 use nu_path::expand_path_with;
 use nu_protocol::{
     ast::{
@@ -6,12 +6,11 @@ use nu_protocol::{
         Operator, PathMember, PipelineElement, Redirection,
     },
     engine::{EngineState, Stack},
-    Config, HistoryFileFormat, IntoInterruptiblePipelineData, IntoPipelineData, PipelineData,
-    Range, ShellError, Span, Spanned, Unit, Value, VarId, ENV_VARIABLE_ID,
+    Config, IntoInterruptiblePipelineData, IntoPipelineData, PipelineData, Range, ShellError, Span,
+    Spanned, Unit, Value, VarId, ENV_VARIABLE_ID,
 };
 use nu_utils::stdout_write_all_and_flush;
 use std::collections::HashMap;
-use sysinfo::SystemExt;
 
 pub fn eval_operator(op: &Expression) -> Result<Operator, ShellError> {
     match op {
@@ -302,7 +301,7 @@ pub fn eval_expression(
         Expr::FullCellPath(cell_path) => {
             let value = eval_expression(engine_state, stack, &cell_path.head)?;
 
-            value.follow_cell_path(&cell_path.tail, false)
+            value.follow_cell_path(&cell_path.tail, false, false)
         }
         Expr::ImportPattern(_) => Ok(Value::Nothing { span: expr.span }),
         Expr::Overlay(_) => {
@@ -476,6 +475,7 @@ pub fn eval_expression(
                                         // as the "config" environment variable.
                                         let vardata = lhs.follow_cell_path(
                                             &[cell_path.tail[0].clone()],
+                                            false,
                                             false,
                                         )?;
                                         match &cell_path.tail[0] {
@@ -827,6 +827,64 @@ pub fn eval_element_with_input(
             }
             _ => Err(ShellError::CommandNotFound(*span)),
         },
+        PipelineElement::SeparateRedirection {
+            out: (out_span, out_expr),
+            err: (err_span, err_expr),
+        } => match (&out_expr.expr, &err_expr.expr) {
+            (Expr::String(_), Expr::String(_)) => {
+                if let Some(save_command) = engine_state.find_decl(b"save", &[]) {
+                    eval_call(
+                        engine_state,
+                        stack,
+                        &Call {
+                            decl_id: save_command,
+                            head: *out_span,
+                            arguments: vec![
+                                Argument::Positional(out_expr.clone()),
+                                Argument::Named((
+                                    Spanned {
+                                        item: "stderr".into(),
+                                        span: *err_span,
+                                    },
+                                    None,
+                                    Some(err_expr.clone()),
+                                )),
+                                Argument::Named((
+                                    Spanned {
+                                        item: "raw".into(),
+                                        span: *out_span,
+                                    },
+                                    None,
+                                    None,
+                                )),
+                                Argument::Named((
+                                    Spanned {
+                                        item: "force".into(),
+                                        span: *out_span,
+                                    },
+                                    None,
+                                    None,
+                                )),
+                            ],
+                            redirect_stdout: false,
+                            redirect_stderr: false,
+                            parser_info: vec![],
+                        },
+                        input,
+                    )
+                    .map(|x| (x, false))
+                } else {
+                    Err(ShellError::CommandNotFound(*out_span))
+                }
+            }
+            (_out_other, err_other) => {
+                if let Expr::String(_) = err_other {
+                    Err(ShellError::CommandNotFound(*out_span))
+                } else {
+                    Err(ShellError::CommandNotFound(*err_span))
+                }
+            }
+        },
         PipelineElement::And(_, expr) => eval_expression_with_input(
             engine_state,
             stack,
@@ -875,6 +933,21 @@ pub fn eval_block(
     redirect_stdout: bool,
     redirect_stderr: bool,
 ) -> Result<PipelineData, ShellError> {
+    // if Block contains recursion, make sure we don't recurse too deeply (to avoid stack overflow)
+    if let Some(recursive) = block.recursive {
+        // picked 50 arbitrarily, should work on all architectures
+        const RECURSION_LIMIT: u64 = 50;
+        if recursive {
+            if *stack.recursion_count >= RECURSION_LIMIT {
+                stack.recursion_count = Box::new(0);
+                return Err(ShellError::RecursionLimitReached {
+                    recursion_limit: RECURSION_LIMIT,
+                    span: block.span,
+                });
+            }
+            *stack.recursion_count += 1;
+        }
+    }
     let num_pipelines = block.len();
     for (pipeline_idx, pipeline) in block.pipelines.iter().enumerate() {
         let mut i = 0;
@@ -886,6 +959,7 @@ pub fn eval_block(
                         pipeline.elements[i + 1],
                         PipelineElement::Redirection(_, Redirection::Stderr, _)
                             | PipelineElement::Redirection(_, Redirection::StdoutAndStderr, _)
+                            | PipelineElement::SeparateRedirection { .. }
                     )));
 
             // if eval internal command failed, it can just make early return with `Err(ShellError)`.
@@ -901,6 +975,7 @@ pub fn eval_block(
                             PipelineElement::Redirection(_, Redirection::Stdout, _)
                                 | PipelineElement::Redirection(_, Redirection::StdoutAndStderr, _)
                                 | PipelineElement::Expression(..)
+                                | PipelineElement::SeparateRedirection { .. }
                         )),
                 redirect_stderr,
             );
@@ -1044,146 +1119,15 @@ pub fn eval_variable(
     span: Span,
 ) -> Result<Value, ShellError> {
     match var_id {
-        nu_protocol::NU_VARIABLE_ID => {
-            // $nu
-            let mut output_cols = vec![];
-            let mut output_vals = vec![];
-
-            if let Some(path) = engine_state.get_config_path("config-path") {
-                output_cols.push("config-path".into());
-                output_vals.push(Value::String {
-                    val: path.to_string_lossy().to_string(),
-                    span,
-                });
-            }
-
-            if let Some(path) = engine_state.get_config_path("env-path") {
-                output_cols.push("env-path".into());
-                output_vals.push(Value::String {
-                    val: path.to_string_lossy().to_string(),
-                    span,
-                });
-            }
-
-            if let Some(mut config_path) = nu_path::config_dir() {
-                config_path.push("nushell");
-                let mut env_config_path = config_path.clone();
-                let mut loginshell_path = config_path.clone();
-
-                let mut history_path = config_path.clone();
-
-                match engine_state.config.history_file_format {
-                    HistoryFileFormat::Sqlite => {
-                        history_path.push("history.sqlite3");
-                    }
-                    HistoryFileFormat::PlainText => {
-                        history_path.push("history.txt");
-                    }
-                }
-                // let mut history_path = config_files::get_history_path(); // todo: this should use the get_history_path method but idk where to put that function
-
-                output_cols.push("history-path".into());
-                output_vals.push(Value::String {
-                    val: history_path.to_string_lossy().to_string(),
-                    span,
-                });
-
-                if engine_state.get_config_path("config-path").is_none() {
-                    config_path.push("config.nu");
-
-                    output_cols.push("config-path".into());
-                    output_vals.push(Value::String {
-                        val: config_path.to_string_lossy().to_string(),
-                        span,
-                    });
-                }
-
-                if engine_state.get_config_path("env-path").is_none() {
-                    env_config_path.push("env.nu");
-
-                    output_cols.push("env-path".into());
-                    output_vals.push(Value::String {
-                        val: env_config_path.to_string_lossy().to_string(),
-                        span,
-                    });
-                }
-
-                loginshell_path.push("login.nu");
-
-                output_cols.push("loginshell-path".into());
-                output_vals.push(Value::String {
-                    val: loginshell_path.to_string_lossy().to_string(),
-                    span,
-                });
-            }
-
-            #[cfg(feature = "plugin")]
-            if let Some(path) = &engine_state.plugin_signatures {
-                if let Some(path_str) = path.to_str() {
-                    output_cols.push("plugin-path".into());
-                    output_vals.push(Value::String {
-                        val: path_str.into(),
-                        span,
-                    });
-                }
-            }
-
-            output_cols.push("scope".into());
-            output_vals.push(create_scope(engine_state, stack, span)?);
-
-            if let Some(home_path) = nu_path::home_dir() {
-                if let Some(home_path_str) = home_path.to_str() {
-                    output_cols.push("home-path".into());
-                    output_vals.push(Value::String {
-                        val: home_path_str.into(),
-                        span,
-                    })
-                }
-            }
-
-            let temp = std::env::temp_dir();
-            if let Some(temp_path) = temp.to_str() {
-                output_cols.push("temp-path".into());
-                output_vals.push(Value::String {
-                    val: temp_path.into(),
-                    span,
-                })
-            }
-
-            let pid = std::process::id();
-            output_cols.push("pid".into());
-            output_vals.push(Value::int(pid as i64, span));
-
-            let sys = sysinfo::System::new();
-            let ver = match sys.kernel_version() {
-                Some(v) => v,
-                None => "unknown".into(),
-            };
-
-            let os_record = Value::Record {
-                cols: vec![
-                    "name".into(),
-                    "arch".into(),
-                    "family".into(),
-                    "kernel_version".into(),
-                ],
-                vals: vec![
-                    Value::string(std::env::consts::OS, span),
-                    Value::string(std::env::consts::ARCH, span),
-                    Value::string(std::env::consts::FAMILY, span),
-                    Value::string(ver, span),
-                ],
+        // $nu
+        nu_protocol::NU_VARIABLE_ID => Ok(Value::LazyRecord {
+            val: Box::new(NuVariable {
+                engine_state: engine_state.clone(),
+                stack: stack.clone(),
                 span,
-            };
-            output_cols.push("os-info".into());
-            output_vals.push(os_record);
-
-            Ok(Value::Record {
-                cols: output_cols,
-                vals: output_vals,
-                span,
-            })
-        }
+            }),
+            span,
+        }),
         ENV_VARIABLE_ID => {
             let env_vars = stack.get_env_vars(engine_state);
             let env_columns = env_vars.keys();

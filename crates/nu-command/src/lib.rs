@@ -20,6 +20,7 @@ mod misc;
 mod network;
 mod path;
 mod platform;
+mod progress_bar;
 mod random;
 mod shells;
 mod sort_utils;

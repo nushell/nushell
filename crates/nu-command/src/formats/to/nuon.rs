@@ -50,7 +50,7 @@ impl Command for ToNuon {
     }
 }
 
-fn value_to_string(v: &Value, span: Span) -> Result<String, ShellError> {
+pub fn value_to_string(v: &Value, span: Span) -> Result<String, ShellError> {
     match v {
         Value::Binary { val, .. } => {
             let mut s = String::with_capacity(2 * val.len());
@@ -185,6 +185,10 @@ fn value_to_string(v: &Value, span: Span) -> Result<String, ShellError> {
             }
             Ok(format!("{{{}}}", collection.join(", ")))
         }
+        Value::LazyRecord { val, .. } => {
+            let collected = val.collect()?;
+            value_to_string(&collected, span)
+        }
         // All strings outside data structures are quoted because they are in 'command position'
         // (could be mistaken for commands by the Nu parser)
         Value::String { val, .. } => Ok(escape_quote_string(val)),
@@ -221,6 +225,9 @@ static NEEDS_QUOTES_REGEX: Lazy<Regex> = Lazy::new(|| {
 });
 
 fn needs_quotes(string: &str) -> bool {
+    if string.is_empty() {
+        return true;
+    }
     // These are case-sensitive keywords
     match string {
         // `true`/`false`/`null` are active keywords in JSON and NUON

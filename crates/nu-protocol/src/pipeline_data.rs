@@ -6,11 +6,7 @@ use crate::{
 use nu_utils::{stderr_write_all_and_flush, stdout_write_all_and_flush};
 use std::sync::{atomic::AtomicBool, Arc};
 
-const LINE_ENDING: &str = if cfg!(target_os = "windows") {
-    "\r\n"
-} else {
-    "\n"
-};
+const LINE_ENDING_PATTERN: &[char] = &['\r', '\n'];
 
 /// The foundational abstraction for input and output to commands
 ///
@@ -185,7 +181,7 @@ impl PipelineData {
                         }
                     }
                     if trim_end_newline {
-                        output.truncate(output.trim_end_matches(LINE_ENDING).len())
+                        output.truncate(output.trim_end_matches(LINE_ENDING_PATTERN).len())
                     }
                     Value::String {
                         val: output,
@@ -193,6 +189,56 @@ impl PipelineData {
                     }
                 }
             }
+        }
+    }
+
+    /// Try convert from self into iterator
+    ///
+    /// It returns Err if the `self` cannot be converted to an iterator.
+    pub fn into_iter_strict(self, span: Span) -> Result<PipelineIterator, ShellError> {
+        match self {
+            PipelineData::Value(val, metadata) => match val {
+                Value::List { vals, .. } => Ok(PipelineIterator(PipelineData::ListStream(
+                    ListStream {
+                        stream: Box::new(vals.into_iter()),
+                        ctrlc: None,
+                    },
+                    metadata,
+                ))),
+                Value::Binary { val, span } => Ok(PipelineIterator(PipelineData::ListStream(
+                    ListStream {
+                        stream: Box::new(val.into_iter().map(move |x| Value::int(x as i64, span))),
+                        ctrlc: None,
+                    },
+                    metadata,
+                ))),
+                Value::Range { val, .. } => match val.into_range_iter(None) {
+                    Ok(iter) => Ok(PipelineIterator(PipelineData::ListStream(
+                        ListStream {
+                            stream: Box::new(iter),
+                            ctrlc: None,
+                        },
+                        metadata,
+                    ))),
+                    Err(error) => Err(error),
+                },
+                // Propagate errors by explicitly matching them before the final case.
+                Value::Error { error } => Err(error),
+                other => Err(ShellError::OnlySupportsThisInputType(
+                    "list, binary, raw data or range".into(),
+                    other.get_type().to_string(),
+                    span,
+                    // This line requires the Value::Error match above.
+                    other.expect_span(),
+                )),
+            },
+            PipelineData::Empty => Err(ShellError::OnlySupportsThisInputType(
+                "list, binary, raw data or range".into(),
+                "null".into(),
+                span,
+                span, // TODO: make PipelineData::Empty spanned, so that the span can be used here.
+            )),
+            other => Ok(PipelineIterator(other)),
         }
     }
 
@@ -229,14 +275,14 @@ impl PipelineData {
                     }
                 }
                 if trim_end_newline {
-                    output.truncate(output.trim_end_matches(LINE_ENDING).len());
+                    output.truncate(output.trim_end_matches(LINE_ENDING_PATTERN).len());
                 }
                 Ok(output)
             }
         }
     }
 
-    /// Retrieves string from pipline data.
+    /// Retrieves string from pipeline data.
     ///
     /// As opposed to `collect_string` this raises error rather than converting non-string values.
     /// The `span` will be used if `ListStream` is encountered since it doesn't carry a span.
@@ -271,6 +317,7 @@ impl PipelineData {
         cell_path: &[PathMember],
         head: Span,
         insensitive: bool,
+        ignore_errors: bool,
     ) -> Result<Value, ShellError> {
         match self {
             // FIXME: there are probably better ways of doing this
@@ -278,8 +325,8 @@ impl PipelineData {
                 vals: stream.collect(),
                 span: head,
             }
-            .follow_cell_path(cell_path, insensitive),
-            PipelineData::Value(v, ..) => v.follow_cell_path(cell_path, insensitive),
+            .follow_cell_path(cell_path, insensitive, ignore_errors),
+            PipelineData::Value(v, ..) => v.follow_cell_path(cell_path, insensitive, ignore_errors),
             _ => Err(ShellError::IOError("can't follow stream paths".into())),
         }
     }
@@ -328,7 +375,7 @@ impl PipelineData {
 
                 if let Ok(mut st) = String::from_utf8(collected.clone().item) {
                     if trim_end_newline {
-                        st.truncate(st.trim_end_matches(LINE_ENDING).len());
+                        st.truncate(st.trim_end_matches(LINE_ENDING_PATTERN).len());
                     }
                     Ok(f(Value::String {
                         val: st,
@@ -385,7 +432,7 @@ impl PipelineData {
 
                 if let Ok(mut st) = String::from_utf8(collected.clone().item) {
                     if trim_end_newline {
-                        st.truncate(st.trim_end_matches(LINE_ENDING).len())
+                        st.truncate(st.trim_end_matches(LINE_ENDING_PATTERN).len())
                     }
                     Ok(f(Value::String {
                         val: st,
@@ -437,7 +484,7 @@ impl PipelineData {
 
                 if let Ok(mut st) = String::from_utf8(collected.clone().item) {
                     if trim_end_newline {
-                        st.truncate(st.trim_end_matches(LINE_ENDING).len())
+                        st.truncate(st.trim_end_matches(LINE_ENDING_PATTERN).len())
                     }
                     let v = Value::String {
                         val: st,
@@ -519,6 +566,7 @@ impl PipelineData {
                     Box::new(vec![Ok(stderr_bytes)].into_iter()),
                     stderr_ctrlc,
                     stderr_span,
+                    None,
                 )
             });
 
@@ -621,9 +669,11 @@ impl PipelineData {
         to_stderr: bool,
     ) -> Result<i64, ShellError> {
         for item in self {
+            let mut is_err = false;
             let mut out = if let Value::Error { error } = item {
                 let working_set = StateWorkingSet::new(engine_state);
-
+                // Value::Errors must always go to stderr, not stdout.
+                is_err = true;
                 format_error(&working_set, &error)
             } else if no_newline {
                 item.into_string("", config)
@@ -635,7 +685,7 @@ impl PipelineData {
                 out.push('\n');
             }
 
-            if !to_stderr {
+            if !to_stderr && !is_err {
                 stdout_write_all_and_flush(out)?
             } else {
                 stderr_write_all_and_flush(out)?
