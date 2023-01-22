@@ -1,3 +1,4 @@
+use nu_test_support::fs::{file_contents, Stub::FileWithContent};
 use nu_test_support::nu;
 use nu_test_support::playground::Playground;
 
@@ -66,9 +67,27 @@ fn redirect_out() {
 }
 
 #[test]
+fn two_lines_redirection() {
+    Playground::setup("redirections with two lines commands", |dirs, _| {
+        nu!(
+                cwd: dirs.test(),
+                r#"
+def foobar [] {
+    'hello' out> output1.txt
+    'world' out> output2.txt
+}
+foobar"#);
+        let file_out1 = dirs.test().join("output1.txt");
+        let actual = file_contents(file_out1);
+        assert!(actual.contains("hello"));
+        let file_out2 = dirs.test().join("output2.txt");
+        let actual = file_contents(file_out2);
+        assert!(actual.contains("world"));
+    })
+}
+
+#[test]
 fn separate_redirection() {
-    use nu_test_support::fs::{file_contents, Stub::FileWithContent};
-    use nu_test_support::playground::Playground;
     Playground::setup(
         "external with both stdout and stderr messages, to different file",
         |dirs, sandbox| {
