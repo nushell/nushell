@@ -195,9 +195,7 @@ impl UrlComponents {
                                 left_message: format!("Mismatch, qs from params is: {}", qs),
                                 left_span: value.expect_span(),
                                 right_message: format!("instead query is: {}", q),
-                                right_span: self
-                                    .query_span
-                                    .unwrap_or(Span::unknown()),
+                                right_span: self.query_span.unwrap_or(Span::unknown()),
                             });
                         }
                     }
@@ -255,9 +253,7 @@ impl UrlComponents {
                                         left_message: format!("Mismatch, query param is: {}", s),
                                         left_span: value.expect_span(),
                                         right_message: format!("instead qs from params is: {}", q),
-                                        right_span: self
-                                            .params_span
-                                            .unwrap_or(Span::unknown()),
+                                        right_span: self.params_span.unwrap_or(Span::unknown()),
                                     });
                                 }
                             }
