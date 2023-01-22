@@ -234,12 +234,7 @@ fn action(input: &Value, args: &Arguments, span: Span) -> Value {
             span,
         },
         Value::Error { error } => Value::String {
-            val: {
-                match into_code(error) {
-                    Some(code) => code,
-                    None => "".to_string(),
-                }
-            },
+            val: into_code(error).unwrap_or_default(),
             span,
         },
         Value::Nothing { .. } => Value::String {

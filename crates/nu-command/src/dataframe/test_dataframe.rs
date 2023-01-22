@@ -71,32 +71,30 @@ pub fn test_dataframe(cmds: Vec<Box<dyn Command + 'static>>) {
 
         let mut stack = Stack::new();
 
-        match eval_block(
+        let result = eval_block(
             &engine_state,
             &mut stack,
             &block,
             PipelineData::empty(),
             true,
             true,
-        ) {
-            Err(err) => panic!("test eval error in `{}`: {:?}", example.example, err),
-            Ok(result) => {
-                let result = result.into_value(Span::test_data());
-                println!("input: {}", example.example);
-                println!("result: {:?}", result);
-                println!("done: {:?}", start.elapsed());
+        )
+        .unwrap_or_else(|err| panic!("test eval error in `{}`: {:?}", example.example, err))
+        .into_value(Span::test_data());
 
-                // Note. Value implements PartialEq for Bool, Int, Float, String and Block
-                // If the command you are testing requires to compare another case, then
-                // you need to define its equality in the Value struct
-                if let Some(expected) = example.result {
-                    if result != expected {
-                        panic!(
-                            "the example result is different to expected value: {:?} != {:?}",
-                            result, expected
-                        )
-                    }
-                }
+        println!("input: {}", example.example);
+        println!("result: {:?}", result);
+        println!("done: {:?}", start.elapsed());
+
+        // Note. Value implements PartialEq for Bool, Int, Float, String and Block
+        // If the command you are testing requires to compare another case, then
+        // you need to define its equality in the Value struct
+        if let Some(expected) = example.result {
+            if result != expected {
+                panic!(
+                    "the example result is different to expected value: {:?} != {:?}",
+                    result, expected
+                )
             }
         }
     }

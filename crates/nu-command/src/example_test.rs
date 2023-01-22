@@ -306,22 +306,19 @@ mod test_examples {
         engine_state: &mut Box<EngineState>,
     ) -> Option<Value> {
         let (mut block, delta) = parse(src, engine_state);
-        match block.pipelines.len() {
-            1 => {
-                let n_expressions = block.pipelines[0].elements.len();
-                block.pipelines[0].elements.truncate(&n_expressions - 1);
+        if block.pipelines.len() == 1 {
+            let n_expressions = block.pipelines[0].elements.len();
+            block.pipelines[0].elements.truncate(&n_expressions - 1);
 
-                if !block.pipelines[0].elements.is_empty() {
-                    let empty_input = PipelineData::empty();
-                    Some(eval_block(block, empty_input, cwd, engine_state, delta))
-                } else {
-                    Some(Value::nothing(Span::test_data()))
-                }
+            if !block.pipelines[0].elements.is_empty() {
+                let empty_input = PipelineData::empty();
+                Some(eval_block(block, empty_input, cwd, engine_state, delta))
+            } else {
+                Some(Value::nothing(Span::test_data()))
             }
-            _ => {
-                // E.g. multiple semicolon-separated statements
-                None
-            }
+        } else {
+            // E.g. multiple semicolon-separated statements
+            None
         }
     }
 }
