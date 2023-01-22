@@ -43,13 +43,11 @@ impl Highlighter for NuHighlighter {
             if shape.0.end <= last_seen_span
                 || last_seen_span < global_span_offset
                 || shape.0.start < global_span_offset
+                || (shape.1 == FlatShape::Operator
+                    && (shape.0.end - 1 <= last_seen_span || shape.0.end - 2 <= last_seen_span))
             {
                 // We've already output something for this span
                 // so just skip this one
-                continue;
-            } else if shape.1 == FlatShape::Operator
-                && (shape.0.end - 1 <= last_seen_span || shape.0.end - 2 <= last_seen_span)
-            {
                 continue;
             }
             if shape.0.start > last_seen_span {
