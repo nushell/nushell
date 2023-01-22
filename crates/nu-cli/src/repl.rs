@@ -309,7 +309,7 @@ pub fn evaluate_repl(
             column!()
         );
 
-        if entry_num == 1 && show_banner == true {
+        if entry_num == 1 && show_banner {
             start_time.stop();
             println!(
                 "Startup Time: {}",
