@@ -439,6 +439,7 @@ pub fn create_default_context() -> EngineState {
             Url,
             UrlBuildQuery,
             UrlEncode,
+            UrlJoin,
             UrlParse,
             Port,
         }
