@@ -47,6 +47,10 @@ impl Highlighter for NuHighlighter {
                 // We've already output something for this span
                 // so just skip this one
                 continue;
+            } else if shape.1 == FlatShape::Operator
+                && (shape.0.end - 1 <= last_seen_span || shape.0.end - 2 <= last_seen_span)
+            {
+                continue;
             }
             if shape.0.start > last_seen_span {
                 let gap = line
