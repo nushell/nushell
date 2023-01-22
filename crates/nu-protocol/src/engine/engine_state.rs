@@ -585,6 +585,24 @@ impl EngineState {
         None
     }
 
+    pub fn find_decl_name(&self, decl_id: DeclId, removed_overlays: &[Vec<u8>]) -> Option<&[u8]> {
+        let mut visibility: Visibility = Visibility::new();
+
+        for overlay_frame in self.active_overlays(removed_overlays).iter().rev() {
+            visibility.append(&overlay_frame.visibility);
+
+            if visibility.is_decl_id_visible(&decl_id) {
+                for ((name, _), id) in overlay_frame.decls.iter() {
+                    if id == &decl_id {
+                        return Some(name);
+                    }
+                }
+            }
+        }
+
+        None
+    }
+
     pub fn find_alias(&self, name: &[u8], removed_overlays: &[Vec<u8>]) -> Option<AliasId> {
         let mut visibility: Visibility = Visibility::new();
 

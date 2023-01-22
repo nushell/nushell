@@ -76,3 +76,34 @@ fn known_external_misc_values() -> TestResult {
         "abc a b c",
     )
 }
+
+/// GitHub issue #7822
+#[test]
+fn known_external_subcommand_from_module() -> TestResult {
+    run_test_contains(
+        r#"
+            module cargo {
+                export extern check []
+            };
+            use cargo;
+            cargo check -h
+        "#,
+        "cargo check",
+    )
+}
+
+/// GitHub issue #7822
+#[test]
+fn known_external_aliased_subcommand_from_module() -> TestResult {
+    run_test_contains(
+        r#"
+            module cargo {
+                export extern check []
+            };
+            use cargo;
+            alias cc = cargo check;
+            cc -h
+        "#,
+        "cargo check",
+    )
+}
