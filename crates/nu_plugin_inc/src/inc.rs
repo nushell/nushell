@@ -43,10 +43,13 @@ impl Inc {
 
                 Value::string(ver.to_string(), head)
             }
-            Some(Action::Default) | None => match input.parse::<u64>() {
-                Ok(v) => Value::string((v + 1).to_string(), head),
-                Err(_) => Value::string(input, head),
-            },
+            Some(Action::Default) | None => {
+                if let Ok(v) = input.parse::<u64>() {
+                    Value::string((v + 1).to_string(), head)
+                } else {
+                    Value::string(input, head)
+                }
+            }
         }
     }
 

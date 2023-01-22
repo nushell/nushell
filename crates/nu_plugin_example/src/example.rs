@@ -35,14 +35,16 @@ impl Example {
         eprintln!("flag: {:}", flag);
         eprintln!("rest: {:?}", rest);
 
-        match opt {
-            Some(v) => eprintln!("Found optional value opt: {:}", v),
-            None => eprintln!("No optional value found"),
+        if let Some(v) = opt {
+            eprintln!("Found optional value opt: {:}", v)
+        } else {
+            eprintln!("No optional value found")
         }
 
-        match named {
-            Some(v) => eprintln!("Named value: {:?}", v),
-            None => eprintln!("No named value found"),
+        if let Some(v) = named {
+            eprintln!("Named value: {:?}", v)
+        } else {
+            eprintln!("No named value found")
         }
 
         Ok(())
