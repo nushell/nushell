@@ -25,6 +25,21 @@ impl Command for Glob {
                 "directory depth to search",
                 Some('d'),
             )
+            .switch(
+                "no-dir",
+                "Whether to filter out directories from the returned paths",
+                Some('D'),
+            )
+            .switch(
+                "no-file",
+                "Whether to filter out files from the returned paths",
+                Some('F'),
+            )
+            .switch(
+                "no-symlink",
+                "Whether to filter out symlinks from the returned paths",
+                Some('S'),
+            )
             .category(Category::FileSystem)
     }
 
@@ -80,6 +95,11 @@ impl Command for Glob {
                 example: "glob <[a-d]:1,10>",
                 result: None,
             },
+            Example {
+                description: "Search for folders that begin with an uppercase ASCII letter, ignoring files and symlinks",
+                example: r#"glob "[A-Z]*" --no-file --no-symlink"#,
+                result: None,
+            },
         ]
     }
 
@@ -98,6 +118,10 @@ impl Command for Glob {
         let path = current_dir(engine_state, stack)?;
         let glob_pattern: Spanned<String> = call.req(engine_state, stack, 0)?;
         let depth = call.get_flag(engine_state, stack, "depth")?;
+
+        let no_dirs = call.has_flag("no-dir");
+        let no_files = call.has_flag("no-file");
+        let no_symlinks = call.has_flag("no-symlink");
 
         if glob_pattern.item.is_empty() {
             return Err(ShellError::GenericError(
@@ -138,6 +162,17 @@ impl Command for Glob {
                 },
             )
             .flatten()
+            .filter(|entry| {
+                if no_dirs && entry.file_type().is_dir() {
+                    false
+                } else if no_files && entry.file_type().is_file() {
+                    false
+                } else if no_symlinks && entry.file_type().is_symlink() {
+                    false
+                } else {
+                    true
+                }
+            })
             .map(|entry| Value::String {
                 val: entry.into_path().to_string_lossy().to_string(),
                 span,
