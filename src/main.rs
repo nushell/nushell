@@ -27,13 +27,15 @@ use nu_command::create_default_context;
 use nu_parser::{escape_for_script_arg, escape_quote_string};
 use nu_protocol::{util::BufferedReader, PipelineData, RawStream};
 use signals::{ctrlc_protection, sigquit_protection};
-use std::str::FromStr;
 use std::{
     io::BufReader,
+    str::FromStr,
     sync::{atomic::AtomicBool, Arc},
+    time::Instant,
 };
 
 fn main() -> Result<()> {
+    let start_time = Instant::now();
     let miette_hook = std::panic::take_hook();
     std::panic::set_hook(Box::new(move |x| {
         crossterm::terminal::disable_raw_mode().expect("unable to disable raw mode");
@@ -316,6 +318,7 @@ fn main() -> Result<()> {
             &mut stack,
             config_files::NUSHELL_FOLDER,
             parsed_nu_cli_args.execute,
+            start_time,
         );
         info!("repl eval {}:{}:{}", file!(), line!(), column!());
 
