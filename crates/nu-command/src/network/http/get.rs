@@ -20,11 +20,11 @@ pub struct SubCommand;
 
 impl Command for SubCommand {
     fn name(&self) -> &str {
-        "fetch"
+        "http get"
     }
 
     fn signature(&self) -> Signature {
-        Signature::build("fetch")
+        Signature::build("http get")
             .input_output_types(vec![(Type::Nothing, Type::Any)])
             .required(
                 "URL",
@@ -74,7 +74,7 @@ impl Command for SubCommand {
 
     fn search_terms(&self) -> Vec<&str> {
         vec![
-            "network", "get", "pull", "request", "http", "download", "curl", "wget",
+            "network", "fetch", "pull", "request", "download", "curl", "wget",
         ]
     }
 
@@ -91,18 +91,18 @@ impl Command for SubCommand {
     fn examples(&self) -> Vec<Example> {
         vec![
             Example {
-                description: "Fetch content from example.com",
-                example: "fetch https://www.example.com",
+                description: "http get content from example.com",
+                example: "http get https://www.example.com",
                 result: None,
             },
             Example {
-                description: "Fetch content from example.com, with username and password",
-                example: "fetch -u myuser -p mypass https://www.example.com",
+                description: "http get content from example.com, with username and password",
+                example: "http get -u myuser -p mypass https://www.example.com",
                 result: None,
             },
             Example {
-                description: "Fetch content from example.com, with custom header",
-                example: "fetch -H [my-header-key my-header-value] https://www.example.com",
+                description: "http get content from example.com, with custom header",
+                example: "http get -H [my-header-key my-header-value] https://www.example.com",
                 result: None,
             },
         ]

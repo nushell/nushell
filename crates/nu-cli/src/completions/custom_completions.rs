@@ -74,8 +74,8 @@ impl Completer for CustomCompletion {
         let mut custom_completion_options = None;
 
         // Parse result
-        let suggestions = match result {
-            Ok(pd) => {
+        let suggestions = result
+            .map(|pd| {
                 let value = pd.into_value(span);
                 match &value {
                     Value::Record { .. } => {
@@ -132,9 +132,8 @@ impl Completer for CustomCompletion {
                     Value::List { vals, .. } => map_value_completions(vals.iter(), span, offset),
                     _ => vec![],
                 }
-            }
-            _ => vec![],
-        };
+            })
+            .unwrap_or_default();
 
         if let Some(custom_completion_options) = custom_completion_options {
             filter(&prefix, suggestions, &custom_completion_options)

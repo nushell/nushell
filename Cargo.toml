@@ -43,7 +43,7 @@ chrono = { version = "0.4.23", features = ["serde"] }
 crossterm = "0.24.0"
 ctrlc = "3.2.1"
 log = "0.4"
-miette = { version = "5.1.0", features = ["fancy-no-backtrace"] }
+miette = { version = "5.5.0", features = ["fancy-no-backtrace"] }
 nu-ansi-term = "0.46.0"
 nu-cli = { path="./crates/nu-cli", version = "0.74.1"  }
 nu-color-config = { path = "./crates/nu-color-config", version = "0.74.1"  }
@@ -61,7 +61,7 @@ nu-term-grid = { path = "./crates/nu-term-grid", version = "0.74.1"  }
 nu-utils = { path = "./crates/nu-utils", version = "0.74.1"  }
 reedline = { version = "0.14.0", features = ["bashisms", "sqlite"]}
 
-rayon = "1.5.1"
+rayon = "1.6.1"
 is_executable = "1.0.1"
 simplelog = "0.12.0"
 time = "0.3.12"

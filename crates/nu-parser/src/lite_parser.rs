@@ -304,6 +304,8 @@ pub fn lite_parse(tokens: &[Token]) -> (LiteBlock, Option<ParseError>) {
                         block.push(curr_pipeline);
 
                         curr_pipeline = LitePipeline::new();
+                        last_connector = TokenContents::Pipe;
+                        last_connector_span = None;
                     }
                 }
 

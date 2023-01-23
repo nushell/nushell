@@ -1193,3 +1193,70 @@ fn overlay_use_and_reolad_keep_custom() {
     assert_eq!(actual.out, "newfoonewfoonewfoo");
     assert_eq!(actual_repl.out, "newfoonewfoonewfoo");
 }
+
+#[test]
+fn overlay_use_main() {
+    let inp = &[
+        r#"module spam { export def main [] { "spam" } }"#,
+        r#"overlay use spam"#,
+        r#"spam"#,
+    ];
+
+    let actual = nu!(cwd: ".", pipeline(&inp.join("; ")));
+
+    assert_eq!(actual.out, "spam");
+}
+
+#[test]
+fn overlay_use_main_prefix() {
+    let inp = &[
+        r#"module spam { export def main [] { "spam" } }"#,
+        r#"overlay use spam --prefix"#,
+        r#"spam"#,
+    ];
+
+    let actual = nu!(cwd: ".", pipeline(&inp.join("; ")));
+
+    assert_eq!(actual.out, "spam");
+}
+
+#[test]
+fn overlay_use_main_def_env() {
+    let inp = &[
+        r#"module spam { export def-env main [] { let-env SPAM = "spam" } }"#,
+        r#"overlay use spam"#,
+        r#"spam"#,
+        r#"$env.SPAM"#,
+    ];
+
+    let actual = nu!(cwd: ".", pipeline(&inp.join("; ")));
+
+    assert_eq!(actual.out, "spam");
+}
+
+#[test]
+fn overlay_use_main_def_known_external() {
+    // note: requires installed cargo
+    let inp = &[
+        r#"module cargo { export extern main [] }"#,
+        r#"overlay use cargo"#,
+        r#"cargo --version"#,
+    ];
+
+    let actual = nu!(cwd: ".", pipeline(&inp.join("; ")));
+
+    assert!(actual.out.contains("cargo"));
+}
+
+#[test]
+fn overlay_use_main_not_exported() {
+    let inp = &[
+        r#"module spam { def main [] { "spam" } }"#,
+        r#"overlay use spam"#,
+        r#"spam"#,
+    ];
+
+    let actual = nu!(cwd: ".", pipeline(&inp.join("; ")));
+
+    assert!(actual.err.contains("external_command"));
+}

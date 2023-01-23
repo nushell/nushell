@@ -5001,7 +5001,7 @@ pub fn parse_expression(
                 .0,
                 Some(ParseError::BuiltinCommandInPipeline("for".into(), spans[0])),
             ),
-            b"let" | b"const" => (
+            b"let" => (
                 parse_call(
                     working_set,
                     &spans[pos..],
@@ -5011,6 +5011,29 @@ pub fn parse_expression(
                 )
                 .0,
                 Some(ParseError::LetInPipeline(
+                    String::from_utf8_lossy(match spans.len() {
+                        1 | 2 | 3 => b"value",
+                        _ => working_set.get_span_contents(spans[3]),
+                    })
+                    .to_string(),
+                    String::from_utf8_lossy(match spans.len() {
+                        1 => b"variable",
+                        _ => working_set.get_span_contents(spans[1]),
+                    })
+                    .to_string(),
+                    spans[0],
+                )),
+            ),
+            b"const" => (
+                parse_call(
+                    working_set,
+                    &spans[pos..],
+                    spans[0],
+                    expand_aliases_denylist,
+                    is_subexpression,
+                )
+                .0,
+                Some(ParseError::ConstInPipeline(
                     String::from_utf8_lossy(match spans.len() {
                         1 | 2 | 3 => b"value",
                         _ => working_set.get_span_contents(spans[3]),
@@ -5268,8 +5291,8 @@ pub fn parse_builtin_commands(
     let name = working_set.get_span_contents(lite_command.parts[0]);
 
     match name {
-        b"def" | b"def-env" => parse_def(working_set, lite_command, expand_aliases_denylist),
-        b"extern" => parse_extern(working_set, lite_command, expand_aliases_denylist),
+        b"def" | b"def-env" => parse_def(working_set, lite_command, None, expand_aliases_denylist),
+        b"extern" => parse_extern(working_set, lite_command, None, expand_aliases_denylist),
         b"let" | b"const" => {
             parse_let_or_const(working_set, &lite_command.parts, expand_aliases_denylist)
         }
@@ -5278,7 +5301,7 @@ pub fn parse_builtin_commands(
             let (expr, err) = parse_for(working_set, &lite_command.parts, expand_aliases_denylist);
             (Pipeline::from_vec(vec![expr]), err)
         }
-        b"alias" => parse_alias(working_set, lite_command, expand_aliases_denylist),
+        b"alias" => parse_alias(working_set, lite_command, None, expand_aliases_denylist),
         b"module" => parse_module(working_set, lite_command, expand_aliases_denylist),
         b"use" => {
             let (pipeline, _, err) =

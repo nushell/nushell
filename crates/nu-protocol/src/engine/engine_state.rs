@@ -170,7 +170,7 @@ impl EngineState {
             decls: vec![],
             aliases: vec![],
             blocks: vec![],
-            modules: vec![Module::new()],
+            modules: vec![Module::new(DEFAULT_OVERLAY_NAME.as_bytes().to_vec())],
             usage: Usage::new(),
             // make sure we have some default overlay:
             scope: ScopeFrame::with_empty_overlay(
@@ -585,6 +585,24 @@ impl EngineState {
         None
     }
 
+    pub fn find_decl_name(&self, decl_id: DeclId, removed_overlays: &[Vec<u8>]) -> Option<&[u8]> {
+        let mut visibility: Visibility = Visibility::new();
+
+        for overlay_frame in self.active_overlays(removed_overlays).iter().rev() {
+            visibility.append(&overlay_frame.visibility);
+
+            if visibility.is_decl_id_visible(&decl_id) {
+                for ((name, _), id) in overlay_frame.decls.iter() {
+                    if id == &decl_id {
+                        return Some(name);
+                    }
+                }
+            }
+        }
+
+        None
+    }
+
     pub fn find_alias(&self, name: &[u8], removed_overlays: &[Vec<u8>]) -> Option<AliasId> {
         let mut visibility: Visibility = Visibility::new();
 
@@ -651,24 +669,6 @@ impl EngineState {
         }
 
         None
-
-        // for (module_id, m) in self.modules.iter().enumerate() {
-        //     if m.has_decl(name) {
-        //         for overlay_frame in self.active_overlays(&[]).iter() {
-        //             let module_name = overlay_frame.modules.iter().find_map(|(key, &val)| {
-        //                 if val == module_id {
-        //                     Some(key)
-        //                 } else {
-        //                     None
-        //                 }
-        //             });
-        //             if let Some(final_name) = module_name {
-        //                 return Some(&final_name[..]);
-        //             }
-        //         }
-        //     }
-        // }
-        // None
     }
 
     pub fn find_overlay(&self, name: &[u8]) -> Option<OverlayId> {
@@ -964,6 +964,12 @@ impl EngineState {
     pub fn build_module_usage(&self, module_id: ModuleId) -> Option<(String, String)> {
         self.get_module_comments(module_id)
             .map(|comment_spans| self.build_usage(comment_spans))
+    }
+
+    pub fn current_work_dir(&self) -> String {
+        self.get_env_var("PWD")
+            .map(|d| d.as_string().unwrap_or_default())
+            .unwrap_or_default()
     }
 }
 

@@ -46,14 +46,12 @@ fn get_prompt_string(
                     column!()
                 );
 
-                match ret_val {
-                    Ok(ret_val) => Some(ret_val),
-                    Err(err) => {
+                ret_val
+                    .map_err(|err| {
                         let working_set = StateWorkingSet::new(engine_state);
                         report_error(&working_set, &err);
-                        None
-                    }
-                }
+                    })
+                    .ok()
             }
             Value::Block { val: block_id, .. } => {
                 let block = engine_state.get_block(block_id);
@@ -66,14 +64,12 @@ fn get_prompt_string(
                     column!()
                 );
 
-                match ret_val {
-                    Ok(ret_val) => Some(ret_val),
-                    Err(err) => {
+                ret_val
+                    .map_err(|err| {
                         let working_set = StateWorkingSet::new(engine_state);
                         report_error(&working_set, &err);
-                        None
-                    }
-                }
+                    })
+                    .ok()
             }
             Value::String { .. } => Some(PipelineData::Value(v.clone(), None)),
             _ => None,
