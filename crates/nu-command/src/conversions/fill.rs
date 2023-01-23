@@ -42,61 +42,80 @@ impl Command for Fill {
 
     fn signature(&self) -> nu_protocol::Signature {
         Signature::build("fill")
-            .input_output_types(vec![(Type::Number, Type::Number)])
-            .input_output_types(vec![(Type::String, Type::String)])
+            .input_output_types(vec![(Type::Number, Type::String),(Type::String, Type::String)])
+            .vectorizes_over_list(true)
             .named(
                 "width",
                 SyntaxShape::Int,
-                "the width of the output",
+                "The width of the output. Defaults to 1",
                 Some('w'),
             )
             .named(
                 "alignment",
                 SyntaxShape::String,
-                "the alignment of the output",
+                "The alignment of the output. Defaults to Left (Left(l), Right(r), Center(c/m), MiddleRight(cr/mr))",
                 Some('a'),
             )
             .named(
                 "character",
                 SyntaxShape::String,
-                "the fill character",
+                "The character to fill with. Defaults to ' ' (space)",
                 Some('c'),
             )
             .category(Category::Conversions)
     }
 
     fn search_terms(&self) -> Vec<&str> {
-        vec!["display", "render", "format"]
+        vec!["display", "render", "format", "pad", "align"]
     }
 
     fn examples(&self) -> Vec<Example> {
-        vec![Example {
-            description: "Get a record containing multiple formats for the number 42",
-            example: "42 | fmt",
-            result: Some(Value::Record {
-                cols: vec![
-                    "binary".into(),
-                    "debug".into(),
-                    "display".into(),
-                    "lowerexp".into(),
-                    "lowerhex".into(),
-                    "octal".into(),
-                    "upperexp".into(),
-                    "upperhex".into(),
-                ],
-                vals: vec![
-                    Value::test_string("0b101010"),
-                    Value::test_string("42"),
-                    Value::test_string("42"),
-                    Value::test_string("4.2e1"),
-                    Value::test_string("0x2a"),
-                    Value::test_string("0o52"),
-                    Value::test_string("4.2E1"),
-                    Value::test_string("0x2A"),
-                ],
-                span: Span::test_data(),
-            }),
-        }]
+        vec![
+            Example {
+                description:
+                    "Fill a string on the left side to a width of 15 with the character '─'",
+                example: "'nushell' | fill -a l -c '─' -w 15",
+                result: Some(Value::String {
+                    val: "nushell────────".into(),
+                    span: Span::test_data(),
+                }),
+            },
+            Example {
+                description:
+                    "Fill a string on the right side to a width of 15 with the character '─'",
+                example: "'nushell' | fill -a r -c '─' -w 15",
+                result: Some(Value::String {
+                    val: "────────nushell".into(),
+                    span: Span::test_data(),
+                }),
+            },
+            Example {
+                description: "Fill a string on both sides to a width of 15 with the character '─'",
+                example: "'nushell' | fill -a m -c '─' -w 15",
+                result: Some(Value::String {
+                    val: "────nushell────".into(),
+                    span: Span::test_data(),
+                }),
+            },
+            Example {
+                description:
+                    "Fill a number on the left side to a width of 5 with the character '0'",
+                example: "1 | fill --alignment right --character 0 --width 5",
+                result: Some(Value::String {
+                    val: "00001".into(),
+                    span: Span::test_data(),
+                }),
+            },
+            Example {
+                description:
+                    "Fill a filesize on the left side to a width of 5 with the character '0'",
+                example: "1kib | fill --alignment middle --character 0 --width 10",
+                result: Some(Value::String {
+                    val: "0001024000".into(),
+                    span: Span::test_data(),
+                }),
+            },
+        ]
     }
 
     fn run(
@@ -126,8 +145,8 @@ fn fill(
         match arg.to_lowercase().as_str() {
             "l" | "left" => FillAlignment::Left,
             "r" | "right" => FillAlignment::Right,
-            "m" | "middle" => FillAlignment::Middle,
-            "mr" | "middleright" => FillAlignment::MiddleRight,
+            "c" | "center" | "m" | "middle" => FillAlignment::Middle,
+            "cr" | "centerright" | "mr" | "middleright" => FillAlignment::MiddleRight,
             _ => FillAlignment::Left,
         }
     } else {
@@ -141,7 +160,7 @@ fn fill(
     };
 
     let character = if let Some(arg) = character_arg {
-        arg.to_string()
+        arg
     } else {
         " ".to_string()
     };
@@ -161,7 +180,7 @@ fn action(input: &Value, args: &Arguments, span: Span) -> Value {
         Value::Int { val, .. } => fill_int(*val, args, span),
         Value::Filesize { val, .. } => fill_int(*val, args, span),
         Value::Float { val, .. } => fill_float(*val, args, span),
-        Value::String { val, .. } => fill_string(&*val, args, span),
+        Value::String { val, .. } => fill_string(val, args, span),
         // Propagate errors by explicitly matching them before the final case.
         Value::Error { .. } => input.clone(),
         other => Value::Error {
@@ -177,50 +196,25 @@ fn action(input: &Value, args: &Arguments, span: Span) -> Value {
 }
 
 fn fill_float(num: f64, args: &Arguments, span: Span) -> Value {
-    Value::Nothing { span }
+    let s = num.to_string();
+    let out_str = pad(&s, args.width, &args.character, args.alignment, false);
+
+    Value::String { val: out_str, span }
 }
 fn fill_int(num: i64, args: &Arguments, span: Span) -> Value {
-    Value::Nothing { span }
+    let s = num.to_string();
+    let out_str = pad(&s, args.width, &args.character, args.alignment, false);
+
+    Value::String { val: out_str, span }
 }
 fn fill_string(s: &str, args: &Arguments, span: Span) -> Value {
-    let out_str = pad(&s, args.width, &args.character, args.alignment, false);
-    // let mut s = s.clone();
-    // let width = args.width as usize;
-    // let character = args.character.clone();
-    // let alignment = args.alignment.clone();
-
-    // if s.len() < width {
-    //     let diff = width - s.len();
-    //     let mut padding = String::new();
-    //     for _ in 0..diff {
-    //         padding.push_str(&character);
-    //     }
-
-    //     match alignment {
-    //         FillAlignment::Left => s.push_str(&padding),
-    //         FillAlignment::Right => s.insert_str(0, &padding),
-    //         FillAlignment::Center => {
-    //             let left = diff / 2;
-    //             let right = diff - left;
-    //             let mut left_padding = String::new();
-    //             let mut right_padding = String::new();
-    //             for _ in 0..left {
-    //                 left_padding.push_str(&character);
-    //             }
-    //             for _ in 0..right {
-    //                 right_padding.push_str(&character);
-    //             }
-    //             s.insert_str(0, &left_padding);
-    //             s.push_str(&right_padding);
-    //         }
-    //     }
-    // }
+    let out_str = pad(s, args.width, &args.character, args.alignment, false);
 
     Value::String { val: out_str, span }
 }
 
 fn pad(s: &str, width: usize, pad_char: &str, alignment: FillAlignment, truncate: bool) -> String {
-    // eprintln!("str start: {}", &s);
+    // Attribution: Most of this function was taken from https://github.com/ogham/rust-pad and tweaked. Thank you!
     // Use width instead of len for graphical display
     let cols = UnicodeWidthStr::width(s);
 
@@ -240,12 +234,12 @@ fn pad(s: &str, width: usize, pad_char: &str, alignment: FillAlignment, truncate
         FillAlignment::Middle => (diff / 2, diff - diff / 2),
         FillAlignment::MiddleRight => (diff - diff / 2, diff / 2),
     };
-    // eprintln!("left_pad: {}, right_pad: {}", left_pad, right_pad);
+
     let mut new_str = String::new();
     for _ in 0..left_pad {
         new_str.push_str(pad_char)
     }
-    new_str.push_str(&s);
+    new_str.push_str(s);
     for _ in 0..right_pad {
         new_str.push_str(pad_char)
     }
