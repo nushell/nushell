@@ -266,13 +266,7 @@ impl PipelineData {
                 let mut output = String::new();
 
                 for val in s {
-                    match val {
-                        Ok(val) => match val.as_string() {
-                            Ok(s) => output.push_str(&s),
-                            Err(err) => return Err(err),
-                        },
-                        Err(e) => return Err(e),
-                    }
+                    output.push_str(&val?.as_string()?);
                 }
                 if trim_end_newline {
                     output.truncate(output.trim_end_matches(LINE_ENDING_PATTERN).len());
@@ -449,12 +443,10 @@ impl PipelineData {
                     .into_pipeline_data(ctrlc))
                 }
             }
-            PipelineData::Value(Value::Range { val, .. }, ..) => {
-                match val.into_range_iter(ctrlc.clone()) {
-                    Ok(iter) => Ok(iter.flat_map(f).into_pipeline_data(ctrlc)),
-                    Err(error) => Err(error),
-                }
-            }
+            PipelineData::Value(Value::Range { val, .. }, ..) => Ok(val
+                .into_range_iter(ctrlc.clone())?
+                .flat_map(f)
+                .into_pipeline_data(ctrlc)),
             PipelineData::Value(v, ..) => Ok(f(v).into_iter().into_pipeline_data(ctrlc)),
         }
     }
@@ -558,10 +550,10 @@ impl PipelineData {
             let stderr = stderr.map(|stderr_stream| {
                 let stderr_ctrlc = stderr_stream.ctrlc.clone();
                 let stderr_span = stderr_stream.span;
-                let stderr_bytes = match stderr_stream.into_bytes() {
-                    Err(_) => vec![],
-                    Ok(bytes) => bytes.item,
-                };
+                let stderr_bytes = stderr_stream
+                    .into_bytes()
+                    .map(|bytes| bytes.item)
+                    .unwrap_or_default();
                 RawStream::new(
                     Box::new(vec![Ok(stderr_bytes)].into_iter()),
                     stderr_ctrlc,
@@ -642,20 +634,17 @@ impl PipelineData {
             */
         }
 
-        match engine_state.find_decl("table".as_bytes(), &[]) {
-            Some(decl_id) => {
-                let command = engine_state.get_decl(decl_id);
-                if command.get_block_id().is_some() {
-                    return self.write_all_and_flush(engine_state, config, no_newline, to_stderr);
-                }
-
-                let table = command.run(engine_state, stack, &Call::new(Span::new(0, 0)), self)?;
-
-                table.write_all_and_flush(engine_state, config, no_newline, to_stderr)?;
+        if let Some(decl_id) = engine_state.find_decl("table".as_bytes(), &[]) {
+            let command = engine_state.get_decl(decl_id);
+            if command.get_block_id().is_some() {
+                return self.write_all_and_flush(engine_state, config, no_newline, to_stderr);
             }
-            None => {
-                self.write_all_and_flush(engine_state, config, no_newline, to_stderr)?;
-            }
+
+            let table = command.run(engine_state, stack, &Call::new(Span::new(0, 0)), self)?;
+
+            table.write_all_and_flush(engine_state, config, no_newline, to_stderr)?;
+        } else {
+            self.write_all_and_flush(engine_state, config, no_newline, to_stderr)?;
         };
 
         Ok(0)

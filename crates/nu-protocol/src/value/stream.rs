@@ -84,28 +84,24 @@ impl Iterator for RawStream {
 
         // If we know we're already binary, just output that
         if self.is_binary {
-            match self.stream.next() {
-                Some(buffer) => match buffer {
-                    Ok(mut v) => {
-                        if !self.leftover.is_empty() {
-                            while let Some(b) = self.leftover.pop() {
-                                v.insert(0, b);
-                            }
+            self.stream.next().map(|buffer| {
+                buffer.map(|mut v| {
+                    if !self.leftover.is_empty() {
+                        for b in self.leftover.drain(..).rev() {
+                            v.insert(0, b);
                         }
-                        Some(Ok(Value::Binary {
-                            val: v,
-                            span: self.span,
-                        }))
                     }
-                    Err(e) => Some(Err(e)),
-                },
-                None => None,
-            }
+                    Value::Binary {
+                        val: v,
+                        span: self.span,
+                    }
+                })
+            })
         } else {
             // We *may* be text. We're only going to try utf-8. Other decodings
             // needs to be taken as binary first, then passed through `decode`.
-            match self.stream.next() {
-                Some(buffer) => match buffer {
+            if let Some(buffer) = self.stream.next() {
+                match buffer {
                     Ok(mut v) => {
                         if !self.leftover.is_empty() {
                             while let Some(b) = self.leftover.pop() {
@@ -164,20 +160,17 @@ impl Iterator for RawStream {
                         }
                     }
                     Err(e) => Some(Err(e)),
-                },
-                None => {
-                    if !self.leftover.is_empty() {
-                        let output = Ok(Value::Binary {
-                            val: self.leftover.clone(),
-                            span: self.span,
-                        });
-                        self.leftover.clear();
-
-                        Some(output)
-                    } else {
-                        None
-                    }
                 }
+            } else if !self.leftover.is_empty() {
+                let output = Ok(Value::Binary {
+                    val: self.leftover.clone(),
+                    span: self.span,
+                });
+                self.leftover.clear();
+
+                Some(output)
+            } else {
+                None
             }
         }
     }
