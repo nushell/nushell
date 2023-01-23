@@ -43,7 +43,6 @@ impl Command for Fill {
     fn signature(&self) -> nu_protocol::Signature {
         Signature::build("fill")
             .input_output_types(vec![
-                (Type::Number, Type::String),
                 (Type::Int, Type::String),
                 (Type::Float, Type::String),
                 (Type::String, Type::String),
@@ -109,6 +108,15 @@ impl Command for Fill {
                 example: "1 | fill --alignment right --character 0 --width 5",
                 result: Some(Value::String {
                     val: "00001".into(),
+                    span: Span::test_data(),
+                }),
+            },
+            Example {
+                description:
+                    "Fill a number on the left side to a width of 5 with the character '0'",
+                example: "1.1 | fill --alignment center --character 0 --width 5",
+                result: Some(Value::String {
+                    val: "01.10".into(),
                     span: Span::test_data(),
                 }),
             },
