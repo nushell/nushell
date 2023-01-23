@@ -42,7 +42,13 @@ impl Command for Fill {
 
     fn signature(&self) -> nu_protocol::Signature {
         Signature::build("fill")
-            .input_output_types(vec![(Type::Number, Type::String),(Type::String, Type::String)])
+            .input_output_types(vec![
+                (Type::Number, Type::String),
+                (Type::Int, Type::String),
+                (Type::Float, Type::String),
+                (Type::String, Type::String),
+                (Type::Filesize, Type::String),
+                ])
             .vectorizes_over_list(true)
             .named(
                 "width",
