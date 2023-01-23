@@ -5334,40 +5334,6 @@ pub fn parse_builtin_commands(
     }
 }
 
-fn balanced_pair_between_qoutes(open: u8, closed: u8, input: &[u8]) -> bool {
-    let mut stack = Vec::new();
-    let mut escaped = false;
-    let mut in_quotes = false;
-
-    for c in input.iter() {
-        if escaped {
-            escaped = false;
-        } else if *c == b'\\' {
-            escaped = true;
-        } else if *c == b'"' {
-            in_quotes = !in_quotes;
-        } else if !in_quotes {
-            if *c == open {
-                stack.push(*c);
-            } else if *c == closed {
-                if stack.pop().is_some() {
-                    if (open == b'{' && closed != b'}')
-                        || (open == b'<' && closed != b'>')
-                        || (open == b'(' && closed != b')')
-                        || (open == b'[' && closed != b']')
-                    {
-                        return false;
-                    }
-                } else {
-                    return false;
-                }
-            }
-        }
-    }
-
-    stack.is_empty()
-}
-
 pub fn parse_record(
     working_set: &mut StateWorkingSet,
     span: Span,
@@ -5378,17 +5344,6 @@ pub fn parse_record(
     let mut error = None;
     let mut start = span.start;
     let mut end = span.end;
-
-    if !balanced_pair_between_qoutes(b'{', b'}', bytes) {
-        return (
-            garbage(span),
-            Some(ParseError::Unbalanced(
-                "{".into(),
-                "}".into(),
-                Span::new(end, end),
-            )),
-        );
-    }
 
     if bytes.starts_with(b"{") {
         start += 1;
