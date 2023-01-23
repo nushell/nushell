@@ -75,7 +75,7 @@ powierza-coefficient = "1.0.2"
 quick-xml = "0.27"
 rand = "0.8"
 rayon = "1.5.1"
-regex = "1.6.0"
+regex = "1.7.1"
 reqwest = { version = "0.11", features = ["blocking", "json"] }
 roxmltree = "0.16.0"
 rust-embed = "6.3.0"
