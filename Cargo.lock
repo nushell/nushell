@@ -2704,7 +2704,7 @@ dependencies = [
  "percent-encoding",
  "reedline",
  "rstest 0.16.0",
- "sysinfo 0.27.7",
+ "sysinfo",
  "thiserror",
 ]
 
@@ -2807,7 +2807,7 @@ dependencies = [
  "sha2",
  "shadow-rs",
  "sqlparser",
- "sysinfo 0.26.4",
+ "sysinfo",
  "terminal_size 0.2.1",
  "thiserror",
  "titlecase",
@@ -2834,7 +2834,7 @@ dependencies = [
  "nu-protocol",
  "nu-utils",
  "serde",
- "sysinfo 0.26.4",
+ "sysinfo",
 ]
 
 [[package]]
@@ -5027,21 +5027,6 @@ dependencies = [
  "libc",
  "wasm-bindgen",
  "web-sys",
- "winapi 0.3.9",
-]
-
-[[package]]
-name = "sysinfo"
-version = "0.27.7"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "975fe381e0ecba475d4acff52466906d95b153a40324956552e027b2a9eaa89e"
-dependencies = [
- "cfg-if 1.0.0",
- "core-foundation-sys",
- "libc",
- "ntapi",
- "once_cell",
- "rayon",
  "winapi 0.3.9",
 ]
 
