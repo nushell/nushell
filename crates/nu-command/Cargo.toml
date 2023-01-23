@@ -34,10 +34,7 @@ base64 = "0.21.0"
 byteorder = "1.4.3"
 bytesize = "1.1.0"
 calamine = "0.19.1"
-chrono = { version = "0.4.23", features = [
-	"unstable-locales",
-	"std",
-], default-features = false }
+chrono = { version = "0.4.23", features = ["unstable-locales", "std"], default-features = false }
 chrono-humanize = "0.2.1"
 chrono-tz = "0.6.3"
 crossterm = "0.24.0"
@@ -47,7 +44,7 @@ digest = { default-features = false, version = "0.10.0" }
 dtparse = "1.2.0"
 eml-parser = "0.1.0"
 encoding_rs = "0.8.30"
-fancy-regex = "0.10.0"
+fancy-regex = "0.11.0"
 filesize = "0.2.0"
 filetime = "0.2.15"
 fs_extra = "1.2.0"
@@ -59,9 +56,7 @@ Inflector = "0.11"
 is-root = "0.1.2"
 itertools = "0.10.0"
 log = "0.4.14"
-lscolors = { version = "0.12.0", features = [
-	"crossterm",
-], default-features = false }
+lscolors = { version = "0.12.0", features = ["crossterm"], default-features = false }
 md5 = { package = "md-5", version = "0.10.0" }
 mime = "0.3.16"
 mime_guess = "2.0.4"
@@ -148,20 +143,14 @@ features = [
 
 [target.'cfg(windows)'.dependencies.windows]
 version = "0.43.0"
-features = [
-	"Win32_Foundation",
-	"Win32_Storage_FileSystem",
-	"Win32_System_SystemServices",
-]
+features = ["Win32_Foundation", "Win32_Storage_FileSystem", "Win32_System_SystemServices"]
 
 [features]
 trash-support = ["trash"]
 which-support = ["which"]
 plugin = ["nu-parser/plugin"]
 dataframe = ["polars", "num", "sqlparser"]
-sqlite = [
-	"rusqlite",
-] # TODO: given that rusqlite is included in reedline, should we just always include it?
+sqlite = ["rusqlite"]                      # TODO: given that rusqlite is included in reedline, should we just always include it?
 
 [build-dependencies]
 shadow-rs = { version = "0.20.0", default-features = false }
