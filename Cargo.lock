@@ -969,7 +969,7 @@ version = "3.2.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "1d91974fbbe88ec1df0c24a4f00f99583667a7e2e6272b2b92d294d81e462173"
 dependencies = [
- "nix",
+ "nix 0.25.0",
  "winapi 0.3.9",
 ]
 
@@ -1004,12 +1004,6 @@ dependencies = [
  "rustc_version 0.4.0",
  "syn",
 ]
-
-[[package]]
-name = "devtimer"
-version = "4.0.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "907339959a92f6b98846570500c0a567c9aecbb3871cef00561eb5d20d47b7c1"
 
 [[package]]
 name = "dialoguer"
@@ -2124,9 +2118,9 @@ dependencies = [
 
 [[package]]
 name = "libc"
-version = "0.2.135"
+version = "0.2.139"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "68783febc7782c6c5cb401fbda4de5a9898be1762314da0bb2c10ced61f18b0c"
+checksum = "201de327520df007757c1f0adce6e827fe8562fbc28bfd9c15571c66ca1f5f79"
 
 [[package]]
 name = "libgit2-sys"
@@ -2554,6 +2548,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "nix"
+version = "0.26.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "bfdda3d196821d6af13126e40375cdf7da646a96114af134d5f417a9a1dc8e1a"
+dependencies = [
+ "bitflags",
+ "cfg-if 1.0.0",
+ "libc",
+ "static_assertions",
+]
+
+[[package]]
 name = "nodrop"
 version = "0.1.14"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2628,13 +2634,12 @@ dependencies = [
  "criterion",
  "crossterm 0.24.0",
  "ctrlc",
- "devtimer",
  "hamcrest2",
  "is_executable",
  "itertools",
  "log",
  "miette",
- "nix",
+ "nix 0.26.2",
  "nu-ansi-term",
  "nu-cli",
  "nu-color-config",
@@ -2655,7 +2660,7 @@ dependencies = [
  "pretty_assertions",
  "rayon",
  "reedline",
- "rstest 0.15.0",
+ "rstest 0.16.0",
  "serial_test",
  "signal-hook",
  "simplelog",
@@ -2681,7 +2686,6 @@ dependencies = [
  "atty",
  "chrono",
  "crossterm 0.24.0",
- "devtimer",
  "fancy-regex 0.11.0",
  "fuzzy-matcher",
  "is_executable",
@@ -2952,7 +2956,7 @@ dependencies = [
  "libproc",
  "log",
  "mach2",
- "nix",
+ "nix 0.25.0",
  "ntapi",
  "once_cell",
  "procfs",

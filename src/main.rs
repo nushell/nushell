@@ -15,7 +15,6 @@ use crate::{
     logger::{configure, logger},
     terminal::acquire_terminal,
 };
-use devtimer::DevTime;
 use log::{info, Level};
 use miette::Result;
 #[cfg(feature = "plugin")]
@@ -28,15 +27,15 @@ use nu_command::create_default_context;
 use nu_parser::{escape_for_script_arg, escape_quote_string};
 use nu_protocol::{util::BufferedReader, PipelineData, RawStream};
 use signals::{ctrlc_protection, sigquit_protection};
-use std::str::FromStr;
 use std::{
     io::BufReader,
+    str::FromStr,
     sync::{atomic::AtomicBool, Arc},
+    time::Instant,
 };
 
 fn main() -> Result<()> {
-    let mut start_time = DevTime::new_simple();
-    start_time.start();
+    let start_time = Instant::now();
     let miette_hook = std::panic::take_hook();
     std::panic::set_hook(Box::new(move |x| {
         crossterm::terminal::disable_raw_mode().expect("unable to disable raw mode");
@@ -319,7 +318,7 @@ fn main() -> Result<()> {
             &mut stack,
             config_files::NUSHELL_FOLDER,
             parsed_nu_cli_args.execute,
-            &mut start_time,
+            start_time,
         );
         info!("repl eval {}:{}:{}", file!(), line!(), column!());
 
