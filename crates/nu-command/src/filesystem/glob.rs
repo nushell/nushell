@@ -162,11 +162,15 @@ impl Command for Glob {
                 },
             )
             .flatten()
-            .filter(|entry| match () {
-                () if no_dirs && entry.file_type().is_dir() => false,
-                () if no_files && entry.file_type().is_file() => false,
-                () if no_symlinks && entry.file_type().is_symlink() => false,
-                () => true,
+            .filter(|entry| {
+                let file_type = entry.file_type();
+
+                match () {
+                    () if no_dirs && file_type.is_dir() => false,
+                    () if no_files && file_type.is_file() => false,
+                    () if no_symlinks && file_type.is_symlink() => false,
+                    () => true,
+                }
             })
             .map(|entry| Value::String {
                 val: entry.into_path().to_string_lossy().to_string(),
