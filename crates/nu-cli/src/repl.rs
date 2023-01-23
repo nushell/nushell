@@ -588,15 +588,7 @@ Our {}Documentation{} is located at {}http://nushell.sh{}
 {}Tweet{} us at {}@nu_shell{}
 
 It's been this long since {}Nushell{}'s first commit:
-{}
-
-{}You can disable this banner using the {}config nu{}{} command
-to modify the config.nu file and setting show_banner to false.
-
-let-env config = {{
-    show_banner: false
-    ...
-}}{}
+{}{}
 "#,
         "\x1b[32m",   //start line 1 green
         "\x1b[32m",   //start line 2
@@ -628,11 +620,7 @@ let-env config = {{
         "\x1b[32m",   //before Nushell
         "\x1b[0m",    //after Nushell
         age,
-        "\x1b[2;37m", //before banner disable dim white
-        "\x1b[2;36m", //before config nu dim cyan
-        "\x1b[0m",    //after config nu
-        "\x1b[2;37m", //after config nu dim white
-        "\x1b[0m",    //after banner disable
+        "\x1b[0m", //after banner disable
     );
 
     banner
