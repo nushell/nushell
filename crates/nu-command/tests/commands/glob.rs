@@ -58,7 +58,10 @@ fn glob_subdirs() {
             pipeline("glob '**/*' | length"),
         );
 
-        assert_eq!(actual.out, "8", "count must be 8 due to 6 files and 2 folders, including the cwd");
+        assert_eq!(
+            actual.out, "8",
+            "count must be 8 due to 6 files and 2 folders, including the cwd"
+        );
     })
 }
 
@@ -82,7 +85,10 @@ fn glob_subdirs_ignore_dirs() {
             pipeline("glob '**/*' -D | length"),
         );
 
-        assert_eq!(actual.out, "6", "directory count must be 6, ignoring the cwd and the children folders");
+        assert_eq!(
+            actual.out, "6",
+            "directory count must be 6, ignoring the cwd and the children folders"
+        );
     })
 }
 
@@ -106,6 +112,9 @@ fn glob_ignore_files() {
             pipeline("glob '*' -F | length"),
         );
 
-        assert_eq!(actual.out, "1", "should only find one folder; ignoring cwd, files, subfolders");
+        assert_eq!(
+            actual.out, "1",
+            "should only find one folder; ignoring cwd, files, subfolders"
+        );
     })
 }
