@@ -194,18 +194,6 @@ pub fn collect_proc(interval: Duration, _with_thread: bool) -> Vec<ProcessInfo> 
             all_ok &= thread.is_some();
 
             if all_ok {
-                // let process_params = unsafe { get_process_params(handle) };
-                // match process_params {
-                //     Ok((pp_cmd, pp_env, pp_cwd)) => {
-                //         eprintln!(
-                //             "cmd: {:?}, env: {:?}, cwd: {:?}",
-                //             pp_cmd,
-                //             "noop".to_string(),
-                //             pp_cwd
-                //         );
-                //     }
-                //     Err(_) => {}
-                // }
                 let (proc_cmd, proc_env, proc_cwd) = match unsafe { get_process_params(handle) } {
                     Ok(pp) => (pp.0, pp.1, pp.2),
                     Err(_) => (vec![], vec![], PathBuf::new()),
@@ -733,10 +721,7 @@ fn get_cmd_line_new(handle: HANDLE) -> Vec<String> {
 fn get_cmd_line_old<T: RtlUserProcessParameters>(params: &T, handle: HANDLE) -> Vec<String> {
     match params.get_cmdline(handle) {
         Ok(buffer) => unsafe { get_cmdline_from_buffer(buffer.as_ptr()) },
-        Err(_e) => {
-            // sysinfo_debug!("get_cmd_line_old failed to get data: {}", _e);
-            Vec::new()
-        }
+        Err(_e) => Vec::new(),
     }
 }
 
@@ -765,10 +750,7 @@ fn get_proc_env<T: RtlUserProcessParameters>(params: &T, handle: HANDLE) -> Vec<
             }
             result
         }
-        Err(_e) => {
-            // sysinfo_debug!("get_proc_env failed to get data: {}", _e);
-            Vec::new()
-        }
+        Err(_e) => Vec::new(),
     }
 }
 

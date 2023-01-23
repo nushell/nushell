@@ -12,10 +12,7 @@ pub enum ProcessTask {
 impl ProcessTask {
     pub fn stat(&self) -> Result<Stat, ProcError> {
         match self {
-            ProcessTask::Process(x) => match x.stat() {
-                Ok(it) => Ok(it),
-                Err(err) => Err(err),
-            },
+            ProcessTask::Process(x) => x.stat(),
             ProcessTask::Task { stat: x, owner: _ } => Ok(*x.clone()),
         }
     }
@@ -36,13 +33,7 @@ impl ProcessTask {
 
     pub fn fd(&self) -> Result<Vec<FDInfo>, ProcError> {
         match self {
-            ProcessTask::Process(x) => {
-                let fds = match x.fd() {
-                    Ok(f) => f,
-                    Err(e) => return Err(e),
-                };
-                fds.collect()
-            }
+            ProcessTask::Process(x) => x.fd()?.collect(),
             _ => Err(ProcError::Other("not supported".to_string())),
         }
     }
@@ -113,10 +104,7 @@ pub fn collect_proc(interval: Duration, _with_thread: bool) -> Vec<ProcessInfo> 
         let curr_status = curr_proc.status().ok();
         let curr_time = Instant::now();
         let interval = curr_time - prev_time;
-        let ppid = match curr_proc.stat() {
-            Ok(p) => p.ppid,
-            Err(_) => 0,
-        };
+        let ppid = curr_proc.stat().map(|p| p.ppid).unwrap_or_default();
         let curr_proc = ProcessTask::Process(curr_proc);
 
         let proc = ProcessInfo {
@@ -174,23 +162,25 @@ impl ProcessInfo {
 
     /// Get the status of the process
     pub fn status(&self) -> String {
-        match self.curr_proc.stat() {
-            Ok(p) => match p.state {
-                'S' => "Sleeping".into(),
-                'R' => "Running".into(),
-                'D' => "Disk sleep".into(),
-                'Z' => "Zombie".into(),
-                'T' => "Stopped".into(),
-                't' => "Tracing".into(),
-                'X' => "Dead".into(),
-                'x' => "Dead".into(),
-                'K' => "Wakekill".into(),
-                'W' => "Waking".into(),
-                'P' => "Parked".into(),
-                _ => "Unknown".into(),
-            },
-            Err(_) => "Unknown".into(),
+        if let Ok(p) = self.curr_proc.stat() {
+            match p.state {
+                'S' => "Sleeping",
+                'R' => "Running",
+                'D' => "Disk sleep",
+                'Z' => "Zombie",
+                'T' => "Stopped",
+                't' => "Tracing",
+                'X' => "Dead",
+                'x' => "Dead",
+                'K' => "Wakekill",
+                'W' => "Waking",
+                'P' => "Parked",
+                _ => "Unknown",
+            }
+        } else {
+            "Unknown"
         }
+        .into()
     }
 
     /// CPU usage as a percent of total
@@ -223,9 +213,6 @@ impl ProcessInfo {
 
     /// Virtual memory size in bytes
     pub fn virtual_size(&self) -> u64 {
-        match self.curr_proc.stat() {
-            Ok(p) => p.vsize,
-            Err(_) => 0u64,
-        }
+        self.curr_proc.stat().map(|p| p.vsize).unwrap_or_default()
     }
 }
