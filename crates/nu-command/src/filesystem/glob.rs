@@ -163,9 +163,12 @@ impl Command for Glob {
             )
             .flatten()
             .filter(|entry| {
-                !(no_dirs && entry.file_type().is_dir())
-                    && !(no_files && entry.file_type().is_file())
-                    && !(no_symlinks && entry.file_type().is_symlink())
+                match () {
+                    () if no_dirs && entry.file_type().is_dir() => false,
+                    () if no_files && entry.file_type().is_file() => false,
+                    () if no_symlinks && entry.file_type().is_symlink() => false,
+                    () => true,
+                }
             })
             .map(|entry| Value::String {
                 val: entry.into_path().to_string_lossy().to_string(),
