@@ -86,7 +86,7 @@ serde_urlencoded = "0.7.0"
 serde_yaml = "0.9.4"
 sha2 = "0.10.0"
 # Disable default features b/c the default features build Git (very slow to compile)
-shadow-rs = { version = "0.16.1", default-features = false }
+shadow-rs = { version = "0.20.0", default-features = false }
 sysinfo = "0.26.2"
 terminal_size = "0.2.1"
 thiserror = "1.0.31"
@@ -163,7 +163,7 @@ sqlite = [
 ] # TODO: given that rusqlite is included in reedline, should we just always include it?
 
 [build-dependencies]
-shadow-rs = { version = "0.16.1", default-features = false }
+shadow-rs = { version = "0.20.0", default-features = false }
 
 [dev-dependencies]
 nu-test-support = { path = "../nu-test-support", version = "0.74.1" }
