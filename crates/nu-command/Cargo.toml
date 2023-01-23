@@ -74,8 +74,8 @@ pathdiff = "0.2.1"
 powierza-coefficient = "1.0.2"
 quick-xml = "0.27"
 rand = "0.8"
-rayon = "1.5.1"
-regex = "1.6.0"
+rayon = "1.6.1"
+regex = "1.7.1"
 reqwest = { version = "0.11", features = ["blocking", "json"] }
 roxmltree = "0.16.0"
 rust-embed = "6.3.0"
@@ -86,8 +86,8 @@ serde_urlencoded = "0.7.0"
 serde_yaml = "0.9.4"
 sha2 = "0.10.0"
 # Disable default features b/c the default features build Git (very slow to compile)
-shadow-rs = { version = "0.16.1", default-features = false }
-sysinfo = "0.26.2"
+shadow-rs = { version = "0.20.0", default-features = false }
+sysinfo = "0.27.7"
 terminal_size = "0.2.1"
 thiserror = "1.0.31"
 titlecase = "2.0.0"
@@ -163,7 +163,7 @@ sqlite = [
 ] # TODO: given that rusqlite is included in reedline, should we just always include it?
 
 [build-dependencies]
-shadow-rs = { version = "0.16.1", default-features = false }
+shadow-rs = { version = "0.20.0", default-features = false }
 
 [dev-dependencies]
 nu-test-support = { path = "../nu-test-support", version = "0.74.1" }
