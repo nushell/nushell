@@ -1235,16 +1235,6 @@ checksum = "7360491ce676a36bf9bb3c56c1aa791658183a54d2744120f27285738d90465a"
 
 [[package]]
 name = "fancy-regex"
-version = "0.10.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "0678ab2d46fa5195aaf59ad034c083d351377d4af57f3e073c074d0da3e3c766"
-dependencies = [
- "bit-set",
- "regex",
-]
-
-[[package]]
-name = "fancy-regex"
 version = "0.11.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "b95f7c0680e4142284cf8b22c14a476e87d61b004a3a0861872b32ef7ead40a2"
@@ -2674,7 +2664,7 @@ dependencies = [
  "atty",
  "chrono",
  "crossterm 0.24.0",
- "fancy-regex 0.11.0",
+ "fancy-regex",
  "fuzzy-matcher",
  "is_executable",
  "log",
@@ -2732,7 +2722,7 @@ dependencies = [
  "dtparse",
  "eml-parser",
  "encoding_rs",
- "fancy-regex 0.10.0",
+ "fancy-regex",
  "filesize",
  "filetime",
  "fs_extra",
@@ -2916,7 +2906,7 @@ dependencies = [
  "byte-unit",
  "chrono",
  "chrono-humanize",
- "fancy-regex 0.11.0",
+ "fancy-regex",
  "indexmap",
  "lru",
  "miette",
