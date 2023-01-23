@@ -112,8 +112,7 @@ impl Command for Fill {
                 }),
             },
             Example {
-                description:
-                    "Fill a number on the left side to a width of 5 with the character '0'",
+                description: "Fill a number on both sides to a width of 5 with the character '0'",
                 example: "1.1 | fill --alignment center --character 0 --width 5",
                 result: Some(Value::String {
                     val: "01.10".into(),
