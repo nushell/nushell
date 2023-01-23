@@ -164,8 +164,8 @@ impl Command for Glob {
             .flatten()
             .filter(|entry| {
                 no_dirs && !entry.file_type().is_dir()
-                || no_files && !entry.file_type().is_file()
-                || no_symlinks && !entry.file_type().is_symlink()
+                    || no_files && !entry.file_type().is_file()
+                    || no_symlinks && !entry.file_type().is_symlink()
             })
             .map(|entry| Value::String {
                 val: entry.into_path().to_string_lossy().to_string(),
