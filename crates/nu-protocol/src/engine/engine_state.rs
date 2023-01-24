@@ -484,15 +484,17 @@ impl EngineState {
                     serde_json::to_string_pretty(&decl.signature())
                         .map(|signature| {
                             // Extracting the possible path to the shell used to load the plugin
-                            let shell_str = match shell {
-                                Some(path) => format!(
-                                    "-s {}",
-                                    path.to_str().expect(
-                                        "shell path was checked during registration as a str"
+                            let shell_str = shell
+                                .as_ref()
+                                .map(|path| {
+                                    format!(
+                                        "-s {}",
+                                        path.to_str().expect(
+                                            "shell path was checked during registration as a str"
+                                        )
                                     )
-                                ),
-                                None => "".into(),
-                            };
+                                })
+                                .unwrap_or_default();
 
                             // Each signature is stored in the plugin file with the shell and signature
                             // This information will be used when loading the plugin
@@ -1020,9 +1022,10 @@ impl TypeScope {
     }
 
     pub fn add_type(&mut self, input: Type) {
-        match self.outputs.last_mut() {
-            Some(v) => v.push(input),
-            None => self.outputs.push(vec![input]),
+        if let Some(v) = self.outputs.last_mut() {
+            v.push(input)
+        } else {
+            self.outputs.push(vec![input])
         }
     }
 

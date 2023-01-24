@@ -77,20 +77,17 @@ fn get_prompt_string(
         .and_then(|pipeline_data| {
             let output = pipeline_data.collect_string("", config).ok();
 
-            match output {
-                Some(mut x) => {
-                    // Just remove the very last newline.
-                    if x.ends_with('\n') {
-                        x.pop();
-                    }
-
-                    if x.ends_with('\r') {
-                        x.pop();
-                    }
-                    Some(x)
+            output.map(|mut x| {
+                // Just remove the very last newline.
+                if x.ends_with('\n') {
+                    x.pop();
                 }
-                None => None,
-            }
+
+                if x.ends_with('\r') {
+                    x.pop();
+                }
+                x
+            })
         })
 }
 
@@ -107,12 +104,13 @@ pub(crate) fn update_prompt<'prompt>(
     // Now that we have the prompt string lets ansify it.
     // <133 A><prompt><133 B><command><133 C><command output>
     let left_prompt_string = if config.shell_integration {
-        match left_prompt_string {
-            Some(prompt_string) => Some(format!(
+        if let Some(prompt_string) = left_prompt_string {
+            Some(format!(
                 "{}{}{}",
                 PRE_PROMPT_MARKER, prompt_string, POST_PROMPT_MARKER
-            )),
-            None => left_prompt_string,
+            ))
+        } else {
+            left_prompt_string
         }
     } else {
         left_prompt_string

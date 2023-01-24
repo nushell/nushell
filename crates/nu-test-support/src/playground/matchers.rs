@@ -48,10 +48,8 @@ impl CheckerMatchers for Play {
             Some(out) => out,
             None => return Ok(()),
         };
-        let actual = match str::from_utf8(actual) {
-            Err(..) => return Err(format!("{} was not utf8 encoded", description)),
-            Ok(actual) => actual,
-        };
+        let actual =
+            str::from_utf8(actual).map_err(|_| format!("{} was not utf8 encoded", description))?;
 
         if actual != *out {
             return Err(format!(

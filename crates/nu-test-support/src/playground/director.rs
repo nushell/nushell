@@ -99,17 +99,14 @@ impl Executable for Director {
                     }
                 }
 
-                let process = match binary
+                let process = binary
                     .construct()
                     .stdout(Stdio::piped())
                     // .stdin(Stdio::piped())
                     .stderr(Stdio::piped())
                     .arg(format!("-c '{}'", commands))
                     .spawn()
-                {
-                    Ok(child) => child,
-                    Err(why) => panic!("Can't run test {}", why),
-                };
+                    .expect("It should be possible to run tests");
 
                 process
                     .wait_with_output()

@@ -574,15 +574,14 @@ impl Peaker for PriorityMax {
 
     fn peak(&mut self, _: &[usize], widths: &[usize]) -> Option<usize> {
         let col = (0..widths.len()).rev().max_by_key(|&i| widths[i]);
-        match col {
-            Some(col) => {
-                if widths[col] == 0 {
-                    None
-                } else {
-                    Some(col)
-                }
+        if let Some(col) = col {
+            if widths[col] == 0 {
+                None
+            } else {
+                Some(col)
             }
-            None => None,
+        } else {
+            None
         }
     }
 }

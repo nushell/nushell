@@ -79,24 +79,18 @@ impl GStat {
                 },
             });
         }
-
-        let metadata = match std::fs::metadata(&a_path.item) {
-            Ok(md) => md,
-            Err(e) => {
-                return Err(LabeledError {
-                    label: "error with metadata".to_string(),
-                    msg: format!(
-                        "unable to get metadata for [{}], error: {}",
-                        &a_path.item, e
-                    ),
-                    span: if using_input_value {
-                        Some(value.span().expect("unable to get value span"))
-                    } else {
-                        Some(a_path.span)
-                    },
-                });
-            }
-        };
+        let metadata = std::fs::metadata(&a_path.item).map_err(|e| LabeledError {
+            label: "error with metadata".to_string(),
+            msg: format!(
+                "unable to get metadata for [{}], error: {}",
+                &a_path.item, e
+            ),
+            span: if using_input_value {
+                Some(value.span().expect("unable to get value span"))
+            } else {
+                Some(a_path.span)
+            },
+        })?;
 
         // This path has to be a directory
         if !metadata.is_dir() {
@@ -417,25 +411,23 @@ impl Stats {
     /// Read name of the upstream branch
     fn read_upstream_name(&mut self, repo: &Repository, branch: &str) {
         // First grab branch from the name
-        self.remote = match repo.find_branch(branch, BranchType::Local) {
-            Ok(branch) => {
-                // Grab the upstream from the branch
-                match branch.upstream() {
-                    // Grab the name of the upstream if it's valid UTF-8
-                    Ok(upstream) => {
-                        // While we have the upstream branch, traverse the graph and count
-                        // ahead-behind commits.
-                        self.read_ahead_behind(repo, &branch, &upstream);
+        self.remote = if let Ok(branch) = repo.find_branch(branch, BranchType::Local) {
+            // Grab the upstream from the branch
+            if let Ok(upstream) = branch.upstream() {
+                // While we have the upstream branch, traverse the graph and count
+                // ahead-behind commits.
+                self.read_ahead_behind(repo, &branch, &upstream);
 
-                        match upstream.name() {
-                            Ok(Some(name)) => name.to_string(),
-                            _ => String::new(),
-                        }
-                    }
-                    _ => String::new(),
+                if let Ok(Some(name)) = upstream.name() {
+                    name.to_string()
+                } else {
+                    String::new()
                 }
+            } else {
+                String::new()
             }
-            _ => String::new(),
+        } else {
+            String::new()
         };
     }
 

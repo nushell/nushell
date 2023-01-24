@@ -56,12 +56,11 @@ pub fn add_plugin_file(
         let working_set = StateWorkingSet::new(engine_state);
         let cwd = working_set.get_cwd();
 
-        match canonicalize_with(&plugin_file.item, cwd) {
-            Ok(path) => engine_state.plugin_signatures = Some(path),
-            Err(_) => {
-                let e = ParseError::FileNotFound(plugin_file.item, plugin_file.span);
-                report_error(&working_set, &e);
-            }
+        if let Ok(path) = canonicalize_with(&plugin_file.item, cwd) {
+            engine_state.plugin_signatures = Some(path)
+        } else {
+            let e = ParseError::FileNotFound(plugin_file.item, plugin_file.span);
+            report_error(&working_set, &e);
         }
     } else if let Some(mut plugin_path) = nu_path::config_dir() {
         // Path to store plugins signatures

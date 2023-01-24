@@ -36,9 +36,5 @@ pub fn with_locale_override<T>(locale_string: &str, func: fn() -> T) -> T {
 
         result
     };
-
-    match result {
-        Ok(result) => result,
-        Err(err) => std::panic::resume_unwind(err),
-    }
+    result.unwrap_or_else(|err| std::panic::resume_unwind(err))
 }

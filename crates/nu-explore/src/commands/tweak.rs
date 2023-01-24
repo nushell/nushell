@@ -53,15 +53,12 @@ impl SimpleCommand for TweakCmd {
         let input = input.trim();
 
         let args = input.split_once(' ');
-        let (key, value) = match args {
-            Some(args) => args,
-            None => {
-                return Err(io::Error::new(
-                    io::ErrorKind::Other,
-                    "expected to get 2 arguments 'key value'",
-                ))
-            }
-        };
+        let (key, value) = args.ok_or_else(|| {
+            io::Error::new(
+                io::ErrorKind::Other,
+                "expected to get 2 arguments 'key value'",
+            )
+        })?;
 
         self.value = parse_value(value);
 

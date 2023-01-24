@@ -87,14 +87,9 @@ fn try_build_list(
                 false,
             );
 
-            let val = table.draw(table_config, usize::MAX);
-
-            match val {
-                Some(result) => result,
-                None => {
-                    value_to_styled_string(&Value::List { vals, span }, config, style_computer).0
-                }
-            }
+            table.draw(table_config, usize::MAX).unwrap_or_else(|| {
+                value_to_styled_string(&Value::List { vals, span }, config, style_computer).0
+            })
         }
         Ok(None) | Err(_) => {
             // it means that the list is empty
@@ -848,10 +843,8 @@ fn make_styled_string(
             match value {
                 Value::Float { .. } => {
                     // set dynamic precision from config
-                    let precise_number = match convert_with_precision(&text, float_precision) {
-                        Ok(num) => num,
-                        Err(e) => e.to_string(),
-                    };
+                    let precise_number = convert_with_precision(&text, float_precision)
+                        .unwrap_or_else(|e| e.to_string());
                     (precise_number, style_computer.style_primitive(value))
                 }
                 _ => (text, style_computer.style_primitive(value)),

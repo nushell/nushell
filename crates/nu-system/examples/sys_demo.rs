@@ -6,10 +6,9 @@ fn main() {
         target_os = "windows"
     ))]
     {
-        let cores = match std::thread::available_parallelism() {
-            Ok(p) => p.get(),
-            Err(_) => 1usize,
-        };
+        let cores = std::thread::available_parallelism()
+            .map(|p| p.get())
+            .unwrap_or(1);
         for run in 1..=10 {
             for proc in nu_system::collect_proc(std::time::Duration::from_millis(100), false) {
                 if proc.cpu_usage() > 0.00001 {

@@ -104,17 +104,18 @@ pub fn execute_xpath_query(
 fn build_xpath(xpath_str: &str, span: &Span) -> Result<sxd_xpath::XPath, LabeledError> {
     let factory = Factory::new();
 
-    match factory.build(xpath_str) {
-        Ok(xpath) => xpath.ok_or_else(|| LabeledError {
+    if let Ok(xpath) = factory.build(xpath_str) {
+        xpath.ok_or_else(|| LabeledError {
             label: "invalid xpath query".to_string(),
             msg: "invalid xpath query".to_string(),
             span: Some(*span),
-        }),
-        Err(_) => Err(LabeledError {
+        })
+    } else {
+        Err(LabeledError {
             label: "expected valid xpath query".to_string(),
             msg: "expected valid xpath query".to_string(),
             span: Some(*span),
-        }),
+        })
     }
 }
 

@@ -103,14 +103,13 @@ fn command(
 
     let type_id = match &type_option {
         Some(ref t) => Some((t.item.to_owned(), "Invalid type", t.span)),
-        None => match file.item.extension() {
-            Some(e) => Some((
+        None => file.item.extension().map(|e| {
+            (
                 e.to_string_lossy().into_owned(),
                 "Invalid extension",
                 file.span,
-            )),
-            None => None,
-        },
+            )
+        }),
     };
 
     match type_id {

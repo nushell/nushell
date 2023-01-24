@@ -197,9 +197,6 @@ impl Value {
             Value::Binary { val, .. } => Ok(match std::str::from_utf8(val) {
                 Ok(s) => s.to_string(),
                 Err(_) => {
-                    // println!("{:?}", e);
-                    // println!("bytes: {}", pretty_hex::pretty_hex(&val));
-                    // panic!("let's see it");
                     return Err(ShellError::CantConvert(
                         "string".into(),
                         "binary".into(),
@@ -495,9 +492,10 @@ impl Value {
         separator: &str,
         config: &Config,
     ) -> Result<String, ShellError> {
-        match self {
-            Value::Error { error } => Err(error.to_owned()),
-            _ => Ok(self.into_string(separator, config)),
+        if let Value::Error { error } = self {
+            Err(error.to_owned())
+        } else {
+            Ok(self.into_string(separator, config))
         }
     }
 
@@ -1813,10 +1811,13 @@ impl PartialOrd for Value {
                         result
                     }
                 }
-                Value::LazyRecord { val, .. } => match val.collect() {
-                    Ok(rhs) => self.partial_cmp(&rhs),
-                    Err(_) => None,
-                },
+                Value::LazyRecord { val, .. } => {
+                    if let Ok(rhs) = val.collect() {
+                        self.partial_cmp(&rhs)
+                    } else {
+                        None
+                    }
+                }
                 Value::List { .. } => Some(Ordering::Less),
                 Value::Block { .. } => Some(Ordering::Less),
                 Value::Closure { .. } => Some(Ordering::Less),
@@ -1967,10 +1968,13 @@ impl PartialOrd for Value {
                 Value::CustomValue { .. } => Some(Ordering::Less),
             },
             (Value::CustomValue { val: lhs, .. }, rhs) => lhs.partial_cmp(rhs),
-            (Value::LazyRecord { val, .. }, rhs) => match val.collect() {
-                Ok(val) => val.partial_cmp(rhs),
-                Err(_) => None,
-            },
+            (Value::LazyRecord { val, .. }, rhs) => {
+                if let Ok(val) = val.collect() {
+                    val.partial_cmp(rhs)
+                } else {
+                    None
+                }
+            }
         }
     }
 }
@@ -2012,13 +2016,14 @@ impl Value {
                 span,
             }),
             (Value::Date { val: lhs, .. }, Value::Duration { val: rhs, .. }) => {
-                match lhs.checked_add_signed(chrono::Duration::nanoseconds(*rhs)) {
-                    Some(val) => Ok(Value::Date { val, span }),
-                    _ => Err(ShellError::OperatorOverflow(
+                if let Some(val) = lhs.checked_add_signed(chrono::Duration::nanoseconds(*rhs)) {
+                    Ok(Value::Date { val, span })
+                } else {
+                    Err(ShellError::OperatorOverflow(
                         "addition operation overflowed".into(),
                         span,
                         "".into(),
-                    )),
+                    ))
                 }
             }
             (Value::Duration { val: lhs, .. }, Value::Duration { val: rhs, .. }) => {
@@ -2114,13 +2119,14 @@ impl Value {
             (Value::Date { val: lhs, .. }, Value::Date { val: rhs, .. }) => {
                 let result = lhs.signed_duration_since(*rhs);
 
-                match result.num_nanoseconds() {
-                    Some(v) => Ok(Value::Duration { val: v, span }),
-                    None => Err(ShellError::OperatorOverflow(
+                if let Some(v) = result.num_nanoseconds() {
+                    Ok(Value::Duration { val: v, span })
+                } else {
+                    Err(ShellError::OperatorOverflow(
                         "subtraction operation overflowed".into(),
                         span,
                         "".into(),
-                    )),
+                    ))
                 }
             }
             (Value::Date { val: lhs, .. }, Value::Duration { val: rhs, .. }) => {
@@ -2552,18 +2558,19 @@ impl Value {
             return Err(ShellError::TypeMismatch("compatible type".to_string(), op));
         }
 
-        match self.partial_cmp(rhs) {
-            Some(ordering) => Ok(Value::Bool {
+        if let Some(ordering) = self.partial_cmp(rhs) {
+            Ok(Value::Bool {
                 val: matches!(ordering, Ordering::Less),
                 span,
-            }),
-            None => Err(ShellError::OperatorMismatch {
+            })
+        } else {
+            Err(ShellError::OperatorMismatch {
                 op_span: op,
                 lhs_ty: self.get_type(),
                 lhs_span: self.span()?,
                 rhs_ty: rhs.get_type(),
                 rhs_span: rhs.span()?,
-            }),
+            })
         }
     }
 
@@ -2584,19 +2591,18 @@ impl Value {
             return Err(ShellError::TypeMismatch("compatible type".to_string(), op));
         }
 
-        match self.partial_cmp(rhs) {
-            Some(ordering) => Ok(Value::Bool {
+        self.partial_cmp(rhs)
+            .map(|ordering| Value::Bool {
                 val: matches!(ordering, Ordering::Less | Ordering::Equal),
                 span,
-            }),
-            None => Err(ShellError::OperatorMismatch {
+            })
+            .ok_or(ShellError::OperatorMismatch {
                 op_span: op,
                 lhs_ty: self.get_type(),
                 lhs_span: self.span()?,
                 rhs_ty: rhs.get_type(),
                 rhs_span: rhs.span()?,
-            }),
-        }
+            })
     }
 
     pub fn gt(&self, op: Span, rhs: &Value, span: Span) -> Result<Value, ShellError> {
@@ -2616,19 +2622,18 @@ impl Value {
             return Err(ShellError::TypeMismatch("compatible type".to_string(), op));
         }
 
-        match self.partial_cmp(rhs) {
-            Some(ordering) => Ok(Value::Bool {
+        self.partial_cmp(rhs)
+            .map(|ordering| Value::Bool {
                 val: matches!(ordering, Ordering::Greater),
                 span,
-            }),
-            None => Err(ShellError::OperatorMismatch {
+            })
+            .ok_or(ShellError::OperatorMismatch {
                 op_span: op,
                 lhs_ty: self.get_type(),
                 lhs_span: self.span()?,
                 rhs_ty: rhs.get_type(),
                 rhs_span: rhs.span()?,
-            }),
-        }
+            })
     }
 
     pub fn gte(&self, op: Span, rhs: &Value, span: Span) -> Result<Value, ShellError> {
@@ -2668,12 +2673,13 @@ impl Value {
             return lhs.operation(*span, Operator::Comparison(Comparison::Equal), op, rhs);
         }
 
-        match self.partial_cmp(rhs) {
-            Some(ordering) => Ok(Value::Bool {
+        if let Some(ordering) = self.partial_cmp(rhs) {
+            Ok(Value::Bool {
                 val: matches!(ordering, Ordering::Equal),
                 span,
-            }),
-            None => match (self, rhs) {
+            })
+        } else {
+            match (self, rhs) {
                 (Value::Nothing { .. }, _) | (_, Value::Nothing { .. }) => {
                     Ok(Value::Bool { val: false, span })
                 }
@@ -2684,7 +2690,7 @@ impl Value {
                     rhs_ty: rhs.get_type(),
                     rhs_span: rhs.span()?,
                 }),
-            },
+            }
         }
     }
 
@@ -2693,12 +2699,13 @@ impl Value {
             return lhs.operation(*span, Operator::Comparison(Comparison::NotEqual), op, rhs);
         }
 
-        match self.partial_cmp(rhs) {
-            Some(ordering) => Ok(Value::Bool {
+        if let Some(ordering) = self.partial_cmp(rhs) {
+            Ok(Value::Bool {
                 val: !matches!(ordering, Ordering::Equal),
                 span,
-            }),
-            None => match (self, rhs) {
+            })
+        } else {
+            match (self, rhs) {
                 (Value::Nothing { .. }, _) | (_, Value::Nothing { .. }) => {
                     Ok(Value::Bool { val: true, span })
                 }
@@ -2709,7 +2716,7 @@ impl Value {
                     rhs_ty: rhs.get_type(),
                     rhs_span: rhs.span()?,
                 }),
-            },
+            }
         }
     }
 
@@ -2844,9 +2851,10 @@ impl Value {
                 },
             ) => {
                 let is_match = match engine_state.regex_cache.try_lock() {
-                    Ok(mut cache) => match cache.get(rhs) {
-                        Some(regex) => regex.is_match(lhs),
-                        None => {
+                    Ok(mut cache) => {
+                        if let Some(regex) = cache.get(rhs) {
+                            regex.is_match(lhs)
+                        } else {
                             let regex = Regex::new(rhs).map_err(|e| {
                                 ShellError::UnsupportedInput(
                                     format!("{e}"),
@@ -2859,7 +2867,7 @@ impl Value {
                             cache.put(rhs.clone(), regex);
                             ret
                         }
-                    },
+                    }
                     Err(_) => {
                         let regex = Regex::new(rhs).map_err(|e| {
                             ShellError::UnsupportedInput(
