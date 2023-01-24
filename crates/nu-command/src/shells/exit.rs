@@ -71,7 +71,7 @@ impl Command for Exit {
 
         if shells.is_empty() {
             stack.exit = Some(exit_code.unwrap_or(0));
-            return Err(ShellError::Exit());
+            Err(ShellError::Exit())
         } else {
             let new_path = shells[current_shell].clone();
 
