@@ -17,7 +17,10 @@ impl Command for ToCsv {
 
     fn signature(&self) -> Signature {
         Signature::build("to csv")
-            .input_output_types(vec![(Type::Any, Type::String)])
+            .input_output_types(vec![
+                (Type::Record(vec![]), Type::String),
+                (Type::Table(vec![]), Type::String),
+            ])
             .named(
                 "separator",
                 SyntaxShape::String,

@@ -15,7 +15,10 @@ impl Command for ToTsv {
 
     fn signature(&self) -> Signature {
         Signature::build("to tsv")
-            .input_output_types(vec![(Type::Any, Type::String)])
+            .input_output_types(vec![
+                (Type::Record(vec![]), Type::String),
+                (Type::Table(vec![]), Type::String),
+            ])
             .switch(
                 "noheaders",
                 "do not output the column names as the first row",
@@ -42,7 +45,7 @@ impl Command for ToTsv {
         _stack: &mut Stack,
         call: &Call,
         input: PipelineData,
-    ) -> Result<nu_protocol::PipelineData, ShellError> {
+    ) -> Result<PipelineData, ShellError> {
         let head = call.head;
         let noheaders = call.has_flag("noheaders");
         let config = engine_state.get_config();
