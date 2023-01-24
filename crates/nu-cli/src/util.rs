@@ -8,7 +8,7 @@ use nu_protocol::{
     print_if_stream, PipelineData, ShellError, Span, Value,
 };
 #[cfg(windows)]
-use nu_utils::enable_vt_processing;
+use nu_utils::{enable_vt_processing, utils::perf};
 use std::path::{Path, PathBuf};
 
 // This will collect environment variables from std::env and adds them to a stack.
@@ -204,6 +204,8 @@ pub fn eval_source(
     fname: &str,
     input: PipelineData,
 ) -> bool {
+    let start_time = std::time::Instant::now();
+
     let (block, delta) = {
         let mut working_set = StateWorkingSet::new(engine_state);
         let (output, err) = parse(
@@ -282,6 +284,13 @@ pub fn eval_source(
             return false;
         }
     }
+    perf(
+        &format!("eval_source {}", &fname),
+        start_time,
+        file!(),
+        line!(),
+        column!(),
+    );
 
     true
 }
