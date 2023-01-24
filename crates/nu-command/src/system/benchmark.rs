@@ -1,6 +1,6 @@
 use std::time::Instant;
 
-use nu_engine::{eval_block, CallExt};
+use nu_engine::{eval_block_benchmark, CallExt};
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Closure, Command, EngineState, Stack};
 use nu_protocol::{
@@ -65,7 +65,7 @@ impl Command for Benchmark {
 
         // Get the start time after all other computation has been done.
         let start_time = Instant::now();
-        eval_block(
+        eval_block_benchmark(
             engine_state,
             &mut stack,
             block,
