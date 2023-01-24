@@ -17,7 +17,7 @@ fn from_value_to_delimited_string(
         Value::List { vals, span } => table_to_delimited(vals, span, separator, config, head),
         // Propagate errors by explicitly matching them before the final case.
         Value::Error { error } => Err(error.clone()),
-        other => to_string_tagged_value(value, config, other.expect_span(), head),
+        v => Err(make_unsupported_input_error(&v, head, v.expect_span())),
     }
 }
 
@@ -116,13 +116,17 @@ fn to_string_tagged_value(
         Value::Nothing { .. } => Ok(String::new()),
         // Propagate existing errors
         Value::Error { error } => Err(error.clone()),
-        _ => Err(ShellError::UnsupportedInput(
-            "Unexpected type".to_string(),
-            format!("input type: {:?}", v.get_type()),
-            head,
-            span,
-        )),
+        _ => Err(make_unsupported_input_error(&v, head, span)),
     }
+}
+
+fn make_unsupported_input_error(value: &Value, head: Span, span: Span) -> ShellError {
+    ShellError::UnsupportedInput(
+        "Unexpected type".to_string(),
+        format!("input type: {:?}", value.get_type()),
+        head,
+        span,
+    )
 }
 
 pub fn merge_descriptors(values: &[Value]) -> Vec<String> {
