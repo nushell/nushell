@@ -54,6 +54,10 @@ fn table_to_delimited(
     config: &Config,
     head: Span,
 ) -> Result<String, ShellError> {
+    if let Some(val) = find_non_record(vals) {
+        return Err(make_unsupported_input_error(val, head, *span));
+    }
+
     let mut wtr = WriterBuilder::new()
         .delimiter(separator as u8)
         .from_writer(vec![]);
@@ -127,6 +131,12 @@ fn make_unsupported_input_error(value: &Value, head: Span, span: Span) -> ShellE
         head,
         span,
     )
+}
+
+pub fn find_non_record(values: &[Value]) -> Option<&Value> {
+    values
+        .iter()
+        .find(|val| !matches!(val, Value::Record { .. }))
 }
 
 pub fn merge_descriptors(values: &[Value]) -> Vec<String> {
