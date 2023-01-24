@@ -17,13 +17,13 @@ fn from_value_to_delimited_string(
         Value::List { vals, span } => table_to_delimited(vals, span, separator, config, head),
         // Propagate errors by explicitly matching them before the final case.
         Value::Error { error } => Err(error.clone()),
-        v => Err(make_unsupported_input_error(&v, head, v.expect_span())),
+        v => Err(make_unsupported_input_error(v, head, v.expect_span())),
     }
 }
 
 fn record_to_delimited(
-    cols: &Vec<String>,
-    vals: &Vec<Value>,
+    cols: &[String],
+    vals: &[Value],
     span: &Span,
     separator: char,
     config: &Config,
@@ -118,7 +118,7 @@ fn to_string_tagged_value(
         Value::Nothing { .. } => Ok(String::new()),
         // Propagate existing errors
         Value::Error { error } => Err(error.clone()),
-        _ => Err(make_unsupported_input_error(&v, head, span)),
+        _ => Err(make_unsupported_input_error(v, head, span)),
     }
 }
 
