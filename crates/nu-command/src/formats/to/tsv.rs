@@ -39,7 +39,7 @@ impl Command for ToTsv {
                 result: Some(Value::test_string("foo\tbar\n1\t2\n")),
             },
             Example {
-                description: "Outputs an CSV string representing the contents of this table",
+                description: "Outputs an TSV string representing the contents of this table",
                 example: "{a: 1 b: 2} | to tsv",
                 result: Some(Value::test_string("a\tb\n1\t2\n")),
             },
