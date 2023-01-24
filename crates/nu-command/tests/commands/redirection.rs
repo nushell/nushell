@@ -126,6 +126,33 @@ fn separate_redirection() {
     )
 }
 
+#[test]
+fn redirection_keep_exit_codes() {
+    Playground::setup(
+        "redirection should keep exit code the same",
+        |dirs, sandbox| {
+            let script_body = r#"exit 10"#;
+            #[cfg(not(windows))]
+            let output = {
+                sandbox.with_files(vec![FileWithContent("test.sh", script_body)]);
+                nu!(
+                    cwd: dirs.test(),
+                    r#"bash test.sh out> out.txt err> err.txt; echo $env.LAST_EXIT_CODE"#
+                )
+            };
+            #[cfg(windows)]
+            let output = {
+                sandbox.with_files(vec![FileWithContent("test.bat", script_body)]);
+                nu!(
+                    cwd: dirs.test(),
+                    r#"cmd /D /c test.bat out> out.txt err> err.txt; echo $env.LAST_EXIT_CODE"#
+                );
+            };
+            assert_eq!(output.out, "10")
+        },
+    )
+}
+
 #[cfg(not(windows))]
 #[test]
 fn redirection_with_pipeline_works() {

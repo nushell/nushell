@@ -707,7 +707,7 @@ pub fn eval_element_with_input(
     engine_state: &EngineState,
     stack: &mut Stack,
     element: &PipelineElement,
-    input: PipelineData,
+    mut input: PipelineData,
     redirect_stdout: bool,
     redirect_stderr: bool,
 ) -> Result<(PipelineData, bool), ShellError> {
@@ -722,6 +722,10 @@ pub fn eval_element_with_input(
         ),
         PipelineElement::Redirection(span, redirection, expr) => match &expr.expr {
             Expr::String(_) => {
+                let exit_code = match &mut input {
+                    PipelineData::ExternalStream { exit_code, .. } => exit_code.take(),
+                    _ => None,
+                };
                 let input = match (redirection, input) {
                     (
                         Redirection::Stderr,
@@ -820,7 +824,22 @@ pub fn eval_element_with_input(
                         },
                         input,
                     )
-                    .map(|x| (x, false))
+                    .map(|_| {
+                        // save is internal command, normally it exists with non-ExternalStream
+                        // but here in redirection context, we make it returns ExternalStream
+                        // So nu handles exit_code correctly
+                        (
+                            PipelineData::ExternalStream {
+                                stdout: None,
+                                stderr: None,
+                                exit_code,
+                                span: *span,
+                                metadata: None,
+                                trim_end_newline: false,
+                            },
+                            false,
+                        )
+                    })
                 } else {
                     Err(ShellError::CommandNotFound(*span))
                 }
@@ -833,6 +852,10 @@ pub fn eval_element_with_input(
         } => match (&out_expr.expr, &err_expr.expr) {
             (Expr::String(_), Expr::String(_)) => {
                 if let Some(save_command) = engine_state.find_decl(b"save", &[]) {
+                    let exit_code = match &mut input {
+                        PipelineData::ExternalStream { exit_code, .. } => exit_code.take(),
+                        _ => None,
+                    };
                     eval_call(
                         engine_state,
                         stack,
@@ -872,7 +895,22 @@ pub fn eval_element_with_input(
                         },
                         input,
                     )
-                    .map(|x| (x, false))
+                    .map(|_| {
+                        // save is internal command, normally it exists with non-ExternalStream
+                        // but here in redirection context, we make it returns ExternalStream
+                        // So nu handles exit_code correctly
+                        (
+                            PipelineData::ExternalStream {
+                                stdout: None,
+                                stderr: None,
+                                exit_code,
+                                span: *out_span,
+                                metadata: None,
+                                trim_end_newline: false,
+                            },
+                            false,
+                        )
+                    })
                 } else {
                     Err(ShellError::CommandNotFound(*out_span))
                 }
