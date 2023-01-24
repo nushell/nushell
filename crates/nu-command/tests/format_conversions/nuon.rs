@@ -396,7 +396,7 @@ proptest! {
              {{"{0}": "sam"}} | to nuon | from nuon;
         "#, c).as_ref()
         ));
-        assert!(actual.err.is_empty() || actual.err.contains("Unexpected end of code") || actual.err.contains("only strings can be keys"));
+        assert!(actual.err.is_empty() || actual.err.contains("Unexpected end of code") || actual.err.contains("only strings can be keys") || actual.err.contains("unbalanced { and }"));
         // The second is for weird escapes due to backslashes
         // The third is for chars like '0'
         }

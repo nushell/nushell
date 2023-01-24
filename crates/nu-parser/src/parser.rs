@@ -4392,10 +4392,15 @@ pub fn parse_value(
         }
         b'{' => {
             if !matches!(shape, SyntaxShape::Closure(..)) && !matches!(shape, SyntaxShape::Block) {
-                if let (expr, None) =
-                    parse_full_cell_path(working_set, None, span, expand_aliases_denylist)
-                {
-                    return (expr, None);
+                let (expr, err) =
+                    parse_full_cell_path(working_set, None, span, expand_aliases_denylist);
+                match err {
+                    Some(err) => {
+                        if let ParseError::Unbalanced(_, _, _) = err {
+                            return (expr, Some(err));
+                        }
+                    }
+                    None => return (expr, None),
                 }
             }
             if matches!(shape, SyntaxShape::Closure(_)) || matches!(shape, SyntaxShape::Any) {
