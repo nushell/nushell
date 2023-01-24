@@ -8,7 +8,8 @@ use nu_protocol::{
     print_if_stream, PipelineData, ShellError, Span, Value,
 };
 #[cfg(windows)]
-use nu_utils::{enable_vt_processing, utils::perf};
+use nu_utils::enable_vt_processing;
+use nu_utils::utils::perf;
 use std::path::{Path, PathBuf};
 
 // This will collect environment variables from std::env and adds them to a stack.
