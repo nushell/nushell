@@ -445,6 +445,7 @@ pub fn evaluate_repl(
                         PipelineData::empty(),
                     );
                 }
+
                 let cmd_duration = start_time.elapsed();
 
                 stack.add_env_var(
@@ -466,6 +467,17 @@ pub fn evaluate_repl(
                             c
                         })
                         .into_diagnostic()?; // todo: don't stop repl if error here?
+                }
+
+                if let Some(exit_code) = stack.exit {
+                    if let Err(e) = line_editor.sync_history() {
+                        warn!("Failed to sync history: {}", e);
+                    }
+                    if shell_integration {
+                        run_ansi_sequence(&get_command_finished_marker(stack, engine_state))?;
+                    }
+                    println!();
+                    std::process::exit(exit_code as i32);
                 }
 
                 if shell_integration {

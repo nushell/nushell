@@ -47,12 +47,9 @@ impl Command for Exit {
     ) -> Result<PipelineData, ShellError> {
         let exit_code: Option<i64> = call.opt(engine_state, stack, 0)?;
 
-        if let Some(exit_code) = exit_code {
-            std::process::exit(exit_code as i32);
-        }
-
         if call.has_flag("now") {
-            std::process::exit(0);
+            stack.exit = Some(exit_code.unwrap_or(0));
+            return Err(ShellError::Exit());
         }
 
         let cwd = current_dir(engine_state, stack)?;
@@ -73,7 +70,8 @@ impl Command for Exit {
         }
 
         if shells.is_empty() {
-            std::process::exit(0);
+            stack.exit = Some(exit_code.unwrap_or(0));
+            return Err(ShellError::Exit());
         } else {
             let new_path = shells[current_shell].clone();
 

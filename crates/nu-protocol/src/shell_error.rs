@@ -904,6 +904,10 @@ Either make sure {0} is a string, or add a 'to_string' entry for it in ENV_CONVE
     #[error("Return used outside of function")]
     Return(#[label = "used outside of function"] Span, Box<Value>),
 
+    /// Exit event
+    #[error("Exit")]
+    Exit(),
+
     /// The code being executed called itself too many times.
     ///
     /// ## Resolution

@@ -223,9 +223,16 @@ pub fn eval_source(
     };
 
     if let Err(err) = engine_state.merge_delta(delta) {
-        set_last_exit_code(stack, 1);
-        report_error_new(engine_state, &err);
-        return false;
+        match err {
+            ShellError::Exit() => {
+                return true;
+            }
+            _ => {
+                set_last_exit_code(stack, 1);
+                report_error_new(engine_state, &err);
+                return false;
+            }
+        }
     }
 
     match eval_block(engine_state, stack, &block, input, false, false) {
@@ -272,15 +279,17 @@ pub fn eval_source(
                 let _ = enable_vt_processing();
             }
         }
-        Err(err) => {
-            set_last_exit_code(stack, 1);
-
-            let working_set = StateWorkingSet::new(engine_state);
-
-            report_error(&working_set, &err);
-
-            return false;
-        }
+        Err(err) => match err {
+            ShellError::Exit() => {
+                return true;
+            }
+            _ => {
+                set_last_exit_code(stack, 1);
+                let working_set = StateWorkingSet::new(engine_state);
+                report_error(&working_set, &err);
+                return false;
+            }
+        },
     }
 
     true

@@ -35,6 +35,8 @@ pub struct Stack {
     /// List of active overlays
     pub active_overlays: Vec<String>,
     pub recursion_count: Box<u64>,
+    /// Should the repl exit now?
+    pub exit: Option<i64>,
 }
 
 impl Stack {
@@ -45,6 +47,7 @@ impl Stack {
             env_hidden: HashMap::new(),
             active_overlays: vec![DEFAULT_OVERLAY_NAME.to_string()],
             recursion_count: Box::new(0),
+            exit: None,
         }
     }
 
@@ -126,6 +129,7 @@ impl Stack {
             env_hidden: HashMap::new(),
             active_overlays: self.active_overlays.clone(),
             recursion_count: self.recursion_count.to_owned(),
+            exit: None,
         }
     }
 
@@ -151,6 +155,7 @@ impl Stack {
             env_hidden: HashMap::new(),
             active_overlays: self.active_overlays.clone(),
             recursion_count: self.recursion_count.to_owned(),
+            exit: None,
         }
     }
 
