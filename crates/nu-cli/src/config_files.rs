@@ -7,6 +7,7 @@ use nu_protocol::engine::{EngineState, Stack, StateWorkingSet};
 #[cfg(feature = "plugin")]
 use nu_protocol::Spanned;
 use nu_protocol::{HistoryFileFormat, PipelineData};
+#[cfg(feature = "plugin")]
 use nu_utils::utils::perf;
 use std::path::PathBuf;
 
