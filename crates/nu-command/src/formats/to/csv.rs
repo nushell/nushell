@@ -47,6 +47,11 @@ impl Command for ToCsv {
                 example: "[[foo bar]; [1 2]] | to csv -s ';' ",
                 result: Some(Value::test_string("foo;bar\n1;2\n")),
             },
+            Example {
+                description: "Outputs an CSV string representing the contents of this table",
+                example: "{a: 1 b: 2} | to csv",
+                result: Some(Value::test_string("a,b\n1,2\n")),
+            },
         ]
     }
 
