@@ -31,6 +31,9 @@ pub enum SyntaxShape {
     /// A datetime value, eg `2022-02-02` or `2019-10-12T07:20:50.52+00:00`
     DateTime,
 
+    /// A decimal value, eg `1.0`
+    Decimal,
+
     /// A directory is allowed
     Directory,
 
@@ -48,9 +51,6 @@ pub enum SyntaxShape {
 
     /// A filesize value is allowed, eg `10kb`
     Filesize,
-
-    /// A floating point value, eg `1.0`
-    Float,
 
     /// A dotted path to navigate the table (including variable)
     FullCellPath,
@@ -125,7 +125,7 @@ impl SyntaxShape {
             SyntaxShape::Expression => Type::Any,
             SyntaxShape::Filepath => Type::String,
             SyntaxShape::Directory => Type::String,
-            SyntaxShape::Float => Type::Float,
+            SyntaxShape::Decimal => Type::Float,
             SyntaxShape::Filesize => Type::Filesize,
             SyntaxShape::FullCellPath => Type::Any,
             SyntaxShape::GlobPattern => Type::String,
@@ -168,7 +168,7 @@ impl Display for SyntaxShape {
             SyntaxShape::Number => write!(f, "number"),
             SyntaxShape::Range => write!(f, "range"),
             SyntaxShape::Int => write!(f, "int"),
-            SyntaxShape::Float => write!(f, "float"),
+            SyntaxShape::Decimal => write!(f, "decimal"),
             SyntaxShape::Filepath => write!(f, "path"),
             SyntaxShape::Directory => write!(f, "directory"),
             SyntaxShape::GlobPattern => write!(f, "glob"),
