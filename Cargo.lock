@@ -2984,6 +2984,7 @@ name = "nu-utils"
 version = "0.74.1"
 dependencies = [
  "crossterm_winapi",
+ "log",
  "lscolors",
  "num-format",
  "strip-ansi-escapes",

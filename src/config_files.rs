@@ -110,8 +110,6 @@ pub(crate) fn read_config_file(
 
         eval_config_contents(config_path, engine_state, stack);
     }
-
-    info!("read_config_file {}:{}:{}", file!(), line!(), column!());
 }
 
 pub(crate) fn read_loginshell_file(engine_state: &mut EngineState, stack: &mut Stack) {
@@ -199,8 +197,6 @@ pub(crate) fn setup_config(
 ) {
     #[cfg(feature = "plugin")]
     read_plugin_file(engine_state, stack, plugin_file, NUSHELL_FOLDER);
-
-    info!("read_config_file {}:{}:{}", file!(), line!(), column!());
 
     read_config_file(engine_state, stack, env_file, true);
     read_config_file(engine_state, stack, config_file, false);
