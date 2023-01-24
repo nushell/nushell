@@ -146,7 +146,7 @@ fn redirection_keep_exit_codes() {
                 nu!(
                     cwd: dirs.test(),
                     r#"cmd /D /c test.bat out> out.txt err> err.txt; echo $env.LAST_EXIT_CODE"#
-                );
+                )
             };
             assert_eq!(output.out, "10")
         },
