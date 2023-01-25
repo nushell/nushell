@@ -29,7 +29,7 @@ impl Command for Flatten {
                 SyntaxShape::String,
                 "optionally flatten data by column",
             )
-            .switch("all", "flatten inner table out", Some('a'))
+            .switch("all", "flatten inner table one level out", Some('a'))
             .category(Category::Filters)
     }
 
