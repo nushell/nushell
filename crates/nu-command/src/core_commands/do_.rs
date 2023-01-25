@@ -218,7 +218,7 @@ impl Command for Do {
                 metadata,
                 trim_end_newline,
             }),
-            Ok(PipelineData::Value(..)) | Err(_) if ignore_shell_errors => {
+            Ok(PipelineData::Value(Value::Error { .. })) | Err(_) if ignore_shell_errors => {
                 Ok(PipelineData::empty())
             }
             r => r,
