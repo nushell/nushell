@@ -22,7 +22,10 @@ impl Command for RollRight {
 
     fn signature(&self) -> Signature {
         Signature::build(self.name())
-            .input_output_types(vec![(Type::Table(vec![]), Type::Table(vec![]))])
+            .input_output_types(vec![
+                (Type::Record(vec![]), Type::Record(vec![])),
+                (Type::Table(vec![]), Type::Table(vec![])),
+            ])
             .named(
                 "by",
                 SyntaxShape::Int,
@@ -45,6 +48,15 @@ impl Command for RollRight {
         let columns = vec!["a".to_string(), "b".to_string(), "c".to_string()];
         let rotated_columns = vec!["c".to_string(), "a".to_string(), "b".to_string()];
         vec![
+            Example {
+                description: "Rolls columns of a record to the right",
+                example: "{a:1 b:2 c:3} | roll right",
+                result: Some(Value::Record {
+                    cols: rotated_columns.clone(),
+                    vals: vec![Value::test_int(3), Value::test_int(1), Value::test_int(2)],
+                    span: Span::test_data(),
+                }),
+            },
             Example {
                 description: "Rolls columns to the right",
                 example: "[[a b c]; [1 2 3] [4 5 6]] | roll right",

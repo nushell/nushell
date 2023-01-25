@@ -1,4 +1,6 @@
 use log::info;
+#[cfg(feature = "plugin")]
+use nu_cli::read_plugin_file;
 use nu_cli::{eval_config_contents, eval_source, report_error};
 use nu_parser::ParseError;
 use nu_path::canonicalize_with;
@@ -7,6 +9,7 @@ use nu_protocol::{PipelineData, Spanned};
 use nu_utils::{get_default_config, get_default_env};
 use std::fs::File;
 use std::io::Write;
+use std::path::Path;
 
 pub(crate) const NUSHELL_FOLDER: &str = "nushell";
 const CONFIG_FILE: &str = "config.nu";
@@ -24,14 +27,11 @@ pub(crate) fn read_config_file(
         let working_set = StateWorkingSet::new(engine_state);
         let cwd = working_set.get_cwd();
 
-        match canonicalize_with(&file.item, cwd) {
-            Ok(path) => {
-                eval_config_contents(path, engine_state, stack);
-            }
-            Err(_) => {
-                let e = ParseError::FileNotFound(file.item, file.span);
-                report_error(&working_set, &e);
-            }
+        if let Ok(path) = canonicalize_with(&file.item, cwd) {
+            eval_config_contents(path, engine_state, stack);
+        } else {
+            let e = ParseError::FileNotFound(file.item, file.span);
+            report_error(&working_set, &e);
         }
     } else if let Some(mut config_path) = nu_path::config_dir() {
         config_path.push(NUSHELL_FOLDER);
@@ -71,12 +71,20 @@ pub(crate) fn read_config_file(
             };
 
             match answer.to_lowercase().trim() {
-                "y" | "" => match File::create(&config_path) {
-                    Ok(mut output) => match write!(output, "{}", config_file) {
-                        Ok(_) => {
-                            println!("Config file created at: {}", config_path.to_string_lossy())
-                        }
-                        Err(_) => {
+                "y" | "" => {
+                    if let Ok(mut output) = File::create(&config_path) {
+                        if write!(output, "{}", config_file).is_ok() {
+                            let config_type = if is_env_config {
+                                "Environment config"
+                            } else {
+                                "Config"
+                            };
+                            println!(
+                                "{} file created at: {}",
+                                config_type,
+                                config_path.to_string_lossy()
+                            );
+                        } else {
                             eprintln!(
                                 "Unable to write to {}, sourcing default file instead",
                                 config_path.to_string_lossy(),
@@ -84,8 +92,7 @@ pub(crate) fn read_config_file(
                             eval_default_config(engine_state, stack, config_file, is_env_config);
                             return;
                         }
-                    },
-                    Err(_) => {
+                    } else {
                         eprintln!(
                             "Unable to create {}, sourcing default file instead",
                             config_file
@@ -93,7 +100,7 @@ pub(crate) fn read_config_file(
                         eval_default_config(engine_state, stack, config_file, is_env_config);
                         return;
                     }
-                },
+                }
                 _ => {
                     eval_default_config(engine_state, stack, config_file, is_env_config);
                     return;
@@ -103,8 +110,6 @@ pub(crate) fn read_config_file(
 
         eval_config_contents(config_path, engine_state, stack);
     }
-
-    info!("read_config_file {}:{}:{}", file!(), line!(), column!());
 }
 
 pub(crate) fn read_loginshell_file(engine_state: &mut EngineState, stack: &mut Stack) {
@@ -179,5 +184,53 @@ fn eval_default_config(
             let working_set = StateWorkingSet::new(engine_state);
             report_error(&working_set, &e);
         }
+    }
+}
+
+pub(crate) fn setup_config(
+    engine_state: &mut EngineState,
+    stack: &mut Stack,
+    #[cfg(feature = "plugin")] plugin_file: Option<Spanned<String>>,
+    config_file: Option<Spanned<String>>,
+    env_file: Option<Spanned<String>>,
+    is_login_shell: bool,
+) {
+    #[cfg(feature = "plugin")]
+    read_plugin_file(engine_state, stack, plugin_file, NUSHELL_FOLDER);
+
+    read_config_file(engine_state, stack, env_file, true);
+    read_config_file(engine_state, stack, config_file, false);
+
+    if is_login_shell {
+        read_loginshell_file(engine_state, stack);
+    }
+
+    // Give a warning if we see `$config` for a few releases
+    {
+        let working_set = StateWorkingSet::new(engine_state);
+        if working_set.find_variable(b"$config").is_some() {
+            println!("warning: use `let-env config = ...` instead of `let config = ...`");
+        }
+    }
+}
+
+pub(crate) fn set_config_path(
+    engine_state: &mut EngineState,
+    cwd: &Path,
+    default_config_name: &str,
+    key: &str,
+    config_file: &Option<Spanned<String>>,
+) {
+    let config_path = match config_file {
+        Some(s) => canonicalize_with(&s.item, cwd).ok(),
+        None => nu_path::config_dir().map(|mut p| {
+            p.push(NUSHELL_FOLDER);
+            p.push(default_config_name);
+            p
+        }),
+    };
+
+    if let Some(path) = config_path {
+        engine_state.set_config_path(key, path);
     }
 }

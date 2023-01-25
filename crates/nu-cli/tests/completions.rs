@@ -34,6 +34,26 @@ fn completer_strings() -> NuCompleter {
     NuCompleter::new(std::sync::Arc::new(engine), stack)
 }
 
+#[fixture]
+fn extern_completer() -> NuCompleter {
+    // Create a new engine
+    let (dir, _, mut engine, mut stack) = new_engine();
+
+    // Add record value as example
+    let record = r#"
+        def animals [] { [ "cat", "dog", "eel" ] }
+        extern spam [
+            animal: string@animals
+            --foo (-f): string@animals
+            -b: string@animals
+        ]
+    "#;
+    assert!(support::merge_input(record.as_bytes(), &mut engine, &mut stack, dir).is_ok());
+
+    // Instantiate a new completer
+    NuCompleter::new(std::sync::Arc::new(engine), stack)
+}
+
 #[test]
 fn variables_dollar_sign_with_varialblecompletion() {
     let (_, _, engine, stack) = new_engine();
@@ -89,7 +109,7 @@ fn dotnu_completions() {
     // Create a new engine
     let (_, _, engine, stack) = new_engine();
 
-    // Instatiate a new completer
+    // Instantiate a new completer
     let mut completer = NuCompleter::new(std::sync::Arc::new(engine), stack);
 
     // Test source completion
@@ -149,7 +169,7 @@ fn file_completions() {
     // Create a new engine
     let (dir, dir_str, engine, stack) = new_engine();
 
-    // Instatiate a new completer
+    // Instantiate a new completer
     let mut completer = NuCompleter::new(std::sync::Arc::new(engine), stack);
 
     // Test completions for the current folder
@@ -424,6 +444,7 @@ fn file_completion_quoted() {
         "`te st.txt`".to_string(),
         "`te#st.txt`".to_string(),
         "`te'st.txt`".to_string(),
+        "`te(st).txt`".to_string(),
     ];
 
     match_suggestions(expected_paths, suggestions)
@@ -434,12 +455,12 @@ fn flag_completions() {
     // Create a new engine
     let (_, _, engine, stack) = new_engine();
 
-    // Instatiate a new completer
+    // Instantiate a new completer
     let mut completer = NuCompleter::new(std::sync::Arc::new(engine), stack);
     // Test completions for the 'ls' flags
     let suggestions = completer.complete("ls -", 4);
 
-    assert_eq!(14, suggestions.len());
+    assert_eq!(16, suggestions.len());
 
     let expected: Vec<String> = vec![
         "--all".into(),
@@ -448,6 +469,7 @@ fn flag_completions() {
         "--full-paths".into(),
         "--help".into(),
         "--long".into(),
+        "--mime-type".into(),
         "--short-names".into(),
         "-D".into(),
         "-a".into(),
@@ -455,6 +477,7 @@ fn flag_completions() {
         "-f".into(),
         "-h".into(),
         "-l".into(),
+        "-m".into(),
         "-s".into(),
     ];
 
@@ -467,7 +490,7 @@ fn folder_with_directorycompletions() {
     // Create a new engine
     let (dir, dir_str, engine, stack) = new_engine();
 
-    // Instatiate a new completer
+    // Instantiate a new completer
     let mut completer = NuCompleter::new(std::sync::Arc::new(engine), stack);
 
     // Test completions for the current folder
@@ -495,7 +518,7 @@ fn variables_completions() {
     let record = "let actor = { name: 'Tom Hardy', age: 44 }";
     assert!(support::merge_input(record.as_bytes(), &mut engine, &mut stack, dir).is_ok());
 
-    // Instatiate a new completer
+    // Instantiate a new completer
     let mut completer = NuCompleter::new(std::sync::Arc::new(engine), stack);
 
     // Test completions for $nu
@@ -652,7 +675,7 @@ fn run_external_completion(block: &str, input: &str) -> Vec<Suggestion> {
     config.external_completer = Some(latest_block_id);
     engine_state.set_config(&config);
 
-    // Instatiate a new completer
+    // Instantiate a new completer
     let mut completer = NuCompleter::new(std::sync::Arc::new(engine_state), stack);
 
     completer.complete(input, input.len())
@@ -749,4 +772,84 @@ fn filecompletions_triggers_after_cursor() {
     ];
 
     match_suggestions(expected_paths, suggestions);
+}
+
+#[rstest]
+fn extern_custom_completion_positional(mut extern_completer: NuCompleter) {
+    let suggestions = extern_completer.complete("spam ", 5);
+    let expected: Vec<String> = vec!["cat".into(), "dog".into(), "eel".into()];
+    match_suggestions(expected, suggestions);
+}
+
+#[rstest]
+fn extern_custom_completion_long_flag_1(mut extern_completer: NuCompleter) {
+    let suggestions = extern_completer.complete("spam --foo=", 11);
+    let expected: Vec<String> = vec!["cat".into(), "dog".into(), "eel".into()];
+    match_suggestions(expected, suggestions);
+}
+
+#[rstest]
+fn extern_custom_completion_long_flag_2(mut extern_completer: NuCompleter) {
+    let suggestions = extern_completer.complete("spam --foo ", 11);
+    let expected: Vec<String> = vec!["cat".into(), "dog".into(), "eel".into()];
+    match_suggestions(expected, suggestions);
+}
+
+#[rstest]
+fn extern_custom_completion_long_flag_short(mut extern_completer: NuCompleter) {
+    let suggestions = extern_completer.complete("spam -f ", 8);
+    let expected: Vec<String> = vec!["cat".into(), "dog".into(), "eel".into()];
+    match_suggestions(expected, suggestions);
+}
+
+#[rstest]
+fn extern_custom_completion_short_flag(mut extern_completer: NuCompleter) {
+    let suggestions = extern_completer.complete("spam -b ", 8);
+    let expected: Vec<String> = vec!["cat".into(), "dog".into(), "eel".into()];
+    match_suggestions(expected, suggestions);
+}
+
+#[rstest]
+fn extern_complete_flags(mut extern_completer: NuCompleter) {
+    let suggestions = extern_completer.complete("spam -", 6);
+    let expected: Vec<String> = vec!["--foo".into(), "-b".into(), "-f".into()];
+    match_suggestions(expected, suggestions);
+}
+
+#[rstest]
+fn alias_offset_bug_7748() {
+    let (dir, _, mut engine, mut stack) = new_engine();
+
+    // Create an alias
+    let alias = r#"alias ea = ^$env.EDITOR /tmp/test.s"#;
+    assert!(support::merge_input(alias.as_bytes(), &mut engine, &mut stack, dir.clone()).is_ok());
+
+    let mut completer = NuCompleter::new(std::sync::Arc::new(engine), stack);
+
+    // Issue #7748
+    // Nushell crashes when an alias name is shorter than the alias command
+    // and the alias command is a external command
+    // This happens because of offset is not correct.
+    // This crashes before PR #7779
+    let _suggestions = completer.complete("e", 1);
+    //println!(" --------- suggestions: {:?}", suggestions);
+}
+
+#[rstest]
+fn alias_offset_bug_7754() {
+    let (dir, _, mut engine, mut stack) = new_engine();
+
+    // Create an alias
+    let alias = r#"alias ll = ls -l"#;
+    assert!(support::merge_input(alias.as_bytes(), &mut engine, &mut stack, dir.clone()).is_ok());
+
+    let mut completer = NuCompleter::new(std::sync::Arc::new(engine), stack);
+
+    // Issue #7754
+    // Nushell crashes when an alias name is shorter than the alias command
+    // and the alias command contains pipes.
+    // This crashes before PR #7756
+    let _suggestions = completer.complete("ll -a | c", 9);
+
+    //println!(" --------- suggestions: {:?}", suggestions);
 }

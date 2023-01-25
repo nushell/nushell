@@ -1,11 +1,11 @@
 use std::cmp::max;
 
 use crossterm::event::{KeyCode, KeyEvent};
+use nu_color_config::TextStyle;
 use nu_protocol::{
     engine::{EngineState, Stack},
     Value,
 };
-use nu_table::TextStyle;
 use tui::layout::Rect;
 
 use crate::{
@@ -18,7 +18,7 @@ use super::{coloredtextw::ColoredTextW, cursor::XYCursor, Layout, View, ViewConf
 // todo: Add wrap option
 #[derive(Debug)]
 pub struct Preview {
-    underlaying_value: Option<Value>,
+    underlying_value: Option<Value>,
     lines: Vec<String>,
     cursor: XYCursor,
 }
@@ -34,12 +34,12 @@ impl Preview {
         Self {
             lines,
             cursor,
-            underlaying_value: None,
+            underlying_value: None,
         }
     }
 
     pub fn set_value(&mut self, value: Value) {
-        self.underlaying_value = Some(value);
+        self.underlying_value = Some(value);
     }
 }
 
@@ -147,7 +147,7 @@ impl View for Preview {
     }
 
     fn exit(&mut self) -> Option<Value> {
-        match &self.underlaying_value {
+        match &self.underlying_value {
             Some(value) => Some(value.clone()),
             None => {
                 let text = self.lines.join("\n");

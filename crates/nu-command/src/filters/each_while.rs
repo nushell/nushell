@@ -42,13 +42,10 @@ impl Command for EachWhile {
     }
 
     fn examples(&self) -> Vec<Example> {
-        let stream_test_1 = vec![
-            Value::int(2, Span::test_data()),
-            Value::int(4, Span::test_data()),
-        ];
+        let stream_test_1 = vec![Value::test_int(2), Value::test_int(4)];
         let stream_test_2 = vec![
-            Value::string("Output: 1", Span::test_data()),
-            Value::string("Output: 2", Span::test_data()),
+            Value::test_string("Output: 1"),
+            Value::test_string("Output: 2"),
         ];
 
         vec![
@@ -72,7 +69,7 @@ impl Command for EachWhile {
                 example: r#"[1 2 3] | each while {|el ind| if $el < 2 { $"value ($el) at ($ind)!"} }"#,
                 description: "Iterate over each element, printing the matching value and its index",
                 result: Some(Value::List {
-                    vals: vec![Value::string("value 1 at 0!", Span::test_data())],
+                    vals: vec![Value::test_string("value 1 at 0!")],
                     span: Span::test_data(),
                 }),
             },

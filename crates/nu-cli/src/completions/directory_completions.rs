@@ -33,14 +33,7 @@ impl Completer for DirectoryCompletion {
         _: usize,
         options: &CompletionOptions,
     ) -> Vec<Suggestion> {
-        let cwd = if let Some(d) = self.engine_state.get_env_var("PWD") {
-            match d.as_string() {
-                Ok(s) => s,
-                Err(_) => "".to_string(),
-            }
-        } else {
-            "".to_string()
-        };
+        let cwd = self.engine_state.current_work_dir();
         let partial = String::from_utf8_lossy(&prefix).to_string();
 
         // Filter only the folders

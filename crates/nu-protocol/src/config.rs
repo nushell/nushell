@@ -52,6 +52,14 @@ impl Default for Hooks {
     }
 }
 
+/// Definition of a Nushell CursorShape (to be mapped to crossterm::cursor::CursorShape)
+#[derive(Serialize, Deserialize, Clone, Debug, Copy)]
+pub enum NuCursorShape {
+    UnderScore,
+    Line,
+    Block,
+}
+
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct Config {
     pub external_completer: Option<usize>,
@@ -88,6 +96,9 @@ pub struct Config {
     pub show_clickable_links_in_ls: bool,
     pub render_right_prompt_on_last_line: bool,
     pub explore: HashMap<String, Value>,
+    pub cursor_shape_vi_insert: NuCursorShape,
+    pub cursor_shape_vi_normal: NuCursorShape,
+    pub cursor_shape_emacs: NuCursorShape,
 }
 
 impl Default for Config {
@@ -127,6 +138,9 @@ impl Default for Config {
             show_clickable_links_in_ls: true,
             render_right_prompt_on_last_line: false,
             explore: HashMap::new(),
+            cursor_shape_vi_insert: NuCursorShape::Block,
+            cursor_shape_vi_normal: NuCursorShape::UnderScore,
+            cursor_shape_emacs: NuCursorShape::Line,
         }
     }
 }
@@ -167,10 +181,10 @@ pub enum TableIndexMode {
 pub enum TrimStrategy {
     /// Wrapping strategy.
     ///
-    /// It it's simmilar to original nu_table, strategy.
+    /// It it's similar to original nu_table, strategy.
     Wrap {
         /// A flag which indicates whether is it necessary to try
-        /// to keep word bounderies.
+        /// to keep word boundaries.
         try_to_keep_words: bool,
     },
     /// Truncating strategy, where we just cut the string.
@@ -628,6 +642,156 @@ impl Value {
                             );
                         }
                     }
+                    "cursor_shape" => {
+                        macro_rules! reconstruct_cursor_shape {
+                            ($name:expr, $span:expr) => {
+                                Value::string(
+                                    match $name {
+                                        NuCursorShape::Line => "line",
+                                        NuCursorShape::Block => "block",
+                                        NuCursorShape::UnderScore => "underscore",
+                                    },
+                                    *$span,
+                                )
+                            };
+                        }
+                        if let Value::Record { cols, vals, span } = &mut vals[index] {
+                            for index in (0..cols.len()).rev() {
+                                let value = &vals[index];
+                                let key2 = cols[index].as_str();
+                                match key2 {
+                                    "vi_insert" => {
+                                        if let Ok(v) = value.as_string() {
+                                            let val_str = v.to_lowercase();
+                                            match val_str.as_ref() {
+                                                "line" => {
+                                                    config.cursor_shape_vi_insert =
+                                                        NuCursorShape::Line;
+                                                }
+                                                "block" => {
+                                                    config.cursor_shape_vi_insert =
+                                                        NuCursorShape::Block;
+                                                }
+                                                "underscore" => {
+                                                    config.cursor_shape_vi_insert =
+                                                        NuCursorShape::UnderScore;
+                                                }
+                                                _ => {
+                                                    invalid!(Some(*span),
+                                                        "unrecognized $env.config.{key}.{key2} '{val_str}'; expected either 'line', 'block', or 'underscore'"
+                                                    );
+                                                    // Reconstruct
+                                                    vals[index] = reconstruct_cursor_shape!(
+                                                        config.cursor_shape_vi_insert,
+                                                        span
+                                                    );
+                                                }
+                                            };
+                                        } else {
+                                            invalid!(Some(*span), "should be a string");
+                                            // Reconstruct
+                                            vals[index] = reconstruct_cursor_shape!(
+                                                config.cursor_shape_vi_insert,
+                                                span
+                                            );
+                                        }
+                                    }
+                                    "vi_normal" => {
+                                        if let Ok(v) = value.as_string() {
+                                            let val_str = v.to_lowercase();
+                                            match val_str.as_ref() {
+                                                "line" => {
+                                                    config.cursor_shape_vi_normal =
+                                                        NuCursorShape::Line;
+                                                }
+                                                "block" => {
+                                                    config.cursor_shape_vi_normal =
+                                                        NuCursorShape::Block;
+                                                }
+                                                "underscore" => {
+                                                    config.cursor_shape_vi_normal =
+                                                        NuCursorShape::UnderScore;
+                                                }
+                                                _ => {
+                                                    invalid!(Some(*span),
+                                                        "unrecognized $env.config.{key}.{key2} '{val_str}'; expected either 'line', 'block', or 'underscore'"
+                                                    );
+                                                    // Reconstruct
+                                                    vals[index] = reconstruct_cursor_shape!(
+                                                        config.cursor_shape_vi_normal,
+                                                        span
+                                                    );
+                                                }
+                                            };
+                                        } else {
+                                            invalid!(Some(*span), "should be a string");
+                                            // Reconstruct
+                                            vals[index] = reconstruct_cursor_shape!(
+                                                config.cursor_shape_vi_normal,
+                                                span
+                                            );
+                                        }
+                                    }
+                                    "emacs" => {
+                                        if let Ok(v) = value.as_string() {
+                                            let val_str = v.to_lowercase();
+                                            match val_str.as_ref() {
+                                                "line" => {
+                                                    config.cursor_shape_emacs = NuCursorShape::Line;
+                                                }
+                                                "block" => {
+                                                    config.cursor_shape_emacs =
+                                                        NuCursorShape::Block;
+                                                }
+                                                "underscore" => {
+                                                    config.cursor_shape_emacs =
+                                                        NuCursorShape::UnderScore;
+                                                }
+                                                _ => {
+                                                    invalid!(Some(*span),
+                                                        "unrecognized $env.config.{key}.{key2} '{val_str}'; expected either 'line', 'block', or 'underscore'"
+                                                    );
+                                                    // Reconstruct
+                                                    vals[index] = reconstruct_cursor_shape!(
+                                                        config.cursor_shape_emacs,
+                                                        span
+                                                    );
+                                                }
+                                            };
+                                        } else {
+                                            invalid!(Some(*span), "should be a string");
+                                            // Reconstruct
+                                            vals[index] = reconstruct_cursor_shape!(
+                                                config.cursor_shape_emacs,
+                                                span
+                                            );
+                                        }
+                                    }
+                                    x => {
+                                        invalid_key!(
+                                            cols,
+                                            vals,
+                                            index,
+                                            value.span().ok(),
+                                            "$env.config.{key}.{x} is an unknown config setting"
+                                        );
+                                    }
+                                }
+                            }
+                        } else {
+                            invalid!(vals[index].span().ok(), "should be a record");
+                            // Reconstruct
+                            vals[index] = Value::record(
+                                vec!["vi_insert".into(), "vi_normal".into(), "emacs".into()],
+                                vec![
+                                    reconstruct_cursor_shape!(config.cursor_shape_vi_insert, span),
+                                    reconstruct_cursor_shape!(config.cursor_shape_vi_normal, span),
+                                    reconstruct_cursor_shape!(config.cursor_shape_emacs, span),
+                                ],
+                                *span,
+                            );
+                        }
+                    }
                     "table" => {
                         macro_rules! reconstruct_index_mode {
                             ($span:expr) => {
@@ -712,7 +876,7 @@ impl Value {
                                         }
                                     }
                                     "trim" => {
-                                        match try_parse_trim_strategy(value, &config, &mut errors) {
+                                        match try_parse_trim_strategy(value, &mut errors) {
                                             Ok(v) => config.trim_strategy = v,
                                             Err(e) => {
                                                 // try_parse_trim_strategy() already adds its own errors
@@ -792,7 +956,7 @@ impl Value {
                         }
                     }
                     "explore" => {
-                        if let Ok(map) = create_map(value, &config) {
+                        if let Ok(map) = create_map(value) {
                             config.explore = map;
                         } else {
                             invalid!(vals[index].span().ok(), "should be a record");
@@ -802,7 +966,7 @@ impl Value {
                     }
                     // Misc. options
                     "color_config" => {
-                        if let Ok(map) = create_map(value, &config) {
+                        if let Ok(map) = create_map(value) {
                             config.color_config = map;
                         } else {
                             invalid!(vals[index].span().ok(), "should be a record");
@@ -955,34 +1119,22 @@ impl Value {
                             // Reconstruct
                             let mut hook_cols = vec![];
                             let mut hook_vals = vec![];
-                            match &config.hooks.pre_prompt {
-                                Some(v) => {
-                                    hook_cols.push("pre_prompt".into());
-                                    hook_vals.push(v.clone());
-                                }
-                                None => (),
-                            };
-                            match &config.hooks.pre_execution {
-                                Some(v) => {
-                                    hook_cols.push("pre_execution".into());
-                                    hook_vals.push(v.clone());
-                                }
-                                None => (),
-                            };
-                            match &config.hooks.env_change {
-                                Some(v) => {
-                                    hook_cols.push("env_change".into());
-                                    hook_vals.push(v.clone());
-                                }
-                                None => (),
-                            };
-                            match &config.hooks.display_output {
-                                Some(v) => {
-                                    hook_cols.push("display_output".into());
-                                    hook_vals.push(v.clone());
-                                }
-                                None => (),
-                            };
+                            if let Some(ref value) = config.hooks.pre_prompt {
+                                hook_cols.push("pre_prompt".into());
+                                hook_vals.push(value.clone());
+                            }
+                            if let Some(ref value) = config.hooks.pre_execution {
+                                hook_cols.push("pre_execution".into());
+                                hook_vals.push(value.clone());
+                            }
+                            if let Some(ref value) = config.hooks.env_change {
+                                hook_cols.push("env_change".into());
+                                hook_vals.push(value.clone());
+                            }
+                            if let Some(ref value) = config.hooks.display_output {
+                                hook_cols.push("display_output".into());
+                                hook_vals.push(value.clone());
+                            }
                             vals.push(Value::Record {
                                 cols: hook_cols,
                                 vals: hook_vals,
@@ -1118,7 +1270,7 @@ impl Value {
                     }
                     "table_trim" => {
                         legacy_options_used = true;
-                        match try_parse_trim_strategy(value, &config, &mut errors) {
+                        match try_parse_trim_strategy(value, &mut errors) {
                             Ok(v) => config.trim_strategy = v,
                             Err(e) => {
                                 // try_parse_trim_strategy() already calls eprintln!() on error
@@ -1148,6 +1300,67 @@ impl Value {
                             invalid!(Some(*span), "should be a string");
                         }
                     }
+                    "cursor_shape_vi_insert" => {
+                        legacy_options_used = true;
+                        if let Ok(b) = value.as_string() {
+                            let val_str = b.to_lowercase();
+                            config.cursor_shape_vi_insert = match val_str.as_ref() {
+                                "block" => NuCursorShape::Block,
+                                "underline" => NuCursorShape::UnderScore,
+                                "line" => NuCursorShape::Line,
+                                _ => {
+                                    invalid!(
+                                        Some(*span),
+                                        "unrecognized $env.config.{key} '{val_str}'"
+                                    );
+                                    NuCursorShape::Line
+                                }
+                            };
+                        } else {
+                            invalid!(Some(*span), "should be a string");
+                        }
+                    }
+                    "cursor_shape_vi_normal" => {
+                        legacy_options_used = true;
+                        if let Ok(b) = value.as_string() {
+                            let val_str = b.to_lowercase();
+                            config.cursor_shape_vi_normal = match val_str.as_ref() {
+                                "block" => NuCursorShape::Block,
+                                "underline" => NuCursorShape::UnderScore,
+                                "line" => NuCursorShape::Line,
+                                _ => {
+                                    invalid!(
+                                        Some(*span),
+                                        "unrecognized $env.config.{key} '{val_str}'"
+                                    );
+                                    NuCursorShape::Line
+                                }
+                            };
+                        } else {
+                            invalid!(Some(*span), "should be a string");
+                        }
+                    }
+                    "cursor_shape_emacs" => {
+                        legacy_options_used = true;
+                        if let Ok(b) = value.as_string() {
+                            let val_str = b.to_lowercase();
+                            config.cursor_shape_emacs = match val_str.as_ref() {
+                                "block" => NuCursorShape::Block,
+                                "underline" => NuCursorShape::UnderScore,
+                                "line" => NuCursorShape::Line,
+                                _ => {
+                                    invalid!(
+                                        Some(*span),
+                                        "unrecognized $env.config.{key} '{val_str}'"
+                                    );
+                                    NuCursorShape::Line
+                                }
+                            };
+                        } else {
+                            invalid!(Some(*span), "should be a string");
+                        }
+                    }
+
                     // End legacy options
                     x => {
                         invalid_key!(
@@ -1205,10 +1418,9 @@ Please consult https://www.nushell.sh/blog/2022-11-29-nushell-0.72.html for deta
 
 fn try_parse_trim_strategy(
     value: &Value,
-    config: &Config,
     errors: &mut Vec<ShellError>,
 ) -> Result<TrimStrategy, ShellError> {
-    let map = create_map(value, config).map_err(|e| {
+    let map = create_map(value).map_err(|e| {
         ShellError::GenericError(
             "Error while applying config changes".into(),
             "$env.config.table.trim is not a record".into(),
@@ -1272,8 +1484,8 @@ fn try_parse_trim_strategy(
 }
 
 fn try_parse_trim_methodology(value: &Value) -> Option<TrimStrategy> {
-    match value.as_string() {
-        Ok(value) => match value.to_lowercase().as_str() {
+    if let Ok(value) = value.as_string() {
+        match value.to_lowercase().as_str() {
             "wrapping" => {
                 return Some(TrimStrategy::Wrap {
                     try_to_keep_words: false,
@@ -1281,60 +1493,23 @@ fn try_parse_trim_methodology(value: &Value) -> Option<TrimStrategy> {
             }
             "truncating" => return Some(TrimStrategy::Truncate { suffix: None }),
             _ => eprintln!("unrecognized $config.table.trim.methodology value; expected either 'truncating' or 'wrapping'"),
-        },
-        Err(_) => eprintln!("$env.config.table.trim.methodology is not a string"),
+        }
+    } else {
+        eprintln!("$env.config.table.trim.methodology is not a string")
     }
 
     None
 }
 
-fn create_map(value: &Value, config: &Config) -> Result<HashMap<String, Value>, ShellError> {
+fn create_map(value: &Value) -> Result<HashMap<String, Value>, ShellError> {
     let (cols, inner_vals) = value.as_record()?;
     let mut hm: HashMap<String, Value> = HashMap::new();
 
     for (k, v) in cols.iter().zip(inner_vals) {
-        match &v {
-            Value::Record {
-                cols: inner_cols,
-                vals: inner_vals,
-                span,
-            } => {
-                let val = color_value_string(span, inner_cols, inner_vals, config);
-                hm.insert(k.to_string(), val);
-            }
-            _ => {
-                hm.insert(k.to_string(), v.clone());
-            }
-        }
+        hm.insert(k.to_string(), v.clone());
     }
 
     Ok(hm)
-}
-
-pub fn color_value_string(
-    span: &Span,
-    inner_cols: &[String],
-    inner_vals: &[Value],
-    config: &Config,
-) -> Value {
-    // make a string from our config.color_config section that
-    // looks like this: { fg: "#rrggbb" bg: "#rrggbb" attr: "abc", }
-    // the real key here was to have quotes around the values but not
-    // require them around the keys.
-
-    // maybe there's a better way to generate this but i'm not sure
-    // what it is.
-    let val: String = inner_cols
-        .iter()
-        .zip(inner_vals)
-        .map(|(x, y)| format!("{}: \"{}\" ", x, y.into_string(", ", config)))
-        .collect();
-
-    // now insert the braces at the front and the back to fake the json string
-    Value::String {
-        val: format!("{{{}}}", val),
-        span: *span,
-    }
 }
 
 // Parse the hooks to find the blocks to run when the hooks fire
@@ -1362,18 +1537,11 @@ fn create_hooks(value: &Value) -> Result<Hooks, ShellError> {
 
             Ok(hooks)
         }
-        v => match v.span() {
-            Ok(span) => Err(ShellError::UnsupportedConfigValue(
-                "record for 'hooks' config".into(),
-                "non-record value".into(),
-                span,
-            )),
-            _ => Err(ShellError::UnsupportedConfigValue(
-                "record for 'hooks' config".into(),
-                "non-record value".into(),
-                Span::unknown(),
-            )),
-        },
+        v => Err(ShellError::UnsupportedConfigValue(
+            "record for 'hooks' config".into(),
+            "non-record value".into(),
+            v.span().unwrap_or_else(|_| Span::unknown()),
+        )),
     }
 }
 

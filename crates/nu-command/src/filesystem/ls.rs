@@ -9,7 +9,7 @@ use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
     Category, DataSource, Example, IntoInterruptiblePipelineData, IntoPipelineData, PipelineData,
-    PipelineMetadata, ShellError, Signature, Span, Spanned, SyntaxShape, Value,
+    PipelineMetadata, ShellError, Signature, Span, Spanned, SyntaxShape, Type, Value,
 };
 use pathdiff::diff_paths;
 
@@ -28,7 +28,7 @@ impl Command for Ls {
     }
 
     fn usage(&self) -> &str {
-        "List the files in a directory."
+        "List the filenames, sizes, and modification times of items in a directory."
     }
 
     fn search_terms(&self) -> Vec<&str> {
@@ -37,6 +37,7 @@ impl Command for Ls {
 
     fn signature(&self) -> nu_protocol::Signature {
         Signature::build("ls")
+            .input_output_types(vec![(Type::Nothing, Type::Table(vec![]))])
             // Using a string instead of a glob pattern shape so it won't auto-expand
             .optional("pattern", SyntaxShape::String, "the glob pattern to use")
             .switch("all", "Show hidden files", Some('a'))
@@ -53,7 +54,7 @@ impl Command for Ls {
             .switch("full-paths", "display paths as absolute paths", Some('f'))
             .switch(
                 "du",
-                "Display the apparent directory size in place of the directory metadata size",
+                "Display the apparent directory size (\"disk usage\") in place of the directory metadata size",
                 Some('d'),
             )
             .switch(
@@ -61,6 +62,7 @@ impl Command for Ls {
                 "List the specified directory itself instead of its contents",
                 Some('D'),
             )
+            .switch("mime-type", "Show mime-type in type column instead of 'file' (based on filenames only; files' contents are not examined)", Some('m'))
             .category(Category::FileSystem)
     }
 
@@ -77,6 +79,7 @@ impl Command for Ls {
         let full_paths = call.has_flag("full-paths");
         let du = call.has_flag("du");
         let directory = call.has_flag("directory");
+        let use_mime_type = call.has_flag("mime-type");
         let ctrl_c = engine_state.ctrlc.clone();
         let call_span = call.head;
         let cwd = current_dir(engine_state, stack)?;
@@ -249,6 +252,7 @@ impl Command for Ls {
                                 long,
                                 du,
                                 ctrl_c.clone(),
+                                use_mime_type,
                             );
                             match entry {
                                 Ok(value) => Some(value),
@@ -303,7 +307,7 @@ impl Command for Ls {
             Example {
                 description:
                     "List all dirs in your home directory which have not been modified in 7 days",
-                example: "ls -as ~ | where type == dir && modified < ((date now) - 7day)",
+                example: "ls -as ~ | where type == dir and modified < ((date now) - 7day)",
                 result: None,
             },
             Example {
@@ -364,7 +368,7 @@ use std::os::unix::fs::FileTypeExt;
 use std::path::Path;
 use std::sync::atomic::AtomicBool;
 
-pub fn get_file_type(md: &std::fs::Metadata) -> &str {
+pub fn get_file_type(md: &std::fs::Metadata, display_name: &str, use_mime_type: bool) -> String {
     let ft = md.file_type();
     let mut file_type = "unknown";
     if ft.is_dir() {
@@ -387,18 +391,32 @@ pub fn get_file_type(md: &std::fs::Metadata) -> &str {
             }
         }
     }
-    file_type
+    if use_mime_type {
+        let guess = mime_guess::from_path(display_name);
+        let mime_guess = match guess.first() {
+            Some(mime_type) => mime_type.essence_str().to_string(),
+            None => "unknown".to_string(),
+        };
+        if file_type == "file" {
+            mime_guess
+        } else {
+            file_type.to_string()
+        }
+    } else {
+        file_type.to_string()
+    }
 }
 
 #[allow(clippy::too_many_arguments)]
 pub(crate) fn dir_entry_dict(
     filename: &std::path::Path, // absolute path
-    display_name: &str,         // gile name to be displayed
+    display_name: &str,         // file name to be displayed
     metadata: Option<&std::fs::Metadata>,
     span: Span,
     long: bool,
     du: bool,
     ctrl_c: Option<Arc<AtomicBool>>,
+    use_mime_type: bool,
 ) -> Result<Value, ShellError> {
     #[cfg(windows)]
     if metadata.is_none() {
@@ -407,7 +425,7 @@ pub(crate) fn dir_entry_dict(
 
     let mut cols = vec![];
     let mut vals = vec![];
-    let mut file_type = "unknown";
+    let mut file_type = "unknown".to_string();
 
     cols.push("name".into());
     vals.push(Value::String {
@@ -416,10 +434,10 @@ pub(crate) fn dir_entry_dict(
     });
 
     if let Some(md) = metadata {
-        file_type = get_file_type(md);
+        file_type = get_file_type(md, display_name, use_mime_type);
         cols.push("type".into());
         vals.push(Value::String {
-            val: file_type.to_string(),
+            val: file_type.clone(),
             span,
         });
     } else {

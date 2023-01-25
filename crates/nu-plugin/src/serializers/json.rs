@@ -211,7 +211,7 @@ mod tests {
             PluginResponse::Value(_) => panic!("returned wrong call type"),
             PluginResponse::PluginData(..) => panic!("returned wrong call type"),
             PluginResponse::Signature(returned_signature) => {
-                assert!(returned_signature.len() == 1);
+                assert_eq!(returned_signature.len(), 1);
                 assert_eq!(signature.name, returned_signature[0].name);
                 assert_eq!(signature.usage, returned_signature[0].usage);
                 assert_eq!(signature.extra_usage, returned_signature[0].extra_usage);

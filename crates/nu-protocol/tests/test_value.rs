@@ -3,9 +3,9 @@ use nu_protocol::{Span, Value};
 #[test]
 fn test_comparison_nothing() {
     let values = vec![
-        Value::int(1, Span::test_data()),
-        Value::string("string", Span::test_data()),
-        Value::float(1.0, Span::test_data()),
+        Value::test_int(1),
+        Value::test_string("string"),
+        Value::test_float(1.0),
     ];
 
     let nothing = Value::Nothing {

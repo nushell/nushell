@@ -44,14 +44,14 @@ impl Command for Fmt {
                     "upperhex".into(),
                 ],
                 vals: vec![
-                    Value::string("0b101010", Span::test_data()),
-                    Value::string("42", Span::test_data()),
-                    Value::string("42", Span::test_data()),
-                    Value::string("4.2e1", Span::test_data()),
-                    Value::string("0x2a", Span::test_data()),
-                    Value::string("0o52", Span::test_data()),
-                    Value::string("4.2E1", Span::test_data()),
-                    Value::string("0x2A", Span::test_data()),
+                    Value::test_string("0b101010"),
+                    Value::test_string("42"),
+                    Value::test_string("42"),
+                    Value::test_string("4.2e1"),
+                    Value::test_string("0x2a"),
+                    Value::test_string("0o52"),
+                    Value::test_string("4.2E1"),
+                    Value::test_string("0x2A"),
                 ],
                 span: Span::test_data(),
             }),
@@ -84,10 +84,15 @@ fn action(input: &Value, _args: &CellPathOnlyArgs, span: Span) -> Value {
     match input {
         Value::Int { val, .. } => fmt_it(*val, span),
         Value::Filesize { val, .. } => fmt_it(*val, span),
-        _ => Value::Error {
-            error: ShellError::UnsupportedInput(
-                format!("unsupported input type: {:?}", input.get_type()),
+        // Propagate errors by explicitly matching them before the final case.
+        Value::Error { .. } => input.clone(),
+        other => Value::Error {
+            error: ShellError::OnlySupportsThisInputType(
+                "integer or filesize".into(),
+                other.get_type().to_string(),
                 span,
+                // This line requires the Value::Error match above.
+                other.expect_span(),
             ),
         },
     }

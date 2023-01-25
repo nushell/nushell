@@ -3,7 +3,8 @@ use std::path::Path;
 use indexmap::IndexMap;
 use nu_engine::CallExt;
 use nu_protocol::{
-    engine::Command, Example, ShellError, Signature, Span, Spanned, SyntaxShape, Type, Value,
+    engine::Command, Example, PipelineData, ShellError, Signature, Span, Spanned, SyntaxShape,
+    Type, Value,
 };
 
 use super::PathSubcommandArguments;
@@ -66,6 +67,10 @@ On Windows, an extra 'prefix' column is added."#
             extension: call.get_flag(engine_state, stack, "extension")?,
         };
 
+        // This doesn't match explicit nulls
+        if matches!(input, PipelineData::Empty) {
+            return Err(ShellError::PipelineEmpty(head));
+        }
         input.map(
             move |value| super::operate(&parse, &args, value, head),
             engine_state.ctrlc.clone(),

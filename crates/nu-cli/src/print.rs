@@ -2,7 +2,8 @@ use nu_engine::CallExt;
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
-    Category, Example, IntoPipelineData, PipelineData, ShellError, Signature, SyntaxShape, Value,
+    Category, Example, IntoPipelineData, PipelineData, ShellError, Signature, SyntaxShape, Type,
+    Value,
 };
 
 #[derive(Clone)]
@@ -15,6 +16,7 @@ impl Command for Print {
 
     fn signature(&self) -> Signature {
         Signature::build("print")
+            .input_output_types(vec![(Type::Nothing, Type::Nothing)])
             .rest("rest", SyntaxShape::Any, "the values to print")
             .switch(
                 "no-newline",

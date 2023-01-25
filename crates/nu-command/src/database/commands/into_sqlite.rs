@@ -20,6 +20,9 @@ impl Command for IntoSqliteDb {
 
     fn signature(&self) -> Signature {
         Signature::build("into sqlite")
+            .input_output_types(vec![(Type::Any, Type::Nothing)])
+            .allow_variants_without_examples(true)
+            // TODO: narrow disallowed types
             .required(
                 "file_name",
                 SyntaxShape::String,
@@ -215,12 +218,14 @@ fn action(
             // and we're done
             Ok(Value::Nothing { span: *span })
         }
-        _ => Err(ShellError::UnsupportedInput(
-            format!(
-                "Expected a list but instead received a {}",
-                input.get_type()
-            ),
+        // Propagate errors by explicitly matching them before the final case.
+        Value::Error { error } => Err(error.clone()),
+        other => Err(ShellError::OnlySupportsThisInputType(
+            "list".into(),
+            other.get_type().to_string(),
             span,
+            // This line requires the Value::Error match above.
+            other.expect_span(),
         )),
     }
 }
@@ -257,6 +262,10 @@ fn nu_value_to_string(value: Value, separator: &str) -> String {
             .map(|(x, y)| format!("{}: {}", x, nu_value_to_string(y.clone(), ", ")))
             .collect::<Vec<_>>()
             .join(separator),
+        Value::LazyRecord { val, .. } => match val.collect() {
+            Ok(val) => nu_value_to_string(val, separator),
+            Err(error) => format!("{:?}", error),
+        },
         Value::Block { val, .. } => format!("<Block {}>", val),
         Value::Closure { val, .. } => format!("<Closure {}>", val),
         Value::Nothing { .. } => String::new(),

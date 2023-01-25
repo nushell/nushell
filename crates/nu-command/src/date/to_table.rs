@@ -4,7 +4,8 @@ use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::Type;
 use nu_protocol::{
-    Category, Example, PipelineData, ShellError::DatetimeParseError, Signature, Span, Value,
+    Category, Example, PipelineData, ShellError::DatetimeParseError, ShellError::PipelineEmpty,
+    Signature, Span, Value,
 };
 
 #[derive(Clone)]
@@ -41,6 +42,10 @@ impl Command for SubCommand {
         input: PipelineData,
     ) -> Result<nu_protocol::PipelineData, nu_protocol::ShellError> {
         let head = call.head;
+        // This doesn't match explicit nulls
+        if matches!(input, PipelineData::Empty) {
+            return Err(PipelineEmpty(head));
+        }
         input.map(move |value| helper(value, head), engine_state.ctrlc.clone())
     }
 

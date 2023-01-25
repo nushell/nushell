@@ -2,7 +2,7 @@ use nu_engine::get_full_help;
 use nu_protocol::{
     ast::Call,
     engine::{Command, EngineState, Stack},
-    Category, IntoPipelineData, PipelineData, Signature, Value,
+    Category, IntoPipelineData, PipelineData, Signature, Type, Value,
 };
 
 #[derive(Clone)]
@@ -14,11 +14,17 @@ impl Command for Into {
     }
 
     fn signature(&self) -> Signature {
-        Signature::build("into").category(Category::Conversions)
+        Signature::build("into")
+            .category(Category::Conversions)
+            .input_output_types(vec![(Type::Nothing, Type::String)])
     }
 
     fn usage(&self) -> &str {
         "Commands to convert data from one type to another."
+    }
+
+    fn extra_usage(&self) -> &str {
+        "You must use one of the following subcommands. Using this command as-is will only produce this help message."
     }
 
     fn run(
@@ -39,17 +45,5 @@ impl Command for Into {
             span: call.head,
         }
         .into_pipeline_data())
-    }
-}
-
-#[cfg(test)]
-mod test {
-    use super::*;
-
-    #[test]
-    fn test_examples() {
-        use crate::test_examples;
-
-        test_examples(Into {})
     }
 }

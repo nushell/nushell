@@ -19,7 +19,7 @@ pub enum ParseError {
     #[diagnostic(code(nu::parser::extra_positional), url(docsrs), help("Usage: {0}"))]
     ExtraPositional(String, #[label = "extra positional argument"] Span),
 
-    #[error("Require positional parameter after optional parameter")]
+    #[error("Required positional parameter after optional parameter")]
     #[diagnostic(code(nu::parser::required_after_optional), url(docsrs))]
     RequiredAfterOptional(
         String,
@@ -33,6 +33,10 @@ pub enum ParseError {
     #[error("Unclosed delimiter.")]
     #[diagnostic(code(nu::parser::unclosed_delimiter), url(docsrs))]
     Unclosed(String, #[label("unclosed {0}")] Span),
+
+    #[error("Unbalanced delimiter.")]
+    #[diagnostic(code(nu::parser::unbalanced_delimiter), url(docsrs))]
+    Unbalanced(String, String, #[label("unbalanced {0} and {1}")] Span),
 
     #[error("Parse mismatch during operation.")]
     #[diagnostic(code(nu::parser::parse_mismatch), url(docsrs))]
@@ -128,6 +132,16 @@ pub enum ParseError {
     )]
     LetInPipeline(String, String, #[label("let in pipeline")] Span),
 
+    #[error("Const statement used in pipeline.")]
+    #[diagnostic(
+        code(nu::parser::unexpected_keyword),
+        url(docsrs),
+        help(
+            "Assigning '{0}' to '{1}' does not produce a value to be piped. If the pipeline result is meant to be assigned to '{1}', use 'const {1} = ({0} | ...)'."
+        )
+    )]
+    ConstInPipeline(String, String, #[label("const in pipeline")] Span),
+
     #[error("Mut statement used in pipeline.")]
     #[diagnostic(
         code(nu::parser::unexpected_keyword),
@@ -136,7 +150,7 @@ pub enum ParseError {
             "Assigning '{0}' to '{1}' does not produce a value to be piped. If the pipeline result is meant to be assigned to '{1}', use 'mut {1} = ({0} | ...)'."
         )
     )]
-    MutInPipeline(String, String, #[label("let in pipeline")] Span),
+    MutInPipeline(String, String, #[label("mut in pipeline")] Span),
 
     #[error("Let used with builtin variable name.")]
     #[diagnostic(
@@ -145,6 +159,14 @@ pub enum ParseError {
         help("'{0}' is the name of a builtin Nushell variable. `let` cannot assign to it.")
     )]
     LetBuiltinVar(String, #[label("already a builtin variable")] Span),
+
+    #[error("Const used with builtin variable name.")]
+    #[diagnostic(
+        code(nu::parser::let_builtin_var),
+        url(docsrs),
+        help("'{0}' is the name of a builtin Nushell variable. `const` cannot assign to it.")
+    )]
+    ConstBuiltinVar(String, #[label("already a builtin variable")] Span),
 
     #[error("Mut used with builtin variable name.")]
     #[diagnostic(
@@ -172,7 +194,16 @@ pub enum ParseError {
 
     #[error("Alias name not supported.")]
     #[diagnostic(code(nu::parser::variable_not_valid), url(docsrs))]
-    AliasNotValid(#[label = "alias name can't be a number or a filesize"] Span),
+    AliasNotValid(
+        #[label = "alias name can't be a number, a filesize, or contain a hash # or caret ^"] Span,
+    ),
+
+    #[error("Command name not supported.")]
+    #[diagnostic(code(nu::parser::variable_not_valid), url(docsrs))]
+    CommandDefNotValid(
+        #[label = "command name can't be a number, a filesize, or contain a hash # or caret ^"]
+        Span,
+    ),
 
     #[error("Module not found.")]
     #[diagnostic(
@@ -185,6 +216,26 @@ pub enum ParseError {
     #[error("Cyclical module import.")]
     #[diagnostic(code(nu::parser::cyclical_module_import), url(docsrs), help("{0}"))]
     CyclicalModuleImport(String, #[label = "detected cyclical module import"] Span),
+
+    #[error("Can't export {0} named same as the module.")]
+    #[diagnostic(
+        code(nu::parser::named_as_module),
+        url(docsrs),
+        help("Module {1} can't export {0} named the same as the module. Either change the module name, or export `main` custom command.")
+    )]
+    NamedAsModule(
+        String,
+        String,
+        #[label = "can't export from module {1}"] Span,
+    ),
+
+    #[error("Can't export alias defined as 'main'.")]
+    #[diagnostic(
+        code(nu::parser::export_main_alias_not_allowed),
+        url(docsrs),
+        help("Exporting aliases as 'main' is not allowed. Either rename the alias or convert it to a custom command.")
+    )]
+    ExportMainAliasNotAllowed(#[label = "can't export from module"] Span),
 
     #[error("Active overlay not found.")]
     #[diagnostic(code(nu::parser::active_overlay_not_found), url(docsrs))]
@@ -378,6 +429,19 @@ pub enum ParseError {
     #[diagnostic(code(nu::shell::error_reading_file), url(docsrs))]
     ReadingFile(String, #[label("{0}")] Span),
 
+    /// Tried assigning non-constant value to a constant
+    ///
+    /// ## Resolution
+    ///
+    /// Only a subset of expressions are allowed to be assigned as a constant during parsing.
+    #[error("Not a constant.")]
+    #[diagnostic(
+        code(nu::parser::not_a_constant),
+        url(docsrs),
+        help("Only a subset of expressions are allowed constants during parsing. Try using the 'let' command or typing the value literally.")
+    )]
+    NotAConstant(#[label = "Value is not a parse-time constant"] Span),
+
     #[error("{0}")]
     #[diagnostic()]
     LabeledError(String, String, #[label("{1}")] Span),
@@ -390,6 +454,7 @@ impl ParseError {
             ParseError::ExtraPositional(_, s) => *s,
             ParseError::UnexpectedEof(_, s) => *s,
             ParseError::Unclosed(_, s) => *s,
+            ParseError::Unbalanced(_, _, s) => *s,
             ParseError::Expected(_, s) => *s,
             ParseError::Mismatch(_, _, s) => *s,
             ParseError::UnsupportedOperation(_, _, _, s, _) => *s,
@@ -398,15 +463,20 @@ impl ParseError {
             ParseError::BuiltinCommandInPipeline(_, s) => *s,
             ParseError::LetInPipeline(_, _, s) => *s,
             ParseError::MutInPipeline(_, _, s) => *s,
+            ParseError::ConstInPipeline(_, _, s) => *s,
             ParseError::LetBuiltinVar(_, s) => *s,
             ParseError::MutBuiltinVar(_, s) => *s,
+            ParseError::ConstBuiltinVar(_, s) => *s,
             ParseError::CaptureOfMutableVar(s) => *s,
             ParseError::IncorrectValue(_, s, _) => *s,
             ParseError::MultipleRestParams(s) => *s,
             ParseError::VariableNotFound(s) => *s,
             ParseError::VariableNotValid(s) => *s,
             ParseError::AliasNotValid(s) => *s,
+            ParseError::CommandDefNotValid(s) => *s,
             ParseError::ModuleNotFound(s) => *s,
+            ParseError::NamedAsModule(_, _, s) => *s,
+            ParseError::ExportMainAliasNotAllowed(s) => *s,
             ParseError::CyclicalModuleImport(_, s) => *s,
             ParseError::ModuleOrOverlayNotFound(s) => *s,
             ParseError::ActiveOverlayNotFound(s) => *s,
@@ -450,6 +520,7 @@ impl ParseError {
             ParseError::ShellErrRedirect(s) => *s,
             ParseError::ShellOutErrRedirect(s) => *s,
             ParseError::UnknownOperator(_, _, s) => *s,
+            ParseError::NotAConstant(s) => *s,
         }
     }
 }

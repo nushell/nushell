@@ -31,13 +31,14 @@ impl Command for ExprAsNu {
             example: "col a | into nu",
             result: Some(Value::Record {
                 cols: vec!["expr".into(), "value".into()],
-                vals: vec![
-                    Value::string("column", Span::test_data()),
-                    Value::string("a", Span::test_data()),
-                ],
+                vals: vec![Value::test_string("column"), Value::test_string("a")],
                 span: Span::test_data(),
             }),
         }]
+    }
+
+    fn search_terms(&self) -> Vec<&str> {
+        vec!["convert", "conversion"]
     }
 
     fn run(

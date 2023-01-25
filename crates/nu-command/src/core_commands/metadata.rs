@@ -106,7 +106,7 @@ impl Command for Metadata {
         vec![
             Example {
                 description: "Get the metadata of a variable",
-                example: "metadata $a",
+                example: "let a = 42; metadata $a",
                 result: None,
             },
             Example {

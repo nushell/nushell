@@ -2,7 +2,7 @@ use nu_engine::get_full_help;
 use nu_protocol::{
     ast::Call,
     engine::{Command, EngineState, Stack},
-    Category, IntoPipelineData, PipelineData, Signature, Value,
+    Category, IntoPipelineData, PipelineData, Signature, Type, Value,
 };
 
 #[derive(Clone)]
@@ -14,11 +14,17 @@ impl Command for SplitCommand {
     }
 
     fn signature(&self) -> Signature {
-        Signature::build("split").category(Category::Strings)
+        Signature::build("split")
+            .category(Category::Strings)
+            .input_output_types(vec![(Type::Nothing, Type::String)])
     }
 
     fn usage(&self) -> &str {
         "Split contents across desired subcommand (like row, column) via the separator."
+    }
+
+    fn extra_usage(&self) -> &str {
+        "You must use one of the following subcommands. Using this command as-is will only produce this help message."
     }
 
     fn run(
@@ -41,16 +47,3 @@ impl Command for SplitCommand {
         .into_pipeline_data())
     }
 }
-
-// #[cfg(test)]
-// mod tests {
-//     use super::Command;
-//     use super::ShellError;
-
-//     #[test]
-//     fn examples_work_as_expected() -> Result<(), ShellError> {
-//         use crate::examples::test as test_examples;
-
-//         test_examples(Command {})
-//     }
-// }

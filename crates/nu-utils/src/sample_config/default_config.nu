@@ -33,7 +33,7 @@ module completions {
     --write-fetch-head                            # Write fetched refs in FETCH_HEAD (default)
     --no-write-fetch-head                         # Do not write FETCH_HEAD
     --force(-f)                                   # Always update the local branch
-    --keep(-k)                                    # Keep dowloaded pack
+    --keep(-k)                                    # Keep downloaded pack
     --multiple                                    # Allow several arguments to be specified
     --auto-maintenance                            # Run 'git maintenance run --auto' at the end (default)
     --no-auto-maintenance                         # Don't run 'git maintenance' at the end
@@ -101,7 +101,6 @@ module completions {
     --dry-run(-n)                                   # dry run
     --exec: string                                  # receive pack program
     --follow-tags                                   # push missing but relevant tags
-    --force-with-lease                              # require old value of ref to be at this value
     --force(-f)                                     # force updates
     --ipv4(-4)                                      # use IPv4 addresses only
     --ipv6(-6)                                      # use IPv6 addresses only
@@ -127,7 +126,7 @@ module completions {
 # Get just the extern definitions without the custom completion commands
 use completions *
 
-# for more information on themes see
+# For more information on themes, see
 # https://www.nushell.sh/book/coloring_and_theming.html
 let dark_theme = {
     # color for nushell primitives
@@ -135,11 +134,35 @@ let dark_theme = {
     leading_trailing_space_bg: { attr: n } # no fg, no bg, attr none effectively turns this off
     header: green_bold
     empty: blue
-    bool: white
+    # Closures can be used to choose colors for specific values.
+    # The value (in this case, a bool) is piped into the closure.
+    bool: { if $in { 'light_cyan' } else { 'light_gray' } }
     int: white
-    filesize: white
+    filesize: {|e|
+      if $e == 0b {
+        'white'
+      } else if $e < 1mb {
+        'cyan'
+      } else { 'blue' }
+    }
     duration: white
-    date: white
+    date: { (date now) - $in |
+      if $in < 1hr {
+        '#e61919'
+      } else if $in < 6hr {
+        '#e68019'
+      } else if $in < 1day {
+        '#e5e619'
+      } else if $in < 3day {
+        '#80e619'
+      } else if $in < 1wk {
+        '#19e619'
+      } else if $in < 6wk {
+        '#19e5e6'
+      } else if $in < 52wk {
+        '#197fe6'
+      } else { 'light_gray' }
+    }
     range: white
     float: white
     string: white
@@ -192,11 +215,35 @@ let light_theme = {
     leading_trailing_space_bg: { attr: n } # no fg, no bg, attr none effectively turns this off
     header: green_bold
     empty: blue
-    bool: dark_gray
+    # Closures can be used to choose colors for specific values.
+    # The value (in this case, a bool) is piped into the closure.
+    bool: { if $in { 'dark_cyan' } else { 'dark_gray' } }
     int: dark_gray
-    filesize: dark_gray
+    filesize: {|e|
+      if $e == 0b {
+        'dark_gray'
+      } else if $e < 1mb {
+        'cyan_bold'
+      } else { 'blue_bold' }
+    }
     duration: dark_gray
-    date: dark_gray
+  date: { (date now) - $in |
+    if $in < 1hr {
+      'red3b'
+    } else if $in < 6hr {
+      'orange3'
+    } else if $in < 1day {
+      'yellow3b'
+    } else if $in < 3day {
+      'chartreuse2b'
+    } else if $in < 1wk {
+      'green3b'
+    } else if $in < 6wk {
+      'darkturquoise'
+    } else if $in < 52wk {
+      'deepskyblue3b'
+    } else { 'dark_gray' }
+  }
     range: dark_gray
     float: dark_gray
     string: dark_gray
@@ -244,7 +291,7 @@ let light_theme = {
 }
 
 # External completer example
-# let carapace_completer = {|spans| 
+# let carapace_completer = {|spans|
 #     carapace $spans.0 nushell $spans | from json
 # }
 
@@ -259,7 +306,7 @@ let-env config = {
     always_trash: false # always act as if -t was given. Can be overridden with -p
   }
   cd: {
-    abbreviations: true # allows `cd s/o/f` to expand to `cd some/other/folder`
+    abbreviations: false # allows `cd s/o/f` to expand to `cd some/other/folder`
   }
   table: {
     mode: rounded # basic, compact, compact_double, light, thin, with_love, rounded, reinforced, heavy, none, other
@@ -277,31 +324,31 @@ let-env config = {
 
     command_bar_text: '#C4C9C6'
     # command_bar: {fg: '#C4C9C6' bg: '#223311' }
-    
+
     status_bar_background: {fg: '#1D1F21' bg: '#C4C9C6' }
     # status_bar_text: {fg: '#C4C9C6' bg: '#223311' }
 
     highlight: {bg: 'yellow' fg: 'black' }
 
     status: {
-      # warn: {bg: 'yellow', fg: 'blue'} 
-      # error: {bg: 'yellow', fg: 'blue'} 
+      # warn: {bg: 'yellow', fg: 'blue'}
+      # error: {bg: 'yellow', fg: 'blue'}
       # info: {bg: 'yellow', fg: 'blue'}
     }
 
     try: {
-      # border_color: 'red' 
+      # border_color: 'red'
       # highlighted_color: 'blue'
 
       # reactive: false
     }
 
     table: {
-      split_line: '#404040' 
+      split_line: '#404040'
 
       cursor: true
 
-      line_index: true 
+      line_index: true
       line_shift: true
       line_head_top: true
       line_head_bottom: true
@@ -309,14 +356,14 @@ let-env config = {
       show_head: true
       show_index: true
 
-      # selected_cell: {fg: 'white', bg: '#777777'} 
-      # selected_row: {fg: 'yellow', bg: '#C1C2A3'} 
+      # selected_cell: {fg: 'white', bg: '#777777'}
+      # selected_row: {fg: 'yellow', bg: '#C1C2A3'}
       # selected_column: blue
 
-      # padding_column_right: 2 
+      # padding_column_right: 2
       # padding_column_left: 2
 
-      # padding_index_left: 2 
+      # padding_index_left: 2
       # padding_index_right: 1
     }
 
@@ -348,6 +395,11 @@ let-env config = {
     metric: true # true => KB, MB, GB (ISO standard), false => KiB, MiB, GiB (Windows standard)
     format: "auto" # b, kb, kib, mb, mib, gb, gib, tb, tib, pb, pib, eb, eib, zb, zib, auto
   }
+  cursor_shape: {
+    emacs: line # block, underscore, line (line is the default)
+    vi_insert: block # block, underscore, line (block is the default)
+    vi_normal: underscore # block, underscore, line  (underscore is the default)
+  }
   color_config: $dark_theme   # if you want a light theme, replace `$dark_theme` to `$light_theme`
   use_grid_icons: true
   footer_mode: "25" # always, never, number_of_rows, auto
@@ -361,14 +413,14 @@ let-env config = {
 
   hooks: {
     pre_prompt: [{
-      $nothing  # replace with source code to run before the prompt is shown
+      null  # replace with source code to run before the prompt is shown
     }]
     pre_execution: [{
-      $nothing  # replace with source code to run before the repl input is run
+      null  # replace with source code to run before the repl input is run
     }]
     env_change: {
       PWD: [{|before, after|
-        $nothing  # replace with source code to run if the PWD environment is different since the last repl input
+        null  # replace with source code to run if the PWD environment is different since the last repl input
       }]
     }
     display_output: {
@@ -377,7 +429,7 @@ let-env config = {
   }
   menus: [
       # Configuration for default nushell menus
-      # Note the lack of souce parameter
+      # Note the lack of source parameter
       {
         name: completion_menu
         only_buffer_difference: false

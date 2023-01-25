@@ -3,7 +3,7 @@ use nu_parser::{parse, parse_module_block, unescape_unquote_string};
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack, StateWorkingSet};
 use nu_protocol::{
-    Category, Example, PipelineData, ShellError, Signature, Span, Spanned, SyntaxShape, Value,
+    Category, Example, PipelineData, ShellError, Signature, Span, Spanned, SyntaxShape, Type, Value,
 };
 
 #[derive(Clone)]
@@ -16,6 +16,9 @@ impl Command for NuCheck {
 
     fn signature(&self) -> Signature {
         Signature::build("nu-check")
+            .input_output_types(vec![(Type::String, Type::Bool),
+            (Type::ListStream, Type::Bool),
+            (Type::List(Box::new(Type::Any)), Type::Bool)])
             // type is string to avoid automatically canonicalizing the path
             .optional("path", SyntaxShape::String, "File path to parse")
             .switch("as-module", "Parse content as module", Some('m'))
@@ -299,12 +302,14 @@ fn parse_module(
     is_debug: bool,
     span: Span,
 ) -> Result<PipelineData, ShellError> {
+    let filename = filename.unwrap_or_else(|| "empty".to_string());
+
     let start = working_set.next_span_start();
-    working_set.add_file(filename.unwrap_or_else(|| "empty".to_string()), contents);
+    working_set.add_file(filename.clone(), contents);
     let end = working_set.next_span_start();
 
     let new_span = Span::new(start, end);
-    let (_, _, err) = parse_module_block(working_set, new_span, &[]);
+    let (_, _, _, err) = parse_module_block(working_set, new_span, filename.as_bytes(), &[]);
 
     if err.is_some() {
         if is_debug {

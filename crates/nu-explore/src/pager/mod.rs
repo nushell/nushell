@@ -18,7 +18,8 @@ use crossterm::{
         LeaveAlternateScreen,
     },
 };
-use nu_color_config::lookup_ansi_color_style;
+use lscolors::LsColors;
+use nu_color_config::{lookup_ansi_color_style, StyleComputer};
 use nu_protocol::{
     engine::{EngineState, Stack},
     Value,
@@ -26,7 +27,7 @@ use nu_protocol::{
 use tui::{backend::CrosstermBackend, layout::Rect, widgets::Block};
 
 use crate::{
-    nu_common::{CtrlC, NuColor, NuConfig, NuSpan, NuStyle, NuStyleTable},
+    nu_common::{CtrlC, NuColor, NuConfig, NuSpan, NuStyle},
     registry::{Command, CommandRegistry},
     util::map_into_value,
     views::{util::nu_style_to_tui, ViewConfig},
@@ -140,8 +141,9 @@ impl<'a> Pager<'a> {
         if let Some(page) = &mut view {
             page.view.setup(ViewConfig::new(
                 self.config.nu_config,
-                self.config.color_hm,
+                self.config.style_computer,
                 &self.config.config,
+                self.config.lscolors,
             ))
         }
 
@@ -160,7 +162,8 @@ pub enum Transition {
 #[derive(Debug, Clone)]
 pub struct PagerConfig<'a> {
     pub nu_config: &'a NuConfig,
-    pub color_hm: &'a NuStyleTable,
+    pub style_computer: &'a StyleComputer<'a>,
+    pub lscolors: &'a LsColors,
     pub config: ConfigMap,
     pub style: StyleConfig,
     pub peek_value: bool,
@@ -170,13 +173,19 @@ pub struct PagerConfig<'a> {
 }
 
 impl<'a> PagerConfig<'a> {
-    pub fn new(nu_config: &'a NuConfig, color_hm: &'a NuStyleTable, config: ConfigMap) -> Self {
+    pub fn new(
+        nu_config: &'a NuConfig,
+        style_computer: &'a StyleComputer,
+        lscolors: &'a LsColors,
+        config: ConfigMap,
+    ) -> Self {
         Self {
             nu_config,
-            color_hm,
+            style_computer,
             config,
+            lscolors,
             peek_value: false,
-            exit_esc: false,
+            exit_esc: true,
             reverse: false,
             show_banner: false,
             style: StyleConfig::default(),
@@ -261,8 +270,9 @@ fn render_ui(
                 if let Some(page) = &mut view {
                     let cfg = ViewConfig::new(
                         pager.config.nu_config,
-                        pager.config.color_hm,
+                        pager.config.style_computer,
                         &pager.config.config,
+                        pager.config.lscolors,
                     );
 
                     page.view.draw(f, available_area, cfg, &mut layout);
@@ -416,16 +426,18 @@ fn run_command(
                             if let Some(page) = view.as_mut() {
                                 page.view.setup(ViewConfig::new(
                                     pager.config.nu_config,
-                                    pager.config.color_hm,
+                                    pager.config.style_computer,
                                     &pager.config.config,
+                                    pager.config.lscolors,
                                 ));
                             }
 
                             for page in view_stack {
                                 page.view.setup(ViewConfig::new(
                                     pager.config.nu_config,
-                                    pager.config.color_hm,
+                                    pager.config.style_computer,
                                     &pager.config.config,
+                                    pager.config.lscolors,
                                 ));
                             }
                         }
@@ -452,8 +464,9 @@ fn run_command(
 
                     new_view.setup(ViewConfig::new(
                         pager.config.nu_config,
-                        pager.config.color_hm,
+                        pager.config.style_computer,
                         &pager.config.config,
+                        pager.config.lscolors,
                     ));
 
                     *view = Some(Page::raw(new_view, is_light));
@@ -467,18 +480,18 @@ fn run_command(
 
 fn set_cursor_cmd_bar(f: &mut Frame, area: Rect, pager: &Pager) {
     if pager.cmd_buf.is_cmd_input {
-        // todo: deal with a situation where we exeed the bar width
+        // todo: deal with a situation where we exceed the bar width
         let next_pos = (pager.cmd_buf.buf_cmd2.len() + 1) as u16;
         // 1 skips a ':' char
         if next_pos < area.width {
-            f.set_cursor(next_pos as u16, area.height - 1);
+            f.set_cursor(next_pos, area.height - 1);
         }
     } else if pager.search_buf.is_search_input {
-        // todo: deal with a situation where we exeed the bar width
+        // todo: deal with a situation where we exceed the bar width
         let next_pos = (pager.search_buf.buf_cmd_input.len() + 1) as u16;
         // 1 skips a ':' char
         if next_pos < area.width {
-            f.set_cursor(next_pos as u16, area.height - 1);
+            f.set_cursor(next_pos, area.height - 1);
         }
     }
 }
@@ -602,7 +615,7 @@ fn highlight_search_results(f: &mut Frame, pager: &Pager, layout: &Layout, style
         return;
     }
 
-    let hightlight_block = Block::default().style(nu_style_to_tui(style));
+    let highlight_block = Block::default().style(nu_style_to_tui(style));
 
     for e in &layout.data {
         let text = ansi_str::AnsiStr::ansi_strip(&e.text);
@@ -613,7 +626,7 @@ fn highlight_search_results(f: &mut Frame, pager: &Pager, layout: &Layout, style
             let w = pager.search_buf.buf_cmd_input.len() as u16;
             let area = Rect::new(e.area.x + p as u16, e.area.y, w, 1);
 
-            f.render_widget(hightlight_block.clone(), area);
+            f.render_widget(highlight_block.clone(), area);
         }
     }
 }
@@ -666,9 +679,9 @@ fn handle_events<V: View>(
 
     // Sometimes we get a BIG list of events;
     // for example when someone scrolls via a mouse either UP or DOWN.
-    // This MIGHT causes freeses as we have a 400 delay for a next command read.
+    // This MIGHT cause freezes as we have a 400 delay for a next command read.
     //
-    // To eliminate that we are trying ot read all possible commands which we should action upon.
+    // To eliminate that we are trying to read all possible commands which we should act upon.
 
     while let Ok(Some(key)) = events.try_next() {
         let result = handle_event(
@@ -719,7 +732,7 @@ fn handle_event<V: View>(
         }
     }
 
-    // was not handled so we must check our default controlls
+    // was not handled so we must check our default controls
     handle_general_key_events2(&key, search, command, view, info);
 
     None

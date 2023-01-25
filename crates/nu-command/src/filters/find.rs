@@ -2,14 +2,14 @@ use crate::help::highlight_search_string;
 
 use fancy_regex::Regex;
 use lscolors::{Color as LsColors_Color, LsColors, Style as LsColors_Style};
-use nu_ansi_term::{Color, Color::Default, Style};
-use nu_color_config::get_color_config;
+use nu_ansi_term::{Color, Style};
+use nu_color_config::StyleComputer;
 use nu_engine::{env_to_string, CallExt};
 use nu_protocol::{
     ast::Call,
     engine::{Command, EngineState, Stack},
-    Category, Config, Example, IntoInterruptiblePipelineData, ListStream, PipelineData, ShellError,
-    Signature, Span, SyntaxShape, Type, Value,
+    Category, Config, Example, IntoInterruptiblePipelineData, IntoPipelineData, ListStream,
+    PipelineData, ShellError, Signature, Span, SyntaxShape, Type, Value,
 };
 use nu_utils::get_ls_colors;
 
@@ -150,6 +150,7 @@ impl Command for Find {
         if let Some(regex) = regex {
             find_with_regex(regex, engine_state, stack, call, input)
         } else {
+            let input = split_string_if_multiline(input);
             find_with_rest_and_highlight(engine_state, stack, call, input)
         }
     }
@@ -185,7 +186,7 @@ fn find_with_regex(
     let regex = flags.to_string() + regex.as_str();
 
     let re = Regex::new(regex.as_str())
-        .map_err(|e| ShellError::UnsupportedInput(format!("incorrect regex: {}", e), span))?;
+        .map_err(|e| ShellError::TypeMismatch(format!("invalid regex: {}", e), span))?;
 
     input.filter(
         move |value| match value {
@@ -308,12 +309,12 @@ fn find_with_rest_and_highlight(
         })
         .collect::<Vec<Value>>();
 
-    let color_hm = get_color_config(&config);
-    let default_style = Style::new().fg(Default).on(Default);
-    let string_style = match color_hm.get("string") {
-        Some(style) => *style,
-        None => default_style,
-    };
+    let style_computer = StyleComputer::from_config(&engine_state, stack);
+    // Currently, search results all use the same style.
+    // Also note that this sample string is passed into user-written code (the closure that may or may not be
+    // defined for "string").
+    let string_style = style_computer.compute("string", &Value::string("search result", span));
+
     let ls_colors_env_str = match stack.get_env_var(&engine_state, "LS_COLORS") {
         Some(v) => Some(env_to_string("LS_COLORS", &v, &engine_state, stack)?),
         None => None,
@@ -380,6 +381,26 @@ fn find_with_rest_and_highlight(
                                     .map_or(false, |aval| aval.is_true())
                             }
                         }),
+                        Value::LazyRecord { val, .. } => match val.collect() {
+                            Ok(val) => match val {
+                                Value::Record { vals, .. } => vals.iter().any(|val| {
+                                    if let Ok(span) = val.span() {
+                                        let lower_val = Value::string(
+                                            val.into_string("", &filter_config).to_lowercase(),
+                                            Span::test_data(),
+                                        );
+
+                                        term.r#in(span, &lower_val, span)
+                                            .map_or(false, |aval| aval.is_true())
+                                    } else {
+                                        term.r#in(span, val, span)
+                                            .map_or(false, |aval| aval.is_true())
+                                    }
+                                }),
+                                _ => false,
+                            },
+                            Err(_) => false,
+                        },
                         Value::Binary { .. } => false,
                     }) != invert
                 },
@@ -440,6 +461,26 @@ fn find_with_rest_and_highlight(
                                     .map_or(false, |value| value.is_true())
                             }
                         }),
+                        Value::LazyRecord { val, .. } => match val.collect() {
+                            Ok(val) => match val {
+                                Value::Record { vals, .. } => vals.iter().any(|val| {
+                                    if let Ok(span) = val.span() {
+                                        let lower_val = Value::string(
+                                            val.into_string("", &filter_config).to_lowercase(),
+                                            Span::test_data(),
+                                        );
+
+                                        term.r#in(span, &lower_val, span)
+                                            .map_or(false, |value| value.is_true())
+                                    } else {
+                                        term.r#in(span, val, span)
+                                            .map_or(false, |value| value.is_true())
+                                    }
+                                }),
+                                _ => false,
+                            },
+                            Err(_) => false,
+                        },
                         Value::Binary { .. } => false,
                     }) != invert
                 }),
@@ -478,22 +519,20 @@ fn find_with_rest_and_highlight(
                                 }
                             }
                         }
-                        _ => {
+                        // Propagate errors by explicitly matching them before the final case.
+                        Value::Error { error } => return Err(error),
+                        other => {
                             return Err(ShellError::UnsupportedInput(
-                                format!(
-                                    "Unsupport value type '{}' from raw stream",
-                                    value.get_type()
-                                ),
+                                "unsupported type from raw stream".into(),
+                                format!("input: {:?}", other.get_type()),
                                 span,
-                            ))
+                                // This line requires the Value::Error match above.
+                                other.expect_span(),
+                            ));
                         }
                     },
-                    _ => {
-                        return Err(ShellError::UnsupportedInput(
-                            "Unsupport type from raw stream".to_string(),
-                            span,
-                        ))
-                    }
+                    // Propagate any errors that were in the stream
+                    Err(e) => return Err(e),
                 };
             }
             Ok(output.into_pipeline_data(ctrlc))
@@ -516,7 +555,7 @@ fn to_nu_ansi_term_style(style: &LsColors_Style) -> Style {
             LsColors_Color::White => Color::White,
 
             // Below items are a rough translations to 256 colors as
-            // nu-ansi-term do not have bright varients
+            // nu-ansi-term do not have bright variants
             LsColors_Color::BrightBlack => Color::Fixed(8),
             LsColors_Color::BrightRed => Color::Fixed(9),
             LsColors_Color::BrightGreen => Color::Fixed(10),
@@ -551,5 +590,30 @@ mod tests {
         use crate::test_examples;
 
         test_examples(Find)
+    }
+}
+
+fn split_string_if_multiline(input: PipelineData) -> PipelineData {
+    match input {
+        PipelineData::Value(Value::String { ref val, span }, _) => {
+            if val.contains('\n') {
+                Value::List {
+                    vals: {
+                        val.lines()
+                            .map(|s| Value::String {
+                                val: s.to_string(),
+                                span,
+                            })
+                            .collect()
+                    },
+                    span,
+                }
+                .into_pipeline_data()
+                .set_metadata(input.metadata())
+            } else {
+                input
+            }
+        }
+        _ => input,
     }
 }

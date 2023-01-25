@@ -1,5 +1,8 @@
 use crate::{
-    lex, parse_mut,
+    eval::{eval_constant, value_as_string},
+    lex,
+    lite_parser::{lite_parse, LiteCommand, LiteElement},
+    parse_mut,
     type_check::{math_result_type, type_compatible},
     ParseError, Token, TokenContents,
 };
@@ -8,7 +11,7 @@ use nu_protocol::{
     ast::{
         Argument, Assignment, Bits, Block, Boolean, Call, CellPath, Comparison, Expr, Expression,
         FullCellPath, ImportPattern, ImportPatternHead, ImportPatternMember, Math, Operator,
-        PathMember, Pipeline, PipelineElement, RangeInclusion, RangeOperator, Redirection,
+        PathMember, Pipeline, PipelineElement, RangeInclusion, RangeOperator,
     },
     engine::StateWorkingSet,
     span, BlockId, Flag, PositionalArg, Signature, Span, Spanned, SyntaxShape, Type, Unit, VarId,
@@ -17,8 +20,8 @@ use nu_protocol::{
 
 use crate::parse_keywords::{
     parse_alias, parse_def, parse_def_predecl, parse_export_in_block, parse_extern, parse_for,
-    parse_hide, parse_let, parse_module, parse_overlay, parse_source, parse_use, parse_where,
-    parse_where_expr,
+    parse_hide, parse_let_or_const, parse_module, parse_overlay, parse_source, parse_use,
+    parse_where, parse_where_expr,
 };
 
 use itertools::Itertools;
@@ -30,9 +33,6 @@ use std::{
 
 #[cfg(feature = "plugin")]
 use crate::parse_keywords::parse_register;
-
-#[derive(Debug, Clone)]
-pub enum Import {}
 
 pub fn garbage(span: Span) -> Expression {
     Expression::garbage(span)
@@ -695,16 +695,6 @@ pub fn parse_multispan_value(
 
             (arg, error)
         }
-        SyntaxShape::ImportPattern => {
-            trace!("parsing: import pattern");
-
-            let (arg, err) =
-                parse_import_pattern(working_set, &spans[*spans_idx..], expand_aliases_denylist);
-            error = error.or(err);
-            *spans_idx = spans.len() - 1;
-
-            (arg, error)
-        }
         SyntaxShape::Keyword(keyword, arg) => {
             trace!(
                 "parsing: keyword({}) {:?}",
@@ -826,10 +816,26 @@ pub fn parse_internal_call(
             &signature,
             expand_aliases_denylist,
         );
+
         if let Some(long_name) = long_name {
             // We found a long flag, like --bar
-            error = error.or(err);
-            call.add_named((long_name, None, arg));
+            if matches!(err, Some(ParseError::UnknownFlag(_, _, _, _)))
+                && signature.allows_unknown_args
+            {
+                let (arg, arg_err) = parse_value(
+                    working_set,
+                    arg_span,
+                    &SyntaxShape::Any,
+                    expand_aliases_denylist,
+                );
+
+                error = error.or(arg_err);
+                call.add_unknown(arg);
+            } else {
+                error = error.or(err);
+                call.add_named((long_name, None, arg));
+            }
+
             spans_idx += 1;
             continue;
         }
@@ -845,6 +851,7 @@ pub fn parse_internal_call(
 
         if let Some(mut short_flags) = short_flags {
             if short_flags.is_empty() {
+                // workaround for completions (PR #6067)
                 short_flags.push(Flag {
                     long: "".to_string(),
                     short: Some('a'),
@@ -855,72 +862,88 @@ pub fn parse_internal_call(
                     default_value: None,
                 })
             }
-            error = error.or(err);
-            for flag in short_flags {
-                if let Some(arg_shape) = flag.arg {
-                    if let Some(arg) = spans.get(spans_idx + 1) {
-                        let (arg, err) =
-                            parse_value(working_set, *arg, &arg_shape, expand_aliases_denylist);
-                        error = error.or(err);
 
-                        if flag.long.is_empty() {
-                            if let Some(short) = flag.short {
+            if matches!(err, Some(ParseError::UnknownFlag(_, _, _, _)))
+                && signature.allows_unknown_args
+            {
+                let (arg, arg_err) = parse_value(
+                    working_set,
+                    arg_span,
+                    &SyntaxShape::Any,
+                    expand_aliases_denylist,
+                );
+
+                call.add_unknown(arg);
+                error = error.or(arg_err);
+            } else {
+                error = error.or(err);
+                for flag in short_flags {
+                    if let Some(arg_shape) = flag.arg {
+                        if let Some(arg) = spans.get(spans_idx + 1) {
+                            let (arg, err) =
+                                parse_value(working_set, *arg, &arg_shape, expand_aliases_denylist);
+                            error = error.or(err);
+
+                            if flag.long.is_empty() {
+                                if let Some(short) = flag.short {
+                                    call.add_named((
+                                        Spanned {
+                                            item: String::new(),
+                                            span: spans[spans_idx],
+                                        },
+                                        Some(Spanned {
+                                            item: short.to_string(),
+                                            span: spans[spans_idx],
+                                        }),
+                                        Some(arg),
+                                    ));
+                                }
+                            } else {
                                 call.add_named((
                                     Spanned {
-                                        item: String::new(),
+                                        item: flag.long.clone(),
                                         span: spans[spans_idx],
                                     },
-                                    Some(Spanned {
-                                        item: short.to_string(),
-                                        span: spans[spans_idx],
-                                    }),
+                                    None,
                                     Some(arg),
                                 ));
                             }
+                            spans_idx += 1;
                         } else {
+                            error = error.or_else(|| {
+                                Some(ParseError::MissingFlagParam(
+                                    arg_shape.to_string(),
+                                    arg_span,
+                                ))
+                            })
+                        }
+                    } else if flag.long.is_empty() {
+                        if let Some(short) = flag.short {
                             call.add_named((
                                 Spanned {
-                                    item: flag.long.clone(),
+                                    item: String::new(),
                                     span: spans[spans_idx],
                                 },
+                                Some(Spanned {
+                                    item: short.to_string(),
+                                    span: spans[spans_idx],
+                                }),
                                 None,
-                                Some(arg),
                             ));
                         }
-                        spans_idx += 1;
                     } else {
-                        error = error.or_else(|| {
-                            Some(ParseError::MissingFlagParam(
-                                arg_shape.to_string(),
-                                arg_span,
-                            ))
-                        })
-                    }
-                } else if flag.long.is_empty() {
-                    if let Some(short) = flag.short {
                         call.add_named((
                             Spanned {
-                                item: String::new(),
+                                item: flag.long.clone(),
                                 span: spans[spans_idx],
                             },
-                            Some(Spanned {
-                                item: short.to_string(),
-                                span: spans[spans_idx],
-                            }),
+                            None,
                             None,
                         ));
                     }
-                } else {
-                    call.add_named((
-                        Spanned {
-                            item: flag.long.clone(),
-                            span: spans[spans_idx],
-                        },
-                        None,
-                        None,
-                    ));
                 }
             }
+
             spans_idx += 1;
             continue;
         }
@@ -972,6 +995,16 @@ pub fn parse_internal_call(
             };
             call.add_positional(arg);
             positional_idx += 1;
+        } else if signature.allows_unknown_args {
+            let (arg, arg_err) = parse_value(
+                working_set,
+                arg_span,
+                &SyntaxShape::Any,
+                expand_aliases_denylist,
+            );
+
+            call.add_unknown(arg);
+            error = error.or(arg_err);
         } else {
             call.add_positional(Expression::garbage(arg_span));
             error = error.or_else(|| {
@@ -1296,12 +1329,19 @@ fn decode_with_base(s: &str, base: u32, digits_per_byte: usize) -> Result<Vec<u8
         .collect()
 }
 
+fn strip_underscores(token: &[u8]) -> String {
+    String::from_utf8_lossy(token)
+        .chars()
+        .filter(|c| *c != '_')
+        .collect()
+}
+
 pub fn parse_int(token: &[u8], span: Span) -> (Expression, Option<ParseError>) {
-    if let Some(token) = token.strip_prefix(b"0x") {
-        if let Ok(v) = i64::from_str_radix(&String::from_utf8_lossy(token), 16) {
+    fn extract_int(token: &str, span: Span, radix: u32) -> (Expression, Option<ParseError>) {
+        if let Ok(num) = i64::from_str_radix(token, radix) {
             (
                 Expression {
-                    expr: Expr::Int(v),
+                    expr: Expr::Int(num),
                     span,
                     ty: Type::Int,
                     custom_completion: None,
@@ -1318,52 +1358,20 @@ pub fn parse_int(token: &[u8], span: Span) -> (Expression, Option<ParseError>) {
                 )),
             )
         }
-    } else if let Some(token) = token.strip_prefix(b"0b") {
-        if let Ok(v) = i64::from_str_radix(&String::from_utf8_lossy(token), 2) {
-            (
-                Expression {
-                    expr: Expr::Int(v),
-                    span,
-                    ty: Type::Int,
-                    custom_completion: None,
-                },
-                None,
-            )
-        } else {
-            (
-                garbage(span),
-                Some(ParseError::Mismatch(
-                    "int".into(),
-                    "incompatible int".into(),
-                    span,
-                )),
-            )
-        }
-    } else if let Some(token) = token.strip_prefix(b"0o") {
-        if let Ok(v) = i64::from_str_radix(&String::from_utf8_lossy(token), 8) {
-            (
-                Expression {
-                    expr: Expr::Int(v),
-                    span,
-                    ty: Type::Int,
-                    custom_completion: None,
-                },
-                None,
-            )
-        } else {
-            (
-                garbage(span),
-                Some(ParseError::Mismatch(
-                    "int".into(),
-                    "incompatible int".into(),
-                    span,
-                )),
-            )
-        }
-    } else if let Ok(x) = String::from_utf8_lossy(token).parse::<i64>() {
+    }
+
+    let token = strip_underscores(token);
+
+    if let Some(num) = token.strip_prefix("0b") {
+        extract_int(num, span, 2)
+    } else if let Some(num) = token.strip_prefix("0o") {
+        extract_int(num, span, 8)
+    } else if let Some(num) = token.strip_prefix("0x") {
+        extract_int(num, span, 16)
+    } else if let Ok(num) = token.parse::<i64>() {
         (
             Expression {
-                expr: Expr::Int(x),
+                expr: Expr::Int(num),
                 span,
                 ty: Type::Int,
                 custom_completion: None,
@@ -1379,7 +1387,9 @@ pub fn parse_int(token: &[u8], span: Span) -> (Expression, Option<ParseError>) {
 }
 
 pub fn parse_float(token: &[u8], span: Span) -> (Expression, Option<ParseError>) {
-    if let Ok(x) = String::from_utf8_lossy(token).parse::<f64>() {
+    let token = strip_underscores(token);
+
+    if let Ok(x) = token.parse::<f64>() {
         (
             Expression {
                 expr: Expr::Float(x),
@@ -2748,6 +2758,7 @@ pub fn parse_shape_name(
         b"duration" => SyntaxShape::Duration,
         b"error" => SyntaxShape::Error,
         b"expr" => SyntaxShape::Expression,
+        b"float" | b"decimal" => SyntaxShape::Decimal,
         b"filesize" => SyntaxShape::Filesize,
         b"full-cell-path" => SyntaxShape::FullCellPath,
         b"glob" => SyntaxShape::GlobPattern,
@@ -2812,7 +2823,7 @@ pub fn parse_type(_working_set: &StateWorkingSet, bytes: &[u8]) -> Type {
         b"duration" => Type::Duration,
         b"error" => Type::Error,
         b"filesize" => Type::Filesize,
-        b"float" => Type::Float,
+        b"float" | b"decimal" => Type::Float,
         b"int" => Type::Int,
         b"list" => Type::List(Box::new(Type::Any)),
         b"number" => Type::Number,
@@ -2832,11 +2843,8 @@ pub fn parse_import_pattern(
 ) -> (Expression, Option<ParseError>) {
     let mut error = None;
 
-    let (head, head_span) = if let Some(head_span) = spans.get(0) {
-        (
-            working_set.get_span_contents(*head_span).to_vec(),
-            head_span,
-        )
+    let head_span = if let Some(head_span) = spans.get(0) {
+        head_span
     } else {
         return (
             garbage(span(spans)),
@@ -2844,7 +2852,25 @@ pub fn parse_import_pattern(
         );
     };
 
-    let maybe_module_id = working_set.find_module(&head);
+    let (head_expr, err) = parse_value(
+        working_set,
+        *head_span,
+        &SyntaxShape::Any,
+        expand_aliases_denylist,
+    );
+    error = error.or(err);
+
+    let (maybe_module_id, head_name) = match eval_constant(working_set, &head_expr) {
+        Ok(val) => match value_as_string(val, head_expr.span) {
+            Ok(s) => (working_set.find_module(s.as_bytes()), s.into_bytes()),
+            Err(err) => {
+                return (garbage(span(spans)), error.or(Some(err)));
+            }
+        },
+        Err(err) => {
+            return (garbage(span(spans)), error.or(Some(err)));
+        }
+    };
 
     let (import_pattern, err) = if let Some(tail_span) = spans.get(1) {
         // FIXME: expand this to handle deeper imports once we support module imports
@@ -2853,7 +2879,7 @@ pub fn parse_import_pattern(
             (
                 ImportPattern {
                     head: ImportPatternHead {
-                        name: head,
+                        name: head_name,
                         id: maybe_module_id,
                         span: *head_span,
                     },
@@ -2886,7 +2912,7 @@ pub fn parse_import_pattern(
                     (
                         ImportPattern {
                             head: ImportPatternHead {
-                                name: head,
+                                name: head_name,
                                 id: maybe_module_id,
                                 span: *head_span,
                             },
@@ -2899,7 +2925,7 @@ pub fn parse_import_pattern(
                 _ => (
                     ImportPattern {
                         head: ImportPatternHead {
-                            name: head,
+                            name: head_name,
                             id: maybe_module_id,
                             span: *head_span,
                         },
@@ -2914,7 +2940,7 @@ pub fn parse_import_pattern(
             (
                 ImportPattern {
                     head: ImportPatternHead {
-                        name: head,
+                        name: head_name,
                         id: maybe_module_id,
                         span: *head_span,
                     },
@@ -2931,7 +2957,7 @@ pub fn parse_import_pattern(
         (
             ImportPattern {
                 head: ImportPatternHead {
-                    name: head,
+                    name: head_name,
                     id: maybe_module_id,
                     span: *head_span,
                 },
@@ -3182,6 +3208,7 @@ pub fn parse_signature_helper(
     #[allow(clippy::enum_variant_names)]
     enum ParseMode {
         ArgMode,
+        AfterCommaArgMode,
         TypeMode,
         DefaultValueMode,
     }
@@ -3199,8 +3226,8 @@ pub fn parse_signature_helper(
     let (output, err) = lex(
         source,
         span.start,
-        &[b'\n', b'\r', b','],
-        &[b':', b'='],
+        &[b'\n', b'\r'],
+        &[b':', b'=', b','],
         false,
     );
     error = error.or(err);
@@ -3217,10 +3244,16 @@ pub fn parse_signature_helper(
                 let span = *span;
                 let contents = working_set.get_span_contents(span);
 
+                // The : symbol separates types
                 if contents == b":" {
                     match parse_mode {
                         ParseMode::ArgMode => {
                             parse_mode = ParseMode::TypeMode;
+                        }
+                        ParseMode::AfterCommaArgMode => {
+                            error = error.or_else(|| {
+                                Some(ParseError::Expected("parameter or flag".into(), span))
+                            });
                         }
                         ParseMode::TypeMode | ParseMode::DefaultValueMode => {
                             // We're seeing two types for the same thing for some reason, error
@@ -3228,10 +3261,17 @@ pub fn parse_signature_helper(
                                 error.or_else(|| Some(ParseError::Expected("type".into(), span)));
                         }
                     }
-                } else if contents == b"=" {
+                }
+                // The = symbol separates a variable from its default value
+                else if contents == b"=" {
                     match parse_mode {
                         ParseMode::ArgMode | ParseMode::TypeMode => {
                             parse_mode = ParseMode::DefaultValueMode;
+                        }
+                        ParseMode::AfterCommaArgMode => {
+                            error = error.or_else(|| {
+                                Some(ParseError::Expected("parameter or flag".into(), span))
+                            });
                         }
                         ParseMode::DefaultValueMode => {
                             // We're seeing two default values for some reason, error
@@ -3240,11 +3280,33 @@ pub fn parse_signature_helper(
                             });
                         }
                     }
+                }
+                // The , symbol separates params only
+                else if contents == b"," {
+                    match parse_mode {
+                        ParseMode::ArgMode => parse_mode = ParseMode::AfterCommaArgMode,
+                        ParseMode::AfterCommaArgMode => {
+                            error = error.or_else(|| {
+                                Some(ParseError::Expected("parameter or flag".into(), span))
+                            });
+                        }
+                        ParseMode::TypeMode => {
+                            error =
+                                error.or_else(|| Some(ParseError::Expected("type".into(), span)));
+                        }
+                        ParseMode::DefaultValueMode => {
+                            error = error.or_else(|| {
+                                Some(ParseError::Expected("default value".into(), span))
+                            });
+                        }
+                    }
                 } else {
                     match parse_mode {
-                        ParseMode::ArgMode => {
+                        ParseMode::ArgMode | ParseMode::AfterCommaArgMode => {
+                            // Long flag with optional short form following with no whitespace, e.g. --output, --age(-a)
                             if contents.starts_with(b"--") && contents.len() > 2 {
-                                // Long flag
+                                // Split the long flag from the short flag with the ( character as delimiter.
+                                // The trailing ) is removed further down.
                                 let flags: Vec<_> =
                                     contents.split(|x| x == &b'(').map(|x| x.to_vec()).collect();
 
@@ -3260,7 +3322,7 @@ pub fn parse_signature_helper(
                                 if !is_variable(&variable_name) {
                                     error = error.or_else(|| {
                                         Some(ParseError::Expected(
-                                            "valid variable name".into(),
+                                            "valid variable name for this long flag".into(),
                                             span,
                                         ))
                                     })
@@ -3269,6 +3331,7 @@ pub fn parse_signature_helper(
                                 let var_id =
                                     working_set.add_variable(variable_name, span, Type::Any, false);
 
+                                // If there's no short flag, exit now. Otherwise, parse it.
                                 if flags.len() == 1 {
                                     args.push(Arg::Flag(Flag {
                                         arg: None,
@@ -3281,7 +3344,10 @@ pub fn parse_signature_helper(
                                     }));
                                 } else if flags.len() >= 3 {
                                     error = error.or_else(|| {
-                                        Some(ParseError::Expected("one short flag".into(), span))
+                                        Some(ParseError::Expected(
+                                            "only one short flag alternative".into(),
+                                            span,
+                                        ))
                                     });
                                 } else {
                                     let short_flag = &flags[1];
@@ -3289,12 +3355,18 @@ pub fn parse_signature_helper(
                                         || !short_flag.ends_with(b")")
                                     {
                                         error = error.or_else(|| {
-                                            Some(ParseError::Expected("short flag".into(), span))
+                                            Some(ParseError::Expected(
+                                                "short flag alternative for the long flag".into(),
+                                                span,
+                                            ))
                                         });
                                         short_flag
                                     } else {
+                                        // Obtain the flag's name by removing the starting - and trailing )
                                         &short_flag[1..(short_flag.len() - 1)]
                                     };
+                                    // Note that it is currently possible to make a short flag with non-alphanumeric characters,
+                                    // like -).
 
                                     let short_flag =
                                         String::from_utf8_lossy(short_flag).to_string();
@@ -3311,7 +3383,7 @@ pub fn parse_signature_helper(
                                     if !is_variable(&variable_name) {
                                         error = error.or_else(|| {
                                             Some(ParseError::Expected(
-                                                "valid variable name".into(),
+                                                "valid variable name for this short flag".into(),
                                                 span,
                                             ))
                                         })
@@ -3340,9 +3412,10 @@ pub fn parse_signature_helper(
                                         });
                                     }
                                 }
-                            } else if contents.starts_with(b"-") && contents.len() > 1 {
-                                // Short flag
-
+                                parse_mode = ParseMode::ArgMode;
+                            }
+                            // Mandatory short flag, e.g. -e (must be one character)
+                            else if contents.starts_with(b"-") && contents.len() > 1 {
                                 let short_flag = &contents[1..];
                                 let short_flag = String::from_utf8_lossy(short_flag).to_string();
                                 let chars: Vec<char> = short_flag.chars().collect();
@@ -3356,10 +3429,11 @@ pub fn parse_signature_helper(
                                 let mut encoded_var_name = vec![0u8; 4];
                                 let len = chars[0].encode_utf8(&mut encoded_var_name).len();
                                 let variable_name = encoded_var_name[0..len].to_vec();
+
                                 if !is_variable(&variable_name) {
                                     error = error.or_else(|| {
                                         Some(ParseError::Expected(
-                                            "valid variable name".into(),
+                                            "valid variable name for this short flag".into(),
                                             span,
                                         ))
                                     })
@@ -3377,7 +3451,16 @@ pub fn parse_signature_helper(
                                     var_id: Some(var_id),
                                     default_value: None,
                                 }));
-                            } else if contents.starts_with(b"(-") {
+                                parse_mode = ParseMode::ArgMode;
+                            }
+                            // Short flag alias for long flag, e.g. --b (-a)
+                            // This is the same as the short flag in --b(-a)
+                            else if contents.starts_with(b"(-") {
+                                if matches!(parse_mode, ParseMode::AfterCommaArgMode) {
+                                    error = error.or_else(|| {
+                                        Some(ParseError::Expected("parameter or flag".into(), span))
+                                    });
+                                }
                                 let short_flag = &contents[2..];
 
                                 let short_flag = if !short_flag.ends_with(b")") {
@@ -3420,14 +3503,17 @@ pub fn parse_signature_helper(
                                         Some(ParseError::Expected("short flag".into(), span))
                                     });
                                 }
-                            } else if contents.ends_with(b"?") {
+                            }
+                            // Positional arg, optional
+                            else if contents.ends_with(b"?") {
                                 let contents: Vec<_> = contents[..(contents.len() - 1)].into();
                                 let name = String::from_utf8_lossy(&contents).to_string();
 
                                 if !is_variable(&contents) {
                                     error = error.or_else(|| {
                                         Some(ParseError::Expected(
-                                            "valid variable name".into(),
+                                            "valid variable name for this optional parameter"
+                                                .into(),
                                             span,
                                         ))
                                     })
@@ -3436,7 +3522,6 @@ pub fn parse_signature_helper(
                                 let var_id =
                                     working_set.add_variable(contents, span, Type::Any, false);
 
-                                // Positional arg, optional
                                 args.push(Arg::Positional(
                                     PositionalArg {
                                         desc: String::new(),
@@ -3446,14 +3531,18 @@ pub fn parse_signature_helper(
                                         default_value: None,
                                     },
                                     false,
-                                ))
-                            } else if let Some(contents) = contents.strip_prefix(b"...") {
+                                ));
+                                parse_mode = ParseMode::ArgMode;
+                            }
+                            // Rest param
+                            else if let Some(contents) = contents.strip_prefix(b"...") {
                                 let name = String::from_utf8_lossy(contents).to_string();
                                 let contents_vec: Vec<u8> = contents.to_vec();
+
                                 if !is_variable(&contents_vec) {
                                     error = error.or_else(|| {
                                         Some(ParseError::Expected(
-                                            "valid variable name".into(),
+                                            "valid variable name for this rest parameter".into(),
                                             span,
                                         ))
                                     })
@@ -3469,14 +3558,17 @@ pub fn parse_signature_helper(
                                     var_id: Some(var_id),
                                     default_value: None,
                                 }));
-                            } else {
+                                parse_mode = ParseMode::ArgMode;
+                            }
+                            // Normal param
+                            else {
                                 let name = String::from_utf8_lossy(contents).to_string();
                                 let contents_vec = contents.to_vec();
 
                                 if !is_variable(&contents_vec) {
                                     error = error.or_else(|| {
                                         Some(ParseError::Expected(
-                                            "valid variable name".into(),
+                                            "valid variable name for this parameter".into(),
                                             span,
                                         ))
                                     })
@@ -3495,7 +3587,8 @@ pub fn parse_signature_helper(
                                         default_value: None,
                                     },
                                     true,
-                                ))
+                                ));
+                                parse_mode = ParseMode::ArgMode;
                             }
                         }
                         ParseMode::TypeMode => {
@@ -3575,7 +3668,7 @@ pub fn parse_signature_helper(
                                     Arg::RestPositional(..) => {
                                         error = error.or_else(|| {
                                             Some(ParseError::AssignmentMismatch(
-                                                "Rest parameter given default value".into(),
+                                                "Rest parameter was given a default value".into(),
                                                 "can't have default value".into(),
                                                 expression.span,
                                             ))
@@ -3607,8 +3700,12 @@ pub fn parse_signature_helper(
                                                     if t != &expression_ty {
                                                         error = error.or_else(|| {
                                                             Some(ParseError::AssignmentMismatch(
-                                                                "Default value wrong type".into(),
-                                                                format!("default value not {}", t),
+                                                                "Default value is the wrong type"
+                                                                    .into(),
+                                                                format!(
+                                                                    "default value should be {}",
+                                                                    t
+                                                                ),
                                                                 expression_span,
                                                             ))
                                                         })
@@ -3831,7 +3928,11 @@ pub fn parse_table_expression(
         }
         _ => {
             match &output.block[0].commands[0] {
-                LiteElement::Command(_, command) | LiteElement::Redirection(_, _, command) => {
+                LiteElement::Command(_, command)
+                | LiteElement::Redirection(_, _, command)
+                | LiteElement::SeparateRedirection {
+                    out: (_, command), ..
+                } => {
                     let mut table_headers = vec![];
 
                     let (headers, err) = parse_value(
@@ -3852,7 +3953,10 @@ pub fn parse_table_expression(
 
                     match &output.block[1].commands[0] {
                         LiteElement::Command(_, command)
-                        | LiteElement::Redirection(_, _, command) => {
+                        | LiteElement::Redirection(_, _, command)
+                        | LiteElement::SeparateRedirection {
+                            out: (_, command), ..
+                        } => {
                             let mut rows = vec![];
                             for part in &command.parts {
                                 let (values, err) = parse_value(
@@ -4057,7 +4161,7 @@ pub fn parse_closure_expression(
     } else {
         return (
             garbage(span),
-            Some(ParseError::Expected("block".into(), span)),
+            Some(ParseError::Expected("closure".into(), span)),
         );
     }
     if bytes.ends_with(b"}") {
@@ -4129,7 +4233,7 @@ pub fn parse_closure_expression(
                 error = error.or_else(|| {
                     Some(ParseError::Expected(
                         format!(
-                            "{} block parameter{}",
+                            "{} closure parameter{}",
                             v.len(),
                             if v.len() > 1 { "s" } else { "" }
                         ),
@@ -4289,10 +4393,15 @@ pub fn parse_value(
         }
         b'{' => {
             if !matches!(shape, SyntaxShape::Closure(..)) && !matches!(shape, SyntaxShape::Block) {
-                if let (expr, None) =
-                    parse_full_cell_path(working_set, None, span, expand_aliases_denylist)
-                {
-                    return (expr, None);
+                let (expr, err) =
+                    parse_full_cell_path(working_set, None, span, expand_aliases_denylist);
+                match err {
+                    Some(err) => {
+                        if let ParseError::Unbalanced(_, _, _) = err {
+                            return (expr, Some(err));
+                        }
+                    }
+                    None => return (expr, None),
                 }
             }
             if matches!(shape, SyntaxShape::Closure(_)) || matches!(shape, SyntaxShape::Any) {
@@ -4334,6 +4443,7 @@ pub fn parse_value(
             (expression, err)
         }
         SyntaxShape::Number => parse_number(bytes, span),
+        SyntaxShape::Decimal => parse_float(bytes, span),
         SyntaxShape::Int => parse_int(bytes, span),
         SyntaxShape::Duration => parse_duration(working_set, span),
         SyntaxShape::DateTime => parse_datetime(working_set, span),
@@ -4921,6 +5031,29 @@ pub fn parse_expression(
                     spans[0],
                 )),
             ),
+            b"const" => (
+                parse_call(
+                    working_set,
+                    &spans[pos..],
+                    spans[0],
+                    expand_aliases_denylist,
+                    is_subexpression,
+                )
+                .0,
+                Some(ParseError::ConstInPipeline(
+                    String::from_utf8_lossy(match spans.len() {
+                        1 | 2 | 3 => b"value",
+                        _ => working_set.get_span_contents(spans[3]),
+                    })
+                    .to_string(),
+                    String::from_utf8_lossy(match spans.len() {
+                        1 => b"variable",
+                        _ => working_set.get_span_contents(spans[1]),
+                    })
+                    .to_string(),
+                    spans[0],
+                )),
+            ),
             b"mut" => (
                 parse_call(
                     working_set,
@@ -5113,6 +5246,7 @@ pub fn parse_expression(
                 arguments,
                 redirect_stdout: true,
                 redirect_stderr: false,
+                parser_info: vec![],
             }));
 
             (
@@ -5164,16 +5298,18 @@ pub fn parse_builtin_commands(
     let name = working_set.get_span_contents(lite_command.parts[0]);
 
     match name {
-        b"def" | b"def-env" => parse_def(working_set, lite_command, expand_aliases_denylist),
-        b"extern" => parse_extern(working_set, lite_command, expand_aliases_denylist),
-        b"let" => parse_let(working_set, &lite_command.parts, expand_aliases_denylist),
+        b"def" | b"def-env" => parse_def(working_set, lite_command, None, expand_aliases_denylist),
+        b"extern" => parse_extern(working_set, lite_command, None, expand_aliases_denylist),
+        b"let" | b"const" => {
+            parse_let_or_const(working_set, &lite_command.parts, expand_aliases_denylist)
+        }
         b"mut" => parse_mut(working_set, &lite_command.parts, expand_aliases_denylist),
         b"for" => {
             let (expr, err) = parse_for(working_set, &lite_command.parts, expand_aliases_denylist);
             (Pipeline::from_vec(vec![expr]), err)
         }
-        b"alias" => parse_alias(working_set, &lite_command.parts, expand_aliases_denylist),
-        b"module" => parse_module(working_set, &lite_command.parts, expand_aliases_denylist),
+        b"alias" => parse_alias(working_set, lite_command, None, expand_aliases_denylist),
+        b"module" => parse_module(working_set, lite_command, expand_aliases_denylist),
         b"use" => {
             let (pipeline, _, err) =
                 parse_use(working_set, &lite_command.parts, expand_aliases_denylist);
@@ -5309,7 +5445,11 @@ pub fn parse_block(
     for pipeline in &lite_block.block {
         if pipeline.commands.len() == 1 {
             match &pipeline.commands[0] {
-                LiteElement::Command(_, command) | LiteElement::Redirection(_, _, command) => {
+                LiteElement::Command(_, command)
+                | LiteElement::Redirection(_, _, command)
+                | LiteElement::SeparateRedirection {
+                    out: (_, command), ..
+                } => {
                     if let Some(err) =
                         parse_def_predecl(working_set, &command.parts, expand_aliases_denylist)
                     {
@@ -5362,6 +5502,40 @@ pub fn parse_block(
 
                             PipelineElement::Redirection(*span, redirection.clone(), expr)
                         }
+                        LiteElement::SeparateRedirection {
+                            out: (out_span, out_command),
+                            err: (err_span, err_command),
+                        } => {
+                            trace!("parsing: pipeline element: separate redirection");
+                            let (out_expr, out_err) = parse_string(
+                                working_set,
+                                out_command.parts[0],
+                                expand_aliases_denylist,
+                            );
+
+                            working_set.type_scope.add_type(out_expr.ty.clone());
+
+                            if error.is_none() {
+                                error = out_err;
+                            }
+
+                            let (err_expr, err_err) = parse_string(
+                                working_set,
+                                err_command.parts[0],
+                                expand_aliases_denylist,
+                            );
+
+                            working_set.type_scope.add_type(err_expr.ty.clone());
+
+                            if error.is_none() {
+                                error = err_err;
+                            }
+
+                            PipelineElement::SeparateRedirection {
+                                out: (*out_span, out_expr),
+                                err: (*err_span, err_expr),
+                            }
+                        }
                     })
                     .collect::<Vec<PipelineElement>>();
 
@@ -5382,7 +5556,11 @@ pub fn parse_block(
                 Pipeline { elements: output }
             } else {
                 match &pipeline.commands[0] {
-                    LiteElement::Command(_, command) | LiteElement::Redirection(_, _, command) => {
+                    LiteElement::Command(_, command)
+                    | LiteElement::Redirection(_, _, command)
+                    | LiteElement::SeparateRedirection {
+                        out: (_, command), ..
+                    } => {
                         let (mut pipeline, err) = parse_builtin_commands(
                             working_set,
                             command,
@@ -5524,6 +5702,19 @@ pub fn discover_captures_in_pipeline_element(
         | PipelineElement::And(_, expression)
         | PipelineElement::Or(_, expression) => {
             discover_captures_in_expr(working_set, expression, seen, seen_blocks)
+        }
+        PipelineElement::SeparateRedirection {
+            out: (_, out_expr),
+            err: (_, err_expr),
+        } => {
+            let mut result = discover_captures_in_expr(working_set, out_expr, seen, seen_blocks)?;
+            result.append(&mut discover_captures_in_expr(
+                working_set,
+                err_expr,
+                seen,
+                seen_blocks,
+            )?);
+            Ok(result)
         }
     }
 }
@@ -5782,6 +5973,13 @@ fn wrap_element_with_collect(
                 wrap_expr_with_collect(working_set, expression),
             )
         }
+        PipelineElement::SeparateRedirection {
+            out: (out_span, out_exp),
+            err: (err_span, err_exp),
+        } => PipelineElement::SeparateRedirection {
+            out: (*out_span, wrap_expr_with_collect(working_set, out_exp)),
+            err: (*err_span, wrap_expr_with_collect(working_set, err_exp)),
+        },
         PipelineElement::And(span, expression) => {
             PipelineElement::And(*span, wrap_expr_with_collect(working_set, expression))
         }
@@ -5844,6 +6042,7 @@ fn wrap_expr_with_collect(working_set: &mut StateWorkingSet, expr: &Expression) 
                 decl_id,
                 redirect_stdout: true,
                 redirect_stderr: false,
+                parser_info: vec![],
             })),
             span,
             ty: Type::String,
@@ -5851,366 +6050,6 @@ fn wrap_expr_with_collect(working_set: &mut StateWorkingSet, expr: &Expression) 
         }
     } else {
         Expression::garbage(span)
-    }
-}
-
-#[derive(Debug)]
-pub struct LiteCommand {
-    pub comments: Vec<Span>,
-    pub parts: Vec<Span>,
-}
-
-impl Default for LiteCommand {
-    fn default() -> Self {
-        Self::new()
-    }
-}
-
-impl LiteCommand {
-    pub fn new() -> Self {
-        Self {
-            comments: vec![],
-            parts: vec![],
-        }
-    }
-
-    pub fn push(&mut self, span: Span) {
-        self.parts.push(span);
-    }
-
-    pub fn is_empty(&self) -> bool {
-        self.parts.is_empty()
-    }
-}
-
-// Note: the Span is the span of the connector not the whole element
-#[derive(Debug)]
-pub enum LiteElement {
-    Command(Option<Span>, LiteCommand),
-    Redirection(Span, Redirection, LiteCommand),
-}
-
-#[derive(Debug)]
-pub struct LitePipeline {
-    pub commands: Vec<LiteElement>,
-}
-
-impl Default for LitePipeline {
-    fn default() -> Self {
-        Self::new()
-    }
-}
-
-impl LitePipeline {
-    pub fn new() -> Self {
-        Self { commands: vec![] }
-    }
-
-    pub fn push(&mut self, element: LiteElement) {
-        self.commands.push(element);
-    }
-
-    pub fn is_empty(&self) -> bool {
-        self.commands.is_empty()
-    }
-}
-
-#[derive(Debug)]
-pub struct LiteBlock {
-    pub block: Vec<LitePipeline>,
-}
-
-impl Default for LiteBlock {
-    fn default() -> Self {
-        Self::new()
-    }
-}
-
-impl LiteBlock {
-    pub fn new() -> Self {
-        Self { block: vec![] }
-    }
-
-    pub fn push(&mut self, pipeline: LitePipeline) {
-        self.block.push(pipeline);
-    }
-
-    pub fn is_empty(&self) -> bool {
-        self.block.is_empty()
-    }
-}
-
-pub fn lite_parse(tokens: &[Token]) -> (LiteBlock, Option<ParseError>) {
-    let mut block = LiteBlock::new();
-    let mut curr_pipeline = LitePipeline::new();
-    let mut curr_command = LiteCommand::new();
-
-    let mut last_token = TokenContents::Eol;
-
-    let mut last_connector = TokenContents::Pipe;
-    let mut last_connector_span: Option<Span> = None;
-
-    if tokens.is_empty() {
-        return (LiteBlock::new(), None);
-    }
-
-    let mut curr_comment: Option<Vec<Span>> = None;
-
-    let mut error = None;
-
-    for token in tokens.iter() {
-        match &token.contents {
-            TokenContents::PipePipe => {
-                error = error.or(Some(ParseError::ShellOrOr(token.span)));
-                curr_command.push(token.span);
-                last_token = TokenContents::Item;
-            }
-            TokenContents::Item => {
-                // If we have a comment, go ahead and attach it
-                if let Some(curr_comment) = curr_comment.take() {
-                    curr_command.comments = curr_comment;
-                }
-                curr_command.push(token.span);
-                last_token = TokenContents::Item;
-            }
-            TokenContents::OutGreaterThan
-            | TokenContents::ErrGreaterThan
-            | TokenContents::OutErrGreaterThan => {
-                if !curr_command.is_empty() {
-                    match last_connector {
-                        TokenContents::OutGreaterThan => {
-                            curr_pipeline.push(LiteElement::Redirection(
-                                token.span,
-                                Redirection::Stdout,
-                                curr_command,
-                            ));
-                        }
-                        TokenContents::ErrGreaterThan => {
-                            curr_pipeline.push(LiteElement::Redirection(
-                                token.span,
-                                Redirection::Stderr,
-                                curr_command,
-                            ));
-                        }
-                        TokenContents::OutErrGreaterThan => {
-                            curr_pipeline.push(LiteElement::Redirection(
-                                token.span,
-                                Redirection::StdoutAndStderr,
-                                curr_command,
-                            ));
-                        }
-                        _ => {
-                            curr_pipeline
-                                .push(LiteElement::Command(last_connector_span, curr_command));
-                        }
-                    }
-                    curr_command = LiteCommand::new();
-                }
-                last_token = token.contents;
-                last_connector = token.contents;
-                last_connector_span = Some(token.span);
-            }
-            TokenContents::Pipe => {
-                if !curr_command.is_empty() {
-                    match last_connector {
-                        TokenContents::OutGreaterThan => {
-                            curr_pipeline.push(LiteElement::Redirection(
-                                token.span,
-                                Redirection::Stdout,
-                                curr_command,
-                            ));
-                        }
-                        TokenContents::ErrGreaterThan => {
-                            curr_pipeline.push(LiteElement::Redirection(
-                                token.span,
-                                Redirection::Stderr,
-                                curr_command,
-                            ));
-                        }
-                        TokenContents::OutErrGreaterThan => {
-                            curr_pipeline.push(LiteElement::Redirection(
-                                token.span,
-                                Redirection::StdoutAndStderr,
-                                curr_command,
-                            ));
-                        }
-                        _ => {
-                            curr_pipeline
-                                .push(LiteElement::Command(last_connector_span, curr_command));
-                        }
-                    }
-                    curr_command = LiteCommand::new();
-                }
-                last_token = TokenContents::Pipe;
-                last_connector = TokenContents::Pipe;
-                last_connector_span = Some(token.span);
-            }
-            TokenContents::Eol => {
-                if last_token != TokenContents::Pipe && last_token != TokenContents::OutGreaterThan
-                {
-                    if !curr_command.is_empty() {
-                        match last_connector {
-                            TokenContents::OutGreaterThan => {
-                                curr_pipeline.push(LiteElement::Redirection(
-                                    last_connector_span.expect(
-                                        "internal error: redirection missing span information",
-                                    ),
-                                    Redirection::Stdout,
-                                    curr_command,
-                                ));
-                            }
-                            TokenContents::ErrGreaterThan => {
-                                curr_pipeline.push(LiteElement::Redirection(
-                                    last_connector_span.expect(
-                                        "internal error: redirection missing span information",
-                                    ),
-                                    Redirection::Stderr,
-                                    curr_command,
-                                ));
-                            }
-                            TokenContents::OutErrGreaterThan => {
-                                curr_pipeline.push(LiteElement::Redirection(
-                                    last_connector_span.expect(
-                                        "internal error: redirection missing span information",
-                                    ),
-                                    Redirection::StdoutAndStderr,
-                                    curr_command,
-                                ));
-                            }
-                            _ => {
-                                curr_pipeline
-                                    .push(LiteElement::Command(last_connector_span, curr_command));
-                            }
-                        }
-
-                        curr_command = LiteCommand::new();
-                    }
-
-                    if !curr_pipeline.is_empty() {
-                        block.push(curr_pipeline);
-
-                        curr_pipeline = LitePipeline::new();
-                    }
-                }
-
-                if last_token == TokenContents::Eol {
-                    // Clear out the comment as we're entering a new comment
-                    curr_comment = None;
-                }
-
-                last_token = TokenContents::Eol;
-            }
-            TokenContents::Semicolon => {
-                if !curr_command.is_empty() {
-                    match last_connector {
-                        TokenContents::OutGreaterThan => {
-                            curr_pipeline.push(LiteElement::Redirection(
-                                last_connector_span
-                                    .expect("internal error: redirection missing span information"),
-                                Redirection::Stdout,
-                                curr_command,
-                            ));
-                        }
-                        TokenContents::ErrGreaterThan => {
-                            curr_pipeline.push(LiteElement::Redirection(
-                                last_connector_span
-                                    .expect("internal error: redirection missing span information"),
-                                Redirection::Stderr,
-                                curr_command,
-                            ));
-                        }
-                        TokenContents::OutErrGreaterThan => {
-                            curr_pipeline.push(LiteElement::Redirection(
-                                last_connector_span
-                                    .expect("internal error: redirection missing span information"),
-                                Redirection::StdoutAndStderr,
-                                curr_command,
-                            ));
-                        }
-                        _ => {
-                            curr_pipeline
-                                .push(LiteElement::Command(last_connector_span, curr_command));
-                        }
-                    }
-
-                    curr_command = LiteCommand::new();
-                }
-
-                if !curr_pipeline.is_empty() {
-                    block.push(curr_pipeline);
-
-                    curr_pipeline = LitePipeline::new();
-                    last_connector = TokenContents::Pipe;
-                    last_connector_span = None;
-                }
-
-                last_token = TokenContents::Semicolon;
-            }
-            TokenContents::Comment => {
-                // Comment is beside something
-                if last_token != TokenContents::Eol {
-                    curr_command.comments.push(token.span);
-                    curr_comment = None;
-                } else {
-                    // Comment precedes something
-                    if let Some(curr_comment) = &mut curr_comment {
-                        curr_comment.push(token.span);
-                    } else {
-                        curr_comment = Some(vec![token.span]);
-                    }
-                }
-
-                last_token = TokenContents::Comment;
-            }
-        }
-    }
-
-    if !curr_command.is_empty() {
-        match last_connector {
-            TokenContents::OutGreaterThan => {
-                curr_pipeline.push(LiteElement::Redirection(
-                    last_connector_span
-                        .expect("internal error: redirection missing span information"),
-                    Redirection::Stdout,
-                    curr_command,
-                ));
-            }
-            TokenContents::ErrGreaterThan => {
-                curr_pipeline.push(LiteElement::Redirection(
-                    last_connector_span
-                        .expect("internal error: redirection missing span information"),
-                    Redirection::Stderr,
-                    curr_command,
-                ));
-            }
-            TokenContents::OutErrGreaterThan => {
-                curr_pipeline.push(LiteElement::Redirection(
-                    last_connector_span
-                        .expect("internal error: redirection missing span information"),
-                    Redirection::StdoutAndStderr,
-                    curr_command,
-                ));
-            }
-            _ => {
-                curr_pipeline.push(LiteElement::Command(last_connector_span, curr_command));
-            }
-        }
-    }
-
-    if !curr_pipeline.is_empty() {
-        block.push(curr_pipeline);
-    }
-
-    if last_token == TokenContents::Pipe {
-        (
-            block,
-            Some(ParseError::UnexpectedEof(
-                "pipeline missing end".into(),
-                tokens[tokens.len() - 1].span,
-            )),
-        )
-    } else {
-        (block, error)
     }
 }
 

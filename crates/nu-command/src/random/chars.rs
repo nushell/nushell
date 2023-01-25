@@ -1,7 +1,9 @@
 use nu_engine::CallExt;
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
-use nu_protocol::{Category, Example, PipelineData, ShellError, Signature, SyntaxShape, Value};
+use nu_protocol::{
+    Category, Example, PipelineData, ShellError, Signature, SyntaxShape, Type, Value,
+};
 use rand::{
     distributions::{Alphanumeric, Distribution},
     thread_rng,
@@ -19,12 +21,18 @@ impl Command for SubCommand {
 
     fn signature(&self) -> Signature {
         Signature::build("random chars")
+            .input_output_types(vec![(Type::Nothing, Type::String)])
+            .allow_variants_without_examples(true)
             .named("length", SyntaxShape::Int, "Number of chars", Some('l'))
             .category(Category::Random)
     }
 
     fn usage(&self) -> &str {
         "Generate random chars"
+    }
+
+    fn search_terms(&self) -> Vec<&str> {
+        vec!["generate", "character", "symbol", "alphanumeric"]
     }
 
     fn run(

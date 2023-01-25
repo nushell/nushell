@@ -61,20 +61,20 @@ pub fn execute_xpath_query(
                 sxd_xpath::Value::Nodeset(ns) => {
                     for n in ns.into_iter() {
                         cols.push(key.to_string());
-                        vals.push(Value::string(n.string_value(), Span::test_data()));
+                        vals.push(Value::string(n.string_value(), call.head));
                     }
                 }
                 sxd_xpath::Value::Boolean(b) => {
                     cols.push(key.to_string());
-                    vals.push(Value::boolean(b, Span::test_data()));
+                    vals.push(Value::boolean(b, call.head));
                 }
                 sxd_xpath::Value::Number(n) => {
                     cols.push(key.to_string());
-                    vals.push(Value::float(n, Span::test_data()));
+                    vals.push(Value::float(n, call.head));
                 }
                 sxd_xpath::Value::String(s) => {
                     cols.push(key.to_string());
-                    vals.push(Value::string(s, Span::test_data()));
+                    vals.push(Value::string(s, call.head));
                 }
             };
 
@@ -84,19 +84,19 @@ pub fn execute_xpath_query(
                 records.push(Value::Record {
                     cols: vec![k.to_string()],
                     vals: vec![v.clone()],
-                    span: Span::test_data(),
+                    span: call.head,
                 })
             }
 
             Ok(Value::List {
                 vals: records,
-                span: Span::test_data(),
+                span: call.head,
             })
         }
         Err(_) => Err(LabeledError {
             label: "xpath query error".to_string(),
             msg: "xpath query error".to_string(),
-            span: Some(Span::test_data()),
+            span: Some(call.head),
         }),
     }
 }
@@ -104,17 +104,18 @@ pub fn execute_xpath_query(
 fn build_xpath(xpath_str: &str, span: &Span) -> Result<sxd_xpath::XPath, LabeledError> {
     let factory = Factory::new();
 
-    match factory.build(xpath_str) {
-        Ok(xpath) => xpath.ok_or_else(|| LabeledError {
+    if let Ok(xpath) = factory.build(xpath_str) {
+        xpath.ok_or_else(|| LabeledError {
             label: "invalid xpath query".to_string(),
             msg: "invalid xpath query".to_string(),
             span: Some(*span),
-        }),
-        Err(_) => Err(LabeledError {
+        })
+    } else {
+        Err(LabeledError {
             label: "expected valid xpath query".to_string(),
             msg: "expected valid xpath query".to_string(),
             span: Some(*span),
-        }),
+        })
     }
 }
 
@@ -146,7 +147,7 @@ mod tests {
         let expected = Value::List {
             vals: vec![Value::Record {
                 cols: vec!["count(//a/*[posit...".to_string()],
-                vals: vec![Value::float(1.0, Span::test_data())],
+                vals: vec![Value::test_float(1.0)],
                 span: Span::test_data(),
             }],
             span: Span::test_data(),
@@ -177,7 +178,7 @@ mod tests {
         let expected = Value::List {
             vals: vec![Value::Record {
                 cols: vec!["count(//*[contain...".to_string()],
-                vals: vec![Value::float(1.0, Span::test_data())],
+                vals: vec![Value::test_float(1.0)],
                 span: Span::test_data(),
             }],
             span: Span::test_data(),

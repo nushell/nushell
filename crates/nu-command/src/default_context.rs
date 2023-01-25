@@ -32,6 +32,7 @@ pub fn create_default_context() -> EngineState {
             Ast,
             Break,
             Commandline,
+            Const,
             Continue,
             Debug,
             Def,
@@ -49,6 +50,9 @@ pub fn create_default_context() -> EngineState {
             Extern,
             For,
             Help,
+            HelpAliases,
+            HelpCommands,
+            HelpModules,
             HelpOperators,
             Hide,
             HideEnv,
@@ -137,6 +141,7 @@ pub fn create_default_context() -> EngineState {
             Upsert,
             Update,
             UpdateCells,
+            Values,
             Where,
             Window,
             Wrap,
@@ -270,6 +275,7 @@ pub fn create_default_context() -> EngineState {
             Mkdir,
             Mv,
             Open,
+            Start,
             Rm,
             Save,
             Touch,
@@ -282,6 +288,7 @@ pub fn create_default_context() -> EngineState {
             Ansi,
             AnsiGradient,
             AnsiStrip,
+            AnsiLink,
             Clear,
             Du,
             KeybindingsDefault,
@@ -348,7 +355,6 @@ pub fn create_default_context() -> EngineState {
             Use,
             Upsert,
             Where,
-            ToUrl,
             ToXml,
             ToYaml,
         };
@@ -371,7 +377,6 @@ pub fn create_default_context() -> EngineState {
             IntoDuration,
             IntoFilesize,
             IntoInt,
-            IntoCellPath,
             IntoRecord,
             IntoString,
         };
@@ -396,7 +401,6 @@ pub fn create_default_context() -> EngineState {
             MathAbs,
             MathAvg,
             MathCeil,
-            MathEval,
             MathFloor,
             MathMax,
             MathMedian,
@@ -429,9 +433,13 @@ pub fn create_default_context() -> EngineState {
 
         // Network
         bind_command! {
-            Fetch,
-            Post,
+            Http,
+            HttpGet,
+            HttpPost,
             Url,
+            UrlBuildQuery,
+            UrlEncode,
+            UrlJoin,
             UrlParse,
             Port,
         }
@@ -476,6 +484,7 @@ pub fn create_default_context() -> EngineState {
             StrDecimalDeprecated,
             StrIntDeprecated,
             StrFindReplaceDeprecated,
+            MathEvalDeprecated,
         };
 
         #[cfg(feature = "plugin")]

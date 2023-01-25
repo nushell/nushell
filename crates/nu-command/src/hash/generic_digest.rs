@@ -103,6 +103,8 @@ where
     let (bytes, span) = match input {
         Value::String { val, span } => (val.as_bytes(), *span),
         Value::Binary { val, span } => (val.as_slice(), *span),
+        // Propagate existing errors
+        Value::Error { .. } => return input.clone(),
         other => {
             let span = match input.span() {
                 Ok(span) => span,
@@ -110,13 +112,11 @@ where
             };
 
             return Value::Error {
-                error: ShellError::UnsupportedInput(
-                    format!(
-                        "Type `{}` is not supported for {} hashing input",
-                        other.get_type(),
-                        D::name()
-                    ),
+                error: ShellError::OnlySupportsThisInputType(
+                    "string or binary".into(),
+                    other.get_type().to_string(),
                     span,
+                    other.expect_span(),
                 ),
             };
         }

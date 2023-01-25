@@ -1,11 +1,11 @@
 use indexmap::indexmap;
 use indexmap::map::IndexMap;
-use lazy_static::lazy_static;
 use nu_engine::CallExt;
 use nu_protocol::{
     ast::Call, engine::Command, Category, Example, IntoInterruptiblePipelineData, IntoPipelineData,
     PipelineData, ShellError, Signature, Span, SyntaxShape, Type, Value,
 };
+use once_cell::sync::Lazy;
 
 // Character used to separate directories in a Path Environment variable on windows is ";"
 #[cfg(target_family = "windows")]
@@ -17,8 +17,8 @@ const ENV_PATH_SEPARATOR_CHAR: char = ':';
 #[derive(Clone)]
 pub struct Char;
 
-lazy_static! {
-    static ref CHAR_MAP: IndexMap<&'static str, String> = indexmap! {
+static CHAR_MAP: Lazy<IndexMap<&'static str, String>> = Lazy::new(|| {
+    indexmap! {
         // These are some regular characters that either can't be used or
         // it's just easier to use them like this.
 
@@ -146,8 +146,8 @@ lazy_static! {
         "unit_separator" => '\x1f'.to_string(),
         "unit_sep" => '\x1f'.to_string(),
         "us" => '\x1f'.to_string(),
-    };
-}
+    }
+});
 
 impl Command for Char {
     fn name(&self) -> &str {
@@ -288,7 +288,7 @@ impl Command for Char {
             if let Some(output) = special_character {
                 Ok(Value::string(output, call_span).into_pipeline_data())
             } else {
-                Err(ShellError::UnsupportedInput(
+                Err(ShellError::TypeMismatch(
                     "error finding named character".into(),
                     call.positional_nth(0)
                         .expect("Unexpected missing argument")
@@ -305,7 +305,7 @@ fn integer_to_unicode_char(value: i64, t: &Span) -> Result<char, ShellError> {
     if let Some(ch) = decoded_char {
         Ok(ch)
     } else {
-        Err(ShellError::UnsupportedInput(
+        Err(ShellError::TypeMismatch(
             "not a valid Unicode codepoint".into(),
             *t,
         ))
@@ -320,7 +320,7 @@ fn string_to_unicode_char(s: &str, t: &Span) -> Result<char, ShellError> {
     if let Some(ch) = decoded_char {
         Ok(ch)
     } else {
-        Err(ShellError::UnsupportedInput(
+        Err(ShellError::TypeMismatch(
             "error decoding Unicode character".into(),
             *t,
         ))

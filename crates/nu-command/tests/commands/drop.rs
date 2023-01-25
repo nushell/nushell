@@ -65,7 +65,7 @@ fn rows() {
 
 #[test]
 fn more_rows_than_table_has() {
-    let actual = nu!(cwd: ".", "date | drop 50 | length");
+    let actual = nu!(cwd: ".", "[date] | drop 50 | length");
 
     assert_eq!(actual.out, "0");
 }
@@ -89,4 +89,11 @@ fn nth_missing_first_argument() {
     let actual = nu!(cwd: ".", "echo 10..15 | drop nth \"\"");
 
     assert!(actual.err.contains("int or range"));
+}
+
+#[test]
+fn fail_on_non_iterator() {
+    let actual = nu!(cwd: ".", pipeline("1 | drop 50"));
+
+    assert!(actual.err.contains("only_supports_this_input_type"));
 }

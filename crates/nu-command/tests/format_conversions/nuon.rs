@@ -297,6 +297,41 @@ fn to_nuon_converts_columns_with_spaces() {
 }
 
 #[test]
+fn to_nuon_quotes_empty_string() {
+    let actual = nu!(
+        cwd: "tests/fixtures/formats", pipeline(
+            r#"
+    let test = ""; $test | to nuon
+    "#
+    ));
+    assert!(actual.err.is_empty());
+    assert_eq!(actual.out, r#""""#)
+}
+
+#[test]
+fn to_nuon_quotes_empty_string_in_list() {
+    let actual = nu!(
+        cwd: "tests/fixtures/formats", pipeline(
+            r#"
+    let test = [""]; $test | to nuon | from nuon | $in == [""]
+    "#
+    ));
+    assert!(actual.err.is_empty());
+    assert_eq!(actual.out, "true")
+}
+
+#[test]
+fn to_nuon_quotes_empty_string_in_table() {
+    let actual = nu!(
+        cwd: "tests/fixtures/formats", pipeline(
+            r#"
+    let test = [[a, b]; ['', la] [le lu]]; $test | to nuon | from nuon
+    "#
+    ));
+    assert!(actual.err.is_empty());
+}
+
+#[test]
 fn does_not_quote_strings_unnecessarily() {
     let actual = nu!(
         cwd: "tests/fixtures/formats", pipeline(
@@ -330,12 +365,22 @@ fn quotes_some_strings_necessarily() {
             '-11.0..-15.0', '11.0..-15.0', '-11.0..15.0',
             '-11.0..<-15.0', '11.0..<-15.0', '-11.0..<15.0',
             '-11.0..', '11.0..', '..15.0', '..-15.0', '..<15.0', '..<-15.0',
-            '2000-01-01', '2022-02-02T14:30:00', '2022-02-02T14:30:00+05:00'
+            '2000-01-01', '2022-02-02T14:30:00', '2022-02-02T14:30:00+05:00',
+            ',',''
+            '&&'
             ] | to nuon | from nuon | describe
         "#
     ));
 
     assert_eq!(actual.out, "list<string>");
+}
+
+#[test]
+fn read_code_should_fail_rather_than_panic() {
+    let actual = nu!(cwd: "tests/fixtures/formats", pipeline(
+        r#"open code.nu | from nuon"#
+    ));
+    assert!(actual.err.contains("error when parsing"))
 }
 
 proptest! {
@@ -351,7 +396,7 @@ proptest! {
              {{"{0}": "sam"}} | to nuon | from nuon;
         "#, c).as_ref()
         ));
-        assert!(actual.err.is_empty() || actual.err.contains("Unexpected end of code") || actual.err.contains("only strings can be keys"));
+        assert!(actual.err.is_empty() || actual.err.contains("Unexpected end of code") || actual.err.contains("only strings can be keys") || actual.err.contains("unbalanced { and }"));
         // The second is for weird escapes due to backslashes
         // The third is for chars like '0'
         }

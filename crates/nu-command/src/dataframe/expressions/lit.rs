@@ -36,13 +36,14 @@ impl Command for ExprLit {
             example: "lit 2 | into nu",
             result: Some(Value::Record {
                 cols: vec!["expr".into(), "value".into()],
-                vals: vec![
-                    Value::string("literal", Span::test_data()),
-                    Value::string("2i64", Span::test_data()),
-                ],
+                vals: vec![Value::test_string("literal"), Value::test_string("2i64")],
                 span: Span::test_data(),
             }),
         }]
+    }
+
+    fn search_terms(&self) -> Vec<&str> {
+        vec!["string", "literal", "expression"]
     }
 
     fn run(

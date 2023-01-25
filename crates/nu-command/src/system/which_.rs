@@ -6,7 +6,7 @@ use nu_protocol::{
     ast::Call,
     engine::{Command, EngineState, Stack},
     Category, Example, IntoInterruptiblePipelineData, PipelineData, ShellError, Signature, Span,
-    Spanned, SyntaxShape, Value,
+    Spanned, SyntaxShape, Type, Value,
 };
 
 use std::ffi::OsStr;
@@ -22,6 +22,8 @@ impl Command for Which {
 
     fn signature(&self) -> Signature {
         Signature::build("which")
+            .input_output_types(vec![(Type::Nothing, Type::Table(vec![]))])
+            .allow_variants_without_examples(true)
             .required("application", SyntaxShape::String, "application")
             .rest("rest", SyntaxShape::String, "additional applications")
             .switch("all", "list all executables", Some('a'))
@@ -264,7 +266,13 @@ fn which(
     let paths = env::path_str(engine_state, stack, call.head)?;
 
     for app in which_args.applications {
-        let values = which_single(app, which_args.all, engine_state, &cwd, &paths);
+        let values = which_single(
+            app,
+            which_args.all,
+            engine_state,
+            cwd.clone(),
+            paths.clone(),
+        );
         output.extend(values);
     }
 

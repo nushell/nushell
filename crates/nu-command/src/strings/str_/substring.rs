@@ -1,3 +1,4 @@
+use crate::grapheme_flags;
 use crate::input_handler::{operate, CmdArgument};
 use nu_engine::CallExt;
 use nu_protocol::ast::Call;
@@ -5,6 +6,7 @@ use nu_protocol::ast::CellPath;
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{Example, PipelineData, ShellError, Signature, Span, SyntaxShape, Type, Value};
 use std::cmp::Ordering;
+use unicode_segmentation::UnicodeSegmentation;
 
 #[derive(Clone)]
 pub struct SubCommand;
@@ -12,6 +14,7 @@ pub struct SubCommand;
 struct Arguments {
     indexes: Substring,
     cell_paths: Option<Vec<CellPath>>,
+    graphemes: bool,
 }
 
 impl CmdArgument for Arguments {
@@ -40,6 +43,16 @@ impl Command for SubCommand {
         Signature::build("str substring")
             .input_output_types(vec![(Type::String, Type::String)])
             .vectorizes_over_list(true)
+            .switch(
+                "grapheme-clusters",
+                "count indexes and split using grapheme clusters (all visible chars have length 1)",
+                Some('g'),
+            )
+            .switch(
+                "utf-8-bytes",
+                "count indexes and split using UTF-8 bytes (default; non-ASCII chars have length 2+)",
+                Some('b'),
+            )
             .required(
                 "range",
                 SyntaxShape::Any,
@@ -74,6 +87,7 @@ impl Command for SubCommand {
         let args = Arguments {
             indexes,
             cell_paths,
+            graphemes: grapheme_flags(call)?,
         };
         operate(action, args, input, call.head, engine_state.ctrlc.clone())
     }
@@ -111,6 +125,11 @@ impl Command for SubCommand {
                 example: " 'good nushell' | str substring ',7'",
                 result: Some(Value::test_string("good nu")),
             },
+            Example {
+                description: "Count indexes and split using grapheme clusters",
+                example: " '🇯🇵ほげ ふが ぴよ' | str substring -g 4..6",
+                result: Some(Value::test_string("ふが")),
+            },
         ]
     }
 }
@@ -136,7 +155,7 @@ fn action(input: &Value, args: &Arguments, head: Span) -> Value {
                 match start.cmp(&end) {
                     Ordering::Equal => Value::string("", head),
                     Ordering::Greater => Value::Error {
-                        error: ShellError::UnsupportedInput(
+                        error: ShellError::TypeMismatch(
                             "End must be greater than or equal to Start".to_string(),
                             head,
                         ),
@@ -144,10 +163,23 @@ fn action(input: &Value, args: &Arguments, head: Span) -> Value {
                     Ordering::Less => Value::String {
                         val: {
                             if end == isize::max_value() {
-                                String::from_utf8_lossy(
-                                    &s.bytes().skip(start as usize).collect::<Vec<_>>(),
-                                )
-                                .to_string()
+                                if args.graphemes {
+                                    s.graphemes(true)
+                                        .skip(start as usize)
+                                        .collect::<Vec<&str>>()
+                                        .join("")
+                                } else {
+                                    String::from_utf8_lossy(
+                                        &s.bytes().skip(start as usize).collect::<Vec<_>>(),
+                                    )
+                                    .to_string()
+                                }
+                            } else if args.graphemes {
+                                s.graphemes(true)
+                                    .skip(start as usize)
+                                    .take((end - start) as usize)
+                                    .collect::<Vec<&str>>()
+                                    .join("")
                             } else {
                                 String::from_utf8_lossy(
                                     &s.bytes()
@@ -165,13 +197,15 @@ fn action(input: &Value, args: &Arguments, head: Span) -> Value {
                 Value::string("", head)
             }
         }
+        // Propagate errors by explicitly matching them before the final case.
+        Value::Error { .. } => input.clone(),
         other => Value::Error {
             error: ShellError::UnsupportedInput(
-                format!(
-                    "Input's type is {}. This command only works with strings.",
-                    other.get_type()
-                ),
+                "Only string values are supported".into(),
+                format!("input type: {:?}", other.get_type()),
                 head,
+                // This line requires the Value::Error match above.
+                other.expect_span(),
             ),
         },
     }
@@ -186,7 +220,7 @@ fn process_arguments(range: &Value, head: Span) -> Result<(isize, isize), ShellE
         }
         Value::List { vals, .. } => {
             if vals.len() > 2 {
-                Err(ShellError::UnsupportedInput(
+                Err(ShellError::TypeMismatch(
                     "More than two indices given".to_string(),
                     head,
                 ))
@@ -197,7 +231,7 @@ fn process_arguments(range: &Value, head: Span) -> Result<(isize, isize), ShellE
                         match v {
                             Value::Int { val, .. } => Ok(val.to_string()),
                             Value::String { val, .. } => Ok(val.to_string()),
-                            _ => Err(ShellError::UnsupportedInput(
+                            _ => Err(ShellError::TypeMismatch(
                                 "could not perform substring. Expecting a string or int"
                                     .to_string(),
                                 head,
@@ -210,19 +244,13 @@ fn process_arguments(range: &Value, head: Span) -> Result<(isize, isize), ShellE
                 let start = idx
                     .get(0)
                     .ok_or_else(|| {
-                        ShellError::UnsupportedInput(
-                            "could not perform substring".to_string(),
-                            head,
-                        )
+                        ShellError::TypeMismatch("could not perform substring".to_string(), head)
                     })?
                     .to_string();
                 let end = idx
                     .get(1)
                     .ok_or_else(|| {
-                        ShellError::UnsupportedInput(
-                            "could not perform substring".to_string(),
-                            head,
-                        )
+                        ShellError::TypeMismatch("could not perform substring".to_string(), head)
                     })?
                     .to_string();
                 Ok(SubstringText(start, end))
@@ -234,19 +262,19 @@ fn process_arguments(range: &Value, head: Span) -> Result<(isize, isize), ShellE
             let start = idx
                 .first()
                 .ok_or_else(|| {
-                    ShellError::UnsupportedInput("could not perform substring".to_string(), head)
+                    ShellError::TypeMismatch("could not perform substring".to_string(), head)
                 })?
                 .to_string();
             let end = idx
                 .get(1)
                 .ok_or_else(|| {
-                    ShellError::UnsupportedInput("could not perform substring".to_string(), head)
+                    ShellError::TypeMismatch("could not perform substring".to_string(), head)
                 })?
                 .to_string();
 
             Ok(SubstringText(start, end))
         }
-        _ => Err(ShellError::UnsupportedInput(
+        _ => Err(ShellError::TypeMismatch(
             "could not perform substring".to_string(),
             head,
         )),
@@ -254,14 +282,14 @@ fn process_arguments(range: &Value, head: Span) -> Result<(isize, isize), ShellE
     let start = match &search {
         SubstringText(start, _) if start.is_empty() || start == "_" => 0,
         SubstringText(start, _) => start.trim().parse().map_err(|_| {
-            ShellError::UnsupportedInput("could not perform substring".to_string(), head)
+            ShellError::TypeMismatch("could not perform substring".to_string(), head)
         })?,
     };
 
     let end = match &search {
         SubstringText(_, end) if end.is_empty() || end == "_" => isize::max_value(),
         SubstringText(_, end) => end.trim().parse().map_err(|_| {
-            ShellError::UnsupportedInput("could not perform substring".to_string(), head)
+            ShellError::TypeMismatch("could not perform substring".to_string(), head)
         })?,
     };
 
@@ -270,7 +298,7 @@ fn process_arguments(range: &Value, head: Span) -> Result<(isize, isize), ShellE
 
 #[cfg(test)]
 mod tests {
-    use super::{action, Span, SubCommand, Substring, Value};
+    use super::{action, Arguments, Span, SubCommand, Substring, Value};
 
     #[test]
     fn test_examples() {
@@ -298,7 +326,7 @@ mod tests {
 
     #[test]
     fn substrings_indexes() {
-        let word = Value::string("andres", Span::test_data());
+        let word = Value::test_string("andres");
 
         let cases = vec![
             expectation("a", (0, 1)),
@@ -330,14 +358,32 @@ mod tests {
             let expected = expectation.expected;
             let actual = action(
                 &word,
-                &super::Arguments {
+                &Arguments {
                     indexes: expectation.options(),
                     cell_paths: None,
+                    graphemes: false,
                 },
                 Span::test_data(),
             );
 
-            assert_eq!(actual, Value::string(expected, Span::test_data()));
+            assert_eq!(actual, Value::test_string(expected));
         }
+    }
+
+    #[test]
+    fn use_utf8_bytes() {
+        let word = Value::String {
+            val: String::from("🇯🇵ほげ ふが ぴよ"),
+            span: Span::test_data(),
+        };
+
+        let options = Arguments {
+            cell_paths: None,
+            indexes: Substring(4, 5),
+            graphemes: false,
+        };
+
+        let actual = action(&word, &options, Span::test_data());
+        assert_eq!(actual, Value::test_string("�"));
     }
 }

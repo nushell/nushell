@@ -34,7 +34,7 @@ impl Command for Headers {
         let columns = vec!["a".to_string(), "b".to_string(), "c".to_string()];
         vec![
             Example {
-                description: "Returns headers from table",
+                description: "Sets the column names for a table created by `split column`",
                 example: r#""a b c|1 2 3" | split row "|" | split column " " | headers"#,
                 result: Some(Value::List {
                     vals: vec![Value::Record {
@@ -50,7 +50,7 @@ impl Command for Headers {
                 }),
             },
             Example {
-                description: "Don't panic on rows with different headers",
+                description: "Columns which don't have data in their first row are removed",
                 example: r#""a b c|1 2 3|1 2 3 4" | split row "|" | split column " " | headers"#,
                 result: Some(Value::List {
                     vals: vec![
@@ -139,7 +139,7 @@ fn extract_headers(value: &Value, config: &Config) -> Result<Vec<String>, ShellE
             for v in vals {
                 if !is_valid_header(v) {
                     return Err(ShellError::TypeMismatch(
-                        "compatible type: Null, String, Bool, Float, Int".to_string(),
+                        "needs compatible type: Null, String, Bool, Float, Int".to_string(),
                         v.span()?,
                     ));
                 }

@@ -10,6 +10,7 @@ pub struct RawStream {
     pub ctrlc: Option<Arc<AtomicBool>>,
     pub is_binary: bool,
     pub span: Span,
+    pub known_size: Option<u64>, // (bytes)
 }
 
 impl RawStream {
@@ -17,6 +18,7 @@ impl RawStream {
         stream: Box<dyn Iterator<Item = Result<Vec<u8>, ShellError>> + Send + 'static>,
         ctrlc: Option<Arc<AtomicBool>>,
         span: Span,
+        known_size: Option<u64>,
     ) -> Self {
         Self {
             stream,
@@ -24,6 +26,7 @@ impl RawStream {
             ctrlc,
             is_binary: false,
             span,
+            known_size,
         }
     }
 
@@ -62,6 +65,7 @@ impl RawStream {
             ctrlc: self.ctrlc,
             is_binary: self.is_binary,
             span: self.span,
+            known_size: self.known_size,
         }
     }
 }
@@ -80,28 +84,24 @@ impl Iterator for RawStream {
 
         // If we know we're already binary, just output that
         if self.is_binary {
-            match self.stream.next() {
-                Some(buffer) => match buffer {
-                    Ok(mut v) => {
-                        if !self.leftover.is_empty() {
-                            while let Some(b) = self.leftover.pop() {
-                                v.insert(0, b);
-                            }
+            self.stream.next().map(|buffer| {
+                buffer.map(|mut v| {
+                    if !self.leftover.is_empty() {
+                        for b in self.leftover.drain(..).rev() {
+                            v.insert(0, b);
                         }
-                        Some(Ok(Value::Binary {
-                            val: v,
-                            span: self.span,
-                        }))
                     }
-                    Err(e) => Some(Err(e)),
-                },
-                None => None,
-            }
+                    Value::Binary {
+                        val: v,
+                        span: self.span,
+                    }
+                })
+            })
         } else {
             // We *may* be text. We're only going to try utf-8. Other decodings
             // needs to be taken as binary first, then passed through `decode`.
-            match self.stream.next() {
-                Some(buffer) => match buffer {
+            if let Some(buffer) = self.stream.next() {
+                match buffer {
                     Ok(mut v) => {
                         if !self.leftover.is_empty() {
                             while let Some(b) = self.leftover.pop() {
@@ -160,26 +160,23 @@ impl Iterator for RawStream {
                         }
                     }
                     Err(e) => Some(Err(e)),
-                },
-                None => {
-                    if !self.leftover.is_empty() {
-                        let output = Ok(Value::Binary {
-                            val: self.leftover.clone(),
-                            span: self.span,
-                        });
-                        self.leftover.clear();
-
-                        Some(output)
-                    } else {
-                        None
-                    }
                 }
+            } else if !self.leftover.is_empty() {
+                let output = Ok(Value::Binary {
+                    val: self.leftover.clone(),
+                    span: self.span,
+                });
+                self.leftover.clear();
+
+                Some(output)
+            } else {
+                None
             }
         }
     }
 }
 
-/// A potentially infinite stream of values, optinally with a mean to send a Ctrl-C signal to stop
+/// A potentially infinite stream of values, optionally with a mean to send a Ctrl-C signal to stop
 /// the stream from continuing.
 ///
 /// In practice, a "stream" here means anything which can be iterated and produce Values as it iterates.

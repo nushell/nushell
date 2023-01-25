@@ -34,8 +34,7 @@ impl SimpleCommand for TweakCmd {
     fn help(&self) -> Option<HelpManual> {
         Some(HelpManual {
             name: "tweak",
-            description:
-                "Set different settings.\nIt could be consired a not interactive version of :config",
+            description: "Set `explore` settings.\nLike a non-interactive version of :config",
             arguments: vec![],
             examples: vec![
                 HelpExample::new(":tweak table.show_index false", "Don't show index anymore"),
@@ -54,15 +53,12 @@ impl SimpleCommand for TweakCmd {
         let input = input.trim();
 
         let args = input.split_once(' ');
-        let (key, value) = match args {
-            Some(args) => args,
-            None => {
-                return Err(io::Error::new(
-                    io::ErrorKind::Other,
-                    "expected to get 2 arguments 'key value'",
-                ))
-            }
-        };
+        let (key, value) = args.ok_or_else(|| {
+            io::Error::new(
+                io::ErrorKind::Other,
+                "expected to get 2 arguments 'key value'",
+            )
+        })?;
 
         self.value = parse_value(value);
 

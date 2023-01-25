@@ -1,5 +1,8 @@
 use crate::input_handler::{operate as general_operate, CmdArgument};
-use base64::{decode_config, encode_config};
+use base64::{
+    alphabet, engine::general_purpose::NO_PAD, engine::general_purpose::PAD,
+    engine::GeneralPurpose, Engine,
+};
 use nu_engine::CallExt;
 use nu_protocol::ast::{Call, CellPath};
 use nu_protocol::engine::{EngineState, Stack};
@@ -7,7 +10,7 @@ use nu_protocol::{PipelineData, ShellError, Span, Spanned, Value};
 
 pub const CHARACTER_SET_DESC: &str = "specify the character rules for encoding the input.\n\
                     \tValid values are 'standard', 'standard-no-padding', 'url-safe', 'url-safe-no-padding',\
-                    'binhex', 'bcrypt', 'crypt'";
+                    'binhex', 'bcrypt', 'crypt', 'mutf7'";
 
 #[derive(Clone)]
 pub struct Base64Config {
@@ -78,14 +81,15 @@ fn action(
     let output_binary = args.binary;
 
     let config_character_set = &base64_config.character_set;
-    let base64_config_enum: base64::Config = match config_character_set.item.as_str() {
-        "standard" => base64::STANDARD,
-        "standard-no-padding" => base64::STANDARD_NO_PAD,
-        "url-safe" => base64::URL_SAFE,
-        "url-safe-no-padding" => base64::URL_SAFE_NO_PAD,
-        "binhex" => base64::BINHEX,
-        "bcrypt" => base64::BCRYPT,
-        "crypt" => base64::CRYPT,
+    let base64_engine: GeneralPurpose = match config_character_set.item.as_str() {
+        "standard" => GeneralPurpose::new(&alphabet::STANDARD, PAD),
+        "standard-no-padding" => GeneralPurpose::new(&alphabet::STANDARD, NO_PAD),
+        "url-safe" => GeneralPurpose::new(&alphabet::URL_SAFE, PAD),
+        "url-safe-no-padding" => GeneralPurpose::new(&alphabet::URL_SAFE, NO_PAD),
+        "bcrypt" => GeneralPurpose::new(&alphabet::BCRYPT, NO_PAD),
+        "binhex" => GeneralPurpose::new(&alphabet::BIN_HEX, NO_PAD),
+        "crypt" => GeneralPurpose::new(&alphabet::CRYPT, NO_PAD),
+        "mutf7" => GeneralPurpose::new(&alphabet::IMAP_MUTF7, NO_PAD),
         not_valid => return Value::Error { error:ShellError::GenericError(
             "value is not an accepted character set".to_string(),
             format!(
@@ -98,14 +102,36 @@ fn action(
         )}
     };
     match input {
+        // Propagate existing errors.
+        Value::Error { .. } => input.clone(),
         Value::Binary { val, .. } => match base64_config.action_type {
             ActionType::Encode => {
-                Value::string(encode_config(val, base64_config_enum), command_span)
+                let mut enc_vec = Vec::new();
+                enc_vec.resize(val.len() * 4 / 3 + 4, 0);
+                let bytes_written = match base64_engine.encode_slice(val, &mut enc_vec) {
+                    Ok(bytes_written) => bytes_written,
+                    Err(err) => {
+                        return Value::Error {
+                            error: ShellError::GenericError(
+                                "Error encoding data".into(),
+                                err.to_string(),
+                                Some(Span::unknown()),
+                                None,
+                                Vec::new(),
+                            ),
+                        }
+                    }
+                };
+                enc_vec.truncate(bytes_written);
+                Value::string(std::str::from_utf8(&enc_vec).unwrap_or(""), command_span)
             }
             ActionType::Decode => Value::Error {
                 error: ShellError::UnsupportedInput(
-                    "Binary data can only support encoding".to_string(),
+                    "Binary data can only be encoded".to_string(),
+                    "value originates from here".into(),
                     command_span,
+                    // This line requires the Value::Error {} match above.
+                    input.expect_span(),
                 ),
             },
         },
@@ -115,7 +141,9 @@ fn action(
         } => {
             match base64_config.action_type {
                 ActionType::Encode => {
-                    Value::string(encode_config(val, base64_config_enum), command_span)
+                    let mut enc_str = String::new();
+                    base64_engine.encode_string(val, &mut enc_str);
+                    Value::string(enc_str, command_span)
                 }
 
                 ActionType::Decode => {
@@ -123,7 +151,7 @@ fn action(
                     let val = val.clone();
                     let val = val.replace("\r\n", "").replace('\n', "");
 
-                    match decode_config(&val, base64_config_enum) {
+                    match base64_engine.decode(val) {
                         Ok(decoded_value) => {
                             if output_binary {
                                 Value::binary(decoded_value, command_span)
@@ -161,7 +189,7 @@ fn action(
         }
         other => Value::Error {
             error: ShellError::TypeMismatch(
-                format!("value is {}, not string", other.get_type()),
+                format!("string or binary, not {}", other.get_type()),
                 other.span().unwrap_or(command_span),
             ),
         },
@@ -175,8 +203,8 @@ mod tests {
 
     #[test]
     fn base64_encode_standard() {
-        let word = Value::string("Some Data Padding", Span::test_data());
-        let expected = Value::string("U29tZSBEYXRhIFBhZGRpbmc=", Span::test_data());
+        let word = Value::test_string("Some Data Padding");
+        let expected = Value::test_string("U29tZSBEYXRhIFBhZGRpbmc=");
 
         let actual = action(
             &word,
@@ -198,8 +226,8 @@ mod tests {
 
     #[test]
     fn base64_encode_standard_no_padding() {
-        let word = Value::string("Some Data Padding", Span::test_data());
-        let expected = Value::string("U29tZSBEYXRhIFBhZGRpbmc", Span::test_data());
+        let word = Value::test_string("Some Data Padding");
+        let expected = Value::test_string("U29tZSBEYXRhIFBhZGRpbmc");
 
         let actual = action(
             &word,
@@ -221,8 +249,8 @@ mod tests {
 
     #[test]
     fn base64_encode_url_safe() {
-        let word = Value::string("this is for url", Span::test_data());
-        let expected = Value::string("dGhpcyBpcyBmb3IgdXJs", Span::test_data());
+        let word = Value::test_string("this is for url");
+        let expected = Value::test_string("dGhpcyBpcyBmb3IgdXJs");
 
         let actual = action(
             &word,
@@ -244,7 +272,7 @@ mod tests {
 
     #[test]
     fn base64_decode_binhex() {
-        let word = Value::string("A5\"KC9jRB@IIF'8bF!", Span::test_data());
+        let word = Value::test_string("A5\"KC9jRB@IIF'8bF!");
         let expected = Value::binary(b"a binhex test".as_slice(), Span::test_data());
 
         let actual = action(
@@ -267,7 +295,7 @@ mod tests {
 
     #[test]
     fn base64_decode_binhex_with_new_line_input() {
-        let word = Value::string("A5\"KC9jRB\n@IIF'8bF!", Span::test_data());
+        let word = Value::test_string("A5\"KC9jRB\n@IIF'8bF!");
         let expected = Value::binary(b"a binhex test".as_slice(), Span::test_data());
 
         let actual = action(
@@ -294,7 +322,7 @@ mod tests {
             val: vec![77, 97, 110],
             span: Span::test_data(),
         };
-        let expected = Value::string("TWFu", Span::test_data());
+        let expected = Value::test_string("TWFu");
 
         let actual = action(
             &word,

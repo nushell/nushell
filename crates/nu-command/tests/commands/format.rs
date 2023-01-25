@@ -43,6 +43,19 @@ fn can_use_variables() {
 }
 
 #[test]
+fn error_unmatched_brace() {
+    let actual = nu!(
+        cwd: "tests/fixtures/formats", pipeline(
+        r#"
+        open cargo_sample.toml
+            | format "{$it.package.name"
+        "#
+    ));
+
+    assert!(actual.err.contains("unmatched curly brace"));
+}
+
+#[test]
 fn format_filesize_works() {
     Playground::setup("format_filesize_test_1", |dirs, sandbox| {
         sandbox.with_files(vec![

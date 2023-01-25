@@ -8,7 +8,7 @@ use nu_protocol::ast::Call;
 use nu_protocol::engine::{Closure, Command, EngineState, Stack, StateWorkingSet};
 use nu_protocol::{
     format_error, Category, Example, IntoPipelineData, PipelineData, ShellError, Signature,
-    Spanned, SyntaxShape, Value,
+    Spanned, SyntaxShape, Type, Value,
 };
 
 // durations chosen mostly arbitrarily
@@ -33,6 +33,7 @@ impl Command for Watch {
 
     fn signature(&self) -> nu_protocol::Signature {
         Signature::build("watch")
+        .input_output_types(vec![(Type::Nothing, Type::Table(vec![]))])
             .required("path", SyntaxShape::Filepath, "the path to watch. Can be a file or directory")
             .required("closure",
             SyntaxShape::Closure(Some(vec![SyntaxShape::String, SyntaxShape::String, SyntaxShape::String])),
@@ -97,8 +98,8 @@ impl Command for Watch {
             Some(val) => match u64::try_from(val.item) {
                 Ok(val) => Duration::from_millis(val),
                 Err(_) => {
-                    return Err(ShellError::UnsupportedInput(
-                        "Input out of range".to_string(),
+                    return Err(ShellError::TypeMismatch(
+                        "Debounce duration is invalid".to_string(),
                         val.span,
                     ))
                 }
@@ -116,7 +117,12 @@ impl Command for Watch {
 
                 match nu_glob::Pattern::new(&absolute_path.to_string_lossy()) {
                     Ok(pattern) => Some(pattern),
-                    Err(_) => return Err(ShellError::UnsupportedInput("".to_string(), glob.span)),
+                    Err(_) => {
+                        return Err(ShellError::TypeMismatch(
+                            "Glob pattern is invalid".to_string(),
+                            glob.span,
+                        ))
+                    }
                 }
             }
             None => None,

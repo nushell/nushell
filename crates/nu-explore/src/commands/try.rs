@@ -46,9 +46,9 @@ impl ViewCommand for TryCmd {
 
         #[rustfmt::skip]
         let config_options = vec![
-            ConfigOption::boolean(":try options", "Try makes running command on each input character", "try.reactive"),
+            ConfigOption::boolean(":try options", "In the `:try` REPL, attempt to run the command on every keypress", "try.reactive"),
             ConfigOption::new(":try options", "Change a border color of the menus", "try.border_color", default_color_list()),
-            ConfigOption::new(":try options", "Change a highlighed menu color", "try.highlighted_color", default_color_list()),
+            ConfigOption::new(":try options", "Change a highlighted menu color", "try.highlighted_color", default_color_list()),
         ];
 
         #[rustfmt::skip]
@@ -59,7 +59,7 @@ impl ViewCommand for TryCmd {
 
         Some(HelpManual {
             name: "try",
-            description: "Opens a panel in which to run Nushell commands and explore their output. The exporer acts liek `:table`.",
+            description: "Opens a panel in which to run Nushell commands and explore their output. The explorer acts like `:table`.",
             arguments: vec![],
             examples,
             input: shortcuts,

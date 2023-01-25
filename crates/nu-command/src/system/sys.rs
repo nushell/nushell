@@ -3,7 +3,7 @@ use chrono::Local;
 use nu_protocol::{
     ast::Call,
     engine::{Command, EngineState, Stack},
-    Category, Example, IntoPipelineData, PipelineData, ShellError, Signature, Span, Value,
+    Category, Example, IntoPipelineData, PipelineData, ShellError, Signature, Span, Type, Value,
 };
 use std::time::{Duration, UNIX_EPOCH};
 use sysinfo::{ComponentExt, CpuExt, DiskExt, NetworkExt, System, SystemExt, UserExt};
@@ -17,7 +17,10 @@ impl Command for Sys {
     }
 
     fn signature(&self) -> Signature {
-        Signature::build("sys").filter().category(Category::System)
+        Signature::build("sys")
+            .filter()
+            .category(Category::System)
+            .input_output_types(vec![(Type::Nothing, Type::Record(vec![]))])
     }
 
     fn usage(&self) -> &str {

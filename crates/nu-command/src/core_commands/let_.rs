@@ -70,9 +70,8 @@ impl Command for Let {
         )?
         .0;
 
-        //println!("Adding: {:?} to {}", rhs, var_id);
-
         stack.add_var(var_id, rhs.into_value(call.head));
+
         Ok(PipelineData::empty())
     }
 

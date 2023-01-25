@@ -1,4 +1,5 @@
-use nu_table::{Table, TableConfig, TableTheme, TextStyle};
+use nu_color_config::TextStyle;
+use nu_table::{Table, TableConfig, TableTheme};
 use tabled::papergrid::records::{cell_info::CellInfo, tcell::TCell};
 
 fn main() {

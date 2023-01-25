@@ -81,13 +81,10 @@ fn convert_to_suggestions(
 ) -> Vec<Suggestion> {
     match value {
         Value::Record { .. } => {
-            let text = match value
+            let text = value
                 .get_data_by_key("value")
                 .and_then(|val| val.as_string().ok())
-            {
-                Some(val) => val,
-                None => "No value key".to_string(),
-            };
+                .unwrap_or_else(|| "No value key".to_string());
 
             let description = value
                 .get_data_by_key("description")

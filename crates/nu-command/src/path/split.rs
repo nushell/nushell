@@ -2,7 +2,7 @@ use std::path::{Component, Path};
 
 use nu_engine::CallExt;
 use nu_protocol::{
-    engine::Command, Example, ShellError, Signature, Span, SyntaxShape, Type, Value,
+    engine::Command, Example, PipelineData, ShellError, Signature, Span, SyntaxShape, Type, Value,
 };
 
 use super::PathSubcommandArguments;
@@ -52,6 +52,10 @@ impl Command for SubCommand {
             columns: call.get_flag(engine_state, stack, "columns")?,
         };
 
+        // This doesn't match explicit nulls
+        if matches!(input, PipelineData::Empty) {
+            return Err(ShellError::PipelineEmpty(head));
+        }
         input.map(
             move |value| super::operate(&split, &args, value, head),
             engine_state.ctrlc.clone(),

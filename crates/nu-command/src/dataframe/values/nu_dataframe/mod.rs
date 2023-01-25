@@ -204,6 +204,33 @@ impl NuDataFrame {
         conversion::from_parsed_columns(column_values)
     }
 
+    pub fn fill_list_nan(list: Vec<Value>, list_span: Span, fill: Value) -> Value {
+        let newlist = list
+            .into_iter()
+            .map(|value| match value {
+                Value::Float { val, .. } => {
+                    if val.is_nan() {
+                        fill.clone()
+                    } else {
+                        value
+                    }
+                }
+                Value::List { vals, span } => Self::fill_list_nan(vals, span, fill.clone()),
+                _ => value,
+            })
+            .collect::<Vec<Value>>();
+        Value::list(newlist, list_span)
+    }
+
+    pub fn columns(&self, span: Span) -> Result<Vec<Column>, ShellError> {
+        let height = self.df.height();
+        self.df
+            .get_columns()
+            .iter()
+            .map(|col| conversion::create_column(col, 0, height, span))
+            .collect::<Result<Vec<Column>, ShellError>>()
+    }
+
     pub fn try_from_value(value: Value) -> Result<Self, ShellError> {
         if Self::can_downcast(&value) {
             Ok(Self::get_df(value)?)

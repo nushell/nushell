@@ -1,14 +1,13 @@
 use super::DescriptionMenu;
 use crate::{menus::NuMenuCompleter, NuHelpCompleter};
 use crossterm::event::{KeyCode, KeyModifiers};
-use nu_color_config::lookup_ansi_color_style;
+use nu_color_config::{color_record_to_nustyle, lookup_ansi_color_style};
 use nu_engine::eval_block;
 use nu_parser::parse;
 use nu_protocol::{
-    color_value_string, create_menus,
+    create_menus,
     engine::{EngineState, Stack, StateWorkingSet},
-    extract_value, Config, IntoPipelineData, ParsedKeybinding, ParsedMenu, PipelineData,
-    ShellError, Span, Value,
+    extract_value, Config, ParsedKeybinding, ParsedMenu, PipelineData, ShellError, Span, Value,
 };
 use reedline::{
     default_emacs_keybindings, default_vi_insert_keybindings, default_vi_normal_keybindings,
@@ -110,7 +109,7 @@ pub(crate) fn add_menus(
             };
 
             let mut temp_stack = Stack::new();
-            let input = Value::nothing(Span::test_data()).into_pipeline_data();
+            let input = PipelineData::Empty;
             let res = eval_block(&engine_state, &mut temp_stack, &block, input, false, false)?;
 
             if let PipelineData::Value(value, None) = res {
@@ -159,14 +158,11 @@ macro_rules! add_style {
     ($name:expr, $cols: expr, $vals:expr, $span:expr, $config: expr, $menu:expr, $f:expr) => {
         $menu = match extract_value($name, $cols, $vals, $span) {
             Ok(text) => {
-                let text = match text {
-                    Value::String { val, .. } => val.clone(),
-                    Value::Record { cols, vals, span } => {
-                        color_value_string(span, cols, vals, $config).into_string("", $config)
-                    }
-                    _ => "green".to_string(),
+                let style = match text {
+                    Value::String { val, .. } => lookup_ansi_color_style(&val),
+                    Value::Record { .. } => color_record_to_nustyle(&text),
+                    _ => lookup_ansi_color_style("green"),
                 };
-                let style = lookup_ansi_color_style(&text);
                 $f($menu, style)
             }
             Err(_) => $menu,
@@ -655,14 +651,15 @@ fn add_parsed_keybinding(
             let pos1 = char_iter.next();
             let pos2 = char_iter.next();
 
-            let char = match (pos1, pos2) {
-                (Some(char), None) => Ok(char),
-                _ => Err(ShellError::UnsupportedConfigValue(
+            let char = if let (Some(char), None) = (pos1, pos2) {
+                char
+            } else {
+                return Err(ShellError::UnsupportedConfigValue(
                     "char_<CHAR: unicode codepoint>".to_string(),
                     c.to_string(),
                     keybinding.keycode.span()?,
-                )),
-            }?;
+                ));
+            };
 
             KeyCode::Char(char)
         }
@@ -683,9 +680,9 @@ fn add_parsed_keybinding(
             let fn_num: u8 = c[1..]
                 .parse()
                 .ok()
-                .filter(|num| matches!(num, 1..=12))
+                .filter(|num| matches!(num, 1..=20))
                 .ok_or(ShellError::UnsupportedConfigValue(
-                    "(f1|f2|...|f12)".to_string(),
+                    "(f1|f2|...|f20)".to_string(),
                     format!("unknown function key: {}", c),
                     keybinding.keycode.span()?,
                 ))?;
@@ -993,7 +990,7 @@ mod test {
     #[test]
     fn test_send_event() {
         let cols = vec!["send".to_string()];
-        let vals = vec![Value::string("Enter", Span::test_data())];
+        let vals = vec![Value::test_string("Enter")];
 
         let span = Span::test_data();
         let b = EventType::try_from_columns(&cols, &vals, &span).unwrap();
@@ -1013,7 +1010,7 @@ mod test {
     #[test]
     fn test_edit_event() {
         let cols = vec!["edit".to_string()];
-        let vals = vec![Value::string("Clear", Span::test_data())];
+        let vals = vec![Value::test_string("Clear")];
 
         let span = Span::test_data();
         let b = EventType::try_from_columns(&cols, &vals, &span).unwrap();
@@ -1037,8 +1034,8 @@ mod test {
     fn test_send_menu() {
         let cols = vec!["send".to_string(), "name".to_string()];
         let vals = vec![
-            Value::string("Menu", Span::test_data()),
-            Value::string("history_menu", Span::test_data()),
+            Value::test_string("Menu"),
+            Value::test_string("history_menu"),
         ];
 
         let span = Span::test_data();
@@ -1064,8 +1061,8 @@ mod test {
         // Menu event
         let cols = vec!["send".to_string(), "name".to_string()];
         let vals = vec![
-            Value::string("Menu", Span::test_data()),
-            Value::string("history_menu", Span::test_data()),
+            Value::test_string("Menu"),
+            Value::test_string("history_menu"),
         ];
 
         let menu_event = Value::Record {
@@ -1076,7 +1073,7 @@ mod test {
 
         // Enter event
         let cols = vec!["send".to_string()];
-        let vals = vec![Value::string("Enter", Span::test_data())];
+        let vals = vec![Value::test_string("Enter")];
 
         let enter_event = Value::Record {
             cols,
@@ -1117,8 +1114,8 @@ mod test {
         // Menu event
         let cols = vec!["send".to_string(), "name".to_string()];
         let vals = vec![
-            Value::string("Menu", Span::test_data()),
-            Value::string("history_menu", Span::test_data()),
+            Value::test_string("Menu"),
+            Value::test_string("history_menu"),
         ];
 
         let menu_event = Value::Record {
@@ -1129,7 +1126,7 @@ mod test {
 
         // Enter event
         let cols = vec!["send".to_string()];
-        let vals = vec![Value::string("Enter", Span::test_data())];
+        let vals = vec![Value::test_string("Enter")];
 
         let enter_event = Value::Record {
             cols,
@@ -1157,7 +1154,7 @@ mod test {
     #[test]
     fn test_error() {
         let cols = vec!["not_exist".to_string()];
-        let vals = vec![Value::string("Enter", Span::test_data())];
+        let vals = vec![Value::test_string("Enter")];
 
         let span = Span::test_data();
         let b = EventType::try_from_columns(&cols, &vals, &span);

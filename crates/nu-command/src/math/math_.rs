@@ -2,7 +2,7 @@ use nu_engine::get_full_help;
 use nu_protocol::{
     ast::Call,
     engine::{Command, EngineState, Stack},
-    Category, IntoPipelineData, PipelineData, Signature, Value,
+    Category, IntoPipelineData, PipelineData, Signature, Type, Value,
 };
 
 #[derive(Clone)]
@@ -14,11 +14,17 @@ impl Command for MathCommand {
     }
 
     fn signature(&self) -> Signature {
-        Signature::build("math").category(Category::Math)
+        Signature::build("math")
+            .category(Category::Math)
+            .input_output_types(vec![(Type::Nothing, Type::String)])
     }
 
     fn usage(&self) -> &str {
         "Use mathematical functions as aggregate functions on a list of numbers or tables."
+    }
+
+    fn extra_usage(&self) -> &str {
+        "You must use one of the following subcommands. Using this command as-is will only produce this help message."
     }
 
     fn run(

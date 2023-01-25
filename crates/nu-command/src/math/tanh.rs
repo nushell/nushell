@@ -33,6 +33,10 @@ impl Command for SubCommand {
         input: PipelineData,
     ) -> Result<nu_protocol::PipelineData, nu_protocol::ShellError> {
         let head = call.head;
+        // This doesn't match explicit nulls
+        if matches!(input, PipelineData::Empty) {
+            return Err(ShellError::PipelineEmpty(head));
+        }
         input.map(
             move |value| operate(value, head),
             engine_state.ctrlc.clone(),
@@ -41,7 +45,7 @@ impl Command for SubCommand {
 
     fn examples(&self) -> Vec<Example> {
         vec![Example {
-            description: "Apply the hyperpolic tangent to 10*pi",
+            description: "Apply the hyperbolic tangent to 10*pi",
             example: "(math pi) * 10 | math tanh",
             result: Some(Value::test_float(1f64)),
         }]
@@ -62,13 +66,13 @@ fn operate(value: Value, head: Span) -> Value {
                 span,
             }
         }
+        Value::Error { .. } => value,
         other => Value::Error {
-            error: ShellError::UnsupportedInput(
-                format!(
-                    "Only numerical values are supported, input type: {:?}",
-                    other.get_type()
-                ),
-                other.span().unwrap_or(head),
+            error: ShellError::OnlySupportsThisInputType(
+                "numeric".into(),
+                other.get_type().to_string(),
+                head,
+                other.expect_span(),
             ),
         },
     }

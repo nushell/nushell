@@ -43,6 +43,10 @@ impl Command for SubCommand {
     ) -> Result<nu_protocol::PipelineData, nu_protocol::ShellError> {
         let precision_param: Option<i64> = call.get_flag(engine_state, stack, "precision")?;
         let head = call.head;
+        // This doesn't match explicit nulls
+        if matches!(input, PipelineData::Empty) {
+            return Err(ShellError::PipelineEmpty(head));
+        }
         input.map(
             move |value| operate(value, head, precision_param),
             engine_state.ctrlc.clone(),
@@ -64,9 +68,9 @@ impl Command for SubCommand {
                 example: "[1.555 2.333 -3.111] | math round -p 2",
                 result: Some(Value::List {
                     vals: vec![
-                        Value::float(1.56, Span::test_data()),
-                        Value::float(2.33, Span::test_data()),
-                        Value::float(-3.11, Span::test_data()),
+                        Value::test_float(1.56),
+                        Value::test_float(2.33),
+                        Value::test_float(-3.11),
                     ],
                     span: Span::test_data(),
                 }),
@@ -89,13 +93,13 @@ fn operate(value: Value, head: Span, precision: Option<i64>) -> Value {
             },
         },
         Value::Int { .. } => value,
+        Value::Error { .. } => value,
         other => Value::Error {
-            error: ShellError::UnsupportedInput(
-                format!(
-                    "Only numerical values are supported, input type: {:?}",
-                    other.get_type()
-                ),
-                other.span().unwrap_or(head),
+            error: ShellError::OnlySupportsThisInputType(
+                "numeric".into(),
+                other.get_type().to_string(),
+                head,
+                other.expect_span(),
             ),
         },
     }

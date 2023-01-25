@@ -2,7 +2,7 @@ use nu_engine::get_full_help;
 use nu_protocol::{
     ast::Call,
     engine::{Command, EngineState, Stack},
-    Category, IntoPipelineData, PipelineData, Signature, Value,
+    Category, IntoPipelineData, PipelineData, Signature, Type, Value,
 };
 
 #[derive(Clone)]
@@ -14,11 +14,17 @@ impl Command for Bytes {
     }
 
     fn signature(&self) -> Signature {
-        Signature::build("bytes").category(Category::Bytes)
+        Signature::build("bytes")
+            .category(Category::Bytes)
+            .input_output_types(vec![(Type::Nothing, Type::String)])
     }
 
     fn usage(&self) -> &str {
         "Various commands for working with byte data"
+    }
+
+    fn extra_usage(&self) -> &str {
+        "You must use one of the following subcommands. Using this command as-is will only produce this help message."
     }
 
     fn run(
@@ -39,17 +45,5 @@ impl Command for Bytes {
             span: call.head,
         }
         .into_pipeline_data())
-    }
-}
-
-#[cfg(test)]
-mod test {
-    use crate::Bytes;
-
-    #[test]
-    fn test_examples() {
-        use crate::test_examples;
-
-        test_examples(Bytes {})
     }
 }

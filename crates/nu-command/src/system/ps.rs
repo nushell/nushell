@@ -3,7 +3,8 @@ use std::time::Duration;
 use nu_protocol::{
     ast::Call,
     engine::{Command, EngineState, Stack},
-    Category, Example, IntoInterruptiblePipelineData, PipelineData, ShellError, Signature, Value,
+    Category, Example, IntoInterruptiblePipelineData, PipelineData, ShellError, Signature, Type,
+    Value,
 };
 
 #[derive(Clone)]
@@ -16,6 +17,7 @@ impl Command for Ps {
 
     fn signature(&self) -> Signature {
         Signature::build("ps")
+            .input_output_types(vec![(Type::Nothing, Type::Table(vec![]))])
             .switch(
                 "long",
                 "list all available columns for each entry",

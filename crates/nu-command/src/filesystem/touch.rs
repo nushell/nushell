@@ -7,7 +7,9 @@ use filetime::FileTime;
 use nu_engine::CallExt;
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
-use nu_protocol::{Category, Example, PipelineData, ShellError, Signature, Spanned, SyntaxShape};
+use nu_protocol::{
+    Category, Example, PipelineData, ShellError, Signature, Spanned, SyntaxShape, Type,
+};
 
 #[derive(Clone)]
 pub struct Touch;
@@ -23,6 +25,7 @@ impl Command for Touch {
 
     fn signature(&self) -> Signature {
         Signature::build("touch")
+            .input_output_types(vec![ (Type::Nothing, Type::Nothing) ])
             .required(
                 "filename",
                 SyntaxShape::Filepath,
@@ -91,7 +94,7 @@ impl Command for Touch {
                 Some(reference) => {
                     let reference_path = Path::new(&reference.item);
                     if !reference_path.exists() {
-                        return Err(ShellError::UnsupportedInput(
+                        return Err(ShellError::TypeMismatch(
                             "path provided is invalid".to_string(),
                             reference.span,
                         ));

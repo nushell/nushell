@@ -5,20 +5,21 @@ use crate::{
     util::{eval_source, get_guaranteed_cwd, report_error, report_error_new},
     NuHighlighter, NuValidator, NushellPrompt,
 };
-use fancy_regex::Regex;
-use lazy_static::lazy_static;
-use log::{info, trace, warn};
+use crossterm::cursor::CursorShape;
+use log::{trace, warn};
 use miette::{IntoDiagnostic, Result};
-use nu_color_config::get_color_config;
+use nu_color_config::StyleComputer;
 use nu_engine::{convert_env_values, eval_block, eval_block_with_early_return};
 use nu_parser::{lex, parse, trim_quotes_str};
 use nu_protocol::{
     ast::PathMember,
+    config::NuCursorShape,
     engine::{EngineState, ReplOperation, Stack, StateWorkingSet},
     format_duration, BlockId, HistoryFileFormat, PipelineData, PositionalArg, ShellError, Span,
     Spanned, Type, Value, VarId,
 };
-use reedline::{DefaultHinter, EditCommand, Emacs, SqliteBackedHistory, Vi};
+use nu_utils::utils::perf;
+use reedline::{CursorConfig, DefaultHinter, EditCommand, Emacs, SqliteBackedHistory, Vi};
 use std::{
     io::{self, Write},
     sync::atomic::Ordering,
@@ -41,6 +42,7 @@ pub fn evaluate_repl(
     stack: &mut Stack,
     nushell_path: &str,
     prerun_command: Option<Spanned<String>>,
+    entire_start_time: Instant,
 ) -> Result<()> {
     use reedline::{FileBackedHistory, Reedline, Signal};
 
@@ -58,18 +60,19 @@ pub fn evaluate_repl(
 
     let mut nu_prompt = NushellPrompt::new();
 
-    info!(
-        "translate environment vars {}:{}:{}",
-        file!(),
-        line!(),
-        column!()
-    );
-
+    let start_time = std::time::Instant::now();
     // Translate environment variables from Strings to Values
     if let Some(e) = convert_env_values(engine_state, stack) {
         let working_set = StateWorkingSet::new(engine_state);
         report_error(&working_set, &e);
     }
+    perf(
+        "translate env vars",
+        start_time,
+        file!(),
+        line!(),
+        column!(),
+    );
 
     // seed env vars
     stack.add_env_var(
@@ -79,33 +82,25 @@ pub fn evaluate_repl(
 
     stack.add_env_var("LAST_EXIT_CODE".into(), Value::int(0, Span::unknown()));
 
-    info!(
-        "load config initially {}:{}:{}",
-        file!(),
-        line!(),
-        column!()
-    );
-
-    info!("setup reedline {}:{}:{}", file!(), line!(), column!());
-
+    let mut start_time = std::time::Instant::now();
     let mut line_editor = Reedline::create();
 
     // Now that reedline is created, get the history session id and store it in engine_state
-    let hist_sesh = match line_editor.get_history_session_id() {
-        Some(id) => i64::from(id),
-        None => 0,
-    };
+    let hist_sesh = line_editor
+        .get_history_session_id()
+        .map(i64::from)
+        .unwrap_or(0);
     engine_state.history_session_id = hist_sesh;
+    perf("setup reedline", start_time, file!(), line!(), column!());
 
     let config = engine_state.get_config();
 
+    start_time = std::time::Instant::now();
     let history_path = crate::config_files::get_history_path(
         nushell_path,
         engine_state.config.history_file_format,
     );
     if let Some(history_path) = history_path.as_deref() {
-        info!("setup history {}:{}:{}", file!(), line!(), column!());
-
         let history: Box<dyn reedline::History> = match engine_state.config.history_file_format {
             HistoryFileFormat::PlainText => Box::new(
                 FileBackedHistory::with_file(
@@ -120,7 +115,9 @@ pub fn evaluate_repl(
         };
         line_editor = line_editor.with_history(history);
     };
+    perf("setup history", start_time, file!(), line!(), column!());
 
+    start_time = std::time::Instant::now();
     let sys = sysinfo::System::new();
 
     let show_banner = config.show_banner;
@@ -133,6 +130,13 @@ pub fn evaluate_repl(
             println!("{}", nu_utils::strip_ansi_string_likely(banner));
         }
     }
+    perf(
+        "get sysinfo/show banner",
+        start_time,
+        file!(),
+        line!(),
+        column!(),
+    );
 
     if let Some(s) = prerun_command {
         eval_source(
@@ -146,45 +150,64 @@ pub fn evaluate_repl(
     }
 
     loop {
-        info!(
-            "load config each loop {}:{}:{}",
-            file!(),
-            line!(),
-            column!()
-        );
+        let loop_start_time = std::time::Instant::now();
 
         let cwd = get_guaranteed_cwd(engine_state, stack);
 
+        start_time = std::time::Instant::now();
         // Before doing anything, merge the environment from the previous REPL iteration into the
         // permanent state.
         if let Err(err) = engine_state.merge_env(stack, cwd) {
             report_error_new(engine_state, &err);
         }
+        perf("merge env", start_time, file!(), line!(), column!());
 
+        start_time = std::time::Instant::now();
         //Reset the ctrl-c handler
         if let Some(ctrlc) = &mut engine_state.ctrlc {
             ctrlc.store(false, Ordering::SeqCst);
         }
+        perf("reset ctrlc", start_time, file!(), line!(), column!());
+
+        start_time = std::time::Instant::now();
         // Reset the SIGQUIT handler
         if let Some(sig_quit) = engine_state.get_sig_quit() {
             sig_quit.store(false, Ordering::SeqCst);
         }
+        perf("reset sig_quit", start_time, file!(), line!(), column!());
 
+        start_time = std::time::Instant::now();
         let config = engine_state.get_config();
 
-        info!("setup colors {}:{}:{}", file!(), line!(), column!());
-
-        let color_hm = get_color_config(config);
-
-        info!("update reedline {}:{}:{}", file!(), line!(), column!());
         let engine_reference = std::sync::Arc::new(engine_state.clone());
+
+        // Find the configured cursor shapes for each mode
+        let cursor_config = CursorConfig {
+            vi_insert: Some(map_nucursorshape_to_cursorshape(
+                config.cursor_shape_vi_insert,
+            )),
+            vi_normal: Some(map_nucursorshape_to_cursorshape(
+                config.cursor_shape_vi_normal,
+            )),
+            emacs: Some(map_nucursorshape_to_cursorshape(config.cursor_shape_emacs)),
+        };
+        perf(
+            "get config/cursor config",
+            start_time,
+            file!(),
+            line!(),
+            column!(),
+        );
+
+        start_time = std::time::Instant::now();
+
         line_editor = line_editor
             .with_highlighter(Box::new(NuHighlighter {
-                engine_state: engine_state.clone(),
+                engine_state: engine_reference.clone(),
                 config: config.clone(),
             }))
             .with_validator(Box::new(NuValidator {
-                engine_state: engine_state.clone(),
+                engine_state: engine_reference.clone(),
             }))
             .with_completer(Box::new(NuCompleter::new(
                 engine_reference.clone(),
@@ -192,25 +215,39 @@ pub fn evaluate_repl(
             )))
             .with_quick_completions(config.quick_completions)
             .with_partial_completions(config.partial_completions)
-            .with_ansi_colors(config.use_ansi_coloring);
+            .with_ansi_colors(config.use_ansi_coloring)
+            .with_cursor_config(cursor_config);
+        perf("reedline builder", start_time, file!(), line!(), column!());
 
+        let style_computer = StyleComputer::from_config(engine_state, stack);
+
+        start_time = std::time::Instant::now();
         line_editor = if config.use_ansi_coloring {
-            line_editor.with_hinter(Box::new(
-                DefaultHinter::default().with_style(color_hm["hints"]),
-            ))
+            line_editor.with_hinter(Box::new({
+                // As of Nov 2022, "hints" color_config closures only get `null` passed in.
+                let style = style_computer.compute("hints", &Value::nothing(Span::unknown()));
+                DefaultHinter::default().with_style(style)
+            }))
         } else {
             line_editor.disable_hints()
         };
+        perf(
+            "reedline coloring/style_computer",
+            start_time,
+            file!(),
+            line!(),
+            column!(),
+        );
 
-        line_editor = match add_menus(line_editor, engine_reference, stack, config) {
-            Ok(line_editor) => line_editor,
-            Err(e) => {
-                let working_set = StateWorkingSet::new(engine_state);
-                report_error(&working_set, &e);
-                Reedline::create()
-            }
-        };
+        start_time = std::time::Instant::now();
+        line_editor = add_menus(line_editor, engine_reference, stack, config).unwrap_or_else(|e| {
+            let working_set = StateWorkingSet::new(engine_state);
+            report_error(&working_set, &e);
+            Reedline::create()
+        });
+        perf("reedline menus", start_time, file!(), line!(), column!());
 
+        start_time = std::time::Instant::now();
         let buffer_editor = if !config.buffer_editor.is_empty() {
             Some(config.buffer_editor.clone())
         } else {
@@ -231,17 +268,23 @@ pub fn evaluate_repl(
         } else {
             line_editor
         };
+        perf(
+            "reedline buffer_editor",
+            start_time,
+            file!(),
+            line!(),
+            column!(),
+        );
 
+        start_time = std::time::Instant::now();
         if config.sync_history_on_enter {
-            info!("sync history {}:{}:{}", file!(), line!(), column!());
-
             if let Err(e) = line_editor.sync_history() {
                 warn!("Failed to sync history: {}", e);
             }
         }
+        perf("sync_history", start_time, file!(), line!(), column!());
 
-        info!("setup keybindings {}:{}:{}", file!(), line!(), column!());
-
+        start_time = std::time::Instant::now();
         // Changing the line editor based on the found keybindings
         line_editor = match create_keybindings(config) {
             Ok(keybindings) => match keybindings {
@@ -263,9 +306,9 @@ pub fn evaluate_repl(
                 line_editor
             }
         };
+        perf("keybindings", start_time, file!(), line!(), column!());
 
-        info!("prompt_update {}:{}:{}", file!(), line!(), column!());
-
+        start_time = std::time::Instant::now();
         // Right before we start our prompt and take input from the user,
         // fire the "pre_prompt" hook
         if let Some(hook) = config.hooks.pre_prompt.clone() {
@@ -273,7 +316,9 @@ pub fn evaluate_repl(
                 report_error_new(engine_state, &err);
             }
         }
+        perf("pre-prompt hook", start_time, file!(), line!(), column!());
 
+        start_time = std::time::Instant::now();
         // Next, check all the environment variables they ask for
         // fire the "env_change" hook
         let config = engine_state.get_config();
@@ -282,19 +327,23 @@ pub fn evaluate_repl(
         {
             report_error_new(engine_state, &error)
         }
+        perf("env-change hook", start_time, file!(), line!(), column!());
 
+        start_time = std::time::Instant::now();
         let config = engine_state.get_config();
         let prompt = prompt_update::update_prompt(config, engine_state, stack, &mut nu_prompt);
+        perf("update_prompt", start_time, file!(), line!(), column!());
 
         entry_num += 1;
 
-        info!(
-            "finished setup, starting repl {}:{}:{}",
-            file!(),
-            line!(),
-            column!()
-        );
+        if entry_num == 1 && show_banner {
+            println!(
+                "Startup Time: {}",
+                format_duration(entire_start_time.elapsed().as_nanos() as i64)
+            );
+        }
 
+        start_time = std::time::Instant::now();
         let input = line_editor.read_line(prompt);
         let shell_integration = config.shell_integration;
 
@@ -530,9 +579,32 @@ pub fn evaluate_repl(
                 }
             }
         }
+        perf(
+            "processing line editor input",
+            start_time,
+            file!(),
+            line!(),
+            column!(),
+        );
+
+        perf(
+            "finished repl loop",
+            loop_start_time,
+            file!(),
+            line!(),
+            column!(),
+        );
     }
 
     Ok(())
+}
+
+fn map_nucursorshape_to_cursorshape(shape: NuCursorShape) -> CursorShape {
+    match shape {
+        NuCursorShape::Block => CursorShape::Block,
+        NuCursorShape::UnderScore => CursorShape::UnderScore,
+        NuCursorShape::Line => CursorShape::Line,
+    }
 }
 
 fn get_banner(engine_state: &mut EngineState, stack: &mut Stack) -> String {
@@ -558,15 +630,7 @@ Our {}Documentation{} is located at {}http://nushell.sh{}
 {}Tweet{} us at {}@nu_shell{}
 
 It's been this long since {}Nushell{}'s first commit:
-{}
-
-{}You can disable this banner using the {}config nu{}{} command
-to modify the config.nu file and setting show_banner to false.
-
-let-env config = {{
-    show_banner: false
-    ...
-}}{}
+{}{}
 "#,
         "\x1b[32m",   //start line 1 green
         "\x1b[32m",   //start line 2
@@ -598,11 +662,7 @@ let-env config = {{
         "\x1b[32m",   //before Nushell
         "\x1b[0m",    //after Nushell
         age,
-        "\x1b[2;37m", //before banner disable dim white
-        "\x1b[2;36m", //before config nu dim cyan
-        "\x1b[0m",    //after config nu
-        "\x1b[2;37m", //after config nu dim white
-        "\x1b[0m",    //after banner disable
+        "\x1b[0m", //after banner disable
     );
 
     banner
@@ -639,7 +699,7 @@ pub fn eval_string_with_input(
         false,
         true,
     )
-    .map(|x| x.into_value(Span::test_data()))
+    .map(|x| x.into_value(Span::unknown()))
 }
 
 pub fn get_command_finished_marker(stack: &Stack, engine_state: &EngineState) -> String {
@@ -734,60 +794,63 @@ pub fn eval_hook(
             }
         }
         Value::Record { .. } => {
-            let do_run_hook =
-                if let Ok(condition) = value.clone().follow_cell_path(&[condition_path], false) {
-                    match condition {
-                        Value::Block {
-                            val: block_id,
-                            span: block_span,
-                            ..
-                        }
-                        | Value::Closure {
-                            val: block_id,
-                            span: block_span,
-                            ..
-                        } => {
-                            match run_hook_block(
-                                engine_state,
-                                stack,
-                                block_id,
-                                None,
-                                arguments.clone(),
-                                block_span,
-                            ) {
-                                Ok(pipeline_data) => {
-                                    if let PipelineData::Value(Value::Bool { val, .. }, ..) =
-                                        pipeline_data
-                                    {
-                                        val
-                                    } else {
-                                        return Err(ShellError::UnsupportedConfigValue(
-                                            "boolean output".to_string(),
-                                            "other PipelineData variant".to_string(),
-                                            block_span,
-                                        ));
-                                    }
-                                }
-                                Err(err) => {
-                                    return Err(err);
+            let do_run_hook = if let Ok(condition) =
+                value
+                    .clone()
+                    .follow_cell_path(&[condition_path], false, false)
+            {
+                match condition {
+                    Value::Block {
+                        val: block_id,
+                        span: block_span,
+                        ..
+                    }
+                    | Value::Closure {
+                        val: block_id,
+                        span: block_span,
+                        ..
+                    } => {
+                        match run_hook_block(
+                            engine_state,
+                            stack,
+                            block_id,
+                            None,
+                            arguments.clone(),
+                            block_span,
+                        ) {
+                            Ok(pipeline_data) => {
+                                if let PipelineData::Value(Value::Bool { val, .. }, ..) =
+                                    pipeline_data
+                                {
+                                    val
+                                } else {
+                                    return Err(ShellError::UnsupportedConfigValue(
+                                        "boolean output".to_string(),
+                                        "other PipelineData variant".to_string(),
+                                        block_span,
+                                    ));
                                 }
                             }
-                        }
-                        other => {
-                            return Err(ShellError::UnsupportedConfigValue(
-                                "block".to_string(),
-                                format!("{}", other.get_type()),
-                                other.span()?,
-                            ));
+                            Err(err) => {
+                                return Err(err);
+                            }
                         }
                     }
-                } else {
-                    // always run the hook
-                    true
-                };
+                    other => {
+                        return Err(ShellError::UnsupportedConfigValue(
+                            "block".to_string(),
+                            format!("{}", other.get_type()),
+                            other.span()?,
+                        ));
+                    }
+                }
+            } else {
+                // always run the hook
+                true
+            };
 
             if do_run_hook {
-                match value.clone().follow_cell_path(&[code_path], false)? {
+                match value.clone().follow_cell_path(&[code_path], false, false)? {
                     Value::String {
                         val,
                         span: source_span,
@@ -928,7 +991,7 @@ pub fn eval_hook(
     Ok(output)
 }
 
-pub fn run_hook_block(
+fn run_hook_block(
     engine_state: &EngineState,
     stack: &mut Stack,
     block_id: BlockId,
@@ -957,47 +1020,41 @@ pub fn run_hook_block(
         }
     }
 
-    match eval_block_with_early_return(engine_state, &mut callee_stack, block, input, false, false)
-    {
-        Ok(pipeline_data) => {
-            if let PipelineData::Value(Value::Error { error }, _) = pipeline_data {
-                return Err(error);
-            }
+    let pipeline_data =
+        eval_block_with_early_return(engine_state, &mut callee_stack, block, input, false, false)?;
 
-            // If all went fine, preserve the environment of the called block
-            let caller_env_vars = stack.get_env_var_names(engine_state);
-
-            // remove env vars that are present in the caller but not in the callee
-            // (the callee hid them)
-            for var in caller_env_vars.iter() {
-                if !callee_stack.has_env_var(engine_state, var) {
-                    stack.remove_env_var(engine_state, var);
-                }
-            }
-
-            // add new env vars from callee to caller
-            for (var, value) in callee_stack.get_stack_env_vars() {
-                stack.add_env_var(var, value);
-            }
-            Ok(pipeline_data)
-        }
-        Err(err) => Err(err),
+    if let PipelineData::Value(Value::Error { error }, _) = pipeline_data {
+        return Err(error);
     }
+
+    // If all went fine, preserve the environment of the called block
+    let caller_env_vars = stack.get_env_var_names(engine_state);
+
+    // remove env vars that are present in the caller but not in the callee
+    // (the callee hid them)
+    for var in caller_env_vars.iter() {
+        if !callee_stack.has_env_var(engine_state, var) {
+            stack.remove_env_var(engine_state, var);
+        }
+    }
+
+    // add new env vars from callee to caller
+    for (var, value) in callee_stack.get_stack_env_vars() {
+        stack.add_env_var(var, value);
+    }
+    Ok(pipeline_data)
 }
 
 fn run_ansi_sequence(seq: &str) -> Result<(), ShellError> {
-    match io::stdout().write_all(seq.as_bytes()) {
-        Ok(it) => it,
-        Err(err) => {
-            return Err(ShellError::GenericError(
-                "Error writing ansi sequence".into(),
-                err.to_string(),
-                Some(Span::unknown()),
-                None,
-                Vec::new(),
-            ));
-        }
-    };
+    io::stdout().write_all(seq.as_bytes()).map_err(|e| {
+        ShellError::GenericError(
+            "Error writing ansi sequence".into(),
+            e.to_string(),
+            Some(Span::unknown()),
+            None,
+            Vec::new(),
+        )
+    })?;
     io::stdout().flush().map_err(|e| {
         ShellError::GenericError(
             "Error flushing stdio".into(),
@@ -1009,11 +1066,12 @@ fn run_ansi_sequence(seq: &str) -> Result<(), ShellError> {
     })
 }
 
-lazy_static! {
-    // Absolute paths with a drive letter, like 'C:', 'D:\', 'E:\foo'
-    static ref DRIVE_PATH_REGEX: Regex =
-        Regex::new(r"^[a-zA-Z]:[/\\]?").expect("Internal error: regex creation");
-}
+// Absolute paths with a drive letter, like 'C:', 'D:\', 'E:\foo'
+#[cfg(windows)]
+static DRIVE_PATH_REGEX: once_cell::sync::Lazy<fancy_regex::Regex> =
+    once_cell::sync::Lazy::new(|| {
+        fancy_regex::Regex::new(r"^[a-zA-Z]:[/\\]?").expect("Internal error: regex creation")
+    });
 
 // A best-effort "does this string look kinda like a path?" function to determine whether to auto-cd
 fn looks_like_path(orig: &str) -> bool {

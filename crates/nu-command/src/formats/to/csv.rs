@@ -17,7 +17,10 @@ impl Command for ToCsv {
 
     fn signature(&self) -> Signature {
         Signature::build("to csv")
-            .input_output_types(vec![(Type::Any, Type::String)])
+            .input_output_types(vec![
+                (Type::Record(vec![]), Type::String),
+                (Type::Table(vec![]), Type::String),
+            ])
             .named(
                 "separator",
                 SyntaxShape::String,
@@ -43,6 +46,11 @@ impl Command for ToCsv {
                 description: "Outputs an CSV string representing the contents of this table",
                 example: "[[foo bar]; [1 2]] | to csv -s ';' ",
                 result: Some(Value::test_string("foo;bar\n1;2\n")),
+            },
+            Example {
+                description: "Outputs an CSV string representing the contents of this record",
+                example: "{a: 1 b: 2} | to csv",
+                result: Some(Value::test_string("a,b\n1,2\n")),
             },
         ]
     }
@@ -80,7 +88,7 @@ fn to_csv(
             } else {
                 let vec_s: Vec<char> = s.chars().collect();
                 if vec_s.len() != 1 {
-                    return Err(ShellError::UnsupportedInput(
+                    return Err(ShellError::TypeMismatch(
                         "Expected a single separator char from --separator".to_string(),
                         span,
                     ));

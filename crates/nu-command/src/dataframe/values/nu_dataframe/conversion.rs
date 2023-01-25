@@ -307,10 +307,7 @@ pub fn create_column(
                 .skip(from_row)
                 .take(size)
                 .map(|v| match v {
-                    Some(a) => Value::Int {
-                        val: a as i64,
-                        span,
-                    },
+                    Some(a) => Value::Int { val: a, span },
                     None => Value::Nothing { span },
                 })
                 .collect::<Vec<Value>>();
@@ -467,7 +464,9 @@ pub fn create_column(
                                     error: ShellError::UnsupportedInput(
                                         "The given local datetime representation is invalid."
                                             .to_string(),
+                                        format!("timestamp is {:?}", a),
                                         span,
+                                        Span::unknown(),
                                     ),
                                 }
                             }
@@ -480,7 +479,9 @@ pub fn create_column(
                                     error: ShellError::UnsupportedInput(
                                         "The given local datetime representation is invalid."
                                             .to_string(),
+                                        format!("timestamp is {:?}", a),
                                         span,
+                                        Span::unknown(),
                                     ),
                                 }
                             }
@@ -528,7 +529,9 @@ pub fn create_column(
                                     error: ShellError::UnsupportedInput(
                                         "The given local datetime representation is invalid."
                                             .to_string(),
+                                        format!("timestamp is {:?}", a),
                                         span,
+                                        Span::unknown(),
                                     ),
                                 }
                             }
@@ -541,7 +544,9 @@ pub fn create_column(
                                     error: ShellError::UnsupportedInput(
                                         "The given local datetime representation is invalid."
                                             .to_string(),
+                                        format!("timestamp is {:?}", a),
                                         span,
+                                        Span::unknown(),
                                     ),
                                 }
                             }

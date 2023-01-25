@@ -29,44 +29,36 @@ pub fn evaluate_file(
 
     let cwd = current_dir(engine_state, stack)?;
 
-    let file_path = {
-        match canonicalize_with(&path, &cwd) {
-            Ok(p) => p,
-            Err(e) => {
-                let working_set = StateWorkingSet::new(engine_state);
-                report_error(
-                    &working_set,
-                    &ShellError::FileNotFoundCustom(
-                        format!("Could not access file '{}': {:?}", path, e.to_string()),
-                        Span::unknown(),
-                    ),
-                );
-                std::process::exit(1);
-            }
-        }
-    };
+    let file_path = canonicalize_with(&path, cwd).unwrap_or_else(|e| {
+        let working_set = StateWorkingSet::new(engine_state);
+        report_error(
+            &working_set,
+            &ShellError::FileNotFoundCustom(
+                format!("Could not access file '{}': {:?}", path, e.to_string()),
+                Span::unknown(),
+            ),
+        );
+        std::process::exit(1);
+    });
 
-    let file_path_str = match file_path.to_str() {
-        Some(s) => s,
-        None => {
-            let working_set = StateWorkingSet::new(engine_state);
-            report_error(
-                &working_set,
-                &ShellError::NonUtf8Custom(
-                    format!(
-                        "Input file name '{}' is not valid UTF8",
-                        file_path.to_string_lossy()
-                    ),
-                    Span::unknown(),
+    let file_path_str = file_path.to_str().unwrap_or_else(|| {
+        let working_set = StateWorkingSet::new(engine_state);
+        report_error(
+            &working_set,
+            &ShellError::NonUtf8Custom(
+                format!(
+                    "Input file name '{}' is not valid UTF8",
+                    file_path.to_string_lossy()
                 ),
-            );
-            std::process::exit(1);
-        }
-    };
+                Span::unknown(),
+            ),
+        );
+        std::process::exit(1);
+    });
 
-    let file = match std::fs::read(&file_path).into_diagnostic() {
-        Ok(p) => p,
-        Err(e) => {
+    let file = std::fs::read(&file_path)
+        .into_diagnostic()
+        .unwrap_or_else(|e| {
             let working_set = StateWorkingSet::new(engine_state);
             report_error(
                 &working_set,
@@ -80,13 +72,21 @@ pub fn evaluate_file(
                 ),
             );
             std::process::exit(1);
-        }
-    };
+        });
 
     engine_state.start_in_file(Some(file_path_str));
 
-    let mut parent = file_path.clone();
-    parent.pop();
+    let parent = file_path.parent().unwrap_or_else(|| {
+        let working_set = StateWorkingSet::new(engine_state);
+        report_error(
+            &working_set,
+            &ShellError::FileNotFoundCustom(
+                format!("The file path '{}' does not have a parent", file_path_str),
+                Span::unknown(),
+            ),
+        );
+        std::process::exit(1);
+    });
 
     stack.add_env_var(
         "FILE_PWD".to_string(),
@@ -121,7 +121,7 @@ pub fn evaluate_file(
     Ok(())
 }
 
-pub fn print_table_or_error(
+pub(crate) fn print_table_or_error(
     engine_state: &mut EngineState,
     stack: &mut Stack,
     mut pipeline_data: PipelineData,
@@ -137,43 +137,36 @@ pub fn print_table_or_error(
 
     if let PipelineData::Value(Value::Error { error }, ..) = &pipeline_data {
         let working_set = StateWorkingSet::new(engine_state);
-
         report_error(&working_set, error);
-
         std::process::exit(1);
     }
 
-    match engine_state.find_decl("table".as_bytes(), &[]) {
-        Some(decl_id) => {
-            let command = engine_state.get_decl(decl_id);
-            if command.get_block_id().is_some() {
-                print_or_exit(pipeline_data, engine_state, config);
-            } else {
-                let table = command.run(
-                    engine_state,
-                    stack,
-                    &Call::new(Span::new(0, 0)),
-                    pipeline_data,
-                );
+    if let Some(decl_id) = engine_state.find_decl("table".as_bytes(), &[]) {
+        let command = engine_state.get_decl(decl_id);
+        if command.get_block_id().is_some() {
+            print_or_exit(pipeline_data, engine_state, config);
+        } else {
+            let table = command.run(
+                engine_state,
+                stack,
+                &Call::new(Span::new(0, 0)),
+                pipeline_data,
+            );
 
-                match table {
-                    Ok(table) => {
-                        print_or_exit(table, engine_state, config);
-                    }
-                    Err(error) => {
-                        let working_set = StateWorkingSet::new(engine_state);
-
-                        report_error(&working_set, &error);
-
-                        std::process::exit(1);
-                    }
+            match table {
+                Ok(table) => {
+                    print_or_exit(table, engine_state, config);
+                }
+                Err(error) => {
+                    let working_set = StateWorkingSet::new(engine_state);
+                    report_error(&working_set, &error);
+                    std::process::exit(1);
                 }
             }
         }
-        None => {
-            print_or_exit(pipeline_data, engine_state, config);
-        }
-    };
+    } else {
+        print_or_exit(pipeline_data, engine_state, config);
+    }
 
     // Make sure everything has finished
     if let Some(exit_code) = exit_code {
@@ -199,9 +192,7 @@ fn print_or_exit(pipeline_data: PipelineData, engine_state: &mut EngineState, co
             std::process::exit(1);
         }
 
-        let mut out = item.into_string("\n", config);
-        out.push('\n');
-
+        let out = item.into_string("\n", config) + "\n";
         let _ = stdout_write_all_and_flush(out).map_err(|err| eprintln!("{}", err));
     }
 }

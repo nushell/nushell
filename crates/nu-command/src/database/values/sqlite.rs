@@ -107,12 +107,7 @@ impl SQLiteDatabase {
     }
 
     pub fn open_connection(&self) -> Result<Connection, rusqlite::Error> {
-        let conn = match Connection::open(&self.path) {
-            Ok(conn) => conn,
-            Err(err) => return Err(err),
-        };
-
-        Ok(conn)
+        Connection::open(&self.path)
     }
 
     pub fn get_tables(&self, conn: &Connection) -> Result<Vec<DbTable>, rusqlite::Error> {
@@ -582,18 +577,13 @@ mod test {
 }
 
 pub fn open_connection_in_memory() -> Result<Connection, ShellError> {
-    let db = match Connection::open_in_memory() {
-        Ok(conn) => conn,
-        Err(err) => {
-            return Err(ShellError::GenericError(
-                "Failed to open SQLite connection in memory".into(),
-                err.to_string(),
-                Some(Span::test_data()),
-                None,
-                Vec::new(),
-            ))
-        }
-    };
-
-    Ok(db)
+    Connection::open_in_memory().map_err(|err| {
+        ShellError::GenericError(
+            "Failed to open SQLite connection in memory".into(),
+            err.to_string(),
+            Some(Span::test_data()),
+            None,
+            Vec::new(),
+        )
+    })
 }

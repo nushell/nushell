@@ -50,7 +50,9 @@ where
                 return Value::Error {
                     error: ShellError::UnsupportedInput(
                         String::from("when the input is a table, you must specify the columns"),
+                        "value originates from here".into(),
                         name,
+                        span,
                     ),
                 };
             }
@@ -91,9 +93,11 @@ fn err_from_value(rest: &Value, name: Span) -> ShellError {
     match rest.span() {
         Ok(span) => {
             if rest.is_nothing() {
-                ShellError::UnsupportedInput(
-                    "Input type is nothing, expected: string, row or list".into(),
+                ShellError::OnlySupportsThisInputType(
+                    "string, record or list".into(),
+                    "nothing".into(),
                     name,
+                    span,
                 )
             } else {
                 ShellError::PipelineMismatch("string, row or list".into(), name, span)

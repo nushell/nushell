@@ -5,7 +5,7 @@ use nu_command::create_default_context;
 use nu_engine::eval_block;
 use nu_parser::parse;
 use nu_protocol::engine::{EngineState, Stack, StateWorkingSet};
-use nu_protocol::{CliError, PipelineData, Span, Value};
+use nu_protocol::{CliError, PipelineData, Value};
 // use nu_test_support::fs::in_directory;
 
 /// Echo's value of env keys from args
@@ -149,20 +149,13 @@ pub fn nu_repl() {
     let mut engine_state = create_default_context();
     let mut stack = Stack::new();
 
-    stack.add_env_var(
-        "PWD".to_string(),
-        Value::string(cwd.to_string_lossy(), Span::test_data()),
-    );
+    stack.add_env_var("PWD".to_string(), Value::test_string(cwd.to_string_lossy()));
 
     let mut last_output = String::new();
 
     for (i, line) in source_lines.iter().enumerate() {
-        let cwd = match nu_engine::env::current_dir(&engine_state, &stack) {
-            Ok(d) => d,
-            Err(err) => {
-                outcome_err(&engine_state, &err);
-            }
-        };
+        let cwd = nu_engine::env::current_dir(&engine_state, &stack)
+            .unwrap_or_else(|err| outcome_err(&engine_state, &err));
 
         // Before doing anything, merge the environment from the previous REPL iteration into the
         // permanent state.
@@ -229,10 +222,9 @@ pub fn nu_repl() {
         }
 
         if let Some(cwd) = stack.get_env_var(&engine_state, "PWD") {
-            let path = match cwd.as_string() {
-                Ok(p) => p,
-                Err(err) => outcome_err(&engine_state, &err),
-            };
+            let path = cwd
+                .as_string()
+                .unwrap_or_else(|err| outcome_err(&engine_state, &err));
             let _ = std::env::set_current_dir(path);
             engine_state.add_env_var("PWD".into(), cwd);
         }

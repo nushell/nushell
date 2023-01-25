@@ -70,7 +70,7 @@ impl ViewCommand for ConfigCmd {
         Some(HelpManual {
             name: Self::NAME,
             description:
-                "Interactive configuration manager.\nCan be used to set various explore settings.\n\nIt could be consired an interactive version of :tweak",
+                "Interactive configuration manager.\nCan be used to set various explore settings.\n\nLike an interactive version of :tweak",
             config_options,
             arguments: vec![],
             examples: vec![],

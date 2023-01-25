@@ -70,7 +70,7 @@ impl Command for SubCommand {
         let radix: u32 = match radix {
             Some(Value::Int { val, span }) => {
                 if !(2..=36).contains(&val) {
-                    return Err(ShellError::UnsupportedInput(
+                    return Err(ShellError::TypeMismatch(
                         "Radix must lie in the range [2, 36]".to_string(),
                         span,
                     ));
@@ -113,7 +113,7 @@ impl Command for SubCommand {
             Example {
                 description: "Convert file size to integer",
                 example: "4KB | into int",
-                result: Some(Value::int(4000, Span::test_data())),
+                result: Some(Value::test_int(4000)),
             },
             Example {
                 description: "Convert bool to integer",
@@ -187,9 +187,11 @@ fn action(input: &Value, args: &Arguments, span: Span) -> Value {
                         Ok(v) => v,
                         _ => {
                             return Value::Error {
-                                error: ShellError::UnsupportedInput(
-                                    "Could not convert float to integer".to_string(),
+                                error: ShellError::CantConvert(
+                                    "float".to_string(),
+                                    "integer".to_string(),
                                     span,
+                                    None,
                                 ),
                             }
                         }
@@ -219,6 +221,7 @@ fn action(input: &Value, args: &Arguments, span: Span) -> Value {
             val: val.timestamp(),
             span,
         },
+        Value::Duration { val, .. } => Value::Int { val: *val, span },
         Value::Binary { val, span } => {
             use byteorder::{BigEndian, ByteOrder, LittleEndian};
 
@@ -240,10 +243,15 @@ fn action(input: &Value, args: &Arguments, span: Span) -> Value {
                 Value::int(BigEndian::read_i64(&val), *span)
             }
         }
-        _ => Value::Error {
-            error: ShellError::UnsupportedInput(
-                format!("'into int' for unsupported type '{}'", input.get_type()),
+        // Propagate errors by explicitly matching them before the final case.
+        Value::Error { .. } => input.clone(),
+        other => Value::Error {
+            error: ShellError::OnlySupportsThisInputType(
+                "integer, float, filesize, date, string, binary, duration or bool".into(),
+                other.get_type().to_string(),
                 span,
+                // This line requires the Value::Error match above.
+                other.expect_span(),
             ),
         },
     }
@@ -281,13 +289,18 @@ fn convert_int(input: &Value, head: Span, radix: u32) -> Value {
             }
             val.to_string()
         }
-        _ => {
+        // Propagate errors by explicitly matching them before the final case.
+        Value::Error { .. } => return input.clone(),
+        other => {
             return Value::Error {
-                error: ShellError::UnsupportedInput(
-                    "only strings or integers are supported".to_string(),
+                error: ShellError::OnlySupportsThisInputType(
+                    "string and integer".into(),
+                    other.get_type().to_string(),
                     head,
+                    // This line requires the Value::Error match above.
+                    other.expect_span(),
                 ),
-            }
+            };
         }
     };
     match i64::from_str_radix(i.trim(), radix) {

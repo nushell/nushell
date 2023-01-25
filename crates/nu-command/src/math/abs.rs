@@ -46,7 +46,7 @@ impl Command for SubCommand {
             result: Some(Value::List {
                 vals: vec![
                     Value::test_int(50),
-                    Value::float(100.0, Span::test_data()),
+                    Value::test_float(100.0),
                     Value::test_int(25),
                 ],
                 span: Span::test_data(),
@@ -66,13 +66,13 @@ fn abs_helper(val: Value, head: Span) -> Value {
             val: val.abs(),
             span,
         },
+        Value::Error { .. } => val,
         other => Value::Error {
-            error: ShellError::UnsupportedInput(
-                format!(
-                    "Only numerical values are supported, input type: {:?}",
-                    other.get_type()
-                ),
+            error: ShellError::OnlySupportsThisInputType(
+                "numeric".into(),
+                other.get_type().to_string(),
                 head,
+                other.expect_span(),
             ),
         },
     }

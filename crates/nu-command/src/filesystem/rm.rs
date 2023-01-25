@@ -44,7 +44,13 @@ impl Command for Rm {
     }
 
     fn signature(&self) -> Signature {
-        let sig = Signature::build("rm");
+        let sig = Signature::build("rm")
+            .input_output_types(vec![(Type::Nothing, Type::List(Box::new(Type::String)))])
+            .required(
+                "filename",
+                SyntaxShape::Filepath,
+                "the path of the file you want to remove",
+            );
         #[cfg(all(
             feature = "trash-support",
             not(target_os = "android"),
@@ -73,7 +79,7 @@ impl Command for Rm {
             .rest(
                 "rest",
                 SyntaxShape::GlobPattern,
-                "the file path(s) to remove",
+                "additional file path(s) to remove",
             )
             .category(Category::FileSystem)
     }
@@ -120,7 +126,7 @@ impl Command for Rm {
         });
         examples.push(Example {
             description: "Delete all 0KB files in the current directory",
-            example: "ls | where size == 0KB && type == file | each { rm $in.name } | null",
+            example: "ls | where size == 0KB and type == file | each { rm $in.name } | null",
             result: None,
         });
         examples

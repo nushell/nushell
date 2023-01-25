@@ -47,7 +47,7 @@ brew install nushell
 winget install nushell
 ```
 
-To use `Nu` in Github Action, check [setup-nu](https://github.com/marketplace/actions/setup-nu) for more detail.
+To use `Nu` in GitHub Action, check [setup-nu](https://github.com/marketplace/actions/setup-nu) for more detail.
 
 Detailed installation instructions can be found in the [installation chapter of the book](https://www.nushell.sh/book/installation.html). Nu is available via many package managers:
 
@@ -173,6 +173,8 @@ Plugins are binaries that are available in your path and follow a `nu_plugin_*` 
 These binaries interact with nu via a simple JSON-RPC protocol where the command identifies itself and passes along its configuration, making it available for use.
 If the plugin is a filter, data streams to it one element at a time, and it can stream data back in return via stdin/stdout.
 If the plugin is a sink, it is given the full vector of final data and is given free reign over stdin/stdout to use as it pleases.
+
+The [awesome-nu repo](https://github.com/nushell/awesome-nu#plugins) lists a variety of nu-plugins.
 
 ## Goals
 

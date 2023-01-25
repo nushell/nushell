@@ -1,7 +1,9 @@
-use crate::nu_style::{color_from_hex, color_string_to_nustyle, lookup_style};
-use nu_ansi_term::{Color, Style};
-use nu_protocol::{Config, Value};
-use nu_table::{Alignment, TextStyle};
+use crate::{
+    nu_style::{color_from_hex, lookup_style},
+    parse_nustyle, NuStyle,
+};
+use nu_ansi_term::Style;
+use nu_protocol::Value;
 use std::collections::HashMap;
 
 pub fn lookup_ansi_color_style(s: &str) -> Style {
@@ -17,253 +19,71 @@ pub fn lookup_ansi_color_style(s: &str) -> Style {
     }
 }
 
-fn update_hashmap(key: &str, val: &str, hm: &mut HashMap<String, Style>) {
-    // eprintln!("key: {}, val: {}", &key, &val);
-    let color = lookup_ansi_color_style(val);
-    if let Some(v) = hm.get_mut(key) {
-        *v = color;
-    } else {
-        hm.insert(key.to_string(), color);
-    }
-}
-
-pub fn get_color_config(config: &Config) -> HashMap<String, Style> {
-    let config = config;
-
-    // create the hashmap
-    let mut hm: HashMap<String, Style> = HashMap::new();
-    // set some defaults
-    // hm.insert("primitive_line".to_string(), Color::White.normal());
-    // hm.insert("primitive_pattern".to_string(), Color::White.normal());
-    // hm.insert("primitive_path".to_string(), Color::White.normal());
-    hm.insert("separator".to_string(), Color::White.normal());
-    hm.insert(
-        "leading_trailing_space_bg".to_string(),
-        Style::default().on(Color::Rgb(128, 128, 128)),
-    );
-    hm.insert("header".to_string(), Color::Green.bold());
-    hm.insert("empty".to_string(), Color::Blue.normal());
-    hm.insert("bool".to_string(), Color::White.normal());
-    hm.insert("int".to_string(), Color::White.normal());
-    hm.insert("filesize".to_string(), Color::White.normal());
-    hm.insert("duration".to_string(), Color::White.normal());
-    hm.insert("date".to_string(), Color::White.normal());
-    hm.insert("range".to_string(), Color::White.normal());
-    hm.insert("float".to_string(), Color::White.normal());
-    hm.insert("string".to_string(), Color::White.normal());
-    hm.insert("nothing".to_string(), Color::White.normal());
-    hm.insert("binary".to_string(), Color::White.normal());
-    hm.insert("cellpath".to_string(), Color::White.normal());
-    hm.insert("row_index".to_string(), Color::Green.bold());
-    hm.insert("record".to_string(), Color::White.normal());
-    hm.insert("list".to_string(), Color::White.normal());
-    hm.insert("block".to_string(), Color::White.normal());
-    hm.insert("hints".to_string(), Color::DarkGray.normal());
-
-    for (key, value) in &config.color_config {
-        match value.as_string() {
-            Ok(value) => update_hashmap(key, &value, &mut hm),
-            Err(_) => continue,
-        }
-    }
-
-    hm
-}
-
 pub fn get_color_map(colors: &HashMap<String, Value>) -> HashMap<String, Style> {
     let mut hm: HashMap<String, Style> = HashMap::new();
 
     for (key, value) in colors {
-        if let Value::String { val, .. } = value {
-            update_hashmap(key, val, &mut hm);
-        }
+        parse_map_entry(&mut hm, key, value);
     }
 
     hm
 }
 
-// This function will assign a text style to a primitive, or really any string that's
-// in the hashmap. The hashmap actually contains the style to be applied.
-pub fn style_primitive(primitive: &str, color_hm: &HashMap<String, Style>) -> TextStyle {
-    match primitive {
-        "bool" => {
-            let style = color_hm.get(primitive);
-            match style {
-                Some(s) => TextStyle::with_style(Alignment::Left, *s),
-                None => TextStyle::basic_left(),
-            }
-        }
-
-        "int" => {
-            let style = color_hm.get(primitive);
-            match style {
-                Some(s) => TextStyle::with_style(Alignment::Right, *s),
-                None => TextStyle::basic_right(),
-            }
-        }
-
-        "filesize" => {
-            let style = color_hm.get(primitive);
-            match style {
-                Some(s) => TextStyle::with_style(Alignment::Right, *s),
-                None => TextStyle::basic_right(),
-            }
-        }
-
-        "duration" => {
-            let style = color_hm.get(primitive);
-            match style {
-                Some(s) => TextStyle::with_style(Alignment::Left, *s),
-                None => TextStyle::basic_left(),
-            }
-        }
-
-        "date" => {
-            let style = color_hm.get(primitive);
-            match style {
-                Some(s) => TextStyle::with_style(Alignment::Left, *s),
-                None => TextStyle::basic_left(),
-            }
-        }
-
-        "range" => {
-            let style = color_hm.get(primitive);
-            match style {
-                Some(s) => TextStyle::with_style(Alignment::Left, *s),
-                None => TextStyle::basic_left(),
-            }
-        }
-
-        "float" => {
-            let style = color_hm.get(primitive);
-            match style {
-                Some(s) => TextStyle::with_style(Alignment::Right, *s),
-                None => TextStyle::basic_right(),
-            }
-        }
-
-        "string" => {
-            let style = color_hm.get(primitive);
-            match style {
-                Some(s) => TextStyle::with_style(Alignment::Left, *s),
-                None => TextStyle::basic_left(),
-            }
-        }
-
-        "nothing" => {
-            let style = color_hm.get(primitive);
-            match style {
-                Some(s) => TextStyle::with_style(Alignment::Left, *s),
-                None => TextStyle::basic_left(),
-            }
-        }
-
-        // not sure what to do with error
-        // "error" => {}
-        "binary" => {
-            let style = color_hm.get(primitive);
-            match style {
-                Some(s) => TextStyle::with_style(Alignment::Left, *s),
-                None => TextStyle::basic_left(),
-            }
-        }
-
-        "cellpath" => {
-            let style = color_hm.get(primitive);
-            match style {
-                Some(s) => TextStyle::with_style(Alignment::Left, *s),
-                None => TextStyle::basic_left(),
-            }
-        }
-
-        "row_index" => {
-            let style = color_hm.get(primitive);
-            match style {
-                Some(s) => TextStyle::with_style(Alignment::Right, *s),
-                None => TextStyle::new()
-                    .alignment(Alignment::Right)
-                    .fg(Color::Green)
-                    .bold(Some(true)),
-            }
-        }
-
-        "record" | "list" | "block" => {
-            let style = color_hm.get(primitive);
-            match style {
-                Some(s) => TextStyle::with_style(Alignment::Left, *s),
-                None => TextStyle::basic_left(),
-            }
-        }
-
-        // types in nushell but not in engine-q
-        // "Line" => {
-        //     let style = color_hm.get("Primitive::Line");
-        //     match style {
-        //         Some(s) => TextStyle::with_style(Alignment::Left, *s),
-        //         None => TextStyle::basic_left(),
-        //     }
-        // }
-        // "GlobPattern" => {
-        //     let style = color_hm.get("Primitive::GlobPattern");
-        //     match style {
-        //         Some(s) => TextStyle::with_style(Alignment::Left, *s),
-        //         None => TextStyle::basic_left(),
-        //     }
-        // }
-        // "FilePath" => {
-        //     let style = color_hm.get("Primitive::FilePath");
-        //     match style {
-        //         Some(s) => TextStyle::with_style(Alignment::Left, *s),
-        //         None => TextStyle::basic_left(),
-        //     }
-        // }
-        // "BeginningOfStream" => {
-        //     let style = color_hm.get("Primitive::BeginningOfStream");
-        //     match style {
-        //         Some(s) => TextStyle::with_style(Alignment::Left, *s),
-        //         None => TextStyle::basic_left(),
-        //     }
-        // }
-        // "EndOfStream" => {
-        //     let style = color_hm.get("Primitive::EndOfStream");
-        //     match style {
-        //         Some(s) => TextStyle::with_style(Alignment::Left, *s),
-        //         None => TextStyle::basic_left(),
-        //     }
-        // }
-        _ => TextStyle::basic_left(),
+fn parse_map_entry(hm: &mut HashMap<String, Style>, key: &str, value: &Value) {
+    let value = match value {
+        Value::String { val, .. } => Some(lookup_ansi_color_style(val)),
+        Value::Record { cols, vals, .. } => get_style_from_value(cols, vals).map(parse_nustyle),
+        _ => None,
+    };
+    if let Some(value) = value {
+        hm.entry(key.to_owned()).or_insert(value);
     }
 }
 
-#[test]
-fn test_hm() {
-    use nu_ansi_term::{Color, Style};
+fn get_style_from_value(cols: &[String], vals: &[Value]) -> Option<NuStyle> {
+    let mut was_set = false;
+    let mut style = NuStyle::from(Style::default());
+    for (col, val) in cols.iter().zip(vals) {
+        match col.as_str() {
+            "bg" => {
+                if let Value::String { val, .. } = val {
+                    style.bg = Some(val.clone());
+                    was_set = true;
+                }
+            }
+            "fg" => {
+                if let Value::String { val, .. } = val {
+                    style.fg = Some(val.clone());
+                    was_set = true;
+                }
+            }
+            "attr" => {
+                if let Value::String { val, .. } = val {
+                    style.attr = Some(val.clone());
+                    was_set = true;
+                }
+            }
+            _ => (),
+        }
+    }
 
-    let mut hm: HashMap<String, Style> = HashMap::new();
-    hm.insert("primitive_int".to_string(), Color::White.normal());
-    hm.insert("primitive_decimal".to_string(), Color::White.normal());
-    hm.insert("primitive_filesize".to_string(), Color::White.normal());
-    hm.insert("primitive_string".to_string(), Color::White.normal());
-    hm.insert("primitive_line".to_string(), Color::White.normal());
-    hm.insert("primitive_columnpath".to_string(), Color::White.normal());
-    hm.insert("primitive_pattern".to_string(), Color::White.normal());
-    hm.insert("primitive_boolean".to_string(), Color::White.normal());
-    hm.insert("primitive_date".to_string(), Color::White.normal());
-    hm.insert("primitive_duration".to_string(), Color::White.normal());
-    hm.insert("primitive_range".to_string(), Color::White.normal());
-    hm.insert("primitive_path".to_string(), Color::White.normal());
-    hm.insert("primitive_binary".to_string(), Color::White.normal());
-    hm.insert("separator".to_string(), Color::White.normal());
-    hm.insert("header_align".to_string(), Color::Green.bold());
-    hm.insert("header".to_string(), Color::Green.bold());
-    hm.insert("header_style".to_string(), Style::default());
-    hm.insert("row_index".to_string(), Color::Green.bold());
-    hm.insert(
-        "leading_trailing_space_bg".to_string(),
-        Style::default().on(Color::Rgb(128, 128, 128)),
-    );
+    if was_set {
+        Some(style)
+    } else {
+        None
+    }
+}
 
-    update_hashmap("primitive_int", "green", &mut hm);
+fn color_string_to_nustyle(color_string: String) -> Style {
+    // eprintln!("color_string: {}", &color_string);
+    if color_string.is_empty() {
+        return Style::default();
+    }
 
-    assert_eq!(hm["primitive_int"], Color::Green.normal());
+    let nu_style = match nu_json::from_str::<NuStyle>(&color_string) {
+        Ok(s) => s,
+        Err(_) => return Style::default(),
+    };
+
+    parse_nustyle(nu_style)
 }

@@ -50,7 +50,7 @@ impl Command for ToNuon {
     }
 }
 
-fn value_to_string(v: &Value, span: Span) -> Result<String, ShellError> {
+pub fn value_to_string(v: &Value, span: Span) -> Result<String, ShellError> {
     match v {
         Value::Binary { val, .. } => {
             let mut s = String::with_capacity(2 * val.len());
@@ -58,7 +58,9 @@ fn value_to_string(v: &Value, span: Span) -> Result<String, ShellError> {
                 if write!(s, "{:02X}", byte).is_err() {
                     return Err(ShellError::UnsupportedInput(
                         "could not convert binary to string".into(),
+                        "value originates from here".into(),
                         span,
+                        v.expect_span(),
                     ));
                 }
             }
@@ -66,11 +68,15 @@ fn value_to_string(v: &Value, span: Span) -> Result<String, ShellError> {
         }
         Value::Block { .. } => Err(ShellError::UnsupportedInput(
             "blocks are currently not nuon-compatible".into(),
+            "value originates from here".into(),
             span,
+            v.expect_span(),
         )),
         Value::Closure { .. } => Err(ShellError::UnsupportedInput(
-            "closure not supported".into(),
+            "closures are currently not nuon-compatible".into(),
+            "value originates from here".into(),
             span,
+            v.expect_span(),
         )),
         Value::Bool { val, .. } => {
             if *val {
@@ -81,19 +87,21 @@ fn value_to_string(v: &Value, span: Span) -> Result<String, ShellError> {
         }
         Value::CellPath { .. } => Err(ShellError::UnsupportedInput(
             "cellpaths are currently not nuon-compatible".to_string(),
+            "value originates from here".into(),
             span,
+            v.expect_span(),
         )),
         Value::CustomValue { .. } => Err(ShellError::UnsupportedInput(
-            "customs are currently not nuon-compatible".to_string(),
+            "custom values are currently not nuon-compatible".to_string(),
+            "value originates from here".into(),
             span,
+            v.expect_span(),
         )),
         Value::Date { val, .. } => Ok(val.to_rfc3339()),
-        // FIXME: make duratiobs use the shortest lossless representation.
+        // FIXME: make durations use the shortest lossless representation.
         Value::Duration { val, .. } => Ok(format!("{}ns", *val)),
-        Value::Error { .. } => Err(ShellError::UnsupportedInput(
-            "errors are currently not nuon-compatible".to_string(),
-            span,
-        )),
+        // Propagate existing errors
+        Value::Error { error } => Err(error.clone()),
         // FIXME: make filesizes use the shortest lossless representation.
         Value::Filesize { val, .. } => Ok(format!("{}b", *val)),
         Value::Float { val, .. } => {
@@ -177,6 +185,10 @@ fn value_to_string(v: &Value, span: Span) -> Result<String, ShellError> {
             }
             Ok(format!("{{{}}}", collection.join(", ")))
         }
+        Value::LazyRecord { val, .. } => {
+            let collected = val.collect()?;
+            value_to_string(&collected, span)
+        }
         // All strings outside data structures are quoted because they are in 'command position'
         // (could be mistaken for commands by the Nu parser)
         Value::String { val, .. } => Ok(escape_quote_string(val)),
@@ -213,9 +225,16 @@ static NEEDS_QUOTES_REGEX: Lazy<Regex> = Lazy::new(|| {
 });
 
 fn needs_quotes(string: &str) -> bool {
+    if string.is_empty() {
+        return true;
+    }
     // These are case-sensitive keywords
     match string {
-        "true" | "false" | "null" => return true,
+        // `true`/`false`/`null` are active keywords in JSON and NUON
+        // `&&` is denied by the nu parser for diagnostics reasons
+        // (https://github.com/nushell/nushell/pull/7241)
+        // TODO: remove the extra check in the nuon codepath
+        "true" | "false" | "null" | "&&" => return true,
         _ => (),
     };
     // All other cases are handled here

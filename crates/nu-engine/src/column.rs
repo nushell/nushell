@@ -5,7 +5,7 @@ pub fn get_columns<'a>(input: impl IntoIterator<Item = &'a Value>) -> Vec<String
     let mut columns = vec![];
 
     for item in input {
-        if let Value::Record { cols, vals: _, .. } = item {
+        if let Value::Record { cols, .. } = item {
             for col in cols {
                 if !columns.contains(col) {
                     columns.push(col.to_string());

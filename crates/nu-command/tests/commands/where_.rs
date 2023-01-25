@@ -1,5 +1,4 @@
 use nu_test_support::nu;
-#[cfg(feature = "sqlite")]
 use nu_test_support::pipeline;
 
 #[test]
@@ -16,7 +15,7 @@ fn filters_by_unit_size_comparison() {
 fn filters_with_nothing_comparison() {
     let actual = nu!(
         cwd: "tests/fixtures/formats",
-        r#"'[{"foo": 3}, {"foo": null}, {"foo": 4}]' | from json | get foo | compact | where $it > 1 | math sum"#
+        r#"'[{"foo": 3}, {"foo": null}, {"foo": 4}]' | from json | get -i foo | compact | where $it > 1 | math sum"#
     );
 
     assert_eq!(actual.out, "7");
@@ -187,4 +186,11 @@ fn contains_operator() {
     ));
 
     assert_eq!(actual.out, "2");
+}
+
+#[test]
+fn fail_on_non_iterator() {
+    let actual = nu!(cwd: ".", pipeline(r#"{"name": "foo", "size": 3} | where name == "foo""#));
+
+    assert!(actual.err.contains("only_supports_this_input_type"));
 }

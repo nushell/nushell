@@ -9,10 +9,11 @@ pub fn test_examples(cmd: impl Command + 'static) {
 #[cfg(test)]
 mod test_examples {
     use super::super::{
-        Ansi, Date, Echo, From, If, Into, Let, LetEnv, Math, MathEuler, MathPi, MathRound, Path,
-        Random, Split, SplitColumn, SplitRow, Str, StrJoin, StrLength, StrReplace, Url, Wrap,
+        Ansi, Date, Echo, From, If, Into, IntoString, Let, LetEnv, Math, MathEuler, MathPi,
+        MathRound, Path, Random, Split, SplitColumn, SplitRow, Str, StrJoin, StrLength, StrReplace,
+        Url, Values, Wrap,
     };
-    use crate::{Break, Mut, To};
+    use crate::{Break, Each, Mut, To};
     use itertools::Itertools;
     use nu_protocol::{
         ast::Block,
@@ -60,6 +61,7 @@ mod test_examples {
             // Base functions that are needed for testing
             // Try to keep this working set small to keep tests running as fast as possible
             let mut working_set = StateWorkingSet::new(&engine_state);
+            working_set.add_decl(Box::new(Each));
             working_set.add_decl(Box::new(Let));
             working_set.add_decl(Box::new(Str));
             working_set.add_decl(Box::new(StrJoin));
@@ -69,6 +71,7 @@ mod test_examples {
             working_set.add_decl(Box::new(If));
             working_set.add_decl(Box::new(To));
             working_set.add_decl(Box::new(Into));
+            working_set.add_decl(Box::new(IntoString));
             working_set.add_decl(Box::new(Random));
             working_set.add_decl(Box::new(Split));
             working_set.add_decl(Box::new(SplitColumn));
@@ -77,6 +80,7 @@ mod test_examples {
             working_set.add_decl(Box::new(Path));
             working_set.add_decl(Box::new(Date));
             working_set.add_decl(Box::new(Url));
+            working_set.add_decl(Box::new(Values));
             working_set.add_decl(Box::new(Ansi));
             working_set.add_decl(Box::new(Wrap));
             working_set.add_decl(Box::new(LetEnv));
@@ -206,10 +210,7 @@ mod test_examples {
         let mut stack = Stack::new();
 
         // Set up PWD
-        stack.add_env_var(
-            "PWD".to_string(),
-            Value::string(cwd.to_string_lossy(), Span::test_data()),
-        );
+        stack.add_env_var("PWD".to_string(), Value::test_string(cwd.to_string_lossy()));
 
         engine_state
             .merge_env(&mut stack, cwd)
@@ -291,10 +292,7 @@ mod test_examples {
 
         let mut stack = Stack::new();
 
-        stack.add_env_var(
-            "PWD".to_string(),
-            Value::string(cwd.to_string_lossy(), Span::test_data()),
-        );
+        stack.add_env_var("PWD".to_string(), Value::test_string(cwd.to_string_lossy()));
 
         match nu_engine::eval_block(engine_state, &mut stack, &block, input, true, true) {
             Err(err) => panic!("test eval error in `{}`: {:?}", "TODO", err),
@@ -308,22 +306,19 @@ mod test_examples {
         engine_state: &mut Box<EngineState>,
     ) -> Option<Value> {
         let (mut block, delta) = parse(src, engine_state);
-        match block.pipelines.len() {
-            1 => {
-                let n_expressions = block.pipelines[0].elements.len();
-                block.pipelines[0].elements.truncate(&n_expressions - 1);
+        if block.pipelines.len() == 1 {
+            let n_expressions = block.pipelines[0].elements.len();
+            block.pipelines[0].elements.truncate(&n_expressions - 1);
 
-                if !block.pipelines[0].elements.is_empty() {
-                    let empty_input = PipelineData::empty();
-                    Some(eval_block(block, empty_input, cwd, engine_state, delta))
-                } else {
-                    Some(Value::nothing(Span::test_data()))
-                }
+            if !block.pipelines[0].elements.is_empty() {
+                let empty_input = PipelineData::empty();
+                Some(eval_block(block, empty_input, cwd, engine_state, delta))
+            } else {
+                Some(Value::nothing(Span::test_data()))
             }
-            _ => {
-                // E.g. multiple semicolon-separated statements
-                None
-            }
+        } else {
+            // E.g. multiple semicolon-separated statements
+            None
         }
     }
 }

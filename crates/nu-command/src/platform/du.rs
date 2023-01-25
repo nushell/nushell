@@ -5,7 +5,7 @@ use nu_protocol::{
     ast::Call,
     engine::{Command, EngineState, Stack},
     Category, Example, IntoInterruptiblePipelineData, PipelineData, ShellError, Signature, Spanned,
-    SyntaxShape, Value,
+    SyntaxShape, Type, Value,
 };
 use serde::Deserialize;
 use std::path::PathBuf;
@@ -43,6 +43,8 @@ impl Command for Du {
 
     fn signature(&self) -> Signature {
         Signature::build("du")
+            .input_output_types(vec![(Type::Nothing, Type::Table(vec![]))])
+            .allow_variants_without_examples(true)
             .optional("path", SyntaxShape::GlobPattern, "starting directory")
             .switch(
                 "all",

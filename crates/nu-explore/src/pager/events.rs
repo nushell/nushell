@@ -35,15 +35,16 @@ impl UIEvents {
     pub fn next(&self) -> Result<Option<KeyEvent>> {
         let now = Instant::now();
         match poll(self.tick_rate) {
-            Ok(true) => match read()? {
-                Event::Key(event) => Ok(Some(event)),
-                _ => {
+            Ok(true) => {
+                if let Event::Key(event) = read()? {
+                    Ok(Some(event))
+                } else {
                     let time_spent = now.elapsed();
                     let rest = self.tick_rate - time_spent;
 
                     Self { tick_rate: rest }.next()
                 }
-            },
+            }
             Ok(false) => Ok(None),
             Err(err) => Err(err),
         }

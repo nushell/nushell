@@ -1,14 +1,15 @@
 use std::borrow::Cow;
 
-use nu_color_config::style_primitive;
-use nu_table::{string_width, Alignment, TextStyle};
+use nu_color_config::{Alignment, StyleComputer};
+use nu_protocol::{ShellError, Value};
+use nu_table::{string_width, TextStyle};
 use tui::{
     buffer::Buffer,
     style::{Color, Modifier, Style},
     text::Span,
 };
 
-use crate::nu_common::{truncate_str, NuColor, NuStyle, NuStyleTable, NuText};
+use crate::nu_common::{truncate_str, NuColor, NuStyle, NuText};
 
 pub fn set_span(
     buf: &mut Buffer,
@@ -106,51 +107,59 @@ pub fn nu_ansi_color_to_tui_color(clr: NuColor) -> Option<tui::style::Color> {
 pub fn text_style_to_tui_style(style: TextStyle) -> tui::style::Style {
     let mut out = tui::style::Style::default();
     if let Some(style) = style.color_style {
-        if let Some(clr) = style.background {
-            out.bg = nu_ansi_color_to_tui_color(clr);
-        }
-
-        if let Some(clr) = style.foreground {
-            out.fg = nu_ansi_color_to_tui_color(clr);
-        }
+        out = nu_style_to_tui(style);
     }
 
     out
 }
 
+// This is identical to the same function in nu-explore/src/nu_common
 pub fn make_styled_string(
+    style_computer: &StyleComputer,
     text: String,
-    text_type: &str,
-    col: usize,
-    with_index: bool,
-    color_hm: &NuStyleTable,
+    value: Option<&Value>, // None represents table holes.
     float_precision: usize,
 ) -> NuText {
-    if col == 0 && with_index {
-        return (text, index_text_style(color_hm));
+    match value {
+        Some(value) => {
+            match value {
+                Value::Float { .. } => {
+                    // set dynamic precision from config
+                    let precise_number = match convert_with_precision(&text, float_precision) {
+                        Ok(num) => num,
+                        Err(e) => e.to_string(),
+                    };
+                    (precise_number, style_computer.style_primitive(value))
+                }
+                _ => (text, style_computer.style_primitive(value)),
+            }
+        }
+        None => {
+            // Though holes are not the same as null, the closure for "empty" is passed a null anyway.
+            (
+                text,
+                TextStyle::with_style(
+                    Alignment::Center,
+                    style_computer.compute("empty", &Value::nothing(nu_protocol::Span::unknown())),
+                ),
+            )
+        }
     }
-
-    let style = style_primitive(text_type, color_hm);
-
-    let mut text = text;
-    if text_type == "float" {
-        text = convert_with_precision(&text, float_precision);
-    }
-
-    (text, style)
 }
 
-fn index_text_style(color_hm: &std::collections::HashMap<String, NuStyle>) -> TextStyle {
-    TextStyle {
-        alignment: Alignment::Right,
-        color_style: Some(color_hm["row_index"]),
-    }
-}
-
-fn convert_with_precision(val: &str, precision: usize) -> String {
-    // vall will always be a f64 so convert it with precision formatting
-    match val.trim().parse::<f64>() {
-        Ok(f) => format!("{:.prec$}", f, prec = precision),
-        Err(err) => format!("error converting string [{}] to f64; {}", &val, err),
-    }
+fn convert_with_precision(val: &str, precision: usize) -> Result<String, ShellError> {
+    // val will always be a f64 so convert it with precision formatting
+    let val_float = match val.trim().parse::<f64>() {
+        Ok(f) => f,
+        Err(e) => {
+            return Err(ShellError::GenericError(
+                format!("error converting string [{}] to f64", &val),
+                "".to_string(),
+                None,
+                Some(e.to_string()),
+                Vec::new(),
+            ));
+        }
+    };
+    Ok(format!("{:.prec$}", val_float, prec = precision))
 }

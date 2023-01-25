@@ -66,13 +66,13 @@ impl Command for Reverse {
         &self,
         engine_state: &EngineState,
         _stack: &mut Stack,
-        _call: &Call,
+        call: &Call,
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
         let metadata = input.metadata();
 
         #[allow(clippy::needless_collect)]
-        let v: Vec<_> = input.into_iter().collect();
+        let v: Vec<_> = input.into_iter_strict(call.head)?.collect();
         let iter = v.into_iter().rev();
         Ok(iter
             .into_pipeline_data(engine_state.ctrlc.clone())

@@ -15,7 +15,10 @@ impl Command for ToTsv {
 
     fn signature(&self) -> Signature {
         Signature::build("to tsv")
-            .input_output_types(vec![(Type::Any, Type::String)])
+            .input_output_types(vec![
+                (Type::Record(vec![]), Type::String),
+                (Type::Table(vec![]), Type::String),
+            ])
             .switch(
                 "noheaders",
                 "do not output the column names as the first row",
@@ -29,11 +32,18 @@ impl Command for ToTsv {
     }
 
     fn examples(&self) -> Vec<Example> {
-        vec![Example {
-            description: "Outputs an TSV string representing the contents of this table",
-            example: "[[foo bar]; [1 2]] | to tsv",
-            result: Some(Value::test_string("foo\tbar\n1\t2\n")),
-        }]
+        vec![
+            Example {
+                description: "Outputs an TSV string representing the contents of this table",
+                example: "[[foo bar]; [1 2]] | to tsv",
+                result: Some(Value::test_string("foo\tbar\n1\t2\n")),
+            },
+            Example {
+                description: "Outputs an TSV string representing the contents of this record",
+                example: "{a: 1 b: 2} | to tsv",
+                result: Some(Value::test_string("a\tb\n1\t2\n")),
+            },
+        ]
     }
 
     fn run(
@@ -42,7 +52,7 @@ impl Command for ToTsv {
         _stack: &mut Stack,
         call: &Call,
         input: PipelineData,
-    ) -> Result<nu_protocol::PipelineData, ShellError> {
+    ) -> Result<PipelineData, ShellError> {
         let head = call.head;
         let noheaders = call.has_flag("noheaders");
         let config = engine_state.get_config();

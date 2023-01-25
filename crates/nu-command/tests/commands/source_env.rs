@@ -293,3 +293,25 @@ fn source_env_is_scoped() {
         assert!(actual.err.contains("executable was not found"));
     })
 }
+
+#[test]
+fn source_env_const_file() {
+    Playground::setup("source_env_const_file", |dirs, sandbox| {
+        sandbox.with_files(vec![FileWithContentToBeTrimmed(
+            "spam.nu",
+            r#"
+                let-env FOO = 'foo'
+            "#,
+        )]);
+
+        let inp = &[
+            r#"const file = 'spam.nu'"#,
+            r#"source-env $file"#,
+            r#"$env.FOO"#,
+        ];
+
+        let actual = nu!(cwd: dirs.test(), pipeline(&inp.join("; ")));
+
+        assert_eq!(actual.out, "foo");
+    })
+}

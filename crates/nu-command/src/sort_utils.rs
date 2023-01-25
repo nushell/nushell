@@ -45,16 +45,13 @@ pub fn sort_value_in_place(
     insensitive: bool,
     natural: bool,
 ) -> Result<(), ShellError> {
-    match val {
-        Value::List { vals, span } => {
-            sort(vals, sort_columns, *span, insensitive, natural)?;
-            if !ascending {
-                vals.reverse();
-            }
-            Ok(())
+    if let Value::List { vals, span } = val {
+        sort(vals, sort_columns, *span, insensitive, natural)?;
+        if !ascending {
+            vals.reverse();
         }
-        _ => Ok(()),
     }
+    Ok(())
 }
 
 pub fn sort(
@@ -102,10 +99,9 @@ pub fn sort(
             let mut vals = vec![];
             for item in vec.iter() {
                 for col in &sort_columns {
-                    let val = match item.get_data_by_key(col) {
-                        Some(v) => v,
-                        None => Value::nothing(Span::test_data()),
-                    };
+                    let val = item
+                        .get_data_by_key(col)
+                        .unwrap_or_else(|| Value::nothing(Span::unknown()));
                     vals.push(val);
                 }
             }

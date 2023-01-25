@@ -43,24 +43,38 @@ fn alias_hiding_2() {
 
 #[test]
 fn alias_fails_with_invalid_name() {
+    let err_msg = "alias name can't be a number, a filesize, or contain a hash # or caret ^";
     let actual = nu!(
-        cwd: "tests/fixtures/formats", pipeline(
+        cwd: ".", pipeline(
         r#"
-            alias 1234 = echo "test"   
+            alias 1234 = echo "test"
         "#
     ));
-    assert!(actual
-        .err
-        .contains("alias name can't be a number or a filesize"));
+    assert!(actual.err.contains(err_msg));
+
     let actual = nu!(
-        cwd: "tests/fixtures/formats", pipeline(
+        cwd: ".", pipeline(
         r#"
-            alias 5gib = echo "test"   
+            alias 5gib = echo "test"
         "#
     ));
-    assert!(actual
-        .err
-        .contains("alias name can't be a number or a filesize"));
+    assert!(actual.err.contains(err_msg));
+
+    let actual = nu!(
+        cwd: ".", pipeline(
+        r#"
+            alias "te#t" = echo "test"
+        "#
+    ));
+    assert!(actual.err.contains(err_msg));
+
+    let actual = nu!(
+        cwd: ".", pipeline(
+        r#"
+            alias ^foo = "bar"
+        "#
+    ));
+    assert!(actual.err.contains(err_msg));
 }
 
 #[test]
@@ -71,5 +85,5 @@ fn alias_alone_lists_aliases() {
             alias a = 3; alias
         "#
     ));
-    assert!(actual.out.contains("alias") && actual.out.contains("expansion"));
+    assert!(actual.out.contains("name") && actual.out.contains("expansion"));
 }

@@ -1,4 +1,6 @@
-use nu_test_support::nu;
+use nu_test_support::fs::Stub::FileWithContent;
+use nu_test_support::playground::Playground;
+use nu_test_support::{nu, pipeline};
 
 #[test]
 fn table_0() {
@@ -41,9 +43,9 @@ fn table_expand_0() {
     );
 }
 
-// I am not sure whether the test is platform depent, cause we don't set a term_width on our own
+// I am not sure whether the test is platform dependent, cause we don't set a term_width on our own
 #[test]
-fn table_expand_exeed_overlap_0() {
+fn table_expand_exceed_overlap_0() {
     // no expand
 
     let actual = nu!(r#"[[a b, c]; [xxxxxxxxxxxxxxxxxxxxxx 2 3] [4 5 [1 2 3]]] | table --expand"#);
@@ -216,4 +218,857 @@ fn table_index_0() {
         actual.out,
         "╭───┬───╮│ 0 │ 1 ││ 1 │ 3 ││ 2 │ 1 ││ 3 │ 3 ││ 4 │ 2 ││ 5 │ 1 ││ 6 │ 1 │╰───┴───╯"
     );
+}
+
+#[test]
+fn test_expand_big_0() {
+    Playground::setup("test_expand_big_0", |dirs, sandbox| {
+        sandbox.with_files(vec![FileWithContent(
+            "sample.toml",
+            r#"
+            [package]
+            authors = ["The Nushell Project Developers"]
+            default-run = "nu"
+            description = "A new type of shell"
+            documentation = "https://www.nushell.sh/book/"
+            edition = "2021"
+            exclude = ["images"]
+            homepage = "https://www.nushell.sh"
+            license = "MIT"
+            name = "nu"
+            repository = "https://github.com/nushell/nushell"
+            rust-version = "1.60"
+            version = "0.74.1"
+            
+            # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+            
+            [package.metadata.binstall]
+            pkg-url = "{ repo }/releases/download/{ version }/{ name }-{ version }-{ target }.{ archive-format }"
+            pkg-fmt = "tgz"
+            
+            [package.metadata.binstall.overrides.x86_64-pc-windows-msvc]
+            pkg-fmt = "zip"
+            
+            [workspace]
+            members = [
+                "crates/nu-cli",
+                "crates/nu-engine",
+                "crates/nu-parser",
+                "crates/nu-system",
+                "crates/nu-command",
+                "crates/nu-protocol",
+                "crates/nu-plugin",
+                "crates/nu_plugin_inc",
+                "crates/nu_plugin_gstat",
+                "crates/nu_plugin_example",
+                "crates/nu_plugin_query",
+                "crates/nu_plugin_custom_values",
+                "crates/nu-utils",
+            ]
+            
+            [dependencies]
+            chrono = { version = "0.4.23", features = ["serde"] }
+            crossterm = "0.24.0"
+            ctrlc = "3.2.1"
+            log = "0.4"
+            miette = { version = "5.5.0", features = ["fancy-no-backtrace"] }
+            nu-ansi-term = "0.46.0"
+            nu-cli = { path = "./crates/nu-cli", version = "0.74.1" }
+            nu-engine = { path = "./crates/nu-engine", version = "0.74.1" }
+            reedline = { version = "0.14.0", features = ["bashisms", "sqlite"] }
+            
+            rayon = "1.6.1"
+            is_executable = "1.0.1"
+            simplelog = "0.12.0"
+            time = "0.3.12"
+            
+            [target.'cfg(not(target_os = "windows"))'.dependencies]
+            # Our dependencies don't use OpenSSL on Windows
+            openssl = { version = "0.10.38", features = ["vendored"], optional = true }
+            signal-hook = { version = "0.3.14", default-features = false }
+            
+            
+            [target.'cfg(windows)'.build-dependencies]
+            winres = "0.1"
+            
+            [target.'cfg(target_family = "unix")'.dependencies]
+            nix = { version = "0.25", default-features = false, features = ["signal", "process", "fs", "term"] }
+            atty = "0.2"
+            
+            [dev-dependencies]
+            nu-test-support = { path = "./crates/nu-test-support", version = "0.74.1" }
+            tempfile = "3.2.0"
+            assert_cmd = "2.0.2"
+            criterion = "0.4"
+            pretty_assertions = "1.0.0"
+            serial_test = "0.10.0"
+            hamcrest2 = "0.3.0"
+            rstest = { version = "0.15.0", default-features = false }
+            itertools = "0.10.3"
+            
+            [features]
+            plugin = [
+                "nu-plugin",
+                "nu-cli/plugin",
+                "nu-parser/plugin",
+                "nu-command/plugin",
+                "nu-protocol/plugin",
+                "nu-engine/plugin",
+            ]
+            # extra used to be more useful but now it's the same as default. Leaving it in for backcompat with existing build scripts
+            extra = ["default"]
+            default = ["plugin", "which-support", "trash-support", "sqlite"]
+            stable = ["default"]
+            wasi = []
+            
+            # Enable to statically link OpenSSL; otherwise the system version will be used. Not enabled by default because it takes a while to build
+            static-link-openssl = ["dep:openssl"]
+            
+            # Stable (Default)
+            which-support = ["nu-command/which-support"]
+            trash-support = ["nu-command/trash-support"]
+
+            # Main nu binary
+            [[bin]]
+            name = "nu"
+            path = "src/main.rs"
+            
+            # To use a development version of a dependency please use a global override here
+            # changing versions in each sub-crate of the workspace is tedious
+            [patch.crates-io]
+            reedline = { git = "https://github.com/nushell/reedline.git", branch = "main" }
+            
+            # Criterion benchmarking setup
+            # Run all benchmarks with `cargo bench`
+            # Run individual benchmarks like `cargo bench -- <regex>` e.g. `cargo bench -- parse`
+            [[bench]]
+            name = "benchmarks"
+            harness = false
+            "#,
+        )]);
+
+        let actual = nu!(
+            cwd: dirs.test(), pipeline(
+            "open sample.toml | table --expand"
+        ));
+
+        _print_lines(&actual.out, 80);
+
+        let expected = join_lines([
+            "╭──────────────────┬───────────────────────────────────────────────────────────╮",
+            "│                  │ ╭───┬─────────┬────────────╮                              │",
+            "│ bench            │ │ # │ harness │    name    │                              │",
+            "│                  │ ├───┼─────────┼────────────┤                              │",
+            "│                  │ │ 0 │ false   │ benchmarks │                              │",
+            "│                  │ ╰───┴─────────┴────────────╯                              │",
+            "│                  │ ╭───┬──────┬─────────────╮                                │",
+            "│ bin              │ │ # │ name │    path     │                                │",
+            "│                  │ ├───┼──────┼─────────────┤                                │",
+            "│                  │ │ 0 │ nu   │ src/main.rs │                                │",
+            "│                  │ ╰───┴──────┴─────────────╯                                │",
+            "│                  │ ╭───────────────┬───────────────────────────────────────╮ │",
+            "│ dependencies     │ │               │ ╭──────────┬───────────────╮          │ │",
+            "│                  │ │ chrono        │ │          │ ╭───┬───────╮ │          │ │",
+            "│                  │ │               │ │ features │ │ 0 │ serde │ │          │ │",
+            "│                  │ │               │ │          │ ╰───┴───────╯ │          │ │",
+            "│                  │ │               │ │ version  │ 0.4.23        │          │ │",
+            "│                  │ │               │ ╰──────────┴───────────────╯          │ │",
+            "│                  │ │ crossterm     │ 0.24.0                                │ │",
+            "│                  │ │ ctrlc         │ 3.2.1                                 │ │",
+            "│                  │ │ is_executable │ 1.0.1                                 │ │",
+            "│                  │ │ log           │ 0.4                                   │ │",
+            "│                  │ │               │ ╭──────────┬────────────────────────╮ │ │",
+            "│                  │ │ miette        │ │          │ ╭───┬────────────────╮ │ │ │",
+            "│                  │ │               │ │ features │ │ 0 │ fancy-no-backt │ │ │ │",
+            "│                  │ │               │ │          │ │   │ race           │ │ │ │",
+            "│                  │ │               │ │          │ ╰───┴────────────────╯ │ │ │",
+            "│                  │ │               │ │ version  │ 5.5.0                  │ │ │",
+            "│                  │ │               │ ╰──────────┴────────────────────────╯ │ │",
+            "│                  │ │ nu-ansi-term  │ 0.46.0                                │ │",
+            "│                  │ │               │ ╭─────────┬─────────────────╮         │ │",
+            "│                  │ │ nu-cli        │ │ path    │ ./crates/nu-cli │         │ │",
+            "│                  │ │               │ │ version │ 0.74.1          │         │ │",
+            "│                  │ │               │ ╰─────────┴─────────────────╯         │ │",
+            "│                  │ │               │ ╭────────────┬──────────────────────╮ │ │",
+            "│                  │ │ nu-engine     │ │ path       │ ./crates/nu-engine   │ │ │",
+            "│                  │ │               │ │ version    │ 0.74.1               │ │ │",
+            "│                  │ │               │ ╰────────────┴──────────────────────╯ │ │",
+            "│                  │ │ rayon         │ 1.6.1                                 │ │",
+            "│                  │ │               │ ╭─────────────┬─────────────────────╮ │ │",
+            "│                  │ │ reedline      │ │             │ ╭───┬──────────╮    │ │ │",
+            "│                  │ │               │ │ features    │ │ 0 │ bashisms │    │ │ │",
+            "│                  │ │               │ │             │ │ 1 │ sqlite   │    │ │ │",
+            "│                  │ │               │ │             │ ╰───┴──────────╯    │ │ │",
+            "│                  │ │               │ │ version     │ 0.14.0              │ │ │",
+            "│                  │ │               │ ╰─────────────┴─────────────────────╯ │ │",
+            "│                  │ │ simplelog     │ 0.12.0                                │ │",
+            "│                  │ │ time          │ 0.3.12                                │ │",
+            "│                  │ ╰───────────────┴───────────────────────────────────────╯ │",
+            "│                  │ ╭───────────────────┬───────────────────────────────────╮ │",
+            "│ dev-dependencies │ │ assert_cmd        │ 2.0.2                             │ │",
+            "│                  │ │ criterion         │ 0.4                               │ │",
+            "│                  │ │ hamcrest2         │ 0.3.0                             │ │",
+            "│                  │ │ itertools         │ 0.10.3                            │ │",
+            "│                  │ │                   │ ╭─────────┬─────────────────────╮ │ │",
+            "│                  │ │ nu-test-support   │ │ path    │ ./crates/nu-test-su │ │ │",
+            "│                  │ │                   │ │         │ pport               │ │ │",
+            "│                  │ │                   │ │ version │ 0.74.1              │ │ │",
+            "│                  │ │                   │ ╰─────────┴─────────────────────╯ │ │",
+            "│                  │ │ pretty_assertions │ 1.0.0                             │ │",
+            "│                  │ │                   │ ╭────────────────────┬──────────╮ │ │",
+            "│                  │ │ rstest            │ │ default-features   │ false    │ │ │",
+            "│                  │ │                   │ │ version            │ 0.15.0   │ │ │",
+            "│                  │ │                   │ ╰────────────────────┴──────────╯ │ │",
+            "│                  │ │ serial_test       │ 0.10.0                            │ │",
+            "│                  │ │ tempfile          │ 3.2.0                             │ │",
+            "│                  │ ╰───────────────────┴───────────────────────────────────╯ │",
+            "│                  │ ╭─────────────────────┬─────────────────────────────────╮ │",
+            "│ features         │ │                     │ ╭───┬───────────────╮           │ │",
+            "│                  │ │ default             │ │ 0 │ plugin        │           │ │",
+            "│                  │ │                     │ │ 1 │ which-support │           │ │",
+            "│                  │ │                     │ │ 2 │ trash-support │           │ │",
+            "│                  │ │                     │ │ 3 │ sqlite        │           │ │",
+            "│                  │ │                     │ ╰───┴───────────────╯           │ │",
+            "│                  │ │                     │ ╭───┬─────────╮                 │ │",
+            "│                  │ │ extra               │ │ 0 │ default │                 │ │",
+            "│                  │ │                     │ ╰───┴─────────╯                 │ │",
+            "│                  │ │                     │ ╭───┬────────────────────╮      │ │",
+            "│                  │ │ plugin              │ │ 0 │ nu-plugin          │      │ │",
+            "│                  │ │                     │ │ 1 │ nu-cli/plugin      │      │ │",
+            "│                  │ │                     │ │ 2 │ nu-parser/plugin   │      │ │",
+            "│                  │ │                     │ │ 3 │ nu-command/plugin  │      │ │",
+            "│                  │ │                     │ │ 4 │ nu-protocol/plugin │      │ │",
+            "│                  │ │                     │ │ 5 │ nu-engine/plugin   │      │ │",
+            "│                  │ │                     │ ╰───┴────────────────────╯      │ │",
+            "│                  │ │                     │ ╭───┬─────────╮                 │ │",
+            "│                  │ │ stable              │ │ 0 │ default │                 │ │",
+            "│                  │ │                     │ ╰───┴─────────╯                 │ │",
+            "│                  │ │                     │ ╭───┬─────────────╮             │ │",
+            "│                  │ │ static-link-openssl │ │ 0 │ dep:openssl │             │ │",
+            "│                  │ │                     │ ╰───┴─────────────╯             │ │",
+            "│                  │ │                     │ ╭───┬─────────────────────────╮ │ │",
+            "│                  │ │ trash-support       │ │ 0 │ nu-command/trash-suppor │ │ │",
+            "│                  │ │                     │ │   │ t                       │ │ │",
+            "│                  │ │                     │ ╰───┴─────────────────────────╯ │ │",
+            "│                  │ │ wasi                │ [list 0 items]                  │ │",
+            "│                  │ │                     │ ╭───┬─────────────────────────╮ │ │",
+            "│                  │ │ which-support       │ │ 0 │ nu-command/which-suppor │ │ │",
+            "│                  │ │                     │ │   │ t                       │ │ │",
+            "│                  │ │                     │ ╰───┴─────────────────────────╯ │ │",
+            "│                  │ ╰─────────────────────┴─────────────────────────────────╯ │",
+            "│                  │ ╭───────────────┬───────────────────────────────────────╮ │",
+            "│ package          │ │               │ ╭───┬───────────────────────────────╮ │ │",
+            "│                  │ │ authors       │ │ 0 │ The Nushell Project           │ │ │",
+            "│                  │ │               │ │   │ Developers                    │ │ │",
+            "│                  │ │               │ ╰───┴───────────────────────────────╯ │ │",
+            "│                  │ │ default-run   │ nu                                    │ │",
+            "│                  │ │ description   │ A new type of shell                   │ │",
+            "│                  │ │ documentation │ https://www.nushell.sh/book/          │ │",
+            "│                  │ │ edition       │ 2021                                  │ │",
+            "│                  │ │               │ ╭───┬────────╮                        │ │",
+            "│                  │ │ exclude       │ │ 0 │ images │                        │ │",
+            "│                  │ │               │ ╰───┴────────╯                        │ │",
+            "│                  │ │ homepage      │ https://www.nushell.sh                │ │",
+            "│                  │ │ license       │ MIT                                   │ │",
+            "│                  │ │               │ ╭──────────┬────────────────────────╮ │ │",
+            "│                  │ │ metadata      │ │          │ ╭───────────┬────────╮ │ │ │",
+            "│                  │ │               │ │ binstall │ │ overrides │ {recor │ │ │ │",
+            "│                  │ │               │ │          │ │           │ d 1    │ │ │ │",
+            "│                  │ │               │ │          │ │           │ field} │ │ │ │",
+            "│                  │ │               │ │          │ │ pkg-fmt   │ tgz    │ │ │ │",
+            "│                  │ │               │ │          │ │ pkg-url   │ { repo │ │ │ │",
+            "│                  │ │               │ │          │ │           │        │ │ │ │",
+            "│                  │ │               │ │          │ │           │ }/rele │ │ │ │",
+            "│                  │ │               │ │          │ │           │ ases/d │ │ │ │",
+            "│                  │ │               │ │          │ │           │ ownloa │ │ │ │",
+            "│                  │ │               │ │          │ │           │ d/{    │ │ │ │",
+            "│                  │ │               │ │          │ │           │ versio │ │ │ │",
+            "│                  │ │               │ │          │ │           │ n }/{  │ │ │ │",
+            "│                  │ │               │ │          │ │           │ name   │ │ │ │",
+            "│                  │ │               │ │          │ │           │ }-{    │ │ │ │",
+            "│                  │ │               │ │          │ │           │ versio │ │ │ │",
+            "│                  │ │               │ │          │ │           │ n }-{  │ │ │ │",
+            "│                  │ │               │ │          │ │           │ target │ │ │ │",
+            "│                  │ │               │ │          │ │           │  }.{   │ │ │ │",
+            "│                  │ │               │ │          │ │           │ archiv │ │ │ │",
+            "│                  │ │               │ │          │ │           │ e-form │ │ │ │",
+            "│                  │ │               │ │          │ │           │ at }   │ │ │ │",
+            "│                  │ │               │ │          │ ╰───────────┴────────╯ │ │ │",
+            "│                  │ │               │ ╰──────────┴────────────────────────╯ │ │",
+            "│                  │ │ name          │ nu                                    │ │",
+            "│                  │ │ repository    │ https://github.com/nushell/nushell    │ │",
+            "│                  │ │ rust-version  │ 1.60                                  │ │",
+            "│                  │ │ version       │ 0.74.1                                │ │",
+            "│                  │ ╰───────────────┴───────────────────────────────────────╯ │",
+            "│                  │ ╭───────────┬───────────────────────────────────────────╮ │",
+            "│ patch            │ │           │ ╭──────────┬────────────────────────────╮ │ │",
+            "│                  │ │ crates-io │ │          │ ╭────────┬───────────────╮ │ │ │",
+            "│                  │ │           │ │ reedline │ │ branch │ main          │ │ │ │",
+            "│                  │ │           │ │          │ │ git    │ https://githu │ │ │ │",
+            "│                  │ │           │ │          │ │        │ b.com/nushell │ │ │ │",
+            "│                  │ │           │ │          │ │        │ /reedline.git │ │ │ │",
+            "│                  │ │           │ │          │ ╰────────┴───────────────╯ │ │ │",
+            "│                  │ │           │ ╰──────────┴────────────────────────────╯ │ │",
+            "│                  │ ╰───────────┴───────────────────────────────────────────╯ │",
+            "│                  │ ╭─────────────────────────────────┬─────────────────────╮ │",
+            "│ target           │ │                                 │ ╭──────────────┬──╮ │ │",
+            "│                  │ │ cfg(not(target_os = \"windows\")) │ │ dependencies │  │ │ │",
+            "│                  │ │                                 │ ╰──────────────┴──╯ │ │",
+            "│                  │ │                                 │ ╭──────────────┬──╮ │ │",
+            "│                  │ │ cfg(target_family = \"unix\")     │ │ dependencies │  │ │ │",
+            "│                  │ │                                 │ ╰──────────────┴──╯ │ │",
+            "│                  │ │ cfg(windows)                    │ {record 1 field}    │ │",
+            "│                  │ ╰─────────────────────────────────┴─────────────────────╯ │",
+            "│                  │ ╭───────────┬───────────────────────────────────────────╮ │",
+            "│ workspace        │ │           │ ╭────┬────────────────────────────────╮   │ │",
+            "│                  │ │ members   │ │  0 │ crates/nu-cli                  │   │ │",
+            "│                  │ │           │ │  1 │ crates/nu-engine               │   │ │",
+            "│                  │ │           │ │  2 │ crates/nu-parser               │   │ │",
+            "│                  │ │           │ │  3 │ crates/nu-system               │   │ │",
+            "│                  │ │           │ │  4 │ crates/nu-command              │   │ │",
+            "│                  │ │           │ │  5 │ crates/nu-protocol             │   │ │",
+            "│                  │ │           │ │  6 │ crates/nu-plugin               │   │ │",
+            "│                  │ │           │ │  7 │ crates/nu_plugin_inc           │   │ │",
+            "│                  │ │           │ │  8 │ crates/nu_plugin_gstat         │   │ │",
+            "│                  │ │           │ │  9 │ crates/nu_plugin_example       │   │ │",
+            "│                  │ │           │ │ 10 │ crates/nu_plugin_query         │   │ │",
+            "│                  │ │           │ │ 11 │ crates/nu_plugin_custom_values │   │ │",
+            "│                  │ │           │ │ 12 │ crates/nu-utils                │   │ │",
+            "│                  │ │           │ ╰────┴────────────────────────────────╯   │ │",
+            "│                  │ ╰───────────┴───────────────────────────────────────────╯ │",
+            "╰──────────────────┴───────────────────────────────────────────────────────────╯",
+        ]);
+
+        assert_eq!(actual.out, expected);
+
+        let actual = nu!(
+            cwd: dirs.test(), pipeline(
+            "open sample.toml | table --expand --width=120"
+        ));
+
+        _print_lines(&actual.out, 120);
+
+        let expected = join_lines([
+            "╭──────────────────┬───────────────────────────────────────────────────────────────────────────────────────────────────╮",
+            "│                  │ ╭───┬─────────┬────────────╮                                                                      │",
+            "│ bench            │ │ # │ harness │    name    │                                                                      │",
+            "│                  │ ├───┼─────────┼────────────┤                                                                      │",
+            "│                  │ │ 0 │ false   │ benchmarks │                                                                      │",
+            "│                  │ ╰───┴─────────┴────────────╯                                                                      │",
+            "│                  │ ╭───┬──────┬─────────────╮                                                                        │",
+            "│ bin              │ │ # │ name │    path     │                                                                        │",
+            "│                  │ ├───┼──────┼─────────────┤                                                                        │",
+            "│                  │ │ 0 │ nu   │ src/main.rs │                                                                        │",
+            "│                  │ ╰───┴──────┴─────────────╯                                                                        │",
+            "│                  │ ╭───────────────┬───────────────────────────────────────────╮                                     │",
+            "│ dependencies     │ │               │ ╭──────────┬───────────────╮              │                                     │",
+            "│                  │ │ chrono        │ │          │ ╭───┬───────╮ │              │                                     │",
+            "│                  │ │               │ │ features │ │ 0 │ serde │ │              │                                     │",
+            "│                  │ │               │ │          │ ╰───┴───────╯ │              │                                     │",
+            "│                  │ │               │ │ version  │ 0.4.23        │              │                                     │",
+            "│                  │ │               │ ╰──────────┴───────────────╯              │                                     │",
+            "│                  │ │ crossterm     │ 0.24.0                                    │                                     │",
+            "│                  │ │ ctrlc         │ 3.2.1                                     │                                     │",
+            "│                  │ │ is_executable │ 1.0.1                                     │                                     │",
+            "│                  │ │ log           │ 0.4                                       │                                     │",
+            "│                  │ │               │ ╭──────────┬────────────────────────────╮ │                                     │",
+            "│                  │ │ miette        │ │          │ ╭───┬────────────────────╮ │ │                                     │",
+            "│                  │ │               │ │ features │ │ 0 │ fancy-no-backtrace │ │ │                                     │",
+            "│                  │ │               │ │          │ ╰───┴────────────────────╯ │ │                                     │",
+            "│                  │ │               │ │ version  │ 5.5.0                      │ │                                     │",
+            "│                  │ │               │ ╰──────────┴────────────────────────────╯ │                                     │",
+            "│                  │ │ nu-ansi-term  │ 0.46.0                                    │                                     │",
+            "│                  │ │               │ ╭─────────┬─────────────────╮             │                                     │",
+            "│                  │ │ nu-cli        │ │ path    │ ./crates/nu-cli │             │                                     │",
+            "│                  │ │               │ │ version │ 0.74.1          │             │                                     │",
+            "│                  │ │               │ ╰─────────┴─────────────────╯             │                                     │",
+            "│                  │ │               │ ╭─────────┬────────────────────╮          │                                     │",
+            "│                  │ │ nu-engine     │ │ path    │ ./crates/nu-engine │          │                                     │",
+            "│                  │ │               │ │ version │ 0.74.1             │          │                                     │",
+            "│                  │ │               │ ╰─────────┴────────────────────╯          │                                     │",
+            "│                  │ │ rayon         │ 1.6.1                                     │                                     │",
+            "│                  │ │               │ ╭──────────┬──────────────────╮           │                                     │",
+            "│                  │ │ reedline      │ │          │ ╭───┬──────────╮ │           │                                     │",
+            "│                  │ │               │ │ features │ │ 0 │ bashisms │ │           │                                     │",
+            "│                  │ │               │ │          │ │ 1 │ sqlite   │ │           │                                     │",
+            "│                  │ │               │ │          │ ╰───┴──────────╯ │           │                                     │",
+            "│                  │ │               │ │ version  │ 0.14.0           │           │                                     │",
+            "│                  │ │               │ ╰──────────┴──────────────────╯           │                                     │",
+            "│                  │ │ simplelog     │ 0.12.0                                    │                                     │",
+            "│                  │ │ time          │ 0.3.12                                    │                                     │",
+            "│                  │ ╰───────────────┴───────────────────────────────────────────╯                                     │",
+            "│                  │ ╭───────────────────┬────────────────────────────────────────╮                                    │",
+            "│ dev-dependencies │ │ assert_cmd        │ 2.0.2                                  │                                    │",
+            "│                  │ │ criterion         │ 0.4                                    │                                    │",
+            "│                  │ │ hamcrest2         │ 0.3.0                                  │                                    │",
+            "│                  │ │ itertools         │ 0.10.3                                 │                                    │",
+            "│                  │ │                   │ ╭─────────┬──────────────────────────╮ │                                    │",
+            "│                  │ │ nu-test-support   │ │ path    │ ./crates/nu-test-support │ │                                    │",
+            "│                  │ │                   │ │ version │ 0.74.1                   │ │                                    │",
+            "│                  │ │                   │ ╰─────────┴──────────────────────────╯ │                                    │",
+            "│                  │ │ pretty_assertions │ 1.0.0                                  │                                    │",
+            "│                  │ │                   │ ╭──────────────────┬────────╮          │                                    │",
+            "│                  │ │ rstest            │ │ default-features │ false  │          │                                    │",
+            "│                  │ │                   │ │ version          │ 0.15.0 │          │                                    │",
+            "│                  │ │                   │ ╰──────────────────┴────────╯          │                                    │",
+            "│                  │ │ serial_test       │ 0.10.0                                 │                                    │",
+            "│                  │ │ tempfile          │ 3.2.0                                  │                                    │",
+            "│                  │ ╰───────────────────┴────────────────────────────────────────╯                                    │",
+            "│                  │ ╭─────────────────────┬──────────────────────────────────╮                                        │",
+            "│ features         │ │                     │ ╭───┬───────────────╮            │                                        │",
+            "│                  │ │ default             │ │ 0 │ plugin        │            │                                        │",
+            "│                  │ │                     │ │ 1 │ which-support │            │                                        │",
+            "│                  │ │                     │ │ 2 │ trash-support │            │                                        │",
+            "│                  │ │                     │ │ 3 │ sqlite        │            │                                        │",
+            "│                  │ │                     │ ╰───┴───────────────╯            │                                        │",
+            "│                  │ │                     │ ╭───┬─────────╮                  │                                        │",
+            "│                  │ │ extra               │ │ 0 │ default │                  │                                        │",
+            "│                  │ │                     │ ╰───┴─────────╯                  │                                        │",
+            "│                  │ │                     │ ╭───┬────────────────────╮       │                                        │",
+            "│                  │ │ plugin              │ │ 0 │ nu-plugin          │       │                                        │",
+            "│                  │ │                     │ │ 1 │ nu-cli/plugin      │       │                                        │",
+            "│                  │ │                     │ │ 2 │ nu-parser/plugin   │       │                                        │",
+            "│                  │ │                     │ │ 3 │ nu-command/plugin  │       │                                        │",
+            "│                  │ │                     │ │ 4 │ nu-protocol/plugin │       │                                        │",
+            "│                  │ │                     │ │ 5 │ nu-engine/plugin   │       │                                        │",
+            "│                  │ │                     │ ╰───┴────────────────────╯       │                                        │",
+            "│                  │ │                     │ ╭───┬─────────╮                  │                                        │",
+            "│                  │ │ stable              │ │ 0 │ default │                  │                                        │",
+            "│                  │ │                     │ ╰───┴─────────╯                  │                                        │",
+            "│                  │ │                     │ ╭───┬─────────────╮              │                                        │",
+            "│                  │ │ static-link-openssl │ │ 0 │ dep:openssl │              │                                        │",
+            "│                  │ │                     │ ╰───┴─────────────╯              │                                        │",
+            "│                  │ │                     │ ╭───┬──────────────────────────╮ │                                        │",
+            "│                  │ │ trash-support       │ │ 0 │ nu-command/trash-support │ │                                        │",
+            "│                  │ │                     │ ╰───┴──────────────────────────╯ │                                        │",
+            "│                  │ │ wasi                │ [list 0 items]                   │                                        │",
+            "│                  │ │                     │ ╭───┬──────────────────────────╮ │                                        │",
+            "│                  │ │ which-support       │ │ 0 │ nu-command/which-support │ │                                        │",
+            "│                  │ │                     │ ╰───┴──────────────────────────╯ │                                        │",
+            "│                  │ ╰─────────────────────┴──────────────────────────────────╯                                        │",
+            "│                  │ ╭───────────────┬───────────────────────────────────────────────────────────────────────────────╮ │",
+            "│ package          │ │               │ ╭───┬────────────────────────────────╮                                        │ │",
+            "│                  │ │ authors       │ │ 0 │ The Nushell Project Developers │                                        │ │",
+            "│                  │ │               │ ╰───┴────────────────────────────────╯                                        │ │",
+            "│                  │ │ default-run   │ nu                                                                            │ │",
+            "│                  │ │ description   │ A new type of shell                                                           │ │",
+            "│                  │ │ documentation │ https://www.nushell.sh/book/                                                  │ │",
+            "│                  │ │ edition       │ 2021                                                                          │ │",
+            "│                  │ │               │ ╭───┬────────╮                                                                │ │",
+            "│                  │ │ exclude       │ │ 0 │ images │                                                                │ │",
+            "│                  │ │               │ ╰───┴────────╯                                                                │ │",
+            "│                  │ │ homepage      │ https://www.nushell.sh                                                        │ │",
+            "│                  │ │ license       │ MIT                                                                           │ │",
+            "│                  │ │               │ ╭──────────┬────────────────────────────────────────────────────────────────╮ │ │",
+            "│                  │ │ metadata      │ │          │ ╭───────────┬────────────────────────────────────────────────╮ │ │ │",
+            "│                  │ │               │ │ binstall │ │           │ ╭────────────────────────┬───────────────────╮ │ │ │ │",
+            "│                  │ │               │ │          │ │ overrides │ │                        │ ╭─────────┬─────╮ │ │ │ │ │",
+            "│                  │ │               │ │          │ │           │ │ x86_64-pc-windows-msvc │ │ pkg-fmt │ zip │ │ │ │ │ │",
+            "│                  │ │               │ │          │ │           │ │                        │ ╰─────────┴─────╯ │ │ │ │ │",
+            "│                  │ │               │ │          │ │           │ ╰────────────────────────┴───────────────────╯ │ │ │ │",
+            "│                  │ │               │ │          │ │ pkg-fmt   │ tgz                                            │ │ │ │",
+            "│                  │ │               │ │          │ │ pkg-url   │ { repo }/releases/download/{ version }/{ name  │ │ │ │",
+            "│                  │ │               │ │          │ │           │ }-{ version }-{ target }.{ archive-format }    │ │ │ │",
+            "│                  │ │               │ │          │ ╰───────────┴────────────────────────────────────────────────╯ │ │ │",
+            "│                  │ │               │ ╰──────────┴────────────────────────────────────────────────────────────────╯ │ │",
+            "│                  │ │ name          │ nu                                                                            │ │",
+            "│                  │ │ repository    │ https://github.com/nushell/nushell                                            │ │",
+            "│                  │ │ rust-version  │ 1.60                                                                          │ │",
+            "│                  │ │ version       │ 0.74.1                                                                        │ │",
+            "│                  │ ╰───────────────┴───────────────────────────────────────────────────────────────────────────────╯ │",
+            "│                  │ ╭───────────┬───────────────────────────────────────────────────────────────────────────────────╮ │",
+            "│ patch            │ │           │ ╭─────────────────┬─────────────────────────────────────────────────────────────╮ │ │",
+            "│                  │ │ crates-io │ │                 │ ╭────────┬─────────────────────────────────────────╮        │ │ │",
+            "│                  │ │           │ │ reedline        │ │ branch │ main                                    │        │ │ │",
+            "│                  │ │           │ │                 │ │ git    │ https://github.com/nushell/reedline.git │        │ │ │",
+            "│                  │ │           │ │                 │ ╰────────┴─────────────────────────────────────────╯        │ │ │",
+            "│                  │ │           │ ╰─────────────────┴─────────────────────────────────────────────────────────────╯ │ │",
+            "│                  │ ╰───────────┴───────────────────────────────────────────────────────────────────────────────────╯ │",
+            "│                  │ ╭─────────────────────────────────┬─────────────────────────────────────────────────────────────╮ │",
+            "│ target           │ │                                 │ ╭──────────────┬──────────────────────────────────────────╮ │ │",
+            "│                  │ │ cfg(not(target_os = \"windows\")) │ │              │ ╭────────────────┬─────────────────────╮ │ │ │",
+            "│                  │ │                                 │ │ dependencies │ │ openssl        │ {record 3 fields}   │ │ │ │",
+            "│                  │ │                                 │ │              │ │ signal-hook    │ {record 2 fields}   │ │ │ │",
+            "│                  │ │                                 │ │              │ ╰────────────────┴─────────────────────╯ │ │ │",
+            "│                  │ │                                 │ ╰──────────────┴──────────────────────────────────────────╯ │ │",
+            "│                  │ │                                 │ ╭──────────────┬──────────────────────────────╮             │ │",
+            "│                  │ │ cfg(target_family = \"unix\")     │ │              │ ╭──────┬───────────────────╮ │             │ │",
+            "│                  │ │                                 │ │ dependencies │ │ atty │ 0.2               │ │             │ │",
+            "│                  │ │                                 │ │              │ │ nix  │ {record 3 fields} │ │             │ │",
+            "│                  │ │                                 │ │              │ ╰──────┴───────────────────╯ │             │ │",
+            "│                  │ │                                 │ ╰──────────────┴──────────────────────────────╯             │ │",
+            "│                  │ │                                 │ ╭────────────────────┬──────────────────╮                   │ │",
+            "│                  │ │ cfg(windows)                    │ │                    │ ╭────────┬─────╮ │                   │ │",
+            "│                  │ │                                 │ │ build-dependencies │ │ winres │ 0.1 │ │                   │ │",
+            "│                  │ │                                 │ │                    │ ╰────────┴─────╯ │                   │ │",
+            "│                  │ │                                 │ ╰────────────────────┴──────────────────╯                   │ │",
+            "│                  │ ╰─────────────────────────────────┴─────────────────────────────────────────────────────────────╯ │",
+            "│                  │ ╭─────────┬─────────────────────────────────────────╮                                             │",
+            "│ workspace        │ │         │ ╭────┬────────────────────────────────╮ │                                             │",
+            "│                  │ │ members │ │  0 │ crates/nu-cli                  │ │                                             │",
+            "│                  │ │         │ │  1 │ crates/nu-engine               │ │                                             │",
+            "│                  │ │         │ │  2 │ crates/nu-parser               │ │                                             │",
+            "│                  │ │         │ │  3 │ crates/nu-system               │ │                                             │",
+            "│                  │ │         │ │  4 │ crates/nu-command              │ │                                             │",
+            "│                  │ │         │ │  5 │ crates/nu-protocol             │ │                                             │",
+            "│                  │ │         │ │  6 │ crates/nu-plugin               │ │                                             │",
+            "│                  │ │         │ │  7 │ crates/nu_plugin_inc           │ │                                             │",
+            "│                  │ │         │ │  8 │ crates/nu_plugin_gstat         │ │                                             │",
+            "│                  │ │         │ │  9 │ crates/nu_plugin_example       │ │                                             │",
+            "│                  │ │         │ │ 10 │ crates/nu_plugin_query         │ │                                             │",
+            "│                  │ │         │ │ 11 │ crates/nu_plugin_custom_values │ │                                             │",
+            "│                  │ │         │ │ 12 │ crates/nu-utils                │ │                                             │",
+            "│                  │ │         │ ╰────┴────────────────────────────────╯ │                                             │",
+            "│                  │ ╰─────────┴─────────────────────────────────────────╯                                             │",
+            "╰──────────────────┴───────────────────────────────────────────────────────────────────────────────────────────────────╯",
+        ]);
+
+        assert_eq!(actual.out, expected);
+
+        let actual = nu!(
+            cwd: dirs.test(), pipeline(
+            "open sample.toml | table --expand --width=60"
+        ));
+
+        _print_lines(&actual.out, 60);
+
+        let expected = join_lines([
+            "╭──────────────────┬───────────────────────────────────────╮",
+            "│                  │ ╭───┬─────────┬────────────╮          │",
+            "│ bench            │ │ # │ harness │    name    │          │",
+            "│                  │ ├───┼─────────┼────────────┤          │",
+            "│                  │ │ 0 │ false   │ benchmarks │          │",
+            "│                  │ ╰───┴─────────┴────────────╯          │",
+            "│                  │ ╭───┬──────┬─────────────╮            │",
+            "│ bin              │ │ # │ name │    path     │            │",
+            "│                  │ ├───┼──────┼─────────────┤            │",
+            "│                  │ │ 0 │ nu   │ src/main.rs │            │",
+            "│                  │ ╰───┴──────┴─────────────╯            │",
+            "│                  │ ╭───────────────┬───────────────────╮ │",
+            "│ dependencies     │ │               │ ╭──────────┬────╮ │ │",
+            "│                  │ │ chrono        │ │ features │ [l │ │ │",
+            "│                  │ │               │ │          │ is │ │ │",
+            "│                  │ │               │ │          │ t  │ │ │",
+            "│                  │ │               │ │          │ 1  │ │ │",
+            "│                  │ │               │ │          │ it │ │ │",
+            "│                  │ │               │ │          │ em │ │ │",
+            "│                  │ │               │ │          │ ]  │ │ │",
+            "│                  │ │               │ │ version  │ 0. │ │ │",
+            "│                  │ │               │ │          │ 4. │ │ │",
+            "│                  │ │               │ │          │ 23 │ │ │",
+            "│                  │ │               │ ╰──────────┴────╯ │ │",
+            "│                  │ │ crossterm     │ 0.24.0            │ │",
+            "│                  │ │ ctrlc         │ 3.2.1             │ │",
+            "│                  │ │ is_executable │ 1.0.1             │ │",
+            "│                  │ │ log           │ 0.4               │ │",
+            "│                  │ │               │ ╭──────────┬────╮ │ │",
+            "│                  │ │ miette        │ │ features │ [l │ │ │",
+            "│                  │ │               │ │          │ is │ │ │",
+            "│                  │ │               │ │          │ t  │ │ │",
+            "│                  │ │               │ │          │ 1  │ │ │",
+            "│                  │ │               │ │          │ it │ │ │",
+            "│                  │ │               │ │          │ em │ │ │",
+            "│                  │ │               │ │          │ ]  │ │ │",
+            "│                  │ │               │ │ version  │ 5. │ │ │",
+            "│                  │ │               │ │          │ 5. │ │ │",
+            "│                  │ │               │ │          │ 0  │ │ │",
+            "│                  │ │               │ ╰──────────┴────╯ │ │",
+            "│                  │ │ nu-ansi-term  │ 0.46.0            │ │",
+            "│                  │ │               │ ╭─────────┬─────╮ │ │",
+            "│                  │ │ nu-cli        │ │ path    │ ./c │ │ │",
+            "│                  │ │               │ │         │ rat │ │ │",
+            "│                  │ │               │ │         │ es/ │ │ │",
+            "│                  │ │               │ │         │ nu- │ │ │",
+            "│                  │ │               │ │         │ cli │ │ │",
+            "│                  │ │               │ │ version │ 0.7 │ │ │",
+            "│                  │ │               │ │         │ 4.1 │ │ │",
+            "│                  │ │               │ ╰─────────┴─────╯ │ │",
+            "│                  │ │               │ ╭─────────┬─────╮ │ │",
+            "│                  │ │ nu-engine     │ │ path    │ ./c │ │ │",
+            "│                  │ │               │ │         │ rat │ │ │",
+            "│                  │ │               │ │         │ es/ │ │ │",
+            "│                  │ │               │ │         │ nu- │ │ │",
+            "│                  │ │               │ │         │ eng │ │ │",
+            "│                  │ │               │ │         │ ine │ │ │",
+            "│                  │ │               │ │ version │ 0.7 │ │ │",
+            "│                  │ │               │ │         │ 4.1 │ │ │",
+            "│                  │ │               │ ╰─────────┴─────╯ │ │",
+            "│                  │ │ rayon         │ 1.6.1             │ │",
+            "│                  │ │               │ ╭──────────┬────╮ │ │",
+            "│                  │ │ reedline      │ │ features │ [l │ │ │",
+            "│                  │ │               │ │          │ is │ │ │",
+            "│                  │ │               │ │          │ t  │ │ │",
+            "│                  │ │               │ │          │ 2  │ │ │",
+            "│                  │ │               │ │          │ it │ │ │",
+            "│                  │ │               │ │          │ em │ │ │",
+            "│                  │ │               │ │          │ s] │ │ │",
+            "│                  │ │               │ │ version  │ 0. │ │ │",
+            "│                  │ │               │ │          │ 14 │ │ │",
+            "│                  │ │               │ │          │ .0 │ │ │",
+            "│                  │ │               │ ╰──────────┴────╯ │ │",
+            "│                  │ │ simplelog     │ 0.12.0            │ │",
+            "│                  │ │ time          │ 0.3.12            │ │",
+            "│                  │ ╰───────────────┴───────────────────╯ │",
+            "│                  │ ╭───────────────────┬───────────────╮ │",
+            "│ dev-dependencies │ │ assert_cmd        │ 2.0.2         │ │",
+            "│                  │ │ criterion         │ 0.4           │ │",
+            "│                  │ │ hamcrest2         │ 0.3.0         │ │",
+            "│                  │ │ itertools         │ 0.10.3        │ │",
+            "│                  │ │ nu-test-support   │ {record 2     │ │",
+            "│                  │ │                   │ fields}       │ │",
+            "│                  │ │ pretty_assertions │ 1.0.0         │ │",
+            "│                  │ │ rstest            │ {record 2     │ │",
+            "│                  │ │                   │ fields}       │ │",
+            "│                  │ │ serial_test       │ 0.10.0        │ │",
+            "│                  │ │ tempfile          │ 3.2.0         │ │",
+            "│                  │ ╰───────────────────┴───────────────╯ │",
+            "│                  │ ╭─────────────────────┬─────────────╮ │",
+            "│ features         │ │                     │ ╭───┬─────╮ │ │",
+            "│                  │ │ default             │ │ 0 │ plu │ │ │",
+            "│                  │ │                     │ │   │ gin │ │ │",
+            "│                  │ │                     │ │ 1 │ whi │ │ │",
+            "│                  │ │                     │ │   │ ch- │ │ │",
+            "│                  │ │                     │ │   │ sup │ │ │",
+            "│                  │ │                     │ │   │ por │ │ │",
+            "│                  │ │                     │ │   │ t   │ │ │",
+            "│                  │ │                     │ │ 2 │ tra │ │ │",
+            "│                  │ │                     │ │   │ sh- │ │ │",
+            "│                  │ │                     │ │   │ sup │ │ │",
+            "│                  │ │                     │ │   │ por │ │ │",
+            "│                  │ │                     │ │   │ t   │ │ │",
+            "│                  │ │                     │ │ 3 │ sql │ │ │",
+            "│                  │ │                     │ │   │ ite │ │ │",
+            "│                  │ │                     │ ╰───┴─────╯ │ │",
+            "│                  │ │                     │ ╭───┬─────╮ │ │",
+            "│                  │ │ extra               │ │ 0 │ def │ │ │",
+            "│                  │ │                     │ │   │ aul │ │ │",
+            "│                  │ │                     │ │   │ t   │ │ │",
+            "│                  │ │                     │ ╰───┴─────╯ │ │",
+            "│                  │ │                     │ ╭───┬─────╮ │ │",
+            "│                  │ │ plugin              │ │ 0 │ nu- │ │ │",
+            "│                  │ │                     │ │   │ plu │ │ │",
+            "│                  │ │                     │ │   │ gin │ │ │",
+            "│                  │ │                     │ │ 1 │ nu- │ │ │",
+            "│                  │ │                     │ │   │ cli │ │ │",
+            "│                  │ │                     │ │   │ /pl │ │ │",
+            "│                  │ │                     │ │   │ ugi │ │ │",
+            "│                  │ │                     │ │   │ n   │ │ │",
+            "│                  │ │                     │ │ 2 │ nu- │ │ │",
+            "│                  │ │                     │ │   │ par │ │ │",
+            "│                  │ │                     │ │   │ ser │ │ │",
+            "│                  │ │                     │ │   │ /pl │ │ │",
+            "│                  │ │                     │ │   │ ugi │ │ │",
+            "│                  │ │                     │ │   │ n   │ │ │",
+            "│                  │ │                     │ │ 3 │ nu- │ │ │",
+            "│                  │ │                     │ │   │ com │ │ │",
+            "│                  │ │                     │ │   │ man │ │ │",
+            "│                  │ │                     │ │   │ d/p │ │ │",
+            "│                  │ │                     │ │   │ lug │ │ │",
+            "│                  │ │                     │ │   │ in  │ │ │",
+            "│                  │ │                     │ │ 4 │ nu- │ │ │",
+            "│                  │ │                     │ │   │ pro │ │ │",
+            "│                  │ │                     │ │   │ toc │ │ │",
+            "│                  │ │                     │ │   │ ol/ │ │ │",
+            "│                  │ │                     │ │   │ plu │ │ │",
+            "│                  │ │                     │ │   │ gin │ │ │",
+            "│                  │ │                     │ │ 5 │ nu- │ │ │",
+            "│                  │ │                     │ │   │ eng │ │ │",
+            "│                  │ │                     │ │   │ ine │ │ │",
+            "│                  │ │                     │ │   │ /pl │ │ │",
+            "│                  │ │                     │ │   │ ugi │ │ │",
+            "│                  │ │                     │ │   │ n   │ │ │",
+            "│                  │ │                     │ ╰───┴─────╯ │ │",
+            "│                  │ │                     │ ╭───┬─────╮ │ │",
+            "│                  │ │ stable              │ │ 0 │ def │ │ │",
+            "│                  │ │                     │ │   │ aul │ │ │",
+            "│                  │ │                     │ │   │ t   │ │ │",
+            "│                  │ │                     │ ╰───┴─────╯ │ │",
+            "│                  │ │                     │ ╭───┬─────╮ │ │",
+            "│                  │ │ static-link-openssl │ │ 0 │ dep │ │ │",
+            "│                  │ │                     │ │   │ :op │ │ │",
+            "│                  │ │                     │ │   │ ens │ │ │",
+            "│                  │ │                     │ │   │ sl  │ │ │",
+            "│                  │ │                     │ ╰───┴─────╯ │ │",
+            "│                  │ │                     │ ╭───┬─────╮ │ │",
+            "│                  │ │ trash-support       │ │ 0 │ nu- │ │ │",
+            "│                  │ │                     │ │   │ com │ │ │",
+            "│                  │ │                     │ │   │ man │ │ │",
+            "│                  │ │                     │ │   │ d/t │ │ │",
+            "│                  │ │                     │ │   │ ras │ │ │",
+            "│                  │ │                     │ │   │ h-s │ │ │",
+            "│                  │ │                     │ │   │ upp │ │ │",
+            "│                  │ │                     │ │   │ ort │ │ │",
+            "│                  │ │                     │ ╰───┴─────╯ │ │",
+            "│                  │ │ wasi                │ [list 0     │ │",
+            "│                  │ │                     │ items]      │ │",
+            "│                  │ │                     │ ╭───┬─────╮ │ │",
+            "│                  │ │ which-support       │ │ 0 │ nu- │ │ │",
+            "│                  │ │                     │ │   │ com │ │ │",
+            "│                  │ │                     │ │   │ man │ │ │",
+            "│                  │ │                     │ │   │ d/w │ │ │",
+            "│                  │ │                     │ │   │ hic │ │ │",
+            "│                  │ │                     │ │   │ h-s │ │ │",
+            "│                  │ │                     │ │   │ upp │ │ │",
+            "│                  │ │                     │ │   │ ort │ │ │",
+            "│                  │ │                     │ ╰───┴─────╯ │ │",
+            "│                  │ ╰─────────────────────┴─────────────╯ │",
+            "│                  │ ╭───────────────┬───────────────────╮ │",
+            "│ package          │ │               │ ╭───┬───────────╮ │ │",
+            "│                  │ │ authors       │ │ 0 │ The       │ │ │",
+            "│                  │ │               │ │   │ Nushell   │ │ │",
+            "│                  │ │               │ │   │ Project   │ │ │",
+            "│                  │ │               │ │   │ Developer │ │ │",
+            "│                  │ │               │ │   │ s         │ │ │",
+            "│                  │ │               │ ╰───┴───────────╯ │ │",
+            "│                  │ │ default-run   │ nu                │ │",
+            "│                  │ │ description   │ A new type of     │ │",
+            "│                  │ │               │ shell             │ │",
+            "│                  │ │ documentation │ https://www.nushe │ │",
+            "│                  │ │               │ ll.sh/book/       │ │",
+            "│                  │ │ edition       │ 2021              │ │",
+            "│                  │ │               │ ╭───┬────────╮    │ │",
+            "│                  │ │ exclude       │ │ 0 │ images │    │ │",
+            "│                  │ │               │ ╰───┴────────╯    │ │",
+            "│                  │ │ homepage      │ https://www.nushe │ │",
+            "│                  │ │               │ ll.sh             │ │",
+            "│                  │ │ license       │ MIT               │ │",
+            "│                  │ │               │ ╭──────────┬────╮ │ │",
+            "│                  │ │ metadata      │ │ binstall │ {r │ │ │",
+            "│                  │ │               │ │          │ ec │ │ │",
+            "│                  │ │               │ │          │ or │ │ │",
+            "│                  │ │               │ │          │ d  │ │ │",
+            "│                  │ │               │ │          │ 3  │ │ │",
+            "│                  │ │               │ │          │ fi │ │ │",
+            "│                  │ │               │ │          │ el │ │ │",
+            "│                  │ │               │ │          │ ds │ │ │",
+            "│                  │ │               │ │          │ }  │ │ │",
+            "│                  │ │               │ ╰──────────┴────╯ │ │",
+            "│                  │ │ name          │ nu                │ │",
+            "│                  │ │ repository    │ https://github.co │ │",
+            "│                  │ │               │ m/nushell/nushell │ │",
+            "│                  │ │ rust-version  │ 1.60              │ │",
+            "│                  │ │ version       │ 0.74.1            │ │",
+            "│                  │ ╰───────────────┴───────────────────╯ │",
+            "│                  │ ╭───────────┬───────────────────────╮ │",
+            "│ patch            │ │           │ ╭──────────┬────────╮ │ │",
+            "│                  │ │ crates-io │ │ reedline │ {recor │ │ │",
+            "│                  │ │           │ │          │ d 2    │ │ │",
+            "│                  │ │           │ │          │ fields │ │ │",
+            "│                  │ │           │ │          │ }      │ │ │",
+            "│                  │ │           │ ╰──────────┴────────╯ │ │",
+            "│                  │ ╰───────────┴───────────────────────╯ │",
+            "│ target           │ {record 3 fields}                     │",
+            "│                  │ ╭─────────┬─────────────────────────╮ │",
+            "│ workspace        │ │         │ ╭────┬────────────────╮ │ │",
+            "│                  │ │ members │ │  0 │ crates/nu-cli  │ │ │",
+            "│                  │ │         │ │  1 │ crates/nu-engi │ │ │",
+            "│                  │ │         │ │    │ ne             │ │ │",
+            "│                  │ │         │ │  2 │ crates/nu-pars │ │ │",
+            "│                  │ │         │ │    │ er             │ │ │",
+            "│                  │ │         │ │  3 │ crates/nu-syst │ │ │",
+            "│                  │ │         │ │    │ em             │ │ │",
+            "│                  │ │         │ │  4 │ crates/nu-comm │ │ │",
+            "│                  │ │         │ │    │ and            │ │ │",
+            "│                  │ │         │ │  5 │ crates/nu-prot │ │ │",
+            "│                  │ │         │ │    │ ocol           │ │ │",
+            "│                  │ │         │ │  6 │ crates/nu-plug │ │ │",
+            "│                  │ │         │ │    │ in             │ │ │",
+            "│                  │ │         │ │  7 │ crates/nu_plug │ │ │",
+            "│                  │ │         │ │    │ in_inc         │ │ │",
+            "│                  │ │         │ │  8 │ crates/nu_plug │ │ │",
+            "│                  │ │         │ │    │ in_gstat       │ │ │",
+            "│                  │ │         │ │  9 │ crates/nu_plug │ │ │",
+            "│                  │ │         │ │    │ in_example     │ │ │",
+            "│                  │ │         │ │ 10 │ crates/nu_plug │ │ │",
+            "│                  │ │         │ │    │ in_query       │ │ │",
+            "│                  │ │         │ │ 11 │ crates/nu_plug │ │ │",
+            "│                  │ │         │ │    │ in_custom_valu │ │ │",
+            "│                  │ │         │ │    │ es             │ │ │",
+            "│                  │ │         │ │ 12 │ crates/nu-util │ │ │",
+            "│                  │ │         │ │    │ s              │ │ │",
+            "│                  │ │         │ ╰────┴────────────────╯ │ │",
+            "│                  │ ╰─────────┴─────────────────────────╯ │",
+            "╰──────────────────┴───────────────────────────────────────╯",
+        ]);
+
+        assert_eq!(actual.out, expected);
+
+        let actual = nu!(
+            cwd: dirs.test(), pipeline(
+            "open sample.toml | table --expand --width=40"
+        ));
+
+        _print_lines(&actual.out, 40);
+
+        let expected = join_lines([
+            "╭──────────────────┬───────────────────╮",
+            "│ bench            │ [table 1 row]     │",
+            "│ bin              │ [table 1 row]     │",
+            "│ dependencies     │ {record 13        │",
+            "│                  │ fields}           │",
+            "│ dev-dependencies │ {record 9 fields} │",
+            "│ features         │ {record 8 fields} │",
+            "│ package          │ {record 13        │",
+            "│                  │ fields}           │",
+            "│                  │ ╭───────────┬───╮ │",
+            "│ patch            │ │ crates-io │ { │ │",
+            "│                  │ │           │ r │ │",
+            "│                  │ │           │ e │ │",
+            "│                  │ │           │ c │ │",
+            "│                  │ │           │ o │ │",
+            "│                  │ │           │ r │ │",
+            "│                  │ │           │ d │ │",
+            "│                  │ │           │   │ │",
+            "│                  │ │           │ 1 │ │",
+            "│                  │ │           │   │ │",
+            "│                  │ │           │ f │ │",
+            "│                  │ │           │ i │ │",
+            "│                  │ │           │ e │ │",
+            "│                  │ │           │ l │ │",
+            "│                  │ │           │ d │ │",
+            "│                  │ │           │ } │ │",
+            "│                  │ ╰───────────┴───╯ │",
+            "│ target           │ {record 3 fields} │",
+            "│ workspace        │ {record 1 field}  │",
+            "╰──────────────────┴───────────────────╯",
+        ]);
+
+        assert_eq!(actual.out, expected);
+    })
+}
+
+fn join_lines(lines: impl IntoIterator<Item = impl AsRef<str>>) -> String {
+    lines
+        .into_iter()
+        .map(|s| s.as_ref().to_string())
+        .collect::<Vec<_>>()
+        .join("")
+}
+
+// util function to easier copy && paste
+fn _print_lines(s: &str, w: usize) {
+    eprintln!("{:#?}", _split_str_by_width(s, w));
+}
+
+// util function to easier copy && paste
+// todo: make UTF-8 friendly
+fn _split_str_by_width(s: &str, w: usize) -> Vec<String> {
+    let mut lines = vec![];
+    let mut line = String::new();
+    let mut i = 0;
+    for c in s.chars() {
+        if i < w {
+            i += 1;
+            line.push(c);
+        } else {
+            lines.push(line);
+            line = String::new();
+            line.push(c);
+            i = 1;
+        }
+    }
+
+    lines.push(line);
+
+    lines
 }

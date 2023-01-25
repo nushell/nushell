@@ -15,8 +15,22 @@ jobs:
         # builds to link against a too-new-for-many-Linux-installs glibc version. Consider
         # revisiting this when 20.04 is closer to EOL (April 2025)
         platform: [windows-latest, macos-latest, ubuntu-20.04]
+        style: [default, dataframe]
         rust:
           - stable
+        include:
+          - style: default
+            flags: ""
+          - style: dataframe
+            flags: "--features=dataframe "
+        exclude:
+          # only test dataframes on Ubuntu (the fastest platform)
+          - platform: windows-latest
+            style: dataframe
+          - platform: macos-latest
+            style: dataframe
+
+
 
     runs-on: ${{ matrix.platform }}
     env:
@@ -26,13 +40,13 @@ jobs:
       - uses: actions/checkout@v3
 
       - name: Setup Rust toolchain and cache
-        uses: actions-rust-lang/setup-rust-toolchain@v1.3.4
+        uses: actions-rust-lang/setup-rust-toolchain@v1.3.5
 
       - name: cargo fmt
         run: cargo fmt --all -- --check
 
       - name: Clippy
-        run: cargo clippy --workspace --exclude nu_plugin_* -- -D warnings -D clippy::unwrap_used -A clippy::needless_collect
+        run: cargo clippy --workspace ${{ matrix.flags }}--exclude nu_plugin_* -- -D warnings -D clippy::unwrap_used -A clippy::needless_collect
 
   nu-tests:
     env:
@@ -63,7 +77,7 @@ jobs:
       - uses: actions/checkout@v3
 
       - name: Setup Rust toolchain and cache
-        uses: actions-rust-lang/setup-rust-toolchain@v1.3.4
+        uses: actions-rust-lang/setup-rust-toolchain@v1.3.5
 
       - name: Tests
         run: cargo test --workspace --profile ci --exclude nu_plugin_* ${{ matrix.flags }}
@@ -87,7 +101,7 @@ jobs:
       - uses: actions/checkout@v3
 
       - name: Setup Rust toolchain and cache
-        uses: actions-rust-lang/setup-rust-toolchain@v1.3.4
+        uses: actions-rust-lang/setup-rust-toolchain@v1.3.5
 
       - name: Install Nushell
         run: cargo install --locked --path=. --profile ci --no-default-features
@@ -99,8 +113,9 @@ jobs:
 
       - run: python -m pip install tox
 
+        # Get only the latest tagged version for stability reasons
       - name: Install virtualenv
-        run: git clone https://github.com/pypa/virtualenv.git
+        run: git clone https://github.com/pypa/virtualenv.git && cd virtualenv && git checkout $(git describe --tags | cut -d - -f 1)
         shell: bash
 
       - name: Test Nushell in virtualenv
@@ -126,7 +141,7 @@ jobs:
       - uses: actions/checkout@v3
 
       - name: Setup Rust toolchain and cache
-        uses: actions-rust-lang/setup-rust-toolchain@v1.3.4
+        uses: actions-rust-lang/setup-rust-toolchain@v1.3.5
 
       - name: Clippy
         run: cargo clippy --package nu_plugin_* ${{ matrix.flags }} -- -D warnings -D clippy::unwrap_used -A clippy::needless_collect

@@ -5,7 +5,7 @@ use nu_protocol::{
     Signature, Span, Type, Value,
 };
 use once_cell::sync::Lazy;
-// regex can be replaced with fancy-regex once it suppports `split()`
+// regex can be replaced with fancy-regex once it supports `split()`
 // https://github.com/fancy-regex/fancy-regex/issues/104
 use regex::Regex;
 
@@ -109,10 +109,18 @@ impl Command for Lines {
 
                 Ok(iter.into_pipeline_data(engine_state.ctrlc.clone()))
             }
-            PipelineData::Value(val, ..) => Err(ShellError::UnsupportedInput(
-                format!("Not supported input: {}", val.as_string()?),
-                head,
-            )),
+            PipelineData::Value(val, ..) => {
+                match val {
+                    // Propagate existing errors
+                    Value::Error { error } => Err(error),
+                    _ => Err(ShellError::OnlySupportsThisInputType(
+                        "string or raw data".into(),
+                        val.get_type().to_string(),
+                        head,
+                        val.expect_span(),
+                    )),
+                }
+            }
             PipelineData::ExternalStream { stdout: None, .. } => Ok(PipelineData::empty()),
             PipelineData::ExternalStream {
                 stdout: Some(stream),
@@ -189,6 +197,7 @@ impl Iterator for RawStreamLinesAdapter {
                     match result {
                         Ok(v) => {
                             match v {
+                                // TODO: Value::Binary support required?
                                 Value::String { val, span } => {
                                     self.span = span;
 
@@ -223,12 +232,16 @@ impl Iterator for RawStreamLinesAdapter {
                                     // save completed lines
                                     self.queue.append(&mut lines);
                                 }
-                                // TODO: Value::Binary support required?
-                                _ => {
-                                    return Some(Err(ShellError::UnsupportedInput(
-                                        "Unsupport type from raw stream".to_string(),
+                                // Propagate errors by explicitly matching them before the final case.
+                                Value::Error { error } => return Some(Err(error)),
+                                other => {
+                                    return Some(Err(ShellError::OnlySupportsThisInputType(
+                                        "string".into(),
+                                        other.get_type().to_string(),
                                         self.span,
-                                    )))
+                                        // This line requires the Value::Error match above.
+                                        other.expect_span(),
+                                    )));
                                 }
                             }
                         }

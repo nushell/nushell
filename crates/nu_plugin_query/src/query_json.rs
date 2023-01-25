@@ -45,7 +45,7 @@ pub fn execute_json_query(
 
     if query_contains_modifiers(query_string) {
         let json_str = val.json();
-        Ok(Value::string(json_str, Span::test_data()))
+        Ok(Value::string(json_str, call.head))
     } else {
         Ok(convert_gjson_value_to_nu_value(&val, &call.head))
     }
@@ -61,7 +61,7 @@ fn query_contains_modifiers(query: &str) -> bool {
     // @pretty: Make the json document more human readable.
     query.contains("@ugly") || query.contains("@pretty")
 
-    // Output as Tablular
+    // Output as Tabular
     // Since it's output as tabular, which is our default, we can just ignore these
     // @reverse: Reverse an array or the members of an object.
     // @this: Returns the current element. It can be used to retrieve the root element.

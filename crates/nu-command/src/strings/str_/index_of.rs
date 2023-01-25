@@ -1,3 +1,4 @@
+use crate::grapheme_flags;
 use crate::input_handler::{operate, CmdArgument};
 use nu_engine::CallExt;
 use nu_protocol::ast::Call;
@@ -6,12 +7,14 @@ use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::Category;
 use nu_protocol::Spanned;
 use nu_protocol::{Example, PipelineData, ShellError, Signature, Span, SyntaxShape, Type, Value};
+use unicode_segmentation::UnicodeSegmentation;
 
 struct Arguments {
     end: bool,
     substring: String,
     range: Option<Value>,
     cell_paths: Option<Vec<CellPath>>,
+    graphemes: bool,
 }
 
 impl CmdArgument for Arguments {
@@ -35,7 +38,17 @@ impl Command for SubCommand {
         Signature::build("str index-of")
             .input_output_types(vec![(Type::String, Type::Int)])
             .vectorizes_over_list(true) // TODO: no test coverage
-            .required("string", SyntaxShape::String, "the string to find index of")
+            .required("string", SyntaxShape::String, "the string to find in the input")
+            .switch(
+                "grapheme-clusters",
+                "count indexes using grapheme clusters (all visible chars have length 1)",
+                Some('g'),
+            )
+            .switch(
+                "utf-8-bytes",
+                "count indexes using UTF-8 bytes (default; non-ASCII chars have length 2+)",
+                Some('b'),
+            )
             .rest(
                 "rest",
                 SyntaxShape::CellPath,
@@ -74,6 +87,7 @@ impl Command for SubCommand {
             range: call.get_flag(engine_state, stack, "range")?,
             end: call.has_flag("end"),
             cell_paths,
+            graphemes: grapheme_flags(call)?,
         };
         operate(action, args, input, call.head, engine_state.ctrlc.clone())
     }
@@ -84,6 +98,11 @@ impl Command for SubCommand {
                 description: "Returns index of string in input",
                 example: " 'my_library.rb' | str index-of '.rb'",
                 result: Some(Value::test_int(10)),
+            },
+            Example {
+                description: "Count length using grapheme clusters",
+                example: "'🇯🇵ほげ ふが ぴよ' | str index-of -g 'ふが'",
+                result: Some(Value::test_int(4)),
             },
             Example {
                 description: "Returns index of string in input with start index",
@@ -120,6 +139,7 @@ fn action(
         ref substring,
         range,
         end,
+        graphemes,
         ..
     }: &Arguments,
     head: Span,
@@ -138,25 +158,39 @@ fn action(
                 Err(e) => return Value::Error { error: e },
             };
 
-            if *end {
-                if let Some(result) = s[start_index..end_index].rfind(&**substring) {
-                    Value::int(result as i64 + start_index as i64, head)
-                } else {
-                    Value::int(-1, head)
-                }
-            } else if let Some(result) = s[start_index..end_index].find(&**substring) {
-                Value::int(result as i64 + start_index as i64, head)
+            // When the -e flag is present, search using rfind instead of find.s
+            if let Some(result) = if *end {
+                s[start_index..end_index].rfind(&**substring)
+            } else {
+                s[start_index..end_index].find(&**substring)
+            } {
+                let result = result + start_index;
+                Value::int(
+                    if *graphemes {
+                        // Having found the substring's byte index, convert to grapheme index.
+                        // grapheme_indices iterates graphemes alongside their UTF-8 byte indices, so .enumerate()
+                        // is used to get the grapheme index alongside it.
+                        s.grapheme_indices(true)
+                            .enumerate()
+                            .find(|e| e.1 .0 >= result)
+                            .expect("No grapheme index for substring")
+                            .0
+                    } else {
+                        result
+                    } as i64,
+                    head,
+                )
             } else {
                 Value::int(-1, head)
             }
         }
-        other => Value::Error {
-            error: ShellError::UnsupportedInput(
-                format!(
-                    "Input's type is {}. This command only works with strings.",
-                    other.get_type()
-                ),
+        Value::Error { .. } => input.clone(),
+        _ => Value::Error {
+            error: ShellError::OnlySupportsThisInputType(
+                "string".into(),
+                input.get_type().to_string(),
                 head,
+                input.expect_span(),
             ),
         },
     }
@@ -185,8 +219,8 @@ fn process_range(
         }
         Value::List { vals, .. } => {
             if vals.len() > 2 {
-                Err(ShellError::UnsupportedInput(
-                    String::from("there shouldn't be more than two indexes. too many indexes"),
+                Err(ShellError::TypeMismatch(
+                    String::from("there shouldn't be more than two indexes"),
                     head,
                 ))
             } else {
@@ -201,12 +235,12 @@ fn process_range(
                 Ok((start_index, end_index))
             }
         }
-        other => Err(ShellError::UnsupportedInput(
-            format!(
-                "Input's type is {}. This command only works with strings.",
-                other.get_type()
-            ),
+        Value::Error { error } => Err(error.clone()),
+        _ => Err(ShellError::OnlySupportsThisInputType(
+            "string".into(),
+            input.get_type().to_string(),
             head,
+            input.expect_span(),
         )),
     }?;
 
@@ -214,18 +248,16 @@ fn process_range(
     let end_index = r.1.parse::<i32>().unwrap_or(input_len as i32);
 
     if start_index < 0 || start_index > end_index {
-        return Err(ShellError::UnsupportedInput(
-            String::from(
-                "start index can't be negative or greater than end index. Invalid start index",
-            ),
+        return Err(ShellError::TypeMismatch(
+            String::from("start index can't be negative or greater than end index"),
             head,
         ));
     }
 
     if end_index < 0 || end_index < start_index || end_index > input_len as i32 {
-        return Err(ShellError::UnsupportedInput(
+        return Err(ShellError::TypeMismatch(
             String::from(
-            "end index can't be negative, smaller than start index or greater than input length. Invalid end index"),
+            "end index can't be negative, smaller than start index or greater than input length"),
             head,
         ));
     }
@@ -246,10 +278,7 @@ mod tests {
 
     #[test]
     fn returns_index_of_substring() {
-        let word = Value::String {
-            val: String::from("Cargo.tomL"),
-            span: Span::test_data(),
-        };
+        let word = Value::test_string("Cargo.tomL");
 
         let options = Arguments {
             substring: String::from(".tomL"),
@@ -260,6 +289,7 @@ mod tests {
             }),
             cell_paths: None,
             end: false,
+            graphemes: false,
         };
 
         let actual = action(&word, &options, Span::test_data());
@@ -268,10 +298,7 @@ mod tests {
     }
     #[test]
     fn index_of_does_not_exist_in_string() {
-        let word = Value::String {
-            val: String::from("Cargo.tomL"),
-            span: Span::test_data(),
-        };
+        let word = Value::test_string("Cargo.tomL");
 
         let options = Arguments {
             substring: String::from("Lm"),
@@ -282,6 +309,7 @@ mod tests {
             }),
             cell_paths: None,
             end: false,
+            graphemes: false,
         };
 
         let actual = action(&word, &options, Span::test_data());
@@ -291,10 +319,7 @@ mod tests {
 
     #[test]
     fn returns_index_of_next_substring() {
-        let word = Value::String {
-            val: String::from("Cargo.Cargo"),
-            span: Span::test_data(),
-        };
+        let word = Value::test_string("Cargo.Cargo");
 
         let options = Arguments {
             substring: String::from("Cargo"),
@@ -305,6 +330,7 @@ mod tests {
             }),
             cell_paths: None,
             end: false,
+            graphemes: false,
         };
 
         let actual = action(&word, &options, Span::test_data());
@@ -313,10 +339,7 @@ mod tests {
 
     #[test]
     fn index_does_not_exist_due_to_end_index() {
-        let word = Value::String {
-            val: String::from("Cargo.Banana"),
-            span: Span::test_data(),
-        };
+        let word = Value::test_string("Cargo.Banana");
 
         let options = Arguments {
             substring: String::from("Banana"),
@@ -327,6 +350,7 @@ mod tests {
             }),
             cell_paths: None,
             end: false,
+            graphemes: false,
         };
 
         let actual = action(&word, &options, Span::test_data());
@@ -335,10 +359,7 @@ mod tests {
 
     #[test]
     fn returns_index_of_nums_in_middle_due_to_index_limit_from_both_ends() {
-        let word = Value::String {
-            val: String::from("123123123"),
-            span: Span::test_data(),
-        };
+        let word = Value::test_string("123123123");
 
         let options = Arguments {
             substring: String::from("123"),
@@ -349,6 +370,7 @@ mod tests {
             }),
             cell_paths: None,
             end: false,
+            graphemes: false,
         };
 
         let actual = action(&word, &options, Span::test_data());
@@ -357,10 +379,7 @@ mod tests {
 
     #[test]
     fn index_does_not_exists_due_to_strict_bounds() {
-        let word = Value::String {
-            val: String::from("123456"),
-            span: Span::test_data(),
-        };
+        let word = Value::test_string("123456");
 
         let options = Arguments {
             substring: String::from("1"),
@@ -371,9 +390,30 @@ mod tests {
             }),
             cell_paths: None,
             end: false,
+            graphemes: false,
         };
 
         let actual = action(&word, &options, Span::test_data());
         assert_eq!(actual, Value::test_int(-1));
+    }
+
+    #[test]
+    fn use_utf8_bytes() {
+        let word = Value::String {
+            val: String::from("🇯🇵ほげ ふが ぴよ"),
+            span: Span::test_data(),
+        };
+
+        let options = Arguments {
+            substring: String::from("ふが"),
+
+            range: None,
+            cell_paths: None,
+            end: false,
+            graphemes: false,
+        };
+
+        let actual = action(&word, &options, Span::test_data());
+        assert_eq!(actual, Value::test_int(15));
     }
 }

@@ -43,6 +43,10 @@ impl Command for SubCommand {
         let head = call.head;
         let target: i64 = call.req(engine_state, stack, 0)?;
 
+        // This doesn't match explicit nulls
+        if matches!(input, PipelineData::Empty) {
+            return Err(ShellError::PipelineEmpty(head));
+        }
         input.map(
             move |value| operate(value, target, head),
             engine_state.ctrlc.clone(),
@@ -54,7 +58,7 @@ impl Command for SubCommand {
             Example {
                 description: "Apply bits and to two numbers",
                 example: "2 | bits and 2",
-                result: Some(Value::int(2, Span::test_data())),
+                result: Some(Value::test_int(2)),
             },
             Example {
                 description: "Apply logical and to a list of numbers",
@@ -74,13 +78,15 @@ fn operate(value: Value, target: i64, head: Span) -> Value {
             val: val & target,
             span,
         },
+        // Propagate errors by explicitly matching them before the final case.
+        Value::Error { .. } => value,
         other => Value::Error {
-            error: ShellError::UnsupportedInput(
-                format!(
-                    "Only integer values are supported, input type: {:?}",
-                    other.get_type()
-                ),
-                other.span().unwrap_or(head),
+            error: ShellError::OnlySupportsThisInputType(
+                "integer".into(),
+                other.get_type().to_string(),
+                head,
+                // This line requires the Value::Error match above.
+                other.expect_span(),
             ),
         },
     }

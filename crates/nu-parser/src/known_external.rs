@@ -51,7 +51,15 @@ impl Command for KnownExternal {
 
         let mut extern_call = Call::new(head_span);
 
-        let extern_name = engine_state.get_decl(call.decl_id).name();
+        let extern_name = if let Some(name_bytes) = engine_state.find_decl_name(call.decl_id, &[]) {
+            String::from_utf8_lossy(name_bytes)
+        } else {
+            return Err(ShellError::NushellFailedSpanned(
+                "known external name not found".to_string(),
+                "could not find name for this command".to_string(),
+                call.head,
+            ));
+        };
 
         let extern_name: Vec<_> = extern_name.split(' ').collect();
 
@@ -96,6 +104,7 @@ impl Command for KnownExternal {
                         extern_call.add_positional(arg.clone());
                     }
                 }
+                Argument::Unknown(unknown) => extern_call.add_unknown(unknown.clone()),
             }
         }
 

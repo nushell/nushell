@@ -4,7 +4,7 @@ use nu_engine::{eval_block, find_in_dirs_env, redirect_env, CallExt};
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
-    Category, Example, PipelineData, ShellError, Signature, Spanned, SyntaxShape, Value,
+    Category, Example, PipelineData, ShellError, Signature, Spanned, SyntaxShape, Type, Value,
 };
 
 /// Source a file for environment variables.
@@ -18,6 +18,7 @@ impl Command for SourceEnv {
 
     fn signature(&self) -> Signature {
         Signature::build("source-env")
+            .input_output_types(vec![(Type::Any, Type::Any)])
             .required(
                 "filename",
                 SyntaxShape::String, // type is string to avoid automatically canonicalizing the path
@@ -41,7 +42,7 @@ impl Command for SourceEnv {
 
         // Note: this hidden positional is the block_id that corresponded to the 0th position
         // it is put here by the parser
-        let block_id: i64 = call.req(engine_state, caller_stack, 1)?;
+        let block_id: i64 = call.req_parser_info(engine_state, caller_stack, 0)?;
 
         // Set the currently evaluated directory (file-relative PWD)
         let mut parent = if let Some(path) =

@@ -2,11 +2,13 @@ use fancy_regex::Regex;
 use itertools::Itertools;
 use nu_engine::env_to_strings;
 use nu_engine::CallExt;
-use nu_protocol::ast::{Expr, Expression};
-use nu_protocol::did_you_mean;
-use nu_protocol::engine::{EngineState, Stack};
-use nu_protocol::{ast::Call, engine::Command, ShellError, Signature, SyntaxShape, Value};
-use nu_protocol::{Category, Example, ListStream, PipelineData, RawStream, Span, Spanned};
+use nu_protocol::{
+    ast::{Call, Expr, Expression},
+    did_you_mean,
+    engine::{Command, EngineState, Stack},
+    Category, Example, ListStream, PipelineData, RawStream, ShellError, Signature, Span, Spanned,
+    SyntaxShape, Type, Value,
+};
 use nu_system::ForegroundProcess;
 use pathdiff::diff_paths;
 use std::collections::HashMap;
@@ -35,6 +37,7 @@ impl Command for External {
 
     fn signature(&self) -> nu_protocol::Signature {
         Signature::build(self.name())
+            .input_output_types(vec![(Type::Any, Type::Any)])
             .switch("redirect-stdout", "redirect stdout to the pipeline", None)
             .switch("redirect-stderr", "redirect stderr to the pipeline", None)
             .switch("trim-end-newline", "trimming end newlines", None)
@@ -50,74 +53,19 @@ impl Command for External {
         call: &Call,
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
-        let name: Spanned<String> = call.req(engine_state, stack, 0)?;
-        let args: Vec<Value> = call.rest(engine_state, stack, 1)?;
         let redirect_stdout = call.has_flag("redirect-stdout");
         let redirect_stderr = call.has_flag("redirect-stderr");
         let trim_end_newline = call.has_flag("trim-end-newline");
 
-        // Translate environment variables from Values to Strings
-        let env_vars_str = env_to_strings(engine_state, stack)?;
-
-        fn value_as_spanned(value: Value, name: &String) -> Result<Spanned<String>, ShellError> {
-            let span = value.span()?;
-
-            value
-                .as_string()
-                .map(|item| Spanned { item, span })
-                .map_err(|_| {
-                    ShellError::ExternalCommand(
-                        format!(
-                            "Cannot convert {} to a string argument for '{}'",
-                            value.get_type(),
-                            name
-                        ),
-                        "All arguments to an external command need to be string-compatible".into(),
-                        span,
-                    )
-                })
-        }
-
-        let mut spanned_args = vec![];
-        let args_expr: Vec<Expression> = call.positional_iter().skip(1).cloned().collect();
-        let mut arg_keep_raw = vec![];
-        for (one_arg, one_arg_expr) in args.into_iter().zip(args_expr) {
-            match one_arg {
-                Value::List { vals, .. } => {
-                    // turn all the strings in the array into params.
-                    // Example: one_arg may be something like ["ls" "-a"]
-                    // convert it to "ls" "-a"
-                    for v in vals {
-                        spanned_args.push(value_as_spanned(v, &name.item)?);
-                        // for arguments in list, it's always treated as a whole arguments
-                        arg_keep_raw.push(true);
-                    }
-                }
-                val => {
-                    spanned_args.push(value_as_spanned(val, &name.item)?);
-                    match one_arg_expr.expr {
-                        // refer to `parse_dollar_expr` function
-                        // the expression type of $variable_name, $"($variable_name)"
-                        // will be Expr::StringInterpolation, Expr::FullCellPath
-                        Expr::StringInterpolation(_) | Expr::FullCellPath(_) => {
-                            arg_keep_raw.push(true)
-                        }
-                        _ => arg_keep_raw.push(false),
-                    }
-                    {}
-                }
-            }
-        }
-
-        let command = ExternalCommand {
-            name,
-            args: spanned_args,
-            arg_keep_raw,
+        let command = create_external_command(
+            engine_state,
+            stack,
+            call,
             redirect_stdout,
             redirect_stderr,
-            env_vars: env_vars_str,
             trim_end_newline,
-        };
+        )?;
+
         command.run_with_input(engine_state, stack, input, false)
     }
 
@@ -135,6 +83,76 @@ impl Command for External {
             },
         ]
     }
+}
+
+/// Creates ExternalCommand from a call
+pub fn create_external_command(
+    engine_state: &EngineState,
+    stack: &mut Stack,
+    call: &Call,
+    redirect_stdout: bool,
+    redirect_stderr: bool,
+    trim_end_newline: bool,
+) -> Result<ExternalCommand, ShellError> {
+    let name: Spanned<String> = call.req(engine_state, stack, 0)?;
+    let args: Vec<Value> = call.rest(engine_state, stack, 1)?;
+
+    // Translate environment variables from Values to Strings
+    let env_vars_str = env_to_strings(engine_state, stack)?;
+
+    fn value_as_spanned(value: Value) -> Result<Spanned<String>, ShellError> {
+        let span = value.span()?;
+
+        value
+            .as_string()
+            .map(|item| Spanned { item, span })
+            .map_err(|_| {
+                ShellError::ExternalCommand(
+                    format!("Cannot convert {} to a string", value.get_type()),
+                    "All arguments to an external command need to be string-compatible".into(),
+                    span,
+                )
+            })
+    }
+
+    let mut spanned_args = vec![];
+    let args_expr: Vec<Expression> = call.positional_iter().skip(1).cloned().collect();
+    let mut arg_keep_raw = vec![];
+    for (one_arg, one_arg_expr) in args.into_iter().zip(args_expr) {
+        match one_arg {
+            Value::List { vals, .. } => {
+                // turn all the strings in the array into params.
+                // Example: one_arg may be something like ["ls" "-a"]
+                // convert it to "ls" "-a"
+                for v in vals {
+                    spanned_args.push(value_as_spanned(v)?);
+                    // for arguments in list, it's always treated as a whole arguments
+                    arg_keep_raw.push(true);
+                }
+            }
+            val => {
+                spanned_args.push(value_as_spanned(val)?);
+                match one_arg_expr.expr {
+                    // refer to `parse_dollar_expr` function
+                    // the expression type of $variable_name, $"($variable_name)"
+                    // will be Expr::StringInterpolation, Expr::FullCellPath
+                    Expr::StringInterpolation(_) | Expr::FullCellPath(_) => arg_keep_raw.push(true),
+                    _ => arg_keep_raw.push(false),
+                }
+                {}
+            }
+        }
+    }
+
+    Ok(ExternalCommand {
+        name,
+        args: spanned_args,
+        arg_keep_raw,
+        redirect_stdout,
+        redirect_stderr,
+        env_vars: env_vars_str,
+        trim_end_newline,
+    })
 }
 
 #[derive(Clone)]
@@ -185,9 +203,8 @@ impl ExternalCommand {
 
                     // This has the full list of cmd.exe "internal" commands: https://ss64.com/nt/syntax-internal.html
                     // I (Reilly) went through the full list and whittled it down to ones that are potentially useful:
-                    const CMD_INTERNAL_COMMANDS: [&str; 10] = [
-                        "ASSOC", "CLS", "DIR", "ECHO", "FTYPE", "MKLINK", "PAUSE", "START", "VER",
-                        "VOL",
+                    const CMD_INTERNAL_COMMANDS: [&str; 9] = [
+                        "ASSOC", "CLS", "ECHO", "FTYPE", "MKLINK", "PAUSE", "START", "VER", "VOL",
                     ];
                     let command_name_upper = self.name.item.to_uppercase();
                     let looks_like_cmd_internal = CMD_INTERNAL_COMMANDS
@@ -279,16 +296,25 @@ impl ExternalCommand {
                                         "'{}' was not found; did you mean '{s}'?",
                                         self.name.item
                                     )
-                                } else if self.name.item == s {
-                                    let sugg = engine_state.which_module_has_decl(s.as_bytes());
-                                    if let Some(sugg) = sugg {
-                                        let sugg = String::from_utf8_lossy(sugg);
-                                        format!("command '{s}' was not found but it exists in module '{sugg}'; try using `{sugg} {s}`")
+                                } else {
+                                    let cmd_name = &self.name.item;
+                                    let maybe_module = engine_state
+                                        .which_module_has_decl(cmd_name.as_bytes(), &[]);
+                                    if let Some(module_name) = maybe_module {
+                                        let module_name = String::from_utf8_lossy(module_name);
+                                        let new_name = &[module_name.as_ref(), cmd_name].join(" ");
+
+                                        if engine_state
+                                            .find_decl(new_name.as_bytes(), &[])
+                                            .is_some()
+                                        {
+                                            format!("command '{cmd_name}' was not found but it was imported from module '{module_name}'; try using `{new_name}`")
+                                        } else {
+                                            format!("command '{cmd_name}' was not found but it exists in module '{module_name}'; try importing it with `use`")
+                                        }
                                     } else {
                                         format!("did you mean '{s}'?")
                                     }
-                                } else {
-                                    format!("did you mean '{s}'?")
                                 }
                             }
                             None => {
@@ -393,49 +419,62 @@ impl ExternalCommand {
                             read_and_redirect_message(stdout, stdout_tx, ctrlc)
                         }
 
-                        match child.as_mut().wait() {
-                            Err(err) => Err(ShellError::ExternalCommand(
-                                "External command exited with error".into(),
-                                err.to_string(),
-                                span,
-                            )),
-                            Ok(x) => {
-                                #[cfg(unix)]
-                                {
-                                    use nu_ansi_term::{Color, Style};
-                                    use std::os::unix::process::ExitStatusExt;
-                                    if x.core_dumped() {
-                                        let style = Style::new().bold().on(Color::Red);
-                                        eprintln!(
-                                            "{}",
-                                            style.paint(format!(
-                                            "nushell: oops, process '{commandname}' core dumped"
+                    match child.as_mut().wait() {
+                        Err(err) => Err(ShellError::ExternalCommand(
+                            "External command exited with error".into(),
+                            err.to_string(),
+                            span,
+                        )),
+                        Ok(x) => {
+                            #[cfg(unix)]
+                            {
+                                use nu_ansi_term::{Color, Style};
+                                use std::ffi::CStr;
+                                use std::os::unix::process::ExitStatusExt;
+
+                                if x.core_dumped() {
+                                    let cause = x.signal().and_then(|sig| unsafe {
+                                        // SAFETY: We should be the first to call `char * strsignal(int sig)`
+                                        let sigstr_ptr = libc::strsignal(sig);
+                                        if sigstr_ptr.is_null() {
+                                            return None;
+                                        }
+
+                                        // SAFETY: The pointer points to a valid non-null string
+                                        let sigstr = CStr::from_ptr(sigstr_ptr);
+                                        sigstr.to_str().map(String::from).ok()
+                                    });
+
+                                    let cause = cause.as_deref().unwrap_or("Something went wrong");
+
+                                    let style = Style::new().bold().on(Color::Red);
+                                    eprintln!(
+                                        "{}",
+                                        style.paint(format!(
+                                            "{cause}: oops, process '{commandname}' core dumped"
                                         ))
-                                        );
-                                        let _ = exit_code_tx.send(Value::Error {
-                                            error: ShellError::ExternalCommand(
-                                                "core dumped".to_string(),
-                                                format!(
-                                                    "Child process '{commandname}' core dumped"
-                                                ),
-                                                head,
-                                            ),
-                                        });
-                                        return Ok(());
-                                    }
+                                    );
+                                    let _ = exit_code_tx.send(Value::Error {
+                                        error: ShellError::ExternalCommand(
+                                            "core dumped".to_string(),
+                                            format!("{cause}: child process '{commandname}' core dumped"),
+                                            head,
+                                        ),
+                                    });
+                                    return Ok(());
                                 }
-                                if let Some(code) = x.code() {
-                                    let _ = exit_code_tx.send(Value::int(code as i64, head));
-                                } else if x.success() {
-                                    let _ = exit_code_tx.send(Value::int(0, head));
-                                } else {
-                                    let _ = exit_code_tx.send(Value::int(-1, head));
-                                }
-                                Ok(())
                             }
+                            if let Some(code) = x.code() {
+                                let _ = exit_code_tx.send(Value::int(code as i64, head));
+                            } else if x.success() {
+                                let _ = exit_code_tx.send(Value::int(0, head));
+                            } else {
+                                let _ = exit_code_tx.send(Value::int(-1, head));
+                            }
+                            Ok(())
                         }
-                    })
-                    .expect("failed to create external command waiter thread");
+                    }
+                });
 
                 let (stderr_tx, stderr_rx) = mpsc::sync_channel(OUTPUT_BUFFERS_IN_FLIGHT);
                 if redirect_stderr {
@@ -467,6 +506,7 @@ impl ExternalCommand {
                             Box::new(stdout_receiver),
                             output_ctrlc.clone(),
                             head,
+                            None,
                         ))
                     } else {
                         None
@@ -476,6 +516,7 @@ impl ExternalCommand {
                             Box::new(stderr_receiver),
                             output_ctrlc.clone(),
                             head,
+                            None,
                         ))
                     } else {
                         None
@@ -500,7 +541,7 @@ impl ExternalCommand {
     ) -> Result<CommandSys, ShellError> {
         let mut process = if let Some(d) = self.env_vars.get("PWD") {
             let mut process = if use_cmd {
-                self.spawn_cmd_command()
+                self.spawn_cmd_command(d)
             } else {
                 self.create_command(d)?
             };
@@ -551,7 +592,7 @@ impl ExternalCommand {
             // We could give the option to call from powershell
             // for minimal builds cwd is unused
             if self.name.item.ends_with(".cmd") || self.name.item.ends_with(".bat") {
-                Ok(self.spawn_cmd_command())
+                Ok(self.spawn_cmd_command(cwd))
             } else {
                 self.spawn_simple_command(cwd)
             }
@@ -572,74 +613,14 @@ impl ExternalCommand {
         let mut process = std::process::Command::new(head);
 
         for (arg, arg_keep_raw) in self.args.iter().zip(self.arg_keep_raw.iter()) {
-            // if arg is quoted, like "aa", 'aa', `aa`, or:
-            // if arg is a variable or String interpolation, like: $variable_name, $"($variable_name)"
-            // `as_a_whole` will be true, so nu won't remove the inner quotes.
-            let (trimmed_args, run_glob_expansion, mut keep_raw) = trim_enclosing_quotes(&arg.item);
-            if *arg_keep_raw {
-                keep_raw = true;
-            }
-
-            let mut arg = Spanned {
-                item: if keep_raw {
-                    trimmed_args
-                } else {
-                    remove_quotes(trimmed_args)
-                },
-                span: arg.span,
-            };
-
-            arg.item = nu_path::expand_tilde(arg.item)
-                .to_string_lossy()
-                .to_string();
-
-            let cwd = PathBuf::from(cwd);
-
-            if arg.item.contains('*') && run_glob_expansion {
-                if let Ok((prefix, matches)) =
-                    nu_engine::glob_from(&arg, &cwd, self.name.span, None)
-                {
-                    let matches: Vec<_> = matches.collect();
-
-                    // FIXME: do we want to special-case this further? We might accidentally expand when they don't
-                    // intend to
-                    if matches.is_empty() {
-                        process.arg(&arg.item);
-                    }
-                    for m in matches {
-                        if let Ok(arg) = m {
-                            let arg = if let Some(prefix) = &prefix {
-                                if let Ok(remainder) = arg.strip_prefix(prefix) {
-                                    let new_prefix = if let Some(pfx) = diff_paths(prefix, &cwd) {
-                                        pfx
-                                    } else {
-                                        prefix.to_path_buf()
-                                    };
-
-                                    new_prefix.join(remainder).to_string_lossy().to_string()
-                                } else {
-                                    arg.to_string_lossy().to_string()
-                                }
-                            } else {
-                                arg.to_string_lossy().to_string()
-                            };
-
-                            process.arg(&arg);
-                        } else {
-                            process.arg(&arg.item);
-                        }
-                    }
-                }
-            } else {
-                process.arg(&arg.item);
-            }
+            trim_expand_and_apply_arg(&mut process, arg, arg_keep_raw, cwd);
         }
 
         Ok(process)
     }
 
     /// Spawn a cmd command with `cmd /c args...`
-    pub fn spawn_cmd_command(&self) -> std::process::Command {
+    pub fn spawn_cmd_command(&self, cwd: &str) -> std::process::Command {
         let mut process = std::process::Command::new("cmd");
 
         // Disable AutoRun
@@ -649,13 +630,17 @@ impl ExternalCommand {
 
         process.arg("/c");
         process.arg(&self.name.item);
-        for arg in &self.args {
-            // Clean the args before we use them:
+        for (arg, arg_keep_raw) in self.args.iter().zip(self.arg_keep_raw.iter()) {
             // https://stackoverflow.com/questions/1200235/how-to-pass-a-quoted-pipe-character-to-cmd-exe
             // cmd.exe needs to have a caret to escape a pipe
-            let arg = arg.item.replace('|', "^|");
-            process.arg(&arg);
+            let arg = Spanned {
+                item: arg.item.replace('|', "^|"),
+                span: arg.span,
+            };
+
+            trim_expand_and_apply_arg(&mut process, &arg, arg_keep_raw, cwd)
         }
+
         process
     }
 
@@ -670,6 +655,71 @@ impl ExternalCommand {
         let mut process = std::process::Command::new("sh");
         process.arg("-c").arg(cmd_with_args);
         process
+    }
+}
+
+fn trim_expand_and_apply_arg(
+    process: &mut CommandSys,
+    arg: &Spanned<String>,
+    arg_keep_raw: &bool,
+    cwd: &str,
+) {
+    // if arg is quoted, like "aa", 'aa', `aa`, or:
+    // if arg is a variable or String interpolation, like: $variable_name, $"($variable_name)"
+    // `as_a_whole` will be true, so nu won't remove the inner quotes.
+    let (trimmed_args, run_glob_expansion, mut keep_raw) = trim_enclosing_quotes(&arg.item);
+    if *arg_keep_raw {
+        keep_raw = true;
+    }
+    let mut arg = Spanned {
+        item: if keep_raw {
+            trimmed_args
+        } else {
+            remove_quotes(trimmed_args)
+        },
+        span: arg.span,
+    };
+    if !keep_raw {
+        arg.item = nu_path::expand_tilde(arg.item)
+            .to_string_lossy()
+            .to_string();
+    }
+    let cwd = PathBuf::from(cwd);
+    if arg.item.contains('*') && run_glob_expansion {
+        if let Ok((prefix, matches)) = nu_engine::glob_from(&arg, &cwd, arg.span, None) {
+            let matches: Vec<_> = matches.collect();
+
+            // FIXME: do we want to special-case this further? We might accidentally expand when they don't
+            // intend to
+            if matches.is_empty() {
+                process.arg(&arg.item);
+            }
+            for m in matches {
+                if let Ok(arg) = m {
+                    let arg = if let Some(prefix) = &prefix {
+                        if let Ok(remainder) = arg.strip_prefix(prefix) {
+                            let new_prefix = if let Some(pfx) = diff_paths(prefix, &cwd) {
+                                pfx
+                            } else {
+                                prefix.to_path_buf()
+                            };
+
+                            new_prefix.join(remainder).to_string_lossy().to_string()
+                        } else {
+                            arg.to_string_lossy().to_string()
+                        }
+                    } else {
+                        arg.to_string_lossy().to_string()
+                    };
+
+                    process.arg(&arg);
+                } else {
+                    process.arg(&arg.item);
+                }
+            }
+        }
+    } else {
+        process.arg(&arg.item);
     }
 }
 

@@ -33,6 +33,10 @@ impl Command for SubCommand {
         input: PipelineData,
     ) -> Result<nu_protocol::PipelineData, nu_protocol::ShellError> {
         let head = call.head;
+        // This doesn't match explicit nulls
+        if matches!(input, PipelineData::Empty) {
+            return Err(ShellError::PipelineEmpty(head));
+        }
         input.map(
             move |value| operate(value, head),
             engine_state.ctrlc.clone(),
@@ -56,33 +60,35 @@ fn operate(value: Value, head: Span) -> Value {
         Value::Int { val, span } => {
             let squared = (val as f64).sqrt();
             if squared.is_nan() {
-                return error_negative_sqrt(span);
+                return error_negative_sqrt(head, span);
             }
             Value::Float { val: squared, span }
         }
         Value::Float { val, span } => {
             let squared = val.sqrt();
             if squared.is_nan() {
-                return error_negative_sqrt(span);
+                return error_negative_sqrt(head, span);
             }
             Value::Float { val: squared, span }
         }
+        Value::Error { .. } => value,
         other => Value::Error {
-            error: ShellError::UnsupportedInput(
-                format!(
-                    "Only numerical values are supported, input type: {:?}",
-                    other.get_type()
-                ),
-                other.span().unwrap_or(head),
+            error: ShellError::OnlySupportsThisInputType(
+                "numeric".into(),
+                other.get_type().to_string(),
+                head,
+                other.expect_span(),
             ),
         },
     }
 }
 
-fn error_negative_sqrt(span: Span) -> Value {
+fn error_negative_sqrt(head: Span, span: Span) -> Value {
     Value::Error {
         error: ShellError::UnsupportedInput(
             String::from("Can't square root a negative number"),
+            "value originates from here".into(),
+            head,
             span,
         ),
     }

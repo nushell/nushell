@@ -68,7 +68,7 @@ fn filesystem_switch_back_to_previous_working_directory() {
 }
 
 #[test]
-fn filesytem_change_from_current_directory_using_relative_path_and_dash() {
+fn filesystem_change_from_current_directory_using_relative_path_and_dash() {
     Playground::setup("cd_test_4", |dirs, sandbox| {
         sandbox.within("odin").mkdir("-");
 

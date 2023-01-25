@@ -86,7 +86,7 @@ fn command(
     let series = df.as_series(call.head)?;
     let chunked = series.utf8().map_err(|e| {
         ShellError::GenericError(
-            "Error convertion to string".into(),
+            "Error conversion to string".into(),
             e.to_string(),
             Some(call.head),
             None,

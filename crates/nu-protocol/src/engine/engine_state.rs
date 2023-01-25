@@ -1,3 +1,6 @@
+use fancy_regex::Regex;
+use lru::LruCache;
+
 use super::{Command, EnvVars, OverlayFrame, ScopeFrame, Stack, Visibility, DEFAULT_OVERLAY_NAME};
 use crate::Value;
 use crate::{
@@ -6,6 +9,7 @@ use crate::{
 };
 use core::panic;
 use std::borrow::Borrow;
+use std::num::NonZeroUsize;
 use std::path::Path;
 use std::path::PathBuf;
 use std::{
@@ -20,11 +24,56 @@ static PWD_ENV: &str = "PWD";
 
 // TODO: move to different file? where?
 /// An operation to be performed with the current buffer of the interactive shell.
-#[derive(Clone)]
+#[derive(Debug, Clone)]
 pub enum ReplOperation {
     Append(String),
     Insert(String),
     Replace(String),
+}
+
+/// Organizes usage messages for various primitives
+#[derive(Debug, Clone)]
+pub struct Usage {
+    // TODO: Move decl usages here
+    alias_comments: HashMap<AliasId, Vec<Span>>,
+    module_comments: HashMap<ModuleId, Vec<Span>>,
+}
+
+impl Usage {
+    pub fn new() -> Self {
+        Usage {
+            alias_comments: HashMap::new(),
+            module_comments: HashMap::new(),
+        }
+    }
+
+    pub fn add_alias_comments(&mut self, alias_id: AliasId, comments: Vec<Span>) {
+        self.alias_comments.insert(alias_id, comments);
+    }
+
+    pub fn add_module_comments(&mut self, module_id: ModuleId, comments: Vec<Span>) {
+        self.module_comments.insert(module_id, comments);
+    }
+
+    pub fn get_alias_comments(&self, alias_id: AliasId) -> Option<&[Span]> {
+        self.alias_comments.get(&alias_id).map(|v| v.as_ref())
+    }
+
+    pub fn get_module_comments(&self, module_id: ModuleId) -> Option<&[Span]> {
+        self.module_comments.get(&module_id).map(|v| v.as_ref())
+    }
+
+    /// Overwrite own values with the other
+    pub fn merge_with(&mut self, other: Usage) {
+        self.alias_comments.extend(other.alias_comments);
+        self.module_comments.extend(other.module_comments);
+    }
+}
+
+impl Default for Usage {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 /// The core global engine state. This includes all global definitions as well as any global state that
@@ -78,6 +127,7 @@ pub struct EngineState {
     aliases: Vec<Vec<Span>>,
     blocks: Vec<Block>,
     modules: Vec<Module>,
+    usage: Usage,
     pub scope: ScopeFrame,
     pub ctrlc: Option<Arc<AtomicBool>>,
     pub env_vars: EnvVars,
@@ -94,7 +144,11 @@ pub struct EngineState {
     pub history_session_id: i64,
     // If Nushell was started, e.g., with `nu spam.nu`, the file's parent is stored here
     pub currently_parsed_cwd: Option<PathBuf>,
+    pub regex_cache: Arc<Mutex<LruCache<String, Regex>>>,
 }
+
+// The max number of compiled regexes to keep around in a LRU cache, arbitrarily chosen
+const REGEX_CACHE_SIZE: usize = 100; // must be nonzero, otherwise will panic
 
 pub const NU_VARIABLE_ID: usize = 0;
 pub const IN_VARIABLE_ID: usize = 1;
@@ -116,7 +170,8 @@ impl EngineState {
             decls: vec![],
             aliases: vec![],
             blocks: vec![],
-            modules: vec![Module::new()],
+            modules: vec![Module::new(DEFAULT_OVERLAY_NAME.as_bytes().to_vec())],
+            usage: Usage::new(),
             // make sure we have some default overlay:
             scope: ScopeFrame::with_empty_overlay(
                 DEFAULT_OVERLAY_NAME.as_bytes().to_vec(),
@@ -137,6 +192,9 @@ impl EngineState {
             config_path: HashMap::new(),
             history_session_id: 0,
             currently_parsed_cwd: None,
+            regex_cache: Arc::new(Mutex::new(LruCache::new(
+                NonZeroUsize::new(REGEX_CACHE_SIZE).expect("tried to create cache of size zero"),
+            ))),
         }
     }
 
@@ -156,6 +214,7 @@ impl EngineState {
         self.vars.extend(delta.vars);
         self.blocks.extend(delta.blocks);
         self.modules.extend(delta.modules);
+        self.usage.merge_with(delta.usage);
 
         let first = delta.scope.remove(0);
 
@@ -166,12 +225,15 @@ impl EngineState {
                 .iter_mut()
                 .find(|(name, _)| name == &delta_name)
             {
-                // Upating existing overlay
+                // Updating existing overlay
                 for item in delta_overlay.decls.into_iter() {
                     existing_overlay.decls.insert(item.0, item.1);
                 }
                 for item in delta_overlay.vars.into_iter() {
                     existing_overlay.vars.insert(item.0, item.1);
+                }
+                for item in delta_overlay.constants.into_iter() {
+                    existing_overlay.constants.insert(item.0, item.1);
                 }
                 for item in delta_overlay.aliases.into_iter() {
                     existing_overlay.aliases.insert(item.0, item.1);
@@ -422,15 +484,17 @@ impl EngineState {
                     serde_json::to_string_pretty(&decl.signature())
                         .map(|signature| {
                             // Extracting the possible path to the shell used to load the plugin
-                            let shell_str = match shell {
-                                Some(path) => format!(
-                                    "-s {}",
-                                    path.to_str().expect(
-                                        "shell path was checked during registration as a str"
+                            let shell_str = shell
+                                .as_ref()
+                                .map(|path| {
+                                    format!(
+                                        "-s {}",
+                                        path.to_str().expect(
+                                            "shell path was checked during registration as a str"
+                                        )
                                     )
-                                ),
-                                None => "".into(),
-                            };
+                                })
+                                .unwrap_or_default();
 
                             // Each signature is stored in the plugin file with the shell and signature
                             // This information will be used when loading the plugin
@@ -523,6 +587,24 @@ impl EngineState {
         None
     }
 
+    pub fn find_decl_name(&self, decl_id: DeclId, removed_overlays: &[Vec<u8>]) -> Option<&[u8]> {
+        let mut visibility: Visibility = Visibility::new();
+
+        for overlay_frame in self.active_overlays(removed_overlays).iter().rev() {
+            visibility.append(&overlay_frame.visibility);
+
+            if visibility.is_decl_id_visible(&decl_id) {
+                for ((name, _), id) in overlay_frame.decls.iter() {
+                    if id == &decl_id {
+                        return Some(name);
+                    }
+                }
+            }
+        }
+
+        None
+    }
+
     pub fn find_alias(&self, name: &[u8], removed_overlays: &[Vec<u8>]) -> Option<AliasId> {
         let mut visibility: Visibility = Visibility::new();
 
@@ -537,6 +619,14 @@ impl EngineState {
         }
 
         None
+    }
+
+    pub fn get_alias_comments(&self, alias_id: AliasId) -> Option<&[Span]> {
+        self.usage.get_alias_comments(alias_id)
+    }
+
+    pub fn get_module_comments(&self, module_id: ModuleId) -> Option<&[Span]> {
+        self.usage.get_module_comments(module_id)
     }
 
     #[cfg(feature = "plugin")]
@@ -566,23 +656,20 @@ impl EngineState {
         None
     }
 
-    pub fn which_module_has_decl(&self, name: &[u8]) -> Option<&[u8]> {
-        for (module_id, m) in self.modules.iter().enumerate() {
-            if m.has_decl(name) {
-                for overlay_frame in self.active_overlays(&[]).iter() {
-                    let module_name = overlay_frame.modules.iter().find_map(|(key, &val)| {
-                        if val == module_id {
-                            Some(key)
-                        } else {
-                            None
-                        }
-                    });
-                    if let Some(final_name) = module_name {
-                        return Some(&final_name[..]);
-                    }
+    pub fn which_module_has_decl(
+        &self,
+        decl_name: &[u8],
+        removed_overlays: &[Vec<u8>],
+    ) -> Option<&[u8]> {
+        for overlay_frame in self.active_overlays(removed_overlays).iter().rev() {
+            for (module_name, module_id) in overlay_frame.modules.iter() {
+                let module = self.get_module(*module_id);
+                if module.has_decl(decl_name) {
+                    return Some(module_name);
                 }
             }
         }
+
         None
     }
 
@@ -626,6 +713,16 @@ impl EngineState {
         output
     }
 
+    pub fn find_constant(&self, var_id: VarId, removed_overlays: &[Vec<u8>]) -> Option<&Value> {
+        for overlay_frame in self.active_overlays(removed_overlays).iter().rev() {
+            if let Some(val) = overlay_frame.constants.get(&var_id) {
+                return Some(val);
+            }
+        }
+
+        None
+    }
+
     pub fn get_span_contents(&self, span: &Span) -> &[u8] {
         for (contents, start, finish) in &self.file_contents {
             if span.start >= *start && span.end <= *finish {
@@ -663,8 +760,39 @@ impl EngineState {
             .as_ref()
     }
 
-    /// Get all IDs of all commands within scope, sorted by the commads' names
-    pub fn get_decl_ids_sorted(&self, include_hidden: bool) -> impl Iterator<Item = DeclId> {
+    /// Get all aliases within scope, sorted by the alias names
+    pub fn get_aliases_sorted(
+        &self,
+        include_hidden: bool,
+    ) -> impl Iterator<Item = (Vec<u8>, DeclId)> {
+        let mut aliases_map = HashMap::new();
+
+        for overlay_frame in self.active_overlays(&[]) {
+            let new_aliases = if include_hidden {
+                overlay_frame.aliases.clone()
+            } else {
+                overlay_frame
+                    .aliases
+                    .clone()
+                    .into_iter()
+                    .filter(|(_, id)| overlay_frame.visibility.is_alias_id_visible(id))
+                    .collect()
+            };
+
+            aliases_map.extend(new_aliases);
+        }
+
+        let mut aliases: Vec<(Vec<u8>, DeclId)> = aliases_map.into_iter().collect();
+
+        aliases.sort_by(|a, b| a.0.cmp(&b.0));
+        aliases.into_iter()
+    }
+
+    /// Get all commands within scope, sorted by the commands' names
+    pub fn get_decls_sorted(
+        &self,
+        include_hidden: bool,
+    ) -> impl Iterator<Item = (Vec<u8>, DeclId)> {
         let mut decls_map = HashMap::new();
 
         for overlay_frame in self.active_overlays(&[]) {
@@ -686,16 +814,19 @@ impl EngineState {
             decls_map.into_iter().map(|(v, k)| (v.0, k)).collect();
 
         decls.sort_by(|a, b| a.0.cmp(&b.0));
-        decls.into_iter().map(|(_, id)| id)
+        decls.into_iter()
     }
 
     /// Get signatures of all commands within scope.
     pub fn get_signatures(&self, include_hidden: bool) -> Vec<Signature> {
-        self.get_decl_ids_sorted(include_hidden)
-            .map(|id| {
+        self.get_decls_sorted(include_hidden)
+            .map(|(name_bytes, id)| {
                 let decl = self.get_decl(id);
+                // the reason to create the name this way is because the command could be renamed
+                // during module imports but the signature still contains the old name
+                let name = String::from_utf8_lossy(&name_bytes).to_string();
 
-                (*decl).signature().update_from_command(decl.borrow())
+                (*decl).signature().update_from_command(name, decl.borrow())
             })
             .collect()
     }
@@ -709,11 +840,14 @@ impl EngineState {
         &self,
         include_hidden: bool,
     ) -> Vec<(Signature, Vec<Example>, bool, bool, bool)> {
-        self.get_decl_ids_sorted(include_hidden)
-            .map(|id| {
+        self.get_decls_sorted(include_hidden)
+            .map(|(name_bytes, id)| {
                 let decl = self.get_decl(id);
+                // the reason to create the name this way is because the command could be renamed
+                // during module imports but the signature still contains the old name
+                let name = String::from_utf8_lossy(&name_bytes).to_string();
 
-                let signature = (*decl).signature().update_from_command(decl.borrow());
+                let signature = (*decl).signature().update_from_command(name, decl.borrow());
 
                 (
                     signature,
@@ -815,6 +949,30 @@ impl EngineState {
     pub fn get_config_path(&self, key: &str) -> Option<&PathBuf> {
         self.config_path.get(key)
     }
+
+    pub fn build_usage(&self, spans: &[Span]) -> (String, String) {
+        let comment_lines: Vec<&[u8]> = spans
+            .iter()
+            .map(|span| self.get_span_contents(span))
+            .collect();
+        build_usage(&comment_lines)
+    }
+
+    pub fn build_alias_usage(&self, alias_id: AliasId) -> Option<(String, String)> {
+        self.get_alias_comments(alias_id)
+            .map(|comment_spans| self.build_usage(comment_spans))
+    }
+
+    pub fn build_module_usage(&self, module_id: ModuleId) -> Option<(String, String)> {
+        self.get_module_comments(module_id)
+            .map(|comment_spans| self.build_usage(comment_spans))
+    }
+
+    pub fn current_work_dir(&self) -> String {
+        self.get_env_var("PWD")
+            .map(|d| d.as_string().unwrap_or_default())
+            .unwrap_or_default()
+    }
 }
 
 /// A temporary extension to the global state. This handles bridging between the global state and the
@@ -864,9 +1022,10 @@ impl TypeScope {
     }
 
     pub fn add_type(&mut self, input: Type) {
-        match self.outputs.last_mut() {
-            Some(v) => v.push(input),
-            None => self.outputs.push(vec![input]),
+        if let Some(v) = self.outputs.last_mut() {
+            v.push(input)
+        } else {
+            self.outputs.push(vec![input])
         }
     }
 
@@ -891,6 +1050,7 @@ pub struct StateDelta {
     aliases: Vec<Vec<Span>>,      // indexed by AliasId
     pub blocks: Vec<Block>,       // indexed by BlockId
     modules: Vec<Module>,         // indexed by ModuleId
+    usage: Usage,
     pub scope: Vec<ScopeFrame>,
     #[cfg(feature = "plugin")]
     plugins_changed: bool, // marks whether plugin file should be updated
@@ -914,6 +1074,7 @@ impl StateDelta {
             blocks: vec![],
             modules: vec![],
             scope: vec![scope_frame],
+            usage: Usage::new(),
             #[cfg(feature = "plugin")]
             plugins_changed: false,
         }
@@ -1281,11 +1442,15 @@ impl<'a> StateWorkingSet<'a> {
         self.num_blocks() - 1
     }
 
-    pub fn add_module(&mut self, name: &str, module: Module) -> ModuleId {
+    pub fn add_module(&mut self, name: &str, module: Module, comments: Vec<Span>) -> ModuleId {
         let name = name.as_bytes().to_vec();
 
         self.delta.modules.push(module);
         let module_id = self.num_modules() - 1;
+
+        if !comments.is_empty() {
+            self.delta.usage.add_module_comments(module_id, comments);
+        }
 
         self.last_overlay_mut().modules.insert(name, module_id);
 
@@ -1609,9 +1774,13 @@ impl<'a> StateWorkingSet<'a> {
         next_id
     }
 
-    pub fn add_alias(&mut self, name: Vec<u8>, replacement: Vec<Span>) {
+    pub fn add_alias(&mut self, name: Vec<u8>, replacement: Vec<Span>, comments: Vec<Span>) {
         self.delta.aliases.push(replacement);
         let alias_id = self.num_aliases() - 1;
+
+        if !comments.is_empty() {
+            self.delta.usage.add_alias_comments(alias_id, comments);
+        }
 
         let last = self.last_overlay_mut();
 
@@ -1652,6 +1821,29 @@ impl<'a> StateWorkingSet<'a> {
         } else {
             self.delta.vars[var_id - num_permanent_vars].ty = ty;
         }
+    }
+
+    pub fn add_constant(&mut self, var_id: VarId, val: Value) {
+        self.last_overlay_mut().constants.insert(var_id, val);
+    }
+
+    pub fn find_constant(&self, var_id: VarId) -> Option<&Value> {
+        let mut removed_overlays = vec![];
+
+        for scope_frame in self.delta.scope.iter().rev() {
+            for overlay_frame in scope_frame
+                .active_overlays(&mut removed_overlays)
+                .iter()
+                .rev()
+            {
+                if let Some(val) = overlay_frame.constants.get(&var_id) {
+                    return Some(val);
+                }
+            }
+        }
+
+        self.permanent_state
+            .find_constant(var_id, &removed_overlays)
     }
 
     pub fn get_variable(&self, var_id: VarId) -> &Variable {
@@ -2004,17 +2196,13 @@ impl<'a> StateWorkingSet<'a> {
     pub fn render(self) -> StateDelta {
         self.delta
     }
-}
 
-impl Default for Visibility {
-    fn default() -> Self {
-        Self::new()
-    }
-}
-
-impl Default for ScopeFrame {
-    fn default() -> Self {
-        Self::new()
+    pub fn build_usage(&self, spans: &[Span]) -> (String, String) {
+        let comment_lines: Vec<&[u8]> = spans
+            .iter()
+            .map(|span| self.get_span_contents(*span))
+            .collect();
+        build_usage(&comment_lines)
     }
 }
 
@@ -2098,6 +2286,59 @@ impl<'a> miette::SourceCode for &StateWorkingSet<'a> {
             }
         }
         Err(miette::MietteError::OutOfBounds)
+    }
+}
+
+fn build_usage(comment_lines: &[&[u8]]) -> (String, String) {
+    let mut usage = String::new();
+
+    let mut num_spaces = 0;
+    let mut first = true;
+
+    // Use the comments to build the usage
+    for contents in comment_lines {
+        let comment_line = if first {
+            // Count the number of spaces still at the front, skipping the '#'
+            let mut pos = 1;
+            while pos < contents.len() {
+                if let Some(b' ') = contents.get(pos) {
+                    // continue
+                } else {
+                    break;
+                }
+                pos += 1;
+            }
+
+            num_spaces = pos;
+
+            first = false;
+
+            String::from_utf8_lossy(&contents[pos..]).to_string()
+        } else {
+            let mut pos = 1;
+
+            while pos < contents.len() && pos < num_spaces {
+                if let Some(b' ') = contents.get(pos) {
+                    // continue
+                } else {
+                    break;
+                }
+                pos += 1;
+            }
+
+            String::from_utf8_lossy(&contents[pos..]).to_string()
+        };
+
+        if !usage.is_empty() {
+            usage.push('\n');
+        }
+        usage.push_str(&comment_line);
+    }
+
+    if let Some((brief_usage, extra_usage)) = usage.split_once("\n\n") {
+        (brief_usage.to_string(), extra_usage.to_string())
+    } else {
+        (usage, String::default())
     }
 }
 

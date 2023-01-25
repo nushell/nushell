@@ -49,3 +49,10 @@ fn condition_is_met() {
         assert_eq!(actual.out, "4");
     })
 }
+
+#[test]
+fn fail_on_non_iterator() {
+    let actual = nu!(cwd: ".", pipeline("1 | take while {|row| $row == 2}"));
+
+    assert!(actual.err.contains("only_supports_this_input_type"));
+}

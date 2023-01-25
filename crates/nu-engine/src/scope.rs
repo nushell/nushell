@@ -12,7 +12,7 @@ pub fn create_scope(
 ) -> Result<Value, ShellError> {
     let mut scope_data = ScopeData::new(engine_state, stack);
 
-    scope_data.populate_from_overlays();
+    scope_data.populate_all();
 
     let mut cols = vec![];
     let mut vals = vec![];
@@ -31,15 +31,7 @@ pub fn create_scope(
 
     cols.push("aliases".to_string());
     vals.push(Value::List {
-        vals: scope_data
-            .collect_aliases(span)
-            .into_iter()
-            .map(|(alias, value)| Value::Record {
-                cols: vec!["alias".into(), "expansion".into()],
-                vals: vec![alias, value],
-                span,
-            })
-            .collect(),
+        vals: scope_data.collect_aliases(span),
         span,
     });
 
@@ -55,7 +47,7 @@ pub fn create_scope(
     Ok(Value::Record { cols, vals, span })
 }
 
-struct ScopeData<'e, 's> {
+pub struct ScopeData<'e, 's> {
     engine_state: &'e EngineState,
     stack: &'s Stack,
     vars_map: HashMap<&'e Vec<u8>, &'e usize>,
@@ -78,7 +70,7 @@ impl<'e, 's> ScopeData<'e, 's> {
         }
     }
 
-    pub fn populate_from_overlays(&mut self) {
+    pub fn populate_all(&mut self) {
         for overlay_frame in self.engine_state.active_overlays(&[]) {
             self.vars_map.extend(&overlay_frame.vars);
             self.commands_map.extend(&overlay_frame.decls);
@@ -88,7 +80,19 @@ impl<'e, 's> ScopeData<'e, 's> {
         }
     }
 
-    pub fn collect_vars(&mut self, span: Span) -> Vec<Value> {
+    pub fn populate_aliases(&mut self) {
+        for overlay_frame in self.engine_state.active_overlays(&[]) {
+            self.aliases_map.extend(&overlay_frame.aliases);
+        }
+    }
+
+    pub fn populate_modules(&mut self) {
+        for overlay_frame in self.engine_state.active_overlays(&[]) {
+            self.modules_map.extend(&overlay_frame.modules);
+        }
+    }
+
+    pub fn collect_vars(&self, span: Span) -> Vec<Value> {
         let mut vars = vec![];
         for var in &self.vars_map {
             let var_name = Value::string(String::from_utf8_lossy(var.0).to_string(), span);
@@ -110,7 +114,7 @@ impl<'e, 's> ScopeData<'e, 's> {
         vars
     }
 
-    pub fn collect_commands(&mut self, span: Span) -> Vec<Value> {
+    pub fn collect_commands(&self, span: Span) -> Vec<Value> {
         let mut commands = vec![];
         for ((command_name, _), decl_id) in &self.commands_map {
             if self.visibility.is_decl_id_visible(decl_id) {
@@ -457,12 +461,13 @@ impl<'e, 's> ScopeData<'e, 's> {
         sig_records
     }
 
-    pub fn collect_aliases(&mut self, span: Span) -> Vec<(Value, Value)> {
+    pub fn collect_aliases(&self, span: Span) -> Vec<Value> {
         let mut aliases = vec![];
         for (alias_name, alias_id) in &self.aliases_map {
             if self.visibility.is_alias_id_visible(alias_id) {
                 let alias = self.engine_state.get_alias(**alias_id);
                 let mut alias_text = String::new();
+
                 for span in alias {
                     let contents = self.engine_state.get_span_contents(span);
                     if !alias_text.is_empty() {
@@ -470,13 +475,22 @@ impl<'e, 's> ScopeData<'e, 's> {
                     }
                     alias_text.push_str(&String::from_utf8_lossy(contents));
                 }
-                aliases.push((
-                    Value::String {
-                        val: String::from_utf8_lossy(alias_name).to_string(),
-                        span,
-                    },
-                    Value::string(alias_text, span),
-                ));
+
+                let alias_usage = self
+                    .engine_state
+                    .build_alias_usage(**alias_id)
+                    .map(|(usage, _)| usage)
+                    .unwrap_or_default();
+
+                aliases.push(Value::Record {
+                    cols: vec!["name".into(), "expansion".into(), "usage".into()],
+                    vals: vec![
+                        Value::string(String::from_utf8_lossy(alias_name), span),
+                        Value::string(alias_text, span),
+                        Value::string(alias_usage, span),
+                    ],
+                    span,
+                });
             }
         }
 
@@ -484,12 +498,59 @@ impl<'e, 's> ScopeData<'e, 's> {
         aliases
     }
 
-    pub fn collect_modules(&mut self, span: Span) -> Vec<Value> {
+    pub fn collect_modules(&self, span: Span) -> Vec<Value> {
         let mut modules = vec![];
 
-        for module in &self.modules_map {
-            modules.push(Value::String {
-                val: String::from_utf8_lossy(module.0).to_string(),
+        for (module_name, module_id) in &self.modules_map {
+            let module = self.engine_state.get_module(**module_id);
+
+            let export_commands: Vec<Value> = module
+                .decls()
+                .iter()
+                .map(|(bytes, _)| Value::string(String::from_utf8_lossy(bytes), span))
+                .collect();
+
+            let export_aliases: Vec<Value> = module
+                .aliases
+                .keys()
+                .map(|bytes| Value::string(String::from_utf8_lossy(bytes), span))
+                .collect();
+
+            let export_env_block = module.env_block.map_or_else(
+                || Value::nothing(span),
+                |block_id| Value::Block {
+                    val: block_id,
+                    span,
+                },
+            );
+
+            let module_usage = self
+                .engine_state
+                .build_module_usage(**module_id)
+                .map(|(usage, _)| usage)
+                .unwrap_or_default();
+
+            modules.push(Value::Record {
+                cols: vec![
+                    "name".into(),
+                    "commands".into(),
+                    "aliases".into(),
+                    "env_block".into(),
+                    "usage".into(),
+                ],
+                vals: vec![
+                    Value::string(String::from_utf8_lossy(module_name), span),
+                    Value::List {
+                        vals: export_commands,
+                        span,
+                    },
+                    Value::List {
+                        vals: export_aliases,
+                        span,
+                    },
+                    export_env_block,
+                    Value::string(module_usage, span),
+                ],
                 span,
             });
         }
@@ -497,7 +558,7 @@ impl<'e, 's> ScopeData<'e, 's> {
         modules
     }
 
-    pub fn collect_engine_state(&mut self, span: Span) -> Value {
+    pub fn collect_engine_state(&self, span: Span) -> Value {
         let engine_state_cols = vec![
             "source_bytes".to_string(),
             "num_vars".to_string(),

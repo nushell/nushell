@@ -1,6 +1,6 @@
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
-use nu_protocol::{Category, Example, PipelineData, Signature, Span, SyntaxShape, Type, Value};
+use nu_protocol::{Category, Example, PipelineData, Signature, SyntaxShape, Type, Value};
 
 #[derive(Clone)]
 pub struct DefEnv;
@@ -72,7 +72,7 @@ def-env cd_with_fallback [arg = ""] {
         vec![Example {
             description: "Set environment variable by call a custom command",
             example: r#"def-env foo [] { let-env BAR = "BAZ" }; foo; $env.BAR"#,
-            result: Some(Value::string("BAZ", Span::test_data())),
+            result: Some(Value::test_string("BAZ")),
         }]
     }
 }

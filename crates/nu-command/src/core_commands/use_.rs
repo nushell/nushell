@@ -2,7 +2,7 @@ use nu_engine::{eval_block, find_in_dirs_env, redirect_env};
 use nu_protocol::ast::{Call, Expr, Expression};
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
-    Category, Example, PipelineData, ShellError, Signature, Span, SyntaxShape, Type, Value,
+    Category, Example, PipelineData, ShellError, Signature, SyntaxShape, Type, Value,
 };
 
 #[derive(Clone)]
@@ -20,7 +20,12 @@ impl Command for Use {
     fn signature(&self) -> nu_protocol::Signature {
         Signature::build("use")
             .input_output_types(vec![(Type::Nothing, Type::Nothing)])
-            .required("pattern", SyntaxShape::ImportPattern, "import pattern")
+            .required("module", SyntaxShape::String, "Module or module file")
+            .optional(
+                "members",
+                SyntaxShape::Any,
+                "Which members of the module to import",
+            )
             .category(Category::Core)
     }
 
@@ -43,7 +48,7 @@ impl Command for Use {
         let import_pattern = if let Some(Expression {
             expr: Expr::ImportPattern(pat),
             ..
-        }) = call.positional_nth(0)
+        }) = call.parser_info_nth(0)
         {
             pat
         } else {
@@ -117,12 +122,12 @@ impl Command for Use {
             Example {
                 description: "Define a custom command in a module and call it",
                 example: r#"module spam { export def foo [] { "foo" } }; use spam foo; foo"#,
-                result: Some(Value::string("foo", Span::test_data())),
+                result: Some(Value::test_string("foo")),
             },
             Example {
                 description: "Define a custom command that participates in the environment in a module and call it",
                 example: r#"module foo { export def-env bar [] { let-env FOO_BAR = "BAZ" } }; use foo bar; bar; $env.FOO_BAR"#,
-                result: Some(Value::string("BAZ", Span::test_data())),
+                result: Some(Value::test_string("BAZ")),
             },
         ]
     }

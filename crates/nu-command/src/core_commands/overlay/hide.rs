@@ -1,7 +1,9 @@
 use nu_engine::CallExt;
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
-use nu_protocol::{Category, Example, PipelineData, ShellError, Signature, Spanned, SyntaxShape};
+use nu_protocol::{
+    Category, Example, PipelineData, ShellError, Signature, Spanned, SyntaxShape, Type,
+};
 
 #[derive(Clone)]
 pub struct OverlayHide;
@@ -17,6 +19,7 @@ impl Command for OverlayHide {
 
     fn signature(&self) -> nu_protocol::Signature {
         Signature::build("overlay hide")
+            .input_output_types(vec![(Type::Nothing, Type::Nothing)])
             .optional("name", SyntaxShape::String, "Overlay to hide")
             .switch(
                 "keep-custom",

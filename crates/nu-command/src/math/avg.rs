@@ -40,14 +40,14 @@ impl Command for SubCommand {
         vec![Example {
             description: "Compute the average of a list of numbers",
             example: "[-50 100.0 25] | math avg",
-            result: Some(Value::float(25.0, Span::test_data())),
+            result: Some(Value::test_float(25.0)),
         }]
     }
 }
 
-pub fn average(values: &[Value], head: &Span) -> Result<Value, ShellError> {
+pub fn average(values: &[Value], span: Span, head: &Span) -> Result<Value, ShellError> {
     let sum = reducer_for(Reduce::Summation);
-    let total = &sum(Value::int(0, *head), values.to_vec(), *head)?;
+    let total = &sum(Value::int(0, *head), values.to_vec(), span, *head)?;
     match total {
         Value::Filesize { val, span } => Ok(Value::Filesize {
             val: val / values.len() as i64,

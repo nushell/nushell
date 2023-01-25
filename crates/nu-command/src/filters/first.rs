@@ -105,19 +105,6 @@ fn first_helper(
     let ctrlc = engine_state.ctrlc.clone();
     let metadata = input.metadata();
 
-    let input_span = input.span();
-    let input_not_supported_error = || -> ShellError {
-        // can't always get a span for input, so try our best and fall back on the span for the `first` call if needed
-        if let Some(span) = input_span {
-            ShellError::UnsupportedInput("first does not support this input type".into(), span)
-        } else {
-            ShellError::UnsupportedInput(
-                "first was given an unsupported input type".into(),
-                call.span(),
-            )
-        }
-    };
-
     match input {
         PipelineData::Value(val, _) => match val {
             Value::List { vals, .. } => {
@@ -153,7 +140,15 @@ fn first_helper(
                         .set_metadata(metadata))
                 }
             }
-            _ => Err(input_not_supported_error()),
+            // Propagate errors by explicitly matching them before the final case.
+            Value::Error { error } => Err(error),
+            other => Err(ShellError::OnlySupportsThisInputType(
+                "list, binary or range".into(),
+                other.get_type().to_string(),
+                head,
+                // This line requires the Value::Error match above.
+                other.expect_span(),
+            )),
         },
         PipelineData::ListStream(mut ls, metadata) => {
             if return_single_element {
@@ -169,7 +164,18 @@ fn first_helper(
                     .set_metadata(metadata))
             }
         }
-        _ => Err(input_not_supported_error()),
+        PipelineData::ExternalStream { span, .. } => Err(ShellError::OnlySupportsThisInputType(
+            "list, binary or range".into(),
+            "raw data".into(),
+            head,
+            span,
+        )),
+        PipelineData::Empty => Err(ShellError::OnlySupportsThisInputType(
+            "list, binary or range".into(),
+            "null".into(),
+            call.head,
+            call.head, // TODO: make PipelineData::Empty spanned, so that the span can be used here.
+        )),
     }
 }
 #[cfg(test)]

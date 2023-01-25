@@ -1,7 +1,8 @@
-use std::{cmp::min, collections::HashMap, fmt::Display};
-
+use crate::table_theme::TableTheme;
 use nu_ansi_term::Style;
+use nu_color_config::TextStyle;
 use nu_protocol::TrimStrategy;
+use std::{cmp::min, collections::HashMap};
 use tabled::{
     alignment::AlignmentHorizontal,
     builder::Builder,
@@ -9,19 +10,16 @@ use tabled::{
     formatting::AlignmentStrategy,
     object::{Cell, Columns, Rows, Segment},
     papergrid::{
-        self,
         records::{
             cell_info::CellInfo, tcell::TCell, vec_records::VecRecords, Records, RecordsMut,
         },
         util::string_width_multiline,
-        width::CfgWidthFunction,
+        width::{CfgWidthFunction, WidthEstimator},
         Estimate,
     },
     peaker::Peaker,
     Alignment, Modify, ModifyObject, TableOption, Width,
 };
-
-use crate::{table_theme::TableTheme, TextStyle};
 
 /// Table represent a table view.
 #[derive(Debug, Clone)]
@@ -36,7 +34,7 @@ impl Table {
     ///
     /// If `headers.is_empty` then no headers will be rendered.
     pub fn new(data: Vec<Vec<TCell<CellInfo<'static>, TextStyle>>>, size: (usize, usize)) -> Table {
-        // it's not guaranted that data will have all rows with the same number of columns.
+        // it's not guaranteed that data will have all rows with the same number of columns.
         // but VecRecords::with_hint require this constrain.
         //
         // so we do a check to make it certainly true
@@ -177,9 +175,7 @@ impl Default for Alignments {
 }
 
 fn build_table(mut data: Data, cfg: TableConfig, termwidth: usize) -> Option<String> {
-    let priority = TruncationPriority::Content;
-    let is_empty = maybe_truncate_columns(&mut data, &cfg.theme, termwidth, priority);
-
+    let is_empty = maybe_truncate_columns(&mut data, &cfg.theme, termwidth);
     if is_empty {
         return None;
     }
@@ -390,30 +386,20 @@ where
     }
 }
 
-enum TruncationPriority {
-    // VERSION where we are showing AS LITTLE COLUMNS AS POSSIBLE but WITH AS MUCH CONTENT AS POSSIBLE.
-    Content,
-    // VERSION where we are showing AS MANY COLUMNS AS POSSIBLE but as a side affect they MIGHT CONTAIN AS LITTLE CONTENT AS POSSIBLE
-    //
-    // not used so far.
-    #[allow(dead_code)]
-    Columns,
-}
+fn maybe_truncate_columns(data: &mut Data, theme: &TableTheme, termwidth: usize) -> bool {
+    const TERMWIDTH_THRESHOLD: usize = 120;
 
-fn maybe_truncate_columns(
-    data: &mut Data,
-    theme: &TableTheme,
-    termwidth: usize,
-    priority: TruncationPriority,
-) -> bool {
     if data.count_columns() == 0 {
         return true;
     }
 
-    match priority {
-        TruncationPriority::Content => truncate_columns_by_content(data, theme, termwidth),
-        TruncationPriority::Columns => truncate_columns_by_columns(data, theme, termwidth),
-    }
+    let truncate = if termwidth > TERMWIDTH_THRESHOLD {
+        truncate_columns_by_columns
+    } else {
+        truncate_columns_by_content
+    };
+
+    truncate(data, theme, termwidth)
 }
 
 // VERSION where we are showing AS LITTLE COLUMNS AS POSSIBLE but WITH AS MUCH CONTENT AS POSSIBLE.
@@ -435,7 +421,7 @@ fn truncate_columns_by_content(data: &mut Data, theme: &TableTheme, termwidth: u
         return false;
     }
 
-    let mut width_ctrl = tabled::papergrid::width::WidthEstimator::default();
+    let mut width_ctrl = WidthEstimator::default();
     width_ctrl.estimate(&*data, &config);
     let widths = Vec::from(width_ctrl);
 
@@ -464,7 +450,7 @@ fn truncate_columns_by_content(data: &mut Data, theme: &TableTheme, termwidth: u
     }
 
     // we don't need any truncation then (is it possible?)
-    if truncate_pos + 1 == data.count_columns() {
+    if truncate_pos == data.count_columns() {
         return false;
     }
 
@@ -501,10 +487,10 @@ fn truncate_columns_by_content(data: &mut Data, theme: &TableTheme, termwidth: u
     false
 }
 
+// VERSION where we are showing AS MANY COLUMNS AS POSSIBLE but as a side affect they MIGHT CONTAIN AS LITTLE CONTENT AS POSSIBLE
 fn truncate_columns_by_columns(data: &mut Data, theme: &TableTheme, termwidth: usize) -> bool {
-    const MIN_ACCEPTABLE_WIDTH: usize = 3;
-    const TRAILING_COLUMN_WIDTH: usize = 3;
-    const TRAILING_COLUMN_PADDING: usize = 2;
+    const ACCEPTABLE_WIDTH: usize = 10 + 2;
+    const TRAILING_COLUMN_WIDTH: usize = 3 + 2;
     const TRAILING_COLUMN_STR: &str = "...";
 
     let config;
@@ -520,14 +506,14 @@ fn truncate_columns_by_columns(data: &mut Data, theme: &TableTheme, termwidth: u
         return false;
     }
 
-    let mut width_ctrl = tabled::papergrid::width::WidthEstimator::default();
+    let mut width_ctrl = WidthEstimator::default();
     width_ctrl.estimate(&*data, &config);
     let widths = Vec::from(width_ctrl);
     let widths_total = widths.iter().sum::<usize>();
 
     let min_widths = widths
         .iter()
-        .map(|w| min(*w, MIN_ACCEPTABLE_WIDTH))
+        .map(|w| min(*w, ACCEPTABLE_WIDTH))
         .sum::<usize>();
     let mut min_total = total - widths_total + min_widths;
 
@@ -535,15 +521,14 @@ fn truncate_columns_by_columns(data: &mut Data, theme: &TableTheme, termwidth: u
         return false;
     }
 
+    let mut i = 0;
     while data.count_columns() > 0 {
-        let column = data.count_columns() - 1;
+        i += 1;
 
-        data.truncate(column);
+        let column = data.count_columns() - 1 - i;
+        let width = min(widths[column], ACCEPTABLE_WIDTH);
+        min_total -= width;
 
-        let width = widths[column];
-        let min_width = min(width, MIN_ACCEPTABLE_WIDTH);
-
-        min_total -= min_width;
         if config.get_borders().has_vertical() {
             min_total -= 1;
         }
@@ -553,15 +538,16 @@ fn truncate_columns_by_columns(data: &mut Data, theme: &TableTheme, termwidth: u
         }
     }
 
-    if data.count_columns() == 0 {
+    if i + 1 == data.count_columns() {
         return true;
     }
 
-    // Append columns with a trailing column
+    data.truncate(data.count_columns() - i);
 
+    // Append columns with a trailing column
     let diff = termwidth - min_total;
-    if diff > TRAILING_COLUMN_WIDTH + TRAILING_COLUMN_PADDING {
-        let cell = Table::create_cell(String::from(TRAILING_COLUMN_STR), TextStyle::default());
+    if diff > TRAILING_COLUMN_WIDTH {
+        let cell = Table::create_cell(TRAILING_COLUMN_STR, TextStyle::default());
         data.push(cell);
     } else {
         if data.count_columns() == 1 {
@@ -570,31 +556,11 @@ fn truncate_columns_by_columns(data: &mut Data, theme: &TableTheme, termwidth: u
 
         data.truncate(data.count_columns() - 1);
 
-        let cell = Table::create_cell(String::from(TRAILING_COLUMN_STR), TextStyle::default());
+        let cell = Table::create_cell(TRAILING_COLUMN_STR, TextStyle::default());
         data.push(cell);
     }
 
     false
-}
-
-impl papergrid::Color for TextStyle {
-    fn fmt_prefix(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        if let Some(color) = &self.color_style {
-            color.prefix().fmt(f)?;
-        }
-
-        Ok(())
-    }
-
-    fn fmt_suffix(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        if let Some(color) = &self.color_style {
-            if !color.is_plain() {
-                f.write_str("\u{1b}[0m")?;
-            }
-        }
-
-        Ok(())
-    }
 }
 
 /// The same as [`tabled::peaker::PriorityMax`] but prioritizes left columns first in case of equal width.
@@ -608,15 +574,6 @@ impl Peaker for PriorityMax {
 
     fn peak(&mut self, _: &[usize], widths: &[usize]) -> Option<usize> {
         let col = (0..widths.len()).rev().max_by_key(|&i| widths[i]);
-        match col {
-            Some(col) => {
-                if widths[col] == 0 {
-                    None
-                } else {
-                    Some(col)
-                }
-            }
-            None => None,
-        }
+        col.filter(|&col| widths[col] != 0)
     }
 }
