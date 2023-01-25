@@ -321,9 +321,15 @@ impl ExternalCommand {
                     // Turn off color as we pass data through
                     engine_state.config.use_ansi_coloring = false;
 
-                    // if there is a string or a stream, that is sent to the pipe std
+                    // Pipe input into the external command's stdin
                     if let Some(mut stdin_write) = child.as_mut().stdin.take() {
                         std::thread::spawn(move || {
+                            // Attempt to render the input as a table before piping it to the external.
+                            // This is important for pagers like `less`;
+                            // they need to get Nu data rendered for display to users.
+                            //
+                            // TODO: should we do something different for list<string> inputs?
+                            // Users often expect those to be piped to *nix tools as raw strings separated by newlines
                             let input = crate::Table::run(
                                 &crate::Table,
                                 &engine_state,
