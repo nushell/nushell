@@ -277,8 +277,8 @@ fn have_permission(dir: impl AsRef<Path>) -> PermissionResult<'static> {
                     }
                 }
                 (false, false) => {
-                    if has_bit(permission_mods::OTHER_EXECUTE)
-                        || (has_bit(permission_mods::GROUP_EXECUTE)
+                    if has_bit(file_permissions::OTHER_EXECUTE)
+                        || (has_bit(file_permissions::GROUP_EXECUTE)
                             && any_group(current_user_gid, owner_group))
                     {
                         PermissionResult::PermissionOk
