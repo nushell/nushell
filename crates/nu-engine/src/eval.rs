@@ -6,8 +6,8 @@ use nu_protocol::{
         Operator, PathMember, PipelineElement, Redirection,
     },
     engine::{EngineState, Stack},
-    Config, IntoInterruptiblePipelineData, IntoPipelineData, PipelineData, Range, ShellError, Span,
-    Spanned, Unit, Value, VarId, ENV_VARIABLE_ID,
+    format_duration, Config, IntoInterruptiblePipelineData, IntoPipelineData, PipelineData, Range,
+    ShellError, Span, Spanned, Unit, Value, VarId, ENV_VARIABLE_ID,
 };
 use nu_utils::stdout_write_all_and_flush;
 use std::collections::HashMap;
@@ -1028,9 +1028,9 @@ pub fn eval_block_benchmark(
                 engine_state.get_span_contents(&pipeline.elements[i].span()),
             );
             println!(
-                "`{}` : {} us",
+                "\x1b[32m{}\x1b[0m : \x1b[33m{}\x1b[0m",
                 element_str,
-                (end_time - start_time).as_micros()
+                format_duration((end_time - start_time).as_nanos() as i64)
             );
 
             match (eval_result, redirect_stderr) {
