@@ -704,20 +704,6 @@ fn index_out_of_bounds() {
     assert!(actual.err.contains("too large"));
 }
 
-//FIXME: jt - umm, do we actually want to support this?
-#[ignore]
-#[test]
-fn dash_def() {
-    let actual = nu!(
-        cwd: ".",
-        r#"
-            def - [x, y] { $x - $y }; - 4 1
-        "#
-    );
-
-    assert_eq!(actual.out, "3");
-}
-
 #[test]
 fn negative_decimal_start() {
     let actual = nu!(
