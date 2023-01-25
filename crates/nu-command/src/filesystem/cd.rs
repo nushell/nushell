@@ -8,22 +8,16 @@ use nu_protocol::{
 };
 use std::path::Path;
 
-// when the file under the fold executeable
+// For checking whether we have permission to cd to a directory
 #[cfg(unix)]
-mod permission_mods {
+mod file_permissions {
     pub type Mode = u32;
-    pub mod unix {
-        use super::Mode;
-        pub const USER_EXECUTE: Mode = libc::S_IXUSR as Mode;
-        pub const GROUP_EXECUTE: Mode = libc::S_IXGRP as Mode;
-        pub const OTHER_EXECUTE: Mode = libc::S_IXOTH as Mode;
-    }
+    pub const USER_EXECUTE: Mode = libc::S_IXUSR as Mode;
+    pub const GROUP_EXECUTE: Mode = libc::S_IXGRP as Mode;
+    pub const OTHER_EXECUTE: Mode = libc::S_IXOTH as Mode;
 }
 
-// use to return the message of the result of change director
-// TODO: windows, maybe should use file_attributes function in https://doc.rust-lang.org/std/os/windows/fs/trait.MetadataExt.html
-// TODO: the meaning of the result of the function can be found in https://learn.microsoft.com/en-us/windows/win32/fileio/file-attribute-constants
-// TODO: if have realize the logic on windows, remove the cfg
+// The result of checking whether we have permission to cd to a directory
 #[derive(Debug)]
 enum PermissionResult<'a> {
     PermissionOk,
@@ -166,8 +160,10 @@ impl Command for Cd {
             }
         };
 
-        let path_tointo = path.clone();
-        let path_value = Value::String { val: path, span };
+        let path_value = Value::String {
+            val: path.clone(),
+            span,
+        };
         let cwd = Value::string(cwd.to_string_lossy(), call.head);
 
         let mut shells = get_shells(engine_state, stack, cwd);
@@ -190,16 +186,16 @@ impl Command for Cd {
             stack.add_env_var("OLDPWD".into(), oldpwd)
         }
 
-        //FIXME: this only changes the current scope, but instead this environment variable
-        //should probably be a block that loads the information from the state in the overlay
-        match have_permission(&path_tointo) {
+        match have_permission(&path) {
+            //FIXME: this only changes the current scope, but instead this environment variable
+            //should probably be a block that loads the information from the state in the overlay
             PermissionResult::PermissionOk => {
                 stack.add_env_var("PWD".into(), path_value);
                 Ok(PipelineData::empty())
             }
             PermissionResult::PermissionDenied(reason) => Err(ShellError::IOError(format!(
                 "Cannot change directory to {}: {}",
-                path_tointo, reason
+                path, reason
             ))),
         }
     }
@@ -224,6 +220,9 @@ impl Command for Cd {
         ]
     }
 }
+
+// TODO: Maybe we should use file_attributes() from https://doc.rust-lang.org/std/os/windows/fs/trait.MetadataExt.html
+// More on that here: https://learn.microsoft.com/en-us/windows/win32/fileio/file-attribute-constants
 #[cfg(windows)]
 fn have_permission(dir: impl AsRef<Path>) -> PermissionResult<'static> {
     match dir.as_ref().read_dir() {
@@ -254,26 +253,26 @@ fn have_permission(dir: impl AsRef<Path>) -> PermissionResult<'static> {
             let owner_group = metadata.gid();
             match (current_user == owner_user, current_group == owner_group) {
                 (true, _) => {
-                    if has_bit(permission_mods::unix::USER_EXECUTE) {
+                    if has_bit(file_permissions::USER_EXECUTE) {
                         PermissionResult::PermissionOk
                     } else {
                         PermissionResult::PermissionDenied(
-                            "You are the owner but do not have the execute permission",
+                            "You are the owner but do not have execute permission",
                         )
                     }
                 }
                 (false, true) => {
-                    if has_bit(permission_mods::unix::GROUP_EXECUTE) {
+                    if has_bit(file_permissions::GROUP_EXECUTE) {
                         PermissionResult::PermissionOk
                     } else {
                         PermissionResult::PermissionDenied(
-                            "You are in the group but do not have the execute permission",
+                            "You are in the group but do not have execute permission",
                         )
                     }
                 }
                 // other_user or root
                 (false, false) => {
-                    if has_bit(permission_mods::unix::OTHER_EXECUTE) {
+                    if has_bit(file_permissions::OTHER_EXECUTE) {
                         PermissionResult::PermissionOk
                     } else {
                         PermissionResult::PermissionDenied(
@@ -283,6 +282,6 @@ fn have_permission(dir: impl AsRef<Path>) -> PermissionResult<'static> {
                 }
             }
         }
-        Err(_) => PermissionResult::PermissionDenied("Could not retrieve the metadata"),
+        Err(_) => PermissionResult::PermissionDenied("Could not retrieve file metadata"),
     }
 }
