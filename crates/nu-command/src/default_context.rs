@@ -225,10 +225,8 @@ pub fn create_default_context() -> EngineState {
             StrIndexOf,
             StrKebabCase,
             StrLength,
-            StrLpad,
             StrPascalCase,
             StrReverse,
-            StrRpad,
             StrScreamingSnakeCase,
             StrSnakeCase,
             StrStartsWith,
@@ -480,6 +478,8 @@ pub fn create_default_context() -> EngineState {
         // Deprecated
         bind_command! {
             HashBase64,
+            LPadDeprecated,
+            RPadDeprecated,
             Source,
             StrDatetimeDeprecated,
             StrDecimalDeprecated,
