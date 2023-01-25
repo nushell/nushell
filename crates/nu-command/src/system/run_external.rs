@@ -474,7 +474,7 @@ impl ExternalCommand {
                             Ok(())
                         }
                     }
-                });
+                }).expect("Failed to create stdout redirector/exit code waiter thread");
 
                 let (stderr_tx, stderr_rx) = mpsc::sync_channel(OUTPUT_BUFFERS_IN_FLIGHT);
                 if redirect_stderr {
