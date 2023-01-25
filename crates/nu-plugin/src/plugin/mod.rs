@@ -10,6 +10,7 @@ use std::fmt::Write;
 use std::io::{BufReader, ErrorKind, Read, Write as WriteTrait};
 use std::path::{Path, PathBuf};
 use std::process::{Child, ChildStdout, Command as CommandSys, Stdio};
+use std::thread;
 
 use nu_protocol::{CustomValue, ShellError, Span};
 use nu_protocol::{Signature, Value};
@@ -91,10 +92,10 @@ pub(crate) fn call_plugin(
 ) -> Result<PluginResponse, ShellError> {
     if let Some(mut stdin_writer) = child.stdin.take() {
         let encoding_clone = encoding.clone();
-        std::thread::spawn(move || {
-            // PluginCall information
-            encoding_clone.encode_call(&plugin_call, &mut stdin_writer)
-        });
+        thread::Builder::new()
+            .name("plugin call encoder".to_string())
+            .spawn(move || encoding_clone.encode_call(&plugin_call, &mut stdin_writer))
+            .expect("failed to create plugin call thread");
     }
 
     // Deserialize response from plugin to extract the resulting value
@@ -154,9 +155,10 @@ pub fn get_signature(
     // Create message to plugin to indicate that signature is required and
     // send call to plugin asking for signature
     let encoding_clone = encoding.clone();
-    std::thread::spawn(move || {
-        encoding_clone.encode_call(&PluginCall::Signature, &mut stdin_writer)
-    });
+    thread::Builder::new()
+        .name("plugin call encoder".to_string())
+        .spawn(move || encoding_clone.encode_call(&PluginCall::Signature, &mut stdin_writer))
+        .expect("failed to create plugin call encoder");
 
     // deserialize response from plugin to extract the signature
     let reader = stdout_reader;
