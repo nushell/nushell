@@ -2758,6 +2758,7 @@ pub fn parse_shape_name(
         b"duration" => SyntaxShape::Duration,
         b"error" => SyntaxShape::Error,
         b"expr" => SyntaxShape::Expression,
+        b"float" | b"decimal" => SyntaxShape::Decimal,
         b"filesize" => SyntaxShape::Filesize,
         b"full-cell-path" => SyntaxShape::FullCellPath,
         b"glob" => SyntaxShape::GlobPattern,
@@ -2822,7 +2823,7 @@ pub fn parse_type(_working_set: &StateWorkingSet, bytes: &[u8]) -> Type {
         b"duration" => Type::Duration,
         b"error" => Type::Error,
         b"filesize" => Type::Filesize,
-        b"float" => Type::Float,
+        b"float" | b"decimal" => Type::Float,
         b"int" => Type::Int,
         b"list" => Type::List(Box::new(Type::Any)),
         b"number" => Type::Number,
@@ -4442,6 +4443,7 @@ pub fn parse_value(
             (expression, err)
         }
         SyntaxShape::Number => parse_number(bytes, span),
+        SyntaxShape::Decimal => parse_float(bytes, span),
         SyntaxShape::Int => parse_int(bytes, span),
         SyntaxShape::Duration => parse_duration(working_set, span),
         SyntaxShape::DateTime => parse_datetime(working_set, span),

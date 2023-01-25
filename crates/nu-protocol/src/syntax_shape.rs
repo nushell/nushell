@@ -31,6 +31,9 @@ pub enum SyntaxShape {
     /// A datetime value, eg `2022-02-02` or `2019-10-12T07:20:50.52+00:00`
     DateTime,
 
+    /// A decimal value, eg `1.0`
+    Decimal,
+
     /// A directory is allowed
     Directory,
 
@@ -122,6 +125,7 @@ impl SyntaxShape {
             SyntaxShape::Expression => Type::Any,
             SyntaxShape::Filepath => Type::String,
             SyntaxShape::Directory => Type::String,
+            SyntaxShape::Decimal => Type::Float,
             SyntaxShape::Filesize => Type::Filesize,
             SyntaxShape::FullCellPath => Type::Any,
             SyntaxShape::GlobPattern => Type::String,
@@ -164,6 +168,7 @@ impl Display for SyntaxShape {
             SyntaxShape::Number => write!(f, "number"),
             SyntaxShape::Range => write!(f, "range"),
             SyntaxShape::Int => write!(f, "int"),
+            SyntaxShape::Decimal => write!(f, "decimal"),
             SyntaxShape::Filepath => write!(f, "path"),
             SyntaxShape::Directory => write!(f, "directory"),
             SyntaxShape::GlobPattern => write!(f, "glob"),
