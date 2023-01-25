@@ -10,7 +10,6 @@ use std::fmt::Write;
 use std::io::{BufReader, ErrorKind, Read, Write as WriteTrait};
 use std::path::{Path, PathBuf};
 use std::process::{Child, ChildStdout, Command as CommandSys, Stdio};
-use std::thread;
 
 use nu_protocol::{CustomValue, ShellError, Span};
 use nu_protocol::{Signature, Value};
