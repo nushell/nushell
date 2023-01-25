@@ -119,30 +119,6 @@ fn filesystem_change_current_directory_to_two_parents_up_using_multiple_dots() {
     })
 }
 
-// FIXME: jt: needs more work
-#[ignore]
-#[test]
-fn filesystem_change_current_directory_to_parent_directory_after_delete_cwd() {
-    Playground::setup("cd_test_7", |dirs, sandbox| {
-        sandbox.within("foo").mkdir("bar");
-
-        let actual = nu!(
-            cwd: dirs.test().join("foo/bar"),
-            r#"
-                rm {}/foo/bar
-                echo ","
-                cd ..
-                $env.PWD
-            "#,
-            dirs.test().display()
-        );
-
-        let actual = actual.out.split(',').nth(1).unwrap();
-
-        assert_eq!(PathBuf::from(actual), *dirs.test().join("foo"));
-    })
-}
-
 #[test]
 fn filesystem_change_to_home_directory() {
     Playground::setup("cd_test_8", |dirs, _| {
