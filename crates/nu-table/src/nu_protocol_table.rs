@@ -178,11 +178,6 @@ fn build_map(
         }
     }
 
-    // if last_val.is_some() && map.is_empty() {
-    //     let val = nu_protocol_value_to_json(last_val.unwrap());
-    //     return serde_json::Value::Array(vec![val]);
-    // }
-
     map
 }
 

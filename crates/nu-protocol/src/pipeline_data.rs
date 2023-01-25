@@ -574,7 +574,6 @@ impl PipelineData {
         // to create the table value that will be printed in the terminal
 
         let config = engine_state.get_config();
-        // let stdout = std::io::stdout();
 
         if let PipelineData::ExternalStream {
             stdout: stream,
@@ -584,12 +583,6 @@ impl PipelineData {
         } = self
         {
             return print_if_stream(stream, stderr_stream, to_stderr, exit_code);
-            /*
-            if let Ok(exit_code) = print_if_stream(stream, stderr_stream, to_stderr, exit_code) {
-                return Ok(exit_code);
-            }
-            return Ok(0);
-            */
         }
 
         match engine_state.find_decl("table".as_bytes(), &[]) {
