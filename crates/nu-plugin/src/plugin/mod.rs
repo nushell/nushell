@@ -92,6 +92,8 @@ pub(crate) fn call_plugin(
 ) -> Result<PluginResponse, ShellError> {
     if let Some(mut stdin_writer) = child.stdin.take() {
         let encoding_clone = encoding.clone();
+        // Q: why are we doing this with a thread?
+        // We're going to block waiting for a response anyway...
         thread::Builder::new()
             .name("plugin call encoder".to_string())
             .spawn(move || encoding_clone.encode_call(&plugin_call, &mut stdin_writer))
@@ -155,6 +157,8 @@ pub fn get_signature(
     // Create message to plugin to indicate that signature is required and
     // send call to plugin asking for signature
     let encoding_clone = encoding.clone();
+    // Q: why are we doing this with a thread?
+    // We're going to block waiting for a response anyway...
     thread::Builder::new()
         .name("plugin call encoder".to_string())
         .spawn(move || encoding_clone.encode_call(&PluginCall::Signature, &mut stdin_writer))
