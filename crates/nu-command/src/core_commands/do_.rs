@@ -137,6 +137,7 @@ impl Command for Do {
                             Box::new(vec![stdout_stream.into_bytes().map(|s| s.item)].into_iter()),
                             ctrlc,
                             span,
+                            None,
                         )
                     })
                 });
@@ -191,6 +192,7 @@ impl Command for Do {
                         Box::new(vec![Ok(stderr_msg.into_bytes())].into_iter()),
                         stderr_ctrlc,
                         span,
+                        None,
                     )),
                     exit_code: Some(ListStream::from_stream(
                         exit_code.into_iter(),
