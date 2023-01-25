@@ -59,6 +59,8 @@ impl Command for History {
             }
 
             if clear {
+                // TODO: we should be able to do this through Reedline instead of mucking
+                // with files directly
                 let _ = std::fs::remove_file(history_path);
                 // TODO: FIXME also clear the auxiliary files when using sqlite
                 Ok(PipelineData::empty())
