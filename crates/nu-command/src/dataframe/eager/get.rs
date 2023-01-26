@@ -67,7 +67,7 @@ fn command(
     let df = NuDataFrame::try_from_pipeline(input, call.head)?;
 
     df.as_ref()
-        .select(&col_string)
+        .select(col_string)
         .map_err(|e| {
             ShellError::GenericError(
                 "Error selecting columns".into(),
