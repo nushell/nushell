@@ -29,7 +29,7 @@ pub fn evaluate_file(
 
     let cwd = current_dir(engine_state, stack)?;
 
-    let file_path = canonicalize_with(&path, &cwd).unwrap_or_else(|e| {
+    let file_path = canonicalize_with(&path, cwd).unwrap_or_else(|e| {
         let working_set = StateWorkingSet::new(engine_state);
         report_error(
             &working_set,

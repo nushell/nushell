@@ -705,7 +705,7 @@ fn repeat_vertical(
     let span = Span::styled(text, style);
 
     for row in 0..height {
-        buf.set_span(x_offset, y_offset + row as u16, &span, width);
+        buf.set_span(x_offset, y_offset + row, &span, width);
     }
 }
 

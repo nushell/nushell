@@ -1798,6 +1798,7 @@ enum TableView {
     },
 }
 
+#[allow(clippy::manual_filter)]
 fn strip_output_color(output: Option<String>, config: &Config) -> Option<String> {
     match output {
         Some(output) => {
