@@ -1,5 +1,4 @@
 use nu_test_support::nu;
-#[cfg(feature = "sqlite")]
 use nu_test_support::pipeline;
 
 #[test]
