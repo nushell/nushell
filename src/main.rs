@@ -15,6 +15,7 @@ use crate::{
     logger::{configure, logger},
     terminal::acquire_terminal,
 };
+use command::gather_commandline_args;
 use log::Level;
 use miette::Result;
 #[cfg(feature = "plugin")]
@@ -24,7 +25,6 @@ use nu_cli::{
     report_error_new,
 };
 use nu_command::create_default_context;
-use nu_parser::{escape_for_script_arg, escape_quote_string};
 use nu_protocol::{util::BufferedReader, PipelineData, RawStream};
 use nu_utils::utils::perf;
 use signals::{ctrlc_protection, sigquit_protection};
@@ -64,54 +64,8 @@ fn main() -> Result<()> {
     ctrlc_protection(&mut engine_state, &ctrlc);
     sigquit_protection(&mut engine_state);
 
-    let mut args_to_nushell = vec![];
-    let mut script_name = String::new();
-    let mut args_to_script = vec![];
-
-    // Would be nice if we had a way to parse this. The first flags we see will be going to nushell
-    // then it'll be the script name
-    // then the args to the script
-    let mut args = std::env::args();
-    let argv0 = args.next();
-
-    while let Some(arg) = args.next() {
-        if !script_name.is_empty() {
-            args_to_script.push(escape_for_script_arg(&arg));
-        } else if arg.starts_with('-') {
-            // Cool, it's a flag
-            let flag_value = match arg.as_ref() {
-                "--commands" | "-c" | "--table-mode" | "-m" | "-e" | "--execute" => {
-                    args.next().map(|a| escape_quote_string(&a))
-                }
-                "--config" | "--env-config" => args.next().map(|a| escape_quote_string(&a)),
-                #[cfg(feature = "plugin")]
-                "--plugin-config" => args.next().map(|a| escape_quote_string(&a)),
-                "--log-level" | "--log-target" | "--testbin" | "--threads" | "-t" => args.next(),
-                _ => None,
-            };
-
-            args_to_nushell.push(arg);
-
-            if let Some(flag_value) = flag_value {
-                args_to_nushell.push(flag_value);
-            }
-        } else {
-            // Our script file
-            script_name = arg;
-        }
-    }
-
-    args_to_nushell.insert(0, "nu".into());
-
-    if let Some(argv0) = argv0 {
-        if argv0.starts_with('-') {
-            args_to_nushell.push("--login".into());
-        }
-    }
-
-    let nushell_commandline_args = args_to_nushell.join(" ");
-
-    let parsed_nu_cli_args = parse_commandline_args(&nushell_commandline_args, &mut engine_state)
+    let (args_to_nushell, script_name, args_to_script) = gather_commandline_args();
+    let parsed_nu_cli_args = parse_commandline_args(&args_to_nushell.join(" "), &mut engine_state)
         .unwrap_or_else(|_| std::process::exit(1));
 
     if let Some(level) = parsed_nu_cli_args.log_level.map(|level| level.item) {
