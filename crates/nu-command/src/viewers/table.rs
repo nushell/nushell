@@ -458,25 +458,16 @@ fn build_expanded_table(
 ) -> Result<Option<String>, ShellError> {
     let theme = load_theme_from_config(config);
 
-    // calculate the width of a key part + the rest of table so we know the rest of the table width available for value.
     let key_width = cols.iter().map(|col| string_width(col)).max().unwrap_or(0);
-    let key = NuTable::create_cell(" ".repeat(key_width), TextStyle::default());
-    let key_table = NuTable::new(vec![vec![key]], (1, 2));
-    let key_width = key_table
-        .draw(
-            create_table_config(config, style_computer, 1, false, false, false),
-            usize::MAX,
-        )
-        .map(|table| string_width(&table))
-        .unwrap_or(0);
 
-    // 3 - count borders (left, center, right)
-    // 2 - padding
-    if key_width + 3 + 2 > term_width {
+    let count_borders =
+        theme.has_inner() as usize + theme.has_right() as usize + theme.has_left() as usize;
+    let padding = 2;
+    if key_width + count_borders + padding + padding > term_width {
         return Ok(None);
     }
 
-    let remaining_width = term_width - key_width - 3 - 2;
+    let value_width = term_width - key_width - count_borders - padding - padding;
 
     let mut data = Vec::with_capacity(cols.len());
     for (key, value) in cols.into_iter().zip(vals) {
@@ -503,14 +494,11 @@ fn build_expanded_table(
                         deep,
                         flatten,
                         flatten_sep,
-                        remaining_width,
+                        value_width,
                     )?;
 
                     match table {
-                        Some((mut table, with_header, with_index)) => {
-                            // control width via removing table columns.
-                            table.truncate(remaining_width, &theme);
-
+                        Some((table, with_header, with_index)) => {
                             is_expanded = true;
 
                             let table_config = create_table_config(
@@ -522,7 +510,7 @@ fn build_expanded_table(
                                 false,
                             );
 
-                            let val = table.draw(table_config, remaining_width);
+                            let val = table.draw(table_config, value_width);
                             match val {
                                 Some(result) => result,
                                 None => return Ok(None),
@@ -531,7 +519,8 @@ fn build_expanded_table(
                         None => {
                             // it means that the list is empty
                             let value = Value::List { vals, span };
-                            value_to_styled_string(&value, config, style_computer).0
+                            let text = value_to_styled_string(&value, config, style_computer).0;
+                            wrap_text(&text, value_width, config)
                         }
                     }
                 }
@@ -543,7 +532,7 @@ fn build_expanded_table(
                         ctrlc.clone(),
                         config,
                         style_computer,
-                        remaining_width,
+                        value_width,
                         deep,
                         flatten,
                         flatten_sep,
@@ -561,13 +550,13 @@ fn build_expanded_table(
                                 style_computer,
                             );
 
-                            wrap_text(&failed_value.0, remaining_width, config)
+                            wrap_text(&failed_value.0, value_width, config)
                         }
                     }
                 }
                 val => {
                     let text = value_to_styled_string(&val, config, style_computer).0;
-                    wrap_text(&text, remaining_width, config)
+                    wrap_text(&text, value_width, config)
                 }
             }
         };
@@ -1010,8 +999,6 @@ fn convert_to_table2<'a>(
     };
 
     if with_index {
-        let mut column_width = 0;
-
         if with_header {
             data[0].push(NuTable::create_cell(
                 "#",
@@ -1019,6 +1006,7 @@ fn convert_to_table2<'a>(
             ));
         }
 
+        let mut last_index = 0;
         for (row, item) in input.clone().into_iter().enumerate() {
             if nu_utils::ctrl_c::was_pressed(&ctrlc) {
                 return Ok(None);
@@ -1032,17 +1020,17 @@ fn convert_to_table2<'a>(
             let text = matches!(item, Value::Record { .. })
                 .then(|| lookup_index_value(item, config).unwrap_or_else(|| index.to_string()))
                 .unwrap_or_else(|| index.to_string());
-
             let value = make_index_string(text, style_computer);
-
-            let width = string_width(&value.0);
-            column_width = max(column_width, width);
 
             let value = NuTable::create_cell(value.0, value.1);
 
             let row = if with_header { row + 1 } else { row };
             data[row].push(value);
+
+            last_index = index;
         }
+
+        let column_width = string_width(&last_index.to_string());
 
         if column_width + ADDITIONAL_CELL_SPACE > available_width {
             available_width = 0;
@@ -1556,7 +1544,7 @@ impl PagingTableCreator {
             table.count_rows(),
             with_header,
             with_index,
-            true,
+            false,
         );
 
         let table_s = table.clone().draw(table_config.clone(), term_width);
