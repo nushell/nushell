@@ -79,7 +79,7 @@ impl Command for ConfigReset {
                 }
             }
             if let Ok(mut file) = std::fs::File::create(nu_config) {
-                if writeln!(&mut file, "{}", config_file).is_err() {
+                if writeln!(&mut file, "{config_file}").is_err() {
                     return Err(ShellError::FileNotFoundCustom(
                         "config.nu could not be written to".into(),
                         span,
@@ -102,7 +102,7 @@ impl Command for ConfigReset {
                 }
             }
             if let Ok(mut file) = std::fs::File::create(env_config) {
-                if writeln!(&mut file, "{}", config_file).is_err() {
+                if writeln!(&mut file, "{config_file}").is_err() {
                     return Err(ShellError::FileNotFoundCustom(
                         "env.nu could not be written to".into(),
                         span,

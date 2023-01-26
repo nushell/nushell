@@ -63,7 +63,7 @@ impl Command for PluginDeclaration {
             let decl = engine_state.get_decl(call.decl_id);
             ShellError::GenericError(
                 format!("Unable to spawn plugin for {}", decl.name()),
-                format!("{}", err),
+                format!("{err}"),
                 Some(call.head),
                 None,
                 Vec::new(),
@@ -87,7 +87,7 @@ impl Command for PluginDeclaration {
                                 "Plugin {} can not handle the custom value {}",
                                 self.name, custom_value_name
                             ),
-                            format!("custom value {}", custom_value_name),
+                            format!("custom value {custom_value_name}"),
                             Some(span),
                             None,
                             Vec::new(),

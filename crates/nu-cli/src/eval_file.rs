@@ -29,7 +29,7 @@ pub fn evaluate_file(
 
     let cwd = current_dir(engine_state, stack)?;
 
-    let file_path = canonicalize_with(&path, &cwd).unwrap_or_else(|e| {
+    let file_path = canonicalize_with(&path, cwd).unwrap_or_else(|e| {
         let working_set = StateWorkingSet::new(engine_state);
         report_error(
             &working_set,
@@ -81,7 +81,7 @@ pub fn evaluate_file(
         report_error(
             &working_set,
             &ShellError::FileNotFoundCustom(
-                format!("The file path '{}' does not have a parent", file_path_str),
+                format!("The file path '{file_path_str}' does not have a parent"),
                 Span::unknown(),
             ),
         );
@@ -193,6 +193,6 @@ fn print_or_exit(pipeline_data: PipelineData, engine_state: &mut EngineState, co
         }
 
         let out = item.into_string("\n", config) + "\n";
-        let _ = stdout_write_all_and_flush(out).map_err(|err| eprintln!("{}", err));
+        let _ = stdout_write_all_and_flush(out).map_err(|err| eprintln!("{err}"));
     }
 }

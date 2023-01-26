@@ -246,7 +246,7 @@ where
                         style.suffix()
                     )?;
                 } else {
-                    write!(writer, "{}", replacement_char,)?;
+                    write!(writer, "{replacement_char}",)?;
                 }
             }
         }

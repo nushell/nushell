@@ -62,8 +62,7 @@ fn parse_encoding(span: Span, label: &str) -> Result<&'static Encoding, ShellErr
     match Encoding::for_label_no_replacement(label.as_bytes()) {
         None => Err(ShellError::GenericError(
             format!(
-                r#"{} is not a valid encoding"#,
-                label
+                r#"{label} is not a valid encoding"#
             ),
             "invalid encoding".into(),
             Some(span),

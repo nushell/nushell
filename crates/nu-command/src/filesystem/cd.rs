@@ -99,14 +99,14 @@ impl Command for Cd {
                                         Err(e) => {
                                             return Err(ShellError::DirectoryNotFound(
                                                 v.span,
-                                                Some(format!("IO Error: {:?}", e)),
+                                                Some(format!("IO Error: {e:?}")),
                                             ))
                                         }
                                     }
                                 } else {
                                     return Err(ShellError::DirectoryNotFound(
                                         v.span,
-                                        Some(format!("IO Error: {:?}", e1)),
+                                        Some(format!("IO Error: {e1:?}")),
                                     ));
                                 }
                             }
@@ -129,7 +129,7 @@ impl Command for Cd {
                                         Err(e) => {
                                             return Err(ShellError::DirectoryNotFound(
                                                 v.span,
-                                                Some(format!("IO Error: {:?}", e)),
+                                                Some(format!("IO Error: {e:?}")),
                                             ))
                                         }
                                     };
@@ -148,14 +148,14 @@ impl Command for Cd {
                                     Err(e) => {
                                         return Err(ShellError::DirectoryNotFound(
                                             v.span,
-                                            Some(format!("IO Error: {:?}", e)),
+                                            Some(format!("IO Error: {e:?}")),
                                         ))
                                     }
                                 }
                             } else {
                                 return Err(ShellError::DirectoryNotFound(
                                     v.span,
-                                    Some(format!("IO Error: {:?}", e1)),
+                                    Some(format!("IO Error: {e1:?}")),
                                 ));
                             }
                         }
@@ -201,8 +201,7 @@ impl Command for Cd {
                 Ok(PipelineData::empty())
             }
             PermissionResult::PermissionDenied(reason) => Err(ShellError::IOError(format!(
-                "Cannot change directory to {}: {}",
-                path_tointo, reason
+                "Cannot change directory to {path_tointo}: {reason}"
             ))),
         }
     }

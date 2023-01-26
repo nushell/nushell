@@ -55,7 +55,7 @@ pub fn value_to_string(v: &Value, span: Span) -> Result<String, ShellError> {
         Value::Binary { val, .. } => {
             let mut s = String::with_capacity(2 * val.len());
             for byte in val {
-                if write!(s, "{:02X}", byte).is_err() {
+                if write!(s, "{byte:02X}").is_err() {
                     return Err(ShellError::UnsupportedInput(
                         "could not convert binary to string".into(),
                         "value originates from here".into(),
@@ -64,7 +64,7 @@ pub fn value_to_string(v: &Value, span: Span) -> Result<String, ShellError> {
                     ));
                 }
             }
-            Ok(format!("0x[{}]", s))
+            Ok(format!("0x[{s}]"))
         }
         Value::Block { .. } => Err(ShellError::UnsupportedInput(
             "blocks are currently not nuon-compatible".into(),
@@ -125,7 +125,7 @@ pub fn value_to_string(v: &Value, span: Span) -> Result<String, ShellError> {
                     .iter()
                     .map(|string| {
                         if needs_quotes(string) {
-                            format!("\"{}\"", string)
+                            format!("\"{string}\"")
                         } else {
                             string.to_string()
                         }

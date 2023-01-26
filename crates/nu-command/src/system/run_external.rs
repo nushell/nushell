@@ -738,7 +738,7 @@ fn shell_arg_escape(arg: &str) -> String {
         s if !has_unsafe_shell_characters(s) => String::from(s),
         _ => {
             let single_quotes_escaped = arg.split('\'').join("'\"'\"'");
-            format!("'{}'", single_quotes_escaped)
+            format!("'{single_quotes_escaped}'")
         }
     }
 }

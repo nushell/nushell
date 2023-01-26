@@ -131,7 +131,7 @@ where
         }
     } else {
         Value::String {
-            val: format!("{:x}", digest),
+            val: format!("{digest:x}"),
             span,
         }
     }

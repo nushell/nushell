@@ -112,10 +112,10 @@ impl View for InteractiveView<'_> {
         f.render_widget(cmd_input, cmd_input_area);
 
         if !self.view_mode {
-            let cur_w = area.x + 1 + 1 + 1 + max_cmd_len as u16;
+            let cur_w = area.x + 1 + 1 + 1 + max_cmd_len;
             let cur_w_max = area.x + 1 + 1 + 1 + area.width - 2 - 1 - 1 - 1 - 1;
             if cur_w < cur_w_max {
-                f.set_cursor(area.x + 1 + 1 + 1 + max_cmd_len as u16, area.y + 1);
+                f.set_cursor(area.x + 1 + 1 + 1 + max_cmd_len, area.y + 1);
             }
         }
 
@@ -195,9 +195,7 @@ impl View for InteractiveView<'_> {
                     if self.immediate {
                         match self.try_run(engine_state, stack) {
                             Ok(_) => info.report = Some(Report::default()),
-                            Err(err) => {
-                                info.report = Some(Report::error(format!("Error: {}", err)))
-                            }
+                            Err(err) => info.report = Some(Report::error(format!("Error: {err}"))),
                         }
                     }
                 }
@@ -210,7 +208,7 @@ impl View for InteractiveView<'_> {
                 if self.immediate {
                     match self.try_run(engine_state, stack) {
                         Ok(_) => info.report = Some(Report::default()),
-                        Err(err) => info.report = Some(Report::error(format!("Error: {}", err))),
+                        Err(err) => info.report = Some(Report::error(format!("Error: {err}"))),
                     }
                 }
 
@@ -226,7 +224,7 @@ impl View for InteractiveView<'_> {
             KeyCode::Enter => {
                 match self.try_run(engine_state, stack) {
                     Ok(_) => info.report = Some(Report::default()),
-                    Err(err) => info.report = Some(Report::error(format!("Error: {}", err))),
+                    Err(err) => info.report = Some(Report::error(format!("Error: {err}"))),
                 }
 
                 Some(Transition::Ok)

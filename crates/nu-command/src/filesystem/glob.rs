@@ -121,7 +121,7 @@ impl Command for Glob {
             Err(e) => {
                 return Err(ShellError::GenericError(
                     "error with glob pattern".to_string(),
-                    format!("{}", e),
+                    format!("{e}"),
                     Some(glob_pattern.span),
                     None,
                     Vec::new(),

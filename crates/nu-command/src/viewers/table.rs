@@ -320,7 +320,7 @@ fn handle_table_command(
                 } else {
                     // assume this failed because the table was too wide
                     // TODO: more robust error classification
-                    format!("Couldn't fit table into {} columns!", term_width)
+                    format!("Couldn't fit table into {term_width} columns!")
                 }
             });
 
@@ -1504,7 +1504,7 @@ fn convert_with_precision(val: &str, precision: usize) -> Result<String, ShellEr
             ));
         }
     };
-    Ok(format!("{:.prec$}", val_float, prec = precision))
+    Ok(format!("{val_float:.precision$}"))
 }
 
 fn is_cfg_trim_keep_words(config: &Config) -> bool {
@@ -1719,7 +1719,7 @@ impl Iterator for PagingTableCreator {
                     // assume this failed because the table was too wide
                     // TODO: more robust error classification
                     let term_width = get_width_param(self.width_param);
-                    format!("Couldn't fit table into {} columns!", term_width)
+                    format!("Couldn't fit table into {term_width} columns!")
                 };
                 Some(Ok(msg.as_bytes().to_vec()))
             }
@@ -1799,19 +1799,7 @@ enum TableView {
 }
 
 fn strip_output_color(output: Option<String>, config: &Config) -> Option<String> {
-    match output {
-        Some(output) => {
-            // the atty is for when people do ls from vim, there should be no coloring there
-            if !config.use_ansi_coloring || !atty::is(atty::Stream::Stdout) {
-                // Draw the table without ansi colors
-                Some(nu_utils::strip_ansi_string_likely(output))
-            } else {
-                // Draw the table with ansi colors
-                Some(output)
-            }
-        }
-        None => None,
-    }
+    output.filter(|_output| !(!config.use_ansi_coloring || !atty::is(atty::Stream::Stdout)))
 }
 
 fn create_table_config(

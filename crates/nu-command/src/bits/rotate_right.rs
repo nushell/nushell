@@ -110,8 +110,7 @@ where
             error: ShellError::GenericError(
                 "Rotate right result beyond the range of 64 bit signed number".to_string(),
                 format!(
-                    "{} of the specified number of bytes rotate right {} bits exceed limit",
-                    val, bits
+                    "{val} of the specified number of bytes rotate right {bits} bits exceed limit"
                 ),
                 Some(span),
                 None,
@@ -136,7 +135,7 @@ fn operate(value: Value, bits: usize, head: Span, signed: bool, number_size: Num
                 SignedOne => get_rotate_right(val as i8, bits, span),
                 SignedTwo => get_rotate_right(val as i16, bits, span),
                 SignedFour => get_rotate_right(val as i32, bits, span),
-                SignedEight => get_rotate_right(val as i64, bits, span),
+                SignedEight => get_rotate_right(val, bits, span),
             }
         }
         // Propagate errors by explicitly matching them before the final case.

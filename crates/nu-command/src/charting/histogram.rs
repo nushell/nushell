@@ -166,7 +166,7 @@ fn run_histogram(
                         ShellError::UnsupportedInput(
                             "Since --column-name was not provided, only lists of hashable values are supported.".to_string(),
                             format!(
-                                "input type: {:?}", t
+                                "input type: {t:?}"
                             ),
                             head_span,
                             span,

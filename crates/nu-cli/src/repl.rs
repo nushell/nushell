@@ -125,7 +125,7 @@ pub fn evaluate_repl(
     if show_banner {
         let banner = get_banner(engine_state, stack);
         if use_ansi {
-            println!("{}", banner);
+            println!("{banner}");
         } else {
             println!("{}", nu_utils::strip_ansi_string_likely(banner));
         }
@@ -143,7 +143,7 @@ pub fn evaluate_repl(
             engine_state,
             stack,
             s.item.as_bytes(),
-            &format!("entry #{}", entry_num),
+            &format!("entry #{entry_num}"),
             PipelineData::empty(),
         );
         engine_state.merge_env(stack, get_guaranteed_cwd(engine_state, stack))?;
@@ -470,7 +470,7 @@ pub fn evaluate_repl(
                         engine_state,
                         stack,
                         s.as_bytes(),
-                        &format!("entry #{}", entry_num),
+                        &format!("entry #{entry_num}"),
                         PipelineData::empty(),
                     );
                 }
@@ -528,7 +528,7 @@ pub fn evaluate_repl(
                         // ESC]0;stringBEL -- Set icon name and window title to string
                         // ESC]1;stringBEL -- Set icon name to string
                         // ESC]2;stringBEL -- Set window title to string
-                        run_ansi_sequence(&format!("\x1b]2;{}\x07", maybe_abbrev_path))?;
+                        run_ansi_sequence(&format!("\x1b]2;{maybe_abbrev_path}\x07"))?;
                     }
                     run_ansi_sequence(RESET_APPLICATION_MODE)?;
                 }
@@ -568,7 +568,7 @@ pub fn evaluate_repl(
             Err(err) => {
                 let message = err.to_string();
                 if !message.contains("duration") {
-                    eprintln!("Error: {:?}", err);
+                    eprintln!("Error: {err:?}");
                     // TODO: Identify possible error cases where a hard failure is preferable
                     // Ignoring and reporting could hide bigger problems
                     // e.g. https://github.com/nushell/nushell/issues/6452

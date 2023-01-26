@@ -173,7 +173,7 @@ fn file_completions() {
     let mut completer = NuCompleter::new(std::sync::Arc::new(engine), stack);
 
     // Test completions for the current folder
-    let target_dir = format!("cp {}", dir_str);
+    let target_dir = format!("cp {dir_str}");
     let suggestions = completer.complete(&target_dir, target_dir.len());
 
     // Create the expected values
@@ -494,7 +494,7 @@ fn folder_with_directorycompletions() {
     let mut completer = NuCompleter::new(std::sync::Arc::new(engine), stack);
 
     // Test completions for the current folder
-    let target_dir = format!("cd {}", dir_str);
+    let target_dir = format!("cd {dir_str}");
     let suggestions = completer.complete(&target_dir, target_dir.len());
 
     // Create the expected values
@@ -822,7 +822,7 @@ fn alias_offset_bug_7748() {
 
     // Create an alias
     let alias = r#"alias ea = ^$env.EDITOR /tmp/test.s"#;
-    assert!(support::merge_input(alias.as_bytes(), &mut engine, &mut stack, dir.clone()).is_ok());
+    assert!(support::merge_input(alias.as_bytes(), &mut engine, &mut stack, dir).is_ok());
 
     let mut completer = NuCompleter::new(std::sync::Arc::new(engine), stack);
 
@@ -841,7 +841,7 @@ fn alias_offset_bug_7754() {
 
     // Create an alias
     let alias = r#"alias ll = ls -l"#;
-    assert!(support::merge_input(alias.as_bytes(), &mut engine, &mut stack, dir.clone()).is_ok());
+    assert!(support::merge_input(alias.as_bytes(), &mut engine, &mut stack, dir).is_ok());
 
     let mut completer = NuCompleter::new(std::sync::Arc::new(engine), stack);
 

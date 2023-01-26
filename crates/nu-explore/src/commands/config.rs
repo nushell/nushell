@@ -160,7 +160,7 @@ fn create_default_value() -> Value {
 
     let record = |i: usize| Value::Record {
         cols: vec![String::from("key"), String::from("value")],
-        vals: vec![nu_str(format!("key-{}", i)), nu_str(format!("{}", i))],
+        vals: vec![nu_str(format!("key-{i}")), nu_str(format!("{i}"))],
         span,
     };
 

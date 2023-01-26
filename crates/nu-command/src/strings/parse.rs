@@ -276,7 +276,7 @@ fn column_names(regex: &Regex) -> Vec<String> {
         .skip(1)
         .map(|(i, name)| {
             name.map(String::from)
-                .unwrap_or_else(|| format!("Capture{}", i))
+                .unwrap_or_else(|| format!("Capture{i}"))
         })
         .collect()
 }

@@ -210,7 +210,7 @@ fn convert_to_extension(
     input: PipelineData,
     span: Span,
 ) -> Result<Vec<u8>, ShellError> {
-    let converter = engine_state.find_decl(format!("to {}", extension).as_bytes(), &[]);
+    let converter = engine_state.find_decl(format!("to {extension}").as_bytes(), &[]);
 
     let output = match converter {
         Some(converter_id) => {

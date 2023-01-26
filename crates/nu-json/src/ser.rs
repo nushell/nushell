@@ -94,49 +94,49 @@ where
     #[inline]
     fn serialize_i8(self, value: i8) -> Result<()> {
         self.formatter.start_value(&mut self.writer)?;
-        write!(&mut self.writer, "{}", value).map_err(From::from)
+        write!(&mut self.writer, "{value}").map_err(From::from)
     }
 
     #[inline]
     fn serialize_i16(self, value: i16) -> Result<()> {
         self.formatter.start_value(&mut self.writer)?;
-        write!(&mut self.writer, "{}", value).map_err(From::from)
+        write!(&mut self.writer, "{value}").map_err(From::from)
     }
 
     #[inline]
     fn serialize_i32(self, value: i32) -> Result<()> {
         self.formatter.start_value(&mut self.writer)?;
-        write!(&mut self.writer, "{}", value).map_err(From::from)
+        write!(&mut self.writer, "{value}").map_err(From::from)
     }
 
     #[inline]
     fn serialize_i64(self, value: i64) -> Result<()> {
         self.formatter.start_value(&mut self.writer)?;
-        write!(&mut self.writer, "{}", value).map_err(From::from)
+        write!(&mut self.writer, "{value}").map_err(From::from)
     }
 
     #[inline]
     fn serialize_u8(self, value: u8) -> Result<()> {
         self.formatter.start_value(&mut self.writer)?;
-        write!(&mut self.writer, "{}", value).map_err(From::from)
+        write!(&mut self.writer, "{value}").map_err(From::from)
     }
 
     #[inline]
     fn serialize_u16(self, value: u16) -> Result<()> {
         self.formatter.start_value(&mut self.writer)?;
-        write!(&mut self.writer, "{}", value).map_err(From::from)
+        write!(&mut self.writer, "{value}").map_err(From::from)
     }
 
     #[inline]
     fn serialize_u32(self, value: u32) -> Result<()> {
         self.formatter.start_value(&mut self.writer)?;
-        write!(&mut self.writer, "{}", value).map_err(From::from)
+        write!(&mut self.writer, "{value}").map_err(From::from)
     }
 
     #[inline]
     fn serialize_u64(self, value: u64) -> Result<()> {
         self.formatter.start_value(&mut self.writer)?;
-        write!(&mut self.writer, "{}", value).map_err(From::from)
+        write!(&mut self.writer, "{value}").map_err(From::from)
     }
 
     #[inline]
@@ -904,7 +904,7 @@ where
     N: Display + LowerExp,
 {
     let f1 = value.to_string();
-    let f2 = format!("{:e}", value);
+    let f2 = format!("{value:e}");
     if f1.len() <= f2.len() + 1 {
         f1
     } else if !f2.contains("e-") {

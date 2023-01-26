@@ -174,7 +174,7 @@ pub fn current_dir_str(engine_state: &EngineState, stack: &Stack) -> Result<Stri
                 } else {
                     Err(ShellError::GenericError(
                             "Invalid current directory".to_string(),
-                            format!("The 'PWD' environment variable must be set to an absolute path. Found: '{}'", cwd),
+                            format!("The 'PWD' environment variable must be set to an absolute path. Found: '{cwd}'"),
                             Some(pwd.span()?),
                             None,
                             Vec::new()
@@ -255,7 +255,7 @@ pub fn find_in_dirs_env(
                 } else {
                     return Err(ShellError::GenericError(
                             "Invalid current directory".to_string(),
-                            format!("The 'FILE_PWD' environment variable must be set to an absolute path. Found: '{}'", cwd),
+                            format!("The 'FILE_PWD' environment variable must be set to an absolute path. Found: '{cwd}'"),
                             Some(pwd.span()?),
                             None,
                             Vec::new()
@@ -395,8 +395,8 @@ fn ensure_path(scope: &mut HashMap<String, Value>, env_path_name: &str) -> Optio
             if !vals.iter().all(|v| matches!(v, Value::String { .. })) {
                 error = error.or_else(|| {
                     Some(ShellError::GenericError(
-                        format!("Wrong {} environment variable value", env_path_name),
-                        format!("{} must be a list of strings", env_path_name),
+                        format!("Wrong {env_path_name} environment variable value"),
+                        format!("{env_path_name} must be a list of strings"),
                         Some(*span),
                         None,
                         Vec::new(),
@@ -416,8 +416,8 @@ fn ensure_path(scope: &mut HashMap<String, Value>, env_path_name: &str) -> Optio
 
             error = error.or_else(|| {
                 Some(ShellError::GenericError(
-                    format!("Wrong {} environment variable value", env_path_name),
-                    format!("{} must be a list of strings", env_path_name),
+                    format!("Wrong {env_path_name} environment variable value"),
+                    format!("{env_path_name} must be a list of strings"),
                     Some(span),
                     None,
                     Vec::new(),
