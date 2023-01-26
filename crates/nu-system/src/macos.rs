@@ -154,7 +154,7 @@ unsafe fn get_unchecked_str(cp: *mut u8, start: *mut u8) -> String {
 
 #[cfg_attr(tarpaulin, skip)]
 fn get_path_info(pid: i32, mut size: size_t) -> Option<PathInfo> {
-    let mut proc_args = Vec::with_capacity(size as usize);
+    let mut proc_args = Vec::with_capacity(size);
     let ptr: *mut u8 = proc_args.as_mut_slice().as_mut_ptr();
 
     let mut mib: [c_int; 3] = [libc::CTL_KERN, libc::KERN_PROCARGS2, pid as c_int];
