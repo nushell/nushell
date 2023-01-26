@@ -1088,7 +1088,7 @@ fn convert_to_table2<'a>(
         return Ok(Some((table, with_header, with_index)));
     }
 
-    if headers.len() >  0 {
+    if !headers.is_empty() {
         let mut pad_space = PADDING_SPACE;
         if headers.len() > 1 {
             pad_space += SPLIT_LINE_SPACE;
@@ -1097,8 +1097,8 @@ fn convert_to_table2<'a>(
         if available_width < pad_space {
             // there's no space for actual data so we don't return index if it's present.
             // (also see the comment after the loop)
-    
-            return Ok(None)
+
+            return Ok(None);
         }
     }
 
@@ -1204,13 +1204,13 @@ fn convert_to_table2<'a>(
     if truncate && rendered_column == 0 {
         // it means that no actual data was rendered, there might be only index present,
         // so there's no point in rendering the table.
-        // 
+        //
         // It's actually quite important in case it's called recursively,
         // cause we will back up to the basic table view as a string e.g. '[table 123 columns]'.
         //
         // But potentially if its reached as a 1st called function we might would love to see the index.
 
-        return Ok(None)
+        return Ok(None);
     }
 
     if truncate {
