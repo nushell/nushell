@@ -2406,8 +2406,7 @@ impl Value {
                 if *rhs != 0 {
                     Ok(Value::Int {
                         val: (*lhs as f64 / *rhs as f64)
-                            .max(std::i64::MIN as f64)
-                            .min(std::i64::MAX as f64)
+                            .clamp(std::i64::MIN as f64, std::i64::MAX as f64)
                             .floor() as i64,
                         span,
                     })
@@ -2419,8 +2418,7 @@ impl Value {
                 if *rhs != 0.0 {
                     Ok(Value::Int {
                         val: (*lhs as f64 / *rhs)
-                            .max(std::i64::MIN as f64)
-                            .min(std::i64::MAX as f64)
+                            .clamp(std::i64::MIN as f64, std::i64::MAX as f64)
                             .floor() as i64,
                         span,
                     })
@@ -2432,8 +2430,7 @@ impl Value {
                 if *rhs != 0 {
                     Ok(Value::Int {
                         val: (*lhs / *rhs as f64)
-                            .max(std::i64::MIN as f64)
-                            .min(std::i64::MAX as f64)
+                            .clamp(std::i64::MIN as f64, std::i64::MAX as f64)
                             .floor() as i64,
                         span,
                     })
@@ -2445,8 +2442,7 @@ impl Value {
                 if *rhs != 0.0 {
                     Ok(Value::Int {
                         val: (lhs / rhs)
-                            .max(std::i64::MIN as f64)
-                            .min(std::i64::MAX as f64)
+                            .clamp(std::i64::MIN as f64, std::i64::MAX as f64)
                             .floor() as i64,
                         span,
                     })
@@ -2458,8 +2454,7 @@ impl Value {
                 if *rhs != 0 {
                     Ok(Value::Int {
                         val: (*lhs as f64 / *rhs as f64)
-                            .max(std::i64::MIN as f64)
-                            .min(std::i64::MAX as f64)
+                            .clamp(std::i64::MIN as f64, std::i64::MAX as f64)
                             .floor() as i64,
                         span,
                     })
@@ -2471,8 +2466,7 @@ impl Value {
                 if *rhs != 0 {
                     Ok(Value::Filesize {
                         val: ((*lhs as f64) / (*rhs as f64))
-                            .max(std::i64::MIN as f64)
-                            .min(std::i64::MAX as f64)
+                            .clamp(std::i64::MIN as f64, std::i64::MAX as f64)
                             .floor() as i64,
                         span,
                     })
@@ -2484,8 +2478,7 @@ impl Value {
                 if *rhs != 0.0 {
                     Ok(Value::Filesize {
                         val: (*lhs as f64 / *rhs)
-                            .max(std::i64::MIN as f64)
-                            .min(std::i64::MAX as f64)
+                            .clamp(std::i64::MIN as f64, std::i64::MAX as f64)
                             .floor() as i64,
                         span,
                     })
@@ -2497,8 +2490,7 @@ impl Value {
                 if *rhs != 0 {
                     Ok(Value::Int {
                         val: (*lhs as f64 / *rhs as f64)
-                            .max(std::i64::MIN as f64)
-                            .min(std::i64::MAX as f64)
+                            .clamp(std::i64::MIN as f64, std::i64::MAX as f64)
                             .floor() as i64,
                         span,
                     })
@@ -2510,8 +2502,7 @@ impl Value {
                 if *rhs != 0 {
                     Ok(Value::Duration {
                         val: (*lhs as f64 / *rhs as f64)
-                            .max(std::i64::MIN as f64)
-                            .min(std::i64::MAX as f64)
+                            .clamp(std::i64::MIN as f64, std::i64::MAX as f64)
                             .floor() as i64,
                         span,
                     })
@@ -2523,8 +2514,7 @@ impl Value {
                 if *rhs != 0.0 {
                     Ok(Value::Duration {
                         val: (*lhs as f64 / *rhs)
-                            .max(std::i64::MIN as f64)
-                            .min(std::i64::MAX as f64)
+                            .clamp(std::i64::MIN as f64, std::i64::MAX as f64)
                             .floor() as i64,
                         span,
                     })

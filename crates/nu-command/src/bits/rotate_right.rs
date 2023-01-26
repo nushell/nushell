@@ -136,7 +136,7 @@ fn operate(value: Value, bits: usize, head: Span, signed: bool, number_size: Num
                 SignedOne => get_rotate_right(val as i8, bits, span),
                 SignedTwo => get_rotate_right(val as i16, bits, span),
                 SignedFour => get_rotate_right(val as i32, bits, span),
-                SignedEight => get_rotate_right(val as i64, bits, span),
+                SignedEight => get_rotate_right(val, bits, span),
             }
         }
         // Propagate errors by explicitly matching them before the final case.
