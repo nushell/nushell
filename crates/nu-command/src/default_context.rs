@@ -95,6 +95,7 @@ pub fn create_default_context() -> EngineState {
             Each,
             EachWhile,
             Empty,
+            Enumerate,
             Every,
             Filter,
             Find,

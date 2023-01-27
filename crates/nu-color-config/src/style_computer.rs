@@ -226,10 +226,10 @@ fn test_computable_style_static() {
     let style2 = Style::default().underline();
     // Create a "dummy" style_computer for this test.
     let dummy_engine_state = EngineState::new();
-    let mut dummy_stack = Stack::new();
+    let dummy_stack = Stack::new();
     let style_computer = StyleComputer::new(
         &dummy_engine_state,
-        &mut dummy_stack,
+        &dummy_stack,
         HashMap::from([
             ("string".into(), ComputableStyle::Static(style1)),
             ("row_index".into(), ComputableStyle::Static(style2)),
