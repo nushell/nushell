@@ -182,9 +182,6 @@ pub fn redirect_env(engine_state: &EngineState, caller_stack: &mut Stack, callee
     }
 }
 
-/// Eval external expression
-///
-/// It returns PipelineData with a boolean flag, indicate that if the external runs to failed.
 #[allow(clippy::too_many_arguments)]
 fn eval_external(
     engine_state: &EngineState,
