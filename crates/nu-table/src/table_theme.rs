@@ -6,18 +6,21 @@ use tabled::{
 #[derive(Debug, Clone)]
 pub struct TableTheme {
     pub(crate) theme: RawStyle,
+    has_inner: bool,
 }
 
 impl TableTheme {
     pub fn basic() -> TableTheme {
         Self {
             theme: Style::ascii().into(),
+            has_inner: true,
         }
     }
 
     pub fn thin() -> TableTheme {
         Self {
             theme: Style::modern().into(),
+            has_inner: true,
         }
     }
 
@@ -29,6 +32,8 @@ impl TableTheme {
                     Line::new(Some('─'), Some('─'), None, None),
                 )])
                 .into(),
+
+            has_inner: true,
         }
     }
 
@@ -42,6 +47,7 @@ impl TableTheme {
                     .left(None)
                     .right(None)])
                 .into(),
+            has_inner: true,
         }
     }
 
@@ -56,6 +62,7 @@ impl TableTheme {
                     Line::new(Some('❤'), Some('❤'), None, None),
                 )])
                 .into(),
+            has_inner: true,
         }
     }
 
@@ -69,12 +76,14 @@ impl TableTheme {
                     .left(None)
                     .right(None)])
                 .into(),
+            has_inner: true,
         }
     }
 
     pub fn rounded() -> TableTheme {
         Self {
             theme: Style::rounded().into(),
+            has_inner: true,
         }
     }
 
@@ -87,6 +96,7 @@ impl TableTheme {
                 .bottom_right_corner('┛')
                 .off_horizontal()
                 .into(),
+            has_inner: true,
         }
     }
 
@@ -106,12 +116,14 @@ impl TableTheme {
                 .bottom_right_corner('┛')
                 .horizontals([HorizontalLine::new(1, Line::full('━', '╋', '┣', '┫'))])
                 .into(),
+            has_inner: true,
         }
     }
 
     pub fn none() -> TableTheme {
         Self {
             theme: Style::blank().into(),
+            has_inner: true,
         }
     }
 
@@ -120,5 +132,23 @@ impl TableTheme {
             || self.theme.get_top_intersection().is_some()
             || self.theme.get_top_left().is_some()
             || self.theme.get_top_right().is_some()
+    }
+
+    pub fn has_left(&self) -> bool {
+        self.theme.get_left().is_some()
+            || self.theme.get_left_intersection().is_some()
+            || self.theme.get_top_left().is_some()
+            || self.theme.get_bottom_left().is_some()
+    }
+
+    pub fn has_right(&self) -> bool {
+        self.theme.get_right().is_some()
+            || self.theme.get_right_intersection().is_some()
+            || self.theme.get_top_right().is_some()
+            || self.theme.get_bottom_right().is_some()
+    }
+
+    pub fn has_inner(&self) -> bool {
+        self.has_inner
     }
 }

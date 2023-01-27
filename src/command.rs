@@ -1,6 +1,7 @@
 use nu_cli::report_error;
 use nu_engine::{get_full_help, CallExt};
 use nu_parser::parse;
+use nu_parser::{escape_for_script_arg, escape_quote_string};
 use nu_protocol::{
     ast::{Call, Expr, Expression, PipelineElement},
     engine::{Command, EngineState, Stack, StateWorkingSet},
@@ -8,6 +9,51 @@ use nu_protocol::{
     Value,
 };
 use nu_utils::stdout_write_all_and_flush;
+
+pub(crate) fn gather_commandline_args() -> (Vec<String>, String, Vec<String>) {
+    // Would be nice if we had a way to parse this. The first flags we see will be going to nushell
+    // then it'll be the script name
+    // then the args to the script
+    let mut args_to_nushell = Vec::from(["nu".into()]);
+    let mut script_name = String::new();
+    let mut args = std::env::args();
+
+    // Mimic the behaviour of bash/zsh
+    if let Some(argv0) = args.next() {
+        if argv0.starts_with('-') {
+            args_to_nushell.push("--login".into());
+        }
+    }
+
+    while let Some(arg) = args.next() {
+        if !arg.starts_with('-') {
+            script_name = arg;
+            break;
+        }
+
+        let flag_value = match arg.as_ref() {
+            "--commands" | "-c" | "--table-mode" | "-m" | "-e" | "--execute" | "--config"
+            | "--env-config" => args.next().map(|a| escape_quote_string(&a)),
+            #[cfg(feature = "plugin")]
+            "--plugin-config" => args.next().map(|a| escape_quote_string(&a)),
+            "--log-level" | "--log-target" | "--testbin" | "--threads" | "-t" => args.next(),
+            _ => None,
+        };
+
+        args_to_nushell.push(arg);
+
+        if let Some(flag_value) = flag_value {
+            args_to_nushell.push(flag_value);
+        }
+    }
+
+    let args_to_script = if !script_name.is_empty() {
+        args.map(|arg| escape_for_script_arg(&arg)).collect()
+    } else {
+        Vec::default()
+    };
+    (args_to_nushell, script_name, args_to_script)
+}
 
 pub(crate) fn parse_commandline_args(
     commandline_args: &str,

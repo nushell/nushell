@@ -266,7 +266,13 @@ fn which(
     let paths = env::path_str(engine_state, stack, call.head)?;
 
     for app in which_args.applications {
-        let values = which_single(app, which_args.all, engine_state, &cwd, &paths);
+        let values = which_single(
+            app,
+            which_args.all,
+            engine_state,
+            cwd.clone(),
+            paths.clone(),
+        );
         output.extend(values);
     }
 

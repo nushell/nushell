@@ -150,7 +150,6 @@ fn action(
                     let val = val.clone();
                     let val = val.replace("\r\n", "").replace('\n', "");
 
-                    //match Engine::decode_string(&val, base64_engine) {
                     match base64_engine.decode(val) {
                         Ok(decoded_value) => {
                             if output_binary {

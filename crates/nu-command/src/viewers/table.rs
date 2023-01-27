@@ -458,25 +458,16 @@ fn build_expanded_table(
 ) -> Result<Option<String>, ShellError> {
     let theme = load_theme_from_config(config);
 
-    // calculate the width of a key part + the rest of table so we know the rest of the table width available for value.
     let key_width = cols.iter().map(|col| string_width(col)).max().unwrap_or(0);
-    let key = NuTable::create_cell(" ".repeat(key_width), TextStyle::default());
-    let key_table = NuTable::new(vec![vec![key]], (1, 2));
-    let key_width = key_table
-        .draw(
-            create_table_config(config, style_computer, 1, false, false, false),
-            usize::MAX,
-        )
-        .map(|table| string_width(&table))
-        .unwrap_or(0);
 
-    // 3 - count borders (left, center, right)
-    // 2 - padding
-    if key_width + 3 + 2 > term_width {
+    let count_borders =
+        theme.has_inner() as usize + theme.has_right() as usize + theme.has_left() as usize;
+    let padding = 2;
+    if key_width + count_borders + padding + padding > term_width {
         return Ok(None);
     }
 
-    let remaining_width = term_width - key_width - 3 - 2;
+    let value_width = term_width - key_width - count_borders - padding - padding;
 
     let mut data = Vec::with_capacity(cols.len());
     for (key, value) in cols.into_iter().zip(vals) {
@@ -503,14 +494,11 @@ fn build_expanded_table(
                         deep,
                         flatten,
                         flatten_sep,
-                        remaining_width,
+                        value_width,
                     )?;
 
                     match table {
-                        Some((mut table, with_header, with_index)) => {
-                            // control width via removing table columns.
-                            table.truncate(remaining_width, &theme);
-
+                        Some((table, with_header, with_index)) => {
                             is_expanded = true;
 
                             let table_config = create_table_config(
@@ -522,7 +510,7 @@ fn build_expanded_table(
                                 false,
                             );
 
-                            let val = table.draw(table_config, remaining_width);
+                            let val = table.draw(table_config, value_width);
                             match val {
                                 Some(result) => result,
                                 None => return Ok(None),
@@ -531,7 +519,8 @@ fn build_expanded_table(
                         None => {
                             // it means that the list is empty
                             let value = Value::List { vals, span };
-                            value_to_styled_string(&value, config, style_computer).0
+                            let text = value_to_styled_string(&value, config, style_computer).0;
+                            wrap_text(&text, value_width, config)
                         }
                     }
                 }
@@ -543,7 +532,7 @@ fn build_expanded_table(
                         ctrlc.clone(),
                         config,
                         style_computer,
-                        remaining_width,
+                        value_width,
                         deep,
                         flatten,
                         flatten_sep,
@@ -561,13 +550,13 @@ fn build_expanded_table(
                                 style_computer,
                             );
 
-                            wrap_text(&failed_value.0, remaining_width, config)
+                            wrap_text(&failed_value.0, value_width, config)
                         }
                     }
                 }
                 val => {
                     let text = value_to_styled_string(&val, config, style_computer).0;
-                    wrap_text(&text, remaining_width, config)
+                    wrap_text(&text, value_width, config)
                 }
             }
         };
@@ -974,7 +963,8 @@ fn convert_to_table2<'a>(
     const SPLIT_LINE_SPACE: usize = 1;
     const ADDITIONAL_CELL_SPACE: usize = PADDING_SPACE + SPLIT_LINE_SPACE;
     const MIN_CELL_CONTENT_WIDTH: usize = 1;
-    const TRUNCATE_CELL_WIDTH: usize = 3 + PADDING_SPACE;
+    const TRUNCATE_CONTENT_WIDTH: usize = 3;
+    const TRUNCATE_CELL_WIDTH: usize = TRUNCATE_CONTENT_WIDTH + PADDING_SPACE;
 
     if input.len() == 0 {
         return Ok(None);
@@ -1009,8 +999,6 @@ fn convert_to_table2<'a>(
     };
 
     if with_index {
-        let mut column_width = 0;
-
         if with_header {
             data[0].push(NuTable::create_cell(
                 "#",
@@ -1018,6 +1006,7 @@ fn convert_to_table2<'a>(
             ));
         }
 
+        let mut last_index = 0;
         for (row, item) in input.clone().into_iter().enumerate() {
             if nu_utils::ctrl_c::was_pressed(&ctrlc) {
                 return Ok(None);
@@ -1031,17 +1020,17 @@ fn convert_to_table2<'a>(
             let text = matches!(item, Value::Record { .. })
                 .then(|| lookup_index_value(item, config).unwrap_or_else(|| index.to_string()))
                 .unwrap_or_else(|| index.to_string());
-
             let value = make_index_string(text, style_computer);
-
-            let width = string_width(&value.0);
-            column_width = max(column_width, width);
 
             let value = NuTable::create_cell(value.0, value.1);
 
             let row = if with_header { row + 1 } else { row };
             data[row].push(value);
+
+            last_index = index;
         }
+
+        let column_width = string_width(&last_index.to_string());
 
         if column_width + ADDITIONAL_CELL_SPACE > available_width {
             available_width = 0;
@@ -1087,34 +1076,64 @@ fn convert_to_table2<'a>(
         return Ok(Some((table, with_header, with_index)));
     }
 
-    let min_width = PADDING_SPACE + MIN_CELL_CONTENT_WIDTH;
-    if available_width < min_width {
-        return Ok(None);
+    if !headers.is_empty() {
+        let mut pad_space = PADDING_SPACE;
+        if headers.len() > 1 {
+            pad_space += SPLIT_LINE_SPACE;
+        }
+
+        if available_width < pad_space {
+            // there's no space for actual data so we don't return index if it's present.
+            // (also see the comment after the loop)
+
+            return Ok(None);
+        }
     }
 
     let count_columns = headers.len();
     let mut widths = Vec::new();
     let mut truncate = false;
-    let mut last_column_type_is_string = false;
-    let mut last_column_head_width = 0;
+    let mut rendered_column = 0;
     for (col, header) in headers.into_iter().enumerate() {
         let is_last_column = col + 1 == count_columns;
 
-        let mut necessary_space = PADDING_SPACE;
+        let mut pad_space = PADDING_SPACE;
         if !is_last_column {
-            necessary_space += SPLIT_LINE_SPACE;
+            pad_space += SPLIT_LINE_SPACE;
         }
 
-        let available = available_width - necessary_space;
+        let mut available = available_width - pad_space;
 
         let mut column_width = string_width(&header);
-        last_column_head_width = column_width;
 
-        let headc =
+        if !is_last_column {
+            // we need to make sure that we have a space for a next column if we use available width
+            // so we might need to decrease a bit it.
+
+            // we consider a header width be a minimum width
+            let pad_space = PADDING_SPACE + TRUNCATE_CONTENT_WIDTH;
+
+            if available > pad_space {
+                // In we have no space for a next column,
+                // We consider showing something better then nothing,
+                // So we try to decrease the width to show at least a truncution column
+
+                available -= pad_space;
+            } else {
+                truncate = true;
+                break;
+            }
+
+            if available < column_width {
+                truncate = true;
+                break;
+            }
+        }
+
+        let head_cell =
             NuTable::create_cell(header.clone(), header_style(style_computer, header.clone()));
-        data[0].push(headc);
+        data[0].push(head_cell);
 
-        let mut is_string_column = true;
         for (row, item) in input.clone().into_iter().enumerate() {
             if nu_utils::ctrl_c::was_pressed(&ctrlc) {
                 return Ok(None);
@@ -1124,9 +1143,7 @@ fn convert_to_table2<'a>(
                 return Err(error.clone());
             }
 
-            is_string_column = is_string_column && is_string_value(item, &header);
-
-            let value = create_table2_entry(
+            let mut value = create_table2_entry(
                 item,
                 header.as_str(),
                 head,
@@ -1139,7 +1156,16 @@ fn convert_to_table2<'a>(
                 available,
             );
 
-            let value_width = string_width(&value.0);
+            let mut value_width = string_width(&value.0);
+
+            if value_width > available {
+                // it must only happen when a string is produced, so we can safely wrap it.
+                // (it might be string table representation as well)
+
+                value.0 = wrap_text(&value.0, available, config);
+                value_width = available;
+            }
+
             column_width = max(column_width, value_width);
 
             let value = NuTable::create_cell(value.0, value.1);
@@ -1147,67 +1173,35 @@ fn convert_to_table2<'a>(
             data[row + 1].push(value);
         }
 
-        last_column_type_is_string = is_string_column;
-        widths.push(column_width);
-
         if column_width > available {
+            // remove the column we just inserted
+            for row in &mut data {
+                row.pop();
+            }
+
             truncate = true;
             break;
         }
 
-        if !is_last_column {
-            let is_next_last = col + 2 == count_columns;
-            let mut next_nessary_space = PADDING_SPACE;
-            if !is_next_last {
-                next_nessary_space += SPLIT_LINE_SPACE;
-            }
+        widths.push(column_width);
 
-            let has_space_for_next =
-                available_width > column_width + necessary_space + next_nessary_space;
-            if !has_space_for_next {
-                truncate = true;
-                break;
-            }
-        }
+        available_width -= pad_space + column_width;
+        rendered_column += 1;
+    }
 
-        available_width -= necessary_space + column_width;
+    if truncate && rendered_column == 0 {
+        // it means that no actual data was rendered, there might be only index present,
+        // so there's no point in rendering the table.
+        //
+        // It's actually quite important in case it's called recursively,
+        // cause we will back up to the basic table view as a string e.g. '[table 123 columns]'.
+        //
+        // But potentially if its reached as a 1st called function we might would love to see the index.
+
+        return Ok(None);
     }
 
     if truncate {
-        let is_last_column = widths.len() == count_columns;
-        let mut additional_space = PADDING_SPACE;
-        if !is_last_column {
-            additional_space += SPLIT_LINE_SPACE;
-        }
-
-        let mut truncate_cell_width = TRUNCATE_CELL_WIDTH;
-        if is_last_column {
-            truncate_cell_width = 0;
-        }
-
-        let can_be_wrapped =
-            available_width >= last_column_head_width + additional_space + truncate_cell_width;
-        if can_be_wrapped && last_column_type_is_string {
-            // we can wrap the last column instead of just dropping it.
-            let width = available_width - additional_space - truncate_cell_width;
-            available_width -= additional_space + width;
-            *widths.last_mut().expect("...") = width;
-
-            for row in &mut data {
-                let cell = row.last_mut().expect("...");
-                let value = wrap_text(cell.as_ref(), width, config);
-                *cell = NuTable::create_cell(value, *cell.get_data());
-            }
-        } else {
-            // we can't do anything about it so get back to dropping
-
-            widths.pop();
-
-            for row in &mut data {
-                row.pop();
-            }
-        }
-
         if available_width < TRUNCATE_CELL_WIDTH {
             // back up by removing last column.
             // it's LIKELY that removing only 1 column will leave us enough space for a shift column.
@@ -1252,23 +1246,6 @@ fn convert_to_table2<'a>(
     let table = NuTable::new(data, size);
 
     Ok(Some((table, with_header, with_index)))
-}
-
-fn is_string_value(val: &Value, head: &str) -> bool {
-    match val {
-        Value::Record { .. } => {
-            let path = PathMember::String {
-                val: head.to_owned(),
-                span: Span::unknown(),
-            };
-
-            let val = val.clone().follow_cell_path(&[path], false, false);
-
-            !matches!(val, Ok(Value::Record { .. } | Value::List { .. }))
-        }
-        Value::List { .. } => false,
-        _ => true,
-    }
 }
 
 fn lookup_index_value(item: &Value, config: &Config) -> Option<String> {
@@ -1798,6 +1775,7 @@ enum TableView {
     },
 }
 
+#[allow(clippy::manual_filter)]
 fn strip_output_color(output: Option<String>, config: &Config) -> Option<String> {
     output.filter(|_output| !(!config.use_ansi_coloring || !atty::is(atty::Stream::Stdout)))
 }
