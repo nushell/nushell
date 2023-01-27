@@ -455,16 +455,13 @@ mod string {
             assert_eq!(expressions.len(), 1);
 
             if let PipelineElement::Expression(_, expr) = &expressions[0] {
-                let subexprs: Vec<&Expr>;
-                match expr {
+                let subexprs: Vec<&Expr> = match expr {
                     Expression {
                         expr: Expr::StringInterpolation(expressions),
                         ..
-                    } => {
-                        subexprs = expressions.iter().map(|e| &e.expr).collect();
-                    }
+                    } => expressions.iter().map(|e| &e.expr).collect(),
                     _ => panic!("Expected an `Expr::StringInterpolation`"),
-                }
+                };
 
                 assert_eq!(subexprs.len(), 2);
 
@@ -491,16 +488,13 @@ mod string {
             assert_eq!(expressions.len(), 1);
 
             if let PipelineElement::Expression(_, expr) = &expressions[0] {
-                let subexprs: Vec<&Expr>;
-                match expr {
+                let subexprs: Vec<&Expr> = match expr {
                     Expression {
                         expr: Expr::StringInterpolation(expressions),
                         ..
-                    } => {
-                        subexprs = expressions.iter().map(|e| &e.expr).collect();
-                    }
+                    } => expressions.iter().map(|e| &e.expr).collect(),
                     _ => panic!("Expected an `Expr::StringInterpolation`"),
-                }
+                };
 
                 assert_eq!(subexprs.len(), 1);
 
@@ -531,16 +525,13 @@ mod string {
             assert_eq!(expressions.len(), 1);
 
             if let PipelineElement::Expression(_, expr) = &expressions[0] {
-                let subexprs: Vec<&Expr>;
-                match expr {
+                let subexprs: Vec<&Expr> = match expr {
                     Expression {
                         expr: Expr::StringInterpolation(expressions),
                         ..
-                    } => {
-                        subexprs = expressions.iter().map(|e| &e.expr).collect();
-                    }
+                    } => expressions.iter().map(|e| &e.expr).collect(),
                     _ => panic!("Expected an `Expr::StringInterpolation`"),
-                }
+                };
 
                 assert_eq!(subexprs.len(), 2);
 
@@ -573,16 +564,13 @@ mod string {
             assert_eq!(expressions.len(), 1);
 
             if let PipelineElement::Expression(_, expr) = &expressions[0] {
-                let subexprs: Vec<&Expr>;
-                match expr {
+                let subexprs: Vec<&Expr> = match expr {
                     Expression {
                         expr: Expr::StringInterpolation(expressions),
                         ..
-                    } => {
-                        subexprs = expressions.iter().map(|e| &e.expr).collect();
-                    }
+                    } => expressions.iter().map(|e| &e.expr).collect(),
                     _ => panic!("Expected an `Expr::StringInterpolation`"),
-                }
+                };
 
                 assert_eq!(subexprs.len(), 1);
                 assert_eq!(subexprs[0], &Expr::String("(1 + 3)(7 - 5)".to_string()));
