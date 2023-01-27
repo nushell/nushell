@@ -197,7 +197,7 @@ impl Command for Cd {
                 Ok(PipelineData::empty())
             }
             PermissionResult::PermissionDenied(reason) => Err(ShellError::IOError(format!(
-                "Cannot change directory to {path_tointo}: {reason}"
+                "Cannot change directory to {path}: {reason}"
             ))),
         }
     }
