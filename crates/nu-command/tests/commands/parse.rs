@@ -189,4 +189,14 @@ mod regex {
                 .contains("Opening parenthesis without closing parenthesis"));
         })
     }
+
+    #[test]
+    fn parse_works_with_streaming() {
+        let actual = nu!(
+            cwd: ".", pipeline(
+               r#"seq char a z | each {|c| $c + " a"} | parse '{letter} {a}' | describe"#
+        ));
+
+        assert_eq!(actual.out, "table<letter: string, a: string> (stream)")
+    }
 }

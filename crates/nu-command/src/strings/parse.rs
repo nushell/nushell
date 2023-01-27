@@ -381,15 +381,13 @@ impl Iterator for ParseStreamer {
                         None
                     }
                 }
-                Err(_) => {
-                    Some(Value::Error {
-                        error: ShellError::PipelineMismatch(
-                            "string".into(),
-                            self.span,
-                            v.span().unwrap_or(self.span),
-                        ),
-                    })
-                }
+                Err(_) => Some(Value::Error {
+                    error: ShellError::PipelineMismatch(
+                        "string".into(),
+                        self.span,
+                        v.span().unwrap_or(self.span),
+                    ),
+                }),
             }
         } else {
             None
@@ -459,11 +457,9 @@ impl Iterator for ParseStreamerExternal {
                         None
                     }
                 }
-                Err(_) => {
-                    Some(Value::Error {
-                        error: ShellError::PipelineMismatch("string".into(), self.span, self.span),
-                    })
-                }
+                Err(_) => Some(Value::Error {
+                    error: ShellError::PipelineMismatch("string".into(), self.span, self.span),
+                }),
             }
         } else if let Some(Err(err)) = v {
             Some(Value::Error { error: err })
