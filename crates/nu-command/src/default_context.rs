@@ -109,6 +109,7 @@ pub fn create_default_context() -> EngineState {
             Take,
             Merge,
             Move,
+            Number,
             TakeWhile,
             TakeUntil,
             Last,
