@@ -338,49 +338,13 @@ impl Iterator for ParseStreamer {
 
         if let Some(v) = v {
             match v.as_string() {
-                Ok(s) => {
-                    let results = self.regex.captures_iter(&s);
-
-                    for c in results {
-                        let mut cols = Vec::with_capacity(self.columns.len());
-                        let captures = match c {
-                            Ok(c) => c,
-                            Err(e) => {
-                                return Some(Value::Error {
-                                    error: ShellError::GenericError(
-                                        "Error with regular expression captures".into(),
-                                        e.to_string(),
-                                        None,
-                                        None,
-                                        Vec::new(),
-                                    ),
-                                })
-                            }
-                        };
-                        let mut vals = Vec::with_capacity(captures.len());
-
-                        for (column_name, cap) in self.columns.iter().zip(captures.iter().skip(1)) {
-                            let cap_string = cap.map(|v| v.as_str()).unwrap_or("").to_string();
-                            cols.push(column_name.clone());
-                            vals.push(Value::String {
-                                val: cap_string,
-                                span: v.span().unwrap_or(self.span),
-                            });
-                        }
-
-                        self.excess.push(Value::Record {
-                            cols,
-                            vals,
-                            span: self.span,
-                        });
-                    }
-
-                    if !self.excess.is_empty() {
-                        Some(self.excess.remove(0))
-                    } else {
-                        None
-                    }
-                }
+                Ok(s) => stream_helper(
+                    self.regex.clone(),
+                    v.span().unwrap_or(self.span),
+                    s,
+                    self.columns.clone(),
+                    &mut self.excess,
+                ),
                 Err(_) => Some(Value::Error {
                     error: ShellError::PipelineMismatch(
                         "string".into(),
@@ -414,49 +378,13 @@ impl Iterator for ParseStreamerExternal {
 
         if let Some(Ok(v)) = v {
             match String::from_utf8(v) {
-                Ok(s) => {
-                    let results = self.regex.captures_iter(&s);
-
-                    for c in results {
-                        let mut cols = Vec::with_capacity(self.columns.len());
-                        let captures = match c {
-                            Ok(c) => c,
-                            Err(e) => {
-                                return Some(Value::Error {
-                                    error: ShellError::GenericError(
-                                        "Error with regular expression captures".into(),
-                                        e.to_string(),
-                                        None,
-                                        None,
-                                        Vec::new(),
-                                    ),
-                                })
-                            }
-                        };
-                        let mut vals = Vec::with_capacity(captures.len());
-
-                        for (column_name, cap) in self.columns.iter().zip(captures.iter().skip(1)) {
-                            let cap_string = cap.map(|v| v.as_str()).unwrap_or("").to_string();
-                            cols.push(column_name.clone());
-                            vals.push(Value::String {
-                                val: cap_string,
-                                span: self.span,
-                            });
-                        }
-
-                        self.excess.push(Value::Record {
-                            cols,
-                            vals,
-                            span: self.span,
-                        });
-                    }
-
-                    if !self.excess.is_empty() {
-                        Some(self.excess.remove(0))
-                    } else {
-                        None
-                    }
-                }
+                Ok(s) => stream_helper(
+                    self.regex.clone(),
+                    self.span,
+                    s,
+                    self.columns.clone(),
+                    &mut self.excess,
+                ),
                 Err(_) => Some(Value::Error {
                     error: ShellError::PipelineMismatch("string".into(), self.span, self.span),
                 }),
@@ -466,6 +394,52 @@ impl Iterator for ParseStreamerExternal {
         } else {
             None
         }
+    }
+}
+
+fn stream_helper(
+    regex: Regex,
+    span: Span,
+    s: String,
+    columns: Vec<String>,
+    excess: &mut Vec<Value>,
+) -> Option<Value> {
+    let results = regex.captures_iter(&s);
+
+    for c in results {
+        let mut cols = Vec::with_capacity(columns.len());
+        let captures = match c {
+            Ok(c) => c,
+            Err(e) => {
+                return Some(Value::Error {
+                    error: ShellError::GenericError(
+                        "Error with regular expression captures".into(),
+                        e.to_string(),
+                        None,
+                        None,
+                        Vec::new(),
+                    ),
+                })
+            }
+        };
+        let mut vals = Vec::with_capacity(captures.len());
+
+        for (column_name, cap) in columns.iter().zip(captures.iter().skip(1)) {
+            let cap_string = cap.map(|v| v.as_str()).unwrap_or("").to_string();
+            cols.push(column_name.clone());
+            vals.push(Value::String {
+                val: cap_string,
+                span,
+            });
+        }
+
+        excess.push(Value::Record { cols, vals, span });
+    }
+
+    if !excess.is_empty() {
+        Some(excess.remove(0))
+    } else {
+        None
     }
 }
 
