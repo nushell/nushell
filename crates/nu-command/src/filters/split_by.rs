@@ -21,7 +21,7 @@ impl Command for SplitBy {
     }
 
     fn usage(&self) -> &str {
-        "Create a new table splitted."
+        "Create a new table split."
     }
 
     fn run(

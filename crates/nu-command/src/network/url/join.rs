@@ -190,7 +190,7 @@ impl UrlComponents {
 
                     if let Some(q) = self.query {
                         if q != qs {
-                            // if query is present it means that also query_span is setted.
+                            // if query is present it means that also query_span is set.
                             return Err(ShellError::IncompatibleParameters {
                                 left_message: format!("Mismatch, qs from params is: {}", qs),
                                 left_span: value.expect_span(),
@@ -248,7 +248,7 @@ impl UrlComponents {
                         "query" => {
                             if let Some(q) = self.query {
                                 if q != s {
-                                    // if query is present it means that also params_span is setted.
+                                    // if query is present it means that also params_span is set.
                                     return Err(ShellError::IncompatibleParameters {
                                         left_message: format!("Mismatch, query param is: {}", s),
                                         left_span: value.expect_span(),
