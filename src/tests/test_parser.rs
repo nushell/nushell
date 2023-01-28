@@ -386,6 +386,11 @@ fn string_escape() -> TestResult {
 }
 
 #[test]
+fn string_escape_unicode_extended() -> TestResult {
+    run_test(r#""\u{015B}\u{1f10b}""#, "ś🄋")
+}
+
+#[test]
 fn string_escape_interpolation() -> TestResult {
     run_test(r#"$"\u015B(char hamburger)abc""#, "ś≡abc")
 }
