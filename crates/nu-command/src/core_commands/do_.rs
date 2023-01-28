@@ -229,7 +229,7 @@ impl Command for Do {
                 let ctrlc = ls.ctrlc.clone();
                 for v in ls {
                     if let Value::Error { .. } = v {
-                        return Ok(PipelineData::empty());
+                        values.push(Value::nothing(call.head));
                     } else {
                         values.push(v)
                     }
