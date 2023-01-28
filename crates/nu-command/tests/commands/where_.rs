@@ -199,5 +199,5 @@ fn fail_on_non_iterator() {
 fn does_not_panic_when_condition_has_assignment_operator() {
     let actual = nu!(cwd: ".", pipeline(r#"[{a: 1}, {a: 2}] | where $in = 1"#));
 
-    assert!(actual.err.contains("expected comparative operator"));
+    assert!(actual.err.contains("expected valid boolean condition"));
 }
