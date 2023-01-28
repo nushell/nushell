@@ -81,7 +81,7 @@ pub fn unicode_escapes_in_strings_expected_failures() {
             br#""\u{39}8\u{000000000000000000000000000000000000000000000037}""#,
             "any shape",
         ), // hex too long, but small value
-        Tc(br#""\u{110000}""#, "any shape"), // max unicode <= 0x10ffff
+        Tc(br#""\u{110000}""#, "any shape"),  // max unicode <= 0x10ffff
     ];
 
     for tci in test_vec {
