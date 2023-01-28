@@ -365,6 +365,20 @@ Either make sure {0} is a string, or add a 'to_string' entry for it in ENV_CONVE
     )]
     AutomaticEnvVarSetManually(String, #[label("cannot set '{0}' manually")] Span),
 
+    /// It is not possible to replace the entire environment at once
+    ///
+    /// ## Resolution
+    ///
+    /// Setting the entire environment is not allowed. Change environment variables individually
+    /// instead.
+    #[error("Cannot replace environment.")]
+    #[diagnostic(
+        code(nu::shell::cannot_replace_env),
+        url(docsrs),
+        help(r#"Assigning a value to $env is not allowed."#)
+    )]
+    CannotReplaceEnv(#[label("setting $env not allowed")] Span),
+
     /// Division by zero is not a thing.
     ///
     /// ## Resolution
