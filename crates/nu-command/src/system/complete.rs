@@ -22,6 +22,10 @@ impl Command for Complete {
         "Complete the external piped in, collecting outputs and exit code"
     }
 
+    fn extra_usage(&self) -> &str {
+        r#"To collect stderr messages and exit_code, external piped in need to wrapped with `do`"#
+    }
+
     fn run(
         &self,
         _engine_state: &EngineState,
@@ -123,10 +127,17 @@ impl Command for Complete {
     }
 
     fn examples(&self) -> Vec<Example> {
-        vec![Example {
-            description: "Run the external completion",
-            example: "^external arg1 | complete",
-            result: None,
-        }]
+        vec![
+            Example {
+                description: "Run the external completion",
+                example: "^external arg1 | complete",
+                result: None,
+            },
+            Example {
+                description: "Run external completion, collects stderr and exit_code",
+                example: "do { ^external arg1 } | complete",
+                result: None,
+            },
+        ]
     }
 }
