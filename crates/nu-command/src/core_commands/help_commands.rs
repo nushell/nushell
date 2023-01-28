@@ -163,13 +163,9 @@ fn build_help_commands(engine_state: &EngineState, span: Span) -> Vec<Value> {
         });
 
         cols.push("search_terms".into());
-        vals.push(if search_terms.is_empty() {
-            Value::nothing(span)
-        } else {
-            Value::String {
-                val: search_terms.join(", "),
-                span,
-            }
+        vals.push(Value::String {
+            val: search_terms.join(", "),
+            span,
         });
 
         found_cmds_vec.push(Value::Record { cols, vals, span });
