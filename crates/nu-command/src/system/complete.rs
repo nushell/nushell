@@ -4,6 +4,8 @@ use nu_protocol::{
     Category, Example, IntoPipelineData, PipelineData, ShellError, Signature, Type, Value,
 };
 
+use std::thread;
+
 #[derive(Clone)]
 pub struct Complete;
 
@@ -50,20 +52,23 @@ impl Command for Complete {
                 let stderr_handler = stderr.map(|stderr| {
                     let stderr_span = stderr.span;
                     (
-                        std::thread::spawn(move || {
-                            let stderr = stderr.into_bytes()?;
-                            if let Ok(st) = String::from_utf8(stderr.item.clone()) {
-                                Ok::<_, ShellError>(Value::String {
-                                    val: st,
-                                    span: stderr.span,
-                                })
-                            } else {
-                                Ok::<_, ShellError>(Value::Binary {
-                                    val: stderr.item,
-                                    span: stderr.span,
-                                })
-                            }
-                        }),
+                        thread::Builder::new()
+                            .name("stderr consumer".to_string())
+                            .spawn(move || {
+                                let stderr = stderr.into_bytes()?;
+                                if let Ok(st) = String::from_utf8(stderr.item.clone()) {
+                                    Ok::<_, ShellError>(Value::String {
+                                        val: st,
+                                        span: stderr.span,
+                                    })
+                                } else {
+                                    Ok::<_, ShellError>(Value::Binary {
+                                        val: stderr.item,
+                                        span: stderr.span,
+                                    })
+                                }
+                            })
+                            .expect("failed to create thread"),
                         stderr_span,
                     )
                 });

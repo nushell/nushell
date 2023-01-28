@@ -130,16 +130,21 @@ impl Command for Do {
                 // So we need a thread to receive stdout message, then the current thread can continue to consume
                 // stderr messages.
                 let stdout_handler = stdout.map(|stdout_stream| {
-                    thread::spawn(move || {
-                        let ctrlc = stdout_stream.ctrlc.clone();
-                        let span = stdout_stream.span;
-                        RawStream::new(
-                            Box::new(vec![stdout_stream.into_bytes().map(|s| s.item)].into_iter()),
-                            ctrlc,
-                            span,
-                            None,
-                        )
-                    })
+                    thread::Builder::new()
+                        .name("stderr redirector".to_string())
+                        .spawn(move || {
+                            let ctrlc = stdout_stream.ctrlc.clone();
+                            let span = stdout_stream.span;
+                            RawStream::new(
+                                Box::new(
+                                    vec![stdout_stream.into_bytes().map(|s| s.item)].into_iter(),
+                                ),
+                                ctrlc,
+                                span,
+                                None,
+                            )
+                        })
+                        .expect("Failed to create thread")
                 });
 
                 // Intercept stderr so we can return it in the error if the exit code is non-zero.
