@@ -55,10 +55,10 @@ pub fn unicode_escapes_in_strings() {
         Tc(br#""\u006enu\u0075\u0073\u0073""#, "nnuuss"),
         Tc(br#""hello \u{6e}\u{000075}\u{073}hell""#, "hello nushell"),
         Tc(br#""abc""#, "abc"),
-        Tc(br#""\u{39}8\u{10ffff}""#, "98\u{10ffff}"), // shouldn't work?
-                                                       //Tc(br#""#,""),
-                                                       //Tc(br#""#,""),
-                                                       //Tc(br#""#,""),
+        Tc(br#""\u{39}8\u{10ffff}""#, "98\u{10ffff}"),
+        Tc(br#""abc\u{41}""#, "abcA"), // at end of string
+        Tc(br#""\u{41}abc""#, "Aabc"), // at start of string
+        Tc(br#""\u{a}""#, "\n"),       // single digit
     ];
 
     for tci in test_vec {
@@ -81,11 +81,8 @@ pub fn unicode_escapes_in_strings_expected_failures() {
         Tc(
             br#""\u{39}8\u{000000000000000000000000000000000000000000000037}""#,
             "any shape",
-        ), // shouldn't work?
-        Tc(br#""\u{110000}""#, "any shape"), // max unicode <= 0x10ffff?
-                                        //Tc(br#""#,""),
-                                        //Tc(br#""#,""),
-                                        //Tc(br#""#,""),
+        ), // hex too long, but small value
+        Tc(br#""\u{110000}""#, "any shape"), // max unicode <= 0x10ffff
     ];
 
     for tci in test_vec {
