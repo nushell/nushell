@@ -639,7 +639,7 @@ pub fn parse_multispan_value(
         SyntaxShape::MathExpression => {
             trace!("parsing: math expression");
 
-            let (arg, err) = parse_math_expression(
+            let (arg, err, ..) = parse_math_expression(
                 working_set,
                 &spans[*spans_idx..],
                 None,
@@ -3112,9 +3112,19 @@ pub fn parse_row_condition(
     expand_aliases_denylist: &[usize],
 ) -> (Expression, Option<ParseError>) {
     let var_id = working_set.add_variable(b"$it".to_vec(), span(spans), Type::Any, false);
-    let (expression, err) =
+    let (expression, err, op) =
         parse_math_expression(working_set, spans, Some(var_id), expand_aliases_denylist);
     let span = span(spans);
+
+    if let Some(Operator::Assignment(..)) = op {
+        return (
+            garbage(span),
+            err.or(Some(ParseError::Expected(
+                "valid boolean condition".to_string(),
+                span,
+            ))),
+        );
+    }
 
     let block_id = match expression.expr {
         Expr::Block(block_id) => block_id,
@@ -4729,7 +4739,7 @@ pub fn parse_math_expression(
     spans: &[Span],
     lhs_row_var_id: Option<VarId>,
     expand_aliases_denylist: &[usize],
-) -> (Expression, Option<ParseError>) {
+) -> (Expression, Option<ParseError>, Option<Operator>) {
     trace!("parsing: math expression");
 
     // As the expr_stack grows, we increase the required precedence to grow larger
@@ -4742,6 +4752,10 @@ pub fn parse_math_expression(
     // The end result is a stack that we can fold into binary operations as right associations
     // safely.
 
+    // It is vital that this function also returns the Operator used.
+    // This is because this function is used when RowCondition is parsed,
+    // and Assignments cannot be tolerated within RowConditions.
+
     let mut expr_stack: Vec<Expression> = vec![];
 
     let mut idx = 0;
@@ -4753,7 +4767,7 @@ pub fn parse_math_expression(
 
     if first_span == b"not" {
         if spans.len() > 1 {
-            let (remainder, err) = parse_math_expression(
+            let (remainder, err, ..) = parse_math_expression(
                 working_set,
                 &spans[1..],
                 lhs_row_var_id,
@@ -4767,6 +4781,7 @@ pub fn parse_math_expression(
                     custom_completion: None,
                 },
                 err,
+                None,
             );
         } else {
             return (
@@ -4775,6 +4790,7 @@ pub fn parse_math_expression(
                     "expression".into(),
                     Span::new(spans[0].end, spans[0].end),
                 )),
+                None,
             );
         }
     }
@@ -4797,16 +4813,14 @@ pub fn parse_math_expression(
 
     expr_stack.push(lhs);
 
+    let mut operator = None;
+
     while idx < spans.len() {
         let (op, err) = parse_operator(working_set, spans[idx]);
         error = error.or(err);
 
-        if matches!(op.expr, Expr::Operator(Operator::Assignment(..))) {
-            error = error.or(Some(ParseError::Expected(
-                "comparative operator".to_string(),
-                spans[idx],
-            )));
-            break;
+        if let Expr::Operator(o) = op.clone().expr {
+            operator = Some(o);
         }
 
         let op_prec = op.precedence();
@@ -4907,7 +4921,7 @@ pub fn parse_math_expression(
         .pop()
         .expect("internal error: expression stack empty");
 
-    (output, error)
+    (output, error, operator)
 }
 
 pub fn parse_expression(
@@ -4974,7 +4988,9 @@ pub fn parse_expression(
 
     let (output, err) = if is_math_expression_like(working_set, spans[pos], expand_aliases_denylist)
     {
-        parse_math_expression(working_set, &spans[pos..], None, expand_aliases_denylist)
+        let (out, e, ..) =
+            parse_math_expression(working_set, &spans[pos..], None, expand_aliases_denylist);
+        (out, e)
     } else {
         let bytes = working_set.get_span_contents(spans[pos]);
 
