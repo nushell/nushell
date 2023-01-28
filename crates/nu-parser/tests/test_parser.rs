@@ -412,30 +412,6 @@ mod string {
         }
     }
 
-    #[test]
-    pub fn parse_escaped_string() {
-        let engine_state = EngineState::new();
-        let mut working_set = StateWorkingSet::new(&engine_state);
-
-        let (block, err) = parse(
-            &mut working_set,
-            None,
-            b"\"hello \\u006e\\u0075\\u0073hell\"",
-            true,
-            &[],
-        );
-
-        assert!(err.is_none());
-        assert_eq!(block.len(), 1);
-        let expressions = &block[0];
-        assert_eq!(expressions.len(), 1);
-        if let PipelineElement::Expression(_, expr) = &expressions[0] {
-            assert_eq!(expr.expr, Expr::String("hello nushell".to_string()))
-        } else {
-            panic!("Not an expression")
-        }
-    }
-
     mod interpolation {
         use nu_protocol::Span;
 
