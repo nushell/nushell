@@ -66,8 +66,6 @@ fn action(input: &Value, _args: &CellPathOnlyArgs, command_span: Span) -> Value 
 
 #[cfg(test)]
 mod tests {
-    use crate::input_handler::CellPathOnlyArgs;
-
     use super::{action, SubCommand};
     use nu_protocol::{Span, Value};
 
@@ -84,11 +82,7 @@ mod tests {
             Value::test_string("\u{1b}[3;93;41mHello\u{1b}[0m \u{1b}[1;32mNu \u{1b}[1;35mWorld");
         let expected = Value::test_string("Hello Nu World");
 
-        let actual = action(
-            &input_string,
-            &CellPathOnlyArgs { cell_paths: None },
-            &Span::test_data(),
-        );
+        let actual = action(&input_string, &vec![].into(), Span::test_data());
         assert_eq!(actual, expected);
     }
 }
