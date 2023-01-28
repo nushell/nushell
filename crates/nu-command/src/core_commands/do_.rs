@@ -210,14 +210,16 @@ impl Command for Do {
                 span,
                 metadata,
                 trim_end_newline,
-            }) if ignore_program_errors => Ok(PipelineData::ExternalStream {
-                stdout,
-                stderr,
-                exit_code: None,
-                span,
-                metadata,
-                trim_end_newline,
-            }),
+            }) if ignore_program_errors && !call.redirect_stdout => {
+                Ok(PipelineData::ExternalStream {
+                    stdout,
+                    stderr,
+                    exit_code: None,
+                    span,
+                    metadata,
+                    trim_end_newline,
+                })
+            }
             Ok(PipelineData::Value(Value::Error { .. }, ..)) | Err(_) if ignore_shell_errors => {
                 Ok(PipelineData::empty())
             }
