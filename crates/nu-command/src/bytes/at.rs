@@ -70,8 +70,8 @@ fn parse_range(range: Value, head: Span) -> Result<(isize, isize, Span), ShellEr
             }
         }
         Value::String { val, span } => {
-            let splitted_result = val.split_once(',');
-            match splitted_result {
+            let split_result = val.split_once(',');
+            match split_result {
                 Some((start, end)) => (start.to_string(), end.to_string(), span),
                 None => {
                     return Err(ShellError::UnsupportedInput(
