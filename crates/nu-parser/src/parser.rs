@@ -2465,7 +2465,7 @@ pub fn unescape_string(bytes: &[u8], span: Span) -> (Vec<u8>, Option<ParseError>
     let mut idx = 0;
     let mut err = None;
 
-    while idx < bytes.len() {
+    'us_loop: while idx < bytes.len() {
         if bytes[idx] == b'\\' {
             // We're in an escape
             idx += 1;
@@ -2552,53 +2552,96 @@ pub fn unescape_string(bytes: &[u8], span: Span) -> (Vec<u8>, Option<ParseError>
                     idx += 1;
                 }
                 Some(b'u') => {
-                    match (
-                        bytes.get(idx + 1),
-                        bytes.get(idx + 2),
-                        bytes.get(idx + 3),
-                        bytes.get(idx + 4),
-                    ) {
-                        (Some(h1), Some(h2), Some(h3), Some(h4)) => {
-                            let s = String::from_utf8(vec![*h1, *h2, *h3, *h4]);
+                    let mut digits = String::with_capacity(10);
+                    let mut cur_idx: usize; // index of first beyond current end of token
 
-                            if let Ok(s) = s {
-                                let int = u32::from_str_radix(&s, 16);
-
-                                if let Ok(int) = int {
-                                    let result = char::from_u32(int);
-
-                                    if let Some(result) = result {
-                                        let mut buffer = vec![0; 4];
-                                        let result = result.encode_utf8(&mut buffer);
-
-                                        for elem in result.bytes() {
-                                            output.push(elem);
-                                        }
-
-                                        idx += 5;
-                                        continue;
+                    match bytes.get(idx + 1) {
+                        Some(b'{') => {
+                            cur_idx = idx + 2;
+                            loop {
+                                match bytes.get(cur_idx) {
+                                    Some(b'}') => {
+                                        cur_idx += 1;
+                                        break;
+                                    }
+                                    Some(c) => {
+                                        digits.push(*c as char);
+                                        cur_idx += 1;
+                                    }
+                                    _ => {
+                                        err = Some(ParseError::Expected(
+                                            "unicode escape hex value (incomplete, extended)"
+                                                .into(),
+                                            Span::new(span.start + idx, span.end),
+                                        ));
+                                        break 'us_loop;
                                     }
                                 }
                             }
-                            err = Some(ParseError::Expected(
-                                "unicode hex value".into(),
-                                Span::new(span.start + idx, span.end),
-                            ));
+                        }
+                        Some(c) => {
+                            digits.push(*c as char);
+                            cur_idx = idx + 2;
+                            while cur_idx < idx + 5 {
+                                match bytes.get(cur_idx) {
+                                    Some(c) => {
+                                        digits.push(*c as char);
+                                        cur_idx += 1;
+                                    }
+                                    _ => {
+                                        err = Some(ParseError::Expected(
+                                            "unicode escape hex value (incomplete, basic)".into(),
+                                            Span::new(span.start + idx, span.end),
+                                        ));
+                                        break 'us_loop;
+                                    }
+                                }
+                            }
                         }
                         _ => {
                             err = Some(ParseError::Expected(
-                                "unicode hex value".into(),
+                                "unicode escape hex value (incomplete)".into(),
                                 Span::new(span.start + idx, span.end),
                             ));
+                            break 'us_loop;
                         }
                     }
-                    idx += 5;
+
+                    if digits.len() <= 6 {
+                        let int = u32::from_str_radix(&digits, 16);
+
+                        if let Ok(int) = int {
+                            if int <= 0x10ffff {
+                                let result = char::from_u32(int);
+
+                                if let Some(result) = result {
+                                    let mut buffer = vec![0; 4];
+                                    let result = result.encode_utf8(&mut buffer);
+
+                                    for elem in result.bytes() {
+                                        output.push(elem);
+                                    }
+
+                                    idx = cur_idx;
+                                    continue 'us_loop;
+                                }
+                            }
+                        }
+                    }
+
+                    err = Some(ParseError::Expected(
+                        "unicode hex value (nonhex)".into(),
+                        Span::new(span.start + idx, span.end),
+                    ));
+                    break 'us_loop;
                 }
+
                 _ => {
                     err = Some(ParseError::Expected(
                         "supported escape character".into(),
                         Span::new(span.start + idx, span.end),
                     ));
+                    break 'us_loop;
                 }
             }
         } else {
