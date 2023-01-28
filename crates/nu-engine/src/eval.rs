@@ -467,6 +467,12 @@ pub fn eval_expression(
 
                                     lhs.upsert_data_at_cell_path(&cell_path.tail, rhs)?;
                                     if is_env {
+                                        if cell_path.tail.is_empty() {
+                                            return Err(ShellError::CannotReplaceEnv(
+                                                cell_path.head.span,
+                                            ));
+                                        }
+
                                         // The special $env treatment: for something like $env.config.history.max_size = 2000,
                                         // get $env.config (or whichever one it is) AFTER the above mutation, and set it
                                         // as the "config" environment variable.

@@ -371,3 +371,8 @@ fn range_right_exclusive() -> TestResult {
 fn assignment_to_in_var_no_panic() -> TestResult {
     fail_test(r#"$in = 3"#, "needs to be a mutable variable")
 }
+
+#[test]
+fn assignment_to_env_no_panic() -> TestResult {
+    fail_test(r#"$env = 3"#, "cannot_replace_env")
+}
