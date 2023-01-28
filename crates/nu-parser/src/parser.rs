@@ -4801,6 +4801,14 @@ pub fn parse_math_expression(
         let (op, err) = parse_operator(working_set, spans[idx]);
         error = error.or(err);
 
+        if matches!(op.expr, Expr::Operator(Operator::Assignment(..))) {
+            error = error.or(Some(ParseError::Expected(
+                "comparative operator".to_string(),
+                spans[idx],
+            )));
+            break;
+        }
+
         let op_prec = op.precedence();
 
         idx += 1;
