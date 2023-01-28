@@ -221,6 +221,22 @@ impl Command for Do {
             Ok(PipelineData::Value(Value::Error { .. }, ..)) | Err(_) if ignore_shell_errors => {
                 Ok(PipelineData::empty())
             }
+            Ok(PipelineData::ListStream(ls, metadata)) if ignore_shell_errors => {
+                // check if there is a `Value::Error` in given list stream first.
+                let mut values = vec![];
+                let ctrlc = ls.ctrlc.clone();
+                for v in ls {
+                    if let Value::Error { .. } = v {
+                        return Ok(PipelineData::empty());
+                    } else {
+                        values.push(v)
+                    }
+                }
+                Ok(PipelineData::ListStream(
+                    ListStream::from_stream(values.into_iter(), ctrlc),
+                    metadata,
+                ))
+            }
             r => r,
         }
     }
