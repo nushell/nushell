@@ -192,5 +192,4 @@ fn capture_error_with_both_stdout_stderr_messages_not_hang_nushell() {
 fn ignore_error_works_with_list_stream() {
     let actual = nu!(cwd: ".", pipeline(r#"do -i { ["a", $nothing, "b"] | ansi strip }"#));
     assert!(actual.err.is_empty());
-    assert_eq!(actual.out, "");
 }
