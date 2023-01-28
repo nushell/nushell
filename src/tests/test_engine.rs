@@ -365,3 +365,9 @@ fn better_operator_spans() -> TestResult {
 fn range_right_exclusive() -> TestResult {
     run_test(r#"[1, 4, 5, 8, 9] | range 1..<3 | math sum"#, "9")
 }
+
+/// Issue #7872
+#[test]
+fn assignment_to_in_var_no_panic() -> TestResult {
+    fail_test(r#"$in = 3"#, "needs to be a mutable variable")
+}
