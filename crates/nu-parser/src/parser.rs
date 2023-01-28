@@ -5995,7 +5995,7 @@ fn wrap_expr_with_collect(working_set: &mut StateWorkingSet, expr: &Expression) 
     if let Some(decl_id) = working_set.find_decl(b"collect", &Type::Any) {
         let mut output = vec![];
 
-        let var_id = working_set.next_var_id();
+        let var_id = IN_VARIABLE_ID;
         let mut signature = Signature::new("");
         signature.required_positional.push(PositionalArg {
             var_id: Some(var_id),
