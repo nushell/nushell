@@ -1,5 +1,5 @@
 [files]
-extend-exclude = ["*.tsv", "*.json", "*.txt"]
+extend-exclude = ["crates/nu-command/tests/commands/table.rs", "*.tsv", "*.json", "*.txt"]
 
 [default.extend-words]
 # Ignore false-positives

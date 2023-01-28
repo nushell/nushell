@@ -11,10 +11,3 @@ jobs:
 
       - name: Check spelling of book
         uses: crate-ci/typos@master
-        with:
-          files: crates
-
-      - name: Check spelling of src
-        uses: crate-ci/typos@master
-        with:
-          files: src
