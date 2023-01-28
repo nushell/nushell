@@ -1,3 +1,4 @@
+use crate::input_handler::{operate, CellPathOnlyArgs};
 use nu_engine::CallExt;
 use nu_protocol::{
     ast::Call, ast::CellPath, engine::Command, engine::EngineState, engine::Stack, Category,
@@ -34,7 +35,9 @@ impl Command for SubCommand {
         call: &Call,
         input: PipelineData,
     ) -> Result<nu_protocol::PipelineData, ShellError> {
-        operate(engine_state, stack, call, input)
+        let cell_paths: Vec<CellPath> = call.rest(engine_state, stack, 0)?;
+        let arg = CellPathOnlyArgs::from(cell_paths);
+        operate(action, arg, input, call.head, engine_state.ctrlc.clone())
     }
 
     fn examples(&self) -> Vec<Example> {
@@ -46,37 +49,7 @@ impl Command for SubCommand {
     }
 }
 
-fn operate(
-    engine_state: &EngineState,
-    stack: &mut Stack,
-    call: &Call,
-    input: PipelineData,
-) -> Result<PipelineData, ShellError> {
-    let column_paths: Vec<CellPath> = call.rest(engine_state, stack, 0)?;
-    let head = call.head;
-    input.map(
-        move |v| {
-            if column_paths.is_empty() {
-                action(&v, &head)
-            } else {
-                let mut ret = v;
-
-                for path in &column_paths {
-                    let r = ret
-                        .update_cell_path(&path.members, Box::new(move |old| action(old, &head)));
-                    if let Err(error) = r {
-                        return Value::Error { error };
-                    }
-                }
-
-                ret
-            }
-        },
-        engine_state.ctrlc.clone(),
-    )
-}
-
-fn action(input: &Value, command_span: &Span) -> Value {
+fn action(input: &Value, _args: &CellPathOnlyArgs, command_span: Span) -> Value {
     match input {
         Value::String { val, span } => {
             Value::string(nu_utils::strip_ansi_likely(val).to_string(), *span)
@@ -85,7 +58,7 @@ fn action(input: &Value, command_span: &Span) -> Value {
             let got = format!("value is {}, not string", other.get_type());
 
             Value::Error {
-                error: ShellError::TypeMismatch(got, other.span().unwrap_or(*command_span)),
+                error: ShellError::TypeMismatch(got, other.span().unwrap_or(command_span)),
             }
         }
     }
@@ -109,7 +82,7 @@ mod tests {
             Value::test_string("\u{1b}[3;93;41mHello\u{1b}[0m \u{1b}[1;32mNu \u{1b}[1;35mWorld");
         let expected = Value::test_string("Hello Nu World");
 
-        let actual = action(&input_string, &Span::test_data());
+        let actual = action(&input_string, &vec![].into(), Span::test_data());
         assert_eq!(actual, expected);
     }
 }
