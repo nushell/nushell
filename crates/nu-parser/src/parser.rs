@@ -2553,61 +2553,32 @@ pub fn unescape_string(bytes: &[u8], span: Span) -> (Vec<u8>, Option<ParseError>
                 }
                 Some(b'u') => {
                     let mut digits = String::with_capacity(10);
-                    let mut cur_idx: usize; // index of first beyond current end of token
+                    let mut cur_idx = idx + 1; // index of first beyond current end of token
 
-                    match bytes.get(idx + 1) {
-                        Some(b'{') => {
-                            cur_idx = idx + 2;
-                            loop {
-                                match bytes.get(cur_idx) {
-                                    Some(b'}') => {
-                                        cur_idx += 1;
-                                        break;
-                                    }
-                                    Some(c) => {
-                                        digits.push(*c as char);
-                                        cur_idx += 1;
-                                    }
-                                    _ => {
-                                        err = Some(ParseError::Expected(
-                                            "unicode escape hex value (incomplete, extended)"
-                                                .into(),
-                                            Span::new(span.start + idx, span.end),
-                                        ));
-                                        break 'us_loop;
-                                    }
+                    if let Some(b'{') = bytes.get(idx + 1) {
+                        cur_idx = idx + 2;
+                        loop {
+                            match bytes.get(cur_idx) {
+                                Some(b'}') => {
+                                    cur_idx += 1;
+                                    break;
+                                }
+                                Some(c) => {
+                                    digits.push(*c as char);
+                                    cur_idx += 1;
+                                }
+                                _ => {
+                                    err = Some(ParseError::Expected(
+                                        "closing '}' in unicode escape `\\u{n..}`".into(),
+                                        Span::new(span.start + idx, span.end),
+                                    ));
+                                    break 'us_loop;
                                 }
                             }
-                        }
-                        Some(c) => {
-                            digits.push(*c as char);
-                            cur_idx = idx + 2;
-                            while cur_idx < idx + 5 {
-                                match bytes.get(cur_idx) {
-                                    Some(c) => {
-                                        digits.push(*c as char);
-                                        cur_idx += 1;
-                                    }
-                                    _ => {
-                                        err = Some(ParseError::Expected(
-                                            "unicode escape hex value (incomplete, basic)".into(),
-                                            Span::new(span.start + idx, span.end),
-                                        ));
-                                        break 'us_loop;
-                                    }
-                                }
-                            }
-                        }
-                        _ => {
-                            err = Some(ParseError::Expected(
-                                "unicode escape hex value (incomplete)".into(),
-                                Span::new(span.start + idx, span.end),
-                            ));
-                            break 'us_loop;
                         }
                     }
 
-                    if digits.len() <= 6 {
+                    if (1..=6).contains(&digits.len()) {
                         let int = u32::from_str_radix(&digits, 16);
 
                         if let Ok(int) = int {
@@ -2628,9 +2599,9 @@ pub fn unescape_string(bytes: &[u8], span: Span) -> (Vec<u8>, Option<ParseError>
                             }
                         }
                     }
-
+                    // fall through -- escape not accepted above, must be error.
                     err = Some(ParseError::Expected(
-                        "unicode hex value (nonhex)".into(),
+                        "unicode escape \\u{n..}".into(),
                         Span::new(span.start + idx, span.end),
                     ));
                     break 'us_loop;

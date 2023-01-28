@@ -52,9 +52,8 @@ pub fn unicode_escapes_in_strings() {
     let test_vec = vec![
         Tc(b"\"hello \\u{6e}\\u{000075}\\u{073}hell\"", "hello nushell"),
         // template: Tc(br#""<string literal without #'s>"", "<Rust literal comparand>")
-        Tc(br#""\u006enu\u0075\u0073\u0073""#, "nnuuss"),
+        //deprecated Tc(br#""\u006enu\u0075\u0073\u0073""#, "nnuuss"),
         Tc(br#""hello \u{6e}\u{000075}\u{073}hell""#, "hello nushell"),
-        Tc(br#""abc""#, "abc"),
         Tc(br#""\u{39}8\u{10ffff}""#, "98\u{10ffff}"),
         Tc(br#""abc\u{41}""#, "abcA"), // at end of string
         Tc(br#""\u{41}abc""#, "Aabc"), // at start of string
@@ -75,8 +74,8 @@ pub fn unicode_escapes_in_strings_expected_failures() {
 
     let test_vec = vec![
         // template: Tc(br#""<string literal without #'s>"", "<pattern in expected error>")
-        Tc(br#""\u06e""#, "any shape"), // 4digit too short, next char is EOF
-        Tc(br#""\u06ex""#, "any shape"), // 4digit too short, next char is non-hex-digit
+        //deprecated Tc(br#""\u06e""#, "any shape"), // 4digit too short, next char is EOF
+        //deprecatedTc(br#""\u06ex""#, "any shape"), // 4digit too short, next char is non-hex-digit
         Tc(br#""hello \u{6e""#, "any shape"), // extended, missing close delim
         Tc(
             br#""\u{39}8\u{000000000000000000000000000000000000000000000037}""#,
