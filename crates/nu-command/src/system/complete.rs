@@ -19,11 +19,11 @@ impl Command for Complete {
     }
 
     fn usage(&self) -> &str {
-        "Complete the external piped in, collecting outputs and exit code"
+        "Capture the outputs and exit code from an external piped in command in a nushell table"
     }
 
     fn extra_usage(&self) -> &str {
-        r#"To collect stderr messages and exit_code, external piped in need to wrapped with `do`"#
+        r#"In order to capture stdout, stderr, and exit_code, externally piped in commands need to be wrapped with `do`"#
     }
 
     fn run(
