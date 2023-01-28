@@ -21,7 +21,11 @@ impl Command for Complete {
     }
 
     fn usage(&self) -> &str {
-        "Complete the external piped in, collecting outputs and exit code"
+        "Capture the outputs and exit code from an external piped in command in a nushell table"
+    }
+
+    fn extra_usage(&self) -> &str {
+        r#"In order to capture stdout, stderr, and exit_code, externally piped in commands need to be wrapped with `do`"#
     }
 
     fn run(
@@ -128,10 +132,19 @@ impl Command for Complete {
     }
 
     fn examples(&self) -> Vec<Example> {
-        vec![Example {
-            description: "Run the external completion",
-            example: "^external arg1 | complete",
-            result: None,
-        }]
+        vec![
+            Example {
+                description:
+                    "Run the external command to completion, capturing stdout and exit_code",
+                example: "^external arg1 | complete",
+                result: None,
+            },
+            Example {
+                description:
+                    "Run external command to completion, capturing, stdout, stderr and exit_code",
+                example: "do { ^external arg1 } | complete",
+                result: None,
+            },
+        ]
     }
 }
