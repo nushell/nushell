@@ -360,8 +360,10 @@ fn copy_file(src: PathBuf, dst: PathBuf, span: Span) -> Value {
                 dst_display = dst.display()
             );
             use std::io::ErrorKind;
+            let dst_info = std::fs::metadata(&dst);
             let shell_error = match e.kind() {
                 ErrorKind::NotFound => {
+<<<<<<< HEAD
                     if std::path::Path::new(&dst).exists() {
                         ShellError::FileNotFoundCustom(message_src, span)
                     } else {
@@ -380,6 +382,20 @@ fn copy_file(src: PathBuf, dst: PathBuf, span: Span) -> Value {
                 },
                 ErrorKind::Interrupted => ShellError::IOInterrupted(message_src, span),
                 ErrorKind::OutOfMemory => ShellError::OutOfMemoryError(message_src, span),
+=======
+                    if dst_info.is_ok() {
+                        ShellError::FileNotFoundCustom(message, span)
+                    } else {
+                        ShellError::FileNotFoundCustom(
+                            format!("copy file {dst:?} failed: {e}"),
+                            span,
+                        )
+                    }
+                }
+                ErrorKind::PermissionDenied => ShellError::PermissionDeniedError(message, span),
+                ErrorKind::Interrupted => ShellError::IOInterrupted(message, span),
+                ErrorKind::OutOfMemory => ShellError::OutOfMemoryError(message, span),
+>>>>>>> aae4b25b1 (Fix: dst error on cp command)
                 // TODO: handle ExecutableFileBusy etc. when io_error_more is stabilized
                 // https://github.com/rust-lang/rust/issues/86442
                 _ => ShellError::IOErrorSpanned(message_src, span),
