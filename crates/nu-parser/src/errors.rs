@@ -442,6 +442,10 @@ pub enum ParseError {
     )]
     NotAConstant(#[label = "Value is not a parse-time constant"] Span),
 
+    #[error("Invalid syntax")] // invalid syntax in <entity>, <detail>.
+    #[diagnostic()]
+    InvalidSyntax(String, String, #[label("Syntax error in {0}, {1}.")] Span),
+
     #[error("{0}")]
     #[diagnostic()]
     LabeledError(String, String, #[label("{1}")] Span),
@@ -520,6 +524,7 @@ impl ParseError {
             ParseError::ShellErrRedirect(s) => *s,
             ParseError::ShellOutErrRedirect(s) => *s,
             ParseError::UnknownOperator(_, _, s) => *s,
+            ParseError::InvalidSyntax(_, _, s) => *s,
             ParseError::NotAConstant(s) => *s,
         }
     }
