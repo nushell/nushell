@@ -29,15 +29,13 @@ pub fn do_test(test: &[u8], expected: &str, error_contains: Option<&str>) {
         }
         Some(pev) => match error_contains {
             None => {
-                panic!("Err:{:#?}", pev);
+                panic!("Err:{pev:#?}");
             }
             Some(contains_string) => {
-                let full_err = format!("{:#?}", pev);
+                let full_err = format!("{pev:#?}");
                 assert!(
                     full_err.contains(contains_string),
-                    "Expected error containing {}, instead got {}",
-                    contains_string,
-                    full_err
+                    "Expected error containing {contains_string}, instead got {full_err}"
                 );
             }
         },

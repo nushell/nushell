@@ -206,7 +206,7 @@ fn action(input: &Value, args: &Arguments, span: Span) -> Value {
             if decimals {
                 let decimal_value = digits.unwrap_or(2) as usize;
                 Value::String {
-                    val: format!("{:.*}", decimal_value, val),
+                    val: format!("{val:.decimal_value$}"),
                     span,
                 }
             } else {

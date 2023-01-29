@@ -303,7 +303,7 @@ fn format_record(
                     }
                     Some(err) => {
                         return Err(ShellError::TypeMismatch(
-                            format!("expression is invalid, detail message: {:?}", err),
+                            format!("expression is invalid, detail message: {err:?}"),
                             *span,
                         ))
                     }

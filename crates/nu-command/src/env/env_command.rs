@@ -54,7 +54,7 @@ impl Command for Env {
             vals.push(Value::string(name, span));
 
             cols.push("type".into());
-            vals.push(Value::string(format!("{}", val_type), span));
+            vals.push(Value::string(format!("{val_type}"), span));
 
             cols.push("value".into());
             vals.push(val);

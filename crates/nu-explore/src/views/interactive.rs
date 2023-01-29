@@ -195,9 +195,7 @@ impl View for InteractiveView<'_> {
                     if self.immediate {
                         match self.try_run(engine_state, stack) {
                             Ok(_) => info.report = Some(Report::default()),
-                            Err(err) => {
-                                info.report = Some(Report::error(format!("Error: {}", err)))
-                            }
+                            Err(err) => info.report = Some(Report::error(format!("Error: {err}"))),
                         }
                     }
                 }
@@ -210,7 +208,7 @@ impl View for InteractiveView<'_> {
                 if self.immediate {
                     match self.try_run(engine_state, stack) {
                         Ok(_) => info.report = Some(Report::default()),
-                        Err(err) => info.report = Some(Report::error(format!("Error: {}", err))),
+                        Err(err) => info.report = Some(Report::error(format!("Error: {err}"))),
                     }
                 }
 
@@ -226,7 +224,7 @@ impl View for InteractiveView<'_> {
             KeyCode::Enter => {
                 match self.try_run(engine_state, stack) {
                     Ok(_) => info.report = Some(Report::default()),
-                    Err(err) => info.report = Some(Report::error(format!("Error: {}", err))),
+                    Err(err) => info.report = Some(Report::error(format!("Error: {err}"))),
                 }
 
                 Some(Transition::Ok)

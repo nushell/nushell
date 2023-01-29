@@ -691,11 +691,11 @@ fn report_cursor_position(mode: UIMode, cursor: XYCursor) -> String {
     if mode == UIMode::Cursor {
         let row = cursor.row();
         let column = cursor.column();
-        format!("{},{}", row, column)
+        format!("{row},{column}")
     } else {
         let rows_seen = cursor.row_starts_at();
         let columns_seen = cursor.column_starts_at();
-        format!("{},{}", rows_seen, columns_seen)
+        format!("{rows_seen},{columns_seen}")
     }
 }
 
@@ -707,13 +707,13 @@ fn report_row_position(cursor: XYCursor) -> String {
 
         match percent_rows {
             100 => String::from("All"),
-            value => format!("{}%", value),
+            value => format!("{value}%"),
         }
     }
 }
 
 fn get_percentage(value: usize, max: usize) -> usize {
-    debug_assert!(value <= max, "{:?} {:?}", value, max);
+    debug_assert!(value <= max, "{value:?} {max:?}");
 
     ((value as f32 / max as f32) * 100.0).floor() as usize
 }

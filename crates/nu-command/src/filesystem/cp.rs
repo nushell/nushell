@@ -168,8 +168,7 @@ impl Command for Cp {
                             canonicalize_with(dst.as_path(), &current_dir_path).unwrap_or(dst);
                         let res = if src == dst {
                             let message = format!(
-                                "src {:?} and dst {:?} are identical(not copied)",
-                                source, destination
+                                "src {source:?} and dst {destination:?} are identical(not copied)"
                             );
 
                             return Err(ShellError::GenericError(

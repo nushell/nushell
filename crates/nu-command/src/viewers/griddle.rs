@@ -239,7 +239,7 @@ fn create_grid_output(
             Value::string(grid_display.to_string(), call.head)
         } else {
             Value::String {
-                val: format!("Couldn't fit grid into {} columns!", cols),
+                val: format!("Couldn't fit grid into {cols} columns!"),
                 span: call.head,
             }
         }

@@ -151,7 +151,7 @@ fn extract_headers(value: &Value, config: &Config) -> Result<Vec<String>, ShellE
                 .map(|(idx, value)| {
                     let col = value.into_string("", config);
                     if col.is_empty() {
-                        format!("column{}", idx)
+                        format!("column{idx}")
                     } else {
                         col
                     }

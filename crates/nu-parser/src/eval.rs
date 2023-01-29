@@ -36,7 +36,7 @@ pub fn eval_constant(
                 // TODO: Better error conversion
                 Err(shell_error) => Err(ParseError::LabeledError(
                     "Error when following cell path".to_string(),
-                    format!("{:?}", shell_error),
+                    format!("{shell_error:?}"),
                     expr.span,
                 )),
             }

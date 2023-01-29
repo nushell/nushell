@@ -174,7 +174,7 @@ fn helper(
             return Err(ShellError::UnsupportedInput(
                 "Incomplete or incorrect URL. Expected a full URL, e.g., https://www.example.com"
                     .to_string(),
-                format!("value: '{:?}'", requested_url),
+                format!("value: '{requested_url:?}'"),
                 call.head,
                 span,
             ));
@@ -190,12 +190,12 @@ fn helper(
     let login = match (user, password) {
         (Some(user), Some(password)) => {
             let mut enc_str = String::new();
-            base64_engine.encode_string(&format!("{}:{}", user, password), &mut enc_str);
+            base64_engine.encode_string(&format!("{user}:{password}"), &mut enc_str);
             Some(enc_str)
         }
         (Some(user), _) => {
             let mut enc_str = String::new();
-            base64_engine.encode_string(&format!("{}:", user), &mut enc_str);
+            base64_engine.encode_string(&format!("{user}:"), &mut enc_str);
             Some(enc_str)
         }
         _ => None,
@@ -249,7 +249,7 @@ fn helper(
         request = request.header("Content-Length", val);
     }
     if let Some(login) = login {
-        request = request.header("Authorization", format!("Basic {}", login));
+        request = request.header("Authorization", format!("Basic {login}"));
     }
 
     if let Some(headers) = headers {
@@ -317,7 +317,7 @@ fn helper(
                 })?;
                 let content_type = mime::Mime::from_str(content_type).map_err(|_| {
                     ShellError::GenericError(
-                        format!("MIME type unknown: {}", content_type),
+                        format!("MIME type unknown: {content_type}"),
                         "".to_string(),
                         None,
                         Some("given unknown MIME type".to_string()),
@@ -329,7 +329,7 @@ fn helper(
                         let path_extension = url::Url::parse(&requested_url)
                             .map_err(|_| {
                                 ShellError::GenericError(
-                                    format!("Cannot parse URL: {}", requested_url),
+                                    format!("Cannot parse URL: {requested_url}"),
                                     "".to_string(),
                                     None,
                                     Some("cannot parse".to_string()),
@@ -354,7 +354,7 @@ fn helper(
                     return Ok(output);
                 }
                 if let Some(ext) = ext {
-                    match engine_state.find_decl(format!("from {}", ext).as_bytes(), &[]) {
+                    match engine_state.find_decl(format!("from {ext}").as_bytes(), &[]) {
                         Some(converter_id) => engine_state.get_decl(converter_id).run(
                             engine_state,
                             stack,
@@ -371,23 +371,20 @@ fn helper(
         },
         Err(e) if e.is_status() => match e.status() {
             Some(err_code) if err_code == StatusCode::NOT_FOUND => Err(ShellError::NetworkFailure(
-                format!("Requested file not found (404): {:?}", requested_url),
+                format!("Requested file not found (404): {requested_url:?}"),
                 span,
             )),
             Some(err_code) if err_code == StatusCode::MOVED_PERMANENTLY => {
                 Err(ShellError::NetworkFailure(
-                    format!("Resource moved permanently (301): {:?}", requested_url),
+                    format!("Resource moved permanently (301): {requested_url:?}"),
                     span,
                 ))
             }
-            Some(err_code) if err_code == StatusCode::BAD_REQUEST => {
-                Err(ShellError::NetworkFailure(
-                    format!("Bad request (400) to {:?}", requested_url),
-                    span,
-                ))
-            }
+            Some(err_code) if err_code == StatusCode::BAD_REQUEST => Err(
+                ShellError::NetworkFailure(format!("Bad request (400) to {requested_url:?}"), span),
+            ),
             Some(err_code) if err_code == StatusCode::FORBIDDEN => Err(ShellError::NetworkFailure(
-                format!("Access forbidden (403) to {:?}", requested_url),
+                format!("Access forbidden (403) to {requested_url:?}"),
                 span,
             )),
             _ => Err(ShellError::NetworkFailure(

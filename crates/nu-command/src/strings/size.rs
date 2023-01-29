@@ -298,7 +298,7 @@ impl fmt::Display for Counter {
             Counter::CodePoints => "codepoints",
         };
 
-        write!(f, "{}", s)
+        write!(f, "{s}")
     }
 }
 

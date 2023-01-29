@@ -251,7 +251,7 @@ mod test_examples {
                 {:?}",
                 declared_type_transformations
                     .difference(&witnessed_type_transformations)
-                    .map(|(s1, s2)| format!("{} -> {}", s1, s2))
+                    .map(|(s1, s2)| format!("{s1} -> {s2}"))
                     .join(", ")
             );
         }
@@ -273,7 +273,7 @@ mod test_examples {
             nu_parser::parse(&mut working_set, None, contents.as_bytes(), false, &[]);
 
         if let Some(err) = err {
-            panic!("test parse error in `{}`: {:?}", contents, err)
+            panic!("test parse error in `{contents}`: {err:?}")
         }
 
         (output, working_set.render())

@@ -44,7 +44,7 @@ fn gather_env_vars(
         report_error(
             &working_set,
             &ShellError::GenericError(
-                format!("Environment variable was not captured: {}", env_str),
+                format!("Environment variable was not captured: {env_str}"),
                 "".to_string(),
                 None,
                 Some(msg.into()),
@@ -80,8 +80,7 @@ fn gather_env_vars(
                     "".to_string(),
                     None,
                     Some(format!(
-                        "Retrieving current directory failed: {:?} not a valid utf-8 path",
-                        init_cwd
+                        "Retrieving current directory failed: {init_cwd:?} not a valid utf-8 path"
                     )),
                     Vec::new(),
                 ),

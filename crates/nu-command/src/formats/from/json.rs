@@ -183,7 +183,7 @@ fn convert_string_to_value(string_input: String, span: Span) -> Result<Value, Sh
                 ))
             }
             x => Err(ShellError::CantConvert(
-                format!("structured json data ({})", x),
+                format!("structured json data ({x})"),
                 "string".into(),
                 span,
                 None,

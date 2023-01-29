@@ -103,31 +103,31 @@ fn fmt_it(num: i64, span: Span) -> Value {
     let mut vals = vec![];
 
     cols.push("binary".into());
-    vals.push(Value::string(format!("{:#b}", num), span));
+    vals.push(Value::string(format!("{num:#b}"), span));
 
     cols.push("debug".into());
-    vals.push(Value::string(format!("{:#?}", num), span));
+    vals.push(Value::string(format!("{num:#?}"), span));
 
     cols.push("display".into());
-    vals.push(Value::string(format!("{}", num), span));
+    vals.push(Value::string(format!("{num}"), span));
 
     cols.push("lowerexp".into());
-    vals.push(Value::string(format!("{:#e}", num), span));
+    vals.push(Value::string(format!("{num:#e}"), span));
 
     cols.push("lowerhex".into());
-    vals.push(Value::string(format!("{:#x}", num), span));
+    vals.push(Value::string(format!("{num:#x}"), span));
 
     cols.push("octal".into());
-    vals.push(Value::string(format!("{:#o}", num), span));
+    vals.push(Value::string(format!("{num:#o}"), span));
 
     // cols.push("pointer".into());
     // vals.push(Value::string(format!("{:#p}", &num), span));
 
     cols.push("upperexp".into());
-    vals.push(Value::string(format!("{:#E}", num), span));
+    vals.push(Value::string(format!("{num:#E}"), span));
 
     cols.push("upperhex".into());
-    vals.push(Value::string(format!("{:#X}", num), span));
+    vals.push(Value::string(format!("{num:#X}"), span));
 
     Value::Record { cols, vals, span }
 }
