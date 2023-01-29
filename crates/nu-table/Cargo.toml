@@ -19,4 +19,4 @@ json_to_table = { version = "0.3.1", features = ["color"] }
 serde_json = "1"
 
 [dev-dependencies]
-nu-test-support = { path="../nu-test-support", version = "0.74.1"  }
+# nu-test-support = { path="../nu-test-support", version = "0.74.1"  }

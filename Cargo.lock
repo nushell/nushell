@@ -2951,7 +2951,6 @@ dependencies = [
  "nu-color-config",
  "nu-engine",
  "nu-protocol",
- "nu-test-support",
  "nu-utils",
  "serde_json",
  "tabled",
