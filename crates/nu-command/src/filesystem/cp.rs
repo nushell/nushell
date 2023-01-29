@@ -355,8 +355,18 @@ fn copy_file(src: PathBuf, dst: PathBuf, span: Span) -> Value {
             let message = format!("copy file {src:?} failed: {e}");
 
             use std::io::ErrorKind;
+            let dst_info = std::fs::metadata(&dst);
             let shell_error = match e.kind() {
-                ErrorKind::NotFound => ShellError::FileNotFoundCustom(message, span),
+                ErrorKind::NotFound => {
+                    if dst_info.is_ok() {
+                        ShellError::FileNotFoundCustom(message, span)
+                    } else {
+                        ShellError::FileNotFoundCustom(
+                            format!("copy file {dst:?} failed: {e}"),
+                            span,
+                        )
+                    }
+                }
                 ErrorKind::PermissionDenied => ShellError::PermissionDeniedError(message, span),
                 ErrorKind::Interrupted => ShellError::IOInterrupted(message, span),
                 ErrorKind::OutOfMemory => ShellError::OutOfMemoryError(message, span),
