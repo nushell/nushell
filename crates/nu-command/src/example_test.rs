@@ -20,7 +20,7 @@ mod test_examples {
         engine::{Command, EngineState, Stack, StateDelta, StateWorkingSet},
         Example, PipelineData, Signature, Span, Type, Value,
     };
-    use std::{collections::HashSet, path::PathBuf};
+    use std::collections::HashSet;
 
     pub fn test_examples(cmd: impl Command + 'static) {
         let examples = cmd.examples();
@@ -45,7 +45,7 @@ mod test_examples {
                     signature.vectorizes_over_list,
                 ),
             );
-            check_example_evaluates_to_expected_output(&example, &cwd, &mut engine_state);
+            check_example_evaluates_to_expected_output(&example, cwd.as_path(), &mut engine_state);
         }
 
         check_all_signature_input_output_types_entries_have_examples(
@@ -104,7 +104,7 @@ mod test_examples {
 
     fn check_example_input_and_output_types_match_command_signature(
         example: &Example,
-        cwd: &PathBuf,
+        cwd: &std::path::Path,
         engine_state: &mut Box<EngineState>,
         signature_input_output_types: &Vec<(Type, Type)>,
         signature_operates_on_cell_paths: bool,
@@ -204,7 +204,7 @@ mod test_examples {
 
     fn check_example_evaluates_to_expected_output(
         example: &Example,
-        cwd: &PathBuf,
+        cwd: &std::path::Path,
         engine_state: &mut Box<EngineState>,
     ) {
         let mut stack = Stack::new();
@@ -260,7 +260,7 @@ mod test_examples {
     fn eval(
         contents: &str,
         input: PipelineData,
-        cwd: &PathBuf,
+        cwd: &std::path::Path,
         engine_state: &mut Box<EngineState>,
     ) -> Value {
         let (block, delta) = parse(contents, engine_state);
@@ -282,7 +282,7 @@ mod test_examples {
     fn eval_block(
         block: Block,
         input: PipelineData,
-        cwd: &PathBuf,
+        cwd: &std::path::Path,
         engine_state: &mut Box<EngineState>,
         delta: StateDelta,
     ) -> Value {
@@ -302,7 +302,7 @@ mod test_examples {
 
     fn eval_pipeline_without_terminal_expression(
         src: &str,
-        cwd: &PathBuf,
+        cwd: &std::path::Path,
         engine_state: &mut Box<EngineState>,
     ) -> Option<Value> {
         let (mut block, delta) = parse(src, engine_state);
