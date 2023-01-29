@@ -144,7 +144,7 @@ mod regex {
                     open nushell_git_log_oneline.txt
                     | parse --regex "(\\w+) (.+) \\(#(\\d+)\\)"
                     | get 1
-                    | get Capture1
+                    | get capture0
                 "#
             ));
 
@@ -163,7 +163,7 @@ mod regex {
                     open nushell_git_log_oneline.txt
                     | parse --regex "(?P<Hash>\\w+) (.+) \\(#(?P<PR>\\d+)\\)"
                     | get 1
-                    | get Capture2
+                    | get capture1
                 "#
             ));
 

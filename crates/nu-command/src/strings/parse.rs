@@ -93,7 +93,7 @@ impl Command for Parse {
                     "\" @another(foo bar)   \" | parse -r '\\s*(?<=[() ])(@\\w+)(\\([^)]*\\))?\\s*'",
                 result: Some(Value::List {
                     vals: vec![Value::Record {
-                        cols: vec!["Capture1".to_string(), "Capture2".to_string()],
+                        cols: vec!["capture0".to_string(), "capture1".to_string()],
                         vals: vec![
                             Value::test_string("@another"),
                             Value::test_string("(foo bar)"),
@@ -108,7 +108,7 @@ impl Command for Parse {
                 example: "\"abcd\" | parse -r '^a(bc(?=d)|b)cd$'",
                 result: Some(Value::List {
                     vals: vec![Value::Record {
-                        cols: vec!["Capture1".to_string()],
+                        cols: vec!["capture0".to_string()],
                         vals: vec![Value::test_string("b")],
                         span: Span::test_data(),
                     }],
@@ -276,7 +276,7 @@ fn column_names(regex: &Regex) -> Vec<String> {
         .skip(1)
         .map(|(i, name)| {
             name.map(String::from)
-                .unwrap_or_else(|| format!("Capture{}", i))
+                .unwrap_or_else(|| format!("capture{}", i - 1))
         })
         .collect()
 }
