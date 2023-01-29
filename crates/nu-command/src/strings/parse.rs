@@ -74,12 +74,12 @@ impl Command for Parse {
                 result: Some(Value::List {
                     vals: vec![
                         Value::Record {
-                            cols: vec!["Capture1".to_string(), "Capture2".to_string()],
+                            cols: vec!["capture0".to_string(), "capture1".to_string()],
                             vals: vec![Value::test_string(""), Value::test_string("foo")],
                             span: Span::test_data(),
                         },
                         Value::Record {
-                            cols: vec!["Capture1".to_string(), "Capture2".to_string()],
+                            cols: vec!["capture0".to_string(), "capture1".to_string()],
                             vals: vec![Value::test_string("bar"), Value::test_string("")],
                             span: Span::test_data(),
                         },
