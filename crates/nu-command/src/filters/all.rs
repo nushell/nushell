@@ -50,9 +50,8 @@ impl Command for All {
             },
             Example {
                 description: "Check that all values are equal to twice their index",
-                example: "[0 2 4 6] | enumerate | all { $in.item == $in.index * 2 } | get item",
-                // This currently fails signature tests because of `enumerate`
-                result: None, //Some(Value::test_bool(true)),
+                example: "[0 2 4 6] | enumerate | all { $in.item == $in.index * 2 }",
+                result: Some(Value::test_bool(true)),
             },
             Example {
                 description: "Check that all of the values are even, using a stored closure",
