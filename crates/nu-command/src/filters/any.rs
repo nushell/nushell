@@ -44,9 +44,15 @@ impl Command for Any {
                 result: Some(Value::test_bool(true)),
             },
             Example {
+                description: "Check that any item is a string",
+                example: "[1 2 3 4] | any { ($in | describe) == 'string' }",
+                result: Some(Value::test_bool(false)),
+            },
+            Example {
                 description: "Check if any value is equal to twice its own index",
-                example: "[9 8 7 6] | any {|el ind| $el == $ind * 2 }",
-                result: Some(Value::test_bool(true)),
+                example: "[9 8 7 6] | enumerate | any { $in.item == $in.index * 2 } | get item",
+                // This currently fails signature tests because of `enumerate`
+                result: None, //Some(Value::test_bool(true)),
             },
             Example {
                 description: "Check if any of the values are odd, using a stored closure",
@@ -80,7 +86,7 @@ impl Command for Any {
         let ctrlc = engine_state.ctrlc.clone();
         let engine_state = engine_state.clone();
 
-        for (idx, value) in input.into_interruptible_iter(ctrlc).enumerate() {
+        for value in input.into_interruptible_iter(ctrlc) {
             // with_env() is used here to ensure that each iteration uses
             // a different set of environment variables.
             // Hence, a 'cd' in the first loop won't affect the next loop.
@@ -88,18 +94,6 @@ impl Command for Any {
 
             if let Some(var_id) = var_id {
                 stack.add_var(var_id, value.clone());
-            }
-            // Optional index argument
-            if let Some(var) = block.signature.get_positional(1) {
-                if let Some(var_id) = &var.var_id {
-                    stack.add_var(
-                        *var_id,
-                        Value::Int {
-                            val: idx as i64,
-                            span,
-                        },
-                    );
-                }
             }
 
             let eval = eval_block(

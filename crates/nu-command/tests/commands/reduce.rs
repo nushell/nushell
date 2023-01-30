@@ -92,21 +92,11 @@ fn error_reduce_empty() {
 }
 
 #[test]
-fn uses_optional_index_argument() {
-    let actual = nu!(
-        cwd: ".", pipeline(
-        r#"[18 19 20] | reduce -f 0 {|elem accum index| $accum + $index } | to nuon"#
-    ));
-
-    assert_eq!(actual.out, "3");
-}
-
-#[test]
-fn reduce_numbered_example() {
+fn enumerate_reduce_example() {
     let actual = nu!(
         cwd: ".", pipeline(
         r#"
-        [one longest three bar] | reduce --fold ['' -1] {|it, acc, idx| if ($it | str length) > ($acc.0 | str length) { [$it $idx] } else { $acc }} | get 1
+        [one longest three bar] | enumerate | reduce {|it, acc| if ($it.item | str length) > ($acc.item | str length) { $it } else { $acc }} | get index
         "#
         )
     );

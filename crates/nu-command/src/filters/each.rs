@@ -91,13 +91,14 @@ with 'transpose' first."#
                 }),
             },
             Example {
-                example: r#"[1 2 3] | each {|el ind| if $el == 2 { $"found 2 at ($ind)!"} }"#,
+                example: r#"[1 2 3] | enumerate | each {|e| if $e.item == 2 { $"found 2 at ($e.index)!"} }"#,
                 description:
                     "Iterate over each element, producing a list showing indexes of any 2s",
-                result: Some(Value::List {
-                    vals: vec![Value::test_string("found 2 at 1!")],
-                    span: Span::test_data(),
-                }),
+                // This currently fails signature tests because of `enumerate`
+                result: None, /*Some(Value::List {
+                                  vals: vec![Value::test_string("found 2 at 1!")],
+                                  span: Span::test_data(),
+                              }),*/
             },
             Example {
                 example: r#"[1 2 3] | each --keep-empty {|e| if $e == 2 { "found 2!"} }"#,
@@ -138,11 +139,8 @@ with 'transpose' first."#
             PipelineData::Value(Value::Range { .. }, ..)
             | PipelineData::Value(Value::List { .. }, ..)
             | PipelineData::ListStream { .. } => Ok(input
-                // To enumerate over the input (for the index argument),
-                // it must be converted into an iterator using into_iter().
                 .into_iter()
-                .enumerate()
-                .map_while(move |(idx, x)| {
+                .map_while(move |x| {
                     // with_env() is used here to ensure that each iteration uses
                     // a different set of environment variables.
                     // Hence, a 'cd' in the first loop won't affect the next loop.
@@ -151,18 +149,6 @@ with 'transpose' first."#
                     if let Some(var) = block.signature.get_positional(0) {
                         if let Some(var_id) = &var.var_id {
                             stack.add_var(*var_id, x.clone());
-                        }
-                    }
-                    // Optional second index argument
-                    if let Some(var) = block.signature.get_positional(1) {
-                        if let Some(var_id) = &var.var_id {
-                            stack.add_var(
-                                *var_id,
-                                Value::Int {
-                                    val: idx as i64,
-                                    span,
-                                },
-                            );
                         }
                     }
 

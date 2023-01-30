@@ -135,8 +135,9 @@ mod columns {
             transpose bit --ignore-titles
             | get bit
             | reverse
-            | each { |it index|
-                $it * (2 ** $index)
+            | enumerate
+            | each { |it|
+                $it.item * (2 ** $it.index)
             }
             | math sum
         "#,
