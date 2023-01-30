@@ -357,9 +357,13 @@ fn copy_file_not_exists_dst() {
             cwd: sandbox.cwd(),
             "cp valid.txt ~/invalid_dir/invalid_dir1"
         );
-        assert!(actual
-            .err
-            .contains("/invalid_dir/invalid_dir1\" failed: No such file or directory"));
+        assert!(
+            actual.err.contains("invalid_dir1")
+                && (actual.err.contains("No such file or directory")
+                    || actual
+                        .err
+                        .contains("The system cannot find the path specified"))
+        );
     });
 }
 
@@ -375,8 +379,10 @@ fn copy_file_with_read_permission() {
             cwd: sandbox.cwd(),
             "cp valid.txt invalid_prem.txt",
         );
-        assert!(actual
-            .err
-            .contains("/cp_test_18/invalid_prem.txt\" failed: Permission denied"));
+        assert!(
+            actual.err.contains("invalid_prem.txt")
+                && (actual.err.contains("Access is denied")
+                    || actual.err.contains("Permission denied"))
+        );
     });
 }
