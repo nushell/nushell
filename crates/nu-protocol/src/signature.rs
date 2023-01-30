@@ -97,7 +97,7 @@ impl std::fmt::Display for Category {
             Category::Bits => "bits",
         };
 
-        write!(f, "{}", msg)
+        write!(f, "{msg}")
     }
 }
 

@@ -195,7 +195,7 @@ pub fn highlight_search_string(
     needle: &str,
     string_style: &Style,
 ) -> Result<String, ShellError> {
-    let regex_string = format!("(?i){}", needle);
+    let regex_string = format!("(?i){needle}");
     let regex = match Regex::new(&regex_string) {
         Ok(regex) => regex,
         Err(err) => {

@@ -56,7 +56,7 @@ impl CustomValue for PluginCustomValue {
                     "Unable to spawn plugin for {} to get base value",
                     self.source
                 ),
-                format!("{}", err),
+                format!("{err}"),
                 Some(span),
                 None,
                 Vec::new(),
@@ -85,7 +85,7 @@ impl CustomValue for PluginCustomValue {
                     "Unable to decode call for {} to get base value",
                     self.source
                 ),
-                format!("{}", err),
+                format!("{err}"),
                 Some(span),
                 None,
                 Vec::new(),

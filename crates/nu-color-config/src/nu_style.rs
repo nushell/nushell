@@ -65,7 +65,7 @@ fn color_to_string(color: Color) -> Option<String> {
         Color::White => Some(String::from("white")),
         Color::LightGray => Some(String::from("light_gray")),
         Color::Default => Some(String::from("default")),
-        Color::Rgb(r, g, b) => Some(format!("#{:X}{:X}{:X}", r, g, b)),
+        Color::Rgb(r, g, b) => Some(format!("#{r:X}{g:X}{b:X}")),
         Color::Fixed(_) => None,
     }
 }

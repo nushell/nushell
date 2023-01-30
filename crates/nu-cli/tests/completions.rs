@@ -173,7 +173,7 @@ fn file_completions() {
     let mut completer = NuCompleter::new(std::sync::Arc::new(engine), stack);
 
     // Test completions for the current folder
-    let target_dir = format!("cp {}", dir_str);
+    let target_dir = format!("cp {dir_str}");
     let suggestions = completer.complete(&target_dir, target_dir.len());
 
     // Create the expected values
@@ -494,7 +494,7 @@ fn folder_with_directorycompletions() {
     let mut completer = NuCompleter::new(std::sync::Arc::new(engine), stack);
 
     // Test completions for the current folder
-    let target_dir = format!("cd {}", dir_str);
+    let target_dir = format!("cd {dir_str}");
     let suggestions = completer.complete(&target_dir, target_dir.len());
 
     // Create the expected values

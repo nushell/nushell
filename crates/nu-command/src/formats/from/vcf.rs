@@ -123,7 +123,7 @@ fn from_vcf(input: PipelineData, head: Span) -> Result<PipelineData, ShellError>
         Ok(c) => contact_to_value(c, head),
         Err(e) => Value::Error {
             error: ShellError::UnsupportedInput(
-                format!("input cannot be parsed as .vcf ({})", e),
+                format!("input cannot be parsed as .vcf ({e})"),
                 "value originates from here".into(),
                 head,
                 span,

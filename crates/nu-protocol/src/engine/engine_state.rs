@@ -478,7 +478,7 @@ impl EngineState {
                         || file_name.contains('"')
                         || file_name.contains(' ')
                     {
-                        file_name = format!("`{}`", file_name);
+                        file_name = format!("`{file_name}`");
                     }
 
                     serde_json::to_string_pretty(&decl.signature())
@@ -499,7 +499,7 @@ impl EngineState {
                             // Each signature is stored in the plugin file with the shell and signature
                             // This information will be used when loading the plugin
                             // information when nushell starts
-                            format!("register {} {} {}\n\n", file_name, shell_str, signature)
+                            format!("register {file_name} {shell_str} {signature}\n\n")
                         })
                         .map_err(|err| ShellError::PluginFailedToLoad(err.to_string()))
                         .and_then(|line| {
@@ -511,7 +511,7 @@ impl EngineState {
                             plugin_file.flush().map_err(|err| {
                                 ShellError::GenericError(
                                     "Error flushing plugin file".to_string(),
-                                    format! {"{}", err},
+                                    format! {"{err}"},
                                     None,
                                     None,
                                     Vec::new(),
@@ -567,7 +567,7 @@ impl EngineState {
     pub fn print_contents(&self) {
         for (contents, _, _) in self.file_contents.iter() {
             let string = String::from_utf8_lossy(contents);
-            println!("{}", string);
+            println!("{string}");
         }
     }
 

@@ -269,7 +269,7 @@ pub fn rotate(
     let mut new_column_names = {
         let mut res = vec![];
         for idx in 0..(*total_rows + 1) {
-            res.push(format!("column{}", idx));
+            res.push(format!("column{idx}"));
         }
         res.to_vec()
     };

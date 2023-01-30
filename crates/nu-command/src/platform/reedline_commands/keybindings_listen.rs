@@ -113,10 +113,10 @@ fn print_events_helper(event: Event) -> Result<Value, ShellError> {
                         "flags".into(),
                     ],
                     vals: vec![
-                        Value::string(format!("{}", c), Span::unknown()),
+                        Value::string(format!("{c}"), Span::unknown()),
                         Value::string(format!("{:#08x}", u32::from(c)), Span::unknown()),
-                        Value::string(format!("{:?}", modifiers), Span::unknown()),
-                        Value::string(format!("{:#08b}", modifiers), Span::unknown()),
+                        Value::string(format!("{modifiers:?}"), Span::unknown()),
+                        Value::string(format!("{modifiers:#08b}"), Span::unknown()),
                     ],
                     span: Span::unknown(),
                 };
@@ -126,9 +126,9 @@ fn print_events_helper(event: Event) -> Result<Value, ShellError> {
                 let record = Value::Record {
                     cols: vec!["code".into(), "modifier".into(), "flags".into()],
                     vals: vec![
-                        Value::string(format!("{:?}", code), Span::unknown()),
-                        Value::string(format!("{:?}", modifiers), Span::unknown()),
-                        Value::string(format!("{:#08b}", modifiers), Span::unknown()),
+                        Value::string(format!("{code:?}"), Span::unknown()),
+                        Value::string(format!("{modifiers:?}"), Span::unknown()),
+                        Value::string(format!("{modifiers:#08b}"), Span::unknown()),
                     ],
                     span: Span::unknown(),
                 };
@@ -138,7 +138,7 @@ fn print_events_helper(event: Event) -> Result<Value, ShellError> {
     } else {
         let record = Value::Record {
             cols: vec!["event".into()],
-            vals: vec![Value::string(format!("{:?}", event), Span::unknown())],
+            vals: vec![Value::string(format!("{event:?}"), Span::unknown())],
             span: Span::unknown(),
         };
         Ok(record)

@@ -231,7 +231,7 @@ pub fn transpose(
             if let Some(name) = args.rest.get(i) {
                 headers.push(name.item.clone())
             } else {
-                headers.push(format!("column{}", i));
+                headers.push(format!("column{i}"));
             }
         }
     }

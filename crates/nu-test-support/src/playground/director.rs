@@ -95,7 +95,7 @@ impl Executable for Director {
                         if !commands.is_empty() {
                             commands.push_str("| ");
                         }
-                        let _ = writeln!(commands, "{}", pipeline);
+                        let _ = writeln!(commands, "{pipeline}");
                     }
                 }
 
@@ -104,7 +104,7 @@ impl Executable for Director {
                     .stdout(Stdio::piped())
                     // .stdin(Stdio::piped())
                     .stderr(Stdio::piped())
-                    .arg(format!("-c '{}'", commands))
+                    .arg(format!("-c '{commands}'"))
                     .spawn()
                     .expect("It should be possible to run tests");
 

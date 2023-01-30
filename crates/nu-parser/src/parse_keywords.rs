@@ -3561,7 +3561,7 @@ pub fn parse_register(
                     Ok(path)
                 } else {
                     Err(ParseError::RegisteredFileNotFound(
-                        format!("{:?}", path),
+                        format!("{path:?}"),
                         expr.span,
                     ))
                 }
@@ -3576,7 +3576,7 @@ pub fn parse_register(
         serde_json::from_slice::<Signature>(signature).map_err(|e| {
             ParseError::LabeledError(
                 "Signature deserialization error".into(),
-                format!("unable to deserialize signature: {}", e),
+                format!("unable to deserialize signature: {e}"),
                 spans[0],
             )
         })
@@ -3597,7 +3597,7 @@ pub fn parse_register(
                     Ok(path)
                 } else {
                     Err(ParseError::RegisteredFileNotFound(
-                        format!("{:?}", path),
+                        format!("{path:?}"),
                         expr.span,
                     ))
                 }

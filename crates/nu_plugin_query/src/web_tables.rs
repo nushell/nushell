@@ -32,7 +32,7 @@ impl WebTable {
     /// Finds the table in `html` with an id of `id`.
     pub fn find_by_id(html: &str, id: &str) -> Option<WebTable> {
         let html = Html::parse_fragment(html);
-        let selector = format!("table#{}", id);
+        let selector = format!("table#{id}");
         ScraperSelector::parse(&selector)
             .ok()
             .as_ref()

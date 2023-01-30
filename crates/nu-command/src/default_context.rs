@@ -495,7 +495,7 @@ pub fn create_default_context() -> EngineState {
     };
 
     if let Err(err) = engine_state.merge_delta(delta) {
-        eprintln!("Error creating default context: {:?}", err);
+        eprintln!("Error creating default context: {err:?}");
     }
 
     engine_state

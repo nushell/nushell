@@ -126,7 +126,7 @@ where
         .unwrap_or(Locale::en_US);
     let format = date_time.format_localized(formatter, locale);
 
-    match formatter_buf.write_fmt(format_args!("{}", format)) {
+    match formatter_buf.write_fmt(format_args!("{format}")) {
         Ok(_) => Value::String {
             val: formatter_buf,
             span,

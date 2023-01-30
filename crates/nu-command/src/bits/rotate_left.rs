@@ -106,8 +106,7 @@ where
             error: ShellError::GenericError(
                 "Rotate left result beyond the range of 64 bit signed number".to_string(),
                 format!(
-                    "{} of the specified number of bytes rotate left {} bits exceed limit",
-                    val, bits
+                    "{val} of the specified number of bytes rotate left {bits} bits exceed limit"
                 ),
                 Some(span),
                 None,

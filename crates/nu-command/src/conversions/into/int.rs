@@ -367,8 +367,7 @@ fn int_from_string(a_string: &str, span: Span) -> Result<i64, ShellError> {
                     "string".to_string(),
                     span,
                     Some(format!(
-                        r#"string "{}" does not represent a valid integer"#,
-                        trimmed
+                        r#"string "{trimmed}" does not represent a valid integer"#
                     )),
                 )),
             },

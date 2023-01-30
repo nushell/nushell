@@ -75,7 +75,7 @@ impl fmt::Debug for ErrorCode {
         //use std::fmt::Debug;
 
         match *self {
-            ErrorCode::Custom(ref msg) => write!(f, "{}", msg),
+            ErrorCode::Custom(ref msg) => write!(f, "{msg}"),
             ErrorCode::EofWhileParsingList => "EOF while parsing a list".fmt(f),
             ErrorCode::EofWhileParsingObject => "EOF while parsing an object".fmt(f),
             ErrorCode::EofWhileParsingString => "EOF while parsing a string".fmt(f),
@@ -129,7 +129,7 @@ impl fmt::Display for Error {
     fn fmt(&self, fmt: &mut fmt::Formatter) -> fmt::Result {
         match *self {
             Error::Syntax(ref code, line, col) => {
-                write!(fmt, "{:?} at line {} column {}", code, line, col)
+                write!(fmt, "{code:?} at line {line} column {col}")
             }
             Error::Io(ref error) => fmt::Display::fmt(error, fmt),
             Error::FromUtf8(ref error) => fmt::Display::fmt(error, fmt),

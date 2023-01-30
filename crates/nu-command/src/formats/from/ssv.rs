@@ -197,7 +197,7 @@ fn parse_separated_columns<'a>(
         let num_columns = ls.iter().map(|r| r.len()).max().unwrap_or(0);
 
         let headers = (1..=num_columns)
-            .map(|i| format!("column{}", i))
+            .map(|i| format!("column{i}"))
             .collect::<Vec<String>>();
         collect(headers, ls.into_iter(), separator)
     };

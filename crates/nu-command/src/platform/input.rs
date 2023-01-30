@@ -57,7 +57,7 @@ impl Command for Input {
             let _ = crossterm::terminal::enable_raw_mode();
 
             if let Some(prompt) = prompt {
-                print!("{}", prompt);
+                print!("{prompt}");
                 let _ = std::io::stdout().flush();
             }
             if let Some(c) = bytes_until.bytes().next() {
@@ -92,7 +92,7 @@ impl Command for Input {
             }
         } else {
             if let Some(prompt) = prompt {
-                print!("{}", prompt);
+                print!("{prompt}");
                 let _ = std::io::stdout().flush();
             }
 

@@ -16,7 +16,7 @@ fn writes_out_csv() {
         );
 
         let actual = file_contents(expected_file);
-        println!("{}", actual);
+        println!("{actual}");
         assert!(actual.contains("nu,0.14,A new type of shell,MIT,2018"));
     })
 }
@@ -52,7 +52,7 @@ fn save_append_will_create_file_if_not_exists() {
         );
 
         let actual = file_contents(expected_file);
-        println!("{}", actual);
+        println!("{actual}");
         assert_eq!(actual, "hello");
     })
 }
@@ -78,7 +78,7 @@ fn save_append_will_not_overwrite_content() {
         );
 
         let actual = file_contents(expected_file);
-        println!("{}", actual);
+        println!("{actual}");
         assert_eq!(actual, "hello world");
     })
 }
