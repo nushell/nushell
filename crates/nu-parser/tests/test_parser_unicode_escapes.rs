@@ -74,12 +74,12 @@ pub fn unicode_escapes_in_strings_expected_failures() {
         // template: Tc(br#""<string literal without #'s>"", "<pattern in expected error>")
         //deprecated Tc(br#""\u06e""#, "any shape"), // 4digit too short, next char is EOF
         //deprecatedTc(br#""\u06ex""#, "any shape"), // 4digit too short, next char is non-hex-digit
-        Tc(br#""hello \u{6e""#, "any shape"), // extended, missing close delim
+        Tc(br#""hello \u{6e""#, "missing '}'"), // extended, missing close delim
         Tc(
             br#""\u{39}8\u{000000000000000000000000000000000000000000000037}""#,
-            "any shape",
+            "expecting 1 to 6 hex digit",
         ), // hex too long, but small value
-        Tc(br#""\u{110000}""#, "any shape"),  // max unicode <= 0x10ffff
+        Tc(br#""\u{110000}""#, "max value 10FFF"), // max unicode <= 0x10ffff
     ];
 
     for tci in test_vec {
