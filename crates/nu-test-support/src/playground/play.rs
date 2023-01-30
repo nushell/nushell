@@ -216,7 +216,7 @@ impl<'a> Playground<'a> {
                             .collect::<Vec<&str>>()
                             .join(&endl),
                     ),
-                    Stub::FileWithPremission(name, is_write_able) => {
+                    Stub::FileWithPermission(name, is_write_able) => {
                         permission_set = true;
                         write_able = is_write_able;
                         (name, "check permission".to_string())

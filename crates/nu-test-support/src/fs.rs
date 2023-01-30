@@ -137,7 +137,7 @@ pub enum Stub<'a> {
     FileWithContent(&'a str, &'a str),
     FileWithContentToBeTrimmed(&'a str, &'a str),
     EmptyFile(&'a str),
-    FileWithPremission(&'a str, bool),
+    FileWithPermission(&'a str, bool),
 }
 
 pub fn file_contents(full_path: impl AsRef<Path>) -> String {

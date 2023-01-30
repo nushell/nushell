@@ -1,7 +1,7 @@
 use nu_test_support::fs::file_contents;
 use nu_test_support::fs::{
     files_exist_at, AbsoluteFile,
-    Stub::{EmptyFile, FileWithPremission},
+    Stub::{EmptyFile, FileWithPermission},
 };
 use nu_test_support::nu;
 use nu_test_support::playground::Playground;
@@ -368,7 +368,7 @@ fn copy_file_with_read_permission() {
     Playground::setup("cp_test_18", |_dirs, sandbox| {
         sandbox.with_files(vec![
             EmptyFile("valid.txt"),
-            FileWithPremission("invalid_prem.txt", false),
+            FileWithPermission("invalid_prem.txt", false),
         ]);
 
         let actual = nu!(
