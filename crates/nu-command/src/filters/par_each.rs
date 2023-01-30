@@ -58,15 +58,14 @@ impl Command for ParEach {
                     span: Span::test_data(),
                 }),
             },
-            // I'm not sure why this doesn't work.
-            // Example {
-            //     example: r#"1..3 | enumerate | par-each {|p| update item {$p.item + 1}} | sort-by item | get item"#,
-            //     description: "Enumerate and sort-by can be used to reconstruct the original order",
-            //     result: Some(Value::List {
-            //         vals: vec![Value::test_int(2), Value::test_int(4), Value::test_int(6)],
-            //         span: Span::test_data(),
-            //     }),
-            // },
+            Example {
+                example: r#"1..3 | enumerate | par-each {|p| update item ($p.item * 2)} | sort-by item | get item"#,
+                description: "Enumerate and sort-by can be used to reconstruct the original order",
+                result: Some(Value::List {
+                    vals: vec![Value::test_int(2), Value::test_int(4), Value::test_int(6)],
+                    span: Span::test_data(),
+                }),
+            },
             Example {
                 example: r#"[1 2 3] | enumerate | par-each { |e| if $e.item == 2 { $"found 2 at ($e.index)!"} }"#,
                 description:
