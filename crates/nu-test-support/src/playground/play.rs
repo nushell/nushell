@@ -202,7 +202,7 @@ impl<'a> Playground<'a> {
             .iter()
             .map(|f| {
                 let mut path = PathBuf::from(&self.cwd);
-                let mut premission_set = false;
+                let mut permission_set = false;
                 let mut write_able = true;
                 let (file_name, contents) = match *f {
                     Stub::EmptyFile(name) => (name, "fake data".to_string()),
@@ -217,18 +217,17 @@ impl<'a> Playground<'a> {
                             .join(&endl),
                     ),
                     Stub::FileWithPremission(name, is_write_able) => {
-                        premission_set = true;
+                        permission_set = true;
                         write_able = is_write_able;
-                        (name, "check premission".to_string())
+                        (name, "check permission".to_string())
                     }
                 };
 
                 path.push(file_name);
 
-                // std::fs::set_permissions(path, ).expect("can not set premission");
                 std::fs::write(&path, contents.as_bytes()).expect("can not create file");
-                if premission_set {
-                    let err_perm = "can not set premission";
+                if permission_set {
+                    let err_perm = "can not set permission";
                     let mut perm = std::fs::metadata(path.clone())
                         .expect(err_perm)
                         .permissions();

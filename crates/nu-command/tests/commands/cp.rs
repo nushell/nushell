@@ -364,7 +364,7 @@ fn copy_file_not_exists_dst() {
 }
 
 #[test]
-fn copy_file_with_read_premission() {
+fn copy_file_with_read_permission() {
     Playground::setup("cp_test_18", |_dirs, sandbox| {
         sandbox.with_files(vec![
             EmptyFile("valid.txt"),
