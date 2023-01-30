@@ -51,6 +51,7 @@ pub fn read_plugin_file(
         file!(),
         line!(),
         column!(),
+        engine_state.get_config().use_ansi_coloring,
     );
 }
 

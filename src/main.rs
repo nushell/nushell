@@ -68,6 +68,7 @@ fn main() -> Result<()> {
     let parsed_nu_cli_args = parse_commandline_args(&args_to_nushell.join(" "), &mut engine_state)
         .unwrap_or_else(|_| std::process::exit(1));
 
+    let use_color = engine_state.get_config().use_ansi_coloring;
     if let Some(level) = parsed_nu_cli_args.log_level.map(|level| level.item) {
         let level = if Level::from_str(&level).is_ok() {
             level
@@ -84,7 +85,14 @@ fn main() -> Result<()> {
 
         logger(|builder| configure(&level, &target, builder))?;
         // info!("start logging {}:{}:{}", file!(), line!(), column!());
-        perf("start logging", start_time, file!(), line!(), column!());
+        perf(
+            "start logging",
+            start_time,
+            file!(),
+            line!(),
+            column!(),
+            use_color,
+        );
     }
 
     start_time = std::time::Instant::now();
@@ -103,7 +111,14 @@ fn main() -> Result<()> {
         "env-path",
         &parsed_nu_cli_args.env_file,
     );
-    perf("set_config_path", start_time, file!(), line!(), column!());
+    perf(
+        "set_config_path",
+        start_time,
+        file!(),
+        line!(),
+        column!(),
+        use_color,
+    );
 
     start_time = std::time::Instant::now();
     // keep this condition in sync with the branches below
@@ -111,7 +126,14 @@ fn main() -> Result<()> {
         parsed_nu_cli_args.commands.is_none()
             && (script_name.is_empty() || parsed_nu_cli_args.interactive_shell.is_some()),
     );
-    perf("acquire_terminal", start_time, file!(), line!(), column!());
+    perf(
+        "acquire_terminal",
+        start_time,
+        file!(),
+        line!(),
+        column!(),
+        use_color,
+    );
 
     start_time = std::time::Instant::now();
     if let Some(t) = parsed_nu_cli_args.threads {
@@ -122,7 +144,14 @@ fn main() -> Result<()> {
             .build_global()
             .expect("error setting number of threads");
     }
-    perf("set rayon threads", start_time, file!(), line!(), column!());
+    perf(
+        "set rayon threads",
+        start_time,
+        file!(),
+        line!(),
+        column!(),
+        use_color,
+    );
 
     start_time = std::time::Instant::now();
     if let Some(testbin) = &parsed_nu_cli_args.testbin {
@@ -144,7 +173,14 @@ fn main() -> Result<()> {
         }
         std::process::exit(0)
     }
-    perf("run test_bins", start_time, file!(), line!(), column!());
+    perf(
+        "run test_bins",
+        start_time,
+        file!(),
+        line!(),
+        column!(),
+        use_color,
+    );
 
     start_time = std::time::Instant::now();
     let input = if let Some(redirect_stdin) = &parsed_nu_cli_args.redirect_stdin {
@@ -167,12 +203,26 @@ fn main() -> Result<()> {
     } else {
         PipelineData::empty()
     };
-    perf("redirect stdin", start_time, file!(), line!(), column!());
+    perf(
+        "redirect stdin",
+        start_time,
+        file!(),
+        line!(),
+        column!(),
+        use_color,
+    );
 
     start_time = std::time::Instant::now();
     // First, set up env vars as strings only
     gather_parent_env_vars(&mut engine_state, &init_cwd);
-    perf("gather env vars", start_time, file!(), line!(), column!());
+    perf(
+        "gather env vars",
+        start_time,
+        file!(),
+        line!(),
+        column!(),
+        use_color,
+    );
 
     let mut stack = nu_protocol::engine::Stack::new();
 
@@ -185,7 +235,14 @@ fn main() -> Result<()> {
             parsed_nu_cli_args.plugin_file,
             NUSHELL_FOLDER,
         );
-        perf("read plugins", start_time, file!(), line!(), column!());
+        perf(
+            "read plugins",
+            start_time,
+            file!(),
+            line!(),
+            column!(),
+            use_color,
+        );
 
         start_time = std::time::Instant::now();
         // only want to load config and env if relative argument is provided.
@@ -199,7 +256,14 @@ fn main() -> Result<()> {
         } else {
             config_files::read_default_env_file(&mut engine_state, &mut stack)
         }
-        perf("read env.nu", start_time, file!(), line!(), column!());
+        perf(
+            "read env.nu",
+            start_time,
+            file!(),
+            line!(),
+            column!(),
+            use_color,
+        );
 
         start_time = std::time::Instant::now();
         if parsed_nu_cli_args.config_file.is_some() {
@@ -210,7 +274,14 @@ fn main() -> Result<()> {
                 false,
             );
         }
-        perf("read config.nu", start_time, file!(), line!(), column!());
+        perf(
+            "read config.nu",
+            start_time,
+            file!(),
+            line!(),
+            column!(),
+            use_color,
+        );
 
         start_time = std::time::Instant::now();
         let ret_val = evaluate_commands(
@@ -220,7 +291,14 @@ fn main() -> Result<()> {
             input,
             parsed_nu_cli_args.table_mode,
         );
-        perf("evaluate_commands", start_time, file!(), line!(), column!());
+        perf(
+            "evaluate_commands",
+            start_time,
+            file!(),
+            line!(),
+            column!(),
+            use_color,
+        );
 
         match ret_val {
             Ok(Some(exit_code)) => std::process::exit(exit_code as i32),
@@ -237,7 +315,14 @@ fn main() -> Result<()> {
             parsed_nu_cli_args.plugin_file,
             NUSHELL_FOLDER,
         );
-        perf("read plugins", start_time, file!(), line!(), column!());
+        perf(
+            "read plugins",
+            start_time,
+            file!(),
+            line!(),
+            column!(),
+            use_color,
+        );
 
         start_time = std::time::Instant::now();
         // only want to load config and env if relative argument is provided.
@@ -251,7 +336,14 @@ fn main() -> Result<()> {
         } else {
             config_files::read_default_env_file(&mut engine_state, &mut stack)
         }
-        perf("read env.nu", start_time, file!(), line!(), column!());
+        perf(
+            "read env.nu",
+            start_time,
+            file!(),
+            line!(),
+            column!(),
+            use_color,
+        );
 
         start_time = std::time::Instant::now();
         if parsed_nu_cli_args.config_file.is_some() {
@@ -262,7 +354,14 @@ fn main() -> Result<()> {
                 false,
             );
         }
-        perf("read config.nu", start_time, file!(), line!(), column!());
+        perf(
+            "read config.nu",
+            start_time,
+            file!(),
+            line!(),
+            column!(),
+            use_color,
+        );
 
         start_time = std::time::Instant::now();
         let ret_val = evaluate_file(
@@ -272,7 +371,14 @@ fn main() -> Result<()> {
             &mut stack,
             input,
         );
-        perf("evaluate_file", start_time, file!(), line!(), column!());
+        perf(
+            "evaluate_file",
+            start_time,
+            file!(),
+            line!(),
+            column!(),
+            use_color,
+        );
 
         start_time = std::time::Instant::now();
         let last_exit_code = stack.get_env_var(&engine_state, "LAST_EXIT_CODE");
@@ -284,7 +390,14 @@ fn main() -> Result<()> {
                 }
             }
         }
-        perf("get exit code", start_time, file!(), line!(), column!());
+        perf(
+            "get exit code",
+            start_time,
+            file!(),
+            line!(),
+            column!(),
+            use_color,
+        );
 
         ret_val
     } else {
@@ -299,7 +412,16 @@ fn main() -> Result<()> {
             parsed_nu_cli_args.env_file,
             parsed_nu_cli_args.login_shell.is_some(),
         );
-        perf("setup_config", start_time, file!(), line!(), column!());
+        // Reload use_color from config in case it's different from the default value
+        let use_color = engine_state.get_config().use_ansi_coloring;
+        perf(
+            "setup_config",
+            start_time,
+            file!(),
+            line!(),
+            column!(),
+            use_color,
+        );
 
         start_time = std::time::Instant::now();
         let ret_val = evaluate_repl(
@@ -309,7 +431,14 @@ fn main() -> Result<()> {
             parsed_nu_cli_args.execute,
             entire_start_time,
         );
-        perf("evaluate_repl", start_time, file!(), line!(), column!());
+        perf(
+            "evaluate_repl",
+            start_time,
+            file!(),
+            line!(),
+            column!(),
+            use_color,
+        );
 
         ret_val
     }
