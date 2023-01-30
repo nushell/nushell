@@ -123,7 +123,6 @@ pub fn version(
     // Get a list of command names and check for plugins
     let installed_plugins = engine_state
         .plugin_decls()
-        .into_iter()
         .filter(|x| x.is_plugin().is_some())
         .map(|x| x.name())
         .collect::<Vec<_>>();

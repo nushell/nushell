@@ -159,7 +159,7 @@ impl NuDataFrame {
                 Value::CustomValue { .. } => return Self::try_from_value(value),
                 Value::List { vals, .. } => {
                     let cols = (0..vals.len())
-                        .map(|i| format!("{}", i))
+                        .map(|i| format!("{i}"))
                         .collect::<Vec<String>>();
 
                     conversion::insert_record(&mut column_values, &cols, &vals)?
@@ -181,7 +181,7 @@ impl NuDataFrame {
         let dataframe = DataFrame::new(columns).map_err(|e| {
             ShellError::GenericError(
                 "Error creating dataframe".into(),
-                format!("Unable to create DataFrame: {}", e),
+                format!("Unable to create DataFrame: {e}"),
                 Some(span),
                 None,
                 Vec::new(),
@@ -426,7 +426,6 @@ impl NuDataFrame {
             .collect::<Vec<(String, std::vec::IntoIter<Value>)>>();
 
         let values = (0..size)
-            .into_iter()
             .map(|i| {
                 let mut cols = vec![];
                 let mut vals = vec![];

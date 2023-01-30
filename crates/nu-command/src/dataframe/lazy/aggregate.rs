@@ -128,7 +128,7 @@ impl Command for LazyAggregate {
                     if matches!(dtype, Some(DataType::Object(..))) {
                         return Err(ShellError::GenericError(
                             "Object type column not supported for aggregation".into(),
-                            format!("Column '{}' is type Object", name),
+                            format!("Column '{name}' is type Object"),
                             Some(call.head),
                             Some("Aggregations cannot be performed on Object type columns. Use dtype command to check column types".into()),
                             Vec::new(),

@@ -187,7 +187,7 @@ impl NuDataFrame {
                             Err(e) => Err({
                                 ShellError::GenericError(
                                     "Error appending dataframe".into(),
-                                    format!("Unable to append: {}", e),
+                                    format!("Unable to append: {e}"),
                                     Some(span),
                                     None,
                                     Vec::new(),
@@ -200,7 +200,7 @@ impl NuDataFrame {
                 let df_new = DataFrame::new(new_cols).map_err(|e| {
                     ShellError::GenericError(
                         "Error appending dataframe".into(),
-                        format!("Unable to append dataframes: {}", e),
+                        format!("Unable to append dataframes: {e}"),
                         Some(span),
                         None,
                         Vec::new(),
