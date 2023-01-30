@@ -268,7 +268,7 @@ where
                         }
                     }
                     _ => {
-                        if chf == b'-' || (b'0'..=b'9').contains(&chf) {
+                        if chf == b'-' || chf.is_ascii_digit() {
                             let mut pn = ParseNumber::new(self.str_buf.iter().copied());
                             match pn.parse(false) {
                                 Ok(Number::F64(v)) => {
