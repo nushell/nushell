@@ -355,11 +355,11 @@ fn copy_file_not_exists_dst() {
 
         let actual = nu!(
             cwd: sandbox.cwd(),
-            "cp valid.txt ~/invlid_dir/invalid_dir1"
+            "cp valid.txt ~/invalid_dir/invalid_dir1"
         );
         assert!(actual
             .err
-            .contains("/invlid_dir/invalid_dir1\" failed: No such file or directory"));
+            .contains("/invalid_dir/invalid_dir1\" failed: No such file or directory"));
     });
 }
 
