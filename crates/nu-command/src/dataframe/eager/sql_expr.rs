@@ -41,11 +41,7 @@ fn map_sql_polars_datatype(data_type: &SQLDataType) -> Result<DataType> {
         },
         _ => {
             return Err(PolarsError::ComputeError(
-                format!(
-                    "SQL Datatype {:?} was not supported in polars-sql yet!",
-                    data_type
-                )
-                .into(),
+                format!("SQL Datatype {data_type:?} was not supported in polars-sql yet!").into(),
             ))
         }
     })
@@ -75,7 +71,7 @@ fn binary_op_(left: Expr, right: Expr, op: &SQLBinaryOperator) -> Result<Expr> {
         SQLBinaryOperator::Xor => left.xor(right),
         _ => {
             return Err(PolarsError::ComputeError(
-                format!("SQL Operator {:?} was not supported in polars-sql yet!", op).into(),
+                format!("SQL Operator {op:?} was not supported in polars-sql yet!").into(),
             ))
         }
     })
@@ -87,11 +83,11 @@ fn literal_expr(value: &SqlValue) -> Result<Expr> {
             // Check for existence of decimal separator dot
             if s.contains('.') {
                 s.parse::<f64>().map(lit).map_err(|_| {
-                    PolarsError::ComputeError(format!("Can't parse literal {:?}", s).into())
+                    PolarsError::ComputeError(format!("Can't parse literal {s:?}").into())
                 })
             } else {
                 s.parse::<i64>().map(lit).map_err(|_| {
-                    PolarsError::ComputeError(format!("Can't parse literal {:?}", s).into())
+                    PolarsError::ComputeError(format!("Can't parse literal {s:?}").into())
                 })
             }?
         }
@@ -103,11 +99,7 @@ fn literal_expr(value: &SqlValue) -> Result<Expr> {
         SqlValue::Null => Expr::Literal(LiteralValue::Null),
         _ => {
             return Err(PolarsError::ComputeError(
-                format!(
-                    "Parsing SQL Value {:?} was not supported in polars-sql yet!",
-                    value
-                )
-                .into(),
+                format!("Parsing SQL Value {value:?} was not supported in polars-sql yet!").into(),
             ))
         }
     })
@@ -127,11 +119,7 @@ pub fn parse_sql_expr(expr: &SqlExpr) -> Result<Expr> {
         SqlExpr::Value(value) => literal_expr(value)?,
         _ => {
             return Err(PolarsError::ComputeError(
-                format!(
-                    "Expression: {:?} was not supported in polars-sql yet!",
-                    expr
-                )
-                .into(),
+                format!("Expression: {expr:?} was not supported in polars-sql yet!").into(),
             ))
         }
     })
@@ -185,8 +173,7 @@ fn parse_sql_function(sql_function: &SQLFunction) -> Result<Expr> {
             _ => {
                 return Err(PolarsError::ComputeError(
                     format!(
-                        "Function {:?} with args {:?} was not supported in polars-sql yet!",
-                        function_name, args
+                        "Function {function_name:?} with args {args:?} was not supported in polars-sql yet!"
                     )
                     .into(),
                 ))
