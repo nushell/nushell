@@ -10,4 +10,4 @@ edition = "2021"
 nu-plugin = { path = "../nu-plugin", version = "0.74.1" }
 nu-protocol = { path = "../nu-protocol", version = "0.74.1", features = ["plugin"] }
 serde = { version = "1.0", default-features = false }
-typetag = "0.1.8"
+typetag = "0.2.5"

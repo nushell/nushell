@@ -30,7 +30,7 @@ strum = "0.24"
 strum_macros = "0.24"
 sys-locale = "0.2.0"
 thiserror = "1.0.31"
-typetag = "0.1.8"
+typetag = "0.2.5"
 
 [features]
 plugin = ["serde_json"]
