@@ -1,5 +1,8 @@
 use nu_test_support::fs::file_contents;
-use nu_test_support::fs::{files_exist_at, AbsoluteFile, Stub::EmptyFile};
+use nu_test_support::fs::{
+    files_exist_at, AbsoluteFile,
+    Stub::{EmptyFile, FileWithPremission},
+};
 use nu_test_support::nu;
 use nu_test_support::playground::Playground;
 use std::path::Path;
@@ -342,5 +345,38 @@ fn copy_ignores_ansi() {
             "ls | find test | get name | cp $in.0 success.txt; ls | find success | get name | ansi strip | get 0",
         );
         assert_eq!(actual.out, "success.txt");
+    });
+}
+
+#[test]
+fn copy_file_not_exists_dst() {
+    Playground::setup("cp_test_17", |_dirs, sandbox| {
+        sandbox.with_files(vec![EmptyFile("valid.txt")]);
+
+        let actual = nu!(
+            cwd: sandbox.cwd(),
+            "cp valid.txt ~/invlid_dir/invalid_dir1"
+        );
+        assert!(actual
+            .err
+            .contains("/invlid_dir/invalid_dir1\" failed: No such file or directory"));
+    });
+}
+
+#[test]
+fn copy_file_with_read_premission() {
+    Playground::setup("cp_test_18", |_dirs, sandbox| {
+        sandbox.with_files(vec![
+            EmptyFile("valid.txt"),
+            FileWithPremission("invalid_prem.txt", false),
+        ]);
+
+        let actual = nu!(
+            cwd: sandbox.cwd(),
+            "cp valid.txt invalid_prem.txt",
+        );
+        assert!(actual
+            .err
+            .contains("/cp_test_18/invalid_prem.txt\" failed: Permission denied"));
     });
 }
