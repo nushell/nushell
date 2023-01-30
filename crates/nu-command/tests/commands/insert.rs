@@ -85,3 +85,13 @@ fn insert_past_end_list() {
 
     assert_eq!(actual.out, r#"[1,2,3,null,null,"abc"]"#);
 }
+
+#[test]
+fn insert_uses_enumerate_index() {
+    let actual = nu!(
+        cwd: ".", pipeline(
+        r#"[[a]; [7] [6]] | enumerate | insert b {|el| $el.index + 1 + $el.item.a } | flatten | to nuon"#
+    ));
+
+    assert_eq!(actual.out, "[[index, a, b]; [0, 7, 8], [1, 6, 8]]");
+}

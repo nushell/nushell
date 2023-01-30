@@ -16,7 +16,10 @@ impl Command for Reduce {
 
     fn signature(&self) -> Signature {
         Signature::build("reduce")
-            .input_output_types(vec![(Type::List(Box::new(Type::Any)), Type::Any)])
+            .input_output_types(vec![
+                (Type::List(Box::new(Type::Any)), Type::Any),
+                (Type::Table(vec![]), Type::Any),
+            ])
             .named(
                 "fold",
                 SyntaxShape::Any,
@@ -53,8 +56,7 @@ impl Command for Reduce {
                 example:
                     "[ 8 7 6 ] | enumerate | reduce -f 0 {|it, acc| $acc + $it.item + $it.index }",
                 description: "Sum values of a list, plus their indexes",
-                // This currently fails signature tests because of `enumerate`
-                result: None, //Some(Value::test_int(22)),
+                result: Some(Value::test_int(24)),
             },
             Example {
                 example: "[ 1 2 3 4 ] | reduce -f 10 {|it, acc| $acc + $it }",
@@ -70,8 +72,7 @@ impl Command for Reduce {
                 example: r#"['foo.gz', 'bar.gz', 'baz.gz'] | enumerate | reduce -f '' {|str all| $"($all)(if $str.index != 0 {'; '})($str.index + 1)-($str.item)" }"#,
                 description:
                     "Add ascending numbers to each of the filenames, and join with semicolons.",
-                // This currently fails signature tests because of `enumerate`
-                result: None, //Some(Value::test_string("1-foo.gz; 2-bar.gz; 3-baz.gz")),
+                result: Some(Value::test_string("1-foo.gz; 2-bar.gz; 3-baz.gz")),
             },
         ]
     }

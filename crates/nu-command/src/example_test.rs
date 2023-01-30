@@ -9,9 +9,9 @@ pub fn test_examples(cmd: impl Command + 'static) {
 #[cfg(test)]
 mod test_examples {
     use super::super::{
-        Ansi, Date, Echo, Enumerate, From, If, Into, IntoString, Let, LetEnv, Math, MathEuler,
-        MathPi, MathRound, Path, Random, Sort, SortBy, Split, SplitColumn, SplitRow, Str, StrJoin,
-        StrLength, StrReplace, Url, Values, Wrap,
+        Ansi, Date, Echo, Enumerate, Flatten, From, Get, If, Into, IntoString, Let, LetEnv, Math,
+        MathEuler, MathPi, MathRound, Path, Random, Sort, SortBy, Split, SplitColumn, SplitRow,
+        Str, StrJoin, StrLength, StrReplace, Url, Values, Wrap,
     };
     use crate::{Break, Each, Mut, To};
     use itertools::Itertools;
@@ -63,6 +63,8 @@ mod test_examples {
             let mut working_set = StateWorkingSet::new(&engine_state);
             working_set.add_decl(Box::new(Each));
             working_set.add_decl(Box::new(Enumerate));
+            working_set.add_decl(Box::new(Flatten));
+            working_set.add_decl(Box::new(Get));
             working_set.add_decl(Box::new(Let));
             working_set.add_decl(Box::new(Sort));
             working_set.add_decl(Box::new(SortBy));

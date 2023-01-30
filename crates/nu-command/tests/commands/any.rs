@@ -85,6 +85,16 @@ fn early_exits_with_0_param_blocks() {
 }
 
 #[test]
+fn any_uses_enumerate_index() {
+    let actual = nu!(
+        cwd: ".", pipeline(
+        r#"[7 8 9] | enumerate | any {|el| print $el.index | false }"#
+    ));
+
+    assert_eq!(actual.out, "012false");
+}
+
+#[test]
 fn unique_env_each_iteration() {
     let actual = nu!(
         cwd: "tests/fixtures/formats",

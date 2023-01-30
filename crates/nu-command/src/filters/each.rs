@@ -35,10 +35,13 @@ with 'transpose' first."#
 
     fn signature(&self) -> nu_protocol::Signature {
         Signature::build("each")
-            .input_output_types(vec![(
-                Type::List(Box::new(Type::Any)),
-                Type::List(Box::new(Type::Any)),
-            )])
+            .input_output_types(vec![
+                (
+                    Type::List(Box::new(Type::Any)),
+                    Type::List(Box::new(Type::Any)),
+                ),
+                (Type::Table(vec![]), Type::List(Box::new(Type::Any))),
+            ])
             .required(
                 "closure",
                 SyntaxShape::Closure(Some(vec![SyntaxShape::Any, SyntaxShape::Int])),
@@ -94,11 +97,10 @@ with 'transpose' first."#
                 example: r#"[1 2 3] | enumerate | each {|e| if $e.item == 2 { $"found 2 at ($e.index)!"} }"#,
                 description:
                     "Iterate over each element, producing a list showing indexes of any 2s",
-                // This currently fails signature tests because of `enumerate`
-                result: None, /*Some(Value::List {
-                                  vals: vec![Value::test_string("found 2 at 1!")],
-                                  span: Span::test_data(),
-                              }),*/
+                result: Some(Value::List {
+                    vals: vec![Value::test_string("found 2 at 1!")],
+                    span: Span::test_data(),
+                }),
             },
             Example {
                 example: r#"[1 2 3] | each --keep-empty {|e| if $e == 2 { "found 2!"} }"#,

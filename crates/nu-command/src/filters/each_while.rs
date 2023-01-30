@@ -24,10 +24,13 @@ impl Command for EachWhile {
 
     fn signature(&self) -> nu_protocol::Signature {
         Signature::build(self.name())
-            .input_output_types(vec![(
-                Type::List(Box::new(Type::Any)),
-                Type::List(Box::new(Type::Any)),
-            )])
+            .input_output_types(vec![
+                (
+                    Type::List(Box::new(Type::Any)),
+                    Type::List(Box::new(Type::Any)),
+                ),
+                (Type::Table(vec![]), Type::List(Box::new(Type::Any))),
+            ])
             .required(
                 "closure",
                 SyntaxShape::Closure(Some(vec![SyntaxShape::Any, SyntaxShape::Int])),
@@ -63,11 +66,10 @@ impl Command for EachWhile {
             Example {
                 example: r#"[1 2 3] | enumerate | each while {|e| if $e.item < 2 { $"value ($e.item) at ($e.index)!"} }"#,
                 description: "Iterate over each element, printing the matching value and its index",
-                // This currently fails signature tests because of `enumerate`
-                result: None, /*Some(Value::List {
-                                  vals: vec![Value::test_string("value 1 at 0!")],
-                                  span: Span::test_data(),
-                              }),*/
+                result: Some(Value::List {
+                    vals: vec![Value::test_string("value 1 at 0!")],
+                    span: Span::test_data(),
+                }),
             },
         ]
     }

@@ -81,6 +81,16 @@ fn where_not_in_table() {
     assert_eq!(actual.out, "4");
 }
 
+#[test]
+fn where_uses_enumerate_index() {
+    let actual = nu!(
+        cwd: ".",
+        r#"[7 8 9 10] | enumerate | where {|el| $el.index < 2 } | to nuon"#
+    );
+
+    assert_eq!(actual.out, "[[index, item]; [0, 7], [1, 8]]");
+}
+
 #[cfg(feature = "sqlite")]
 #[test]
 fn binary_operator_comparisons() {

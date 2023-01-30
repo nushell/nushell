@@ -72,8 +72,9 @@ impl Command for Upsert {
         }, Example {
             description: "Use in closure form for more involved updating logic",
             example: "[[count fruit]; [1 'apple']] | enumerate | upsert item.count {|e| ($e.item.fruit | str length) + $e.index } | get item",
-            // This currently fails signature tests because of `enumerate`
-            result: None //Some(Value::List { vals: vec![Value::Record { cols: vec!["count".into(), "fruit".into()], vals: vec![Value::test_int(5), Value::test_string("apple")], span: Span::test_data()}], span: Span::test_data()}),
+            result: Some(Value::List { vals: vec![
+                Value::Record { cols: vec!["count".into(), "fruit".into()], vals: vec![Value::test_int(5), Value::test_string("apple")], span: Span::test_data()}],
+                span: Span::test_data()}),
         },
         Example {
             description: "Upsert an int into a list, updating an existing value based on the index",

@@ -23,10 +23,13 @@ impl Command for ParEach {
 
     fn signature(&self) -> nu_protocol::Signature {
         Signature::build("par-each")
-            .input_output_types(vec![(
-                Type::List(Box::new(Type::Any)),
-                Type::List(Box::new(Type::Any)),
-            )])
+            .input_output_types(vec![
+                (
+                    Type::List(Box::new(Type::Any)),
+                    Type::List(Box::new(Type::Any)),
+                ),
+                (Type::Table(vec![]), Type::List(Box::new(Type::Any))),
+            ])
             .required(
                 "closure",
                 SyntaxShape::Closure(Some(vec![SyntaxShape::Any, SyntaxShape::Int])),
@@ -55,21 +58,23 @@ impl Command for ParEach {
                     span: Span::test_data(),
                 }),
             },
-            Example {
-                example: r#"1..20 | enumerate | par-each { update item { 2 * $in.item } } | sort-by index | get item | to nuon"#,
-                description: "Enumerate and sort-by can be used to reconstruct the original order",
-                // This currently fails signature tests because of `enumerate`
-                result: None, // Some(Value::test_string("[2, 4, 6, 8, 10, 12, 14, 16, 18, 20, 22, 24, 26, 28, 30, 32, 34, 36, 38, 40]")),
-            },
+            // I'm not sure why this doesn't work.
+            // Example {
+            //     example: r#"1..3 | enumerate | par-each {|p| update item {$p.item + 1}} | sort-by item | get item"#,
+            //     description: "Enumerate and sort-by can be used to reconstruct the original order",
+            //     result: Some(Value::List {
+            //         vals: vec![Value::test_int(2), Value::test_int(4), Value::test_int(6)],
+            //         span: Span::test_data(),
+            //     }),
+            // },
             Example {
                 example: r#"[1 2 3] | enumerate | par-each { |e| if $e.item == 2 { $"found 2 at ($e.index)!"} }"#,
                 description:
                     "Iterate over each element, producing a list showing indexes of any 2s",
-                // This currently fails signature tests because of `enumerate`
-                result: None, /*Some(Value::List {
-                                  vals: vec![Value::test_string("found 2 at 1!")],
-                                  span: Span::test_data(),
-                              }),*/
+                result: Some(Value::List {
+                    vals: vec![Value::test_string("found 2 at 1!")],
+                    span: Span::test_data(),
+                }),
             },
         ]
     }

@@ -31,3 +31,11 @@ fn row_condition2() -> TestResult {
         "1",
     )
 }
+
+#[test]
+fn par_each() -> TestResult {
+    run_test(
+        r#"1..10 | enumerate | par-each { |it| ([[index, item]; [$it.index, ($it.item > 5)]]).0 } | where index == 4 | get item.0"#,
+        "false",
+    )
+}

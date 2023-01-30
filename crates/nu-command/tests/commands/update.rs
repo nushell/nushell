@@ -114,3 +114,13 @@ fn update_nonexistent_column() {
 
     assert!(actual.err.contains("cannot find column 'b'"));
 }
+
+#[test]
+fn update_uses_enumerate_index() {
+    let actual = nu!(
+        cwd: ".", pipeline(
+        r#"[[a]; [7] [6]] | enumerate | update item.a {|el| $el.index + 1 + $el.item.a } | flatten | to nuon"#
+    ));
+
+    assert_eq!(actual.out, "[[index, a]; [0, 8], [1, 8]]");
+}

@@ -50,9 +50,8 @@ impl Command for Any {
             },
             Example {
                 description: "Check if any value is equal to twice its own index",
-                example: "[9 8 7 6] | enumerate | any { $in.item == $in.index * 2 } | get item",
-                // This currently fails signature tests because of `enumerate`
-                result: None, //Some(Value::test_bool(true)),
+                example: "[9 8 7 6] | enumerate | any {|i| $i.item == $i.index * 2 }",
+                result: Some(Value::test_bool(true)),
             },
             Example {
                 description: "Check if any of the values are odd, using a stored closure",
