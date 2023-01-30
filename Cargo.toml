@@ -85,7 +85,7 @@ tempfile = "3.2.0"
 assert_cmd = "2.0.2"
 criterion = "0.4"
 pretty_assertions = "1.0.0"
-serial_test = "0.10.0"
+serial_test = "1.0.0"
 hamcrest2 = "0.3.0"
 rstest = { version = "0.15.0", default-features = false }
 itertools = "0.10.3"
