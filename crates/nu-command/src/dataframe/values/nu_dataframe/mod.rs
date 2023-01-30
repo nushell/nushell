@@ -426,7 +426,6 @@ impl NuDataFrame {
             .collect::<Vec<(String, std::vec::IntoIter<Value>)>>();
 
         let values = (0..size)
-            .into_iter()
             .map(|i| {
                 let mut cols = vec![];
                 let mut vals = vec![];

@@ -1007,7 +1007,7 @@ fn convert_to_table2<'a>(
         }
 
         let mut last_index = 0;
-        for (row, item) in input.clone().into_iter().enumerate() {
+        for (row, item) in input.clone().enumerate() {
             if nu_utils::ctrl_c::was_pressed(&ctrlc) {
                 return Ok(None);
             }
@@ -1134,7 +1134,7 @@ fn convert_to_table2<'a>(
             NuTable::create_cell(header.clone(), header_style(style_computer, header.clone()));
         data[0].push(head_cell);
 
-        for (row, item) in input.clone().into_iter().enumerate() {
+        for (row, item) in input.clone().enumerate() {
             if nu_utils::ctrl_c::was_pressed(&ctrlc) {
                 return Ok(None);
             }

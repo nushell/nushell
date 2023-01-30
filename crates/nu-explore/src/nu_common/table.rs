@@ -339,7 +339,7 @@ fn convert_to_table2<'a>(
             ));
         }
 
-        for (row, item) in input.clone().into_iter().enumerate() {
+        for (row, item) in input.clone().enumerate() {
             if let Some(ctrlc) = &ctrlc {
                 if ctrlc.load(Ordering::SeqCst) {
                     return Ok(None);
@@ -436,7 +436,7 @@ fn convert_to_table2<'a>(
             header_style(style_computer, header.clone()),
         ));
 
-        for (row, item) in input.clone().into_iter().enumerate() {
+        for (row, item) in input.clone().enumerate() {
             if let Some(ctrlc) = &ctrlc {
                 if ctrlc.load(Ordering::SeqCst) {
                     return Ok(None);
@@ -476,7 +476,7 @@ fn convert_to_table2<'a>(
 
             column_width = string_width(&header);
 
-            for (row, item) in input.clone().into_iter().enumerate() {
+            for (row, item) in input.clone().enumerate() {
                 if let Some(ctrlc) = &ctrlc {
                     if ctrlc.load(Ordering::SeqCst) {
                         return Ok(None);
@@ -503,7 +503,7 @@ fn convert_to_table2<'a>(
 
             column_width = string_width(&header);
 
-            for (row, item) in input.clone().into_iter().enumerate() {
+            for (row, item) in input.clone().enumerate() {
                 if let Some(ctrlc) = &ctrlc {
                     if ctrlc.load(Ordering::SeqCst) {
                         return Ok(None);

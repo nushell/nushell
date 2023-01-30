@@ -46,7 +46,6 @@ impl Command for SubCommand {
                 }];
                 Value::Record { cols, vals, span }
             })
-            .into_iter()
             .into_pipeline_data(engine_state.ctrlc.clone()))
     }
 
