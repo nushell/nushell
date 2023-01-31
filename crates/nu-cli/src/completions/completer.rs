@@ -104,7 +104,7 @@ impl NuCompleter {
                     return Some(result);
                 }
             }
-            Err(err) => println!("failed to eval completer block: {}", err),
+            Err(err) => println!("failed to eval completer block: {err}"),
         }
 
         None

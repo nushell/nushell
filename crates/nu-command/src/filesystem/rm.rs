@@ -318,7 +318,7 @@ fn rm(
         );
         if let Err(e) = interaction {
             return Err(ShellError::GenericError(
-                format!("Error during interaction: {:}", e),
+                format!("Error during interaction: {e:}"),
                 "could not move".into(),
                 None,
                 None,
@@ -375,7 +375,7 @@ fn rm(
                             Ok(())
                         } else if trash || (rm_always_trash && !permanent) {
                             trash::delete(&f).map_err(|e: trash::Error| {
-                                Error::new(ErrorKind::Other, format!("{:?}\nTry '--trash' flag", e))
+                                Error::new(ErrorKind::Other, format!("{e:?}\nTry '--trash' flag"))
                             })
                         } else if metadata.is_file() || is_socket || is_fifo {
                             std::fs::remove_file(&f)
@@ -403,7 +403,7 @@ fn rm(
                     }
 
                     if let Err(e) = result {
-                        let msg = format!("Could not delete because: {:}", e);
+                        let msg = format!("Could not delete because: {e:}");
                         Value::Error {
                             error: ShellError::GenericError(
                                 msg,

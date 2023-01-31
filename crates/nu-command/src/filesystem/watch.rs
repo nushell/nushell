@@ -79,7 +79,7 @@ impl Command for Watch {
             Err(e) => {
                 return Err(ShellError::DirectoryNotFound(
                     path_arg.span,
-                    Some(format!("IO Error: {:?}", e)),
+                    Some(format!("IO Error: {e:?}")),
                 ))
             }
         };
@@ -227,7 +227,7 @@ impl Command for Watch {
             match rx.recv_timeout(CHECK_CTRL_C_FREQUENCY) {
                 Ok(event) => {
                     if verbose {
-                        eprintln!("{:?}", event);
+                        eprintln!("{event:?}");
                     }
                     let handler_result = match event {
                         DebouncedEvent::Create(path) => event_handler("Create", path, None),

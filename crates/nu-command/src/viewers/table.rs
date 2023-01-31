@@ -320,7 +320,7 @@ fn handle_table_command(
                 } else {
                     // assume this failed because the table was too wide
                     // TODO: more robust error classification
-                    format!("Couldn't fit table into {} columns!", term_width)
+                    format!("Couldn't fit table into {term_width} columns!")
                 }
             });
 
@@ -1007,7 +1007,7 @@ fn convert_to_table2<'a>(
         }
 
         let mut last_index = 0;
-        for (row, item) in input.clone().into_iter().enumerate() {
+        for (row, item) in input.clone().enumerate() {
             if nu_utils::ctrl_c::was_pressed(&ctrlc) {
                 return Ok(None);
             }
@@ -1134,7 +1134,7 @@ fn convert_to_table2<'a>(
             NuTable::create_cell(header.clone(), header_style(style_computer, header.clone()));
         data[0].push(head_cell);
 
-        for (row, item) in input.clone().into_iter().enumerate() {
+        for (row, item) in input.clone().enumerate() {
             if nu_utils::ctrl_c::was_pressed(&ctrlc) {
                 return Ok(None);
             }
@@ -1481,7 +1481,7 @@ fn convert_with_precision(val: &str, precision: usize) -> Result<String, ShellEr
             ));
         }
     };
-    Ok(format!("{:.prec$}", val_float, prec = precision))
+    Ok(format!("{val_float:.precision$}"))
 }
 
 fn is_cfg_trim_keep_words(config: &Config) -> bool {
@@ -1696,7 +1696,7 @@ impl Iterator for PagingTableCreator {
                     // assume this failed because the table was too wide
                     // TODO: more robust error classification
                     let term_width = get_width_param(self.width_param);
-                    format!("Couldn't fit table into {} columns!", term_width)
+                    format!("Couldn't fit table into {term_width} columns!")
                 };
                 Some(Ok(msg.as_bytes().to_vec()))
             }

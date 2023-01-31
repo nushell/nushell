@@ -116,7 +116,7 @@ impl Display for Type {
                         "record<{}>",
                         fields
                             .iter()
-                            .map(|(x, y)| format!("{}: {}", x, y))
+                            .map(|(x, y)| format!("{x}: {y}"))
                             .collect::<Vec<String>>()
                             .join(", "),
                     )
@@ -131,13 +131,13 @@ impl Display for Type {
                         "table<{}>",
                         columns
                             .iter()
-                            .map(|(x, y)| format!("{}: {}", x, y))
+                            .map(|(x, y)| format!("{x}: {y}"))
                             .collect::<Vec<String>>()
                             .join(", ")
                     )
                 }
             }
-            Type::List(l) => write!(f, "list<{}>", l),
+            Type::List(l) => write!(f, "list<{l}>"),
             Type::Nothing => write!(f, "nothing"),
             Type::Number => write!(f, "number"),
             Type::String => write!(f, "string"),
@@ -145,7 +145,7 @@ impl Display for Type {
             Type::Any => write!(f, "any"),
             Type::Error => write!(f, "error"),
             Type::Binary => write!(f, "binary"),
-            Type::Custom(custom) => write!(f, "{}", custom),
+            Type::Custom(custom) => write!(f, "{custom}"),
             Type::Signature => write!(f, "signature"),
         }
     }

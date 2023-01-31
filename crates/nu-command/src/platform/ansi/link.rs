@@ -146,7 +146,7 @@ fn process_value(value: &Value, text: &Option<String>, command_span: &Span) -> V
 }
 
 fn add_osc_link(text: &str, link: &str) -> String {
-    format!("\u{1b}]8;;{}\u{1b}\\{}\u{1b}]8;;\u{1b}\\", link, text)
+    format!("\u{1b}]8;;{link}\u{1b}\\{text}\u{1b}]8;;\u{1b}\\")
 }
 
 #[cfg(test)]

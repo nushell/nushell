@@ -33,7 +33,7 @@ pub fn ensure_binary_present(package: &str) {
             .read_to_string(&mut buffer)
             .expect("failed to read cargo build stderr");
         if !buffer.is_empty() {
-            println!("=== cargo build stderr\n{}", buffer);
+            println!("=== cargo build stderr\n{buffer}");
         }
     }
 

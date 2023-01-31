@@ -1595,8 +1595,8 @@ mod input_types {
         for input in inputs {
             let (block, err) = parse(&mut working_set, None, input.as_bytes(), true, &[]);
 
-            assert!(err.is_none(), "testing: {}", input);
-            assert_eq!(block.len(), 2, "testing: {}", input);
+            assert!(err.is_none(), "testing: {input}");
+            assert_eq!(block.len(), 2, "testing: {input}");
         }
     }
 

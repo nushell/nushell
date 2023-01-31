@@ -86,7 +86,7 @@ fn get_entry_in_aliases(engine_state: &EngineState, name: &str, span: Span) -> O
 
         Some(entry(
             name,
-            format!("Nushell alias: {}", alias_str),
+            format!("Nushell alias: {alias_str}"),
             false,
             span,
         ))

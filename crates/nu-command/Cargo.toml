@@ -36,7 +36,7 @@ bytesize = "1.1.0"
 calamine = "0.19.1"
 chrono = { version = "0.4.23", features = ["unstable-locales", "std"], default-features = false }
 chrono-humanize = "0.2.1"
-chrono-tz = "0.6.3"
+chrono-tz = "0.8.1"
 crossterm = "0.24.0"
 csv = "1.1.6"
 dialoguer = { default-features = false, version = "0.10.3" }
@@ -72,7 +72,7 @@ rand = "0.8"
 rayon = "1.6.1"
 regex = "1.7.1"
 reqwest = { version = "0.11", features = ["blocking", "json"] }
-roxmltree = "0.16.0"
+roxmltree = "0.17.0"
 rust-embed = "6.3.0"
 same-file = "1.0.6"
 serde = { version = "1.0.123", features = ["derive"] }
@@ -92,7 +92,7 @@ url = "2.2.1"
 percent-encoding = "2.2.0"
 uuid = { version = "1.2.2", features = ["v4"] }
 which = { version = "4.3.0", optional = true }
-reedline = { version = "0.14.0", features = ["bashisms", "sqlite"] }
+reedline = { version = "0.15.0", features = ["bashisms", "sqlite"] }
 wax = { version = "0.5.0" }
 rusqlite = { version = "0.28.0", features = ["bundled"], optional = true }
 sqlparser = { version = "0.30.0", features = ["serde"], optional = true }
@@ -106,7 +106,7 @@ users = "0.11.0"
 libc = "0.2"
 
 [target.'cfg(not(any(target_os = "android", target_os = "ios")))'.dependencies.trash]
-version = "3.0.0"
+version = "3.0.1"
 optional = true
 
 [dependencies.polars]
@@ -141,7 +141,7 @@ features = [
 ]
 
 [target.'cfg(windows)'.dependencies.windows]
-version = "0.43.0"
+version = "0.44.0"
 features = ["Win32_Foundation", "Win32_Storage_FileSystem", "Win32_System_SystemServices"]
 
 [features]

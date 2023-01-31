@@ -390,11 +390,11 @@ proptest! {
         let actual = nu!(
             cwd: "tests/fixtures/formats", pipeline(
                 format!(r#"
-             {{"prop{0}test": "sam"}} | to nuon | from nuon;
-             [ [ "prop{0}test" ]; [ 'test' ] ] | to nuon | from nuon;
-             [ [ "{0}" ]; [ 'test' ] ] | to nuon | from nuon;
-             {{"{0}": "sam"}} | to nuon | from nuon;
-        "#, c).as_ref()
+             {{"prop{c}test": "sam"}} | to nuon | from nuon;
+             [ [ "prop{c}test" ]; [ 'test' ] ] | to nuon | from nuon;
+             [ [ "{c}" ]; [ 'test' ] ] | to nuon | from nuon;
+             {{"{c}": "sam"}} | to nuon | from nuon;
+        "#).as_ref()
         ));
         assert!(actual.err.is_empty() || actual.err.contains("Unexpected end of code") || actual.err.contains("only strings can be keys") || actual.err.contains("unbalanced { and }"));
         // The second is for weird escapes due to backslashes
@@ -407,11 +407,11 @@ proptest! {
         let actual = nu!(
             cwd: "tests/fixtures/formats", pipeline(
                 format!(r#"
-             {{"prop{0}test": "sam"}} | to nuon | from nuon;
-             [ [ "prop{0}test" ]; [ 'test' ] ] | to nuon | from nuon;
-             [ [ "{0}" ]; [ 'test' ] ] | to nuon | from nuon;
-             {{"{0}": "sam"}} | to nuon | from nuon;
-        "#, s).as_ref()
+             {{"prop{s}test": "sam"}} | to nuon | from nuon;
+             [ [ "prop{s}test" ]; [ 'test' ] ] | to nuon | from nuon;
+             [ [ "{s}" ]; [ 'test' ] ] | to nuon | from nuon;
+             {{"{s}": "sam"}} | to nuon | from nuon;
+        "#).as_ref()
         ));
         assert!(actual.err.is_empty() || actual.err.contains("only strings can be keys") || actual.err.contains("unknown command"));
         // TODO: fix parser error for "unknown command" when '=$' is the name

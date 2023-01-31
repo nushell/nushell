@@ -178,7 +178,6 @@ impl Command for Ls {
         let mut hidden_dirs = vec![];
 
         Ok(paths_peek
-            .into_iter()
             .filter_map(move |x| match x {
                 Ok(path) => {
                     let metadata = match std::fs::symlink_metadata(&path) {

@@ -237,7 +237,7 @@ pub fn check_name<'a>(
             Some((
                 &spans[command_len],
                 ParseError::AssignmentMismatch(
-                    format!("{} missing name", name),
+                    format!("{name} missing name"),
                     "missing name".into(),
                     spans[command_len],
                 ),
@@ -251,7 +251,7 @@ pub fn check_name<'a>(
         Some((
             &spans[command_len + 1],
             ParseError::AssignmentMismatch(
-                format!("{} missing sign", name),
+                format!("{name} missing sign"),
                 "missing equal sign".into(),
                 spans[command_len + 1],
             ),
@@ -673,7 +673,7 @@ pub fn parse_multispan_value(
                 (
                     Expression::garbage(span),
                     Some(ParseError::Expected(
-                        format!("one of a list of accepted shapes: {:?}", shapes),
+                        format!("one of a list of accepted shapes: {shapes:?}"),
                         span,
                     )),
                 )
@@ -3668,7 +3668,7 @@ pub fn parse_signature_helper(
                                                     error = error.or_else(|| {
                                                         Some(ParseError::AssignmentMismatch(
                                                             "Default value wrong type".into(),
-                                                            format!("default value not {}", t),
+                                                            format!("default value not {t}"),
                                                             expression.span,
                                                         ))
                                                     })
@@ -3717,8 +3717,7 @@ pub fn parse_signature_helper(
                                                                 "Default value is the wrong type"
                                                                     .into(),
                                                                 format!(
-                                                                    "default value should be {}",
-                                                                    t
+                                                                    "default value should be {t}"
                                                                 ),
                                                                 expression_span,
                                                             ))
@@ -4428,7 +4427,7 @@ pub fn parse_value(
                 return (
                     Expression::garbage(span),
                     Some(ParseError::Expected(
-                        format!("non-block value: {}", shape),
+                        format!("non-block value: {shape}"),
                         span,
                     )),
                 );

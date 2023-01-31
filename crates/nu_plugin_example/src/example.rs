@@ -12,8 +12,8 @@ impl Example {
         // Note. When debugging your plugin, you may want to print something to the console
         // Use the eprintln macro to print your messages. Trying to print to stdout will
         // cause a decoding error for your message
-        eprintln!("Calling test {} signature", index);
-        eprintln!("value received {:?}", input);
+        eprintln!("Calling test {index} signature");
+        eprintln!("value received {input:?}");
 
         // To extract the arguments from the Call object you can use the functions req, has_flag,
         // opt, rest, and get_flag
@@ -30,19 +30,19 @@ impl Example {
         let rest: Vec<String> = call.rest(3)?;
 
         eprintln!("Required values");
-        eprintln!("a: {:}", a);
-        eprintln!("b: {:}", b);
-        eprintln!("flag: {:}", flag);
-        eprintln!("rest: {:?}", rest);
+        eprintln!("a: {a:}");
+        eprintln!("b: {b:}");
+        eprintln!("flag: {flag:}");
+        eprintln!("rest: {rest:?}");
 
         if let Some(v) = opt {
-            eprintln!("Found optional value opt: {:}", v)
+            eprintln!("Found optional value opt: {v:}")
         } else {
             eprintln!("No optional value found")
         }
 
         if let Some(v) = named {
-            eprintln!("Named value: {:?}", v)
+            eprintln!("Named value: {v:?}")
         } else {
             eprintln!("No named value found")
         }

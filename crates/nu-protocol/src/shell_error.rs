@@ -944,7 +944,7 @@ Either make sure {0} is a string, or add a 'to_string' entry for it in ENV_CONVE
 
 impl From<std::io::Error> for ShellError {
     fn from(input: std::io::Error) -> ShellError {
-        ShellError::IOError(format!("{:?}", input))
+        ShellError::IOError(format!("{input:?}"))
     }
 }
 
@@ -956,7 +956,7 @@ impl std::convert::From<Box<dyn std::error::Error>> for ShellError {
 
 impl From<Box<dyn std::error::Error + Send + Sync>> for ShellError {
     fn from(input: Box<dyn std::error::Error + Send + Sync>) -> ShellError {
-        ShellError::IOError(format!("{:?}", input))
+        ShellError::IOError(format!("{input:?}"))
     }
 }
 
@@ -1046,8 +1046,7 @@ mod tests {
                 assert_eq!(
                     suggestion.as_deref(),
                     expected_suggestion,
-                    "Expected the following reasoning to hold but it did not: '{}'",
-                    discussion
+                    "Expected the following reasoning to hold but it did not: '{discussion}'"
                 );
             }
         }

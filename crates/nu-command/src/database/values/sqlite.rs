@@ -364,7 +364,7 @@ fn read_single_table(
     call_span: Span,
     ctrlc: Option<Arc<AtomicBool>>,
 ) -> Result<Value, rusqlite::Error> {
-    let stmt = conn.prepare(&format!("SELECT * FROM {}", table_name))?;
+    let stmt = conn.prepare(&format!("SELECT * FROM {table_name}"))?;
     prepared_statement_to_nu_list(stmt, call_span, ctrlc)
 }
 
@@ -426,7 +426,7 @@ fn read_entire_sqlite_db(
         let table_name: String = row?;
         table_names.push(table_name.clone());
 
-        let table_stmt = conn.prepare(&format!("select * from [{}]", table_name))?;
+        let table_stmt = conn.prepare(&format!("select * from [{table_name}]"))?;
         let rows = prepared_statement_to_nu_list(table_stmt, call_span, ctrlc.clone())?;
         tables.push(rows);
     }

@@ -113,7 +113,7 @@ fn from_ics(input: PipelineData, head: Span) -> Result<PipelineData, ShellError>
             Ok(c) => output.push(calendar_to_value(c, head)),
             Err(e) => output.push(Value::Error {
                 error: ShellError::UnsupportedInput(
-                    format!("input cannot be parsed as .ics ({})", e),
+                    format!("input cannot be parsed as .ics ({e})"),
                     "value originates from here".into(),
                     head,
                     span,

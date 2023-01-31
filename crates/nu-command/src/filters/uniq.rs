@@ -286,7 +286,6 @@ pub fn uniq(
                 index,
             }))
         })
-        .into_iter()
         .try_fold(
             HashMap::<String, ValueCounter>::new(),
             |mut counter, item| {

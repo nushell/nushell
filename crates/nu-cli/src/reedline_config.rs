@@ -683,7 +683,7 @@ fn add_parsed_keybinding(
                 .filter(|num| matches!(num, 1..=20))
                 .ok_or(ShellError::UnsupportedConfigValue(
                     "(f1|f2|...|f20)".to_string(),
-                    format!("unknown function key: {}", c),
+                    format!("unknown function key: {c}"),
                     keybinding.keycode.span()?,
                 ))?;
             KeyCode::F(fn_num)

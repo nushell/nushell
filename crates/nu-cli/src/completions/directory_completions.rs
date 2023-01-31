@@ -119,7 +119,7 @@ pub fn directory_completion(
                             let mut file_name = entry.file_name().to_string_lossy().into_owned();
                             if matches(&partial, &file_name, options) {
                                 let mut path = if prepend_base_dir(original_input, &base_dir_name) {
-                                    format!("{}{}", base_dir_name, file_name)
+                                    format!("{base_dir_name}{file_name}")
                                 } else {
                                     file_name.to_string()
                                 };
@@ -135,7 +135,7 @@ pub fn directory_completion(
                                     || path.contains(' ')
                                     || path.contains('#')
                                 {
-                                    path = format!("`{}`", path);
+                                    path = format!("`{path}`");
                                 }
 
                                 Some((span, path))

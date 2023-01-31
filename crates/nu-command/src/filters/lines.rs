@@ -126,7 +126,6 @@ impl Command for Lines {
                 stdout: Some(stream),
                 ..
             } => Ok(RawStreamLinesAdapter::new(stream, head, skip_empty)
-                .into_iter()
                 .enumerate()
                 .map(move |(_idx, x)| match x {
                     Ok(x) => x,

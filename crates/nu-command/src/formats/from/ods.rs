@@ -149,7 +149,7 @@ fn from_ods(
                         _ => Value::nothing(head),
                     };
 
-                    row_output.insert(format!("column{}", i), value);
+                    row_output.insert(format!("column{i}"), value);
                 }
 
                 let (cols, vals) =

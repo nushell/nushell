@@ -91,7 +91,7 @@ impl NushellPrompt {
     }
 
     fn default_wrapped_custom_string(&self, str: String) -> String {
-        format!("({})", str)
+        format!("({str})")
     }
 }
 

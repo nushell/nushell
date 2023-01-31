@@ -23,7 +23,7 @@ fn main() {
     }
 
     if let Some(grid_display) = grid.fit_into_width(80) {
-        println!("{}", grid_display);
+        println!("{grid_display}");
     } else {
         println!("Couldn't fit grid into 80 columns!");
     }

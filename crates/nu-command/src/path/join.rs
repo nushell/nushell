@@ -233,8 +233,7 @@ fn merge_record(
             let allowed_cols = super::ALLOWED_COLUMNS.join(", ");
             return Err(ShellError::UnsupportedInput(
                 format!(
-                    "Column '{}' is not valid for a structured path. Allowed columns on this platform are: {}",
-                    key, allowed_cols
+                    "Column '{key}' is not valid for a structured path. Allowed columns on this platform are: {allowed_cols}"
                 ),
                 "value originates from here".into(),
                 head,
