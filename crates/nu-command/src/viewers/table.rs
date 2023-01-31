@@ -55,7 +55,7 @@ impl Command for Table {
         vec!["display", "render"]
     }
 
-    fn signature(&self) -> nu_protocol::Signature {
+    fn signature(&self) -> Signature {
         Signature::build("table")
             .input_output_types(vec![(Type::Any, Type::Any)])
             // TODO: make this more precise: what turns into string and what into raw stream
@@ -276,71 +276,18 @@ fn handle_table_command(
             ctrlc,
             metadata,
         ),
-        PipelineData::Value(Value::Record { cols, vals, span }, ..) => {
-            // Create a StyleComputer to compute styles for each value in the table.
-            let style_computer = &StyleComputer::from_config(engine_state, stack);
-
-            if cols.is_empty() {
-                let table_config = create_table_config(config, style_computer, 1, false, false, false);
-                let empty_table = create_empty_placeholder("record", table_config, term_width);
-                return Ok(Value::String {
-                    val: empty_table,
-                    span: call.head,
-                }.into_pipeline_data());
-            }
-
-            let result = match table_view {
-                TableView::General => build_general_table2(
-                    style_computer,
-                    cols,
-                    vals,
-                    ctrlc.clone(),
-                    config,
-                    term_width,
-                ),
-                TableView::Expanded {
-                    limit,
-                    flatten,
-                    flatten_separator,
-                } => {
-                    let sep = flatten_separator.as_deref().unwrap_or(" ");
-                    build_expanded_table(
-                        cols,
-                        vals,
-                        span,
-                        ctrlc.clone(),
-                        config,
-                        style_computer,
-                        term_width,
-                        limit,
-                        flatten,
-                        sep,
-                    )
-                }
-                TableView::Collapsed => {
-                    build_collapsed_table(style_computer, cols, vals, config, term_width)
-                }
-            }?;
-
-            let result = strip_output_color(result, config);
-
-            let result = result.unwrap_or_else(|| {
-                if nu_utils::ctrl_c::was_pressed(&ctrlc) {
-                    "".into()
-                } else {
-                    // assume this failed because the table was too wide
-                    // TODO: more robust error classification
-                    format!("Couldn't fit table into {term_width} columns!")
-                }
-            });
-
-            let val = Value::String {
-                val: result,
-                span: call.head,
-            };
-
-            Ok(val.into_pipeline_data())
-        }
+        PipelineData::Value(Value::Record { cols, vals, span }, ..) => handle_record(
+            cols,
+            vals,
+            span,
+            engine_state,
+            stack,
+            call,
+            table_view,
+            term_width,
+            ctrlc,
+            config,
+        ),
         PipelineData::Value(Value::LazyRecord { val, .. }, ..) => {
             let collected = val.collect()?.into_pipeline_data();
             handle_table_command(
@@ -615,6 +562,79 @@ fn build_expanded_table(
     Ok(table)
 }
 
+fn handle_record(
+    cols: Vec<String>,
+    vals: Vec<Value>,
+    span: Span,
+    engine_state: &EngineState,
+    stack: &mut Stack,
+    call: &Call,
+    table_view: TableView,
+    term_width: usize,
+    ctrlc: Option<Arc<AtomicBool>>,
+    config: &Config,
+) -> Result<PipelineData, ShellError> {
+    // Create a StyleComputer to compute styles for each value in the table.
+    let style_computer = &StyleComputer::from_config(engine_state, stack);
+
+    let result = if cols.is_empty() {
+        let table_config = create_table_config(config, style_computer, 1, false, false, false);
+        create_empty_placeholder("record", table_config, term_width)
+    } else {
+        let result = match table_view {
+            TableView::General => build_general_table2(
+                style_computer,
+                cols,
+                vals,
+                ctrlc.clone(),
+                config,
+                term_width,
+            ),
+            TableView::Expanded {
+                limit,
+                flatten,
+                flatten_separator,
+            } => {
+                let sep = flatten_separator.as_deref().unwrap_or(" ");
+                build_expanded_table(
+                    cols,
+                    vals,
+                    span,
+                    ctrlc.clone(),
+                    config,
+                    style_computer,
+                    term_width,
+                    limit,
+                    flatten,
+                    sep,
+                )
+            }
+            TableView::Collapsed => {
+                build_collapsed_table(style_computer, cols, vals, config, term_width)
+            }
+        }?;
+
+        let result = strip_output_color(result, config);
+
+        result.unwrap_or_else(|| {
+            if nu_utils::ctrl_c::was_pressed(&ctrlc) {
+                "".into()
+            } else {
+                // assume this failed because the table was too wide
+                // TODO: more robust error classification
+                format!("Couldn't fit table into {term_width} columns!")
+            }
+        })
+    };
+
+    let val = Value::String {
+        val: result,
+        span: call.head,
+    };
+
+    Ok(val.into_pipeline_data())
+}
+
 fn handle_row_stream(
     engine_state: &EngineState,
     stack: &mut Stack,
@@ -623,7 +643,7 @@ fn handle_row_stream(
     row_offset: usize,
     ctrlc: Option<Arc<AtomicBool>>,
     metadata: Option<PipelineMetadata>,
-) -> Result<PipelineData, nu_protocol::ShellError> {
+) -> Result<PipelineData, ShellError> {
     let stream = match metadata {
         // First, `ls` sources:
         Some(PipelineMetadata {
@@ -1717,17 +1737,17 @@ impl Iterator for PagingTableCreator {
 
 fn load_theme_from_config(config: &Config) -> TableTheme {
     match config.table_mode.as_str() {
-        "basic" => nu_table::TableTheme::basic(),
-        "thin" => nu_table::TableTheme::thin(),
-        "light" => nu_table::TableTheme::light(),
-        "compact" => nu_table::TableTheme::compact(),
-        "with_love" => nu_table::TableTheme::with_love(),
-        "compact_double" => nu_table::TableTheme::compact_double(),
-        "rounded" => nu_table::TableTheme::rounded(),
-        "reinforced" => nu_table::TableTheme::reinforced(),
-        "heavy" => nu_table::TableTheme::heavy(),
-        "none" => nu_table::TableTheme::none(),
-        _ => nu_table::TableTheme::rounded(),
+        "basic" => TableTheme::basic(),
+        "thin" => TableTheme::thin(),
+        "light" => TableTheme::light(),
+        "compact" => TableTheme::compact(),
+        "with_love" => TableTheme::with_love(),
+        "compact_double" => TableTheme::compact_double(),
+        "rounded" => TableTheme::rounded(),
+        "reinforced" => TableTheme::reinforced(),
+        "heavy" => TableTheme::heavy(),
+        "none" => TableTheme::none(),
+        _ => TableTheme::rounded(),
     }
 }
 
@@ -1837,10 +1857,16 @@ fn need_footer(config: &Config, count_records: u64) -> bool {
         || matches!(config.footer_mode, FooterMode::Always)
 }
 
-fn create_empty_placeholder(value_type_name: &str, config: TableConfig, termwidth: usize) -> String {
+fn create_empty_placeholder(
+    value_type_name: &str,
+    config: TableConfig,
+    termwidth: usize,
+) -> String {
     let empty_info_string = format!("empty {}", value_type_name);
     let cell = NuTable::create_cell(empty_info_string, TextStyle::default().dimmed());
     let data = vec![vec![cell]];
     let table = NuTable::new(data, (1, 1));
-    table.draw(config, termwidth).expect("Could not create empty table placeholder")
+    table
+        .draw(config, termwidth)
+        .expect("Could not create empty table placeholder")
 }
