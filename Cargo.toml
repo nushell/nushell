@@ -59,7 +59,7 @@ nu-system = { path = "./crates/nu-system", version = "0.74.1" }
 nu-table = { path = "./crates/nu-table", version = "0.74.1" }
 nu-term-grid = { path = "./crates/nu-term-grid", version = "0.74.1" }
 nu-utils = { path = "./crates/nu-utils", version = "0.74.1" }
-reedline = { version = "0.15.0", features = ["bashisms", "sqlite"] }
+reedline = { version = "0.16.0", features = ["bashisms", "sqlite"] }
 
 rayon = "1.6.1"
 is_executable = "1.0.1"
