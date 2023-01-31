@@ -352,8 +352,8 @@ fn copy_file(src: PathBuf, dst: PathBuf, span: Span) -> Value {
             Value::String { val: msg, span }
         }
         Err(e) => {
-            let message_src = format!("copy file {src:?} failed: {e}");
-            let message_dst = format!("copy file {dst:?} failed: {e}");
+            let message_src = format!("copying file '{src_display}' failed: {e}", src_display = src.display());
+            let message_dst = format!("copying to destination '{dst_display}' failed: {e}", dst_display = dst.display());
             use std::io::ErrorKind;
             let shell_error = match e.kind() {
                 ErrorKind::NotFound => {
