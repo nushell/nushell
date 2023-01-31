@@ -565,17 +565,21 @@ impl Value {
                 )
             }
             Value::String { val, .. } => val.to_string(),
-            Value::List { ref vals, .. } => format!(
-                "[{} {} row{}]",
-                // Only say 'table' if every value is a Record
+            Value::List { ref vals, .. } => {
                 if vals.iter().all(|x| matches!(x, Value::Record { .. })) {
-                    "table"
+                    format!(
+                        "[table {} row{}]",
+                        vals.len(),
+                        if vals.len() == 1 { "" } else { "s" }
+                    )
                 } else {
-                    "list"
-                },
-                vals.len(),
-                if vals.len() == 1 { "" } else { "s" }
-            ),
+                    format!(
+                        "[list {} item{}]",
+                        vals.len(),
+                        if vals.len() == 1 { "" } else { "s" }
+                    )
+                }
+            }
             Value::Record { cols, .. } => format!(
                 "{{record {} field{}}}",
                 cols.len(),
