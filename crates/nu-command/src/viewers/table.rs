@@ -16,7 +16,6 @@ use rayon::prelude::*;
 use std::sync::Arc;
 use std::time::Instant;
 use std::{cmp::max, path::PathBuf, sync::atomic::AtomicBool};
-use num_format::Locale::fa;
 use terminal_size::{Height, Width};
 use url::Url;
 
@@ -483,32 +482,39 @@ fn build_expanded_table(
                     }
                 }
                 Value::Record { cols, vals, span } => {
-                    let result = build_expanded_table(
-                        cols.clone(),
-                        vals.clone(),
-                        span,
-                        ctrlc.clone(),
-                        config,
-                        style_computer,
-                        value_width,
-                        deep,
-                        flatten,
-                        flatten_sep,
-                    )?;
+                    if cols.is_empty() {
+                        // Like list case return styled string instead of empty value
+                        let value = Value::Record { cols, vals, span };
+                        let text = value_to_styled_string(&value, config, style_computer).0;
+                        wrap_text(&text, value_width, config)
+                    } else {
+                        let result = build_expanded_table(
+                            cols.clone(),
+                            vals.clone(),
+                            span,
+                            ctrlc.clone(),
+                            config,
+                            style_computer,
+                            value_width,
+                            deep,
+                            flatten,
+                            flatten_sep,
+                        )?;
 
-                    match result {
-                        Some(result) => {
-                            is_expanded = true;
-                            result
-                        }
-                        None => {
-                            let failed_value = value_to_styled_string(
-                                &Value::Record { cols, vals, span },
-                                config,
-                                style_computer,
-                            );
+                        match result {
+                            Some(result) => {
+                                is_expanded = true;
+                                result
+                            }
+                            None => {
+                                let failed_value = value_to_styled_string(
+                                    &Value::Record { cols, vals, span },
+                                    config,
+                                    style_computer,
+                                );
 
-                            wrap_text(&failed_value.0, value_width, config)
+                                wrap_text(&failed_value.0, value_width, config)
+                            }
                         }
                     }
                 }
