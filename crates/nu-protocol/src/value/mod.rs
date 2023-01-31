@@ -566,7 +566,7 @@ impl Value {
             }
             Value::String { val, .. } => val.to_string(),
             Value::List { ref vals, .. } => {
-                if vals.iter().all(|x| matches!(x, Value::Record { .. })) {
+                if !vals.is_empty() && vals.iter().all(|x| matches!(x, Value::Record { .. })) {
                     format!(
                         "[table {} row{}]",
                         vals.len(),
