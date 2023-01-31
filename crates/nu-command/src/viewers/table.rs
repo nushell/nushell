@@ -16,6 +16,7 @@ use rayon::prelude::*;
 use std::sync::Arc;
 use std::time::Instant;
 use std::{cmp::max, path::PathBuf, sync::atomic::AtomicBool};
+use num_format::Locale::fa;
 use terminal_size::{Height, Width};
 use url::Url;
 
@@ -578,8 +579,7 @@ fn handle_record(
     let style_computer = &StyleComputer::from_config(engine_state, stack);
 
     let result = if cols.is_empty() {
-        let table_config = create_table_config(config, style_computer, 1, false, false, false);
-        create_empty_placeholder("record", table_config, term_width)
+        create_empty_placeholder("record", term_width, engine_state, stack)
     } else {
         let result = match table_view {
             TableView::General => build_general_table2(
@@ -749,18 +749,18 @@ fn handle_row_stream(
 
     Ok(PipelineData::ExternalStream {
         stdout: Some(RawStream::new(
-            Box::new(PagingTableCreator {
-                row_offset,
-                // These are passed in as a way to have PagingTable create StyleComputers
-                // for the values it outputs. Because engine_state is passed in, config doesn't need to.
-                engine_state: engine_state.clone(),
-                stack: stack.clone(),
-                ctrlc: ctrlc.clone(),
+            Box::new(PagingTableCreator::new(
                 head,
                 stream,
+                // These are passed in as a way to have PagingTable create StyleComputers
+                // for the values it outputs. Because engine_state is passed in, config doesn't need to.
+                engine_state.clone(),
+                stack.clone(),
+                ctrlc.clone(),
+                row_offset,
                 width_param,
-                view: table_view,
-            }),
+                table_view,
+            )),
             ctrlc,
             head,
             None,
@@ -1532,9 +1532,35 @@ struct PagingTableCreator {
     row_offset: usize,
     width_param: Option<i64>,
     view: TableView,
+    elements_displayed: usize,
+    reached_end: bool,
 }
 
 impl PagingTableCreator {
+    fn new(
+        head: Span,
+        stream: ListStream,
+        engine_state: EngineState,
+        stack: Stack,
+        ctrlc: Option<Arc<AtomicBool>>,
+        row_offset: usize,
+        width_param: Option<i64>,
+        view: TableView,
+    ) -> Self {
+        PagingTableCreator {
+            head,
+            stream,
+            engine_state,
+            stack,
+            ctrlc,
+            row_offset,
+            width_param,
+            view,
+            elements_displayed: 0,
+            reached_end: false,
+        }
+    }
+
     fn build_extended(
         &mut self,
         batch: &[Value],
@@ -1673,6 +1699,7 @@ impl Iterator for PagingTableCreator {
         let start_time = Instant::now();
 
         let mut idx = 0;
+        let mut reached_end = true;
 
         // Pull from stream until time runs out or we have enough items
         for item in self.stream.by_ref() {
@@ -1681,10 +1708,12 @@ impl Iterator for PagingTableCreator {
 
             // If we've been buffering over a second, go ahead and send out what we have so far
             if (Instant::now() - start_time).as_secs() >= 1 {
+                reached_end = false;
                 break;
             }
 
             if idx == STREAM_PAGE_SIZE {
+                reached_end = false;
                 break;
             }
 
@@ -1693,8 +1722,21 @@ impl Iterator for PagingTableCreator {
             }
         }
 
+        // Count how much elements were displayed and if end of stream was reached
+        self.elements_displayed += idx;
+        self.reached_end = self.reached_end || reached_end;
+
         if batch.is_empty() {
-            return None;
+            // If this iterator has not displayed a single entry and reached its end (no more elements
+            // or interrupted by ctrl+c) display as "empty list"
+            return if self.elements_displayed == 0 && self.reached_end {
+                // Increase elements_displayed by one so on next iteration next branch of this
+                // if else triggers and terminates stream
+                self.elements_displayed = 1;
+                let term_width = get_width_param(self.width_param);
+                let result = create_empty_placeholder("list", term_width, &self.engine_state, &self.stack);
+                Some(Ok(result.into_bytes()))
+            } else { None };
         }
 
         let table = match &self.view {
@@ -1859,13 +1901,19 @@ fn need_footer(config: &Config, count_records: u64) -> bool {
 
 fn create_empty_placeholder(
     value_type_name: &str,
-    config: TableConfig,
     termwidth: usize,
+    engine_state: &EngineState,
+    stack: &Stack,
 ) -> String {
     let empty_info_string = format!("empty {}", value_type_name);
     let cell = NuTable::create_cell(empty_info_string, TextStyle::default().dimmed());
     let data = vec![vec![cell]];
     let table = NuTable::new(data, (1, 1));
+
+    let style_computer = &StyleComputer::from_config(engine_state, stack);
+    let config = engine_state.get_config();
+    let config = create_table_config(config, style_computer, 1, false, false, false);
+
     table
         .draw(config, termwidth)
         .expect("Could not create empty table placeholder")
