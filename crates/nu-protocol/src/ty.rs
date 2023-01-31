@@ -92,6 +92,35 @@ impl Type {
             Type::Signature => SyntaxShape::Signature,
         }
     }
+
+    /// Get a string representation, without inner type specification of lists,
+    /// tables and records (get `list` instead of `list<any>`
+    pub fn get_non_specified_string(&self) -> String {
+        match self {
+            Type::Block => String::from("block"),
+            Type::Closure => String::from("closure"),
+            Type::Bool => String::from("bool"),
+            Type::CellPath => String::from("cell path"),
+            Type::Date => String::from("date"),
+            Type::Duration => String::from("duration"),
+            Type::Filesize => String::from("filesize"),
+            Type::Float => String::from("float"),
+            Type::Int => String::from("int"),
+            Type::Range => String::from("range"),
+            Type::Record(_) => String::from("record"),
+            Type::Table(_) => String::from("table"),
+            Type::List(_) => String::from("list"),
+            Type::Nothing => String::from("nothing"),
+            Type::Number => String::from("number"),
+            Type::String => String::from("string"),
+            Type::ListStream => String::from("list stream"),
+            Type::Any => String::from("any"),
+            Type::Error => String::from("error"),
+            Type::Binary => String::from("binary"),
+            Type::Custom(_) => String::from("custom"),
+            Type::Signature => String::from("signature"),
+        }
+    }
 }
 
 impl Display for Type {

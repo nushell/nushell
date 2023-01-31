@@ -569,6 +569,7 @@ fn build_expanded_table(
     Ok(table)
 }
 
+#[allow(clippy::too_many_arguments)]
 fn handle_record(
     cols: Vec<String>,
     vals: Vec<Value>,
@@ -1543,6 +1544,7 @@ struct PagingTableCreator {
 }
 
 impl PagingTableCreator {
+    #[allow(clippy::too_many_arguments)]
     fn new(
         head: Span,
         stream: ListStream,
@@ -1740,9 +1742,12 @@ impl Iterator for PagingTableCreator {
                 // if else triggers and terminates stream
                 self.elements_displayed = 1;
                 let term_width = get_width_param(self.width_param);
-                let result = create_empty_placeholder("list", term_width, &self.engine_state, &self.stack);
+                let result =
+                    create_empty_placeholder("list", term_width, &self.engine_state, &self.stack);
                 Some(Ok(result.into_bytes()))
-            } else { None };
+            } else {
+                None
+            };
         }
 
         let table = match &self.view {
