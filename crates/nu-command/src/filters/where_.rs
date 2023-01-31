@@ -38,13 +38,6 @@ not supported."#
                 SyntaxShape::RowCondition,
                 "Filter condition",
             )
-            // TODO: Remove this flag after 0.73.0 release
-            .named(
-                "closure",
-                SyntaxShape::Closure(Some(vec![SyntaxShape::Any, SyntaxShape::Int])),
-                "use with a closure instead (deprecated: use 'filter' command instead)",
-                Some('b'),
-            )
             .category(Category::Filters)
     }
 
@@ -59,14 +52,6 @@ not supported."#
         call: &Call,
         input: PipelineData,
     ) -> Result<nu_protocol::PipelineData, nu_protocol::ShellError> {
-        if let Some(closure) = call.get_flag::<Spanned<Closure>>(engine_state, stack, "closure")? {
-            return Err(ShellError::DeprecatedParameter(
-                "-b, --closure".to_string(),
-                "filter command".to_string(),
-                closure.span,
-            ));
-        }
-
         let closure: Closure = call.req(engine_state, stack, 0)?;
 
         let span = call.head;
