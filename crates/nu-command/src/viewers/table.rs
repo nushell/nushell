@@ -279,6 +279,16 @@ fn handle_table_command(
         PipelineData::Value(Value::Record { cols, vals, span }, ..) => {
             // Create a StyleComputer to compute styles for each value in the table.
             let style_computer = &StyleComputer::from_config(engine_state, stack);
+
+            if cols.is_empty() {
+                let table_config = create_table_config(config, style_computer, 1, false, false, false);
+                let empty_table = create_empty_placeholder("record", table_config, term_width);
+                return Ok(Value::String {
+                    val: empty_table,
+                    span: call.head,
+                }.into_pipeline_data());
+            }
+
             let result = match table_view {
                 TableView::General => build_general_table2(
                     style_computer,
@@ -1825,4 +1835,12 @@ fn with_footer(config: &Config, with_header: bool, count_records: usize) -> bool
 fn need_footer(config: &Config, count_records: u64) -> bool {
     matches!(config.footer_mode, FooterMode::RowCount(limit) if count_records > limit)
         || matches!(config.footer_mode, FooterMode::Always)
+}
+
+fn create_empty_placeholder(value_type_name: &str, config: TableConfig, termwidth: usize) -> String {
+    let empty_info_string = format!("empty {}", value_type_name);
+    let cell = NuTable::create_cell(empty_info_string, TextStyle::default().dimmed());
+    let data = vec![vec![cell]];
+    let table = NuTable::new(data, (1, 1));
+    table.draw(config, termwidth).expect("Could not create empty table placeholder")
 }
