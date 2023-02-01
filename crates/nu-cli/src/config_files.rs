@@ -41,6 +41,7 @@ pub fn read_plugin_file(
                 &contents,
                 &plugin_filename,
                 PipelineData::empty(),
+                false,
             );
         }
     }
@@ -93,6 +94,7 @@ pub fn eval_config_contents(
                 &contents,
                 &config_filename,
                 PipelineData::empty(),
+                false,
             );
 
             // Merge the environment in case env vars changed in the config

@@ -314,3 +314,15 @@ fn source_env_const_file() {
         assert_eq!(actual.out, "foo");
     })
 }
+
+#[test]
+fn source_respects_early_return() {
+    let actual = nu!(
+        cwd: "tests/fixtures/formats", pipeline(
+        r#"
+            source early_return.nu
+        "#
+    ));
+
+    assert!(actual.err.is_empty());
+}
