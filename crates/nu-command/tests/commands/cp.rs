@@ -358,11 +358,7 @@ fn copy_file_not_exists_dst() {
             "cp valid.txt ~/invalid_dir/invalid_dir1"
         );
         assert!(
-            actual.err.contains("invalid_dir1")
-                && (actual.err.contains("No such file or directory")
-                    || actual
-                        .err
-                        .contains("The system cannot find the path specified"))
+            actual.err.contains("invalid_dir1") && actual.err.contains("copying to destination")
         );
     });
 }
@@ -381,8 +377,7 @@ fn copy_file_with_read_permission() {
         );
         assert!(
             actual.err.contains("invalid_prem.txt")
-                && (actual.err.contains("Access is denied")
-                    || actual.err.contains("Permission denied"))
+                && actual.err.contains("copying to destination")
         );
     });
 }
