@@ -1,6 +1,6 @@
 use std::time::Instant;
 
-use nu_engine::{eval_block_benchmark, CallExt};
+use nu_engine::{eval_block, CallExt};
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Closure, Command, EngineState, Stack};
 use nu_protocol::{
@@ -26,6 +26,12 @@ impl Command for Benchmark {
                 "closure",
                 SyntaxShape::Closure(Some(vec![SyntaxShape::Any])),
                 "the closure to run",
+            )
+            .named(
+                "max-depth",
+                SyntaxShape::Int,
+                "How many levels of blocks to step into (default 1)",
+                Some('d'),
             )
             .input_output_types(vec![
                 (Type::Any, Type::Duration),
@@ -64,8 +70,14 @@ impl Command for Benchmark {
         }
 
         // Get the start time after all other computation has been done.
+        stack.debug_depth =
+            if let Some(depth) = call.get_flag::<i64>(engine_state, &mut stack, "max-depth")? {
+                depth
+            } else {
+                1
+            };
         let start_time = Instant::now();
-        eval_block_benchmark(
+        eval_block(
             engine_state,
             &mut stack,
             block,
