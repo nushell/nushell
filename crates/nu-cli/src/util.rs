@@ -297,6 +297,7 @@ pub fn eval_source(
         file!(),
         line!(),
         column!(),
+        engine_state.get_config().use_ansi_coloring,
     );
 
     true
