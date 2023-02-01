@@ -1338,6 +1338,13 @@ fn strip_underscores(token: &[u8]) -> String {
 
 pub fn parse_int(token: &[u8], span: Span) -> (Expression, Option<ParseError>) {
     fn extract_int(token: &str, span: Span, radix: u32) -> (Expression, Option<ParseError>) {
+        if token.len() == 0 {
+            return (
+                garbage(span),
+                Some(ParseError::Expected("int".into(), span)),
+            );
+        }
+
         if let Ok(num) = i64::from_str_radix(token, radix) {
             (
                 Expression {
@@ -1363,26 +1370,35 @@ pub fn parse_int(token: &[u8], span: Span) -> (Expression, Option<ParseError>) {
     let token = strip_underscores(token);
 
     if let Some(num) = token.strip_prefix("0b") {
+        // '0b' is a valid filesize, can't treat as syntax error for int
         extract_int(num, span, 2)
     } else if let Some(num) = token.strip_prefix("0o") {
         extract_int(num, span, 8)
     } else if let Some(num) = token.strip_prefix("0x") {
         extract_int(num, span, 16)
-    } else if let Ok(num) = token.parse::<i64>() {
-        (
-            Expression {
-                expr: Expr::Int(num),
-                span,
-                ty: Type::Int,
-                custom_completion: None,
-            },
-            None,
-        )
     } else {
-        (
-            garbage(span),
-            Some(ParseError::Expected("int".into(), span)),
-        )
+        if token.len() == 0 {
+            return (
+                garbage(span),
+                Some(ParseError::Expected("int".into(), span)),
+            );
+        }
+        if let Ok(num) = token.parse::<i64>() {
+            (
+                Expression {
+                    expr: Expr::Int(num),
+                    span,
+                    ty: Type::Int,
+                    custom_completion: None,
+                },
+                None,
+            )
+        } else {
+            (
+                garbage(span),
+                Some(ParseError::Expected("int".into(), span)),
+            )
+        }
     }
 }
 

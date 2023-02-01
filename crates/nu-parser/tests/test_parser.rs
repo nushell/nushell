@@ -42,6 +42,57 @@ impl Command for Let {
     }
 }
 
+fn test_int(test_tag: &str, test: &[u8], expected_val: i64, expected_err: Option<&str>) {
+    let engine_state = EngineState::new();
+    let mut working_set = StateWorkingSet::new(&engine_state);
+
+    let (block, err) = parse(&mut working_set, None, test, true, &[]);
+
+    if let Some(err_pat) = expected_err {
+        if let Some(parse_err) = err {
+            let act_err = format!("{:?}", parse_err);
+            assert!(act_err.contains(err_pat), "{test_tag}: expected err to contain {err_pat}, but actual error was {act_err}");
+        } else {
+            assert!(
+                err.is_some(),
+                "{test_tag}: expected err containing {err_pat}"
+            );
+        }
+    } else {
+        assert!(err.is_none());
+        assert_eq!(block.len(), 1);
+        let expressions = &block[0];
+        assert_eq!(expressions.len(), 1);
+        assert!(
+            matches!(
+                expressions[0],
+                PipelineElement::Expression(
+                    _,
+                    Expression {
+                        expr: Expr::Int(expected_val),
+                        ..
+                    }
+                )
+            ),
+            "{test_tag}: expected {:#?} to match {expected_val}",
+            expressions[0]
+        )
+    }
+}
+
+#[test]
+pub fn multi_test_parse_int() {
+    struct Test<'a>( &'a str, &'a [u8], i64, Option<&'a str>);
+
+    let tests = vec!(
+        // but it succeeds, just returns different type Test("0b - not an int", b"0b", 0, Some("Expected int")),
+        Test("binary literal int", b"0b0", 0, None),
+    );
+
+    for test in tests {
+        test_int( test.0, test.1, test.2, test.3);
+    }
+}
 #[test]
 pub fn parse_int() {
     let engine_state = EngineState::new();
