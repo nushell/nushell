@@ -37,7 +37,7 @@ impl Command for ViewSource {
         let arg_span = arg.span()?;
 
         match arg {
-            Value::Block { val: block_id, .. } => {
+            Value::Block { val: block_id, .. } | Value::Closure { val: block_id, .. } => {
                 let block = engine_state.get_block(block_id);
 
                 if let Some(span) = block.span {
