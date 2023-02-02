@@ -131,9 +131,32 @@ fn element_to_value(n: &roxmltree::Node, span: Span) -> Value {
     })
 }
 
+fn text_to_value(n: &roxmltree::Node, span: Span) -> Option<Value> {
+    let text = n.text().expect("Non-text node supplied to text_to_value");
+    let text = text.trim();
+    if text.is_empty() {
+        None
+    } else {
+        let mut node = IndexMap::new();
+        let content = Value::string(String::from(text), span);
+
+        node.insert(String::from(COLUMN_TAG_NAME), Value::nothing(span));
+        node.insert(String::from(COLUMN_ATTRS_NAME), Value::nothing(span));
+        node.insert(String::from(COLUMN_CONTENT_NAME), content);
+
+        let result = Value::from(Spanned {
+            item: node,
+            span,
+        });
+
+        Some(result)
+    }
+}
+
 fn from_node_to_value(n: &roxmltree::Node, span: Span) -> Option<Value> {
     match n.node_type() {
         NodeType::Element => Some(element_to_value(n, span)),
+        NodeType::Text => text_to_value(n, span),
         _ => None,
     }
 }
