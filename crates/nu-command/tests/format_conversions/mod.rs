@@ -1,6 +1,5 @@
 mod bson;
 mod csv;
-mod eml;
 mod html;
 mod ics;
 mod json;
