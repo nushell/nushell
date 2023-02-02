@@ -1,4 +1,6 @@
 use indexmap::map::IndexMap;
+use itertools::Itertools;
+use roxmltree::NodeType;
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
@@ -101,60 +103,39 @@ fn from_attributes_to_value(attributes: &[roxmltree::Attribute], span: Span) -> 
     Value::Record { cols, vals, span }
 }
 
-fn from_node_to_value(n: &roxmltree::Node, span: Span) -> Value {
-    if n.is_element() {
-        let mut node = IndexMap::new();
+fn element_to_value(n: &roxmltree::Node, span: Span) -> Value {
+    let mut node = IndexMap::new();
 
-        let tag = n.tag_name().name().trim().to_string();
-        let tag = Value::string(tag, span);
+    let tag = n.tag_name().name().trim().to_string();
+    let tag = Value::string(tag, span);
 
-        let content: Vec<Value> = n.children()
-            .into_iter()
-            .map(|node| from_node_to_value(&node, span))
-            .collect();
-        let content = Value::list(content, span);
+    let content: Vec<Value> = n.children()
+        .into_iter()
+        .filter_map(|node| from_node_to_value(&node, span))
+        .collect();
+    let content = Value::list(content, span);
 
-        let attributes = from_attributes_to_value(&n.attributes().collect::<Vec<_>>(), span);
+    let attributes = from_attributes_to_value(&n.attributes().collect::<Vec<_>>(), span);
 
-        node.insert(String::from(COLUMN_TAG_NAME), tag);
-        node.insert(String::from(COLUMN_ATTRS_NAME), attributes);
-        node.insert(String::from(COLUMN_CONTENT_NAME), content);
+    node.insert(String::from(COLUMN_TAG_NAME), tag);
+    node.insert(String::from(COLUMN_ATTRS_NAME), attributes);
+    node.insert(String::from(COLUMN_CONTENT_NAME), content);
 
-        Value::from(Spanned {
-            item: node,
-            span,
-        })
-    } else if n.is_comment() {
-        Value::String {
-            val: "<comment>".to_string(),
-            span,
-        }
-    } else if n.is_pi() {
-        Value::String {
-            val: "<processing_instruction>".to_string(),
-            span,
-        }
-    } else if n.is_text() {
-        match n.text() {
-            Some(text) => Value::String {
-                val: text.to_string(),
-                span,
-            },
-            None => Value::String {
-                val: "<error>".to_string(),
-                span,
-            },
-        }
-    } else {
-        Value::String {
-            val: "<unknown>".to_string(),
-            span,
-        }
+    Value::from(Spanned {
+        item: node,
+        span,
+    })
+}
+
+fn from_node_to_value(n: &roxmltree::Node, span: Span) -> Option<Value> {
+    match n.node_type() {
+        NodeType::Element => Some(element_to_value(n, span)),
+        _ => None,
     }
 }
 
 fn from_document_to_value(d: &roxmltree::Document, span: Span) -> Value {
-    from_node_to_value(&d.root_element(), span)
+    element_to_value(&d.root_element(), span)
 }
 
 pub fn from_xml_string_to_value(s: String, span: Span) -> Result<Value, roxmltree::Error> {
