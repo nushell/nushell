@@ -78,9 +78,19 @@ jobs:
 
       - name: Setup Rust toolchain and cache
         uses: actions-rust-lang/setup-rust-toolchain@v1.3.5
+      - name: Install cargo-llvm-cov
+        uses: taiki-e/install-action@cargo-llvm-cov
 
       - name: Tests
-        run: cargo test --workspace --profile ci --exclude nu_plugin_* ${{ matrix.flags }}
+        run: |
+          source <(cargo llvm-cov show-env --export-prefix) # Set the environment variables needed to get coverage.
+          cargo llvm-cov clean --workspace # Remove artifacts that may affect the coverage results.
+          cargo build --workspace --profile ci
+          cargo test --workspace --profile ci --exclude nu_plugin_* ${{ matrix.flags }}
+          cargo llvm-cov report --lcov --output-path lcov.info
+
+      - name: Upload coverage reports to Codecov with GitHub Action
+        uses: codecov/codecov-action@v3
 
   python-virtualenv:
     env:
