@@ -82,6 +82,7 @@ jobs:
         uses: taiki-e/install-action@cargo-llvm-cov
 
       - name: Tests
+        shell: bash
         run: |
           source <(cargo llvm-cov show-env --export-prefix) # Set the environment variables needed to get coverage.
           cargo llvm-cov clean --workspace # Remove artifacts that may affect the coverage results.
