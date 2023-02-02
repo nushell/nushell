@@ -72,8 +72,7 @@ a variable. On the other hand, the "row condition" syntax is not supported."#
                 // To enumerate over the input (for the index argument),
                 // it must be converted into an iterator using into_iter().
                 .into_iter()
-                .enumerate()
-                .filter_map(move |(idx, x)| {
+                .filter_map(move |x| {
                     // with_env() is used here to ensure that each iteration uses
                     // a different set of environment variables.
                     // Hence, a 'cd' in the first loop won't affect the next loop.
@@ -82,18 +81,6 @@ a variable. On the other hand, the "row condition" syntax is not supported."#
                     if let Some(var) = block.signature.get_positional(0) {
                         if let Some(var_id) = &var.var_id {
                             stack.add_var(*var_id, x.clone());
-                        }
-                    }
-                    // Optional index argument
-                    if let Some(var) = block.signature.get_positional(1) {
-                        if let Some(var_id) = &var.var_id {
-                            stack.add_var(
-                                *var_id,
-                                Value::Int {
-                                    val: idx as i64,
-                                    span,
-                                },
-                            );
                         }
                     }
 
@@ -125,8 +112,7 @@ a variable. On the other hand, the "row condition" syntax is not supported."#
                 ..
             } => Ok(stream
                 .into_iter()
-                .enumerate()
-                .filter_map(move |(idx, x)| {
+                .filter_map(move |x| {
                     // see note above about with_env()
                     stack.with_env(&orig_env_vars, &orig_env_hidden);
 
@@ -138,18 +124,6 @@ a variable. On the other hand, the "row condition" syntax is not supported."#
                     if let Some(var) = block.signature.get_positional(0) {
                         if let Some(var_id) = &var.var_id {
                             stack.add_var(*var_id, x.clone());
-                        }
-                    }
-                    // Optional index argument
-                    if let Some(var) = block.signature.get_positional(1) {
-                        if let Some(var_id) = &var.var_id {
-                            stack.add_var(
-                                *var_id,
-                                Value::Int {
-                                    val: idx as i64,
-                                    span,
-                                },
-                            );
                         }
                     }
 

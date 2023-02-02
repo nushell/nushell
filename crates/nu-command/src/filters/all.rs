@@ -44,8 +44,13 @@ impl Command for All {
                 result: Some(Value::test_bool(true)),
             },
             Example {
+                description: "Check that each item is a string",
+                example: "[foo bar 2 baz] | all { ($in | describe) == 'string' }",
+                result: Some(Value::test_bool(false)),
+            },
+            Example {
                 description: "Check that all values are equal to twice their index",
-                example: "[0 2 4 6] | all {|el ind| $el == $ind * 2 }",
+                example: "[0 2 4 6] | enumerate | all {|i| $i.item == $i.index * 2 }",
                 result: Some(Value::test_bool(true)),
             },
             Example {
@@ -80,7 +85,7 @@ impl Command for All {
         let ctrlc = engine_state.ctrlc.clone();
         let engine_state = engine_state.clone();
 
-        for (idx, value) in input.into_interruptible_iter(ctrlc).enumerate() {
+        for value in input.into_interruptible_iter(ctrlc) {
             // with_env() is used here to ensure that each iteration uses
             // a different set of environment variables.
             // Hence, a 'cd' in the first loop won't affect the next loop.
@@ -88,18 +93,6 @@ impl Command for All {
 
             if let Some(var_id) = var_id {
                 stack.add_var(var_id, value.clone());
-            }
-            // Optional index argument
-            if let Some(var) = block.signature.get_positional(1) {
-                if let Some(var_id) = &var.var_id {
-                    stack.add_var(
-                        *var_id,
-                        Value::Int {
-                            val: idx as i64,
-                            span,
-                        },
-                    );
-                }
             }
 
             let eval = eval_block(
