@@ -5,6 +5,7 @@ use nu_protocol::{
     Category, Example, IntoPipelineData, PipelineData, ShellError, Signature, Span, Spanned, Type,
     Value,
 };
+use crate::formats::nu_xml_format::{COLUMN_ATTRS_NAME, COLUMN_CONTENT_NAME, COLUMN_TAG_NAME};
 
 #[derive(Clone)]
 pub struct FromXml;
@@ -30,7 +31,7 @@ impl Command for FromXml {
         _stack: &mut Stack,
         call: &Call,
         input: PipelineData,
-    ) -> Result<nu_protocol::PipelineData, ShellError> {
+    ) -> Result<PipelineData, ShellError> {
         let head = call.head;
         from_xml(input, head)
     }
@@ -102,41 +103,25 @@ fn from_attributes_to_value(attributes: &[roxmltree::Attribute], span: Span) -> 
 
 fn from_node_to_value(n: &roxmltree::Node, span: Span) -> Value {
     if n.is_element() {
-        let name = n.tag_name().name().trim().to_string();
+        let mut node = IndexMap::new();
 
-        let mut children_values = vec![];
-        for c in n.children() {
-            children_values.push(from_node_to_value(&c, span));
-        }
+        let tag = n.tag_name().name().trim().to_string();
+        let tag = Value::string(tag, span);
 
-        let children_values: Vec<Value> = children_values
+        let content: Vec<Value> = n.children()
             .into_iter()
-            .filter(|x| match x {
-                Value::String { val: f, .. } => {
-                    !f.trim().is_empty() // non-whitespace characters?
-                }
-                _ => true,
-            })
+            .map(|node| from_node_to_value(&node, span))
             .collect();
+        let content = Value::list(content, span);
 
-        let mut collected = IndexMap::new();
+        let attributes = from_attributes_to_value(&n.attributes().collect::<Vec<_>>(), span);
 
-        let attribute_value: Value =
-            from_attributes_to_value(&n.attributes().collect::<Vec<_>>(), span);
-
-        let mut row = IndexMap::new();
-        row.insert(
-            String::from("children"),
-            Value::List {
-                vals: children_values,
-                span,
-            },
-        );
-        row.insert(String::from("attributes"), attribute_value);
-        collected.insert(name, Value::from(Spanned { item: row, span }));
+        node.insert(String::from(COLUMN_TAG_NAME), tag);
+        node.insert(String::from(COLUMN_ATTRS_NAME), attributes);
+        node.insert(String::from(COLUMN_CONTENT_NAME), content);
 
         Value::from(Spanned {
-            item: collected,
+            item: node,
             span,
         })
     } else if n.is_comment() {
