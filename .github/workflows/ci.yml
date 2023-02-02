@@ -82,6 +82,9 @@ jobs:
       - name: Tests
         run: cargo test --workspace --profile ci --exclude nu_plugin_* ${{ matrix.flags }}
 
+      - name: Upload coverage reports to Codecov with GitHub Action
+        uses: codecov/codecov-action@v3
+
   python-virtualenv:
     env:
       NUSHELL_CARGO_TARGET: ci
