@@ -20,6 +20,8 @@ impl Command for FromXml {
     fn signature(&self) -> Signature {
         Signature::build("from xml")
             .input_output_types(vec![(Type::String, Type::Record(vec![]))])
+            .switch("keep-comments", "add comment nodes to result", None)
+            .switch("keep-processing-instructions", "add processing instruction nodes to result", None)
             .category(Category::Formats)
     }
 
@@ -35,6 +37,8 @@ impl Command for FromXml {
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
         let head = call.head;
+        let keep_comments = call.has_flag("keep-comments"); // TODO: implement
+        let keep_processing_instructions = call.has_flag("keep-processing-instructions"); // TODO: implement
         from_xml(input, head)
     }
 
