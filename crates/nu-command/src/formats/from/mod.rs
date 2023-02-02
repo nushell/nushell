@@ -1,7 +1,6 @@
 mod command;
 mod csv;
 mod delimited;
-mod eml;
 mod ics;
 mod ini;
 mod json;
@@ -20,7 +19,6 @@ pub use self::csv::FromCsv;
 pub use self::toml::FromToml;
 pub use self::url::FromUrl;
 pub use command::From;
-pub use eml::FromEml;
 pub use ics::FromIcs;
 pub use ini::FromIni;
 pub use json::FromJson;

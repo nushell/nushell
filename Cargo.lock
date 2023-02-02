@@ -1140,15 +1140,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "eml-parser"
-version = "0.1.3"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "43e6fc6e74658e477675b59e61e10e9722cb2b845b0e2834df60f979c865e821"
-dependencies = [
- "regex",
-]
-
-[[package]]
 name = "encode_unicode"
 version = "0.3.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2720,7 +2711,6 @@ dependencies = [
  "digest",
  "dirs-next",
  "dtparse",
- "eml-parser",
  "encoding_rs",
  "fancy-regex",
  "filesize",
