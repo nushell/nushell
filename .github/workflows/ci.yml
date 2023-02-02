@@ -34,7 +34,7 @@ jobs:
 
     runs-on: ${{ matrix.platform }}
     env:
-      NUSHELL_CARGO_TARGET: debug
+      NUSHELL_CARGO_TARGET: ci
 
     steps:
       - uses: actions/checkout@v3
@@ -50,7 +50,7 @@ jobs:
 
   nu-tests:
     env:
-      NUSHELL_CARGO_TARGET: ci
+      NUSHELL_CARGO_TARGET: debug
 
     strategy:
       fail-fast: true
