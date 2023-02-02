@@ -175,6 +175,7 @@ pub fn create_default_context() -> EngineState {
             Benchmark,
             Complete,
             External,
+            Inspect,
             NuCheck,
             Sys,
         };

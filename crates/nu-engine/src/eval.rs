@@ -966,6 +966,174 @@ pub fn eval_block_with_early_return(
     }
 }
 
+// pub fn eval_block_benchmark(
+//     engine_state: &EngineState,
+//     stack: &mut Stack,
+//     block: &Block,
+//     mut input: PipelineData,
+//     redirect_stdout: bool,
+//     redirect_stderr: bool,
+// ) -> Result<PipelineData, ShellError> {
+//     // if Block contains recursion, make sure we don't recurse too deeply (to avoid stack overflow)
+//     if let Some(recursive) = block.recursive {
+//         // picked 50 arbitrarily, should work on all architectures
+//         const RECURSION_LIMIT: u64 = 50;
+//         if recursive {
+//             if *stack.recursion_count >= RECURSION_LIMIT {
+//                 stack.recursion_count = Box::new(0);
+//                 return Err(ShellError::RecursionLimitReached {
+//                     recursion_limit: RECURSION_LIMIT,
+//                     span: block.span,
+//                 });
+//             }
+//             *stack.recursion_count += 1;
+//         }
+//     }
+//     let num_pipelines = block.len();
+//     for (pipeline_idx, pipeline) in block.pipelines.iter().enumerate() {
+//         let mut i = 0;
+
+//         while i < pipeline.elements.len() {
+//             let redirect_stderr = redirect_stderr
+//                 || ((i < pipeline.elements.len() - 1)
+//                     && (matches!(
+//                         pipeline.elements[i + 1],
+//                         PipelineElement::Redirection(_, Redirection::Stderr, _)
+//                             | PipelineElement::Redirection(_, Redirection::StdoutAndStderr, _)
+//                             | PipelineElement::SeparateRedirection { .. }
+//                     )));
+
+//             // if eval internal command failed, it can just make early return with `Err(ShellError)`.
+//             let start_time = Instant::now();
+//             let eval_result = eval_element_with_input(
+//                 engine_state,
+//                 stack,
+//                 &pipeline.elements[i],
+//                 input,
+//                 redirect_stdout
+//                     || (i != pipeline.elements.len() - 1)
+//                         && (matches!(
+//                             pipeline.elements[i + 1],
+//                             PipelineElement::Redirection(_, Redirection::Stdout, _)
+//                                 | PipelineElement::Redirection(_, Redirection::StdoutAndStderr, _)
+//                                 | PipelineElement::Expression(..)
+//                                 | PipelineElement::SeparateRedirection { .. }
+//                         )),
+//                 redirect_stderr,
+//             );
+//             let end_time = Instant::now();
+
+//             let element_str = String::from_utf8_lossy(
+//                 engine_state.get_span_contents(&pipeline.elements[i].span()),
+//             );
+//             println!(
+//                 "\x1b[32m{}\x1b[0m : \x1b[33m{}\x1b[0m",
+//                 element_str,
+//                 format_duration((end_time - start_time).as_nanos() as i64)
+//             );
+
+//             match (eval_result, redirect_stderr) {
+//                 (Ok((pipeline_data, _)), true) => {
+//                     input = pipeline_data;
+
+//                     // external command may runs to failed
+//                     // make early return so remaining commands will not be executed.
+//                     // don't return `Err(ShellError)`, so nushell wouldn't show extra error message.
+//                 }
+//                 (Err(error), true) => input = PipelineData::Value(Value::Error { error }, None),
+//                 (output, false) => {
+//                     let output = output?;
+//                     input = output.0;
+//                     // external command may runs to failed
+//                     // make early return so remaining commands will not be executed.
+//                     // don't return `Err(ShellError)`, so nushell wouldn't show extra error message.
+//                     if output.1 {
+//                         return Ok(input);
+//                     }
+//                 }
+//             }
+
+//             i += 1;
+//         }
+
+//         if pipeline_idx < (num_pipelines) - 1 {
+//             match input {
+//                 PipelineData::Value(Value::Nothing { .. }, ..) => {}
+//                 PipelineData::ExternalStream {
+//                     ref mut exit_code, ..
+//                 } => {
+//                     let exit_code = exit_code.take();
+
+//                     // Drain the input to the screen via tabular output
+//                     let config = engine_state.get_config();
+
+//                     match engine_state.find_decl("table".as_bytes(), &[]) {
+//                         Some(decl_id) => {
+//                             let table = engine_state.get_decl(decl_id).run(
+//                                 engine_state,
+//                                 stack,
+//                                 &Call::new(Span::new(0, 0)),
+//                                 input,
+//                             )?;
+
+//                             print_or_return(table, config)?;
+//                         }
+//                         None => {
+//                             print_or_return(input, config)?;
+//                         }
+//                     };
+
+//                     if let Some(exit_code) = exit_code {
+//                         let mut v: Vec<_> = exit_code.collect();
+
+//                         if let Some(v) = v.pop() {
+//                             stack.add_env_var("LAST_EXIT_CODE".into(), v);
+//                         }
+//                     }
+//                 }
+//                 _ => {
+//                     // Drain the input to the screen via tabular output
+//                     let config = engine_state.get_config();
+
+//                     match engine_state.find_decl("table".as_bytes(), &[]) {
+//                         Some(decl_id) => {
+//                             let table = engine_state.get_decl(decl_id);
+
+//                             if let Some(block_id) = table.get_block_id() {
+//                                 let block = engine_state.get_block(block_id);
+//                                 eval_block(
+//                                     engine_state,
+//                                     stack,
+//                                     block,
+//                                     input,
+//                                     redirect_stdout,
+//                                     redirect_stderr,
+//                                 )?;
+//                             } else {
+//                                 let table = table.run(
+//                                     engine_state,
+//                                     stack,
+//                                     &Call::new(Span::new(0, 0)),
+//                                     input,
+//                                 )?;
+
+//                                 print_or_return(table, config)?;
+//                             }
+//                         }
+//                         None => {
+//                             print_or_return(input, config)?;
+//                         }
+//                     };
+//                 }
+//             }
+
+//             input = PipelineData::empty()
+//         }
+//     }
+
+//     Ok(input)
+// }
+
 pub fn eval_block(
     engine_state: &EngineState,
     stack: &mut Stack,
