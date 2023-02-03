@@ -1353,12 +1353,14 @@ pub fn parse_int(token: &[u8], span: Span) -> (Expression, Option<ParseError>) {
                 garbage(span),
                 Some(ParseError::InvalidSyntax(
                     "int".into(),
-                    format!("invalid digits for the radix {}", radix),
+                    format!("invalid digits in radix {} int", radix),
                     span,
                 )),
             )
         }
     }
+
+    let token = strip_underscores(token);
 
     if token.is_empty() {
         return (
@@ -1366,8 +1368,6 @@ pub fn parse_int(token: &[u8], span: Span) -> (Expression, Option<ParseError>) {
             Some(ParseError::Expected("int".into(), span)),
         );
     }
-
-    let token = strip_underscores(token);
 
     if let Some(num) = token.strip_prefix("0b") {
         extract_int(num, span, 2)
@@ -2618,7 +2618,7 @@ pub fn unescape_string(bytes: &[u8], span: Span) -> (Vec<u8>, Option<ParseError>
                 _ => {
                     err = Some(ParseError::InvalidSyntax(
                         "string".into(),
-                        "invalid character after escape character '\'".into(),
+                        "unrecognized character after escape '\\'".into(),
                         Span::new(span.start + idx, span.end),
                     ));
                     break 'us_loop;
@@ -4564,18 +4564,32 @@ pub fn parse_value(
                 //parse_value(working_set, span, &SyntaxShape::Table)
                 parse_full_cell_path(working_set, None, span, expand_aliases_denylist)
             } else {
+                /* Parser very sensitive to order of shapes tried.  Recording the original order for postierity
                 let shapes = [
-                    //FIXME choose order of tests based on some performance profile.
                     SyntaxShape::Binary,
                     SyntaxShape::Int,
                     SyntaxShape::Number,
                     SyntaxShape::Range,
-                    SyntaxShape::DateTime, //FIXME requires 3 failed conversion attempts before failing
+                    SyntaxShape::DateTime,
                     SyntaxShape::Filesize,
                     SyntaxShape::Duration,
                     SyntaxShape::Record,
                     SyntaxShape::Closure(None),
                     SyntaxShape::Block,
+                    SyntaxShape::String,
+                ];
+                */
+                let shapes = [
+                    SyntaxShape::Binary,
+                    SyntaxShape::Filesize,
+                    SyntaxShape::Duration,
+                    SyntaxShape::Range,
+                    SyntaxShape::DateTime, //FIXME requires 3 failed conversion attempts before failing
+                    SyntaxShape::Record,
+                    SyntaxShape::Closure(None),
+                    SyntaxShape::Block,
+                    SyntaxShape::Int,
+                    SyntaxShape::Number,
                     SyntaxShape::String,
                 ];
                 for shape in shapes.iter() {
