@@ -56,14 +56,25 @@ impl Command for Upsert {
             description: "Update a record's value",
             example: "{'name': 'nu', 'stars': 5} | upsert name 'Nushell'",
             result: Some(Value::Record { cols: vec!["name".into(), "stars".into()], vals: vec![Value::test_string("Nushell"), Value::test_int(5)], span: Span::test_data()}),
-        }, Example {
+        },
+        Example {
+            description: "Update each row of a table",
+            example: "[[name lang]; [Nushell ''] [Reedline '']] | upsert lang 'Rust'",
+            result: Some(Value::List { vals: vec![
+                Value::Record { cols: vec!["name".into(), "lang".into()], vals: vec![Value::test_string("Nushell"), Value::test_string("Rust")], span: Span::test_data()},
+                Value::Record { cols: vec!["name".into(), "lang".into()], vals: vec![Value::test_string("Reedline"), Value::test_string("Rust")], span: Span::test_data()}
+                ], span: Span::test_data()}),
+        },
+        Example {
             description: "Insert a new entry into a single record",
             example: "{'name': 'nu', 'stars': 5} | upsert language 'Rust'",
             result: Some(Value::Record { cols: vec!["name".into(), "stars".into(), "language".into()], vals: vec![Value::test_string("nu"), Value::test_int(5), Value::test_string("Rust")], span: Span::test_data()}),
         }, Example {
             description: "Use in closure form for more involved updating logic",
-            example: "[[count fruit]; [1 'apple']] | upsert count {|row index| ($row.fruit | str length) + $index }",
-            result: Some(Value::List { vals: vec![Value::Record { cols: vec!["count".into(), "fruit".into()], vals: vec![Value::test_int(5), Value::test_string("apple")], span: Span::test_data()}], span: Span::test_data()}),
+            example: "[[count fruit]; [1 'apple']] | enumerate | upsert item.count {|e| ($e.item.fruit | str length) + $e.index } | get item",
+            result: Some(Value::List { vals: vec![
+                Value::Record { cols: vec!["count".into(), "fruit".into()], vals: vec![Value::test_int(5), Value::test_string("apple")], span: Span::test_data()}],
+                span: Span::test_data()}),
         },
         Example {
             description: "Upsert an int into a list, updating an existing value based on the index",
@@ -116,9 +127,6 @@ fn upsert(
         let orig_env_vars = stack.env_vars.clone();
         let orig_env_hidden = stack.env_hidden.clone();
 
-        // enumerate() can't be used here because it converts records into tables
-        // when combined with into_pipeline_data(). Hence, the index is tracked manually like so.
-        let mut idx: i64 = 0;
         input.map(
             move |mut input| {
                 // with_env() is used here to ensure that each iteration uses
@@ -130,13 +138,6 @@ fn upsert(
                     if let Some(var_id) = &var.var_id {
                         stack.add_var(*var_id, input.clone())
                     }
-                }
-                // Optional index argument
-                if let Some(var) = block.signature.get_positional(1) {
-                    if let Some(var_id) = &var.var_id {
-                        stack.add_var(*var_id, Value::Int { val: idx, span });
-                    }
-                    idx += 1;
                 }
 
                 let output = eval_block(

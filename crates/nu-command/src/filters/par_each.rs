@@ -23,19 +23,17 @@ impl Command for ParEach {
 
     fn signature(&self) -> nu_protocol::Signature {
         Signature::build("par-each")
-            .input_output_types(vec![(
-                Type::List(Box::new(Type::Any)),
-                Type::List(Box::new(Type::Any)),
-            )])
+            .input_output_types(vec![
+                (
+                    Type::List(Box::new(Type::Any)),
+                    Type::List(Box::new(Type::Any)),
+                ),
+                (Type::Table(vec![]), Type::List(Box::new(Type::Any))),
+            ])
             .required(
                 "closure",
                 SyntaxShape::Closure(Some(vec![SyntaxShape::Any, SyntaxShape::Int])),
                 "the closure to run",
-            )
-            .switch(
-                "numbered",
-                "iterate with an index (deprecated; use a two-parameter closure instead)",
-                Some('n'),
             )
             .category(Category::Filters)
     }
@@ -49,8 +47,29 @@ impl Command for ParEach {
                 result: None,
             },
             Example {
-                example: r#"[1 2 3] | par-each -n { |it| if $it.item == 2 { $"found 2 at ($it.index)!"} }"#,
-                description: "Iterate over each element, print the matching value and its index",
+                example: r#"[foo bar baz] | par-each {|e| $e + '!' } | sort"#,
+                description: "Output can still be sorted afterward",
+                result: Some(Value::List {
+                    vals: vec![
+                        Value::test_string("bar!"),
+                        Value::test_string("baz!"),
+                        Value::test_string("foo!"),
+                    ],
+                    span: Span::test_data(),
+                }),
+            },
+            Example {
+                example: r#"1..3 | enumerate | par-each {|p| update item ($p.item * 2)} | sort-by item | get item"#,
+                description: "Enumerate and sort-by can be used to reconstruct the original order",
+                result: Some(Value::List {
+                    vals: vec![Value::test_int(2), Value::test_int(4), Value::test_int(6)],
+                    span: Span::test_data(),
+                }),
+            },
+            Example {
+                example: r#"[1 2 3] | enumerate | par-each { |e| if $e.item == 2 { $"found 2 at ($e.index)!"} }"#,
+                description:
+                    "Iterate over each element, producing a list showing indexes of any 2s",
                 result: Some(Value::List {
                     vals: vec![Value::test_string("found 2 at 1!")],
                     span: Span::test_data(),
@@ -68,12 +87,10 @@ impl Command for ParEach {
     ) -> Result<nu_protocol::PipelineData, nu_protocol::ShellError> {
         let capture_block: Closure = call.req(engine_state, stack, 0)?;
 
-        let numbered = call.has_flag("numbered");
         let metadata = input.metadata();
         let ctrlc = engine_state.ctrlc.clone();
         let block_id = capture_block.block_id;
         let mut stack = stack.captures_to_stack(&capture_block.captures);
-        let span = call.head;
         let redirect_stdout = call.redirect_stdout;
         let redirect_stderr = call.redirect_stderr;
 
@@ -81,45 +98,15 @@ impl Command for ParEach {
             PipelineData::Empty => Ok(PipelineData::Empty),
             PipelineData::Value(Value::Range { val, .. }, ..) => Ok(val
                 .into_range_iter(ctrlc.clone())?
-                .enumerate()
                 .par_bridge()
-                .map(move |(idx, x)| {
+                .map(move |x| {
                     let block = engine_state.get_block(block_id);
 
                     let mut stack = stack.clone();
 
                     if let Some(var) = block.signature.get_positional(0) {
                         if let Some(var_id) = &var.var_id {
-                            if numbered {
-                                stack.add_var(
-                                    *var_id,
-                                    Value::Record {
-                                        cols: vec!["index".into(), "item".into()],
-                                        vals: vec![
-                                            Value::Int {
-                                                val: idx as i64,
-                                                span,
-                                            },
-                                            x.clone(),
-                                        ],
-                                        span,
-                                    },
-                                );
-                            } else {
-                                stack.add_var(*var_id, x.clone());
-                            }
-                        }
-                    }
-                    // Optional second index argument
-                    if let Some(var) = block.signature.get_positional(1) {
-                        if let Some(var_id) = &var.var_id {
-                            stack.add_var(
-                                *var_id,
-                                Value::Int {
-                                    val: idx as i64,
-                                    span,
-                                },
-                            );
+                            stack.add_var(*var_id, x.clone());
                         }
                     }
 
@@ -145,45 +132,15 @@ impl Command for ParEach {
                 .into_pipeline_data(ctrlc)),
             PipelineData::Value(Value::List { vals: val, .. }, ..) => Ok(val
                 .into_iter()
-                .enumerate()
                 .par_bridge()
-                .map(move |(idx, x)| {
+                .map(move |x| {
                     let block = engine_state.get_block(block_id);
 
                     let mut stack = stack.clone();
 
                     if let Some(var) = block.signature.get_positional(0) {
                         if let Some(var_id) = &var.var_id {
-                            if numbered {
-                                stack.add_var(
-                                    *var_id,
-                                    Value::Record {
-                                        cols: vec!["index".into(), "item".into()],
-                                        vals: vec![
-                                            Value::Int {
-                                                val: idx as i64,
-                                                span,
-                                            },
-                                            x.clone(),
-                                        ],
-                                        span,
-                                    },
-                                );
-                            } else {
-                                stack.add_var(*var_id, x.clone());
-                            }
-                        }
-                    }
-                    // Optional second index argument
-                    if let Some(var) = block.signature.get_positional(1) {
-                        if let Some(var_id) = &var.var_id {
-                            stack.add_var(
-                                *var_id,
-                                Value::Int {
-                                    val: idx as i64,
-                                    span,
-                                },
-                            );
+                            stack.add_var(*var_id, x.clone());
                         }
                     }
 
@@ -208,45 +165,15 @@ impl Command for ParEach {
                 .flatten()
                 .into_pipeline_data(ctrlc)),
             PipelineData::ListStream(stream, ..) => Ok(stream
-                .enumerate()
                 .par_bridge()
-                .map(move |(idx, x)| {
+                .map(move |x| {
                     let block = engine_state.get_block(block_id);
 
                     let mut stack = stack.clone();
 
                     if let Some(var) = block.signature.get_positional(0) {
                         if let Some(var_id) = &var.var_id {
-                            if numbered {
-                                stack.add_var(
-                                    *var_id,
-                                    Value::Record {
-                                        cols: vec!["index".into(), "item".into()],
-                                        vals: vec![
-                                            Value::Int {
-                                                val: idx as i64,
-                                                span,
-                                            },
-                                            x.clone(),
-                                        ],
-                                        span,
-                                    },
-                                );
-                            } else {
-                                stack.add_var(*var_id, x.clone());
-                            }
-                        }
-                    }
-                    // Optional second index argument
-                    if let Some(var) = block.signature.get_positional(1) {
-                        if let Some(var_id) = &var.var_id {
-                            stack.add_var(
-                                *var_id,
-                                Value::Int {
-                                    val: idx as i64,
-                                    span,
-                                },
-                            );
+                            stack.add_var(*var_id, x.clone());
                         }
                     }
 
@@ -275,9 +202,8 @@ impl Command for ParEach {
                 stdout: Some(stream),
                 ..
             } => Ok(stream
-                .enumerate()
                 .par_bridge()
-                .map(move |(idx, x)| {
+                .map(move |x| {
                     let x = match x {
                         Ok(x) => x,
                         Err(err) => return Value::Error { error: err }.into_pipeline_data(),
@@ -289,36 +215,7 @@ impl Command for ParEach {
 
                     if let Some(var) = block.signature.get_positional(0) {
                         if let Some(var_id) = &var.var_id {
-                            if numbered {
-                                stack.add_var(
-                                    *var_id,
-                                    Value::Record {
-                                        cols: vec!["index".into(), "item".into()],
-                                        vals: vec![
-                                            Value::Int {
-                                                val: idx as i64,
-                                                span,
-                                            },
-                                            x.clone(),
-                                        ],
-                                        span,
-                                    },
-                                );
-                            } else {
-                                stack.add_var(*var_id, x.clone());
-                            }
-                        }
-                    }
-                    // Optional second index argument
-                    if let Some(var) = block.signature.get_positional(1) {
-                        if let Some(var_id) = &var.var_id {
-                            stack.add_var(
-                                *var_id,
-                                Value::Int {
-                                    val: idx as i64,
-                                    span,
-                                },
-                            );
+                            stack.add_var(*var_id, x.clone());
                         }
                     }
 
@@ -366,17 +263,6 @@ impl Command for ParEach {
 #[cfg(test)]
 mod test {
     use super::*;
-    use nu_test_support::{nu, pipeline};
-
-    #[test]
-    fn uses_optional_index_argument() {
-        let actual = nu!(
-            cwd: ".", pipeline(
-            r#"[7,8,9,10] | par-each {|el ind| $ind } | describe"#
-        ));
-
-        assert_eq!(actual.out, "list<int> (stream)");
-    }
 
     #[test]
     fn test_examples() {
