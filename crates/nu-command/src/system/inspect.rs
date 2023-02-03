@@ -1,7 +1,7 @@
 use std::time::Instant;
 
-use nu_engine::{eval_block, CallExt};
-use nu_protocol::ast::{Argument, Block, Call, Expr};
+use nu_engine::{eval_block, eval_expression, CallExt};
+use nu_protocol::ast::{Argument, Block, Call, Expr, Expression};
 use nu_protocol::engine::{Closure, Command, EngineState, Stack};
 use nu_protocol::{
     Category, Example, IntoPipelineData, PipelineData, ShellError, Signature, SyntaxShape, Type,
@@ -63,7 +63,7 @@ impl Command for Inspect {
             }
         }
 
-        let elements = get_pipeline_elements(engine_state, &block)?;
+        let elements = get_pipeline_elements(engine_state, stack, &block)?;
         // eprintln!("Pipeline Elements: {:?}", elements);
         for el in elements {
             eprintln!("{{ {el} }}");
@@ -71,15 +71,15 @@ impl Command for Inspect {
 
         // Get the start time after all other computation has been done.
         let start_time = Instant::now();
-        eval_block(
-            engine_state,
-            &mut stack,
-            block,
-            input_val.into_pipeline_data_with_metadata(input_metadata),
-            redirect_stdout,
-            redirect_stderr,
-        )?
-        .into_value(call.head);
+        // eval_block(
+        //     engine_state,
+        //     &mut stack,
+        //     block,
+        //     input_val.into_pipeline_data_with_metadata(input_metadata),
+        //     redirect_stdout,
+        //     redirect_stderr,
+        // )?
+        // .into_value(call.head);
 
         let end_time = Instant::now();
 
@@ -109,7 +109,7 @@ impl Command for Inspect {
 
 pub fn get_pipeline_elements(
     engine_state: &EngineState,
-    // stack: &mut Stack,
+    stack: Stack,
     block: &Block,
     // mut input: PipelineData,
     // redirect_stdout: bool,
@@ -126,9 +126,12 @@ pub fn get_pipeline_elements(
                 String::from_utf8_lossy(engine_state.get_span_contents(pipeline_span));
             let value = Value::string(element_str.to_string(), *pipeline_span);
             let expr = pipeline_expression.expr.clone();
-            let (command_name, command_args) = if let Expr::Call(c) = expr {
-                let command = engine_state.get_decl(c.decl_id);
-                (command.name().to_string(), get_arguments(c))
+            let (command_name, command_args) = if let Expr::Call(call) = expr {
+                let command = engine_state.get_decl(call.decl_id);
+                (
+                    command.name().to_string(),
+                    get_arguments(engine_state, stack.clone(), call),
+                )
             } else {
                 ("no-op".to_string(), "no-args".to_string())
             };
@@ -145,8 +148,9 @@ pub fn get_pipeline_elements(
     Ok(elements)
 }
 
-fn get_arguments(call: Box<Call>) -> String {
+fn get_arguments(engine_state: &EngineState, stack: Stack, call: Box<Call>) -> String {
     let mut arguments: Vec<String> = Vec::new();
+    let mut idx = 0;
     for arg in &call.arguments {
         match arg {
             Argument::Named((name, something, opt_expr)) => {
@@ -155,7 +159,7 @@ fn get_arguments(call: Box<Call>) -> String {
                 let arg_name_span_start = name.span.start;
                 let arg_name_span_end = name.span.end;
                 arguments.push(format!(
-                    "\"arg_type\": \"{arg_type}\", \"arg_name\": \"{arg_name}\", \"start\": {arg_name_span_start}, \"end\": {arg_name_span_end}"
+                    "\"arg_type{idx}\": \"{arg_type}\", \"arg_value_name{idx}\": \"{arg_name}\", \"arg_value_type{idx}\": \"string\", \"start{idx}\": {arg_name_span_start}, \"end{idx}\": {arg_name_span_end}"
                 ));
 
                 let some_thing = if let Some(thing) = something {
@@ -164,233 +168,106 @@ fn get_arguments(call: Box<Call>) -> String {
                     let thing_span_start = thing.span.start;
                     let thing_span_end = thing.span.end;
                     format!(
-                        "\"thing_type\": \"{thing_type}\", \"thing_name\": \"{thing_name}\", \"start\": {thing_span_start}, \"end\": {thing_span_end}"
+                        "\"thing_type{idx}\": \"{thing_type}\", \"thing_name{idx}\": \"{thing_name}\", \"start{idx}\": {thing_span_start}, \"end{idx}\": {thing_span_end}"
                     )
                 } else {
-                    format!("\"thing_type\": \"thing\", \"thing_value\": \"None\"")
+                    // format!("\"thing_type\": \"thing\", \"thing_value\": \"None\"")
+                    String::new()
                 };
                 arguments.push(some_thing);
 
                 let some_expr = if let Some(expression) = opt_expr {
-                    let expr_type = "expr";
-                    let expr_name = expression.expr.clone();
-                    let expr_span_start = expression.span.start;
-                    let expr_span_end = expression.span.end;
+                    let evaluated_expression =
+                        get_expression_as_value(engine_state, stack.clone(), expression);
+                    let evaled_name = debug_string_without_formatting(&evaluated_expression);
+                    let evaled_type = &evaluated_expression.get_type().to_string();
+                    let evaled_span = evaluated_expression.expect_span();
+                    let evaled_span_start = evaled_span.start;
+                    let evaled_span_end = evaled_span.end;
                     format!(
-                        "\"expr_type\": \"{expr_type}\", \"expr_name\": \"{expr_name:?}\", \"start\": {expr_span_start}, \"end\": {expr_span_end}"
+                        "\"arg_type\": \"expr\", \"arg_value_name{idx}\": \"{evaled_name:?}\", \"arg_value_type{idx}\": \"{evaled_type}\",  \"start{idx}\": {evaled_span_start}, \"end{idx}\": {evaled_span_end}"
                     )
                 } else {
-                    format!("\"expr_type\": \"expr\", \"expr_value\": \"None\"")
+                    // format!("\"expr_type\": \"expr\", \"arg_value_name\": \"None\"")
+                    String::new()
                 };
                 arguments.push(some_expr);
             }
             Argument::Positional(inner_expr) => {
                 let arg_type = "positional";
-                let (arg_value_type, arg_value, span_start, span_end) = match inner_expr
-                    .expr
-                    .clone()
-                {
-                    Expr::String(s) => ("string", s, inner_expr.span.start, inner_expr.span.end),
-                    Expr::Bool(b) => (
-                        "bool",
-                        b.to_string(),
-                        inner_expr.span.start,
-                        inner_expr.span.end,
-                    ),
-                    Expr::Int(i) => (
-                        "int",
-                        i.to_string(),
-                        inner_expr.span.start,
-                        inner_expr.span.end,
-                    ),
-                    Expr::Float(f) => (
-                        "float",
-                        f.to_string(),
-                        inner_expr.span.start,
-                        inner_expr.span.end,
-                    ),
-                    Expr::Binary(b) => (
-                        "binary",
-                        String::from_utf8_lossy(&b).to_string(),
-                        inner_expr.span.start,
-                        inner_expr.span.end,
-                    ),
-                    Expr::Range(r, s, e, t) => (
-                        "range",
-                        "range".to_string(),
-                        inner_expr.span.start,
-                        inner_expr.span.end,
-                    ),
-                    Expr::Var(v) => (
-                        "var",
-                        v.to_string(),
-                        inner_expr.span.start,
-                        inner_expr.span.end,
-                    ),
-                    Expr::VarDecl(v) => (
-                        "var_decl",
-                        v.to_string(),
-                        inner_expr.span.start,
-                        inner_expr.span.end,
-                    ),
-                    Expr::Call(c) => (
-                        "call",
-                        "call".to_string(),
-                        inner_expr.span.start,
-                        inner_expr.span.end,
-                    ),
-                    Expr::ExternalCall(e, s, t) => (
-                        "external_call",
-                        "external_call".to_string(),
-                        inner_expr.span.start,
-                        inner_expr.span.end,
-                    ),
-                    Expr::Operator(o) => (
-                        "operator",
-                        o.to_string(),
-                        inner_expr.span.start,
-                        inner_expr.span.end,
-                    ),
-                    Expr::RowCondition(r) => (
-                        "row_condition",
-                        r.to_string(),
-                        inner_expr.span.start,
-                        inner_expr.span.end,
-                    ),
-                    Expr::UnaryNot(u) => (
-                        "unary_not",
-                        "unary_not".to_string(),
-                        inner_expr.span.start,
-                        inner_expr.span.end,
-                    ),
-                    Expr::BinaryOp(b, o, e) => (
-                        "binary_op",
-                        "binary_op".to_string(),
-                        inner_expr.span.start,
-                        inner_expr.span.end,
-                    ),
-                    Expr::Subexpression(s) => (
-                        "subexpression",
-                        s.to_string(),
-                        inner_expr.span.start,
-                        inner_expr.span.end,
-                    ),
-                    Expr::Block(b) => (
-                        "block",
-                        b.to_string(),
-                        inner_expr.span.start,
-                        inner_expr.span.end,
-                    ),
-                    Expr::Closure(c) => (
-                        "closure",
-                        c.to_string(),
-                        inner_expr.span.start,
-                        inner_expr.span.end,
-                    ),
-                    Expr::List(l) => (
-                        "list",
-                        "list".to_string(),
-                        inner_expr.span.start,
-                        inner_expr.span.end,
-                    ),
-                    Expr::Table(t, s) => (
-                        "table",
-                        "table".to_string(),
-                        inner_expr.span.start,
-                        inner_expr.span.end,
-                    ),
-                    Expr::Record(r) => (
-                        "record",
-                        "record".to_string(),
-                        inner_expr.span.start,
-                        inner_expr.span.end,
-                    ),
-                    Expr::Keyword(k, s, e) => (
-                        "keyword",
-                        String::from_utf8_lossy(&k).to_string(),
-                        inner_expr.span.start,
-                        inner_expr.span.end,
-                    ),
-                    Expr::ValueWithUnit(v, u) => (
-                        "value_with_unit",
-                        "value_with_unit".to_string(),
-                        inner_expr.span.start,
-                        inner_expr.span.end,
-                    ),
-                    Expr::DateTime(d) => (
-                        "datetime",
-                        d.to_string(),
-                        inner_expr.span.start,
-                        inner_expr.span.end,
-                    ),
-                    Expr::Filepath(f) => {
-                        ("filepath", f, inner_expr.span.start, inner_expr.span.end)
-                    }
-                    Expr::Directory(d) => {
-                        ("directory", d, inner_expr.span.start, inner_expr.span.end)
-                    }
-                    Expr::GlobPattern(g) => (
-                        "glob_pattern",
-                        g,
-                        inner_expr.span.start,
-                        inner_expr.span.end,
-                    ),
-                    Expr::CellPath(c) => (
-                        "cell_path",
-                        "cell_path".to_string(),
-                        inner_expr.span.start,
-                        inner_expr.span.end,
-                    ),
-                    Expr::FullCellPath(f) => (
-                        "full_cell_path",
-                        "full_cell_path".to_string(),
-                        inner_expr.span.start,
-                        inner_expr.span.end,
-                    ),
-                    Expr::ImportPattern(i) => (
-                        "import_pattern",
-                        "import_pattern".to_string(),
-                        inner_expr.span.start,
-                        inner_expr.span.end,
-                    ),
-                    Expr::Overlay(o) => (
-                        "overlay",
-                        "overlay".to_string(),
-                        inner_expr.span.start,
-                        inner_expr.span.end,
-                    ),
-                    Expr::Signature(s) => (
-                        "signature",
-                        "signature".to_string(),
-                        inner_expr.span.start,
-                        inner_expr.span.end,
-                    ),
-                    Expr::StringInterpolation(s) => (
-                        "string_interpolation",
-                        "string_interpolation".to_string(),
-                        inner_expr.span.start,
-                        inner_expr.span.end,
-                    ),
-                    Expr::Nothing => (
-                        "nothing",
-                        "nothing".to_string(),
-                        inner_expr.span.start,
-                        inner_expr.span.end,
-                    ),
-                    Expr::Garbage => (
-                        "garbage",
-                        "garbage".to_string(),
-                        inner_expr.span.start,
-                        inner_expr.span.end,
-                    ),
-                };
-                arguments.push(format!("\"arg_type\": \"{arg_type}\", \"arg_name\": \"{arg_value}\", \"arg_type\": \"{arg_value_type}\", \"start\": {span_start}, \"end\": {span_end}"));
+                let evaluated_expression =
+                    get_expression_as_value(engine_state, stack.clone(), inner_expr);
+                let evaled_name = debug_string_without_formatting(&evaluated_expression);
+                let evaled_type = &evaluated_expression.get_type().to_string();
+                let evaled_span = evaluated_expression.expect_span();
+                let evaled_span_start = evaled_span.start;
+                let evaled_span_end = evaled_span.end;
+                arguments.push(format!(
+                    "arg_type{idx}: {arg_type}, arg_value_name{idx}: {evaled_name}, arg_value_type{idx}: {evaled_type}, start{idx}: {evaled_span_start}, end{idx}: {evaled_span_end}"
+                ));
             }
-            Argument::Unknown(inner_expr) => {
-                arguments.push(format!("\"e_unknown\": {inner_expr:#?}"))
-            }
+            Argument::Unknown(inner_expr) => arguments.push(format!(
+                "\"arg_type{idx}\": \"unknown\": \"{inner_expr:#?}\""
+            )),
         };
+        idx += 1;
     }
 
     arguments.join(", ")
+}
+
+fn get_expression_as_value(
+    engine_state: &EngineState,
+    stack: Stack,
+    inner_expr: &Expression,
+) -> Value {
+    match eval_expression(engine_state, &mut stack.clone(), inner_expr) {
+        Ok(v) => v,
+        Err(error) => Value::Error { error },
+    }
+}
+
+pub fn debug_string_without_formatting(value: &Value) -> String {
+    match value {
+        Value::Bool { val, .. } => val.to_string(),
+        Value::Int { val, .. } => val.to_string(),
+        Value::Float { val, .. } => val.to_string(),
+        Value::Filesize { val, .. } => val.to_string(),
+        Value::Duration { val, .. } => val.to_string(),
+        Value::Date { val, .. } => format!("{val:?}"),
+        Value::Range { val, .. } => {
+            format!(
+                "{}..{}",
+                debug_string_without_formatting(&val.from),
+                debug_string_without_formatting(&val.to)
+            )
+        }
+        Value::String { val, .. } => val.clone(),
+        Value::List { vals: val, .. } => format!(
+            "[{}]",
+            val.iter()
+                .map(|x| debug_string_without_formatting(x))
+                .collect::<Vec<_>>()
+                .join(" ")
+        ),
+        Value::Record { cols, vals, .. } => format!(
+            "{{{}}}",
+            cols.iter()
+                .zip(vals.iter())
+                .map(|(x, y)| format!("{}: {}", x, debug_string_without_formatting(y)))
+                .collect::<Vec<_>>()
+                .join(" ")
+        ),
+        Value::LazyRecord { val, .. } => match val.collect() {
+            Ok(val) => debug_string_without_formatting(&val),
+            Err(error) => format!("{error:?}"),
+        },
+        Value::Block { val, .. } => format!("<Block {val}>"),
+        Value::Closure { val, .. } => format!("<Closure {val}>"),
+        Value::Nothing { .. } => String::new(),
+        Value::Error { error } => format!("{error:?}"),
+        Value::Binary { val, .. } => format!("{val:?}"),
+        Value::CellPath { val, .. } => val.into_string(),
+        Value::CustomValue { val, .. } => val.value_string(),
+    }
 }
