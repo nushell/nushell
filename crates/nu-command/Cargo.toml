@@ -74,7 +74,6 @@ roxmltree = "0.17.0"
 rust-embed = "6.3.0"
 same-file = "1.0.6"
 serde = { version = "1.0.123", features = ["derive"] }
-serde_ini = "0.2.0"
 serde_urlencoded = "0.7.0"
 serde_yaml = "0.9.4"
 sha2 = "0.10.0"

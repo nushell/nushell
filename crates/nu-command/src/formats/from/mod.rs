@@ -1,7 +1,6 @@
 mod command;
 mod csv;
 mod delimited;
-mod ini;
 mod json;
 mod nuon;
 mod ods;
@@ -17,7 +16,6 @@ pub use self::csv::FromCsv;
 pub use self::toml::FromToml;
 pub use self::url::FromUrl;
 pub use command::From;
-pub use ini::FromIni;
 pub use json::FromJson;
 pub use nuon::FromNuon;
 pub use ods::FromOds;

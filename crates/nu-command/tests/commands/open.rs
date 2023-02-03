@@ -188,26 +188,6 @@ fn parses_xml() {
     )
 }
 
-#[test]
-fn parses_ini() {
-    let actual = nu!(
-        cwd: "tests/fixtures/formats",
-        "open sample.ini | get SectionOne.integer"
-    );
-
-    assert_eq!(actual.out, "1234")
-}
-
-#[test]
-fn parses_utf16_ini() {
-    let actual = nu!(
-        cwd: "tests/fixtures/formats",
-        "open ./utf16.ini --raw | decode utf-16 | from ini | rename info | get info | get IconIndex"
-    );
-
-    assert_eq!(actual.out, "-236")
-}
-
 #[cfg(feature = "dataframe")]
 #[test]
 fn parses_arrow_ipc() {
