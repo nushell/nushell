@@ -328,7 +328,6 @@ pub fn create_default_context() -> EngineState {
         bind_command! {
             From,
             FromCsv,
-            FromIcs,
             FromIni,
             FromJson,
             FromNuon,
@@ -337,7 +336,6 @@ pub fn create_default_context() -> EngineState {
             FromToml,
             FromTsv,
             FromUrl,
-            FromVcf,
             FromXlsx,
             FromXml,
             FromYaml,
