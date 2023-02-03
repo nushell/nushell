@@ -2955,6 +2955,7 @@ dependencies = [
  "num-format",
  "once_cell",
  "tempfile",
+ "which",
 ]
 
 [[package]]
