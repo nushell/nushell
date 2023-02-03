@@ -87,7 +87,6 @@ jobs:
           source <(cargo llvm-cov show-env --export-prefix) # Set the environment variables needed to get coverage.
           printenv
           cargo llvm-cov clean --workspace # Remove artifacts that may affect the coverage results.
-          cargo build --workspace --all-targets --profile ci
           cargo test --workspace --profile ci --exclude nu_plugin_* ${{ matrix.flags }}
           cargo llvm-cov report --profile ci --lcov --output-path lcov.info
 
