@@ -15,7 +15,7 @@ impl Command for Inspect {
     }
 
     fn usage(&self) -> &str {
-        "Inspect the running closure"
+        "Inspect closure contents."
     }
 
     fn signature(&self) -> nu_protocol::Signature {
@@ -40,6 +40,7 @@ impl Command for Inspect {
         call: &Call,
         input: PipelineData,
     ) -> Result<nu_protocol::PipelineData, nu_protocol::ShellError> {
+        // This was all delightfully stolen from benchmark :)
         let capture_block: Closure = call.req(engine_state, stack, 0)?;
         let block = engine_state.get_block(capture_block.block_id);
         let ctrlc = engine_state.ctrlc.clone();
@@ -63,10 +64,6 @@ impl Command for Inspect {
         }
 
         let elements = get_pipeline_elements(engine_state, stack, &block)?;
-        // eprintln!("Pipeline Elements: {:?}", elements);
-        // for el in elements {
-        //     eprintln!("{{ {el} }}");
-        // }
 
         // Get the start time after all other computation has been done.
         // let start_time = Instant::now();
@@ -92,18 +89,11 @@ impl Command for Inspect {
     }
 
     fn examples(&self) -> Vec<Example> {
-        vec![
-            Example {
-                description: "Inspect a command within a closure",
-                example: "inspect { sleep 500ms }",
-                result: None,
-            },
-            Example {
-                description: "Inspect a command using an existing input",
-                example: "http get https://www.nushell.sh/book/ | inspect { split chars }",
-                result: None,
-            },
-        ]
+        vec![Example {
+            description: "Inspect a command within a closure",
+            example: "inspect { ls | sort-by name type -i | get name } | table -e",
+            result: None,
+        }]
     }
 }
 
@@ -115,17 +105,12 @@ pub fn get_pipeline_elements(
     // redirect_stdout: bool,
     // redirect_stderr: bool,
 ) -> Result<Vec<Value>, ShellError> {
-    // let mut elements = vec![];
     let mut element_values = vec![];
     let span = Span::test_data();
-    // let mut commands = vec![];
 
     for (pipeline_idx, pipeline) in block.pipelines.iter().enumerate() {
         let mut i = 0;
         while i < pipeline.elements.len() {
-            // let mut cols = vec![];
-            // let mut vals = vec![];
-
             let pipeline_element = &pipeline.elements[i];
             let pipeline_expression = pipeline_element.expression().clone();
             let pipeline_span = &pipeline_element.span();
@@ -140,8 +125,6 @@ pub fn get_pipeline_elements(
                     get_arguments(engine_state, stack.clone(), call),
                 )
             } else {
-                // ("no-op".to_string(), "no-args".to_string())
-                // ("no-op".to_string(), (vec![], "no-args".to_string()))
                 ("no-op".to_string(), vec![])
             };
             let index = format!("{pipeline_idx}_{i}");
@@ -150,20 +133,7 @@ pub fn get_pipeline_elements(
             let value_span_start = value_span.start as i64;
             let value_span_end = value_span.end as i64;
             let command_name = command_name;
-            // let element = format!("\"index\": \"{index}\", \"value_type\": \"{value_type}\", \"value_span_start\": {value_span_start}, \"value_span_end\": {value_span_end}, \"command_name\": \"{command_name}\", \"arguments\": {{ {command_args_str:?} }}");
-            // elements.push(element);
-            // cols.push("index".to_string());
-            // vals.push(Value::string(index, span));
-            // cols.push("value_type".to_string());
-            // vals.push(Value::string(value_type.to_string(), span));
-            // cols.push("value_span_start".to_string());
-            // vals.push(Value::int(value_span_start, span));
-            // cols.push("value_span_end".to_string());
-            // vals.push(Value::int(value_span_end, span));
-            // cols.push("command_name".to_string());
-            // vals.push(Value::string(command_name, value_span));
-            // cols.push("arguments".to_string());
-            // vals.push(command_args);
+
             let rec = Value::Record {
                 cols: vec![
                     "cmd_index".to_string(),
@@ -187,17 +157,14 @@ pub fn get_pipeline_elements(
                 span: value_span,
             };
             element_values.push(rec);
-            // commands.push(Value::Record { cols, vals, span });
             i += 1;
         }
     }
-    // Ok(elements)
     Ok(element_values)
 }
 
 fn get_arguments(engine_state: &EngineState, stack: Stack, call: Box<Call>) -> Vec<Value> {
     let mut arg_value = vec![];
-    // let mut idx = 0;
     let span = Span::test_data();
     for arg in &call.arguments {
         match arg {
@@ -206,9 +173,6 @@ fn get_arguments(engine_state: &EngineState, stack: Stack, call: Box<Call>) -> V
                 let arg_value_name = name.item.clone();
                 let arg_value_name_span_start = name.span.start as i64;
                 let arg_value_name_span_end = name.span.end as i64;
-                // arguments.push(format!(
-                //     "\"arg_type{idx}\": \"{arg_type}\", \"arg_value_name{idx}\": \"{arg_value_name}\", \"arg_value_type{idx}\": \"string\", \"start{idx}\": {arg_value_name_span_start}, \"end{idx}\": {arg_value_name_span_end}"
-                // ));
 
                 let rec = Value::Record {
                     cols: vec![
@@ -234,9 +198,6 @@ fn get_arguments(engine_state: &EngineState, stack: Stack, call: Box<Call>) -> V
                     let arg_value_name = thing.item.clone();
                     let arg_value_name_span_start = thing.span.start as i64;
                     let arg_value_name_span_end = thing.span.end as i64;
-                    // arguments.push(format!(
-                    //     "\"thing_type{idx}\": \"{arg_type}\", \"thing_name{idx}\": \"{arg_value_name}\", \"start{idx}\": {arg_value_name_span_start}, \"end{idx}\": {arg_value_name_span_end}"
-                    // ));
 
                     let rec = Value::Record {
                         cols: vec![
@@ -257,10 +218,8 @@ fn get_arguments(engine_state: &EngineState, stack: Stack, call: Box<Call>) -> V
                     };
                     arg_value.push(rec);
                 } else {
-                    // format!("\"thing_type\": \"thing\", \"thing_value\": \"None\"")
                     ()
                 };
-                // arguments.push(some_thing);
 
                 if let Some(expression) = opt_expr {
                     let evaluated_expression =
@@ -271,9 +230,6 @@ fn get_arguments(engine_state: &EngineState, stack: Stack, call: Box<Call>) -> V
                     let evaled_span = evaluated_expression.expect_span();
                     let arg_value_name_span_start = evaled_span.start as i64;
                     let arg_value_name_span_end = evaled_span.end as i64;
-                    // arguments.push(format!(
-                    //     "\"arg_type\": \"{arg_type}\", \"arg_value_name{idx}\": \"{arg_value_name:?}\", \"arg_value_type{idx}\": \"{arg_value_type}\",  \"start{idx}\": {arg_value_name_span_start}, \"end{idx}\": {arg_value_name_span_end}"
-                    // ));
 
                     let rec = Value::Record {
                         cols: vec![
@@ -294,11 +250,8 @@ fn get_arguments(engine_state: &EngineState, stack: Stack, call: Box<Call>) -> V
                     };
                     arg_value.push(rec);
                 } else {
-                    // format!("\"expr_type\": \"expr\", \"arg_value_name\": \"None\"")
-                    // String::new()
                     ()
                 };
-                // arguments.push(some_expr);
             }
             Argument::Positional(inner_expr) => {
                 let arg_type = "positional";
@@ -309,9 +262,6 @@ fn get_arguments(engine_state: &EngineState, stack: Stack, call: Box<Call>) -> V
                 let evaled_span = evaluated_expression.expect_span();
                 let arg_value_name_span_start = evaled_span.start as i64;
                 let arg_value_name_span_end = evaled_span.end as i64;
-                // arguments.push(format!(
-                //     "arg_type{idx}: {arg_type}, arg_value_name{idx}: {arg_value_name}, arg_value_type{idx}: {arg_value_type}, start{idx}: {arg_value_name_span_start}, end{idx}: {arg_value_name_span_end}"
-                // ));
 
                 let rec = Value::Record {
                     cols: vec![
@@ -361,12 +311,7 @@ fn get_arguments(engine_state: &EngineState, stack: Stack, call: Box<Call>) -> V
                 };
                 arg_value.push(rec);
             }
-
-            // arguments.push(format!(
-            //     "\"arg_type{idx}\": \"unknown\": \"{inner_expr:#?}\""
-            // )),
         };
-        // idx += 1;
     }
 
     arg_value
