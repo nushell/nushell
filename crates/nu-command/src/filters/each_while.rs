@@ -24,19 +24,17 @@ impl Command for EachWhile {
 
     fn signature(&self) -> nu_protocol::Signature {
         Signature::build(self.name())
-            .input_output_types(vec![(
-                Type::List(Box::new(Type::Any)),
-                Type::List(Box::new(Type::Any)),
-            )])
+            .input_output_types(vec![
+                (
+                    Type::List(Box::new(Type::Any)),
+                    Type::List(Box::new(Type::Any)),
+                ),
+                (Type::Table(vec![]), Type::List(Box::new(Type::Any))),
+            ])
             .required(
                 "closure",
                 SyntaxShape::Closure(Some(vec![SyntaxShape::Any, SyntaxShape::Int])),
                 "the closure to run",
-            )
-            .switch(
-                "numbered",
-                "iterate with an index (deprecated; use a two-parameter closure instead)",
-                Some('n'),
             )
             .category(Category::Filters)
     }
@@ -66,7 +64,7 @@ impl Command for EachWhile {
                 }),
             },
             Example {
-                example: r#"[1 2 3] | each while {|el ind| if $el < 2 { $"value ($el) at ($ind)!"} }"#,
+                example: r#"[1 2 3] | enumerate | each while {|e| if $e.item < 2 { $"value ($e.item) at ($e.index)!"} }"#,
                 description: "Iterate over each element, printing the matching value and its index",
                 result: Some(Value::List {
                     vals: vec![Value::test_string("value 1 at 0!")],
@@ -84,7 +82,6 @@ impl Command for EachWhile {
         input: PipelineData,
     ) -> Result<nu_protocol::PipelineData, nu_protocol::ShellError> {
         let capture_block: Closure = call.req(engine_state, stack, 0)?;
-        let numbered = call.has_flag("numbered");
 
         let metadata = input.metadata();
         let ctrlc = engine_state.ctrlc.clone();
@@ -102,12 +99,9 @@ impl Command for EachWhile {
             PipelineData::Value(Value::Range { .. }, ..)
             | PipelineData::Value(Value::List { .. }, ..)
             | PipelineData::ListStream { .. } => Ok(input
-                // To enumerate over the input (for the index argument),
-                // it must be converted into an iterator using into_iter().
                 // TODO: Could this be changed to .into_interruptible_iter(ctrlc) ?
                 .into_iter()
-                .enumerate()
-                .map_while(move |(idx, x)| {
+                .map_while(move |x| {
                     // with_env() is used here to ensure that each iteration uses
                     // a different set of environment variables.
                     // Hence, a 'cd' in the first loop won't affect the next loop.
@@ -115,36 +109,7 @@ impl Command for EachWhile {
 
                     if let Some(var) = block.signature.get_positional(0) {
                         if let Some(var_id) = &var.var_id {
-                            if numbered {
-                                stack.add_var(
-                                    *var_id,
-                                    Value::Record {
-                                        cols: vec!["index".into(), "item".into()],
-                                        vals: vec![
-                                            Value::Int {
-                                                val: idx as i64,
-                                                span,
-                                            },
-                                            x.clone(),
-                                        ],
-                                        span,
-                                    },
-                                );
-                            } else {
-                                stack.add_var(*var_id, x.clone());
-                            }
-                        }
-                    }
-                    // Optional second index argument
-                    if let Some(var) = block.signature.get_positional(1) {
-                        if let Some(var_id) = &var.var_id {
-                            stack.add_var(
-                                *var_id,
-                                Value::Int {
-                                    val: idx as i64,
-                                    span,
-                                },
-                            );
+                            stack.add_var(*var_id, x.clone());
                         }
                     }
 
@@ -175,8 +140,7 @@ impl Command for EachWhile {
                 ..
             } => Ok(stream
                 .into_iter()
-                .enumerate()
-                .map_while(move |(idx, x)| {
+                .map_while(move |x| {
                     // with_env() is used here to ensure that each iteration uses
                     // a different set of environment variables.
                     // Hence, a 'cd' in the first loop won't affect the next loop.
@@ -189,24 +153,7 @@ impl Command for EachWhile {
 
                     if let Some(var) = block.signature.get_positional(0) {
                         if let Some(var_id) = &var.var_id {
-                            if numbered {
-                                stack.add_var(
-                                    *var_id,
-                                    Value::Record {
-                                        cols: vec!["index".into(), "item".into()],
-                                        vals: vec![
-                                            Value::Int {
-                                                val: idx as i64,
-                                                span,
-                                            },
-                                            x.clone(),
-                                        ],
-                                        span,
-                                    },
-                                );
-                            } else {
-                                stack.add_var(*var_id, x.clone());
-                            }
+                            stack.add_var(*var_id, x.clone());
                         }
                     }
 
@@ -257,17 +204,7 @@ impl Command for EachWhile {
 #[cfg(test)]
 mod test {
     use super::*;
-    use nu_test_support::{nu, pipeline};
 
-    #[test]
-    fn uses_optional_index_argument() {
-        let actual = nu!(
-            cwd: ".", pipeline(
-            r#"[7 8 9 10] | each while {|el ind| $el + $ind } | to nuon"#
-        ));
-
-        assert_eq!(actual.out, "[7, 9, 11, 13]");
-    }
     #[test]
     fn test_examples() {
         use crate::test_examples;
