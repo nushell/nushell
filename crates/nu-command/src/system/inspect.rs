@@ -25,10 +25,7 @@ impl Command for Inspect {
                 SyntaxShape::Closure(Some(vec![SyntaxShape::Any])),
                 "the closure to run",
             )
-            .input_output_types(vec![
-                (Type::Any, Type::Duration),
-                (Type::Nothing, Type::Duration),
-            ])
+            .input_output_types(vec![(Type::Any, Type::Any), (Type::Nothing, Type::Any)])
             .allow_variants_without_examples(true)
             .category(Category::System)
     }
@@ -59,12 +56,11 @@ impl Command for Inspect {
 
         if let Some(var) = block.signature.get_positional(0) {
             if let Some(var_id) = &var.var_id {
-                stack.add_var(*var_id, input_val.clone());
+                stack.add_var(*var_id, input_val);
             }
         }
 
-        let elements = get_pipeline_elements(engine_state, stack, &block)?;
-
+        let elements = get_pipeline_elements(engine_state, &mut stack, block)?;
         // Get the start time after all other computation has been done.
         // let start_time = Instant::now();
         // eval_block(
@@ -99,7 +95,7 @@ impl Command for Inspect {
 
 pub fn get_pipeline_elements(
     engine_state: &EngineState,
-    stack: Stack,
+    stack: &mut Stack,
     block: &Block,
     // mut input: PipelineData,
     // redirect_stdout: bool,
@@ -122,7 +118,7 @@ pub fn get_pipeline_elements(
                 let command = engine_state.get_decl(call.decl_id);
                 (
                     command.name().to_string(),
-                    get_arguments(engine_state, stack.clone(), call),
+                    get_arguments(engine_state, stack, *call),
                 )
             } else {
                 ("no-op".to_string(), vec![])
@@ -163,7 +159,7 @@ pub fn get_pipeline_elements(
     Ok(element_values)
 }
 
-fn get_arguments(engine_state: &EngineState, stack: Stack, call: Box<Call>) -> Vec<Value> {
+fn get_arguments(engine_state: &EngineState, stack: &mut Stack, call: Call) -> Vec<Value> {
     let mut arg_value = vec![];
     let span = Span::test_data();
     for arg in &call.arguments {
@@ -218,12 +214,11 @@ fn get_arguments(engine_state: &EngineState, stack: Stack, call: Box<Call>) -> V
                     };
                     arg_value.push(rec);
                 } else {
-                    ()
                 };
 
                 if let Some(expression) = opt_expr {
                     let evaluated_expression =
-                        get_expression_as_value(engine_state, stack.clone(), expression);
+                        get_expression_as_value(engine_state, stack, expression);
                     let arg_type = "expr";
                     let arg_value_name = debug_string_without_formatting(&evaluated_expression);
                     let arg_value_type = &evaluated_expression.get_type().to_string();
@@ -250,13 +245,11 @@ fn get_arguments(engine_state: &EngineState, stack: Stack, call: Box<Call>) -> V
                     };
                     arg_value.push(rec);
                 } else {
-                    ()
                 };
             }
             Argument::Positional(inner_expr) => {
                 let arg_type = "positional";
-                let evaluated_expression =
-                    get_expression_as_value(engine_state, stack.clone(), inner_expr);
+                let evaluated_expression = get_expression_as_value(engine_state, stack, inner_expr);
                 let arg_value_name = debug_string_without_formatting(&evaluated_expression);
                 let arg_value_type = &evaluated_expression.get_type().to_string();
                 let evaled_span = evaluated_expression.expect_span();
@@ -284,8 +277,7 @@ fn get_arguments(engine_state: &EngineState, stack: Stack, call: Box<Call>) -> V
             }
             Argument::Unknown(inner_expr) => {
                 let arg_type = "unknown";
-                let evaluated_expression =
-                    get_expression_as_value(engine_state, stack.clone(), inner_expr);
+                let evaluated_expression = get_expression_as_value(engine_state, stack, inner_expr);
                 let arg_value_name = debug_string_without_formatting(&evaluated_expression);
                 let arg_value_type = &evaluated_expression.get_type().to_string();
                 let evaled_span = evaluated_expression.expect_span();
@@ -319,10 +311,10 @@ fn get_arguments(engine_state: &EngineState, stack: Stack, call: Box<Call>) -> V
 
 fn get_expression_as_value(
     engine_state: &EngineState,
-    stack: Stack,
+    stack: &mut Stack,
     inner_expr: &Expression,
 ) -> Value {
-    match eval_expression(engine_state, &mut stack.clone(), inner_expr) {
+    match eval_expression(engine_state, stack, inner_expr) {
         Ok(v) => v,
         Err(error) => Value::Error { error },
     }
@@ -347,7 +339,7 @@ pub fn debug_string_without_formatting(value: &Value) -> String {
         Value::List { vals: val, .. } => format!(
             "[{}]",
             val.iter()
-                .map(|x| debug_string_without_formatting(x))
+                .map(debug_string_without_formatting)
                 .collect::<Vec<_>>()
                 .join(" ")
         ),
