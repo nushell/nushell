@@ -60,7 +60,7 @@ impl Command for Update {
             },
             Example {
                 description: "Use in closure form for more involved updating logic",
-                example: "[[count fruit]; [1 'apple']] | update count {|row index| ($row.fruit | str length) + $index }",
+                example: "[[count fruit]; [1 'apple']] | enumerate | update item.count {|e| ($e.item.fruit | str length) + $e.index } | get item",
                 result: Some(Value::List {
                     vals: vec![Value::Record {
                         cols: vec!["count".into(), "fruit".into()],
@@ -105,9 +105,6 @@ fn update(
         let orig_env_vars = stack.env_vars.clone();
         let orig_env_hidden = stack.env_hidden.clone();
 
-        // enumerate() can't be used here because it converts records into tables
-        // when combined with into_pipeline_data(). Hence, the index is tracked manually like so.
-        let mut idx: i64 = 0;
         input.map(
             move |mut input| {
                 // with_env() is used here to ensure that each iteration uses
@@ -119,13 +116,6 @@ fn update(
                     if let Some(var_id) = &var.var_id {
                         stack.add_var(*var_id, input.clone())
                     }
-                }
-                // Optional index argument
-                if let Some(var) = block.signature.get_positional(1) {
-                    if let Some(var_id) = &var.var_id {
-                        stack.add_var(*var_id, Value::Int { val: idx, span });
-                    }
-                    idx += 1;
                 }
 
                 let output = eval_block(

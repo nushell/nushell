@@ -34,7 +34,7 @@ impl Command for For {
             .required("block", SyntaxShape::Block, "the block to run")
             .switch(
                 "numbered",
-                "returned a numbered item ($it.index and $it.item)",
+                "return a numbered item ($it.index and $it.item)",
                 Some('n'),
             )
             .creates_scope()
