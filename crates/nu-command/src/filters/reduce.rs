@@ -1,4 +1,4 @@
-use nu_engine::{eval_block, CallExt};
+use nu_engine::{eval_block_with_early_return, CallExt};
 
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Closure, Command, EngineState, Stack};
@@ -140,7 +140,7 @@ impl Command for Reduce {
                 }
             }
 
-            acc = eval_block(
+            acc = eval_block_with_early_return(
                 engine_state,
                 &mut stack,
                 block,
