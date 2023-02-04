@@ -92,7 +92,7 @@ impl Command for Du {
             exclude: call.get_flag(engine_state, stack, "exclude")?,
             max_depth: call
                 .get_flag::<i64>(engine_state, stack, "max-depth")?
-                .map(|n| (n as u64).try_into().expect("error converting i64 to u64")),
+                .map(|n| n.unsigned_abs() as i64),
             min_size: call.get_flag(engine_state, stack, "min-size")?,
         };
 
