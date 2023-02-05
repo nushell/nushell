@@ -79,6 +79,7 @@ mod select;
 mod semicolon;
 mod seq;
 mod seq_char;
+mod set_metadata;
 mod shells;
 mod skip;
 mod sort;
