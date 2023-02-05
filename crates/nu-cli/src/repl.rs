@@ -1095,7 +1095,7 @@ fn run_hook_block(
 ) -> Result<PipelineData, ShellError> {
     let block = engine_state.get_block(block_id);
 
-    let input = optional_input.unwrap_or_else(PipelineData::empty);
+    let input = optional_input.unwrap_or_default();
 
     let mut callee_stack = stack.gather_captures(&block.captures);
 

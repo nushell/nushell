@@ -38,7 +38,7 @@ const LINE_ENDING_PATTERN: &[char] = &['\r', '\n'];
 /// * A balance of the two approaches is what we've landed on: Values are thread-safe to pass, and we can stream
 /// them into any sources. Streams are still available to model the infinite streams approach of original
 /// Nushell.
-#[derive(Debug)]
+#[derive(Debug, Default)]
 pub enum PipelineData {
     Value(Value, Option<PipelineMetadata>),
     ListStream(ListStream, Option<PipelineMetadata>),
@@ -50,6 +50,7 @@ pub enum PipelineData {
         metadata: Option<PipelineMetadata>,
         trim_end_newline: bool,
     },
+    #[default]
     Empty,
 }
 
