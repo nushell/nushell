@@ -34,7 +34,7 @@ impl Command for SubCommand {
         stack: &mut Stack,
         call: &Call,
         input: PipelineData,
-    ) -> Result<nu_protocol::PipelineData, ShellError> {
+    ) -> Result<PipelineData, ShellError> {
         let cell_paths: Vec<CellPath> = call.rest(engine_state, stack, 0)?;
         let arg = CellPathOnlyArgs::from(cell_paths);
         operate(action, arg, input, call.head, engine_state.ctrlc.clone())

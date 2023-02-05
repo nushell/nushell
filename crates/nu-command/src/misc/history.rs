@@ -43,7 +43,7 @@ impl Command for History {
         _stack: &mut Stack,
         call: &Call,
         _input: PipelineData,
-    ) -> Result<nu_protocol::PipelineData, nu_protocol::ShellError> {
+    ) -> Result<PipelineData, ShellError> {
         let head = call.head;
 
         // todo for sqlite history this command should be an alias to `open ~/.config/nushell/history.sqlite3 | get history`

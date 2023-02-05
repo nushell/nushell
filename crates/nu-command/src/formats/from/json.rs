@@ -59,7 +59,7 @@ impl Command for FromJson {
         _stack: &mut Stack,
         call: &Call,
         input: PipelineData,
-    ) -> Result<nu_protocol::PipelineData, ShellError> {
+    ) -> Result<PipelineData, ShellError> {
         let span = call.head;
         let (string_input, span, metadata) = input.collect_string_strict(span)?;
 

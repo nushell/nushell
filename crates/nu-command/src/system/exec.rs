@@ -37,7 +37,7 @@ impl Command for Exec {
         stack: &mut Stack,
         call: &Call,
         _input: PipelineData,
-    ) -> Result<nu_protocol::PipelineData, nu_protocol::ShellError> {
+    ) -> Result<PipelineData, ShellError> {
         exec(engine_state, stack, call)
     }
 
@@ -61,7 +61,7 @@ fn exec(
     engine_state: &EngineState,
     stack: &mut Stack,
     call: &Call,
-) -> Result<nu_protocol::PipelineData, nu_protocol::ShellError> {
+) -> Result<PipelineData, ShellError> {
     let name: Spanned<String> = call.req(engine_state, stack, 0)?;
     let name_span = name.span;
 

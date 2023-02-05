@@ -321,7 +321,7 @@ impl Command for Nu {
         stack: &mut Stack,
         call: &Call,
         _input: PipelineData,
-    ) -> Result<nu_protocol::PipelineData, nu_protocol::ShellError> {
+    ) -> Result<PipelineData, ShellError> {
         Ok(Value::String {
             val: get_full_help(&Nu.signature(), &Nu.examples(), engine_state, stack, true),
             span: call.head,

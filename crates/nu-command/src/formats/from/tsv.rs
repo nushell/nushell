@@ -43,7 +43,7 @@ impl Command for FromTsv {
         stack: &mut Stack,
         call: &Call,
         input: PipelineData,
-    ) -> Result<nu_protocol::PipelineData, ShellError> {
+    ) -> Result<PipelineData, ShellError> {
         from_tsv(engine_state, stack, call, input)
     }
 

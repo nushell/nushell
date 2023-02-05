@@ -35,7 +35,7 @@ impl Command for LoadEnv {
         stack: &mut Stack,
         call: &Call,
         input: PipelineData,
-    ) -> Result<nu_protocol::PipelineData, nu_protocol::ShellError> {
+    ) -> Result<PipelineData, ShellError> {
         let arg: Option<(Vec<String>, Vec<Value>)> = call.opt(engine_state, stack, 0)?;
         let span = call.head;
 

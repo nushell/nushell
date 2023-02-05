@@ -613,7 +613,7 @@ fn handle_row_stream(
     row_offset: usize,
     ctrlc: Option<Arc<AtomicBool>>,
     metadata: Option<PipelineMetadata>,
-) -> Result<PipelineData, nu_protocol::ShellError> {
+) -> Result<PipelineData, ShellError> {
     let stream = match metadata {
         // First, `ls` sources:
         Some(PipelineMetadata {

@@ -36,7 +36,7 @@ impl Command for ToToml {
         _stack: &mut Stack,
         call: &Call,
         input: PipelineData,
-    ) -> Result<nu_protocol::PipelineData, ShellError> {
+    ) -> Result<PipelineData, ShellError> {
         let head = call.head;
         to_toml(engine_state, input, head)
     }

@@ -1,5 +1,8 @@
+use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
-use nu_protocol::{Category, Example, IntoPipelineData, ShellError, Signature, Span, Type, Value};
+use nu_protocol::{
+    Category, Example, IntoPipelineData, PipelineData, ShellError, Signature, Span, Type, Value,
+};
 
 #[derive(Clone)]
 pub struct SubCommand;
@@ -29,7 +32,7 @@ impl Command for SubCommand {
         vec![
             Example {
                 description: "Outputs a url representing the contents of this record",
-                example: r#"{ 
+                example: r#"{
         "scheme": "http",
         "username": "",
         "password": "",
@@ -81,9 +84,9 @@ impl Command for SubCommand {
         &self,
         _engine_state: &EngineState,
         _stack: &mut Stack,
-        call: &nu_protocol::ast::Call,
-        input: nu_protocol::PipelineData,
-    ) -> Result<nu_protocol::PipelineData, nu_protocol::ShellError> {
+        call: &Call,
+        input: PipelineData,
+    ) -> Result<PipelineData, ShellError> {
         let head = call.head;
 
         let output: Result<String, ShellError> = input
