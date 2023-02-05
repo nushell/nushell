@@ -58,9 +58,27 @@ pub struct PipelineMetadata {
     pub data_source: DataSource,
 }
 
-#[derive(Debug, Clone)]
+impl std::fmt::Display for PipelineMetadata {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        self.data_source.fmt(f)
+    }
+}
+
+impl std::str::FromStr for PipelineMetadata {
+    type Err = strum::ParseError;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        Ok(PipelineMetadata {
+            data_source: s.parse()?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, strum_macros::Display, strum_macros::EnumString)]
 pub enum DataSource {
+    #[strum(serialize = "ls")]
     Ls,
+    #[strum(serialize = "to html --list")]
     HtmlThemes,
 }
 

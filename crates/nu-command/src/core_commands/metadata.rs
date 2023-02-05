@@ -2,8 +2,7 @@ use nu_engine::CallExt;
 use nu_protocol::ast::{Call, Expr, Expression};
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
-    Category, DataSource, Example, IntoPipelineData, PipelineData, PipelineMetadata, Signature,
-    Span, SyntaxShape, Type, Value,
+    Category, Example, IntoPipelineData, PipelineData, Signature, Span, SyntaxShape, Type, Value,
 };
 
 #[derive(Clone)]
@@ -27,6 +26,11 @@ impl Command for Metadata {
                 SyntaxShape::Any,
                 "the expression you want metadata for",
             )
+            .switch(
+                "data",
+                "also add the data to the output record, under the key `data`",
+                Some('d'),
+            )
             .category(Category::Core)
     }
 
@@ -39,6 +43,7 @@ impl Command for Metadata {
     ) -> Result<nu_protocol::PipelineData, nu_protocol::ShellError> {
         let arg = call.positional_nth(0);
         let head = call.head;
+        let include_data = call.has_flag("data");
 
         match arg {
             Some(Expression {
@@ -53,52 +58,43 @@ impl Command for Metadata {
                             ..
                         } => {
                             let origin = stack.get_var_with_origin(*var_id, *span)?;
-
-                            Ok(build_metadata_record(&origin, &input.metadata(), head)
-                                .into_pipeline_data())
+                            Ok(build_metadata_record(
+                                origin.span().ok(),
+                                input,
+                                include_data,
+                                head,
+                            ))
                         }
                         _ => {
                             let val: Value = call.req(engine_state, stack, 0)?;
-                            Ok(build_metadata_record(&val, &input.metadata(), head)
-                                .into_pipeline_data())
+                            Ok(build_metadata_record(
+                                val.span().ok(),
+                                input,
+                                include_data,
+                                head,
+                            ))
                         }
                     }
                 } else {
                     let val: Value = call.req(engine_state, stack, 0)?;
-                    Ok(build_metadata_record(&val, &input.metadata(), head).into_pipeline_data())
+                    Ok(build_metadata_record(
+                        val.span().ok(),
+                        input,
+                        include_data,
+                        head,
+                    ))
                 }
             }
             Some(_) => {
                 let val: Value = call.req(engine_state, stack, 0)?;
-                Ok(build_metadata_record(&val, &input.metadata(), head).into_pipeline_data())
+                Ok(build_metadata_record(
+                    val.span().ok(),
+                    input,
+                    include_data,
+                    head,
+                ))
             }
-            None => {
-                let mut cols = vec![];
-                let mut vals = vec![];
-                if let Some(x) = &input.metadata() {
-                    match x {
-                        PipelineMetadata {
-                            data_source: DataSource::Ls,
-                        } => {
-                            cols.push("source".into());
-                            vals.push(Value::string("ls", head))
-                        }
-                        PipelineMetadata {
-                            data_source: DataSource::HtmlThemes,
-                        } => {
-                            cols.push("source".into());
-                            vals.push(Value::string("into html --list", head))
-                        }
-                    }
-                }
-
-                Ok(Value::Record {
-                    cols,
-                    vals,
-                    span: head,
-                }
-                .into_pipeline_data())
-            }
+            None => Ok(build_metadata_record(None, input, include_data, head)),
         }
     }
 
@@ -114,15 +110,31 @@ impl Command for Metadata {
                 example: "ls | metadata",
                 result: None,
             },
+            Example {
+                description: "Get the metadata of the input, along with the data",
+                example: "ls | metadata --data",
+                result: None,
+            },
         ]
     }
 }
 
-fn build_metadata_record(arg: &Value, metadata: &Option<PipelineMetadata>, head: Span) -> Value {
+pub fn build_metadata_record(
+    arg_span: Option<Span>,
+    pipeline: PipelineData,
+    include_data: bool,
+    head: Span,
+) -> PipelineData {
     let mut cols = vec![];
     let mut vals = vec![];
+    let metadata = pipeline.metadata();
 
-    if let Ok(span) = arg.span() {
+    if include_data {
+        cols.push("data".into());
+        vals.push(pipeline.into_value(head));
+    }
+
+    if let Some(span) = arg_span {
         cols.push("span".into());
         vals.push(Value::Record {
             cols: vec!["start".into(), "end".into()],
@@ -141,20 +153,8 @@ fn build_metadata_record(arg: &Value, metadata: &Option<PipelineMetadata>, head:
     }
 
     if let Some(x) = &metadata {
-        match x {
-            PipelineMetadata {
-                data_source: DataSource::Ls,
-            } => {
-                cols.push("source".into());
-                vals.push(Value::string("ls", head))
-            }
-            PipelineMetadata {
-                data_source: DataSource::HtmlThemes,
-            } => {
-                cols.push("source".into());
-                vals.push(Value::string("into html --list", head))
-            }
-        }
+        cols.push("source".into());
+        vals.push(Value::string(format!("{}", x), head))
     }
 
     Value::Record {
@@ -162,6 +162,7 @@ fn build_metadata_record(arg: &Value, metadata: &Option<PipelineMetadata>, head:
         vals,
         span: head,
     }
+    .into_pipeline_data()
 }
 
 #[cfg(test)]

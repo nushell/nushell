@@ -65,6 +65,7 @@ rayon = "1.6.1"
 is_executable = "1.0.1"
 simplelog = "0.12.0"
 time = "0.3.12"
+strum = { version = "0.24.1", features = ["derive"] }
 
 [target.'cfg(not(target_os = "windows"))'.dependencies]
 # Our dependencies don't use OpenSSL on Windows
