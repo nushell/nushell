@@ -47,10 +47,7 @@ impl Command for LoadEnv {
                     }
 
                     if env_var == "PWD" {
-                        let cwd = current_dir(engine_state, stack)?;
-                        let rhs = rhs.as_string()?;
-                        let rhs = nu_path::expand_path_with(rhs, cwd);
-                        stack.add_env_var(env_var, Value::string(rhs.to_string_lossy(), call.head));
+                        return Err(ShellError::AutomaticEnvVarSetManually(env_var, call.head));
                     } else {
                         stack.add_env_var(env_var, rhs);
                     }
