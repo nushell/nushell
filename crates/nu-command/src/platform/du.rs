@@ -85,15 +85,29 @@ impl Command for Du {
         _input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
         let tag = call.head;
+        let max_depth = call.get_flag::<i64>(engine_state, stack, "max-depth")?;
+        let min_size = call.get_flag(engine_state, stack, "min-size")?;
+        if let Some(max_depth) = max_depth {
+            if max_depth < 0 {
+                if let Some(span) = call.get_flag_span("max-depth") {
+                    return Err(ShellError::NeedsPositiveValue(span));
+                }
+            }
+        }
+        if let Some(min_size) = min_size {
+            if min_size < 0 {
+                if let Some(span) = call.get_flag_span("min-size") {
+                    return Err(ShellError::NeedsPositiveValue(span));
+                }
+            }
+        }
         let args = DuArgs {
             path: call.opt(engine_state, stack, 0)?,
             all: call.has_flag("all"),
             deref: call.has_flag("deref"),
             exclude: call.get_flag(engine_state, stack, "exclude")?,
-            max_depth: call
-                .get_flag::<i64>(engine_state, stack, "max-depth")?
-                .map(|n| (n as u64).try_into().expect("error converting i64 to u64")),
-            min_size: call.get_flag(engine_state, stack, "min-size")?,
+            max_depth,
+            min_size,
         };
 
         let exclude = args.exclude.map_or(Ok(None), move |x| {
