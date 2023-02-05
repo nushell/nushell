@@ -1,2 +1,2 @@
-mod kill;
 mod du;
+mod kill;
