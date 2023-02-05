@@ -1,6 +1,8 @@
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
-use nu_protocol::{Category, Example, IntoPipelineData, PipelineData, Signature, Type, Value};
+use nu_protocol::{
+    Category, Example, IntoPipelineData, PipelineData, ShellError, Signature, Type, Value,
+};
 
 #[derive(Clone)]
 pub struct SubCommand;
@@ -39,7 +41,7 @@ impl Command for SubCommand {
         _stack: &mut Stack,
         call: &Call,
         _input: PipelineData,
-    ) -> Result<nu_protocol::PipelineData, nu_protocol::ShellError> {
+    ) -> Result<PipelineData, ShellError> {
         Ok(Value::float(std::f64::consts::TAU, call.head).into_pipeline_data())
     }
 }

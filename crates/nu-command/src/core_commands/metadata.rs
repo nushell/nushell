@@ -2,8 +2,8 @@ use nu_engine::CallExt;
 use nu_protocol::ast::{Call, Expr, Expression};
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
-    Category, DataSource, Example, IntoPipelineData, PipelineData, PipelineMetadata, Signature,
-    Span, SyntaxShape, Type, Value,
+    Category, DataSource, Example, IntoPipelineData, PipelineData, PipelineMetadata, ShellError,
+    Signature, Span, SyntaxShape, Type, Value,
 };
 
 #[derive(Clone)]
@@ -36,7 +36,7 @@ impl Command for Metadata {
         stack: &mut Stack,
         call: &Call,
         input: PipelineData,
-    ) -> Result<nu_protocol::PipelineData, nu_protocol::ShellError> {
+    ) -> Result<PipelineData, ShellError> {
         let arg = call.positional_nth(0);
         let head = call.head;
 

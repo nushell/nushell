@@ -119,7 +119,7 @@ with 'transpose' first."#
         stack: &mut Stack,
         call: &Call,
         input: PipelineData,
-    ) -> Result<nu_protocol::PipelineData, nu_protocol::ShellError> {
+    ) -> Result<PipelineData, ShellError> {
         let capture_block: Closure = call.req(engine_state, stack, 0)?;
 
         let keep_empty = call.has_flag("keep-empty");

@@ -58,7 +58,7 @@ b = [1, 2]' | from toml",
         _stack: &mut Stack,
         call: &Call,
         input: PipelineData,
-    ) -> Result<nu_protocol::PipelineData, ShellError> {
+    ) -> Result<PipelineData, ShellError> {
         let span = call.head;
         let (mut string_input, span, metadata) = input.collect_string_strict(span)?;
         string_input.push('\n');

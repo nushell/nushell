@@ -43,7 +43,7 @@ impl Command for Update {
         stack: &mut Stack,
         call: &Call,
         input: PipelineData,
-    ) -> Result<nu_protocol::PipelineData, nu_protocol::ShellError> {
+    ) -> Result<PipelineData, ShellError> {
         update(engine_state, stack, call, input)
     }
 

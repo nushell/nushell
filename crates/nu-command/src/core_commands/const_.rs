@@ -46,7 +46,7 @@ impl Command for Const {
         stack: &mut Stack,
         call: &Call,
         _input: PipelineData,
-    ) -> Result<nu_protocol::PipelineData, nu_protocol::ShellError> {
+    ) -> Result<PipelineData, ShellError> {
         let var_id = call
             .positional_nth(0)
             .expect("checked through parser")

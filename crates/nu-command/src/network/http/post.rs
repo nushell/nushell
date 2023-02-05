@@ -89,7 +89,7 @@ impl Command for SubCommand {
         stack: &mut Stack,
         call: &Call,
         input: PipelineData,
-    ) -> Result<nu_protocol::PipelineData, nu_protocol::ShellError> {
+    ) -> Result<PipelineData, ShellError> {
         run_post(engine_state, stack, call, input)
     }
     fn examples(&self) -> Vec<Example> {
@@ -142,7 +142,7 @@ fn run_post(
     stack: &mut Stack,
     call: &Call,
     _input: PipelineData,
-) -> Result<nu_protocol::PipelineData, nu_protocol::ShellError> {
+) -> Result<PipelineData, ShellError> {
     let args = Arguments {
         path: call.req(engine_state, stack, 0)?,
         body: call.req(engine_state, stack, 1)?,

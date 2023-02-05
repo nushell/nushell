@@ -29,7 +29,7 @@ impl Command for Env {
         stack: &mut Stack,
         call: &Call,
         _input: PipelineData,
-    ) -> Result<nu_protocol::PipelineData, nu_protocol::ShellError> {
+    ) -> Result<PipelineData, ShellError> {
         let span = call.head;
 
         let mut env_vars: Vec<(String, Value)> =

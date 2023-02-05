@@ -1,7 +1,7 @@
 use nu_protocol::{
     ast::Call,
     engine::{Command, EngineState, Stack},
-    Category, Example, IntoPipelineData, PipelineData, Signature, Type, Value,
+    Category, Example, IntoPipelineData, PipelineData, ShellError, Signature, Type, Value,
 };
 use reedline::get_reedline_default_keybindings;
 
@@ -37,7 +37,7 @@ impl Command for KeybindingsDefault {
         _stack: &mut Stack,
         call: &Call,
         _input: PipelineData,
-    ) -> Result<nu_protocol::PipelineData, nu_protocol::ShellError> {
+    ) -> Result<PipelineData, ShellError> {
         let records = get_reedline_default_keybindings()
             .into_iter()
             .map(|(mode, modifier, code, event)| {

@@ -41,7 +41,7 @@ impl Command for WithEnv {
         stack: &mut Stack,
         call: &Call,
         input: PipelineData,
-    ) -> Result<nu_protocol::PipelineData, nu_protocol::ShellError> {
+    ) -> Result<PipelineData, ShellError> {
         with_env(engine_state, stack, call, input)
     }
 

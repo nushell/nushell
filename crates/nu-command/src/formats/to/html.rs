@@ -157,7 +157,7 @@ impl Command for ToHtml {
         stack: &mut Stack,
         call: &Call,
         input: PipelineData,
-    ) -> Result<nu_protocol::PipelineData, ShellError> {
+    ) -> Result<PipelineData, ShellError> {
         to_html(input, call, engine_state, stack)
     }
 }
