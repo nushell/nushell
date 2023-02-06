@@ -128,12 +128,14 @@ mod tests {
 
     #[test]
     fn string_to_toml_value_passes() {
-        let input_string = String::from(r#"
-        command.build = "go build"
-    
-        [command.deploy]
-        script = "./deploy.sh"
-        "#);
+        let input_string = String::from(
+            r#"
+            command.build = "go build"
+        
+            [command.deploy]
+            script = "./deploy.sh"
+            "#,
+        );
 
         let span = Span::test_data();
 
@@ -144,12 +146,14 @@ mod tests {
 
     #[test]
     fn string_to_toml_value_fails() {
-        let input_string = String::from(r#"
-        command.build = 
-    
-        [command.deploy]
-        script = "./deploy.sh"
-        "#);
+        let input_string = String::from(
+            r#"
+            command.build = 
+        
+            [command.deploy]
+            script = "./deploy.sh"
+            "#,
+        );
 
         let span = Span::test_data();
 
