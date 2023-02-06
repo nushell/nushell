@@ -1,6 +1,6 @@
 use crate::Example;
 use nu_plugin::{EvaluatedCall, LabeledError, Plugin};
-use nu_protocol::{Category, PluginSignature, SyntaxShape, Value};
+use nu_protocol::{Category, PluginExample, PluginSignature, SyntaxShape, Value};
 
 impl Plugin for Example {
     fn signature(&self) -> Vec<PluginSignature> {
@@ -16,6 +16,11 @@ impl Plugin for Example {
                 .optional("opt", SyntaxShape::Int, "Optional number")
                 .named("named", SyntaxShape::String, "named string", Some('n'))
                 .rest("rest", SyntaxShape::String, "rest value string")
+                .plugin_examples(vec![PluginExample {
+                    example: "nu-example-1 3 bb".into(),
+                    description: "running example with an int value and string value".into(),
+                    result: None,
+                }])
                 .category(Category::Experimental),
             PluginSignature::build("nu-example-2")
                 .usage("PluginSignature test 2 for plugin. Returns list of records")

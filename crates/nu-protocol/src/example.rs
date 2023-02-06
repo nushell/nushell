@@ -8,6 +8,9 @@ pub struct Example<'a> {
     pub result: Option<Value>,
 }
 
+// PluginExample is somehow like struct `Example`, but it owned a String for `example`
+// and `description` fields, because these information is fetched by plugin, a third party
+// binary, nushell have no way to construct it directly.
 #[cfg(feature = "plugin")]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct PluginExample {
