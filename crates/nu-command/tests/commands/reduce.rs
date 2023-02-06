@@ -47,6 +47,25 @@ fn reduce_rows_example() {
 }
 
 #[test]
+fn reduce_with_return_in_closure() {
+    let actual = nu!(
+        cwd: ".", pipeline(
+        r#"
+        [1, 2] | reduce --fold null { |it, state|
+            if $it == 1 {
+                return 10
+            };
+            return ($it * $state)
+        }
+        "#
+        )
+    );
+
+    assert_eq!(actual.out, "20");
+    assert!(actual.err.is_empty());
+}
+
+#[test]
 fn reduce_enumerate_example() {
     let actual = nu!(
         cwd: ".", pipeline(

@@ -84,7 +84,7 @@ impl Command for SubCommand {
         stack: &mut Stack,
         call: &Call,
         input: PipelineData,
-    ) -> Result<nu_protocol::PipelineData, nu_protocol::ShellError> {
+    ) -> Result<PipelineData, ShellError> {
         run_fetch(engine_state, stack, call, input)
     }
 
@@ -123,7 +123,7 @@ fn run_fetch(
     stack: &mut Stack,
     call: &Call,
     _input: PipelineData,
-) -> Result<nu_protocol::PipelineData, nu_protocol::ShellError> {
+) -> Result<PipelineData, ShellError> {
     let args = Arguments {
         url: call.req(engine_state, stack, 0)?,
         raw: call.has_flag("raw"),

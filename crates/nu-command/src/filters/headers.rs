@@ -85,7 +85,7 @@ impl Command for Headers {
         _stack: &mut Stack,
         call: &Call,
         input: PipelineData,
-    ) -> Result<nu_protocol::PipelineData, ShellError> {
+    ) -> Result<PipelineData, ShellError> {
         let config = engine_state.get_config();
         let metadata = input.metadata();
         let value = input.into_value(call.head);

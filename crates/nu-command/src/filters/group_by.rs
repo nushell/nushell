@@ -39,7 +39,7 @@ impl Command for GroupBy {
         stack: &mut Stack,
         call: &Call,
         input: PipelineData,
-    ) -> Result<nu_protocol::PipelineData, nu_protocol::ShellError> {
+    ) -> Result<PipelineData, ShellError> {
         group_by(engine_state, stack, call, input)
     }
 
