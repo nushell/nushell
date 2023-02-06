@@ -29,9 +29,9 @@ impl Command for SubCommand {
     #[allow(clippy::approx_constant)]
     fn examples(&self) -> Vec<Example> {
         vec![Example {
-            example: "(math tau) / 2",
-            description: "Compare π and τ",
-            result: Some(Value::test_float(std::f64::consts::PI)),
+            example: "math tau | math round --precision 2",
+            description: "Get the first two decimal digits of τ",
+            result: Some(Value::test_float(6.28)),
         }]
     }
 
