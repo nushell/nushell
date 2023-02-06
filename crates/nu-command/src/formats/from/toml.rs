@@ -125,4 +125,36 @@ mod tests {
 
         test_examples(FromToml {})
     }
+
+    #[test]
+    fn string_to_toml_value_passes() {
+        let input_string = String::from(r#"
+        command.build = "go build"
+    
+        [command.deploy]
+        script = "./deploy.sh"
+        "#);
+
+        let span = Span::test_data();
+
+        let result = convert_string_to_value(input_string, span);
+
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn string_to_toml_value_fails() {
+        let input_string = String::from(r#"
+        command.build = 
+    
+        [command.deploy]
+        script = "./deploy.sh"
+        "#);
+
+        let span = Span::test_data();
+
+        let result = convert_string_to_value(input_string, span);
+
+        assert!(result.is_err());
+    }
 }
