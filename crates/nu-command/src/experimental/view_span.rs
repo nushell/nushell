@@ -27,7 +27,7 @@ impl Command for ViewSpan {
             .input_output_types(vec![(Type::Nothing, Type::String)])
             .required("start", SyntaxShape::Int, "start of the span")
             .required("end", SyntaxShape::Int, "end of the span")
-            .category(Category::Core)
+            .category(Category::Debug)
     }
 
     fn run(

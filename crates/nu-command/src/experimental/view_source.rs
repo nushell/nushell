@@ -23,7 +23,7 @@ impl Command for ViewSource {
         Signature::build("view source")
             .input_output_types(vec![(Type::Nothing, Type::String)])
             .required("item", SyntaxShape::Any, "name or block to view")
-            .category(Category::Core)
+            .category(Category::Debug)
     }
 
     fn run(
