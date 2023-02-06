@@ -475,6 +475,7 @@ pub fn create_default_context() -> EngineState {
         bind_command! {
             ViewSource,
             IsAdmin,
+            Profile,
         };
 
         // Deprecated

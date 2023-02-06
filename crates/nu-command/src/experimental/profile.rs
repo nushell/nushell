@@ -1,19 +1,16 @@
-use std::time::Instant;
-
 use nu_engine::{eval_block, CallExt};
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Closure, Command, EngineState, Stack};
 use nu_protocol::{
-    Category, Example, IntoPipelineData, PipelineData, ShellError, Signature, SyntaxShape, Type,
-    Value,
+    Category, Example, IntoPipelineData, PipelineData, Signature, SyntaxShape, Type,
 };
 
 #[derive(Clone)]
-pub struct Benchmark;
+pub struct Profile;
 
-impl Command for Benchmark {
+impl Command for Profile {
     fn name(&self) -> &str {
-        "benchmark"
+        "profile"
     }
 
     fn usage(&self) -> &str {
@@ -21,11 +18,17 @@ impl Command for Benchmark {
     }
 
     fn signature(&self) -> nu_protocol::Signature {
-        Signature::build("benchmark")
+        Signature::build("profile")
             .required(
                 "closure",
                 SyntaxShape::Closure(Some(vec![SyntaxShape::Any])),
                 "the closure to run",
+            )
+            .named(
+                "max-depth",
+                SyntaxShape::Int,
+                "How many levels of blocks to step into (default: 1)",
+                Some('d'),
             )
             .input_output_types(vec![
                 (Type::Any, Type::Duration),
@@ -41,7 +44,7 @@ impl Command for Benchmark {
         stack: &mut Stack,
         call: &Call,
         input: PipelineData,
-    ) -> Result<PipelineData, ShellError> {
+    ) -> Result<nu_protocol::PipelineData, nu_protocol::ShellError> {
         let capture_block: Closure = call.req(engine_state, stack, 0)?;
         let block = engine_state.get_block(capture_block.block_id);
 
@@ -64,8 +67,14 @@ impl Command for Benchmark {
         }
 
         // Get the start time after all other computation has been done.
-        let start_time = Instant::now();
-        eval_block(
+        stack.debug_depth =
+            if let Some(depth) = call.get_flag::<i64>(engine_state, &mut stack, "max-depth")? {
+                depth
+            } else {
+                1
+            };
+
+        let output = eval_block(
             engine_state,
             &mut stack,
             block,
@@ -75,29 +84,11 @@ impl Command for Benchmark {
         )?
         .into_value(call.head);
 
-        let end_time = Instant::now();
-
-        let output = Value::Duration {
-            val: (end_time - start_time).as_nanos() as i64,
-            span: call.head,
-        };
-
         Ok(output.into_pipeline_data())
     }
 
     fn examples(&self) -> Vec<Example> {
-        vec![
-            Example {
-                description: "Benchmarks a command within a closure",
-                example: "benchmark { sleep 500ms }",
-                result: None,
-            },
-            Example {
-                description: "Benchmark a command using an existing input",
-                example: "fetch https://www.nushell.sh/book/ | benchmark { split chars }",
-                result: None,
-            },
-        ]
+        vec![]
     }
 }
 
@@ -108,7 +99,7 @@ fn test_benchmark_closure() {
     use nu_test_support::{nu, nu_repl_code, playground::Playground};
     Playground::setup("test_benchmark_closure", |dirs, _| {
         let inp = [
-            r#"[2 3 4] | benchmark { to nuon | save foo.txt }"#,
+            r#"[2 3 4] | profile { to nuon | save foo.txt }"#,
             "open foo.txt",
         ];
         let actual_repl = nu!(cwd: dirs.test(), nu_repl_code(&inp));
@@ -122,7 +113,7 @@ fn test_benchmark_closure_2() {
     use nu_test_support::{nu, nu_repl_code, playground::Playground};
     Playground::setup("test_benchmark_closure", |dirs, _| {
         let inp = [
-            r#"[2 3 4] | benchmark {|e| {result: $e} | to nuon | save foo.txt }"#,
+            r#"[2 3 4] | profile {|e| {result: $e} | to nuon | save foo.txt }"#,
             "open foo.txt",
         ];
         let actual_repl = nu!(cwd: dirs.test(), nu_repl_code(&inp));
