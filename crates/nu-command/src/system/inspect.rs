@@ -61,6 +61,10 @@ impl Command for Inspect {
         }
 
         let elements = get_pipeline_elements(engine_state, &mut stack, block)?;
+
+        // Leaving these comments here because at some point we'd like to be able to
+        // run commands in the closure and instrument them for more info.
+
         // Get the start time after all other computation has been done.
         // let start_time = Instant::now();
         // eval_block(
@@ -97,9 +101,6 @@ pub fn get_pipeline_elements(
     engine_state: &EngineState,
     stack: &mut Stack,
     block: &Block,
-    // mut input: PipelineData,
-    // redirect_stdout: bool,
-    // redirect_stderr: bool,
 ) -> Result<Vec<Value>, ShellError> {
     let mut element_values = vec![];
     let span = Span::test_data();
@@ -164,7 +165,9 @@ fn get_arguments(engine_state: &EngineState, stack: &mut Stack, call: Call) -> V
     let span = Span::test_data();
     for arg in &call.arguments {
         match arg {
-            Argument::Named((name, something, opt_expr)) => {
+            // I think the second argument to Argument::Named is the short name, but I'm not really sure.
+            // Please fix it if it's wrong. :)
+            Argument::Named((name, short, opt_expr)) => {
                 let arg_type = "named";
                 let arg_value_name = name.item.clone();
                 let arg_value_name_span_start = name.span.start as i64;
@@ -189,11 +192,11 @@ fn get_arguments(engine_state: &EngineState, stack: &mut Stack, call: Call) -> V
                 };
                 arg_value.push(rec);
 
-                if let Some(thing) = something {
-                    let arg_type = "thing";
-                    let arg_value_name = thing.item.clone();
-                    let arg_value_name_span_start = thing.span.start as i64;
-                    let arg_value_name_span_end = thing.span.end as i64;
+                if let Some(shortcut) = short {
+                    let arg_type = "short";
+                    let arg_value_name = shortcut.item.clone();
+                    let arg_value_name_span_start = shortcut.span.start as i64;
+                    let arg_value_name_span_end = shortcut.span.end as i64;
 
                     let rec = Value::Record {
                         cols: vec![
@@ -205,7 +208,7 @@ fn get_arguments(engine_state: &EngineState, stack: &mut Stack, call: Call) -> V
                         ],
                         vals: vec![
                             Value::string(arg_type, span),
-                            Value::string(arg_value_name, thing.span),
+                            Value::string(arg_value_name, shortcut.span),
                             Value::string("string".to_string(), span),
                             Value::int(arg_value_name_span_start, span),
                             Value::int(arg_value_name_span_end, span),
