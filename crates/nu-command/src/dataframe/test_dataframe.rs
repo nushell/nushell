@@ -30,7 +30,7 @@ pub fn test_dataframe(cmds: Vec<Box<dyn Command + 'static>>) {
         working_set.add_decl(Box::new(ExprCol));
 
         // Adding the command that is being tested to the working set
-        for cmd in cmds {
+        for cmd in cmds.clone() {
             working_set.add_decl(cmd);
         }
 
