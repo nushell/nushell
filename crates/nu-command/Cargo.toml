@@ -91,7 +91,7 @@ unicode-segmentation = "1.8.0"
 url = "2.2.1"
 percent-encoding = "2.2.0"
 uuid = { version = "1.2.2", features = ["v4"] }
-which = { version = "4.3.0", optional = true }
+which = { version = "4.4.0", optional = true }
 reedline = { version = "0.15.0", features = ["bashisms", "sqlite"] }
 wax = { version = "0.5.0" }
 rusqlite = { version = "0.28.0", features = ["bundled"], optional = true }
