@@ -8,7 +8,7 @@ use std::marker::PhantomData;
 
 pub trait HashDigest: digest::Digest + Clone {
     fn name() -> &'static str;
-    fn examples() -> Vec<Example>;
+    fn examples() -> Vec<Example<'static>>;
 }
 
 #[derive(Clone)]
@@ -70,7 +70,7 @@ where
         &self.usage
     }
 
-    fn examples(&self) -> Vec<Example> {
+    fn examples(&self) -> Vec<Example<'static>> {
         D::examples()
     }
 

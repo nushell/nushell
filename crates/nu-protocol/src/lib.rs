@@ -8,6 +8,8 @@ mod id;
 mod lev_distance;
 mod module;
 mod pipeline_data;
+#[cfg(feature = "plugin")]
+mod plugin_signature;
 mod shell_error;
 mod signature;
 pub mod span;
@@ -25,6 +27,8 @@ pub use exportable::*;
 pub use id::*;
 pub use module::*;
 pub use pipeline_data::*;
+#[cfg(feature = "plugin")]
+pub use plugin_signature::*;
 pub use shell_error::*;
 pub use signature::*;
 pub use span::*;

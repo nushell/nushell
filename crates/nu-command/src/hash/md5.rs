@@ -9,7 +9,7 @@ impl HashDigest for Md5 {
         "md5"
     }
 
-    fn examples() -> Vec<Example> {
+    fn examples() -> Vec<Example<'static>> {
         vec![
             Example {
                 description: "Return the md5 hash of a string, hex-encoded",
