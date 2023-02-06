@@ -128,7 +128,7 @@ fn helper(value: Value, head: Span, timezone: &Spanned<String>) -> Value {
             _to_timezone(dt.with_timezone(dt.offset()), timezone, head)
         }
         _ => Value::Error {
-            error: ShellError::DatetimeParseError(head),
+            error: ShellError::DatetimeParseError(value.debug_value(), head),
         },
     }
 }
