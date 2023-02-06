@@ -2,7 +2,7 @@ use nu_engine::get_full_help;
 use nu_protocol::{
     ast::Call,
     engine::{Command, EngineState, Stack},
-    Category, IntoPipelineData, PipelineData, Signature, Type, Value,
+    Category, IntoPipelineData, PipelineData, ShellError, Signature, Type, Value,
 };
 
 #[derive(Clone)]
@@ -26,7 +26,7 @@ impl Command for Overlay {
     fn extra_usage(&self) -> &str {
         r#"This command is a parser keyword. For details, check:
   https://www.nushell.sh/book/thinking_in_nu.html
-  
+
   You must use one of the following subcommands. Using this command as-is will only produce this help message."#
     }
 
@@ -40,7 +40,7 @@ impl Command for Overlay {
         stack: &mut Stack,
         call: &Call,
         _input: PipelineData,
-    ) -> Result<nu_protocol::PipelineData, nu_protocol::ShellError> {
+    ) -> Result<PipelineData, ShellError> {
         Ok(Value::String {
             val: get_full_help(
                 &Overlay.signature(),

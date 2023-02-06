@@ -48,7 +48,7 @@ impl Command for Select {
         stack: &mut Stack,
         call: &Call,
         input: PipelineData,
-    ) -> Result<nu_protocol::PipelineData, nu_protocol::ShellError> {
+    ) -> Result<PipelineData, ShellError> {
         let columns: Vec<CellPath> = call.rest(engine_state, stack, 0)?;
         let span = call.head;
         let ignore_errors = call.has_flag("ignore-errors");

@@ -47,7 +47,7 @@ impl Command for Insert {
         stack: &mut Stack,
         call: &Call,
         input: PipelineData,
-    ) -> Result<nu_protocol::PipelineData, nu_protocol::ShellError> {
+    ) -> Result<PipelineData, ShellError> {
         insert(engine_state, stack, call, input)
     }
 

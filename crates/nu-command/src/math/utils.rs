@@ -6,7 +6,7 @@ pub fn run_with_function(
     call: &Call,
     input: PipelineData,
     mf: impl Fn(&[Value], Span, &Span) -> Result<Value, ShellError>,
-) -> Result<nu_protocol::PipelineData, nu_protocol::ShellError> {
+) -> Result<PipelineData, ShellError> {
     let name = call.head;
     let res = calculate(input, name, mf);
     match res {

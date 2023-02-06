@@ -2,8 +2,8 @@ use nu_engine::{eval_block_with_early_return, CallExt};
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Closure, Command, EngineState, Stack};
 use nu_protocol::{
-    Category, Example, IntoInterruptiblePipelineData, IntoPipelineData, PipelineData, Signature,
-    Span, SyntaxShape, Type, Value,
+    Category, Example, IntoInterruptiblePipelineData, IntoPipelineData, PipelineData, ShellError,
+    Signature, Span, SyntaxShape, Type, Value,
 };
 
 #[derive(Clone)]
@@ -80,7 +80,7 @@ impl Command for EachWhile {
         stack: &mut Stack,
         call: &Call,
         input: PipelineData,
-    ) -> Result<nu_protocol::PipelineData, nu_protocol::ShellError> {
+    ) -> Result<PipelineData, ShellError> {
         let capture_block: Closure = call.req(engine_state, stack, 0)?;
 
         let metadata = input.metadata();

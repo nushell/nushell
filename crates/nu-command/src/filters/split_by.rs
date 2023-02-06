@@ -30,7 +30,7 @@ impl Command for SplitBy {
         stack: &mut Stack,
         call: &Call,
         input: PipelineData,
-    ) -> Result<nu_protocol::PipelineData, nu_protocol::ShellError> {
+    ) -> Result<PipelineData, ShellError> {
         split_by(engine_state, stack, call, input)
     }
 

@@ -39,7 +39,7 @@ impl Command for Rename {
         stack: &mut Stack,
         call: &Call,
         input: PipelineData,
-    ) -> Result<nu_protocol::PipelineData, nu_protocol::ShellError> {
+    ) -> Result<PipelineData, ShellError> {
         rename(engine_state, stack, call, input)
     }
 
@@ -99,7 +99,7 @@ fn rename(
     stack: &mut Stack,
     call: &Call,
     input: PipelineData,
-) -> Result<nu_protocol::PipelineData, nu_protocol::ShellError> {
+) -> Result<PipelineData, ShellError> {
     let specified_column: Option<Vec<String>> = call.get_flag(engine_state, stack, "column")?;
     // get the span for the column's name to be changed and for the given list
     let (specified_col_span, list_span) = if let Some(Value::List {

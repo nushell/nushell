@@ -52,7 +52,7 @@ impl Command for SubCommand {
         stack: &mut Stack,
         call: &Call,
         input: PipelineData,
-    ) -> Result<nu_protocol::PipelineData, nu_protocol::ShellError> {
+    ) -> Result<PipelineData, ShellError> {
         split_column(engine_state, stack, call, input)
     }
 
@@ -126,7 +126,7 @@ fn split_column(
     stack: &mut Stack,
     call: &Call,
     input: PipelineData,
-) -> Result<nu_protocol::PipelineData, nu_protocol::ShellError> {
+) -> Result<PipelineData, ShellError> {
     let name_span = call.head;
     let separator: Spanned<String> = call.req(engine_state, stack, 0)?;
     let rest: Vec<Spanned<String>> = call.rest(engine_state, stack, 1)?;

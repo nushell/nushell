@@ -83,7 +83,7 @@ impl Command for SubCommand {
         stack: &mut Stack,
         call: &Call,
         input: PipelineData,
-    ) -> Result<nu_protocol::PipelineData, nu_protocol::ShellError> {
+    ) -> Result<PipelineData, ShellError> {
         let character = call.get_flag::<Spanned<String>>(engine_state, stack, "char")?;
         let to_trim = match character.as_ref() {
             Some(v) => {

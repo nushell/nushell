@@ -72,7 +72,7 @@ impl Command for Ls {
         stack: &mut Stack,
         call: &Call,
         _input: PipelineData,
-    ) -> Result<nu_protocol::PipelineData, nu_protocol::ShellError> {
+    ) -> Result<PipelineData, ShellError> {
         let all = call.has_flag("all");
         let long = call.has_flag("long");
         let short_names = call.has_flag("short-names");

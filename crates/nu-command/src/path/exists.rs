@@ -2,6 +2,8 @@ use std::path::{Path, PathBuf};
 
 use nu_engine::{current_dir, CallExt};
 use nu_path::expand_path_with;
+use nu_protocol::ast::Call;
+use nu_protocol::engine::{EngineState, Stack};
 use nu_protocol::{
     engine::Command, Example, PipelineData, ShellError, Signature, Span, SyntaxShape, Type, Value,
 };
@@ -49,11 +51,11 @@ If you need to distinguish dirs and files, please use `path type`."#
 
     fn run(
         &self,
-        engine_state: &nu_protocol::engine::EngineState,
-        stack: &mut nu_protocol::engine::Stack,
-        call: &nu_protocol::ast::Call,
-        input: nu_protocol::PipelineData,
-    ) -> Result<nu_protocol::PipelineData, nu_protocol::ShellError> {
+        engine_state: &EngineState,
+        stack: &mut Stack,
+        call: &Call,
+        input: PipelineData,
+    ) -> Result<PipelineData, ShellError> {
         let head = call.head;
         let args = Arguments {
             columns: call.get_flag(engine_state, stack, "columns")?,

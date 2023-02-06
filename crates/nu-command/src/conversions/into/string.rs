@@ -70,7 +70,7 @@ impl Command for SubCommand {
         stack: &mut Stack,
         call: &Call,
         input: PipelineData,
-    ) -> Result<nu_protocol::PipelineData, nu_protocol::ShellError> {
+    ) -> Result<PipelineData, ShellError> {
         string_helper(engine_state, stack, call, input)
     }
 
@@ -148,7 +148,7 @@ fn string_helper(
     stack: &mut Stack,
     call: &Call,
     input: PipelineData,
-) -> Result<nu_protocol::PipelineData, ShellError> {
+) -> Result<PipelineData, ShellError> {
     let decimals = call.has_flag("decimals");
     let head = call.head;
     let decimals_value: Option<i64> = call.get_flag(engine_state, stack, "decimals")?;

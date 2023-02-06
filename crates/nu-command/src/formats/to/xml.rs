@@ -60,7 +60,7 @@ impl Command for ToXml {
         stack: &mut Stack,
         call: &Call,
         input: PipelineData,
-    ) -> Result<nu_protocol::PipelineData, ShellError> {
+    ) -> Result<PipelineData, ShellError> {
         let head = call.head;
         let config = engine_state.get_config();
         let pretty: Option<Spanned<i64>> = call.get_flag(engine_state, stack, "pretty")?;
