@@ -4,7 +4,7 @@ mod second_custom_value;
 use cool_custom_value::CoolCustomValue;
 use nu_plugin::{serve_plugin, MsgPackSerializer, Plugin};
 use nu_plugin::{EvaluatedCall, LabeledError};
-use nu_protocol::{Category, ShellError, PluginSignature, Value};
+use nu_protocol::{Category, PluginSignature, ShellError, Value};
 use second_custom_value::SecondCustomValue;
 
 struct CustomValuePlugin;
