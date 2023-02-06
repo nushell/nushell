@@ -2,7 +2,8 @@ use nu_engine::{eval_block, CallExt};
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Closure, Command, EngineState, Stack};
 use nu_protocol::{
-    Category, Example, IntoPipelineData, PipelineData, Signature, SyntaxShape, Type,
+    Category, Example, IntoPipelineData, PipelineData, Signature, SyntaxShape, Type, ListStream,
+    IntoInterruptiblePipelineData, Value
 };
 
 #[derive(Clone)]
@@ -74,7 +75,7 @@ impl Command for Profile {
                 1
             };
 
-        let output = eval_block(
+        let _ = eval_block(
             engine_state,
             &mut stack,
             block,
@@ -84,7 +85,9 @@ impl Command for Profile {
         )?
         .into_value(call.head);
 
-        Ok(output.into_pipeline_data())
+        let debug_output = Value::list(stack.debug_output.drain(..).collect(), call.head);
+
+        Ok(debug_output.into_pipeline_data())
     }
 
     fn examples(&self) -> Vec<Example> {

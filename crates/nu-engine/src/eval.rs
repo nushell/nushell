@@ -6,7 +6,7 @@ use nu_protocol::{
         Operator, PathMember, PipelineElement, Redirection,
     },
     engine::{EngineState, Stack},
-    format_duration, Config, IntoInterruptiblePipelineData, IntoPipelineData, PipelineData, Range,
+    Config, IntoInterruptiblePipelineData, IntoPipelineData, ListStream, PipelineData, Range,
     ShellError, Span, Spanned, Unit, Value, VarId, ENV_VARIABLE_ID,
 };
 use nu_utils::stdout_write_all_and_flush;
@@ -998,6 +998,8 @@ pub fn eval_block(
         false
     };
 
+    // let mut debug_out = vec![];
+
     let num_pipelines = block.len();
 
     for (pipeline_idx, pipeline) in block.pipelines.iter().enumerate() {
@@ -1034,14 +1036,44 @@ pub fn eval_block(
             let end_time = Instant::now();
 
             if should_debug {
-                let element_str = String::from_utf8_lossy(
-                    engine_state.get_span_contents(&pipeline.elements[i].span()),
+                let span = pipeline.elements[i].span();
+                let element_str = Value::string(
+                    String::from_utf8_lossy(
+                        engine_state.get_span_contents(&pipeline.elements[i].span()),
+                    ),
+                    span,
                 );
-                println!(
-                    "\x1b[32m{}\x1b[0m : \x1b[33m{}\x1b[0m",
-                    element_str,
-                    format_duration((end_time - start_time).as_nanos() as i64)
-                );
+                let value = match &eval_result {
+                    Ok((PipelineData::Value(val, ..), ..)) => val.clone(),
+                    Ok((PipelineData::ListStream(..), ..)) => Value::string("list stream", span),
+                    Ok((PipelineData::ExternalStream { .. }, ..)) => {
+                        Value::string("raw stream", span)
+                    }
+                    Ok((PipelineData::Empty, ..)) => Value::Nothing { span },
+                    Err(err) => Value::Error { error: err.clone() },
+                };
+                let ns = (end_time - start_time).as_nanos() as i64;
+
+                stack.debug_output.push(Value::Record {
+                    cols: vec![
+                        "level".to_string(),
+                        "source".to_string(),
+                        "value".to_string(),
+                        "ns".to_string(),
+                    ],
+                    vals: vec![
+                        Value::int(stack.debug_depth + 1, span),
+                        element_str,
+                        value,
+                        Value::Duration { val: ns, span },
+                    ],
+                    span,
+                });
+                // println!(
+                //     "\x1b[32m{}\x1b[0m : \x1b[33m{}\x1b[0m",
+                //     element_str,
+                //     format_duration((end_time - start_time).as_nanos() as i64)
+                // );
             }
 
             match (eval_result, redirect_stderr) {
