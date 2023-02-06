@@ -41,11 +41,13 @@ impl Command for ViewFiles {
                     "filename".to_string(),
                     "start".to_string(),
                     "end".to_string(),
+                    "size".to_string(),
                 ],
                 vals: vec![
                     Value::string(file, call.head),
                     Value::int(*start as i64, call.head),
                     Value::int(*end as i64, call.head),
+                    Value::int(*end as i64 - *start as i64, call.head),
                 ],
                 span: call.head,
             });
