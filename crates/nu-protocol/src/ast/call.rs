@@ -130,18 +130,6 @@ impl Call {
         None
     }
 
-    pub fn get_flag_span(&self, flag_name: &str) -> Option<Span> {
-        for name in self.named_iter() {
-            if flag_name == name.0.item {
-                if let Some(val) = &name.2 {
-                    return Some(val.span);
-                }
-            }
-        }
-
-        None
-    }
-
     pub fn get_named_arg(&self, flag_name: &str) -> Option<Spanned<String>> {
         for name in self.named_iter() {
             if flag_name == name.0.item {
