@@ -15,12 +15,12 @@ pub(crate) fn parse_date_from_string(
                 LocalResult::Single(d) => Ok(d),
                 LocalResult::Ambiguous(d, _) => Ok(d),
                 LocalResult::None => Err(Value::Error {
-                    error: ShellError::DatetimeParseError(span),
+                    error: ShellError::DatetimeParseError(input.to_string(), span),
                 }),
             }
         }
         Err(_) => Err(Value::Error {
-            error: ShellError::DatetimeParseError(span),
+            error: ShellError::DatetimeParseError(input.to_string(), span),
         }),
     }
 }
