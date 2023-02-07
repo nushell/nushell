@@ -28,9 +28,9 @@ impl Command for IsNull {
     fn examples(&self) -> Vec<Example> {
         vec![Example {
             description: "Create mask where values are null",
-            example: r#"let s = ([5 6 0 8] | into df);
+            example: r#"let s = ([5 6 0 8] | dfr into-df);
     let res = ($s / $s);
-    $res | is-null"#,
+    $res | dfr is-null"#,
             result: Some(
                 NuDataFrame::try_from_columns(vec![Column::new(
                     "is_null".to_string(),

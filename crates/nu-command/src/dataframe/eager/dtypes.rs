@@ -27,7 +27,7 @@ impl Command for DataTypes {
     fn examples(&self) -> Vec<Example> {
         vec![Example {
             description: "Dataframe dtypes",
-            example: "[[a b]; [1 2] [3 4]] | into df | dtypes",
+            example: "[[a b]; [1 2] [3 4]] | dfr into-df | dfr dtypes",
             result: Some(
                 NuDataFrame::try_from_columns(vec![
                     Column::new(

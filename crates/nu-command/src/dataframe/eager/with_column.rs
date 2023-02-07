@@ -37,8 +37,8 @@ impl Command for WithColumn {
             Example {
                 description: "Adds a series to the dataframe",
                 example: r#"[[a b]; [1 2] [3 4]]
-    | into df
-    | with-column ([5 6] | into df) --name c"#,
+    | dfr into-df
+    | dfr with-column ([5 6] | dfr into-df) --name c"#,
                 result: Some(
                     NuDataFrame::try_from_columns(vec![
                         Column::new(
@@ -61,12 +61,12 @@ impl Command for WithColumn {
             Example {
                 description: "Adds a series to the dataframe",
                 example: r#"[[a b]; [1 2] [3 4]]
-    | into lazy
-    | with-column [
-        ((col a) * 2 | as "c")
-        ((col a) * 3 | as "d")
+    | dfr into-lazy
+    | dfr with-column [
+        ((dfr col a) * 2 | dfr as "c")
+        ((dfr col a) * 3 | dfr as "d")
       ]
-    | collect"#,
+    | dfr collect"#,
                 result: Some(
                     NuDataFrame::try_from_columns(vec![
                         Column::new(

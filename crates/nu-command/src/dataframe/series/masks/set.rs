@@ -37,9 +37,9 @@ impl Command for SetSeries {
     fn examples(&self) -> Vec<Example> {
         vec![Example {
             description: "Shifts the values by a given period",
-            example: r#"let s = ([1 2 2 3 3] | into df | shift 2);
-    let mask = ($s | is-null);
-    $s | set 0 --mask $mask"#,
+            example: r#"let s = ([1 2 2 3 3] | dfr into-df | dfr shift 2);
+    let mask = ($s | dfr is-null);
+    $s | dfr set 0 --mask $mask"#,
             result: Some(
                 NuDataFrame::try_from_columns(vec![Column::new(
                     "0".to_string(),

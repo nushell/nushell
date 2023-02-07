@@ -18,7 +18,7 @@ pub struct QueryDf;
 
 impl Command for QueryDf {
     fn name(&self) -> &str {
-        "dfr query-df"
+        "dfr query"
     }
 
     fn usage(&self) -> &str {
@@ -40,7 +40,7 @@ impl Command for QueryDf {
     fn examples(&self) -> Vec<Example> {
         vec![Example {
             description: "Query dataframe using SQL",
-            example: "[[a b]; [1 2] [3 4]] | into df | query df 'select a from df'",
+            example: "[[a b]; [1 2] [3 4]] | dfr into-df | dfr query 'select a from df'",
             result: Some(
                 NuDataFrame::try_from_columns(vec![Column::new(
                     "a".to_string(),

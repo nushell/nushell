@@ -49,7 +49,7 @@ impl Command for Unique {
         vec![
             Example {
                 description: "Returns unique values from a series",
-                example: "[2 2 2 2 2] | into df | unique",
+                example: "[2 2 2 2 2] | dfr into-df | dfr unique",
                 result: Some(
                     NuDataFrame::try_from_columns(vec![Column::new(
                         "0".to_string(),

@@ -38,9 +38,9 @@ impl Command for TakeDF {
         vec![
             Example {
                 description: "Takes selected rows from dataframe",
-                example: r#"let df = ([[a b]; [4 1] [5 2] [4 3]] | into df);
-    let indices = ([0 2] | into df);
-    $df | take $indices"#,
+                example: r#"let df = ([[a b]; [4 1] [5 2] [4 3]] | dfr into-df);
+    let indices = ([0 2] | dfr into-df);
+    $df | dfr take $indices"#,
                 result: Some(
                     NuDataFrame::try_from_columns(vec![
                         Column::new(
@@ -58,9 +58,9 @@ impl Command for TakeDF {
             },
             Example {
                 description: "Takes selected rows from series",
-                example: r#"let series = ([4 1 5 2 4 3] | into df);
-    let indices = ([0 2] | into df);
-    $series | take $indices"#,
+                example: r#"let series = ([4 1 5 2 4 3] | dfr into-df);
+    let indices = ([0 2] | dfr into-df);
+    $series | dfr take $indices"#,
                 result: Some(
                     NuDataFrame::try_from_columns(vec![Column::new(
                         "0".to_string(),

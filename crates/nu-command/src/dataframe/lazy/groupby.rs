@@ -36,12 +36,12 @@ impl Command for ToLazyGroupBy {
             Example {
                 description: "Group by and perform an aggregation",
                 example: r#"[[a b]; [1 2] [1 4] [2 6] [2 4]]
-    | into df
-    | group-by a
-    | agg [
-        (col b | min | as "b_min")
-        (col b | max | as "b_max")
-        (col b | sum | as "b_sum")
+    | dfr into-df
+    | dfr group-by a
+    | dfr agg [
+        (dfr col b | dfr min | dfr as "b_min")
+        (dfr col b | dfr max | dfr as "b_max")
+        (dfr col b | dfr sum | dfr as "b_sum")
      ]"#,
                 result: Some(
                     NuDataFrame::try_from_columns(vec![
@@ -69,14 +69,14 @@ impl Command for ToLazyGroupBy {
             Example {
                 description: "Group by and perform an aggregation",
                 example: r#"[[a b]; [1 2] [1 4] [2 6] [2 4]]
-    | into lazy
-    | group-by a
-    | agg [
-        (col b | min | as "b_min")
-        (col b | max | as "b_max")
-        (col b | sum | as "b_sum")
+    | dfr into-lazy
+    | dfr group-by a
+    | dfr agg [
+        (dfr col b | dfr min | dfr as "b_min")
+        (dfr col b | dfr max | dfr as "b_max")
+        (dfr col b | dfr sum | dfr as "b_sum")
      ]
-    | collect"#,
+    | dfr collect"#,
                 result: Some(
                     NuDataFrame::try_from_columns(vec![
                         Column::new(

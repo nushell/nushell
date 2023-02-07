@@ -54,7 +54,7 @@ impl Command for ToNu {
         vec![
             Example {
                 description: "Shows head rows from dataframe",
-                example: "[[a b]; [1 2] [3 4]] | into df | into nu",
+                example: "[[a b]; [1 2] [3 4]] | dfr into-df | dfr into-nu",
                 result: Some(Value::List {
                     vals: vec![rec_1, rec_2],
                     span: Span::test_data(),
@@ -62,7 +62,7 @@ impl Command for ToNu {
             },
             Example {
                 description: "Shows tail rows from dataframe",
-                example: "[[a b]; [1 2] [5 6] [3 4]] | into df | into nu -t -n 1",
+                example: "[[a b]; [1 2] [5 6] [3 4]] | dfr into-df | dfr into-nu -t -n 1",
                 result: Some(Value::List {
                     vals: vec![rec_3],
                     span: Span::test_data(),

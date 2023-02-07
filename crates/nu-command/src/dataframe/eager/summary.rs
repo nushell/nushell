@@ -42,7 +42,7 @@ impl Command for Summary {
     fn examples(&self) -> Vec<Example> {
         vec![Example {
             description: "list dataframe descriptives",
-            example: "[[a b]; [1 1] [1 1]] | into df | summary",
+            example: "[[a b]; [1 1] [1 1]] | dfr into-df | dfr summary",
             result: Some(
                 NuDataFrame::try_from_columns(vec![
                     Column::new(

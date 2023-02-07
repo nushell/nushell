@@ -33,7 +33,7 @@ impl Command for ToArrow {
     fn examples(&self) -> Vec<Example> {
         vec![Example {
             description: "Saves dataframe to arrow file",
-            example: "[[a b]; [1 2] [3 4]] | into df | to arrow test.arrow",
+            example: "[[a b]; [1 2] [3 4]] | dfr into-df | dfr to-arrow test.arrow",
             result: None,
         }]
     }

@@ -30,8 +30,8 @@ impl Command for GetMinute {
         vec![Example {
             description: "Returns minute from a date",
             example: r#"let dt = ('2020-08-04T16:39:18+00:00' | into datetime -z 'UTC');
-    let df = ([$dt $dt] | into df);
-    $df | get-minute"#,
+    let df = ([$dt $dt] | dfr into-df);
+    $df | dfr get-minute"#,
             result: Some(
                 NuDataFrame::try_from_columns(vec![Column::new(
                     "0".to_string(),

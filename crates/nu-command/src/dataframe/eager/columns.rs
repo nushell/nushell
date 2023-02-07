@@ -27,7 +27,7 @@ impl Command for ColumnsDF {
     fn examples(&self) -> Vec<Example> {
         vec![Example {
             description: "Dataframe columns",
-            example: "[[a b]; [1 2] [3 4]] | into df | columns",
+            example: "[[a b]; [1 2] [3 4]] | dfr into-df | dfr columns",
             result: Some(Value::List {
                 vals: vec![Value::test_string("a"), Value::test_string("b")],
                 span: Span::test_data(),

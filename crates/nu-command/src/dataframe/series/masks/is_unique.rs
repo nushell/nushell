@@ -30,7 +30,7 @@ impl Command for IsUnique {
         vec![
             Example {
                 description: "Create mask indicating unique values",
-                example: "[5 6 6 6 8 8 8] | into df | is-unique",
+                example: "[5 6 6 6 8 8 8] | dfr into-df | dfr is-unique",
                 result: Some(
                     NuDataFrame::try_from_columns(vec![Column::new(
                         "is_unique".to_string(),
@@ -50,7 +50,7 @@ impl Command for IsUnique {
             },
             Example {
                 description: "Create mask indicating duplicated rows in a dataframe",
-                example: "[[a, b]; [1 2] [1 2] [3 3] [3 3] [1 1]] | into df | is-unique",
+                example: "[[a, b]; [1 2] [1 2] [3 3] [3 3] [1 1]] | dfr into-df | dfr is-unique",
                 result: Some(
                     NuDataFrame::try_from_columns(vec![Column::new(
                         "is_unique".to_string(),

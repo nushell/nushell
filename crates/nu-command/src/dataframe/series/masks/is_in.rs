@@ -31,8 +31,8 @@ impl Command for IsIn {
     fn examples(&self) -> Vec<Example> {
         vec![Example {
             description: "Checks if elements from a series are contained in right series",
-            example: r#"let other = ([1 3 6] | into df);
-    [5 6 6 6 8 8 8] | into df | is-in $other"#,
+            example: r#"let other = ([1 3 6] | dfr into-df);
+    [5 6 6 6 8 8 8] | dfr into-df | dfr is-in $other"#,
             result: Some(
                 NuDataFrame::try_from_columns(vec![Column::new(
                     "is_in".to_string(),

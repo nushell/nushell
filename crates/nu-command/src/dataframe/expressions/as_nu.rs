@@ -28,7 +28,7 @@ impl Command for ExprAsNu {
     fn examples(&self) -> Vec<Example> {
         vec![Example {
             description: "Convert a col expression into a nushell value",
-            example: "col a | into nu",
+            example: "dfr col a | dfr into-nu",
             result: Some(Value::Record {
                 cols: vec!["expr".into(), "value".into()],
                 vals: vec![Value::test_string("column"), Value::test_string("a")],

@@ -36,10 +36,10 @@ impl Command for DropNulls {
         vec![
             Example {
                 description: "drop null values in dataframe",
-                example: r#"let df = ([[a b]; [1 2] [3 0] [1 2]] | into df);
+                example: r#"let df = ([[a b]; [1 2] [3 0] [1 2]] | dfr into-df);
     let res = ($df.b / $df.b);
-    let a = ($df | with-column $res --name res);
-    $a | drop-nulls"#,
+    let a = ($df | dfr with-column $res --name res);
+    $a | dfr drop-nulls"#,
                 result: Some(
                     NuDataFrame::try_from_columns(vec![
                         Column::new(
@@ -61,8 +61,8 @@ impl Command for DropNulls {
             },
             Example {
                 description: "drop null values in dataframe",
-                example: r#"let s = ([1 2 0 0 3 4] | into df);
-    ($s / $s) | drop-nulls"#,
+                example: r#"let s = ([1 2 0 0 3 4] | dfr into-df);
+    ($s / $s) | dfr drop-nulls"#,
                 result: Some(
                     NuDataFrame::try_from_columns(vec![Column::new(
                         "div_0_0".to_string(),

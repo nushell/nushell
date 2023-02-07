@@ -40,25 +40,25 @@ impl Command for ExprWhen {
         vec![
             Example {
                 description: "Create a when conditions",
-                example: "when ((col a) > 2) 4",
+                example: "dfr when ((dfr col a) > 2) 4",
                 result: None,
             },
             Example {
                 description: "Create a when conditions",
-                example: "when ((col a) > 2) 4 | when ((col a) < 0) 6",
+                example: "dfr when ((dfr col a) > 2) 4 | dfr when ((dfr col a) < 0) 6",
                 result: None,
             },
             Example {
                 description: "Create a new column for the dataframe",
                 example: r#"[[a b]; [6 2] [1 4] [4 1]]
-   | into lazy
-   | with-column (
-       when ((col a) > 2) 4 | otherwise 5 | as c
+   | dfr into-lazy
+   | dfr with-column (
+    dfr when ((dfr col a) > 2) 4 | dfr otherwise 5 | dfr as c
      )
-   | with-column (
-       when ((col a) > 5) 10 | when ((col a) < 2) 6 | otherwise 0 | as d
+   | dfr with-column (
+    dfr when ((dfr col a) > 5) 10 | dfr when ((dfr col a) < 2) 6 | dfr otherwise 0 | dfr as d
      )
-   | collect"#,
+   | dfr collect"#,
                 result: Some(
                     NuDataFrame::try_from_columns(vec![
                         Column::new(

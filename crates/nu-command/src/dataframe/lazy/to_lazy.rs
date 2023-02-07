@@ -28,7 +28,7 @@ impl Command for ToLazyFrame {
     fn examples(&self) -> Vec<Example> {
         vec![Example {
             description: "Takes a dictionary and creates a lazy dataframe",
-            example: "[[a b];[1 2] [3 4]] | into lazy",
+            example: "[[a b];[1 2] [3 4]] | dfr into-lazy",
             result: None,
         }]
     }
