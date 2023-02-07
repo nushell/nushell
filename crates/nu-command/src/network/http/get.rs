@@ -61,6 +61,11 @@ impl Command for SubCommand {
                 "fetch contents as text rather than a table",
                 Some('r'),
             )
+            .switch(
+                "insecure",
+                "allow insecure server connections when using SSL",
+                Some('k'),
+            )
             .filter()
             .category(Category::Network)
     }
@@ -113,6 +118,7 @@ impl Command for SubCommand {
 struct Arguments {
     url: Value,
     raw: bool,
+    insecure: Option<bool>,
     user: Option<String>,
     password: Option<String>,
     timeout: Option<Value>,
@@ -128,6 +134,7 @@ fn run_fetch(
     let args = Arguments {
         url: call.req(engine_state, stack, 0)?,
         raw: call.has_flag("raw"),
+        insecure: call.get_flag(engine_state, stack, "insecure")?,
         user: call.get_flag(engine_state, stack, "user")?,
         password: call.get_flag(engine_state, stack, "password")?,
         timeout: call.get_flag(engine_state, stack, "timeout")?,
@@ -184,7 +191,7 @@ fn helper(
         _ => None,
     };
 
-    let client = http_client(false);
+    let client = http_client(args.insecure.is_some());
     let mut request = client.get(url);
 
     if let Some(timeout) = timeout {
