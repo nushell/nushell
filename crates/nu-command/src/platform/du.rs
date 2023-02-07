@@ -85,8 +85,8 @@ impl Command for Du {
         _input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
         let tag = call.head;
-        let min_size : Option<Spanned<i64>> = call.get_flag(engine_state, stack, "min-size")?;
-        let max_depth : Option<Spanned<i64>> = call.get_flag(engine_state, stack, "max-depth")?;
+        let min_size: Option<Spanned<i64>> = call.get_flag(engine_state, stack, "min-size")?;
+        let max_depth: Option<Spanned<i64>> = call.get_flag(engine_state, stack, "max-depth")?;
         if let Some(ref max_depth) = max_depth {
             if max_depth.item < 0 {
                 return Err(ShellError::NeedsPositiveValue(max_depth.span));
