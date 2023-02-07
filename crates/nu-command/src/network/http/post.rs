@@ -14,6 +14,8 @@ use std::io::BufReader;
 use std::path::PathBuf;
 use std::str::FromStr;
 
+use crate::network::http::client::http_client;
+
 #[derive(Clone)]
 pub struct SubCommand;
 
@@ -92,6 +94,7 @@ impl Command for SubCommand {
     ) -> Result<PipelineData, ShellError> {
         run_post(engine_state, stack, call, input)
     }
+
     fn examples(&self) -> Vec<Example> {
         vec![
             Example {
@@ -429,13 +432,4 @@ fn response_to_buffer(
         metadata: None,
         trim_end_newline: false,
     }
-}
-// Only panics if the user agent is invalid but we define it statically so either
-// it always or never fails
-fn http_client(allow_insecure: bool) -> reqwest::blocking::Client {
-    reqwest::blocking::Client::builder()
-        .user_agent("nushell")
-        .danger_accept_invalid_certs(allow_insecure)
-        .build()
-        .expect("Failed to build reqwest client")
 }
