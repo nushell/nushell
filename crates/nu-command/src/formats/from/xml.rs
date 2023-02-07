@@ -22,7 +22,7 @@ impl Command for FromXml {
             .input_output_types(vec![(Type::String, Type::Record(vec![]))])
             .switch("keep-comments", "add comment nodes to result", None)
             .switch(
-                "keep-processing-instructions",
+                "keep-pi",
                 "add processing instruction nodes to result",
                 None,
             )
@@ -42,7 +42,7 @@ impl Command for FromXml {
     ) -> Result<PipelineData, ShellError> {
         let head = call.head;
         let keep_comments = call.has_flag("keep-comments");
-        let keep_processing_instructions = call.has_flag("keep-processing-instructions");
+        let keep_processing_instructions = call.has_flag("keep-pi");
         let info = ParsingInfo {
             span: head,
             keep_comments,
