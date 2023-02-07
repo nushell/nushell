@@ -2,8 +2,8 @@ use nu_engine::{eval_block, CallExt};
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Closure, Command, EngineState, Stack};
 use nu_protocol::{
-    Category, Example, IntoPipelineData, PipelineData, Signature, SyntaxShape, Type, ListStream,
-    IntoInterruptiblePipelineData, Value
+    Category, DataSource, Example, IntoPipelineData, PipelineData, PipelineMetadata, Signature,
+    Spanned, SyntaxShape, Type, Value,
 };
 
 #[derive(Clone)]
@@ -46,19 +46,14 @@ impl Command for Profile {
         call: &Call,
         input: PipelineData,
     ) -> Result<nu_protocol::PipelineData, nu_protocol::ShellError> {
-        let capture_block: Closure = call.req(engine_state, stack, 0)?;
-        let block = engine_state.get_block(capture_block.block_id);
+        let capture_block: Spanned<Closure> = call.req(engine_state, stack, 0)?;
+        let block = engine_state.get_block(capture_block.item.block_id);
 
         let redirect_stdout = call.redirect_stdout;
         let redirect_stderr = call.redirect_stderr;
 
-        let mut stack = stack.captures_to_stack(&capture_block.captures);
+        let mut stack = stack.captures_to_stack(&capture_block.item.captures);
 
-        // In order to provide the pipeline as a positional, it must be converted into a value.
-        // But because pipelines do not have Clone, this one has to be cloned as a value
-        // and then converted back into a pipeline for eval_block().
-        // So, the metadata must be saved here and restored at that point.
-        let input_metadata = input.metadata();
         let input_val = input.into_value(call.head);
 
         if let Some(var) = block.signature.get_positional(0) {
@@ -67,7 +62,6 @@ impl Command for Profile {
             }
         }
 
-        // Get the start time after all other computation has been done.
         stack.debug_depth =
             if let Some(depth) = call.get_flag::<i64>(engine_state, &mut stack, "max-depth")? {
                 depth
@@ -75,19 +69,39 @@ impl Command for Profile {
                 1
             };
 
-        let _ = eval_block(
+        let profiling_metadata = PipelineMetadata {
+            data_source: DataSource::Profiling(vec![]),
+        };
+
+        // let result =  eval_block(
+        //     engine_state,
+        //     &mut stack,
+        //     block,
+        //     input_val.into_pipeline_data_with_metadata(profiling_metadata),
+        //     redirect_stdout,
+        //     redirect_stderr,
+        // )?
+        //     .metadata();
+        // println!("GOT: {:?}", result);
+
+        let result = if let Some(PipelineMetadata {
+            data_source: DataSource::Profiling(values),
+        }) = eval_block(
             engine_state,
             &mut stack,
             block,
-            input_val.into_pipeline_data_with_metadata(input_metadata),
+            input_val.into_pipeline_data_with_metadata(profiling_metadata),
             redirect_stdout,
             redirect_stderr,
         )?
-        .into_value(call.head);
+        .metadata()
+        {
+            Value::list(values, call.head)
+        } else {
+            Value::nothing(call.head)
+        };
 
-        let debug_output = Value::list(stack.debug_output.drain(..).collect(), call.head);
-
-        Ok(debug_output.into_pipeline_data())
+        Ok(result.into_pipeline_data())
     }
 
     fn examples(&self) -> Vec<Example> {

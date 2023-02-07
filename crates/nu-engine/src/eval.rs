@@ -6,8 +6,8 @@ use nu_protocol::{
         Operator, PathMember, PipelineElement, Redirection,
     },
     engine::{EngineState, Stack},
-    Config, IntoInterruptiblePipelineData, IntoPipelineData, ListStream, PipelineData, Range,
-    ShellError, Span, Spanned, Unit, Value, VarId, ENV_VARIABLE_ID,
+    Config, DataSource, IntoInterruptiblePipelineData, IntoPipelineData, PipelineData,
+    PipelineMetadata, Range, ShellError, Span, Spanned, Unit, Value, VarId, ENV_VARIABLE_ID,
 };
 use nu_utils::stdout_write_all_and_flush;
 use std::collections::HashMap;
@@ -695,7 +695,9 @@ pub fn eval_expression_with_input(
         }
 
         elem => {
-            input = eval_expression(engine_state, stack, elem)?.into_pipeline_data();
+            let input_metadata = input.metadata();
+            input = eval_expression(engine_state, stack, elem)?
+                .into_pipeline_data_with_metadata(input_metadata);
         }
     };
 
@@ -998,9 +1000,9 @@ pub fn eval_block(
         false
     };
 
-    // let mut debug_out = vec![];
-
     let num_pipelines = block.len();
+
+    let mut input_metadata = input.metadata();
 
     for (pipeline_idx, pipeline) in block.pipelines.iter().enumerate() {
         let mut i = 0;
@@ -1043,37 +1045,65 @@ pub fn eval_block(
                     ),
                     span,
                 );
-                let value = match &eval_result {
-                    Ok((PipelineData::Value(val, ..), ..)) => val.clone(),
-                    Ok((PipelineData::ListStream(..), ..)) => Value::string("list stream", span),
-                    Ok((PipelineData::ExternalStream { .. }, ..)) => {
-                        Value::string("raw stream", span)
+                let (value, element_metadata) = match &eval_result {
+                    Ok((PipelineData::Value(val, metadata), ..)) => (val.clone(), metadata.clone()),
+                    Ok((PipelineData::ListStream(.., metadata), ..)) => {
+                        (Value::string("list stream", span), metadata.clone())
                     }
-                    Ok((PipelineData::Empty, ..)) => Value::Nothing { span },
-                    Err(err) => Value::Error { error: err.clone() },
+                    Ok((PipelineData::ExternalStream { metadata, .. }, ..)) => {
+                        (Value::string("raw stream", span), metadata.clone())
+                    }
+                    Ok((PipelineData::Empty, ..)) => (Value::Nothing { span }, None),
+                    Err(err) => (Value::Error { error: err.clone() }, None),
                 };
                 let ns = (end_time - start_time).as_nanos() as i64;
 
-                stack.debug_output.push(Value::Record {
+                let record = Value::Record {
                     cols: vec![
-                        "level".to_string(),
+                        "pipeline_idx".to_string(),
+                        "element_idx".to_string(),
+                        "depth".to_string(),
                         "source".to_string(),
                         "value".to_string(),
                         "ns".to_string(),
                     ],
                     vals: vec![
+                        Value::int(pipeline_idx as i64, span),
+                        Value::int(i as i64, span),
                         Value::int(stack.debug_depth + 1, span),
-                        element_str,
+                        element_str.clone(),
                         value,
                         Value::Duration { val: ns, span },
                     ],
                     span,
-                });
-                // println!(
-                //     "\x1b[32m{}\x1b[0m : \x1b[33m{}\x1b[0m",
-                //     element_str,
-                //     format_duration((end_time - start_time).as_nanos() as i64)
-                // );
+                };
+
+                if let Some(PipelineMetadata {
+                    data_source: DataSource::Profiling(vals),
+                }) = element_metadata
+                {
+                    if let Some(PipelineMetadata {
+                        data_source: DataSource::Profiling(tgt_vals),
+                    }) = &mut input_metadata
+                    {
+                        tgt_vals.extend(vals);
+                    } else {
+                        input_metadata = Some(PipelineMetadata {
+                            data_source: DataSource::Profiling(vals),
+                        });
+                    }
+                }
+
+                if let Some(PipelineMetadata {
+                    data_source: DataSource::Profiling(tgt_vals),
+                }) = &mut input_metadata
+                {
+                    tgt_vals.push(record);
+                } else {
+                    input_metadata = Some(PipelineMetadata {
+                        data_source: DataSource::Profiling(vec![record]),
+                    });
+                }
             }
 
             match (eval_result, redirect_stderr) {
@@ -1175,6 +1205,7 @@ pub fn eval_block(
         }
     }
 
+    input = input.set_metadata(input_metadata);
     Ok(input)
 }
 

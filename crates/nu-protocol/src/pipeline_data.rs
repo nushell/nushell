@@ -62,6 +62,7 @@ pub struct PipelineMetadata {
 pub enum DataSource {
     Ls,
     HtmlThemes,
+    Profiling(Vec<Value>),
 }
 
 impl PipelineData {
@@ -78,6 +79,15 @@ impl PipelineData {
             PipelineData::ListStream(_, x) => x.clone(),
             PipelineData::ExternalStream { metadata: x, .. } => x.clone(),
             PipelineData::Value(_, x) => x.clone(),
+            PipelineData::Empty => None,
+        }
+    }
+
+    pub fn metadata_mut(&mut self) -> Option<&mut PipelineMetadata> {
+        match self {
+            PipelineData::ListStream(_, x) => x.as_mut(),
+            PipelineData::ExternalStream { metadata: x, .. } => x.as_mut(),
+            PipelineData::Value(_, x) => x.as_mut(),
             PipelineData::Empty => None,
         }
     }

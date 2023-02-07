@@ -89,6 +89,12 @@ impl Command for Metadata {
                             cols.push("source".into());
                             vals.push(Value::string("into html --list", head))
                         }
+                        PipelineMetadata {
+                            data_source: DataSource::Profiling(values),
+                        } => {
+                            cols.push("profiling".into());
+                            vals.push(Value::list(values.clone(), head))
+                        }
                     }
                 }
 
@@ -153,6 +159,12 @@ fn build_metadata_record(arg: &Value, metadata: &Option<PipelineMetadata>, head:
             } => {
                 cols.push("source".into());
                 vals.push(Value::string("into html --list", head))
+            }
+            PipelineMetadata {
+                data_source: DataSource::Profiling(values),
+            } => {
+                cols.push("profiling".into());
+                vals.push(Value::list(values.clone(), head))
             }
         }
     }
