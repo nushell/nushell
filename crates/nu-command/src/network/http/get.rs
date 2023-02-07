@@ -1,3 +1,4 @@
+use crate::network::http::client::http_client;
 use base64::{alphabet, engine::general_purpose::PAD, engine::GeneralPurpose, Engine};
 use nu_engine::CallExt;
 use nu_protocol::ast::Call;
@@ -183,7 +184,7 @@ fn helper(
         _ => None,
     };
 
-    let client = http_client();
+    let client = http_client(false);
     let mut request = client.get(url);
 
     if let Some(timeout) = timeout {
@@ -406,14 +407,4 @@ fn response_to_buffer(
         metadata: None,
         trim_end_newline: false,
     }
-}
-
-// Only panics if the user agent is invalid but we define it statically so either
-// it always or never fails
-#[allow(clippy::unwrap_used)]
-fn http_client() -> reqwest::blocking::Client {
-    reqwest::blocking::Client::builder()
-        .user_agent("nushell")
-        .build()
-        .unwrap()
 }
