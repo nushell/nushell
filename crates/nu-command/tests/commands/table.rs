@@ -181,6 +181,49 @@ fn table_expand_flatten_and_deep_1() {
 }
 
 #[test]
+fn table_expand_record_0() {
+    let actual = nu!(
+        r#"[{c: {d: 1}}] | table --expand"#
+    );
+
+    assert_eq!(
+        actual.out,
+        "╭───┬───────────╮\
+         │ # │     c     │\
+         ├───┼───────────┤\
+         │ 0 │ ╭───┬───╮ │\
+         │   │ │ d │ 1 │ │\
+         │   │ ╰───┴───╯ │\
+         ╰───┴───────────╯"
+    );
+}
+
+#[test]
+fn table_expand_record_1() {
+    let actual = nu!(
+        r#"[[a b, c]; [1 2 3] [4 5 [1 2 {a: 123, b: 234, c: 345}]]] | table --expand"#
+    );
+
+    assert_eq!(
+        actual.out,
+        "╭───┬───┬───┬─────────────────────╮\
+         │ # │ a │ b │          c          │\
+         ├───┼───┼───┼─────────────────────┤\
+         │ 0 │ 1 │ 2 │                   3 │\
+         │ 1 │ 4 │ 5 │ ╭───┬─────────────╮ │\
+         │   │   │   │ │ 0 │           1 │ │\
+         │   │   │   │ │ 1 │           2 │ │\
+         │   │   │   │ │ 2 │ ╭───┬─────╮ │ │\
+         │   │   │   │ │   │ │ a │ 123 │ │ │\
+         │   │   │   │ │   │ │ b │ 234 │ │ │\
+         │   │   │   │ │   │ │ c │ 345 │ │ │\
+         │   │   │   │ │   │ ╰───┴─────╯ │ │\
+         │   │   │   │ ╰───┴─────────────╯ │\
+         ╰───┴───┴───┴─────────────────────╯"
+    );
+}
+
+#[test]
 #[cfg(not(windows))]
 fn external_with_too_much_stdout_should_not_hang_nu() {
     use nu_test_support::fs::Stub::FileWithContent;
