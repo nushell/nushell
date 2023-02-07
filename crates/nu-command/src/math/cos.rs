@@ -48,7 +48,7 @@ impl Command for SubCommand {
     fn examples(&self) -> Vec<Example> {
         vec![
             Example {
-                description: "Apply the cosine to pi",
+                description: "Apply the cosine to π",
                 example: "math pi | math cos",
                 result: Some(Value::test_float(-1f64)),
             },

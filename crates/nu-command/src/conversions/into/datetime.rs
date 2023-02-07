@@ -280,13 +280,13 @@ fn action(input: &Value, args: &Arguments, head: Span) -> Value {
                 Zone::East(i) => match FixedOffset::east_opt((*i as i32) * HOUR) {
                     Some(eastoffset) => match_datetime!(eastoffset.timestamp_opt(ts, 0)),
                     None => Value::Error {
-                        error: ShellError::DatetimeParseError(*span),
+                        error: ShellError::DatetimeParseError(input.debug_value(), *span),
                     },
                 },
                 Zone::West(i) => match FixedOffset::west_opt((*i as i32) * HOUR) {
                     Some(westoffset) => match_datetime!(westoffset.timestamp_opt(ts, 0)),
                     None => Value::Error {
-                        error: ShellError::DatetimeParseError(*span),
+                        error: ShellError::DatetimeParseError(input.debug_value(), *span),
                     },
                 },
                 Zone::Error => Value::Error {
