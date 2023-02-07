@@ -12,7 +12,7 @@ pub struct GetYear;
 
 impl Command for GetYear {
     fn name(&self) -> &str {
-        "get-year"
+        "dfr get-year"
     }
 
     fn usage(&self) -> &str {

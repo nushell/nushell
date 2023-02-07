@@ -14,7 +14,7 @@ pub struct SliceDF;
 
 impl Command for SliceDF {
     fn name(&self) -> &str {
-        "slice"
+        "dfr slice"
     }
 
     fn usage(&self) -> &str {

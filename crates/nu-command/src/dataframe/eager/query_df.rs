@@ -18,7 +18,7 @@ pub struct QueryDf;
 
 impl Command for QueryDf {
     fn name(&self) -> &str {
-        "query df"
+        "dfr query-df"
     }
 
     fn usage(&self) -> &str {

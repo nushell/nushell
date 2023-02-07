@@ -12,7 +12,7 @@ pub struct WithColumn;
 
 impl Command for WithColumn {
     fn name(&self) -> &str {
-        "with-column"
+        "dfr with-column"
     }
 
     fn usage(&self) -> &str {

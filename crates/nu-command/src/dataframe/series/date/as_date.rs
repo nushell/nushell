@@ -13,7 +13,7 @@ pub struct AsDate;
 
 impl Command for AsDate {
     fn name(&self) -> &str {
-        "as-date"
+        "dfr as-date"
     }
 
     fn usage(&self) -> &str {

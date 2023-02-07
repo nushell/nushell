@@ -12,7 +12,7 @@ pub struct GetNanosecond;
 
 impl Command for GetNanosecond {
     fn name(&self) -> &str {
-        "get-nanosecond"
+        "dfr get-nanosecond"
     }
 
     fn usage(&self) -> &str {

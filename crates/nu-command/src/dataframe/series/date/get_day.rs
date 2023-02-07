@@ -12,7 +12,7 @@ pub struct GetDay;
 
 impl Command for GetDay {
     fn name(&self) -> &str {
-        "get-day"
+        "dfr get-day"
     }
 
     fn usage(&self) -> &str {

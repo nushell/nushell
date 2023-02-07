@@ -14,7 +14,7 @@ pub struct AsDateTime;
 
 impl Command for AsDateTime {
     fn name(&self) -> &str {
-        "as-datetime"
+        "dfr as-datetime"
     }
 
     fn usage(&self) -> &str {

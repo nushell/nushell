@@ -12,7 +12,7 @@ pub struct GetOrdinal;
 
 impl Command for GetOrdinal {
     fn name(&self) -> &str {
-        "get-ordinal"
+        "dfr get-ordinal"
     }
 
     fn usage(&self) -> &str {

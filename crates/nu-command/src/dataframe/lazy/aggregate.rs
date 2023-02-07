@@ -13,7 +13,7 @@ pub struct LazyAggregate;
 
 impl Command for LazyAggregate {
     fn name(&self) -> &str {
-        "agg"
+        "dfr agg"
     }
 
     fn usage(&self) -> &str {

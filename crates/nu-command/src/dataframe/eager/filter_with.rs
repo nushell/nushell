@@ -15,7 +15,7 @@ pub struct FilterWith;
 
 impl Command for FilterWith {
     fn name(&self) -> &str {
-        "filter-with"
+        "dfr filter-with"
     }
 
     fn usage(&self) -> &str {

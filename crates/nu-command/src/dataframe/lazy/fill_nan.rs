@@ -11,7 +11,7 @@ pub struct LazyFillNA;
 
 impl Command for LazyFillNA {
     fn name(&self) -> &str {
-        "fill-nan"
+        "dfr fill-nan"
     }
 
     fn usage(&self) -> &str {

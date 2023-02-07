@@ -12,7 +12,7 @@ pub struct LazySortBy;
 
 impl Command for LazySortBy {
     fn name(&self) -> &str {
-        "sort-by"
+        "dfr sort-by"
     }
 
     fn usage(&self) -> &str {

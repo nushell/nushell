@@ -12,7 +12,7 @@ pub struct ArgMax;
 
 impl Command for ArgMax {
     fn name(&self) -> &str {
-        "arg-max"
+        "dfr arg-max"
     }
 
     fn usage(&self) -> &str {

@@ -13,7 +13,7 @@ pub struct ShapeDF;
 
 impl Command for ShapeDF {
     fn name(&self) -> &str {
-        "shape"
+        "dfr shape"
     }
 
     fn usage(&self) -> &str {

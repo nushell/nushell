@@ -12,7 +12,7 @@ pub struct LazyCollect;
 
 impl Command for LazyCollect {
     fn name(&self) -> &str {
-        "collect"
+        "dfr collect"
     }
 
     fn usage(&self) -> &str {

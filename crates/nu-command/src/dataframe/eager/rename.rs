@@ -14,7 +14,7 @@ pub struct RenameDF;
 
 impl Command for RenameDF {
     fn name(&self) -> &str {
-        "rename"
+        "dfr rename"
     }
 
     fn usage(&self) -> &str {

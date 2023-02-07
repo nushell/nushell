@@ -45,7 +45,7 @@ pub struct Cumulative;
 
 impl Command for Cumulative {
     fn name(&self) -> &str {
-        "cumulative"
+        "dfr cumulative"
     }
 
     fn usage(&self) -> &str {

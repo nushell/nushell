@@ -11,7 +11,7 @@ pub struct AllTrue;
 
 impl Command for AllTrue {
     fn name(&self) -> &str {
-        "all-true"
+        "dfr all-true"
     }
 
     fn usage(&self) -> &str {

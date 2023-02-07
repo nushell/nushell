@@ -19,7 +19,7 @@ pub struct Summary;
 
 impl Command for Summary {
     fn name(&self) -> &str {
-        "summary"
+        "dfr summary"
     }
 
     fn usage(&self) -> &str {

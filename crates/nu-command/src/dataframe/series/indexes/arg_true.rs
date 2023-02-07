@@ -12,7 +12,7 @@ pub struct ArgTrue;
 
 impl Command for ArgTrue {
     fn name(&self) -> &str {
-        "arg-true"
+        "dfr arg-true"
     }
 
     fn usage(&self) -> &str {

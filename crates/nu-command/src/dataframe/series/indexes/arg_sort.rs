@@ -12,7 +12,7 @@ pub struct ArgSort;
 
 impl Command for ArgSort {
     fn name(&self) -> &str {
-        "arg-sort"
+        "dfr arg-sort"
     }
 
     fn usage(&self) -> &str {

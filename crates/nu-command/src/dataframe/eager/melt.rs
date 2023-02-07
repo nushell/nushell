@@ -15,7 +15,7 @@ pub struct MeltDF;
 
 impl Command for MeltDF {
     fn name(&self) -> &str {
-        "melt"
+        "dfr melt"
     }
 
     fn usage(&self) -> &str {

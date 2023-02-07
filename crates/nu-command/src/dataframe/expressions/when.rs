@@ -12,7 +12,7 @@ pub struct ExprWhen;
 
 impl Command for ExprWhen {
     fn name(&self) -> &str {
-        "when"
+        "dfr when"
     }
 
     fn usage(&self) -> &str {

@@ -13,7 +13,7 @@ pub struct StrSlice;
 
 impl Command for StrSlice {
     fn name(&self) -> &str {
-        "str-slice"
+        "dfr str-slice"
     }
 
     fn usage(&self) -> &str {

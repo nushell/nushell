@@ -13,7 +13,7 @@ pub struct Replace;
 
 impl Command for Replace {
     fn name(&self) -> &str {
-        "replace"
+        "dfr replace"
     }
 
     fn usage(&self) -> &str {

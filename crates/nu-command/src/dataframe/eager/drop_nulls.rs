@@ -13,7 +13,7 @@ pub struct DropNulls;
 
 impl Command for DropNulls {
     fn name(&self) -> &str {
-        "drop-nulls"
+        "dfr drop-nulls"
     }
 
     fn usage(&self) -> &str {

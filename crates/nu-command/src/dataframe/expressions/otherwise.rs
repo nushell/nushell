@@ -11,7 +11,7 @@ pub struct ExprOtherwise;
 
 impl Command for ExprOtherwise {
     fn name(&self) -> &str {
-        "otherwise"
+        "dfr otherwise"
     }
 
     fn usage(&self) -> &str {

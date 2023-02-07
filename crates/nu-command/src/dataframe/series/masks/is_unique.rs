@@ -12,7 +12,7 @@ pub struct IsUnique;
 
 impl Command for IsUnique {
     fn name(&self) -> &str {
-        "is-unique"
+        "dfr is-unique"
     }
 
     fn usage(&self) -> &str {

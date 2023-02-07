@@ -11,7 +11,7 @@ pub struct NNull;
 
 impl Command for NNull {
     fn name(&self) -> &str {
-        "count-null"
+        "dfr count-null"
     }
 
     fn usage(&self) -> &str {

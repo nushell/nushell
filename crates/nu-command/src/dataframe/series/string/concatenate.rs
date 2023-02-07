@@ -13,7 +13,7 @@ pub struct Concatenate;
 
 impl Command for Concatenate {
     fn name(&self) -> &str {
-        "concatenate"
+        "dfr concatenate"
     }
 
     fn usage(&self) -> &str {

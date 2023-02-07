@@ -13,7 +13,7 @@ pub struct IsIn;
 
 impl Command for IsIn {
     fn name(&self) -> &str {
-        "is-in"
+        "dfr is-in"
     }
 
     fn usage(&self) -> &str {

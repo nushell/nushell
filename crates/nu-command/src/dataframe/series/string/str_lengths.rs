@@ -12,7 +12,7 @@ pub struct StrLengths;
 
 impl Command for StrLengths {
     fn name(&self) -> &str {
-        "str-lengths"
+        "dfr str-lengths"
     }
 
     fn usage(&self) -> &str {

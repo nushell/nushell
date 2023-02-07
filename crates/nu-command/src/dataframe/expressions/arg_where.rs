@@ -12,7 +12,7 @@ pub struct ExprArgWhere;
 
 impl Command for ExprArgWhere {
     fn name(&self) -> &str {
-        "arg-where"
+        "dfr arg-where"
     }
 
     fn usage(&self) -> &str {

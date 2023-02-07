@@ -11,7 +11,7 @@ pub struct Dummies;
 
 impl Command for Dummies {
     fn name(&self) -> &str {
-        "dummies"
+        "dfr dummies"
     }
 
     fn usage(&self) -> &str {

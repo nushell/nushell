@@ -12,7 +12,7 @@ pub struct ToLowerCase;
 
 impl Command for ToLowerCase {
     fn name(&self) -> &str {
-        "lowercase"
+        "dfr lowercase"
     }
 
     fn usage(&self) -> &str {

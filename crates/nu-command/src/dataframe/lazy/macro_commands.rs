@@ -114,7 +114,7 @@ macro_rules! lazy_command {
 // Expands to a command definition for reverse
 lazy_command!(
     LazyReverse,
-    "reverse",
+    "dfr reverse",
     "Reverses the LazyFrame",
     vec![Example {
         description: "Reverses the dataframe",
@@ -142,7 +142,7 @@ lazy_command!(
 // Expands to a command definition for cache
 lazy_command!(
     LazyCache,
-    "cache",
+    "dfr cache",
     "Caches operations in a new LazyFrame",
     vec![Example {
         description: "Caches the result into a new LazyFrame",
@@ -157,7 +157,7 @@ lazy_command!(
 // Expands to a command definition for max aggregation
 lazy_command!(
     LazyMax,
-    "max",
+    "dfr max",
     "Aggregates columns to their max value",
     vec![Example {
         description: "Max value from columns in a dataframe",
@@ -179,7 +179,7 @@ lazy_command!(
 // Expands to a command definition for min aggregation
 lazy_command!(
     LazyMin,
-    "min",
+    "dfr min",
     "Aggregates columns to their min value",
     vec![Example {
         description: "Min value from columns in a dataframe",
@@ -201,7 +201,7 @@ lazy_command!(
 // Expands to a command definition for sum aggregation
 lazy_command!(
     LazySum,
-    "sum",
+    "dfr sum",
     "Aggregates columns to their sum value",
     vec![Example {
         description: "Sums all columns in a dataframe",
@@ -223,7 +223,7 @@ lazy_command!(
 // Expands to a command definition for mean aggregation
 lazy_command!(
     LazyMean,
-    "mean",
+    "dfr mean",
     "Aggregates columns to their mean value",
     vec![Example {
         description: "Mean value from columns in a dataframe",
@@ -245,7 +245,7 @@ lazy_command!(
 // Expands to a command definition for median aggregation
 lazy_command!(
     LazyMedian,
-    "median",
+    "dfr median",
     "Aggregates columns to their median value",
     vec![Example {
         description: "Median value from columns in a dataframe",
@@ -267,7 +267,7 @@ lazy_command!(
 // Expands to a command definition for std aggregation
 lazy_command!(
     LazyStd,
-    "std",
+    "dfr std",
     "Aggregates columns to their std value",
     vec![Example {
         description: "Std value from columns in a dataframe",
@@ -290,7 +290,7 @@ lazy_command!(
 // Expands to a command definition for var aggregation
 lazy_command!(
     LazyVar,
-    "var",
+    "dfr var",
     "Aggregates columns to their var value",
     vec![Example {
         description: "Var value from columns in a dataframe",

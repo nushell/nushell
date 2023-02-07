@@ -13,7 +13,7 @@ pub struct ValueCount;
 
 impl Command for ValueCount {
     fn name(&self) -> &str {
-        "value-counts"
+        "dfr value-counts"
     }
 
     fn usage(&self) -> &str {

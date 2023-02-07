@@ -10,7 +10,7 @@ pub struct NUnique;
 
 impl Command for NUnique {
     fn name(&self) -> &str {
-        "n-unique"
+        "dfr n-unique"
     }
 
     fn usage(&self) -> &str {

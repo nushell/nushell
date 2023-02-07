@@ -13,7 +13,7 @@ pub struct SetWithIndex;
 
 impl Command for SetWithIndex {
     fn name(&self) -> &str {
-        "set-with-idx"
+        "dfr set-with-idx"
     }
 
     fn usage(&self) -> &str {

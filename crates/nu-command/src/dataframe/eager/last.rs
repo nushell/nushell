@@ -11,7 +11,7 @@ pub struct LastDF;
 
 impl Command for LastDF {
     fn name(&self) -> &str {
-        "last"
+        "dfr last"
     }
 
     fn usage(&self) -> &str {

@@ -15,7 +15,7 @@ pub struct ToCSV;
 
 impl Command for ToCSV {
     fn name(&self) -> &str {
-        "to csv"
+        "dfr to-csv"
     }
 
     fn usage(&self) -> &str {

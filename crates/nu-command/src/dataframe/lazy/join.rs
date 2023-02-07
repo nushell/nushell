@@ -12,7 +12,7 @@ pub struct LazyJoin;
 
 impl Command for LazyJoin {
     fn name(&self) -> &str {
-        "join"
+        "dfr join"
     }
 
     fn usage(&self) -> &str {

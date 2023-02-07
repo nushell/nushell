@@ -12,7 +12,7 @@ pub struct ExprConcatStr;
 
 impl Command for ExprConcatStr {
     fn name(&self) -> &str {
-        "concat-str"
+        "dfr concat-str"
     }
 
     fn usage(&self) -> &str {

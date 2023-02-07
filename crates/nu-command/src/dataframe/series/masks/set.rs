@@ -13,7 +13,7 @@ pub struct SetSeries;
 
 impl Command for SetSeries {
     fn name(&self) -> &str {
-        "set"
+        "dfr set"
     }
 
     fn usage(&self) -> &str {

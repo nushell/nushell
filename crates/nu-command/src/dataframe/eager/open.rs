@@ -18,7 +18,7 @@ pub struct OpenDataFrame;
 
 impl Command for OpenDataFrame {
     fn name(&self) -> &str {
-        "open-df"
+        "dfr open-df"
     }
 
     fn usage(&self) -> &str {

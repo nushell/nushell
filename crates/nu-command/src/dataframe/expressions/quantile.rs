@@ -12,7 +12,7 @@ pub struct ExprQuantile;
 
 impl Command for ExprQuantile {
     fn name(&self) -> &str {
-        "quantile"
+        "dfr quantile"
     }
 
     fn usage(&self) -> &str {

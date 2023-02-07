@@ -12,7 +12,7 @@ pub struct SampleDF;
 
 impl Command for SampleDF {
     fn name(&self) -> &str {
-        "sample"
+        "dfr sample"
     }
 
     fn usage(&self) -> &str {

@@ -11,7 +11,7 @@ pub struct ExprLit;
 
 impl Command for ExprLit {
     fn name(&self) -> &str {
-        "lit"
+        "dfr lit"
     }
 
     fn usage(&self) -> &str {

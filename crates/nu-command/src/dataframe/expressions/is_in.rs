@@ -12,7 +12,7 @@ pub struct ExprIsIn;
 
 impl Command for ExprIsIn {
     fn name(&self) -> &str {
-        "is-in"
+        "dfr is-in"
     }
 
     fn usage(&self) -> &str {

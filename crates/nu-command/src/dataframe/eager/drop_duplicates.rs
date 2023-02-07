@@ -14,7 +14,7 @@ pub struct DropDuplicates;
 
 impl Command for DropDuplicates {
     fn name(&self) -> &str {
-        "drop-duplicates"
+        "dfr drop-duplicates"
     }
 
     fn usage(&self) -> &str {

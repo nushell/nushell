@@ -15,7 +15,7 @@ pub struct ToParquet;
 
 impl Command for ToParquet {
     fn name(&self) -> &str {
-        "to parquet"
+        "dfr to-parquet"
     }
 
     fn usage(&self) -> &str {

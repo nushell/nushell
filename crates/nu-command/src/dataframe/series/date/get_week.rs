@@ -12,7 +12,7 @@ pub struct GetWeek;
 
 impl Command for GetWeek {
     fn name(&self) -> &str {
-        "get-week"
+        "dfr get-week"
     }
 
     fn usage(&self) -> &str {

@@ -12,7 +12,7 @@ pub struct IsDuplicated;
 
 impl Command for IsDuplicated {
     fn name(&self) -> &str {
-        "is-duplicated"
+        "dfr is-duplicated"
     }
 
     fn usage(&self) -> &str {

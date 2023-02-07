@@ -12,7 +12,7 @@ pub struct GetSecond;
 
 impl Command for GetSecond {
     fn name(&self) -> &str {
-        "get-second"
+        "dfr get-second"
     }
 
     fn usage(&self) -> &str {

@@ -48,7 +48,7 @@ pub struct Rolling;
 
 impl Command for Rolling {
     fn name(&self) -> &str {
-        "rolling"
+        "dfr rolling"
     }
 
     fn usage(&self) -> &str {

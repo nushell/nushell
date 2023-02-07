@@ -12,7 +12,7 @@ pub struct GetWeekDay;
 
 impl Command for GetWeekDay {
     fn name(&self) -> &str {
-        "get-weekday"
+        "dfr get-weekday"
     }
 
     fn usage(&self) -> &str {

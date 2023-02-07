@@ -13,7 +13,7 @@ pub struct ReplaceAll;
 
 impl Command for ReplaceAll {
     fn name(&self) -> &str {
-        "replace-all"
+        "dfr replace-all"
     }
 
     fn usage(&self) -> &str {

@@ -12,7 +12,7 @@ pub struct GetMinute;
 
 impl Command for GetMinute {
     fn name(&self) -> &str {
-        "get-minute"
+        "dfr get-minute"
     }
 
     fn usage(&self) -> &str {

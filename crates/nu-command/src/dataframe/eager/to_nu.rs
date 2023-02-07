@@ -12,7 +12,7 @@ pub struct ToNu;
 
 impl Command for ToNu {
     fn name(&self) -> &str {
-        "into nu"
+        "dfr into-nu"
     }
 
     fn usage(&self) -> &str {

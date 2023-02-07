@@ -12,7 +12,7 @@ pub struct GetMonth;
 
 impl Command for GetMonth {
     fn name(&self) -> &str {
-        "get-month"
+        "dfr get-month"
     }
 
     fn usage(&self) -> &str {

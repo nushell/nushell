@@ -12,7 +12,7 @@ pub struct ArgUnique;
 
 impl Command for ArgUnique {
     fn name(&self) -> &str {
-        "arg-unique"
+        "dfr arg-unique"
     }
 
     fn usage(&self) -> &str {

@@ -11,7 +11,7 @@ pub struct AllFalse;
 
 impl Command for AllFalse {
     fn name(&self) -> &str {
-        "all-false"
+        "dfr all-false"
     }
 
     fn usage(&self) -> &str {

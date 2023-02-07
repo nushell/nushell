@@ -12,7 +12,7 @@ pub struct AppendDF;
 
 impl Command for AppendDF {
     fn name(&self) -> &str {
-        "append"
+        "dfr append"
     }
 
     fn usage(&self) -> &str {

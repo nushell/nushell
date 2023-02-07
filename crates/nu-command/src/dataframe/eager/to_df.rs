@@ -11,7 +11,7 @@ pub struct ToDataFrame;
 
 impl Command for ToDataFrame {
     fn name(&self) -> &str {
-        "into df"
+        "dfr into-df"
     }
 
     fn usage(&self) -> &str {

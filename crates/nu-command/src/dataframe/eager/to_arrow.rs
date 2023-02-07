@@ -15,7 +15,7 @@ pub struct ToArrow;
 
 impl Command for ToArrow {
     fn name(&self) -> &str {
-        "to arrow"
+        "dfr to-arrow"
     }
 
     fn usage(&self) -> &str {

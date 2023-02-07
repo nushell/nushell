@@ -12,7 +12,7 @@ pub struct ArgMin;
 
 impl Command for ArgMin {
     fn name(&self) -> &str {
-        "arg-min"
+        "dfr arg-min"
     }
 
     fn usage(&self) -> &str {

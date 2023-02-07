@@ -10,7 +10,7 @@ pub struct DataTypes;
 
 impl Command for DataTypes {
     fn name(&self) -> &str {
-        "dtypes"
+        "dfr dtypes"
     }
 
     fn usage(&self) -> &str {

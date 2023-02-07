@@ -13,7 +13,7 @@ pub struct DropDF;
 
 impl Command for DropDF {
     fn name(&self) -> &str {
-        "drop"
+        "dfr drop"
     }
 
     fn usage(&self) -> &str {

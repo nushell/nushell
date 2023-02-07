@@ -11,7 +11,7 @@ pub struct IsNull;
 
 impl Command for IsNull {
     fn name(&self) -> &str {
-        "is-null"
+        "dfr is-null"
     }
 
     fn usage(&self) -> &str {

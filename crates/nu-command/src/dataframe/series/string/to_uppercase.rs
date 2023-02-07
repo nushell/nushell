@@ -12,7 +12,7 @@ pub struct ToUpperCase;
 
 impl Command for ToUpperCase {
     fn name(&self) -> &str {
-        "uppercase"
+        "dfr uppercase"
     }
 
     fn usage(&self) -> &str {

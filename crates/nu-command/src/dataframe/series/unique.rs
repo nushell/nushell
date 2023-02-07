@@ -15,7 +15,7 @@ pub struct Unique;
 
 impl Command for Unique {
     fn name(&self) -> &str {
-        "unique"
+        "dfr unique"
     }
 
     fn usage(&self) -> &str {

@@ -11,7 +11,7 @@ pub struct ToLazyFrame;
 
 impl Command for ToLazyFrame {
     fn name(&self) -> &str {
-        "into lazy"
+        "dfr into-lazy"
     }
 
     fn usage(&self) -> &str {

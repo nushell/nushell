@@ -11,7 +11,7 @@ pub struct FirstDF;
 
 impl Command for FirstDF {
     fn name(&self) -> &str {
-        "first"
+        "dfr first"
     }
 
     fn usage(&self) -> &str {

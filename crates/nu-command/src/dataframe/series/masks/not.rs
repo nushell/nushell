@@ -13,7 +13,7 @@ pub struct NotSeries;
 
 impl Command for NotSeries {
     fn name(&self) -> &str {
-        "df-not"
+        "dfr df-not"
     }
 
     fn usage(&self) -> &str {

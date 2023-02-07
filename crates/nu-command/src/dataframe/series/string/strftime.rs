@@ -13,7 +13,7 @@ pub struct StrFTime;
 
 impl Command for StrFTime {
     fn name(&self) -> &str {
-        "strftime"
+        "dfr strftime"
     }
 
     fn usage(&self) -> &str {

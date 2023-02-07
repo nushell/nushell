@@ -13,7 +13,7 @@ pub struct Contains;
 
 impl Command for Contains {
     fn name(&self) -> &str {
-        "contains"
+        "dfr contains"
     }
 
     fn usage(&self) -> &str {

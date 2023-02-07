@@ -11,7 +11,7 @@ pub struct ExprAsNu;
 
 impl Command for ExprAsNu {
     fn name(&self) -> &str {
-        "into nu"
+        "dfr into-nu"
     }
 
     fn usage(&self) -> &str {

@@ -15,7 +15,7 @@ pub struct TakeDF;
 
 impl Command for TakeDF {
     fn name(&self) -> &str {
-        "take"
+        "dfr take"
     }
 
     fn usage(&self) -> &str {

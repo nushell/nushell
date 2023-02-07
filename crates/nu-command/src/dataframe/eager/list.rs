@@ -11,7 +11,7 @@ pub struct ListDF;
 
 impl Command for ListDF {
     fn name(&self) -> &str {
-        "ls-df"
+        "dfr ls-df"
     }
 
     fn usage(&self) -> &str {

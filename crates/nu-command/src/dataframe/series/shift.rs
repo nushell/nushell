@@ -14,7 +14,7 @@ pub struct Shift;
 
 impl Command for Shift {
     fn name(&self) -> &str {
-        "shift"
+        "dfr shift"
     }
 
     fn usage(&self) -> &str {

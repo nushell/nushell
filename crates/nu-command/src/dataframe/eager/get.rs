@@ -14,7 +14,7 @@ pub struct GetDF;
 
 impl Command for GetDF {
     fn name(&self) -> &str {
-        "get"
+        "dfr get"
     }
 
     fn usage(&self) -> &str {

@@ -10,7 +10,7 @@ pub struct ColumnsDF;
 
 impl Command for ColumnsDF {
     fn name(&self) -> &str {
-        "columns"
+        "dfr columns"
     }
 
     fn usage(&self) -> &str {
