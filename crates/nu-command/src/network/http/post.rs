@@ -432,7 +432,6 @@ fn response_to_buffer(
 }
 // Only panics if the user agent is invalid but we define it statically so either
 // it always or never fails
-#[allow(clippy::unwrap_used)]
 fn http_client(allow_insecure: bool) -> reqwest::blocking::Client {
     reqwest::blocking::Client::builder()
         .user_agent("nushell")
