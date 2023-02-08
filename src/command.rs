@@ -157,7 +157,7 @@ pub(crate) fn parse_commandline_args(
             if call.has_flag("version") {
                 let version = env!("CARGO_PKG_VERSION").to_string();
                 let _ = std::panic::catch_unwind(move || {
-                    stdout_write_all_and_flush(format!("{}\n", version))
+                    stdout_write_all_and_flush(format!("{version}\n"))
                 });
 
                 std::process::exit(0);
@@ -190,7 +190,7 @@ pub(crate) fn parse_commandline_args(
         &mut stack,
         true,
     );
-    print!("{}", full_help);
+    print!("{full_help}");
     std::process::exit(1);
 }
 
@@ -321,7 +321,7 @@ impl Command for Nu {
         stack: &mut Stack,
         call: &Call,
         _input: PipelineData,
-    ) -> Result<nu_protocol::PipelineData, nu_protocol::ShellError> {
+    ) -> Result<PipelineData, ShellError> {
         Ok(Value::String {
             val: get_full_help(&Nu.signature(), &Nu.examples(), engine_state, stack, true),
             span: call.head,

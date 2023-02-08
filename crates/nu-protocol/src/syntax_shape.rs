@@ -178,14 +178,14 @@ impl Display for SyntaxShape {
                 if let Some(args) = args {
                     let arg_vec: Vec<_> = args.iter().map(|x| x.to_string()).collect();
                     let arg_string = arg_vec.join(", ");
-                    write!(f, "closure({})", arg_string)
+                    write!(f, "closure({arg_string})")
                 } else {
                     write!(f, "closure()")
                 }
             }
             SyntaxShape::Binary => write!(f, "binary"),
             SyntaxShape::Table => write!(f, "table"),
-            SyntaxShape::List(x) => write!(f, "list<{}>", x),
+            SyntaxShape::List(x) => write!(f, "list<{x}>"),
             SyntaxShape::Record => write!(f, "record"),
             SyntaxShape::Filesize => write!(f, "filesize"),
             SyntaxShape::Duration => write!(f, "duration"),
@@ -199,11 +199,11 @@ impl Display for SyntaxShape {
             SyntaxShape::Expression => write!(f, "expression"),
             SyntaxShape::Boolean => write!(f, "bool"),
             SyntaxShape::Error => write!(f, "error"),
-            SyntaxShape::Custom(x, _) => write!(f, "custom<{}>", x),
+            SyntaxShape::Custom(x, _) => write!(f, "custom<{x}>"),
             SyntaxShape::OneOf(list) => {
                 let arg_vec: Vec<_> = list.iter().map(|x| x.to_string()).collect();
                 let arg_string = arg_vec.join(", ");
-                write!(f, "one_of({})", arg_string)
+                write!(f, "one_of({arg_string})")
             }
             SyntaxShape::Nothing => write!(f, "nothing"),
         }

@@ -2,7 +2,8 @@ use nu_engine::CallExt;
 use nu_protocol::ast::{Call, CellPath};
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
-    Category, Example, IntoPipelineData, PipelineData, Signature, SyntaxShape, Type, Value,
+    Category, Example, IntoPipelineData, PipelineData, ShellError, Signature, SyntaxShape, Type,
+    Value,
 };
 
 #[derive(Clone)]
@@ -34,7 +35,7 @@ impl Command for Empty {
         stack: &mut Stack,
         call: &Call,
         input: PipelineData,
-    ) -> Result<nu_protocol::PipelineData, nu_protocol::ShellError> {
+    ) -> Result<PipelineData, ShellError> {
         empty(engine_state, stack, call, input)
     }
 
@@ -65,7 +66,7 @@ fn empty(
     stack: &mut Stack,
     call: &Call,
     input: PipelineData,
-) -> Result<nu_protocol::PipelineData, nu_protocol::ShellError> {
+) -> Result<PipelineData, ShellError> {
     let head = call.head;
     let columns: Vec<CellPath> = call.rest(engine_state, stack, 0)?;
 

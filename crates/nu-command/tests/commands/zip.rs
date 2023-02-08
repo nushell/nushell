@@ -19,7 +19,7 @@ fn zips_two_tables() {
     Playground::setup("zip_test_1", |dirs, nu| {
         nu.with_files(vec![FileWithContent(
             "zip_test.nu",
-            &format!("{}\n", ZIP_POWERED_TEST_ASSERTION_SCRIPT),
+            &format!("{ZIP_POWERED_TEST_ASSERTION_SCRIPT}\n"),
         )]);
 
         let actual = nu!(

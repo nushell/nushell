@@ -50,7 +50,7 @@ impl Command for OverlayHide {
         stack: &mut Stack,
         call: &Call,
         _input: PipelineData,
-    ) -> Result<nu_protocol::PipelineData, nu_protocol::ShellError> {
+    ) -> Result<PipelineData, ShellError> {
         let overlay_name: Spanned<String> = if let Some(name) = call.opt(engine_state, stack, 0)? {
             name
         } else {

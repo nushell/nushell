@@ -365,6 +365,20 @@ Either make sure {0} is a string, or add a 'to_string' entry for it in ENV_CONVE
     )]
     AutomaticEnvVarSetManually(String, #[label("cannot set '{0}' manually")] Span),
 
+    /// It is not possible to replace the entire environment at once
+    ///
+    /// ## Resolution
+    ///
+    /// Setting the entire environment is not allowed. Change environment variables individually
+    /// instead.
+    #[error("Cannot replace environment.")]
+    #[diagnostic(
+        code(nu::shell::cannot_replace_env),
+        url(docsrs),
+        help(r#"Assigning a value to $env is not allowed."#)
+    )]
+    CannotReplaceEnv(#[label("setting $env not allowed")] Span),
+
     /// Division by zero is not a thing.
     ///
     /// ## Resolution
@@ -508,7 +522,7 @@ Either make sure {0} is a string, or add a 'to_string' entry for it in ENV_CONVE
     /// * "2020-04-12 22:10:57 +02:00"
     /// * "2020-04-12T22:10:57.213231+02:00"
     /// * "Tue, 1 Jul 2003 10:52:37 +0200""#
-    #[error("Unable to parse datetime")]
+    #[error("Unable to parse datetime: [{0}].")]
     #[diagnostic(
         code(nu::shell::datetime_parse_error),
         url(docsrs),
@@ -522,7 +536,7 @@ Either make sure {0} is a string, or add a 'to_string' entry for it in ENV_CONVE
  * "Tue, 1 Jul 2003 10:52:37 +0200""#
         )
     )]
-    DatetimeParseError(#[label("datetime parsing failed")] Span),
+    DatetimeParseError(String, #[label("datetime parsing failed")] Span),
 
     /// A network operation failed.
     ///
@@ -930,7 +944,7 @@ Either make sure {0} is a string, or add a 'to_string' entry for it in ENV_CONVE
 
 impl From<std::io::Error> for ShellError {
     fn from(input: std::io::Error) -> ShellError {
-        ShellError::IOError(format!("{:?}", input))
+        ShellError::IOError(format!("{input:?}"))
     }
 }
 
@@ -942,7 +956,7 @@ impl std::convert::From<Box<dyn std::error::Error>> for ShellError {
 
 impl From<Box<dyn std::error::Error + Send + Sync>> for ShellError {
     fn from(input: Box<dyn std::error::Error + Send + Sync>) -> ShellError {
-        ShellError::IOError(format!("{:?}", input))
+        ShellError::IOError(format!("{input:?}"))
     }
 }
 
@@ -1032,8 +1046,7 @@ mod tests {
                 assert_eq!(
                     suggestion.as_deref(),
                     expected_suggestion,
-                    "Expected the following reasoning to hold but it did not: '{}'",
-                    discussion
+                    "Expected the following reasoning to hold but it did not: '{discussion}'"
                 );
             }
         }

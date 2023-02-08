@@ -39,7 +39,7 @@ impl Command for FromOds {
         stack: &mut Stack,
         call: &Call,
         input: PipelineData,
-    ) -> Result<nu_protocol::PipelineData, ShellError> {
+    ) -> Result<PipelineData, ShellError> {
         let head = call.head;
 
         let sel_sheets = if let Some(Value::List { vals: columns, .. }) =
@@ -149,7 +149,7 @@ fn from_ods(
                         _ => Value::nothing(head),
                     };
 
-                    row_output.insert(format!("column{}", i), value);
+                    row_output.insert(format!("column{i}"), value);
                 }
 
                 let (cols, vals) =

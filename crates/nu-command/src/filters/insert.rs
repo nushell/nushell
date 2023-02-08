@@ -47,7 +47,7 @@ impl Command for Insert {
         stack: &mut Stack,
         call: &Call,
         input: PipelineData,
-    ) -> Result<nu_protocol::PipelineData, nu_protocol::ShellError> {
+    ) -> Result<PipelineData, ShellError> {
         insert(engine_state, stack, call, input)
     }
 
@@ -64,27 +64,37 @@ impl Command for Insert {
                 ],
                 span: Span::test_data(),
             }),
-        }, Example {
+        },
+        Example {
+            description: "Insert a new column into a table, populating all rows",
+            example: "[[project, lang]; ['Nushell', 'Rust']] | insert type 'shell'",
+            result: Some(Value::List { vals: vec![Value::Record { cols: vec!["project".into(), "lang".into(), "type".into()],
+            vals: vec![Value::test_string("Nushell"), Value::test_string("Rust"), Value::test_string("shell")], span: Span::test_data()}], span: Span::test_data()}),
+        },
+        Example {
             description: "Insert a column with values equal to their row index, plus the value of 'foo' in each row",
-            example: "[[foo]; [7] [8] [9]] | insert bar {|el ind| $el.foo + $ind }",
+            example: "[[foo]; [7] [8] [9]] | enumerate | insert bar {|e| $e.item.foo + $e.index } | flatten",
             result: Some(Value::List {
                 vals: vec![Value::Record {
-                    cols: vec!["foo".into(), "bar".into()],
+                    cols: vec!["index".into(), "foo".into(), "bar".into()],
                     vals: vec![
+                        Value::test_int(0),
                         Value::test_int(7),
                         Value::test_int(7),
                     ],
                     span: Span::test_data(),
                 }, Value::Record {
-                    cols: vec!["foo".into(), "bar".into()],
+                    cols: vec!["index".into(),"foo".into(), "bar".into()],
                     vals: vec![
+                        Value::test_int(1),
                         Value::test_int(8),
                         Value::test_int(9),
                     ],
                     span: Span::test_data(),
                 }, Value::Record {
-                    cols: vec!["foo".into(), "bar".into()],
+                    cols: vec!["index".into(), "foo".into(), "bar".into()],
                     vals: vec![
+                        Value::test_int(2),
                         Value::test_int(9),
                         Value::test_int(11),
                     ],
@@ -122,9 +132,6 @@ fn insert(
         let orig_env_vars = stack.env_vars.clone();
         let orig_env_hidden = stack.env_hidden.clone();
 
-        // enumerate() can't be used here because it converts records into tables
-        // when combined with into_pipeline_data(). Hence, the index is tracked manually like so.
-        let mut idx: i64 = 0;
         input.map(
             move |mut input| {
                 // with_env() is used here to ensure that each iteration uses
@@ -137,13 +144,6 @@ fn insert(
                     if let Some(var_id) = &var.var_id {
                         stack.add_var(*var_id, input.clone())
                     }
-                }
-                // Optional index argument
-                if let Some(var) = block.signature.get_positional(1) {
-                    if let Some(var_id) = &var.var_id {
-                        stack.add_var(*var_id, Value::Int { val: idx, span });
-                    }
-                    idx += 1;
                 }
 
                 let output = eval_block(

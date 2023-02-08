@@ -46,7 +46,7 @@ impl Command for BytesBuild {
         stack: &mut Stack,
         call: &Call,
         _input: PipelineData,
-    ) -> Result<nu_protocol::PipelineData, nu_protocol::ShellError> {
+    ) -> Result<PipelineData, ShellError> {
         let mut output = vec![];
         for expr in call.positional_iter() {
             let val = eval_expression(engine_state, stack, expr)?;

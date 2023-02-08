@@ -757,10 +757,7 @@ fn get_proc_env<T: RtlUserProcessParameters>(params: &T, handle: HANDLE) -> Vec<
 fn get_cwd<T: RtlUserProcessParameters>(params: &T, handle: HANDLE) -> PathBuf {
     match params.get_cwd(handle) {
         Ok(buffer) => unsafe { PathBuf::from(null_terminated_wchar_to_string(buffer.as_slice())) },
-        Err(_e) => {
-            // sysinfo_debug!("get_cwd failed to get data: {}", _e);
-            PathBuf::new()
-        }
+        Err(_e) => PathBuf::new(),
     }
 }
 
@@ -988,8 +985,6 @@ fn get_name(psid: PSID) -> Option<(String, String)> {
 
 #[cfg_attr(tarpaulin, skip)]
 fn from_wide_ptr(ptr: *const u16) -> String {
-    // use std::ffi::OsString;
-    // use std::os::windows::ffi::OsStringExt;
     unsafe {
         assert!(!ptr.is_null());
         let len = (0..std::isize::MAX)
@@ -1013,18 +1008,11 @@ impl ProcessInfo {
 
     /// Name of command
     pub fn name(&self) -> String {
-        // self.command()
-        //     .split(' ')
-        //     .collect::<Vec<_>>()
-        //     .first()
-        //     .map(|x| x.to_string())
-        //     .unwrap_or_default()
         self.command.clone()
     }
 
     /// Full name of command, with arguments
     pub fn command(&self) -> String {
-        // self.command.clone()
         self.cmd.join(" ")
     }
 

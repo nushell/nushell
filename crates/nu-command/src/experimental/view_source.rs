@@ -32,12 +32,12 @@ impl Command for ViewSource {
         stack: &mut Stack,
         call: &Call,
         _input: PipelineData,
-    ) -> Result<nu_protocol::PipelineData, nu_protocol::ShellError> {
+    ) -> Result<PipelineData, ShellError> {
         let arg: Value = call.req(engine_state, stack, 0)?;
         let arg_span = arg.span()?;
 
         match arg {
-            Value::Block { val: block_id, .. } => {
+            Value::Block { val: block_id, .. } | Value::Closure { val: block_id, .. } => {
                 let block = engine_state.get_block(block_id);
 
                 if let Some(span) = block.span {

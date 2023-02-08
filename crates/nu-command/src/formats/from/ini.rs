@@ -47,7 +47,7 @@ b=2' | from ini",
         _stack: &mut Stack,
         call: &Call,
         input: PipelineData,
-    ) -> Result<nu_protocol::PipelineData, ShellError> {
+    ) -> Result<PipelineData, ShellError> {
         let head = call.head;
         from_ini(input, head)
     }
@@ -77,7 +77,7 @@ pub fn from_ini_string_to_value(
             Ok(Value::Record { cols, vals, span })
         }
         Err(err) => Err(ShellError::UnsupportedInput(
-            format!("Could not load ini: {}", err),
+            format!("Could not load ini: {err}"),
             "value originates from here".into(),
             span,
             val_span,

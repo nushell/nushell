@@ -538,11 +538,11 @@ impl Value {
                 };
                 collected.into_string(separator, config)
             }
-            Value::Block { val, .. } => format!("<Block {}>", val),
-            Value::Closure { val, .. } => format!("<Closure {}>", val),
+            Value::Block { val, .. } => format!("<Block {val}>"),
+            Value::Closure { val, .. } => format!("<Closure {val}>"),
             Value::Nothing { .. } => String::new(),
-            Value::Error { error } => format!("{:?}", error),
-            Value::Binary { val, .. } => format!("{:?}", val),
+            Value::Error { error } => format!("{error:?}"),
+            Value::Binary { val, .. } => format!("{val:?}"),
             Value::CellPath { val, .. } => val.into_string(),
             Value::CustomValue { val, .. } => val.value_string(),
         }
@@ -565,18 +565,21 @@ impl Value {
                 )
             }
             Value::String { val, .. } => val.to_string(),
-            Value::List { ref vals, .. } => match &vals[..] {
-                [Value::Record { .. }, _end @ ..] => format!(
-                    "[table {} row{}]",
-                    vals.len(),
-                    if vals.len() == 1 { "" } else { "s" }
-                ),
-                _ => format!(
-                    "[list {} item{}]",
-                    vals.len(),
-                    if vals.len() == 1 { "" } else { "s" }
-                ),
-            },
+            Value::List { ref vals, .. } => {
+                if !vals.is_empty() && vals.iter().all(|x| matches!(x, Value::Record { .. })) {
+                    format!(
+                        "[table {} row{}]",
+                        vals.len(),
+                        if vals.len() == 1 { "" } else { "s" }
+                    )
+                } else {
+                    format!(
+                        "[list {} item{}]",
+                        vals.len(),
+                        if vals.len() == 1 { "" } else { "s" }
+                    )
+                }
+            }
             Value::Record { cols, .. } => format!(
                 "{{record {} field{}}}",
                 cols.len(),
@@ -584,13 +587,13 @@ impl Value {
             ),
             Value::LazyRecord { val, .. } => match val.collect() {
                 Ok(val) => val.into_abbreviated_string(config),
-                Err(error) => format!("{:?}", error),
+                Err(error) => format!("{error:?}"),
             },
-            Value::Block { val, .. } => format!("<Block {}>", val),
-            Value::Closure { val, .. } => format!("<Closure {}>", val),
+            Value::Block { val, .. } => format!("<Block {val}>"),
+            Value::Closure { val, .. } => format!("<Closure {val}>"),
             Value::Nothing { .. } => String::new(),
-            Value::Error { error } => format!("{:?}", error),
-            Value::Binary { val, .. } => format!("{:?}", val),
+            Value::Error { error } => format!("{error:?}"),
+            Value::Binary { val, .. } => format!("{val:?}"),
             Value::CellPath { val, .. } => val.into_string(),
             Value::CustomValue { val, .. } => val.value_string(),
         }
@@ -598,7 +601,7 @@ impl Value {
 
     /// Convert Value into a debug string
     pub fn debug_value(&self) -> String {
-        format!("{:#?}", self)
+        format!("{self:#?}")
     }
 
     /// Convert Value into string. Note that Streams will be consumed.
@@ -609,7 +612,7 @@ impl Value {
             Value::Float { val, .. } => val.to_string(),
             Value::Filesize { val, .. } => format_filesize_from_conf(*val, config),
             Value::Duration { val, .. } => format_duration(*val),
-            Value::Date { val, .. } => format!("{:?}", val),
+            Value::Date { val, .. } => format!("{val:?}"),
             Value::Range { val, .. } => {
                 format!(
                     "{}..{}",
@@ -635,13 +638,13 @@ impl Value {
             ),
             Value::LazyRecord { val, .. } => match val.collect() {
                 Ok(val) => val.debug_string(separator, config),
-                Err(error) => format!("{:?}", error),
+                Err(error) => format!("{error:?}"),
             },
-            Value::Block { val, .. } => format!("<Block {}>", val),
-            Value::Closure { val, .. } => format!("<Closure {}>", val),
+            Value::Block { val, .. } => format!("<Block {val}>"),
+            Value::Closure { val, .. } => format!("<Closure {val}>"),
             Value::Nothing { .. } => String::new(),
-            Value::Error { error } => format!("{:?}", error),
-            Value::Binary { val, .. } => format!("{:?}", val),
+            Value::Error { error } => format!("{error:?}"),
+            Value::Binary { val, .. } => format!("{val:?}"),
             Value::CellPath { val, .. } => val.into_string(),
             Value::CustomValue { val, .. } => val.value_string(),
         }
@@ -3266,16 +3269,16 @@ pub enum TimePeriod {
 impl TimePeriod {
     pub fn to_text(self) -> Cow<'static, str> {
         match self {
-            Self::Nanos(n) => format!("{} ns", n).into(),
-            Self::Micros(n) => format!("{} µs", n).into(),
-            Self::Millis(n) => format!("{} ms", n).into(),
-            Self::Seconds(n) => format!("{} sec", n).into(),
-            Self::Minutes(n) => format!("{} min", n).into(),
-            Self::Hours(n) => format!("{} hr", n).into(),
-            Self::Days(n) => format!("{} day", n).into(),
-            Self::Weeks(n) => format!("{} wk", n).into(),
-            Self::Months(n) => format!("{} month", n).into(),
-            Self::Years(n) => format!("{} yr", n).into(),
+            Self::Nanos(n) => format!("{n} ns").into(),
+            Self::Micros(n) => format!("{n} µs").into(),
+            Self::Millis(n) => format!("{n} ms").into(),
+            Self::Seconds(n) => format!("{n} sec").into(),
+            Self::Minutes(n) => format!("{n} min").into(),
+            Self::Hours(n) => format!("{n} hr").into(),
+            Self::Days(n) => format!("{n} day").into(),
+            Self::Weeks(n) => format!("{n} wk").into(),
+            Self::Months(n) => format!("{n} month").into(),
+            Self::Years(n) => format!("{n} yr").into(),
         }
     }
 }
@@ -3489,13 +3492,13 @@ pub fn format_filesize(
             let locale_byte = adj_byte.get_value() as u64;
             let locale_byte_string = locale_byte.to_formatted_string(&locale);
             let locale_signed_byte_string = if num_bytes.is_negative() {
-                format!("-{}", locale_byte_string)
+                format!("-{locale_byte_string}")
             } else {
                 locale_byte_string
             };
 
             if filesize_format_var.1 == "auto" {
-                format!("{} B", locale_signed_byte_string)
+                format!("{locale_signed_byte_string} B")
             } else {
                 locale_signed_byte_string
             }

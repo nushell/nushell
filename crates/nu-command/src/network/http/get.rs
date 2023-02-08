@@ -1,3 +1,4 @@
+use crate::network::http::client::http_client;
 use base64::{alphabet, engine::general_purpose::PAD, engine::GeneralPurpose, Engine};
 use nu_engine::CallExt;
 use nu_protocol::ast::Call;
@@ -60,6 +61,11 @@ impl Command for SubCommand {
                 "fetch contents as text rather than a table",
                 Some('r'),
             )
+            .switch(
+                "insecure",
+                "allow insecure server connections when using SSL",
+                Some('k'),
+            )
             .filter()
             .category(Category::Network)
     }
@@ -84,7 +90,7 @@ impl Command for SubCommand {
         stack: &mut Stack,
         call: &Call,
         input: PipelineData,
-    ) -> Result<nu_protocol::PipelineData, nu_protocol::ShellError> {
+    ) -> Result<PipelineData, ShellError> {
         run_fetch(engine_state, stack, call, input)
     }
 
@@ -112,6 +118,7 @@ impl Command for SubCommand {
 struct Arguments {
     url: Value,
     raw: bool,
+    insecure: Option<bool>,
     user: Option<String>,
     password: Option<String>,
     timeout: Option<Value>,
@@ -123,10 +130,11 @@ fn run_fetch(
     stack: &mut Stack,
     call: &Call,
     _input: PipelineData,
-) -> Result<nu_protocol::PipelineData, nu_protocol::ShellError> {
+) -> Result<PipelineData, ShellError> {
     let args = Arguments {
         url: call.req(engine_state, stack, 0)?,
         raw: call.has_flag("raw"),
+        insecure: call.get_flag(engine_state, stack, "insecure")?,
         user: call.get_flag(engine_state, stack, "user")?,
         password: call.get_flag(engine_state, stack, "password")?,
         timeout: call.get_flag(engine_state, stack, "timeout")?,
@@ -167,23 +175,23 @@ fn helper(
     let login = match (user, password) {
         (Some(user), Some(password)) => {
             let mut enc_str = String::new();
-            base64_engine.encode_string(&format!("{}:{}", user, password), &mut enc_str);
+            base64_engine.encode_string(&format!("{user}:{password}"), &mut enc_str);
             Some(enc_str)
         }
         (Some(user), _) => {
             let mut enc_str = String::new();
-            base64_engine.encode_string(&format!("{}:", user), &mut enc_str);
+            base64_engine.encode_string(&format!("{user}:"), &mut enc_str);
             Some(enc_str)
         }
         (_, Some(password)) => {
             let mut enc_str = String::new();
-            base64_engine.encode_string(&format!(":{}", password), &mut enc_str);
+            base64_engine.encode_string(&format!(":{password}"), &mut enc_str);
             Some(enc_str)
         }
         _ => None,
     };
 
-    let client = http_client();
+    let client = http_client(args.insecure.is_some());
     let mut request = client.get(url);
 
     if let Some(timeout) = timeout {
@@ -200,7 +208,7 @@ fn helper(
     }
 
     if let Some(login) = login {
-        request = request.header("Authorization", format!("Basic {}", login));
+        request = request.header("Authorization", format!("Basic {login}"));
     }
 
     if let Some(headers) = headers {
@@ -268,7 +276,7 @@ fn helper(
                 })?;
                 let content_type = mime::Mime::from_str(content_type).map_err(|_| {
                     ShellError::GenericError(
-                        format!("MIME type unknown: {}", content_type),
+                        format!("MIME type unknown: {content_type}"),
                         "".to_string(),
                         None,
                         Some("given unknown MIME type".to_string()),
@@ -280,7 +288,7 @@ fn helper(
                         let path_extension = url::Url::parse(&requested_url)
                             .map_err(|_| {
                                 ShellError::GenericError(
-                                    format!("Cannot parse URL: {}", requested_url),
+                                    format!("Cannot parse URL: {requested_url}"),
                                     "".to_string(),
                                     None,
                                     Some("cannot parse".to_string()),
@@ -307,7 +315,7 @@ fn helper(
                 }
 
                 if let Some(ext) = ext {
-                    match engine_state.find_decl(format!("from {}", ext).as_bytes(), &[]) {
+                    match engine_state.find_decl(format!("from {ext}").as_bytes(), &[]) {
                         Some(converter_id) => engine_state.get_decl(converter_id).run(
                             engine_state,
                             stack,
@@ -323,28 +331,25 @@ fn helper(
             None => Ok(response_to_buffer(resp, engine_state, span)),
         },
         Err(e) if e.is_timeout() => Err(ShellError::NetworkFailure(
-            format!("Request to {} has timed out", requested_url),
+            format!("Request to {requested_url} has timed out"),
             span,
         )),
         Err(e) if e.is_status() => match e.status() {
             Some(err_code) if err_code == StatusCode::NOT_FOUND => Err(ShellError::NetworkFailure(
-                format!("Requested file not found (404): {:?}", requested_url),
+                format!("Requested file not found (404): {requested_url:?}"),
                 span,
             )),
             Some(err_code) if err_code == StatusCode::MOVED_PERMANENTLY => {
                 Err(ShellError::NetworkFailure(
-                    format!("Resource moved permanently (301): {:?}", requested_url),
+                    format!("Resource moved permanently (301): {requested_url:?}"),
                     span,
                 ))
             }
-            Some(err_code) if err_code == StatusCode::BAD_REQUEST => {
-                Err(ShellError::NetworkFailure(
-                    format!("Bad request (400) to {:?}", requested_url),
-                    span,
-                ))
-            }
+            Some(err_code) if err_code == StatusCode::BAD_REQUEST => Err(
+                ShellError::NetworkFailure(format!("Bad request (400) to {requested_url:?}"), span),
+            ),
             Some(err_code) if err_code == StatusCode::FORBIDDEN => Err(ShellError::NetworkFailure(
-                format!("Access forbidden (403) to {:?}", requested_url),
+                format!("Access forbidden (403) to {requested_url:?}"),
                 span,
             )),
             _ => Err(ShellError::NetworkFailure(
@@ -409,14 +414,4 @@ fn response_to_buffer(
         metadata: None,
         trim_end_newline: false,
     }
-}
-
-// Only panics if the user agent is invalid but we define it statically so either
-// it always or never fails
-#[allow(clippy::unwrap_used)]
-fn http_client() -> reqwest::blocking::Client {
-    reqwest::blocking::Client::builder()
-        .user_agent("nushell")
-        .build()
-        .unwrap()
 }

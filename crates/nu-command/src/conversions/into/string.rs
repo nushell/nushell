@@ -70,7 +70,7 @@ impl Command for SubCommand {
         stack: &mut Stack,
         call: &Call,
         input: PipelineData,
-    ) -> Result<nu_protocol::PipelineData, nu_protocol::ShellError> {
+    ) -> Result<PipelineData, ShellError> {
         string_helper(engine_state, stack, call, input)
     }
 
@@ -148,7 +148,7 @@ fn string_helper(
     stack: &mut Stack,
     call: &Call,
     input: PipelineData,
-) -> Result<nu_protocol::PipelineData, ShellError> {
+) -> Result<PipelineData, ShellError> {
     let decimals = call.has_flag("decimals");
     let head = call.head;
     let decimals_value: Option<i64> = call.get_flag(engine_state, stack, "decimals")?;
@@ -206,7 +206,7 @@ fn action(input: &Value, args: &Arguments, span: Span) -> Value {
             if decimals {
                 let decimal_value = digits.unwrap_or(2) as usize;
                 Value::String {
-                    val: format!("{:.*}", decimal_value, val),
+                    val: format!("{val:.decimal_value$}"),
                     span,
                 }
             } else {

@@ -39,7 +39,7 @@ pub(crate) fn read_config_file(
         // Create config directory if it does not exist
         if !config_path.exists() {
             if let Err(err) = std::fs::create_dir_all(&config_path) {
-                eprintln!("Failed to create config directory: {}", err);
+                eprintln!("Failed to create config directory: {err}");
                 return;
             }
         }
@@ -73,7 +73,7 @@ pub(crate) fn read_config_file(
             match answer.to_lowercase().trim() {
                 "y" | "" => {
                     if let Ok(mut output) = File::create(&config_path) {
-                        if write!(output, "{}", config_file).is_ok() {
+                        if write!(output, "{config_file}").is_ok() {
                             let config_type = if is_env_config {
                                 "Environment config"
                             } else {
@@ -93,10 +93,7 @@ pub(crate) fn read_config_file(
                             return;
                         }
                     } else {
-                        eprintln!(
-                            "Unable to create {}, sourcing default file instead",
-                            config_file
-                        );
+                        eprintln!("Unable to create {config_file}, sourcing default file instead");
                         eval_default_config(engine_state, stack, config_file, is_env_config);
                         return;
                     }
@@ -134,6 +131,7 @@ pub(crate) fn read_default_env_file(engine_state: &mut EngineState, stack: &mut 
         config_file.as_bytes(),
         "default_env.nu",
         PipelineData::empty(),
+        false,
     );
 
     info!("read_config_file {}:{}:{}", file!(), line!(), column!());
@@ -170,6 +168,7 @@ fn eval_default_config(
             "default_config.nu"
         },
         PipelineData::empty(),
+        false,
     );
 
     // Merge the environment in case env vars changed in the config

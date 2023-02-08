@@ -49,7 +49,7 @@ impl Command for SubCommand {
         stack: &mut Stack,
         call: &Call,
         input: PipelineData,
-    ) -> Result<nu_protocol::PipelineData, nu_protocol::ShellError> {
+    ) -> Result<PipelineData, ShellError> {
         let head = call.head;
         let bits: usize = call.req(engine_state, stack, 0)?;
         let signed = call.has_flag("signed");
@@ -110,8 +110,7 @@ where
             error: ShellError::GenericError(
                 "Rotate right result beyond the range of 64 bit signed number".to_string(),
                 format!(
-                    "{} of the specified number of bytes rotate right {} bits exceed limit",
-                    val, bits
+                    "{val} of the specified number of bytes rotate right {bits} bits exceed limit"
                 ),
                 Some(span),
                 None,

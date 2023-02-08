@@ -38,7 +38,7 @@ impl Command for Length {
         _stack: &mut Stack,
         call: &Call,
         input: PipelineData,
-    ) -> Result<nu_protocol::PipelineData, ShellError> {
+    ) -> Result<PipelineData, ShellError> {
         let col = call.has_flag("column");
         if col {
             length_col(engine_state, call, input)

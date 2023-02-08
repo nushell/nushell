@@ -66,7 +66,7 @@ impl Command for Watch {
         stack: &mut Stack,
         call: &Call,
         _input: PipelineData,
-    ) -> Result<nu_protocol::PipelineData, nu_protocol::ShellError> {
+    ) -> Result<PipelineData, ShellError> {
         let cwd = current_dir(engine_state, stack)?;
         let path_arg: Spanned<String> = call.req(engine_state, stack, 0)?;
 
@@ -79,7 +79,7 @@ impl Command for Watch {
             Err(e) => {
                 return Err(ShellError::DirectoryNotFound(
                     path_arg.span,
-                    Some(format!("IO Error: {:?}", e)),
+                    Some(format!("IO Error: {e:?}")),
                 ))
             }
         };
@@ -227,7 +227,7 @@ impl Command for Watch {
             match rx.recv_timeout(CHECK_CTRL_C_FREQUENCY) {
                 Ok(event) => {
                     if verbose {
-                        eprintln!("{:?}", event);
+                        eprintln!("{event:?}");
                     }
                     let handler_result = match event {
                         DebouncedEvent::Create(path) => event_handler("Create", path, None),

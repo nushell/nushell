@@ -126,11 +126,11 @@ pub fn get_signature(
                     format!("Can't find {prog_name}, please make sure that {prog_name} is in PATH.")
                 }
                 _ => {
-                    format!("Error spawning child process: {}", err)
+                    format!("Error spawning child process: {err}")
                 }
             },
             _ => {
-                format!("Error spawning child process: {}", err)
+                format!("Error spawning child process: {err}")
             }
         };
 
@@ -166,7 +166,7 @@ pub fn get_signature(
 
     match child.wait() {
         Ok(_) => Ok(signatures),
-        Err(err) => Err(ShellError::PluginFailedToLoad(format!("{}", err))),
+        Err(err) => Err(ShellError::PluginFailedToLoad(format!("{err}"))),
     }
 }
 
@@ -312,7 +312,7 @@ fn print_help(plugin: &mut impl Plugin, encoder: impl PluginEncoder) {
             })
             .and_then(|_| {
                 let flags = get_flags_section(signature);
-                write!(help, "{}", flags)
+                write!(help, "{flags}")
             })
             .and_then(|_| writeln!(help, "\nParameters:"))
             .and_then(|_| {
@@ -353,11 +353,11 @@ fn print_help(plugin: &mut impl Plugin, encoder: impl PluginEncoder) {
             .and_then(|_| writeln!(help, "======================"));
 
         if res.is_err() {
-            println!("{:?}", res)
+            println!("{res:?}")
         }
     });
 
-    println!("{}", help)
+    println!("{help}")
 }
 
 pub fn get_plugin_encoding(child_stdout: &mut ChildStdout) -> Result<EncodingType, ShellError> {

@@ -320,7 +320,7 @@ fn handle_table_command(
                 } else {
                     // assume this failed because the table was too wide
                     // TODO: more robust error classification
-                    format!("Couldn't fit table into {} columns!", term_width)
+                    format!("Couldn't fit table into {term_width} columns!")
                 }
             });
 
@@ -613,7 +613,7 @@ fn handle_row_stream(
     row_offset: usize,
     ctrlc: Option<Arc<AtomicBool>>,
     metadata: Option<PipelineMetadata>,
-) -> Result<PipelineData, nu_protocol::ShellError> {
+) -> Result<PipelineData, ShellError> {
     let stream = match metadata {
         // First, `ls` sources:
         Some(PipelineMetadata {
@@ -1007,7 +1007,7 @@ fn convert_to_table2<'a>(
         }
 
         let mut last_index = 0;
-        for (row, item) in input.clone().into_iter().enumerate() {
+        for (row, item) in input.clone().enumerate() {
             if nu_utils::ctrl_c::was_pressed(&ctrlc) {
                 return Ok(None);
             }
@@ -1134,7 +1134,7 @@ fn convert_to_table2<'a>(
             NuTable::create_cell(header.clone(), header_style(style_computer, header.clone()));
         data[0].push(head_cell);
 
-        for (row, item) in input.clone().into_iter().enumerate() {
+        for (row, item) in input.clone().enumerate() {
             if nu_utils::ctrl_c::was_pressed(&ctrlc) {
                 return Ok(None);
             }
@@ -1333,24 +1333,31 @@ fn convert_to_table2_entry(
         return value_to_styled_string(item, config, style_computer);
     }
 
-    let table = match &item {
+    match &item {
         Value::Record { span, cols, vals } => {
             if cols.is_empty() && vals.is_empty() {
                 return value_to_styled_string(item, config, style_computer);
             }
 
-            convert_to_table2(
-                0,
-                std::iter::once(item),
+            // we verify what is the structure of a Record cause it might represent
+
+            let table = build_expanded_table(
+                cols.clone(),
+                vals.clone(),
+                *span,
                 ctrlc.clone(),
                 config,
-                *span,
                 style_computer,
+                width,
                 deep.map(|i| i - 1),
                 flatten,
                 flatten_sep,
-                width,
-            )
+            );
+
+            match table {
+                Ok(Some(table)) => (table, TextStyle::default()),
+                _ => value_to_styled_string(item, config, style_computer),
+            }
         }
         Value::List { vals, span } => {
             if flatten {
@@ -1363,7 +1370,7 @@ fn convert_to_table2_entry(
                 }
             }
 
-            convert_to_table2(
+            let table = convert_to_table2(
                 0,
                 vals.iter(),
                 ctrlc.clone(),
@@ -1374,24 +1381,24 @@ fn convert_to_table2_entry(
                 flatten,
                 flatten_sep,
                 width,
-            )
+            );
+
+            let (table, whead, windex) = match table {
+                Ok(Some(out)) => out,
+                _ => return value_to_styled_string(item, config, style_computer),
+            };
+
+            let count_rows = table.count_rows();
+            let table_config =
+                create_table_config(config, style_computer, count_rows, whead, windex, false);
+
+            let table = table.draw(table_config, usize::MAX);
+            match table {
+                Some(table) => (table, TextStyle::default()),
+                None => value_to_styled_string(item, config, style_computer),
+            }
         }
-        _ => return value_to_styled_string(item, config, style_computer), // unknown type.
-    };
-
-    let (table, whead, windex) = match table {
-        Ok(Some(out)) => out,
-        _ => return value_to_styled_string(item, config, style_computer),
-    };
-
-    let count_rows = table.count_rows();
-    let table_config =
-        create_table_config(config, style_computer, count_rows, whead, windex, false);
-
-    let table = table.draw(table_config, usize::MAX);
-    match table {
-        Some(table) => (table, TextStyle::default()),
-        None => value_to_styled_string(item, config, style_computer),
+        _ => value_to_styled_string(item, config, style_computer), // unknown type.
     }
 }
 
@@ -1481,7 +1488,7 @@ fn convert_with_precision(val: &str, precision: usize) -> Result<String, ShellEr
             ));
         }
     };
-    Ok(format!("{:.prec$}", val_float, prec = precision))
+    Ok(format!("{val_float:.precision$}"))
 }
 
 fn is_cfg_trim_keep_words(config: &Config) -> bool {
@@ -1696,7 +1703,7 @@ impl Iterator for PagingTableCreator {
                     // assume this failed because the table was too wide
                     // TODO: more robust error classification
                     let term_width = get_width_param(self.width_param);
-                    format!("Couldn't fit table into {} columns!", term_width)
+                    format!("Couldn't fit table into {term_width} columns!")
                 };
                 Some(Ok(msg.as_bytes().to_vec()))
             }

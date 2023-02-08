@@ -8,6 +8,7 @@ use nu_protocol::{
 use std::fs::File;
 use std::io::{BufWriter, Write};
 use std::path::Path;
+use std::thread;
 
 use crate::progress_bar;
 
@@ -59,7 +60,7 @@ impl Command for Save {
         stack: &mut Stack,
         call: &Call,
         input: PipelineData,
-    ) -> Result<nu_protocol::PipelineData, nu_protocol::ShellError> {
+    ) -> Result<PipelineData, ShellError> {
         let raw = call.has_flag("raw");
         let append = call.has_flag("append");
         let force = call.has_flag("force");
@@ -85,13 +86,17 @@ impl Command for Save {
 
                 // delegate a thread to redirect stderr to result.
                 let handler = stderr.map(|stderr_stream| match stderr_file {
-                    Some(stderr_file) => std::thread::spawn(move || {
-                        stream_to_file(stderr_stream, stderr_file, span, progress)
-                    }),
-                    None => std::thread::spawn(move || {
-                        let _ = stderr_stream.into_bytes();
-                        Ok(PipelineData::empty())
-                    }),
+                    Some(stderr_file) => thread::Builder::new()
+                        .name("stderr redirector".to_string())
+                        .spawn(move || stream_to_file(stderr_stream, stderr_file, span, progress))
+                        .expect("Failed to create thread"),
+                    None => thread::Builder::new()
+                        .name("stderr redirector".to_string())
+                        .spawn(move || {
+                            let _ = stderr_stream.into_bytes();
+                            Ok(PipelineData::empty())
+                        })
+                        .expect("Failed to create thread"),
                 });
 
                 let res = stream_to_file(stream, file, span, progress);
@@ -210,7 +215,7 @@ fn convert_to_extension(
     input: PipelineData,
     span: Span,
 ) -> Result<Vec<u8>, ShellError> {
-    let converter = engine_state.find_decl(format!("to {}", extension).as_bytes(), &[]);
+    let converter = engine_state.find_decl(format!("to {extension}").as_bytes(), &[]);
 
     let output = match converter {
         Some(converter_id) => {

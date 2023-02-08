@@ -34,7 +34,7 @@ pub fn run_test_with_env(input: &str, expected: &str, env: &HashMap<&str, &str>)
     let mut cmd = Command::cargo_bin("nu")?;
     cmd.arg(name).envs(env);
 
-    writeln!(file, "{}", input)?;
+    writeln!(file, "{input}")?;
 
     run_cmd_and_assert(cmd, expected)
 }
@@ -51,7 +51,7 @@ pub fn run_test(input: &str, expected: &str) -> TestResult {
         std::env::current_dir().expect("Can't get current dir"),
     );
 
-    writeln!(file, "{}", input)?;
+    writeln!(file, "{input}")?;
 
     run_cmd_and_assert(cmd, expected)
 }
@@ -63,8 +63,8 @@ fn run_cmd_and_assert(mut cmd: Command, expected: &str) -> TestResult {
     let stderr = String::from_utf8_lossy(&output.stderr).to_string();
     let stdout = String::from_utf8_lossy(&output.stdout).to_string();
 
-    println!("stdout: {}", stdout);
-    println!("stderr: {}", stderr);
+    println!("stdout: {stdout}");
+    println!("stderr: {stderr}");
 
     assert!(output.status.success());
 
@@ -81,15 +81,15 @@ pub fn run_test_contains(input: &str, expected: &str) -> TestResult {
     let mut cmd = Command::cargo_bin("nu")?;
     cmd.arg(name);
 
-    writeln!(file, "{}", input)?;
+    writeln!(file, "{input}")?;
 
     let output = cmd.output()?;
 
     let stderr = String::from_utf8_lossy(&output.stderr).to_string();
     let stdout = String::from_utf8_lossy(&output.stdout).to_string();
 
-    println!("stdout: {}", stdout);
-    println!("stderr: {}", stderr);
+    println!("stdout: {stdout}");
+    println!("stderr: {stderr}");
 
     assert!(output.status.success());
 
@@ -110,15 +110,15 @@ pub fn fail_test(input: &str, expected: &str) -> TestResult {
         std::env::current_dir().expect("Can't get current dir"),
     );
 
-    writeln!(file, "{}", input)?;
+    writeln!(file, "{input}")?;
 
     let output = cmd.output()?;
 
     let stderr = String::from_utf8_lossy(&output.stderr).to_string();
     let stdout = String::from_utf8_lossy(&output.stdout).to_string();
 
-    println!("stdout: {}", stdout);
-    println!("stderr: {}", stderr);
+    println!("stdout: {stdout}");
+    println!("stderr: {stderr}");
 
     assert!(!stderr.is_empty() && stderr.contains(expected));
 

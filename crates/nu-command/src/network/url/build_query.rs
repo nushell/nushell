@@ -55,7 +55,7 @@ impl Command for SubCommand {
         _stack: &mut Stack,
         call: &Call,
         input: PipelineData,
-    ) -> Result<nu_protocol::PipelineData, ShellError> {
+    ) -> Result<PipelineData, ShellError> {
         let head = call.head;
         to_url(input, head)
     }

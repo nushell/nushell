@@ -70,7 +70,7 @@ impl Command for Mkdir {
 
             if let Err(reason) = dir_res {
                 return Err(ShellError::CreateNotPossible(
-                    format!("failed to create directory: {}", reason),
+                    format!("failed to create directory: {reason}"),
                     call.positional_nth(i)
                         .expect("already checked through directories")
                         .span,

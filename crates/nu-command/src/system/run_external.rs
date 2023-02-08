@@ -18,6 +18,7 @@ use std::process::{Command as CommandSys, Stdio};
 use std::sync::atomic::AtomicBool;
 use std::sync::mpsc::{self, SyncSender};
 use std::sync::Arc;
+use std::thread;
 
 const OUTPUT_BUFFER_SIZE: usize = 1024;
 const OUTPUT_BUFFERS_IN_FLIGHT: usize = 3;
@@ -347,32 +348,41 @@ impl ExternalCommand {
                     // Turn off color as we pass data through
                     engine_state.config.use_ansi_coloring = false;
 
-                    // if there is a string or a stream, that is sent to the pipe std
+                    // Pipe input into the external command's stdin
                     if let Some(mut stdin_write) = child.as_mut().stdin.take() {
-                        std::thread::spawn(move || {
-                            let input = crate::Table::run(
-                                &crate::Table,
-                                &engine_state,
-                                &mut stack,
-                                &Call::new(head),
-                                input,
-                            );
+                        thread::Builder::new()
+                            .name("external stdin worker".to_string())
+                            .spawn(move || {
+                                // Attempt to render the input as a table before piping it to the external.
+                                // This is important for pagers like `less`;
+                                // they need to get Nu data rendered for display to users.
+                                //
+                                // TODO: should we do something different for list<string> inputs?
+                                // Users often expect those to be piped to *nix tools as raw strings separated by newlines
+                                let input = crate::Table::run(
+                                    &crate::Table,
+                                    &engine_state,
+                                    &mut stack,
+                                    &Call::new(head),
+                                    input,
+                                );
 
-                            if let Ok(input) = input {
-                                for value in input.into_iter() {
-                                    let buf = match value {
-                                        Value::String { val, .. } => val.into_bytes(),
-                                        Value::Binary { val, .. } => val,
-                                        _ => return Err(()),
-                                    };
-                                    if stdin_write.write(&buf).is_err() {
-                                        return Ok(());
+                                if let Ok(input) = input {
+                                    for value in input.into_iter() {
+                                        let buf = match value {
+                                            Value::String { val, .. } => val.into_bytes(),
+                                            Value::Binary { val, .. } => val,
+                                            _ => return Err(()),
+                                        };
+                                        if stdin_write.write(&buf).is_err() {
+                                            return Ok(());
+                                        }
                                     }
                                 }
-                            }
 
-                            Ok(())
-                        });
+                                Ok(())
+                            })
+                            .expect("Failed to create thread");
                     }
                 }
 
@@ -388,24 +398,26 @@ impl ExternalCommand {
 
                 let stdout = child.as_mut().stdout.take();
                 let stderr = child.as_mut().stderr.take();
+
                 // If this external is not the last expression, then its output is piped to a channel
                 // and we create a ListStream that can be consumed
-                //
-                // Create two threads: one for redirect stdout message, and wait for child process to complete.
-                // The other may be created when we want to redirect stderr message.
-                std::thread::spawn(move || {
-                    if redirect_stdout {
-                        let stdout = stdout.ok_or_else(|| {
-                            ShellError::ExternalCommand(
-                                "Error taking stdout from external".to_string(),
-                                "Redirects need access to stdout of an external command"
-                                    .to_string(),
-                                span,
-                            )
-                        })?;
 
-                        read_and_redirect_message(stdout, stdout_tx, ctrlc)
-                    }
+                // First create a thread to redirect the external's stdout and wait for an exit code.
+                thread::Builder::new()
+                    .name("stdout redirector + exit code waiter".to_string())
+                    .spawn(move || {
+                        if redirect_stdout {
+                            let stdout = stdout.ok_or_else(|| {
+                                ShellError::ExternalCommand(
+                                    "Error taking stdout from external".to_string(),
+                                    "Redirects need access to stdout of an external command"
+                                        .to_string(),
+                                    span,
+                                )
+                            })?;
+
+                            read_and_redirect_message(stdout, stdout_tx, ctrlc)
+                        }
 
                     match child.as_mut().wait() {
                         Err(err) => Err(ShellError::ExternalCommand(
@@ -462,23 +474,26 @@ impl ExternalCommand {
                             Ok(())
                         }
                     }
-                });
+                }).expect("Failed to create thread");
 
                 let (stderr_tx, stderr_rx) = mpsc::sync_channel(OUTPUT_BUFFERS_IN_FLIGHT);
                 if redirect_stderr {
-                    std::thread::spawn(move || {
-                        let stderr = stderr.ok_or_else(|| {
-                            ShellError::ExternalCommand(
-                                "Error taking stderr from external".to_string(),
-                                "Redirects need access to stderr of an external command"
-                                    .to_string(),
-                                span,
-                            )
-                        })?;
+                    thread::Builder::new()
+                        .name("stderr redirector".to_string())
+                        .spawn(move || {
+                            let stderr = stderr.ok_or_else(|| {
+                                ShellError::ExternalCommand(
+                                    "Error taking stderr from external".to_string(),
+                                    "Redirects need access to stderr of an external command"
+                                        .to_string(),
+                                    span,
+                                )
+                            })?;
 
-                        read_and_redirect_message(stderr, stderr_tx, stderr_ctrlc);
-                        Ok::<(), ShellError>(())
-                    });
+                            read_and_redirect_message(stderr, stderr_tx, stderr_ctrlc);
+                            Ok::<(), ShellError>(())
+                        })
+                        .expect("Failed to create thread");
                 }
 
                 let stdout_receiver = ChannelReceiver::new(stdout_rx);
@@ -738,7 +753,7 @@ fn shell_arg_escape(arg: &str) -> String {
         s if !has_unsafe_shell_characters(s) => String::from(s),
         _ => {
             let single_quotes_escaped = arg.split('\'').join("'\"'\"'");
-            format!("'{}'", single_quotes_escaped)
+            format!("'{single_quotes_escaped}'")
         }
     }
 }

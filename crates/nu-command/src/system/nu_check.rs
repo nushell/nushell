@@ -87,7 +87,7 @@ impl Command for NuCheck {
                 stdout: Some(stream),
                 ..
             } => {
-                let raw_stream: Vec<_> = stream.stream.into_iter().collect();
+                let raw_stream: Vec<_> = stream.stream.collect();
                 for r in raw_stream {
                     match r {
                         Ok(v) => contents.extend(v),

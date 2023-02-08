@@ -83,7 +83,7 @@ pub fn test_dataframe(cmds: Vec<Box<dyn Command + 'static>>) {
         .into_value(Span::test_data());
 
         println!("input: {}", example.example);
-        println!("result: {:?}", result);
+        println!("result: {result:?}");
         println!("done: {:?}", start.elapsed());
 
         // Note. Value implements PartialEq for Bool, Int, Float, String and Block
@@ -92,8 +92,7 @@ pub fn test_dataframe(cmds: Vec<Box<dyn Command + 'static>>) {
         if let Some(expected) = example.result {
             if result != expected {
                 panic!(
-                    "the example result is different to expected value: {:?} != {:?}",
-                    result, expected
+                    "the example result is different to expected value: {result:?} != {expected:?}"
                 )
             }
         }

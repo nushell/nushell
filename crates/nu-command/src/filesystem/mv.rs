@@ -62,7 +62,7 @@ impl Command for Mv {
         stack: &mut Stack,
         call: &Call,
         _input: PipelineData,
-    ) -> Result<nu_protocol::PipelineData, nu_protocol::ShellError> {
+    ) -> Result<PipelineData, ShellError> {
         // TODO: handle invalid directory or insufficient permissions when moving
         let spanned_source: Spanned<String> = call.req(engine_state, stack, 0)?;
         let spanned_source = {
@@ -290,7 +290,7 @@ fn move_file(
         );
         if let Err(e) = interaction {
             return Err(ShellError::GenericError(
-                format!("Error during interaction: {:}", e),
+                format!("Error during interaction: {e:}"),
                 "could not move".into(),
                 None,
                 None,
@@ -325,10 +325,10 @@ fn move_item(from: &Path, from_span: Span, to: &Path) -> Result<(), ShellError> 
             Err(e) => {
                 let error_kind = match e.kind {
                     fs_extra::error::ErrorKind::Io(io) => {
-                        format!("I/O error: {}", io)
+                        format!("I/O error: {io}")
                     }
                     fs_extra::error::ErrorKind::StripPrefix(sp) => {
-                        format!("Strip prefix error: {}", sp)
+                        format!("Strip prefix error: {sp}")
                     }
                     fs_extra::error::ErrorKind::OsString(os) => {
                         format!("OsString error: {:?}", os.to_str())
@@ -336,10 +336,7 @@ fn move_item(from: &Path, from_span: Span, to: &Path) -> Result<(), ShellError> 
                     _ => e.to_string(),
                 };
                 Err(ShellError::GenericError(
-                    format!(
-                        "Could not move {:?} to {:?}. Error Kind: {}",
-                        from, to, error_kind
-                    ),
+                    format!("Could not move {from:?} to {to:?}. Error Kind: {error_kind}"),
                     "could not move".into(),
                     Some(from_span),
                     None,

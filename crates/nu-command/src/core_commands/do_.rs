@@ -130,16 +130,21 @@ impl Command for Do {
                 // So we need a thread to receive stdout message, then the current thread can continue to consume
                 // stderr messages.
                 let stdout_handler = stdout.map(|stdout_stream| {
-                    thread::spawn(move || {
-                        let ctrlc = stdout_stream.ctrlc.clone();
-                        let span = stdout_stream.span;
-                        RawStream::new(
-                            Box::new(vec![stdout_stream.into_bytes().map(|s| s.item)].into_iter()),
-                            ctrlc,
-                            span,
-                            None,
-                        )
-                    })
+                    thread::Builder::new()
+                        .name("stderr redirector".to_string())
+                        .spawn(move || {
+                            let ctrlc = stdout_stream.ctrlc.clone();
+                            let span = stdout_stream.span;
+                            RawStream::new(
+                                Box::new(
+                                    vec![stdout_stream.into_bytes().map(|s| s.item)].into_iter(),
+                                ),
+                                ctrlc,
+                                span,
+                                None,
+                            )
+                        })
+                        .expect("Failed to create thread")
                 });
 
                 // Intercept stderr so we can return it in the error if the exit code is non-zero.
@@ -210,16 +215,34 @@ impl Command for Do {
                 span,
                 metadata,
                 trim_end_newline,
-            }) if ignore_program_errors => Ok(PipelineData::ExternalStream {
-                stdout,
-                stderr,
-                exit_code: None,
-                span,
-                metadata,
-                trim_end_newline,
-            }),
+            }) if ignore_program_errors && !call.redirect_stdout => {
+                Ok(PipelineData::ExternalStream {
+                    stdout,
+                    stderr,
+                    exit_code: None,
+                    span,
+                    metadata,
+                    trim_end_newline,
+                })
+            }
             Ok(PipelineData::Value(Value::Error { .. }, ..)) | Err(_) if ignore_shell_errors => {
                 Ok(PipelineData::empty())
+            }
+            Ok(PipelineData::ListStream(ls, metadata)) if ignore_shell_errors => {
+                // check if there is a `Value::Error` in given list stream first.
+                let mut values = vec![];
+                let ctrlc = ls.ctrlc.clone();
+                for v in ls {
+                    if let Value::Error { .. } = v {
+                        values.push(Value::nothing(call.head));
+                    } else {
+                        values.push(v)
+                    }
+                }
+                Ok(PipelineData::ListStream(
+                    ListStream::from_stream(values.into_iter(), ctrlc),
+                    metadata,
+                ))
             }
             r => r,
         }

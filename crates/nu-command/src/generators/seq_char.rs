@@ -64,7 +64,7 @@ impl Command for SeqChar {
         stack: &mut Stack,
         call: &Call,
         _input: PipelineData,
-    ) -> Result<nu_protocol::PipelineData, nu_protocol::ShellError> {
+    ) -> Result<PipelineData, ShellError> {
         seq_char(engine_state, stack, call)
     }
 }

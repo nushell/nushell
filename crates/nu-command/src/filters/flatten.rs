@@ -43,7 +43,7 @@ impl Command for Flatten {
         stack: &mut Stack,
         call: &Call,
         input: PipelineData,
-    ) -> Result<nu_protocol::PipelineData, nu_protocol::ShellError> {
+    ) -> Result<PipelineData, ShellError> {
         flatten(engine_state, stack, call, input)
     }
 
@@ -117,7 +117,7 @@ fn flatten(
     stack: &mut Stack,
     call: &Call,
     input: PipelineData,
-) -> Result<nu_protocol::PipelineData, nu_protocol::ShellError> {
+) -> Result<PipelineData, ShellError> {
     let tag = call.head;
     let columns: Vec<CellPath> = call.rest(engine_state, stack, 0)?;
     let metadata = input.metadata();
@@ -213,7 +213,7 @@ fn flat_value(columns: &[CellPath], item: &Value, _name_tag: Span, all: bool) ->
                             cols.iter().enumerate().for_each(|(idx, inner_record_col)| {
                                 if out.contains_key(inner_record_col) {
                                     out.insert(
-                                        format!("{}_{}", column, inner_record_col),
+                                        format!("{column}_{inner_record_col}"),
                                         vals[idx].clone(),
                                     );
                                 } else {
@@ -221,7 +221,7 @@ fn flat_value(columns: &[CellPath], item: &Value, _name_tag: Span, all: bool) ->
                                 }
                             })
                         } else if out.contains_key(column) {
-                            out.insert(format!("{}_{}", column, column), value.clone());
+                            out.insert(format!("{column}_{column}"), value.clone());
                         } else {
                             out.insert(column.to_string(), value.clone());
                         }
@@ -261,7 +261,7 @@ fn flat_value(columns: &[CellPath], item: &Value, _name_tag: Span, all: bool) ->
                                 parent_column_index: column_index,
                             });
                         } else if out.contains_key(column) {
-                            out.insert(format!("{}_{}", column, column), value.clone());
+                            out.insert(format!("{column}_{column}"), value.clone());
                         } else {
                             out.insert(column.to_string(), value.clone());
                         }
@@ -358,7 +358,7 @@ fn flat_value(columns: &[CellPath], item: &Value, _name_tag: Span, all: bool) ->
                             if index == parent_column_index {
                                 for (col, val) in inner_cols.iter().zip(inner_vals.iter()) {
                                     if record_cols.contains(col) {
-                                        record_cols.push(format!("{}_{}", parent_column_name, col));
+                                        record_cols.push(format!("{parent_column_name}_{col}"));
                                     } else {
                                         record_cols.push(col.to_string());
                                     }
@@ -375,7 +375,7 @@ fn flat_value(columns: &[CellPath], item: &Value, _name_tag: Span, all: bool) ->
                         if index == parent_column_index {
                             for (col, val) in inner_cols.iter().zip(inner_vals.iter()) {
                                 if record_cols.contains(col) {
-                                    record_cols.push(format!("{}_{}", parent_column_name, col));
+                                    record_cols.push(format!("{parent_column_name}_{col}"));
                                 } else {
                                     record_cols.push(col.to_string());
                                 }

@@ -385,7 +385,7 @@ impl Stats {
                         if let Ok(commit) = head.peel_to_commit() {
                             let mut id = String::new();
                             for byte in &commit.id().as_bytes()[..4] {
-                                write!(&mut id, "{:x}", byte).unwrap();
+                                write!(&mut id, "{byte:x}").unwrap();
                             }
                             id
                         } else {

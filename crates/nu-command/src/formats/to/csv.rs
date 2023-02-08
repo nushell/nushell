@@ -65,7 +65,7 @@ impl Command for ToCsv {
         stack: &mut Stack,
         call: &Call,
         input: PipelineData,
-    ) -> Result<nu_protocol::PipelineData, ShellError> {
+    ) -> Result<PipelineData, ShellError> {
         let head = call.head;
         let noheaders = call.has_flag("noheaders");
         let separator: Option<Spanned<String>> = call.get_flag(engine_state, stack, "separator")?;

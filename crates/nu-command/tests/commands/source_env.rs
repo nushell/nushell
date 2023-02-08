@@ -16,10 +16,9 @@ fn sources_also_files_under_custom_lib_dirs_path() {
             "config.toml",
             &format!(
                 r#"
-                lib_dirs = ["{}"]
+                lib_dirs = ["{library_path}"]
                 skip_welcome_message = true
-            "#,
-                library_path
+            "#
             ),
         )]);
 
@@ -151,7 +150,7 @@ fn can_source_dynamic_path() {
 
         sandbox.with_files(vec![FileWithContent(foo_file, "echo foo")]);
 
-        let cmd = format!("let file = `{}`; source-env $file", foo_file);
+        let cmd = format!("let file = `{foo_file}`; source-env $file");
         let actual = nu!(cwd: dirs.test(), &cmd);
 
         assert_eq!(actual.out, "foo");
@@ -314,4 +313,16 @@ fn source_env_const_file() {
 
         assert_eq!(actual.out, "foo");
     })
+}
+
+#[test]
+fn source_respects_early_return() {
+    let actual = nu!(
+        cwd: "tests/fixtures/formats", pipeline(
+        r#"
+            source early_return.nu
+        "#
+    ));
+
+    assert!(actual.err.is_empty());
 }

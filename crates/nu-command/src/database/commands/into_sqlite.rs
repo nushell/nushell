@@ -117,7 +117,7 @@ fn action(
 
             let table_columns_creation = columns
                 .iter()
-                .map(|(name, sql_type)| format!("{} {}", name, sql_type))
+                .map(|(name, sql_type)| format!("{name} {sql_type}"))
                 .join(",");
 
             // get the values
@@ -156,10 +156,8 @@ fn action(
             let conn = open_sqlite_db(Path::new(&file.item), file.span)?;
 
             // create a string for sql table creation
-            let create_statement = format!(
-                "CREATE TABLE IF NOT EXISTS {} ({})",
-                table_name, table_columns_creation
-            );
+            let create_statement =
+                format!("CREATE TABLE IF NOT EXISTS {table_name} ({table_columns_creation})");
 
             // prepare the string as a sqlite statement
             let mut stmt = conn.prepare(&create_statement).map_err(|e| {
@@ -191,7 +189,7 @@ fn action(
             // ('dd', 'ee', 'ff')
 
             // create the string for inserting data into the table
-            let insert_statement = format!("INSERT INTO {} VALUES {}", table_name, table_values);
+            let insert_statement = format!("INSERT INTO {table_name} VALUES {table_values}");
 
             // prepare the string as a sqlite statement
             let mut stmt = conn.prepare(&insert_statement).map_err(|e| {
@@ -264,13 +262,13 @@ fn nu_value_to_string(value: Value, separator: &str) -> String {
             .join(separator),
         Value::LazyRecord { val, .. } => match val.collect() {
             Ok(val) => nu_value_to_string(val, separator),
-            Err(error) => format!("{:?}", error),
+            Err(error) => format!("{error:?}"),
         },
-        Value::Block { val, .. } => format!("<Block {}>", val),
-        Value::Closure { val, .. } => format!("<Closure {}>", val),
+        Value::Block { val, .. } => format!("<Block {val}>"),
+        Value::Closure { val, .. } => format!("<Closure {val}>"),
         Value::Nothing { .. } => String::new(),
-        Value::Error { error } => format!("{:?}", error),
-        Value::Binary { val, .. } => format!("{:?}", val),
+        Value::Error { error } => format!("{error:?}"),
+        Value::Binary { val, .. } => format!("{val:?}"),
         Value::CellPath { val, .. } => val.into_string(),
         Value::CustomValue { val, .. } => val.value_string(),
     }

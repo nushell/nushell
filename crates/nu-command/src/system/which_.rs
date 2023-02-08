@@ -44,7 +44,7 @@ impl Command for Which {
         stack: &mut Stack,
         call: &Call,
         _input: PipelineData,
-    ) -> Result<nu_protocol::PipelineData, nu_protocol::ShellError> {
+    ) -> Result<PipelineData, ShellError> {
         which(engine_state, stack, call)
     }
 
@@ -86,7 +86,7 @@ fn get_entry_in_aliases(engine_state: &EngineState, name: &str, span: Span) -> O
 
         Some(entry(
             name,
-            format!("Nushell alias: {}", alias_str),
+            format!("Nushell alias: {alias_str}"),
             false,
             span,
         ))

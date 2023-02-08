@@ -49,7 +49,7 @@ impl Command for SubCommand {
         stack: &mut Stack,
         call: &Call,
         input: PipelineData,
-    ) -> Result<nu_protocol::PipelineData, nu_protocol::ShellError> {
+    ) -> Result<PipelineData, ShellError> {
         let head = call.head;
         let bits: usize = call.req(engine_state, stack, 0)?;
         let signed = call.has_flag("signed");
@@ -108,8 +108,7 @@ where
                     error: ShellError::GenericError(
                         "Shift right result beyond the range of 64 bit signed number".to_string(),
                         format!(
-                            "{} of the specified number of bytes shift right {} bits exceed limit",
-                            val, bits
+                            "{val} of the specified number of bytes shift right {bits} bits exceed limit"
                         ),
                         Some(span),
                         None,
@@ -121,10 +120,7 @@ where
         None => Value::Error {
             error: ShellError::GenericError(
                 "Shift right failed".to_string(),
-                format!(
-                    "{} shift right {} bits failed, you may shift too many bits",
-                    val, bits
-                ),
+                format!("{val} shift right {bits} bits failed, you may shift too many bits"),
                 Some(span),
                 None,
                 Vec::new(),

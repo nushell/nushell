@@ -5,6 +5,7 @@ use crate::{
 };
 use nu_utils::{stderr_write_all_and_flush, stdout_write_all_and_flush};
 use std::sync::{atomic::AtomicBool, Arc};
+use std::thread;
 
 const LINE_ENDING_PATTERN: &[char] = &['\r', '\n'];
 
@@ -616,7 +617,6 @@ impl PipelineData {
         // to create the table value that will be printed in the terminal
 
         let config = engine_state.get_config();
-        // let stdout = std::io::stdout();
 
         if let PipelineData::ExternalStream {
             stdout: stream,
@@ -626,12 +626,6 @@ impl PipelineData {
         } = self
         {
             return print_if_stream(stream, stderr_stream, to_stderr, exit_code);
-            /*
-            if let Ok(exit_code) = print_if_stream(stream, stderr_stream, to_stderr, exit_code) {
-                return Ok(exit_code);
-            }
-            return Ok(0);
-            */
         }
 
         if let Some(decl_id) = engine_state.find_decl("table".as_bytes(), &[]) {
@@ -733,8 +727,11 @@ pub fn print_if_stream(
     exit_code: Option<ListStream>,
 ) -> Result<i64, ShellError> {
     // NOTE: currently we don't need anything from stderr
-    // so directly consumes `stderr_stream` to make sure that everything is done.
-    std::thread::spawn(move || stderr_stream.map(|x| x.into_bytes()));
+    // so we just consume and throw away `stderr_stream` to make sure the pipe doesn't fill up
+    thread::Builder::new()
+        .name("stderr consumer".to_string())
+        .spawn(move || stderr_stream.map(|x| x.into_bytes()))
+        .expect("could not create thread");
     if let Some(stream) = stream {
         for s in stream {
             let s_live = s?;

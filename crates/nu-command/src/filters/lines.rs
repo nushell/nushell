@@ -34,7 +34,7 @@ impl Command for Lines {
         _stack: &mut Stack,
         call: &Call,
         input: PipelineData,
-    ) -> Result<nu_protocol::PipelineData, nu_protocol::ShellError> {
+    ) -> Result<PipelineData, ShellError> {
         let head = call.head;
         let ctrlc = engine_state.ctrlc.clone();
         let skip_empty = call.has_flag("skip-empty");
@@ -126,7 +126,6 @@ impl Command for Lines {
                 stdout: Some(stream),
                 ..
             } => Ok(RawStreamLinesAdapter::new(stream, head, skip_empty)
-                .into_iter()
                 .enumerate()
                 .map(move |(_idx, x)| match x {
                     Ok(x) => x,

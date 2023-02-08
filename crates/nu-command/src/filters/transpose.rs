@@ -76,7 +76,7 @@ impl Command for Transpose {
         stack: &mut Stack,
         call: &Call,
         input: PipelineData,
-    ) -> Result<nu_protocol::PipelineData, nu_protocol::ShellError> {
+    ) -> Result<PipelineData, ShellError> {
         transpose(engine_state, stack, call, input)
     }
 
@@ -159,7 +159,7 @@ pub fn transpose(
     stack: &mut Stack,
     call: &Call,
     input: PipelineData,
-) -> Result<nu_protocol::PipelineData, nu_protocol::ShellError> {
+) -> Result<PipelineData, ShellError> {
     let name = call.head;
     let transpose_args = TransposeArgs {
         header_row: call.has_flag("header-row"),
@@ -231,7 +231,7 @@ pub fn transpose(
             if let Some(name) = args.rest.get(i) {
                 headers.push(name.item.clone())
             } else {
-                headers.push(format!("column{}", i));
+                headers.push(format!("column{i}"));
             }
         }
     }

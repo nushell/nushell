@@ -40,7 +40,7 @@ pub fn logger(
         LogTarget::File => {
             let pid = std::process::id();
             let mut path = std::env::temp_dir();
-            path.push(format!("nu-{}.log", pid));
+            path.push(format!("nu-{pid}.log"));
 
             set_write_logger(level, config, &path)
         }

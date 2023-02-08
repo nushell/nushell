@@ -36,7 +36,7 @@ impl Command for FromYaml {
         _stack: &mut Stack,
         call: &Call,
         input: PipelineData,
-    ) -> Result<nu_protocol::PipelineData, ShellError> {
+    ) -> Result<PipelineData, ShellError> {
         let head = call.head;
         from_yaml(input, head)
     }
@@ -66,7 +66,7 @@ impl Command for FromYml {
         _stack: &mut Stack,
         call: &Call,
         input: PipelineData,
-    ) -> Result<nu_protocol::PipelineData, ShellError> {
+    ) -> Result<PipelineData, ShellError> {
         let head = call.head;
         from_yaml(input, head)
     }
@@ -120,7 +120,7 @@ fn convert_yaml_value_to_nu_value(
             for (k, v) in t {
                 // A ShellError that we re-use multiple times in the Mapping scenario
                 let err_unexpected_map = ShellError::UnsupportedInput(
-                    format!("Unexpected YAML:\nKey: {:?}\nValue: {:?}", k, v),
+                    format!("Unexpected YAML:\nKey: {k:?}\nValue: {v:?}"),
                     "value originates from here".into(),
                     span,
                     val_span,
@@ -189,7 +189,7 @@ pub fn from_yaml_string_to_value(
     for document in serde_yaml::Deserializer::from_str(&s) {
         let v: serde_yaml::Value = serde_yaml::Value::deserialize(document).map_err(|x| {
             ShellError::UnsupportedInput(
-                format!("Could not load YAML: {}", x),
+                format!("Could not load YAML: {x}"),
                 "value originates from here".into(),
                 span,
                 val_span,

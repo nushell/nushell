@@ -237,7 +237,7 @@ pub fn check_name<'a>(
             Some((
                 &spans[command_len],
                 ParseError::AssignmentMismatch(
-                    format!("{} missing name", name),
+                    format!("{name} missing name"),
                     "missing name".into(),
                     spans[command_len],
                 ),
@@ -251,7 +251,7 @@ pub fn check_name<'a>(
         Some((
             &spans[command_len + 1],
             ParseError::AssignmentMismatch(
-                format!("{} missing sign", name),
+                format!("{name} missing sign"),
                 "missing equal sign".into(),
                 spans[command_len + 1],
             ),
@@ -673,7 +673,7 @@ pub fn parse_multispan_value(
                 (
                     Expression::garbage(span),
                     Some(ParseError::Expected(
-                        format!("one of a list of accepted shapes: {:?}", shapes),
+                        format!("one of a list of accepted shapes: {shapes:?}"),
                         span,
                     )),
                 )
@@ -2465,7 +2465,7 @@ pub fn unescape_string(bytes: &[u8], span: Span) -> (Vec<u8>, Option<ParseError>
     let mut idx = 0;
     let mut err = None;
 
-    while idx < bytes.len() {
+    'us_loop: while idx < bytes.len() {
         if bytes[idx] == b'\\' {
             // We're in an escape
             idx += 1;
@@ -2552,53 +2552,67 @@ pub fn unescape_string(bytes: &[u8], span: Span) -> (Vec<u8>, Option<ParseError>
                     idx += 1;
                 }
                 Some(b'u') => {
-                    match (
-                        bytes.get(idx + 1),
-                        bytes.get(idx + 2),
-                        bytes.get(idx + 3),
-                        bytes.get(idx + 4),
-                    ) {
-                        (Some(h1), Some(h2), Some(h3), Some(h4)) => {
-                            let s = String::from_utf8(vec![*h1, *h2, *h3, *h4]);
+                    let mut digits = String::with_capacity(10);
+                    let mut cur_idx = idx + 1; // index of first beyond current end of token
 
-                            if let Ok(s) = s {
-                                let int = u32::from_str_radix(&s, 16);
-
-                                if let Ok(int) = int {
-                                    let result = char::from_u32(int);
-
-                                    if let Some(result) = result {
-                                        let mut buffer = vec![0; 4];
-                                        let result = result.encode_utf8(&mut buffer);
-
-                                        for elem in result.bytes() {
-                                            output.push(elem);
-                                        }
-
-                                        idx += 5;
-                                        continue;
-                                    }
+                    if let Some(b'{') = bytes.get(idx + 1) {
+                        cur_idx = idx + 2;
+                        loop {
+                            match bytes.get(cur_idx) {
+                                Some(b'}') => {
+                                    cur_idx += 1;
+                                    break;
+                                }
+                                Some(c) => {
+                                    digits.push(*c as char);
+                                    cur_idx += 1;
+                                }
+                                _ => {
+                                    err = Some(ParseError::Expected(
+                                        "closing '}' in unicode escape `\\u{n..}`".into(),
+                                        Span::new(span.start + idx, span.end),
+                                    ));
+                                    break 'us_loop;
                                 }
                             }
-                            err = Some(ParseError::Expected(
-                                "unicode hex value".into(),
-                                Span::new(span.start + idx, span.end),
-                            ));
-                        }
-                        _ => {
-                            err = Some(ParseError::Expected(
-                                "unicode hex value".into(),
-                                Span::new(span.start + idx, span.end),
-                            ));
                         }
                     }
-                    idx += 5;
+
+                    if (1..=6).contains(&digits.len()) {
+                        let int = u32::from_str_radix(&digits, 16);
+
+                        if let Ok(int) = int {
+                            if int <= 0x10ffff {
+                                let result = char::from_u32(int);
+
+                                if let Some(result) = result {
+                                    let mut buffer = vec![0; 4];
+                                    let result = result.encode_utf8(&mut buffer);
+
+                                    for elem in result.bytes() {
+                                        output.push(elem);
+                                    }
+
+                                    idx = cur_idx;
+                                    continue 'us_loop;
+                                }
+                            }
+                        }
+                    }
+                    // fall through -- escape not accepted above, must be error.
+                    err = Some(ParseError::Expected(
+                        "unicode escape \\u{n..}".into(),
+                        Span::new(span.start + idx, span.end),
+                    ));
+                    break 'us_loop;
                 }
+
                 _ => {
                     err = Some(ParseError::Expected(
                         "supported escape character".into(),
                         Span::new(span.start + idx, span.end),
                     ));
+                    break 'us_loop;
                 }
             }
         } else {
@@ -3654,7 +3668,7 @@ pub fn parse_signature_helper(
                                                     error = error.or_else(|| {
                                                         Some(ParseError::AssignmentMismatch(
                                                             "Default value wrong type".into(),
-                                                            format!("default value not {}", t),
+                                                            format!("default value not {t}"),
                                                             expression.span,
                                                         ))
                                                     })
@@ -3703,8 +3717,7 @@ pub fn parse_signature_helper(
                                                                 "Default value is the wrong type"
                                                                     .into(),
                                                                 format!(
-                                                                    "default value should be {}",
-                                                                    t
+                                                                    "default value should be {t}"
                                                                 ),
                                                                 expression_span,
                                                             ))
@@ -4414,7 +4427,7 @@ pub fn parse_value(
                 return (
                     Expression::garbage(span),
                     Some(ParseError::Expected(
-                        format!("non-block value: {}", shape),
+                        format!("non-block value: {shape}"),
                         span,
                     )),
                 );
@@ -5995,7 +6008,7 @@ fn wrap_expr_with_collect(working_set: &mut StateWorkingSet, expr: &Expression) 
     if let Some(decl_id) = working_set.find_decl(b"collect", &Type::Any) {
         let mut output = vec![];
 
-        let var_id = working_set.next_var_id();
+        let var_id = IN_VARIABLE_ID;
         let mut signature = Signature::new("");
         signature.required_positional.push(PositionalArg {
             var_id: Some(var_id),

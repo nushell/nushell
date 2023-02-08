@@ -30,7 +30,7 @@ impl Command for SubCommand {
             .named(
                 "text",
                 SyntaxShape::String,
-                "Link text. Uses uri as text if absent. In case of 
+                "Link text. Uses uri as text if absent. In case of
                 tables, records and lists applies this text to all elements",
                 Some('t'),
             )
@@ -54,7 +54,7 @@ impl Command for SubCommand {
         stack: &mut Stack,
         call: &Call,
         input: PipelineData,
-    ) -> Result<nu_protocol::PipelineData, ShellError> {
+    ) -> Result<PipelineData, ShellError> {
         operate(engine_state, stack, call, input)
     }
 
@@ -146,7 +146,7 @@ fn process_value(value: &Value, text: &Option<String>, command_span: &Span) -> V
 }
 
 fn add_osc_link(text: &str, link: &str) -> String {
-    format!("\u{1b}]8;;{}\u{1b}\\{}\u{1b}]8;;\u{1b}\\", link, text)
+    format!("\u{1b}]8;;{link}\u{1b}\\{text}\u{1b}]8;;\u{1b}\\")
 }
 
 #[cfg(test)]

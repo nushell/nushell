@@ -2,8 +2,8 @@ use nu_engine::CallExt;
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
-    Category, Example, IntoInterruptiblePipelineData, PipelineData, Signature, Span, Spanned,
-    SyntaxShape, Type, Value,
+    Category, Example, IntoInterruptiblePipelineData, PipelineData, ShellError, Signature, Span,
+    Spanned, SyntaxShape, Type, Value,
 };
 
 #[derive(Clone)]
@@ -115,7 +115,7 @@ impl Command for Window {
         stack: &mut Stack,
         call: &Call,
         input: PipelineData,
-    ) -> Result<nu_protocol::PipelineData, nu_protocol::ShellError> {
+    ) -> Result<PipelineData, ShellError> {
         let group_size: Spanned<usize> = call.req(engine_state, stack, 0)?;
         let ctrlc = engine_state.ctrlc.clone();
         let metadata = input.metadata();

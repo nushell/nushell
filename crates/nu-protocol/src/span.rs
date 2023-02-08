@@ -31,9 +31,7 @@ impl Span {
     pub fn new(start: usize, end: usize) -> Span {
         debug_assert!(
             end >= start,
-            "Can't create a Span whose end < start, start={}, end={}",
-            start,
-            end
+            "Can't create a Span whose end < start, start={start}, end={end}"
         );
 
         Span { start, end }

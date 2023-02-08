@@ -46,7 +46,7 @@ impl Command for SubCommand {
         stack: &mut Stack,
         call: &Call,
         input: PipelineData,
-    ) -> Result<nu_protocol::PipelineData, nu_protocol::ShellError> {
+    ) -> Result<PipelineData, ShellError> {
         let head = call.head;
         let signed = call.has_flag("signed");
         let number_bytes: Option<Spanned<String>> =

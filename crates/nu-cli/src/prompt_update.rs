@@ -106,8 +106,7 @@ pub(crate) fn update_prompt<'prompt>(
     let left_prompt_string = if config.shell_integration {
         if let Some(prompt_string) = left_prompt_string {
             Some(format!(
-                "{}{}{}",
-                PRE_PROMPT_MARKER, prompt_string, POST_PROMPT_MARKER
+                "{PRE_PROMPT_MARKER}{prompt_string}{POST_PROMPT_MARKER}"
             ))
         } else {
             left_prompt_string

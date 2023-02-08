@@ -1,5 +1,6 @@
 use nu_ansi_term::*;
 use nu_engine::CallExt;
+use nu_protocol::engine::{EngineState, Stack};
 use nu_protocol::{
     ast::Call, engine::Command, Category, Example, IntoInterruptiblePipelineData, IntoPipelineData,
     PipelineData, ShellError, Signature, Span, SyntaxShape, Type, Value,
@@ -622,11 +623,11 @@ Format: #
 
     fn run(
         &self,
-        engine_state: &nu_protocol::engine::EngineState,
-        stack: &mut nu_protocol::engine::Stack,
+        engine_state: &EngineState,
+        stack: &mut Stack,
         call: &Call,
         _input: PipelineData,
-    ) -> Result<nu_protocol::PipelineData, ShellError> {
+    ) -> Result<PipelineData, ShellError> {
         let list: bool = call.has_flag("list");
         let escape: bool = call.has_flag("escape");
         let osc: bool = call.has_flag("osc");
@@ -682,13 +683,13 @@ Format: #
         }
 
         let output = if escape && param_is_valid_string {
-            format!("\x1b[{}", code_string)
+            format!("\x1b[{code_string}")
         } else if osc && param_is_valid_string {
             // Operating system command aka osc  ESC ] <- note the right brace, not left brace for osc
             // OCS's need to end with either:
             // bel '\x07' char
             // string terminator aka st '\\' char
-            format!("\x1b]{}", code_string)
+            format!("\x1b]{code_string}")
         } else if param_is_valid_string {
             // parse hex colors like #00FF00
             if code_string.starts_with('#') {
@@ -700,7 +701,7 @@ Format: #
                     Err(err) => {
                         return Err(ShellError::GenericError(
                             "error parsing hex color".to_string(),
-                            format!("{}", err),
+                            format!("{err}"),
                             Some(code.span()?),
                             None,
                             Vec::new(),
@@ -738,7 +739,7 @@ Format: #
                     "attr" => nu_style.attr = Some(v.as_string()?),
                     _ => {
                         return Err(ShellError::IncompatibleParametersSingle(
-                            format!("problem with key: {}", k),
+                            format!("problem with key: {k}"),
                             code.expect_span(),
                         ))
                     }
@@ -759,10 +760,10 @@ pub fn str_to_ansi(s: &str) -> Option<String> {
 }
 
 fn generate_ansi_code_list(
-    engine_state: &nu_protocol::engine::EngineState,
+    engine_state: &EngineState,
     call_span: Span,
     use_ansi_coloring: bool,
-) -> Result<nu_protocol::PipelineData, ShellError> {
+) -> Result<PipelineData, ShellError> {
     return Ok(CODE_LIST
         .iter()
         .enumerate()

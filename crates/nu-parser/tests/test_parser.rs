@@ -1,9 +1,10 @@
 use nu_parser::ParseError;
 use nu_parser::*;
+use nu_protocol::ast::Call;
 use nu_protocol::{
     ast::{Expr, Expression, PipelineElement},
     engine::{Command, EngineState, Stack, StateWorkingSet},
-    Signature, SyntaxShape,
+    PipelineData, ShellError, Signature, SyntaxShape,
 };
 
 #[cfg(test)]
@@ -34,9 +35,9 @@ impl Command for Let {
         &self,
         _engine_state: &EngineState,
         _stack: &mut Stack,
-        _call: &nu_protocol::ast::Call,
-        _input: nu_protocol::PipelineData,
-    ) -> Result<nu_protocol::PipelineData, nu_protocol::ShellError> {
+        _call: &Call,
+        _input: PipelineData,
+    ) -> Result<PipelineData, ShellError> {
         todo!()
     }
 }
@@ -412,30 +413,6 @@ mod string {
         }
     }
 
-    #[test]
-    pub fn parse_escaped_string() {
-        let engine_state = EngineState::new();
-        let mut working_set = StateWorkingSet::new(&engine_state);
-
-        let (block, err) = parse(
-            &mut working_set,
-            None,
-            b"\"hello \\u006e\\u0075\\u0073hell\"",
-            true,
-            &[],
-        );
-
-        assert!(err.is_none());
-        assert_eq!(block.len(), 1);
-        let expressions = &block[0];
-        assert_eq!(expressions.len(), 1);
-        if let PipelineElement::Expression(_, expr) = &expressions[0] {
-            assert_eq!(expr.expr, Expr::String("hello nushell".to_string()))
-        } else {
-            panic!("Not an expression")
-        }
-    }
-
     mod interpolation {
         use nu_protocol::Span;
 
@@ -455,16 +432,13 @@ mod string {
             assert_eq!(expressions.len(), 1);
 
             if let PipelineElement::Expression(_, expr) = &expressions[0] {
-                let subexprs: Vec<&Expr>;
-                match expr {
+                let subexprs: Vec<&Expr> = match expr {
                     Expression {
                         expr: Expr::StringInterpolation(expressions),
                         ..
-                    } => {
-                        subexprs = expressions.iter().map(|e| &e.expr).collect();
-                    }
+                    } => expressions.iter().map(|e| &e.expr).collect(),
                     _ => panic!("Expected an `Expr::StringInterpolation`"),
-                }
+                };
 
                 assert_eq!(subexprs.len(), 2);
 
@@ -491,16 +465,13 @@ mod string {
             assert_eq!(expressions.len(), 1);
 
             if let PipelineElement::Expression(_, expr) = &expressions[0] {
-                let subexprs: Vec<&Expr>;
-                match expr {
+                let subexprs: Vec<&Expr> = match expr {
                     Expression {
                         expr: Expr::StringInterpolation(expressions),
                         ..
-                    } => {
-                        subexprs = expressions.iter().map(|e| &e.expr).collect();
-                    }
+                    } => expressions.iter().map(|e| &e.expr).collect(),
                     _ => panic!("Expected an `Expr::StringInterpolation`"),
-                }
+                };
 
                 assert_eq!(subexprs.len(), 1);
 
@@ -531,16 +502,13 @@ mod string {
             assert_eq!(expressions.len(), 1);
 
             if let PipelineElement::Expression(_, expr) = &expressions[0] {
-                let subexprs: Vec<&Expr>;
-                match expr {
+                let subexprs: Vec<&Expr> = match expr {
                     Expression {
                         expr: Expr::StringInterpolation(expressions),
                         ..
-                    } => {
-                        subexprs = expressions.iter().map(|e| &e.expr).collect();
-                    }
+                    } => expressions.iter().map(|e| &e.expr).collect(),
                     _ => panic!("Expected an `Expr::StringInterpolation`"),
-                }
+                };
 
                 assert_eq!(subexprs.len(), 2);
 
@@ -573,16 +541,13 @@ mod string {
             assert_eq!(expressions.len(), 1);
 
             if let PipelineElement::Expression(_, expr) = &expressions[0] {
-                let subexprs: Vec<&Expr>;
-                match expr {
+                let subexprs: Vec<&Expr> = match expr {
                     Expression {
                         expr: Expr::StringInterpolation(expressions),
                         ..
-                    } => {
-                        subexprs = expressions.iter().map(|e| &e.expr).collect();
-                    }
+                    } => expressions.iter().map(|e| &e.expr).collect(),
                     _ => panic!("Expected an `Expr::StringInterpolation`"),
-                }
+                };
 
                 assert_eq!(subexprs.len(), 1);
                 assert_eq!(subexprs[0], &Expr::String("(1 + 3)(7 - 5)".to_string()));
@@ -991,7 +956,8 @@ mod range {
 #[cfg(test)]
 mod input_types {
     use super::*;
-    use nu_protocol::{ast::Argument, Category, Type};
+    use nu_protocol::ast::Call;
+    use nu_protocol::{ast::Argument, Category, PipelineData, ShellError, Type};
 
     #[derive(Clone)]
     pub struct LsTest;
@@ -1013,9 +979,9 @@ mod input_types {
             &self,
             _engine_state: &EngineState,
             _stack: &mut Stack,
-            _call: &nu_protocol::ast::Call,
-            _input: nu_protocol::PipelineData,
-        ) -> Result<nu_protocol::PipelineData, nu_protocol::ShellError> {
+            _call: &Call,
+            _input: PipelineData,
+        ) -> Result<PipelineData, ShellError> {
             todo!()
         }
     }
@@ -1042,9 +1008,9 @@ mod input_types {
             &self,
             _engine_state: &EngineState,
             _stack: &mut Stack,
-            _call: &nu_protocol::ast::Call,
-            _input: nu_protocol::PipelineData,
-        ) -> Result<nu_protocol::PipelineData, nu_protocol::ShellError> {
+            _call: &Call,
+            _input: PipelineData,
+        ) -> Result<PipelineData, ShellError> {
             todo!()
         }
     }
@@ -1072,9 +1038,9 @@ mod input_types {
             &self,
             _engine_state: &EngineState,
             _stack: &mut Stack,
-            _call: &nu_protocol::ast::Call,
-            _input: nu_protocol::PipelineData,
-        ) -> Result<nu_protocol::PipelineData, nu_protocol::ShellError> {
+            _call: &Call,
+            _input: PipelineData,
+        ) -> Result<PipelineData, ShellError> {
             todo!()
         }
     }
@@ -1104,9 +1070,9 @@ mod input_types {
             &self,
             _engine_state: &EngineState,
             _stack: &mut Stack,
-            _call: &nu_protocol::ast::Call,
-            _input: nu_protocol::PipelineData,
-        ) -> Result<nu_protocol::PipelineData, nu_protocol::ShellError> {
+            _call: &Call,
+            _input: PipelineData,
+        ) -> Result<PipelineData, ShellError> {
             todo!()
         }
     }
@@ -1134,9 +1100,9 @@ mod input_types {
             &self,
             _engine_state: &EngineState,
             _stack: &mut Stack,
-            _call: &nu_protocol::ast::Call,
-            _input: nu_protocol::PipelineData,
-        ) -> Result<nu_protocol::PipelineData, nu_protocol::ShellError> {
+            _call: &Call,
+            _input: PipelineData,
+        ) -> Result<PipelineData, ShellError> {
             todo!()
         }
     }
@@ -1161,9 +1127,9 @@ mod input_types {
             &self,
             _engine_state: &EngineState,
             _stack: &mut Stack,
-            _call: &nu_protocol::ast::Call,
-            _input: nu_protocol::PipelineData,
-        ) -> Result<nu_protocol::PipelineData, nu_protocol::ShellError> {
+            _call: &Call,
+            _input: PipelineData,
+        ) -> Result<PipelineData, ShellError> {
             todo!()
         }
     }
@@ -1192,9 +1158,9 @@ mod input_types {
             &self,
             _engine_state: &EngineState,
             _stack: &mut Stack,
-            _call: &nu_protocol::ast::Call,
-            _input: nu_protocol::PipelineData,
-        ) -> Result<nu_protocol::PipelineData, nu_protocol::ShellError> {
+            _call: &Call,
+            _input: PipelineData,
+        ) -> Result<PipelineData, ShellError> {
             todo!()
         }
     }
@@ -1222,9 +1188,9 @@ mod input_types {
             &self,
             _engine_state: &EngineState,
             _stack: &mut Stack,
-            _call: &nu_protocol::ast::Call,
-            _input: nu_protocol::PipelineData,
-        ) -> Result<nu_protocol::PipelineData, nu_protocol::ShellError> {
+            _call: &Call,
+            _input: PipelineData,
+        ) -> Result<PipelineData, ShellError> {
             todo!()
         }
     }
@@ -1261,9 +1227,9 @@ mod input_types {
             &self,
             _engine_state: &EngineState,
             _stack: &mut Stack,
-            _call: &nu_protocol::ast::Call,
-            _input: nu_protocol::PipelineData,
-        ) -> Result<nu_protocol::PipelineData, nu_protocol::ShellError> {
+            _call: &Call,
+            _input: PipelineData,
+        ) -> Result<PipelineData, ShellError> {
             todo!()
         }
     }
@@ -1631,8 +1597,8 @@ mod input_types {
         for input in inputs {
             let (block, err) = parse(&mut working_set, None, input.as_bytes(), true, &[]);
 
-            assert!(err.is_none(), "testing: {}", input);
-            assert_eq!(block.len(), 2, "testing: {}", input);
+            assert!(err.is_none(), "testing: {input}");
+            assert_eq!(block.len(), 2, "testing: {input}");
         }
     }
 

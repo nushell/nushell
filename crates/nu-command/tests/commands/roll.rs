@@ -97,7 +97,7 @@ mod columns {
 
         let actual = nu!(
             cwd: ".",
-            format!("{} | roll right --by 3 --cells-only | columns | str join '-' ", four_bitstring)
+            format!("{four_bitstring} | roll right --by 3 --cells-only | columns | str join '-' ")
         );
 
         assert_eq!(actual.out, expected_value.1);
@@ -135,19 +135,19 @@ mod columns {
             transpose bit --ignore-titles
             | get bit
             | reverse
-            | each --numbered { |it|
+            | enumerate
+            | each { |it|
                 $it.item * (2 ** $it.index)
             }
             | math sum
         "#,
         );
         println!(
-            "{} | roll left --by 3 | {}",
-            bitstring_as_nu_row_pipeline, nu_row_literal_bitstring_to_decimal_value_pipeline
+            "{bitstring_as_nu_row_pipeline} | roll left --by 3 | {nu_row_literal_bitstring_to_decimal_value_pipeline}"
         );
         nu!(
             cwd: ".",
-            format!("{} | roll left --by 3 | {}", bitstring_as_nu_row_pipeline, nu_row_literal_bitstring_to_decimal_value_pipeline)
+            format!("{bitstring_as_nu_row_pipeline} | roll left --by 3 | {nu_row_literal_bitstring_to_decimal_value_pipeline}")
         ).out
     }
 
