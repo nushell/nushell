@@ -329,7 +329,7 @@ fn rm(
         }
     }
 
-    Ok(all_targets
+    all_targets
         .into_keys()
         .map(move |f| {
             let is_empty = || match f.read_dir() {
@@ -450,5 +450,8 @@ fn rm(
             }
         })
         .filter(|x| !matches!(x.get_type(), Type::Nothing))
-        .into_pipeline_data(ctrlc))
+        .into_pipeline_data(ctrlc)
+        .print(engine_state, stack, false, true)?;
+
+    Ok(PipelineData::empty())
 }
