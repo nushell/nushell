@@ -90,7 +90,11 @@ pub(crate) fn call_plugin(
     span: Span,
 ) -> Result<PluginResponse, ShellError> {
     if let Some(mut stdin_writer) = child.stdin.take() {
-        encoding.encode_call(&plugin_call, &mut stdin_writer)?;
+        let encoding_clone = encoding.clone();
+        std::thread::spawn(move || {
+            // PluginCall information
+            encoding_clone.encode_call(&plugin_call, &mut stdin_writer)
+        });
     }
 
     // Deserialize response from plugin to extract the resulting value
@@ -149,7 +153,10 @@ pub fn get_signature(
 
     // Create message to plugin to indicate that signature is required and
     // send call to plugin asking for signature
-    encoding.encode_call(&PluginCall::Signature, &mut stdin_writer)?;
+    let encoding_clone = encoding.clone();
+    std::thread::spawn(move || {
+        encoding_clone.encode_call(&PluginCall::Signature, &mut stdin_writer)
+    });
 
     // deserialize response from plugin to extract the signature
     let reader = stdout_reader;
