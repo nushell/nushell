@@ -119,7 +119,12 @@ jobs:
         shell: bash
 
       - name: Test Nushell in virtualenv
-        run: cd virtualenv && tox -e ${{ matrix.py }} -- -k nushell
+        run: |
+          cd virtualenv
+          # We need to disable failing on coverage levels.
+          nu -c "open pyproject.toml | upsert tool.coverage.report.fail_under 1 | save patchproject.toml"
+          mv patchproject.toml pyproject.toml
+          tox -e ${{ matrix.py }} -- -k nushell
         shell: bash
 
   # Build+test plugins on their own, without the rest of Nu. This helps with CI parallelization and
