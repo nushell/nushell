@@ -11,7 +11,7 @@ pub struct AllTrue;
 
 impl Command for AllTrue {
     fn name(&self) -> &str {
-        "all-true"
+        "dfr all-true"
     }
 
     fn usage(&self) -> &str {
@@ -29,7 +29,7 @@ impl Command for AllTrue {
         vec![
             Example {
                 description: "Returns true if all values are true",
-                example: "[true true true] | into df | all-true",
+                example: "[true true true] | dfr into-df | dfr all-true",
                 result: Some(
                     NuDataFrame::try_from_columns(vec![Column::new(
                         "all_true".to_string(),
@@ -41,9 +41,9 @@ impl Command for AllTrue {
             },
             Example {
                 description: "Checks the result from a comparison",
-                example: r#"let s = ([5 6 2 8] | into df);
+                example: r#"let s = ([5 6 2 8] | dfr into-df);
     let res = ($s > 9);
-    $res | all-true"#,
+    $res | dfr all-true"#,
                 result: Some(
                     NuDataFrame::try_from_columns(vec![Column::new(
                         "all_true".to_string(),
