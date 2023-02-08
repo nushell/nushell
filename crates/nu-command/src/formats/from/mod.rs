@@ -22,7 +22,7 @@ pub use self::url::FromUrl;
 pub use command::From;
 pub use eml::FromEml;
 pub use ics::FromIcs;
-pub use ini::FromIni;
+pub use crate::formats::from::ini::FromIni;
 pub use json::FromJson;
 pub use nuon::FromNuon;
 pub use ods::FromOds;
