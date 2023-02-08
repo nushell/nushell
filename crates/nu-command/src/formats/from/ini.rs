@@ -59,7 +59,7 @@ pub fn from_ini_string_to_value(
     span: Span,
     val_span: Span,
 ) -> Result<Value, ShellError> {
-    let ini:Result<RustIni::Ini, RustIni::ParseError> = RustIni::Ini::load_from_str(&s);
+    let ini: Result<RustIni::Ini, RustIni::ParseError> = RustIni::Ini::load_from_str(&s);
 
     match ini {
         Ok(config) => {
@@ -69,12 +69,12 @@ pub fn from_ini_string_to_value(
             for (section, properties) in config.iter() {
                 let mut keys_for_section: Vec<String> = Vec::new();
                 let mut values_for_section: Vec<Value> = Vec::new();
-                
+
                 // section
                 match section {
                     Some(section_name) => {
                         sections.push(section_name.to_owned());
-                    },
+                    }
                     None => {
                         sections.push(String::new());
                     }
@@ -83,10 +83,9 @@ pub fn from_ini_string_to_value(
                 // section's key value pairs
                 for (key, value) in properties.iter() {
                     keys_for_section.push(key.to_owned());
-                    values_for_section.push(
-                        Value::String { 
-                        val: value.to_owned(), 
-                        span 
+                    values_for_section.push(Value::String {
+                        val: value.to_owned(),
+                        span,
                     });
                 }
 
@@ -104,15 +103,13 @@ pub fn from_ini_string_to_value(
                 vals: sections_key_value_pairs,
                 span,
             })
-        },
-        Err(err) => {
-            Err(ShellError::UnsupportedInput(
-                format!("Could not load ini: {err}"),
-                "value originates from here".into(),
-                span,
-                val_span,
-            ))
         }
+        Err(err) => Err(ShellError::UnsupportedInput(
+            format!("Could not load ini: {err}"),
+            "value originates from here".into(),
+            span,
+            val_span,
+        )),
     }
 }
 
@@ -151,7 +148,11 @@ mod tests {
         sound-file=/usr/share/sounds/freedesktop/stereo/dialog-warning.oga
         ";
 
-        let result = from_ini_string_to_value(ini_test_config.to_owned(), Span::test_data(), Span::test_data());
+        let result = from_ini_string_to_value(
+            ini_test_config.to_owned(),
+            Span::test_data(),
+            Span::test_data(),
+        );
 
         assert!(result.is_ok());
     }
