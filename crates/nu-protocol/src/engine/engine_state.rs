@@ -453,6 +453,8 @@ impl EngineState {
     pub fn update_plugin_file(&self) -> Result<(), ShellError> {
         use std::io::Write;
 
+        use crate::{PluginExample, PluginSignature};
+
         // Updating the signatures plugin file with the added signatures
         self.plugin_signatures
             .as_ref()
@@ -481,7 +483,18 @@ impl EngineState {
                         file_name = format!("`{file_name}`");
                     }
 
-                    serde_json::to_string_pretty(&decl.signature())
+                    let sig = decl.signature();
+                    let examples = decl
+                        .examples()
+                        .into_iter()
+                        .map(|eg| PluginExample {
+                            example: eg.example.into(),
+                            description: eg.description.into(),
+                            result: eg.result,
+                        })
+                        .collect();
+                    let sig_with_examples = PluginSignature::new(sig, examples);
+                    serde_json::to_string_pretty(&sig_with_examples)
                         .map(|signature| {
                             // Extracting the possible path to the shell used to load the plugin
                             let shell_str = shell

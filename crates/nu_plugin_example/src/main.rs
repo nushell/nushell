@@ -13,10 +13,10 @@ fn main() {
     // is added and used in nushell.
     // The steps are:
     // - The plugin is register. In this stage nushell calls the binary file of
-    //      the plugin sending information using the encoded PluginCall::Signature object.
+    //      the plugin sending information using the encoded PluginCall::PluginSignature object.
     //      Use this encoded data in your plugin to design the logic that will return
     //      the encoded signatures.
-    //      Nushell is expecting and encoded PluginResponse::Signature with all the
+    //      Nushell is expecting and encoded PluginResponse::PluginSignature with all the
     //      plugin signatures
     // - When calling the plugin, nushell sends to the binary file the encoded
     //      PluginCall::CallInfo which has all the call information, such as the
