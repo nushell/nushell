@@ -75,7 +75,9 @@ impl Command for History {
 
             if clear {
                 while let Some(file) = history_paths.pop() {
-                    if let Err(e) = std::fs::remove_file(&file) { println!("Error while deleting {}: {:?}", file.display(), e) }
+                    if let Err(e) = std::fs::remove_file(&file) {
+                        println!("Error while deleting {}: {:?}", file.display(), e)
+                    }
                 }
                 Ok(PipelineData::empty())
             } else {
