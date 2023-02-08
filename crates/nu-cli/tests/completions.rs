@@ -577,9 +577,9 @@ fn variables_completions() {
     assert_eq!(3, suggestions.len());
 
     #[cfg(windows)]
-    let expected: Vec<String> = vec!["PWD".into(), "Path".into(), "TEST".into()];
+    let expected: Vec<String> = vec!["Path".into(), "PWD".into(), "TEST".into()];
     #[cfg(not(windows))]
-    let expected: Vec<String> = vec!["PWD".into(), "PATH".into(), "TEST".into()];
+    let expected: Vec<String> = vec!["PATH".into(), "PWD".into(), "TEST".into()];
 
     // Match results
     match_suggestions(expected, suggestions);
