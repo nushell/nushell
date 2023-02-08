@@ -695,9 +695,7 @@ pub fn eval_expression_with_input(
         }
 
         elem => {
-            let input_metadata = input.metadata();
-            input = eval_expression(engine_state, stack, elem)?
-                .into_pipeline_data_with_metadata(input_metadata);
+            input = eval_expression(engine_state, stack, elem)?.into_pipeline_data();
         }
     };
 
