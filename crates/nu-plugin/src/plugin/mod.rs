@@ -91,10 +91,10 @@ pub(crate) fn call_plugin(
 ) -> Result<PluginResponse, ShellError> {
     if let Some(mut stdin_writer) = child.stdin.take() {
         let encoding_clone = encoding.clone();
-        std::thread::spawn(move || {
-            // PluginCall information
-            encoding_clone.encode_call(&plugin_call, &mut stdin_writer)
-        });
+        // If the child process fills its stdout buffer, it may end up waiting until the parent
+        // reads the stdout, and not be able to read stdin in the meantime, causing a deadlock.
+        // Writing from another thread ensures that stdout is being read at the same time, avoiding the problem.
+        std::thread::spawn(move || encoding_clone.encode_call(&plugin_call, &mut stdin_writer));
     }
 
     // Deserialize response from plugin to extract the resulting value
@@ -154,6 +154,9 @@ pub fn get_signature(
     // Create message to plugin to indicate that signature is required and
     // send call to plugin asking for signature
     let encoding_clone = encoding.clone();
+    // If the child process fills its stdout buffer, it may end up waiting until the parent
+    // reads the stdout, and not be able to read stdin in the meantime, causing a deadlock.
+    // Writing from another thread ensures that stdout is being read at the same time, avoiding the problem.
     std::thread::spawn(move || {
         encoding_clone.encode_call(&PluginCall::Signature, &mut stdin_writer)
     });
