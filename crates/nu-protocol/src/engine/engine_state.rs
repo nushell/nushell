@@ -449,6 +449,27 @@ impl EngineState {
         None
     }
 
+    // Get the path environment variable in a platform agnostic way
+    pub fn get_path_env_var(&self) -> Option<&Value> {
+        let env_path_name: &str = "Path";
+        let env_path_name_secondary: &str = "PATH";
+
+        for overlay_id in self.scope.active_overlays.iter().rev() {
+            let overlay_name = String::from_utf8_lossy(self.get_overlay_name(*overlay_id));
+            if let Some(env_vars) = self.env_vars.get(overlay_name.as_ref()) {
+                if let Some(val) = env_vars.get(env_path_name) {
+                    return Some(val);
+                } else if let Some(val) = env_vars.get(env_path_name_secondary) {
+                    return Some(val);
+                } else {
+                    return None;
+                }
+            }
+        }
+
+        None
+    }
+
     #[cfg(feature = "plugin")]
     pub fn update_plugin_file(&self) -> Result<(), ShellError> {
         use std::io::Write;
