@@ -7,6 +7,13 @@ use crate::{ShellError, Span, Value, VarId};
 /// Environment variables per overlay
 pub type EnvVars = HashMap<String, HashMap<String, Value>>;
 
+#[derive(Debug, Clone)]
+pub struct ProfilingConfig {
+    pub depth: i64,
+    pub collect_source: bool,
+    pub collect_values: bool,
+}
+
 /// A runtime value stack used during evaluation
 ///
 /// A note on implementation:
@@ -35,7 +42,7 @@ pub struct Stack {
     /// List of active overlays
     pub active_overlays: Vec<String>,
     pub recursion_count: Box<u64>,
-    pub debug_depth: i64,
+    pub profiling_config: ProfilingConfig,
 }
 
 impl Stack {
@@ -46,7 +53,11 @@ impl Stack {
             env_hidden: HashMap::new(),
             active_overlays: vec![DEFAULT_OVERLAY_NAME.to_string()],
             recursion_count: Box::new(0),
-            debug_depth: 0,
+            profiling_config: ProfilingConfig {
+                depth: 0,
+                collect_source: false,
+                collect_values: false,
+            },
         }
     }
 
@@ -128,7 +139,7 @@ impl Stack {
             env_hidden: HashMap::new(),
             active_overlays: self.active_overlays.clone(),
             recursion_count: self.recursion_count.to_owned(),
-            debug_depth: self.debug_depth,
+            profiling_config: self.profiling_config.clone(),
         }
     }
 
@@ -154,7 +165,7 @@ impl Stack {
             env_hidden: HashMap::new(),
             active_overlays: self.active_overlays.clone(),
             recursion_count: self.recursion_count.to_owned(),
-            debug_depth: self.debug_depth,
+            profiling_config: self.profiling_config.clone(),
         }
     }
 

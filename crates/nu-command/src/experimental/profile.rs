@@ -1,6 +1,6 @@
 use nu_engine::{eval_block, CallExt};
 use nu_protocol::ast::Call;
-use nu_protocol::engine::{Closure, Command, EngineState, Stack};
+use nu_protocol::engine::{Closure, Command, EngineState, ProfilingConfig, Stack};
 use nu_protocol::{
     Category, DataSource, Example, IntoPipelineData, PipelineData, PipelineMetadata, Signature,
     Spanned, SyntaxShape, Type, Value,
@@ -25,6 +25,8 @@ impl Command for Profile {
                 SyntaxShape::Closure(Some(vec![SyntaxShape::Any])),
                 "the closure to run",
             )
+            .switch("source", "Collect source code in the report", None)
+            .switch("values", "Collect values in the report", None)
             .named(
                 "max-depth",
                 SyntaxShape::Int,
@@ -62,27 +64,17 @@ impl Command for Profile {
             }
         }
 
-        stack.debug_depth =
-            if let Some(depth) = call.get_flag::<i64>(engine_state, &mut stack, "max-depth")? {
-                depth
-            } else {
-                1
-            };
+        stack.profiling_config = ProfilingConfig {
+            depth: call
+                .get_flag::<i64>(engine_state, &mut stack, "max-depth")?
+                .unwrap_or(1),
+            collect_source: call.has_flag("source"),
+            collect_values: call.has_flag("values"),
+        };
 
         let profiling_metadata = PipelineMetadata {
             data_source: DataSource::Profiling(vec![]),
         };
-
-        // let result =  eval_block(
-        //     engine_state,
-        //     &mut stack,
-        //     block,
-        //     input_val.into_pipeline_data_with_metadata(profiling_metadata),
-        //     redirect_stdout,
-        //     redirect_stderr,
-        // )?
-        //     .metadata();
-        // println!("GOT: {:?}", result);
 
         let result = if let Some(PipelineMetadata {
             data_source: DataSource::Profiling(values),

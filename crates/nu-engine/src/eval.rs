@@ -991,8 +991,8 @@ pub fn eval_block(
         }
     }
 
-    let should_debug = if stack.debug_depth > 0 {
-        stack.debug_depth -= 1;
+    let should_debug = if stack.profiling_config.depth > 0 {
+        stack.profiling_config.depth -= 1;
         true
     } else {
         false
@@ -1043,37 +1043,60 @@ pub fn eval_block(
                     ),
                     span,
                 );
-                let (value, element_metadata) = match &eval_result {
-                    Ok((PipelineData::Value(val, metadata), ..)) => (val.clone(), metadata.clone()),
-                    Ok((PipelineData::ListStream(.., metadata), ..)) => {
-                        (Value::string("list stream", span), metadata.clone())
-                    }
-                    Ok((PipelineData::ExternalStream { metadata, .. }, ..)) => {
-                        (Value::string("raw stream", span), metadata.clone())
-                    }
-                    Ok((PipelineData::Empty, ..)) => (Value::Nothing { span }, None),
-                    Err(err) => (Value::Error { error: err.clone() }, None),
-                };
                 let ns = (end_time - start_time).as_nanos() as i64;
 
-                let record = Value::Record {
-                    cols: vec![
-                        "pipeline_idx".to_string(),
-                        "element_idx".to_string(),
-                        "depth".to_string(),
-                        "source".to_string(),
-                        "value".to_string(),
-                        "ns".to_string(),
-                    ],
-                    vals: vec![
-                        Value::int(pipeline_idx as i64, span),
-                        Value::int(i as i64, span),
-                        Value::int(stack.debug_depth + 1, span),
-                        element_str.clone(),
-                        value,
-                        Value::Duration { val: ns, span },
-                    ],
-                    span,
+                let mut cols = vec![
+                    "pipeline_idx".to_string(),
+                    "element_idx".to_string(),
+                    "depth".to_string(),
+                    "span".to_string(),
+                ];
+
+                let mut vals = vec![
+                    Value::int(pipeline_idx as i64, span),
+                    Value::int(i as i64, span),
+                    Value::int(stack.profiling_config.depth + 1, span),
+                    Value::record(
+                        vec!["start".to_string(), "end".to_string()],
+                        vec![
+                            Value::int(span.start as i64, span),
+                            Value::int(span.end as i64, span),
+                        ],
+                        span,
+                    ),
+                ];
+
+                if stack.profiling_config.collect_source {
+                    cols.push("source".to_string());
+                    vals.push(element_str.clone());
+                }
+
+                if stack.profiling_config.collect_values {
+                    let value = match &eval_result {
+                        Ok((PipelineData::Value(val, ..), ..)) => val.clone(),
+                        Ok((PipelineData::ListStream(..), ..)) => {
+                            Value::string("list stream", span)
+                        }
+                        Ok((PipelineData::ExternalStream { .. }, ..)) => {
+                            Value::string("raw stream", span)
+                        }
+                        Ok((PipelineData::Empty, ..)) => Value::Nothing { span },
+                        Err(err) => Value::Error { error: err.clone() },
+                    };
+
+                    cols.push("value".to_string());
+                    vals.push(value);
+                }
+
+                cols.push("ns".to_string());
+                vals.push(Value::Duration { val: ns, span });
+
+                let record = Value::Record { cols, vals, span };
+
+                let element_metadata = if let Ok((pipeline_data, ..)) = &eval_result {
+                    pipeline_data.metadata()
+                } else {
+                    None
                 };
 
                 if let Some(PipelineMetadata {
