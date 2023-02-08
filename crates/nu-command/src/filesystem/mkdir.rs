@@ -83,9 +83,10 @@ impl Command for Mkdir {
             }
         }
 
-        Ok(stream
-            .into_iter()
-            .into_pipeline_data(engine_state.ctrlc.clone()))
+        stream.into_iter()
+            .into_pipeline_data(engine_state.ctrlc.clone())
+            .print(engine_state, stack, false, true)?;
+        Ok(PipelineData::empty())
     }
 
     fn examples(&self) -> Vec<Example> {
