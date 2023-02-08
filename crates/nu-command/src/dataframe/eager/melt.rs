@@ -15,7 +15,7 @@ pub struct MeltDF;
 
 impl Command for MeltDF {
     fn name(&self) -> &str {
-        "melt"
+        "dfr melt"
     }
 
     fn usage(&self) -> &str {
@@ -57,7 +57,7 @@ impl Command for MeltDF {
         vec![Example {
             description: "melt dataframe",
             example:
-                "[[a b c d]; [x 1 4 a] [y 2 5 b] [z 3 6 c]] | into df | melt -c [b c] -v [a d]",
+                "[[a b c d]; [x 1 4 a] [y 2 5 b] [z 3 6 c]] | dfr into-df | dfr melt -c [b c] -v [a d]",
             result: Some(
                 NuDataFrame::try_from_columns(vec![
                     Column::new(

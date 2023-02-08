@@ -12,7 +12,7 @@ pub struct StrLengths;
 
 impl Command for StrLengths {
     fn name(&self) -> &str {
-        "str-lengths"
+        "dfr str-lengths"
     }
 
     fn usage(&self) -> &str {
@@ -29,7 +29,7 @@ impl Command for StrLengths {
     fn examples(&self) -> Vec<Example> {
         vec![Example {
             description: "Returns string lengths",
-            example: "[a ab abc] | into df | str-lengths",
+            example: "[a ab abc] | dfr into-df | dfr str-lengths",
             result: Some(
                 NuDataFrame::try_from_columns(vec![Column::new(
                     "0".to_string(),

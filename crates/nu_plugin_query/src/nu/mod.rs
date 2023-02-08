@@ -1,25 +1,25 @@
 use crate::Query;
 use nu_plugin::{EvaluatedCall, LabeledError, Plugin};
-use nu_protocol::{Category, Signature, Spanned, SyntaxShape, Value};
+use nu_protocol::{Category, PluginSignature, Spanned, SyntaxShape, Value};
 
 impl Plugin for Query {
-    fn signature(&self) -> Vec<Signature> {
+    fn signature(&self) -> Vec<PluginSignature> {
         vec![
-            Signature::build("query")
+            PluginSignature::build("query")
             .usage("Show all the query commands")
             .category(Category::Filters),
 
-            Signature::build("query json")
+            PluginSignature::build("query json")
             .usage("execute json query on json file (open --raw <file> | query json 'query string')")
             .required("query", SyntaxShape::String, "json query")
             .category(Category::Filters),
 
-            Signature::build("query xml")
+            PluginSignature::build("query xml")
             .usage("execute xpath query on xml")
             .required("query", SyntaxShape::String, "xpath query")
             .category(Category::Filters),
 
-            Signature::build("query web")
+            PluginSignature::build("query web")
             .usage("execute selector query on html/web")
             .named("query", SyntaxShape::String, "selector query", Some('q'))
             .switch("as-html", "return the query output as html", Some('m'))

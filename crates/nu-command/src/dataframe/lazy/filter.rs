@@ -12,7 +12,7 @@ pub struct LazyFilter;
 
 impl Command for LazyFilter {
     fn name(&self) -> &str {
-        "filter"
+        "dfr filter"
     }
 
     fn usage(&self) -> &str {
@@ -34,7 +34,7 @@ impl Command for LazyFilter {
     fn examples(&self) -> Vec<Example> {
         vec![Example {
             description: "Filter dataframe using an expression",
-            example: "[[a b]; [6 2] [4 2] [2 2]] | into df | filter ((col a) >= 4)",
+            example: "[[a b]; [6 2] [4 2] [2 2]] | dfr into-df | dfr filter ((dfr col a) >= 4)",
             result: Some(
                 NuDataFrame::try_from_columns(vec![
                     Column::new(
