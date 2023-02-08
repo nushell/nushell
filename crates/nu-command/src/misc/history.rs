@@ -54,18 +54,29 @@ impl Command for History {
 
             let mut history_path = config_path;
             history_path.push("nushell");
+            let mut history_paths = vec![];
             match engine_state.config.history_file_format {
                 HistoryFileFormat::Sqlite => {
+                    let mut history_path_shm = history_path.clone();
+                    let mut history_path_wal = history_path.clone();
+
                     history_path.push("history.sqlite3");
+                    history_paths.push(history_path.to_path_buf());
+                    history_path_shm.push("history.sqlite3-shm");
+                    history_paths.push(history_path_shm.to_path_buf());
+                    history_path_wal.push("history.sqlite3-wal");
+                    history_paths.push(history_path_wal.to_path_buf());
                 }
                 HistoryFileFormat::PlainText => {
                     history_path.push("history.txt");
+                    history_paths.push(history_path.to_path_buf());
                 }
             }
 
             if clear {
-                let _ = std::fs::remove_file(history_path);
-                // TODO: FIXME also clear the auxiliary files when using sqlite
+                while let Some(file) = history_paths.pop() {
+                    if let Err(e) = std::fs::remove_file(&file) { println!("Error while deleting {}: {:?}", file.display(), e) }
+                }
                 Ok(PipelineData::empty())
             } else {
                 let history_reader: Option<Box<dyn ReedlineHistory>> =
