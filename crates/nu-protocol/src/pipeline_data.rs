@@ -83,15 +83,6 @@ impl PipelineData {
         }
     }
 
-    pub fn metadata_mut(&mut self) -> Option<&mut PipelineMetadata> {
-        match self {
-            PipelineData::ListStream(_, x) => x.as_mut(),
-            PipelineData::ExternalStream { metadata: x, .. } => x.as_mut(),
-            PipelineData::Value(_, x) => x.as_mut(),
-            PipelineData::Empty => None,
-        }
-    }
-
     pub fn set_metadata(mut self, metadata: Option<PipelineMetadata>) -> Self {
         match &mut self {
             PipelineData::ListStream(_, x) => *x = metadata,
