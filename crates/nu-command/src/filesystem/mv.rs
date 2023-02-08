@@ -177,7 +177,7 @@ impl Command for Mv {
         }
 
         let span = call.head;
-        Ok(sources
+        sources
             .into_iter()
             .flatten()
             .filter_map(move |entry| {
@@ -212,7 +212,9 @@ impl Command for Mv {
                     None
                 }
             })
-            .into_pipeline_data(ctrlc))
+            .into_pipeline_data(ctrlc)
+            .print(engine_state, stack, false, true)?;
+        Ok(PipelineData::empty())
     }
 
     fn examples(&self) -> Vec<Example> {
