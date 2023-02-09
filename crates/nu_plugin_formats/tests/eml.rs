@@ -1,6 +1,6 @@
 use nu_test_support::nu_with_plugins;
 
-const TEST_CWD: &str = "tests/fixtures/";
+const TEST_CWD: &str = "tests/fixtures/formats";
 
 // Note: the tests can only run successfully if nushell binary is in `target/debug/`
 // The To field in this email is just "to@example.com", which gets parsed out as the Address. The Name is empty.

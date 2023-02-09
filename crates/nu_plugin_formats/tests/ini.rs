@@ -1,6 +1,6 @@
 use nu_test_support::nu_with_plugins;
 
-const TEST_CWD: &str = "tests/fixtures/";
+const TEST_CWD: &str = "tests/fixtures/formats";
 
 #[test]
 fn parses_ini() {
