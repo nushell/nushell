@@ -83,7 +83,8 @@ impl Command for Mkdir {
             }
         }
 
-        stream.into_iter()
+        stream
+            .into_iter()
             .into_pipeline_data(engine_state.ctrlc.clone())
             .print(engine_state, stack, false, true)?;
         Ok(PipelineData::empty())

@@ -279,7 +279,8 @@ impl Command for Cp {
         }
 
         if verbose {
-            result.into_iter()
+            result
+                .into_iter()
                 .into_pipeline_data(ctrlc)
                 .print(engine_state, stack, false, true)?;
         } else {
