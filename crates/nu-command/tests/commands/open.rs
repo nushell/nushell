@@ -214,8 +214,8 @@ fn parses_arrow_ipc() {
     let actual = nu!(
         cwd: "tests/fixtures/formats", pipeline(
         r#"
-            open-df caco3_plastics.arrow
-            | into nu
+            dfr open caco3_plastics.arrow
+            | dfr into-nu
             | first
             | get origin
         "#

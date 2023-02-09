@@ -202,7 +202,8 @@ impl<'a> Playground<'a> {
             .iter()
             .map(|f| {
                 let mut path = PathBuf::from(&self.cwd);
-
+                let mut permission_set = false;
+                let mut write_able = true;
                 let (file_name, contents) = match *f {
                     Stub::EmptyFile(name) => (name, "fake data".to_string()),
                     Stub::FileWithContent(name, content) => (name, content.to_string()),
@@ -215,11 +216,24 @@ impl<'a> Playground<'a> {
                             .collect::<Vec<&str>>()
                             .join(&endl),
                     ),
+                    Stub::FileWithPermission(name, is_write_able) => {
+                        permission_set = true;
+                        write_able = is_write_able;
+                        (name, "check permission".to_string())
+                    }
                 };
 
                 path.push(file_name);
 
-                std::fs::write(path, contents.as_bytes()).expect("can not create file");
+                std::fs::write(&path, contents.as_bytes()).expect("can not create file");
+                if permission_set {
+                    let err_perm = "can not set permission";
+                    let mut perm = std::fs::metadata(path.clone())
+                        .expect(err_perm)
+                        .permissions();
+                    perm.set_readonly(!write_able);
+                    std::fs::set_permissions(path, perm).expect(err_perm);
+                }
             })
             .for_each(drop);
         self.back_to_playground();

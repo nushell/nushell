@@ -12,7 +12,7 @@ pub struct SampleDF;
 
 impl Command for SampleDF {
     fn name(&self) -> &str {
-        "sample"
+        "dfr sample"
     }
 
     fn usage(&self) -> &str {
@@ -50,12 +50,12 @@ impl Command for SampleDF {
         vec![
             Example {
                 description: "Sample rows from dataframe",
-                example: "[[a b]; [1 2] [3 4]] | into df | sample -n 1",
+                example: "[[a b]; [1 2] [3 4]] | dfr into-df | dfr sample -n 1",
                 result: None, // No expected value because sampling is random
             },
             Example {
                 description: "Shows sample row using fraction and replace",
-                example: "[[a b]; [1 2] [3 4] [5 6]] | into df | sample -f 0.5 -e",
+                example: "[[a b]; [1 2] [3 4] [5 6]] | dfr into-df | dfr sample -f 0.5 -e",
                 result: None, // No expected value because sampling is random
             },
         ]

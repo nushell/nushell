@@ -116,11 +116,11 @@ fn update_nonexistent_column() {
 }
 
 #[test]
-fn uses_optional_index_argument() {
+fn update_uses_enumerate_index() {
     let actual = nu!(
         cwd: ".", pipeline(
-        r#"[[a]; [7] [6]] | update a {|el ind| $ind + 1 + $el.a } | to nuon"#
+        r#"[[a]; [7] [6]] | enumerate | update item.a {|el| $el.index + 1 + $el.item.a } | flatten | to nuon"#
     ));
 
-    assert_eq!(actual.out, "[[a]; [8], [8]]");
+    assert_eq!(actual.out, "[[index, a]; [0, 8], [1, 8]]");
 }

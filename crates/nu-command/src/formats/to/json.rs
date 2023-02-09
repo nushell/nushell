@@ -43,7 +43,7 @@ impl Command for ToJson {
         stack: &mut Stack,
         call: &Call,
         input: PipelineData,
-    ) -> Result<nu_protocol::PipelineData, ShellError> {
+    ) -> Result<PipelineData, ShellError> {
         let raw = call.has_flag("raw");
         let use_tabs = call.has_flag("tabs");
 

@@ -72,7 +72,7 @@ impl Command for SubCommand {
         _stack: &mut Stack,
         call: &Call,
         input: PipelineData,
-    ) -> Result<nu_protocol::PipelineData, nu_protocol::ShellError> {
+    ) -> Result<PipelineData, ShellError> {
         split_chars(engine_state, call, input)
     }
 }
@@ -81,7 +81,7 @@ fn split_chars(
     engine_state: &EngineState,
     call: &Call,
     input: PipelineData,
-) -> Result<nu_protocol::PipelineData, nu_protocol::ShellError> {
+) -> Result<PipelineData, ShellError> {
     let span = call.head;
 
     let graphemes = grapheme_flags(call)?;

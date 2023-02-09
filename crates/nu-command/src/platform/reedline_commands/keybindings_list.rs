@@ -1,7 +1,7 @@
 use nu_protocol::{
     ast::Call,
     engine::{Command, EngineState, Stack},
-    Category, Example, IntoPipelineData, PipelineData, Signature, Span, Type, Value,
+    Category, Example, IntoPipelineData, PipelineData, ShellError, Signature, Span, Type, Value,
 };
 use reedline::{
     get_reedline_edit_commands, get_reedline_keybinding_modifiers, get_reedline_keycodes,
@@ -57,7 +57,7 @@ impl Command for KeybindingsList {
         _stack: &mut Stack,
         call: &Call,
         _input: PipelineData,
-    ) -> Result<nu_protocol::PipelineData, nu_protocol::ShellError> {
+    ) -> Result<PipelineData, ShellError> {
         let records = if call.named_len() == 0 {
             let all_options = vec!["modifiers", "keycodes", "edits", "modes", "events"];
             all_options

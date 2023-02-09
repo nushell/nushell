@@ -35,7 +35,7 @@ impl Command for Break {
         _stack: &mut Stack,
         call: &Call,
         _input: PipelineData,
-    ) -> Result<nu_protocol::PipelineData, nu_protocol::ShellError> {
+    ) -> Result<PipelineData, ShellError> {
         Err(ShellError::Break(call.head))
     }
 

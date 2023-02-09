@@ -11,7 +11,7 @@ pub struct FirstDF;
 
 impl Command for FirstDF {
     fn name(&self) -> &str {
-        "first"
+        "dfr first"
     }
 
     fn usage(&self) -> &str {
@@ -34,7 +34,7 @@ impl Command for FirstDF {
         vec![
             Example {
                 description: "Return the first row of a dataframe",
-                example: "[[a b]; [1 2] [3 4]] | into df | first",
+                example: "[[a b]; [1 2] [3 4]] | dfr into-df | dfr first",
                 result: Some(
                     NuDataFrame::try_from_columns(vec![
                         Column::new("a".to_string(), vec![Value::test_int(1)]),
@@ -46,7 +46,7 @@ impl Command for FirstDF {
             },
             Example {
                 description: "Return the first two rows of a dataframe",
-                example: "[[a b]; [1 2] [3 4]] | into df | first 2",
+                example: "[[a b]; [1 2] [3 4]] | dfr into-df | dfr first 2",
                 result: Some(
                     NuDataFrame::try_from_columns(vec![
                         Column::new(

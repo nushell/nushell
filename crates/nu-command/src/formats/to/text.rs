@@ -30,7 +30,7 @@ impl Command for ToText {
         _stack: &mut Stack,
         call: &Call,
         input: PipelineData,
-    ) -> Result<nu_protocol::PipelineData, ShellError> {
+    ) -> Result<PipelineData, ShellError> {
         let span = call.head;
         let config = engine_state.get_config();
 

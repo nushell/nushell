@@ -1370,24 +1370,31 @@ fn convert_to_table2_entry(
         return value_to_styled_string(item, config, style_computer);
     }
 
-    let table = match &item {
+    match &item {
         Value::Record { span, cols, vals } => {
             if cols.is_empty() && vals.is_empty() {
                 return value_to_styled_string(item, config, style_computer);
             }
 
-            convert_to_table2(
-                0,
-                std::iter::once(item),
+            // we verify what is the structure of a Record cause it might represent
+
+            let table = build_expanded_table(
+                cols.clone(),
+                vals.clone(),
+                *span,
                 ctrlc.clone(),
                 config,
-                *span,
                 style_computer,
+                width,
                 deep.map(|i| i - 1),
                 flatten,
                 flatten_sep,
-                width,
-            )
+            );
+
+            match table {
+                Ok(Some(table)) => (table, TextStyle::default()),
+                _ => value_to_styled_string(item, config, style_computer),
+            }
         }
         Value::List { vals, span } => {
             if flatten {
@@ -1400,7 +1407,7 @@ fn convert_to_table2_entry(
                 }
             }
 
-            convert_to_table2(
+            let table = convert_to_table2(
                 0,
                 vals.iter(),
                 ctrlc.clone(),
@@ -1411,24 +1418,24 @@ fn convert_to_table2_entry(
                 flatten,
                 flatten_sep,
                 width,
-            )
+            );
+
+            let (table, whead, windex) = match table {
+                Ok(Some(out)) => out,
+                _ => return value_to_styled_string(item, config, style_computer),
+            };
+
+            let count_rows = table.count_rows();
+            let table_config =
+                create_table_config(config, style_computer, count_rows, whead, windex, false);
+
+            let table = table.draw(table_config, usize::MAX);
+            match table {
+                Some(table) => (table, TextStyle::default()),
+                None => value_to_styled_string(item, config, style_computer),
+            }
         }
-        _ => return value_to_styled_string(item, config, style_computer), // unknown type.
-    };
-
-    let (table, whead, windex) = match table {
-        Ok(Some(out)) => out,
-        _ => return value_to_styled_string(item, config, style_computer),
-    };
-
-    let count_rows = table.count_rows();
-    let table_config =
-        create_table_config(config, style_computer, count_rows, whead, windex, false);
-
-    let table = table.draw(table_config, usize::MAX);
-    match table {
-        Some(table) => (table, TextStyle::default()),
-        None => value_to_styled_string(item, config, style_computer),
+        _ => value_to_styled_string(item, config, style_computer), // unknown type.
     }
 }
 

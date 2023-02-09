@@ -36,7 +36,7 @@ impl Command for LetEnv {
         stack: &mut Stack,
         call: &Call,
         input: PipelineData,
-    ) -> Result<nu_protocol::PipelineData, nu_protocol::ShellError> {
+    ) -> Result<PipelineData, ShellError> {
         // TODO: find and require the crossplatform restrictions on environment names
         let env_var: Spanned<String> = call.req(engine_state, stack, 0)?;
 

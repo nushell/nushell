@@ -4,22 +4,22 @@ mod second_custom_value;
 use cool_custom_value::CoolCustomValue;
 use nu_plugin::{serve_plugin, MsgPackSerializer, Plugin};
 use nu_plugin::{EvaluatedCall, LabeledError};
-use nu_protocol::{Category, ShellError, Signature, Value};
+use nu_protocol::{Category, PluginSignature, ShellError, Value};
 use second_custom_value::SecondCustomValue;
 
 struct CustomValuePlugin;
 
 impl Plugin for CustomValuePlugin {
-    fn signature(&self) -> Vec<nu_protocol::Signature> {
+    fn signature(&self) -> Vec<nu_protocol::PluginSignature> {
         vec![
-            Signature::build("custom-value generate")
-                .usage("Signature for a plugin that generates a custom value")
+            PluginSignature::build("custom-value generate")
+                .usage("PluginSignature for a plugin that generates a custom value")
                 .category(Category::Experimental),
-            Signature::build("custom-value generate2")
-                .usage("Signature for a plugin that generates a different custom value")
+            PluginSignature::build("custom-value generate2")
+                .usage("PluginSignature for a plugin that generates a different custom value")
                 .category(Category::Experimental),
-            Signature::build("custom-value update")
-                .usage("Signature for a plugin that updates a custom value")
+            PluginSignature::build("custom-value update")
+                .usage("PluginSignature for a plugin that updates a custom value")
                 .category(Category::Experimental),
         ]
     }

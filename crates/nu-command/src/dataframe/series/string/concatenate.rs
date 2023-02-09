@@ -13,7 +13,7 @@ pub struct Concatenate;
 
 impl Command for Concatenate {
     fn name(&self) -> &str {
-        "concatenate"
+        "dfr concatenate"
     }
 
     fn usage(&self) -> &str {
@@ -35,8 +35,8 @@ impl Command for Concatenate {
     fn examples(&self) -> Vec<Example> {
         vec![Example {
             description: "Concatenate string",
-            example: r#"let other = ([za xs cd] | into df);
-    [abc abc abc] | into df | concatenate $other"#,
+            example: r#"let other = ([za xs cd] | dfr into-df);
+    [abc abc abc] | dfr into-df | dfr concatenate $other"#,
             result: Some(
                 NuDataFrame::try_from_columns(vec![Column::new(
                     "0".to_string(),

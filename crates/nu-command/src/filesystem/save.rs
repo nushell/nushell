@@ -60,7 +60,7 @@ impl Command for Save {
         stack: &mut Stack,
         call: &Call,
         input: PipelineData,
-    ) -> Result<nu_protocol::PipelineData, nu_protocol::ShellError> {
+    ) -> Result<PipelineData, ShellError> {
         let raw = call.has_flag("raw");
         let append = call.has_flag("append");
         let force = call.has_flag("force");

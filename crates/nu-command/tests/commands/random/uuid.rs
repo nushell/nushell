@@ -1,4 +1,4 @@
-use nu_test_support::{nu, pipeline};
+use nu_test_support::nu;
 use uuid_crate::Uuid;
 
 #[test]

@@ -93,7 +93,7 @@ repeating this process with row 1, and so on."#
         stack: &mut Stack,
         call: &Call,
         input: PipelineData,
-    ) -> Result<nu_protocol::PipelineData, nu_protocol::ShellError> {
+    ) -> Result<PipelineData, ShellError> {
         let merge_value: Value = call.req(engine_state, stack, 0)?;
 
         let metadata = input.metadata();

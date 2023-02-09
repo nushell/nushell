@@ -7,21 +7,21 @@ use crate::protocol::{
 use std::path::{Path, PathBuf};
 
 use nu_protocol::engine::{Command, EngineState, Stack};
-use nu_protocol::{ast::Call, Signature};
-use nu_protocol::{PipelineData, ShellError, Value};
+use nu_protocol::{ast::Call, PluginSignature, Signature};
+use nu_protocol::{Example, PipelineData, ShellError, Value};
 
 #[derive(Clone)]
 pub struct PluginDeclaration {
     name: String,
-    signature: Signature,
+    signature: PluginSignature,
     filename: PathBuf,
     shell: Option<PathBuf>,
 }
 
 impl PluginDeclaration {
-    pub fn new(filename: PathBuf, signature: Signature, shell: Option<PathBuf>) -> Self {
+    pub fn new(filename: PathBuf, signature: PluginSignature, shell: Option<PathBuf>) -> Self {
         Self {
-            name: signature.name.clone(),
+            name: signature.sig.name.clone(),
             signature,
             filename,
             shell,
@@ -35,11 +35,23 @@ impl Command for PluginDeclaration {
     }
 
     fn signature(&self) -> Signature {
-        self.signature.clone()
+        self.signature.sig.clone()
     }
 
     fn usage(&self) -> &str {
-        self.signature.usage.as_str()
+        self.signature.sig.usage.as_str()
+    }
+
+    fn examples(&self) -> Vec<Example> {
+        let mut res = vec![];
+        for e in self.signature.examples.iter() {
+            res.push(Example {
+                example: &e.example,
+                description: &e.description,
+                result: e.result.clone(),
+            })
+        }
+        res
     }
 
     fn run(

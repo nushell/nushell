@@ -32,7 +32,7 @@ impl Command for FromVcf {
         _stack: &mut Stack,
         call: &Call,
         input: PipelineData,
-    ) -> Result<nu_protocol::PipelineData, ShellError> {
+    ) -> Result<PipelineData, ShellError> {
         let head = call.head;
         from_vcf(input, head)
     }

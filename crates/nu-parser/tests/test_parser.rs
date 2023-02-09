@@ -1,9 +1,10 @@
 use nu_parser::ParseError;
 use nu_parser::*;
+use nu_protocol::ast::Call;
 use nu_protocol::{
     ast::{Expr, Expression, PipelineElement},
     engine::{Command, EngineState, Stack, StateWorkingSet},
-    Signature, SyntaxShape,
+    PipelineData, ShellError, Signature, SyntaxShape,
 };
 
 #[cfg(test)]
@@ -34,9 +35,9 @@ impl Command for Let {
         &self,
         _engine_state: &EngineState,
         _stack: &mut Stack,
-        _call: &nu_protocol::ast::Call,
-        _input: nu_protocol::PipelineData,
-    ) -> Result<nu_protocol::PipelineData, nu_protocol::ShellError> {
+        _call: &Call,
+        _input: PipelineData,
+    ) -> Result<PipelineData, ShellError> {
         todo!()
     }
 }
@@ -955,7 +956,8 @@ mod range {
 #[cfg(test)]
 mod input_types {
     use super::*;
-    use nu_protocol::{ast::Argument, Category, Type};
+    use nu_protocol::ast::Call;
+    use nu_protocol::{ast::Argument, Category, PipelineData, ShellError, Type};
 
     #[derive(Clone)]
     pub struct LsTest;
@@ -977,9 +979,9 @@ mod input_types {
             &self,
             _engine_state: &EngineState,
             _stack: &mut Stack,
-            _call: &nu_protocol::ast::Call,
-            _input: nu_protocol::PipelineData,
-        ) -> Result<nu_protocol::PipelineData, nu_protocol::ShellError> {
+            _call: &Call,
+            _input: PipelineData,
+        ) -> Result<PipelineData, ShellError> {
             todo!()
         }
     }
@@ -1006,9 +1008,9 @@ mod input_types {
             &self,
             _engine_state: &EngineState,
             _stack: &mut Stack,
-            _call: &nu_protocol::ast::Call,
-            _input: nu_protocol::PipelineData,
-        ) -> Result<nu_protocol::PipelineData, nu_protocol::ShellError> {
+            _call: &Call,
+            _input: PipelineData,
+        ) -> Result<PipelineData, ShellError> {
             todo!()
         }
     }
@@ -1036,9 +1038,9 @@ mod input_types {
             &self,
             _engine_state: &EngineState,
             _stack: &mut Stack,
-            _call: &nu_protocol::ast::Call,
-            _input: nu_protocol::PipelineData,
-        ) -> Result<nu_protocol::PipelineData, nu_protocol::ShellError> {
+            _call: &Call,
+            _input: PipelineData,
+        ) -> Result<PipelineData, ShellError> {
             todo!()
         }
     }
@@ -1068,9 +1070,9 @@ mod input_types {
             &self,
             _engine_state: &EngineState,
             _stack: &mut Stack,
-            _call: &nu_protocol::ast::Call,
-            _input: nu_protocol::PipelineData,
-        ) -> Result<nu_protocol::PipelineData, nu_protocol::ShellError> {
+            _call: &Call,
+            _input: PipelineData,
+        ) -> Result<PipelineData, ShellError> {
             todo!()
         }
     }
@@ -1098,9 +1100,9 @@ mod input_types {
             &self,
             _engine_state: &EngineState,
             _stack: &mut Stack,
-            _call: &nu_protocol::ast::Call,
-            _input: nu_protocol::PipelineData,
-        ) -> Result<nu_protocol::PipelineData, nu_protocol::ShellError> {
+            _call: &Call,
+            _input: PipelineData,
+        ) -> Result<PipelineData, ShellError> {
             todo!()
         }
     }
@@ -1125,9 +1127,9 @@ mod input_types {
             &self,
             _engine_state: &EngineState,
             _stack: &mut Stack,
-            _call: &nu_protocol::ast::Call,
-            _input: nu_protocol::PipelineData,
-        ) -> Result<nu_protocol::PipelineData, nu_protocol::ShellError> {
+            _call: &Call,
+            _input: PipelineData,
+        ) -> Result<PipelineData, ShellError> {
             todo!()
         }
     }
@@ -1156,9 +1158,9 @@ mod input_types {
             &self,
             _engine_state: &EngineState,
             _stack: &mut Stack,
-            _call: &nu_protocol::ast::Call,
-            _input: nu_protocol::PipelineData,
-        ) -> Result<nu_protocol::PipelineData, nu_protocol::ShellError> {
+            _call: &Call,
+            _input: PipelineData,
+        ) -> Result<PipelineData, ShellError> {
             todo!()
         }
     }
@@ -1186,9 +1188,9 @@ mod input_types {
             &self,
             _engine_state: &EngineState,
             _stack: &mut Stack,
-            _call: &nu_protocol::ast::Call,
-            _input: nu_protocol::PipelineData,
-        ) -> Result<nu_protocol::PipelineData, nu_protocol::ShellError> {
+            _call: &Call,
+            _input: PipelineData,
+        ) -> Result<PipelineData, ShellError> {
             todo!()
         }
     }
@@ -1225,9 +1227,9 @@ mod input_types {
             &self,
             _engine_state: &EngineState,
             _stack: &mut Stack,
-            _call: &nu_protocol::ast::Call,
-            _input: nu_protocol::PipelineData,
-        ) -> Result<nu_protocol::PipelineData, nu_protocol::ShellError> {
+            _call: &Call,
+            _input: PipelineData,
+        ) -> Result<PipelineData, ShellError> {
             todo!()
         }
     }

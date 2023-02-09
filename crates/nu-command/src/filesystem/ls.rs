@@ -72,7 +72,7 @@ impl Command for Ls {
         stack: &mut Stack,
         call: &Call,
         _input: PipelineData,
-    ) -> Result<nu_protocol::PipelineData, nu_protocol::ShellError> {
+    ) -> Result<PipelineData, ShellError> {
         let all = call.has_flag("all");
         let long = call.has_flag("long");
         let short_names = call.has_flag("short-names");
@@ -419,7 +419,12 @@ pub(crate) fn dir_entry_dict(
 ) -> Result<Value, ShellError> {
     #[cfg(windows)]
     if metadata.is_none() {
-        return windows_helper::dir_entry_dict_windows_fallback(filename, display_name, span, long);
+        return Ok(windows_helper::dir_entry_dict_windows_fallback(
+            filename,
+            display_name,
+            span,
+            long,
+        ));
     }
 
     let mut cols = vec![];
@@ -673,7 +678,6 @@ fn unix_time_to_local_date_time(secs: i64) -> Option<DateTime<Local>> {
 mod windows_helper {
     use super::*;
 
-    use std::mem::MaybeUninit;
     use std::os::windows::prelude::OsStrExt;
     use windows::Win32::Foundation::FILETIME;
     use windows::Win32::Storage::FileSystem::{
@@ -692,7 +696,7 @@ mod windows_helper {
         display_name: &str,
         span: Span,
         long: bool,
-    ) -> Result<Value, ShellError> {
+    ) -> Value {
         let mut cols = vec![];
         let mut vals = vec![];
 
@@ -702,7 +706,20 @@ mod windows_helper {
             span,
         });
 
-        let find_data = find_first_file(filename, span)?;
+        let find_data = match find_first_file(filename, span) {
+            Ok(fd) => fd,
+            Err(e) => {
+                // Sometimes this happens when the file name is not allowed on Windows (ex: ends with a '.')
+                // For now, we just log it and give up on returning metadata columns
+                // TODO: find another way to get this data (like cmd.exe, pwsh, and MINGW bash can)
+                eprintln!(
+                    "Failed to read metadata for '{}'. It may have an illegal filename",
+                    filename.to_string_lossy()
+                );
+                log::error!("{e}");
+                return Value::Record { cols, vals, span };
+            }
+        };
 
         cols.push("type".into());
         vals.push(Value::String {
@@ -783,7 +800,7 @@ mod windows_helper {
             vals.push(val);
         }
 
-        Ok(Value::Record { cols, vals, span })
+        Value::Record { cols, vals, span }
     }
 
     fn unix_time_from_filetime(ft: &FILETIME) -> i64 {
@@ -801,7 +818,7 @@ mod windows_helper {
     // wrapper around the FindFirstFileW Win32 API
     fn find_first_file(filename: &Path, span: Span) -> Result<WIN32_FIND_DATAW, ShellError> {
         unsafe {
-            let mut find_data = MaybeUninit::<WIN32_FIND_DATAW>::uninit();
+            let mut find_data = WIN32_FIND_DATAW::default();
             // The windows crate really needs a nicer way to do string conversions
             let filename_wide: Vec<u16> = filename
                 .as_os_str()
@@ -809,23 +826,22 @@ mod windows_helper {
                 .chain(std::iter::once(0))
                 .collect();
 
-            if FindFirstFileW(
+            match FindFirstFileW(
                 windows::core::PCWSTR(filename_wide.as_ptr()),
-                find_data.as_mut_ptr(),
-            )
-            .is_err()
-            {
-                return Err(ShellError::ReadingFile(
-                    format!(
-                        "Could not read metadata for '{}'. It may have an illegal filename.",
-                        filename.to_string_lossy()
-                    ),
-                    span,
-                ));
+                &mut find_data,
+            ) {
+                Ok(_) => Ok(find_data),
+                Err(e) => {
+                    return Err(ShellError::ReadingFile(
+                        format!(
+                            "Could not read metadata for '{}':\n  '{}'",
+                            filename.to_string_lossy(),
+                            e
+                        ),
+                        span,
+                    ));
+                }
             }
-
-            let find_data = find_data.assume_init();
-            Ok(find_data)
         }
     }
 
