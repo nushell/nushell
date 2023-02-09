@@ -1,4 +1,5 @@
 use std::fs::read_link;
+use std::io::{BufReader, BufWriter, ErrorKind, Read, Write};
 use std::path::PathBuf;
 
 use nu_engine::env::current_dir;
@@ -14,6 +15,7 @@ use nu_protocol::{
 use super::util::try_interaction;
 
 use crate::filesystem::util::FileStructure;
+use crate::progress_bar;
 
 const GLOB_PARAMS: nu_glob::MatchOptions = nu_glob::MatchOptions {
     case_sensitive: true,
@@ -61,6 +63,7 @@ impl Command for Cp {
                 "no symbolic links are followed, only works if -r is active",
                 Some('n'),
             )
+            .switch("progress", "enable progress bar", Some('p'))
             .category(Category::FileSystem)
     }
 
@@ -82,6 +85,7 @@ impl Command for Cp {
         let recursive = call.has_flag("recursive");
         let verbose = call.has_flag("verbose");
         let interactive = call.has_flag("interactive");
+        let progress = call.has_flag("progress");
 
         let current_dir_path = current_dir(engine_state, stack)?;
         let source = current_dir_path.join(src.item.as_str());
@@ -98,6 +102,7 @@ impl Command for Cp {
         let ctrlc = engine_state.ctrlc.clone();
         let span = call.head;
 
+        // Get an iterator with all the source files.
         let sources: Vec<_> = match nu_glob::glob_with(&source.to_string_lossy(), GLOB_PARAMS) {
             Ok(files) => files.collect(),
             Err(e) => {
@@ -179,8 +184,23 @@ impl Command for Cp {
                                 Vec::new(),
                             ));
                         } else if interactive && dst.exists() {
-                            interactive_copy(interactive, src, dst, span, copy_file)
+                            if progress {
+                                interactive_copy(
+                                    interactive,
+                                    src,
+                                    dst,
+                                    span,
+                                    copy_file_with_progressbar,
+                                )
+                            } else {
+                                interactive_copy(interactive, src, dst, span, copy_file)
+                            }
+                        } else if progress {
+                            // uses std::io::copy to get the progress
+                            // slower std::fs::copy but useful if user needs to see the progress
+                            copy_file_with_progressbar(src, dst, span)
                         } else {
+                            // uses std::fs::copy
                             copy_file(src, dst, span)
                         };
                         result.push(res);
@@ -268,7 +288,19 @@ impl Command for Cp {
                         result.push(res);
                     } else if s.is_file() {
                         let res = if interactive && d.exists() {
-                            interactive_copy(interactive, s, d, span, copy_file)
+                            if progress {
+                                interactive_copy(
+                                    interactive,
+                                    s,
+                                    d,
+                                    span,
+                                    copy_file_with_progressbar,
+                                )
+                            } else {
+                                interactive_copy(interactive, s, d, span, copy_file)
+                            }
+                        } else if progress {
+                            copy_file_with_progressbar(s, d, span)
                         } else {
                             copy_file(s, d, span)
                         };
@@ -344,50 +376,96 @@ fn interactive_copy(
     }
 }
 
+// `copy_file` uses `std::fs::copy` to copy a file. There is another function called `copy_file_with_progressbar`
+// which uses `read` and `write` instead. This is to get the progress of the copy. If you make any changes in this
+// function try to match the changes in `copy_file_with_progressbar`
 fn copy_file(src: PathBuf, dst: PathBuf, span: Span) -> Value {
     match std::fs::copy(&src, &dst) {
         Ok(_) => {
             let msg = format!("copied {:} to {:}", src.display(), dst.display());
             Value::String { val: msg, span }
         }
-        Err(e) => {
-            let message_src = format!(
-                "copying file '{src_display}' failed: {e}",
-                src_display = src.display()
-            );
-            let message_dst = format!(
-                "copying to destination '{dst_display}' failed: {e}",
-                dst_display = dst.display()
-            );
-            use std::io::ErrorKind;
-            let shell_error = match e.kind() {
-                ErrorKind::NotFound => {
-                    if std::path::Path::new(&dst).exists() {
-                        ShellError::FileNotFoundCustom(message_src, span)
-                    } else {
-                        ShellError::FileNotFoundCustom(message_dst, span)
-                    }
-                }
-                ErrorKind::PermissionDenied => match std::fs::metadata(&dst) {
-                    Ok(meta) => {
-                        if meta.permissions().readonly() {
-                            ShellError::PermissionDeniedError(message_dst, span)
-                        } else {
-                            ShellError::PermissionDeniedError(message_src, span)
+        Err(e) => error_return(e, src, span),
+    }
+}
+
+// `copy_file_with_progressbar` uses `read` and `write` to copy a file. There is another function called `copy_file`
+// which uses `std::fs::copy` instead which is faster but can't gt the process of the copy. If you make any changes
+// in this function try to match the changes in `copy_file`
+fn copy_file_with_progressbar(src: PathBuf, dst: PathBuf, span: Span) -> Value {
+    let mut bytes_processed: u64 = 0;
+    let mut process_failed: Option<std::io::Error> = None;
+
+    let file_in = match std::fs::File::open(&src) {
+        Ok(file) => file,
+        Err(error) => return error_return(error, src, span),
+    };
+
+    let file_size = match file_in.metadata() {
+        Ok(metadata) => Some(metadata.len()),
+        _ => None,
+    };
+
+    let mut bar = progress_bar::NuProgressBar::new(file_size);
+
+    let file_out = match std::fs::File::create(&dst) {
+        Ok(file) => file,
+        Err(error) => return error_return(error, src, span),
+    };
+    let mut buffer = [0u8; 8192];
+    let mut buf_reader = BufReader::new(file_in);
+    let mut buf_writer = BufWriter::new(file_out);
+
+    loop {
+        // Read src file
+        match buf_reader.read(&mut buffer) {
+            // src file read successfully
+            Ok(bytes_read) => {
+                // Write dst file
+                match buf_writer.write(&buffer[..bytes_read]) {
+                    // dst file written successfully
+                    Ok(bytes_written) => {
+                        // Update the total amount of bytes that has been saved and then print the progress bar
+                        bytes_processed += bytes_written as u64;
+                        bar.update_bar(bytes_processed);
+
+                        // the last block of bytes is going to be lower than the buffer size
+                        // let's break the loop once we write the last block
+                        if bytes_read < buffer.len() {
+                            break;
                         }
                     }
-                    Err(_) => ShellError::PermissionDeniedError(message_dst, span),
-                },
-                ErrorKind::Interrupted => ShellError::IOInterrupted(message_src, span),
-                ErrorKind::OutOfMemory => ShellError::OutOfMemoryError(message_src, span),
-                // TODO: handle ExecutableFileBusy etc. when io_error_more is stabilized
-                // https://github.com/rust-lang/rust/issues/86442
-                _ => ShellError::IOErrorSpanned(message_src, span),
-            };
-
-            Value::Error { error: shell_error }
-        }
+                    Err(e) => {
+                        // There was a problem writing the dst file
+                        process_failed = Some(e);
+                        break;
+                    }
+                }
+            }
+            Err(e) => {
+                // There was a problem reading th src file
+                process_failed = Some(e);
+                break;
+            }
+        };
     }
+
+    // If copying the file failed
+    if let Some(error) = process_failed {
+        bar.abandoned_msg("# !! Error !!".to_owned());
+        return error_return(error, src, span);
+    }
+
+    // Get the name of the file to print it out at the end
+    let file_name = std::path::Path::new(&src)
+        .file_name()
+        .unwrap_or_else(|| std::ffi::OsStr::new(""))
+        .to_str()
+        .unwrap_or("");
+    let msg = format!("copied {:} to {:}", src.display(), dst.display());
+    bar.finished_msg(format!(" {} copied!", &file_name));
+
+    Value::String { val: msg, span }
 }
 
 fn copy_symlink(src: PathBuf, dst: PathBuf, span: Span) -> Value {
@@ -432,4 +510,21 @@ fn copy_symlink(src: PathBuf, dst: PathBuf, span: Span) -> Value {
             error: ShellError::GenericError(e.to_string(), e.to_string(), Some(span), None, vec![]),
         },
     }
+}
+
+// Function to get errors returned by `cp` more specific
+fn error_return(error: std::io::Error, src: PathBuf, span: Span) -> Value {
+    let message = format!("copy file {src:?} failed: {error}");
+
+    let shell_error = match error.kind() {
+        ErrorKind::NotFound => ShellError::FileNotFoundCustom(message, span),
+        ErrorKind::PermissionDenied => ShellError::PermissionDeniedError(message, span),
+        ErrorKind::Interrupted => ShellError::IOInterrupted(message, span),
+        ErrorKind::OutOfMemory => ShellError::OutOfMemoryError(message, span),
+        // TODO: handle ExecutableFileBusy etc. when io_error_more is stabilized
+        // https://github.com/rust-lang/rust/issues/86442
+        _ => ShellError::IOErrorSpanned(message, span),
+    };
+
+    Value::Error { error: shell_error }
 }
