@@ -27,7 +27,7 @@ fn parses_utf16_ini() {
 }
 
 #[test]
-fn read_ini_with_some_key_no_session() {
+fn read_ini_with_missing_session() {
     Playground::setup("from ini with missiong session", |dirs, sandbox| {
         sandbox.with_files(vec![FileWithContentToBeTrimmed(
             "some_missing.ini",
