@@ -451,7 +451,7 @@ fn rm(
         })
         .filter(|x| !matches!(x.get_type(), Type::Nothing))
         .into_pipeline_data(ctrlc)
-        .print(engine_state, stack, false, true)?;
+        .print_not_formatted(engine_state, false, true)?;
 
     Ok(PipelineData::empty())
 }

@@ -282,14 +282,14 @@ impl Command for Cp {
             result
                 .into_iter()
                 .into_pipeline_data(ctrlc)
-                .print(engine_state, stack, false, true)?;
+                .print_not_formatted(engine_state, false, true)?;
         } else {
             // filter to only errors
             result
                 .into_iter()
                 .filter(|v| matches!(v, Value::Error { .. }))
                 .into_pipeline_data(ctrlc)
-                .print(engine_state, stack, false, true)?;
+                .print_not_formatted(engine_state, false, true)?;
         }
         Ok(PipelineData::empty())
     }
