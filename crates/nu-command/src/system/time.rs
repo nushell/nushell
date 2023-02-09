@@ -9,11 +9,11 @@ use nu_protocol::{
 };
 
 #[derive(Clone)]
-pub struct Benchmark;
+pub struct Time;
 
-impl Command for Benchmark {
+impl Command for Time {
     fn name(&self) -> &str {
-        "benchmark"
+        "time"
     }
 
     fn usage(&self) -> &str {
@@ -21,7 +21,7 @@ impl Command for Benchmark {
     }
 
     fn signature(&self) -> nu_protocol::Signature {
-        Signature::build("benchmark")
+        Signature::build("time")
             .required(
                 "closure",
                 SyntaxShape::Closure(Some(vec![SyntaxShape::Any])),
@@ -88,13 +88,13 @@ impl Command for Benchmark {
     fn examples(&self) -> Vec<Example> {
         vec![
             Example {
-                description: "Benchmarks a command within a closure",
-                example: "benchmark { sleep 500ms }",
+                description: "Times a command within a closure",
+                example: "time { sleep 500ms }",
                 result: None,
             },
             Example {
-                description: "Benchmark a command using an existing input",
-                example: "fetch https://www.nushell.sh/book/ | benchmark { split chars }",
+                description: "Times a command using an existing input",
+                example: "http get https://www.nushell.sh/book/ | time { split chars }",
                 result: None,
             },
         ]
@@ -102,13 +102,13 @@ impl Command for Benchmark {
 }
 
 #[test]
-// Due to difficulty in observing side-effects from benchmark closures,
+// Due to difficulty in observing side-effects from time closures,
 // checks that the closures have run correctly must use the filesystem.
-fn test_benchmark_closure() {
+fn test_time_closure() {
     use nu_test_support::{nu, nu_repl_code, playground::Playground};
-    Playground::setup("test_benchmark_closure", |dirs, _| {
+    Playground::setup("test_time_closure", |dirs, _| {
         let inp = [
-            r#"[2 3 4] | benchmark { to nuon | save foo.txt }"#,
+            r#"[2 3 4] | time { to nuon | save foo.txt }"#,
             "open foo.txt",
         ];
         let actual_repl = nu!(cwd: dirs.test(), nu_repl_code(&inp));
@@ -118,11 +118,11 @@ fn test_benchmark_closure() {
 }
 
 #[test]
-fn test_benchmark_closure_2() {
+fn test_time_closure_2() {
     use nu_test_support::{nu, nu_repl_code, playground::Playground};
-    Playground::setup("test_benchmark_closure", |dirs, _| {
+    Playground::setup("test_time_closure", |dirs, _| {
         let inp = [
-            r#"[2 3 4] | benchmark {|e| {result: $e} | to nuon | save foo.txt }"#,
+            r#"[2 3 4] | time {|e| {result: $e} | to nuon | save foo.txt }"#,
             "open foo.txt",
         ];
         let actual_repl = nu!(cwd: dirs.test(), nu_repl_code(&inp));
