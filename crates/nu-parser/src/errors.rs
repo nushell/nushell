@@ -442,9 +442,9 @@ pub enum ParseError {
     )]
     NotAConstant(#[label = "Value is not a parse-time constant"] Span),
 
-    #[error("Invalid syntax")] // invalid syntax in <entity>, <detail>.
+    #[error("Invalid syntax")] // <detail in <entity>.
     #[diagnostic()]
-    InvalidSyntax(String, String, #[label("Syntax error in {0}, {1}.")] Span),
+    InvalidSyntax(String, String, #[label("{1} in {0}")] Span),
 
     #[error("{0}")]
     #[diagnostic()]

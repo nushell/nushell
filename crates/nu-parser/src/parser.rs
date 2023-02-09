@@ -1353,7 +1353,7 @@ pub fn parse_int(token: &[u8], span: Span) -> (Expression, Option<ParseError>) {
                 garbage(span),
                 Some(ParseError::InvalidSyntax(
                     "int".into(),
-                    format!("invalid digits in radix {} int", radix),
+                    format!("invalid digits for radix {}", radix),
                     span,
                 )),
             )
@@ -2214,8 +2214,6 @@ pub fn parse_duration(
 
     let bytes = working_set.get_span_contents(span);
 
-    //todo: update parse_duration_bytes to distinguish invalid units(::InvalidSyntax) from not-valid-duration(::Expected)
-    // right now, bad units treated as non-that-type.
     match parse_duration_bytes(bytes, span) {
         Some(expression) => (expression, None),
         None => (
@@ -2576,7 +2574,7 @@ pub fn unescape_string(bytes: &[u8], span: Span) -> (Vec<u8>, Option<ParseError>
                                 _ => {
                                     err = Some(ParseError::InvalidSyntax(
                                         "string".into(),
-                                        "missing '}' in unicode escape '\\u{X...}'".into(),
+                                        "missing '}' for unicode escape '\\u{X...}'".into(),
                                         Span::new(span.start + idx, span.end),
                                     ));
                                     break 'us_loop;
@@ -2609,7 +2607,7 @@ pub fn unescape_string(bytes: &[u8], span: Span) -> (Vec<u8>, Option<ParseError>
                     // fall through -- escape not accepted above, must be error.
                     err = Some(ParseError::InvalidSyntax(
                         "string".into(),
-                        "expecting 1 to 6 hex digits in unicode escape '\\u{X...}', max value 10FFFF".into(),
+                        "invalid unicode escape '\\u{X...}', must be 1-6 hex digits, max value 10FFFF".into(),
                         Span::new(span.start + idx, span.end),
                     ));
                     break 'us_loop;
@@ -2618,7 +2616,7 @@ pub fn unescape_string(bytes: &[u8], span: Span) -> (Vec<u8>, Option<ParseError>
                 _ => {
                     err = Some(ParseError::InvalidSyntax(
                         "string".into(),
-                        "unrecognized character after escape '\\'".into(),
+                        "unrecognized escape after '\\'".into(),
                         Span::new(span.start + idx, span.end),
                     ));
                     break 'us_loop;

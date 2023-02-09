@@ -77,7 +77,7 @@ pub fn unicode_escapes_in_strings_expected_failures() {
         Tc(br#""hello \u{6e""#, "missing '}'"), // extended, missing close delim
         Tc(
             br#""\u{39}8\u{000000000000000000000000000000000000000000000037}""#,
-            "expecting 1 to 6 hex digit",
+            "must be 1-6 hex digits",
         ), // hex too long, but small value
         Tc(br#""\u{110000}""#, "max value 10FFF"), // max unicode <= 0x10ffff
     ];
