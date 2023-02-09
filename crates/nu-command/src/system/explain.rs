@@ -318,6 +318,7 @@ pub fn debug_string_without_formatting(value: &Value) -> String {
             Ok(val) => debug_string_without_formatting(&val),
             Err(error) => format!("{error:?}"),
         },
+        //TODO: It would be good to drill in deeper to blocks and closures.
         Value::Block { val, .. } => format!("<Block {val}>"),
         Value::Closure { val, .. } => format!("<Closure {val}>"),
         Value::Nothing { .. } => String::new(),
