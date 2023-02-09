@@ -299,11 +299,11 @@ fn run_custom_command_with_empty_rest() {
     let actual = nu!(
         cwd: ".",
         r#"
-            def rest-me-with-empty-rest [...rest: string] { echo $rest }; rest-me-with-empty-rest
+            def rest-me-with-empty-rest [...rest: string] { $rest }; rest-me-with-empty-rest | is-empty
         "#
     );
 
-    assert_eq!(actual.out, r#""#);
+    assert_eq!(actual.out, r#"true"#);
     assert_eq!(actual.err, r#""#);
 }
 
