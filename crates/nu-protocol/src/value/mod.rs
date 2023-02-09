@@ -2084,6 +2084,15 @@ impl Value {
                 rhs.insert(0, val.clone());
                 Ok(Value::List { vals: rhs, span })
             }
+            (Value::String { val: lhs, .. }, Value::String { val: rhs, .. }) => Ok(Value::String {
+                val: lhs.to_string() + rhs,
+                span,
+            }),
+            (Value::Binary { val: lhs, .. }, Value::Binary { val: rhs, .. }) => {
+                let mut val = lhs.clone();
+                val.extend(rhs);
+                Ok(Value::Binary { val, span })
+            }
             _ => Err(ShellError::OperatorMismatch {
                 op_span: op,
                 lhs_ty: self.get_type(),

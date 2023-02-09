@@ -174,6 +174,7 @@ pub fn create_default_context() -> EngineState {
         bind_command! {
             Benchmark,
             Complete,
+            Explain,
             External,
             NuCheck,
             Sys,
