@@ -42,7 +42,13 @@ impl Command for Let {
     }
 }
 
-fn test_int(test_tag: &str, test: &[u8], expected_val: Expr, expected_err: Option<&str>) {
+fn test_int(
+    test_tag: &str,     // name of sub-test
+    test: &[u8],        // input expression
+    expected_val: Expr, // (usually Expr::{Int,String, Float}, not ::BinOp...
+    expected_err: Option<&str>,
+) // substring in error text
+{
     let engine_state = EngineState::new();
     let mut working_set = StateWorkingSet::new(&engine_state);
 
@@ -62,10 +68,14 @@ fn test_int(test_tag: &str, test: &[u8], expected_val: Expr, expected_err: Optio
             );
         }
     } else {
-        assert!(err.is_none());
-        assert_eq!(block.len(), 1);
+        assert!(err.is_none(), "{test_tag}: unexpected error {err:#?}");
+        assert_eq!(block.len(), 1, "{test_tag}: result block length > 1");
         let expressions = &block[0];
-        assert_eq!(expressions.len(), 1);
+        assert_eq!(
+            expressions.len(),
+            1,
+            "{test_tag}: got multiple result expressions, expected 1"
+        );
         if let PipelineElement::Expression(
             _,
             Expression {
@@ -80,19 +90,36 @@ fn test_int(test_tag: &str, test: &[u8], expected_val: Expr, expected_err: Optio
 
 #[allow(non_snake_case)]
 fn compare_rhs_binaryOp(
-    cur_test: &str,
+    test_tag: &str,
     expected: &Expr, // the rhs expr we hope to see (::Int, ::Float, not ::B)
-    observed: &Expr, // the Expr::BinaryOp actually provided
+    observed: &Expr, // the Expr actually provided: can be ::Int, ::Float, ::String,
+                     // or ::BinOp (in which case rhs is checked), or ::Call (in which case cmd is checked)
 ) {
-    if let Expr::BinaryOp(_, _, e) = observed {
-        let observed_expr = &e.expr;
-        // can't pattern match Box<Foo>, but can match the box, then deref in separate statement.
-        assert_eq!(
-            expected, observed_expr,
-            "{cur_test} failed. Expected: {expected:#?}, observed: {observed:#?}"
-        );
-    } else {
-        panic!("{cur_test} failed. Expected Expr::BinaryOp, got {observed:#?}");
+    match observed {
+        Expr::Int(..) | Expr::Float(..) | Expr::String(..) => {
+            assert_eq!(
+                expected, observed,
+                "{test_tag}: Expected: {expected:#?}, observed {observed:#?}"
+            );
+        }
+        Expr::BinaryOp(_, _, e) => {
+            let observed_expr = &e.expr;
+            // can't pattern match Box<Foo>, but can match the box, then deref in separate statement.
+            assert_eq!(
+                expected, observed_expr,
+                "{test_tag}: Expected: {expected:#?}, observed: {observed:#?}"
+            )
+        }
+        Expr::ExternalCall(e, _, _) => {
+            let observed_expr = &e.expr;
+            assert_eq!(
+                expected, observed_expr,
+                "{test_tag}: Expected: {expected:#?}, observed: {observed_expr:#?}"
+            )
+        }
+        _ => {
+            panic!("{test_tag}: Unexpected Expr:: variant returned, observed {observed:#?}");
+        }
     }
 }
 
@@ -104,38 +131,71 @@ pub fn multi_test_parse_int() {
     // if expression were just 'x', parse() would try other items that would mask the error we're looking for.
     let tests = vec![
         Test("binary literal int", b"0 + 0b0", Expr::Int(0), None),
+        Test(
+            "binary literal invalid digits",
+            b"0 + 0b2",
+            Expr::Int(0),
+            Some("invalid digits for radix 2"),
+        ),
         Test("octal literal int", b"0 + 0o1", Expr::Int(1), None),
-        Test("hex literal int", b"0 + 0x2", Expr::Int(2), None),
-        Test("rad10 literal int", b"0 + 42", Expr::Int(42), None),
-        Test(
-            "decimal literal invalid digits",
-            b"0 + 9a8b", // decimal parse won't return invalidSyntax, parser will fall through to string, hence different error.
-            Expr::Int(0),
-            Some("UnsupportedOperation"),
-        ),
-        Test(
-            "hex literal int invalid digits",
-            b"0 + 0x0aq",
-            Expr::Int(0),
-            Some("invalid digits in radix 16"),
-        ),
         Test(
             "octal literal int invalid digits",
             b"0 + 0o8",
             Expr::Int(0),
-            Some("invalid digits in radix 8"),
+            Some("invalid digits for radix 8"),
         ),
         Test(
             "octal literal int truncated",
             b"0 + 0o",
             Expr::Int(0),
-            Some("invalid digits in radix 8"),
+            Some("invalid digits for radix 8"),
+        ),
+        Test("hex literal int", b"0 + 0x2", Expr::Int(2), None),
+        Test(
+            "hex literal int invalid digits",
+            b"0 + 0x0aq",
+            Expr::Int(0),
+            Some("invalid digits for radix 16"),
         ),
         Test(
-            "binary literal invalid digits",
-            b"0 + 0b2",
-            Expr::Int(0),
-            Some("invalid digits in radix 2"),
+            "hex literal with 'e' not mistaken for float",
+            b"0 + 0x00e0",
+            Expr::Int(0xe0),
+            None,
+        ),
+        // decimal (rad10) literal is anything that starts with
+        // optional sign then a digit.
+        Test("rad10 literal int", b"0 + 42", Expr::Int(42), None),
+        Test(
+            "rad10 with leading + sign",
+            b"0 + -42",
+            Expr::Int(-42),
+            None,
+        ),
+        Test("rad10 with leading - sign", b"0 + +42", Expr::Int(42), None),
+        Test(
+            "flag char is string, not (invalid) int",
+            b"-x",
+            Expr::String("-x".into()),
+            None,
+        ),
+        Test(
+            "keyword parameter is string",
+            b"--exact",
+            Expr::String("--exact".into()),
+            None,
+        ),
+        Test(
+            "ranges or relative paths not confused for int",
+            b"./a/b",
+            Expr::String("./a/b".into()),
+            None,
+        ),
+        Test(
+            "semver data not confused for int",
+            b"1.0.1",
+            Expr::String("1.0.1".into()),
+            None,
         ),
     ];
 
@@ -144,6 +204,59 @@ pub fn multi_test_parse_int() {
     }
 }
 
+#[ignore]
+#[test]
+pub fn multi_test_parse_number() {
+    struct Test<'a>(&'a str, &'a [u8], Expr, Option<&'a str>);
+
+    // use test expression of form '0 + x' to force parse() to parse x as numeric.
+    // if expression were just 'x', parse() would try other items that would mask the error we're looking for.
+    let tests = vec![
+        Test("float decimal", b"0 + 43.5", Expr::Float(43.5), None),
+        //Test("float with leading + sign", b"0 + +41.7", Expr::Float(-41.7), None),
+        Test(
+            "float with leading - sign",
+            b"0 + -41.7",
+            Expr::Float(-41.7),
+            None,
+        ),
+        Test(
+            "float scientific notation",
+            b"0 + 3e10",
+            Expr::Float(3.00e10),
+            None,
+        ),
+        Test(
+            "float decimal literal invalid digits",
+            b"0 + .3foo",
+            Expr::Int(0),
+            Some("invalid digits"),
+        ),
+        Test(
+            "float scientific notation literal invalid digits",
+            b"0 + 3e0faa",
+            Expr::Int(0),
+            Some("invalid digits"),
+        ),
+        Test(
+            // odd that error is unsupportedOperation, but it does fail.
+            "decimal literal int 2 leading signs",
+            b"0 + --9",
+            Expr::Int(0),
+            Some("UnsupportedOperation"),
+        ),
+        //Test(
+        //    ".<string> should not be taken as float",
+        //    b"abc + .foo",
+        //    Expr::String("..".into()),
+        //    None,
+        //),
+    ];
+
+    for test in tests {
+        test_int(test.0, test.1, test.2, test.3);
+    }
+}
 #[ignore]
 #[test]
 fn test_parse_any() {
