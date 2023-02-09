@@ -4,8 +4,6 @@ use nu_protocol::{
     Category, Example, IntoPipelineData, PipelineData, ShellError, Signature, Span, Type, Value,
 };
 
-extern crate ini as RustIni;
-
 #[derive(Clone)]
 pub struct FromIni;
 
@@ -59,9 +57,9 @@ pub fn from_ini_string_to_value(
     span: Span,
     val_span: Span,
 ) -> Result<Value, ShellError> {
-    let ini: Result<RustIni::Ini, RustIni::ParseError> = RustIni::Ini::load_from_str(&s);
+    let ini_config: Result<ini::Ini, ini::ParseError> = ini::Ini::load_from_str(&s);
 
-    match ini {
+    match ini_config {
         Ok(config) => {
             let mut sections: Vec<String> = Vec::new();
             let mut sections_key_value_pairs: Vec<Value> = Vec::new();
