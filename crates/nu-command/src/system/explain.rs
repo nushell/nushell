@@ -7,19 +7,19 @@ use nu_protocol::{
 };
 
 #[derive(Clone)]
-pub struct Inspect;
+pub struct Explain;
 
-impl Command for Inspect {
+impl Command for Explain {
     fn name(&self) -> &str {
-        "inspect"
+        "explain"
     }
 
     fn usage(&self) -> &str {
-        "Inspect closure contents."
+        "Explain closure contents."
     }
 
     fn signature(&self) -> nu_protocol::Signature {
-        Signature::build("inspect")
+        Signature::build("explain")
             .required(
                 "closure",
                 SyntaxShape::Closure(Some(vec![SyntaxShape::Any])),
@@ -27,7 +27,7 @@ impl Command for Inspect {
             )
             .input_output_types(vec![(Type::Any, Type::Any), (Type::Nothing, Type::Any)])
             .allow_variants_without_examples(true)
-            .category(Category::System)
+            .category(Category::Debug)
     }
 
     fn run(
@@ -41,9 +41,6 @@ impl Command for Inspect {
         let capture_block: Closure = call.req(engine_state, stack, 0)?;
         let block = engine_state.get_block(capture_block.block_id);
         let ctrlc = engine_state.ctrlc.clone();
-
-        // let redirect_stdout = call.redirect_stdout;
-        // let redirect_stderr = call.redirect_stderr;
 
         let mut stack = stack.captures_to_stack(&capture_block.captures);
 
@@ -62,36 +59,13 @@ impl Command for Inspect {
 
         let elements = get_pipeline_elements(engine_state, &mut stack, block)?;
 
-        // Leaving these comments here because at some point we'd like to be able to
-        // run commands in the closure and instrument them for more info.
-
-        // Get the start time after all other computation has been done.
-        // let start_time = Instant::now();
-        // eval_block(
-        //     engine_state,
-        //     &mut stack,
-        //     block,
-        //     input_val.into_pipeline_data_with_metadata(input_metadata),
-        //     redirect_stdout,
-        //     redirect_stderr,
-        // )?
-        // .into_value(call.head);
-
-        // let end_time = Instant::now();
-
-        // let output = Value::Duration {
-        //     val: (end_time - start_time).as_nanos() as i64,
-        //     span: call.head,
-        // };
-
-        // Ok(output.into_pipeline_data())
         Ok(elements.into_pipeline_data(ctrlc))
     }
 
     fn examples(&self) -> Vec<Example> {
         vec![Example {
-            description: "Inspect a command within a closure",
-            example: "inspect { ls | sort-by name type -i | get name } | table -e",
+            description: "Explain a command within a closure",
+            example: "explain { ls | sort-by name type -i | get name } | table -e",
             result: None,
         }]
     }
