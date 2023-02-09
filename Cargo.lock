@@ -1140,6 +1140,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "eml-parser"
+version = "0.1.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "43e6fc6e74658e477675b59e61e10e9722cb2b845b0e2834df60f979c865e821"
+dependencies = [
+ "regex",
+]
+
+[[package]]
 name = "encode_unicode"
 version = "0.3.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1797,6 +1806,15 @@ dependencies = [
  "js-sys",
  "wasm-bindgen",
  "winapi 0.3.9",
+]
+
+[[package]]
+name = "ical"
+version = "0.7.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "4a9f7215ad0d77e69644570dee000c7678a47ba7441062c1b5f918adde0d73cf"
+dependencies = [
+ "thiserror",
 ]
 
 [[package]]
@@ -2616,7 +2634,7 @@ dependencies = [
  "nu-engine",
  "nu-json",
  "nu-parser",
- "nu-path",
+ "nu-path 0.75.1",
  "nu-plugin",
  "nu-pretty-hex",
  "nu-protocol",
@@ -2665,7 +2683,7 @@ dependencies = [
  "nu-command",
  "nu-engine",
  "nu-parser",
- "nu-path",
+ "nu-path 0.75.1",
  "nu-protocol",
  "nu-test-support",
  "nu-utils",
@@ -2736,7 +2754,7 @@ dependencies = [
  "nu-glob",
  "nu-json",
  "nu-parser",
- "nu-path",
+ "nu-path 0.75.1",
  "nu-pretty-hex",
  "nu-protocol",
  "nu-system",
@@ -2796,7 +2814,7 @@ version = "0.75.1"
 dependencies = [
  "chrono",
  "nu-glob",
- "nu-path",
+ "nu-path 0.75.1",
  "nu-protocol",
  "nu-utils",
  "serde",
@@ -2849,11 +2867,22 @@ dependencies = [
  "log",
  "miette",
  "nu-engine",
- "nu-path",
+ "nu-path 0.75.1",
  "nu-plugin",
  "nu-protocol",
  "serde_json",
  "thiserror",
+]
+
+[[package]]
+name = "nu-path"
+version = "0.75.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b4d6915bca27ebc7dce740160f1ad5da8a1f428ae3f734ffaa8e3512d22a7a6b"
+dependencies = [
+ "dirs-next",
+ "omnipath",
+ "pwd",
 ]
 
 [[package]]
@@ -2959,7 +2988,7 @@ dependencies = [
  "getset",
  "hamcrest2",
  "nu-glob",
- "nu-path",
+ "nu-path 0.75.1",
  "nu-utils",
  "num-format",
  "once_cell",
@@ -2995,6 +3024,22 @@ version = "0.75.1"
 dependencies = [
  "nu-plugin",
  "nu-protocol",
+]
+
+[[package]]
+name = "nu_plugin_formats"
+version = "0.75.1"
+dependencies = [
+ "eml-parser",
+ "ical",
+ "indexmap",
+ "nu-engine",
+ "nu-path 0.75.0",
+ "nu-plugin",
+ "nu-protocol",
+ "nu-test-support",
+ "serde_ini",
+ "tempfile",
 ]
 
 [[package]]
@@ -4230,6 +4275,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "result"
+version = "1.0.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "194d8e591e405d1eecf28819740abed6d719d1a2db87fc0bcdedee9a26d55560"
+
+[[package]]
 name = "riscv"
 version = "0.7.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4552,6 +4603,17 @@ dependencies = [
  "proc-macro2",
  "quote",
  "syn",
+]
+
+[[package]]
+name = "serde_ini"
+version = "0.2.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "eb236687e2bb073a7521c021949be944641e671b8505a94069ca37b656c81139"
+dependencies = [
+ "result",
+ "serde",
+ "void",
 ]
 
 [[package]]
