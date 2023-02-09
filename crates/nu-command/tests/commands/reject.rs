@@ -28,8 +28,6 @@ fn skip_cell_rejection() {
     assert_eq!(actual.out, "txt");
 }
 
-// FIXME: needs more work
-#[ignore]
 #[test]
 fn complex_nested_columns() {
     let actual = nu!(cwd: ".", pipeline(

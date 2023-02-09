@@ -1,7 +1,5 @@
 use crate::util::{eval_source, report_error};
 #[cfg(feature = "plugin")]
-use log::info;
-#[cfg(feature = "plugin")]
 use nu_parser::ParseError;
 #[cfg(feature = "plugin")]
 use nu_path::canonicalize_with;
@@ -9,6 +7,8 @@ use nu_protocol::engine::{EngineState, Stack, StateWorkingSet};
 #[cfg(feature = "plugin")]
 use nu_protocol::Spanned;
 use nu_protocol::{HistoryFileFormat, PipelineData};
+#[cfg(feature = "plugin")]
+use nu_utils::utils::perf;
 use std::path::PathBuf;
 
 #[cfg(feature = "plugin")]
@@ -24,6 +24,8 @@ pub fn read_plugin_file(
     plugin_file: Option<Spanned<String>>,
     storage_path: &str,
 ) {
+    let start_time = std::time::Instant::now();
+    let mut plug_path = String::new();
     // Reading signatures from signature file
     // The plugin.nu file stores the parsed signature collected from each registered plugin
     add_plugin_file(engine_state, plugin_file, storage_path);
@@ -31,7 +33,7 @@ pub fn read_plugin_file(
     let plugin_path = engine_state.plugin_signatures.clone();
     if let Some(plugin_path) = plugin_path {
         let plugin_filename = plugin_path.to_string_lossy();
-
+        plug_path = plugin_filename.to_string();
         if let Ok(contents) = std::fs::read(&plugin_path) {
             eval_source(
                 engine_state,
@@ -39,11 +41,19 @@ pub fn read_plugin_file(
                 &contents,
                 &plugin_filename,
                 PipelineData::empty(),
+                false,
             );
         }
     }
 
-    info!("read_plugin_file {}:{}:{}", file!(), line!(), column!());
+    perf(
+        &format!("read_plugin_file {}", &plug_path),
+        start_time,
+        file!(),
+        line!(),
+        column!(),
+        engine_state.get_config().use_ansi_coloring,
+    );
 }
 
 #[cfg(feature = "plugin")]
@@ -56,12 +66,11 @@ pub fn add_plugin_file(
         let working_set = StateWorkingSet::new(engine_state);
         let cwd = working_set.get_cwd();
 
-        match canonicalize_with(&plugin_file.item, cwd) {
-            Ok(path) => engine_state.plugin_signatures = Some(path),
-            Err(_) => {
-                let e = ParseError::FileNotFound(plugin_file.item, plugin_file.span);
-                report_error(&working_set, &e);
-            }
+        if let Ok(path) = canonicalize_with(&plugin_file.item, cwd) {
+            engine_state.plugin_signatures = Some(path)
+        } else {
+            let e = ParseError::FileNotFound(plugin_file.item, plugin_file.span);
+            report_error(&working_set, &e);
         }
     } else if let Some(mut plugin_path) = nu_path::config_dir() {
         // Path to store plugins signatures
@@ -86,6 +95,7 @@ pub fn eval_config_contents(
                 &contents,
                 &config_filename,
                 PipelineData::empty(),
+                false,
             );
 
             // Merge the environment in case env vars changed in the config

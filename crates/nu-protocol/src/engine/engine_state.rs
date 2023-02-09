@@ -449,9 +449,32 @@ impl EngineState {
         None
     }
 
+    // Get the path environment variable in a platform agnostic way
+    pub fn get_path_env_var(&self) -> Option<&Value> {
+        let env_path_name_windows: &str = "Path";
+        let env_path_name_nix: &str = "PATH";
+
+        for overlay_id in self.scope.active_overlays.iter().rev() {
+            let overlay_name = String::from_utf8_lossy(self.get_overlay_name(*overlay_id));
+            if let Some(env_vars) = self.env_vars.get(overlay_name.as_ref()) {
+                if let Some(val) = env_vars.get(env_path_name_nix) {
+                    return Some(val);
+                } else if let Some(val) = env_vars.get(env_path_name_windows) {
+                    return Some(val);
+                } else {
+                    return None;
+                }
+            }
+        }
+
+        None
+    }
+
     #[cfg(feature = "plugin")]
     pub fn update_plugin_file(&self) -> Result<(), ShellError> {
         use std::io::Write;
+
+        use crate::{PluginExample, PluginSignature};
 
         // Updating the signatures plugin file with the added signatures
         self.plugin_signatures
@@ -478,26 +501,39 @@ impl EngineState {
                         || file_name.contains('"')
                         || file_name.contains(' ')
                     {
-                        file_name = format!("`{}`", file_name);
+                        file_name = format!("`{file_name}`");
                     }
 
-                    serde_json::to_string_pretty(&decl.signature())
+                    let sig = decl.signature();
+                    let examples = decl
+                        .examples()
+                        .into_iter()
+                        .map(|eg| PluginExample {
+                            example: eg.example.into(),
+                            description: eg.description.into(),
+                            result: eg.result,
+                        })
+                        .collect();
+                    let sig_with_examples = PluginSignature::new(sig, examples);
+                    serde_json::to_string_pretty(&sig_with_examples)
                         .map(|signature| {
                             // Extracting the possible path to the shell used to load the plugin
-                            let shell_str = match shell {
-                                Some(path) => format!(
-                                    "-s {}",
-                                    path.to_str().expect(
-                                        "shell path was checked during registration as a str"
+                            let shell_str = shell
+                                .as_ref()
+                                .map(|path| {
+                                    format!(
+                                        "-s {}",
+                                        path.to_str().expect(
+                                            "shell path was checked during registration as a str"
+                                        )
                                     )
-                                ),
-                                None => "".into(),
-                            };
+                                })
+                                .unwrap_or_default();
 
                             // Each signature is stored in the plugin file with the shell and signature
                             // This information will be used when loading the plugin
                             // information when nushell starts
-                            format!("register {} {} {}\n\n", file_name, shell_str, signature)
+                            format!("register {file_name} {shell_str} {signature}\n\n")
                         })
                         .map_err(|err| ShellError::PluginFailedToLoad(err.to_string()))
                         .and_then(|line| {
@@ -509,7 +545,7 @@ impl EngineState {
                             plugin_file.flush().map_err(|err| {
                                 ShellError::GenericError(
                                     "Error flushing plugin file".to_string(),
-                                    format! {"{}", err},
+                                    format! {"{err}"},
                                     None,
                                     None,
                                     Vec::new(),
@@ -565,7 +601,7 @@ impl EngineState {
     pub fn print_contents(&self) {
         for (contents, _, _) in self.file_contents.iter() {
             let string = String::from_utf8_lossy(contents);
-            println!("{}", string);
+            println!("{string}");
         }
     }
 
@@ -1020,9 +1056,10 @@ impl TypeScope {
     }
 
     pub fn add_type(&mut self, input: Type) {
-        match self.outputs.last_mut() {
-            Some(v) => v.push(input),
-            None => self.outputs.push(vec![input]),
+        if let Some(v) = self.outputs.last_mut() {
+            v.push(input)
+        } else {
+            self.outputs.push(vec![input])
         }
     }
 

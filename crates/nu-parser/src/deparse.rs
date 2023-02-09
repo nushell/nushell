@@ -23,18 +23,18 @@ pub fn escape_for_script_arg(input: &str) -> String {
         if let Some((arg_name, arg_val)) = input.split_once('=') {
             // only want to escape arg_val.
             let arg_val = if arg_val.contains(' ') {
-                format!("`{}`", arg_val)
+                format!("`{arg_val}`")
             } else if arg_val.contains('"') || arg_val.contains('\\') {
                 escape_quote_string(arg_val)
             } else {
                 arg_val.into()
             };
-            return format!("{}={}", arg_name, arg_val);
+            return format!("{arg_name}={arg_val}");
         }
     }
 
     if input.contains(' ') {
-        format!("`{}`", input)
+        format!("`{input}`")
     } else if input.contains('"') || input.contains('\\') {
         escape_quote_string(input)
     } else {

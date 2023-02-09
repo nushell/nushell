@@ -5,6 +5,7 @@ use crate::{
 };
 use nu_utils::{stderr_write_all_and_flush, stdout_write_all_and_flush};
 use std::sync::{atomic::AtomicBool, Arc};
+use std::thread;
 
 const LINE_ENDING_PATTERN: &[char] = &['\r', '\n'];
 
@@ -266,13 +267,7 @@ impl PipelineData {
                 let mut output = String::new();
 
                 for val in s {
-                    match val {
-                        Ok(val) => match val.as_string() {
-                            Ok(s) => output.push_str(&s),
-                            Err(err) => return Err(err),
-                        },
-                        Err(e) => return Err(e),
-                    }
+                    output.push_str(&val?.as_string()?);
                 }
                 if trim_end_newline {
                     output.truncate(output.trim_end_matches(LINE_ENDING_PATTERN).len());
@@ -449,12 +444,10 @@ impl PipelineData {
                     .into_pipeline_data(ctrlc))
                 }
             }
-            PipelineData::Value(Value::Range { val, .. }, ..) => {
-                match val.into_range_iter(ctrlc.clone()) {
-                    Ok(iter) => Ok(iter.flat_map(f).into_pipeline_data(ctrlc)),
-                    Err(error) => Err(error),
-                }
-            }
+            PipelineData::Value(Value::Range { val, .. }, ..) => Ok(val
+                .into_range_iter(ctrlc.clone())?
+                .flat_map(f)
+                .into_pipeline_data(ctrlc)),
             PipelineData::Value(v, ..) => Ok(f(v).into_iter().into_pipeline_data(ctrlc)),
         }
     }
@@ -558,10 +551,10 @@ impl PipelineData {
             let stderr = stderr.map(|stderr_stream| {
                 let stderr_ctrlc = stderr_stream.ctrlc.clone();
                 let stderr_span = stderr_stream.span;
-                let stderr_bytes = match stderr_stream.into_bytes() {
-                    Err(_) => vec![],
-                    Ok(bytes) => bytes.item,
-                };
+                let stderr_bytes = stderr_stream
+                    .into_bytes()
+                    .map(|bytes| bytes.item)
+                    .unwrap_or_default();
                 RawStream::new(
                     Box::new(vec![Ok(stderr_bytes)].into_iter()),
                     stderr_ctrlc,
@@ -624,7 +617,6 @@ impl PipelineData {
         // to create the table value that will be printed in the terminal
 
         let config = engine_state.get_config();
-        // let stdout = std::io::stdout();
 
         if let PipelineData::ExternalStream {
             stdout: stream,
@@ -634,31 +626,49 @@ impl PipelineData {
         } = self
         {
             return print_if_stream(stream, stderr_stream, to_stderr, exit_code);
-            /*
-            if let Ok(exit_code) = print_if_stream(stream, stderr_stream, to_stderr, exit_code) {
-                return Ok(exit_code);
-            }
-            return Ok(0);
-            */
         }
 
-        match engine_state.find_decl("table".as_bytes(), &[]) {
-            Some(decl_id) => {
-                let command = engine_state.get_decl(decl_id);
-                if command.get_block_id().is_some() {
-                    return self.write_all_and_flush(engine_state, config, no_newline, to_stderr);
-                }
-
-                let table = command.run(engine_state, stack, &Call::new(Span::new(0, 0)), self)?;
-
-                table.write_all_and_flush(engine_state, config, no_newline, to_stderr)?;
+        if let Some(decl_id) = engine_state.find_decl("table".as_bytes(), &[]) {
+            let command = engine_state.get_decl(decl_id);
+            if command.get_block_id().is_some() {
+                return self.write_all_and_flush(engine_state, config, no_newline, to_stderr);
             }
-            None => {
-                self.write_all_and_flush(engine_state, config, no_newline, to_stderr)?;
-            }
+
+            let table = command.run(engine_state, stack, &Call::new(Span::new(0, 0)), self)?;
+
+            table.write_all_and_flush(engine_state, config, no_newline, to_stderr)?;
+        } else {
+            self.write_all_and_flush(engine_state, config, no_newline, to_stderr)?;
         };
 
         Ok(0)
+    }
+
+    /// Consume and print self data immediately.
+    ///
+    /// Unlike [print] does not call `table` to format data and just prints it
+    /// one element on a line
+    /// * `no_newline` controls if we need to attach newline character to output.
+    /// * `to_stderr` controls if data is output to stderr, when the value is false, the data is output to stdout.
+    pub fn print_not_formatted(
+        self,
+        engine_state: &EngineState,
+        no_newline: bool,
+        to_stderr: bool,
+    ) -> Result<i64, ShellError> {
+        let config = engine_state.get_config();
+
+        if let PipelineData::ExternalStream {
+            stdout: stream,
+            stderr: stderr_stream,
+            exit_code,
+            ..
+        } = self
+        {
+            print_if_stream(stream, stderr_stream, to_stderr, exit_code)
+        } else {
+            self.write_all_and_flush(engine_state, config, no_newline, to_stderr)
+        }
     }
 
     fn write_all_and_flush(
@@ -744,8 +754,11 @@ pub fn print_if_stream(
     exit_code: Option<ListStream>,
 ) -> Result<i64, ShellError> {
     // NOTE: currently we don't need anything from stderr
-    // so directly consumes `stderr_stream` to make sure that everything is done.
-    std::thread::spawn(move || stderr_stream.map(|x| x.into_bytes()));
+    // so we just consume and throw away `stderr_stream` to make sure the pipe doesn't fill up
+    thread::Builder::new()
+        .name("stderr consumer".to_string())
+        .spawn(move || stderr_stream.map(|x| x.into_bytes()))
+        .expect("could not create thread");
     if let Some(stream) = stream {
         for s in stream {
             let s_live = s?;

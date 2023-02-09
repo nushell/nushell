@@ -1119,34 +1119,22 @@ impl Value {
                             // Reconstruct
                             let mut hook_cols = vec![];
                             let mut hook_vals = vec![];
-                            match &config.hooks.pre_prompt {
-                                Some(v) => {
-                                    hook_cols.push("pre_prompt".into());
-                                    hook_vals.push(v.clone());
-                                }
-                                None => (),
-                            };
-                            match &config.hooks.pre_execution {
-                                Some(v) => {
-                                    hook_cols.push("pre_execution".into());
-                                    hook_vals.push(v.clone());
-                                }
-                                None => (),
-                            };
-                            match &config.hooks.env_change {
-                                Some(v) => {
-                                    hook_cols.push("env_change".into());
-                                    hook_vals.push(v.clone());
-                                }
-                                None => (),
-                            };
-                            match &config.hooks.display_output {
-                                Some(v) => {
-                                    hook_cols.push("display_output".into());
-                                    hook_vals.push(v.clone());
-                                }
-                                None => (),
-                            };
+                            if let Some(ref value) = config.hooks.pre_prompt {
+                                hook_cols.push("pre_prompt".into());
+                                hook_vals.push(value.clone());
+                            }
+                            if let Some(ref value) = config.hooks.pre_execution {
+                                hook_cols.push("pre_execution".into());
+                                hook_vals.push(value.clone());
+                            }
+                            if let Some(ref value) = config.hooks.env_change {
+                                hook_cols.push("env_change".into());
+                                hook_vals.push(value.clone());
+                            }
+                            if let Some(ref value) = config.hooks.display_output {
+                                hook_cols.push("display_output".into());
+                                hook_vals.push(value.clone());
+                            }
                             vals.push(Value::Record {
                                 cols: hook_cols,
                                 vals: hook_vals,
@@ -1496,8 +1484,8 @@ fn try_parse_trim_strategy(
 }
 
 fn try_parse_trim_methodology(value: &Value) -> Option<TrimStrategy> {
-    match value.as_string() {
-        Ok(value) => match value.to_lowercase().as_str() {
+    if let Ok(value) = value.as_string() {
+        match value.to_lowercase().as_str() {
             "wrapping" => {
                 return Some(TrimStrategy::Wrap {
                     try_to_keep_words: false,
@@ -1505,8 +1493,9 @@ fn try_parse_trim_methodology(value: &Value) -> Option<TrimStrategy> {
             }
             "truncating" => return Some(TrimStrategy::Truncate { suffix: None }),
             _ => eprintln!("unrecognized $config.table.trim.methodology value; expected either 'truncating' or 'wrapping'"),
-        },
-        Err(_) => eprintln!("$env.config.table.trim.methodology is not a string"),
+        }
+    } else {
+        eprintln!("$env.config.table.trim.methodology is not a string")
     }
 
     None
@@ -1548,18 +1537,11 @@ fn create_hooks(value: &Value) -> Result<Hooks, ShellError> {
 
             Ok(hooks)
         }
-        v => match v.span() {
-            Ok(span) => Err(ShellError::UnsupportedConfigValue(
-                "record for 'hooks' config".into(),
-                "non-record value".into(),
-                span,
-            )),
-            _ => Err(ShellError::UnsupportedConfigValue(
-                "record for 'hooks' config".into(),
-                "non-record value".into(),
-                Span::unknown(),
-            )),
-        },
+        v => Err(ShellError::UnsupportedConfigValue(
+            "record for 'hooks' config".into(),
+            "non-record value".into(),
+            v.span().unwrap_or_else(|_| Span::unknown()),
+        )),
     }
 }
 

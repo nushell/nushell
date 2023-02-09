@@ -3475,7 +3475,7 @@ pub fn parse_register(
     expand_aliases_denylist: &[usize],
 ) -> (Pipeline, Option<ParseError>) {
     use nu_plugin::{get_signature, PluginDeclaration};
-    use nu_protocol::{engine::Stack, Signature};
+    use nu_protocol::{engine::Stack, PluginSignature};
 
     let cwd = working_set.get_cwd();
 
@@ -3561,7 +3561,7 @@ pub fn parse_register(
                     Ok(path)
                 } else {
                     Err(ParseError::RegisteredFileNotFound(
-                        format!("{:?}", path),
+                        format!("{path:?}"),
                         expr.span,
                     ))
                 }
@@ -3573,10 +3573,10 @@ pub fn parse_register(
     // the plugin is called to get the signatures or to use the given signature
     let signature = call.positional_nth(1).map(|expr| {
         let signature = working_set.get_span_contents(expr.span);
-        serde_json::from_slice::<Signature>(signature).map_err(|e| {
+        serde_json::from_slice::<PluginSignature>(signature).map_err(|e| {
             ParseError::LabeledError(
                 "Signature deserialization error".into(),
-                format!("unable to deserialize signature: {}", e),
+                format!("unable to deserialize signature: {e}"),
                 spans[0],
             )
         })
@@ -3597,7 +3597,7 @@ pub fn parse_register(
                     Ok(path)
                 } else {
                     Err(ParseError::RegisteredFileNotFound(
-                        format!("{:?}", path),
+                        format!("{path:?}"),
                         expr.span,
                     ))
                 }

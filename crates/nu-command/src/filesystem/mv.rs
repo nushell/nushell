@@ -35,7 +35,7 @@ impl Command for Mv {
 
     fn signature(&self) -> nu_protocol::Signature {
         Signature::build("mv")
-            .input_output_types(vec![(Type::Nothing, Type::List(Box::new(Type::String)))])
+            .input_output_types(vec![(Type::Nothing, Type::Nothing)])
             .required(
                 "source",
                 SyntaxShape::GlobPattern,
@@ -62,7 +62,7 @@ impl Command for Mv {
         stack: &mut Stack,
         call: &Call,
         _input: PipelineData,
-    ) -> Result<nu_protocol::PipelineData, nu_protocol::ShellError> {
+    ) -> Result<PipelineData, ShellError> {
         // TODO: handle invalid directory or insufficient permissions when moving
         let spanned_source: Spanned<String> = call.req(engine_state, stack, 0)?;
         let spanned_source = {
@@ -177,7 +177,7 @@ impl Command for Mv {
         }
 
         let span = call.head;
-        Ok(sources
+        sources
             .into_iter()
             .flatten()
             .filter_map(move |entry| {
@@ -212,7 +212,9 @@ impl Command for Mv {
                     None
                 }
             })
-            .into_pipeline_data(ctrlc))
+            .into_pipeline_data(ctrlc)
+            .print_not_formatted(engine_state, false, true)?;
+        Ok(PipelineData::empty())
     }
 
     fn examples(&self) -> Vec<Example> {
@@ -290,7 +292,7 @@ fn move_file(
         );
         if let Err(e) = interaction {
             return Err(ShellError::GenericError(
-                format!("Error during interaction: {:}", e),
+                format!("Error during interaction: {e:}"),
                 "could not move".into(),
                 None,
                 None,
@@ -325,10 +327,10 @@ fn move_item(from: &Path, from_span: Span, to: &Path) -> Result<(), ShellError> 
             Err(e) => {
                 let error_kind = match e.kind {
                     fs_extra::error::ErrorKind::Io(io) => {
-                        format!("I/O error: {}", io)
+                        format!("I/O error: {io}")
                     }
                     fs_extra::error::ErrorKind::StripPrefix(sp) => {
-                        format!("Strip prefix error: {}", sp)
+                        format!("Strip prefix error: {sp}")
                     }
                     fs_extra::error::ErrorKind::OsString(os) => {
                         format!("OsString error: {:?}", os.to_str())
@@ -336,10 +338,7 @@ fn move_item(from: &Path, from_span: Span, to: &Path) -> Result<(), ShellError> 
                     _ => e.to_string(),
                 };
                 Err(ShellError::GenericError(
-                    format!(
-                        "Could not move {:?} to {:?}. Error Kind: {}",
-                        from, to, error_kind
-                    ),
+                    format!("Could not move {from:?} to {to:?}. Error Kind: {error_kind}"),
                     "could not move".into(),
                     Some(from_span),
                     None,

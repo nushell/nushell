@@ -23,7 +23,7 @@ use nu_protocol::{ast::Call, ShellError};
 pub fn grapheme_flags(call: &Call) -> Result<bool, ShellError> {
     let g_flag = call.has_flag("grapheme-clusters");
     // Check for the other flags and produce errors if they exist.
-    // Note that Nushell already prevents nonexistant flags from being used with commands,
+    // Note that Nushell already prevents nonexistent flags from being used with commands,
     // so this function can be reused for both the --utf-8-bytes commands and the --code-points commands.
     if g_flag && call.has_flag("utf-8-bytes") {
         Err(ShellError::IncompatibleParametersSingle(

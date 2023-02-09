@@ -170,11 +170,9 @@ fn record_lookup_value(item: &Value, header: &str) -> Value {
                 span: NuSpan::unknown(),
             };
 
-            let value = item.clone().follow_cell_path(&[path], false, false);
-            match value {
-                Ok(value) => value,
-                Err(_) => item.clone(),
-            }
+            item.clone()
+                .follow_cell_path(&[path], false, false)
+                .unwrap_or_else(|_| item.clone())
         }
         item => item.clone(),
     }

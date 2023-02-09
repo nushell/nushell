@@ -1,5 +1,8 @@
+use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
-use nu_protocol::{Category, Example, IntoPipelineData, ShellError, Signature, Span, Type, Value};
+use nu_protocol::{
+    Category, Example, IntoPipelineData, PipelineData, ShellError, Signature, Span, Type, Value,
+};
 
 #[derive(Clone)]
 pub struct SubCommand;
@@ -29,7 +32,7 @@ impl Command for SubCommand {
         vec![
             Example {
                 description: "Outputs a url representing the contents of this record",
-                example: r#"{ 
+                example: r#"{
         "scheme": "http",
         "username": "",
         "password": "",
@@ -81,9 +84,9 @@ impl Command for SubCommand {
         &self,
         _engine_state: &EngineState,
         _stack: &mut Stack,
-        call: &nu_protocol::ast::Call,
-        input: nu_protocol::PipelineData,
-    ) -> Result<nu_protocol::PipelineData, nu_protocol::ShellError> {
+        call: &Call,
+        input: PipelineData,
+    ) -> Result<PipelineData, ShellError> {
         let head = call.head;
 
         let output: Result<String, ShellError> = input
@@ -180,21 +183,21 @@ impl UrlComponents {
                         .iter()
                         .zip(vals.iter())
                         .map(|(k, v)| match v.as_string() {
-                            Ok(val) => Ok(format!("{}={}", k, val)),
+                            Ok(val) => Ok(format!("{k}={val}")),
                             Err(err) => Err(err),
                         })
                         .collect::<Result<Vec<String>, ShellError>>()?
                         .join("&");
 
-                    qs = format!("?{}", qs);
+                    qs = format!("?{qs}");
 
                     if let Some(q) = self.query {
                         if q != qs {
-                            // if query is present it means that also query_span is setted.
+                            // if query is present it means that also query_span is set.
                             return Err(ShellError::IncompatibleParameters {
-                                left_message: format!("Mismatch, qs from params is: {}", qs),
+                                left_message: format!("Mismatch, qs from params is: {qs}"),
                                 left_span: value.expect_span(),
-                                right_message: format!("instead query is: {}", q),
+                                right_message: format!("instead query is: {q}"),
                                 right_span: self.query_span.unwrap_or(Span::unknown()),
                             });
                         }
@@ -241,25 +244,25 @@ impl UrlComponents {
                             path: Some(if s.starts_with('/') {
                                 s
                             } else {
-                                format!("/{}", s)
+                                format!("/{s}")
                             }),
                             ..self
                         }),
                         "query" => {
                             if let Some(q) = self.query {
                                 if q != s {
-                                    // if query is present it means that also params_span is setted.
+                                    // if query is present it means that also params_span is set.
                                     return Err(ShellError::IncompatibleParameters {
-                                        left_message: format!("Mismatch, query param is: {}", s),
+                                        left_message: format!("Mismatch, query param is: {s}"),
                                         left_span: value.expect_span(),
-                                        right_message: format!("instead qs from params is: {}", q),
+                                        right_message: format!("instead qs from params is: {q}"),
                                         right_span: self.params_span.unwrap_or(Span::unknown()),
                                     });
                                 }
                             }
 
                             Ok(Self {
-                                query: Some(format!("?{}", s)),
+                                query: Some(format!("?{s}")),
                                 query_span: Some(value.expect_span()),
                                 ..self
                             })
@@ -268,7 +271,7 @@ impl UrlComponents {
                             fragment: Some(if s.starts_with('#') {
                                 s
                             } else {
-                                format!("#{}", s)
+                                format!("#{s}")
                             }),
                             ..self
                         }),
@@ -285,7 +288,7 @@ impl UrlComponents {
 
         if let Some(usr) = &self.username {
             if let Some(pwd) = &self.password {
-                user_and_pwd = format!("{}:{}@", usr, pwd);
+                user_and_pwd = format!("{usr}:{pwd}@");
             }
         }
 
@@ -311,7 +314,7 @@ impl UrlComponents {
             user_and_pwd,
             host_result?,
             self.port
-                .map(|p| format!(":{}", p))
+                .map(|p| format!(":{p}"))
                 .as_deref()
                 .unwrap_or_default(),
             self.path.as_deref().unwrap_or_default(),

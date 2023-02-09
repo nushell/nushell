@@ -85,7 +85,7 @@ impl Command for Headers {
         _stack: &mut Stack,
         call: &Call,
         input: PipelineData,
-    ) -> Result<nu_protocol::PipelineData, ShellError> {
+    ) -> Result<PipelineData, ShellError> {
         let config = engine_state.get_config();
         let metadata = input.metadata();
         let value = input.into_value(call.head);
@@ -151,7 +151,7 @@ fn extract_headers(value: &Value, config: &Config) -> Result<Vec<String>, ShellE
                 .map(|(idx, value)| {
                     let col = value.into_string("", config);
                     if col.is_empty() {
-                        format!("column{}", idx)
+                        format!("column{idx}")
                     } else {
                         col
                     }

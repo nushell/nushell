@@ -11,7 +11,7 @@ pub struct LazyFillNA;
 
 impl Command for LazyFillNA {
     fn name(&self) -> &str {
-        "fill-nan"
+        "dfr fill-nan"
     }
 
     fn usage(&self) -> &str {
@@ -34,7 +34,7 @@ impl Command for LazyFillNA {
         vec![
             Example {
                 description: "Fills the NaN values with 0",
-                example: "[1 2 NaN 3 NaN] | into df | fill-nan 0",
+                example: "[1 2 NaN 3 NaN] | dfr into-df | dfr fill-nan 0",
                 result: Some(
                     NuDataFrame::try_from_columns(vec![Column::new(
                         "0".to_string(),
@@ -52,7 +52,7 @@ impl Command for LazyFillNA {
             },
             Example {
                 description: "Fills the NaN values of a whole dataframe",
-                example: "[[a b]; [0.2 1] [0.1 NaN]] | into df | fill-nan 0",
+                example: "[[a b]; [0.2 1] [0.1 NaN]] | dfr into-df | dfr fill-nan 0",
                 result: Some(
                     NuDataFrame::try_from_columns(vec![
                         Column::new(

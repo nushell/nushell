@@ -1,4 +1,4 @@
-use nu_engine::{eval_block, CallExt};
+use nu_engine::{eval_block_with_early_return, CallExt};
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{Category, Example, PipelineData, ShellError, Signature, SyntaxShape, Type};
@@ -48,7 +48,7 @@ impl Command for Source {
         let block_id: i64 = call.req_parser_info(engine_state, stack, 0)?;
 
         let block = engine_state.get_block(block_id as usize).clone();
-        eval_block(
+        eval_block_with_early_return(
             engine_state,
             stack,
             &block,

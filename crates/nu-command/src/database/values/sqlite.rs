@@ -107,12 +107,7 @@ impl SQLiteDatabase {
     }
 
     pub fn open_connection(&self) -> Result<Connection, rusqlite::Error> {
-        let conn = match Connection::open(&self.path) {
-            Ok(conn) => conn,
-            Err(err) => return Err(err),
-        };
-
-        Ok(conn)
+        Connection::open(&self.path)
     }
 
     pub fn get_tables(&self, conn: &Connection) -> Result<Vec<DbTable>, rusqlite::Error> {
@@ -369,7 +364,7 @@ fn read_single_table(
     call_span: Span,
     ctrlc: Option<Arc<AtomicBool>>,
 ) -> Result<Value, rusqlite::Error> {
-    let stmt = conn.prepare(&format!("SELECT * FROM {}", table_name))?;
+    let stmt = conn.prepare(&format!("SELECT * FROM {table_name}"))?;
     prepared_statement_to_nu_list(stmt, call_span, ctrlc)
 }
 
@@ -431,7 +426,7 @@ fn read_entire_sqlite_db(
         let table_name: String = row?;
         table_names.push(table_name.clone());
 
-        let table_stmt = conn.prepare(&format!("select * from [{}]", table_name))?;
+        let table_stmt = conn.prepare(&format!("select * from [{table_name}]"))?;
         let rows = prepared_statement_to_nu_list(table_stmt, call_span, ctrlc.clone())?;
         tables.push(rows);
     }
@@ -582,18 +577,13 @@ mod test {
 }
 
 pub fn open_connection_in_memory() -> Result<Connection, ShellError> {
-    let db = match Connection::open_in_memory() {
-        Ok(conn) => conn,
-        Err(err) => {
-            return Err(ShellError::GenericError(
-                "Failed to open SQLite connection in memory".into(),
-                err.to_string(),
-                Some(Span::test_data()),
-                None,
-                Vec::new(),
-            ))
-        }
-    };
-
-    Ok(db)
+    Connection::open_in_memory().map_err(|err| {
+        ShellError::GenericError(
+            "Failed to open SQLite connection in memory".into(),
+            err.to_string(),
+            Some(Span::test_data()),
+            None,
+            Vec::new(),
+        )
+    })
 }

@@ -176,6 +176,6 @@ pub fn default_color_list() -> Vec<HelpExample> {
 
 pub fn default_int_list() -> Vec<HelpExample> {
     (0..20)
-        .map(|i| HelpExample::new(i.to_string(), format!("A value equal to {}", i)))
+        .map(|i| HelpExample::new(i.to_string(), format!("A value equal to {i}")))
         .collect()
 }

@@ -147,8 +147,8 @@ fn bad_var_name2() -> TestResult {
 #[test]
 fn long_flag() -> TestResult {
     run_test(
-        r#"([a, b, c] | each --numbered { |it| if $it.index == 1 { 100 } else { 0 } }).1"#,
-        "100",
+        r#"([a, b, c] | enumerate | each --keep-empty { |e| if $e.index != 1 { 100 }}).1 | to nuon"#,
+        "null",
     )
 }
 
@@ -380,14 +380,15 @@ fn block_arity_check1() -> TestResult {
     )
 }
 
+// deprecating former support for escapes like `/uNNNN`, dropping test.
 #[test]
-fn string_escape() -> TestResult {
-    run_test(r#""\u015B""#, "ś")
+fn string_escape_unicode_extended() -> TestResult {
+    run_test(r#""\u{015B}\u{1f10b}""#, "ś🄋")
 }
 
 #[test]
 fn string_escape_interpolation() -> TestResult {
-    run_test(r#"$"\u015B(char hamburger)abc""#, "ś≡abc")
+    run_test(r#"$"\u{015B}(char hamburger)abc""#, "ś≡abc")
 }
 
 #[test]
@@ -469,4 +470,9 @@ fn and_and_xor() -> TestResult {
 fn or_and_xor() -> TestResult {
     // Assumes the precedence NOT > AND > XOR > OR
     run_test(r#"true or false xor true or false"#, "true")
+}
+
+#[test]
+fn unbalanced_delimiter() -> TestResult {
+    fail_test(r#"{a:{b:5}}}"#, "unbalanced { and }")
 }

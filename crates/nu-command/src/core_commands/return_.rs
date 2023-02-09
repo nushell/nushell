@@ -39,7 +39,7 @@ impl Command for Return {
         stack: &mut Stack,
         call: &Call,
         _input: PipelineData,
-    ) -> Result<nu_protocol::PipelineData, nu_protocol::ShellError> {
+    ) -> Result<PipelineData, ShellError> {
         let return_value: Option<Value> = call.opt(engine_state, stack, 0)?;
         if let Some(value) = return_value {
             Err(ShellError::Return(call.head, Box::new(value)))

@@ -160,10 +160,7 @@ where
         return Ok(());
     }
 
-    let amount = match cfg.length {
-        Some(len) => len,
-        None => source.as_ref().len(),
-    };
+    let amount = cfg.length.unwrap_or_else(|| source.as_ref().len());
 
     let skip = cfg.skip.unwrap_or(0);
 
@@ -239,10 +236,7 @@ where
             write!(writer, "   ")?;
             for x in row {
                 let (style, a_char) = categorize_byte(x);
-                let replacement_char = match a_char {
-                    Some(c) => c,
-                    None => *x as char,
-                };
+                let replacement_char = a_char.unwrap_or(*x as char);
                 if use_color {
                     write!(
                         writer,
@@ -252,7 +246,7 @@ where
                         style.suffix()
                     )?;
                 } else {
-                    write!(writer, "{}", replacement_char,)?;
+                    write!(writer, "{replacement_char}",)?;
                 }
             }
         }

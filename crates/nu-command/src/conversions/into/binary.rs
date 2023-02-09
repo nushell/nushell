@@ -49,7 +49,7 @@ impl Command for SubCommand {
         stack: &mut Stack,
         call: &Call,
         input: PipelineData,
-    ) -> Result<nu_protocol::PipelineData, nu_protocol::ShellError> {
+    ) -> Result<PipelineData, ShellError> {
         into_binary(engine_state, stack, call, input)
     }
 
@@ -109,7 +109,7 @@ fn into_binary(
     stack: &mut Stack,
     call: &Call,
     input: PipelineData,
-) -> Result<nu_protocol::PipelineData, nu_protocol::ShellError> {
+) -> Result<PipelineData, ShellError> {
     let head = call.head;
     let cell_paths: Vec<CellPath> = call.rest(engine_state, stack, 0)?;
 

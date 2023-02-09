@@ -58,7 +58,7 @@ b = [1, 2]' | from toml",
         _stack: &mut Stack,
         call: &Call,
         input: PipelineData,
-    ) -> Result<nu_protocol::PipelineData, ShellError> {
+    ) -> Result<PipelineData, ShellError> {
         let span = call.head;
         let (mut string_input, span, metadata) = input.collect_string_strict(span)?;
         string_input.push('\n');
@@ -124,5 +124,41 @@ mod tests {
         use crate::test_examples;
 
         test_examples(FromToml {})
+    }
+
+    #[test]
+    fn string_to_toml_value_passes() {
+        let input_string = String::from(
+            r#"
+            command.build = "go build"
+        
+            [command.deploy]
+            script = "./deploy.sh"
+            "#,
+        );
+
+        let span = Span::test_data();
+
+        let result = convert_string_to_value(input_string, span);
+
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn string_to_toml_value_fails() {
+        let input_string = String::from(
+            r#"
+            command.build = 
+        
+            [command.deploy]
+            script = "./deploy.sh"
+            "#,
+        );
+
+        let span = Span::test_data();
+
+        let result = convert_string_to_value(input_string, span);
+
+        assert!(result.is_err());
     }
 }

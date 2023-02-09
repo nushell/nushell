@@ -6,7 +6,7 @@ use crate::{
     NuHighlighter, NuValidator, NushellPrompt,
 };
 use crossterm::cursor::CursorShape;
-use log::{info, trace, warn};
+use log::{trace, warn};
 use miette::{IntoDiagnostic, Result};
 use nu_color_config::StyleComputer;
 use nu_engine::{convert_env_values, eval_block, eval_block_with_early_return};
@@ -18,6 +18,7 @@ use nu_protocol::{
     format_duration, BlockId, HistoryFileFormat, PipelineData, PositionalArg, ShellError, Span,
     Spanned, Type, Value, VarId,
 };
+use nu_utils::utils::perf;
 use reedline::{CursorConfig, DefaultHinter, EditCommand, Emacs, SqliteBackedHistory, Vi};
 use std::{
     io::{self, Write},
@@ -41,9 +42,10 @@ pub fn evaluate_repl(
     stack: &mut Stack,
     nushell_path: &str,
     prerun_command: Option<Spanned<String>>,
-    start_time: Instant,
+    entire_start_time: Instant,
 ) -> Result<()> {
     use reedline::{FileBackedHistory, Reedline, Signal};
+    let use_color = engine_state.get_config().use_ansi_coloring;
 
     // Guard against invocation without a connected terminal.
     // reedline / crossterm event polling will fail without a connected tty
@@ -59,18 +61,20 @@ pub fn evaluate_repl(
 
     let mut nu_prompt = NushellPrompt::new();
 
-    info!(
-        "translate environment vars {}:{}:{}",
-        file!(),
-        line!(),
-        column!()
-    );
-
+    let start_time = std::time::Instant::now();
     // Translate environment variables from Strings to Values
     if let Some(e) = convert_env_values(engine_state, stack) {
         let working_set = StateWorkingSet::new(engine_state);
         report_error(&working_set, &e);
     }
+    perf(
+        "translate env vars",
+        start_time,
+        file!(),
+        line!(),
+        column!(),
+        use_color,
+    );
 
     // seed env vars
     stack.add_env_var(
@@ -80,15 +84,7 @@ pub fn evaluate_repl(
 
     stack.add_env_var("LAST_EXIT_CODE".into(), Value::int(0, Span::unknown()));
 
-    info!(
-        "load config initially {}:{}:{}",
-        file!(),
-        line!(),
-        column!()
-    );
-
-    info!("setup reedline {}:{}:{}", file!(), line!(), column!());
-
+    let mut start_time = std::time::Instant::now();
     let mut line_editor = Reedline::create();
 
     // Now that reedline is created, get the history session id and store it in engine_state
@@ -97,16 +93,23 @@ pub fn evaluate_repl(
         .map(i64::from)
         .unwrap_or(0);
     engine_state.history_session_id = hist_sesh;
+    perf(
+        "setup reedline",
+        start_time,
+        file!(),
+        line!(),
+        column!(),
+        use_color,
+    );
 
     let config = engine_state.get_config();
 
+    start_time = std::time::Instant::now();
     let history_path = crate::config_files::get_history_path(
         nushell_path,
         engine_state.config.history_file_format,
     );
     if let Some(history_path) = history_path.as_deref() {
-        info!("setup history {}:{}:{}", file!(), line!(), column!());
-
         let history: Box<dyn reedline::History> = match engine_state.config.history_file_format {
             HistoryFileFormat::PlainText => Box::new(
                 FileBackedHistory::with_file(
@@ -121,7 +124,16 @@ pub fn evaluate_repl(
         };
         line_editor = line_editor.with_history(history);
     };
+    perf(
+        "setup history",
+        start_time,
+        file!(),
+        line!(),
+        column!(),
+        use_color,
+    );
 
+    start_time = std::time::Instant::now();
     let sys = sysinfo::System::new();
 
     let show_banner = config.show_banner;
@@ -129,53 +141,83 @@ pub fn evaluate_repl(
     if show_banner {
         let banner = get_banner(engine_state, stack);
         if use_ansi {
-            println!("{}", banner);
+            println!("{banner}");
         } else {
             println!("{}", nu_utils::strip_ansi_string_likely(banner));
         }
     }
+    perf(
+        "get sysinfo/show banner",
+        start_time,
+        file!(),
+        line!(),
+        column!(),
+        use_color,
+    );
 
     if let Some(s) = prerun_command {
         eval_source(
             engine_state,
             stack,
             s.item.as_bytes(),
-            &format!("entry #{}", entry_num),
+            &format!("entry #{entry_num}"),
             PipelineData::empty(),
+            false,
         );
         engine_state.merge_env(stack, get_guaranteed_cwd(engine_state, stack))?;
     }
 
     loop {
-        info!(
-            "load config each loop {}:{}:{}",
-            file!(),
-            line!(),
-            column!()
-        );
+        let loop_start_time = std::time::Instant::now();
 
         let cwd = get_guaranteed_cwd(engine_state, stack);
 
+        start_time = std::time::Instant::now();
         // Before doing anything, merge the environment from the previous REPL iteration into the
         // permanent state.
         if let Err(err) = engine_state.merge_env(stack, cwd) {
             report_error_new(engine_state, &err);
         }
+        perf(
+            "merge env",
+            start_time,
+            file!(),
+            line!(),
+            column!(),
+            use_color,
+        );
 
+        start_time = std::time::Instant::now();
         //Reset the ctrl-c handler
         if let Some(ctrlc) = &mut engine_state.ctrlc {
             ctrlc.store(false, Ordering::SeqCst);
         }
+        perf(
+            "reset ctrlc",
+            start_time,
+            file!(),
+            line!(),
+            column!(),
+            use_color,
+        );
+
+        start_time = std::time::Instant::now();
         // Reset the SIGQUIT handler
         if let Some(sig_quit) = engine_state.get_sig_quit() {
             sig_quit.store(false, Ordering::SeqCst);
         }
+        perf(
+            "reset sig_quit",
+            start_time,
+            file!(),
+            line!(),
+            column!(),
+            use_color,
+        );
 
+        start_time = std::time::Instant::now();
         let config = engine_state.get_config();
 
-        info!("setup colors {}:{}:{}", file!(), line!(), column!());
-
-        info!("update reedline {}:{}:{}", file!(), line!(), column!());
         let engine_reference = std::sync::Arc::new(engine_state.clone());
 
         // Find the configured cursor shapes for each mode
@@ -188,6 +230,16 @@ pub fn evaluate_repl(
             )),
             emacs: Some(map_nucursorshape_to_cursorshape(config.cursor_shape_emacs)),
         };
+        perf(
+            "get config/cursor config",
+            start_time,
+            file!(),
+            line!(),
+            column!(),
+            use_color,
+        );
+
+        start_time = std::time::Instant::now();
 
         line_editor = line_editor
             .with_highlighter(Box::new(NuHighlighter {
@@ -205,9 +257,18 @@ pub fn evaluate_repl(
             .with_partial_completions(config.partial_completions)
             .with_ansi_colors(config.use_ansi_coloring)
             .with_cursor_config(cursor_config);
+        perf(
+            "reedline builder",
+            start_time,
+            file!(),
+            line!(),
+            column!(),
+            use_color,
+        );
 
         let style_computer = StyleComputer::from_config(engine_state, stack);
 
+        start_time = std::time::Instant::now();
         line_editor = if config.use_ansi_coloring {
             line_editor.with_hinter(Box::new({
                 // As of Nov 2022, "hints" color_config closures only get `null` passed in.
@@ -217,13 +278,31 @@ pub fn evaluate_repl(
         } else {
             line_editor.disable_hints()
         };
+        perf(
+            "reedline coloring/style_computer",
+            start_time,
+            file!(),
+            line!(),
+            column!(),
+            use_color,
+        );
 
+        start_time = std::time::Instant::now();
         line_editor = add_menus(line_editor, engine_reference, stack, config).unwrap_or_else(|e| {
             let working_set = StateWorkingSet::new(engine_state);
             report_error(&working_set, &e);
             Reedline::create()
         });
+        perf(
+            "reedline menus",
+            start_time,
+            file!(),
+            line!(),
+            column!(),
+            use_color,
+        );
 
+        start_time = std::time::Instant::now();
         let buffer_editor = if !config.buffer_editor.is_empty() {
             Some(config.buffer_editor.clone())
         } else {
@@ -244,17 +323,31 @@ pub fn evaluate_repl(
         } else {
             line_editor
         };
+        perf(
+            "reedline buffer_editor",
+            start_time,
+            file!(),
+            line!(),
+            column!(),
+            use_color,
+        );
 
+        start_time = std::time::Instant::now();
         if config.sync_history_on_enter {
-            info!("sync history {}:{}:{}", file!(), line!(), column!());
-
             if let Err(e) = line_editor.sync_history() {
                 warn!("Failed to sync history: {}", e);
             }
         }
+        perf(
+            "sync_history",
+            start_time,
+            file!(),
+            line!(),
+            column!(),
+            use_color,
+        );
 
-        info!("setup keybindings {}:{}:{}", file!(), line!(), column!());
-
+        start_time = std::time::Instant::now();
         // Changing the line editor based on the found keybindings
         line_editor = match create_keybindings(config) {
             Ok(keybindings) => match keybindings {
@@ -276,9 +369,16 @@ pub fn evaluate_repl(
                 line_editor
             }
         };
+        perf(
+            "keybindings",
+            start_time,
+            file!(),
+            line!(),
+            column!(),
+            use_color,
+        );
 
-        info!("prompt_update {}:{}:{}", file!(), line!(), column!());
-
+        start_time = std::time::Instant::now();
         // Right before we start our prompt and take input from the user,
         // fire the "pre_prompt" hook
         if let Some(hook) = config.hooks.pre_prompt.clone() {
@@ -286,7 +386,16 @@ pub fn evaluate_repl(
                 report_error_new(engine_state, &err);
             }
         }
+        perf(
+            "pre-prompt hook",
+            start_time,
+            file!(),
+            line!(),
+            column!(),
+            use_color,
+        );
 
+        start_time = std::time::Instant::now();
         // Next, check all the environment variables they ask for
         // fire the "env_change" hook
         let config = engine_state.get_config();
@@ -295,26 +404,37 @@ pub fn evaluate_repl(
         {
             report_error_new(engine_state, &error)
         }
-
-        let config = engine_state.get_config();
-        let prompt = prompt_update::update_prompt(config, engine_state, stack, &mut nu_prompt);
-
-        entry_num += 1;
-
-        info!(
-            "finished setup, starting repl {}:{}:{}",
+        perf(
+            "env-change hook",
+            start_time,
             file!(),
             line!(),
-            column!()
+            column!(),
+            use_color,
         );
+
+        start_time = std::time::Instant::now();
+        let config = engine_state.get_config();
+        let prompt = prompt_update::update_prompt(config, engine_state, stack, &mut nu_prompt);
+        perf(
+            "update_prompt",
+            start_time,
+            file!(),
+            line!(),
+            column!(),
+            use_color,
+        );
+
+        entry_num += 1;
 
         if entry_num == 1 && show_banner {
             println!(
                 "Startup Time: {}",
-                format_duration(start_time.elapsed().as_nanos() as i64)
+                format_duration(entire_start_time.elapsed().as_nanos() as i64)
             );
         }
 
+        start_time = std::time::Instant::now();
         let input = line_editor.read_line(prompt);
         let shell_integration = config.shell_integration;
 
@@ -441,8 +561,9 @@ pub fn evaluate_repl(
                         engine_state,
                         stack,
                         s.as_bytes(),
-                        &format!("entry #{}", entry_num),
+                        &format!("entry #{entry_num}"),
                         PipelineData::empty(),
+                        false,
                     );
                 }
                 let cmd_duration = start_time.elapsed();
@@ -499,7 +620,7 @@ pub fn evaluate_repl(
                         // ESC]0;stringBEL -- Set icon name and window title to string
                         // ESC]1;stringBEL -- Set icon name to string
                         // ESC]2;stringBEL -- Set window title to string
-                        run_ansi_sequence(&format!("\x1b]2;{}\x07", maybe_abbrev_path))?;
+                        run_ansi_sequence(&format!("\x1b]2;{maybe_abbrev_path}\x07"))?;
                     }
                     run_ansi_sequence(RESET_APPLICATION_MODE)?;
                 }
@@ -539,7 +660,7 @@ pub fn evaluate_repl(
             Err(err) => {
                 let message = err.to_string();
                 if !message.contains("duration") {
-                    eprintln!("Error: {:?}", err);
+                    eprintln!("Error: {err:?}");
                     // TODO: Identify possible error cases where a hard failure is preferable
                     // Ignoring and reporting could hide bigger problems
                     // e.g. https://github.com/nushell/nushell/issues/6452
@@ -550,6 +671,23 @@ pub fn evaluate_repl(
                 }
             }
         }
+        perf(
+            "processing line editor input",
+            start_time,
+            file!(),
+            line!(),
+            column!(),
+            use_color,
+        );
+
+        perf(
+            "finished repl loop",
+            loop_start_time,
+            file!(),
+            line!(),
+            column!(),
+            use_color,
+        );
     }
 
     Ok(())
@@ -1002,18 +1140,15 @@ fn run_hook_block(
 }
 
 fn run_ansi_sequence(seq: &str) -> Result<(), ShellError> {
-    match io::stdout().write_all(seq.as_bytes()) {
-        Ok(it) => it,
-        Err(err) => {
-            return Err(ShellError::GenericError(
-                "Error writing ansi sequence".into(),
-                err.to_string(),
-                Some(Span::unknown()),
-                None,
-                Vec::new(),
-            ));
-        }
-    };
+    io::stdout().write_all(seq.as_bytes()).map_err(|e| {
+        ShellError::GenericError(
+            "Error writing ansi sequence".into(),
+            e.to_string(),
+            Some(Span::unknown()),
+            None,
+            Vec::new(),
+        )
+    })?;
     io::stdout().flush().map_err(|e| {
         ShellError::GenericError(
             "Error flushing stdio".into(),

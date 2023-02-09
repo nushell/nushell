@@ -43,7 +43,7 @@ impl Command for ConfigReset {
         _stack: &mut Stack,
         call: &Call,
         _input: PipelineData,
-    ) -> Result<nu_protocol::PipelineData, nu_protocol::ShellError> {
+    ) -> Result<PipelineData, ShellError> {
         let only_nu = call.has_flag("nu");
         let only_env = call.has_flag("env");
         let no_backup = call.has_flag("without-backup");
@@ -79,7 +79,7 @@ impl Command for ConfigReset {
                 }
             }
             if let Ok(mut file) = std::fs::File::create(nu_config) {
-                if writeln!(&mut file, "{}", config_file).is_err() {
+                if writeln!(&mut file, "{config_file}").is_err() {
                     return Err(ShellError::FileNotFoundCustom(
                         "config.nu could not be written to".into(),
                         span,
@@ -102,7 +102,7 @@ impl Command for ConfigReset {
                 }
             }
             if let Ok(mut file) = std::fs::File::create(env_config) {
-                if writeln!(&mut file, "{}", config_file).is_err() {
+                if writeln!(&mut file, "{config_file}").is_err() {
                     return Err(ShellError::FileNotFoundCustom(
                         "env.nu could not be written to".into(),
                         span,

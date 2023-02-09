@@ -59,10 +59,6 @@ where
         Ok(Some(self.ch[idx]))
     }
 
-    // pub fn peek_next_or_null(&mut self, idx: usize) -> Result<u8> {
-    //     Ok(try!(self.peek_next(idx)).unwrap_or(b'\x00'))
-    // }
-
     pub fn peek(&mut self) -> Result<Option<u8>> {
         self.peek_next(0)
     }
@@ -156,15 +152,6 @@ pub struct ParseNumber<Iter: Iterator<Item = u8>> {
     rdr: StringReader<Iter>,
     result: Vec<u8>,
 }
-
-// macro_rules! try_or_invalid {
-//     ($e:expr) => {
-//         match $e {
-//             Some(v) => v,
-//             None => { return Err(Error::Syntax(ErrorCode::InvalidNumber, 0, 0)); }
-//         }
-//     }
-// }
 
 impl<Iter: Iterator<Item = u8>> ParseNumber<Iter> {
     #[inline]

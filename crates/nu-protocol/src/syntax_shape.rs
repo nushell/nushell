@@ -31,6 +31,9 @@ pub enum SyntaxShape {
     /// A datetime value, eg `2022-02-02` or `2019-10-12T07:20:50.52+00:00`
     DateTime,
 
+    /// A decimal value, eg `1.0`
+    Decimal,
+
     /// A directory is allowed
     Directory,
 
@@ -122,6 +125,7 @@ impl SyntaxShape {
             SyntaxShape::Expression => Type::Any,
             SyntaxShape::Filepath => Type::String,
             SyntaxShape::Directory => Type::String,
+            SyntaxShape::Decimal => Type::Float,
             SyntaxShape::Filesize => Type::Filesize,
             SyntaxShape::FullCellPath => Type::Any,
             SyntaxShape::GlobPattern => Type::String,
@@ -144,7 +148,7 @@ impl SyntaxShape {
             SyntaxShape::Boolean => Type::Bool,
             SyntaxShape::Signature => Type::Signature,
             SyntaxShape::String => Type::String,
-            SyntaxShape::Table => Type::List(Box::new(Type::Any)), // FIXME:  What role should columns play in the Table type?
+            SyntaxShape::Table => Type::Table(vec![]), // FIXME:  What role should columns play in the Table type?
             SyntaxShape::VarWithOptType => Type::Any,
             SyntaxShape::Variable => Type::Any,
         }
@@ -164,6 +168,7 @@ impl Display for SyntaxShape {
             SyntaxShape::Number => write!(f, "number"),
             SyntaxShape::Range => write!(f, "range"),
             SyntaxShape::Int => write!(f, "int"),
+            SyntaxShape::Decimal => write!(f, "decimal"),
             SyntaxShape::Filepath => write!(f, "path"),
             SyntaxShape::Directory => write!(f, "directory"),
             SyntaxShape::GlobPattern => write!(f, "glob"),
@@ -173,14 +178,14 @@ impl Display for SyntaxShape {
                 if let Some(args) = args {
                     let arg_vec: Vec<_> = args.iter().map(|x| x.to_string()).collect();
                     let arg_string = arg_vec.join(", ");
-                    write!(f, "closure({})", arg_string)
+                    write!(f, "closure({arg_string})")
                 } else {
                     write!(f, "closure()")
                 }
             }
             SyntaxShape::Binary => write!(f, "binary"),
             SyntaxShape::Table => write!(f, "table"),
-            SyntaxShape::List(x) => write!(f, "list<{}>", x),
+            SyntaxShape::List(x) => write!(f, "list<{x}>"),
             SyntaxShape::Record => write!(f, "record"),
             SyntaxShape::Filesize => write!(f, "filesize"),
             SyntaxShape::Duration => write!(f, "duration"),
@@ -194,11 +199,11 @@ impl Display for SyntaxShape {
             SyntaxShape::Expression => write!(f, "expression"),
             SyntaxShape::Boolean => write!(f, "bool"),
             SyntaxShape::Error => write!(f, "error"),
-            SyntaxShape::Custom(x, _) => write!(f, "custom<{}>", x),
+            SyntaxShape::Custom(x, _) => write!(f, "custom<{x}>"),
             SyntaxShape::OneOf(list) => {
                 let arg_vec: Vec<_> = list.iter().map(|x| x.to_string()).collect();
                 let arg_string = arg_vec.join(", ");
-                write!(f, "one_of({})", arg_string)
+                write!(f, "one_of({arg_string})")
             }
             SyntaxShape::Nothing => write!(f, "nothing"),
         }

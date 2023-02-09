@@ -30,7 +30,7 @@ impl Command for ToText {
         _stack: &mut Stack,
         call: &Call,
         input: PipelineData,
-    ) -> Result<nu_protocol::PipelineData, ShellError> {
+    ) -> Result<PipelineData, ShellError> {
         let span = call.head;
         let config = engine_state.get_config();
 
@@ -143,13 +143,13 @@ fn local_into_string(value: Value, separator: &str, config: &Config) -> String {
             .join(separator),
         Value::LazyRecord { val, .. } => match val.collect() {
             Ok(val) => local_into_string(val, separator, config),
-            Err(error) => format!("{:?}", error),
+            Err(error) => format!("{error:?}"),
         },
-        Value::Block { val, .. } => format!("<Block {}>", val),
-        Value::Closure { val, .. } => format!("<Closure {}>", val),
+        Value::Block { val, .. } => format!("<Block {val}>"),
+        Value::Closure { val, .. } => format!("<Closure {val}>"),
         Value::Nothing { .. } => String::new(),
-        Value::Error { error } => format!("{:?}", error),
-        Value::Binary { val, .. } => format!("{:?}", val),
+        Value::Error { error } => format!("{error:?}"),
+        Value::Binary { val, .. } => format!("{val:?}"),
         Value::CellPath { val, .. } => val.into_string(),
         Value::CustomValue { val, .. } => val.value_string(),
     }

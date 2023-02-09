@@ -207,3 +207,41 @@ fn from_csv_text_skipping_headers_to_table() {
         assert_eq!(actual.out, "3");
     })
 }
+
+#[test]
+fn table_with_record_error() {
+    let actual = nu!(
+        cwd: "tests/fixtures/formats", pipeline(
+        r#"
+            [[a b]; [1 2] [3 {a: 1 b: 2}]] 
+            | to csv
+        "#
+    ));
+
+    assert!(actual.err.contains("can't convert"))
+}
+
+#[test]
+fn list_not_table_error() {
+    let actual = nu!(
+        cwd: "tests/fixtures/formats", pipeline(
+        r#"
+            [{a: 1 b: 2} {a: 3 b: 4} 1]
+            | to csv
+        "#
+    ));
+
+    assert!(actual.err.contains("can't convert"))
+}
+
+#[test]
+fn string_to_csv_error() {
+    let actual = nu!(
+        cwd: "tests/fixtures/formats", pipeline(
+        r#"
+            'qwe' | to csv
+        "#
+    ));
+
+    assert!(actual.err.contains("can't convert"))
+}

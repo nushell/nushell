@@ -24,7 +24,7 @@ impl Command for Debug {
                 (Type::Table(vec![]), Type::List(Box::new(Type::String))),
                 (Type::Any, Type::String),
             ])
-            .category(Category::Core)
+            .category(Category::Debug)
             .switch("raw", "Prints the raw value representation", Some('r'))
     }
 

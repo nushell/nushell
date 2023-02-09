@@ -234,13 +234,9 @@ impl<'e, 's> ScopeData<'e, 's> {
 
                 let search_terms = decl.search_terms();
                 cols.push("search_terms".to_string());
-                vals.push(if search_terms.is_empty() {
-                    Value::nothing(span)
-                } else {
-                    Value::String {
-                        val: search_terms.join(", "),
-                        span,
-                    }
+                vals.push(Value::String {
+                    val: search_terms.join(", "),
+                    span,
                 });
 
                 commands.push(Value::Record { cols, vals, span })

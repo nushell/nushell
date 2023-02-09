@@ -19,7 +19,7 @@ pub fn eval_operator(op: &Expression) -> Result<Operator, ShellError> {
             ..
         } => Ok(operator.clone()),
         Expression { span, expr, .. } => {
-            Err(ShellError::UnknownOperator(format!("{:?}", expr), *span))
+            Err(ShellError::UnknownOperator(format!("{expr:?}"), *span))
         }
     }
 }
@@ -182,9 +182,6 @@ pub fn redirect_env(engine_state: &EngineState, caller_stack: &mut Stack, callee
     }
 }
 
-/// Eval external expression
-///
-/// It returns PipelineData with a boolean flag, indicate that if the external runs to failed.
 #[allow(clippy::too_many_arguments)]
 fn eval_external(
     engine_state: &EngineState,
@@ -470,6 +467,12 @@ pub fn eval_expression(
 
                                     lhs.upsert_data_at_cell_path(&cell_path.tail, rhs)?;
                                     if is_env {
+                                        if cell_path.tail.is_empty() {
+                                            return Err(ShellError::CannotReplaceEnv(
+                                                cell_path.head.span,
+                                            ));
+                                        }
+
                                         // The special $env treatment: for something like $env.config.history.max_size = 2000,
                                         // get $env.config (or whichever one it is) AFTER the above mutation, and set it
                                         // as the "config" environment variable.
@@ -707,7 +710,7 @@ pub fn eval_element_with_input(
     engine_state: &EngineState,
     stack: &mut Stack,
     element: &PipelineElement,
-    input: PipelineData,
+    mut input: PipelineData,
     redirect_stdout: bool,
     redirect_stderr: bool,
 ) -> Result<(PipelineData, bool), ShellError> {
@@ -722,6 +725,10 @@ pub fn eval_element_with_input(
         ),
         PipelineElement::Redirection(span, redirection, expr) => match &expr.expr {
             Expr::String(_) => {
+                let exit_code = match &mut input {
+                    PipelineData::ExternalStream { exit_code, .. } => exit_code.take(),
+                    _ => None,
+                };
                 let input = match (redirection, input) {
                     (
                         Redirection::Stderr,
@@ -820,7 +827,22 @@ pub fn eval_element_with_input(
                         },
                         input,
                     )
-                    .map(|x| (x, false))
+                    .map(|_| {
+                        // save is internal command, normally it exists with non-ExternalStream
+                        // but here in redirection context, we make it returns ExternalStream
+                        // So nu handles exit_code correctly
+                        (
+                            PipelineData::ExternalStream {
+                                stdout: None,
+                                stderr: None,
+                                exit_code,
+                                span: *span,
+                                metadata: None,
+                                trim_end_newline: false,
+                            },
+                            false,
+                        )
+                    })
                 } else {
                     Err(ShellError::CommandNotFound(*span))
                 }
@@ -833,6 +855,10 @@ pub fn eval_element_with_input(
         } => match (&out_expr.expr, &err_expr.expr) {
             (Expr::String(_), Expr::String(_)) => {
                 if let Some(save_command) = engine_state.find_decl(b"save", &[]) {
+                    let exit_code = match &mut input {
+                        PipelineData::ExternalStream { exit_code, .. } => exit_code.take(),
+                        _ => None,
+                    };
                     eval_call(
                         engine_state,
                         stack,
@@ -872,7 +898,22 @@ pub fn eval_element_with_input(
                         },
                         input,
                     )
-                    .map(|x| (x, false))
+                    .map(|_| {
+                        // save is internal command, normally it exists with non-ExternalStream
+                        // but here in redirection context, we make it returns ExternalStream
+                        // So nu handles exit_code correctly
+                        (
+                            PipelineData::ExternalStream {
+                                stdout: None,
+                                stderr: None,
+                                exit_code,
+                                span: *out_span,
+                                metadata: None,
+                                trim_end_newline: false,
+                            },
+                            false,
+                        )
+                    })
                 } else {
                     Err(ShellError::CommandNotFound(*out_span))
                 }

@@ -48,15 +48,12 @@ impl CheckerMatchers for Play {
             Some(out) => out,
             None => return Ok(()),
         };
-        let actual = match str::from_utf8(actual) {
-            Err(..) => return Err(format!("{} was not utf8 encoded", description)),
-            Ok(actual) => actual,
-        };
+        let actual =
+            str::from_utf8(actual).map_err(|_| format!("{description} was not utf8 encoded"))?;
 
         if actual != *out {
             return Err(format!(
-                "not equal:\n    actual: {}\n  expected: {}\n\n",
-                actual, out
+                "not equal:\n    actual: {actual}\n  expected: {out}\n\n"
             ));
         }
 
@@ -79,7 +76,7 @@ impl Matcher<Director> for Play {
 impl<'a> Matcher<&'a mut Director> for Play {
     fn matches(&self, director: &'a mut Director) -> MatchResult {
         if director.executable().is_none() {
-            return Err(format!("no such process {}", director));
+            return Err(format!("no such process {director}"));
         }
 
         let res = director.execute();
@@ -91,7 +88,7 @@ impl<'a> Matcher<&'a mut Director> for Play {
                     return self.output(out);
                 }
 
-                Err(format!("could not exec process {}: {:?}", director, err))
+                Err(format!("could not exec process {director}: {err:?}"))
             }
         }
     }

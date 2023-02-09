@@ -62,7 +62,7 @@ prints out the list properly."#
         stack: &mut Stack,
         call: &Call,
         input: PipelineData,
-    ) -> Result<nu_protocol::PipelineData, nu_protocol::ShellError> {
+    ) -> Result<PipelineData, ShellError> {
         let width_param: Option<i64> = call.get_flag(engine_state, stack, "width")?;
         let color_param: bool = call.has_flag("color");
         let separator_param: Option<String> = call.get_flag(engine_state, stack, "separator")?;
@@ -72,6 +72,7 @@ prints out the list properly."#
             None => None,
         };
         let use_grid_icons = config.use_grid_icons;
+        let use_color: bool = color_param && config.use_ansi_coloring;
 
         match input {
             PipelineData::Value(Value::List { vals, .. }, ..) => {
@@ -82,7 +83,7 @@ prints out the list properly."#
                         items,
                         call,
                         width_param,
-                        color_param,
+                        use_color,
                         separator_param,
                         env_str,
                         use_grid_icons,
@@ -99,7 +100,7 @@ prints out the list properly."#
                         items,
                         call,
                         width_param,
-                        color_param,
+                        use_color,
                         separator_param,
                         env_str,
                         use_grid_icons,
@@ -121,7 +122,7 @@ prints out the list properly."#
                     items,
                     call,
                     width_param,
-                    color_param,
+                    use_color,
                     separator_param,
                     env_str,
                     use_grid_icons,
@@ -170,7 +171,7 @@ fn create_grid_output(
     items: Vec<(usize, String, String)>,
     call: &Call,
     width_param: Option<i64>,
-    color_param: bool,
+    use_color: bool,
     separator_param: Option<String>,
     env_str: Option<String>,
     use_grid_icons: bool,
@@ -198,7 +199,7 @@ fn create_grid_output(
     for (_row_index, header, value) in items {
         // only output value if the header name is 'name'
         if header == "name" {
-            if color_param {
+            if use_color {
                 if use_grid_icons {
                     let no_ansi = nu_utils::strip_ansi_unlikely(&value);
                     let path = std::path::Path::new(no_ansi.as_ref());
@@ -239,7 +240,7 @@ fn create_grid_output(
             Value::string(grid_display.to_string(), call.head)
         } else {
             Value::String {
-                val: format!("Couldn't fit grid into {} columns!", cols),
+                val: format!("Couldn't fit grid into {cols} columns!"),
                 span: call.head,
             }
         }

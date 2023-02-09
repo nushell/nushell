@@ -1,4 +1,3 @@
-use indexmap::map::IndexMap;
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
@@ -47,7 +46,7 @@ b=2' | from ini",
         _stack: &mut Stack,
         call: &Call,
         input: PipelineData,
-    ) -> Result<nu_protocol::PipelineData, ShellError> {
+    ) -> Result<PipelineData, ShellError> {
         let head = call.head;
         from_ini(input, head)
     }
@@ -58,26 +57,53 @@ pub fn from_ini_string_to_value(
     span: Span,
     val_span: Span,
 ) -> Result<Value, ShellError> {
-    let v: Result<IndexMap<String, IndexMap<String, String>>, serde_ini::de::Error> =
-        serde_ini::from_str(&s);
-    match v {
-        Ok(index_map) => {
-            let (cols, vals) = index_map
-                .into_iter()
-                .fold((vec![], vec![]), |mut acc, (k, v)| {
-                    let (cols, vals) = v.into_iter().fold((vec![], vec![]), |mut acc, (k, v)| {
-                        acc.0.push(k);
-                        acc.1.push(Value::String { val: v, span });
-                        acc
+    let ini_config: Result<ini::Ini, ini::ParseError> = ini::Ini::load_from_str(&s);
+
+    match ini_config {
+        Ok(config) => {
+            let mut sections: Vec<String> = Vec::new();
+            let mut sections_key_value_pairs: Vec<Value> = Vec::new();
+
+            for (section, properties) in config.iter() {
+                let mut keys_for_section: Vec<String> = Vec::new();
+                let mut values_for_section: Vec<Value> = Vec::new();
+
+                // section
+                match section {
+                    Some(section_name) => {
+                        sections.push(section_name.to_owned());
+                    }
+                    None => {
+                        sections.push(String::new());
+                    }
+                }
+
+                // section's key value pairs
+                for (key, value) in properties.iter() {
+                    keys_for_section.push(key.to_owned());
+                    values_for_section.push(Value::String {
+                        val: value.to_owned(),
+                        span,
                     });
-                    acc.0.push(k);
-                    acc.1.push(Value::Record { cols, vals, span });
-                    acc
+                }
+
+                // section with its key value pairs
+                sections_key_value_pairs.push(Value::Record {
+                    cols: keys_for_section,
+                    vals: values_for_section,
+                    span,
                 });
-            Ok(Value::Record { cols, vals, span })
+            }
+
+            // all sections with all its key value pairs
+            Ok(Value::Record {
+                cols: sections,
+                vals: sections_key_value_pairs,
+                span,
+            })
         }
         Err(err) => Err(ShellError::UnsupportedInput(
-            format!("Could not load ini: {}", err),
+            format!("Could not load ini: {err}"),
             "value originates from here".into(),
             span,
             val_span,
@@ -103,5 +129,29 @@ mod tests {
         use crate::test_examples;
 
         test_examples(FromIni {})
+    }
+
+    #[test]
+    fn read_ini_config_passes() {
+        let ini_test_config = r"
+        min-width=450
+        max-width=820
+
+        [normal]
+        sound-file=/usr/share/sounds/freedesktop/stereo/dialog-information.oga
+
+        [critical]
+        border-color=FAB387ff
+        default-timeout=20
+        sound-file=/usr/share/sounds/freedesktop/stereo/dialog-warning.oga
+        ";
+
+        let result = from_ini_string_to_value(
+            ini_test_config.to_owned(),
+            Span::test_data(),
+            Span::test_data(),
+        );
+
+        assert!(result.is_ok());
     }
 }

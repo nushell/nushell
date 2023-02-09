@@ -42,7 +42,7 @@ impl Command for ConfigEnv {
         stack: &mut Stack,
         call: &Call,
         input: PipelineData,
-    ) -> Result<nu_protocol::PipelineData, nu_protocol::ShellError> {
+    ) -> Result<PipelineData, ShellError> {
         let env_vars_str = env_to_strings(engine_state, stack)?;
         let mut config_path = match nu_path::config_dir() {
             Some(path) => path,

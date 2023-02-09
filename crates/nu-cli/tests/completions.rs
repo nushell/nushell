@@ -173,7 +173,7 @@ fn file_completions() {
     let mut completer = NuCompleter::new(std::sync::Arc::new(engine), stack);
 
     // Test completions for the current folder
-    let target_dir = format!("cp {}", dir_str);
+    let target_dir = format!("cp {dir_str}");
     let suggestions = completer.complete(&target_dir, target_dir.len());
 
     // Create the expected values
@@ -494,7 +494,7 @@ fn folder_with_directorycompletions() {
     let mut completer = NuCompleter::new(std::sync::Arc::new(engine), stack);
 
     // Test completions for the current folder
-    let target_dir = format!("cd {}", dir_str);
+    let target_dir = format!("cd {dir_str}");
     let suggestions = completer.complete(&target_dir, target_dir.len());
 
     // Create the expected values
@@ -574,9 +574,12 @@ fn variables_completions() {
     // Test completions for $env
     let suggestions = completer.complete("$env.", 5);
 
-    assert_eq!(2, suggestions.len());
+    assert_eq!(3, suggestions.len());
 
-    let expected: Vec<String> = vec!["PWD".into(), "TEST".into()];
+    #[cfg(windows)]
+    let expected: Vec<String> = vec!["PWD".into(), "Path".into(), "TEST".into()];
+    #[cfg(not(windows))]
+    let expected: Vec<String> = vec!["PATH".into(), "PWD".into(), "TEST".into()];
 
     // Match results
     match_suggestions(expected, suggestions);
@@ -822,7 +825,7 @@ fn alias_offset_bug_7748() {
 
     // Create an alias
     let alias = r#"alias ea = ^$env.EDITOR /tmp/test.s"#;
-    assert!(support::merge_input(alias.as_bytes(), &mut engine, &mut stack, dir.clone()).is_ok());
+    assert!(support::merge_input(alias.as_bytes(), &mut engine, &mut stack, dir).is_ok());
 
     let mut completer = NuCompleter::new(std::sync::Arc::new(engine), stack);
 
@@ -841,7 +844,7 @@ fn alias_offset_bug_7754() {
 
     // Create an alias
     let alias = r#"alias ll = ls -l"#;
-    assert!(support::merge_input(alias.as_bytes(), &mut engine, &mut stack, dir.clone()).is_ok());
+    assert!(support::merge_input(alias.as_bytes(), &mut engine, &mut stack, dir).is_ok());
 
     let mut completer = NuCompleter::new(std::sync::Arc::new(engine), stack);
 
@@ -852,4 +855,14 @@ fn alias_offset_bug_7754() {
     let _suggestions = completer.complete("ll -a | c", 9);
 
     //println!(" --------- suggestions: {:?}", suggestions);
+}
+
+#[test]
+fn get_path_env_var_8003() {
+    // Create a new engine
+    let (_, _, engine, _) = new_engine();
+    // Get the path env var in a platform agnostic way
+    let the_path = engine.get_path_env_var();
+    // Make sure it's not empty
+    assert!(the_path.is_some());
 }

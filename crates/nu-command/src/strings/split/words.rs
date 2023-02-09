@@ -100,7 +100,7 @@ impl Command for SubCommand {
         stack: &mut Stack,
         call: &Call,
         input: PipelineData,
-    ) -> Result<nu_protocol::PipelineData, nu_protocol::ShellError> {
+    ) -> Result<PipelineData, ShellError> {
         split_words(engine_state, stack, call, input)
     }
 }
@@ -110,7 +110,7 @@ fn split_words(
     stack: &mut Stack,
     call: &Call,
     input: PipelineData,
-) -> Result<nu_protocol::PipelineData, nu_protocol::ShellError> {
+) -> Result<PipelineData, ShellError> {
     let span = call.head;
     // let ignore_hyphenated = call.has_flag("ignore-hyphenated");
     // let ignore_apostrophes = call.has_flag("ignore-apostrophes");

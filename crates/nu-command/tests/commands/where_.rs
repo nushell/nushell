@@ -1,5 +1,4 @@
 use nu_test_support::nu;
-#[cfg(feature = "sqlite")]
 use nu_test_support::pipeline;
 
 #[test]
@@ -83,13 +82,13 @@ fn where_not_in_table() {
 }
 
 #[test]
-fn uses_optional_index_argument() {
+fn where_uses_enumerate_index() {
     let actual = nu!(
         cwd: ".",
-        r#"[7 8 9 10] | where {|el ind| $ind < 2 } | to nuon"#
+        r#"[7 8 9 10] | enumerate | where {|el| $el.index < 2 } | to nuon"#
     );
 
-    assert_eq!(actual.out, "[7, 8]");
+    assert_eq!(actual.out, "[[index, item]; [0, 7], [1, 8]]");
 }
 
 #[cfg(feature = "sqlite")]

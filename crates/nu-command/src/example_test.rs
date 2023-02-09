@@ -9,9 +9,9 @@ pub fn test_examples(cmd: impl Command + 'static) {
 #[cfg(test)]
 mod test_examples {
     use super::super::{
-        Ansi, Date, Echo, From, If, Into, IntoString, Let, LetEnv, Math, MathEuler, MathPi,
-        MathRound, Path, Random, Split, SplitColumn, SplitRow, Str, StrJoin, StrLength, StrReplace,
-        Url, Values, Wrap,
+        Ansi, Date, Echo, Enumerate, Flatten, From, Get, If, Into, IntoString, Let, LetEnv, Math,
+        MathEuler, MathPi, MathRound, ParEach, Path, Random, Sort, SortBy, Split, SplitColumn,
+        SplitRow, Str, StrJoin, StrLength, StrReplace, Update, Url, Values, Wrap,
     };
     use crate::{Break, Each, Mut, To};
     use itertools::Itertools;
@@ -20,7 +20,7 @@ mod test_examples {
         engine::{Command, EngineState, Stack, StateDelta, StateWorkingSet},
         Example, PipelineData, Signature, Span, Type, Value,
     };
-    use std::{collections::HashSet, path::PathBuf};
+    use std::collections::HashSet;
 
     pub fn test_examples(cmd: impl Command + 'static) {
         let examples = cmd.examples();
@@ -45,7 +45,7 @@ mod test_examples {
                     signature.vectorizes_over_list,
                 ),
             );
-            check_example_evaluates_to_expected_output(&example, &cwd, &mut engine_state);
+            check_example_evaluates_to_expected_output(&example, cwd.as_path(), &mut engine_state);
         }
 
         check_all_signature_input_output_types_entries_have_examples(
@@ -61,35 +61,42 @@ mod test_examples {
             // Base functions that are needed for testing
             // Try to keep this working set small to keep tests running as fast as possible
             let mut working_set = StateWorkingSet::new(&engine_state);
+            working_set.add_decl(Box::new(Ansi));
+            working_set.add_decl(Box::new(Break));
+            working_set.add_decl(Box::new(Date));
             working_set.add_decl(Box::new(Each));
+            working_set.add_decl(Box::new(Echo));
+            working_set.add_decl(Box::new(Enumerate));
+            working_set.add_decl(Box::new(Flatten));
+            working_set.add_decl(Box::new(From));
+            working_set.add_decl(Box::new(Get));
+            working_set.add_decl(Box::new(If));
+            working_set.add_decl(Box::new(Into));
+            working_set.add_decl(Box::new(IntoString));
             working_set.add_decl(Box::new(Let));
+            working_set.add_decl(Box::new(LetEnv));
+            working_set.add_decl(Box::new(Math));
+            working_set.add_decl(Box::new(MathEuler));
+            working_set.add_decl(Box::new(MathPi));
+            working_set.add_decl(Box::new(MathRound));
+            working_set.add_decl(Box::new(Mut));
+            working_set.add_decl(Box::new(Path));
+            working_set.add_decl(Box::new(ParEach));
+            working_set.add_decl(Box::new(Random));
+            working_set.add_decl(Box::new(Sort));
+            working_set.add_decl(Box::new(SortBy));
+            working_set.add_decl(Box::new(Split));
+            working_set.add_decl(Box::new(SplitColumn));
+            working_set.add_decl(Box::new(SplitRow));
             working_set.add_decl(Box::new(Str));
             working_set.add_decl(Box::new(StrJoin));
             working_set.add_decl(Box::new(StrLength));
             working_set.add_decl(Box::new(StrReplace));
-            working_set.add_decl(Box::new(From));
-            working_set.add_decl(Box::new(If));
             working_set.add_decl(Box::new(To));
-            working_set.add_decl(Box::new(Into));
-            working_set.add_decl(Box::new(IntoString));
-            working_set.add_decl(Box::new(Random));
-            working_set.add_decl(Box::new(Split));
-            working_set.add_decl(Box::new(SplitColumn));
-            working_set.add_decl(Box::new(SplitRow));
-            working_set.add_decl(Box::new(Math));
-            working_set.add_decl(Box::new(Path));
-            working_set.add_decl(Box::new(Date));
             working_set.add_decl(Box::new(Url));
+            working_set.add_decl(Box::new(Update));
             working_set.add_decl(Box::new(Values));
-            working_set.add_decl(Box::new(Ansi));
             working_set.add_decl(Box::new(Wrap));
-            working_set.add_decl(Box::new(LetEnv));
-            working_set.add_decl(Box::new(Echo));
-            working_set.add_decl(Box::new(Break));
-            working_set.add_decl(Box::new(Mut));
-            working_set.add_decl(Box::new(MathEuler));
-            working_set.add_decl(Box::new(MathPi));
-            working_set.add_decl(Box::new(MathRound));
             // Adding the command that is being tested to the working set
             working_set.add_decl(cmd);
 
@@ -104,7 +111,7 @@ mod test_examples {
 
     fn check_example_input_and_output_types_match_command_signature(
         example: &Example,
-        cwd: &PathBuf,
+        cwd: &std::path::Path,
         engine_state: &mut Box<EngineState>,
         signature_input_output_types: &Vec<(Type, Type)>,
         signature_operates_on_cell_paths: bool,
@@ -204,7 +211,7 @@ mod test_examples {
 
     fn check_example_evaluates_to_expected_output(
         example: &Example,
-        cwd: &PathBuf,
+        cwd: &std::path::Path,
         engine_state: &mut Box<EngineState>,
     ) {
         let mut stack = Stack::new();
@@ -251,7 +258,7 @@ mod test_examples {
                 {:?}",
                 declared_type_transformations
                     .difference(&witnessed_type_transformations)
-                    .map(|(s1, s2)| format!("{} -> {}", s1, s2))
+                    .map(|(s1, s2)| format!("{s1} -> {s2}"))
                     .join(", ")
             );
         }
@@ -260,7 +267,7 @@ mod test_examples {
     fn eval(
         contents: &str,
         input: PipelineData,
-        cwd: &PathBuf,
+        cwd: &std::path::Path,
         engine_state: &mut Box<EngineState>,
     ) -> Value {
         let (block, delta) = parse(contents, engine_state);
@@ -273,7 +280,7 @@ mod test_examples {
             nu_parser::parse(&mut working_set, None, contents.as_bytes(), false, &[]);
 
         if let Some(err) = err {
-            panic!("test parse error in `{}`: {:?}", contents, err)
+            panic!("test parse error in `{contents}`: {err:?}")
         }
 
         (output, working_set.render())
@@ -282,7 +289,7 @@ mod test_examples {
     fn eval_block(
         block: Block,
         input: PipelineData,
-        cwd: &PathBuf,
+        cwd: &std::path::Path,
         engine_state: &mut Box<EngineState>,
         delta: StateDelta,
     ) -> Value {
@@ -302,26 +309,23 @@ mod test_examples {
 
     fn eval_pipeline_without_terminal_expression(
         src: &str,
-        cwd: &PathBuf,
+        cwd: &std::path::Path,
         engine_state: &mut Box<EngineState>,
     ) -> Option<Value> {
         let (mut block, delta) = parse(src, engine_state);
-        match block.pipelines.len() {
-            1 => {
-                let n_expressions = block.pipelines[0].elements.len();
-                block.pipelines[0].elements.truncate(&n_expressions - 1);
+        if block.pipelines.len() == 1 {
+            let n_expressions = block.pipelines[0].elements.len();
+            block.pipelines[0].elements.truncate(&n_expressions - 1);
 
-                if !block.pipelines[0].elements.is_empty() {
-                    let empty_input = PipelineData::empty();
-                    Some(eval_block(block, empty_input, cwd, engine_state, delta))
-                } else {
-                    Some(Value::nothing(Span::test_data()))
-                }
+            if !block.pipelines[0].elements.is_empty() {
+                let empty_input = PipelineData::empty();
+                Some(eval_block(block, empty_input, cwd, engine_state, delta))
+            } else {
+                Some(Value::nothing(Span::test_data()))
             }
-            _ => {
-                // E.g. multiple semicolon-separated statements
-                None
-            }
+        } else {
+            // E.g. multiple semicolon-separated statements
+            None
         }
     }
 }

@@ -11,7 +11,7 @@ pub struct ListDF;
 
 impl Command for ListDF {
     fn name(&self) -> &str {
-        "ls-df"
+        "dfr ls"
     }
 
     fn usage(&self) -> &str {
@@ -25,8 +25,8 @@ impl Command for ListDF {
     fn examples(&self) -> Vec<Example> {
         vec![Example {
             description: "Creates a new dataframe and shows it in the dataframe list",
-            example: r#"let test = ([[a b];[1 2] [3 4]] | into df);
-    ls-df"#,
+            example: r#"let test = ([[a b];[1 2] [3 4]] | dfr into-df);
+    ls"#,
             result: None,
         }]
     }
@@ -51,9 +51,8 @@ impl Command for ListDF {
 
         let vals = vals
             .into_iter()
-            .filter_map(|(name, value)| match NuDataFrame::try_from_value(value) {
-                Ok(df) => Some((name, df)),
-                Err(_) => None,
+            .filter_map(|(name, value)| {
+                NuDataFrame::try_from_value(value).ok().map(|df| (name, df))
             })
             .map(|(name, df)| {
                 let name = Value::String {

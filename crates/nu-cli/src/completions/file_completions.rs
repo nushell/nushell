@@ -124,7 +124,7 @@ pub fn file_path_completion(
                     let mut file_name = entry.file_name().to_string_lossy().into_owned();
                     if matches(&partial, &file_name, options) {
                         let mut path = if prepend_base_dir(original_input, &base_dir_name) {
-                            format!("{}{}", base_dir_name, file_name)
+                            format!("{base_dir_name}{file_name}")
                         } else {
                             file_name.to_string()
                         };
@@ -142,7 +142,7 @@ pub fn file_path_completion(
                             || path.contains('(')
                             || path.contains(')')
                         {
-                            path = format!("`{}`", path);
+                            path = format!("`{path}`");
                         }
 
                         Some((span, path))
@@ -170,7 +170,7 @@ pub fn matches(partial: &str, from: &str, options: &CompletionOptions) -> bool {
 
 /// Returns whether the base_dir should be prepended to the file path
 pub fn prepend_base_dir(input: &str, base_dir: &str) -> bool {
-    if base_dir == format!(".{}", SEP) {
+    if base_dir == format!(".{SEP}") {
         // if the current base_dir path is the local folder we only add a "./" prefix if the user
         // input already includes a local folder prefix.
         let manually_entered = {

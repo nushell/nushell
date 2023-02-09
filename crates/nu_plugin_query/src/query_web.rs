@@ -36,14 +36,10 @@ pub fn parse_selector_params(call: &EvaluatedCall, input: &Value) -> Result<Valu
         None => "".to_string(),
     };
     let as_html = call.has_flag("as-html");
-    let attribute: String = match call.get_flag("attribute")? {
-        Some(a) => a,
-        None => "".to_string(),
-    };
-    let as_table: Value = match call.get_flag("as-table")? {
-        Some(v) => v,
-        None => Value::nothing(head),
-    };
+    let attribute = call.get_flag("attribute")?.unwrap_or_default();
+    let as_table: Value = call
+        .get_flag("as-table")?
+        .unwrap_or_else(|| Value::nothing(head));
 
     let inspect = call.has_flag("inspect");
 
@@ -81,23 +77,22 @@ fn begin_selector_query(input_html: String, selector: Selector, span: Span) -> V
             selector.inspect,
             span,
         );
+    } else if selector.attribute.is_empty() {
+        execute_selector_query(
+            input_html.as_str(),
+            selector.query.as_str(),
+            selector.as_html,
+            selector.inspect,
+            span,
+        )
     } else {
-        match selector.attribute.is_empty() {
-            true => execute_selector_query(
-                input_html.as_str(),
-                selector.query.as_str(),
-                selector.as_html,
-                selector.inspect,
-                span,
-            ),
-            false => execute_selector_query_with_attribute(
-                input_html.as_str(),
-                selector.query.as_str(),
-                selector.attribute.as_str(),
-                selector.inspect,
-                span,
-            ),
-        }
+        execute_selector_query_with_attribute(
+            input_html.as_str(),
+            selector.query.as_str(),
+            selector.attribute.as_str(),
+            selector.inspect,
+            span,
+        )
     }
 }
 
@@ -179,7 +174,7 @@ fn retrieve_table(mut table: WebTable, columns: &Value, span: Span) -> Value {
         let mut vals = vec![];
         for row in &table_with_no_empties {
             for (counter, cell) in row.iter().enumerate() {
-                cols.push(format!("column{}", counter));
+                cols.push(format!("column{counter}"));
                 vals.push(Value::string(cell.to_string(), span))
             }
         }
@@ -263,7 +258,7 @@ fn execute_selector_query(
                 Value::string(
                     selection
                         .text()
-                        .fold("".to_string(), |acc, x| format!("{}{}", acc, x)),
+                        .fold("".to_string(), |acc, x| format!("{acc}{x}")),
                     span,
                 )
             })

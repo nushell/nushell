@@ -3,6 +3,8 @@ use std::path::Path;
 use nu_engine::env::current_dir_str;
 use nu_engine::CallExt;
 use nu_path::{canonicalize_with, expand_path_with};
+use nu_protocol::ast::Call;
+use nu_protocol::engine::{EngineState, Stack};
 use nu_protocol::{
     engine::Command, Example, PipelineData, ShellError, Signature, Span, SyntaxShape, Type, Value,
 };
@@ -53,11 +55,11 @@ impl Command for SubCommand {
 
     fn run(
         &self,
-        engine_state: &nu_protocol::engine::EngineState,
-        stack: &mut nu_protocol::engine::Stack,
-        call: &nu_protocol::ast::Call,
-        input: nu_protocol::PipelineData,
-    ) -> Result<nu_protocol::PipelineData, nu_protocol::ShellError> {
+        engine_state: &EngineState,
+        stack: &mut Stack,
+        call: &Call,
+        input: PipelineData,
+    ) -> Result<PipelineData, ShellError> {
         let head = call.head;
         let args = Arguments {
             strict: call.has_flag("strict"),

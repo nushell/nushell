@@ -81,13 +81,10 @@ fn convert_to_suggestions(
 ) -> Vec<Suggestion> {
     match value {
         Value::Record { .. } => {
-            let text = match value
+            let text = value
                 .get_data_by_key("value")
                 .and_then(|val| val.as_string().ok())
-            {
-                Some(val) => val,
-                None => "No value key".to_string(),
-            };
+                .unwrap_or_else(|| "No value key".to_string());
 
             let description = value
                 .get_data_by_key("description")
@@ -157,7 +154,7 @@ fn convert_to_suggestions(
             .flat_map(|val| convert_to_suggestions(val, line, pos, only_buffer_difference))
             .collect(),
         _ => vec![Suggestion {
-            value: format!("Not a record: {:?}", value),
+            value: format!("Not a record: {value:?}"),
             description: None,
             extra: None,
             span: reedline::Span {

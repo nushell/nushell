@@ -87,14 +87,9 @@ fn try_build_list(
                 false,
             );
 
-            let val = table.draw(table_config, usize::MAX);
-
-            match val {
-                Some(result) => result,
-                None => {
-                    value_to_styled_string(&Value::List { vals, span }, config, style_computer).0
-                }
-            }
+            table.draw(table_config, usize::MAX).unwrap_or_else(|| {
+                value_to_styled_string(&Value::List { vals, span }, config, style_computer).0
+            })
         }
         Ok(None) | Err(_) => {
             // it means that the list is empty
@@ -344,7 +339,7 @@ fn convert_to_table2<'a>(
             ));
         }
 
-        for (row, item) in input.clone().into_iter().enumerate() {
+        for (row, item) in input.clone().enumerate() {
             if let Some(ctrlc) = &ctrlc {
                 if ctrlc.load(Ordering::SeqCst) {
                     return Ok(None);
@@ -441,7 +436,7 @@ fn convert_to_table2<'a>(
             header_style(style_computer, header.clone()),
         ));
 
-        for (row, item) in input.clone().into_iter().enumerate() {
+        for (row, item) in input.clone().enumerate() {
             if let Some(ctrlc) = &ctrlc {
                 if ctrlc.load(Ordering::SeqCst) {
                     return Ok(None);
@@ -481,7 +476,7 @@ fn convert_to_table2<'a>(
 
             column_width = string_width(&header);
 
-            for (row, item) in input.clone().into_iter().enumerate() {
+            for (row, item) in input.clone().enumerate() {
                 if let Some(ctrlc) = &ctrlc {
                     if ctrlc.load(Ordering::SeqCst) {
                         return Ok(None);
@@ -508,7 +503,7 @@ fn convert_to_table2<'a>(
 
             column_width = string_width(&header);
 
-            for (row, item) in input.clone().into_iter().enumerate() {
+            for (row, item) in input.clone().enumerate() {
                 if let Some(ctrlc) = &ctrlc {
                     if ctrlc.load(Ordering::SeqCst) {
                         return Ok(None);
@@ -848,10 +843,8 @@ fn make_styled_string(
             match value {
                 Value::Float { .. } => {
                     // set dynamic precision from config
-                    let precise_number = match convert_with_precision(&text, float_precision) {
-                        Ok(num) => num,
-                        Err(e) => e.to_string(),
-                    };
+                    let precise_number = convert_with_precision(&text, float_precision)
+                        .unwrap_or_else(|e| e.to_string());
                     (precise_number, style_computer.style_primitive(value))
                 }
                 _ => (text, style_computer.style_primitive(value)),
@@ -889,7 +882,7 @@ fn convert_with_precision(val: &str, precision: usize) -> Result<String, ShellEr
             ));
         }
     };
-    Ok(format!("{:.prec$}", val_float, prec = precision))
+    Ok(format!("{val_float:.precision$}"))
 }
 
 fn load_theme_from_config(config: &Config) -> TableTheme {

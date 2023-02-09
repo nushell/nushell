@@ -3,7 +3,7 @@ mod plugin_custom_value;
 mod plugin_data;
 
 pub use evaluated_call::EvaluatedCall;
-use nu_protocol::{ShellError, Signature, Span, Value};
+use nu_protocol::{PluginSignature, ShellError, Span, Value};
 pub use plugin_custom_value::PluginCustomValue;
 pub use plugin_data::PluginData;
 use serde::{Deserialize, Serialize};
@@ -60,13 +60,13 @@ impl From<ShellError> for LabeledError {
                 LabeledError { label, msg, span }
             }
             ShellError::CantConvert(expected, input, span, _help) => LabeledError {
-                label: format!("Can't convert to {}", expected),
-                msg: format!("can't convert {} to {}", expected, input),
+                label: format!("Can't convert to {expected}"),
+                msg: format!("can't convert {expected} to {input}"),
                 span: Some(span),
             },
             ShellError::DidYouMean(suggestion, span) => LabeledError {
                 label: "Name not found".into(),
-                msg: format!("did you mean '{}'", suggestion),
+                msg: format!("did you mean '{suggestion}'"),
                 span: Some(span),
             },
             ShellError::PluginFailedToLoad(msg) => LabeledError {
@@ -97,7 +97,7 @@ impl From<ShellError> for LabeledError {
 #[derive(Serialize, Deserialize)]
 pub enum PluginResponse {
     Error(LabeledError),
-    Signature(Vec<Signature>),
+    Signature(Vec<PluginSignature>),
     Value(Box<Value>),
     PluginData(String, PluginData),
 }

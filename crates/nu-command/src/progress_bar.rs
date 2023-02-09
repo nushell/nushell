@@ -26,10 +26,7 @@ impl NuProgressBar {
             }
         };
 
-        let total_bytes = match total_bytes {
-            Some(total_size) => total_size,
-            _ => 0,
-        };
+        let total_bytes = total_bytes.unwrap_or_default();
 
         let new_progress_bar = ProgressBar::new(total_bytes);
         new_progress_bar.set_style(

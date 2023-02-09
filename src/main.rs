@@ -1,41 +1,37 @@
 mod command;
 mod config_files;
 mod logger;
+mod run;
 mod signals;
 mod terminal;
 mod test_bins;
 #[cfg(test)]
 mod tests;
 
-#[cfg(feature = "plugin")]
-use crate::config_files::NUSHELL_FOLDER;
 use crate::{
     command::parse_commandline_args,
-    config_files::{set_config_path, setup_config},
+    config_files::set_config_path,
     logger::{configure, logger},
     terminal::acquire_terminal,
 };
-use log::{info, Level};
+use command::gather_commandline_args;
+use log::Level;
 use miette::Result;
-#[cfg(feature = "plugin")]
-use nu_cli::read_plugin_file;
-use nu_cli::{
-    evaluate_commands, evaluate_file, evaluate_repl, gather_parent_env_vars, get_init_cwd,
-    report_error_new,
-};
+use nu_cli::{gather_parent_env_vars, get_init_cwd, report_error_new};
 use nu_command::create_default_context;
-use nu_parser::{escape_for_script_arg, escape_quote_string};
 use nu_protocol::{util::BufferedReader, PipelineData, RawStream};
+use nu_utils::utils::perf;
+use run::{run_commands, run_file, run_repl};
 use signals::{ctrlc_protection, sigquit_protection};
 use std::{
     io::BufReader,
     str::FromStr,
     sync::{atomic::AtomicBool, Arc},
-    time::Instant,
 };
 
 fn main() -> Result<()> {
-    let start_time = Instant::now();
+    let entire_start_time = std::time::Instant::now();
+    let mut start_time = std::time::Instant::now();
     let miette_hook = std::panic::take_hook();
     std::panic::set_hook(Box::new(move |x| {
         crossterm::terminal::disable_raw_mode().expect("unable to disable raw mode");
@@ -63,56 +59,43 @@ fn main() -> Result<()> {
     ctrlc_protection(&mut engine_state, &ctrlc);
     sigquit_protection(&mut engine_state);
 
-    let mut args_to_nushell = vec![];
-    let mut script_name = String::new();
-    let mut args_to_script = vec![];
-
-    // Would be nice if we had a way to parse this. The first flags we see will be going to nushell
-    // then it'll be the script name
-    // then the args to the script
-    let mut args = std::env::args();
-    let argv0 = args.next();
-
-    while let Some(arg) = args.next() {
-        if !script_name.is_empty() {
-            args_to_script.push(escape_for_script_arg(&arg));
-        } else if arg.starts_with('-') {
-            // Cool, it's a flag
-            let flag_value = match arg.as_ref() {
-                "--commands" | "-c" | "--table-mode" | "-m" | "-e" | "--execute" => {
-                    args.next().map(|a| escape_quote_string(&a))
-                }
-                "--config" | "--env-config" => args.next().map(|a| escape_quote_string(&a)),
-                #[cfg(feature = "plugin")]
-                "--plugin-config" => args.next().map(|a| escape_quote_string(&a)),
-                "--log-level" | "--log-target" | "--testbin" | "--threads" | "-t" => args.next(),
-                _ => None,
-            };
-
-            args_to_nushell.push(arg);
-
-            if let Some(flag_value) = flag_value {
-                args_to_nushell.push(flag_value);
-            }
-        } else {
-            // Our script file
-            script_name = arg;
-        }
-    }
-
-    args_to_nushell.insert(0, "nu".into());
-
-    if let Some(argv0) = argv0 {
-        if argv0.starts_with('-') {
-            args_to_nushell.push("--login".into());
-        }
-    }
-
-    let nushell_commandline_args = args_to_nushell.join(" ");
-
-    let parsed_nu_cli_args = parse_commandline_args(&nushell_commandline_args, &mut engine_state)
+    let (args_to_nushell, script_name, args_to_script) = gather_commandline_args();
+    let parsed_nu_cli_args = parse_commandline_args(&args_to_nushell.join(" "), &mut engine_state)
         .unwrap_or_else(|_| std::process::exit(1));
 
+    let use_color = engine_state.get_config().use_ansi_coloring;
+    if let Some(level) = parsed_nu_cli_args
+        .log_level
+        .as_ref()
+        .map(|level| level.item.clone())
+    {
+        let level = if Level::from_str(&level).is_ok() {
+            level
+        } else {
+            eprintln!(
+                "ERROR: log library did not recognize log level '{level}', using default 'info'"
+            );
+            "info".to_string()
+        };
+        let target = parsed_nu_cli_args
+            .log_target
+            .as_ref()
+            .map(|target| target.item.clone())
+            .unwrap_or_else(|| "stderr".to_string());
+
+        logger(|builder| configure(&level, &target, builder))?;
+        // info!("start logging {}:{}:{}", file!(), line!(), column!());
+        perf(
+            "start logging",
+            start_time,
+            file!(),
+            line!(),
+            column!(),
+            use_color,
+        );
+    }
+
+    start_time = std::time::Instant::now();
     set_config_path(
         &mut engine_state,
         &init_cwd,
@@ -128,14 +111,32 @@ fn main() -> Result<()> {
         "env-path",
         &parsed_nu_cli_args.env_file,
     );
+    perf(
+        "set_config_path",
+        start_time,
+        file!(),
+        line!(),
+        column!(),
+        use_color,
+    );
 
+    start_time = std::time::Instant::now();
     // keep this condition in sync with the branches below
     acquire_terminal(
         parsed_nu_cli_args.commands.is_none()
             && (script_name.is_empty() || parsed_nu_cli_args.interactive_shell.is_some()),
     );
+    perf(
+        "acquire_terminal",
+        start_time,
+        file!(),
+        line!(),
+        column!(),
+        use_color,
+    );
 
-    if let Some(t) = parsed_nu_cli_args.threads {
+    start_time = std::time::Instant::now();
+    if let Some(t) = parsed_nu_cli_args.threads.clone() {
         // 0 means to let rayon decide how many threads to use
         let threads = t.as_i64().unwrap_or(0);
         rayon::ThreadPoolBuilder::new()
@@ -143,25 +144,16 @@ fn main() -> Result<()> {
             .build_global()
             .expect("error setting number of threads");
     }
+    perf(
+        "set rayon threads",
+        start_time,
+        file!(),
+        line!(),
+        column!(),
+        use_color,
+    );
 
-    if let Some(level) = parsed_nu_cli_args.log_level.map(|level| level.item) {
-        let level = if Level::from_str(&level).is_ok() {
-            level
-        } else {
-            eprintln!(
-                "ERROR: log library did not recognize log level '{level}', using default 'info'"
-            );
-            "info".to_string()
-        };
-        let target = parsed_nu_cli_args
-            .log_target
-            .map(|target| target.item)
-            .unwrap_or_else(|| "stderr".to_string());
-
-        logger(|builder| configure(&level, &target, builder))?;
-        info!("start logging {}:{}:{}", file!(), line!(), column!());
-    }
-
+    start_time = std::time::Instant::now();
     if let Some(testbin) = &parsed_nu_cli_args.testbin {
         // Call out to the correct testbin
         match testbin.item.as_str() {
@@ -181,6 +173,16 @@ fn main() -> Result<()> {
         }
         std::process::exit(0)
     }
+    perf(
+        "run test_bins",
+        start_time,
+        file!(),
+        line!(),
+        column!(),
+        use_color,
+    );
+
+    start_time = std::time::Instant::now();
     let input = if let Some(redirect_stdin) = &parsed_nu_cli_args.redirect_stdin {
         let stdin = std::io::stdin();
         let buf_reader = BufReader::new(stdin);
@@ -201,127 +203,45 @@ fn main() -> Result<()> {
     } else {
         PipelineData::empty()
     };
+    perf(
+        "redirect stdin",
+        start_time,
+        file!(),
+        line!(),
+        column!(),
+        use_color,
+    );
 
-    info!("redirect_stdin {}:{}:{}", file!(), line!(), column!());
-
+    start_time = std::time::Instant::now();
     // First, set up env vars as strings only
     gather_parent_env_vars(&mut engine_state, &init_cwd);
+    perf(
+        "gather env vars",
+        start_time,
+        file!(),
+        line!(),
+        column!(),
+        use_color,
+    );
 
-    let mut stack = nu_protocol::engine::Stack::new();
-
-    if let Some(commands) = &parsed_nu_cli_args.commands {
-        #[cfg(feature = "plugin")]
-        read_plugin_file(
+    if let Some(commands) = parsed_nu_cli_args.commands.clone() {
+        run_commands(
             &mut engine_state,
-            &mut stack,
-            parsed_nu_cli_args.plugin_file,
-            NUSHELL_FOLDER,
-        );
-
-        // only want to load config and env if relative argument is provided.
-        if parsed_nu_cli_args.env_file.is_some() {
-            config_files::read_config_file(
-                &mut engine_state,
-                &mut stack,
-                parsed_nu_cli_args.env_file,
-                true,
-            );
-        } else {
-            config_files::read_default_env_file(&mut engine_state, &mut stack)
-        }
-
-        if parsed_nu_cli_args.config_file.is_some() {
-            config_files::read_config_file(
-                &mut engine_state,
-                &mut stack,
-                parsed_nu_cli_args.config_file,
-                false,
-            );
-        }
-
-        let ret_val = evaluate_commands(
-            commands,
-            &mut engine_state,
-            &mut stack,
+            parsed_nu_cli_args,
+            use_color,
+            &commands,
             input,
-            parsed_nu_cli_args.table_mode,
-        );
-        info!("-c command execution {}:{}:{}", file!(), line!(), column!());
-        match ret_val {
-            Ok(Some(exit_code)) => std::process::exit(exit_code as i32),
-            Ok(None) => Ok(()),
-            Err(e) => Err(e),
-        }
+        )
     } else if !script_name.is_empty() && parsed_nu_cli_args.interactive_shell.is_none() {
-        #[cfg(feature = "plugin")]
-        read_plugin_file(
+        run_file(
             &mut engine_state,
-            &mut stack,
-            parsed_nu_cli_args.plugin_file,
-            NUSHELL_FOLDER,
-        );
-
-        // only want to load config and env if relative argument is provided.
-        if parsed_nu_cli_args.env_file.is_some() {
-            config_files::read_config_file(
-                &mut engine_state,
-                &mut stack,
-                parsed_nu_cli_args.env_file,
-                true,
-            );
-        } else {
-            config_files::read_default_env_file(&mut engine_state, &mut stack)
-        }
-
-        if parsed_nu_cli_args.config_file.is_some() {
-            config_files::read_config_file(
-                &mut engine_state,
-                &mut stack,
-                parsed_nu_cli_args.config_file,
-                false,
-            );
-        }
-
-        let ret_val = evaluate_file(
+            parsed_nu_cli_args,
+            use_color,
             script_name,
-            &args_to_script,
-            &mut engine_state,
-            &mut stack,
+            args_to_script,
             input,
-        );
-
-        let last_exit_code = stack.get_env_var(&engine_state, "LAST_EXIT_CODE");
-        if let Some(last_exit_code) = last_exit_code {
-            let value = last_exit_code.as_integer();
-            if let Ok(value) = value {
-                if value != 0 {
-                    std::process::exit(value as i32);
-                }
-            }
-        }
-        info!("eval_file execution {}:{}:{}", file!(), line!(), column!());
-
-        ret_val
+        )
     } else {
-        setup_config(
-            &mut engine_state,
-            &mut stack,
-            #[cfg(feature = "plugin")]
-            parsed_nu_cli_args.plugin_file,
-            parsed_nu_cli_args.config_file,
-            parsed_nu_cli_args.env_file,
-            parsed_nu_cli_args.login_shell.is_some(),
-        );
-
-        let ret_val = evaluate_repl(
-            &mut engine_state,
-            &mut stack,
-            config_files::NUSHELL_FOLDER,
-            parsed_nu_cli_args.execute,
-            start_time,
-        );
-        info!("repl eval {}:{}:{}", file!(), line!(), column!());
-
-        ret_val
+        run_repl(engine_state, parsed_nu_cli_args, entire_start_time)
     }
 }

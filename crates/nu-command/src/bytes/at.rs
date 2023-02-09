@@ -70,8 +70,8 @@ fn parse_range(range: Value, head: Span) -> Result<(isize, isize, Span), ShellEr
             }
         }
         Value::String { val, span } => {
-            let splitted_result = val.split_once(',');
-            match splitted_result {
+            let split_result = val.split_once(',');
+            match split_result {
                 Some((start, end)) => (start.to_string(), end.to_string(), span),
                 None => {
                     return Err(ShellError::UnsupportedInput(
@@ -98,32 +98,26 @@ fn parse_range(range: Value, head: Span) -> Result<(isize, isize, Span), ShellEr
     let start: isize = if start.is_empty() || start == "_" {
         0
     } else {
-        match start.trim().parse() {
-            Ok(s) => s,
-            Err(_) => {
-                return Err(ShellError::UnsupportedInput(
-                    "could not perform subbytes".to_string(),
-                    "with this range".to_string(),
-                    head,
-                    span,
-                ))
-            }
-        }
+        start.trim().parse().map_err(|_| {
+            ShellError::UnsupportedInput(
+                "could not perform subbytes".to_string(),
+                "with this range".to_string(),
+                head,
+                span,
+            )
+        })?
     };
     let end: isize = if end.is_empty() || end == "_" {
         isize::max_value()
     } else {
-        match end.trim().parse() {
-            Ok(s) => s,
-            Err(_) => {
-                return Err(ShellError::UnsupportedInput(
-                    "could not perform subbytes".to_string(),
-                    "with this range".to_string(),
-                    head,
-                    span,
-                ))
-            }
-        }
+        end.trim().parse().map_err(|_| {
+            ShellError::UnsupportedInput(
+                "could not perform subbytes".to_string(),
+                "with this range".to_string(),
+                head,
+                span,
+            )
+        })?
     };
     Ok((start, end, span))
 }

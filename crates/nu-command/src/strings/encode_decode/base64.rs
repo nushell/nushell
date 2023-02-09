@@ -93,8 +93,7 @@ fn action(
         not_valid => return Value::Error { error:ShellError::GenericError(
             "value is not an accepted character set".to_string(),
             format!(
-                "{} is not a valid character-set.\nPlease use `help hash base64` to see a list of valid character sets.",
-                not_valid
+                "{not_valid} is not a valid character-set.\nPlease use `help hash base64` to see a list of valid character sets."
             ),
             Some(config_character_set.span),
             None,
@@ -151,8 +150,7 @@ fn action(
                     let val = val.clone();
                     let val = val.replace("\r\n", "").replace('\n', "");
 
-                    //match Engine::decode_string(&val, base64_engine) {
-                    match base64_engine.decode(&val) {
+                    match base64_engine.decode(val) {
                         Ok(decoded_value) => {
                             if output_binary {
                                 Value::binary(decoded_value, command_span)

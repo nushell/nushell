@@ -3,7 +3,7 @@ use nu_protocol::ast::Call;
 use nu_protocol::engine::{Closure, Command, EngineState, Stack};
 use nu_protocol::{
     Category, Example, IntoInterruptiblePipelineData, IntoPipelineData, PipelineData, ShellError,
-    Signature, Span, Spanned, SyntaxShape, Type, Value,
+    Signature, Span, SyntaxShape, Type, Value,
 };
 
 #[derive(Clone)]
@@ -38,13 +38,6 @@ not supported."#
                 SyntaxShape::RowCondition,
                 "Filter condition",
             )
-            // TODO: Remove this flag after 0.73.0 release
-            .named(
-                "closure",
-                SyntaxShape::Closure(Some(vec![SyntaxShape::Any, SyntaxShape::Int])),
-                "use with a closure instead (deprecated: use 'filter' command instead)",
-                Some('b'),
-            )
             .category(Category::Filters)
     }
 
@@ -58,15 +51,7 @@ not supported."#
         stack: &mut Stack,
         call: &Call,
         input: PipelineData,
-    ) -> Result<nu_protocol::PipelineData, nu_protocol::ShellError> {
-        if let Some(closure) = call.get_flag::<Spanned<Closure>>(engine_state, stack, "closure")? {
-            return Err(ShellError::DeprecatedParameter(
-                "-b, --closure".to_string(),
-                "filter command".to_string(),
-                closure.span,
-            ));
-        }
-
+    ) -> Result<PipelineData, ShellError> {
         let closure: Closure = call.req(engine_state, stack, 0)?;
 
         let span = call.head;
@@ -85,25 +70,12 @@ not supported."#
         let redirect_stderr = call.redirect_stderr;
         Ok(input
             .into_iter_strict(span)?
-            .enumerate()
-            .filter_map(move |(idx, value)| {
+            .filter_map(move |value| {
                 stack.with_env(&orig_env_vars, &orig_env_hidden);
 
                 if let Some(var) = block.signature.get_positional(0) {
                     if let Some(var_id) = &var.var_id {
                         stack.add_var(*var_id, value.clone());
-                    }
-                }
-                // Optional index argument
-                if let Some(var) = block.signature.get_positional(1) {
-                    if let Some(var_id) = &var.var_id {
-                        stack.add_var(
-                            *var_id,
-                            Value::Int {
-                                val: idx as i64,
-                                span,
-                            },
-                        );
                     }
                 }
                 let result = eval_block(
@@ -172,6 +144,11 @@ not supported."#
             Example {
                 description: "List all files that were modified in the last two weeks",
                 example: "ls | where modified >= (date now) - 2wk",
+                result: None,
+            },
+            Example {
+                description: "Find files whose filenames don't begin with the correct sequential number",
+                example: "ls | where type == file | sort-by name -n | enumerate | where {|e| $e.item.name !~ $'^($e.index + 1)' } | each { get item }",
                 result: None,
             },
         ]
