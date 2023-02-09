@@ -69,7 +69,7 @@ impl Command for RegistryQuery {
         stack: &mut Stack,
         call: &Call,
         _input: PipelineData,
-    ) -> Result<nu_protocol::PipelineData, nu_protocol::ShellError> {
+    ) -> Result<PipelineData, ShellError> {
         registry_query(engine_state, stack, call)
     }
 
@@ -93,7 +93,7 @@ fn registry_query(
     engine_state: &EngineState,
     stack: &mut Stack,
     call: &Call,
-) -> Result<nu_protocol::PipelineData, nu_protocol::ShellError> {
+) -> Result<PipelineData, ShellError> {
     let call_span = call.head;
 
     let registry_key: Spanned<String> = call.req(engine_state, stack, 0)?;

@@ -70,7 +70,7 @@ impl Command for ToMd {
         _stack: &mut Stack,
         call: &Call,
         input: PipelineData,
-    ) -> Result<nu_protocol::PipelineData, ShellError> {
+    ) -> Result<PipelineData, ShellError> {
         let head = call.head;
         let pretty = call.has_flag("pretty");
         let per_element = call.has_flag("per-element");

@@ -1,3 +1,4 @@
+mod client;
 mod get;
 mod http_;
 mod post;

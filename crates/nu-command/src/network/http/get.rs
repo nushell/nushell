@@ -1,3 +1,4 @@
+use crate::network::http::client::http_client;
 use base64::{alphabet, engine::general_purpose::PAD, engine::GeneralPurpose, Engine};
 use nu_engine::CallExt;
 use nu_protocol::ast::Call;
@@ -60,6 +61,11 @@ impl Command for SubCommand {
                 "fetch contents as text rather than a table",
                 Some('r'),
             )
+            .switch(
+                "insecure",
+                "allow insecure server connections when using SSL",
+                Some('k'),
+            )
             .filter()
             .category(Category::Network)
     }
@@ -84,7 +90,7 @@ impl Command for SubCommand {
         stack: &mut Stack,
         call: &Call,
         input: PipelineData,
-    ) -> Result<nu_protocol::PipelineData, nu_protocol::ShellError> {
+    ) -> Result<PipelineData, ShellError> {
         run_fetch(engine_state, stack, call, input)
     }
 
@@ -112,6 +118,7 @@ impl Command for SubCommand {
 struct Arguments {
     url: Value,
     raw: bool,
+    insecure: Option<bool>,
     user: Option<String>,
     password: Option<String>,
     timeout: Option<Value>,
@@ -123,10 +130,11 @@ fn run_fetch(
     stack: &mut Stack,
     call: &Call,
     _input: PipelineData,
-) -> Result<nu_protocol::PipelineData, nu_protocol::ShellError> {
+) -> Result<PipelineData, ShellError> {
     let args = Arguments {
         url: call.req(engine_state, stack, 0)?,
         raw: call.has_flag("raw"),
+        insecure: call.get_flag(engine_state, stack, "insecure")?,
         user: call.get_flag(engine_state, stack, "user")?,
         password: call.get_flag(engine_state, stack, "password")?,
         timeout: call.get_flag(engine_state, stack, "timeout")?,
@@ -183,7 +191,7 @@ fn helper(
         _ => None,
     };
 
-    let client = http_client();
+    let client = http_client(args.insecure.is_some());
     let mut request = client.get(url);
 
     if let Some(timeout) = timeout {
@@ -406,14 +414,4 @@ fn response_to_buffer(
         metadata: None,
         trim_end_newline: false,
     }
-}
-
-// Only panics if the user agent is invalid but we define it statically so either
-// it always or never fails
-#[allow(clippy::unwrap_used)]
-fn http_client() -> reqwest::blocking::Client {
-    reqwest::blocking::Client::builder()
-        .user_agent("nushell")
-        .build()
-        .unwrap()
 }

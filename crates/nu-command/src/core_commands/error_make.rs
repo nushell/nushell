@@ -39,7 +39,7 @@ impl Command for ErrorMake {
         stack: &mut Stack,
         call: &Call,
         _input: PipelineData,
-    ) -> Result<nu_protocol::PipelineData, nu_protocol::ShellError> {
+    ) -> Result<PipelineData, ShellError> {
         let span = call.head;
         let arg: Value = call.req(engine_state, stack, 0)?;
         let unspanned = call.has_flag("unspanned");

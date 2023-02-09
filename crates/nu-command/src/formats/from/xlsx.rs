@@ -39,7 +39,7 @@ impl Command for FromXlsx {
         stack: &mut Stack,
         call: &Call,
         input: PipelineData,
-    ) -> Result<nu_protocol::PipelineData, ShellError> {
+    ) -> Result<PipelineData, ShellError> {
         let head = call.head;
 
         let sel_sheets = if let Some(Value::List { vals: columns, .. }) =

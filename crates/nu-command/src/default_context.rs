@@ -474,8 +474,11 @@ pub fn create_default_context() -> EngineState {
 
         // Experimental
         bind_command! {
-            ViewSource,
             IsAdmin,
+            View,
+            ViewFiles,
+            ViewSource,
+            ViewSpan,
         };
 
         // Deprecated

@@ -119,7 +119,7 @@ impl Command for SeqDate {
         stack: &mut Stack,
         call: &Call,
         _input: PipelineData,
-    ) -> Result<nu_protocol::PipelineData, nu_protocol::ShellError> {
+    ) -> Result<PipelineData, ShellError> {
         let output_format: Option<Spanned<String>> =
             call.get_flag(engine_state, stack, "output-format")?;
         let input_format: Option<Spanned<String>> =

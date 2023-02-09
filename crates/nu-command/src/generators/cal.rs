@@ -63,7 +63,7 @@ impl Command for Cal {
         stack: &mut Stack,
         call: &Call,
         input: PipelineData,
-    ) -> Result<nu_protocol::PipelineData, nu_protocol::ShellError> {
+    ) -> Result<PipelineData, ShellError> {
         cal(engine_state, stack, call, input)
     }
 
@@ -94,7 +94,7 @@ pub fn cal(
     call: &Call,
     // TODO: Error if a value is piped in
     _input: PipelineData,
-) -> Result<nu_protocol::PipelineData, nu_protocol::ShellError> {
+) -> Result<PipelineData, ShellError> {
     let mut calendar_vec_deque = VecDeque::new();
     let tag = call.head;
 
