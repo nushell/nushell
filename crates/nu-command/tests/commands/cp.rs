@@ -7,16 +7,42 @@ use nu_test_support::nu;
 use nu_test_support::playground::Playground;
 use std::path::Path;
 
+fn get_file_hash<T: std::fmt::Display>(file: T) -> String {
+    nu!("open {} | to text | hash md5", file).out
+}
+
 #[test]
 fn copies_a_file() {
     Playground::setup("cp_test_1", |dirs, _| {
+        let test_file = dirs.formats().join("sample.ini");
+
+        // Get the hash of the file content to check integrity after copy.
+        let first_hash = get_file_hash(&test_file.display());
+
         nu!(
             cwd: dirs.root(),
             "cp `{}` cp_test_1/sample.ini",
-            dirs.formats().join("sample.ini").display()
+            test_file.display()
         );
 
         assert!(dirs.test().join("sample.ini").exists());
+
+        // Get the hash of the copied file content to check against first_hash.
+        let after_cp_hash = get_file_hash(dirs.test().join("sample.ini").display());
+        assert_eq!(first_hash, after_cp_hash);
+
+        // Since progress cp used a different algorithm we have to test it separately
+        nu!(
+            cwd: dirs.root(),
+            "cp --progress `{}` cp_test_1/sample_progress.ini",
+            test_file.display()
+        );
+
+        assert!(dirs.test().join("sample_progress.ini").exists());
+
+        // Get the hash of the copied file content to check against first_hash.
+        let after_cp_hash = get_file_hash(dirs.test().join("sample_progress.ini").display());
+        assert_eq!(first_hash, after_cp_hash);
     });
 }
 
@@ -25,6 +51,9 @@ fn copies_the_file_inside_directory_if_path_to_copy_is_directory() {
     Playground::setup("cp_test_2", |dirs, _| {
         let expected_file = AbsoluteFile::new(dirs.test().join("sample.ini"));
 
+        // Get the hash of the file content to check integrity after copy.
+        let first_hash = get_file_hash(dirs.formats().join("../formats/sample.ini").display());
+
         nu!(
             cwd: dirs.formats(),
             "cp ../formats/sample.ini {}",
@@ -32,6 +61,22 @@ fn copies_the_file_inside_directory_if_path_to_copy_is_directory() {
         );
 
         assert!(dirs.test().join("sample.ini").exists());
+
+        // Since progress cp used a different algorithm we have to test it separately
+        let expected_file = AbsoluteFile::new(dirs.test().join("sample_progress.ini"));
+        nu!(
+            cwd: dirs.formats(),
+            "cp --progress ../formats/sample.ini {}",
+            expected_file.dir()
+        );
+
+        assert!(dirs.test().join("sample_progress.ini").exists());
+
+        println!("{}", expected_file);
+
+        // Get the hash of the copied file content to check against first_hash.
+        let after_cp_hash = get_file_hash(expected_file);
+        assert_eq!(first_hash, after_cp_hash);
     })
 }
 
@@ -41,6 +86,14 @@ fn error_if_attempting_to_copy_a_directory_to_another_directory() {
         let actual = nu!(
             cwd: dirs.formats(),
             "cp ../formats {}", dirs.test().display()
+        );
+
+        assert!(actual.err.contains("../formats"));
+        assert!(actual.err.contains("resolves to a directory (not copied)"));
+
+        let actual = nu!(
+            cwd: dirs.formats(),
+            "cp --progress ../formats {}", dirs.test().display()
         );
 
         assert!(actual.err.contains("../formats"));
@@ -65,6 +118,27 @@ fn copies_the_directory_inside_directory_if_path_to_copy_is_directory_and_with_r
         nu!(
             cwd: dirs.test(),
             "cp originals expected -r"
+        );
+
+        assert!(expected_dir.exists());
+        assert!(files_exist_at(
+            vec![
+                Path::new("yehuda.txt"),
+                Path::new("jonathan.txt"),
+                Path::new("andres.txt")
+            ],
+            &expected_dir
+        ));
+
+        // Delete files copied previously to test `--progress`
+        nu!(
+            cwd: dirs.test(),
+            "rm -rf expected/originals"
+        );
+
+        nu!(
+            cwd: dirs.test(),
+            "cp -p originals expected -r"
         );
 
         assert!(expected_dir.exists());
@@ -113,6 +187,31 @@ fn deep_copies_with_recursive_flag() {
         assert!(expected_dir.exists());
         assert!(files_exist_at(
             vec![Path::new("errors.txt"), Path::new("multishells.txt")],
+            &jonathans_expected_copied_dir
+        ));
+        assert!(files_exist_at(
+            vec![Path::new("coverage.txt"), Path::new("commands.txt")],
+            &andres_expected_copied_dir
+        ));
+        assert!(files_exist_at(
+            vec![Path::new("defer-evaluation.txt")],
+            &yehudas_expected_copied_dir
+        ));
+
+        // Delete files copied previously to test `--progress`
+        nu!(
+            cwd: dirs.test(),
+            "rm -rf expected/originals"
+        );
+
+        nu!(
+            cwd: dirs.test(),
+            "cp originals expected --recursive --progress"
+        );
+
+        assert!(expected_dir.exists());
+        assert!(files_exist_at(
+            vec![Path::new("errors.txt"), Path::new("multishells.txt")],
             jonathans_expected_copied_dir
         ));
         assert!(files_exist_at(
@@ -129,6 +228,15 @@ fn deep_copies_with_recursive_flag() {
 #[test]
 fn copies_using_path_with_wildcard() {
     Playground::setup("cp_test_6", |dirs, _| {
+        // Get the hash of the file content to check integrity after copy.
+        let src_hashes = nu!(
+            cwd: dirs.formats(),
+            "for file in (ls ../formats/*) { open --raw $file.name | to text | hash md5 }"
+        )
+        .out;
+
+        //println!("{}", hashes);
+
         nu!(
             cwd: dirs.formats(),
             "cp -r ../formats/* {}", dirs.test().display()
@@ -145,12 +253,49 @@ fn copies_using_path_with_wildcard() {
             ],
             dirs.test()
         ));
+
+        // Delete files copied previously to test `--progress`
+        nu!(
+            cwd: dirs.formats(),
+            "rm -r {}/*", dirs.test().display()
+        );
+
+        nu!(
+            cwd: dirs.formats(),
+            "cp -r -p ../formats/* {}", dirs.test().display()
+        );
+
+        assert!(files_exist_at(
+            vec![
+                Path::new("caco3_plastics.csv"),
+                Path::new("cargo_sample.toml"),
+                Path::new("jonathan.xml"),
+                Path::new("sample.ini"),
+                Path::new("sgml_description.json"),
+                Path::new("utf16.ini"),
+            ],
+            dirs.test()
+        ));
+
+        // Check integrity after the copy is done
+        let dst_hashes = nu!(
+            cwd: dirs.formats(),
+            "for file in (ls {}) {{ open --raw $file.name | to text | hash md5 }}", dirs.test().display()
+        ).out;
+        assert_eq!(src_hashes, dst_hashes);
     })
 }
 
 #[test]
 fn copies_using_a_glob() {
     Playground::setup("cp_test_7", |dirs, _| {
+        // Get the hash of the file content to check integrity after copy.
+        let src_hashes = nu!(
+            cwd: dirs.formats(),
+            "for file in (ls *) { open --raw $file.name | to text | hash md5 }"
+        )
+        .out;
+
         nu!(
             cwd: dirs.formats(),
             "cp -r * {}", dirs.test().display()
@@ -167,6 +312,39 @@ fn copies_using_a_glob() {
             ],
             dirs.test()
         ));
+
+        // Delete files copied previously to test `--progress`
+        nu!(
+            cwd: dirs.formats(),
+            "rm -r {}/*", dirs.test().display()
+        );
+
+        // run cp test with `--progress` on.
+        nu!(
+            cwd: dirs.formats(),
+            "cp -r -p * {}", dirs.test().display()
+        );
+
+        assert!(files_exist_at(
+            vec![
+                Path::new("caco3_plastics.csv"),
+                Path::new("cargo_sample.toml"),
+                Path::new("jonathan.xml"),
+                Path::new("sample.ini"),
+                Path::new("sgml_description.json"),
+                Path::new("utf16.ini"),
+            ],
+            dirs.test()
+        ));
+
+        // Check integrity after the copy is done
+        let dst_hashes = nu!(
+            cwd: dirs.formats(),
+            "for file in (ls {}) {{ open --raw $file.name | to text | hash md5 }}",
+            dirs.test().display()
+        )
+        .out;
+        assert_eq!(src_hashes, dst_hashes);
     });
 }
 
@@ -186,6 +364,26 @@ fn copies_same_file_twice() {
         );
 
         assert!(dirs.test().join("sample.ini").exists());
+
+        // Delete files copied previously to test `--progress`
+        nu!(
+            cwd: dirs.root(),
+            "rm cp_test_8/sample.ini"
+        );
+
+        nu!(
+            cwd: dirs.root(),
+            "cp --progress `{}` cp_test_8/sample_progress.ini",
+            dirs.formats().join("sample.ini").display()
+        );
+
+        nu!(
+            cwd: dirs.root(),
+            "cp --progress `{}` cp_test_8/sample_progress.ini",
+            dirs.formats().join("sample.ini").display()
+        );
+
+        assert!(dirs.test().join("sample_progress.ini").exists());
     });
 }
 
@@ -204,6 +402,39 @@ fn copy_files_using_glob_two_parents_up_using_multiple_dots() {
             cwd: dirs.test().join("foo/bar"),
             r#"
                 cp * ...
+            "#
+        );
+
+        assert!(files_exist_at(
+            vec![
+                "yehuda.yaml",
+                "jonathan.json",
+                "andres.xml",
+                "kevin.txt",
+                "many_more.ppl",
+            ],
+            dirs.test()
+        ));
+
+        // Delete files copied previously to test `--progress`
+        nu!(
+            cwd: dirs.root(),
+            "rm -r {}/*", dirs.test().display()
+        );
+
+        sandbox.within("foo").within("bar").with_files(vec![
+            EmptyFile("jonathan.json"),
+            EmptyFile("andres.xml"),
+            EmptyFile("yehuda.yaml"),
+            EmptyFile("kevin.txt"),
+            EmptyFile("many_more.ppl"),
+        ]);
+
+        // run the same test but with --progress flag set
+        nu!(
+            cwd: dirs.test().join("foo/bar"),
+            r#"
+                cp --progress * ...
             "#
         );
 
@@ -236,6 +467,24 @@ fn copy_file_and_dir_from_two_parents_up_using_multiple_dots_to_current_dir_recu
 
         let expected = dirs.test().join("foo/bar");
 
+        assert!(files_exist_at(
+            vec!["hello_there", "hello_again"],
+            &expected
+        ));
+
+        // Delete files copied previously to test `--progress`
+        nu!(
+            cwd: dirs.root(),
+            "rm -r {}/*", expected.display()
+        );
+
+        nu!(
+            cwd: dirs.test().join("foo/bar"),
+            r#"
+                cp -r -p .../hello* .
+            "#
+        );
+
         assert!(files_exist_at(vec!["hello_there", "hello_again"], expected));
     })
 }
@@ -251,6 +500,14 @@ fn copy_to_non_existing_dir() {
         );
         assert!(actual.err.contains("directory not found"));
         assert!(actual.err.contains("destination directory does not exist"));
+
+        // --- run the same test but with the --progress flag set ---
+        let actual = nu!(
+            cwd: sandbox.cwd(),
+            "cp -p empty_file ~/not_a_dir/",
+        );
+        assert!(actual.err.contains("directory not found"));
+        assert!(actual.err.contains("destination directory does not exist"));
     });
 }
 
@@ -263,10 +520,25 @@ fn copy_dir_contains_symlink_ignored() {
             .within("tmp_dir")
             .symlink("good_bye", "dangle_symlink");
 
+        println!("Everything fine so far");
+
         // make symbolic link and copy.
         nu!(
             cwd: sandbox.cwd(),
             "rm tmp_dir/good_bye; cp -r tmp_dir tmp_dir_2",
+        );
+
+        // check hello_there exists inside `tmp_dir_2`, and `dangle_symlink` don't exists inside `tmp_dir_2`.
+        let expected = sandbox.cwd().join("tmp_dir_2");
+        assert!(files_exist_at(vec!["hello_there"], expected.clone()));
+        let path = expected.join("dangle_symlink");
+        assert!(!path.exists() && !path.is_symlink());
+
+        // --- run the same test but with the --progress flag set ---
+        // make symbolic link and copy.
+        nu!(
+            cwd: sandbox.cwd(),
+            "rm -r tmp_dir_2; cp -p -r tmp_dir tmp_dir_2",
         );
 
         // check hello_there exists inside `tmp_dir_2`, and `dangle_symlink` don't exists inside `tmp_dir_2`.
@@ -332,6 +604,13 @@ fn copy_identical_file() {
             "cp same.txt same.txt",
         );
         assert!(actual.err.contains("Copy aborted"));
+
+        // --- run the same test but with --progress flag set ---
+        let actual = nu!(
+            cwd: sandbox.cwd(),
+            "cp -p same.txt same.txt",
+        );
+        assert!(actual.err.contains("Copy aborted"));
     });
 }
 
@@ -343,6 +622,13 @@ fn copy_ignores_ansi() {
         let actual = nu!(
             cwd: sandbox.cwd(),
             "ls | find test | get name | cp $in.0 success.txt; ls | find success | get name | ansi strip | get 0",
+        );
+        assert_eq!(actual.out, "success.txt");
+
+        // --- run the same test but with --progress flag set ---
+        let actual = nu!(
+            cwd: sandbox.cwd(),
+            "ls | find test | get name | cp --progress $in.0 success.txt; ls | find success | get name | ansi strip | get 0",
         );
         assert_eq!(actual.out, "success.txt");
     });
