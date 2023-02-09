@@ -45,7 +45,7 @@ impl Command for Rm {
 
     fn signature(&self) -> Signature {
         let sig = Signature::build("rm")
-            .input_output_types(vec![(Type::Nothing, Type::List(Box::new(Type::String)))])
+            .input_output_types(vec![(Type::Nothing, Type::Nothing)])
             .required(
                 "filename",
                 SyntaxShape::Filepath,

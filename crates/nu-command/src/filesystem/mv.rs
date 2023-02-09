@@ -35,7 +35,7 @@ impl Command for Mv {
 
     fn signature(&self) -> nu_protocol::Signature {
         Signature::build("mv")
-            .input_output_types(vec![(Type::Nothing, Type::List(Box::new(Type::String)))])
+            .input_output_types(vec![(Type::Nothing, Type::Nothing)])
             .required(
                 "source",
                 SyntaxShape::GlobPattern,

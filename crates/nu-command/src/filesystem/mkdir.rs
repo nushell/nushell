@@ -19,7 +19,7 @@ impl Command for Mkdir {
 
     fn signature(&self) -> Signature {
         Signature::build("mkdir")
-            .input_output_types(vec![(Type::Nothing, Type::List(Box::new(Type::String)))])
+            .input_output_types(vec![(Type::Nothing, Type::Nothing)])
             .rest(
                 "rest",
                 SyntaxShape::Directory,
