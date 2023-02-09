@@ -208,7 +208,7 @@ pub fn from_yaml_string_to_value(
     }
 }
 
-pub fn get_examples() -> Vec<Example> {
+pub fn get_examples() -> Vec<Example<'static>> {
     vec![
         Example {
             example: "'a: 1' | from yaml",

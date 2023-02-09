@@ -12,7 +12,7 @@ pub struct GetMonth;
 
 impl Command for GetMonth {
     fn name(&self) -> &str {
-        "get-month"
+        "dfr get-month"
     }
 
     fn usage(&self) -> &str {
@@ -30,8 +30,8 @@ impl Command for GetMonth {
         vec![Example {
             description: "Returns month from a date",
             example: r#"let dt = ('2020-08-04T16:39:18+00:00' | into datetime -z 'UTC');
-    let df = ([$dt $dt] | into df);
-    $df | get-month"#,
+    let df = ([$dt $dt] | dfr into-df);
+    $df | dfr get-month"#,
             result: Some(
                 NuDataFrame::try_from_columns(vec![Column::new(
                     "0".to_string(),

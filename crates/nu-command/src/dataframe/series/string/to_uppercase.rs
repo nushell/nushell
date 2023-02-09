@@ -12,7 +12,7 @@ pub struct ToUpperCase;
 
 impl Command for ToUpperCase {
     fn name(&self) -> &str {
-        "uppercase"
+        "dfr uppercase"
     }
 
     fn usage(&self) -> &str {
@@ -33,7 +33,7 @@ impl Command for ToUpperCase {
     fn examples(&self) -> Vec<Example> {
         vec![Example {
             description: "Modifies strings to uppercase",
-            example: "[Abc aBc abC] | into df | uppercase",
+            example: "[Abc aBc abC] | dfr into-df | dfr uppercase",
             result: Some(
                 NuDataFrame::try_from_columns(vec![Column::new(
                     "0".to_string(),

@@ -12,7 +12,7 @@ pub struct ToLowerCase;
 
 impl Command for ToLowerCase {
     fn name(&self) -> &str {
-        "lowercase"
+        "dfr lowercase"
     }
 
     fn usage(&self) -> &str {
@@ -29,7 +29,7 @@ impl Command for ToLowerCase {
     fn examples(&self) -> Vec<Example> {
         vec![Example {
             description: "Modifies strings to lowercase",
-            example: "[Abc aBc abC] | into df | lowercase",
+            example: "[Abc aBc abC] | dfr into-df | dfr lowercase",
             result: Some(
                 NuDataFrame::try_from_columns(vec![Column::new(
                     "0".to_string(),
