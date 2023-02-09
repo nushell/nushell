@@ -64,13 +64,12 @@ impl Command for Profile {
             }
         }
 
-        stack.profiling_config = ProfilingConfig {
-            depth: call
-                .get_flag::<i64>(engine_state, &mut stack, "max-depth")?
+        stack.profiling_config = ProfilingConfig::new(
+            call.get_flag::<i64>(engine_state, &mut stack, "max-depth")?
                 .unwrap_or(1),
-            collect_source: call.has_flag("source"),
-            collect_values: call.has_flag("values"),
-        };
+            call.has_flag("source"),
+            call.has_flag("values"),
+        );
 
         let profiling_metadata = PipelineMetadata {
             data_source: DataSource::Profiling(vec![]),

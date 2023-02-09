@@ -991,12 +991,13 @@ pub fn eval_block(
         }
     }
 
-    let should_debug = if stack.profiling_config.depth > 0 {
-        stack.profiling_config.depth -= 1;
-        true
-    } else {
-        false
-    };
+    stack.profiling_config.enter_block();
+    // let should_debug = if stack.profiling_config.depth > 0 {
+    //     stack.profiling_config.depth -= 1;
+    //     true
+    // } else {
+    //     false
+    // };
 
     let num_pipelines = block.len();
 
@@ -1015,8 +1016,13 @@ pub fn eval_block(
                             | PipelineElement::SeparateRedirection { .. }
                     )));
 
+            let start_time = if stack.profiling_config.should_debug() {
+                Some(Instant::now())
+            } else {
+                None
+            };
+
             // if eval internal command failed, it can just make early return with `Err(ShellError)`.
-            let start_time = Instant::now();
             let eval_result = eval_element_with_input(
                 engine_state,
                 stack,
@@ -1033,9 +1039,14 @@ pub fn eval_block(
                         )),
                 redirect_stderr,
             );
-            let end_time = Instant::now();
 
-            if should_debug {
+            let end_time = if stack.profiling_config.should_debug() {
+                Some(Instant::now())
+            } else {
+                None
+            };
+
+            if let (Some(start_time), Some(end_time)) = (start_time, end_time) {
                 let span = pipeline.elements[i].span();
                 let element_str = Value::string(
                     String::from_utf8_lossy(
@@ -1043,7 +1054,7 @@ pub fn eval_block(
                     ),
                     span,
                 );
-                let ns = (end_time - start_time).as_nanos() as i64;
+                let time_ns = (end_time - start_time).as_nanos() as i64;
 
                 let mut cols = vec![
                     "pipeline_idx".to_string(),
@@ -1055,7 +1066,7 @@ pub fn eval_block(
                 let mut vals = vec![
                     Value::int(pipeline_idx as i64, span),
                     Value::int(i as i64, span),
-                    Value::int(stack.profiling_config.depth + 1, span),
+                    Value::int(stack.profiling_config.depth, span),
                     Value::record(
                         vec!["start".to_string(), "end".to_string()],
                         vec![
@@ -1088,8 +1099,8 @@ pub fn eval_block(
                     vals.push(value);
                 }
 
-                cols.push("ns".to_string());
-                vals.push(Value::Duration { val: ns, span });
+                cols.push("time".to_string());
+                vals.push(Value::Duration { val: time_ns, span });
 
                 let record = Value::Record { cols, vals, span };
 
@@ -1100,22 +1111,6 @@ pub fn eval_block(
                 };
 
                 if let Some(PipelineMetadata {
-                    data_source: DataSource::Profiling(vals),
-                }) = element_metadata
-                {
-                    if let Some(PipelineMetadata {
-                        data_source: DataSource::Profiling(tgt_vals),
-                    }) = &mut input_metadata
-                    {
-                        tgt_vals.extend(vals);
-                    } else {
-                        input_metadata = Some(PipelineMetadata {
-                            data_source: DataSource::Profiling(vals),
-                        });
-                    }
-                }
-
-                if let Some(PipelineMetadata {
                     data_source: DataSource::Profiling(tgt_vals),
                 }) = &mut input_metadata
                 {
@@ -1124,6 +1119,22 @@ pub fn eval_block(
                     input_metadata = Some(PipelineMetadata {
                         data_source: DataSource::Profiling(vec![record]),
                     });
+                }
+
+                if let Some(PipelineMetadata {
+                    data_source: DataSource::Profiling(element_vals),
+                }) = element_metadata
+                {
+                    if let Some(PipelineMetadata {
+                        data_source: DataSource::Profiling(tgt_vals),
+                    }) = &mut input_metadata
+                    {
+                        tgt_vals.extend(element_vals);
+                    } else {
+                        input_metadata = Some(PipelineMetadata {
+                            data_source: DataSource::Profiling(element_vals),
+                        });
+                    }
                 }
             }
 
@@ -1143,6 +1154,7 @@ pub fn eval_block(
                     // make early return so remaining commands will not be executed.
                     // don't return `Err(ShellError)`, so nushell wouldn't show extra error message.
                     if output.1 {
+                        stack.profiling_config.leave_block();
                         return Ok(input);
                     }
                 }
@@ -1225,6 +1237,8 @@ pub fn eval_block(
             input = PipelineData::empty()
         }
     }
+
+    stack.profiling_config.leave_block();
 
     input = input.set_metadata(input_metadata);
     Ok(input)
