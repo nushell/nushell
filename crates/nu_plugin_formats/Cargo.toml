@@ -12,5 +12,5 @@ nu-engine = { path = "../nu-engine", version = "0.75.1" }
 indexmap = { version = "1.7", features = ["serde-1"] }
 
 eml-parser = "0.1.0"
-ical = "0.7.0"
+ical = "0.8.0"
 rust-ini = "0.18.0"
