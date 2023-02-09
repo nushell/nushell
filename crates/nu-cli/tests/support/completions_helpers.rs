@@ -43,6 +43,22 @@ pub fn new_engine() -> (PathBuf, String, EngineState, Stack) {
             span: nu_protocol::Span::new(0, dir_str.len()),
         },
     );
+    #[cfg(windows)]
+    stack.add_env_var(
+        "Path".to_string(),
+        Value::String {
+            val: "c:\\some\\path;c:\\some\\other\\path".to_string(),
+            span: nu_protocol::Span::new(0, dir_str.len()),
+        },
+    );
+    #[cfg(not(windows))]
+    stack.add_env_var(
+        "PATH".to_string(),
+        Value::String {
+            val: "/some/path:/some/other/path".to_string(),
+            span: nu_protocol::Span::new(0, dir_str.len()),
+        },
+    );
 
     // Merge environment into the permanent state
     let merge_result = engine_state.merge_env(&mut stack, &dir);

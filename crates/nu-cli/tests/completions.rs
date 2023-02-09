@@ -574,9 +574,12 @@ fn variables_completions() {
     // Test completions for $env
     let suggestions = completer.complete("$env.", 5);
 
-    assert_eq!(2, suggestions.len());
+    assert_eq!(3, suggestions.len());
 
-    let expected: Vec<String> = vec!["PWD".into(), "TEST".into()];
+    #[cfg(windows)]
+    let expected: Vec<String> = vec!["PWD".into(), "Path".into(), "TEST".into()];
+    #[cfg(not(windows))]
+    let expected: Vec<String> = vec!["PATH".into(), "PWD".into(), "TEST".into()];
 
     // Match results
     match_suggestions(expected, suggestions);
@@ -852,4 +855,14 @@ fn alias_offset_bug_7754() {
     let _suggestions = completer.complete("ll -a | c", 9);
 
     //println!(" --------- suggestions: {:?}", suggestions);
+}
+
+#[test]
+fn get_path_env_var_8003() {
+    // Create a new engine
+    let (_, _, engine, _) = new_engine();
+    // Get the path env var in a platform agnostic way
+    let the_path = engine.get_path_env_var();
+    // Make sure it's not empty
+    assert!(the_path.is_some());
 }

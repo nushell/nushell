@@ -57,7 +57,8 @@ impl LazyRecord for NuVariable {
                         span: self.span,
                     })
                 } else if let Some(mut path) = nu_path::config_dir() {
-                    path.push("nushell/config.nu");
+                    path.push("nushell");
+                    path.push("config.nu");
                     Ok(Value::String {
                         val: path.to_string_lossy().to_string(),
                         span: self.span,
@@ -73,7 +74,8 @@ impl LazyRecord for NuVariable {
                         span: self.span,
                     })
                 } else if let Some(mut path) = nu_path::config_dir() {
-                    path.push("nushell/env.nu");
+                    path.push("nushell");
+                    path.push("env.nu");
                     Ok(Value::String {
                         val: path.to_string_lossy().to_string(),
                         span: self.span,
@@ -103,7 +105,8 @@ impl LazyRecord for NuVariable {
             }
             "loginshell-path" => {
                 if let Some(mut path) = nu_path::config_dir() {
-                    path.push("nushell/login.nu");
+                    path.push("nushell");
+                    path.push("login.nu");
                     Ok(Value::String {
                         val: path.to_string_lossy().to_string(),
                         span: self.span,

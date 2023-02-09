@@ -11,7 +11,7 @@ pub struct LastDF;
 
 impl Command for LastDF {
     fn name(&self) -> &str {
-        "last"
+        "dfr last"
     }
 
     fn usage(&self) -> &str {
@@ -29,7 +29,7 @@ impl Command for LastDF {
     fn examples(&self) -> Vec<Example> {
         vec![Example {
             description: "Create new dataframe with last rows",
-            example: "[[a b]; [1 2] [3 4]] | into df | last 1",
+            example: "[[a b]; [1 2] [3 4]] | dfr into-df | dfr last 1",
             result: Some(
                 NuDataFrame::try_from_columns(vec![
                     Column::new("a".to_string(), vec![Value::test_int(3)]),

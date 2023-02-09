@@ -1,15 +1,29 @@
 use crate::Example;
 use nu_plugin::{EvaluatedCall, LabeledError, Plugin};
-use nu_protocol::{Category, Signature, SyntaxShape, Value};
+use nu_protocol::{Category, PluginExample, PluginSignature, SyntaxShape, Value};
 
 impl Plugin for Example {
-    fn signature(&self) -> Vec<Signature> {
+    fn signature(&self) -> Vec<PluginSignature> {
         // It is possible to declare multiple signature in a plugin
         // Each signature will be converted to a command declaration once the
         // plugin is registered to nushell
         vec![
-            Signature::build("nu-example-1")
-                .usage("Signature test 1 for plugin. Returns Value::Nothing")
+            PluginSignature::build("nu-example-1")
+                .usage("PluginSignature test 1 for plugin. Returns Value::Nothing")
+                .required("a", SyntaxShape::Int, "required integer value")
+                .required("b", SyntaxShape::String, "required string value")
+                .switch("flag", "a flag for the signature", Some('f'))
+                .optional("opt", SyntaxShape::Int, "Optional number")
+                .named("named", SyntaxShape::String, "named string", Some('n'))
+                .rest("rest", SyntaxShape::String, "rest value string")
+                .plugin_examples(vec![PluginExample {
+                    example: "nu-example-1 3 bb".into(),
+                    description: "running example with an int value and string value".into(),
+                    result: None,
+                }])
+                .category(Category::Experimental),
+            PluginSignature::build("nu-example-2")
+                .usage("PluginSignature test 2 for plugin. Returns list of records")
                 .required("a", SyntaxShape::Int, "required integer value")
                 .required("b", SyntaxShape::String, "required string value")
                 .switch("flag", "a flag for the signature", Some('f'))
@@ -17,17 +31,8 @@ impl Plugin for Example {
                 .named("named", SyntaxShape::String, "named string", Some('n'))
                 .rest("rest", SyntaxShape::String, "rest value string")
                 .category(Category::Experimental),
-            Signature::build("nu-example-2")
-                .usage("Signature test 2 for plugin. Returns list of records")
-                .required("a", SyntaxShape::Int, "required integer value")
-                .required("b", SyntaxShape::String, "required string value")
-                .switch("flag", "a flag for the signature", Some('f'))
-                .optional("opt", SyntaxShape::Int, "Optional number")
-                .named("named", SyntaxShape::String, "named string", Some('n'))
-                .rest("rest", SyntaxShape::String, "rest value string")
-                .category(Category::Experimental),
-            Signature::build("nu-example-3")
-                .usage("Signature test 3 for plugin. Returns labeled error")
+            PluginSignature::build("nu-example-3")
+                .usage("PluginSignature test 3 for plugin. Returns labeled error")
                 .required("a", SyntaxShape::Int, "required integer value")
                 .required("b", SyntaxShape::String, "required string value")
                 .switch("flag", "a flag for the signature", Some('f'))

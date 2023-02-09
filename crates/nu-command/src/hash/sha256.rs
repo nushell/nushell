@@ -9,7 +9,7 @@ impl HashDigest for Sha256 {
         "sha256"
     }
 
-    fn examples() -> Vec<Example> {
+    fn examples() -> Vec<Example<'static>> {
         vec![
             Example {
                 description: "Return the sha256 hash of a string, hex-encoded",
