@@ -19,7 +19,7 @@ impl Command for Mkdir {
 
     fn signature(&self) -> Signature {
         Signature::build("mkdir")
-            .input_output_types(vec![(Type::Nothing, Type::List(Box::new(Type::String)))])
+            .input_output_types(vec![(Type::Nothing, Type::Nothing)])
             .rest(
                 "rest",
                 SyntaxShape::Directory,
@@ -83,9 +83,11 @@ impl Command for Mkdir {
             }
         }
 
-        Ok(stream
+        stream
             .into_iter()
-            .into_pipeline_data(engine_state.ctrlc.clone()))
+            .into_pipeline_data(engine_state.ctrlc.clone())
+            .print_not_formatted(engine_state, false, true)?;
+        Ok(PipelineData::empty())
     }
 
     fn examples(&self) -> Vec<Example> {

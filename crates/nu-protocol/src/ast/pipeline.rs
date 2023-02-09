@@ -23,6 +23,19 @@ pub enum PipelineElement {
 }
 
 impl PipelineElement {
+    pub fn expression(&self) -> &Expression {
+        match self {
+            PipelineElement::Expression(_, expression) => expression,
+            PipelineElement::Redirection(_, _, expression) => expression,
+            PipelineElement::SeparateRedirection {
+                out: (_, expression),
+                ..
+            } => expression,
+            PipelineElement::And(_, expression) => expression,
+            PipelineElement::Or(_, expression) => expression,
+        }
+    }
+
     pub fn span(&self) -> Span {
         match self {
             PipelineElement::Expression(None, expression) => expression.span,
