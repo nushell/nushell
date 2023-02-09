@@ -1,4 +1,3 @@
-use indexmap::map::IndexMap;
 use nu_plugin::{EvaluatedCall, LabeledError};
 use nu_protocol::{PluginExample, ShellError, Span, Value};
 
@@ -9,23 +8,49 @@ pub fn from_ini_call(call: &EvaluatedCall, input: &Value) -> Result<Value, Label
     let input_string = input.as_string()?;
     let head = call.head;
 
-    let v: Result<IndexMap<String, IndexMap<String, String>>, serde_ini::de::Error> =
-        serde_ini::from_str(&input_string);
-    match v {
-        Ok(index_map) => {
-            let (cols, vals) = index_map
-                .into_iter()
-                .fold((vec![], vec![]), |mut acc, (k, v)| {
-                    let (cols, vals) = v.into_iter().fold((vec![], vec![]), |mut acc, (k, v)| {
-                        acc.0.push(k);
-                        acc.1.push(Value::String { val: v, span });
-                        acc
+    let ini_config: Result<ini::Ini, ini::ParseError> = ini::Ini::load_from_str(&input_string);
+    match ini_config {
+        Ok(config) => {
+            let mut sections: Vec<String> = Vec::new();
+            let mut sections_key_value_pairs: Vec<Value> = Vec::new();
+
+            for (section, properties) in config.iter() {
+                let mut keys_for_section: Vec<String> = Vec::new();
+                let mut values_for_section: Vec<Value> = Vec::new();
+
+                // section
+                match section {
+                    Some(section_name) => {
+                        sections.push(section_name.to_owned());
+                    }
+                    None => {
+                        sections.push(String::new());
+                    }
+                }
+
+                // section's key value pairs
+                for (key, value) in properties.iter() {
+                    keys_for_section.push(key.to_owned());
+                    values_for_section.push(Value::String {
+                        val: value.to_owned(),
+                        span,
                     });
-                    acc.0.push(k);
-                    acc.1.push(Value::Record { cols, vals, span });
-                    acc
+                }
+
+                // section with its key value pairs
+                sections_key_value_pairs.push(Value::Record {
+                    cols: keys_for_section,
+                    vals: values_for_section,
+                    span,
                 });
-            Ok(Value::Record { cols, vals, span })
+            }
+
+            // all sections with all its key value pairs
+            Ok(Value::Record {
+                cols: sections,
+                vals: sections_key_value_pairs,
+                span,
+            })
         }
         Err(err) => Err(ShellError::UnsupportedInput(
             format!("Could not load ini: {err}"),

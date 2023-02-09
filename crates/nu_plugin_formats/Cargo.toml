@@ -13,4 +13,4 @@ indexmap = { version = "1.7", features = ["serde-1"] }
 
 eml-parser = "0.1.0"
 ical = "0.7.0"
-serde_ini = "0.2.0"
+rust-ini = "0.18.0"
