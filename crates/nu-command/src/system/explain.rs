@@ -35,27 +35,13 @@ impl Command for Explain {
         engine_state: &EngineState,
         stack: &mut Stack,
         call: &Call,
-        input: PipelineData,
+        _input: PipelineData,
     ) -> Result<nu_protocol::PipelineData, nu_protocol::ShellError> {
         // This was all delightfully stolen from benchmark :)
         let capture_block: Closure = call.req(engine_state, stack, 0)?;
         let block = engine_state.get_block(capture_block.block_id);
         let ctrlc = engine_state.ctrlc.clone();
-
         let mut stack = stack.captures_to_stack(&capture_block.captures);
-
-        // In order to provide the pipeline as a positional, it must be converted into a value.
-        // But because pipelines do not have Clone, this one has to be cloned as a value
-        // and then converted back into a pipeline for eval_block().
-        // So, the metadata must be saved here and restored at that point.
-        // let input_metadata = input.metadata();
-        let input_val = input.into_value(call.head);
-
-        if let Some(var) = block.signature.get_positional(0) {
-            if let Some(var_id) = &var.var_id {
-                stack.add_var(*var_id, input_val);
-            }
-        }
 
         let elements = get_pipeline_elements(engine_state, &mut stack, block)?;
 
