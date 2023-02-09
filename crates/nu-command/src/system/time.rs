@@ -35,6 +35,10 @@ impl Command for Time {
             .category(Category::System)
     }
 
+    fn search_terms(&self) -> Vec<&str> {
+        vec!["timing", "timer", "benchmark", "measure"]
+    }
+
     fn run(
         &self,
         engine_state: &EngineState,
