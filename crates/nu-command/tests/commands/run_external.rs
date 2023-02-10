@@ -8,7 +8,7 @@ fn better_empty_redirection() {
     let actual = nu!(
         cwd: "tests/fixtures/formats", pipeline(
         r#"
-            ls | each { |it| nu --testbin cococo $it.name }
+            ls | each { |it| nu --testbin cococo $it.name } | ignore
         "#
     ));
 
