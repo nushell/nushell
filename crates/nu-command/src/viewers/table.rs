@@ -1923,13 +1923,18 @@ fn create_empty_placeholder(
     engine_state: &EngineState,
     stack: &Stack,
 ) -> String {
+    let config = engine_state.get_config();
+
+    if !config.table_show_empty {
+        return "".into();
+    }
+
     let empty_info_string = format!("empty {}", value_type_name);
     let cell = NuTable::create_cell(empty_info_string, TextStyle::default().dimmed());
     let data = vec![vec![cell]];
     let table = NuTable::new(data, (1, 1));
 
     let style_computer = &StyleComputer::from_config(engine_state, stack);
-    let config = engine_state.get_config();
     let config = create_table_config(config, style_computer, 1, false, false, false);
 
     table
