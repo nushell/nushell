@@ -605,6 +605,13 @@ let-env config = {
       }
     }
     {
+      name: insert-new-line
+      modifier: control
+      keycode: char_j
+      mode: emacs
+      event: {edit: insertnewline}
+    }
+    {
       name: unix-line-discard
       modifier: control
       keycode: char_u
