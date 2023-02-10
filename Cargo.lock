@@ -2801,6 +2801,7 @@ dependencies = [
  "shadow-rs",
  "sqlparser",
  "sysinfo",
+ "tabled",
  "terminal_size 0.2.1",
  "thiserror",
  "titlecase",

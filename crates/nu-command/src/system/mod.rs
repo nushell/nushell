@@ -3,6 +3,8 @@ mod complete;
 #[cfg(unix)]
 mod exec;
 mod explain;
+mod inspect;
+mod inspect_table;
 mod nu_check;
 #[cfg(any(
     target_os = "android",
@@ -22,6 +24,8 @@ pub use complete::Complete;
 #[cfg(unix)]
 pub use exec::Exec;
 pub use explain::Explain;
+pub use inspect::Inspect;
+pub use inspect_table::build_table;
 pub use nu_check::NuCheck;
 #[cfg(any(
     target_os = "android",
