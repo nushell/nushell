@@ -992,12 +992,6 @@ pub fn eval_block(
     }
 
     stack.profiling_config.enter_block();
-    // let should_debug = if stack.profiling_config.depth > 0 {
-    //     stack.profiling_config.depth -= 1;
-    //     true
-    // } else {
-    //     false
-    // };
 
     let num_pipelines = block.len();
 
