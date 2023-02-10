@@ -1,19 +1,18 @@
-use std::time::Instant;
-
 use nu_engine::{eval_block, CallExt};
-use nu_protocol::ast::Call;
-use nu_protocol::engine::{Closure, Command, EngineState, Stack};
 use nu_protocol::{
+    ast::Call,
+    engine::{Closure, Command, EngineState, Stack},
     Category, Example, IntoPipelineData, PipelineData, ShellError, Signature, SyntaxShape, Type,
     Value,
 };
+use std::time::Instant;
 
 #[derive(Clone)]
-pub struct Time;
+pub struct TimeIt;
 
-impl Command for Time {
+impl Command for TimeIt {
     fn name(&self) -> &str {
-        "time"
+        "timeit"
     }
 
     fn usage(&self) -> &str {
@@ -21,7 +20,7 @@ impl Command for Time {
     }
 
     fn signature(&self) -> nu_protocol::Signature {
-        Signature::build("time")
+        Signature::build("timeit")
             .required(
                 "closure",
                 SyntaxShape::Closure(Some(vec![SyntaxShape::Any])),
@@ -93,12 +92,12 @@ impl Command for Time {
         vec![
             Example {
                 description: "Times a command within a closure",
-                example: "time { sleep 500ms }",
+                example: "timeit { sleep 500ms }",
                 result: None,
             },
             Example {
                 description: "Times a command using an existing input",
-                example: "http get https://www.nushell.sh/book/ | time { split chars }",
+                example: "http get https://www.nushell.sh/book/ | timeit { split chars }",
                 result: None,
             },
         ]
@@ -112,7 +111,7 @@ fn test_time_closure() {
     use nu_test_support::{nu, nu_repl_code, playground::Playground};
     Playground::setup("test_time_closure", |dirs, _| {
         let inp = [
-            r#"[2 3 4] | time { to nuon | save foo.txt }"#,
+            r#"[2 3 4] | timeit { to nuon | save foo.txt }"#,
             "open foo.txt",
         ];
         let actual_repl = nu!(cwd: dirs.test(), nu_repl_code(&inp));
@@ -126,7 +125,7 @@ fn test_time_closure_2() {
     use nu_test_support::{nu, nu_repl_code, playground::Playground};
     Playground::setup("test_time_closure", |dirs, _| {
         let inp = [
-            r#"[2 3 4] | time {|e| {result: $e} | to nuon | save foo.txt }"#,
+            r#"[2 3 4] | timeit {|e| {result: $e} | to nuon | save foo.txt }"#,
             "open foo.txt",
         ];
         let actual_repl = nu!(cwd: dirs.test(), nu_repl_code(&inp));

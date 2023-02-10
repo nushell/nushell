@@ -177,7 +177,7 @@ pub fn create_default_context() -> EngineState {
             External,
             NuCheck,
             Sys,
-            Time,
+            TimeIt,
         };
 
         #[cfg(unix)]

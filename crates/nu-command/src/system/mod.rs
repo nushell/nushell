@@ -14,7 +14,7 @@ mod ps;
 mod registry_query;
 mod run_external;
 mod sys;
-mod time;
+mod timeit;
 mod which_;
 
 pub use complete::Complete;
@@ -33,5 +33,5 @@ pub use ps::Ps;
 pub use registry_query::RegistryQuery;
 pub use run_external::{External, ExternalCommand};
 pub use sys::Sys;
-pub use time::Time;
+pub use timeit::TimeIt;
 pub use which_::Which;
