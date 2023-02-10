@@ -11,7 +11,7 @@ pub struct NNull;
 
 impl Command for NNull {
     fn name(&self) -> &str {
-        "count-null"
+        "dfr count-null"
     }
 
     fn usage(&self) -> &str {
@@ -28,8 +28,8 @@ impl Command for NNull {
     fn examples(&self) -> Vec<Example> {
         vec![Example {
             description: "Counts null values",
-            example: r#"let s = ([1 1 0 0 3 3 4] | into df);
-    ($s / $s) | count-null"#,
+            example: r#"let s = ([1 1 0 0 3 3 4] | dfr into-df);
+    ($s / $s) | dfr count-null"#,
             result: Some(
                 NuDataFrame::try_from_columns(vec![Column::new(
                     "count_null".to_string(),

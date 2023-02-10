@@ -79,6 +79,8 @@ fn print_created_paths() {
             dirs.test()
         ));
 
-        assert_eq!(actual.out, "3");
+        assert!(actual.err.contains("dir_1"));
+        assert!(actual.err.contains("dir_2"));
+        assert!(actual.err.contains("dir_3"));
     })
 }

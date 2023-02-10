@@ -224,7 +224,7 @@ fn commands_have_usage() -> TestResult {
 #[test]
 fn equals_separates_long_flag() -> TestResult {
     run_test(
-        r#"'nushell' | str lpad --length=10 --character='-'"#,
+        r#"'nushell' | fill --alignment right --width=10 --character='-'"#,
         "---nushell",
     )
 }

@@ -27,7 +27,7 @@ impl Command for Metadata {
                 SyntaxShape::Any,
                 "the expression you want metadata for",
             )
-            .category(Category::Core)
+            .category(Category::Debug)
     }
 
     fn run(

@@ -12,7 +12,7 @@ pub struct GetNanosecond;
 
 impl Command for GetNanosecond {
     fn name(&self) -> &str {
-        "get-nanosecond"
+        "dfr get-nanosecond"
     }
 
     fn usage(&self) -> &str {
@@ -30,8 +30,8 @@ impl Command for GetNanosecond {
         vec![Example {
             description: "Returns nanosecond from a date",
             example: r#"let dt = ('2020-08-04T16:39:18+00:00' | into datetime -z 'UTC');
-    let df = ([$dt $dt] | into df);
-    $df | get-nanosecond"#,
+    let df = ([$dt $dt] | dfr into-df);
+    $df | dfr get-nanosecond"#,
             result: Some(
                 NuDataFrame::try_from_columns(vec![Column::new(
                     "0".to_string(),

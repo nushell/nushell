@@ -134,7 +134,7 @@ macro_rules! expr_command {
 // Expands to a command definition for a list expression
 expr_command!(
     ExprList,
-    "list",
+    "dfr list",
     "Aggregates a group to a Series",
     vec![Example {
         description: "",
@@ -149,7 +149,7 @@ expr_command!(
 // Expands to a command definition for a agg groups expression
 expr_command!(
     ExprAggGroups,
-    "agg-groups",
+    "dfr agg-groups",
     "creates an agg_groups expression",
     vec![Example {
         description: "",
@@ -164,7 +164,7 @@ expr_command!(
 // Expands to a command definition for a flatten expression
 expr_command!(
     ExprFlatten,
-    "flatten",
+    "dfr flatten",
     "creates a flatten expression",
     vec![Example {
         description: "",
@@ -179,7 +179,7 @@ expr_command!(
 // Expands to a command definition for a explode expression
 expr_command!(
     ExprExplode,
-    "explode",
+    "dfr explode",
     "creates an explode expression",
     vec![Example {
         description: "",
@@ -194,7 +194,7 @@ expr_command!(
 // Expands to a command definition for a count expression
 expr_command!(
     ExprCount,
-    "count",
+    "dfr count",
     "creates a count expression",
     vec![Example {
         description: "",
@@ -209,11 +209,11 @@ expr_command!(
 // Expands to a command definition for a count expression
 expr_command!(
     ExprFirst,
-    "first",
+    "dfr first",
     "creates a first expression",
     vec![Example {
         description: "Creates a first expression from a column",
-        example: "col a | first",
+        example: "dfr col a | dfr first",
         result: None,
     },],
     first,
@@ -224,11 +224,11 @@ expr_command!(
 // Expands to a command definition for a count expression
 expr_command!(
     ExprLast,
-    "last",
+    "dfr last",
     "creates a last expression",
     vec![Example {
         description: "Creates a last expression from a column",
-        example: "col a | last",
+        example: "dfr col a | dfr last",
         result: None,
     },],
     last,
@@ -239,11 +239,11 @@ expr_command!(
 // Expands to a command definition for a n-unique expression
 expr_command!(
     ExprNUnique,
-    "n-unique",
+    "dfr n-unique",
     "creates a n-unique expression",
     vec![Example {
         description: "Creates a is n-unique expression from a column",
-        example: "col a | n-unique",
+        example: "dfr col a | dfr n-unique",
         result: None,
     },],
     n_unique,
@@ -254,11 +254,11 @@ expr_command!(
 // Expands to a command definition for a n-unique expression
 expr_command!(
     ExprIsNotNull,
-    "is-not-null",
+    "dfr is-not-null",
     "creates a is not null expression",
     vec![Example {
         description: "Creates a is not null expression from a column",
-        example: "col a | is-not-null",
+        example: "dfr col a | dfr is-not-null",
         result: None,
     },],
     is_not_null,
@@ -269,11 +269,11 @@ expr_command!(
 // Expands to a command definition for a n-unique expression
 expr_command!(
     ExprIsNull,
-    "is-null",
+    "dfr is-null",
     "creates a is null expression",
     vec![Example {
         description: "Creates a is null expression from a column",
-        example: "col a | is-null",
+        example: "dfr col a | dfr is-null",
         result: None,
     },],
     is_null,
@@ -284,11 +284,11 @@ expr_command!(
 // Expands to a command definition for a not expression
 expr_command!(
     ExprNot,
-    "expr-not",
+    "dfr expr-not",
     "creates a not expression",
     vec![Example {
         description: "Creates a not expression",
-        example: "(col a) > 2) | expr-not",
+        example: "(dfr col a) > 2) | dfr expr-not",
         result: None,
     },],
     not,
@@ -299,14 +299,14 @@ expr_command!(
 // Expands to a command definition for max aggregation
 expr_command!(
     ExprMax,
-    "max",
+    "dfr max",
     "Creates a max expression",
     vec![Example {
         description: "Max aggregation for a group-by",
         example: r#"[[a b]; [one 2] [one 4] [two 1]]
-    | into df
-    | group-by a
-    | agg (col b | max)"#,
+    | dfr into-df
+    | dfr group-by a
+    | dfr agg (dfr col b | dfr max)"#,
         result: Some(
             NuDataFrame::try_from_columns(vec![
                 Column::new(
@@ -330,14 +330,14 @@ expr_command!(
 // Expands to a command definition for min aggregation
 expr_command!(
     ExprMin,
-    "min",
+    "dfr min",
     "Creates a min expression",
     vec![Example {
         description: "Min aggregation for a group-by",
         example: r#"[[a b]; [one 2] [one 4] [two 1]]
-    | into df
-    | group-by a
-    | agg (col b | min)"#,
+    | dfr into-df
+    | dfr group-by a
+    | dfr agg (dfr col b | dfr min)"#,
         result: Some(
             NuDataFrame::try_from_columns(vec![
                 Column::new(
@@ -361,14 +361,14 @@ expr_command!(
 // Expands to a command definition for sum aggregation
 expr_command!(
     ExprSum,
-    "sum",
+    "dfr sum",
     "Creates a sum expression for an aggregation",
     vec![Example {
         description: "Sum aggregation for a group-by",
         example: r#"[[a b]; [one 2] [one 4] [two 1]]
-    | into df
-    | group-by a
-    | agg (col b | sum)"#,
+    | dfr into-df
+    | dfr group-by a
+    | dfr agg (dfr col b | dfr sum)"#,
         result: Some(
             NuDataFrame::try_from_columns(vec![
                 Column::new(
@@ -392,14 +392,14 @@ expr_command!(
 // Expands to a command definition for mean aggregation
 expr_command!(
     ExprMean,
-    "mean",
+    "dfr mean",
     "Creates a mean expression for an aggregation",
     vec![Example {
         description: "Mean aggregation for a group-by",
         example: r#"[[a b]; [one 2] [one 4] [two 1]]
-    | into df
-    | group-by a
-    | agg (col b | mean)"#,
+    | dfr into-df
+    | dfr group-by a
+    | dfr agg (dfr col b | dfr mean)"#,
         result: Some(
             NuDataFrame::try_from_columns(vec![
                 Column::new(
@@ -423,14 +423,14 @@ expr_command!(
 // Expands to a command definition for median aggregation
 expr_command!(
     ExprMedian,
-    "median",
+    "dfr median",
     "Creates a median expression for an aggregation",
     vec![Example {
         description: "Median aggregation for a group-by",
         example: r#"[[a b]; [one 2] [one 4] [two 1]]
-    | into df
-    | group-by a
-    | agg (col b | median)"#,
+    | dfr into-df
+    | dfr group-by a
+    | dfr agg (dfr col b | dfr median)"#,
         result: Some(
             NuDataFrame::try_from_columns(vec![
                 Column::new(
@@ -454,14 +454,14 @@ expr_command!(
 // Expands to a command definition for std aggregation
 expr_command!(
     ExprStd,
-    "std",
+    "dfr std",
     "Creates a std expression for an aggregation",
     vec![Example {
         description: "Std aggregation for a group-by",
         example: r#"[[a b]; [one 2] [one 2] [two 1] [two 1]]
-    | into df
-    | group-by a
-    | agg (col b | std)"#,
+    | dfr into-df
+    | dfr group-by a
+    | dfr agg (dfr col b | dfr std)"#,
         result: Some(
             NuDataFrame::try_from_columns(vec![
                 Column::new(
@@ -486,14 +486,14 @@ expr_command!(
 // Expands to a command definition for var aggregation
 expr_command!(
     ExprVar,
-    "var",
+    "dfr var",
     "Create a var expression for an aggregation",
     vec![Example {
         description: "Var aggregation for a group-by",
         example: r#"[[a b]; [one 2] [one 2] [two 1] [two 1]]
-    | into df
-    | group-by a
-    | agg (col b | var)"#,
+    | dfr into-df
+    | dfr group-by a
+    | dfr agg (dfr col b | dfr var)"#,
         result: Some(
             NuDataFrame::try_from_columns(vec![
                 Column::new(
