@@ -17,6 +17,7 @@ NU_PLUGINS=(
     'nu_plugin_query'
     'nu_plugin_example'
     'nu_plugin_custom_values'
+    'nu_plugin_formats'
 )
 
 for plugin in "${NU_PLUGINS[@]}"
