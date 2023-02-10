@@ -478,6 +478,7 @@ pub fn create_default_context() -> EngineState {
             View,
             ViewFiles,
             ViewSource,
+            ViewSpan,
         };
 
         // Deprecated
