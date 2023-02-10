@@ -1351,9 +1351,9 @@ pub fn parse_int(token: &[u8], span: Span) -> (Expression, Option<ParseError>) {
         } else {
             (
                 garbage(span),
-                Some(ParseError::InvalidSyntax(
-                    "int".into(),
+                Some(ParseError::InvalidLiteral(
                     format!("invalid digits for radix {}", radix),
+                    "int".into(),
                     span,
                 )),
             )
@@ -2572,9 +2572,9 @@ pub fn unescape_string(bytes: &[u8], span: Span) -> (Vec<u8>, Option<ParseError>
                                     cur_idx += 1;
                                 }
                                 _ => {
-                                    err = Some(ParseError::InvalidSyntax(
-                                        "string".into(),
+                                    err = Some(ParseError::InvalidLiteral(
                                         "missing '}' for unicode escape '\\u{X...}'".into(),
+                                        "string".into(),
                                         Span::new(span.start + idx, span.end),
                                     ));
                                     break 'us_loop;
@@ -2605,18 +2605,18 @@ pub fn unescape_string(bytes: &[u8], span: Span) -> (Vec<u8>, Option<ParseError>
                         }
                     }
                     // fall through -- escape not accepted above, must be error.
-                    err = Some(ParseError::InvalidSyntax(
-                        "string".into(),
+                    err = Some(ParseError::InvalidLiteral(
                         "invalid unicode escape '\\u{X...}', must be 1-6 hex digits, max value 10FFFF".into(),
+                        "string".into(),
                         Span::new(span.start + idx, span.end),
                     ));
                     break 'us_loop;
                 }
 
                 _ => {
-                    err = Some(ParseError::InvalidSyntax(
-                        "string".into(),
+                    err = Some(ParseError::InvalidLiteral(
                         "unrecognized escape after '\\'".into(),
+                        "string".into(),
                         Span::new(span.start + idx, span.end),
                     ));
                     break 'us_loop;

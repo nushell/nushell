@@ -143,7 +143,8 @@ debug = false
 [[bin]]
 name = "nu"
 path = "src/main.rs"
-bench = false
+# Uncomment to save and compare baselines: see https://bheisler.github.io/criterion.rs/book/faq.html#cargo-bench-gives-unrecognized-option-errors-for-valid-command-line-options
+#bench = false
 
 
 # To use a development version of a dependency please use a global override here
