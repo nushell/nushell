@@ -15,7 +15,17 @@ impl Command for Profile {
     }
 
     fn usage(&self) -> &str {
-        "Time the running time of a closure"
+        "Profile each pipeline element in a closure."
+    }
+
+    fn extra_usage(&self) -> &str {
+        r#"The command collects run time of every pipeline element, recursively stepping into child closures
+until a maximum depth. Optionally, it also collects the source code and intermediate values.
+
+Current known limitations are:
+* profiling data from subexpressions is not tracked
+* it does not step into loop iterations
+* other cases involving closure execution (e.g., `do { ... }`) might not be tracked."#
     }
 
     fn signature(&self) -> nu_protocol::Signature {
@@ -33,10 +43,7 @@ impl Command for Profile {
                 "How many levels of blocks to step into (default: 1)",
                 Some('d'),
             )
-            .input_output_types(vec![
-                (Type::Any, Type::Duration),
-                (Type::Nothing, Type::Duration),
-            ])
+            .input_output_types(vec![(Type::Any, Type::Table(vec![]))])
             .allow_variants_without_examples(true)
             .category(Category::Debug)
     }
@@ -96,36 +103,11 @@ impl Command for Profile {
     }
 
     fn examples(&self) -> Vec<Example> {
-        vec![]
+        vec![Example {
+            description:
+                "Profile some code, stepping into the `spam` command and collecting source.",
+            example: r#"def spam [] { "spam" }; profile { spam | str length } -d 2 --source"#,
+            result: None,
+        }]
     }
-}
-
-#[test]
-// Due to difficulty in observing side-effects from benchmark closures,
-// checks that the closures have run correctly must use the filesystem.
-fn test_benchmark_closure() {
-    use nu_test_support::{nu, nu_repl_code, playground::Playground};
-    Playground::setup("test_benchmark_closure", |dirs, _| {
-        let inp = [
-            r#"[2 3 4] | profile { to nuon | save foo.txt }"#,
-            "open foo.txt",
-        ];
-        let actual_repl = nu!(cwd: dirs.test(), nu_repl_code(&inp));
-        assert_eq!(actual_repl.err, "");
-        assert_eq!(actual_repl.out, "[2, 3, 4]");
-    });
-}
-
-#[test]
-fn test_benchmark_closure_2() {
-    use nu_test_support::{nu, nu_repl_code, playground::Playground};
-    Playground::setup("test_benchmark_closure", |dirs, _| {
-        let inp = [
-            r#"[2 3 4] | profile {|e| {result: $e} | to nuon | save foo.txt }"#,
-            "open foo.txt",
-        ];
-        let actual_repl = nu!(cwd: dirs.test(), nu_repl_code(&inp));
-        assert_eq!(actual_repl.err, "");
-        assert_eq!(actual_repl.out, "{result: [2, 3, 4]}");
-    });
 }
