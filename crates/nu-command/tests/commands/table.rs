@@ -228,7 +228,7 @@ fn table_expand_record_2() {
         field3: [ [ head1, head2, head3 ]; [ 1 2 3 ] [ 79 79 79 ] [ { f1: 'a string', f2: 1000 }, 1, 2 ] ],\
         field4: { f1: 1, f2: 3, f3: { f1: f1, f2: f2, f3: f3 } }\
     }";
-    let actual = nu!(format!("{} | table --expand", structure));
+    let actual = nu!(format!("{structure} | table --expand"));
 
     assert_eq!(
         actual.out,
