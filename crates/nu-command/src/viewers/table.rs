@@ -1053,7 +1053,7 @@ fn convert_to_table2<'a>(
                 return Err(error.clone());
             }
 
-            let value = convert_to_table2_entry(
+            let mut value = convert_to_table2_entry(
                 item,
                 config,
                 &ctrlc,
@@ -1063,6 +1063,16 @@ fn convert_to_table2<'a>(
                 flatten_sep,
                 available_width,
             );
+
+            let value_width = string_width(&value.0);
+            if value_width > available_width {
+                // it must only happen when a string is produced, so we can safely wrap it.
+                // (it might be string table representation as well) (I guess I mean default { table ...} { list ...})
+                //
+                // todo: Maybe convert_to_table2_entry could do for strings to not mess caller code?
+
+                value.0 = wrap_text(&value.0, available_width, config);
+            }
 
             let value = NuTable::create_cell(value.0, value.1);
             data[row].push(value);
