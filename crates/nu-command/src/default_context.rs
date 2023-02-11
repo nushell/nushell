@@ -175,6 +175,7 @@ pub fn create_default_context() -> EngineState {
             Complete,
             Explain,
             External,
+            Inspect,
             NuCheck,
             Sys,
             TimeIt,
