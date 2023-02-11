@@ -53,7 +53,6 @@ fn copies_the_file_inside_directory_if_path_to_copy_is_directory() {
 
         // Get the hash of the file content to check integrity after copy.
         let first_hash = get_file_hash(dirs.formats().join("../formats/sample.ini").display());
-
         nu!(
             cwd: dirs.formats(),
             "cp ../formats/sample.ini {}",
@@ -62,17 +61,22 @@ fn copies_the_file_inside_directory_if_path_to_copy_is_directory() {
 
         assert!(dirs.test().join("sample.ini").exists());
 
-        // Since progress cp used a different algorithm we have to test it separately
-        let expected_file = AbsoluteFile::new(dirs.test().join("sample_progress.ini"));
+        // Delete the sample after checking that the copy was successful
+        nu!(
+            cwd: dirs.test(),
+            "rm {}",
+            dirs.test().join("sample.ini").display()
+        );
+
+        // Now do the test again but with the progress bar on.
+        let expected_file = AbsoluteFile::new(dirs.test().join("sample.ini"));
         nu!(
             cwd: dirs.formats(),
-            "cp --progress ../formats/sample.ini {}",
+            "cp -p ../formats/sample.ini {}",
             expected_file.dir()
         );
 
-        assert!(dirs.test().join("sample_progress.ini").exists());
-
-        println!("{}", expected_file);
+        assert!(dirs.test().join("sample.ini").exists());
 
         // Get the hash of the copied file content to check against first_hash.
         let after_cp_hash = get_file_hash(expected_file);
