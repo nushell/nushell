@@ -1044,7 +1044,7 @@ pub fn eval_block(
             };
 
             if let (Some(start_time), Some(end_time), Some(input_metadata)) =
-                (start_time, end_time, &mut input_metadata)
+                (start_time, end_time, input_metadata.as_deref_mut())
             {
                 let span = pipeline.elements[i].span();
                 let element_str = Value::string(
@@ -1122,7 +1122,7 @@ pub fn eval_block(
 
                 if let Some(PipelineMetadata {
                     data_source: DataSource::Profiling(element_vals),
-                }) = element_metadata
+                }) = element_metadata.map(|m| *m)
                 {
                     if let PipelineMetadata {
                         data_source: DataSource::Profiling(tgt_vals),

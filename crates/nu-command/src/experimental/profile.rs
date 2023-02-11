@@ -24,8 +24,7 @@ until a maximum depth. Optionally, it also collects the source code and intermed
 
 Current known limitations are:
 * profiling data from subexpressions is not tracked
-* it does not step into loop iterations
-* other cases involving closure execution (e.g., `do { ... }`) might not be tracked."#
+* it does not step into loop iterations"#
     }
 
     fn signature(&self) -> nu_protocol::Signature {
@@ -78,9 +77,9 @@ Current known limitations are:
             call.has_flag("values"),
         );
 
-        let profiling_metadata = PipelineMetadata {
+        let profiling_metadata = Box::new(PipelineMetadata {
             data_source: DataSource::Profiling(vec![]),
-        };
+        });
 
         let result = if let Some(PipelineMetadata {
             data_source: DataSource::Profiling(values),
@@ -93,6 +92,7 @@ Current known limitations are:
             redirect_stderr,
         )?
         .metadata()
+        .map(|m| *m)
         {
             Value::list(values, call.head)
         } else {
