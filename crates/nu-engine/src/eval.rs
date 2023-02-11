@@ -991,11 +991,10 @@ pub fn eval_block(
         }
     }
 
-    stack.profiling_config.enter_block();
-
     let num_pipelines = block.len();
 
     let mut input_metadata = if stack.profiling_config.should_debug() {
+        stack.profiling_config.enter_block();
         input.metadata()
     } else {
         None
@@ -1154,7 +1153,9 @@ pub fn eval_block(
                     // make early return so remaining commands will not be executed.
                     // don't return `Err(ShellError)`, so nushell wouldn't show extra error message.
                     if output.1 {
-                        stack.profiling_config.leave_block();
+                        if stack.profiling_config.should_debug() {
+                            stack.profiling_config.leave_block();
+                        }
                         return Ok(input);
                     }
                 }
@@ -1238,9 +1239,8 @@ pub fn eval_block(
         }
     }
 
-    stack.profiling_config.leave_block();
-
     if stack.profiling_config.should_debug() {
+        stack.profiling_config.leave_block();
         Ok(input.set_metadata(input_metadata))
     } else {
         Ok(input)
