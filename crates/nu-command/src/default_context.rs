@@ -172,12 +172,12 @@ pub fn create_default_context() -> EngineState {
 
         // System
         bind_command! {
-            Benchmark,
             Complete,
             Explain,
             External,
             NuCheck,
             Sys,
+            TimeIt,
         };
 
         #[cfg(unix)]
