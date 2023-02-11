@@ -264,9 +264,9 @@ impl Command for Ls {
                 _ => Some(Value::Nothing { span: call_span }),
             })
             .into_pipeline_data_with_metadata(
-                PipelineMetadata {
+                Box::new(PipelineMetadata {
                     data_source: DataSource::Ls,
-                },
+                }),
                 engine_state.ctrlc.clone(),
             ))
     }

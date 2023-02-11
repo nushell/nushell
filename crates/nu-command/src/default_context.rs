@@ -475,6 +475,7 @@ pub fn create_default_context() -> EngineState {
         // Experimental
         bind_command! {
             IsAdmin,
+            Profile,
             View,
             ViewFiles,
             ViewSource,
