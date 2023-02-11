@@ -279,14 +279,19 @@ impl Command for Cp {
         }
 
         if verbose {
-            Ok(result.into_iter().into_pipeline_data(ctrlc))
+            result
+                .into_iter()
+                .into_pipeline_data(ctrlc)
+                .print_not_formatted(engine_state, false, true)?;
         } else {
             // filter to only errors
-            Ok(result
+            result
                 .into_iter()
                 .filter(|v| matches!(v, Value::Error { .. }))
-                .into_pipeline_data(ctrlc))
+                .into_pipeline_data(ctrlc)
+                .print_not_formatted(engine_state, false, true)?;
         }
+        Ok(PipelineData::empty())
     }
 
     fn examples(&self) -> Vec<Example> {

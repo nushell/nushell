@@ -40,7 +40,7 @@ impl Command for HideEnv {
         stack: &mut Stack,
         call: &Call,
         _input: PipelineData,
-    ) -> Result<nu_protocol::PipelineData, nu_protocol::ShellError> {
+    ) -> Result<PipelineData, ShellError> {
         let env_var_names: Vec<Spanned<String>> = call.rest(engine_state, stack, 0)?;
         let ignore_errors = call.has_flag("ignore-errors");
 

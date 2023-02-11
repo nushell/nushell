@@ -46,7 +46,7 @@ impl Command for SubCommand {
         stack: &mut Stack,
         call: &Call,
         input: PipelineData,
-    ) -> Result<nu_protocol::PipelineData, nu_protocol::ShellError> {
+    ) -> Result<PipelineData, ShellError> {
         split_row(engine_state, stack, call, input)
     }
 
@@ -101,7 +101,7 @@ fn split_row(
     stack: &mut Stack,
     call: &Call,
     input: PipelineData,
-) -> Result<nu_protocol::PipelineData, nu_protocol::ShellError> {
+) -> Result<PipelineData, ShellError> {
     let name_span = call.head;
     let separator: Spanned<String> = call.req(engine_state, stack, 0)?;
     let max_split: Option<usize> = call.get_flag(engine_state, stack, "number")?;

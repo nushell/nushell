@@ -1,7 +1,7 @@
 use nu_engine::eval_expression_with_input;
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
-use nu_protocol::{Category, Example, PipelineData, Signature, SyntaxShape, Type};
+use nu_protocol::{Category, Example, PipelineData, ShellError, Signature, SyntaxShape, Type};
 
 #[derive(Clone)]
 pub struct Mut;
@@ -47,7 +47,7 @@ impl Command for Mut {
         stack: &mut Stack,
         call: &Call,
         input: PipelineData,
-    ) -> Result<nu_protocol::PipelineData, nu_protocol::ShellError> {
+    ) -> Result<PipelineData, ShellError> {
         let var_id = call
             .positional_nth(0)
             .expect("checked through parser")

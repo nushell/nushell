@@ -522,7 +522,7 @@ Either make sure {0} is a string, or add a 'to_string' entry for it in ENV_CONVE
     /// * "2020-04-12 22:10:57 +02:00"
     /// * "2020-04-12T22:10:57.213231+02:00"
     /// * "Tue, 1 Jul 2003 10:52:37 +0200""#
-    #[error("Unable to parse datetime")]
+    #[error("Unable to parse datetime: [{0}].")]
     #[diagnostic(
         code(nu::shell::datetime_parse_error),
         url(docsrs),
@@ -536,7 +536,7 @@ Either make sure {0} is a string, or add a 'to_string' entry for it in ENV_CONVE
  * "Tue, 1 Jul 2003 10:52:37 +0200""#
         )
     )]
-    DatetimeParseError(#[label("datetime parsing failed")] Span),
+    DatetimeParseError(String, #[label("datetime parsing failed")] Span),
 
     /// A network operation failed.
     ///

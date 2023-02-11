@@ -174,6 +174,7 @@ pub fn create_default_context() -> EngineState {
         bind_command! {
             Benchmark,
             Complete,
+            Explain,
             External,
             NuCheck,
             Sys,
@@ -226,10 +227,8 @@ pub fn create_default_context() -> EngineState {
             StrIndexOf,
             StrKebabCase,
             StrLength,
-            StrLpad,
             StrPascalCase,
             StrReverse,
-            StrRpad,
             StrScreamingSnakeCase,
             StrSnakeCase,
             StrStartsWith,
@@ -369,6 +368,7 @@ pub fn create_default_context() -> EngineState {
 
         // Conversions
         bind_command! {
+            Fill,
             Fmt,
             Into,
             IntoBool,
@@ -473,13 +473,18 @@ pub fn create_default_context() -> EngineState {
 
         // Experimental
         bind_command! {
-            ViewSource,
             IsAdmin,
+            View,
+            ViewFiles,
+            ViewSource,
+            ViewSpan,
         };
 
         // Deprecated
         bind_command! {
             HashBase64,
+            LPadDeprecated,
+            RPadDeprecated,
             Source,
             StrDatetimeDeprecated,
             StrDecimalDeprecated,

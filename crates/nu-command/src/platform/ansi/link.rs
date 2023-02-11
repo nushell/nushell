@@ -30,7 +30,7 @@ impl Command for SubCommand {
             .named(
                 "text",
                 SyntaxShape::String,
-                "Link text. Uses uri as text if absent. In case of 
+                "Link text. Uses uri as text if absent. In case of
                 tables, records and lists applies this text to all elements",
                 Some('t'),
             )
@@ -54,7 +54,7 @@ impl Command for SubCommand {
         stack: &mut Stack,
         call: &Call,
         input: PipelineData,
-    ) -> Result<nu_protocol::PipelineData, ShellError> {
+    ) -> Result<PipelineData, ShellError> {
         operate(engine_state, stack, call, input)
     }
 

@@ -13,7 +13,7 @@ pub struct StrSlice;
 
 impl Command for StrSlice {
     fn name(&self) -> &str {
-        "str-slice"
+        "dfr str-slice"
     }
 
     fn usage(&self) -> &str {
@@ -32,7 +32,7 @@ impl Command for StrSlice {
     fn examples(&self) -> Vec<Example> {
         vec![Example {
             description: "Creates slices from the strings",
-            example: "[abcded abc321 abc123] | into df | str-slice 1 -l 2",
+            example: "[abcded abc321 abc123] | dfr into-df | dfr str-slice 1 -l 2",
             result: Some(
                 NuDataFrame::try_from_columns(vec![Column::new(
                     "0".to_string(),

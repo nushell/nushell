@@ -2,7 +2,7 @@ use nu_engine::get_full_help;
 use nu_protocol::{
     ast::Call,
     engine::{Command, EngineState, Stack},
-    IntoPipelineData, PipelineData, Signature, Type, Value,
+    IntoPipelineData, PipelineData, ShellError, Signature, Type, Value,
 };
 
 #[derive(Clone)]
@@ -23,7 +23,7 @@ impl Command for PathCommand {
 
     fn extra_usage(&self) -> &str {
         r#"You must use one of the following subcommands. Using this command as-is will only produce this help message.
-        
+
 There are three ways to represent a path:
 
 * As a path literal, e.g., '/home/viking/spam.txt'
@@ -44,7 +44,7 @@ the path literal."#
         stack: &mut Stack,
         call: &Call,
         _input: PipelineData,
-    ) -> Result<PipelineData, nu_protocol::ShellError> {
+    ) -> Result<PipelineData, ShellError> {
         Ok(Value::String {
             val: get_full_help(
                 &PathCommand.signature(),

@@ -35,7 +35,7 @@ impl Command for LoadEnv {
         stack: &mut Stack,
         call: &Call,
         input: PipelineData,
-    ) -> Result<nu_protocol::PipelineData, nu_protocol::ShellError> {
+    ) -> Result<PipelineData, ShellError> {
         let arg: Option<(Vec<String>, Vec<Value>)> = call.opt(engine_state, stack, 0)?;
         let span = call.head;
 
@@ -47,10 +47,7 @@ impl Command for LoadEnv {
                     }
 
                     if env_var == "PWD" {
-                        let cwd = current_dir(engine_state, stack)?;
-                        let rhs = rhs.as_string()?;
-                        let rhs = nu_path::expand_path_with(rhs, cwd);
-                        stack.add_env_var(env_var, Value::string(rhs.to_string_lossy(), call.head));
+                        return Err(ShellError::AutomaticEnvVarSetManually(env_var, call.head));
                     } else {
                         stack.add_env_var(env_var, rhs);
                     }

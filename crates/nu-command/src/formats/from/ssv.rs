@@ -60,7 +60,7 @@ impl Command for FromSsv {
         stack: &mut Stack,
         call: &Call,
         input: PipelineData,
-    ) -> Result<nu_protocol::PipelineData, ShellError> {
+    ) -> Result<PipelineData, ShellError> {
         from_ssv(engine_state, stack, call, input)
     }
 }

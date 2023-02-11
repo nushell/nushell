@@ -2,6 +2,7 @@ mod benchmark;
 mod complete;
 #[cfg(unix)]
 mod exec;
+mod explain;
 mod nu_check;
 #[cfg(any(
     target_os = "android",
@@ -20,6 +21,7 @@ pub use benchmark::Benchmark;
 pub use complete::Complete;
 #[cfg(unix)]
 pub use exec::Exec;
+pub use explain::Explain;
 pub use nu_check::NuCheck;
 #[cfg(any(
     target_os = "android",

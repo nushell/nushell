@@ -33,7 +33,7 @@ impl Command for ToNuon {
         _stack: &mut Stack,
         call: &Call,
         input: PipelineData,
-    ) -> Result<nu_protocol::PipelineData, ShellError> {
+    ) -> Result<PipelineData, ShellError> {
         Ok(Value::String {
             val: to_nuon(call, input)?,
             span: call.head,

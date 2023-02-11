@@ -565,18 +565,21 @@ impl Value {
                 )
             }
             Value::String { val, .. } => val.to_string(),
-            Value::List { ref vals, .. } => match &vals[..] {
-                [Value::Record { .. }, _end @ ..] => format!(
-                    "[table {} row{}]",
-                    vals.len(),
-                    if vals.len() == 1 { "" } else { "s" }
-                ),
-                _ => format!(
-                    "[list {} item{}]",
-                    vals.len(),
-                    if vals.len() == 1 { "" } else { "s" }
-                ),
-            },
+            Value::List { ref vals, .. } => {
+                if !vals.is_empty() && vals.iter().all(|x| matches!(x, Value::Record { .. })) {
+                    format!(
+                        "[table {} row{}]",
+                        vals.len(),
+                        if vals.len() == 1 { "" } else { "s" }
+                    )
+                } else {
+                    format!(
+                        "[list {} item{}]",
+                        vals.len(),
+                        if vals.len() == 1 { "" } else { "s" }
+                    )
+                }
+            }
             Value::Record { cols, .. } => format!(
                 "{{record {} field{}}}",
                 cols.len(),
@@ -2080,6 +2083,15 @@ impl Value {
                 let mut rhs = rhs.clone();
                 rhs.insert(0, val.clone());
                 Ok(Value::List { vals: rhs, span })
+            }
+            (Value::String { val: lhs, .. }, Value::String { val: rhs, .. }) => Ok(Value::String {
+                val: lhs.to_string() + rhs,
+                span,
+            }),
+            (Value::Binary { val: lhs, .. }, Value::Binary { val: rhs, .. }) => {
+                let mut val = lhs.clone();
+                val.extend(rhs);
+                Ok(Value::Binary { val, span })
             }
             _ => Err(ShellError::OperatorMismatch {
                 op_span: op,

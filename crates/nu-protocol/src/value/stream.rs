@@ -34,6 +34,9 @@ impl RawStream {
         let mut output = vec![];
 
         for item in self.stream {
+            if nu_utils::ctrl_c::was_pressed(&self.ctrlc) {
+                break;
+            }
             output.extend(item?);
         }
 
@@ -46,8 +49,12 @@ impl RawStream {
     pub fn into_string(self) -> Result<Spanned<String>, ShellError> {
         let mut output = String::new();
         let span = self.span;
+        let ctrlc = &self.ctrlc.clone();
 
         for item in self {
+            if nu_utils::ctrl_c::was_pressed(ctrlc) {
+                break;
+            }
             output.push_str(&item?.as_string()?);
         }
 

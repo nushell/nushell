@@ -342,3 +342,15 @@ fn help_modules_main_2() {
 
     assert_eq!(actual.out, "spam");
 }
+
+#[test]
+fn help_alias_before_command() {
+    let code = &[
+        "alias SPAM = print 'spam'",
+        "def SPAM [] { 'spam' }",
+        "help SPAM",
+    ];
+    let actual = nu!(cwd: ".", nu_repl_code(code));
+
+    assert!(actual.out.contains("Alias"));
+}

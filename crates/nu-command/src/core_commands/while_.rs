@@ -45,7 +45,7 @@ impl Command for While {
         stack: &mut Stack,
         call: &Call,
         _input: PipelineData,
-    ) -> Result<nu_protocol::PipelineData, nu_protocol::ShellError> {
+    ) -> Result<PipelineData, ShellError> {
         let cond = call.positional_nth(0).expect("checked through parser");
         let block: Block = call.req(engine_state, stack, 1)?;
 

@@ -10,4 +10,4 @@ To install:
 
 To register (from inside Nushell):
 ```
-> register <path to installed plugin> --encoding msgpack
+> register <path to installed plugin>

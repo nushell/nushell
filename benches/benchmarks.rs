@@ -46,6 +46,7 @@ fn parser_benchmarks(c: &mut Criterion) {
                 get_default_env().as_bytes(),
                 "default_env.nu",
                 PipelineData::empty(),
+                false,
             )
         })
     });
@@ -65,6 +66,7 @@ fn parser_benchmarks(c: &mut Criterion) {
                 get_default_config().as_bytes(),
                 "default_config.nu",
                 PipelineData::empty(),
+                false,
             )
         })
     });
@@ -81,6 +83,7 @@ fn eval_benchmarks(c: &mut Criterion) {
                 get_default_env().as_bytes(),
                 "default_env.nu",
                 PipelineData::empty(),
+                false,
             )
         })
     });
@@ -100,6 +103,7 @@ fn eval_benchmarks(c: &mut Criterion) {
                 get_default_config().as_bytes(),
                 "default_config.nu",
                 PipelineData::empty(),
+                false,
             )
         })
     });
