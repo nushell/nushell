@@ -40,6 +40,8 @@ const LINE_ENDING_PATTERN: &[char] = &['\r', '\n'];
 /// Nushell.
 #[derive(Debug)]
 pub enum PipelineData {
+    // Note: the PipelineMetadata is boxed everywhere because the DataSource::Profiling caused
+    // stack overflow on Windows CI when testing virtualenv
     Value(Value, Option<Box<PipelineMetadata>>),
     ListStream(ListStream, Option<Box<PipelineMetadata>>),
     ExternalStream {
