@@ -995,7 +995,11 @@ pub fn eval_block(
 
     let num_pipelines = block.len();
 
-    let mut input_metadata = input.metadata();
+    let mut input_metadata = if stack.profiling_config.should_debug() {
+        input.metadata()
+    } else {
+        None
+    };
 
     for (pipeline_idx, pipeline) in block.pipelines.iter().enumerate() {
         let mut i = 0;
@@ -1040,7 +1044,9 @@ pub fn eval_block(
                 None
             };
 
-            if let (Some(start_time), Some(end_time)) = (start_time, end_time) {
+            if let (Some(start_time), Some(end_time), Some(input_metadata)) =
+                (start_time, end_time, &mut input_metadata)
+            {
                 let span = pipeline.elements[i].span();
                 let element_str = Value::string(
                     String::from_utf8_lossy(
@@ -1104,30 +1110,30 @@ pub fn eval_block(
                     None
                 };
 
-                if let Some(PipelineMetadata {
+                if let PipelineMetadata {
                     data_source: DataSource::Profiling(tgt_vals),
-                }) = &mut input_metadata
+                } = input_metadata
                 {
                     tgt_vals.push(record);
                 } else {
-                    input_metadata = Some(PipelineMetadata {
+                    *input_metadata = PipelineMetadata {
                         data_source: DataSource::Profiling(vec![record]),
-                    });
+                    };
                 }
 
                 if let Some(PipelineMetadata {
                     data_source: DataSource::Profiling(element_vals),
                 }) = element_metadata
                 {
-                    if let Some(PipelineMetadata {
+                    if let PipelineMetadata {
                         data_source: DataSource::Profiling(tgt_vals),
-                    }) = &mut input_metadata
+                    } = input_metadata
                     {
                         tgt_vals.extend(element_vals);
                     } else {
-                        input_metadata = Some(PipelineMetadata {
+                        *input_metadata = PipelineMetadata {
                             data_source: DataSource::Profiling(element_vals),
-                        });
+                        };
                     }
                 }
             }
@@ -1234,8 +1240,11 @@ pub fn eval_block(
 
     stack.profiling_config.leave_block();
 
-    input = input.set_metadata(input_metadata);
-    Ok(input)
+    if stack.profiling_config.should_debug() {
+        Ok(input.set_metadata(input_metadata))
+    } else {
+        Ok(input)
+    }
 }
 
 fn print_or_return(pipeline_data: PipelineData, config: &Config) -> Result<(), ShellError> {
