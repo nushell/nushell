@@ -6,8 +6,8 @@ use nu_protocol::{
         Operator, PathMember, PipelineElement, Redirection,
     },
     engine::{EngineState, Stack},
-    Config, IntoInterruptiblePipelineData, IntoPipelineData, PipelineData, Range, ShellError, Span,
-    Spanned, Unit, Value, VarId, ENV_VARIABLE_ID,
+    Config, IntoInterruptiblePipelineData, IntoPipelineData, PipelineData, PipelineMetadata, Range,
+    ShellError, Span, Spanned, Unit, Value, VarId, ENV_VARIABLE_ID,
 };
 use nu_utils::stdout_write_all_and_flush;
 use std::collections::HashMap;
@@ -990,6 +990,9 @@ pub fn eval_block(
         }
     }
     let num_pipelines = block.len();
+    let input_metadata = Some(PipelineMetadata {
+        data_source: nu_protocol::DataSource::Ls,
+    });
     for (pipeline_idx, pipeline) in block.pipelines.iter().enumerate() {
         let mut i = 0;
 
@@ -1120,6 +1123,7 @@ pub fn eval_block(
         }
     }
 
+    input = input.set_metadata(input_metadata);
     Ok(input)
 }
 
