@@ -26,7 +26,7 @@ impl Command for StrCollect {
     }
 
     fn usage(&self) -> &str {
-        "'str collect' is deprecated. Please use 'str join' instead."
+        "Deprecated command"
     }
 
     fn run(

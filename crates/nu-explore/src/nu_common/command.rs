@@ -16,13 +16,11 @@ pub fn run_command_with_value(
     }
 
     let pipeline = PipelineData::Value(input.clone(), None);
-    let pipeline = run_nu_command(engine_state, stack, command, pipeline);
-    match pipeline {
-        Ok(PipelineData::Value(Value::Error { error }, ..)) => {
-            Err(ShellError::IOError(error.to_string()))
-        }
-        Ok(pipeline) => Ok(pipeline),
-        Err(err) => Err(err),
+    let pipeline = run_nu_command(engine_state, stack, command, pipeline)?;
+    if let PipelineData::Value(Value::Error { error }, ..) = pipeline {
+        Err(ShellError::IOError(error.to_string()))
+    } else {
+        Ok(pipeline)
     }
 }
 

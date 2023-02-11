@@ -1,5 +1,6 @@
 use nu_ansi_term::*;
 use nu_engine::CallExt;
+use nu_protocol::engine::{EngineState, Stack};
 use nu_protocol::{
     ast::Call, engine::Command, Category, Example, IntoInterruptiblePipelineData, IntoPipelineData,
     PipelineData, ShellError, Signature, Span, SyntaxShape, Type, Value,
@@ -113,6 +114,22 @@ static CODE_LIST: Lazy<Vec<AnsiCode>> = Lazy::new(|| { vec![
     AnsiCode{ short_name: Some("lpd"), long_name: "light_purple_dimmed", code: Color::LightPurple.dimmed().prefix().to_string()},
     AnsiCode{ short_name: Some("lpr"), long_name: "light_purple_reverse", code: Color::LightPurple.reverse().prefix().to_string()},
     AnsiCode{ short_name: Some("bg_lp"), long_name: "bg_light_purple", code: Style::new().on(Color::LightPurple).prefix().to_string()},
+
+    AnsiCode{ short_name: Some("m"), long_name: "magenta", code: Color::Purple.prefix().to_string()},
+    AnsiCode{ short_name: Some("mb"), long_name: "magenta_bold", code: Color::Purple.bold().prefix().to_string()},
+    AnsiCode{ short_name: Some("mu"), long_name: "magenta_underline", code: Color::Purple.underline().prefix().to_string()},
+    AnsiCode{ short_name: Some("mi"), long_name: "magenta_italic", code: Color::Purple.italic().prefix().to_string()},
+    AnsiCode{ short_name: Some("md"), long_name: "magenta_dimmed", code: Color::Purple.dimmed().prefix().to_string()},
+    AnsiCode{ short_name: Some("mr"), long_name: "magenta_reverse", code: Color::Purple.reverse().prefix().to_string()},
+    AnsiCode{ short_name: Some("bg_m"), long_name: "bg_magenta", code: Style::new().on(Color::Purple).prefix().to_string()},
+
+    AnsiCode{ short_name: Some("lm"), long_name: "light_magenta", code: Color::LightPurple.prefix().to_string()},
+    AnsiCode{ short_name: Some("lmb"), long_name: "light_magenta_bold", code: Color::LightPurple.bold().prefix().to_string()},
+    AnsiCode{ short_name: Some("lmu"), long_name: "light_magenta_underline", code: Color::LightPurple.underline().prefix().to_string()},
+    AnsiCode{ short_name: Some("lmi"), long_name: "light_magenta_italic", code: Color::LightPurple.italic().prefix().to_string()},
+    AnsiCode{ short_name: Some("lmd"), long_name: "light_magenta_dimmed", code: Color::LightPurple.dimmed().prefix().to_string()},
+    AnsiCode{ short_name: Some("lmr"), long_name: "light_magenta_reverse", code: Color::LightPurple.reverse().prefix().to_string()},
+    AnsiCode{ short_name: Some("bg_lm"), long_name: "bg_light_magenta", code: Style::new().on(Color::LightPurple).prefix().to_string()},
 
     AnsiCode{ short_name: Some("c"), long_name: "cyan", code: Color::Cyan.prefix().to_string()},
     AnsiCode{ short_name: Some("cb"), long_name: "cyan_bold", code: Color::Cyan.bold().prefix().to_string()},
@@ -606,11 +623,11 @@ Format: #
 
     fn run(
         &self,
-        engine_state: &nu_protocol::engine::EngineState,
-        stack: &mut nu_protocol::engine::Stack,
+        engine_state: &EngineState,
+        stack: &mut Stack,
         call: &Call,
         _input: PipelineData,
-    ) -> Result<nu_protocol::PipelineData, ShellError> {
+    ) -> Result<PipelineData, ShellError> {
         let list: bool = call.has_flag("list");
         let escape: bool = call.has_flag("escape");
         let osc: bool = call.has_flag("osc");
@@ -666,13 +683,13 @@ Format: #
         }
 
         let output = if escape && param_is_valid_string {
-            format!("\x1b[{}", code_string)
+            format!("\x1b[{code_string}")
         } else if osc && param_is_valid_string {
             // Operating system command aka osc  ESC ] <- note the right brace, not left brace for osc
             // OCS's need to end with either:
             // bel '\x07' char
             // string terminator aka st '\\' char
-            format!("\x1b]{}", code_string)
+            format!("\x1b]{code_string}")
         } else if param_is_valid_string {
             // parse hex colors like #00FF00
             if code_string.starts_with('#') {
@@ -684,7 +701,7 @@ Format: #
                     Err(err) => {
                         return Err(ShellError::GenericError(
                             "error parsing hex color".to_string(),
-                            format!("{}", err),
+                            format!("{err}"),
                             Some(code.span()?),
                             None,
                             Vec::new(),
@@ -722,7 +739,7 @@ Format: #
                     "attr" => nu_style.attr = Some(v.as_string()?),
                     _ => {
                         return Err(ShellError::IncompatibleParametersSingle(
-                            format!("problem with key: {}", k),
+                            format!("problem with key: {k}"),
                             code.expect_span(),
                         ))
                     }
@@ -743,10 +760,10 @@ pub fn str_to_ansi(s: &str) -> Option<String> {
 }
 
 fn generate_ansi_code_list(
-    engine_state: &nu_protocol::engine::EngineState,
+    engine_state: &EngineState,
     call_span: Span,
     use_ansi_coloring: bool,
-) -> Result<nu_protocol::PipelineData, ShellError> {
+) -> Result<PipelineData, ShellError> {
     return Ok(CODE_LIST
         .iter()
         .enumerate()
@@ -764,7 +781,7 @@ fn generate_ansi_code_list(
             let name: Value = Value::string(String::from(ansi_code.long_name), call_span);
             let short_name = Value::string(ansi_code.short_name.unwrap_or(""), call_span);
             // The first 102 items in the ansi array are colors
-            let preview = if i < 375 {
+            let preview = if i < 389 {
                 Value::string(format!("{}NUSHELL\u{1b}[0m", &ansi_code.code), call_span)
             } else {
                 Value::string("\u{1b}[0m", call_span)

@@ -1,9 +1,13 @@
+use crate::formats::value_to_string;
+use itertools::Itertools;
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
-    Category, Example, IntoPipelineData, PipelineData, PipelineMetadata, Signature, Span, Type,
-    Value,
+    Category, Example, IntoPipelineData, PipelineData, PipelineMetadata, ShellError, Signature,
+    Span, Type, Value,
 };
+use std::collections::hash_map::IntoIter;
+use std::collections::HashMap;
 
 #[derive(Clone)]
 pub struct Uniq;
@@ -63,9 +67,9 @@ impl Command for Uniq {
         stack: &mut Stack,
         call: &Call,
         input: PipelineData,
-    ) -> Result<nu_protocol::PipelineData, nu_protocol::ShellError> {
+    ) -> Result<PipelineData, ShellError> {
         let mapper = Box::new(move |ms: ItemMapperState| -> ValueCounter {
-            item_mapper(ms.item, ms.flag_ignore_case)
+            item_mapper(ms.item, ms.flag_ignore_case, ms.index)
         });
 
         let metadata = input.metadata();
@@ -139,16 +143,18 @@ impl Command for Uniq {
 pub struct ItemMapperState {
     pub item: Value,
     pub flag_ignore_case: bool,
+    pub index: usize,
 }
 
-fn item_mapper(item: Value, flag_ignore_case: bool) -> ValueCounter {
-    ValueCounter::new(item, flag_ignore_case)
+fn item_mapper(item: Value, flag_ignore_case: bool, index: usize) -> ValueCounter {
+    ValueCounter::new(item, flag_ignore_case, index)
 }
 
 pub struct ValueCounter {
     val: Value,
     val_to_compare: Value,
     count: i64,
+    index: usize,
 }
 
 impl PartialEq<Self> for ValueCounter {
@@ -158,18 +164,24 @@ impl PartialEq<Self> for ValueCounter {
 }
 
 impl ValueCounter {
-    fn new(val: Value, flag_ignore_case: bool) -> Self {
-        Self::new_vals_to_compare(val.clone(), flag_ignore_case, val)
+    fn new(val: Value, flag_ignore_case: bool, index: usize) -> Self {
+        Self::new_vals_to_compare(val.clone(), flag_ignore_case, val, index)
     }
-    pub fn new_vals_to_compare(val: Value, flag_ignore_case: bool, vals_to_compare: Value) -> Self {
+    pub fn new_vals_to_compare(
+        val: Value,
+        flag_ignore_case: bool,
+        vals_to_compare: Value,
+        index: usize,
+    ) -> Self {
         ValueCounter {
             val,
             val_to_compare: if flag_ignore_case {
-                clone_to_lowercase(&vals_to_compare)
+                clone_to_lowercase(&vals_to_compare.with_span(Span::unknown()))
             } else {
-                vals_to_compare
+                vals_to_compare.with_span(Span::unknown())
             },
             count: 1,
+            index,
         }
     }
 }
@@ -201,6 +213,40 @@ fn clone_to_lowercase(value: &Value) -> Value {
     }
 }
 
+fn sort_attributes(val: Value) -> Value {
+    match val {
+        Value::Record { cols, vals, span } => {
+            let sorted = cols
+                .into_iter()
+                .zip(vals)
+                .sorted_by(|a, b| a.0.cmp(&b.0))
+                .collect_vec();
+
+            let sorted_cols = sorted.clone().into_iter().map(|a| a.0).collect_vec();
+            let sorted_vals = sorted
+                .into_iter()
+                .map(|a| sort_attributes(a.1))
+                .collect_vec();
+
+            Value::Record {
+                cols: sorted_cols,
+                vals: sorted_vals,
+                span,
+            }
+        }
+        Value::List { vals, span } => Value::List {
+            vals: vals.into_iter().map(sort_attributes).collect_vec(),
+            span,
+        },
+        other => other,
+    }
+}
+
+fn generate_key(item: &ValueCounter) -> Result<String, ShellError> {
+    let value = sort_attributes(item.val_to_compare.clone()); //otherwise, keys could be different for Records
+    value_to_string(&value, Span::unknown())
+}
+
 fn generate_results_with_count(head: Span, uniq_values: Vec<ValueCounter>) -> Vec<Value> {
     uniq_values
         .into_iter()
@@ -219,7 +265,7 @@ pub fn uniq(
     input: Vec<Value>,
     item_mapper: Box<dyn Fn(ItemMapperState) -> ValueCounter>,
     metadata: Option<PipelineMetadata>,
-) -> Result<nu_protocol::PipelineData, nu_protocol::ShellError> {
+) -> Result<PipelineData, ShellError> {
     let ctrlc = engine_state.ctrlc.clone();
     let head = call.head;
     let flag_show_count = call.has_flag("count");
@@ -227,35 +273,50 @@ pub fn uniq(
     let flag_ignore_case = call.has_flag("ignore-case");
     let flag_only_uniques = call.has_flag("unique");
 
-    let mut uniq_values = input
+    let uniq_values = input
         .into_iter()
-        .map_while(|item| {
+        .enumerate()
+        .map_while(|(index, item)| {
             if nu_utils::ctrl_c::was_pressed(&ctrlc) {
                 return None;
             }
             Some(item_mapper(ItemMapperState {
                 item,
                 flag_ignore_case,
+                index,
             }))
         })
-        .fold(Vec::<ValueCounter>::new(), |mut counter, item| {
-            match counter
-                .iter_mut()
-                .find(|x| x.val_to_compare == item.val_to_compare)
-            {
-                Some(x) => x.count += 1,
-                None => counter.push(item),
-            };
-            counter
-        });
+        .try_fold(
+            HashMap::<String, ValueCounter>::new(),
+            |mut counter, item| {
+                let key = generate_key(&item);
+
+                match key {
+                    Ok(key) => {
+                        match counter.get_mut(&key) {
+                            Some(x) => x.count += 1,
+                            None => {
+                                counter.insert(key, item);
+                            }
+                        };
+                        Ok(counter)
+                    }
+                    Err(err) => Err(err),
+                }
+            },
+        );
+
+    let mut uniq_values: HashMap<String, ValueCounter> = uniq_values?;
 
     if flag_show_repeated {
-        uniq_values.retain(|value_count_pair| value_count_pair.count > 1);
+        uniq_values.retain(|_v, value_count_pair| value_count_pair.count > 1);
     }
 
     if flag_only_uniques {
-        uniq_values.retain(|value_count_pair| value_count_pair.count == 1);
+        uniq_values.retain(|_v, value_count_pair| value_count_pair.count == 1);
     }
+
+    let uniq_values = sort(uniq_values.into_iter());
 
     let result = if flag_show_count {
         generate_results_with_count(head, uniq_values)
@@ -269,6 +330,12 @@ pub fn uniq(
     }
     .into_pipeline_data()
     .set_metadata(metadata))
+}
+
+fn sort(iter: IntoIter<String, ValueCounter>) -> Vec<ValueCounter> {
+    iter.map(|item| item.1)
+        .sorted_by(|a, b| a.index.cmp(&b.index))
+        .collect()
 }
 
 #[cfg(test)]

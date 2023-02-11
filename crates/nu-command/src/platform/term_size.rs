@@ -1,6 +1,8 @@
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
-use nu_protocol::{Category, Example, IntoPipelineData, PipelineData, Signature, Type, Value};
+use nu_protocol::{
+    Category, Example, IntoPipelineData, PipelineData, ShellError, Signature, Type, Value,
+};
 use terminal_size::{terminal_size, Height, Width};
 
 #[derive(Clone)]
@@ -53,7 +55,7 @@ impl Command for TermSize {
         _stack: &mut Stack,
         call: &Call,
         _input: PipelineData,
-    ) -> Result<nu_protocol::PipelineData, nu_protocol::ShellError> {
+    ) -> Result<PipelineData, ShellError> {
         let head = call.head;
 
         let (cols, rows) = match terminal_size() {

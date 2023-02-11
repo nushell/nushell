@@ -6,9 +6,10 @@ use nu_protocol::ast::{Argument, Block, Expr, Expression, PipelineElement};
 use nu_protocol::engine::{EngineState, StateWorkingSet};
 use nu_protocol::{Config, Span};
 use reedline::{Highlighter, StyledText};
+use std::sync::Arc;
 
 pub struct NuHighlighter {
-    pub engine_state: EngineState,
+    pub engine_state: Arc<EngineState>,
     pub config: Config,
 }
 
@@ -233,7 +234,8 @@ fn find_matching_block_end_in_block(
                 PipelineElement::Expression(_, e)
                 | PipelineElement::Redirection(_, _, e)
                 | PipelineElement::And(_, e)
-                | PipelineElement::Or(_, e) => {
+                | PipelineElement::Or(_, e)
+                | PipelineElement::SeparateRedirection { out: (_, e), .. } => {
                     if e.span.contains(global_cursor_offset) {
                         if let Some(pos) = find_matching_block_end_in_expr(
                             line,

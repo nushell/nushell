@@ -8,7 +8,7 @@ fn reduce_table_column() {
         echo "[{month:2,total:30}, {month:3,total:10}, {month:4,total:3}, {month:5,total:60}]"
         | from json
         | get total
-        | reduce -f 20 { |it, acc| $it + (math eval $"($acc)^1.05")}
+        | reduce -f 20 { |it, acc| $it + $acc ** 1.05}
         | into string -d 1
         "#
         )
@@ -23,7 +23,7 @@ fn reduce_table_column_with_path() {
         cwd: ".", pipeline(
         r#"
         [{month:2,total:30}, {month:3,total:10}, {month:4,total:3}, {month:5,total:60}]
-        | reduce -f 20 { |it, acc| $it.total + (math eval $"($acc)^1.05")}
+        | reduce -f 20 { |it, acc| $it.total + $acc ** 1.05}
         | into string -d 1
         "#
         )
@@ -47,12 +47,31 @@ fn reduce_rows_example() {
 }
 
 #[test]
-fn reduce_numbered_example() {
+fn reduce_with_return_in_closure() {
     let actual = nu!(
         cwd: ".", pipeline(
         r#"
-        echo one longest three bar
-        | reduce -n { |it, acc| if ($it.item | str length) > ($acc.item | str length) {echo $it} else {echo $acc}}
+        [1, 2] | reduce --fold null { |it, state|
+            if $it == 1 {
+                return 10
+            };
+            return ($it * $state)
+        }
+        "#
+        )
+    );
+
+    assert_eq!(actual.out, "20");
+    assert!(actual.err.is_empty());
+}
+
+#[test]
+fn reduce_enumerate_example() {
+    let actual = nu!(
+        cwd: ".", pipeline(
+        r#"
+        echo one longest three bar | enumerate
+        | reduce { |it, acc| if ($it.item | str length) > ($acc.item | str length) {echo $it} else {echo $acc}}
         | get index
         "#
         )
@@ -62,12 +81,14 @@ fn reduce_numbered_example() {
 }
 
 #[test]
-fn reduce_numbered_integer_addition_example() {
+fn reduce_enumerate_integer_addition_example() {
     let actual = nu!(
         cwd: ".", pipeline(
         r#"
         echo [1 2 3 4]
-        | reduce -n { |it, acc| $acc.item + $it.item }
+        | enumerate
+        | reduce { |it, acc| { index: ($it.index) item: ($acc.item + $it.item)} }
+        | get item
         "#
         )
     );
@@ -121,11 +142,14 @@ fn error_reduce_empty() {
 }
 
 #[test]
-fn uses_optional_index_argument() {
+fn enumerate_reduce_example() {
     let actual = nu!(
         cwd: ".", pipeline(
-        r#"[18 19 20] | reduce -f 0 {|elem accum index| $accum + $index } | to nuon"#
-    ));
+        r#"
+        [one longest three bar] | enumerate | reduce {|it, acc| if ($it.item | str length) > ($acc.item | str length) { $it } else { $acc }} | get index
+        "#
+        )
+    );
 
-    assert_eq!(actual.out, "3");
+    assert_eq!(actual.out, "1");
 }

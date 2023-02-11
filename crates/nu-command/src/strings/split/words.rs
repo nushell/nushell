@@ -1,3 +1,4 @@
+use crate::grapheme_flags;
 use fancy_regex::Regex;
 use nu_engine::CallExt;
 use nu_protocol::{
@@ -5,6 +6,7 @@ use nu_protocol::{
     engine::{Command, EngineState, Stack},
     Category, Example, PipelineData, ShellError, Signature, Span, SyntaxShape, Type, Value,
 };
+use unicode_segmentation::UnicodeSegmentation;
 
 #[derive(Clone)]
 pub struct SubCommand;
@@ -39,6 +41,16 @@ impl Command for SubCommand {
                 SyntaxShape::Int,
                 "The minimum word length",
                 Some('l'),
+            )
+            .switch(
+                "grapheme-clusters",
+                "measure word length in grapheme clusters (requires -l)",
+                Some('g'),
+            )
+            .switch(
+                "utf-8-bytes",
+                "measure word length in UTF-8 bytes (default; requires -l; non-ASCII chars are length 2+)",
+                Some('b'),
             )
     }
 
@@ -76,7 +88,7 @@ impl Command for SubCommand {
             Example {
                 description:
                     "A real-world example of splitting words",
-                example: "fetch https://www.gutenberg.org/files/11/11-0.txt | str downcase | split words -l 2 | uniq -c | sort-by count --reverse | first 10",
+                example: "http get https://www.gutenberg.org/files/11/11-0.txt | str downcase | split words -l 2 | uniq -c | sort-by count --reverse | first 10",
                 result: None,
             },
         ]
@@ -88,7 +100,7 @@ impl Command for SubCommand {
         stack: &mut Stack,
         call: &Call,
         input: PipelineData,
-    ) -> Result<nu_protocol::PipelineData, nu_protocol::ShellError> {
+    ) -> Result<PipelineData, ShellError> {
         split_words(engine_state, stack, call, input)
     }
 }
@@ -98,20 +110,41 @@ fn split_words(
     stack: &mut Stack,
     call: &Call,
     input: PipelineData,
-) -> Result<nu_protocol::PipelineData, nu_protocol::ShellError> {
+) -> Result<PipelineData, ShellError> {
     let span = call.head;
     // let ignore_hyphenated = call.has_flag("ignore-hyphenated");
     // let ignore_apostrophes = call.has_flag("ignore-apostrophes");
     // let ignore_punctuation = call.has_flag("ignore-punctuation");
     let word_length: Option<usize> = call.get_flag(engine_state, stack, "min-word-length")?;
 
+    if matches!(word_length, None) {
+        if call.has_flag("grapheme-clusters") {
+            return Err(ShellError::IncompatibleParametersSingle(
+                "--grapheme-clusters (-g) requires --min-word-length (-l)".to_string(),
+                span,
+            ));
+        }
+        if call.has_flag("utf-8-bytes") {
+            return Err(ShellError::IncompatibleParametersSingle(
+                "--utf-8-bytes (-b) requires --min-word-length (-l)".to_string(),
+                span,
+            ));
+        }
+    }
+    let graphemes = grapheme_flags(call)?;
+
     input.flat_map(
-        move |x| split_words_helper(&x, word_length, span),
+        move |x| split_words_helper(&x, word_length, span, graphemes),
         engine_state.ctrlc.clone(),
     )
 }
 
-fn split_words_helper(v: &Value, word_length: Option<usize>, span: Span) -> Vec<Value> {
+fn split_words_helper(
+    v: &Value,
+    word_length: Option<usize>,
+    span: Span,
+    graphemes: bool,
+) -> Vec<Value> {
     // There are some options here with this regex.
     // [^A-Za-z\'] = do not match uppercase or lowercase letters or apostrophes
     // [^[:alpha:]\'] = do not match any uppercase or lowercase letters or apostrophes
@@ -132,7 +165,12 @@ fn split_words_helper(v: &Value, word_length: Option<usize>, span: Span) -> Vec<
                     .filter_map(|s| {
                         if s.trim() != "" {
                             if let Some(len) = word_length {
-                                if s.chars().count() >= len {
+                                if if graphemes {
+                                    s.graphemes(true).count()
+                                } else {
+                                    s.len()
+                                } >= len
+                                {
                                     Some(Value::string(s, v_span))
                                 } else {
                                     None
@@ -144,7 +182,7 @@ fn split_words_helper(v: &Value, word_length: Option<usize>, span: Span) -> Vec<
                             None
                         }
                     })
-                    .collect()
+                    .collect::<Vec<Value>>()
             } else {
                 vec![Value::Error {
                     error: ShellError::PipelineMismatch("string".into(), span, v_span),
@@ -319,6 +357,19 @@ fn split_words_helper(v: &Value, word_length: Option<usize>, span: Span) -> Vec<
 #[cfg(test)]
 mod test {
     use super::*;
+    use nu_test_support::{nu, pipeline};
+
+    #[test]
+    fn test_incompat_flags() {
+        let out = nu!(cwd: ".", pipeline("'a' | split words -bg -l 2"));
+        assert!(out.err.contains("incompatible_parameters"));
+    }
+
+    #[test]
+    fn test_incompat_flags_2() {
+        let out = nu!(cwd: ".", pipeline("'a' | split words -g"));
+        assert!(out.err.contains("incompatible_parameters"));
+    }
 
     #[test]
     fn test_examples() {

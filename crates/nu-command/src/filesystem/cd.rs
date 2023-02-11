@@ -1,5 +1,7 @@
 use crate::filesystem::cd_query::query;
 use crate::{get_current_shell, get_shells};
+#[cfg(unix)]
+use libc::gid_t;
 use nu_engine::{current_dir, CallExt};
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
@@ -8,22 +10,16 @@ use nu_protocol::{
 };
 use std::path::Path;
 
-// when the file under the fold executable
+// For checking whether we have permission to cd to a directory
 #[cfg(unix)]
-mod permission_mods {
+mod file_permissions {
     pub type Mode = u32;
-    pub mod unix {
-        use super::Mode;
-        pub const USER_EXECUTE: Mode = libc::S_IXUSR as Mode;
-        pub const GROUP_EXECUTE: Mode = libc::S_IXGRP as Mode;
-        pub const OTHER_EXECUTE: Mode = libc::S_IXOTH as Mode;
-    }
+    pub const USER_EXECUTE: Mode = libc::S_IXUSR as Mode;
+    pub const GROUP_EXECUTE: Mode = libc::S_IXGRP as Mode;
+    pub const OTHER_EXECUTE: Mode = libc::S_IXOTH as Mode;
 }
 
-// use to return the message of the result of change director
-// TODO: windows, maybe should use file_attributes function in https://doc.rust-lang.org/std/os/windows/fs/trait.MetadataExt.html
-// TODO: the meaning of the result of the function can be found in https://learn.microsoft.com/en-us/windows/win32/fileio/file-attribute-constants
-// TODO: if have realize the logic on windows, remove the cfg
+// The result of checking whether we have permission to cd to a directory
 #[derive(Debug)]
 enum PermissionResult<'a> {
     PermissionOk,
@@ -64,7 +60,7 @@ impl Command for Cd {
         stack: &mut Stack,
         call: &Call,
         _input: PipelineData,
-    ) -> Result<nu_protocol::PipelineData, nu_protocol::ShellError> {
+    ) -> Result<PipelineData, ShellError> {
         let path_val: Option<Spanned<String>> = call.opt(engine_state, stack, 0)?;
         let cwd = current_dir(engine_state, stack)?;
         let config = engine_state.get_config();
@@ -97,14 +93,14 @@ impl Command for Cd {
                                         Err(e) => {
                                             return Err(ShellError::DirectoryNotFound(
                                                 v.span,
-                                                Some(format!("IO Error: {:?}", e)),
+                                                Some(format!("IO Error: {e:?}")),
                                             ))
                                         }
                                     }
                                 } else {
                                     return Err(ShellError::DirectoryNotFound(
                                         v.span,
-                                        Some(format!("IO Error: {:?}", e1)),
+                                        Some(format!("IO Error: {e1:?}")),
                                     ));
                                 }
                             }
@@ -127,7 +123,7 @@ impl Command for Cd {
                                         Err(e) => {
                                             return Err(ShellError::DirectoryNotFound(
                                                 v.span,
-                                                Some(format!("IO Error: {:?}", e)),
+                                                Some(format!("IO Error: {e:?}")),
                                             ))
                                         }
                                     };
@@ -146,14 +142,14 @@ impl Command for Cd {
                                     Err(e) => {
                                         return Err(ShellError::DirectoryNotFound(
                                             v.span,
-                                            Some(format!("IO Error: {:?}", e)),
+                                            Some(format!("IO Error: {e:?}")),
                                         ))
                                     }
                                 }
                             } else {
                                 return Err(ShellError::DirectoryNotFound(
                                     v.span,
-                                    Some(format!("IO Error: {:?}", e1)),
+                                    Some(format!("IO Error: {e1:?}")),
                                 ));
                             }
                         }
@@ -167,8 +163,10 @@ impl Command for Cd {
             }
         };
 
-        let path_tointo = path.clone();
-        let path_value = Value::String { val: path, span };
+        let path_value = Value::String {
+            val: path.clone(),
+            span,
+        };
         let cwd = Value::string(cwd.to_string_lossy(), call.head);
 
         let mut shells = get_shells(engine_state, stack, cwd);
@@ -191,16 +189,15 @@ impl Command for Cd {
             stack.add_env_var("OLDPWD".into(), oldpwd)
         }
 
-        //FIXME: this only changes the current scope, but instead this environment variable
-        //should probably be a block that loads the information from the state in the overlay
-        match have_permission(&path_tointo) {
+        match have_permission(&path) {
+            //FIXME: this only changes the current scope, but instead this environment variable
+            //should probably be a block that loads the information from the state in the overlay
             PermissionResult::PermissionOk => {
                 stack.add_env_var("PWD".into(), path_value);
                 Ok(PipelineData::empty())
             }
             PermissionResult::PermissionDenied(reason) => Err(ShellError::IOError(format!(
-                "Cannot change directory to {}: {}",
-                path_tointo, reason
+                "Cannot change directory to {path}: {reason}"
             ))),
         }
     }
@@ -225,6 +222,9 @@ impl Command for Cd {
         ]
     }
 }
+
+// TODO: Maybe we should use file_attributes() from https://doc.rust-lang.org/std/os/windows/fs/trait.MetadataExt.html
+// More on that here: https://learn.microsoft.com/en-us/windows/win32/fileio/file-attribute-constants
 #[cfg(windows)]
 fn have_permission(dir: impl AsRef<Path>) -> PermissionResult<'static> {
     match dir.as_ref().read_dir() {
@@ -246,35 +246,40 @@ fn have_permission(dir: impl AsRef<Path>) -> PermissionResult<'static> {
             use std::os::unix::fs::MetadataExt;
             let bits = metadata.mode();
             let has_bit = |bit| bits & bit == bit;
-            let current_user = users::get_current_uid();
-            if current_user == 0 {
+            let current_user_uid = users::get_current_uid();
+            if current_user_uid == 0 {
                 return PermissionResult::PermissionOk;
             }
-            let current_group = users::get_current_gid();
+            let current_user_gid = users::get_current_gid();
             let owner_user = metadata.uid();
             let owner_group = metadata.gid();
-            match (current_user == owner_user, current_group == owner_group) {
+            match (
+                current_user_uid == owner_user,
+                current_user_gid == owner_group,
+            ) {
                 (true, _) => {
-                    if has_bit(permission_mods::unix::USER_EXECUTE) {
+                    if has_bit(file_permissions::USER_EXECUTE) {
                         PermissionResult::PermissionOk
                     } else {
                         PermissionResult::PermissionDenied(
-                            "You are the owner but do not have the execute permission",
+                            "You are the owner but do not have execute permission",
                         )
                     }
                 }
                 (false, true) => {
-                    if has_bit(permission_mods::unix::GROUP_EXECUTE) {
+                    if has_bit(file_permissions::GROUP_EXECUTE) {
                         PermissionResult::PermissionOk
                     } else {
                         PermissionResult::PermissionDenied(
-                            "You are in the group but do not have the execute permission",
+                            "You are in the group but do not have execute permission",
                         )
                     }
                 }
-                // other_user or root
                 (false, false) => {
-                    if has_bit(permission_mods::unix::OTHER_EXECUTE) {
+                    if has_bit(file_permissions::OTHER_EXECUTE)
+                        || (has_bit(file_permissions::GROUP_EXECUTE)
+                            && any_group(current_user_gid, owner_group))
+                    {
                         PermissionResult::PermissionOk
                     } else {
                         PermissionResult::PermissionDenied(
@@ -284,6 +289,32 @@ fn have_permission(dir: impl AsRef<Path>) -> PermissionResult<'static> {
                 }
             }
         }
-        Err(_) => PermissionResult::PermissionDenied("Could not retrieve the metadata"),
+        Err(_) => PermissionResult::PermissionDenied("Could not retrieve file metadata"),
     }
+}
+
+#[cfg(unix)]
+fn any_group(current_user_gid: gid_t, owner_group: u32) -> bool {
+    users::get_current_username()
+        .map(|name| {
+            users::get_user_groups(&name, current_user_gid)
+                .map(|mut groups| {
+                    // Fixes https://github.com/ogham/rust-users/issues/44
+                    // If a user isn't in more than one group then this fix won't work,
+                    // However its common for a user to be in more than one group, so this should work for most.
+                    if groups.len() == 2 && groups[1].gid() == 0 {
+                        // We have no way of knowing if this is due to the issue or the user is actually in the root group
+                        // So we will assume they are in the root group and leave it.
+                        // It's not the end of the world if we are wrong, they will just get a permission denied error once inside.
+                    } else {
+                        groups.pop();
+                    }
+
+                    groups
+                })
+                .unwrap_or_default()
+        })
+        .unwrap_or_default()
+        .into_iter()
+        .any(|group| group.gid() == owner_group)
 }

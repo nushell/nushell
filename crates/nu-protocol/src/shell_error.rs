@@ -51,8 +51,8 @@ pub enum ShellError {
         #[label("value originates from here")] Span,
     ),
 
-    #[error("Pipeline mismatch.")]
-    #[diagnostic(code(nu::shell::pipeline_mismatch), url(docsrs))]
+    #[error("Input type not supported.")]
+    #[diagnostic(code(nu::shell::only_supports_this_input_type), url(docsrs))]
     OnlySupportsThisInputType(
         String,
         String,
@@ -365,6 +365,20 @@ Either make sure {0} is a string, or add a 'to_string' entry for it in ENV_CONVE
     )]
     AutomaticEnvVarSetManually(String, #[label("cannot set '{0}' manually")] Span),
 
+    /// It is not possible to replace the entire environment at once
+    ///
+    /// ## Resolution
+    ///
+    /// Setting the entire environment is not allowed. Change environment variables individually
+    /// instead.
+    #[error("Cannot replace environment.")]
+    #[diagnostic(
+        code(nu::shell::cannot_replace_env),
+        url(docsrs),
+        help(r#"Assigning a value to $env is not allowed."#)
+    )]
+    CannotReplaceEnv(#[label("setting $env not allowed")] Span),
+
     /// Division by zero is not a thing.
     ///
     /// ## Resolution
@@ -508,7 +522,7 @@ Either make sure {0} is a string, or add a 'to_string' entry for it in ENV_CONVE
     /// * "2020-04-12 22:10:57 +02:00"
     /// * "2020-04-12T22:10:57.213231+02:00"
     /// * "Tue, 1 Jul 2003 10:52:37 +0200""#
-    #[error("Unable to parse datetime")]
+    #[error("Unable to parse datetime: [{0}].")]
     #[diagnostic(
         code(nu::shell::datetime_parse_error),
         url(docsrs),
@@ -522,7 +536,7 @@ Either make sure {0} is a string, or add a 'to_string' entry for it in ENV_CONVE
  * "Tue, 1 Jul 2003 10:52:37 +0200""#
         )
     )]
-    DatetimeParseError(#[label("datetime parsing failed")] Span),
+    DatetimeParseError(String, #[label("datetime parsing failed")] Span),
 
     /// A network operation failed.
     ///
@@ -903,11 +917,34 @@ Either make sure {0} is a string, or add a 'to_string' entry for it in ENV_CONVE
     /// Return event, which may become an error if used outside of a function
     #[error("Return used outside of function")]
     Return(#[label = "used outside of function"] Span, Box<Value>),
+
+    /// The code being executed called itself too many times.
+    ///
+    /// ## Resolution
+    ///
+    /// Adjust your Nu code to
+    #[error("Recursion limit ({recursion_limit}) reached")]
+    #[diagnostic(code(nu::shell::recursion_limit_reached), url(docsrs))]
+    RecursionLimitReached {
+        recursion_limit: u64,
+        #[label("This called itself too many times")]
+        span: Option<Span>,
+    },
+
+    /// An attempt to access a record column failed.
+    #[error("Access failure: {message}")]
+    #[diagnostic(code(nu::shell::lazy_record_access_failed), url(docsrs))]
+    LazyRecordAccessFailed {
+        message: String,
+        column_name: String,
+        #[label("Could not access '{column_name}' on this record")]
+        span: Span,
+    },
 }
 
 impl From<std::io::Error> for ShellError {
     fn from(input: std::io::Error) -> ShellError {
-        ShellError::IOError(format!("{:?}", input))
+        ShellError::IOError(format!("{input:?}"))
     }
 }
 
@@ -919,7 +956,7 @@ impl std::convert::From<Box<dyn std::error::Error>> for ShellError {
 
 impl From<Box<dyn std::error::Error + Send + Sync>> for ShellError {
     fn from(input: Box<dyn std::error::Error + Send + Sync>) -> ShellError {
-        ShellError::IOError(format!("{:?}", input))
+        ShellError::IOError(format!("{input:?}"))
     }
 }
 
@@ -927,9 +964,8 @@ pub fn into_code(err: &ShellError) -> Option<String> {
     err.code().map(|code| code.to_string())
 }
 
-pub fn did_you_mean(possibilities: &[String], input: &str) -> Option<String> {
-    let possibilities: Vec<&str> = possibilities.iter().map(|s| s.as_str()).collect();
-
+pub fn did_you_mean<S: AsRef<str>>(possibilities: &[S], input: &str) -> Option<String> {
+    let possibilities: Vec<&str> = possibilities.iter().map(|s| s.as_ref()).collect();
     let suggestion =
         crate::lev_distance::find_best_match_for_name_with_substrings(&possibilities, input, None)
             .map(|s| s.to_string());
@@ -1005,14 +1041,12 @@ mod tests {
             ),
         ];
         for (possibilities, cases) in all_cases {
-            let possibilities: Vec<String> = possibilities.iter().map(|s| s.to_string()).collect();
             for (input, expected_suggestion, discussion) in cases {
                 let suggestion = did_you_mean(&possibilities, input);
                 assert_eq!(
                     suggestion.as_deref(),
                     expected_suggestion,
-                    "Expected the following reasoning to hold but it did not: '{}'",
-                    discussion
+                    "Expected the following reasoning to hold but it did not: '{discussion}'"
                 );
             }
         }

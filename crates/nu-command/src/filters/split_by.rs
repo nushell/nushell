@@ -21,7 +21,7 @@ impl Command for SplitBy {
     }
 
     fn usage(&self) -> &str {
-        "Create a new table splitted."
+        "Create a new table split."
     }
 
     fn run(
@@ -30,7 +30,7 @@ impl Command for SplitBy {
         stack: &mut Stack,
         call: &Call,
         input: PipelineData,
-    ) -> Result<nu_protocol::PipelineData, nu_protocol::ShellError> {
+    ) -> Result<PipelineData, ShellError> {
         split_by(engine_state, stack, call, input)
     }
 

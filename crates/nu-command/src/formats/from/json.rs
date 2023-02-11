@@ -59,7 +59,7 @@ impl Command for FromJson {
         _stack: &mut Stack,
         call: &Call,
         input: PipelineData,
-    ) -> Result<nu_protocol::PipelineData, ShellError> {
+    ) -> Result<PipelineData, ShellError> {
         let span = call.head;
         let (string_input, span, metadata) = input.collect_string_strict(span)?;
 
@@ -186,7 +186,7 @@ fn convert_string_to_value(string_input: String, span: Span) -> Result<Value, Sh
                 ))
             }
             x => Err(ShellError::CantConvert(
-                format!("structured json data ({})", x),
+                format!("structured json data ({x})"),
                 "string".into(),
                 span,
                 None,

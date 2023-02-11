@@ -38,10 +38,10 @@ fn main() {
     // Capture the table as a string
     let output_table = table
         .draw(table_cfg, width)
-        .unwrap_or_else(|| format!("Couldn't fit table into {} columns!", width));
+        .unwrap_or_else(|| format!("Couldn't fit table into {width} columns!"));
 
     // Draw the table
-    println!("{}", output_table)
+    println!("{output_table}")
 }
 
 fn make_table_data() -> (Vec<&'static str>, Vec<&'static str>) {

@@ -84,6 +84,9 @@ pub fn math_result_type(
                     }
                 }
                 (Type::Table(a), Type::Table(_)) => (Type::Table(a.clone()), None),
+                (Type::String, Type::String) => (Type::String, None),
+                (Type::Binary, Type::Binary) => (Type::Binary, None),
+                (Type::Any, _) | (_, Type::Any) => (Type::Any, None),
                 _ => {
                     *op = Expression::garbage(op.span);
                     (

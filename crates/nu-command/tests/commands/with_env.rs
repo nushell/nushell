@@ -82,8 +82,6 @@ fn with_env_hides_variables_in_parent_scope() {
     assert_eq!(actual.out, "11");
 }
 
-// FIXME: jt: needs more work
-#[ignore]
 #[test]
 fn with_env_shorthand_can_not_hide_variables() {
     let actual = nu!(

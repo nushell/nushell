@@ -36,7 +36,7 @@ impl Command for SubCommand {
         _stack: &mut Stack,
         call: &Call,
         input: PipelineData,
-    ) -> Result<nu_protocol::PipelineData, nu_protocol::ShellError> {
+    ) -> Result<PipelineData, ShellError> {
         let sample = call.has_flag("sample");
         run_with_function(call, input, compute_variance(sample))
     }

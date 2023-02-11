@@ -307,10 +307,7 @@ pub fn create_column(
                 .skip(from_row)
                 .take(size)
                 .map(|v| match v {
-                    Some(a) => Value::Int {
-                        val: a as i64,
-                        span,
-                    },
+                    Some(a) => Value::Int { val: a, span },
                     None => Value::Nothing { span },
                 })
                 .collect::<Vec<Value>>();
@@ -423,7 +420,7 @@ pub fn create_column(
                     "Error casting object from series".into(),
                     "".to_string(),
                     None,
-                    Some(format!("Object not supported for conversion: {}", x)),
+                    Some(format!("Object not supported for conversion: {x}")),
                     Vec::new(),
                 )),
                 Some(ca) => {
@@ -467,7 +464,7 @@ pub fn create_column(
                                     error: ShellError::UnsupportedInput(
                                         "The given local datetime representation is invalid."
                                             .to_string(),
-                                        format!("timestamp is {:?}", a),
+                                        format!("timestamp is {a:?}"),
                                         span,
                                         Span::unknown(),
                                     ),
@@ -482,7 +479,7 @@ pub fn create_column(
                                     error: ShellError::UnsupportedInput(
                                         "The given local datetime representation is invalid."
                                             .to_string(),
-                                        format!("timestamp is {:?}", a),
+                                        format!("timestamp is {a:?}"),
                                         span,
                                         Span::unknown(),
                                     ),
@@ -532,7 +529,7 @@ pub fn create_column(
                                     error: ShellError::UnsupportedInput(
                                         "The given local datetime representation is invalid."
                                             .to_string(),
-                                        format!("timestamp is {:?}", a),
+                                        format!("timestamp is {a:?}"),
                                         span,
                                         Span::unknown(),
                                     ),
@@ -547,7 +544,7 @@ pub fn create_column(
                                     error: ShellError::UnsupportedInput(
                                         "The given local datetime representation is invalid."
                                             .to_string(),
-                                        format!("timestamp is {:?}", a),
+                                        format!("timestamp is {a:?}"),
                                         span,
                                         Span::unknown(),
                                     ),
@@ -597,7 +594,7 @@ pub fn create_column(
             "Error creating Dataframe".into(),
             "".to_string(),
             None,
-            Some(format!("Value not supported in nushell: {}", e)),
+            Some(format!("Value not supported in nushell: {e}")),
             Vec::new(),
         )),
     }

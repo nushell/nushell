@@ -109,7 +109,10 @@ fn dropcol(
                 let mut vals = vec![];
 
                 for path in &keep_columns {
-                    let fetcher = input_val.clone().follow_cell_path(&path.members, false)?;
+                    let fetcher =
+                        input_val
+                            .clone()
+                            .follow_cell_path(&path.members, false, false)?;
                     cols.push(path.into_string());
                     vals.push(fetcher);
                 }
@@ -133,7 +136,10 @@ fn dropcol(
                 let mut vals = vec![];
 
                 for path in &keep_columns {
-                    let fetcher = input_val.clone().follow_cell_path(&path.members, false)?;
+                    let fetcher =
+                        input_val
+                            .clone()
+                            .follow_cell_path(&path.members, false, false)?;
                     cols.push(path.into_string());
                     vals.push(fetcher);
                 }
@@ -149,7 +155,9 @@ fn dropcol(
             let mut vals = vec![];
 
             for cell_path in &keep_columns {
-                let result = v.clone().follow_cell_path(&cell_path.members, false)?;
+                let result = v
+                    .clone()
+                    .follow_cell_path(&cell_path.members, false, false)?;
 
                 cols.push(cell_path.into_string());
                 vals.push(result);

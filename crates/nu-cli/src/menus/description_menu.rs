@@ -411,10 +411,10 @@ impl DescriptionMenu {
                             RESET
                         )
                     } else {
-                        format!("  {}\r\n", example)
+                        format!("  {example}\r\n")
                     }
                 } else {
-                    format!("  {}\r\n", example)
+                    format!("  {example}\r\n")
                 }
             })
             .collect();
@@ -429,7 +429,7 @@ impl DescriptionMenu {
                 examples,
             )
         } else {
-            format!("\r\n\r\nExamples:\r\n{}", examples,)
+            format!("\r\n\r\nExamples:\r\n{examples}",)
         }
     }
 }

@@ -31,12 +31,12 @@ pub fn eval_constant(
         Expr::FullCellPath(cell_path) => {
             let value = eval_constant(working_set, &cell_path.head)?;
 
-            match value.follow_cell_path(&cell_path.tail, false) {
+            match value.follow_cell_path(&cell_path.tail, false, false) {
                 Ok(val) => Ok(val),
                 // TODO: Better error conversion
                 Err(shell_error) => Err(ParseError::LabeledError(
                     "Error when following cell path".to_string(),
-                    format!("{:?}", shell_error),
+                    format!("{shell_error:?}"),
                     expr.span,
                 )),
             }

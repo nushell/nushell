@@ -19,7 +19,7 @@ impl Command for Mkdir {
 
     fn signature(&self) -> Signature {
         Signature::build("mkdir")
-            .input_output_types(vec![(Type::Nothing, Type::List(Box::new(Type::String)))])
+            .input_output_types(vec![(Type::Nothing, Type::Nothing)])
             .rest(
                 "rest",
                 SyntaxShape::Directory,
@@ -70,7 +70,7 @@ impl Command for Mkdir {
 
             if let Err(reason) = dir_res {
                 return Err(ShellError::CreateNotPossible(
-                    format!("failed to create directory: {}", reason),
+                    format!("failed to create directory: {reason}"),
                     call.positional_nth(i)
                         .expect("already checked through directories")
                         .span,
@@ -83,9 +83,11 @@ impl Command for Mkdir {
             }
         }
 
-        Ok(stream
+        stream
             .into_iter()
-            .into_pipeline_data(call.head, engine_state.ctrlc.clone()))
+            .into_pipeline_data(call.head, engine_state.ctrlc.clone())
+            .print_not_formatted(engine_state, false, true)?;
+        Ok(PipelineData::empty())
     }
 
     fn examples(&self) -> Vec<Example> {

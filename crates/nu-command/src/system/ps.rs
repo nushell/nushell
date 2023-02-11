@@ -41,7 +41,7 @@ impl Command for Ps {
         _stack: &mut Stack,
         call: &Call,
         _input: PipelineData,
-    ) -> Result<nu_protocol::PipelineData, nu_protocol::ShellError> {
+    ) -> Result<PipelineData, ShellError> {
         run_ps(engine_state, call)
     }
 

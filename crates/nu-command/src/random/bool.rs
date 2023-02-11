@@ -31,13 +31,17 @@ impl Command for SubCommand {
         "Generate a random boolean value"
     }
 
+    fn search_terms(&self) -> Vec<&str> {
+        vec!["generate", "boolean", "true", "false", "1", "0"]
+    }
+
     fn run(
         &self,
         engine_state: &EngineState,
         stack: &mut Stack,
         call: &Call,
         _input: PipelineData,
-    ) -> Result<nu_protocol::PipelineData, nu_protocol::ShellError> {
+    ) -> Result<PipelineData, ShellError> {
         bool(engine_state, stack, call)
     }
 

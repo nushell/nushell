@@ -35,7 +35,7 @@ impl Command for Shuffle {
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
         let metadata = input.metadata();
-        let mut v: Vec<_> = input.into_iter().collect();
+        let mut v: Vec<_> = input.into_iter_strict(call.head)?.collect();
         v.shuffle(&mut thread_rng());
         let iter = v.into_iter();
         Ok(iter

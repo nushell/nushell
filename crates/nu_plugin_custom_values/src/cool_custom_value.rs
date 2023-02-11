@@ -22,15 +22,18 @@ impl CoolCustomValue {
 
     pub fn try_from_value(value: &Value) -> Result<Self, ShellError> {
         match value {
-            Value::CustomValue { val, span } => match val.as_any().downcast_ref::<Self>() {
-                Some(cool) => Ok(cool.clone()),
-                None => Err(ShellError::CantConvert(
-                    "cool".into(),
-                    "non-cool".into(),
-                    *span,
-                    None,
-                )),
-            },
+            Value::CustomValue { val, span } => {
+                if let Some(cool) = val.as_any().downcast_ref::<Self>() {
+                    Ok(cool.clone())
+                } else {
+                    Err(ShellError::CantConvert(
+                        "cool".into(),
+                        "non-cool".into(),
+                        *span,
+                        None,
+                    ))
+                }
+            }
             x => Err(ShellError::CantConvert(
                 "cool".into(),
                 x.get_type().to_string(),

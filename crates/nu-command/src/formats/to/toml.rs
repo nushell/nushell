@@ -36,7 +36,7 @@ impl Command for ToToml {
         _stack: &mut Stack,
         call: &Call,
         input: PipelineData,
-    ) -> Result<nu_protocol::PipelineData, ShellError> {
+    ) -> Result<PipelineData, ShellError> {
         let head = call.head;
         to_toml(engine_state, input, head)
     }
@@ -60,6 +60,10 @@ fn helper(engine_state: &EngineState, v: &Value) -> Result<toml::Value, ShellErr
                 m.insert(k.clone(), helper(engine_state, v)?);
             }
             toml::Value::Table(m)
+        }
+        Value::LazyRecord { val, .. } => {
+            let collected = val.collect()?;
+            helper(engine_state, &collected)?
         }
         Value::List { vals, .. } => toml::Value::Array(toml_list(engine_state, vals)?),
         Value::Block { span, .. } => {

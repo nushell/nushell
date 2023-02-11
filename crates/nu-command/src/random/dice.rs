@@ -37,13 +37,17 @@ impl Command for SubCommand {
         "Generate a random dice roll"
     }
 
+    fn search_terms(&self) -> Vec<&str> {
+        vec!["generate", "die", "1-6"]
+    }
+
     fn run(
         &self,
         engine_state: &EngineState,
         stack: &mut Stack,
         call: &Call,
         _input: PipelineData,
-    ) -> Result<nu_protocol::PipelineData, nu_protocol::ShellError> {
+    ) -> Result<PipelineData, ShellError> {
         dice(engine_state, stack, call)
     }
 

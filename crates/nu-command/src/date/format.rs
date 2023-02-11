@@ -50,7 +50,7 @@ impl Command for SubCommand {
         stack: &mut Stack,
         call: &Call,
         input: PipelineData,
-    ) -> Result<nu_protocol::PipelineData, nu_protocol::ShellError> {
+    ) -> Result<PipelineData, ShellError> {
         let head = call.head;
         if call.has_flag("list") {
             return Ok(PipelineData::Value(
@@ -126,7 +126,7 @@ where
         .unwrap_or(Locale::en_US);
     let format = date_time.format_localized(formatter, locale);
 
-    match formatter_buf.write_fmt(format_args!("{}", format)) {
+    match formatter_buf.write_fmt(format_args!("{format}")) {
         Ok(_) => Value::String {
             val: formatter_buf,
             span,
@@ -149,7 +149,7 @@ fn format_helper(value: Value, formatter: &str, formatter_span: Span, head_span:
             }
         }
         _ => Value::Error {
-            error: ShellError::DatetimeParseError(head_span),
+            error: ShellError::DatetimeParseError(value.debug_value(), head_span),
         },
     }
 }
@@ -174,7 +174,7 @@ fn format_helper_rfc2822(value: Value, span: Span) -> Value {
             }
         }
         _ => Value::Error {
-            error: ShellError::DatetimeParseError(span),
+            error: ShellError::DatetimeParseError(value.debug_value(), span),
         },
     }
 }

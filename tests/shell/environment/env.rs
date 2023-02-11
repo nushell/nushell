@@ -99,6 +99,13 @@ fn load_env_file_pwd_env_var_fails() {
     assert!(actual.err.contains("automatic_env_var_set_manually"));
 }
 
+#[test]
+fn load_env_pwd_env_var_fails() {
+    let actual = nu!(cwd: ".", r#"load-env { PWD : 'foo' }"#);
+
+    assert!(actual.err.contains("automatic_env_var_set_manually"));
+}
+
 // FIXME: for some reason Nu is attempting to execute foo in `let-env FOO = foo`
 #[ignore]
 #[test]

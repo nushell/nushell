@@ -109,7 +109,7 @@ impl Command for Move {
         stack: &mut Stack,
         call: &Call,
         input: PipelineData,
-    ) -> Result<nu_protocol::PipelineData, nu_protocol::ShellError> {
+    ) -> Result<PipelineData, ShellError> {
         let columns: Vec<Value> = call.rest(engine_state, stack, 0)?;
         let after: Option<Value> = call.get_flag(engine_state, stack, "after")?;
         let before: Option<Value> = call.get_flag(engine_state, stack, "before")?;

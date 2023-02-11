@@ -13,7 +13,7 @@ pub struct AsDate;
 
 impl Command for AsDate {
     fn name(&self) -> &str {
-        "as-date"
+        "dfr as-date"
     }
 
     fn usage(&self) -> &str {
@@ -39,7 +39,7 @@ impl Command for AsDate {
     fn examples(&self) -> Vec<Example> {
         vec![Example {
             description: "Converts string to date",
-            example: r#"["2021-12-30" "2021-12-31"] | into df | as-datetime "%Y-%m-%d""#,
+            example: r#"["2021-12-30" "2021-12-31"] | dfr into-df | dfr as-datetime "%Y-%m-%d""#,
             result: None,
         }]
     }
@@ -79,7 +79,7 @@ fn command(
     let res = if not_exact {
         casted.as_date_not_exact(Some(format.as_str()))
     } else {
-        casted.as_date(Some(format.as_str()))
+        casted.as_date(Some(format.as_str()), false)
     };
 
     let mut res = res

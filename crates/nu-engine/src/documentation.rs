@@ -69,7 +69,10 @@ fn get_documentation(
     if !config.no_subcommands {
         let signatures = engine_state.get_signatures(true);
         for sig in signatures {
-            if sig.name.starts_with(&format!("{} ", cmd_name)) {
+            if sig.name.starts_with(&format!("{cmd_name} "))
+                // Don't display deprecated commands in the Subcommands list
+                    && !sig.usage.starts_with("Deprecated command")
+            {
                 subcommands.push(format!("  {C}{}{RESET} - {}", sig.name, sig.usage));
             }
         }
@@ -81,11 +84,11 @@ fn get_documentation(
             sig.search_terms.join(", "),
             RESET
         );
-        let _ = write!(long_desc, "{}", text);
+        let _ = write!(long_desc, "{text}");
     }
 
     let text = format!("{}Usage{}:\n  > {}\n", G, RESET, sig.call_signature());
-    let _ = write!(long_desc, "{}", text);
+    let _ = write!(long_desc, "{text}");
 
     if !subcommands.is_empty() {
         let _ = write!(long_desc, "\n{G}Subcommands{RESET}:\n");
@@ -102,11 +105,10 @@ fn get_documentation(
         if sig.operates_on_cell_paths() {
             let _ = writeln!(
                 long_desc,
-                "\n{}Signatures(Cell paths are supported){}:\n{}",
-                G, RESET, sig
+                "\n{G}Signatures(Cell paths are supported){RESET}:\n{sig}"
             );
         } else {
-            let _ = writeln!(long_desc, "\n{}Signatures{}:\n{}", G, RESET, sig);
+            let _ = writeln!(long_desc, "\n{G}Signatures{RESET}:\n{sig}");
         }
     }
 
@@ -134,7 +136,7 @@ fn get_documentation(
                     )
                 }
             };
-            let _ = writeln!(long_desc, "{}", text);
+            let _ = writeln!(long_desc, "{text}");
         }
         for positional in &sig.optional_positional {
             let text = match &positional.shape {
@@ -155,7 +157,7 @@ fn get_documentation(
                     )
                 }
             };
-            let _ = writeln!(long_desc, "{}", text);
+            let _ = writeln!(long_desc, "{text}");
         }
 
         if let Some(rest_positional) = &sig.rest_positional {
@@ -165,12 +167,12 @@ fn get_documentation(
                 document_shape(rest_positional.shape.clone()),
                 rest_positional.desc
             );
-            let _ = writeln!(long_desc, "{}", text);
+            let _ = writeln!(long_desc, "{text}");
         }
     }
 
     if !examples.is_empty() {
-        let _ = write!(long_desc, "\n{}Examples{}:", G, RESET);
+        let _ = write!(long_desc, "\n{G}Examples{RESET}:");
     }
 
     for example in examples {
@@ -193,7 +195,7 @@ fn get_documentation(
                     let result = output.into_value(Span::unknown());
                     match result.as_string() {
                         Ok(s) => {
-                            let _ = write!(long_desc, "\n  > {}\n", s);
+                            let _ = write!(long_desc, "\n  > {s}\n");
                         }
                         _ => {
                             let _ = write!(long_desc, "\n  > {}\n", example.example);
@@ -234,7 +236,7 @@ pub fn get_flags_section(signature: &Signature) -> String {
     const D: &str = "\x1b[39m"; // default
 
     let mut long_desc = String::new();
-    let _ = write!(long_desc, "\n{}Flags{}:\n", G, RESET);
+    let _ = write!(long_desc, "\n{G}Flags{RESET}:\n");
     for flag in &signature.named {
         let msg = if let Some(arg) = &flag.arg {
             if let Some(short) = flag.short {

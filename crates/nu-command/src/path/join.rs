@@ -4,6 +4,8 @@ use std::{
 };
 
 use nu_engine::CallExt;
+use nu_protocol::ast::Call;
+use nu_protocol::engine::{EngineState, Stack};
 use nu_protocol::{
     engine::Command, Example, PipelineData, ShellError, Signature, Span, Spanned, SyntaxShape,
     Type, Value,
@@ -57,9 +59,9 @@ the output of 'path parse' and 'path split' subcommands."#
 
     fn run(
         &self,
-        engine_state: &nu_protocol::engine::EngineState,
-        stack: &mut nu_protocol::engine::Stack,
-        call: &nu_protocol::ast::Call,
+        engine_state: &EngineState,
+        stack: &mut Stack,
+        call: &Call,
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
         let head = call.head;
@@ -233,8 +235,7 @@ fn merge_record(
             let allowed_cols = super::ALLOWED_COLUMNS.join(", ");
             return Err(ShellError::UnsupportedInput(
                 format!(
-                    "Column '{}' is not valid for a structured path. Allowed columns on this platform are: {}",
-                    key, allowed_cols
+                    "Column '{key}' is not valid for a structured path. Allowed columns on this platform are: {allowed_cols}"
                 ),
                 "value originates from here".into(),
                 head,

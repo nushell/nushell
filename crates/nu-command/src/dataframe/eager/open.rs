@@ -18,7 +18,7 @@ pub struct OpenDataFrame;
 
 impl Command for OpenDataFrame {
     fn name(&self) -> &str {
-        "open-df"
+        "dfr open"
     }
 
     fn usage(&self) -> &str {
@@ -76,7 +76,7 @@ impl Command for OpenDataFrame {
     fn examples(&self) -> Vec<Example> {
         vec![Example {
             description: "Takes a file name and creates a dataframe",
-            example: "open test.csv",
+            example: "dfr open test.csv",
             result: None,
         }]
     }
@@ -103,14 +103,13 @@ fn command(
 
     let type_id = match &type_option {
         Some(ref t) => Some((t.item.to_owned(), "Invalid type", t.span)),
-        None => match file.item.extension() {
-            Some(e) => Some((
+        None => file.item.extension().map(|e| {
+            (
                 e.to_string_lossy().into_owned(),
                 "Invalid extension",
                 file.span,
-            )),
-            None => None,
-        },
+            )
+        }),
     };
 
     match type_id {
@@ -120,10 +119,7 @@ fn command(
             "ipc" | "arrow" => from_ipc(engine_state, stack, call),
             "json" => from_json(engine_state, stack, call),
             _ => Err(ShellError::FileNotFoundCustom(
-                format!(
-                    "{}. Supported values: csv, tsv, parquet, ipc, arrow, json",
-                    msg
-                ),
+                format!("{msg}. Supported values: csv, tsv, parquet, ipc, arrow, json"),
                 blamed,
             )),
         },
@@ -155,7 +151,7 @@ fn from_parquet(
             .map_err(|e| {
                 ShellError::GenericError(
                     "Parquet reader error".into(),
-                    format!("{:?}", e),
+                    format!("{e:?}"),
                     Some(call.head),
                     None,
                     Vec::new(),
@@ -189,7 +185,7 @@ fn from_parquet(
             .map_err(|e| {
                 ShellError::GenericError(
                     "Parquet reader error".into(),
-                    format!("{:?}", e),
+                    format!("{e:?}"),
                     Some(call.head),
                     None,
                     Vec::new(),
@@ -220,7 +216,7 @@ fn from_ipc(
             .map_err(|e| {
                 ShellError::GenericError(
                     "IPC reader error".into(),
-                    format!("{:?}", e),
+                    format!("{e:?}"),
                     Some(call.head),
                     None,
                     Vec::new(),
@@ -254,7 +250,7 @@ fn from_ipc(
             .map_err(|e| {
                 ShellError::GenericError(
                     "IPC reader error".into(),
-                    format!("{:?}", e),
+                    format!("{e:?}"),
                     Some(call.head),
                     None,
                     Vec::new(),
@@ -290,7 +286,7 @@ fn from_json(
         .map_err(|e| {
             ShellError::GenericError(
                 "Json reader error".into(),
-                format!("{:?}", e),
+                format!("{e:?}"),
                 Some(call.head),
                 None,
                 Vec::new(),
@@ -354,7 +350,7 @@ fn from_csv(
             .map_err(|e| {
                 ShellError::GenericError(
                     "Parquet reader error".into(),
-                    format!("{:?}", e),
+                    format!("{e:?}"),
                     Some(call.head),
                     None,
                     Vec::new(),
@@ -420,7 +416,7 @@ fn from_csv(
             .map_err(|e| {
                 ShellError::GenericError(
                     "Parquet reader error".into(),
-                    format!("{:?}", e),
+                    format!("{e:?}"),
                     Some(call.head),
                     None,
                     Vec::new(),

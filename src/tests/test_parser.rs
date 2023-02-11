@@ -19,6 +19,31 @@ fn alias_1() -> TestResult {
 }
 
 #[test]
+fn ints_with_underscores() -> TestResult {
+    run_test("1_0000_0000_0000 + 10", "1000000000010")
+}
+
+#[test]
+fn floats_with_underscores() -> TestResult {
+    run_test("3.1415_9265_3589_793 * 2", "6.283185307179586")
+}
+
+#[test]
+fn bin_ints_with_underscores() -> TestResult {
+    run_test("0b_10100_11101_10010", "21426")
+}
+
+#[test]
+fn oct_ints_with_underscores() -> TestResult {
+    run_test("0o2443_6442_7652_0044", "90422533333028")
+}
+
+#[test]
+fn hex_ints_with_underscores() -> TestResult {
+    run_test("0x68__9d__6a", "6856042")
+}
+
+#[test]
 fn alias_2() -> TestResult {
     run_test(
         "def foo [$x $y] { $x + $y + 10 }; alias f = foo 33; f 100",
@@ -122,8 +147,8 @@ fn bad_var_name2() -> TestResult {
 #[test]
 fn long_flag() -> TestResult {
     run_test(
-        r#"([a, b, c] | each --numbered { |it| if $it.index == 1 { 100 } else { 0 } }).1"#,
-        "100",
+        r#"([a, b, c] | enumerate | each --keep-empty { |e| if $e.index != 1 { 100 }}).1 | to nuon"#,
+        "null",
     )
 }
 
@@ -199,7 +224,7 @@ fn commands_have_usage() -> TestResult {
 #[test]
 fn equals_separates_long_flag() -> TestResult {
     run_test(
-        r#"'nushell' | str lpad --length=10 --character='-'"#,
+        r#"'nushell' | fill --alignment right --width=10 --character='-'"#,
         "---nushell",
     )
 }
@@ -349,17 +374,21 @@ fn proper_missing_param() -> TestResult {
 
 #[test]
 fn block_arity_check1() -> TestResult {
-    fail_test(r#"ls | each { |x, y, z| 1}"#, "expected 2 block parameters")
+    fail_test(
+        r#"ls | each { |x, y, z| 1}"#,
+        "expected 2 closure parameters",
+    )
 }
 
+// deprecating former support for escapes like `/uNNNN`, dropping test.
 #[test]
-fn string_escape() -> TestResult {
-    run_test(r#""\u015B""#, "ś")
+fn string_escape_unicode_extended() -> TestResult {
+    run_test(r#""\u{015B}\u{1f10b}""#, "ś🄋")
 }
 
 #[test]
 fn string_escape_interpolation() -> TestResult {
-    run_test(r#"$"\u015B(char hamburger)abc""#, "ś≡abc")
+    run_test(r#"$"\u{015B}(char hamburger)abc""#, "ś≡abc")
 }
 
 #[test]
@@ -441,4 +470,9 @@ fn and_and_xor() -> TestResult {
 fn or_and_xor() -> TestResult {
     // Assumes the precedence NOT > AND > XOR > OR
     run_test(r#"true or false xor true or false"#, "true")
+}
+
+#[test]
+fn unbalanced_delimiter() -> TestResult {
+    fail_test(r#"{a:{b:5}}}"#, "unbalanced { and }")
 }

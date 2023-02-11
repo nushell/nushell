@@ -14,7 +14,7 @@ pub struct GetDF;
 
 impl Command for GetDF {
     fn name(&self) -> &str {
-        "get"
+        "dfr get"
     }
 
     fn usage(&self) -> &str {
@@ -32,7 +32,7 @@ impl Command for GetDF {
     fn examples(&self) -> Vec<Example> {
         vec![Example {
             description: "Returns the selected column",
-            example: "[[a b]; [1 2] [3 4]] | into df | get a",
+            example: "[[a b]; [1 2] [3 4]] | dfr into-df | dfr get a",
             result: Some(
                 NuDataFrame::try_from_columns(vec![Column::new(
                     "a".to_string(),
@@ -67,7 +67,7 @@ fn command(
     let df = NuDataFrame::try_from_pipeline(input, call.head)?;
 
     df.as_ref()
-        .select(&col_string)
+        .select(col_string)
         .map_err(|e| {
             ShellError::GenericError(
                 "Error selecting columns".into(),

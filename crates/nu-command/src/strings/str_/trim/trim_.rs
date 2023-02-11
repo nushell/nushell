@@ -83,7 +83,7 @@ impl Command for SubCommand {
         stack: &mut Stack,
         call: &Call,
         input: PipelineData,
-    ) -> Result<nu_protocol::PipelineData, nu_protocol::ShellError> {
+    ) -> Result<PipelineData, ShellError> {
         let character = call.get_flag::<Spanned<String>>(engine_state, stack, "char")?;
         let to_trim = match character.as_ref() {
             Some(v) => {
@@ -266,10 +266,10 @@ fn trim(s: &str, char_: Option<char>, closure_flags: &ClosureFlags) -> String {
                 '\x0B' => r"\v".to_string(),
                 '\x0C' => r"\f".to_string(),
                 '\x0D' => r"\r".to_string(),
-                _ => format!(r"\{}", r),
+                _ => format!(r"\{r}"),
             };
             // create a regex string that looks for 2 or more of each of these characters
-            let re_str = format!("{}{{2,}}", reg);
+            let re_str = format!("{reg}{{2,}}");
             // create the regex
             let re = Regex::new(&re_str).expect("Error creating regular expression");
             // replace all multiple occurrences with single occurrences represented by r

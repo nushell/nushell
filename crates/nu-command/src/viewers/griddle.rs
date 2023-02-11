@@ -62,7 +62,7 @@ prints out the list properly."#
         stack: &mut Stack,
         call: &Call,
         input: PipelineData,
-    ) -> Result<nu_protocol::PipelineData, nu_protocol::ShellError> {
+    ) -> Result<PipelineData, ShellError> {
         let width_param: Option<i64> = call.get_flag(engine_state, stack, "width")?;
         let color_param: bool = call.has_flag("color");
         let separator_param: Option<String> = call.get_flag(engine_state, stack, "separator")?;
@@ -72,17 +72,18 @@ prints out the list properly."#
             None => None,
         };
         let use_grid_icons = config.use_grid_icons;
+        let use_color: bool = color_param && config.use_ansi_coloring;
 
         match input {
             PipelineData::Value(Value::List { vals, .. }, ..) => {
                 // dbg!("value::list");
-                let data = convert_to_list(vals, config, call.head);
+                let data = convert_to_list(vals, config, call.head)?;
                 if let Some(items) = data {
                     Ok(create_grid_output(
                         items,
                         call,
                         width_param,
-                        color_param,
+                        use_color,
                         separator_param,
                         env_str,
                         use_grid_icons,
@@ -93,13 +94,13 @@ prints out the list properly."#
             }
             PipelineData::ListStream(stream, ..) => {
                 // dbg!("value::stream");
-                let data = convert_to_list(stream, config, call.head);
+                let data = convert_to_list(stream, config, call.head)?;
                 if let Some(items) = data {
                     Ok(create_grid_output(
                         items,
                         call,
                         width_param,
-                        color_param,
+                        use_color,
                         separator_param,
                         env_str,
                         use_grid_icons,
@@ -121,7 +122,7 @@ prints out the list properly."#
                     items,
                     call,
                     width_param,
-                    color_param,
+                    use_color,
                     separator_param,
                     env_str,
                     use_grid_icons,
@@ -170,7 +171,7 @@ fn create_grid_output(
     items: Vec<(usize, String, String)>,
     call: &Call,
     width_param: Option<i64>,
-    color_param: bool,
+    use_color: bool,
     separator_param: Option<String>,
     env_str: Option<String>,
     use_grid_icons: bool,
@@ -198,7 +199,7 @@ fn create_grid_output(
     for (_row_index, header, value) in items {
         // only output value if the header name is 'name'
         if header == "name" {
-            if color_param {
+            if use_color {
                 if use_grid_icons {
                     let no_ansi = nu_utils::strip_ansi_unlikely(&value);
                     let path = std::path::Path::new(no_ansi.as_ref());
@@ -239,7 +240,7 @@ fn create_grid_output(
             Value::string(grid_display.to_string(), call.head)
         } else {
             Value::String {
-                val: format!("Couldn't fit grid into {} columns!", cols),
+                val: format!("Couldn't fit grid into {cols} columns!"),
                 span: call.head,
             }
         }
@@ -247,11 +248,12 @@ fn create_grid_output(
     )
 }
 
+#[allow(clippy::type_complexity)]
 fn convert_to_list(
     iter: impl IntoIterator<Item = Value>,
     config: &Config,
     head: Span,
-) -> Option<Vec<(usize, String, String)>> {
+) -> Result<Option<Vec<(usize, String, String)>>, ShellError> {
     let mut iter = iter.into_iter().peekable();
 
     if let Some(first) = iter.peek() {
@@ -267,7 +269,7 @@ fn convert_to_list(
             let mut row = vec![row_num.to_string()];
 
             if headers.is_empty() {
-                row.push(item.into_string(", ", config))
+                row.push(item.nonerror_into_string(", ", config)?)
             } else {
                 for header in headers.iter().skip(1) {
                     let result = match item {
@@ -277,12 +279,13 @@ fn convert_to_list(
                                 span: head,
                             }],
                             false,
+                            false,
                         ),
                         _ => Ok(item.clone()),
                     };
 
                     match result {
-                        Ok(value) => row.push(value.into_string(", ", config)),
+                        Ok(value) => row.push(value.nonerror_into_string(", ", config)?),
                         Err(_) => row.push(String::new()),
                     }
                 }
@@ -315,9 +318,9 @@ fn convert_to_list(
             }
         }
 
-        Some(interleaved)
+        Ok(Some(interleaved))
     } else {
-        None
+        Ok(None)
     }
 }
 

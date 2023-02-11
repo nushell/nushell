@@ -67,15 +67,16 @@ fn nu_protocol_value_to_json(
             let mut used_cols: Option<&[String]> = None;
             for val in &vals {
                 match val {
-                    Value::Record { cols, .. } => match &used_cols {
-                        Some(_cols) => {
+                    Value::Record { cols, .. } => {
+                        if let Some(_cols) = &used_cols {
                             if _cols != cols {
                                 used_cols = None;
                                 break;
                             }
+                        } else {
+                            used_cols = Some(cols)
                         }
-                        None => used_cols = Some(cols),
-                    },
+                    }
                     _ => {
                         used_cols = None;
                         break;
@@ -177,11 +178,6 @@ fn build_map(
             map = new_m;
         }
     }
-
-    // if last_val.is_some() && map.is_empty() {
-    //     let val = nu_protocol_value_to_json(last_val.unwrap());
-    //     return serde_json::Value::Array(vec![val]);
-    // }
 
     map
 }

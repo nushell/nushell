@@ -11,7 +11,7 @@ pub struct IsNotNull;
 
 impl Command for IsNotNull {
     fn name(&self) -> &str {
-        "is-not-null"
+        "dfr is-not-null"
     }
 
     fn usage(&self) -> &str {
@@ -28,9 +28,9 @@ impl Command for IsNotNull {
     fn examples(&self) -> Vec<Example> {
         vec![Example {
             description: "Create mask where values are not null",
-            example: r#"let s = ([5 6 0 8] | into df);
+            example: r#"let s = ([5 6 0 8] | dfr into-df);
     let res = ($s / $s);
-    $res | is-not-null"#,
+    $res | dfr is-not-null"#,
             result: Some(
                 NuDataFrame::try_from_columns(vec![Column::new(
                     "is_not_null".to_string(),

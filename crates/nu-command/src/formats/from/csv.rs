@@ -49,7 +49,7 @@ impl Command for FromCsv {
         stack: &mut Stack,
         call: &Call,
         input: PipelineData,
-    ) -> Result<nu_protocol::PipelineData, ShellError> {
+    ) -> Result<PipelineData, ShellError> {
         from_csv(engine_state, stack, call, input)
     }
 

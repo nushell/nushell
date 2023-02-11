@@ -2,7 +2,8 @@ use chrono_tz::TZ_VARIANTS;
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
-    Category, Example, IntoInterruptiblePipelineData, PipelineData, Signature, Span, Type, Value,
+    Category, Example, IntoInterruptiblePipelineData, PipelineData, ShellError, Signature, Span,
+    Type, Value,
 };
 
 #[derive(Clone)]
@@ -33,7 +34,7 @@ impl Command for SubCommand {
         _stack: &mut Stack,
         call: &Call,
         _input: PipelineData,
-    ) -> Result<nu_protocol::PipelineData, nu_protocol::ShellError> {
+    ) -> Result<PipelineData, ShellError> {
         let span = call.head;
 
         Ok(TZ_VARIANTS
@@ -46,7 +47,6 @@ impl Command for SubCommand {
                 }];
                 Value::Record { cols, vals, span }
             })
-            .into_iter()
             .into_pipeline_data(call.head, engine_state.ctrlc.clone()))
     }
 

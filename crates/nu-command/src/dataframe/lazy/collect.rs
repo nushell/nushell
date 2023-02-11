@@ -12,7 +12,7 @@ pub struct LazyCollect;
 
 impl Command for LazyCollect {
     fn name(&self) -> &str {
-        "collect"
+        "dfr collect"
     }
 
     fn usage(&self) -> &str {
@@ -29,7 +29,7 @@ impl Command for LazyCollect {
     fn examples(&self) -> Vec<Example> {
         vec![Example {
             description: "drop duplicates",
-            example: "[[a b]; [1 2] [3 4]] | into lazy | collect",
+            example: "[[a b]; [1 2] [3 4]] | dfr into-lazy | dfr collect",
             result: Some(
                 NuDataFrame::try_from_columns(vec![
                     Column::new(

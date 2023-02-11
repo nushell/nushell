@@ -41,7 +41,7 @@ impl Command for Ast {
         let mut working_set = StateWorkingSet::new(engine_state);
 
         let (output, err) = parse(&mut working_set, None, pipeline.item.as_bytes(), false, &[]);
-        eprintln!("output: {:#?}\nerror: {:#?}", output, err);
+        eprintln!("output: {output:#?}\nerror: {err:#?}");
 
         Ok(PipelineData::empty())
     }

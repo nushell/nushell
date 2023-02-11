@@ -12,7 +12,7 @@ pub struct GetWeekDay;
 
 impl Command for GetWeekDay {
     fn name(&self) -> &str {
-        "get-weekday"
+        "dfr get-weekday"
     }
 
     fn usage(&self) -> &str {
@@ -30,12 +30,12 @@ impl Command for GetWeekDay {
         vec![Example {
             description: "Returns weekday from a date",
             example: r#"let dt = ('2020-08-04T16:39:18+00:00' | into datetime -z 'UTC');
-    let df = ([$dt $dt] | into df);
-    $df | get-weekday"#,
+    let df = ([$dt $dt] | dfr into-df);
+    $df | dfr get-weekday"#,
             result: Some(
                 NuDataFrame::try_from_columns(vec![Column::new(
                     "0".to_string(),
-                    vec![Value::test_int(1), Value::test_int(1)],
+                    vec![Value::test_int(2), Value::test_int(2)],
                 )])
                 .expect("simple df for test should not fail")
                 .into_value(Span::test_data()),

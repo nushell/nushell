@@ -282,7 +282,10 @@ fn format_record(
                         span: *span,
                     })
                     .collect();
-                match data_as_value.clone().follow_cell_path(&path_members, false) {
+                match data_as_value
+                    .clone()
+                    .follow_cell_path(&path_members, false, false)
+                {
                     Ok(value_at_column) => {
                         output.push_str(value_at_column.into_string(", ", config).as_str())
                     }
@@ -300,7 +303,7 @@ fn format_record(
                     }
                     Some(err) => {
                         return Err(ShellError::TypeMismatch(
-                            format!("expression is invalid, detail message: {:?}", err),
+                            format!("expression is invalid, detail message: {err:?}"),
                             *span,
                         ))
                     }

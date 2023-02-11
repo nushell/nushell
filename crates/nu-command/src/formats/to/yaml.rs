@@ -36,7 +36,7 @@ impl Command for ToYaml {
         _stack: &mut Stack,
         call: &Call,
         input: PipelineData,
-    ) -> Result<nu_protocol::PipelineData, ShellError> {
+    ) -> Result<PipelineData, ShellError> {
         let head = call.head;
         to_yaml(input, head)
     }
@@ -61,6 +61,10 @@ pub fn value_to_yaml_value(v: &Value) -> Result<serde_yaml::Value, ShellError> {
                 );
             }
             serde_yaml::Value::Mapping(m)
+        }
+        Value::LazyRecord { val, .. } => {
+            let collected = val.collect()?;
+            value_to_yaml_value(&collected)?
         }
         Value::List { vals, .. } => {
             let mut out = vec![];

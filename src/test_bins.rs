@@ -16,9 +16,9 @@ pub fn echo_env(to_stdout: bool) {
     for arg in args {
         if let Ok(v) = std::env::var(arg) {
             if to_stdout {
-                println!("{}", v);
+                println!("{v}");
             } else {
-                eprintln!("{}", v);
+                eprintln!("{v}");
             }
         }
     }
@@ -42,7 +42,7 @@ pub fn meow() {
 
     for arg in args.iter().skip(1) {
         let contents = std::fs::read_to_string(arg).expect("Expected a filepath");
-        println!("{}", contents);
+        println!("{contents}");
     }
 }
 
@@ -66,7 +66,7 @@ pub fn relay() {
 }
 
 pub fn nonu() {
-    args().iter().skip(1).for_each(|arg| print!("{}", arg));
+    args().iter().skip(1).for_each(|arg| print!("{arg}"));
 }
 
 pub fn repeater() {
@@ -79,7 +79,7 @@ pub fn repeater() {
     let count: u64 = count.parse().expect("can't convert count to number");
 
     for _ in 0..count {
-        let _ = write!(stdout, "{}", letter);
+        let _ = write!(stdout, "{letter}");
     }
     let _ = stdout.flush();
 }
@@ -91,7 +91,7 @@ pub fn iecho() {
         .iter()
         .skip(1)
         .cycle()
-        .try_for_each(|v| writeln!(stdout, "{}", v));
+        .try_for_each(|v| writeln!(stdout, "{v}"));
 }
 
 pub fn fail() {
@@ -116,7 +116,7 @@ pub fn chop() {
             &given[..to]
         };
 
-        if let Err(_e) = writeln!(stdout, "{}", chopped) {
+        if let Err(_e) = writeln!(stdout, "{chopped}") {
             break;
         }
     }
@@ -136,7 +136,7 @@ fn outcome_err(
 }
 
 fn outcome_ok(msg: String) -> ! {
-    println!("{}", msg);
+    println!("{msg}");
 
     std::process::exit(0);
 }
@@ -154,12 +154,8 @@ pub fn nu_repl() {
     let mut last_output = String::new();
 
     for (i, line) in source_lines.iter().enumerate() {
-        let cwd = match nu_engine::env::current_dir(&engine_state, &stack) {
-            Ok(d) => d,
-            Err(err) => {
-                outcome_err(&engine_state, &err);
-            }
-        };
+        let cwd = nu_engine::env::current_dir(&engine_state, &stack)
+            .unwrap_or_else(|err| outcome_err(&engine_state, &err));
 
         // Before doing anything, merge the environment from the previous REPL iteration into the
         // permanent state.
@@ -198,7 +194,7 @@ pub fn nu_repl() {
             let mut working_set = StateWorkingSet::new(&engine_state);
             let (block, err) = parse(
                 &mut working_set,
-                Some(&format!("line{}", i)),
+                Some(&format!("line{i}")),
                 line.as_bytes(),
                 false,
                 &[],
@@ -226,10 +222,9 @@ pub fn nu_repl() {
         }
 
         if let Some(cwd) = stack.get_env_var(&engine_state, "PWD") {
-            let path = match cwd.as_string() {
-                Ok(p) => p,
-                Err(err) => outcome_err(&engine_state, &err),
-            };
+            let path = cwd
+                .as_string()
+                .unwrap_or_else(|err| outcome_err(&engine_state, &err));
             let _ = std::env::set_current_dir(path);
             engine_state.add_env_var("PWD".into(), cwd);
         }
@@ -253,7 +248,7 @@ fn did_chop_arguments() -> bool {
                 &arg[..to]
             };
 
-            println!("{}", chopped);
+            println!("{chopped}");
         }
 
         return true;

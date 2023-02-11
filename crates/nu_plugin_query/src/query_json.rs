@@ -61,7 +61,7 @@ fn query_contains_modifiers(query: &str) -> bool {
     // @pretty: Make the json document more human readable.
     query.contains("@ugly") || query.contains("@pretty")
 
-    // Output as Tablular
+    // Output as Tabular
     // Since it's output as tabular, which is our default, we can just ignore these
     // @reverse: Reverse an array or the members of an object.
     // @this: Returns the current element. It can be used to retrieve the root element.

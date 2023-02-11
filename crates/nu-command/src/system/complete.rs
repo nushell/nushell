@@ -4,6 +4,8 @@ use nu_protocol::{
     Category, Example, IntoPipelineData, PipelineData, ShellError, Signature, Type, Value,
 };
 
+use std::thread;
+
 #[derive(Clone)]
 pub struct Complete;
 
@@ -19,7 +21,11 @@ impl Command for Complete {
     }
 
     fn usage(&self) -> &str {
-        "Complete the external piped in, collecting outputs and exit code"
+        "Capture the outputs and exit code from an external piped in command in a nushell table"
+    }
+
+    fn extra_usage(&self) -> &str {
+        r#"In order to capture stdout, stderr, and exit_code, externally piped in commands need to be wrapped with `do`"#
     }
 
     fn run(
@@ -28,7 +34,7 @@ impl Command for Complete {
         _stack: &mut Stack,
         call: &Call,
         input: PipelineData,
-    ) -> Result<nu_protocol::PipelineData, nu_protocol::ShellError> {
+    ) -> Result<PipelineData, ShellError> {
         match input {
             PipelineData::ExternalStream {
                 stdout,
@@ -50,20 +56,23 @@ impl Command for Complete {
                 let stderr_handler = stderr.map(|stderr| {
                     let stderr_span = stderr.span;
                     (
-                        std::thread::spawn(move || {
-                            let stderr = stderr.into_bytes()?;
-                            if let Ok(st) = String::from_utf8(stderr.item.clone()) {
-                                Ok::<_, ShellError>(Value::String {
-                                    val: st,
-                                    span: stderr.span,
-                                })
-                            } else {
-                                Ok::<_, ShellError>(Value::Binary {
-                                    val: stderr.item,
-                                    span: stderr.span,
-                                })
-                            }
-                        }),
+                        thread::Builder::new()
+                            .name("stderr consumer".to_string())
+                            .spawn(move || {
+                                let stderr = stderr.into_bytes()?;
+                                if let Ok(st) = String::from_utf8(stderr.item.clone()) {
+                                    Ok::<_, ShellError>(Value::String {
+                                        val: st,
+                                        span: stderr.span,
+                                    })
+                                } else {
+                                    Ok::<_, ShellError>(Value::Binary {
+                                        val: stderr.item,
+                                        span: stderr.span,
+                                    })
+                                }
+                            })
+                            .expect("failed to create thread"),
                         stderr_span,
                     )
                 });
@@ -123,10 +132,19 @@ impl Command for Complete {
     }
 
     fn examples(&self) -> Vec<Example> {
-        vec![Example {
-            description: "Run the external completion",
-            example: "^external arg1 | complete",
-            result: None,
-        }]
+        vec![
+            Example {
+                description:
+                    "Run the external command to completion, capturing stdout and exit_code",
+                example: "^external arg1 | complete",
+                result: None,
+            },
+            Example {
+                description:
+                    "Run external command to completion, capturing, stdout, stderr and exit_code",
+                example: "do { ^external arg1 } | complete",
+                result: None,
+            },
+        ]
     }
 }

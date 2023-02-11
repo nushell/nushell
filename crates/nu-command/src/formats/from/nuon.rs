@@ -57,7 +57,7 @@ impl Command for FromNuon {
         _stack: &mut Stack,
         call: &Call,
         input: PipelineData,
-    ) -> Result<nu_protocol::PipelineData, ShellError> {
+    ) -> Result<PipelineData, ShellError> {
         let head = call.head;
         let (string_input, _span, metadata) = input.collect_string_strict(head)?;
 
@@ -137,7 +137,11 @@ impl Command for FromNuon {
                     PipelineElement::Expression(_, expression)
                     | PipelineElement::Redirection(_, _, expression)
                     | PipelineElement::And(_, expression)
-                    | PipelineElement::Or(_, expression) => expression,
+                    | PipelineElement::Or(_, expression)
+                    | PipelineElement::SeparateRedirection {
+                        out: (_, expression),
+                        ..
+                    } => expression,
                 }
             }
         };

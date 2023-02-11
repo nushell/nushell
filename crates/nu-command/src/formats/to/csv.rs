@@ -17,7 +17,10 @@ impl Command for ToCsv {
 
     fn signature(&self) -> Signature {
         Signature::build("to csv")
-            .input_output_types(vec![(Type::Any, Type::String)])
+            .input_output_types(vec![
+                (Type::Record(vec![]), Type::String),
+                (Type::Table(vec![]), Type::String),
+            ])
             .named(
                 "separator",
                 SyntaxShape::String,
@@ -44,6 +47,11 @@ impl Command for ToCsv {
                 example: "[[foo bar]; [1 2]] | to csv -s ';' ",
                 result: Some(Value::test_string("foo;bar\n1;2\n")),
             },
+            Example {
+                description: "Outputs an CSV string representing the contents of this record",
+                example: "{a: 1 b: 2} | to csv",
+                result: Some(Value::test_string("a,b\n1,2\n")),
+            },
         ]
     }
 
@@ -57,7 +65,7 @@ impl Command for ToCsv {
         stack: &mut Stack,
         call: &Call,
         input: PipelineData,
-    ) -> Result<nu_protocol::PipelineData, ShellError> {
+    ) -> Result<PipelineData, ShellError> {
         let head = call.head;
         let noheaders = call.has_flag("noheaders");
         let separator: Option<Spanned<String>> = call.get_flag(engine_state, stack, "separator")?;

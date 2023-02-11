@@ -6,6 +6,7 @@
 [![@nu_shell](https://img.shields.io/badge/twitter-@nu_shell-1DA1F3?style=flat-square)](https://twitter.com/nu_shell)
 ![GitHub commit activity](https://img.shields.io/github/commit-activity/m/nushell/nushell)
 ![GitHub contributors](https://img.shields.io/github/contributors/nushell/nushell)
+[![codecov](https://codecov.io/github/nushell/nushell/branch/main/graph/badge.svg?token=JheS8qu2II)](https://codecov.io/github/nushell/nushell)
 
 A new type of shell.
 
@@ -173,6 +174,8 @@ Plugins are binaries that are available in your path and follow a `nu_plugin_*` 
 These binaries interact with nu via a simple JSON-RPC protocol where the command identifies itself and passes along its configuration, making it available for use.
 If the plugin is a filter, data streams to it one element at a time, and it can stream data back in return via stdin/stdout.
 If the plugin is a sink, it is given the full vector of final data and is given free reign over stdin/stdout to use as it pleases.
+
+The [awesome-nu repo](https://github.com/nushell/awesome-nu#plugins) lists a variety of nu-plugins.
 
 ## Goals
 

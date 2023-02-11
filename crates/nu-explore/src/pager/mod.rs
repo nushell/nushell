@@ -393,10 +393,9 @@ fn handle_command(
             run_command(engine_state, stack, pager, view, view_stack, command, args)
         }
         Some(Err(err)) => Err(format!(
-            "Error: command {:?} was not provided with correct arguments: {}",
-            args, err
+            "Error: command {args:?} was not provided with correct arguments: {err}"
         )),
-        None => Err(format!("Error: command {:?} was not recognized", args)),
+        None => Err(format!("Error: command {args:?} was not recognized")),
     }
 }
 
@@ -447,7 +446,7 @@ fn run_command(
                     Transition::Exit => Ok(true),
                     Transition::Cmd { .. } => todo!("not used so far"),
                 },
-                Err(err) => Err(format!("Error: command {:?} failed: {}", args, err)),
+                Err(err) => Err(format!("Error: command {args:?} failed: {err}")),
             }
         }
         Command::View { mut cmd, is_light } => {
@@ -472,7 +471,7 @@ fn run_command(
                     *view = Some(Page::raw(new_view, is_light));
                     Ok(false)
                 }
-                Err(err) => Err(format!("Error: command {:?} failed: {}", args, err)),
+                Err(err) => Err(format!("Error: command {args:?} failed: {err}")),
             }
         }
     }
@@ -484,14 +483,14 @@ fn set_cursor_cmd_bar(f: &mut Frame, area: Rect, pager: &Pager) {
         let next_pos = (pager.cmd_buf.buf_cmd2.len() + 1) as u16;
         // 1 skips a ':' char
         if next_pos < area.width {
-            f.set_cursor(next_pos as u16, area.height - 1);
+            f.set_cursor(next_pos, area.height - 1);
         }
     } else if pager.search_buf.is_search_input {
         // todo: deal with a situation where we exceed the bar width
         let next_pos = (pager.search_buf.buf_cmd_input.len() + 1) as u16;
         // 1 skips a ':' char
         if next_pos < area.width {
-            f.set_cursor(next_pos as u16, area.height - 1);
+            f.set_cursor(next_pos, area.height - 1);
         }
     }
 }
@@ -581,7 +580,7 @@ fn render_cmd_bar_search(f: &mut Frame, area: Rect, pager: &Pager<'_>, theme: &S
     } else {
         let index = pager.search_buf.search_index + 1;
         let total = pager.search_buf.search_results.len();
-        format!("[{}/{}]", index, total)
+        format!("[{index}/{total}]")
     };
 
     let bar = CommandBar::new(&text, &info, theme.cmd_bar_text, theme.cmd_bar_background);
@@ -604,7 +603,7 @@ fn render_cmd_bar_cmd(f: &mut Frame, area: Rect, pager: &Pager, theme: &StyleCon
     }
 
     let prefix = ':';
-    let text = format!("{}{}", prefix, input);
+    let text = format!("{prefix}{input}");
 
     let bar = CommandBar::new(&text, "", theme.cmd_bar_text, theme.cmd_bar_background);
     f.render_widget(bar, area);
@@ -615,7 +614,7 @@ fn highlight_search_results(f: &mut Frame, pager: &Pager, layout: &Layout, style
         return;
     }
 
-    let hightlight_block = Block::default().style(nu_style_to_tui(style));
+    let highlight_block = Block::default().style(nu_style_to_tui(style));
 
     for e in &layout.data {
         let text = ansi_str::AnsiStr::ansi_strip(&e.text);
@@ -626,7 +625,7 @@ fn highlight_search_results(f: &mut Frame, pager: &Pager, layout: &Layout, style
             let w = pager.search_buf.buf_cmd_input.len() as u16;
             let area = Rect::new(e.area.x + p as u16, e.area.y, w, 1);
 
-            f.render_widget(hightlight_block.clone(), area);
+            f.render_widget(highlight_block.clone(), area);
         }
     }
 }

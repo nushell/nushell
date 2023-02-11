@@ -77,15 +77,15 @@ impl SQLContext {
                 Ok(match select_item {
                     SelectItem::UnnamedExpr(expr) => {
                         let expr = parse_sql_expr(expr)?;
-                        raw_projection_before_alias.insert(format!("{:?}", expr), i);
+                        raw_projection_before_alias.insert(format!("{expr:?}"), i);
                         expr
                     }
                     SelectItem::ExprWithAlias { expr, alias } => {
                         let expr = parse_sql_expr(expr)?;
-                        raw_projection_before_alias.insert(format!("{:?}", expr), i);
+                        raw_projection_before_alias.insert(format!("{expr:?}"), i);
                         expr.alias(&alias.value)
                     }
-                    SelectItem::QualifiedWildcard(_) | SelectItem::Wildcard => {
+                    SelectItem::QualifiedWildcard(_, _) | SelectItem::Wildcard(_) => {
                         contain_wildcard = true;
                         col("*")
                     }
@@ -133,7 +133,7 @@ impl SQLContext {
             // and its projections columns, keeping the original index
             let (exclude_expr, groupby_pos): (Vec<_>, Vec<_>) = group_by
                 .iter()
-                .map(|expr| raw_projection_before_alias.get(&format!("{:?}", expr)))
+                .map(|expr| raw_projection_before_alias.get(&format!("{expr:?}")))
                 .enumerate()
                 .filter(|(_, proj_p)| proj_p.is_some())
                 .map(|(gb_p, proj_p)| (*proj_p.unwrap_or(&0), (*proj_p.unwrap_or(&0), gb_p)))
@@ -173,7 +173,7 @@ impl SQLContext {
 
     pub fn execute(&self, query: &str) -> Result<LazyFrame, PolarsError> {
         let ast = Parser::parse_sql(&self.dialect, query)
-            .map_err(|e| PolarsError::ComputeError(format!("{:?}", e).into()))?;
+            .map_err(|e| PolarsError::ComputeError(format!("{e:?}").into()))?;
         if ast.len() != 1 {
             Err(PolarsError::ComputeError(
                 "One and only one statement at a time please".into(),
@@ -196,7 +196,7 @@ impl SQLContext {
                         Some(SqlExpr::Value(SQLValue::Number(nrow, _))) => {
                             let nrow = nrow.parse().map_err(|err| {
                                 PolarsError::ComputeError(
-                                    format!("Conversion Error: {:?}", err).into(),
+                                    format!("Conversion Error: {err:?}").into(),
                                 )
                             })?;
                             rs.limit(nrow)
@@ -211,7 +211,7 @@ impl SQLContext {
                 }
                 _ => {
                     return Err(PolarsError::ComputeError(
-                        format!("Statement type {:?} is not supported", ast).into(),
+                        format!("Statement type {ast:?} is not supported").into(),
                     ))
                 }
             })

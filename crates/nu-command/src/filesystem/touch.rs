@@ -137,7 +137,7 @@ impl Command for Touch {
 
             if let Err(err) = OpenOptions::new().write(true).create(true).open(&item) {
                 return Err(ShellError::CreateNotPossible(
-                    format!("Failed to create file: {}", err),
+                    format!("Failed to create file: {err}"),
                     call.positional_nth(index)
                         .expect("already checked positional")
                         .span,
@@ -151,7 +151,7 @@ impl Command for Touch {
                     FileTime::from_system_time(date.expect("should be a valid date").into()),
                 ) {
                     return Err(ShellError::ChangeModifiedTimeNotPossible(
-                        format!("Failed to change the modified time: {}", err),
+                        format!("Failed to change the modified time: {err}"),
                         call.positional_nth(index)
                             .expect("already checked positional")
                             .span,
@@ -170,7 +170,7 @@ impl Command for Touch {
                         ),
                     ) {
                         return Err(ShellError::ChangeAccessTimeNotPossible(
-                            format!("Failed to change the access time: {}", err),
+                            format!("Failed to change the access time: {err}"),
                             call.positional_nth(index)
                                 .expect("already checked positional")
                                 .span,
@@ -183,7 +183,7 @@ impl Command for Touch {
                         FileTime::from_system_time(date.expect("should be a valid date").into()),
                     ) {
                         return Err(ShellError::ChangeAccessTimeNotPossible(
-                            format!("Failed to change the access time: {}", err),
+                            format!("Failed to change the access time: {err}"),
                             call.positional_nth(index)
                                 .expect("already checked positional")
                                 .span,

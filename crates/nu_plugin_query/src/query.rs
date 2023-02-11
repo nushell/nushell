@@ -3,7 +3,7 @@ use crate::query_web::parse_selector_params;
 use crate::query_xml::execute_xpath_query;
 use nu_engine::documentation::get_flags_section;
 use nu_plugin::{EvaluatedCall, LabeledError, Plugin};
-use nu_protocol::{Signature, Spanned, Value};
+use nu_protocol::{PluginSignature, Spanned, Value};
 use std::fmt::Write;
 
 #[derive(Default)]
@@ -58,19 +58,19 @@ impl Query {
     }
 }
 
-pub fn get_brief_subcommand_help(sigs: &[Signature]) -> String {
+pub fn get_brief_subcommand_help(sigs: &[PluginSignature]) -> String {
     let mut help = String::new();
-    let _ = write!(help, "{}\n\n", sigs[0].usage);
-    let _ = write!(help, "Usage:\n  > {}\n\n", sigs[0].name);
+    let _ = write!(help, "{}\n\n", sigs[0].sig.usage);
+    let _ = write!(help, "Usage:\n  > {}\n\n", sigs[0].sig.name);
     help.push_str("Subcommands:\n");
 
     for x in sigs.iter().enumerate() {
         if x.0 == 0 {
             continue;
         }
-        let _ = writeln!(help, "  {} - {}", x.1.name, x.1.usage);
+        let _ = writeln!(help, "  {} - {}", x.1.sig.name, x.1.sig.usage);
     }
 
-    help.push_str(&get_flags_section(&sigs[0]));
+    help.push_str(&get_flags_section(&sigs[0].sig));
     help
 }

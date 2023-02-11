@@ -17,8 +17,6 @@ fn cd_works_with_in_var() {
     })
 }
 
-// FIXME: jt: needs more work
-#[ignore]
 #[test]
 fn filesystem_change_from_current_directory_using_relative_path() {
     Playground::setup("cd_test_1", |dirs, _| {
@@ -26,7 +24,7 @@ fn filesystem_change_from_current_directory_using_relative_path() {
             cwd: dirs.root(),
             r#"
                 cd cd_test_1
-                echo (pwd)
+                $env.PWD
             "#
         );
 
@@ -34,16 +32,14 @@ fn filesystem_change_from_current_directory_using_relative_path() {
     })
 }
 
-// FIXME: jt: needs more work
-#[ignore]
 #[test]
 fn filesystem_change_from_current_directory_using_absolute_path() {
     Playground::setup("cd_test_2", |dirs, _| {
         let actual = nu!(
             cwd: dirs.test(),
             r#"
-                cd "{}"
-                echo (pwd)
+                cd '{}'
+                $env.PWD
             "#,
             dirs.formats().display()
         );
@@ -52,8 +48,6 @@ fn filesystem_change_from_current_directory_using_absolute_path() {
     })
 }
 
-// FIXME: jt: needs more work
-#[ignore]
 #[test]
 fn filesystem_switch_back_to_previous_working_directory() {
     Playground::setup("cd_test_3", |dirs, sandbox| {
@@ -64,7 +58,7 @@ fn filesystem_switch_back_to_previous_working_directory() {
             r#"
                 cd {}
                 cd -
-                echo (pwd)
+                $env.PWD
             "#,
             dirs.test().display()
         );
@@ -73,10 +67,8 @@ fn filesystem_switch_back_to_previous_working_directory() {
     })
 }
 
-// FIXME: jt: needs more work
-#[ignore]
 #[test]
-fn filesytem_change_from_current_directory_using_relative_path_and_dash() {
+fn filesystem_change_from_current_directory_using_relative_path_and_dash() {
     Playground::setup("cd_test_4", |dirs, sandbox| {
         sandbox.within("odin").mkdir("-");
 
@@ -84,7 +76,7 @@ fn filesytem_change_from_current_directory_using_relative_path_and_dash() {
             cwd: dirs.test(),
             r#"
                 cd odin/-
-                echo (pwd)
+                $env.PWD
             "#
         );
 
@@ -95,8 +87,6 @@ fn filesytem_change_from_current_directory_using_relative_path_and_dash() {
     })
 }
 
-// FIXME: jt: needs more work
-#[ignore]
 #[test]
 fn filesystem_change_current_directory_to_parent_directory() {
     Playground::setup("cd_test_5", |dirs, _| {
@@ -104,7 +94,7 @@ fn filesystem_change_current_directory_to_parent_directory() {
             cwd: dirs.test(),
             r#"
                 cd ..
-                echo (pwd)
+                $env.PWD
             "#
         );
 
@@ -112,8 +102,6 @@ fn filesystem_change_current_directory_to_parent_directory() {
     })
 }
 
-// FIXME: jt: needs more work
-#[ignore]
 #[test]
 fn filesystem_change_current_directory_to_two_parents_up_using_multiple_dots() {
     Playground::setup("cd_test_6", |dirs, sandbox| {
@@ -123,7 +111,7 @@ fn filesystem_change_current_directory_to_two_parents_up_using_multiple_dots() {
             cwd: dirs.test().join("foo/bar"),
             r#"
                 cd ...
-                echo (pwd)
+                $env.PWD
             "#
         );
 
@@ -131,32 +119,6 @@ fn filesystem_change_current_directory_to_two_parents_up_using_multiple_dots() {
     })
 }
 
-// FIXME: jt: needs more work
-#[ignore]
-#[test]
-fn filesystem_change_current_directory_to_parent_directory_after_delete_cwd() {
-    Playground::setup("cd_test_7", |dirs, sandbox| {
-        sandbox.within("foo").mkdir("bar");
-
-        let actual = nu!(
-            cwd: dirs.test().join("foo/bar"),
-            r#"
-                rm {}/foo/bar
-                echo ","
-                cd ..
-                echo (pwd)
-            "#,
-            dirs.test().display()
-        );
-
-        let actual = actual.out.split(',').nth(1).unwrap();
-
-        assert_eq!(PathBuf::from(actual), *dirs.test().join("foo"));
-    })
-}
-
-// FIXME: jt: needs more work
-#[ignore]
 #[test]
 fn filesystem_change_to_home_directory() {
     Playground::setup("cd_test_8", |dirs, _| {
@@ -164,7 +126,7 @@ fn filesystem_change_to_home_directory() {
             cwd: dirs.test(),
             r#"
                 cd ~
-                echo (pwd)
+                $env.PWD
             "#
         );
 
@@ -172,8 +134,6 @@ fn filesystem_change_to_home_directory() {
     })
 }
 
-// FIXME: jt: needs more work
-#[ignore]
 #[test]
 fn filesystem_change_to_a_directory_containing_spaces() {
     Playground::setup("cd_test_9", |dirs, sandbox| {
@@ -183,7 +143,7 @@ fn filesystem_change_to_a_directory_containing_spaces() {
             cwd: dirs.test(),
             r#"
                 cd "robalino turner katz"
-                echo (pwd)
+                $env.PWD
             "#
         );
 
@@ -194,8 +154,6 @@ fn filesystem_change_to_a_directory_containing_spaces() {
     })
 }
 
-// FIXME: jt: needs more work
-#[ignore]
 #[test]
 fn filesystem_not_a_directory() {
     Playground::setup("cd_test_10", |dirs, sandbox| {
@@ -219,8 +177,6 @@ fn filesystem_not_a_directory() {
     })
 }
 
-// FIXME: jt: needs more work
-#[ignore]
 #[test]
 fn filesystem_directory_not_found() {
     Playground::setup("cd_test_11", |dirs, _| {
@@ -243,8 +199,6 @@ fn filesystem_directory_not_found() {
     })
 }
 
-// FIXME: jt: needs more work
-#[ignore]
 #[test]
 fn filesystem_change_directory_to_symlink_relative() {
     Playground::setup("cd_test_12", |dirs, sandbox| {
@@ -256,7 +210,7 @@ fn filesystem_change_directory_to_symlink_relative() {
             cwd: dirs.test().join("boo"),
             r#"
                 cd ../foo_link
-                echo (pwd)
+                $env.PWD
             "#
         );
 
@@ -292,7 +246,7 @@ fn test_change_windows_drive() {
 
 #[cfg(unix)]
 #[test]
-fn cd_permission_deined_folder() {
+fn cd_permission_denied_folder() {
     Playground::setup("cd_test_21", |dirs, sandbox| {
         sandbox.mkdir("banned");
         let actual = nu!(
@@ -312,11 +266,11 @@ fn cd_permission_deined_folder() {
         );
     });
 }
-// FIXME: cd_permission_deined_folder on windows
+// FIXME: cd_permission_denied_folder on windows
 #[ignore]
 #[cfg(windows)]
 #[test]
-fn cd_permission_deined_folder() {
+fn cd_permission_denied_folder() {
     Playground::setup("cd_test_21", |dirs, sandbox| {
         sandbox.mkdir("banned");
         let actual = nu!(

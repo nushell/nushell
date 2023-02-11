@@ -1,7 +1,7 @@
 use nu_protocol::{
     ast::Call,
     engine::{Command, EngineState, Stack},
-    Category, PipelineData, Signature,
+    Category, PipelineData, ShellError, Signature,
 };
 
 #[derive(Clone)]
@@ -26,7 +26,7 @@ impl Command for StrDatetimeDeprecated {
         _stack: &mut Stack,
         call: &Call,
         _input: PipelineData,
-    ) -> Result<nu_protocol::PipelineData, nu_protocol::ShellError> {
+    ) -> Result<PipelineData, ShellError> {
         Err(nu_protocol::ShellError::DeprecatedCommand(
             self.name().to_string(),
             "into datetime".to_string(),

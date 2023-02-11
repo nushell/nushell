@@ -11,7 +11,7 @@ pub struct ExprOtherwise;
 
 impl Command for ExprOtherwise {
     fn name(&self) -> &str {
-        "otherwise"
+        "dfr otherwise"
     }
 
     fn usage(&self) -> &str {
@@ -23,7 +23,7 @@ impl Command for ExprOtherwise {
             .required(
                 "otherwise expression",
                 SyntaxShape::Any,
-                "expressioini to apply when no when predicate matches",
+                "expression to apply when no when predicate matches",
             )
             .input_type(Type::Any)
             .output_type(Type::Custom("expression".into()))
@@ -34,25 +34,26 @@ impl Command for ExprOtherwise {
         vec![
             Example {
                 description: "Create a when conditions",
-                example: "when ((col a) > 2) 4 | otherwise 5",
+                example: "dfr when ((dfr col a) > 2) 4 | dfr otherwise 5",
                 result: None,
             },
             Example {
                 description: "Create a when conditions",
-                example: "when ((col a) > 2) 4 | when ((col a) < 0) 6 | otherwise 0",
+                example:
+                    "dfr when ((dfr col a) > 2) 4 | dfr when ((dfr col a) < 0) 6 | dfr otherwise 0",
                 result: None,
             },
             Example {
                 description: "Create a new column for the dataframe",
                 example: r#"[[a b]; [6 2] [1 4] [4 1]]
-   | into lazy
-   | with-column (
-       when ((col a) > 2) 4 | otherwise 5 | as c
+   | dfr into-lazy
+   | dfr with-column (
+    dfr when ((dfr col a) > 2) 4 | dfr otherwise 5 | dfr as c
      )
-   | with-column (
-       when ((col a) > 5) 10 | when ((col a) < 2) 6 | otherwise 0 | as d
+   | dfr with-column (
+    dfr when ((dfr col a) > 5) 10 | dfr when ((dfr col a) < 2) 6 | dfr otherwise 0 | dfr as d
      )
-   | collect"#,
+   | dfr collect"#,
                 result: Some(
                     NuDataFrame::try_from_columns(vec![
                         Column::new(
@@ -77,6 +78,10 @@ impl Command for ExprOtherwise {
                 ),
             },
         ]
+    }
+
+    fn search_terms(&self) -> Vec<&str> {
+        vec!["condition", "else"]
     }
 
     fn run(

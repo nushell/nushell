@@ -109,3 +109,15 @@ fn find_with_filepath_search_with_multiple_patterns() {
         assert_eq!(actual.out, r#"["amigos.txt","arepas.clu"]"#);
     })
 }
+
+#[test]
+fn find_takes_into_account_linebreaks_in_string() {
+    let actual = nu!(
+    cwd: ".", pipeline(
+    r#"
+        "atest\nanothertest\nnohit\n" | find a | length
+        "#
+    ));
+
+    assert_eq!(actual.out, "2");
+}

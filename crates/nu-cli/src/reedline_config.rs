@@ -651,14 +651,15 @@ fn add_parsed_keybinding(
             let pos1 = char_iter.next();
             let pos2 = char_iter.next();
 
-            let char = match (pos1, pos2) {
-                (Some(char), None) => Ok(char),
-                _ => Err(ShellError::UnsupportedConfigValue(
+            let char = if let (Some(char), None) = (pos1, pos2) {
+                char
+            } else {
+                return Err(ShellError::UnsupportedConfigValue(
                     "char_<CHAR: unicode codepoint>".to_string(),
                     c.to_string(),
                     keybinding.keycode.span()?,
-                )),
-            }?;
+                ));
+            };
 
             KeyCode::Char(char)
         }
@@ -679,10 +680,10 @@ fn add_parsed_keybinding(
             let fn_num: u8 = c[1..]
                 .parse()
                 .ok()
-                .filter(|num| matches!(num, 1..=12))
+                .filter(|num| matches!(num, 1..=20))
                 .ok_or(ShellError::UnsupportedConfigValue(
-                    "(f1|f2|...|f12)".to_string(),
-                    format!("unknown function key: {}", c),
+                    "(f1|f2|...|f20)".to_string(),
+                    format!("unknown function key: {c}"),
                     keybinding.keycode.span()?,
                 ))?;
             KeyCode::F(fn_num)

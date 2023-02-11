@@ -227,7 +227,7 @@ pub fn expr_to_value(expr: &Expr, span: Span) -> Value {
                 span,
             };
             let value = Value::String {
-                val: format!("{:?}", literal),
+                val: format!("{literal:?}"),
                 span,
             };
 
@@ -239,7 +239,7 @@ pub fn expr_to_value(expr: &Expr, span: Span) -> Value {
             let right_val = expr_to_value(right, span);
 
             let operator = Value::String {
-                val: format!("{:?}", op),
+                val: format!("{op:?}"),
                 span,
             };
 
@@ -289,12 +289,9 @@ pub fn expr_to_value(expr: &Expr, span: Span) -> Value {
                     interpol,
                 } => {
                     let expr = expr_to_value(expr.as_ref(), span);
-                    let quantile = Value::Float {
-                        val: *quantile,
-                        span,
-                    };
+                    let quantile = expr_to_value(quantile.as_ref(), span);
                     let interpol = Value::String {
-                        val: format!("{:?}", interpol),
+                        val: format!("{interpol:?}"),
                         span,
                     };
 
@@ -376,7 +373,7 @@ pub fn expr_to_value(expr: &Expr, span: Span) -> Value {
             let vals = dtypes
                 .iter()
                 .map(|d| Value::String {
-                    val: format!("{}", d),
+                    val: format!("{d}"),
                     span,
                 })
                 .collect();
@@ -386,7 +383,7 @@ pub fn expr_to_value(expr: &Expr, span: Span) -> Value {
         Expr::Sort { expr, options } => {
             let expr = expr_to_value(expr.as_ref(), span);
             let options = Value::String {
-                val: format!("{:?}", options),
+                val: format!("{options:?}"),
                 span,
             };
             let cols = vec!["expr".into(), "options".into()];
@@ -404,7 +401,7 @@ pub fn expr_to_value(expr: &Expr, span: Span) -> Value {
         } => {
             let expr = expr_to_value(expr.as_ref(), span);
             let dtype = Value::String {
-                val: format!("{:?}", data_type),
+                val: format!("{data_type:?}"),
                 span,
             };
             let strict = Value::Bool { val: *strict, span };
@@ -485,7 +482,7 @@ pub fn expr_to_value(expr: &Expr, span: Span) -> Value {
             let excluded = excluded
                 .iter()
                 .map(|e| Value::String {
-                    val: format!("{:?}", e),
+                    val: format!("{e:?}"),
                     span,
                 })
                 .collect();
@@ -505,7 +502,7 @@ pub fn expr_to_value(expr: &Expr, span: Span) -> Value {
         Expr::RenameAlias { expr, function } => {
             let expr = expr_to_value(expr.as_ref(), span);
             let function = Value::String {
-                val: format!("{:?}", function),
+                val: format!("{function:?}"),
                 span,
             };
 
@@ -527,15 +524,15 @@ pub fn expr_to_value(expr: &Expr, span: Span) -> Value {
             let input = Value::List { vals: input, span };
 
             let function = Value::String {
-                val: format!("{:?}", function),
+                val: format!("{function:?}"),
                 span,
             };
             let output_type = Value::String {
-                val: format!("{:?}", output_type),
+                val: format!("{output_type:?}"),
                 span,
             };
             let options = Value::String {
-                val: format!("{:?}", options),
+                val: format!("{options:?}"),
                 span,
             };
 
@@ -561,11 +558,11 @@ pub fn expr_to_value(expr: &Expr, span: Span) -> Value {
             let input = Value::List { vals: input, span };
 
             let function = Value::String {
-                val: format!("{:?}", function),
+                val: format!("{function:?}"),
                 span,
             };
             let options = Value::String {
-                val: format!("{:?}", options),
+                val: format!("{options:?}"),
                 span,
             };
 
@@ -600,7 +597,7 @@ pub fn expr_to_value(expr: &Expr, span: Span) -> Value {
                 .unwrap_or_else(|| Value::nothing(span));
 
             let options = Value::String {
-                val: format!("{:?}", options),
+                val: format!("{options:?}"),
                 span,
             };
 

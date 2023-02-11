@@ -1,8 +1,6 @@
-use nu_protocol::ast::{Call, Expr, Expression};
+use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
-use nu_protocol::{
-    Category, Example, PipelineData, ShellError, Signature, Spanned, SyntaxShape, Type, Value,
-};
+use nu_protocol::{Category, Example, PipelineData, ShellError, Signature, SyntaxShape, Type};
 
 #[derive(Clone)]
 pub struct Hide;
@@ -41,32 +39,11 @@ This command is a parser keyword. For details, check:
 
     fn run(
         &self,
-        engine_state: &EngineState,
-        stack: &mut Stack,
-        call: &Call,
+        _engine_state: &EngineState,
+        _stack: &mut Stack,
+        _call: &Call,
         _input: PipelineData,
-    ) -> Result<nu_protocol::PipelineData, nu_protocol::ShellError> {
-        let env_var_name = if let Some(Expression {
-            expr: Expr::ImportPattern(pat),
-            ..
-        }) = call.parser_info_nth(0)
-        {
-            Spanned {
-                item: String::from_utf8_lossy(&pat.head.name).to_string(),
-                span: pat.head.span,
-            }
-        } else {
-            return Err(ShellError::GenericError(
-                "Unexpected import".into(),
-                "import pattern not supported".into(),
-                Some(call.head),
-                None,
-                Vec::new(),
-            ));
-        };
-
-        stack.remove_env_var(engine_state, &env_var_name.item);
-
+    ) -> Result<PipelineData, ShellError> {
         Ok(PipelineData::empty())
     }
 
@@ -81,11 +58,6 @@ This command is a parser keyword. For details, check:
                 description: "Hide a custom command",
                 example: r#"def say-hi [] { echo 'Hi!' }; hide say-hi"#,
                 result: None,
-            },
-            Example {
-                description: "Hide an environment variable",
-                example: r#"let-env HZ_ENV_ABC = 1; hide HZ_ENV_ABC; 'HZ_ENV_ABC' in (env).name"#,
-                result: Some(Value::test_bool(false)),
             },
         ]
     }

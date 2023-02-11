@@ -298,7 +298,7 @@ impl fmt::Display for Counter {
             Counter::CodePoints => "codepoints",
         };
 
-        write!(f, "{}", s)
+        write!(f, "{s}")
     }
 }
 
@@ -359,7 +359,7 @@ fn test_count_counts_lines() {
     const LS: &str = "\u{2028}"; // 0xe280a8
     const PS: &str = "\u{2029}"; // 0xe280a9
 
-    // * \r\n is a single graheme cluster
+    // * \r\n is a single grapheme cluster
     // * trailing newlines are counted
     // * NEL is 2 bytes
     // * FF is 1 byte

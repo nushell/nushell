@@ -237,7 +237,7 @@ pub fn check_name<'a>(
             Some((
                 &spans[command_len],
                 ParseError::AssignmentMismatch(
-                    format!("{} missing name", name),
+                    format!("{name} missing name"),
                     "missing name".into(),
                     spans[command_len],
                 ),
@@ -251,7 +251,7 @@ pub fn check_name<'a>(
         Some((
             &spans[command_len + 1],
             ParseError::AssignmentMismatch(
-                format!("{} missing sign", name),
+                format!("{name} missing sign"),
                 "missing equal sign".into(),
                 spans[command_len + 1],
             ),
@@ -673,7 +673,7 @@ pub fn parse_multispan_value(
                 (
                     Expression::garbage(span),
                     Some(ParseError::Expected(
-                        format!("one of a list of accepted shapes: {:?}", shapes),
+                        format!("one of a list of accepted shapes: {shapes:?}"),
                         span,
                     )),
                 )
@@ -1329,12 +1329,19 @@ fn decode_with_base(s: &str, base: u32, digits_per_byte: usize) -> Result<Vec<u8
         .collect()
 }
 
+fn strip_underscores(token: &[u8]) -> String {
+    String::from_utf8_lossy(token)
+        .chars()
+        .filter(|c| *c != '_')
+        .collect()
+}
+
 pub fn parse_int(token: &[u8], span: Span) -> (Expression, Option<ParseError>) {
-    if let Some(token) = token.strip_prefix(b"0x") {
-        if let Ok(v) = i64::from_str_radix(&String::from_utf8_lossy(token), 16) {
+    fn extract_int(token: &str, span: Span, radix: u32) -> (Expression, Option<ParseError>) {
+        if let Ok(num) = i64::from_str_radix(token, radix) {
             (
                 Expression {
-                    expr: Expr::Int(v),
+                    expr: Expr::Int(num),
                     span,
                     ty: Type::Int,
                     custom_completion: None,
@@ -1351,52 +1358,20 @@ pub fn parse_int(token: &[u8], span: Span) -> (Expression, Option<ParseError>) {
                 )),
             )
         }
-    } else if let Some(token) = token.strip_prefix(b"0b") {
-        if let Ok(v) = i64::from_str_radix(&String::from_utf8_lossy(token), 2) {
-            (
-                Expression {
-                    expr: Expr::Int(v),
-                    span,
-                    ty: Type::Int,
-                    custom_completion: None,
-                },
-                None,
-            )
-        } else {
-            (
-                garbage(span),
-                Some(ParseError::Mismatch(
-                    "int".into(),
-                    "incompatible int".into(),
-                    span,
-                )),
-            )
-        }
-    } else if let Some(token) = token.strip_prefix(b"0o") {
-        if let Ok(v) = i64::from_str_radix(&String::from_utf8_lossy(token), 8) {
-            (
-                Expression {
-                    expr: Expr::Int(v),
-                    span,
-                    ty: Type::Int,
-                    custom_completion: None,
-                },
-                None,
-            )
-        } else {
-            (
-                garbage(span),
-                Some(ParseError::Mismatch(
-                    "int".into(),
-                    "incompatible int".into(),
-                    span,
-                )),
-            )
-        }
-    } else if let Ok(x) = String::from_utf8_lossy(token).parse::<i64>() {
+    }
+
+    let token = strip_underscores(token);
+
+    if let Some(num) = token.strip_prefix("0b") {
+        extract_int(num, span, 2)
+    } else if let Some(num) = token.strip_prefix("0o") {
+        extract_int(num, span, 8)
+    } else if let Some(num) = token.strip_prefix("0x") {
+        extract_int(num, span, 16)
+    } else if let Ok(num) = token.parse::<i64>() {
         (
             Expression {
-                expr: Expr::Int(x),
+                expr: Expr::Int(num),
                 span,
                 ty: Type::Int,
                 custom_completion: None,
@@ -1412,7 +1387,9 @@ pub fn parse_int(token: &[u8], span: Span) -> (Expression, Option<ParseError>) {
 }
 
 pub fn parse_float(token: &[u8], span: Span) -> (Expression, Option<ParseError>) {
-    if let Ok(x) = String::from_utf8_lossy(token).parse::<f64>() {
+    let token = strip_underscores(token);
+
+    if let Ok(x) = token.parse::<f64>() {
         (
             Expression {
                 expr: Expr::Float(x),
@@ -2488,7 +2465,7 @@ pub fn unescape_string(bytes: &[u8], span: Span) -> (Vec<u8>, Option<ParseError>
     let mut idx = 0;
     let mut err = None;
 
-    while idx < bytes.len() {
+    'us_loop: while idx < bytes.len() {
         if bytes[idx] == b'\\' {
             // We're in an escape
             idx += 1;
@@ -2575,53 +2552,67 @@ pub fn unescape_string(bytes: &[u8], span: Span) -> (Vec<u8>, Option<ParseError>
                     idx += 1;
                 }
                 Some(b'u') => {
-                    match (
-                        bytes.get(idx + 1),
-                        bytes.get(idx + 2),
-                        bytes.get(idx + 3),
-                        bytes.get(idx + 4),
-                    ) {
-                        (Some(h1), Some(h2), Some(h3), Some(h4)) => {
-                            let s = String::from_utf8(vec![*h1, *h2, *h3, *h4]);
+                    let mut digits = String::with_capacity(10);
+                    let mut cur_idx = idx + 1; // index of first beyond current end of token
 
-                            if let Ok(s) = s {
-                                let int = u32::from_str_radix(&s, 16);
-
-                                if let Ok(int) = int {
-                                    let result = char::from_u32(int);
-
-                                    if let Some(result) = result {
-                                        let mut buffer = vec![0; 4];
-                                        let result = result.encode_utf8(&mut buffer);
-
-                                        for elem in result.bytes() {
-                                            output.push(elem);
-                                        }
-
-                                        idx += 5;
-                                        continue;
-                                    }
+                    if let Some(b'{') = bytes.get(idx + 1) {
+                        cur_idx = idx + 2;
+                        loop {
+                            match bytes.get(cur_idx) {
+                                Some(b'}') => {
+                                    cur_idx += 1;
+                                    break;
+                                }
+                                Some(c) => {
+                                    digits.push(*c as char);
+                                    cur_idx += 1;
+                                }
+                                _ => {
+                                    err = Some(ParseError::Expected(
+                                        "closing '}' in unicode escape `\\u{n..}`".into(),
+                                        Span::new(span.start + idx, span.end),
+                                    ));
+                                    break 'us_loop;
                                 }
                             }
-                            err = Some(ParseError::Expected(
-                                "unicode hex value".into(),
-                                Span::new(span.start + idx, span.end),
-                            ));
-                        }
-                        _ => {
-                            err = Some(ParseError::Expected(
-                                "unicode hex value".into(),
-                                Span::new(span.start + idx, span.end),
-                            ));
                         }
                     }
-                    idx += 5;
+
+                    if (1..=6).contains(&digits.len()) {
+                        let int = u32::from_str_radix(&digits, 16);
+
+                        if let Ok(int) = int {
+                            if int <= 0x10ffff {
+                                let result = char::from_u32(int);
+
+                                if let Some(result) = result {
+                                    let mut buffer = vec![0; 4];
+                                    let result = result.encode_utf8(&mut buffer);
+
+                                    for elem in result.bytes() {
+                                        output.push(elem);
+                                    }
+
+                                    idx = cur_idx;
+                                    continue 'us_loop;
+                                }
+                            }
+                        }
+                    }
+                    // fall through -- escape not accepted above, must be error.
+                    err = Some(ParseError::Expected(
+                        "unicode escape \\u{n..}".into(),
+                        Span::new(span.start + idx, span.end),
+                    ));
+                    break 'us_loop;
                 }
+
                 _ => {
                     err = Some(ParseError::Expected(
                         "supported escape character".into(),
                         Span::new(span.start + idx, span.end),
                     ));
+                    break 'us_loop;
                 }
             }
         } else {
@@ -2781,6 +2772,7 @@ pub fn parse_shape_name(
         b"duration" => SyntaxShape::Duration,
         b"error" => SyntaxShape::Error,
         b"expr" => SyntaxShape::Expression,
+        b"float" | b"decimal" => SyntaxShape::Decimal,
         b"filesize" => SyntaxShape::Filesize,
         b"full-cell-path" => SyntaxShape::FullCellPath,
         b"glob" => SyntaxShape::GlobPattern,
@@ -2845,7 +2837,7 @@ pub fn parse_type(_working_set: &StateWorkingSet, bytes: &[u8]) -> Type {
         b"duration" => Type::Duration,
         b"error" => Type::Error,
         b"filesize" => Type::Filesize,
-        b"float" => Type::Float,
+        b"float" | b"decimal" => Type::Float,
         b"int" => Type::Int,
         b"list" => Type::List(Box::new(Type::Any)),
         b"number" => Type::Number,
@@ -3230,6 +3222,7 @@ pub fn parse_signature_helper(
     #[allow(clippy::enum_variant_names)]
     enum ParseMode {
         ArgMode,
+        AfterCommaArgMode,
         TypeMode,
         DefaultValueMode,
     }
@@ -3247,8 +3240,8 @@ pub fn parse_signature_helper(
     let (output, err) = lex(
         source,
         span.start,
-        &[b'\n', b'\r', b','],
-        &[b':', b'='],
+        &[b'\n', b'\r'],
+        &[b':', b'=', b','],
         false,
     );
     error = error.or(err);
@@ -3271,6 +3264,11 @@ pub fn parse_signature_helper(
                         ParseMode::ArgMode => {
                             parse_mode = ParseMode::TypeMode;
                         }
+                        ParseMode::AfterCommaArgMode => {
+                            error = error.or_else(|| {
+                                Some(ParseError::Expected("parameter or flag".into(), span))
+                            });
+                        }
                         ParseMode::TypeMode | ParseMode::DefaultValueMode => {
                             // We're seeing two types for the same thing for some reason, error
                             error =
@@ -3284,6 +3282,11 @@ pub fn parse_signature_helper(
                         ParseMode::ArgMode | ParseMode::TypeMode => {
                             parse_mode = ParseMode::DefaultValueMode;
                         }
+                        ParseMode::AfterCommaArgMode => {
+                            error = error.or_else(|| {
+                                Some(ParseError::Expected("parameter or flag".into(), span))
+                            });
+                        }
                         ParseMode::DefaultValueMode => {
                             // We're seeing two default values for some reason, error
                             error = error.or_else(|| {
@@ -3291,10 +3294,30 @@ pub fn parse_signature_helper(
                             });
                         }
                     }
+                }
+                // The , symbol separates params only
+                else if contents == b"," {
+                    match parse_mode {
+                        ParseMode::ArgMode => parse_mode = ParseMode::AfterCommaArgMode,
+                        ParseMode::AfterCommaArgMode => {
+                            error = error.or_else(|| {
+                                Some(ParseError::Expected("parameter or flag".into(), span))
+                            });
+                        }
+                        ParseMode::TypeMode => {
+                            error =
+                                error.or_else(|| Some(ParseError::Expected("type".into(), span)));
+                        }
+                        ParseMode::DefaultValueMode => {
+                            error = error.or_else(|| {
+                                Some(ParseError::Expected("default value".into(), span))
+                            });
+                        }
+                    }
                 } else {
                     match parse_mode {
-                        ParseMode::ArgMode => {
-                            // Long flag with optional short form, e.g. --output, --age (-a)
+                        ParseMode::ArgMode | ParseMode::AfterCommaArgMode => {
+                            // Long flag with optional short form following with no whitespace, e.g. --output, --age(-a)
                             if contents.starts_with(b"--") && contents.len() > 2 {
                                 // Split the long flag from the short flag with the ( character as delimiter.
                                 // The trailing ) is removed further down.
@@ -3313,7 +3336,7 @@ pub fn parse_signature_helper(
                                 if !is_variable(&variable_name) {
                                     error = error.or_else(|| {
                                         Some(ParseError::Expected(
-                                            "valid variable name".into(),
+                                            "valid variable name for this long flag".into(),
                                             span,
                                         ))
                                     })
@@ -3374,7 +3397,7 @@ pub fn parse_signature_helper(
                                     if !is_variable(&variable_name) {
                                         error = error.or_else(|| {
                                             Some(ParseError::Expected(
-                                                "valid variable name".into(),
+                                                "valid variable name for this short flag".into(),
                                                 span,
                                             ))
                                         })
@@ -3403,6 +3426,7 @@ pub fn parse_signature_helper(
                                         });
                                     }
                                 }
+                                parse_mode = ParseMode::ArgMode;
                             }
                             // Mandatory short flag, e.g. -e (must be one character)
                             else if contents.starts_with(b"-") && contents.len() > 1 {
@@ -3423,7 +3447,7 @@ pub fn parse_signature_helper(
                                 if !is_variable(&variable_name) {
                                     error = error.or_else(|| {
                                         Some(ParseError::Expected(
-                                            "valid variable name".into(),
+                                            "valid variable name for this short flag".into(),
                                             span,
                                         ))
                                     })
@@ -3441,10 +3465,16 @@ pub fn parse_signature_helper(
                                     var_id: Some(var_id),
                                     default_value: None,
                                 }));
+                                parse_mode = ParseMode::ArgMode;
                             }
-                            // Short flag alias for long flag, e.g. --b, (-a)
-                            // This is the same as --b (-a)
+                            // Short flag alias for long flag, e.g. --b (-a)
+                            // This is the same as the short flag in --b(-a)
                             else if contents.starts_with(b"(-") {
+                                if matches!(parse_mode, ParseMode::AfterCommaArgMode) {
+                                    error = error.or_else(|| {
+                                        Some(ParseError::Expected("parameter or flag".into(), span))
+                                    });
+                                }
                                 let short_flag = &contents[2..];
 
                                 let short_flag = if !short_flag.ends_with(b")") {
@@ -3496,7 +3526,8 @@ pub fn parse_signature_helper(
                                 if !is_variable(&contents) {
                                     error = error.or_else(|| {
                                         Some(ParseError::Expected(
-                                            "valid variable name".into(),
+                                            "valid variable name for this optional parameter"
+                                                .into(),
                                             span,
                                         ))
                                     })
@@ -3514,7 +3545,8 @@ pub fn parse_signature_helper(
                                         default_value: None,
                                     },
                                     false,
-                                ))
+                                ));
+                                parse_mode = ParseMode::ArgMode;
                             }
                             // Rest param
                             else if let Some(contents) = contents.strip_prefix(b"...") {
@@ -3524,7 +3556,7 @@ pub fn parse_signature_helper(
                                 if !is_variable(&contents_vec) {
                                     error = error.or_else(|| {
                                         Some(ParseError::Expected(
-                                            "valid variable name".into(),
+                                            "valid variable name for this rest parameter".into(),
                                             span,
                                         ))
                                     })
@@ -3540,6 +3572,7 @@ pub fn parse_signature_helper(
                                     var_id: Some(var_id),
                                     default_value: None,
                                 }));
+                                parse_mode = ParseMode::ArgMode;
                             }
                             // Normal param
                             else {
@@ -3549,7 +3582,7 @@ pub fn parse_signature_helper(
                                 if !is_variable(&contents_vec) {
                                     error = error.or_else(|| {
                                         Some(ParseError::Expected(
-                                            "valid variable name".into(),
+                                            "valid variable name for this parameter".into(),
                                             span,
                                         ))
                                     })
@@ -3568,7 +3601,8 @@ pub fn parse_signature_helper(
                                         default_value: None,
                                     },
                                     true,
-                                ))
+                                ));
+                                parse_mode = ParseMode::ArgMode;
                             }
                         }
                         ParseMode::TypeMode => {
@@ -3634,7 +3668,7 @@ pub fn parse_signature_helper(
                                                     error = error.or_else(|| {
                                                         Some(ParseError::AssignmentMismatch(
                                                             "Default value wrong type".into(),
-                                                            format!("default value not {}", t),
+                                                            format!("default value not {t}"),
                                                             expression.span,
                                                         ))
                                                     })
@@ -3648,7 +3682,7 @@ pub fn parse_signature_helper(
                                     Arg::RestPositional(..) => {
                                         error = error.or_else(|| {
                                             Some(ParseError::AssignmentMismatch(
-                                                "Rest parameter given default value".into(),
+                                                "Rest parameter was given a default value".into(),
                                                 "can't have default value".into(),
                                                 expression.span,
                                             ))
@@ -3680,8 +3714,11 @@ pub fn parse_signature_helper(
                                                     if t != &expression_ty {
                                                         error = error.or_else(|| {
                                                             Some(ParseError::AssignmentMismatch(
-                                                                "Default value wrong type".into(),
-                                                                format!("default value not {}", t),
+                                                                "Default value is the wrong type"
+                                                                    .into(),
+                                                                format!(
+                                                                    "default value should be {t}"
+                                                                ),
                                                                 expression_span,
                                                             ))
                                                         })
@@ -3904,7 +3941,11 @@ pub fn parse_table_expression(
         }
         _ => {
             match &output.block[0].commands[0] {
-                LiteElement::Command(_, command) | LiteElement::Redirection(_, _, command) => {
+                LiteElement::Command(_, command)
+                | LiteElement::Redirection(_, _, command)
+                | LiteElement::SeparateRedirection {
+                    out: (_, command), ..
+                } => {
                     let mut table_headers = vec![];
 
                     let (headers, err) = parse_value(
@@ -3925,7 +3966,10 @@ pub fn parse_table_expression(
 
                     match &output.block[1].commands[0] {
                         LiteElement::Command(_, command)
-                        | LiteElement::Redirection(_, _, command) => {
+                        | LiteElement::Redirection(_, _, command)
+                        | LiteElement::SeparateRedirection {
+                            out: (_, command), ..
+                        } => {
                             let mut rows = vec![];
                             for part in &command.parts {
                                 let (values, err) = parse_value(
@@ -4130,7 +4174,7 @@ pub fn parse_closure_expression(
     } else {
         return (
             garbage(span),
-            Some(ParseError::Expected("block".into(), span)),
+            Some(ParseError::Expected("closure".into(), span)),
         );
     }
     if bytes.ends_with(b"}") {
@@ -4202,7 +4246,7 @@ pub fn parse_closure_expression(
                 error = error.or_else(|| {
                     Some(ParseError::Expected(
                         format!(
-                            "{} block parameter{}",
+                            "{} closure parameter{}",
                             v.len(),
                             if v.len() > 1 { "s" } else { "" }
                         ),
@@ -4362,10 +4406,15 @@ pub fn parse_value(
         }
         b'{' => {
             if !matches!(shape, SyntaxShape::Closure(..)) && !matches!(shape, SyntaxShape::Block) {
-                if let (expr, None) =
-                    parse_full_cell_path(working_set, None, span, expand_aliases_denylist)
-                {
-                    return (expr, None);
+                let (expr, err) =
+                    parse_full_cell_path(working_set, None, span, expand_aliases_denylist);
+                match err {
+                    Some(err) => {
+                        if let ParseError::Unbalanced(_, _, _) = err {
+                            return (expr, Some(err));
+                        }
+                    }
+                    None => return (expr, None),
                 }
             }
             if matches!(shape, SyntaxShape::Closure(_)) || matches!(shape, SyntaxShape::Any) {
@@ -4378,7 +4427,7 @@ pub fn parse_value(
                 return (
                     Expression::garbage(span),
                     Some(ParseError::Expected(
-                        format!("non-block value: {}", shape),
+                        format!("non-block value: {shape}"),
                         span,
                     )),
                 );
@@ -4407,6 +4456,7 @@ pub fn parse_value(
             (expression, err)
         }
         SyntaxShape::Number => parse_number(bytes, span),
+        SyntaxShape::Decimal => parse_float(bytes, span),
         SyntaxShape::Int => parse_int(bytes, span),
         SyntaxShape::Duration => parse_duration(working_set, span),
         SyntaxShape::DateTime => parse_datetime(working_set, span),
@@ -4971,7 +5021,7 @@ pub fn parse_expression(
                 .0,
                 Some(ParseError::BuiltinCommandInPipeline("for".into(), spans[0])),
             ),
-            b"let" | b"const" => (
+            b"let" => (
                 parse_call(
                     working_set,
                     &spans[pos..],
@@ -4981,6 +5031,29 @@ pub fn parse_expression(
                 )
                 .0,
                 Some(ParseError::LetInPipeline(
+                    String::from_utf8_lossy(match spans.len() {
+                        1 | 2 | 3 => b"value",
+                        _ => working_set.get_span_contents(spans[3]),
+                    })
+                    .to_string(),
+                    String::from_utf8_lossy(match spans.len() {
+                        1 => b"variable",
+                        _ => working_set.get_span_contents(spans[1]),
+                    })
+                    .to_string(),
+                    spans[0],
+                )),
+            ),
+            b"const" => (
+                parse_call(
+                    working_set,
+                    &spans[pos..],
+                    spans[0],
+                    expand_aliases_denylist,
+                    is_subexpression,
+                )
+                .0,
+                Some(ParseError::ConstInPipeline(
                     String::from_utf8_lossy(match spans.len() {
                         1 | 2 | 3 => b"value",
                         _ => working_set.get_span_contents(spans[3]),
@@ -5238,8 +5311,8 @@ pub fn parse_builtin_commands(
     let name = working_set.get_span_contents(lite_command.parts[0]);
 
     match name {
-        b"def" | b"def-env" => parse_def(working_set, lite_command, expand_aliases_denylist),
-        b"extern" => parse_extern(working_set, lite_command, expand_aliases_denylist),
+        b"def" | b"def-env" => parse_def(working_set, lite_command, None, expand_aliases_denylist),
+        b"extern" => parse_extern(working_set, lite_command, None, expand_aliases_denylist),
         b"let" | b"const" => {
             parse_let_or_const(working_set, &lite_command.parts, expand_aliases_denylist)
         }
@@ -5248,7 +5321,7 @@ pub fn parse_builtin_commands(
             let (expr, err) = parse_for(working_set, &lite_command.parts, expand_aliases_denylist);
             (Pipeline::from_vec(vec![expr]), err)
         }
-        b"alias" => parse_alias(working_set, lite_command, expand_aliases_denylist),
+        b"alias" => parse_alias(working_set, lite_command, None, expand_aliases_denylist),
         b"module" => parse_module(working_set, lite_command, expand_aliases_denylist),
         b"use" => {
             let (pipeline, _, err) =
@@ -5385,7 +5458,11 @@ pub fn parse_block(
     for pipeline in &lite_block.block {
         if pipeline.commands.len() == 1 {
             match &pipeline.commands[0] {
-                LiteElement::Command(_, command) | LiteElement::Redirection(_, _, command) => {
+                LiteElement::Command(_, command)
+                | LiteElement::Redirection(_, _, command)
+                | LiteElement::SeparateRedirection {
+                    out: (_, command), ..
+                } => {
                     if let Some(err) =
                         parse_def_predecl(working_set, &command.parts, expand_aliases_denylist)
                     {
@@ -5438,6 +5515,40 @@ pub fn parse_block(
 
                             PipelineElement::Redirection(*span, redirection.clone(), expr)
                         }
+                        LiteElement::SeparateRedirection {
+                            out: (out_span, out_command),
+                            err: (err_span, err_command),
+                        } => {
+                            trace!("parsing: pipeline element: separate redirection");
+                            let (out_expr, out_err) = parse_string(
+                                working_set,
+                                out_command.parts[0],
+                                expand_aliases_denylist,
+                            );
+
+                            working_set.type_scope.add_type(out_expr.ty.clone());
+
+                            if error.is_none() {
+                                error = out_err;
+                            }
+
+                            let (err_expr, err_err) = parse_string(
+                                working_set,
+                                err_command.parts[0],
+                                expand_aliases_denylist,
+                            );
+
+                            working_set.type_scope.add_type(err_expr.ty.clone());
+
+                            if error.is_none() {
+                                error = err_err;
+                            }
+
+                            PipelineElement::SeparateRedirection {
+                                out: (*out_span, out_expr),
+                                err: (*err_span, err_expr),
+                            }
+                        }
                     })
                     .collect::<Vec<PipelineElement>>();
 
@@ -5458,7 +5569,11 @@ pub fn parse_block(
                 Pipeline { elements: output }
             } else {
                 match &pipeline.commands[0] {
-                    LiteElement::Command(_, command) | LiteElement::Redirection(_, _, command) => {
+                    LiteElement::Command(_, command)
+                    | LiteElement::Redirection(_, _, command)
+                    | LiteElement::SeparateRedirection {
+                        out: (_, command), ..
+                    } => {
                         let (mut pipeline, err) = parse_builtin_commands(
                             working_set,
                             command,
@@ -5600,6 +5715,19 @@ pub fn discover_captures_in_pipeline_element(
         | PipelineElement::And(_, expression)
         | PipelineElement::Or(_, expression) => {
             discover_captures_in_expr(working_set, expression, seen, seen_blocks)
+        }
+        PipelineElement::SeparateRedirection {
+            out: (_, out_expr),
+            err: (_, err_expr),
+        } => {
+            let mut result = discover_captures_in_expr(working_set, out_expr, seen, seen_blocks)?;
+            result.append(&mut discover_captures_in_expr(
+                working_set,
+                err_expr,
+                seen,
+                seen_blocks,
+            )?);
+            Ok(result)
         }
     }
 }
@@ -5858,6 +5986,13 @@ fn wrap_element_with_collect(
                 wrap_expr_with_collect(working_set, expression),
             )
         }
+        PipelineElement::SeparateRedirection {
+            out: (out_span, out_exp),
+            err: (err_span, err_exp),
+        } => PipelineElement::SeparateRedirection {
+            out: (*out_span, wrap_expr_with_collect(working_set, out_exp)),
+            err: (*err_span, wrap_expr_with_collect(working_set, err_exp)),
+        },
         PipelineElement::And(span, expression) => {
             PipelineElement::And(*span, wrap_expr_with_collect(working_set, expression))
         }
@@ -5873,7 +6008,7 @@ fn wrap_expr_with_collect(working_set: &mut StateWorkingSet, expr: &Expression) 
     if let Some(decl_id) = working_set.find_decl(b"collect", &Type::Any) {
         let mut output = vec![];
 
-        let var_id = working_set.next_var_id();
+        let var_id = IN_VARIABLE_ID;
         let mut signature = Signature::new("");
         signature.required_positional.push(PositionalArg {
             var_id: Some(var_id),

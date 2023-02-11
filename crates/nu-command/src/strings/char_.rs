@@ -1,6 +1,7 @@
 use indexmap::indexmap;
 use indexmap::map::IndexMap;
 use nu_engine::CallExt;
+use nu_protocol::engine::{EngineState, Stack};
 use nu_protocol::{
     ast::Call, engine::Command, Category, Example, IntoInterruptiblePipelineData, IntoPipelineData,
     PipelineData, ShellError, Signature, Span, SyntaxShape, Type, Value,
@@ -211,11 +212,11 @@ impl Command for Char {
 
     fn run(
         &self,
-        engine_state: &nu_protocol::engine::EngineState,
-        stack: &mut nu_protocol::engine::Stack,
+        engine_state: &EngineState,
+        stack: &mut Stack,
         call: &Call,
         _input: PipelineData,
-    ) -> Result<nu_protocol::PipelineData, ShellError> {
+    ) -> Result<PipelineData, ShellError> {
         let call_span = call.head;
         // handle -l flag
         if call.has_flag("list") {

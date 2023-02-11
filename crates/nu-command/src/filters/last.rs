@@ -92,7 +92,7 @@ impl Command for Last {
 
         // only keep last `to_keep` rows in memory
         let mut buf = VecDeque::<_>::new();
-        for row in input.into_iter() {
+        for row in input.into_iter_strict(call.head)? {
             if buf.len() == to_keep {
                 buf.pop_front();
             }

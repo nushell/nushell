@@ -32,7 +32,7 @@ impl Command for FromVcf {
         _stack: &mut Stack,
         call: &Call,
         input: PipelineData,
-    ) -> Result<nu_protocol::PipelineData, ShellError> {
+    ) -> Result<PipelineData, ShellError> {
         let head = call.head;
         from_vcf(input, head)
     }
@@ -123,7 +123,7 @@ fn from_vcf(input: PipelineData, head: Span) -> Result<PipelineData, ShellError>
         Ok(c) => contact_to_value(c, head),
         Err(e) => Value::Error {
             error: ShellError::UnsupportedInput(
-                format!("input cannot be parsed as .vcf ({})", e),
+                format!("input cannot be parsed as .vcf ({e})"),
                 "value originates from here".into(),
                 head,
                 span,

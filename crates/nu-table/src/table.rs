@@ -387,13 +387,13 @@ where
 }
 
 fn maybe_truncate_columns(data: &mut Data, theme: &TableTheme, termwidth: usize) -> bool {
-    const TERMWIDTH_TRESHHOLD: usize = 120;
+    const TERMWIDTH_THRESHOLD: usize = 120;
 
     if data.count_columns() == 0 {
         return true;
     }
 
-    let truncate = if termwidth > TERMWIDTH_TRESHHOLD {
+    let truncate = if termwidth > TERMWIDTH_THRESHOLD {
         truncate_columns_by_columns
     } else {
         truncate_columns_by_content
@@ -574,15 +574,6 @@ impl Peaker for PriorityMax {
 
     fn peak(&mut self, _: &[usize], widths: &[usize]) -> Option<usize> {
         let col = (0..widths.len()).rev().max_by_key(|&i| widths[i]);
-        match col {
-            Some(col) => {
-                if widths[col] == 0 {
-                    None
-                } else {
-                    Some(col)
-                }
-            }
-            None => None,
-        }
+        col.filter(|&col| widths[col] != 0)
     }
 }

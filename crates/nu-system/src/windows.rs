@@ -194,18 +194,6 @@ pub fn collect_proc(interval: Duration, _with_thread: bool) -> Vec<ProcessInfo> 
             all_ok &= thread.is_some();
 
             if all_ok {
-                // let process_params = unsafe { get_process_params(handle) };
-                // match process_params {
-                //     Ok((pp_cmd, pp_env, pp_cwd)) => {
-                //         eprintln!(
-                //             "cmd: {:?}, env: {:?}, cwd: {:?}",
-                //             pp_cmd,
-                //             "noop".to_string(),
-                //             pp_cwd
-                //         );
-                //     }
-                //     Err(_) => {}
-                // }
                 let (proc_cmd, proc_env, proc_cwd) = match unsafe { get_process_params(handle) } {
                     Ok(pp) => (pp.0, pp.1, pp.2),
                     Err(_) => (vec![], vec![], PathBuf::new()),
@@ -733,10 +721,7 @@ fn get_cmd_line_new(handle: HANDLE) -> Vec<String> {
 fn get_cmd_line_old<T: RtlUserProcessParameters>(params: &T, handle: HANDLE) -> Vec<String> {
     match params.get_cmdline(handle) {
         Ok(buffer) => unsafe { get_cmdline_from_buffer(buffer.as_ptr()) },
-        Err(_e) => {
-            // sysinfo_debug!("get_cmd_line_old failed to get data: {}", _e);
-            Vec::new()
-        }
+        Err(_e) => Vec::new(),
     }
 }
 
@@ -765,20 +750,14 @@ fn get_proc_env<T: RtlUserProcessParameters>(params: &T, handle: HANDLE) -> Vec<
             }
             result
         }
-        Err(_e) => {
-            // sysinfo_debug!("get_proc_env failed to get data: {}", _e);
-            Vec::new()
-        }
+        Err(_e) => Vec::new(),
     }
 }
 
 fn get_cwd<T: RtlUserProcessParameters>(params: &T, handle: HANDLE) -> PathBuf {
     match params.get_cwd(handle) {
         Ok(buffer) => unsafe { PathBuf::from(null_terminated_wchar_to_string(buffer.as_slice())) },
-        Err(_e) => {
-            // sysinfo_debug!("get_cwd failed to get data: {}", _e);
-            PathBuf::new()
-        }
+        Err(_e) => PathBuf::new(),
     }
 }
 
@@ -1006,8 +985,6 @@ fn get_name(psid: PSID) -> Option<(String, String)> {
 
 #[cfg_attr(tarpaulin, skip)]
 fn from_wide_ptr(ptr: *const u16) -> String {
-    // use std::ffi::OsString;
-    // use std::os::windows::ffi::OsStringExt;
     unsafe {
         assert!(!ptr.is_null());
         let len = (0..std::isize::MAX)
@@ -1031,18 +1008,11 @@ impl ProcessInfo {
 
     /// Name of command
     pub fn name(&self) -> String {
-        // self.command()
-        //     .split(' ')
-        //     .collect::<Vec<_>>()
-        //     .first()
-        //     .map(|x| x.to_string())
-        //     .unwrap_or_default()
         self.command.clone()
     }
 
     /// Full name of command, with arguments
     pub fn command(&self) -> String {
-        // self.command.clone()
         self.cmd.join(" ")
     }
 

@@ -1,6 +1,6 @@
 use crate::util::report_error;
 use crate::NushellPrompt;
-use log::info;
+use log::trace;
 use nu_engine::eval_subexpression;
 use nu_protocol::{
     engine::{EngineState, Stack, StateWorkingSet},
@@ -39,41 +39,37 @@ fn get_prompt_string(
                 // Use eval_subexpression to force a redirection of output, so we can use everything in prompt
                 let ret_val =
                     eval_subexpression(engine_state, &mut stack, block, PipelineData::empty());
-                info!(
+                trace!(
                     "get_prompt_string (block) {}:{}:{}",
                     file!(),
                     line!(),
                     column!()
                 );
 
-                match ret_val {
-                    Ok(ret_val) => Some(ret_val),
-                    Err(err) => {
+                ret_val
+                    .map_err(|err| {
                         let working_set = StateWorkingSet::new(engine_state);
                         report_error(&working_set, &err);
-                        None
-                    }
-                }
+                    })
+                    .ok()
             }
             Value::Block { val: block_id, .. } => {
                 let block = engine_state.get_block(block_id);
                 // Use eval_subexpression to force a redirection of output, so we can use everything in prompt
                 let ret_val = eval_subexpression(engine_state, stack, block, PipelineData::empty());
-                info!(
+                trace!(
                     "get_prompt_string (block) {}:{}:{}",
                     file!(),
                     line!(),
                     column!()
                 );
 
-                match ret_val {
-                    Ok(ret_val) => Some(ret_val),
-                    Err(err) => {
+                ret_val
+                    .map_err(|err| {
                         let working_set = StateWorkingSet::new(engine_state);
                         report_error(&working_set, &err);
-                        None
-                    }
-                }
+                    })
+                    .ok()
             }
             Value::String { .. } => Some(PipelineData::Value(v.clone(), None)),
             _ => None,
@@ -81,20 +77,17 @@ fn get_prompt_string(
         .and_then(|pipeline_data| {
             let output = pipeline_data.collect_string("", config).ok();
 
-            match output {
-                Some(mut x) => {
-                    // Just remove the very last newline.
-                    if x.ends_with('\n') {
-                        x.pop();
-                    }
-
-                    if x.ends_with('\r') {
-                        x.pop();
-                    }
-                    Some(x)
+            output.map(|mut x| {
+                // Just remove the very last newline.
+                if x.ends_with('\n') {
+                    x.pop();
                 }
-                None => None,
-            }
+
+                if x.ends_with('\r') {
+                    x.pop();
+                }
+                x
+            })
         })
 }
 
@@ -111,12 +104,12 @@ pub(crate) fn update_prompt<'prompt>(
     // Now that we have the prompt string lets ansify it.
     // <133 A><prompt><133 B><command><133 C><command output>
     let left_prompt_string = if config.shell_integration {
-        match left_prompt_string {
-            Some(prompt_string) => Some(format!(
-                "{}{}{}",
-                PRE_PROMPT_MARKER, prompt_string, POST_PROMPT_MARKER
-            )),
-            None => left_prompt_string,
+        if let Some(prompt_string) = left_prompt_string {
+            Some(format!(
+                "{PRE_PROMPT_MARKER}{prompt_string}{POST_PROMPT_MARKER}"
+            ))
+        } else {
+            left_prompt_string
         }
     } else {
         left_prompt_string
@@ -148,7 +141,7 @@ pub(crate) fn update_prompt<'prompt>(
     );
 
     let ret_val = nu_prompt as &dyn Prompt;
-    info!("update_prompt {}:{}:{}", file!(), line!(), column!());
+    trace!("update_prompt {}:{}:{}", file!(), line!(), column!());
 
     ret_val
 }

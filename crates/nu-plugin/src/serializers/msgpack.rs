@@ -50,7 +50,7 @@ mod tests {
     use crate::protocol::{
         CallInfo, CallInput, EvaluatedCall, LabeledError, PluginCall, PluginData, PluginResponse,
     };
-    use nu_protocol::{Signature, Span, Spanned, SyntaxShape, Value};
+    use nu_protocol::{PluginSignature, Span, Spanned, SyntaxShape, Value};
 
     #[test]
     fn callinfo_round_trip_signature() {
@@ -182,7 +182,7 @@ mod tests {
 
     #[test]
     fn response_round_trip_signature() {
-        let signature = Signature::build("nu-plugin")
+        let signature = PluginSignature::build("nu-plugin")
             .required("first", SyntaxShape::String, "first required")
             .required("second", SyntaxShape::Int, "second required")
             .required_named("first-named", SyntaxShape::String, "first named", Some('f'))
@@ -210,33 +210,39 @@ mod tests {
             PluginResponse::Value(_) => panic!("returned wrong call type"),
             PluginResponse::PluginData(..) => panic!("returned wrong call type"),
             PluginResponse::Signature(returned_signature) => {
-                assert!(returned_signature.len() == 1);
-                assert_eq!(signature.name, returned_signature[0].name);
-                assert_eq!(signature.usage, returned_signature[0].usage);
-                assert_eq!(signature.extra_usage, returned_signature[0].extra_usage);
-                assert_eq!(signature.is_filter, returned_signature[0].is_filter);
+                assert_eq!(returned_signature.len(), 1);
+                assert_eq!(signature.sig.name, returned_signature[0].sig.name);
+                assert_eq!(signature.sig.usage, returned_signature[0].sig.usage);
+                assert_eq!(
+                    signature.sig.extra_usage,
+                    returned_signature[0].sig.extra_usage
+                );
+                assert_eq!(signature.sig.is_filter, returned_signature[0].sig.is_filter);
 
                 signature
+                    .sig
                     .required_positional
                     .iter()
-                    .zip(returned_signature[0].required_positional.iter())
+                    .zip(returned_signature[0].sig.required_positional.iter())
                     .for_each(|(lhs, rhs)| assert_eq!(lhs, rhs));
 
                 signature
+                    .sig
                     .optional_positional
                     .iter()
-                    .zip(returned_signature[0].optional_positional.iter())
+                    .zip(returned_signature[0].sig.optional_positional.iter())
                     .for_each(|(lhs, rhs)| assert_eq!(lhs, rhs));
 
                 signature
+                    .sig
                     .named
                     .iter()
-                    .zip(returned_signature[0].named.iter())
+                    .zip(returned_signature[0].sig.named.iter())
                     .for_each(|(lhs, rhs)| assert_eq!(lhs, rhs));
 
                 assert_eq!(
-                    signature.rest_positional,
-                    returned_signature[0].rest_positional,
+                    signature.sig.rest_positional,
+                    returned_signature[0].sig.rest_positional,
                 );
             }
         }

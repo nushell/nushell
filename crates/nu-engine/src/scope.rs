@@ -234,13 +234,9 @@ impl<'e, 's> ScopeData<'e, 's> {
 
                 let search_terms = decl.search_terms();
                 cols.push("search_terms".to_string());
-                vals.push(if search_terms.is_empty() {
-                    Value::nothing(span)
-                } else {
-                    Value::String {
-                        val: search_terms.join(", "),
-                        span,
-                    }
+                vals.push(Value::String {
+                    val: search_terms.join(", "),
+                    span,
                 });
 
                 commands.push(Value::Record { cols, vals, span })
@@ -505,9 +501,9 @@ impl<'e, 's> ScopeData<'e, 's> {
             let module = self.engine_state.get_module(**module_id);
 
             let export_commands: Vec<Value> = module
-                .decls
-                .keys()
-                .map(|bytes| Value::string(String::from_utf8_lossy(bytes), span))
+                .decls()
+                .iter()
+                .map(|(bytes, _)| Value::string(String::from_utf8_lossy(bytes), span))
                 .collect();
 
             let export_aliases: Vec<Value> = module

@@ -8,7 +8,7 @@ use std::marker::PhantomData;
 
 pub trait HashDigest: digest::Digest + Clone {
     fn name() -> &'static str;
-    fn examples() -> Vec<Example>;
+    fn examples() -> Vec<Example<'static>>;
 }
 
 #[derive(Clone)]
@@ -70,7 +70,7 @@ where
         &self.usage
     }
 
-    fn examples(&self) -> Vec<Example> {
+    fn examples(&self) -> Vec<Example<'static>> {
         D::examples()
     }
 
@@ -80,7 +80,7 @@ where
         stack: &mut Stack,
         call: &Call,
         input: PipelineData,
-    ) -> Result<nu_protocol::PipelineData, nu_protocol::ShellError> {
+    ) -> Result<PipelineData, ShellError> {
         let binary = call.has_flag("binary");
         let cell_paths: Vec<CellPath> = call.rest(engine_state, stack, 0)?;
         let cell_paths = (!cell_paths.is_empty()).then_some(cell_paths);
@@ -131,7 +131,7 @@ where
         }
     } else {
         Value::String {
-            val: format!("{:x}", digest),
+            val: format!("{digest:x}"),
             span,
         }
     }

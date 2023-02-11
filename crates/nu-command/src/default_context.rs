@@ -95,6 +95,7 @@ pub fn create_default_context() -> EngineState {
             Each,
             EachWhile,
             Empty,
+            Enumerate,
             Every,
             Filter,
             Find,
@@ -171,11 +172,13 @@ pub fn create_default_context() -> EngineState {
 
         // System
         bind_command! {
-            Benchmark,
             Complete,
+            Explain,
             External,
+            Inspect,
             NuCheck,
             Sys,
+            TimeIt,
         };
 
         #[cfg(unix)]
@@ -225,10 +228,8 @@ pub fn create_default_context() -> EngineState {
             StrIndexOf,
             StrKebabCase,
             StrLength,
-            StrLpad,
             StrPascalCase,
             StrReverse,
-            StrRpad,
             StrScreamingSnakeCase,
             StrSnakeCase,
             StrStartsWith,
@@ -275,6 +276,7 @@ pub fn create_default_context() -> EngineState {
             Mkdir,
             Mv,
             Open,
+            Start,
             Rm,
             Save,
             Touch,
@@ -287,6 +289,7 @@ pub fn create_default_context() -> EngineState {
             Ansi,
             AnsiGradient,
             AnsiStrip,
+            AnsiLink,
             Clear,
             Du,
             KeybindingsDefault,
@@ -353,7 +356,6 @@ pub fn create_default_context() -> EngineState {
             Use,
             Upsert,
             Where,
-            ToUrl,
             ToXml,
             ToYaml,
         };
@@ -367,6 +369,7 @@ pub fn create_default_context() -> EngineState {
 
         // Conversions
         bind_command! {
+            Fill,
             Fmt,
             Into,
             IntoBool,
@@ -400,7 +403,6 @@ pub fn create_default_context() -> EngineState {
             MathAbs,
             MathAvg,
             MathCeil,
-            MathEval,
             MathFloor,
             MathMax,
             MathMedian,
@@ -433,9 +435,13 @@ pub fn create_default_context() -> EngineState {
 
         // Network
         bind_command! {
-            Fetch,
-            Post,
+            Http,
+            HttpGet,
+            HttpPost,
             Url,
+            UrlBuildQuery,
+            UrlEncode,
+            UrlJoin,
             UrlParse,
             Port,
         }
@@ -468,18 +474,24 @@ pub fn create_default_context() -> EngineState {
 
         // Experimental
         bind_command! {
-            ViewSource,
             IsAdmin,
+            View,
+            ViewFiles,
+            ViewSource,
+            ViewSpan,
         };
 
         // Deprecated
         bind_command! {
             HashBase64,
+            LPadDeprecated,
+            RPadDeprecated,
             Source,
             StrDatetimeDeprecated,
             StrDecimalDeprecated,
             StrIntDeprecated,
             StrFindReplaceDeprecated,
+            MathEvalDeprecated,
         };
 
         #[cfg(feature = "plugin")]
@@ -489,7 +501,7 @@ pub fn create_default_context() -> EngineState {
     };
 
     if let Err(err) = engine_state.merge_delta(delta) {
-        eprintln!("Error creating default context: {:?}", err);
+        eprintln!("Error creating default context: {err:?}");
     }
 
     engine_state

@@ -179,7 +179,7 @@ fn parses_json() {
 fn parses_xml() {
     let actual = nu!(
         cwd: "tests/fixtures/formats",
-        "open jonathan.xml | get rss.children.channel.children | get 0.item.children | get 3.link.children.3.0"
+        "open jonathan.xml | get rss.children.channel.children | get 0.3.item.children | get 3.link.children.0"
     );
 
     assert_eq!(
@@ -214,8 +214,8 @@ fn parses_arrow_ipc() {
     let actual = nu!(
         cwd: "tests/fixtures/formats", pipeline(
         r#"
-            open-df caco3_plastics.arrow
-            | into nu
+            dfr open caco3_plastics.arrow
+            | dfr into-nu
             | first
             | get origin
         "#

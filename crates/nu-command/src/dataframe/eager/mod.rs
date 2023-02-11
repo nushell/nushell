@@ -30,6 +30,7 @@ mod with_column;
 
 use nu_protocol::engine::StateWorkingSet;
 
+pub use self::open::OpenDataFrame;
 pub use append::AppendDF;
 pub use columns::ColumnsDF;
 pub use drop::DropDF;
@@ -43,7 +44,6 @@ pub use get::GetDF;
 pub use last::LastDF;
 pub use list::ListDF;
 pub use melt::MeltDF;
-pub use open::OpenDataFrame;
 pub use query_df::QueryDf;
 pub use rename::RenameDF;
 pub use sample::SampleDF;

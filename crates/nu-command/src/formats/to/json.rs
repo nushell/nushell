@@ -43,7 +43,7 @@ impl Command for ToJson {
         stack: &mut Stack,
         call: &Call,
         input: PipelineData,
-    ) -> Result<nu_protocol::PipelineData, ShellError> {
+    ) -> Result<PipelineData, ShellError> {
         let raw = call.has_flag("raw");
         let use_tabs = call.has_flag("tabs");
 
@@ -135,6 +135,10 @@ pub fn value_to_json_value(v: &Value) -> Result<nu_json::Value, ShellError> {
                 m.insert(k.clone(), value_to_json_value(v)?);
             }
             nu_json::Value::Object(m)
+        }
+        Value::LazyRecord { val, .. } => {
+            let collected = val.collect()?;
+            value_to_json_value(&collected)?
         }
         Value::CustomValue { val, .. } => val.to_json(),
     })

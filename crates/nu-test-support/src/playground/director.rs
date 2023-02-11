@@ -95,21 +95,18 @@ impl Executable for Director {
                         if !commands.is_empty() {
                             commands.push_str("| ");
                         }
-                        let _ = writeln!(commands, "{}", pipeline);
+                        let _ = writeln!(commands, "{pipeline}");
                     }
                 }
 
-                let process = match binary
+                let process = binary
                     .construct()
                     .stdout(Stdio::piped())
                     // .stdin(Stdio::piped())
                     .stderr(Stdio::piped())
-                    .arg(format!("-c '{}'", commands))
+                    .arg(format!("-c '{commands}'"))
                     .spawn()
-                {
-                    Ok(child) => child,
-                    Err(why) => panic!("Can't run test {}", why),
-                };
+                    .expect("It should be possible to run tests");
 
                 process
                     .wait_with_output()

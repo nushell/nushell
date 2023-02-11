@@ -2,7 +2,8 @@ use nu_engine::CallExt;
 use nu_protocol::{
     ast::Call,
     engine::{Command, EngineState, Stack},
-    Category, Example, IntoPipelineData, PipelineData, Signature, Span, SyntaxShape, Type, Value,
+    Category, Example, IntoPipelineData, PipelineData, ShellError, Signature, Span, SyntaxShape,
+    Type, Value,
 };
 
 #[derive(Clone)]
@@ -41,7 +42,7 @@ impl Command for SubCommand {
         stack: &mut Stack,
         call: &Call,
         input: PipelineData,
-    ) -> Result<nu_protocol::PipelineData, nu_protocol::ShellError> {
+    ) -> Result<PipelineData, ShellError> {
         split_list(engine_state, stack, call, input)
     }
 
@@ -129,7 +130,7 @@ fn split_list(
     stack: &mut Stack,
     call: &Call,
     input: PipelineData,
-) -> Result<nu_protocol::PipelineData, nu_protocol::ShellError> {
+) -> Result<PipelineData, ShellError> {
     let separator: Value = call.req(engine_state, stack, 0)?;
     let mut temp_list = Vec::new();
     let mut returned_list = Vec::new();

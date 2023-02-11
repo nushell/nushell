@@ -1,5 +1,5 @@
 use crate::repl::eval_hook;
-use nu_engine::eval_block;
+use nu_engine::{eval_block, eval_block_with_early_return};
 use nu_parser::{escape_quote_string, lex, parse, unescape_unquote_string, Token, TokenContents};
 use nu_protocol::engine::StateWorkingSet;
 use nu_protocol::CliError;
@@ -9,6 +9,7 @@ use nu_protocol::{
 };
 #[cfg(windows)]
 use nu_utils::enable_vt_processing;
+use nu_utils::utils::perf;
 use std::path::{Path, PathBuf};
 
 // This will collect environment variables from std::env and adds them to a stack.
@@ -43,7 +44,7 @@ fn gather_env_vars(
         report_error(
             &working_set,
             &ShellError::GenericError(
-                format!("Environment variable was not captured: {}", env_str),
+                format!("Environment variable was not captured: {env_str}"),
                 "".to_string(),
                 None,
                 Some(msg.into()),
@@ -79,8 +80,7 @@ fn gather_env_vars(
                     "".to_string(),
                     None,
                     Some(format!(
-                        "Retrieving current directory failed: {:?} not a valid utf-8 path",
-                        init_cwd
+                        "Retrieving current directory failed: {init_cwd:?} not a valid utf-8 path"
                     )),
                     Vec::new(),
                 ),
@@ -203,7 +203,10 @@ pub fn eval_source(
     source: &[u8],
     fname: &str,
     input: PipelineData,
+    allow_return: bool,
 ) -> bool {
+    let start_time = std::time::Instant::now();
+
     let (block, delta) = {
         let mut working_set = StateWorkingSet::new(engine_state);
         let (output, err) = parse(
@@ -228,7 +231,13 @@ pub fn eval_source(
         return false;
     }
 
-    match eval_block(engine_state, stack, &block, input, false, false) {
+    let b = if allow_return {
+        eval_block_with_early_return(engine_state, stack, &block, input, false, false)
+    } else {
+        eval_block(engine_state, stack, &block, input, false, false)
+    };
+
+    match b {
         Ok(pipeline_data) => {
             let config = engine_state.get_config();
             let result;
@@ -282,6 +291,14 @@ pub fn eval_source(
             return false;
         }
     }
+    perf(
+        &format!("eval_source {}", &fname),
+        start_time,
+        file!(),
+        line!(),
+        column!(),
+        engine_state.get_config().use_ansi_coloring,
+    );
 
     true
 }
@@ -315,27 +332,19 @@ pub fn report_error_new(
 }
 
 pub fn get_init_cwd() -> PathBuf {
-    match std::env::current_dir() {
-        Ok(cwd) => cwd,
-        Err(_) => match std::env::var("PWD") {
-            Ok(cwd) => PathBuf::from(cwd),
-            Err(_) => match nu_path::home_dir() {
-                Some(cwd) => cwd,
-                None => PathBuf::new(),
-            },
-        },
-    }
+    std::env::current_dir().unwrap_or_else(|_| {
+        std::env::var("PWD")
+            .map(Into::into)
+            .unwrap_or_else(|_| nu_path::home_dir().unwrap_or_default())
+    })
 }
 
 pub fn get_guaranteed_cwd(engine_state: &EngineState, stack: &Stack) -> PathBuf {
-    match nu_engine::env::current_dir(engine_state, stack) {
-        Ok(p) => p,
-        Err(e) => {
-            let working_set = StateWorkingSet::new(engine_state);
-            report_error(&working_set, &e);
-            get_init_cwd()
-        }
-    }
+    nu_engine::env::current_dir(engine_state, stack).unwrap_or_else(|e| {
+        let working_set = StateWorkingSet::new(engine_state);
+        report_error(&working_set, &e);
+        get_init_cwd()
+    })
 }
 
 #[cfg(test)]

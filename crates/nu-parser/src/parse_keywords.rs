@@ -232,6 +232,7 @@ pub fn parse_for(
 pub fn parse_def(
     working_set: &mut StateWorkingSet,
     lite_command: &LiteCommand,
+    module_name: Option<&[u8]>,
     expand_aliases_denylist: &[usize],
 ) -> (Pipeline, Option<ParseError>) {
     let spans = &lite_command.parts[..];
@@ -337,9 +338,39 @@ pub fn parse_def(
 
     let mut error = None;
 
-    if let (Some(name), Some(mut signature), Some(block_id)) =
-        (&name_expr.as_string(), sig.as_signature(), block.as_block())
-    {
+    let name = if let Some(name) = name_expr.as_string() {
+        if let Some(mod_name) = module_name {
+            if name.as_bytes() == mod_name {
+                let name_expr_span = name_expr.span;
+
+                return (
+                    Pipeline::from_vec(vec![Expression {
+                        expr: Expr::Call(call),
+                        span: call_span,
+                        ty: Type::Any,
+                        custom_completion: None,
+                    }]),
+                    Some(ParseError::NamedAsModule(
+                        "command".to_string(),
+                        name,
+                        name_expr_span,
+                    )),
+                );
+            }
+        }
+
+        name
+    } else {
+        return (
+            garbage_pipeline(spans),
+            Some(ParseError::UnknownState(
+                "Could not get string from string expression".into(),
+                name_expr.span,
+            )),
+        );
+    };
+
+    if let (Some(mut signature), Some(block_id)) = (sig.as_signature(), block.as_block()) {
         if let Some(decl_id) = working_set.find_predecl(name.as_bytes()) {
             let declaration = working_set.get_decl_mut(decl_id);
 
@@ -351,6 +382,41 @@ pub fn parse_def(
             *declaration = signature.clone().into_block_command(block_id);
 
             let mut block = working_set.get_block_mut(block_id);
+            let calls_itself = block.pipelines.iter().any(|pipeline| {
+                pipeline
+                    .elements
+                    .iter()
+                    .any(|pipe_element| match pipe_element {
+                        PipelineElement::Expression(
+                            _,
+                            Expression {
+                                expr: Expr::Call(call_expr),
+                                ..
+                            },
+                        ) => {
+                            if call_expr.decl_id == decl_id {
+                                return true;
+                            }
+                            call_expr.arguments.iter().any(|arg| match arg {
+                                Argument::Positional(Expression { expr, .. }) => match expr {
+                                    Expr::Keyword(.., expr) => {
+                                        let expr = expr.as_ref();
+                                        let Expression { expr, .. } = expr;
+                                        match expr {
+                                            Expr::Call(call_expr2) => call_expr2.decl_id == decl_id,
+                                            _ => false,
+                                        }
+                                    }
+                                    Expr::Call(call_expr2) => call_expr2.decl_id == decl_id,
+                                    _ => false,
+                                },
+                                _ => false,
+                            })
+                        }
+                        _ => false,
+                    })
+            });
+            block.recursive = Some(calls_itself);
             block.signature = signature;
             block.redirect_env = def_call == b"def-env";
         } else {
@@ -363,17 +429,8 @@ pub fn parse_def(
         };
     }
 
-    if let Some(name) = name_expr.as_string() {
-        // It's OK if it returns None: The decl was already merged in previous parse pass.
-        working_set.merge_predecl(name.as_bytes());
-    } else {
-        error = error.or_else(|| {
-            Some(ParseError::UnknownState(
-                "Could not get string from string expression".into(),
-                name_expr.span,
-            ))
-        });
-    }
+    // It's OK if it returns None: The decl was already merged in previous parse pass.
+    working_set.merge_predecl(name.as_bytes());
 
     (
         Pipeline::from_vec(vec![Expression {
@@ -389,6 +446,7 @@ pub fn parse_def(
 pub fn parse_extern(
     working_set: &mut StateWorkingSet,
     lite_command: &LiteCommand,
+    module_name: Option<&[u8]>,
     expand_aliases_denylist: &[usize],
 ) -> (Pipeline, Option<ParseError>) {
     let spans = &lite_command.parts;
@@ -460,16 +518,45 @@ pub fn parse_extern(
 
     if let (Some(name_expr), Some(sig)) = (name_expr, sig) {
         if let (Some(name), Some(mut signature)) = (&name_expr.as_string(), sig.as_signature()) {
+            if let Some(mod_name) = module_name {
+                if name.as_bytes() == mod_name {
+                    let name_expr_span = name_expr.span;
+                    return (
+                        Pipeline::from_vec(vec![Expression {
+                            expr: Expr::Call(call),
+                            span: call_span,
+                            ty: Type::Any,
+                            custom_completion: None,
+                        }]),
+                        Some(ParseError::NamedAsModule(
+                            "known external".to_string(),
+                            name.clone(),
+                            name_expr_span,
+                        )),
+                    );
+                }
+            }
+
             if let Some(decl_id) = working_set.find_predecl(name.as_bytes()) {
                 let declaration = working_set.get_decl_mut(decl_id);
 
-                signature.name = name.clone();
+                let external_name = if let Some(mod_name) = module_name {
+                    if name.as_bytes() == b"main" {
+                        String::from_utf8_lossy(mod_name).to_string()
+                    } else {
+                        name.clone()
+                    }
+                } else {
+                    name.clone()
+                };
+
+                signature.name = external_name.clone();
                 signature.usage = usage.clone();
                 signature.extra_usage = extra_usage.clone();
                 signature.allows_unknown_args = true;
 
                 let decl = KnownExternal {
-                    name: name.to_string(),
+                    name: external_name,
                     usage: [usage, extra_usage].join("\n"),
                     signature,
                 };
@@ -511,6 +598,7 @@ pub fn parse_extern(
 pub fn parse_alias(
     working_set: &mut StateWorkingSet,
     lite_command: &LiteCommand,
+    module_name: Option<&[u8]>,
     expand_aliases_denylist: &[usize],
 ) -> (Pipeline, Option<ParseError>) {
     let spans = &lite_command.parts;
@@ -609,6 +697,37 @@ pub fn parse_alias(
                 } else {
                     alias_name.to_vec()
                 };
+
+                if let Some(mod_name) = module_name {
+                    if alias_name == mod_name {
+                        return (
+                            Pipeline::from_vec(vec![Expression {
+                                expr: Expr::Call(call),
+                                span: span(spans),
+                                ty: output,
+                                custom_completion: None,
+                            }]),
+                            Some(ParseError::NamedAsModule(
+                                "alias".to_string(),
+                                String::from_utf8_lossy(&alias_name).to_string(),
+                                spans[split_id],
+                            )),
+                        );
+                    }
+
+                    if &alias_name == b"main" {
+                        return (
+                            Pipeline::from_vec(vec![Expression {
+                                expr: Expr::Call(call),
+                                span: span(spans),
+                                ty: output,
+                                custom_completion: None,
+                            }]),
+                            Some(ParseError::ExportMainAliasNotAllowed(spans[split_id])),
+                        );
+                    }
+                }
+
                 let _equals = working_set.get_span_contents(spans[split_id + 1]);
 
                 let replacement = spans[(split_id + 2)..].to_vec();
@@ -738,16 +857,16 @@ pub fn parse_export_in_block(
     }
 
     match full_name.as_slice() {
-        b"export alias" => parse_alias(working_set, lite_command, expand_aliases_denylist),
+        b"export alias" => parse_alias(working_set, lite_command, None, expand_aliases_denylist),
         b"export def" | b"export def-env" => {
-            parse_def(working_set, lite_command, expand_aliases_denylist)
+            parse_def(working_set, lite_command, None, expand_aliases_denylist)
         }
         b"export use" => {
             let (pipeline, _, err) =
                 parse_use(working_set, &lite_command.parts, expand_aliases_denylist);
             (pipeline, err)
         }
-        b"export extern" => parse_extern(working_set, lite_command, expand_aliases_denylist),
+        b"export extern" => parse_extern(working_set, lite_command, None, expand_aliases_denylist),
         _ => (
             garbage_pipeline(&lite_command.parts),
             Some(ParseError::UnexpectedKeyword(
@@ -762,6 +881,7 @@ pub fn parse_export_in_block(
 pub fn parse_export_in_module(
     working_set: &mut StateWorkingSet,
     lite_command: &LiteCommand,
+    module_name: &[u8],
     expand_aliases_denylist: &[usize],
 ) -> (Pipeline, Vec<Exportable>, Option<ParseError>) {
     let spans = &lite_command.parts[..];
@@ -821,8 +941,12 @@ pub fn parse_export_in_module(
                     comments: lite_command.comments.clone(),
                     parts: spans[1..].to_vec(),
                 };
-                let (pipeline, err) =
-                    parse_def(working_set, &lite_command, expand_aliases_denylist);
+                let (pipeline, err) = parse_def(
+                    working_set,
+                    &lite_command,
+                    Some(module_name),
+                    expand_aliases_denylist,
+                );
                 error = error.or(err);
 
                 let export_def_decl_id =
@@ -889,8 +1013,12 @@ pub fn parse_export_in_module(
                     comments: lite_command.comments.clone(),
                     parts: spans[1..].to_vec(),
                 };
-                let (pipeline, err) =
-                    parse_def(working_set, &lite_command, expand_aliases_denylist);
+                let (pipeline, err) = parse_def(
+                    working_set,
+                    &lite_command,
+                    Some(module_name),
+                    expand_aliases_denylist,
+                );
                 error = error.or(err);
 
                 let export_def_decl_id =
@@ -958,8 +1086,12 @@ pub fn parse_export_in_module(
                     comments: lite_command.comments.clone(),
                     parts: spans[1..].to_vec(),
                 };
-                let (pipeline, err) =
-                    parse_extern(working_set, &lite_command, expand_aliases_denylist);
+                let (pipeline, err) = parse_extern(
+                    working_set,
+                    &lite_command,
+                    Some(module_name),
+                    expand_aliases_denylist,
+                );
                 error = error.or(err);
 
                 let export_def_decl_id =
@@ -1027,8 +1159,12 @@ pub fn parse_export_in_module(
                     comments: lite_command.comments.clone(),
                     parts: spans[1..].to_vec(),
                 };
-                let (pipeline, err) =
-                    parse_alias(working_set, &lite_command, expand_aliases_denylist);
+                let (pipeline, err) = parse_alias(
+                    working_set,
+                    &lite_command,
+                    Some(module_name),
+                    expand_aliases_denylist,
+                );
                 error = error.or(err);
 
                 let export_alias_decl_id =
@@ -1314,6 +1450,7 @@ fn collect_first_comments(tokens: &[Token]) -> Vec<Span> {
 pub fn parse_module_block(
     working_set: &mut StateWorkingSet,
     span: Span,
+    module_name: &[u8],
     expand_aliases_denylist: &[usize],
 ) -> (Block, Module, Vec<Span>, Option<ParseError>) {
     let mut error = None;
@@ -1338,7 +1475,7 @@ pub fn parse_module_block(
         }
     }
 
-    let mut module = Module::from_span(span);
+    let mut module = Module::from_span(module_name.to_vec(), span);
 
     let block: Block = output
         .block
@@ -1351,20 +1488,32 @@ pub fn parse_module_block(
 
                         let (pipeline, err) = match name {
                             b"def" | b"def-env" => {
-                                let (pipeline, err) =
-                                    parse_def(working_set, command, expand_aliases_denylist);
+                                let (pipeline, err) = parse_def(
+                                    working_set,
+                                    command,
+                                    None, // using commands named as the module locally is OK
+                                    expand_aliases_denylist,
+                                );
 
                                 (pipeline, err)
                             }
                             b"extern" => {
-                                let (pipeline, err) =
-                                    parse_extern(working_set, command, expand_aliases_denylist);
+                                let (pipeline, err) = parse_extern(
+                                    working_set,
+                                    command,
+                                    None,
+                                    expand_aliases_denylist,
+                                );
 
                                 (pipeline, err)
                             }
                             b"alias" => {
-                                let (pipeline, err) =
-                                    parse_alias(working_set, command, expand_aliases_denylist);
+                                let (pipeline, err) = parse_alias(
+                                    working_set,
+                                    command,
+                                    None, // using aliases named as the module locally is OK
+                                    expand_aliases_denylist,
+                                );
 
                                 (pipeline, err)
                             }
@@ -1378,6 +1527,7 @@ pub fn parse_module_block(
                                 let (pipe, exportables, err) = parse_export_in_module(
                                     working_set,
                                     command,
+                                    module_name,
                                     expand_aliases_denylist,
                                 );
 
@@ -1385,7 +1535,11 @@ pub fn parse_module_block(
                                     for exportable in exportables {
                                         match exportable {
                                             Exportable::Decl { name, id } => {
-                                                module.add_decl(name, id);
+                                                if &name == b"main" {
+                                                    module.main = Some(id);
+                                                } else {
+                                                    module.add_decl(name, id);
+                                                }
                                             }
                                             Exportable::Alias { name, id } => {
                                                 module.add_alias(name, id);
@@ -1424,6 +1578,9 @@ pub fn parse_module_block(
                         pipeline
                     }
                     LiteElement::Redirection(_, _, command) => garbage_pipeline(&command.parts),
+                    LiteElement::SeparateRedirection {
+                        out: (_, command), ..
+                    } => garbage_pipeline(&command.parts),
                 }
             } else {
                 error = Some(ParseError::Expected("not a pipeline".into(), span));
@@ -1481,8 +1638,12 @@ pub fn parse_module(
 
         let block_span = Span::new(start, end);
 
-        let (block, module, inner_comments, err) =
-            parse_module_block(working_set, block_span, expand_aliases_denylist);
+        let (block, module, inner_comments, err) = parse_module_block(
+            working_set,
+            block_span,
+            module_name.as_bytes(),
+            expand_aliases_denylist,
+        );
         error = error.or(err);
 
         let block_id = working_set.add_block(block);
@@ -1724,6 +1885,7 @@ pub fn parse_use(
                     let (block, module, module_comments, err) = parse_module_block(
                         working_set,
                         Span::new(span_start, span_end),
+                        module_name.as_bytes(),
                         expand_aliases_denylist,
                     );
                     error = error.or(err);
@@ -1763,14 +1925,16 @@ pub fn parse_use(
                     );
                 }
             } else {
-                error = error.or(Some(ParseError::ModuleNotFound(import_pattern.head.span)));
-
-                let old_span = import_pattern.head.span;
-
-                let mut import_pattern = ImportPattern::new();
-                import_pattern.head.span = old_span;
-
-                (import_pattern, Module::new())
+                return (
+                    Pipeline::from_vec(vec![Expression {
+                        expr: Expr::Call(call),
+                        span: span(spans),
+                        ty: Type::Any,
+                        custom_completion: None,
+                    }]),
+                    vec![],
+                    Some(ParseError::ModuleNotFound(import_pattern.head.span)),
+                );
             }
         } else {
             return (
@@ -1793,12 +1957,18 @@ pub fn parse_use(
                 let mut decl_output = vec![];
                 let mut alias_output = vec![];
 
-                if let Some(id) = module.get_decl_id(name) {
+                if name == b"main" {
+                    if let Some(id) = &module.main {
+                        decl_output.push((import_pattern.head.name.clone(), *id));
+                    } else {
+                        error = error.or(Some(ParseError::ExportNotFound(*span)));
+                    }
+                } else if let Some(id) = module.get_decl_id(name) {
                     decl_output.push((name.clone(), id));
                 } else if let Some(id) = module.get_alias_id(name) {
                     alias_output.push((name.clone(), id));
                 } else {
-                    error = error.or(Some(ParseError::ExportNotFound(*span)))
+                    error = error.or(Some(ParseError::ExportNotFound(*span)));
                 }
 
                 (decl_output, alias_output)
@@ -1808,7 +1978,13 @@ pub fn parse_use(
                 let mut alias_output = vec![];
 
                 for (name, span) in names {
-                    if let Some(id) = module.get_decl_id(name) {
+                    if name == b"main" {
+                        if let Some(id) = &module.main {
+                            decl_output.push((import_pattern.head.name.clone(), *id));
+                        } else {
+                            error = error.or(Some(ParseError::ExportNotFound(*span)));
+                        }
+                    } else if let Some(id) = module.get_decl_id(name) {
                         decl_output.push((name.clone(), id));
                     } else if let Some(id) = module.get_alias_id(name) {
                         alias_output.push((name.clone(), id));
@@ -1954,6 +2130,7 @@ pub fn parse_hide(
             error = error.or(err);
         }
 
+        // module used only internally, not saved anywhere
         let (is_module, module) = if let Some(module_id) =
             working_set.find_module(&import_pattern.head.name)
         {
@@ -1962,19 +2139,19 @@ pub fn parse_hide(
             // The pattern head can be:
             if let Some(id) = working_set.find_alias(&import_pattern.head.name) {
                 // an alias,
-                let mut module = Module::new();
+                let mut module = Module::new(b"tmp".to_vec());
                 module.add_alias(import_pattern.head.name.clone(), id);
 
                 (false, module)
             } else if let Some(id) = working_set.find_decl(&import_pattern.head.name, &Type::Any) {
                 // a custom command,
-                let mut module = Module::new();
+                let mut module = Module::new(b"tmp".to_vec());
                 module.add_decl(import_pattern.head.name.clone(), id);
 
                 (false, module)
             } else {
                 // , or it could be an env var (handled by the engine)
-                (false, Module::new())
+                (false, Module::new(b"tmp".to_vec()))
             }
         } else {
             return (
@@ -2000,7 +2177,14 @@ pub fn parse_hide(
                     let mut aliases = vec![];
                     let mut decls = vec![];
 
-                    if let Some(item) = module.alias_name_with_head(name, &import_pattern.head.name)
+                    if name == b"main" {
+                        if module.main.is_some() {
+                            decls.push(import_pattern.head.name.clone());
+                        } else {
+                            error = error.or(Some(ParseError::ExportNotFound(*span)));
+                        }
+                    } else if let Some(item) =
+                        module.alias_name_with_head(name, &import_pattern.head.name)
                     {
                         aliases.push(item);
                     } else if let Some(item) =
@@ -2018,7 +2202,14 @@ pub fn parse_hide(
                     let mut decls = vec![];
 
                     for (name, span) in names {
-                        if let Some(item) =
+                        if name == b"main" {
+                            if module.main.is_some() {
+                                decls.push(import_pattern.head.name.clone());
+                            } else {
+                                error = error.or(Some(ParseError::ExportNotFound(*span)));
+                                break;
+                            }
+                        } else if let Some(item) =
                             module.alias_name_with_head(name, &import_pattern.head.name)
                         {
                             aliases.push(item);
@@ -2280,16 +2471,16 @@ pub fn parse_overlay_new(
     };
 
     let (overlay_name, _) = if let Some(expr) = call.positional_nth(0) {
-        if let Some(s) = expr.as_string() {
-            (s, expr.span)
-        } else {
-            return (
-                garbage_pipeline(spans),
-                Some(ParseError::UnknownState(
-                    "internal error: Module name not a string".into(),
-                    expr.span,
-                )),
-            );
+        match eval_constant(working_set, expr) {
+            Ok(val) => match value_as_string(val, expr.span) {
+                Ok(s) => (s, expr.span),
+                Err(err) => {
+                    return (garbage_pipeline(spans), Some(err));
+                }
+            },
+            Err(err) => {
+                return (garbage_pipeline(spans), Some(err));
+            }
         }
     } else {
         return (
@@ -2308,7 +2499,11 @@ pub fn parse_overlay_new(
         custom_completion: None,
     }]);
 
-    let module_id = working_set.add_module(&overlay_name, Module::new(), vec![]);
+    let module_id = working_set.add_module(
+        &overlay_name,
+        Module::new(overlay_name.as_bytes().to_vec()),
+        vec![],
+    );
 
     working_set.add_overlay(
         overlay_name.as_bytes().to_vec(),
@@ -2487,7 +2682,12 @@ pub fn parse_overlay_use(
 
         if let Some(new_module_id) = working_set.find_module(overlay_name.as_bytes()) {
             if !do_reload && (module_id == new_module_id) {
-                (overlay_name, Module::new(), module_id, false)
+                (
+                    overlay_name,
+                    Module::new(working_set.get_module(module_id).name.clone()),
+                    module_id,
+                    false,
+                )
             } else {
                 // The origin module of an overlay changed => update it
                 (
@@ -2498,7 +2698,8 @@ pub fn parse_overlay_use(
                 )
             }
         } else {
-            (overlay_name, Module::new(), module_id, true)
+            let module_name = overlay_name.as_bytes().to_vec();
+            (overlay_name, Module::new(module_name), module_id, true)
         }
     } else {
         // Create a new overlay from a module
@@ -2548,6 +2749,7 @@ pub fn parse_overlay_use(
                         let (block, module, module_comments, err) = parse_module_block(
                             working_set,
                             Span::new(span_start, span_end),
+                            overlay_name.as_bytes(),
                             expand_aliases_denylist,
                         );
                         error = error.or(err);
@@ -2686,16 +2888,16 @@ pub fn parse_overlay_hide(
     };
 
     let (overlay_name, overlay_name_span) = if let Some(expr) = call.positional_nth(0) {
-        if let Some(s) = expr.as_string() {
-            (s, expr.span)
-        } else {
-            return (
-                garbage_pipeline(spans),
-                Some(ParseError::UnknownState(
-                    "internal error: Module name not a string".into(),
-                    expr.span,
-                )),
-            );
+        match eval_constant(working_set, expr) {
+            Ok(val) => match value_as_string(val, expr.span) {
+                Ok(s) => (s, expr.span),
+                Err(err) => {
+                    return (garbage_pipeline(spans), Some(err));
+                }
+            },
+            Err(err) => {
+                return (garbage_pipeline(spans), Some(err));
+            }
         }
     } else {
         (
@@ -2804,8 +3006,11 @@ pub fn parse_let_or_const(
                                 .to_string();
 
                         if ["in", "nu", "env", "nothing"].contains(&var_name.as_str()) {
-                            error =
-                                error.or(Some(ParseError::LetBuiltinVar(var_name, lvalue.span)));
+                            error = if is_const {
+                                error.or(Some(ParseError::ConstBuiltinVar(var_name, lvalue.span)))
+                            } else {
+                                error.or(Some(ParseError::LetBuiltinVar(var_name, lvalue.span)))
+                            };
                         }
 
                         let var_id = lvalue.as_var();
@@ -3270,7 +3475,7 @@ pub fn parse_register(
     expand_aliases_denylist: &[usize],
 ) -> (Pipeline, Option<ParseError>) {
     use nu_plugin::{get_signature, PluginDeclaration};
-    use nu_protocol::{engine::Stack, Signature};
+    use nu_protocol::{engine::Stack, PluginSignature};
 
     let cwd = working_set.get_cwd();
 
@@ -3356,7 +3561,7 @@ pub fn parse_register(
                     Ok(path)
                 } else {
                     Err(ParseError::RegisteredFileNotFound(
-                        format!("{:?}", path),
+                        format!("{path:?}"),
                         expr.span,
                     ))
                 }
@@ -3368,10 +3573,10 @@ pub fn parse_register(
     // the plugin is called to get the signatures or to use the given signature
     let signature = call.positional_nth(1).map(|expr| {
         let signature = working_set.get_span_contents(expr.span);
-        serde_json::from_slice::<Signature>(signature).map_err(|e| {
+        serde_json::from_slice::<PluginSignature>(signature).map_err(|e| {
             ParseError::LabeledError(
                 "Signature deserialization error".into(),
-                format!("unable to deserialize signature: {}", e),
+                format!("unable to deserialize signature: {e}"),
                 spans[0],
             )
         })
@@ -3392,7 +3597,7 @@ pub fn parse_register(
                     Ok(path)
                 } else {
                     Err(ParseError::RegisteredFileNotFound(
-                        format!("{:?}", path),
+                        format!("{path:?}"),
                         expr.span,
                     ))
                 }

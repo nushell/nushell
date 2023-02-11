@@ -74,12 +74,12 @@ impl Command for Parse {
                 result: Some(Value::List {
                     vals: vec![
                         Value::Record {
-                            cols: vec!["Capture1".to_string(), "Capture2".to_string()],
+                            cols: vec!["capture0".to_string(), "capture1".to_string()],
                             vals: vec![Value::test_string(""), Value::test_string("foo")],
                             span: Span::test_data(),
                         },
                         Value::Record {
-                            cols: vec!["Capture1".to_string(), "Capture2".to_string()],
+                            cols: vec!["capture0".to_string(), "capture1".to_string()],
                             vals: vec![Value::test_string("bar"), Value::test_string("")],
                             span: Span::test_data(),
                         },
@@ -93,7 +93,7 @@ impl Command for Parse {
                     "\" @another(foo bar)   \" | parse -r '\\s*(?<=[() ])(@\\w+)(\\([^)]*\\))?\\s*'",
                 result: Some(Value::List {
                     vals: vec![Value::Record {
-                        cols: vec!["Capture1".to_string(), "Capture2".to_string()],
+                        cols: vec!["capture0".to_string(), "capture1".to_string()],
                         vals: vec![
                             Value::test_string("@another"),
                             Value::test_string("(foo bar)"),
@@ -108,7 +108,7 @@ impl Command for Parse {
                 example: "\"abcd\" | parse -r '^a(bc(?=d)|b)cd$'",
                 result: Some(Value::List {
                     vals: vec![Value::Record {
-                        cols: vec!["Capture1".to_string()],
+                        cols: vec!["capture0".to_string()],
                         vals: vec![Value::test_string("b")],
                         span: Span::test_data(),
                     }],
@@ -160,59 +160,99 @@ fn operate(
     })?;
 
     let columns = column_names(&regex_pattern);
-    let mut parsed: Vec<Value> = Vec::new();
 
-    for v in input {
-        match v.as_string() {
-            Ok(s) => {
-                let results = regex_pattern.captures_iter(&s);
+    match input {
+        PipelineData::Empty => Ok(PipelineData::Empty),
+        PipelineData::Value(..) => {
+            let mut parsed: Vec<Value> = Vec::new();
 
-                for c in results {
-                    let mut cols = Vec::with_capacity(columns.len());
-                    let captures = match c {
-                        Ok(c) => c,
-                        Err(e) => {
-                            return Err(ShellError::GenericError(
-                                "Error with regular expression captures".into(),
-                                e.to_string(),
-                                None,
-                                None,
-                                Vec::new(),
-                            ))
+            for v in input {
+                match v.as_string() {
+                    Ok(s) => {
+                        let results = regex_pattern.captures_iter(&s);
+
+                        for c in results {
+                            let mut cols = Vec::with_capacity(columns.len());
+                            let captures = match c {
+                                Ok(c) => c,
+                                Err(e) => {
+                                    return Err(ShellError::GenericError(
+                                        "Error with regular expression captures".into(),
+                                        e.to_string(),
+                                        None,
+                                        None,
+                                        Vec::new(),
+                                    ))
+                                }
+                            };
+                            let mut vals = Vec::with_capacity(captures.len());
+
+                            for (column_name, cap) in columns.iter().zip(captures.iter().skip(1)) {
+                                let cap_string = cap.map(|v| v.as_str()).unwrap_or("").to_string();
+                                cols.push(column_name.clone());
+                                vals.push(Value::String {
+                                    val: cap_string,
+                                    span: v.span()?,
+                                });
+                            }
+
+                            parsed.push(Value::Record {
+                                cols,
+                                vals,
+                                span: head,
+                            });
                         }
-                    };
-                    let mut vals = Vec::with_capacity(captures.len());
-
-                    for (column_name, cap) in columns.iter().zip(captures.iter().skip(1)) {
-                        let cap_string = cap.map(|v| v.as_str()).unwrap_or("").to_string();
-                        cols.push(column_name.clone());
-                        vals.push(Value::String {
-                            val: cap_string,
-                            span: v.span()?,
-                        });
                     }
-
-                    parsed.push(Value::Record {
-                        cols,
-                        vals,
-                        span: head,
-                    });
+                    Err(_) => {
+                        return Err(ShellError::PipelineMismatch(
+                            "string".into(),
+                            head,
+                            v.span()?,
+                        ))
+                    }
                 }
             }
-            Err(_) => {
-                return Err(ShellError::PipelineMismatch(
-                    "string".into(),
-                    head,
-                    v.span()?,
-                ))
-            }
-        }
-    }
 
-    Ok(PipelineData::ListStream(
-        ListStream::from_stream(parsed.into_iter(), call.head, ctrlc),
-        None,
-    ))
+            Ok(PipelineData::ListStream(
+                ListStream::from_stream(parsed.into_iter(), call.head, ctrlc),
+                None,
+            ))
+        }
+        PipelineData::ListStream(stream, ..) => Ok(PipelineData::ListStream(
+            ListStream::from_stream(
+                ParseStreamer {
+                    span: head,
+                    excess: Vec::new(),
+                    regex: regex_pattern,
+                    columns,
+                    stream: stream.stream,
+                },
+                call.head,
+                ctrlc,
+            ),
+            None,
+        )),
+
+        PipelineData::ExternalStream { stdout: None, .. } => Ok(PipelineData::Empty),
+
+        PipelineData::ExternalStream {
+            stdout: Some(stream),
+            ..
+        } => Ok(PipelineData::ListStream(
+            ListStream::from_stream(
+                ParseStreamerExternal {
+                    span: head,
+                    excess: Vec::new(),
+                    regex: regex_pattern,
+                    columns,
+                    stream: stream.stream,
+                },
+                call.head,
+                ctrlc,
+            ),
+            None,
+        )),
+    }
 }
 
 fn build_regex(input: &str, span: Span) -> Result<String, ShellError> {
@@ -276,9 +316,133 @@ fn column_names(regex: &Regex) -> Vec<String> {
         .skip(1)
         .map(|(i, name)| {
             name.map(String::from)
-                .unwrap_or_else(|| format!("Capture{}", i))
+                .unwrap_or_else(|| format!("capture{}", i - 1))
         })
         .collect()
+}
+
+pub struct ParseStreamer {
+    span: Span,
+    excess: Vec<Value>,
+    regex: Regex,
+    columns: Vec<String>,
+    stream: Box<dyn Iterator<Item = Value> + Send + 'static>,
+}
+
+impl Iterator for ParseStreamer {
+    type Item = Value;
+    fn next(&mut self) -> Option<Value> {
+        if !self.excess.is_empty() {
+            return Some(self.excess.remove(0));
+        }
+
+        let v = self.stream.next();
+
+        if let Some(v) = v {
+            match v.as_string() {
+                Ok(s) => stream_helper(
+                    self.regex.clone(),
+                    v.span().unwrap_or(self.span),
+                    s,
+                    self.columns.clone(),
+                    &mut self.excess,
+                ),
+                Err(_) => Some(Value::Error {
+                    error: ShellError::PipelineMismatch(
+                        "string".into(),
+                        self.span,
+                        v.span().unwrap_or(self.span),
+                    ),
+                }),
+            }
+        } else {
+            None
+        }
+    }
+}
+
+pub struct ParseStreamerExternal {
+    span: Span,
+    excess: Vec<Value>,
+    regex: Regex,
+    columns: Vec<String>,
+    stream: Box<dyn Iterator<Item = Result<Vec<u8>, ShellError>> + Send + 'static>,
+}
+
+impl Iterator for ParseStreamerExternal {
+    type Item = Value;
+    fn next(&mut self) -> Option<Value> {
+        if !self.excess.is_empty() {
+            return Some(self.excess.remove(0));
+        }
+
+        let v = self.stream.next();
+
+        if let Some(Ok(v)) = v {
+            match String::from_utf8(v) {
+                Ok(s) => stream_helper(
+                    self.regex.clone(),
+                    self.span,
+                    s,
+                    self.columns.clone(),
+                    &mut self.excess,
+                ),
+                Err(_) => Some(Value::Error {
+                    error: ShellError::PipelineMismatch("string".into(), self.span, self.span),
+                }),
+            }
+        } else if let Some(Err(err)) = v {
+            Some(Value::Error { error: err })
+        } else {
+            None
+        }
+    }
+}
+
+fn stream_helper(
+    regex: Regex,
+    span: Span,
+    s: String,
+    columns: Vec<String>,
+    excess: &mut Vec<Value>,
+) -> Option<Value> {
+    let results = regex.captures_iter(&s);
+
+    for c in results {
+        let mut cols = Vec::with_capacity(columns.len());
+        let captures = match c {
+            Ok(c) => c,
+            Err(e) => {
+                return Some(Value::Error {
+                    error: ShellError::GenericError(
+                        "Error with regular expression captures".into(),
+                        e.to_string(),
+                        None,
+                        None,
+                        Vec::new(),
+                    ),
+                })
+            }
+        };
+        let mut vals = Vec::with_capacity(captures.len());
+
+        for (column_name, cap) in columns.iter().zip(captures.iter().skip(1)) {
+            let cap_string = cap.map(|v| v.as_str()).unwrap_or("").to_string();
+            cols.push(column_name.clone());
+            vals.push(Value::String {
+                val: cap_string,
+                span,
+            });
+        }
+
+        excess.push(Value::Record { cols, vals, span });
+    }
+
+    if !excess.is_empty() {
+        Some(excess.remove(0))
+    } else {
+        None
+    }
 }
 
 #[cfg(test)]

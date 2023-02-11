@@ -115,11 +115,11 @@ pub fn create_commands(registry: &mut CommandRegistry) {
     registry.register_command_reactive(TweakCmd::default());
 }
 
-pub fn create_aliases(regestry: &mut CommandRegistry) {
-    regestry.create_aliase("h", HelpCmd::NAME);
-    regestry.create_aliase("e", ExpandCmd::NAME);
-    regestry.create_aliase("q", QuitCmd::NAME);
-    regestry.create_aliase("q!", QuitCmd::NAME);
+pub fn create_aliases(registry: &mut CommandRegistry) {
+    registry.create_aliases("h", HelpCmd::NAME);
+    registry.create_aliases("e", ExpandCmd::NAME);
+    registry.create_aliases("q", QuitCmd::NAME);
+    registry.create_aliases("q!", QuitCmd::NAME);
 }
 
 #[rustfmt::skip]
@@ -171,15 +171,8 @@ fn create_help_manual(cmd: &Command) -> HelpManual {
 }
 
 fn __create_help_manual(manual: Option<HelpManual>, name: &'static str) -> HelpManual {
-    match manual {
-        Some(manual) => manual,
-        None => HelpManual {
-            name,
-            description: "",
-            arguments: Vec::new(),
-            examples: Vec::new(),
-            input: Vec::new(),
-            config_options: Vec::new(),
-        },
-    }
+    manual.unwrap_or(HelpManual {
+        name,
+        ..HelpManual::default()
+    })
 }

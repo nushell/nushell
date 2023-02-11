@@ -47,7 +47,7 @@ impl Command for Take {
         stack: &mut Stack,
         call: &Call,
         input: PipelineData,
-    ) -> Result<nu_protocol::PipelineData, nu_protocol::ShellError> {
+    ) -> Result<PipelineData, ShellError> {
         let rows_desired: usize = call.req(engine_state, stack, 0)?;
 
         let ctrlc = engine_state.ctrlc.clone();

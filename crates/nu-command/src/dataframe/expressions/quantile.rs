@@ -5,14 +5,14 @@ use nu_protocol::{
     engine::{Command, EngineState, Stack},
     Category, Example, PipelineData, ShellError, Signature, Span, SyntaxShape, Type, Value,
 };
-use polars::prelude::QuantileInterpolOptions;
+use polars::prelude::{lit, QuantileInterpolOptions};
 
 #[derive(Clone)]
 pub struct ExprQuantile;
 
 impl Command for ExprQuantile {
     fn name(&self) -> &str {
-        "quantile"
+        "dfr quantile"
     }
 
     fn usage(&self) -> &str {
@@ -35,9 +35,9 @@ impl Command for ExprQuantile {
         vec![Example {
             description: "Quantile aggregation for a group-by",
             example: r#"[[a b]; [one 2] [one 4] [two 1]]
-    | into df
-    | group-by a
-    | agg (col b | quantile 0.5)"#,
+    | dfr into-df
+    | dfr group-by a
+    | dfr agg (dfr col b | dfr quantile 0.5)"#,
             result: Some(
                 NuDataFrame::try_from_columns(vec![
                     Column::new(
@@ -55,6 +55,10 @@ impl Command for ExprQuantile {
         }]
     }
 
+    fn search_terms(&self) -> Vec<&str> {
+        vec!["statistics", "percentile", "distribution"]
+    }
+
     fn run(
         &self,
         engine_state: &EngineState,
@@ -68,7 +72,7 @@ impl Command for ExprQuantile {
         let expr = NuExpression::try_from_value(value)?;
         let expr: NuExpression = expr
             .into_polars()
-            .quantile(quantile, QuantileInterpolOptions::default())
+            .quantile(lit(quantile), QuantileInterpolOptions::default())
             .into();
 
         Ok(PipelineData::Value(

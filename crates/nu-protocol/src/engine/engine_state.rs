@@ -170,7 +170,7 @@ impl EngineState {
             decls: vec![],
             aliases: vec![],
             blocks: vec![],
-            modules: vec![Module::new()],
+            modules: vec![Module::new(DEFAULT_OVERLAY_NAME.as_bytes().to_vec())],
             usage: Usage::new(),
             // make sure we have some default overlay:
             scope: ScopeFrame::with_empty_overlay(
@@ -449,9 +449,32 @@ impl EngineState {
         None
     }
 
+    // Get the path environment variable in a platform agnostic way
+    pub fn get_path_env_var(&self) -> Option<&Value> {
+        let env_path_name_windows: &str = "Path";
+        let env_path_name_nix: &str = "PATH";
+
+        for overlay_id in self.scope.active_overlays.iter().rev() {
+            let overlay_name = String::from_utf8_lossy(self.get_overlay_name(*overlay_id));
+            if let Some(env_vars) = self.env_vars.get(overlay_name.as_ref()) {
+                if let Some(val) = env_vars.get(env_path_name_nix) {
+                    return Some(val);
+                } else if let Some(val) = env_vars.get(env_path_name_windows) {
+                    return Some(val);
+                } else {
+                    return None;
+                }
+            }
+        }
+
+        None
+    }
+
     #[cfg(feature = "plugin")]
     pub fn update_plugin_file(&self) -> Result<(), ShellError> {
         use std::io::Write;
+
+        use crate::{PluginExample, PluginSignature};
 
         // Updating the signatures plugin file with the added signatures
         self.plugin_signatures
@@ -478,26 +501,39 @@ impl EngineState {
                         || file_name.contains('"')
                         || file_name.contains(' ')
                     {
-                        file_name = format!("`{}`", file_name);
+                        file_name = format!("`{file_name}`");
                     }
 
-                    serde_json::to_string_pretty(&decl.signature())
+                    let sig = decl.signature();
+                    let examples = decl
+                        .examples()
+                        .into_iter()
+                        .map(|eg| PluginExample {
+                            example: eg.example.into(),
+                            description: eg.description.into(),
+                            result: eg.result,
+                        })
+                        .collect();
+                    let sig_with_examples = PluginSignature::new(sig, examples);
+                    serde_json::to_string_pretty(&sig_with_examples)
                         .map(|signature| {
                             // Extracting the possible path to the shell used to load the plugin
-                            let shell_str = match shell {
-                                Some(path) => format!(
-                                    "-s {}",
-                                    path.to_str().expect(
-                                        "shell path was checked during registration as a str"
+                            let shell_str = shell
+                                .as_ref()
+                                .map(|path| {
+                                    format!(
+                                        "-s {}",
+                                        path.to_str().expect(
+                                            "shell path was checked during registration as a str"
+                                        )
                                     )
-                                ),
-                                None => "".into(),
-                            };
+                                })
+                                .unwrap_or_default();
 
                             // Each signature is stored in the plugin file with the shell and signature
                             // This information will be used when loading the plugin
                             // information when nushell starts
-                            format!("register {} {} {}\n\n", file_name, shell_str, signature)
+                            format!("register {file_name} {shell_str} {signature}\n\n")
                         })
                         .map_err(|err| ShellError::PluginFailedToLoad(err.to_string()))
                         .and_then(|line| {
@@ -509,7 +545,7 @@ impl EngineState {
                             plugin_file.flush().map_err(|err| {
                                 ShellError::GenericError(
                                     "Error flushing plugin file".to_string(),
-                                    format! {"{}", err},
+                                    format! {"{err}"},
                                     None,
                                     None,
                                     Vec::new(),
@@ -565,7 +601,7 @@ impl EngineState {
     pub fn print_contents(&self) {
         for (contents, _, _) in self.file_contents.iter() {
             let string = String::from_utf8_lossy(contents);
-            println!("{}", string);
+            println!("{string}");
         }
     }
 
@@ -578,6 +614,24 @@ impl EngineState {
             if let Some(decl_id) = overlay_frame.get_decl(name, &Type::Any) {
                 if visibility.is_decl_id_visible(&decl_id) {
                     return Some(decl_id);
+                }
+            }
+        }
+
+        None
+    }
+
+    pub fn find_decl_name(&self, decl_id: DeclId, removed_overlays: &[Vec<u8>]) -> Option<&[u8]> {
+        let mut visibility: Visibility = Visibility::new();
+
+        for overlay_frame in self.active_overlays(removed_overlays).iter().rev() {
+            visibility.append(&overlay_frame.visibility);
+
+            if visibility.is_decl_id_visible(&decl_id) {
+                for ((name, _), id) in overlay_frame.decls.iter() {
+                    if id == &decl_id {
+                        return Some(name);
+                    }
                 }
             }
         }
@@ -651,24 +705,6 @@ impl EngineState {
         }
 
         None
-
-        // for (module_id, m) in self.modules.iter().enumerate() {
-        //     if m.has_decl(name) {
-        //         for overlay_frame in self.active_overlays(&[]).iter() {
-        //             let module_name = overlay_frame.modules.iter().find_map(|(key, &val)| {
-        //                 if val == module_id {
-        //                     Some(key)
-        //                 } else {
-        //                     None
-        //                 }
-        //             });
-        //             if let Some(final_name) = module_name {
-        //                 return Some(&final_name[..]);
-        //             }
-        //         }
-        //     }
-        // }
-        // None
     }
 
     pub fn find_overlay(&self, name: &[u8]) -> Option<OverlayId> {
@@ -786,7 +822,7 @@ impl EngineState {
         aliases.into_iter()
     }
 
-    /// Get all commands within scope, sorted by the commads' names
+    /// Get all commands within scope, sorted by the commands' names
     pub fn get_decls_sorted(
         &self,
         include_hidden: bool,
@@ -965,6 +1001,12 @@ impl EngineState {
         self.get_module_comments(module_id)
             .map(|comment_spans| self.build_usage(comment_spans))
     }
+
+    pub fn current_work_dir(&self) -> String {
+        self.get_env_var("PWD")
+            .map(|d| d.as_string().unwrap_or_default())
+            .unwrap_or_default()
+    }
 }
 
 /// A temporary extension to the global state. This handles bridging between the global state and the
@@ -1014,9 +1056,10 @@ impl TypeScope {
     }
 
     pub fn add_type(&mut self, input: Type) {
-        match self.outputs.last_mut() {
-            Some(v) => v.push(input),
-            None => self.outputs.push(vec![input]),
+        if let Some(v) = self.outputs.last_mut() {
+            v.push(input)
+        } else {
+            self.outputs.push(vec![input])
         }
     }
 

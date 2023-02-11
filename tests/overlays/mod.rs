@@ -196,6 +196,33 @@ fn add_overlay_from_const_module_name_decl() {
     assert_eq!(actual.out, "foo");
 }
 
+#[test]
+fn new_overlay_from_const_name() {
+    let inp = &[
+        r#"const mod = 'spam'"#,
+        r#"overlay new $mod"#,
+        r#"overlay list | last"#,
+    ];
+
+    let actual = nu!(cwd: "tests/overlays", pipeline(&inp.join("; ")));
+
+    assert_eq!(actual.out, "spam");
+}
+
+#[test]
+fn hide_overlay_from_const_name() {
+    let inp = &[
+        r#"const mod = 'spam'"#,
+        r#"overlay new $mod"#,
+        r#"overlay hide $mod"#,
+        r#"overlay list | str join ' '"#,
+    ];
+
+    let actual = nu!(cwd: "tests/overlays", pipeline(&inp.join("; ")));
+
+    assert!(!actual.out.contains("spam"));
+}
+
 // This one tests that the `nu_repl()` loop works correctly
 #[test]
 fn add_overlay_from_file_decl_cd() {
@@ -241,7 +268,7 @@ fn add_overlay_scoped() {
 
     assert!(!actual.err.is_empty());
     #[cfg(windows)]
-    assert!(actual_repl.out != "foo");
+    assert_ne!(actual_repl.out, "foo");
     #[cfg(not(windows))]
     assert!(!actual_repl.err.is_empty());
 }
@@ -312,7 +339,7 @@ fn remove_overlay() {
 
     assert!(!actual.err.is_empty());
     #[cfg(windows)]
-    assert!(actual_repl.out != "foo");
+    assert_ne!(actual_repl.out, "foo");
     #[cfg(not(windows))]
     assert!(!actual_repl.err.is_empty());
 }
@@ -331,7 +358,7 @@ fn remove_last_overlay() {
 
     assert!(!actual.err.is_empty());
     #[cfg(windows)]
-    assert!(actual_repl.out != "foo");
+    assert_ne!(actual_repl.out, "foo");
     #[cfg(not(windows))]
     assert!(!actual_repl.err.is_empty());
 }
@@ -439,7 +466,7 @@ fn remove_overlay_discard_decl() {
 
     assert!(!actual.err.is_empty());
     #[cfg(windows)]
-    assert!(actual_repl.out != "bagr");
+    assert_ne!(actual_repl.out, "bagr");
     #[cfg(not(windows))]
     assert!(!actual_repl.err.is_empty());
 }
@@ -458,7 +485,7 @@ fn remove_overlay_discard_alias() {
 
     assert!(!actual.err.is_empty());
     #[cfg(windows)]
-    assert!(actual_repl.out != "bagr");
+    assert_ne!(actual_repl.out, "bagr");
     #[cfg(not(windows))]
     assert!(!actual_repl.err.is_empty());
 }
@@ -541,7 +568,7 @@ fn remove_overlay_dont_keep_overwritten_decl() {
 
     assert!(!actual.err.is_empty());
     #[cfg(windows)]
-    assert!(actual_repl.out != "bagr");
+    assert_ne!(actual_repl.out, "bagr");
     #[cfg(not(windows))]
     assert!(!actual_repl.err.is_empty());
 }
@@ -560,7 +587,7 @@ fn remove_overlay_dont_keep_overwritten_alias() {
 
     assert!(!actual.err.is_empty());
     #[cfg(windows)]
-    assert!(actual_repl.out != "bagr");
+    assert_ne!(actual_repl.out, "bagr");
     #[cfg(not(windows))]
     assert!(!actual_repl.err.is_empty());
 }
@@ -1064,7 +1091,7 @@ fn overlay_trim_single_quote_hide() {
 
     assert!(!actual.err.is_empty());
     #[cfg(windows)]
-    assert!(actual_repl.out != "foo");
+    assert_ne!(actual_repl.out, "foo");
     #[cfg(not(windows))]
     assert!(!actual_repl.err.is_empty());
 }
@@ -1095,7 +1122,7 @@ fn overlay_trim_double_quote_hide() {
 
     assert!(!actual.err.is_empty());
     #[cfg(windows)]
-    assert!(actual_repl.out != "foo");
+    assert_ne!(actual_repl.out, "foo");
     #[cfg(not(windows))]
     assert!(!actual_repl.err.is_empty());
 }
@@ -1165,4 +1192,71 @@ fn overlay_use_and_reolad_keep_custom() {
 
     assert_eq!(actual.out, "newfoonewfoonewfoo");
     assert_eq!(actual_repl.out, "newfoonewfoonewfoo");
+}
+
+#[test]
+fn overlay_use_main() {
+    let inp = &[
+        r#"module spam { export def main [] { "spam" } }"#,
+        r#"overlay use spam"#,
+        r#"spam"#,
+    ];
+
+    let actual = nu!(cwd: ".", pipeline(&inp.join("; ")));
+
+    assert_eq!(actual.out, "spam");
+}
+
+#[test]
+fn overlay_use_main_prefix() {
+    let inp = &[
+        r#"module spam { export def main [] { "spam" } }"#,
+        r#"overlay use spam --prefix"#,
+        r#"spam"#,
+    ];
+
+    let actual = nu!(cwd: ".", pipeline(&inp.join("; ")));
+
+    assert_eq!(actual.out, "spam");
+}
+
+#[test]
+fn overlay_use_main_def_env() {
+    let inp = &[
+        r#"module spam { export def-env main [] { let-env SPAM = "spam" } }"#,
+        r#"overlay use spam"#,
+        r#"spam"#,
+        r#"$env.SPAM"#,
+    ];
+
+    let actual = nu!(cwd: ".", pipeline(&inp.join("; ")));
+
+    assert_eq!(actual.out, "spam");
+}
+
+#[test]
+fn overlay_use_main_def_known_external() {
+    // note: requires installed cargo
+    let inp = &[
+        r#"module cargo { export extern main [] }"#,
+        r#"overlay use cargo"#,
+        r#"cargo --version"#,
+    ];
+
+    let actual = nu!(cwd: ".", pipeline(&inp.join("; ")));
+
+    assert!(actual.out.contains("cargo"));
+}
+
+#[test]
+fn overlay_use_main_not_exported() {
+    let inp = &[
+        r#"module spam { def main [] { "spam" } }"#,
+        r#"overlay use spam"#,
+        r#"spam"#,
+    ];
+
+    let actual = nu!(cwd: ".", pipeline(&inp.join("; ")));
+
+    assert!(actual.err.contains("external_command"));
 }

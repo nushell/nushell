@@ -33,7 +33,7 @@ impl Command for ToNuon {
         _stack: &mut Stack,
         call: &Call,
         input: PipelineData,
-    ) -> Result<nu_protocol::PipelineData, ShellError> {
+    ) -> Result<PipelineData, ShellError> {
         Ok(Value::String {
             val: to_nuon(call, input)?,
             span: call.head,
@@ -50,12 +50,12 @@ impl Command for ToNuon {
     }
 }
 
-fn value_to_string(v: &Value, span: Span) -> Result<String, ShellError> {
+pub fn value_to_string(v: &Value, span: Span) -> Result<String, ShellError> {
     match v {
         Value::Binary { val, .. } => {
             let mut s = String::with_capacity(2 * val.len());
             for byte in val {
-                if write!(s, "{:02X}", byte).is_err() {
+                if write!(s, "{byte:02X}").is_err() {
                     return Err(ShellError::UnsupportedInput(
                         "could not convert binary to string".into(),
                         "value originates from here".into(),
@@ -64,7 +64,7 @@ fn value_to_string(v: &Value, span: Span) -> Result<String, ShellError> {
                     ));
                 }
             }
-            Ok(format!("0x[{}]", s))
+            Ok(format!("0x[{s}]"))
         }
         Value::Block { .. } => Err(ShellError::UnsupportedInput(
             "blocks are currently not nuon-compatible".into(),
@@ -125,7 +125,7 @@ fn value_to_string(v: &Value, span: Span) -> Result<String, ShellError> {
                     .iter()
                     .map(|string| {
                         if needs_quotes(string) {
-                            format!("\"{}\"", string)
+                            format!("\"{string}\"")
                         } else {
                             string.to_string()
                         }
@@ -184,6 +184,10 @@ fn value_to_string(v: &Value, span: Span) -> Result<String, ShellError> {
                 });
             }
             Ok(format!("{{{}}}", collection.join(", ")))
+        }
+        Value::LazyRecord { val, .. } => {
+            let collected = val.collect()?;
+            value_to_string(&collected, span)
         }
         // All strings outside data structures are quoted because they are in 'command position'
         // (could be mistaken for commands by the Nu parser)

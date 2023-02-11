@@ -27,9 +27,9 @@ pub struct DuArgs {
     deref: bool,
     exclude: Option<Spanned<String>>,
     #[serde(rename = "max-depth")]
-    max_depth: Option<i64>,
+    max_depth: Option<Spanned<i64>>,
     #[serde(rename = "min-size")]
-    min_size: Option<i64>,
+    min_size: Option<Spanned<i64>>,
 }
 
 impl Command for Du {
@@ -85,15 +85,25 @@ impl Command for Du {
         _input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
         let tag = call.head;
+        let min_size: Option<Spanned<i64>> = call.get_flag(engine_state, stack, "min-size")?;
+        let max_depth: Option<Spanned<i64>> = call.get_flag(engine_state, stack, "max-depth")?;
+        if let Some(ref max_depth) = max_depth {
+            if max_depth.item < 0 {
+                return Err(ShellError::NeedsPositiveValue(max_depth.span));
+            }
+        }
+        if let Some(ref min_size) = min_size {
+            if min_size.item < 0 {
+                return Err(ShellError::NeedsPositiveValue(min_size.span));
+            }
+        }
         let args = DuArgs {
             path: call.opt(engine_state, stack, 0)?,
             all: call.has_flag("all"),
             deref: call.has_flag("deref"),
             exclude: call.get_flag(engine_state, stack, "exclude")?,
-            max_depth: call
-                .get_flag::<i64>(engine_state, stack, "max-depth")?
-                .map(|n| (n as u64).try_into().expect("error converting i64 to u64")),
-            min_size: call.get_flag(engine_state, stack, "min-size")?,
+            max_depth,
+            min_size,
         };
 
         let exclude = args.exclude.map_or(Ok(None), move |x| {
@@ -145,8 +155,8 @@ impl Command for Du {
 
         let all = args.all;
         let deref = args.deref;
-        let max_depth = args.max_depth.map(|f| f as u64);
-        let min_size = args.min_size.map(|f| f as u64);
+        let max_depth = args.max_depth.map(|f| f.item as u64);
+        let min_size = args.min_size.map(|f| f.item as u64);
 
         let params = DirBuilder {
             tag,

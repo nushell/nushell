@@ -87,14 +87,9 @@ fn try_build_list(
                 false,
             );
 
-            let val = table.draw(table_config, usize::MAX);
-
-            match val {
-                Some(result) => result,
-                None => {
-                    value_to_styled_string(&Value::List { vals, span }, config, style_computer).0
-                }
-            }
+            table.draw(table_config, usize::MAX).unwrap_or_else(|| {
+                value_to_styled_string(&Value::List { vals, span }, config, style_computer).0
+            })
         }
         Ok(None) | Err(_) => {
             // it means that the list is empty
@@ -263,12 +258,12 @@ fn build_expanded_table(
             // check whether we need to expand table or not,
             // todo: we can make it more effitient
 
-            const EXPAND_TREASHHOLD: f32 = 0.80;
+            const EXPAND_THRESHOLD: f32 = 0.80;
 
             let width = string_width(&s);
             let used_percent = width as f32 / term_width as f32;
 
-            if width < term_width && used_percent > EXPAND_TREASHHOLD {
+            if width < term_width && used_percent > EXPAND_THRESHOLD {
                 let table_config = table_config.expand();
                 table.draw(table_config, term_width)
             } else {
@@ -344,7 +339,7 @@ fn convert_to_table2<'a>(
             ));
         }
 
-        for (row, item) in input.clone().into_iter().enumerate() {
+        for (row, item) in input.clone().enumerate() {
             if let Some(ctrlc) = &ctrlc {
                 if ctrlc.load(Ordering::SeqCst) {
                     return Ok(None);
@@ -419,12 +414,12 @@ fn convert_to_table2<'a>(
     for (col, header) in headers.into_iter().enumerate() {
         let is_last_col = col + 1 == count_columns;
 
-        let mut nessary_space = PADDING_SPACE;
+        let mut necessary_space = PADDING_SPACE;
         if !is_last_col {
-            nessary_space += SPLIT_LINE_SPACE;
+            necessary_space += SPLIT_LINE_SPACE;
         }
 
-        if available_width == 0 || available_width <= nessary_space {
+        if available_width == 0 || available_width <= necessary_space {
             // MUST NEVER HAPPEN (ideally)
             // but it does...
 
@@ -432,7 +427,7 @@ fn convert_to_table2<'a>(
             break;
         }
 
-        available_width -= nessary_space;
+        available_width -= necessary_space;
 
         let mut column_width = string_width(&header);
 
@@ -441,7 +436,7 @@ fn convert_to_table2<'a>(
             header_style(style_computer, header.clone()),
         ));
 
-        for (row, item) in input.clone().into_iter().enumerate() {
+        for (row, item) in input.clone().enumerate() {
             if let Some(ctrlc) = &ctrlc {
                 if ctrlc.load(Ordering::SeqCst) {
                     return Ok(None);
@@ -474,14 +469,14 @@ fn convert_to_table2<'a>(
         }
 
         if column_width >= available_width
-            || (!is_last_col && column_width + nessary_space >= available_width)
+            || (!is_last_col && column_width + necessary_space >= available_width)
         {
             // so we try to do soft landing
             // by doing a truncating in case there will be enough space for it.
 
             column_width = string_width(&header);
 
-            for (row, item) in input.clone().into_iter().enumerate() {
+            for (row, item) in input.clone().enumerate() {
                 if let Some(ctrlc) = &ctrlc {
                     if ctrlc.load(Ordering::SeqCst) {
                         return Ok(None);
@@ -508,7 +503,7 @@ fn convert_to_table2<'a>(
 
             column_width = string_width(&header);
 
-            for (row, item) in input.clone().into_iter().enumerate() {
+            for (row, item) in input.clone().enumerate() {
                 if let Some(ctrlc) = &ctrlc {
                     if ctrlc.load(Ordering::SeqCst) {
                         return Ok(None);
@@ -530,7 +525,7 @@ fn convert_to_table2<'a>(
                 row.pop();
             }
 
-            available_width += nessary_space;
+            available_width += necessary_space;
 
             truncate = true;
             break;
@@ -605,7 +600,7 @@ fn create_table2_entry_basic(
         Value::Record { .. } => {
             let val = header.to_owned();
             let path = PathMember::String { val, span: head };
-            let val = item.clone().follow_cell_path(&[path], false);
+            let val = item.clone().follow_cell_path(&[path], false, false);
 
             match val {
                 Ok(val) => value_to_styled_string(&val, config, style_computer),
@@ -633,7 +628,7 @@ fn create_table2_entry(
         Value::Record { .. } => {
             let val = header.to_owned();
             let path = PathMember::String { val, span: head };
-            let val = item.clone().follow_cell_path(&[path], false);
+            let val = item.clone().follow_cell_path(&[path], false, false);
 
             match val {
                 Ok(val) => convert_to_table2_entry(
@@ -848,10 +843,8 @@ fn make_styled_string(
             match value {
                 Value::Float { .. } => {
                     // set dynamic precision from config
-                    let precise_number = match convert_with_precision(&text, float_precision) {
-                        Ok(num) => num,
-                        Err(e) => e.to_string(),
-                    };
+                    let precise_number = convert_with_precision(&text, float_precision)
+                        .unwrap_or_else(|e| e.to_string());
                     (precise_number, style_computer.style_primitive(value))
                 }
                 _ => (text, style_computer.style_primitive(value)),
@@ -889,7 +882,7 @@ fn convert_with_precision(val: &str, precision: usize) -> Result<String, ShellEr
             ));
         }
     };
-    Ok(format!("{:.prec$}", val_float, prec = precision))
+    Ok(format!("{val_float:.precision$}"))
 }
 
 fn load_theme_from_config(config: &Config) -> TableTheme {

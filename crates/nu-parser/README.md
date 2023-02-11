@@ -41,7 +41,7 @@ The real magic begins to happen when the parse moves on to the parsing stage. At
 
 ### Types/shapes
 
-Each command has a shape assigned to each of the arguments in reads in. These shapes help define how the parser will handle the parse.
+Each command has a shape assigned to each of the arguments it reads in. These shapes help define how the parser will handle the parse.
 
 For example, if the command is written as:
 
@@ -49,7 +49,7 @@ For example, if the command is written as:
 where $x > 10
 ```
 
-When the parsing happens, the parser will look up the `where` command and find its Signature. The Signature states what flags are allowed and what positional arguments are allowed (both required and optional). Each argument comes with it a Shape that defines how to parse values to get that position.
+When the parsing happens, the parser will look up the `where` command and find its Signature. The Signature states what flags are allowed and what positional arguments are allowed (both required and optional). Each argument comes with a Shape that defines how to parse values to get that position.
 
 In the above example, if the Signature of `where` said that it took three String values, the result would be:
 

@@ -19,7 +19,7 @@ pub struct Summary;
 
 impl Command for Summary {
     fn name(&self) -> &str {
-        "summary"
+        "dfr summary"
     }
 
     fn usage(&self) -> &str {
@@ -42,7 +42,7 @@ impl Command for Summary {
     fn examples(&self) -> Vec<Example> {
         vec![Example {
             description: "list dataframe descriptives",
-            example: "[[a b]; [1 1] [1 1]] | into df | summary",
+            example: "[[a b]; [1 1] [1 1]] | dfr into-df | dfr summary",
             result: Some(
                 NuDataFrame::try_from_columns(vec![
                     Column::new(
@@ -185,22 +185,22 @@ fn command(
                 .cast(&DataType::Float64)
                 .ok()
                 .and_then(|ca| match ca.get(0) {
-                    AnyValue::Float64(v) => Some(v),
+                    Ok(AnyValue::Float64(v)) => Some(v),
                     _ => None,
                 });
 
             let mean = match col.mean_as_series().get(0) {
-                AnyValue::Float64(v) => Some(v),
+                Ok(AnyValue::Float64(v)) => Some(v),
                 _ => None,
             };
 
             let median = match col.median_as_series().get(0) {
-                AnyValue::Float64(v) => Some(v),
+                Ok(AnyValue::Float64(v)) => Some(v),
                 _ => None,
             };
 
             let std = match col.std_as_series(0).get(0) {
-                AnyValue::Float64(v) => Some(v),
+                Ok(AnyValue::Float64(v)) => Some(v),
                 _ => None,
             };
 
@@ -209,7 +209,7 @@ fn command(
                 .cast(&DataType::Float64)
                 .ok()
                 .and_then(|ca| match ca.get(0) {
-                    AnyValue::Float64(v) => Some(v),
+                    Ok(AnyValue::Float64(v)) => Some(v),
                     _ => None,
                 });
 
@@ -221,7 +221,7 @@ fn command(
                         .ok()
                         .and_then(|ca| ca.cast(&DataType::Float64).ok())
                         .and_then(|ca| match ca.get(0) {
-                            AnyValue::Float64(v) => Some(v),
+                            Ok(AnyValue::Float64(v)) => Some(v),
                             _ => None,
                         })
                 })
@@ -232,7 +232,7 @@ fn command(
                 .cast(&DataType::Float64)
                 .ok()
                 .and_then(|ca| match ca.get(0) {
-                    AnyValue::Float64(v) => Some(v),
+                    Ok(AnyValue::Float64(v)) => Some(v),
                     _ => None,
                 });
 

@@ -80,7 +80,7 @@ impl Command for Skip {
         let n: usize = match n {
             Some(Value::Int { val, span }) => val.try_into().map_err(|err| {
                 ShellError::TypeMismatch(
-                    format!("Could not convert {} to unsigned integer: {}", val, err),
+                    format!("Could not convert {val} to unsigned integer: {err}"),
                     span,
                 )
             })?,
@@ -141,7 +141,7 @@ impl Command for Skip {
                     .set_metadata(metadata))
             }
             _ => Ok(input
-                .into_iter()
+                .into_iter_strict(call.head)?
                 .skip(n)
                 .into_pipeline_data(call.head, ctrlc)
                 .set_metadata(metadata)),

@@ -168,8 +168,7 @@ impl Command for Cp {
                             canonicalize_with(dst.as_path(), &current_dir_path).unwrap_or(dst);
                         let res = if src == dst {
                             let message = format!(
-                                "src {:?} and dst {:?} are identical(not copied)",
-                                source, destination
+                                "src {source:?} and dst {destination:?} are identical(not copied)"
                             );
 
                             return Err(ShellError::GenericError(
@@ -280,14 +279,19 @@ impl Command for Cp {
         }
 
         if verbose {
-            Ok(result.into_iter().into_pipeline_data(call.head, ctrlc))
+            result
+                .into_iter()
+                .into_pipeline_data(call.head, ctrlc)
+                .print_not_formatted(engine_state, false, true)?;
         } else {
             // filter to only errors
-            Ok(result
+            result
                 .into_iter()
                 .filter(|v| matches!(v, Value::Error { .. }))
-                .into_pipeline_data(call.head, ctrlc))
+                .into_pipeline_data(call.head, ctrlc)
+                .print_not_formatted(engine_state, false, true)?;
         }
+        Ok(PipelineData::empty())
     }
 
     fn examples(&self) -> Vec<Example> {
@@ -352,17 +356,38 @@ fn copy_file(src: PathBuf, dst: PathBuf, span: Span) -> Value {
             Value::String { val: msg, span }
         }
         Err(e) => {
-            let message = format!("copy file {src:?} failed: {e}");
-
+            let message_src = format!(
+                "copying file '{src_display}' failed: {e}",
+                src_display = src.display()
+            );
+            let message_dst = format!(
+                "copying to destination '{dst_display}' failed: {e}",
+                dst_display = dst.display()
+            );
             use std::io::ErrorKind;
             let shell_error = match e.kind() {
-                ErrorKind::NotFound => ShellError::FileNotFoundCustom(message, span),
-                ErrorKind::PermissionDenied => ShellError::PermissionDeniedError(message, span),
-                ErrorKind::Interrupted => ShellError::IOInterrupted(message, span),
-                ErrorKind::OutOfMemory => ShellError::OutOfMemoryError(message, span),
+                ErrorKind::NotFound => {
+                    if std::path::Path::new(&dst).exists() {
+                        ShellError::FileNotFoundCustom(message_src, span)
+                    } else {
+                        ShellError::FileNotFoundCustom(message_dst, span)
+                    }
+                }
+                ErrorKind::PermissionDenied => match std::fs::metadata(&dst) {
+                    Ok(meta) => {
+                        if meta.permissions().readonly() {
+                            ShellError::PermissionDeniedError(message_dst, span)
+                        } else {
+                            ShellError::PermissionDeniedError(message_src, span)
+                        }
+                    }
+                    Err(_) => ShellError::PermissionDeniedError(message_dst, span),
+                },
+                ErrorKind::Interrupted => ShellError::IOInterrupted(message_src, span),
+                ErrorKind::OutOfMemory => ShellError::OutOfMemoryError(message_src, span),
                 // TODO: handle ExecutableFileBusy etc. when io_error_more is stabilized
                 // https://github.com/rust-lang/rust/issues/86442
-                _ => ShellError::IOErrorSpanned(message, span),
+                _ => ShellError::IOErrorSpanned(message_src, span),
             };
 
             Value::Error { error: shell_error }

@@ -45,7 +45,7 @@ impl Command for Rm {
 
     fn signature(&self) -> Signature {
         let sig = Signature::build("rm")
-            .input_output_types(vec![(Type::Nothing, Type::List(Box::new(Type::String)))])
+            .input_output_types(vec![(Type::Nothing, Type::Nothing)])
             .required(
                 "filename",
                 SyntaxShape::Filepath,
@@ -318,7 +318,7 @@ fn rm(
         );
         if let Err(e) = interaction {
             return Err(ShellError::GenericError(
-                format!("Error during interaction: {:}", e),
+                format!("Error during interaction: {e:}"),
                 "could not move".into(),
                 None,
                 None,
@@ -329,7 +329,7 @@ fn rm(
         }
     }
 
-    Ok(all_targets
+    all_targets
         .into_keys()
         .map(move |f| {
             let is_empty = || match f.read_dir() {
@@ -375,7 +375,7 @@ fn rm(
                             Ok(())
                         } else if trash || (rm_always_trash && !permanent) {
                             trash::delete(&f).map_err(|e: trash::Error| {
-                                Error::new(ErrorKind::Other, format!("{:?}\nTry '--trash' flag", e))
+                                Error::new(ErrorKind::Other, format!("{e:?}\nTry '--trash' flag"))
                             })
                         } else if metadata.is_file() || is_socket || is_fifo {
                             std::fs::remove_file(&f)
@@ -403,7 +403,7 @@ fn rm(
                     }
 
                     if let Err(e) = result {
-                        let msg = format!("Could not delete because: {:}", e);
+                        let msg = format!("Could not delete because: {e:}");
                         Value::Error {
                             error: ShellError::GenericError(
                                 msg,
@@ -450,5 +450,8 @@ fn rm(
             }
         })
         .filter(|x| !matches!(x.get_type(), Type::Nothing))
-        .into_pipeline_data(call.head, ctrlc))
+        .into_pipeline_data(call.head, ctrlc)
+        .print_not_formatted(engine_state, false, true)?;
+
+    Ok(PipelineData::empty())
 }

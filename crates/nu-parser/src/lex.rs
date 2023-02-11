@@ -170,6 +170,23 @@ pub fn lex_item(
             // We encountered a closing `}` delimiter. Pop off the opening `{`.
             if let Some(BlockKind::CurlyBracket) = block_level.last() {
                 let _ = block_level.pop();
+            } else {
+                // We encountered a closing `}` delimiter, but the last opening
+                // delimiter was not a `{`. This is an error.
+                let span = Span::new(span_offset + token_start, span_offset + *curr_offset);
+
+                *curr_offset += 1;
+                return (
+                    Token {
+                        contents: TokenContents::Item,
+                        span,
+                    },
+                    Some(ParseError::Unbalanced(
+                        "{".to_string(),
+                        "}".to_string(),
+                        Span::new(span.end, span.end),
+                    )),
+                );
             }
         } else if c == b'(' {
             // We encountered an opening `(` delimiter.

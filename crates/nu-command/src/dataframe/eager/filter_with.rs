@@ -15,7 +15,7 @@ pub struct FilterWith;
 
 impl Command for FilterWith {
     fn name(&self) -> &str {
-        "filter-with"
+        "dfr filter-with"
     }
 
     fn usage(&self) -> &str {
@@ -38,8 +38,8 @@ impl Command for FilterWith {
         vec![
             Example {
                 description: "Filter dataframe using a bool mask",
-                example: r#"let mask = ([true false] | into df);
-    [[a b]; [1 2] [3 4]] | into df | filter-with $mask"#,
+                example: r#"let mask = ([true false] | dfr into-df);
+    [[a b]; [1 2] [3 4]] | dfr into-df | dfr filter-with $mask"#,
                 result: Some(
                     NuDataFrame::try_from_columns(vec![
                         Column::new("a".to_string(), vec![Value::test_int(1)]),
@@ -51,7 +51,7 @@ impl Command for FilterWith {
             },
             Example {
                 description: "Filter dataframe using an expression",
-                example: "[[a b]; [1 2] [3 4]] | into df | filter-with ((col a) > 1)",
+                example: "[[a b]; [1 2] [3 4]] | dfr into-df | dfr filter-with ((dfr col a) > 1)",
                 result: Some(
                     NuDataFrame::try_from_columns(vec![
                         Column::new("a".to_string(), vec![Value::test_int(3)]),

@@ -13,7 +13,7 @@ pub struct NotSeries;
 
 impl Command for NotSeries {
     fn name(&self) -> &str {
-        "df-not"
+        "dfr not"
     }
 
     fn usage(&self) -> &str {
@@ -30,7 +30,7 @@ impl Command for NotSeries {
     fn examples(&self) -> Vec<Example> {
         vec![Example {
             description: "Inverts boolean mask",
-            example: "[true false true] | into df | df-not",
+            example: "[true false true] | dfr into-df | dfr not",
             result: Some(
                 NuDataFrame::try_from_columns(vec![Column::new(
                     "0".to_string(),

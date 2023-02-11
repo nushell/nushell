@@ -69,23 +69,23 @@ fn sets_the_column_from_a_subexpression() {
 }
 
 #[test]
-fn uses_optional_index_argument_inserting() {
+fn upsert_uses_enumerate_index_inserting() {
     let actual = nu!(
         cwd: ".", pipeline(
-        r#"[[a]; [7] [6]] | upsert b {|el ind| $ind + 1 + $el.a } | to nuon"#
+        r#"[[a]; [7] [6]] | enumerate | upsert b {|el| $el.index + 1 + $el.item.a } | flatten | to nuon"#
     ));
 
-    assert_eq!(actual.out, "[[a, b]; [7, 8], [6, 8]]");
+    assert_eq!(actual.out, "[[index, a, b]; [0, 7, 8], [1, 6, 8]]");
 }
 
 #[test]
-fn uses_optional_index_argument_updating() {
+fn upsert_uses_enumerate_index_updating() {
     let actual = nu!(
         cwd: ".", pipeline(
-        r#"[[a]; [7] [6]] | upsert a {|el ind| $ind + 1 + $el.a } | to nuon"#
+        r#"[[a]; [7] [6]] | enumerate | upsert a {|el| $el.index + 1 + $el.item.a } | flatten | to nuon"#
     ));
 
-    assert_eq!(actual.out, "[[a]; [8], [8]]");
+    assert_eq!(actual.out, "[[index, a]; [0, 8], [1, 8]]");
 }
 
 #[test]

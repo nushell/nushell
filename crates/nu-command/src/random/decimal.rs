@@ -27,13 +27,17 @@ impl Command for SubCommand {
         "Generate a random decimal within a range [min..max]"
     }
 
+    fn search_terms(&self) -> Vec<&str> {
+        vec!["generate", "float"]
+    }
+
     fn run(
         &self,
         engine_state: &EngineState,
         stack: &mut Stack,
         call: &Call,
         _input: PipelineData,
-    ) -> Result<nu_protocol::PipelineData, nu_protocol::ShellError> {
+    ) -> Result<PipelineData, ShellError> {
         decimal(engine_state, stack, call)
     }
 

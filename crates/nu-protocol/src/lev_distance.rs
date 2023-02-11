@@ -157,11 +157,12 @@ fn find_best_match_for_name_impl<'c>(
     let mut dist = dist.unwrap_or_else(|| cmp::max(lookup.len(), 3) / 3);
     let mut best = None;
     for c in candidates {
-        match if use_substring_score {
+        let lev_dist = if use_substring_score {
             lev_distance_with_substrings(lookup, c, dist)
         } else {
             lev_distance(lookup, c, dist)
-        } {
+        };
+        match lev_dist {
             Some(0) => return Some(*c),
             Some(d) => {
                 dist = d - 1;

@@ -1,7 +1,7 @@
-use crate::filesystem::util::BufferedReader;
 use nu_engine::{eval_block, CallExt};
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
+use nu_protocol::util::BufferedReader;
 use nu_protocol::{
     Category, Example, PipelineData, RawStream, ShellError, Signature, Spanned, SyntaxShape, Type,
     Value,
@@ -48,7 +48,7 @@ impl Command for Open {
         stack: &mut Stack,
         call: &Call,
         input: PipelineData,
-    ) -> Result<nu_protocol::PipelineData, nu_protocol::ShellError> {
+    ) -> Result<PipelineData, ShellError> {
         let raw = call.has_flag("raw");
         let call_span = call.head;
         let ctrlc = engine_state.ctrlc.clone();
@@ -139,6 +139,7 @@ impl Command for Open {
                     Box::new(BufferedReader { input: buf_reader }),
                     ctrlc,
                     call_span,
+                    None,
                 )),
                 stderr: None,
                 exit_code: None,
@@ -155,7 +156,7 @@ impl Command for Open {
             };
 
             if let Some(ext) = ext {
-                match engine_state.find_decl(format!("from {}", ext).as_bytes(), &[]) {
+                match engine_state.find_decl(format!("from {ext}").as_bytes(), &[]) {
                     Some(converter_id) => {
                         let decl = engine_state.get_decl(converter_id);
                         if let Some(block_id) = decl.get_block_id() {
@@ -166,7 +167,7 @@ impl Command for Open {
                         }
                         .map_err(|inner| {
                             ShellError::GenericError(
-                                format!("Error while parsing as {}", ext),
+                                format!("Error while parsing as {ext}"),
                                 format!("Could not parse '{}' with `from {}`", path.display(), ext),
                                 Some(arg_span),
                                 Some(format!("Check out `help from {}` or `help from` for more options or open raw data with `open --raw '{}'`", ext, path.display())),

@@ -316,7 +316,10 @@ fn default_value11() -> TestResult {
 
 #[test]
 fn default_value12() -> TestResult {
-    fail_test(r#"def foo [--x:int = "a"] { $x }"#, "default value not int")
+    fail_test(
+        r#"def foo [--x:int = "a"] { $x }"#,
+        "default value should be int",
+    )
 }
 
 #[test]
@@ -361,4 +364,15 @@ fn better_operator_spans() -> TestResult {
 #[test]
 fn range_right_exclusive() -> TestResult {
     run_test(r#"[1, 4, 5, 8, 9] | range 1..<3 | math sum"#, "9")
+}
+
+/// Issue #7872
+#[test]
+fn assignment_to_in_var_no_panic() -> TestResult {
+    fail_test(r#"$in = 3"#, "needs to be a mutable variable")
+}
+
+#[test]
+fn assignment_to_env_no_panic() -> TestResult {
+    fail_test(r#"$env = 3"#, "cannot_replace_env")
 }

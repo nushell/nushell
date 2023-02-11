@@ -31,7 +31,7 @@ impl Command for SubCommand {
         _stack: &mut Stack,
         call: &Call,
         input: PipelineData,
-    ) -> Result<nu_protocol::PipelineData, nu_protocol::ShellError> {
+    ) -> Result<PipelineData, ShellError> {
         let head = call.head;
         // This doesn't match explicit nulls
         if matches!(input, PipelineData::Empty) {
@@ -46,7 +46,7 @@ impl Command for SubCommand {
     fn examples(&self) -> Vec<Example> {
         let e = std::f64::consts::E;
         vec![Example {
-            description: "Apply the hyperpolic sine to 1",
+            description: "Apply the hyperbolic sine to 1",
             example: "1 | math sinh",
             result: Some(Value::test_float((e * e - 1.0) / (2.0 * e))),
         }]

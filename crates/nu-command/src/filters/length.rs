@@ -38,7 +38,7 @@ impl Command for Length {
         _stack: &mut Stack,
         call: &Call,
         input: PipelineData,
-    ) -> Result<nu_protocol::PipelineData, ShellError> {
+    ) -> Result<PipelineData, ShellError> {
         let col = call.has_flag("column");
         if col {
             length_col(engine_state, call, input)
@@ -81,7 +81,17 @@ fn length_row(call: &Call, input: PipelineData) -> Result<PipelineData, ShellErr
         PipelineData::Value(Value::Nothing { .. }, ..) => {
             Ok(Value::int(0, call.head).into_pipeline_data())
         }
-        _ => Ok(Value::int(input.into_iter().count() as i64, call.head).into_pipeline_data()),
+        _ => {
+            let mut count: i64 = 0;
+            // Check for and propagate errors
+            for value in input.into_iter() {
+                if let Value::Error { error } = value {
+                    return Err(error);
+                }
+                count += 1
+            }
+            Ok(Value::int(count, call.head).into_pipeline_data())
+        }
     }
 }
 

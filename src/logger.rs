@@ -40,7 +40,7 @@ pub fn logger(
         LogTarget::File => {
             let pid = std::process::id();
             let mut path = std::env::temp_dir();
-            path.push(format!("nu-{}.log", pid));
+            path.push(format!("nu-{pid}.log"));
 
             set_write_logger(level, config, &path)
         }
@@ -52,18 +52,17 @@ pub fn logger(
 
 fn set_write_logger(level: LevelFilter, config: Config, path: &Path) -> Result<(), SetLoggerError> {
     // Use TermLogger instead if WriteLogger is not available
-    match File::create(path) {
-        Ok(file) => WriteLogger::init(level, config, file),
-        Err(_) => {
-            let default_logger =
-                TermLogger::init(level, config, TerminalMode::Stderr, ColorChoice::Auto);
+    if let Ok(file) = File::create(path) {
+        WriteLogger::init(level, config, file)
+    } else {
+        let default_logger =
+            TermLogger::init(level, config, TerminalMode::Stderr, ColorChoice::Auto);
 
-            if default_logger.is_ok() {
-                log::warn!("failed to init WriteLogger, use TermLogger instead");
-            }
-
-            default_logger
+        if default_logger.is_ok() {
+            log::warn!("failed to init WriteLogger, use TermLogger instead");
         }
+
+        default_logger
     }
 }
 
