@@ -80,9 +80,7 @@ jobs:
         uses: actions-rust-lang/setup-rust-toolchain@v1.3.7
 
       - name: Tests
-        shell: bash
-        run: |
-          cargo test --lib --bins --examples --doc --workspace --profile ci --exclude nu_plugin_* ${{ matrix.flags }}
+        run: cargo test --workspace --profile ci --exclude nu_plugin_* ${{ matrix.flags }}
 
   python-virtualenv:
     env:
