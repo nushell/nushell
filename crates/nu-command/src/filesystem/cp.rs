@@ -385,7 +385,7 @@ fn copy_file(src: PathBuf, dst: PathBuf, span: Span) -> Value {
             let msg = format!("copied {:} to {:}", src.display(), dst.display());
             Value::String { val: msg, span }
         }
-        Err(e) => error_return(e, src, span),
+        Err(e) => error_return(e, src, dst, span),
     }
 }
 
@@ -398,7 +398,7 @@ fn copy_file_with_progressbar(src: PathBuf, dst: PathBuf, span: Span) -> Value {
 
     let file_in = match std::fs::File::open(&src) {
         Ok(file) => file,
-        Err(error) => return error_return(error, src, span),
+        Err(error) => return error_return(error, src, dst, span),
     };
 
     let file_size = match file_in.metadata() {
@@ -410,7 +410,7 @@ fn copy_file_with_progressbar(src: PathBuf, dst: PathBuf, span: Span) -> Value {
 
     let file_out = match std::fs::File::create(&dst) {
         Ok(file) => file,
-        Err(error) => return error_return(error, src, span),
+        Err(error) => return error_return(error, src, dst, span),
     };
     let mut buffer = [0u8; 8192];
     let mut buf_reader = BufReader::new(file_in);
@@ -453,7 +453,7 @@ fn copy_file_with_progressbar(src: PathBuf, dst: PathBuf, span: Span) -> Value {
     // If copying the file failed
     if let Some(error) = process_failed {
         bar.abandoned_msg("# !! Error !!".to_owned());
-        return error_return(error, src, span);
+        return error_return(error, src, dst, span);
     }
 
     // Get the name of the file to print it out at the end
@@ -513,17 +513,41 @@ fn copy_symlink(src: PathBuf, dst: PathBuf, span: Span) -> Value {
 }
 
 // Function to get errors returned by `cp` more specific
-fn error_return(error: std::io::Error, src: PathBuf, span: Span) -> Value {
-    let message = format!("copy file {src:?} failed: {error}");
+fn error_return(error: std::io::Error, src: PathBuf, dst: PathBuf, span: Span) -> Value {
+
+    let message_src = format!(
+        "copying file '{src_display}' failed: {error}",
+        src_display = src.display()
+    );
+
+    let message_dst = format!(
+        "copying to destination '{dst_display}' failed: {error}",
+        dst_display = dst.display()
+    );
 
     let shell_error = match error.kind() {
-        ErrorKind::NotFound => ShellError::FileNotFoundCustom(message, span),
-        ErrorKind::PermissionDenied => ShellError::PermissionDeniedError(message, span),
-        ErrorKind::Interrupted => ShellError::IOInterrupted(message, span),
-        ErrorKind::OutOfMemory => ShellError::OutOfMemoryError(message, span),
+        ErrorKind::NotFound => {
+            if std::path::Path::new(&dst).exists() {
+                ShellError::FileNotFoundCustom(message_src, span)
+            } else {
+                ShellError::FileNotFoundCustom(message_dst, span)
+            }
+        }
+        ErrorKind::PermissionDenied => match std::fs::metadata(&dst) {
+            Ok(meta) => {
+                if meta.permissions().readonly() {
+                    ShellError::PermissionDeniedError(message_dst, span)
+                } else {
+                    ShellError::PermissionDeniedError(message_src, span)
+                }
+            }
+            Err(_) => ShellError::PermissionDeniedError(message_dst, span),
+        },
+        ErrorKind::Interrupted => ShellError::IOInterrupted(message_src, span),
+        ErrorKind::OutOfMemory => ShellError::OutOfMemoryError(message_src, span),
         // TODO: handle ExecutableFileBusy etc. when io_error_more is stabilized
         // https://github.com/rust-lang/rust/issues/86442
-        _ => ShellError::IOErrorSpanned(message, span),
+        _ => ShellError::IOErrorSpanned(message_src, span),
     };
 
     Value::Error { error: shell_error }
