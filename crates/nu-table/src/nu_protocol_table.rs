@@ -1,18 +1,23 @@
 use std::collections::HashMap;
 
-use crate::{table::TrimStrategyModifier, Alignments, TableTheme};
+use crate::{
+    string_truncate, string_width, string_wrap, Alignments, TableTheme,
+};
 use nu_color_config::StyleComputer;
-use nu_protocol::{Config, Span, Value};
+use nu_protocol::{Config, Span, TrimStrategy, Value};
 use tabled::{
-    color::Color, formatting::AlignmentStrategy, object::Segment, papergrid::records::Records,
-    Alignment, Modify, Table,
+    color::Color,
+    formatting::AlignmentStrategy,
+    object::Segment,
+    papergrid::{records::Records, GridConfig},
+    Alignment, Modify,
 };
 
 /// NuTable has a recursive table representation of nu_protocol::Value.
 ///
 /// It doesn't support alignment and a proper width control.
 pub struct NuTable {
-    inner: tabled::Table,
+    inner: Option<String>,
 }
 
 impl NuTable {
@@ -29,23 +34,48 @@ impl NuTable {
         load_theme(&mut table, style_computer, theme);
         let cfg = table.get_config().clone();
 
-        let val = nu_protocol_value_to_json(value, config, with_footer);
-        let mut table = json_to_table::json_to_table(&val);
-        table.set_config(cfg);
+        let mut val = nu_protocol_value_to_json(value, config, with_footer);
+        let table = build_table(val.clone(), cfg.clone(), collapse);
 
-        if collapse {
-            table.collapse();
+        if string_width(&table) > termwidth {
+            // Doing a soffisticated width control would require some deep rooted changes.
+            // (Which is might neessery to be done)
+            //
+            // Instead we try 3 truncations and if we don't succssed if consider it's not possible to
+            // fit in.
+
+            let mut width = termwidth;
+            for _ in 0..5 {
+                width /= 2;
+
+                truncate_values_to(&mut val, &config.trim_strategy, width);
+                let table = build_table(val.clone(), cfg.clone(), collapse);
+
+                if string_width(&table) <= termwidth {
+                    return Self { inner: Some(table) };
+                }
+            }
+
+            return Self { inner: None };
         }
 
-        let mut table: Table<_> = table.into();
-        table.with(TrimStrategyModifier::new(termwidth, &config.trim_strategy));
-
-        Self { inner: table }
+        Self { inner: Some(table) }
     }
 
     pub fn draw(&self) -> Option<String> {
-        Some(self.inner.to_string())
+        self.inner.clone()
     }
+}
+
+fn build_table(val: serde_json::Value, cfg: GridConfig, collapse: bool) -> String {
+    let mut table = json_to_table::json_to_table(&val);
+    table.set_config(cfg);
+
+    if collapse {
+        table.collapse();
+    }
+
+    table.to_string()
 }
 
 fn nu_protocol_value_to_json(
@@ -218,4 +248,57 @@ where
             .with(Alignment::Horizontal(Alignments::default().data))
             .with(AlignmentStrategy::PerLine),
     );
+}
+
+fn truncate_values_to(value: &mut serde_json::Value, strategy: &TrimStrategy, width: usize) {
+    _truncate_value(value, strategy, width)
+}
+
+fn _truncate_value(value: &mut serde_json::Value, strategy: &TrimStrategy, width: usize) {
+    match value {
+        serde_json::Value::Null => {}
+        serde_json::Value::Bool(_) => {}
+        serde_json::Value::Number(n) => {
+            let n = n.to_string();
+            if n.len() > width {
+                let s = truncate_strategy(&n, strategy, width);
+                *value = serde_json::Value::String(s);
+            }
+        }
+        serde_json::Value::String(s) => {
+            if string_width(s) > width {
+                *s = truncate_strategy(s, strategy, width);
+            }
+        }
+        serde_json::Value::Array(arr) => {
+            for value in arr {
+                _truncate_value(value, strategy, width);
+            }
+        }
+        serde_json::Value::Object(vals) => {
+            let mut map = serde_json::Map::with_capacity(vals.len());
+
+            for (key, val) in vals.iter() {
+                let k = if string_width(key) > width {
+                    truncate_strategy(key, strategy, width)
+                } else {
+                    key.clone()
+                };
+
+                let mut val = val.clone();
+                _truncate_value(&mut val, strategy, width);
+
+                map.insert(k, val);
+            }
+
+            *vals = map; 
+        }
+    }
+}
+
+fn truncate_strategy(val: &str, strategy: &TrimStrategy, width: usize) -> String {
+    match strategy {
+        TrimStrategy::Wrap { try_to_keep_words } => string_wrap(val, width, *try_to_keep_words),
+        TrimStrategy::Truncate { .. } => string_truncate(val, width),
+    }
 }
