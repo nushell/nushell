@@ -514,7 +514,6 @@ fn copy_symlink(src: PathBuf, dst: PathBuf, span: Span) -> Value {
 
 // Function to get errors returned by `cp` more specific
 fn error_return(error: std::io::Error, src: PathBuf, dst: PathBuf, span: Span) -> Value {
-
     let message_src = format!(
         "copying file '{src_display}' failed: {error}",
         src_display = src.display()
