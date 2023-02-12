@@ -998,7 +998,8 @@ pub fn parse_internal_call(
                 _ => false,
             };
             let arg = if !type_compatible(&positional.shape.to_type(), &arg.ty)
-                && (type_taken && is_definition)
+                && type_taken
+                && is_definition
             {
                 let span = span(&spans[orig_idx..spans_idx]);
                 error = error.or_else(|| {
