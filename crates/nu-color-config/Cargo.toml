@@ -7,6 +7,9 @@ license = "MIT"
 name = "nu-color-config"
 version = "0.75.1"
 
+[lib]
+bench = false
+
 [dependencies]
 serde = { version="1.0.123", features=["derive"] }
 # used only for text_style Alignments

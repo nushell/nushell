@@ -9,6 +9,7 @@ version = "0.75.1"
 
 [lib]
 doctest = false
+bench = false
 
 [dependencies]
 nu-path = { path="../nu-path", version = "0.75.1"  }

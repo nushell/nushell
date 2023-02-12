@@ -7,6 +7,9 @@ license = "MIT"
 name = "nu-plugin"
 version = "0.75.1"
 
+[lib]
+bench = false
+
 [dependencies]
 bincode = "1.3.3"
 nu-protocol = { path = "../nu-protocol", version = "0.75.1"  }
