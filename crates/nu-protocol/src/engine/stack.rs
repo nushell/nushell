@@ -348,12 +348,12 @@ impl Stack {
         false
     }
 
-    pub fn remove_env_var(&mut self, engine_state: &EngineState, name: &str) -> Option<Value> {
+    pub fn remove_env_var(&mut self, engine_state: &EngineState, name: &str) -> bool {
         for scope in self.env_vars.iter_mut().rev() {
             for active_overlay in self.active_overlays.iter().rev() {
                 if let Some(env_vars) = scope.get_mut(active_overlay) {
-                    if let Some(v) = env_vars.remove(name) {
-                        return Some(v);
+                    if env_vars.remove(name).is_some() {
+                        return true;
                     }
                 }
             }
@@ -361,7 +361,7 @@ impl Stack {
 
         for active_overlay in self.active_overlays.iter().rev() {
             if let Some(env_vars) = engine_state.env_vars.get(active_overlay) {
-                if let Some(val) = env_vars.get(name) {
+                if env_vars.get(name).is_some() {
                     if let Some(env_hidden) = self.env_hidden.get_mut(active_overlay) {
                         env_hidden.insert(name.into());
                     } else {
@@ -369,12 +369,12 @@ impl Stack {
                             .insert(active_overlay.into(), HashSet::from([name.into()]));
                     }
 
-                    return Some(val.clone());
+                    return true;
                 }
             }
         }
 
-        None
+        false
     }
 
     pub fn has_env_overlay(&self, name: &str, engine_state: &EngineState) -> bool {
