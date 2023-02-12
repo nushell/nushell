@@ -1040,8 +1040,13 @@ fn convert_to_table2<'a>(
     }
 
     if !with_header {
-        if available_width >= ADDITIONAL_CELL_SPACE {
+        if available_width > ADDITIONAL_CELL_SPACE {
             available_width -= PADDING_SPACE;
+        } else {
+            // it means we have no space left for actual content;
+            // which means there's no point in index itself if it was even used.
+            // so we do not print it.
+            return Ok(None);
         }
 
         for (row, item) in input.into_iter().enumerate() {
