@@ -10,6 +10,9 @@ version = "0.75.1"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
+[lib]
+bench = false
+
 [dependencies]
 nu-ansi-term = "0.46.0"
 nu-color-config = { path = "../nu-color-config", version = "0.75.1" }

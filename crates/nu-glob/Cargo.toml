@@ -10,5 +10,8 @@ repository = "https://github.com/nushell/nushell/tree/main/crates/nu-glob"
 edition = "2021"
 categories = ["filesystem"]
 
+[lib]
+bench = false
+
 [dev-dependencies]
 doc-comment = "0.3"
