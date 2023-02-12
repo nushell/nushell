@@ -149,3 +149,48 @@ fn def_fails_with_invalid_name() {
     ));
     assert!(actual.err.contains(err_msg));
 }
+
+#[test]
+fn multi_function_check_type() {
+    let actual = nu!(
+        cwd: ".", pipeline(
+        r#"
+            def provideStr [r: record] {
+                "should_print_this"
+            };
+            
+            def needStr [str: string] {
+                echo $str;
+            };
+            
+            def run [r: record] {
+                needStr (provideStr $r)
+            };
+            run {a:b};
+        "#
+    ));
+    assert_eq!(actual.out, "should_print_this");
+}
+
+#[test]
+fn multi_function_check_type_more_than_one_parameter() {
+    let actual = nu!(
+        cwd: ".", pipeline(
+        r#"
+            def provideStr [h1: number,h2: number] {
+                "not_number_type"
+            };
+            
+            def needStr [str: string] {
+                return $str  
+            };
+            
+            def run [h1: number,h2: number] {
+                needStr (provideStr $h1 $h2)
+            };
+            run 3 5;
+    "#
+    ));
+
+    assert_eq!(actual.out, "not_number_type");
+}

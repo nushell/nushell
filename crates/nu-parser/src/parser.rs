@@ -796,7 +796,7 @@ pub fn parse_internal_call(
     // The index into the spans of argument data given to parse
     // Starting at the first argument
     let mut spans_idx = 0;
-
+    let mut is_definition = false;
     while spans_idx < spans.len() {
         let arg_span = spans[spans_idx];
 
@@ -942,6 +942,9 @@ pub fn parse_internal_call(
 
         // Parse a positional arg if there is one
         if let Some(positional) = signature.get_positional(positional_idx) {
+            if positional.name == "def_name" {
+                is_definition = true;
+            }
             let end = calculate_end_span(working_set, &signature, spans, spans_idx, positional_idx);
 
             let end = if spans.len() > spans_idx && end == spans_idx {
@@ -971,8 +974,32 @@ pub fn parse_internal_call(
                 expand_aliases_denylist,
             );
             error = error.or(err);
-
-            let arg = if !type_compatible(&positional.shape.to_type(), &arg.ty) {
+            let type_taken = match &arg.expr {
+                Expr::FullCellPath(cell) => match cell.head.expr {
+                    Expr::Subexpression(block_id) => {
+                        let pipelines = &working_set.get_block(block_id).pipelines;
+                        pipelines.iter().any(|pipeline| {
+                            for element in &pipeline.elements {
+                                match element {
+                                    PipelineElement::Expression(_, Expression { ty, .. }) => {
+                                        if ty == &positional.shape.to_type() || ty == &Type::Any {
+                                            return true;
+                                        }
+                                        false
+                                    }
+                                    _ => false,
+                                };
+                            }
+                            false
+                        })
+                    }
+                    _ => false,
+                },
+                _ => false,
+            };
+            let arg = if !type_compatible(&positional.shape.to_type(), &arg.ty)
+                && (type_taken && is_definition)
+            {
                 let span = span(&spans[orig_idx..spans_idx]);
                 error = error.or_else(|| {
                     Some(ParseError::TypeMismatch(
