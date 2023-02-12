@@ -365,7 +365,6 @@ fn copy_file(src: PathBuf, dst: PathBuf, span: Span) -> Value {
                 dst_display = dst.display()
             );
             use std::io::ErrorKind;
-            let dst_info = std::fs::metadata(&dst);
             let shell_error = match e.kind() {
                 ErrorKind::NotFound => {
                     if std::path::Path::new(&dst).exists() {
