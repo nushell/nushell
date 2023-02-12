@@ -213,6 +213,17 @@ fn external_command_not_expand_tilde_with_quotes() {
     )
 }
 
+#[test]
+fn external_command_receives_raw_binary_data() {
+    Playground::setup("external command receives raw binary data", |dirs, _| {
+        let actual = nu!(cwd: dirs.test(), pipeline(r#"0x[deadbeef] | hexdump -C"#));
+        assert_eq!(
+            actual.out,
+            r#"00000000  de ad be ef                                       |....|00000004"#
+        );
+    })
+}
+
 #[cfg(windows)]
 #[test]
 fn failed_command_with_semicolon_will_not_execute_following_cmds_windows() {
