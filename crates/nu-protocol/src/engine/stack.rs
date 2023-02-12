@@ -163,7 +163,7 @@ impl Stack {
         Stack {
             vars: captures.clone(),
             env_vars,
-            env_hidden: HashMap::new(),
+            env_hidden: self.env_hidden.clone(),
             active_overlays: self.active_overlays.clone(),
             recursion_count: self.recursion_count.to_owned(),
             profiling_config: self.profiling_config.clone(),
@@ -189,7 +189,7 @@ impl Stack {
         Stack {
             vars,
             env_vars,
-            env_hidden: HashMap::new(),
+            env_hidden: self.env_hidden.clone(),
             active_overlays: self.active_overlays.clone(),
             recursion_count: self.recursion_count.to_owned(),
             profiling_config: self.profiling_config.clone(),
