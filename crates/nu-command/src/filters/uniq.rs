@@ -264,7 +264,7 @@ pub fn uniq(
     call: &Call,
     input: Vec<Value>,
     item_mapper: Box<dyn Fn(ItemMapperState) -> ValueCounter>,
-    metadata: Option<PipelineMetadata>,
+    metadata: Option<Box<PipelineMetadata>>,
 ) -> Result<PipelineData, ShellError> {
     let ctrlc = engine_state.ctrlc.clone();
     let head = call.head;

@@ -209,12 +209,7 @@ fn action(
                         }
                     }
                     Err(e) => Value::Error {
-                        error: ShellError::UnsupportedInput(
-                            format!("{e}"),
-                            "value originates from here".into(),
-                            head,
-                            find.span,
-                        ),
+                        error: ShellError::IncorrectValue(format!("Regex error: {e}"), find.span),
                     },
                 }
             }

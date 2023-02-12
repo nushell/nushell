@@ -6,11 +6,12 @@ use nu_protocol::{
         Operator, PathMember, PipelineElement, Redirection,
     },
     engine::{EngineState, Stack},
-    Config, IntoInterruptiblePipelineData, IntoPipelineData, PipelineData, Range, ShellError, Span,
-    Spanned, Unit, Value, VarId, ENV_VARIABLE_ID,
+    Config, DataSource, IntoInterruptiblePipelineData, IntoPipelineData, PipelineData,
+    PipelineMetadata, Range, ShellError, Span, Spanned, Unit, Value, VarId, ENV_VARIABLE_ID,
 };
 use nu_utils::stdout_write_all_and_flush;
 use std::collections::HashMap;
+use std::time::Instant;
 
 pub fn eval_operator(op: &Expression) -> Result<Operator, ShellError> {
     match op {
@@ -989,7 +990,16 @@ pub fn eval_block(
             *stack.recursion_count += 1;
         }
     }
+
     let num_pipelines = block.len();
+
+    let mut input_metadata = if stack.profiling_config.should_debug() {
+        stack.profiling_config.enter_block();
+        input.metadata()
+    } else {
+        None
+    };
+
     for (pipeline_idx, pipeline) in block.pipelines.iter().enumerate() {
         let mut i = 0;
 
@@ -1002,6 +1012,12 @@ pub fn eval_block(
                             | PipelineElement::Redirection(_, Redirection::StdoutAndStderr, _)
                             | PipelineElement::SeparateRedirection { .. }
                     )));
+
+            let start_time = if stack.profiling_config.should_debug() {
+                Some(Instant::now())
+            } else {
+                None
+            };
 
             // if eval internal command failed, it can just make early return with `Err(ShellError)`.
             let eval_result = eval_element_with_input(
@@ -1021,6 +1037,106 @@ pub fn eval_block(
                 redirect_stderr,
             );
 
+            let end_time = if stack.profiling_config.should_debug() {
+                Some(Instant::now())
+            } else {
+                None
+            };
+
+            if let (Some(start_time), Some(end_time), Some(input_metadata)) =
+                (start_time, end_time, input_metadata.as_deref_mut())
+            {
+                let span = pipeline.elements[i].span();
+                let element_str = Value::string(
+                    String::from_utf8_lossy(
+                        engine_state.get_span_contents(&pipeline.elements[i].span()),
+                    ),
+                    span,
+                );
+                let time_ns = (end_time - start_time).as_nanos() as i64;
+
+                let mut cols = vec![
+                    "pipeline_idx".to_string(),
+                    "element_idx".to_string(),
+                    "depth".to_string(),
+                    "span".to_string(),
+                ];
+
+                let mut vals = vec![
+                    Value::int(pipeline_idx as i64, span),
+                    Value::int(i as i64, span),
+                    Value::int(stack.profiling_config.depth, span),
+                    Value::record(
+                        vec!["start".to_string(), "end".to_string()],
+                        vec![
+                            Value::int(span.start as i64, span),
+                            Value::int(span.end as i64, span),
+                        ],
+                        span,
+                    ),
+                ];
+
+                if stack.profiling_config.collect_source {
+                    cols.push("source".to_string());
+                    vals.push(element_str.clone());
+                }
+
+                if stack.profiling_config.collect_values {
+                    let value = match &eval_result {
+                        Ok((PipelineData::Value(val, ..), ..)) => val.clone(),
+                        Ok((PipelineData::ListStream(..), ..)) => {
+                            Value::string("list stream", span)
+                        }
+                        Ok((PipelineData::ExternalStream { .. }, ..)) => {
+                            Value::string("raw stream", span)
+                        }
+                        Ok((PipelineData::Empty, ..)) => Value::Nothing { span },
+                        Err(err) => Value::Error { error: err.clone() },
+                    };
+
+                    cols.push("value".to_string());
+                    vals.push(value);
+                }
+
+                cols.push("time".to_string());
+                vals.push(Value::Duration { val: time_ns, span });
+
+                let record = Value::Record { cols, vals, span };
+
+                let element_metadata = if let Ok((pipeline_data, ..)) = &eval_result {
+                    pipeline_data.metadata()
+                } else {
+                    None
+                };
+
+                if let PipelineMetadata {
+                    data_source: DataSource::Profiling(tgt_vals),
+                } = input_metadata
+                {
+                    tgt_vals.push(record);
+                } else {
+                    *input_metadata = PipelineMetadata {
+                        data_source: DataSource::Profiling(vec![record]),
+                    };
+                }
+
+                if let Some(PipelineMetadata {
+                    data_source: DataSource::Profiling(element_vals),
+                }) = element_metadata.map(|m| *m)
+                {
+                    if let PipelineMetadata {
+                        data_source: DataSource::Profiling(tgt_vals),
+                    } = input_metadata
+                    {
+                        tgt_vals.extend(element_vals);
+                    } else {
+                        *input_metadata = PipelineMetadata {
+                            data_source: DataSource::Profiling(element_vals),
+                        };
+                    }
+                }
+            }
+
             match (eval_result, redirect_stderr) {
                 (Ok((pipeline_data, _)), true) => {
                     input = pipeline_data;
@@ -1037,6 +1153,9 @@ pub fn eval_block(
                     // make early return so remaining commands will not be executed.
                     // don't return `Err(ShellError)`, so nushell wouldn't show extra error message.
                     if output.1 {
+                        if stack.profiling_config.should_debug() {
+                            stack.profiling_config.leave_block();
+                        }
                         return Ok(input);
                     }
                 }
@@ -1120,7 +1239,12 @@ pub fn eval_block(
         }
     }
 
-    Ok(input)
+    if stack.profiling_config.should_debug() {
+        stack.profiling_config.leave_block();
+        Ok(input.set_metadata(input_metadata))
+    } else {
+        Ok(input)
+    }
 }
 
 fn print_or_return(pipeline_data: PipelineData, config: &Config) -> Result<(), ShellError> {

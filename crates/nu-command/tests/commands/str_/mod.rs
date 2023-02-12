@@ -200,6 +200,26 @@ fn find_and_replaces_without_passing_field() {
 }
 
 #[test]
+fn regex_error_in_pattern() {
+    Playground::setup("str_test_8", |dirs, _sandbox| {
+        let actual = nu!(
+            cwd: dirs.test(), pipeline(
+            r#"
+                 'source string'
+                 | str replace 'source \Ufoo' "destination"
+             "#
+        ));
+
+        let err = actual.err;
+        let expecting_str = "Incorrect value";
+        assert!(
+            err.contains(expecting_str),
+            "Error should contain '{expecting_str}', but was: {err}"
+        );
+    })
+}
+
+#[test]
 fn substrings_the_input() {
     Playground::setup("str_test_8", |dirs, sandbox| {
         sandbox.with_files(vec![FileWithContent(

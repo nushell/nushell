@@ -320,9 +320,9 @@ fn to_html(
             vals: result,
             span: head,
         }
-        .into_pipeline_data_with_metadata(PipelineMetadata {
+        .into_pipeline_data_with_metadata(Box::new(PipelineMetadata {
             data_source: DataSource::HtmlThemes,
-        }));
+        })));
     } else {
         let theme_span = match &theme {
             Some(v) => v.span,
