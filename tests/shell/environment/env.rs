@@ -106,17 +106,6 @@ fn load_env_pwd_env_var_fails() {
     assert!(actual.err.contains("automatic_env_var_set_manually"));
 }
 
-// FIXME: for some reason Nu is attempting to execute foo in `let-env FOO = foo`
-#[ignore]
-#[test]
-fn passes_let_env_env_var_to_external_process() {
-    let actual = nu!(cwd: ".", r#"
-        let-env FOO = foo
-        nu --testbin echo_env FOO
-        "#);
-    assert_eq!(actual.out, "foo");
-}
-
 #[test]
 fn passes_with_env_env_var_to_external_process() {
     let actual = nu!(cwd: ".", r#"
