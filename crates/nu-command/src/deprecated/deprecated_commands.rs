@@ -20,5 +20,8 @@ pub fn deprecated_commands() -> HashMap<String, String> {
         ),
         ("fetch".to_string(), "http get".to_string()),
         ("post".to_string(), "http post".to_string()),
+        ("str lpad".to_string(), "fill".to_string()),
+        ("str rpad".to_string(), "fill".to_string()),
+        ("benchmark".to_string(), "timeit".to_string()),
     ])
 }

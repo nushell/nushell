@@ -116,8 +116,8 @@ fn command_not_found_error_suggests_search_term() {
 
 #[test]
 fn command_not_found_error_suggests_typo_fix() {
-    let actual = nu!(cwd: ".", "benhcmark { echo 'foo'}");
-    assert!(actual.err.contains("benchmark"));
+    let actual = nu!(cwd: ".", "benchmark { echo 'foo'}");
+    assert!(actual.err.contains("timeit"));
 }
 
 #[test]

@@ -35,7 +35,7 @@ impl Command for Mv {
 
     fn signature(&self) -> nu_protocol::Signature {
         Signature::build("mv")
-            .input_output_types(vec![(Type::Nothing, Type::List(Box::new(Type::String)))])
+            .input_output_types(vec![(Type::Nothing, Type::Nothing)])
             .required(
                 "source",
                 SyntaxShape::GlobPattern,
@@ -177,7 +177,7 @@ impl Command for Mv {
         }
 
         let span = call.head;
-        Ok(sources
+        sources
             .into_iter()
             .flatten()
             .filter_map(move |entry| {
@@ -212,7 +212,9 @@ impl Command for Mv {
                     None
                 }
             })
-            .into_pipeline_data(ctrlc))
+            .into_pipeline_data(ctrlc)
+            .print_not_formatted(engine_state, false, true)?;
+        Ok(PipelineData::empty())
     }
 
     fn examples(&self) -> Vec<Example> {
