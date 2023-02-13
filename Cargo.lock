@@ -2735,7 +2735,6 @@ dependencies = [
  "digest",
  "dirs-next",
  "dtparse",
- "eml-parser",
  "encoding_rs",
  "fancy-regex",
  "filesize",
@@ -2743,7 +2742,6 @@ dependencies = [
  "fs_extra",
  "hamcrest2",
  "htmlescape",
- "ical",
  "indexmap",
  "indicatif",
  "is-root",
@@ -2792,7 +2790,6 @@ dependencies = [
  "rstest",
  "rusqlite",
  "rust-embed",
- "rust-ini",
  "same-file",
  "serde",
  "serde_urlencoded",
@@ -2993,6 +2990,7 @@ dependencies = [
  "num-format",
  "once_cell",
  "tempfile",
+ "which",
 ]
 
 [[package]]
@@ -3023,6 +3021,19 @@ version = "0.75.1"
 dependencies = [
  "nu-plugin",
  "nu-protocol",
+]
+
+[[package]]
+name = "nu_plugin_formats"
+version = "0.1.0"
+dependencies = [
+ "eml-parser",
+ "ical",
+ "indexmap",
+ "nu-engine",
+ "nu-plugin",
+ "nu-protocol",
+ "rust-ini",
 ]
 
 [[package]]
