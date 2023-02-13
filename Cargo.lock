@@ -2790,6 +2790,7 @@ dependencies = [
  "rstest",
  "rusqlite",
  "rust-embed",
+ "rust-ini",
  "same-file",
  "serde",
  "serde_urlencoded",

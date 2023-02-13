@@ -34,7 +34,6 @@ pub fn create_default_context() -> EngineState {
             Commandline,
             Const,
             Continue,
-            Debug,
             Def,
             DefEnv,
             Describe,
@@ -65,7 +64,6 @@ pub fn create_default_context() -> EngineState {
             OverlayHide,
             Let,
             Loop,
-            Metadata,
             Module,
             Mut,
             Return,
@@ -173,12 +171,23 @@ pub fn create_default_context() -> EngineState {
         // System
         bind_command! {
             Complete,
-            Explain,
             External,
-            Inspect,
             NuCheck,
             Sys,
+        };
+
+        // Debug
+        bind_command! {
+            Debug,
+            Explain,
+            Inspect,
+            Metadata,
+            Profile,
             TimeIt,
+            View,
+            ViewFiles,
+            ViewSource,
+            ViewSpan,
         };
 
         #[cfg(unix)]
@@ -471,11 +480,6 @@ pub fn create_default_context() -> EngineState {
         // Experimental
         bind_command! {
             IsAdmin,
-            Profile,
-            View,
-            ViewFiles,
-            ViewSource,
-            ViewSpan,
         };
 
         // Deprecated
