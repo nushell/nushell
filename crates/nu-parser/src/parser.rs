@@ -942,7 +942,7 @@ pub fn parse_internal_call(
 
         // Parse a positional arg if there is one
         if let Some(positional) = signature.get_positional(positional_idx) {
-            if positional.name == "def_name" {
+            if positional.name == "def_name" && positional.var_id.is_none() {
                 is_definition = true;
             }
             let end = calculate_end_span(working_set, &signature, spans, spans_idx, positional_idx);
