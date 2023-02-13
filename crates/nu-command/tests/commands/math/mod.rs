@@ -543,3 +543,21 @@ fn append_binary_values() {
     ));
     assert_eq!(actual.out, "0x[01020304]");
 }
+
+#[test]
+fn multiple_string() {
+    let actual = nu!(
+        cwd: "tests/fixtures/formats", pipeline(
+        r#"3 * "ab""#
+    ));
+    assert_eq!(actual.out, "ababab");
+}
+
+#[test]
+fn multiple_list() {
+    let actual = nu!(
+        cwd: "tests/fixtures/formats", pipeline(
+        r#"3 * [1 2] | to nuon"#
+    ));
+    assert_eq!(actual.out, "[1, 2, 1, 2, 1, 2]");
+}
