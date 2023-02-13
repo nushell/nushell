@@ -1,4 +1,4 @@
-mod debug;
+mod debug_;
 mod explain;
 mod inspect;
 mod inspect_table;
@@ -10,7 +10,7 @@ mod view_files;
 mod view_source;
 mod view_span;
 
-pub use debug::Debug;
+pub use debug_::Debug;
 pub use explain::Explain;
 pub use inspect::Inspect;
 pub use inspect_table::build_table;
