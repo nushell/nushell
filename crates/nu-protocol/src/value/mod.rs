@@ -2267,14 +2267,14 @@ impl Value {
             (Value::Int { val: lhs, .. }, Value::String { val: rhs, .. }) => {
                 let mut res = String::new();
                 for _ in 0..*lhs {
-                    res.push_str(&rhs)
+                    res.push_str(rhs)
                 }
                 Ok(Value::String { val: res, span })
             }
             (Value::String { val: lhs, .. }, Value::Int { val: rhs, .. }) => {
                 let mut res = String::new();
                 for _ in 0..*rhs {
-                    res.push_str(&lhs)
+                    res.push_str(lhs)
                 }
                 Ok(Value::String { val: res, span })
             }
