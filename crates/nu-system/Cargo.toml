@@ -24,7 +24,7 @@ atty = "0.2"
 procfs  = "0.14.0"
 
 [target.'cfg(target_os = "macos")'.dependencies]
-libproc = "0.12.0"
+libproc = "0.13.0"
 errno = "0.2"
 mach2 = "0.4"
 
