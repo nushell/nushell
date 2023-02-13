@@ -545,7 +545,7 @@ fn append_binary_values() {
 }
 
 #[test]
-fn multiple_string() {
+fn int_multiple_string() {
     let actual = nu!(
         cwd: "tests/fixtures/formats", pipeline(
         r#"3 * "ab""#
@@ -554,7 +554,7 @@ fn multiple_string() {
 }
 
 #[test]
-fn multiple_list() {
+fn int_multiple_list() {
     let actual = nu!(
         cwd: "tests/fixtures/formats", pipeline(
         r#"3 * [1 2] | to nuon"#
