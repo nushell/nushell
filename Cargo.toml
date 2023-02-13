@@ -87,7 +87,7 @@ criterion = "0.4"
 pretty_assertions = "1.0.0"
 serial_test = "1.0.0"
 hamcrest2 = "0.3.0"
-rstest = { version = "0.15.0", default-features = false }
+rstest = { version = "0.16.0", default-features = false }
 itertools = "0.10.3"
 
 [features]
