@@ -9,6 +9,9 @@ version = "0.75.1"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
+[lib]
+bench = false
+
 [features]
 preserve_order = ["linked-hash-map", "linked-hash-map/serde_impl"]
 default = ["preserve_order"]

@@ -1,6 +1,6 @@
 use nu_test_support::fs::Stub::FileWithContentToBeTrimmed;
+use nu_test_support::nu_with_plugins;
 use nu_test_support::playground::Playground;
-use nu_test_support::{nu, pipeline};
 
 #[test]
 fn infers_types() {
@@ -31,13 +31,12 @@ fn infers_types() {
             "#,
         )]);
 
-        let actual = nu!(
-            cwd: dirs.test(), pipeline(
-            r#"
-                open contacts.vcf
-                | length
-            "#
-        ));
+        let cwd = dirs.test();
+        let actual = nu_with_plugins!(
+            cwd: cwd,
+            plugin: ("nu_plugin_formats"),
+            "open contacts.vcf | length"
+        );
 
         assert_eq!(actual.out, "2");
     })
@@ -65,8 +64,10 @@ fn from_vcf_text_to_table() {
             "#,
         )]);
 
-        let actual = nu!(
-            cwd: dirs.test(), pipeline(
+        let cwd = dirs.test();
+        let actual = nu_with_plugins!(
+            cwd: cwd,
+            plugin: ("nu_plugin_formats"),
             r#"
                 open contacts.txt
                 | from vcf
@@ -75,7 +76,7 @@ fn from_vcf_text_to_table() {
                 | first
                 | get value
             "#
-        ));
+        );
 
         assert_eq!(actual.out, "john.doe99@gmail.com");
     })

@@ -1,100 +1,16 @@
-extern crate ical;
 use ical::parser::ical::component::*;
 use ical::property::Property;
 use indexmap::map::IndexMap;
-use nu_protocol::ast::Call;
-use nu_protocol::engine::{Command, EngineState, Stack};
-use nu_protocol::{
-    Category, Example, IntoPipelineData, PipelineData, ShellError, Signature, Span, Spanned, Type,
-    Value,
-};
+use nu_plugin::{EvaluatedCall, LabeledError};
+use nu_protocol::{PluginExample, ShellError, Span, Spanned, Value};
 use std::io::BufReader;
 
-#[derive(Clone)]
-pub struct FromIcs;
+pub const CMD_NAME: &str = "from ics";
 
-impl Command for FromIcs {
-    fn name(&self) -> &str {
-        "from ics"
-    }
-
-    fn signature(&self) -> Signature {
-        Signature::build("from ics")
-            .input_output_types(vec![(Type::String, Type::Table(vec![]))])
-            .category(Category::Formats)
-    }
-
-    fn usage(&self) -> &str {
-        "Parse text as .ics and create table."
-    }
-
-    fn run(
-        &self,
-        _engine_state: &EngineState,
-        _stack: &mut Stack,
-        call: &Call,
-        input: PipelineData,
-    ) -> Result<PipelineData, ShellError> {
-        let head = call.head;
-        from_ics(input, head)
-    }
-
-    fn examples(&self) -> Vec<Example> {
-        vec![Example {
-            example: "'BEGIN:VCALENDAR
-END:VCALENDAR' | from ics",
-            description: "Converts ics formatted string to table",
-            result: Some(Value::List {
-                vals: vec![Value::Record {
-                    cols: vec![
-                        "properties".to_string(),
-                        "events".to_string(),
-                        "alarms".to_string(),
-                        "to-Dos".to_string(),
-                        "journals".to_string(),
-                        "free-busys".to_string(),
-                        "timezones".to_string(),
-                    ],
-                    vals: vec![
-                        Value::List {
-                            vals: vec![],
-                            span: Span::test_data(),
-                        },
-                        Value::List {
-                            vals: vec![],
-                            span: Span::test_data(),
-                        },
-                        Value::List {
-                            vals: vec![],
-                            span: Span::test_data(),
-                        },
-                        Value::List {
-                            vals: vec![],
-                            span: Span::test_data(),
-                        },
-                        Value::List {
-                            vals: vec![],
-                            span: Span::test_data(),
-                        },
-                        Value::List {
-                            vals: vec![],
-                            span: Span::test_data(),
-                        },
-                        Value::List {
-                            vals: vec![],
-                            span: Span::test_data(),
-                        },
-                    ],
-                    span: Span::test_data(),
-                }],
-                span: Span::test_data(),
-            }),
-        }]
-    }
-}
-
-fn from_ics(input: PipelineData, head: Span) -> Result<PipelineData, ShellError> {
-    let (input_string, span, metadata) = input.collect_string_strict(head)?;
+pub fn from_ics_call(call: &EvaluatedCall, input: &Value) -> Result<Value, LabeledError> {
+    let span = input.span().unwrap_or(call.head);
+    let input_string = input.as_string()?;
+    let head = call.head;
 
     let input_string = input_string
         .lines()
@@ -124,8 +40,61 @@ fn from_ics(input: PipelineData, head: Span) -> Result<PipelineData, ShellError>
     Ok(Value::List {
         vals: output,
         span: head,
-    }
-    .into_pipeline_data_with_metadata(metadata))
+    })
+}
+
+pub fn examples() -> Vec<PluginExample> {
+    vec![PluginExample {
+        example: "'BEGIN:VCALENDAR
+            END:VCALENDAR' | from ics"
+            .into(),
+        description: "Converts ics formatted string to table".into(),
+        result: Some(Value::List {
+            vals: vec![Value::Record {
+                cols: vec![
+                    "properties".to_string(),
+                    "events".to_string(),
+                    "alarms".to_string(),
+                    "to-Dos".to_string(),
+                    "journals".to_string(),
+                    "free-busys".to_string(),
+                    "timezones".to_string(),
+                ],
+                vals: vec![
+                    Value::List {
+                        vals: vec![],
+                        span: Span::test_data(),
+                    },
+                    Value::List {
+                        vals: vec![],
+                        span: Span::test_data(),
+                    },
+                    Value::List {
+                        vals: vec![],
+                        span: Span::test_data(),
+                    },
+                    Value::List {
+                        vals: vec![],
+                        span: Span::test_data(),
+                    },
+                    Value::List {
+                        vals: vec![],
+                        span: Span::test_data(),
+                    },
+                    Value::List {
+                        vals: vec![],
+                        span: Span::test_data(),
+                    },
+                    Value::List {
+                        vals: vec![],
+                        span: Span::test_data(),
+                    },
+                ],
+                span: Span::test_data(),
+            }],
+            span: Span::test_data(),
+        }),
+    }]
 }
 
 fn calendar_to_value(calendar: IcalCalendar, span: Span) -> Value {
@@ -322,16 +291,4 @@ fn params_to_value(params: Vec<(String, Vec<String>)>, span: Span) -> Value {
     }
 
     Value::from(Spanned { item: row, span })
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn test_examples() {
-        use crate::test_examples;
-
-        test_examples(FromIcs {})
-    }
 }

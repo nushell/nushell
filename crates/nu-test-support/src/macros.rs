@@ -269,7 +269,13 @@ macro_rules! nu_with_plugins {
         let commands = format!("{registrations}{}", $command);
 
         let target_cwd = $crate::fs::in_directory(&$cwd);
-        let mut process = match Command::new($crate::fs::executable_path())
+        // In plugin testing, we need to use installed nushell to drive
+        // plugin commands.
+        let mut executable_path = $crate::fs::executable_path();
+        if !executable_path.exists() {
+            executable_path = $crate::fs::installed_nu_path();
+        }
+        let mut process = match Command::new(executable_path)
             .current_dir(&target_cwd)
             .env("PWD", &target_cwd) // setting PWD is enough to set cwd
             .arg("--commands")

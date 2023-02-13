@@ -7,6 +7,9 @@ license = "MIT"
 name = "nu-explore"
 version = "0.75.1"
 
+[lib]
+bench = false
+
 [dependencies]
 nu-ansi-term = "0.46.0"
 nu-protocol = { path = "../nu-protocol", version = "0.75.1" }
