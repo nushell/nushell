@@ -135,7 +135,7 @@ impl Command for Cd {
                         }
 
                         // if canonicalize failed, let's check to see if it's abbreviated
-                        Err(_e1) => {
+                        Err(_) => {
                             if use_abbrev {
                                 match query(&path_no_whitespace, None, v.span) {
                                     Ok(path) => path,
@@ -147,10 +147,7 @@ impl Command for Cd {
                                     }
                                 }
                             } else {
-                                return Err(ShellError::DirectoryNotFound(
-                                    v.span,
-                                    Some(String::from("IO Error: DirectoryNotFound")),
-                                ));
+                                return Err(ShellError::DirectoryNotFound(v.span, None));
                             }
                         }
                     };
