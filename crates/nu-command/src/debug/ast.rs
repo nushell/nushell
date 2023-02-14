@@ -3,8 +3,8 @@ use nu_parser::parse;
 use nu_protocol::{
     ast::Call,
     engine::{Command, EngineState, Stack, StateWorkingSet},
-    Category, Example, PipelineData, ShellError, Signature, Span, Spanned, SyntaxShape, Type,
-    Value,
+    Category, Example, IntoPipelineData, PipelineData, ShellError, Signature, Span, Spanned,
+    SyntaxShape, Type, Value,
 };
 
 #[derive(Clone)]
@@ -27,7 +27,7 @@ impl Command for Ast {
                 SyntaxShape::String,
                 "the pipeline to print the ast for",
             )
-            .category(Category::Core)
+            .category(Category::Debug)
     }
 
     fn run(
@@ -40,10 +40,22 @@ impl Command for Ast {
         let pipeline: Spanned<String> = call.req(engine_state, stack, 0)?;
         let mut working_set = StateWorkingSet::new(engine_state);
 
-        let (output, err) = parse(&mut working_set, None, pipeline.item.as_bytes(), false, &[]);
-        eprintln!("output: {output:#?}\nerror: {err:#?}");
-
-        Ok(PipelineData::empty())
+        let (block_output, error_output) =
+            parse(&mut working_set, None, pipeline.item.as_bytes(), false, &[]);
+        let block_value = Value::String {
+            val: format!("{block_output:#?}"),
+            span: pipeline.span,
+        };
+        let error_value = Value::String {
+            val: format!("{error_output:#?}"),
+            span: pipeline.span,
+        };
+        let output_record = Value::Record {
+            cols: vec!["block".to_string(), "error".to_string()],
+            vals: vec![block_value, error_value],
+            span: pipeline.span,
+        };
+        Ok(output_record.into_pipeline_data())
     }
 
     fn examples(&self) -> Vec<Example> {

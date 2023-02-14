@@ -1,5 +1,4 @@
 mod alias;
-mod ast;
 mod break_;
 mod commandline;
 mod const_;
@@ -39,7 +38,6 @@ mod version;
 mod while_;
 
 pub use alias::Alias;
-pub use ast::Ast;
 pub use break_::Break;
 pub use commandline::Commandline;
 pub use const_::Const;
