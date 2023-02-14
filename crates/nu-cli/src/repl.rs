@@ -170,17 +170,13 @@ pub fn evaluate_repl(
     loop {
         let loop_start_time = std::time::Instant::now();
 
-        println!("before get cwd");
         let cwd = get_guaranteed_cwd(engine_state, stack);
-        println!("after get cwd");
 
         start_time = std::time::Instant::now();
         // Before doing anything, merge the environment from the previous REPL iteration into the
         // permanent state.
         if let Err(err) = engine_state.merge_env(stack, cwd) {
-            println!("before report error new");
             report_error_new(engine_state, &err);
-            println!("after report error new");
         }
         perf(
             "merge env",
@@ -470,9 +466,7 @@ pub fn evaluate_repl(
                 // fire the "pre_execution" hook
                 if let Some(hook) = config.hooks.pre_execution.clone() {
                     if let Err(err) = eval_hook(engine_state, stack, None, vec![], &hook) {
-                        println!("in prev execution, before report error");
                         report_error_new(engine_state, &err);
-                        println!("in prev execution, after report error");
                     }
                 }
 
@@ -491,7 +485,6 @@ pub fn evaluate_repl(
                 }
 
                 let path = nu_path::expand_path_with(&orig, &cwd);
-                println!("debug path: {path:?}");
 
                 if looks_like_path(&orig) && path.is_dir() && tokens.0.len() == 1 {
                     // We have an auto-cd
