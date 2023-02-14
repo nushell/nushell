@@ -29,7 +29,6 @@ pub fn create_default_context() -> EngineState {
         // Core
         bind_command! {
             Alias,
-            Ast,
             Break,
             Commandline,
             Const,
@@ -178,6 +177,7 @@ pub fn create_default_context() -> EngineState {
 
         // Debug
         bind_command! {
+            Ast,
             Debug,
             Explain,
             Inspect,

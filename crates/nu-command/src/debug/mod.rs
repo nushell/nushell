@@ -1,3 +1,4 @@
+mod ast;
 mod debug_;
 mod explain;
 mod inspect;
@@ -10,6 +11,7 @@ mod view_files;
 mod view_source;
 mod view_span;
 
+pub use ast::Ast;
 pub use debug_::Debug;
 pub use explain::Explain;
 pub use inspect::Inspect;
