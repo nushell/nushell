@@ -21,12 +21,13 @@ impl Command for Ast {
 
     fn signature(&self) -> Signature {
         Signature::build("ast")
-            .input_output_types(vec![(Type::Nothing, Type::Nothing)])
+            .input_output_types(vec![(Type::String, Type::Record(vec![]))])
             .required(
                 "pipeline",
                 SyntaxShape::String,
                 "the pipeline to print the ast for",
             )
+            .allow_variants_without_examples(true)
             .category(Category::Debug)
     }
 
