@@ -3,8 +3,8 @@ use nu_parser::parse;
 use nu_protocol::{
     ast::Call,
     engine::{Command, EngineState, Stack, StateWorkingSet},
-    Category, Example, IntoPipelineData, PipelineData, ShellError, Signature, Span, Spanned,
-    SyntaxShape, Type, Value,
+    Category, Example, IntoPipelineData, PipelineData, ShellError, Signature, Spanned, SyntaxShape,
+    Type, Value,
 };
 
 #[derive(Clone)]
