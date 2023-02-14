@@ -63,17 +63,17 @@ impl Command for Ast {
             Example {
                 description: "Print the ast of a string",
                 example: "ast 'hello'",
-                result: Some(Value::nothing(Span::test_data())),
+                result: None,
             },
             Example {
                 description: "Print the ast of a pipeline",
                 example: "ast 'ls | where name =~ README'",
-                result: Some(Value::nothing(Span::test_data())),
+                result: None,
             },
             Example {
                 description: "Print the ast of a pipeline with an error",
                 example: "ast 'for x in 1..10 { echo $x '",
-                result: Some(Value::nothing(Span::test_data())),
+                result: None,
             },
         ]
     }
