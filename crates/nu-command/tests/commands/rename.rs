@@ -86,3 +86,31 @@ fn errors_if_no_columns_present() {
         assert!(actual.err.contains("only record input data is supported"));
     })
 }
+
+#[test]
+fn errors_if_columns_param_is_empty() {
+    Playground::setup("rename_test_4", |dirs, sandbox| {
+        sandbox.with_files(vec![FileWithContentToBeTrimmed(
+            "los_cuatro_mosqueteros.txt",
+            r#"
+                Andrés N. Robalino
+                Jonathan Turner
+                Yehuda Katz
+                Jason Gedge
+            "#,
+        )]);
+
+        let actual = nu!(
+            cwd: dirs.test(), pipeline(
+            r#"
+                open los_cuatro_mosqueteros.txt
+                | lines
+                | wrap name
+                | default "arepa!" hit
+                | rename -c []
+                "#
+        ));
+
+        assert!(actual.err.contains("The list cannot be empty"));
+    })
+}
