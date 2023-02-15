@@ -205,6 +205,7 @@ impl Value {
                     ));
                 }
             }),
+            Value::Date { val, .. } => Ok(val.to_rfc3339_opts(chrono::SecondsFormat::Millis, true)),
             x => Err(ShellError::CantConvert(
                 "string".into(),
                 x.get_type().to_string(),
