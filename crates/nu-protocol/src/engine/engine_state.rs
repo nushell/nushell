@@ -1549,6 +1549,41 @@ impl<'a> StateWorkingSet<'a> {
         self.num_files() - 1
     }
 
+    fn find_non_whitespace_index(contents: &[u8], start: usize) -> usize {
+        let whitespace_chars: Vec<u8> = Vec::from([9, 10, 11, 12, 13, 32]);
+
+        let mut cur_pos = start;
+        while cur_pos < contents.len() {
+            if whitespace_chars.contains(&contents[cur_pos]) {
+                cur_pos += 1;
+            } else {
+                break;
+            }
+        }
+
+        cur_pos
+    }
+
+    pub fn is_sudo(&self) -> bool {
+        for (contents, _, _) in &self.delta.file_contents {
+            let last_pipe_pos = contents.iter().rev().position(|x| x == &(124 as u8));
+            let current_pipeline_pos = match last_pipe_pos {
+                Some(last_pipe_pos) => {
+                    let last_pipe_pos = contents.len() - last_pipe_pos;
+                    last_pipe_pos
+                }
+                None => 0,
+            };
+
+            let cur_pos =
+                StateWorkingSet::find_non_whitespace_index(contents, current_pipeline_pos);
+            if contents[cur_pos..].starts_with(b"sudo ") {
+                return true;
+            }
+        }
+        false
+    }
+
     pub fn get_span_contents(&self, span: Span) -> &[u8] {
         let permanent_end = self.permanent_state.next_span_start();
         if permanent_end <= span.start {
@@ -2419,5 +2454,40 @@ mod engine_state_tests {
         assert_eq!(&engine_state.files[1].0, "child.nu");
 
         Ok(())
+    }
+
+    #[test]
+    fn test_find_non_whitespace_index() {
+        let commands = vec![
+            ("    hello", 4, false),
+            ("    sudo ", 4, true),
+            ("sudo ", 0, true),
+            ("	hello", 1, false),
+            ("	sudo", 1, false),
+            ("	sudo ", 1, true),
+            (" 	sudo ", 2, true),
+            ("	 sudo ", 2, true),
+            ("	hello ", 1, false),
+            ("    hello | sudo ", 4, true),
+            ("    sudo|sudo", 4, false),
+            ("sudo | sudo ", 0, true),
+            ("	hello sud", 1, false),
+            ("	sudo | sud ", 1, false),
+            ("	sudo|sudo ", 1, true),
+            (" 	sudo | sudo ls | sudo ", 2, true),
+        ];
+        for (idx, ele) in commands.iter().enumerate() {
+            let mut engine_state = EngineState::new();
+            engine_state.add_file("test.nu".into(), vec![]);
+
+            let mut working_set = StateWorkingSet::new(&engine_state);
+            let input = ele.0.as_bytes();
+            working_set.add_file("child.nu".into(), input);
+
+            let index = StateWorkingSet::find_non_whitespace_index(input, 0);
+            let is_sudo = &working_set.is_sudo();
+            assert_eq!(index, ele.1);
+            assert_eq!(*is_sudo, ele.2, "index for '{}': {}", ele.0, idx);
+        }
     }
 }

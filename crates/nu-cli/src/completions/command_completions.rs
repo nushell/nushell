@@ -199,6 +199,7 @@ impl Completer for CommandCompletion {
         let commands = if matches!(self.flat_shape, nu_parser::FlatShape::External)
             || matches!(self.flat_shape, nu_parser::FlatShape::InternalCall)
             || ((span.end - span.start) == 0)
+            || working_set.is_sudo()
         {
             // we're in a gap or at a command
             if working_set.get_span_contents(span).is_empty() && !self.force_completion_after_space

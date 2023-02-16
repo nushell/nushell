@@ -142,6 +142,8 @@ impl NuCompleter {
                         let mut spans: Vec<String> = vec![];
 
                         for (flat_idx, flat) in flattened.iter().enumerate() {
+                            let is_sudo_command =
+                                spans.len() > 0 && spans.first().unwrap() == &String::from("sudo");
                             // Read the current spam to string
                             let current_span = working_set.get_span_contents(flat.0).to_vec();
                             let current_span_str = String::from_utf8_lossy(&current_span);
@@ -236,8 +238,9 @@ impl NuCompleter {
                                 }
 
                                 // specially check if it is currently empty - always complete commands
-                                if flat_idx == 0
-                                    && working_set.get_span_contents(new_span).is_empty()
+                                if (is_sudo_command && flat_idx == 1)
+                                    || (flat_idx == 0
+                                        && working_set.get_span_contents(new_span).is_empty())
                                 {
                                     let mut completer = CommandCompletion::new(
                                         self.engine_state.clone(),
@@ -258,7 +261,7 @@ impl NuCompleter {
                                 }
 
                                 // Completions that depends on the previous expression (e.g: use, source-env)
-                                if flat_idx > 0 {
+                                if (is_sudo_command && flat_idx > 1) || flat_idx > 0 {
                                     if let Some(previous_expr) = flattened.get(flat_idx - 1) {
                                         // Read the content for the previous expression
                                         let prev_expr_str =
