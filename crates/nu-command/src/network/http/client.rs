@@ -1,6 +1,8 @@
 use nu_protocol::engine::EngineState;
-use nu_protocol::{BufferedReader, PipelineData, RawStream, Span};
+use nu_protocol::{BufferedReader, PipelineData, RawStream, ShellError, Span, Value};
 use reqwest::blocking;
+use reqwest::blocking::RequestBuilder;
+use std::collections::HashMap;
 use std::io::BufReader;
 
 // Only panics if the user agent is invalid but we define it statically so either
@@ -56,4 +58,61 @@ pub fn response_to_buffer(
         metadata: None,
         trim_end_newline: false,
     }
+}
+
+pub fn request_add_custom_headers(
+    headers: Option<Value>,
+    mut request: RequestBuilder,
+) -> Result<RequestBuilder, ShellError> {
+    if let Some(headers) = headers {
+        let mut custom_headers: HashMap<String, Value> = HashMap::new();
+
+        match &headers {
+            Value::List { vals: table, .. } => {
+                if table.len() == 1 {
+                    // single row([key1 key2]; [val1 val2])
+                    match &table[0] {
+                        Value::Record { cols, vals, .. } => {
+                            for (k, v) in cols.iter().zip(vals.iter()) {
+                                custom_headers.insert(k.to_string(), v.clone());
+                            }
+                        }
+
+                        x => {
+                            return Err(ShellError::CantConvert(
+                                "string list or single row".into(),
+                                x.get_type().to_string(),
+                                headers.span().unwrap_or_else(|_| Span::new(0, 0)),
+                                None,
+                            ));
+                        }
+                    }
+                } else {
+                    // primitive values ([key1 val1 key2 val2])
+                    for row in table.chunks(2) {
+                        if row.len() == 2 {
+                            custom_headers.insert(row[0].as_string()?, row[1].clone());
+                        }
+                    }
+                }
+            }
+
+            x => {
+                return Err(ShellError::CantConvert(
+                    "string list or single row".into(),
+                    x.get_type().to_string(),
+                    headers.span().unwrap_or_else(|_| Span::new(0, 0)),
+                    None,
+                ));
+            }
+        };
+
+        for (k, v) in &custom_headers {
+            if let Ok(s) = v.as_string() {
+                request = request.header(k, s);
+            }
+        }
+    }
+
+    Ok(request)
 }
