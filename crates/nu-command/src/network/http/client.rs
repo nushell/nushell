@@ -1,3 +1,4 @@
+use crate::formats::value_to_json_value;
 use base64::engine::general_purpose::PAD;
 use base64::engine::GeneralPurpose;
 use base64::{alphabet, Engine};
@@ -11,6 +12,13 @@ use std::io::BufReader;
 use std::path::PathBuf;
 use std::str::FromStr;
 use std::time::Duration;
+
+#[derive(PartialEq, Eq)]
+pub enum BodyType {
+    Json,
+    Form,
+    Unknown,
+}
 
 // Only panics if the user agent is invalid but we define it statically so either
 // it always or never fails
@@ -98,6 +106,61 @@ pub fn request_add_authorization_header(
     }
 
     request
+}
+
+pub fn request_set_body(
+    content_type: Option<String>,
+    content_length: Option<String>,
+    body: Value,
+    mut request: RequestBuilder,
+) -> Result<RequestBuilder, ShellError> {
+    // set the content-type header before using e.g., request.json
+    // because that will avoid duplicating the header value
+    if let Some(val) = &content_type {
+        request = request.header("Content-Type", val);
+    }
+
+    let body_type = match content_type {
+        Some(it) if it == "application/json" => BodyType::Json,
+        Some(it) if it == "application/x-www-form-urlencoded" => BodyType::Form,
+        _ => BodyType::Unknown,
+    };
+
+    match body {
+        Value::Binary { val, .. } => {
+            request = request.body(val);
+        }
+        Value::String { val, .. } => {
+            request = request.body(val);
+        }
+        Value::Record { .. } if body_type == BodyType::Json => {
+            let data = value_to_json_value(&body)?;
+            request = request.json(&data);
+        }
+        Value::Record { .. } if body_type == BodyType::Form => {
+            let data = value_to_json_value(&body)?;
+            request = request.form(&data);
+        }
+        Value::List { vals, .. } if body_type == BodyType::Form => {
+            if vals.len() % 2 != 0 {
+                return Err(ShellError::IOError("unsupported body input".into()));
+            }
+            let data = vals
+                .chunks(2)
+                .map(|it| Ok((it[0].as_string()?, it[1].as_string()?)))
+                .collect::<Result<Vec<(String, String)>, ShellError>>()?;
+            request = request.form(&data)
+        }
+        _ => {
+            return Err(ShellError::IOError("unsupported body input".into()));
+        }
+    };
+
+    if let Some(val) = content_length {
+        request = request.header("Content-Length", val);
+    }
+
+    Ok(request)
 }
 
 pub fn request_set_timeout(
