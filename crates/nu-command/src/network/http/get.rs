@@ -84,7 +84,7 @@ impl Command for SubCommand {
         call: &Call,
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
-        run_fetch(engine_state, stack, call, input)
+        run_post(engine_state, stack, call, input)
     }
 
     fn examples(&self) -> Vec<Example> {
@@ -118,7 +118,7 @@ struct Arguments {
     headers: Option<Value>,
 }
 
-fn run_fetch(
+fn run_post(
     engine_state: &EngineState,
     stack: &mut Stack,
     call: &Call,
@@ -142,9 +142,13 @@ fn helper(
     engine_state: &EngineState,
     stack: &mut Stack,
     args: Arguments,
-) -> std::result::Result<PipelineData, ShellError> {
-    // There is no need to error-check this, as the URL is already guaranteed by basic nu command argument type checks.
+) -> Result<PipelineData, ShellError> {
     let url_value = args.url;
+    let user = args.user.clone();
+    let password = args.password;
+    let timeout = args.timeout;
+    let headers = args.headers;
+    let raw = args.raw;
 
     let span = url_value.span()?;
     let requested_url = url_value.as_string()?;
@@ -158,11 +162,6 @@ fn helper(
             ));
         }
     };
-    let user = args.user.clone();
-    let password = args.password;
-    let timeout = args.timeout;
-    let headers = args.headers;
-    let raw = args.raw;
 
     let client = http_client(args.insecure.is_some());
     let mut request = client.get(url);
