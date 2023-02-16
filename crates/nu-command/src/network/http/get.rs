@@ -43,7 +43,7 @@ impl Command for SubCommand {
                 "timeout",
                 SyntaxShape::Int,
                 "timeout period in seconds",
-                Some('t'),
+                None,
             )
             .named(
                 "headers",

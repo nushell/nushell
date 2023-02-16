@@ -9,6 +9,7 @@ use nu_protocol::{
 use reqwest::StatusCode;
 use std::path::PathBuf;
 use std::str::FromStr;
+use std::time::Duration;
 
 use crate::network::http::client::{http_client, request_add_custom_headers, response_to_buffer};
 
@@ -48,6 +49,12 @@ impl Command for SubCommand {
                 SyntaxShape::Any,
                 "the length of the content being posted",
                 Some('l'),
+            )
+            .named(
+                "timeout",
+                SyntaxShape::Int,
+                "timeout period in seconds",
+                None,
             )
             .named(
                 "headers",
@@ -120,6 +127,7 @@ impl Command for SubCommand {
 struct Arguments {
     path: Value,
     body: Value,
+    timeout: Option<Value>,
     headers: Option<Value>,
     raw: bool,
     insecure: Option<bool>,
@@ -145,6 +153,7 @@ fn run_post(
     let args = Arguments {
         path: call.req(engine_state, stack, 0)?,
         body: call.req(engine_state, stack, 1)?,
+        timeout: call.get_flag(engine_state, stack, "timeout")?,
         headers: call.get_flag(engine_state, stack, "headers")?,
         raw: call.has_flag("raw"),
         user: call.get_flag(engine_state, stack, "user")?,
@@ -181,6 +190,7 @@ fn helper(
     };
     let user = args.user.clone();
     let password = args.password;
+    let timeout = args.timeout;
     let headers = args.headers;
     let location = url;
     let raw = args.raw;
@@ -247,6 +257,20 @@ fn helper(
     if let Some(val) = args.content_length {
         request = request.header("Content-Length", val);
     }
+
+    if let Some(timeout) = timeout {
+        let val = timeout.as_i64()?;
+        if val.is_negative() || val < 1 {
+            return Err(ShellError::TypeMismatch(
+                "Timeout value must be an integer and larger than 0".to_string(),
+                // timeout is already guaranteed to not be an error
+                timeout.expect_span(),
+            ));
+        }
+
+        request = request.timeout(Duration::from_secs(val as u64));
+    }
+
     if let Some(login) = login {
         request = request.header("Authorization", format!("Basic {login}"));
     }
