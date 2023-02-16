@@ -612,9 +612,9 @@ fn handle_row_stream(
     call: &Call,
     row_offset: usize,
     ctrlc: Option<Arc<AtomicBool>>,
-    metadata: Option<PipelineMetadata>,
+    metadata: Option<Box<PipelineMetadata>>,
 ) -> Result<PipelineData, ShellError> {
-    let stream = match metadata {
+    let stream = match metadata.as_deref() {
         // First, `ls` sources:
         Some(PipelineMetadata {
             data_source: DataSource::Ls,
@@ -1040,8 +1040,13 @@ fn convert_to_table2<'a>(
     }
 
     if !with_header {
-        if available_width >= ADDITIONAL_CELL_SPACE {
+        if available_width > ADDITIONAL_CELL_SPACE {
             available_width -= PADDING_SPACE;
+        } else {
+            // it means we have no space left for actual content;
+            // which means there's no point in index itself if it was even used.
+            // so we do not print it.
+            return Ok(None);
         }
 
         for (row, item) in input.into_iter().enumerate() {
@@ -1053,7 +1058,7 @@ fn convert_to_table2<'a>(
                 return Err(error.clone());
             }
 
-            let value = convert_to_table2_entry(
+            let mut value = convert_to_table2_entry(
                 item,
                 config,
                 &ctrlc,
@@ -1063,6 +1068,16 @@ fn convert_to_table2<'a>(
                 flatten_sep,
                 available_width,
             );
+
+            let value_width = string_width(&value.0);
+            if value_width > available_width {
+                // it must only happen when a string is produced, so we can safely wrap it.
+                // (it might be string table representation as well) (I guess I mean default { table ...} { list ...})
+                //
+                // todo: Maybe convert_to_table2_entry could do for strings to not mess caller code?
+
+                value.0 = wrap_text(&value.0, available_width, config);
+            }
 
             let value = NuTable::create_cell(value.0, value.1);
             data[row].push(value);

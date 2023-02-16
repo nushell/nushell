@@ -148,21 +148,21 @@ let dark_theme = {
     duration: white
     date: { (date now) - $in |
       if $in < 1hr {
-        '#e61919'
+        'red3b'
       } else if $in < 6hr {
-        '#e68019'
+        'orange3'
       } else if $in < 1day {
-        '#e5e619'
+        'yellow3b'
       } else if $in < 3day {
-        '#80e619'
+        'chartreuse2b'
       } else if $in < 1wk {
-        '#19e619'
+        'green3b'
       } else if $in < 6wk {
-        '#19e5e6'
+        'darkturquoise'
       } else if $in < 52wk {
-        '#197fe6'
-      } else { 'light_gray' }
-    }
+        'deepskyblue3b'
+      } else { 'dark_gray' }
+    }    
     range: white
     float: white
     string: white

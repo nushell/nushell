@@ -76,15 +76,7 @@ pub fn is_math_expression_like(
 
     let b = bytes[0];
 
-    if b == b'('
-        || b == b'{'
-        || b == b'['
-        || b == b'$'
-        || b == b'"'
-        || b == b'\''
-        || b == b'`'
-        || b == b'-'
-    {
+    if b == b'(' || b == b'{' || b == b'[' || b == b'$' || b == b'"' || b == b'\'' || b == b'-' {
         return true;
     }
 
@@ -1351,9 +1343,9 @@ pub fn parse_int(token: &[u8], span: Span) -> (Expression, Option<ParseError>) {
         } else {
             (
                 garbage(span),
-                Some(ParseError::Mismatch(
+                Some(ParseError::InvalidLiteral(
+                    format!("invalid digits for radix {}", radix),
                     "int".into(),
-                    "incompatible int".into(),
                     span,
                 )),
             )
@@ -1361,6 +1353,13 @@ pub fn parse_int(token: &[u8], span: Span) -> (Expression, Option<ParseError>) {
     }
 
     let token = strip_underscores(token);
+
+    if token.is_empty() {
+        return (
+            garbage(span),
+            Some(ParseError::Expected("int".into(), span)),
+        );
+    }
 
     if let Some(num) = token.strip_prefix("0b") {
         extract_int(num, span, 2)
@@ -1408,16 +1407,21 @@ pub fn parse_float(token: &[u8], span: Span) -> (Expression, Option<ParseError>)
 }
 
 pub fn parse_number(token: &[u8], span: Span) -> (Expression, Option<ParseError>) {
-    if let (x, None) = parse_int(token, span) {
-        (x, None)
-    } else if let (x, None) = parse_float(token, span) {
-        (x, None)
-    } else {
-        (
-            garbage(span),
-            Some(ParseError::Expected("number".into(), span)),
-        )
+    match parse_int(token, span) {
+        (x, None) => {
+            return (x, None);
+        }
+        (_, Some(ParseError::Expected(_, _))) => {}
+        (x, e) => return (x, e),
     }
+    if let (x, None) = parse_float(token, span) {
+        return (x, None);
+    }
+
+    (
+        garbage(span),
+        Some(ParseError::Expected("number".into(), span)),
+    )
 }
 
 pub fn parse_range(
@@ -1432,6 +1436,7 @@ pub fn parse_range(
     //   and  <range_operator> is ".." or "..<"
     //   and one of the <from> or <to> bounds must be present (just '..' is not allowed since it
     //     looks like parent directory)
+    //bugbug range cannot be [..] because that looks like parent directory
 
     let contents = working_set.get_span_contents(span);
 
@@ -2140,11 +2145,7 @@ pub fn parse_datetime(
     if bytes.is_empty() || !bytes[0].is_ascii_digit() {
         return (
             garbage(span),
-            Some(ParseError::Mismatch(
-                "datetime".into(),
-                "non-datetime".into(),
-                span,
-            )),
+            Some(ParseError::Expected("datetime".into(), span)),
         );
     }
 
@@ -2192,11 +2193,7 @@ pub fn parse_datetime(
 
     (
         garbage(span),
-        Some(ParseError::Mismatch(
-            "datetime".into(),
-            "non-datetime".into(),
-            span,
-        )),
+        Some(ParseError::Expected("datetime".into(), span)),
     )
 }
 
@@ -2213,9 +2210,8 @@ pub fn parse_duration(
         Some(expression) => (expression, None),
         None => (
             garbage(span),
-            Some(ParseError::Mismatch(
-                "duration".into(),
-                "non-duration unit".into(),
+            Some(ParseError::Expected(
+                "duration with valid units".into(),
                 span,
             )),
         ),
@@ -2339,13 +2335,13 @@ pub fn parse_filesize(
 
     let bytes = working_set.get_span_contents(span);
 
+    //todo: parse_filesize_bytes should distinguish between not-that-type and syntax error in units
     match parse_filesize_bytes(bytes, span) {
         Some(expression) => (expression, None),
         None => (
             garbage(span),
-            Some(ParseError::Mismatch(
-                "filesize".into(),
-                "non-filesize unit".into(),
+            Some(ParseError::Expected(
+                "filesize with valid units".into(),
                 span,
             )),
         ),
@@ -2454,7 +2450,7 @@ pub fn parse_glob_pattern(
     } else {
         (
             garbage(span),
-            Some(ParseError::Expected("string".into(), span)),
+            Some(ParseError::Expected("glob pattern string".into(), span)),
         )
     }
 }
@@ -2568,8 +2564,9 @@ pub fn unescape_string(bytes: &[u8], span: Span) -> (Vec<u8>, Option<ParseError>
                                     cur_idx += 1;
                                 }
                                 _ => {
-                                    err = Some(ParseError::Expected(
-                                        "closing '}' in unicode escape `\\u{n..}`".into(),
+                                    err = Some(ParseError::InvalidLiteral(
+                                        "missing '}' for unicode escape '\\u{X...}'".into(),
+                                        "string".into(),
                                         Span::new(span.start + idx, span.end),
                                     ));
                                     break 'us_loop;
@@ -2600,16 +2597,18 @@ pub fn unescape_string(bytes: &[u8], span: Span) -> (Vec<u8>, Option<ParseError>
                         }
                     }
                     // fall through -- escape not accepted above, must be error.
-                    err = Some(ParseError::Expected(
-                        "unicode escape \\u{n..}".into(),
+                    err = Some(ParseError::InvalidLiteral(
+                        "invalid unicode escape '\\u{X...}', must be 1-6 hex digits, max value 10FFFF".into(),
+                        "string".into(),
                         Span::new(span.start + idx, span.end),
                     ));
                     break 'us_loop;
                 }
 
                 _ => {
-                    err = Some(ParseError::Expected(
-                        "supported escape character".into(),
+                    err = Some(ParseError::InvalidLiteral(
+                        "unrecognized escape after '\\'".into(),
+                        "string".into(),
                         Span::new(span.start + idx, span.end),
                     ));
                     break 'us_loop;
@@ -4539,11 +4538,23 @@ pub fn parse_value(
                 )
             }
         }
+
+        // Be sure to return ParseError::Expected(..) if invoked for one of these shapes, but lex
+        // stream doesn't start with '{'} -- parsing in SyntaxShape::Any arm depends on this error variant.
+        SyntaxShape::Block | SyntaxShape::Closure(..) | SyntaxShape::Record => (
+            garbage(span),
+            Some(ParseError::Expected(
+                "block, closure or record".into(),
+                span,
+            )),
+        ),
+
         SyntaxShape::Any => {
             if bytes.starts_with(b"[") {
                 //parse_value(working_set, span, &SyntaxShape::Table)
                 parse_full_cell_path(working_set, None, span, expand_aliases_denylist)
             } else {
+                /* Parser very sensitive to order of shapes tried.  Recording the original order for postierity
                 let shapes = [
                     SyntaxShape::Binary,
                     SyntaxShape::Int,
@@ -4557,11 +4568,34 @@ pub fn parse_value(
                     SyntaxShape::Block,
                     SyntaxShape::String,
                 ];
+                */
+                let shapes = [
+                    SyntaxShape::Binary,
+                    SyntaxShape::Filesize,
+                    SyntaxShape::Duration,
+                    SyntaxShape::Range,
+                    SyntaxShape::DateTime, //FIXME requires 3 failed conversion attempts before failing
+                    SyntaxShape::Record,
+                    SyntaxShape::Closure(None),
+                    SyntaxShape::Block,
+                    SyntaxShape::Int,
+                    SyntaxShape::Number,
+                    SyntaxShape::String,
+                ];
                 for shape in shapes.iter() {
-                    if let (s, None) =
-                        parse_value(working_set, span, shape, expand_aliases_denylist)
-                    {
-                        return (s, None);
+                    let (s, e) = parse_value(working_set, span, shape, expand_aliases_denylist);
+                    match (s, e) {
+                        (s, None) => {
+                            return (s, None);
+                        }
+                        (_, Some(ParseError::Expected(_, _))) => {
+                            // value didn't parse as this shape, try other options
+                            continue;
+                        }
+                        (s, e) => {
+                            // value did parse, but had syntax issues, don't try any more options.
+                            return (s, e);
+                        }
                     }
                 }
                 (

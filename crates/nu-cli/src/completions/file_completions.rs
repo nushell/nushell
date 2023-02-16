@@ -141,6 +141,16 @@ pub fn file_path_completion(
                             || path.contains('#')
                             || path.contains('(')
                             || path.contains(')')
+                            || path.starts_with('0')
+                            || path.starts_with('1')
+                            || path.starts_with('2')
+                            || path.starts_with('3')
+                            || path.starts_with('4')
+                            || path.starts_with('5')
+                            || path.starts_with('6')
+                            || path.starts_with('7')
+                            || path.starts_with('8')
+                            || path.starts_with('9')
                         {
                             path = format!("`{path}`");
                         }

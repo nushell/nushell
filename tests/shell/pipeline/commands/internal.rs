@@ -1258,6 +1258,13 @@ mod parse {
 
         assert!(actual.err.contains("extra positional argument"),);
     }
+
+    #[test]
+    fn ensure_backticks_are_bareword_command() {
+        let actual = nu!(cwd: ".", "`8abc123`");
+
+        assert!(actual.err.contains("was not found"),);
+    }
 }
 
 mod tilde_expansion {

@@ -3,6 +3,7 @@ use super::support::Trusted;
 use nu_test_support::fs::Stub::FileWithContent;
 use nu_test_support::nu;
 use nu_test_support::playground::Playground;
+use nu_test_support::{nu_repl_code, pipeline};
 
 use serial_test::serial;
 
@@ -106,17 +107,6 @@ fn load_env_pwd_env_var_fails() {
     assert!(actual.err.contains("automatic_env_var_set_manually"));
 }
 
-// FIXME: for some reason Nu is attempting to execute foo in `let-env FOO = foo`
-#[ignore]
-#[test]
-fn passes_let_env_env_var_to_external_process() {
-    let actual = nu!(cwd: ".", r#"
-        let-env FOO = foo
-        nu --testbin echo_env FOO
-        "#);
-    assert_eq!(actual.out, "foo");
-}
-
 #[test]
 fn passes_with_env_env_var_to_external_process() {
     let actual = nu!(cwd: ".", r#"
@@ -157,4 +147,20 @@ fn passes_env_from_local_cfg_to_external_process() {
 
         assert_eq!(actual.out, "foo");
     })
+}
+
+#[test]
+fn hides_env_in_block() {
+    let inp = &[
+        "let-env foo = 'foo'",
+        "hide-env foo",
+        "let b = {|| $env.foo }",
+        "do $b",
+    ];
+
+    let actual = nu!(cwd: "tests/shell/environment", pipeline(&inp.join("; ")));
+    let actual_repl = nu!(cwd: "tests/shell/environment", nu_repl_code(inp));
+
+    assert!(actual.err.contains("column_not_found"));
+    assert!(actual_repl.err.contains("column_not_found"));
 }

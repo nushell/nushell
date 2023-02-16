@@ -29,12 +29,10 @@ pub fn create_default_context() -> EngineState {
         // Core
         bind_command! {
             Alias,
-            Ast,
             Break,
             Commandline,
             Const,
             Continue,
-            Debug,
             Def,
             DefEnv,
             Describe,
@@ -65,7 +63,6 @@ pub fn create_default_context() -> EngineState {
             OverlayHide,
             Let,
             Loop,
-            Metadata,
             Module,
             Mut,
             Return,
@@ -172,12 +169,25 @@ pub fn create_default_context() -> EngineState {
 
         // System
         bind_command! {
-            Benchmark,
             Complete,
-            Explain,
             External,
             NuCheck,
             Sys,
+        };
+
+        // Debug
+        bind_command! {
+            Ast,
+            Debug,
+            Explain,
+            Inspect,
+            Metadata,
+            Profile,
+            TimeIt,
+            View,
+            ViewFiles,
+            ViewSource,
+            ViewSpan,
         };
 
         #[cfg(unix)]
@@ -327,9 +337,6 @@ pub fn create_default_context() -> EngineState {
         bind_command! {
             From,
             FromCsv,
-            FromEml,
-            FromIcs,
-            FromIni,
             FromJson,
             FromNuon,
             FromOds,
@@ -337,7 +344,6 @@ pub fn create_default_context() -> EngineState {
             FromToml,
             FromTsv,
             FromUrl,
-            FromVcf,
             FromXlsx,
             FromXml,
             FromYaml,
@@ -352,7 +358,6 @@ pub fn create_default_context() -> EngineState {
             ToToml,
             ToTsv,
             Touch,
-            Use,
             Upsert,
             Where,
             ToXml,
@@ -474,10 +479,6 @@ pub fn create_default_context() -> EngineState {
         // Experimental
         bind_command! {
             IsAdmin,
-            View,
-            ViewFiles,
-            ViewSource,
-            ViewSpan,
         };
 
         // Deprecated

@@ -1,6 +1,6 @@
 use nu_test_support::fs::Stub::FileWithContentToBeTrimmed;
+use nu_test_support::nu_with_plugins;
 use nu_test_support::playground::Playground;
-use nu_test_support::{nu, pipeline};
 
 #[test]
 fn infers_types() {
@@ -42,15 +42,13 @@ fn infers_types() {
                 END:VCALENDAR
             "#,
         )]);
+        let cwd = dirs.test();
 
-        let actual = nu!(
-            cwd: dirs.test(), pipeline(
-            r#"
-                open calendar.ics
-                | get events.0
-                | length
-            "#
-        ));
+        let actual = nu_with_plugins!(
+            cwd: cwd,
+            plugin: ("nu_plugin_formats"),
+            "open calendar.ics | get events.0 | length"
+        );
 
         assert_eq!(actual.out, "2");
     })
@@ -81,8 +79,10 @@ fn from_ics_text_to_table() {
             "#,
         )]);
 
-        let actual = nu!(
-            cwd: dirs.test(), pipeline(
+        let cwd = dirs.test();
+        let actual = nu_with_plugins!(
+            cwd: cwd,
+            plugin: ("nu_plugin_formats"),
             r#"
                 open calendar.txt
                 | from ics
@@ -92,7 +92,7 @@ fn from_ics_text_to_table() {
                 | first
                 | get value
             "#
-        ));
+        );
 
         assert_eq!(actual.out, "Maryland Game");
     })

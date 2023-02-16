@@ -2735,7 +2735,6 @@ dependencies = [
  "digest",
  "dirs-next",
  "dtparse",
- "eml-parser",
  "encoding_rs",
  "fancy-regex",
  "filesize",
@@ -2743,7 +2742,6 @@ dependencies = [
  "fs_extra",
  "hamcrest2",
  "htmlescape",
- "ical",
  "indexmap",
  "indicatif",
  "is-root",
@@ -2792,7 +2790,6 @@ dependencies = [
  "rstest",
  "rusqlite",
  "rust-embed",
- "rust-ini",
  "same-file",
  "serde",
  "serde_urlencoded",
@@ -2801,6 +2798,7 @@ dependencies = [
  "shadow-rs",
  "sqlparser",
  "sysinfo",
+ "tabled",
  "terminal_size 0.2.1",
  "thiserror",
  "titlecase",
@@ -2992,6 +2990,7 @@ dependencies = [
  "num-format",
  "once_cell",
  "tempfile",
+ "which",
 ]
 
 [[package]]
@@ -3022,6 +3021,19 @@ version = "0.75.1"
 dependencies = [
  "nu-plugin",
  "nu-protocol",
+]
+
+[[package]]
+name = "nu_plugin_formats"
+version = "0.1.0"
+dependencies = [
+ "eml-parser",
+ "ical",
+ "indexmap",
+ "nu-engine",
+ "nu-plugin",
+ "nu-protocol",
+ "rust-ini",
 ]
 
 [[package]]
@@ -3938,9 +3950,9 @@ dependencies = [
 
 [[package]]
 name = "proptest"
-version = "1.0.0"
+version = "1.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1e0d9cc07f18492d879586c92b485def06bc850da3118075cd45d50e9c95b0e5"
+checksum = "29f1b898011ce9595050a68e60f90bad083ff2987a695a42357134c8381fba70"
 dependencies = [
  "bit-set",
  "bitflags",
@@ -3954,6 +3966,7 @@ dependencies = [
  "regex-syntax",
  "rusty-fork",
  "tempfile",
+ "unarray",
 ]
 
 [[package]]
@@ -4311,18 +4324,18 @@ dependencies = [
 
 [[package]]
 name = "roxmltree"
-version = "0.17.0"
+version = "0.18.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "461c9b944cd1481b793aeef26d1008b5d1fdeb00e01296cb4ff08aed511c7383"
+checksum = "d8f595a457b6b8c6cda66a48503e92ee8d19342f905948f29c383200ec9eb1d8"
 dependencies = [
  "xmlparser",
 ]
 
 [[package]]
 name = "rstest"
-version = "0.15.0"
+version = "0.16.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e9c9dc66cc29792b663ffb5269be669f1613664e69ad56441fdb895c2347b930"
+checksum = "b07f2d176c472198ec1e6551dc7da28f1c089652f66a7b722676c2238ebc0edf"
 dependencies = [
  "rstest_macros",
  "rustc_version 0.4.0",
@@ -4330,15 +4343,16 @@ dependencies = [
 
 [[package]]
 name = "rstest_macros"
-version = "0.14.0"
+version = "0.16.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5015e68a0685a95ade3eee617ff7101ab6a3fc689203101ca16ebc16f2b89c66"
+checksum = "7229b505ae0706e64f37ffc54a9c163e11022a6636d58fe1f3f52018257ff9f7"
 dependencies = [
  "cfg-if 1.0.0",
  "proc-macro2",
  "quote",
  "rustc_version 0.4.0",
  "syn",
+ "unicode-ident",
 ]
 
 [[package]]
@@ -5423,6 +5437,12 @@ name = "umask"
 version = "2.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "46b0c16eadfb312c7acd6970fc97d1f3152eb536714a2ff72ca09a92cae6fa67"
+
+[[package]]
+name = "unarray"
+version = "0.1.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "eaea85b334db583fe3274d12b4cd1880032beab409c0d774be044d4480ab9a94"
 
 [[package]]
 name = "unicase"

@@ -153,3 +153,40 @@ jobs:
 
       - name: Tests
         run: cargo test --profile ci --package nu_plugin_*
+
+
+  nu-coverage:
+    needs: nu-tests
+    env:
+      NUSHELL_CARGO_TARGET: ci
+
+    strategy:
+      fail-fast: true
+      matrix:
+        platform: [windows-latest, ubuntu-20.04]
+        rust:
+          - stable
+
+    runs-on: ${{ matrix.platform }}
+
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Setup Rust toolchain and cache
+        uses: actions-rust-lang/setup-rust-toolchain@v1.3.7
+      - name: Install cargo-llvm-cov
+        uses: taiki-e/install-action@cargo-llvm-cov
+
+      - name: Tests
+        shell: bash
+        run: |
+          source <(cargo llvm-cov show-env --export-prefix) # Set the environment variables needed to get coverage.
+          cargo llvm-cov clean --workspace # Remove artifacts that may affect the coverage results.
+          cargo build --lib --bins --examples --workspace --profile ci
+          cargo test --lib --bins --examples --workspace --profile ci --exclude nu_plugin_* ${{ matrix.flags }}
+          cargo llvm-cov report --profile ci --lcov --output-path lcov.info
+
+      - name: Upload coverage reports to Codecov with GitHub Action
+        uses: codecov/codecov-action@v3
+        with:
+          files: lcov.info

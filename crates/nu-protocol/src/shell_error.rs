@@ -91,6 +91,15 @@ pub enum ShellError {
         span: Span,
     },
 
+    /// A command received an argument with correct type but incorrect value.
+    ///
+    /// ## Resolution
+    ///
+    /// Correct the argument value before passing it in or change the command.
+    #[error("Incorrect value.")]
+    #[diagnostic(code(nu::shell::incorrect_value), url(docsrs))]
+    IncorrectValue(String, #[label = "{0}"] Span),
+
     /// This value cannot be used with this operator.
     ///
     /// ## Resolution
