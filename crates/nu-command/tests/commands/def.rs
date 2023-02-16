@@ -194,3 +194,27 @@ fn multi_function_check_type_more_than_one_parameter() {
 
     assert_eq!(actual.out, "not_number_type");
 }
+
+#[test]
+fn multi_function_check_type_with_one_parameter() {
+    let actual = nu!(
+        cwd: ".", pipeline(
+        r#"
+            def provideStr [def_name: record] {
+                "def_name_should_print"
+            };
+            
+            def needStr [def_name: string] {
+                echo $def_name
+            };
+            
+            def run [def_name: record] {
+                needStr (provideStr $def_name)
+            };
+            
+            run {a:b};
+    "#
+    ));
+
+    assert_eq!(actual.out, "def_name_should_print");
+}
