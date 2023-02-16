@@ -1,5 +1,6 @@
-use crate::network::http::client::{http_client, request_add_custom_headers, response_to_buffer};
-use base64::{alphabet, engine::general_purpose::PAD, engine::GeneralPurpose, Engine};
+use crate::network::http::client::{
+    http_client, request_add_authorization_header, request_add_custom_headers, response_to_buffer,
+};
 use nu_engine::CallExt;
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
@@ -165,26 +166,6 @@ fn helper(
     let timeout = args.timeout;
     let headers = args.headers;
     let raw = args.raw;
-    let base64_engine = GeneralPurpose::new(&alphabet::STANDARD, PAD);
-
-    let login = match (user, password) {
-        (Some(user), Some(password)) => {
-            let mut enc_str = String::new();
-            base64_engine.encode_string(&format!("{user}:{password}"), &mut enc_str);
-            Some(enc_str)
-        }
-        (Some(user), _) => {
-            let mut enc_str = String::new();
-            base64_engine.encode_string(&format!("{user}:"), &mut enc_str);
-            Some(enc_str)
-        }
-        (_, Some(password)) => {
-            let mut enc_str = String::new();
-            base64_engine.encode_string(&format!(":{password}"), &mut enc_str);
-            Some(enc_str)
-        }
-        _ => None,
-    };
 
     let client = http_client(args.insecure.is_some());
     let mut request = client.get(url);
@@ -202,10 +183,7 @@ fn helper(
         request = request.timeout(Duration::from_secs(val as u64));
     }
 
-    if let Some(login) = login {
-        request = request.header("Authorization", format!("Basic {login}"));
-    }
-
+    request = request_add_authorization_header(user, password, request);
     request = request_add_custom_headers(headers, request)?;
 
     // Explicitly turn 4xx and 5xx statuses into errors.

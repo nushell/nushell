@@ -1,5 +1,4 @@
 use crate::formats::value_to_json_value;
-use base64::{alphabet, engine::general_purpose::PAD, engine::GeneralPurpose, Engine};
 use nu_engine::CallExt;
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
@@ -11,7 +10,9 @@ use std::path::PathBuf;
 use std::str::FromStr;
 use std::time::Duration;
 
-use crate::network::http::client::{http_client, request_add_custom_headers, response_to_buffer};
+use crate::network::http::client::{
+    http_client, request_add_authorization_header, request_add_custom_headers, response_to_buffer,
+};
 
 #[derive(Clone)]
 pub struct SubCommand;
@@ -194,21 +195,6 @@ fn helper(
     let headers = args.headers;
     let location = url;
     let raw = args.raw;
-    let base64_engine = GeneralPurpose::new(&alphabet::STANDARD, PAD);
-
-    let login = match (user, password) {
-        (Some(user), Some(password)) => {
-            let mut enc_str = String::new();
-            base64_engine.encode_string(&format!("{user}:{password}"), &mut enc_str);
-            Some(enc_str)
-        }
-        (Some(user), _) => {
-            let mut enc_str = String::new();
-            base64_engine.encode_string(&format!("{user}:"), &mut enc_str);
-            Some(enc_str)
-        }
-        _ => None,
-    };
 
     let body_type = match &args.content_type {
         Some(it) if it == "application/json" => BodyType::Json,
@@ -271,10 +257,7 @@ fn helper(
         request = request.timeout(Duration::from_secs(val as u64));
     }
 
-    if let Some(login) = login {
-        request = request.header("Authorization", format!("Basic {login}"));
-    }
-
+    request = request_add_authorization_header(user, password, request);
     request = request_add_custom_headers(headers, request)?;
 
     // Explicitly turn 4xx and 5xx statuses into errors.

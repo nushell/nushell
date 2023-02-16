@@ -1,3 +1,6 @@
+use base64::engine::general_purpose::PAD;
+use base64::engine::GeneralPurpose;
+use base64::{alphabet, Engine};
 use nu_protocol::engine::EngineState;
 use nu_protocol::{BufferedReader, PipelineData, RawStream, ShellError, Span, Value};
 use reqwest::blocking;
@@ -58,6 +61,39 @@ pub fn response_to_buffer(
         metadata: None,
         trim_end_newline: false,
     }
+}
+
+pub fn request_add_authorization_header(
+    user: Option<String>,
+    password: Option<String>,
+    mut request: RequestBuilder,
+) -> RequestBuilder {
+    let base64_engine = GeneralPurpose::new(&alphabet::STANDARD, PAD);
+
+    let login = match (user, password) {
+        (Some(user), Some(password)) => {
+            let mut enc_str = String::new();
+            base64_engine.encode_string(&format!("{user}:{password}"), &mut enc_str);
+            Some(enc_str)
+        }
+        (Some(user), _) => {
+            let mut enc_str = String::new();
+            base64_engine.encode_string(&format!("{user}:"), &mut enc_str);
+            Some(enc_str)
+        }
+        (_, Some(password)) => {
+            let mut enc_str = String::new();
+            base64_engine.encode_string(&format!(":{password}"), &mut enc_str);
+            Some(enc_str)
+        }
+        _ => None,
+    };
+
+    if let Some(login) = login {
+        request = request.header("Authorization", format!("Basic {login}"));
+    }
+
+    request
 }
 
 pub fn request_add_custom_headers(
