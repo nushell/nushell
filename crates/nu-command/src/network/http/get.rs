@@ -1,17 +1,13 @@
-use crate::network::http::client::http_client;
+use crate::network::http::client::{http_client, response_to_buffer};
 use base64::{alphabet, engine::general_purpose::PAD, engine::GeneralPurpose, Engine};
 use nu_engine::CallExt;
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
-use nu_protocol::util::BufferedReader;
-use nu_protocol::RawStream;
 use nu_protocol::{
     Category, Example, PipelineData, ShellError, Signature, Span, SyntaxShape, Type, Value,
 };
-use reqwest::blocking::Response;
 use reqwest::StatusCode;
 use std::collections::HashMap;
-use std::io::BufReader;
 use std::path::PathBuf;
 use std::str::FromStr;
 use std::time::Duration;
@@ -369,49 +365,5 @@ fn helper(
             ),
             span,
         )),
-    }
-}
-
-fn response_to_buffer(
-    response: Response,
-    engine_state: &EngineState,
-    span: Span,
-) -> nu_protocol::PipelineData {
-    // Try to get the size of the file to be downloaded.
-    // This is helpful to show the progress of the stream.
-    let buffer_size = match &response.headers().get("content-length") {
-        Some(content_length) => {
-            let content_length = &(*content_length).clone(); // binding
-
-            let content_length = content_length
-                .to_str()
-                .unwrap_or("")
-                .parse::<u64>()
-                .unwrap_or(0);
-
-            if content_length == 0 {
-                None
-            } else {
-                Some(content_length)
-            }
-        }
-        _ => None,
-    };
-    let buffered_input = BufReader::new(response);
-
-    PipelineData::ExternalStream {
-        stdout: Some(RawStream::new(
-            Box::new(BufferedReader {
-                input: buffered_input,
-            }),
-            engine_state.ctrlc.clone(),
-            span,
-            buffer_size,
-        )),
-        stderr: None,
-        exit_code: None,
-        span,
-        metadata: None,
-        trim_end_newline: false,
     }
 }

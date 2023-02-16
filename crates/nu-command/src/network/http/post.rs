@@ -3,18 +3,15 @@ use base64::{alphabet, engine::general_purpose::PAD, engine::GeneralPurpose, Eng
 use nu_engine::CallExt;
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
-use nu_protocol::util::BufferedReader;
-use nu_protocol::RawStream;
 use nu_protocol::{
     Category, Example, PipelineData, ShellError, Signature, Span, SyntaxShape, Type, Value,
 };
-use reqwest::{blocking::Response, StatusCode};
+use reqwest::StatusCode;
 use std::collections::HashMap;
-use std::io::BufReader;
 use std::path::PathBuf;
 use std::str::FromStr;
 
-use crate::network::http::client::http_client;
+use crate::network::http::client::{http_client, response_to_buffer};
 
 #[derive(Clone)]
 pub struct SubCommand;
@@ -407,29 +404,5 @@ fn helper(
             ),
             span,
         )),
-    }
-}
-
-fn response_to_buffer(
-    response: Response,
-    engine_state: &EngineState,
-    span: Span,
-) -> nu_protocol::PipelineData {
-    let buffered_input = BufReader::new(response);
-
-    PipelineData::ExternalStream {
-        stdout: Some(RawStream::new(
-            Box::new(BufferedReader {
-                input: buffered_input,
-            }),
-            engine_state.ctrlc.clone(),
-            span,
-            None,
-        )),
-        stderr: None,
-        exit_code: None,
-        span,
-        metadata: None,
-        trim_end_newline: false,
     }
 }
