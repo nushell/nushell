@@ -8,10 +8,10 @@ use nu_protocol::{
 use reqwest::StatusCode;
 use std::path::PathBuf;
 use std::str::FromStr;
-use std::time::Duration;
 
 use crate::network::http::client::{
-    http_client, request_add_authorization_header, request_add_custom_headers, response_to_buffer,
+    http_client, request_add_authorization_header, request_add_custom_headers, request_set_timeout,
+    response_to_buffer,
 };
 
 #[derive(Clone)]
@@ -244,19 +244,7 @@ fn helper(
         request = request.header("Content-Length", val);
     }
 
-    if let Some(timeout) = timeout {
-        let val = timeout.as_i64()?;
-        if val.is_negative() || val < 1 {
-            return Err(ShellError::TypeMismatch(
-                "Timeout value must be an integer and larger than 0".to_string(),
-                // timeout is already guaranteed to not be an error
-                timeout.expect_span(),
-            ));
-        }
-
-        request = request.timeout(Duration::from_secs(val as u64));
-    }
-
+    request = request_set_timeout(timeout, request)?;
     request = request_add_authorization_header(user, password, request);
     request = request_add_custom_headers(headers, request)?;
 

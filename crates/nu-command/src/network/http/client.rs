@@ -7,6 +7,7 @@ use reqwest::blocking;
 use reqwest::blocking::RequestBuilder;
 use std::collections::HashMap;
 use std::io::BufReader;
+use std::time::Duration;
 
 // Only panics if the user agent is invalid but we define it statically so either
 // it always or never fails
@@ -94,6 +95,26 @@ pub fn request_add_authorization_header(
     }
 
     request
+}
+
+pub fn request_set_timeout(
+    timeout: Option<Value>,
+    mut request: RequestBuilder,
+) -> Result<RequestBuilder, ShellError> {
+    if let Some(timeout) = timeout {
+        let val = timeout.as_i64()?;
+        if val.is_negative() || val < 1 {
+            return Err(ShellError::TypeMismatch(
+                "Timeout value must be an integer and larger than 0".to_string(),
+                // timeout is already guaranteed to not be an error
+                timeout.expect_span(),
+            ));
+        }
+
+        request = request.timeout(Duration::from_secs(val as u64));
+    }
+
+    Ok(request)
 }
 
 pub fn request_add_custom_headers(
