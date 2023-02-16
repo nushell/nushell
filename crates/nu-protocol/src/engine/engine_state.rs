@@ -1566,12 +1566,9 @@ impl<'a> StateWorkingSet<'a> {
 
     pub fn is_sudo(&self) -> bool {
         for (contents, _, _) in &self.delta.file_contents {
-            let last_pipe_pos = contents.iter().rev().position(|x| x == &(124 as u8));
+            let last_pipe_pos = contents.iter().rev().position(|x| x == &124_u8);
             let current_pipeline_pos = match last_pipe_pos {
-                Some(last_pipe_pos) => {
-                    let last_pipe_pos = contents.len() - last_pipe_pos;
-                    last_pipe_pos
-                }
+                Some(last_pipe_pos) => contents.len() - last_pipe_pos,
                 None => 0,
             };
 
