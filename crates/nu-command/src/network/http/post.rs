@@ -5,13 +5,10 @@ use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
     Category, Example, PipelineData, ShellError, Signature, SyntaxShape, Type, Value,
 };
-use reqwest::StatusCode;
-use std::path::PathBuf;
-use std::str::FromStr;
 
 use crate::network::http::client::{
-    http_client, request_add_authorization_header, request_add_custom_headers, request_set_timeout,
-    response_to_buffer,
+    http_client, request_add_authorization_header, request_add_custom_headers,
+    request_handle_response, request_set_timeout,
 };
 
 #[derive(Clone)]
@@ -248,107 +245,6 @@ fn helper(
     request = request_add_authorization_header(user, password, request);
     request = request_add_custom_headers(headers, request)?;
 
-    // Explicitly turn 4xx and 5xx statuses into errors.
-    match request.send().and_then(|r| r.error_for_status()) {
-        Ok(resp) => match resp.headers().get("content-type") {
-            Some(content_type) => {
-                let content_type = content_type.to_str().map_err(|e| {
-                    ShellError::GenericError(
-                        e.to_string(),
-                        "".to_string(),
-                        None,
-                        Some("MIME type were invalid".to_string()),
-                        Vec::new(),
-                    )
-                })?;
-                let content_type = mime::Mime::from_str(content_type).map_err(|_| {
-                    ShellError::GenericError(
-                        format!("MIME type unknown: {content_type}"),
-                        "".to_string(),
-                        None,
-                        Some("given unknown MIME type".to_string()),
-                        Vec::new(),
-                    )
-                })?;
-                let ext = match (content_type.type_(), content_type.subtype()) {
-                    (mime::TEXT, mime::PLAIN) => {
-                        let path_extension = url::Url::parse(&requested_url)
-                            .map_err(|_| {
-                                ShellError::GenericError(
-                                    format!("Cannot parse URL: {requested_url}"),
-                                    "".to_string(),
-                                    None,
-                                    Some("cannot parse".to_string()),
-                                    Vec::new(),
-                                )
-                            })?
-                            .path_segments()
-                            .and_then(|segments| segments.last())
-                            .and_then(|name| if name.is_empty() { None } else { Some(name) })
-                            .and_then(|name| {
-                                PathBuf::from(name)
-                                    .extension()
-                                    .map(|name| name.to_string_lossy().to_string())
-                            });
-                        path_extension
-                    }
-                    _ => Some(content_type.subtype().to_string()),
-                };
-                let output = response_to_buffer(resp, engine_state, span);
-
-                if raw {
-                    return Ok(output);
-                }
-                if let Some(ext) = ext {
-                    match engine_state.find_decl(format!("from {ext}").as_bytes(), &[]) {
-                        Some(converter_id) => engine_state.get_decl(converter_id).run(
-                            engine_state,
-                            stack,
-                            &Call::new(span),
-                            output,
-                        ),
-                        None => Ok(output),
-                    }
-                } else {
-                    Ok(output)
-                }
-            }
-            None => Ok(response_to_buffer(resp, engine_state, span)),
-        },
-        Err(e) if e.is_status() => match e.status() {
-            Some(err_code) if err_code == StatusCode::NOT_FOUND => Err(ShellError::NetworkFailure(
-                format!("Requested file not found (404): {requested_url:?}"),
-                span,
-            )),
-            Some(err_code) if err_code == StatusCode::MOVED_PERMANENTLY => {
-                Err(ShellError::NetworkFailure(
-                    format!("Resource moved permanently (301): {requested_url:?}"),
-                    span,
-                ))
-            }
-            Some(err_code) if err_code == StatusCode::BAD_REQUEST => Err(
-                ShellError::NetworkFailure(format!("Bad request (400) to {requested_url:?}"), span),
-            ),
-            Some(err_code) if err_code == StatusCode::FORBIDDEN => Err(ShellError::NetworkFailure(
-                format!("Access forbidden (403) to {requested_url:?}"),
-                span,
-            )),
-            _ => Err(ShellError::NetworkFailure(
-                format!(
-                    "Cannot make request to {:?}. Error is {:?}",
-                    requested_url,
-                    e.to_string()
-                ),
-                span,
-            )),
-        },
-        Err(e) => Err(ShellError::NetworkFailure(
-            format!(
-                "Cannot make request to {:?}. Error is {:?}",
-                requested_url,
-                e.to_string()
-            ),
-            span,
-        )),
-    }
+    let response = request.send().and_then(|r| r.error_for_status());
+    request_handle_response(engine_state, stack, span, &requested_url, raw, response)
 }

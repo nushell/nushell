@@ -1,12 +1,15 @@
 use base64::engine::general_purpose::PAD;
 use base64::engine::GeneralPurpose;
 use base64::{alphabet, Engine};
-use nu_protocol::engine::EngineState;
+use nu_protocol::ast::Call;
+use nu_protocol::engine::{EngineState, Stack};
 use nu_protocol::{BufferedReader, PipelineData, RawStream, ShellError, Span, Value};
-use reqwest::blocking;
-use reqwest::blocking::RequestBuilder;
+use reqwest::blocking::{RequestBuilder, Response};
+use reqwest::{blocking, Error, StatusCode};
 use std::collections::HashMap;
 use std::io::BufReader;
+use std::path::PathBuf;
+use std::str::FromStr;
 use std::time::Duration;
 
 // Only panics if the user agent is invalid but we define it statically so either
@@ -172,4 +175,123 @@ pub fn request_add_custom_headers(
     }
 
     Ok(request)
+}
+
+pub fn request_handle_response(
+    engine_state: &EngineState,
+    stack: &mut Stack,
+    span: Span,
+    requested_url: &String,
+    raw: bool,
+    response: Result<Response, Error>,
+) -> Result<PipelineData, ShellError> {
+    // Explicitly turn 4xx and 5xx statuses into errors.
+    match response {
+        Ok(resp) => match resp.headers().get("content-type") {
+            Some(content_type) => {
+                let content_type = content_type.to_str().map_err(|e| {
+                    ShellError::GenericError(
+                        e.to_string(),
+                        "".to_string(),
+                        None,
+                        Some("MIME type were invalid".to_string()),
+                        Vec::new(),
+                    )
+                })?;
+                let content_type = mime::Mime::from_str(content_type).map_err(|_| {
+                    ShellError::GenericError(
+                        format!("MIME type unknown: {content_type}"),
+                        "".to_string(),
+                        None,
+                        Some("given unknown MIME type".to_string()),
+                        Vec::new(),
+                    )
+                })?;
+                let ext = match (content_type.type_(), content_type.subtype()) {
+                    (mime::TEXT, mime::PLAIN) => {
+                        let path_extension = url::Url::parse(requested_url)
+                            .map_err(|_| {
+                                ShellError::GenericError(
+                                    format!("Cannot parse URL: {requested_url}"),
+                                    "".to_string(),
+                                    None,
+                                    Some("cannot parse".to_string()),
+                                    Vec::new(),
+                                )
+                            })?
+                            .path_segments()
+                            .and_then(|segments| segments.last())
+                            .and_then(|name| if name.is_empty() { None } else { Some(name) })
+                            .and_then(|name| {
+                                PathBuf::from(name)
+                                    .extension()
+                                    .map(|name| name.to_string_lossy().to_string())
+                            });
+                        path_extension
+                    }
+                    _ => Some(content_type.subtype().to_string()),
+                };
+
+                let output = response_to_buffer(resp, engine_state, span);
+
+                if raw {
+                    return Ok(output);
+                }
+
+                if let Some(ext) = ext {
+                    match engine_state.find_decl(format!("from {ext}").as_bytes(), &[]) {
+                        Some(converter_id) => engine_state.get_decl(converter_id).run(
+                            engine_state,
+                            stack,
+                            &Call::new(span),
+                            output,
+                        ),
+                        None => Ok(output),
+                    }
+                } else {
+                    Ok(output)
+                }
+            }
+            None => Ok(response_to_buffer(resp, engine_state, span)),
+        },
+        Err(e) if e.is_timeout() => Err(ShellError::NetworkFailure(
+            format!("Request to {requested_url} has timed out"),
+            span,
+        )),
+        Err(e) if e.is_status() => match e.status() {
+            Some(err_code) if err_code == StatusCode::NOT_FOUND => Err(ShellError::NetworkFailure(
+                format!("Requested file not found (404): {requested_url:?}"),
+                span,
+            )),
+            Some(err_code) if err_code == StatusCode::MOVED_PERMANENTLY => {
+                Err(ShellError::NetworkFailure(
+                    format!("Resource moved permanently (301): {requested_url:?}"),
+                    span,
+                ))
+            }
+            Some(err_code) if err_code == StatusCode::BAD_REQUEST => Err(
+                ShellError::NetworkFailure(format!("Bad request (400) to {requested_url:?}"), span),
+            ),
+            Some(err_code) if err_code == StatusCode::FORBIDDEN => Err(ShellError::NetworkFailure(
+                format!("Access forbidden (403) to {requested_url:?}"),
+                span,
+            )),
+            _ => Err(ShellError::NetworkFailure(
+                format!(
+                    "Cannot make request to {:?}. Error is {:?}",
+                    requested_url,
+                    e.to_string()
+                ),
+                span,
+            )),
+        },
+        Err(e) => Err(ShellError::NetworkFailure(
+            format!(
+                "Cannot make request to {:?}. Error is {:?}",
+                requested_url,
+                e.to_string()
+            ),
+            span,
+        )),
+    }
 }
