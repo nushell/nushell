@@ -158,11 +158,9 @@ fn multi_function_check_type() {
             def provideStr [r: record] {
                 "should_print_this"
             };
-            
             def needStr [str: string] {
                 echo $str;
             };
-            
             def run [r: record] {
                 needStr (provideStr $r)
             };
@@ -180,11 +178,9 @@ fn multi_function_check_type_more_than_one_parameter() {
             def provideStr [h1: number,h2: number] {
                 "not_number_type"
             };
-            
             def needStr [str: string] {
                 return $str  
             };
-            
             def run [h1: number,h2: number] {
                 needStr (provideStr $h1 $h2)
             };
@@ -203,15 +199,12 @@ fn multi_function_check_type_with_one_parameter() {
             def provideStr [def_name: record] {
                 "def_name_should_print"
             };
-            
             def needStr [def_name: string] {
                 echo $def_name
             };
-            
             def run [def_name: record] {
                 needStr (provideStr $def_name)
             };
-            
             run {a:b};
     "#
     ));
