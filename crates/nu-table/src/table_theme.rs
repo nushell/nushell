@@ -66,7 +66,25 @@ impl TableTheme {
                     Line::new(Some('❤'), Some('❤'), None, None),
                 )])
                 .into(),
-            full_theme: None,
+            full_theme: Some(
+                Style::empty()
+                    .top('❤')
+                    .bottom('❤')
+                    .vertical('❤')
+                    .horizontal('❤')
+                    .left('❤')
+                    .right('❤')
+                    .top_intersection('❤')
+                    .top_left_corner('❤')
+                    .top_right_corner('❤')
+                    .bottom_intersection('❤')
+                    .bottom_left_corner('❤')
+                    .bottom_right_corner('❤')
+                    .right_intersection('❤')
+                    .left_intersection('❤')
+                    .inner_intersection('❤')
+                    .into(),
+            ),
             has_inner: true,
         }
     }
@@ -81,7 +99,7 @@ impl TableTheme {
                     .left(None)
                     .right(None)])
                 .into(),
-            full_theme: Some(Style::modern().into()),
+            full_theme: Some(Style::extended().into()),
             has_inner: true,
         }
     }
@@ -110,7 +128,14 @@ impl TableTheme {
                 .bottom_right_corner('┛')
                 .off_horizontal()
                 .into(),
-            full_theme: Some(Style::modern().into()),
+            full_theme: Some(
+                Style::modern()
+                    .top_left_corner('┏')
+                    .top_right_corner('┓')
+                    .bottom_left_corner('┗')
+                    .bottom_right_corner('┛')
+                    .into(),
+            ),
             has_inner: true,
         }
     }
@@ -131,7 +156,25 @@ impl TableTheme {
                 .bottom_right_corner('┛')
                 .horizontals([HorizontalLine::new(1, Line::full('━', '╋', '┣', '┫'))])
                 .into(),
-            full_theme: Some(Style::modern().into()),
+            full_theme: Some(
+                Style::modern()
+                    .top('━')
+                    .bottom('━')
+                    .vertical('┃')
+                    .left('┃')
+                    .right('┃')
+                    .top_intersection('┳')
+                    .bottom_intersection('┻')
+                    .top_left_corner('┏')
+                    .top_right_corner('┓')
+                    .bottom_left_corner('┗')
+                    .bottom_right_corner('┛')
+                    .horizontal('━')
+                    .left_intersection('┣')
+                    .right_intersection('┫')
+                    .inner_intersection('╋')
+                    .into(),
+            ),
             has_inner: true,
         }
     }
