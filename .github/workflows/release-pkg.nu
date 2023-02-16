@@ -156,7 +156,7 @@ if $os in [$USE_UBUNTU, 'macos-latest'] {
         cd $src; hr-line
         # Wix need the binaries be stored in target/release/
         cp -r $'($dist)/*' target/release/
-        cargo install cargo-wix --version 0.3.3
+        cargo install cargo-wix --version 0.3.4
         cargo wix --no-build --nocapture --package nu --output $wixRelease
         print $'archive: ---> ($wixRelease)';
         echo $"archive=($wixRelease)" | save --append $env.GITHUB_OUTPUT

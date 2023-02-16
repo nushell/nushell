@@ -118,7 +118,7 @@ mod truncate_table {
 }
 
 mod util {
-    use crate::system::explain::debug_string_without_formatting;
+    use crate::debug::explain::debug_string_without_formatting;
     use nu_engine::get_columns;
     use nu_protocol::{ast::PathMember, Span, Value};
 

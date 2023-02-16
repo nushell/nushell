@@ -7,6 +7,9 @@ license = "MIT"
 name = "nu-term-grid"
 version = "0.75.1"
 
+[lib]
+bench = false
+
 [dependencies]
 unicode-width = "0.1.9"
 

@@ -10,6 +10,9 @@ version = "0.75.1"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
+[lib]
+bench = false
+
 [dependencies]
 nu-ansi-term = "0.46.0"
 nu-color-config = { path = "../nu-color-config", version = "0.75.1" }
@@ -43,14 +46,12 @@ csv = "1.1.6"
 dialoguer = { default-features = false, version = "0.10.3" }
 digest = { default-features = false, version = "0.10.0" }
 dtparse = "1.2.0"
-eml-parser = "0.1.0"
 encoding_rs = "0.8.30"
 fancy-regex = "0.11.0"
 filesize = "0.2.0"
 filetime = "0.2.15"
 fs_extra = "1.3.0"
 htmlescape = "0.3.1"
-ical = "0.8.0"
 indexmap = { version = "1.7", features = ["serde-1"] }
 indicatif = "0.17.2"
 is-root = "0.1.2"
@@ -72,9 +73,8 @@ rand = "0.8"
 rayon = "1.6.1"
 regex = "1.7.1"
 reqwest = { version = "0.11", features = ["blocking", "json"] }
-roxmltree = "0.17.0"
+roxmltree = "0.18.0"
 rust-embed = "6.3.0"
-rust-ini = "0.18.0"
 same-file = "1.0.6"
 serde = { version = "1.0.123", features = ["derive"] }
 serde_urlencoded = "0.7.0"
@@ -161,7 +161,7 @@ nu-test-support = { path = "../nu-test-support", version = "0.75.1" }
 
 dirs-next = "2.0.0"
 hamcrest2 = "0.3.0"
-proptest = "1.0.0"
+proptest = "1.1.0"
 quickcheck = "1.0.3"
 quickcheck_macros = "1.0.0"
-rstest = { version = "0.15.0", default-features = false }
+rstest = { version = "0.16.0", default-features = false }

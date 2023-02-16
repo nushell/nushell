@@ -9,6 +9,12 @@ version = "0.75.1"
 
 [lib]
 doctest = false
+bench = false
+
+[[bin]]
+name = "nu_plugin_query"
+bench = false
+
 
 [dependencies]
 nu-plugin = { path="../nu-plugin", version = "0.75.1" }

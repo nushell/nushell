@@ -31,7 +31,7 @@ impl Command for TimeIt {
                 (Type::Nothing, Type::Duration),
             ])
             .allow_variants_without_examples(true)
-            .category(Category::System)
+            .category(Category::Debug)
     }
 
     fn search_terms(&self) -> Vec<&str> {

@@ -7,6 +7,9 @@ license = "MIT"
 name = "nu-parser"
 version = "0.75.1"
 
+[lib]
+bench = false
+
 [dependencies]
 bytesize = "1.1.0"
 chrono = { default-features = false, features = ['std'], version = "0.4.23" }

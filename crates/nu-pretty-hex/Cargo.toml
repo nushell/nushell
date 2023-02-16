@@ -11,6 +11,7 @@ version = "0.75.1"
 doctest = false
 name = "nu_pretty_hex"
 path = "src/lib.rs"
+bench = false
 
 [dependencies]
 nu-ansi-term = "0.46.0"

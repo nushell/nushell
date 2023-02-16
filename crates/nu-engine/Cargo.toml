@@ -7,6 +7,9 @@ license = "MIT"
 name = "nu-engine"
 version = "0.75.1"
 
+[lib]
+bench = false
+
 [dependencies]
 nu-protocol = { path = "../nu-protocol", features = ["plugin"], version = "0.75.1"  }
 nu-path = { path = "../nu-path", version = "0.75.1"  }
