@@ -76,15 +76,7 @@ pub fn is_math_expression_like(
 
     let b = bytes[0];
 
-    if b == b'('
-        || b == b'{'
-        || b == b'['
-        || b == b'$'
-        || b == b'"'
-        || b == b'\''
-        || b == b'`'
-        || b == b'-'
-    {
+    if b == b'(' || b == b'{' || b == b'[' || b == b'$' || b == b'"' || b == b'\'' || b == b'-' {
         return true;
     }
 
