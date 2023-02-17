@@ -48,10 +48,10 @@ impl Command for SubCommand {
                 Some('l'),
             )
             .named(
-                "timeout",
+                "max-time",
                 SyntaxShape::Int,
                 "timeout period in seconds",
-                None,
+                Some('m'),
             )
             .named(
                 "headers",
