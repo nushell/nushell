@@ -1550,30 +1550,19 @@ impl<'a> StateWorkingSet<'a> {
     }
 
     fn find_non_whitespace_index(contents: &[u8], start: usize) -> usize {
-        let whitespace_chars: Vec<u8> = Vec::from([9, 10, 11, 12, 13, 32]);
-
-        let mut cur_pos = start;
-        while cur_pos < contents.len() {
-            if whitespace_chars.contains(&contents[cur_pos]) {
-                cur_pos += 1;
-            } else {
-                break;
-            }
-        }
-
-        cur_pos
+        contents[start..]
+            .iter()
+            .take_while(|x| x.is_ascii_whitespace())
+            .count()
+            + start
     }
 
     pub fn is_sudo(&self) -> bool {
         for (contents, _, _) in &self.delta.file_contents {
-            let last_pipe_pos = contents.iter().rev().position(|x| x == &124_u8);
-            let current_pipeline_pos = match last_pipe_pos {
-                Some(last_pipe_pos) => contents.len() - last_pipe_pos,
-                None => 0,
-            };
+            let last_pipe_pos_rev = contents.iter().rev().position(|x| x == &b'|');
+            let last_pipe_pos = last_pipe_pos_rev.map(|x| contents.len() - x).unwrap_or(0);
 
-            let cur_pos =
-                StateWorkingSet::find_non_whitespace_index(contents, current_pipeline_pos);
+            let cur_pos = StateWorkingSet::find_non_whitespace_index(contents, last_pipe_pos);
             if contents[cur_pos..].starts_with(b"sudo ") {
                 return true;
             }
@@ -2456,22 +2445,42 @@ mod engine_state_tests {
     #[test]
     fn test_find_non_whitespace_index() {
         let commands = vec![
-            ("    hello", 4, false),
-            ("    sudo ", 4, true),
-            ("sudo ", 0, true),
-            ("	hello", 1, false),
-            ("	sudo", 1, false),
-            ("	sudo ", 1, true),
-            (" 	sudo ", 2, true),
-            ("	 sudo ", 2, true),
-            ("	hello ", 1, false),
-            ("    hello | sudo ", 4, true),
-            ("    sudo|sudo", 4, false),
-            ("sudo | sudo ", 0, true),
-            ("	hello sud", 1, false),
-            ("	sudo | sud ", 1, false),
-            ("	sudo|sudo ", 1, true),
-            (" 	sudo | sudo ls | sudo ", 2, true),
+            ("    hello", 4),
+            ("sudo ", 0),
+            (" 	sudo ", 2),
+            ("	 sudo ", 2),
+            ("	hello ", 1),
+            ("	  hello ", 3),
+            ("    hello | sudo ", 4),
+            ("     sudo|sudo", 5),
+            ("sudo | sudo ", 0),
+            ("	hello sud", 1),
+        ];
+        for (idx, ele) in commands.iter().enumerate() {
+            let index = StateWorkingSet::find_non_whitespace_index(ele.0.as_bytes(), 0);
+            assert_eq!(index, ele.1, "Failed on index {}", idx);
+        }
+    }
+
+    #[test]
+    fn test_is_last_command_sudo() {
+        let commands = vec![
+            ("    hello", false),
+            ("    sudo ", true),
+            ("sudo ", true),
+            ("	hello", false),
+            ("	sudo", false),
+            ("	sudo ", true),
+            (" 	sudo ", true),
+            ("	 sudo ", true),
+            ("	hello ", false),
+            ("    hello | sudo ", true),
+            ("    sudo|sudo", false),
+            ("sudo | sudo ", true),
+            ("	hello sud", false),
+            ("	sudo | sud ", false),
+            ("	sudo|sudo ", true),
+            (" 	sudo | sudo ls | sudo ", true),
         ];
         for (idx, ele) in commands.iter().enumerate() {
             let mut engine_state = EngineState::new();
@@ -2481,10 +2490,8 @@ mod engine_state_tests {
             let input = ele.0.as_bytes();
             working_set.add_file("child.nu".into(), input);
 
-            let index = StateWorkingSet::find_non_whitespace_index(input, 0);
             let is_sudo = &working_set.is_sudo();
-            assert_eq!(index, ele.1);
-            assert_eq!(*is_sudo, ele.2, "index for '{}': {}", ele.0, idx);
+            assert_eq!(*is_sudo, ele.1, "index for '{}': {}", ele.0, idx);
         }
     }
 }
