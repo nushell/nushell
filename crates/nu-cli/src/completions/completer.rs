@@ -600,3 +600,60 @@ pub fn map_value_completions<'a>(
     })
     .collect()
 }
+
+#[cfg(test)]
+mod completer_tests {
+    use super::*;
+
+    #[test]
+    fn test_completion_helper() {
+        let mut engine_state = nu_command::create_default_context();
+
+        // Custom additions
+        let delta = {
+            let working_set = nu_protocol::engine::StateWorkingSet::new(&engine_state);
+            working_set.render()
+        };
+
+        if let Err(err) = engine_state.merge_delta(delta) {
+            assert!(false, "Error merging delta: {:?}", err);
+        }
+
+        let mut completer = NuCompleter::new(engine_state.into(), Stack::new());
+        let dataset = vec![
+            ("sudo", false, "", Vec::new()),
+            ("sudo l", true, "l", vec!["ls", "let", "lines", "loop"]),
+            (" sudo", false, "", Vec::new()),
+            (" sudo le", true, "le", vec!["let", "length"]),
+            (
+                "ls | c",
+                true,
+                "c",
+                vec!["cd", "config", "const", "cp", "cal"],
+            ),
+            ("ls | sudo m", true, "m", vec!["mv", "mut", "move"]),
+        ];
+        for (line, has_result, begins_with, expected_values) in dataset {
+            let result = completer.completion_helper(line, line.len());
+            // Test whether the result is empty or not
+            assert_eq!(result.len() > 0, has_result, "line: {}", line);
+
+            // Test whether the result begins with the expected value
+            result
+                .iter()
+                .for_each(|x| assert!(x.value.starts_with(begins_with)));
+
+            // Test whether the result contains all the expected values
+            assert_eq!(
+                result
+                    .iter()
+                    .map(|x| expected_values.contains(&x.value.as_str()))
+                    .filter(|x| *x == true)
+                    .count(),
+                expected_values.len(),
+                "line: {}",
+                line
+            );
+        }
+    }
+}
