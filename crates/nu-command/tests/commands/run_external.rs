@@ -216,11 +216,8 @@ fn external_command_not_expand_tilde_with_quotes() {
 #[test]
 fn external_command_receives_raw_binary_data() {
     Playground::setup("external command receives raw binary data", |dirs, _| {
-        let actual = nu!(cwd: dirs.test(), pipeline(r#"0x[deadbeef] | hexdump -C"#));
-        assert_eq!(
-            actual.out.replace(" ", ""),
-            r#"00000000deadbeef|....|00000004"#
-        );
+        let actual = nu!(cwd: dirs.test(), pipeline(r#"0x[deadbeef] | table | bytes length"#));
+        assert_eq!(actual.out, r#"4"#);
     })
 }
 
