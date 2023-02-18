@@ -17,7 +17,7 @@ pub(crate) fn get_editor(
     } else {
         Ok("nano".to_string())
     }?;
-    if let Some((a, b)) = editor.split_once(" ") {
+    if let Some((a, b)) = editor.split_once(' ') {
         Ok((
             a.to_string(),
             b.split(' ')
