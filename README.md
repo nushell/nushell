@@ -33,7 +33,7 @@ This project has reached a minimum-viable-product level of quality. Many people 
 
 ## Learning About Nu
 
-The [Nushell book](https://www.nushell.sh/book/) is the primary source of Nushell documentation. You can find [a full list of Nu commands in the book](https://www.nushell.sh/book/command_reference.html), and we have many examples of using Nu in our [cookbook](https://www.nushell.sh/cookbook/).
+The [Nushell book](https://www.nushell.sh/book/) is the primary source of Nushell documentation. You can find [a full list of Nu commands in the book](https://www.nushell.sh/commands/), and we have many examples of using Nu in our [cookbook](https://www.nushell.sh/cookbook/).
 
 We're also active on [Discord](https://discord.gg/NtAbbGn) and [Twitter](https://twitter.com/nu_shell); come and chat with us!
 
