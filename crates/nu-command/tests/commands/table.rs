@@ -1,6 +1,6 @@
 use nu_test_support::fs::Stub::FileWithContent;
 use nu_test_support::playground::Playground;
-use nu_test_support::{nu, pipeline};
+use nu_test_support::{nu, nu_repl_code, pipeline};
 
 #[test]
 fn table_0() {
@@ -21,7 +21,213 @@ fn table_collapse_0() {
     let actual = nu!(r#"[[a b, c]; [1 2 3] [4 5 [1 2 3]]] | table --collapse"#);
     assert_eq!(
         actual.out,
-        "╭───┬───┬───╮│ a │ b │ c │ ─── ─── ─── │ 1 │ 2 │ 3 │ ─── ─── ─── │ 4 │ 5 │ 1 ││   │    ─── │   │   │ 2 ││   │    ─── │   │   │ 3 │╰───┴───┴───╯"
+        "╭───┬───┬───╮\
+         │ a │ b │ c │\
+         ├───┼───┼───┤\
+         │ 1 │ 2 │ 3 │\
+         ├───┼───┼───┤\
+         │ 4 │ 5 │ 1 │\
+         │   │   ├───┤\
+         │   │   │ 2 │\
+         │   │   ├───┤\
+         │   │   │ 3 │\
+         ╰───┴───┴───╯"
+    );
+}
+
+#[test]
+fn table_collapse_basic() {
+    let actual = nu!(nu_repl_code(&[
+        "let-env config = { table_mode: basic };",
+        "[[a b, c]; [1 2 3] [4 5 [1 2 3]]] | table --collapse"
+    ]));
+    assert_eq!(
+        actual.out,
+        "+---+---+---+\
+         | a | b | c |\
+         +---+---+---+\
+         | 1 | 2 | 3 |\
+         +---+---+---+\
+         | 4 | 5 | 1 |\
+         |   |   +---+\
+         |   |   | 2 |\
+         |   |   +---+\
+         |   |   | 3 |\
+         +---+---+---+"
+    );
+}
+
+#[test]
+fn table_collapse_heavy() {
+    let actual = nu!(nu_repl_code(&[
+        "let-env config = { table_mode: heavy };",
+        "[[a b, c]; [1 2 3] [4 5 [1 2 3]]] | table --collapse"
+    ]));
+    assert_eq!(
+        actual.out,
+        "┏━━━┳━━━┳━━━┓\
+         ┃ a ┃ b ┃ c ┃\
+         ┣━━━╋━━━╋━━━┫\
+         ┃ 1 ┃ 2 ┃ 3 ┃\
+         ┣━━━╋━━━╋━━━┫\
+         ┃ 4 ┃ 5 ┃ 1 ┃\
+         ┃   ┃   ┣━━━┫\
+         ┃   ┃   ┃ 2 ┃\
+         ┃   ┃   ┣━━━┫\
+         ┃   ┃   ┃ 3 ┃\
+         ┗━━━┻━━━┻━━━┛"
+    );
+}
+
+#[test]
+fn table_collapse_compact() {
+    let actual = nu!(nu_repl_code(&[
+        "let-env config = { table_mode: compact };",
+        "[[a b, c]; [1 2 3] [4 5 [1 2 3]]] | table --collapse"
+    ]));
+    assert_eq!(
+        actual.out,
+        "┌───┬───┬───┐\
+         │ a │ b │ c │\
+         ├───┼───┼───┤\
+         │ 1 │ 2 │ 3 │\
+         ├───┼───┼───┤\
+         │ 4 │ 5 │ 1 │\
+         │   │   ├───┤\
+         │   │   │ 2 │\
+         │   │   ├───┤\
+         │   │   │ 3 │\
+         └───┴───┴───┘"
+    );
+}
+
+#[test]
+fn table_collapse_compact_double() {
+    let actual = nu!(nu_repl_code(&[
+        "let-env config = { table_mode: compact_double };",
+        "[[a b, c]; [1 2 3] [4 5 [1 2 3]]] | table --collapse"
+    ]));
+    assert_eq!(
+        actual.out,
+        "╔═══╦═══╦═══╗\
+         ║ a ║ b ║ c ║\
+         ╠═══╬═══╬═══╣\
+         ║ 1 ║ 2 ║ 3 ║\
+         ╠═══╬═══╬═══╣\
+         ║ 4 ║ 5 ║ 1 ║\
+         ║   ║   ╠═══╣\
+         ║   ║   ║ 2 ║\
+         ║   ║   ╠═══╣\
+         ║   ║   ║ 3 ║\
+         ╚═══╩═══╩═══╝"
+    );
+}
+
+#[test]
+fn table_collapse_compact_light() {
+    let actual = nu!(nu_repl_code(&[
+        "let-env config = { table_mode: light };",
+        "[[a b, c]; [1 2 3] [4 5 [1 2 3]]] | table --collapse"
+    ]));
+    assert_eq!(
+        actual.out,
+        "┌───┬───┬───┐\
+         │ a │ b │ c │\
+         ├───┼───┼───┤\
+         │ 1 │ 2 │ 3 │\
+         ├───┼───┼───┤\
+         │ 4 │ 5 │ 1 │\
+         │   │   ├───┤\
+         │   │   │ 2 │\
+         │   │   ├───┤\
+         │   │   │ 3 │\
+         └───┴───┴───┘"
+    );
+}
+
+#[test]
+fn table_collapse_none() {
+    let actual = nu!(nu_repl_code(&[
+        "let-env config = { table_mode: none };",
+        "[[a b, c]; [1 2 3] [4 5 [1 2 3]]] | table --collapse"
+    ]));
+    assert_eq!(
+        actual.out,
+        concat!(
+            " a   b   c ",
+            " 1   2   3 ",
+            " 4   5   1 ",
+            "         2 ",
+            "         3 ",
+        )
+    );
+}
+
+#[test]
+fn table_collapse_compact_reinforced() {
+    let actual = nu!(nu_repl_code(&[
+        "let-env config = { table_mode: reinforced };",
+        "[[a b, c]; [1 2 3] [4 5 [1 2 3]]] | table --collapse"
+    ]));
+    assert_eq!(
+        actual.out,
+        "┏───┬───┬───┓\
+         │ a │ b │ c │\
+         ├───┼───┼───┤\
+         │ 1 │ 2 │ 3 │\
+         ├───┼───┼───┤\
+         │ 4 │ 5 │ 1 │\
+         │   │   ├───┤\
+         │   │   │ 2 │\
+         │   │   ├───┤\
+         │   │   │ 3 │\
+         ┗───┴───┴───┛"
+    );
+}
+
+#[test]
+fn table_collapse_compact_thin() {
+    let actual = nu!(nu_repl_code(&[
+        "let-env config = { table_mode: thin };",
+        "[[a b, c]; [1 2 3] [4 5 [1 2 3]]] | table --collapse"
+    ]));
+    assert_eq!(
+        actual.out,
+        "┌───┬───┬───┐\
+         │ a │ b │ c │\
+         ├───┼───┼───┤\
+         │ 1 │ 2 │ 3 │\
+         ├───┼───┼───┤\
+         │ 4 │ 5 │ 1 │\
+         │   │   ├───┤\
+         │   │   │ 2 │\
+         │   │   ├───┤\
+         │   │   │ 3 │\
+         └───┴───┴───┘"
+    );
+}
+
+#[test]
+fn table_collapse_hearts() {
+    let actual = nu!(nu_repl_code(&[
+        "let-env config = { table_mode: with_love };",
+        "[[a b, c]; [1 2 3] [4 5 [1 2 3]]] | table --collapse"
+    ]));
+    assert_eq!(
+        actual.out,
+        concat!(
+            "❤❤❤❤❤❤❤❤❤❤❤❤❤",
+            "❤ a ❤ b ❤ c ❤",
+            "❤❤❤❤❤❤❤❤❤❤❤❤❤",
+            "❤ 1 ❤ 2 ❤ 3 ❤",
+            "❤❤❤❤❤❤❤❤❤❤❤❤❤",
+            "❤ 4 ❤ 5 ❤ 1 ❤",
+            "❤   ❤   ❤❤❤❤❤",
+            "❤   ❤   ❤ 2 ❤",
+            "❤   ❤   ❤❤❤❤❤",
+            "❤   ❤   ❤ 3 ❤",
+            "❤❤❤❤❤❤❤❤❤❤❤❤❤",
+        )
     );
 }
 

@@ -201,7 +201,7 @@ fn load_theme<R>(table: &mut tabled::Table<R>, style_computer: &StyleComputer, t
 where
     R: Records,
 {
-    let mut theme = theme.theme.clone();
+    let mut theme = theme.into_full().unwrap_or_else(|| theme.theme.clone());
     theme.set_horizontals(HashMap::default());
 
     table.with(theme);
