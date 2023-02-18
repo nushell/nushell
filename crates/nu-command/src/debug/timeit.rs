@@ -1,19 +1,18 @@
-use std::time::Instant;
-
 use nu_engine::{eval_block, CallExt};
-use nu_protocol::ast::Call;
-use nu_protocol::engine::{Closure, Command, EngineState, Stack};
 use nu_protocol::{
+    ast::Call,
+    engine::{Closure, Command, EngineState, Stack},
     Category, Example, IntoPipelineData, PipelineData, ShellError, Signature, SyntaxShape, Type,
     Value,
 };
+use std::time::Instant;
 
 #[derive(Clone)]
-pub struct Benchmark;
+pub struct TimeIt;
 
-impl Command for Benchmark {
+impl Command for TimeIt {
     fn name(&self) -> &str {
-        "benchmark"
+        "timeit"
     }
 
     fn usage(&self) -> &str {
@@ -21,7 +20,7 @@ impl Command for Benchmark {
     }
 
     fn signature(&self) -> nu_protocol::Signature {
-        Signature::build("benchmark")
+        Signature::build("timeit")
             .required(
                 "closure",
                 SyntaxShape::Closure(Some(vec![SyntaxShape::Any])),
@@ -32,7 +31,11 @@ impl Command for Benchmark {
                 (Type::Nothing, Type::Duration),
             ])
             .allow_variants_without_examples(true)
-            .category(Category::System)
+            .category(Category::Debug)
+    }
+
+    fn search_terms(&self) -> Vec<&str> {
+        vec!["timing", "timer", "benchmark", "measure"]
     }
 
     fn run(
@@ -88,13 +91,13 @@ impl Command for Benchmark {
     fn examples(&self) -> Vec<Example> {
         vec![
             Example {
-                description: "Benchmarks a command within a closure",
-                example: "benchmark { sleep 500ms }",
+                description: "Times a command within a closure",
+                example: "timeit { sleep 500ms }",
                 result: None,
             },
             Example {
-                description: "Benchmark a command using an existing input",
-                example: "fetch https://www.nushell.sh/book/ | benchmark { split chars }",
+                description: "Times a command using an existing input",
+                example: "http get https://www.nushell.sh/book/ | timeit { split chars }",
                 result: None,
             },
         ]
@@ -102,13 +105,13 @@ impl Command for Benchmark {
 }
 
 #[test]
-// Due to difficulty in observing side-effects from benchmark closures,
+// Due to difficulty in observing side-effects from time closures,
 // checks that the closures have run correctly must use the filesystem.
-fn test_benchmark_closure() {
+fn test_time_closure() {
     use nu_test_support::{nu, nu_repl_code, playground::Playground};
-    Playground::setup("test_benchmark_closure", |dirs, _| {
+    Playground::setup("test_time_closure", |dirs, _| {
         let inp = [
-            r#"[2 3 4] | benchmark { to nuon | save foo.txt }"#,
+            r#"[2 3 4] | timeit { to nuon | save foo.txt }"#,
             "open foo.txt",
         ];
         let actual_repl = nu!(cwd: dirs.test(), nu_repl_code(&inp));
@@ -118,11 +121,11 @@ fn test_benchmark_closure() {
 }
 
 #[test]
-fn test_benchmark_closure_2() {
+fn test_time_closure_2() {
     use nu_test_support::{nu, nu_repl_code, playground::Playground};
-    Playground::setup("test_benchmark_closure", |dirs, _| {
+    Playground::setup("test_time_closure", |dirs, _| {
         let inp = [
-            r#"[2 3 4] | benchmark {|e| {result: $e} | to nuon | save foo.txt }"#,
+            r#"[2 3 4] | timeit {|e| {result: $e} | to nuon | save foo.txt }"#,
             "open foo.txt",
         ];
         let actual_repl = nu!(cwd: dirs.test(), nu_repl_code(&inp));

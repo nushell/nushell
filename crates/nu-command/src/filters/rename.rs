@@ -107,7 +107,15 @@ fn rename(
         span: column_span,
     }) = call.get_flag(engine_state, stack, "column")?
     {
-        (Some(columns[0].span()?), column_span)
+        if columns.is_empty() {
+            return Err(ShellError::TypeMismatch(
+                    "The column list cannot be empty and must contain only two values: the column's name and its replacement value"
+                        .to_string(),
+                        column_span,
+                ));
+        } else {
+            (Some(columns[0].span()?), column_span)
+        }
     } else {
         (None, call.head)
     };
@@ -115,7 +123,7 @@ fn rename(
     if let Some(ref cols) = specified_column {
         if cols.len() != 2 {
             return Err(ShellError::TypeMismatch(
-                    "The list must contain only two values: the column's name and its replacement value"
+                    "The column list must contain only two values: the column's name and its replacement value"
                         .to_string(),
                         list_span,
                 ));

@@ -205,6 +205,7 @@ impl Value {
                     ));
                 }
             }),
+            Value::Date { val, .. } => Ok(val.to_rfc3339_opts(chrono::SecondsFormat::Millis, true)),
             x => Err(ShellError::CantConvert(
                 "string".into(),
                 x.get_type().to_string(),
@@ -2084,6 +2085,15 @@ impl Value {
                 rhs.insert(0, val.clone());
                 Ok(Value::List { vals: rhs, span })
             }
+            (Value::String { val: lhs, .. }, Value::String { val: rhs, .. }) => Ok(Value::String {
+                val: lhs.to_string() + rhs,
+                span,
+            }),
+            (Value::Binary { val: lhs, .. }, Value::Binary { val: rhs, .. }) => {
+                let mut val = lhs.clone();
+                val.extend(rhs);
+                Ok(Value::Binary { val, span })
+            }
             _ => Err(ShellError::OperatorMismatch {
                 op_span: op,
                 lhs_ty: self.get_type(),
@@ -2255,7 +2265,34 @@ impl Value {
             (Value::CustomValue { val: lhs, span }, rhs) => {
                 lhs.operation(*span, Operator::Math(Math::Multiply), op, rhs)
             }
-
+            (Value::Int { val: lhs, .. }, Value::String { val: rhs, .. }) => {
+                let mut res = String::new();
+                for _ in 0..*lhs {
+                    res.push_str(rhs)
+                }
+                Ok(Value::String { val: res, span })
+            }
+            (Value::String { val: lhs, .. }, Value::Int { val: rhs, .. }) => {
+                let mut res = String::new();
+                for _ in 0..*rhs {
+                    res.push_str(lhs)
+                }
+                Ok(Value::String { val: res, span })
+            }
+            (Value::Int { val: lhs, .. }, Value::List { vals: rhs, .. }) => {
+                let mut res = vec![];
+                for _ in 0..*lhs {
+                    res.append(&mut rhs.clone())
+                }
+                Ok(Value::List { vals: res, span })
+            }
+            (Value::List { vals: lhs, .. }, Value::Int { val: rhs, .. }) => {
+                let mut res = vec![];
+                for _ in 0..*rhs {
+                    res.append(&mut lhs.clone())
+                }
+                Ok(Value::List { vals: res, span })
+            }
             _ => Err(ShellError::OperatorMismatch {
                 op_span: op,
                 lhs_ty: self.get_type(),

@@ -7,6 +7,13 @@ license = "MIT"
 name = "nu_plugin_example"
 version = "0.75.1"
 
+[[bin]]
+name = "nu_plugin_example"
+bench = false
+
+[lib]
+bench = false
+
 [dependencies]
 nu-plugin = { path="../nu-plugin", version = "0.75.1" }
 nu-protocol = { path="../nu-protocol", version = "0.75.1", features = ["plugin"]}

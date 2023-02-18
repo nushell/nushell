@@ -11,6 +11,10 @@ version = "0.75.1"
 [[bin]]
 name = "utils"
 path = "src/main.rs"
+bench = false
+
+[lib]
+bench = false
 
 [dependencies]
 log = "0.4"

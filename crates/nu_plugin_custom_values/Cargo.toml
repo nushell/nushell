@@ -5,6 +5,9 @@ version = "0.1.0"
 edition = "2021"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+[[bin]]
+name = "nu_plugin_custom_values"
+bench = false
 
 [dependencies]
 nu-plugin = { path = "../nu-plugin", version = "0.75.1" }

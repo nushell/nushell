@@ -442,6 +442,10 @@ pub enum ParseError {
     )]
     NotAConstant(#[label = "Value is not a parse-time constant"] Span),
 
+    #[error("Invalid literal")] // <problem> in <entity>.
+    #[diagnostic()]
+    InvalidLiteral(String, String, #[label("{0} in {1}")] Span),
+
     #[error("{0}")]
     #[diagnostic()]
     LabeledError(String, String, #[label("{1}")] Span),
@@ -520,6 +524,7 @@ impl ParseError {
             ParseError::ShellErrRedirect(s) => *s,
             ParseError::ShellOutErrRedirect(s) => *s,
             ParseError::UnknownOperator(_, _, s) => *s,
+            ParseError::InvalidLiteral(_, _, s) => *s,
             ParseError::NotAConstant(s) => *s,
         }
     }

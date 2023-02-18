@@ -7,6 +7,44 @@ use crate::{ShellError, Span, Value, VarId};
 /// Environment variables per overlay
 pub type EnvVars = HashMap<String, HashMap<String, Value>>;
 
+#[derive(Debug, Clone)]
+pub struct ProfilingConfig {
+    pub max_depth: i64,
+    pub depth: i64,
+    pub collect_source: bool,
+    pub collect_values: bool,
+}
+
+impl ProfilingConfig {
+    pub fn new(max_depth: i64, collect_source: bool, collect_values: bool) -> Self {
+        ProfilingConfig {
+            max_depth,
+            depth: 0,
+            collect_source,
+            collect_values,
+        }
+    }
+
+    pub fn enter_block(&mut self) {
+        self.depth += 1;
+    }
+
+    pub fn leave_block(&mut self) {
+        self.depth -= 1;
+    }
+
+    pub fn should_debug(&self) -> bool {
+        self.depth <= self.max_depth
+    }
+
+    pub fn reset(&mut self) {
+        self.max_depth = 0;
+        self.depth = 0;
+        self.collect_source = false;
+        self.collect_values = false;
+    }
+}
+
 /// A runtime value stack used during evaluation
 ///
 /// A note on implementation:
@@ -35,6 +73,7 @@ pub struct Stack {
     /// List of active overlays
     pub active_overlays: Vec<String>,
     pub recursion_count: Box<u64>,
+    pub profiling_config: ProfilingConfig,
 }
 
 impl Stack {
@@ -45,6 +84,7 @@ impl Stack {
             env_hidden: HashMap::new(),
             active_overlays: vec![DEFAULT_OVERLAY_NAME.to_string()],
             recursion_count: Box::new(0),
+            profiling_config: ProfilingConfig::new(0, false, false),
         }
     }
 
@@ -123,9 +163,10 @@ impl Stack {
         Stack {
             vars: captures.clone(),
             env_vars,
-            env_hidden: HashMap::new(),
+            env_hidden: self.env_hidden.clone(),
             active_overlays: self.active_overlays.clone(),
             recursion_count: self.recursion_count.to_owned(),
+            profiling_config: self.profiling_config.clone(),
         }
     }
 
@@ -148,9 +189,10 @@ impl Stack {
         Stack {
             vars,
             env_vars,
-            env_hidden: HashMap::new(),
+            env_hidden: self.env_hidden.clone(),
             active_overlays: self.active_overlays.clone(),
             recursion_count: self.recursion_count.to_owned(),
+            profiling_config: self.profiling_config.clone(),
         }
     }
 
@@ -306,12 +348,12 @@ impl Stack {
         false
     }
 
-    pub fn remove_env_var(&mut self, engine_state: &EngineState, name: &str) -> Option<Value> {
+    pub fn remove_env_var(&mut self, engine_state: &EngineState, name: &str) -> bool {
         for scope in self.env_vars.iter_mut().rev() {
             for active_overlay in self.active_overlays.iter().rev() {
                 if let Some(env_vars) = scope.get_mut(active_overlay) {
-                    if let Some(v) = env_vars.remove(name) {
-                        return Some(v);
+                    if env_vars.remove(name).is_some() {
+                        return true;
                     }
                 }
             }
@@ -319,7 +361,7 @@ impl Stack {
 
         for active_overlay in self.active_overlays.iter().rev() {
             if let Some(env_vars) = engine_state.env_vars.get(active_overlay) {
-                if let Some(val) = env_vars.get(name) {
+                if env_vars.get(name).is_some() {
                     if let Some(env_hidden) = self.env_hidden.get_mut(active_overlay) {
                         env_hidden.insert(name.into());
                     } else {
@@ -327,12 +369,12 @@ impl Stack {
                             .insert(active_overlay.into(), HashSet::from([name.into()]));
                     }
 
-                    return Some(val.clone());
+                    return true;
                 }
             }
         }
 
-        None
+        false
     }
 
     pub fn has_env_overlay(&self, name: &str, engine_state: &EngineState) -> bool {

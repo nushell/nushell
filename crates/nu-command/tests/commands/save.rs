@@ -141,7 +141,7 @@ fn save_string_and_stream_as_raw() {
         nu!(
             cwd: dirs.root(),
             r#"
-            `<!DOCTYPE html><html><body><a href='http://example.org/'>Example</a></body></html>` | save save_test_7/temp.html
+            "<!DOCTYPE html><html><body><a href='http://example.org/'>Example</a></body></html>" | save save_test_7/temp.html
             "#,
         );
         let actual = file_contents(expected_file);

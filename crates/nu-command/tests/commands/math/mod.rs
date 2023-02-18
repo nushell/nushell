@@ -473,6 +473,8 @@ fn compound_where_paren() {
     assert_eq!(actual.out, r#"[{"a": 2,"b": 1},{"a": 2,"b": 2}]"#);
 }
 
+// TODO: these ++ tests are not really testing *math* functionality, maybe find another place for them
+
 #[test]
 fn adding_lists() {
     let actual = nu!(
@@ -518,4 +520,54 @@ fn adding_tables() {
         "#
     ));
     assert_eq!(actual.out, "[{a: 1, b: 2}, {c: 10, d: 11}]");
+}
+
+#[test]
+fn append_strings() {
+    let actual = nu!(
+        cwd: "tests/fixtures/formats", pipeline(
+        r#"
+            "foo" ++ "bar"
+        "#
+    ));
+    assert_eq!(actual.out, "foobar");
+}
+
+#[test]
+fn append_binary_values() {
+    let actual = nu!(
+        cwd: "tests/fixtures/formats", pipeline(
+        r#"
+            0x[01 02] ++ 0x[03 04] | to nuon
+        "#
+    ));
+    assert_eq!(actual.out, "0x[01020304]");
+}
+
+#[test]
+fn int_multiple_string() {
+    let actual = nu!(
+        cwd: "tests/fixtures/formats", pipeline(
+        r#"3 * "ab""#
+    ));
+    assert_eq!(actual.out, "ababab");
+    let actual = nu!(
+        cwd: "tests/fixtures/formats", pipeline(
+        r#""ab" * 3"#
+    ));
+    assert_eq!(actual.out, "ababab");
+}
+
+#[test]
+fn int_multiple_list() {
+    let actual = nu!(
+        cwd: "tests/fixtures/formats", pipeline(
+        r#"3 * [1 2] | to nuon"#
+    ));
+    assert_eq!(actual.out, "[1, 2, 1, 2, 1, 2]");
+    let actual = nu!(
+        cwd: "tests/fixtures/formats", pipeline(
+        r#"[1 2] * 3 | to nuon"#
+    ));
+    assert_eq!(actual.out, "[1, 2, 1, 2, 1, 2]");
 }
