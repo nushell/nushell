@@ -60,20 +60,31 @@ impl Command for ConfigNu {
         let mut nu_config = config_path.clone();
         nu_config.push("config.nu");
 
+        let (item, config_args) = get_editor(engine_state, stack)?;
+
         let name = Spanned {
-            item: get_editor(engine_state, stack)?,
+            item,
             span: call.head,
         };
 
-        let args = vec![Spanned {
+        let mut args = vec![Spanned {
             item: nu_config.to_string_lossy().to_string(),
             span: Span::unknown(),
         }];
 
+        let number_of_args = config_args.len() + 1;
+
+        for arg in config_args {
+            args.push(Spanned {
+                item: arg,
+                span: Span::unknown(),
+            })
+        }
+
         let command = ExternalCommand {
             name,
             args,
-            arg_keep_raw: vec![false],
+            arg_keep_raw: vec![false; number_of_args],
             redirect_stdout: false,
             redirect_stderr: false,
             env_vars: env_vars_str,
