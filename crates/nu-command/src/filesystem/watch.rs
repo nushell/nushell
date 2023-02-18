@@ -13,7 +13,6 @@ use nu_protocol::{
 
 // durations chosen mostly arbitrarily
 const CHECK_CTRL_C_FREQUENCY: Duration = Duration::from_millis(100);
-const DEFAULT_WATCH_DEBOUNCE_DURATION: Duration = Duration::from_millis(100);
 
 #[derive(Clone)]
 pub struct Watch;
@@ -231,7 +230,7 @@ impl Command for Watch {
             },
             Example {
                 description: "Watch all changes in the current directory",
-                example: r#"watch . { |op, path, new_path| $"($op) ($path) ($new_path)"}"#,
+                example: r#"watch . { |op, path| $"($op) ($path)"}"#,
                 result: None,
             },
             Example {
