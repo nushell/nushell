@@ -20,8 +20,8 @@ use nu_protocol::{
 
 use crate::parse_keywords::{
     parse_alias, parse_def, parse_def_predecl, parse_export_in_block, parse_extern, parse_for,
-    parse_hide, parse_let_or_const, parse_module, parse_overlay, parse_source, parse_use,
-    parse_where, parse_where_expr,
+    parse_hide, parse_let_or_const, parse_module, parse_new_alias, parse_overlay, parse_source,
+    parse_use, parse_where, parse_where_expr,
 };
 
 use itertools::Itertools;
@@ -5138,6 +5138,20 @@ pub fn parse_expression(
                     spans[0],
                 )),
             ),
+            b"new-alias" => (
+                parse_call(
+                    working_set,
+                    &spans[pos..],
+                    spans[0],
+                    expand_aliases_denylist,
+                    is_subexpression,
+                )
+                .0,
+                Some(ParseError::BuiltinCommandInPipeline(
+                    "new-alias".into(),
+                    spans[0],
+                )),
+            ),
             b"module" => (
                 parse_call(
                     working_set,
@@ -5356,6 +5370,7 @@ pub fn parse_builtin_commands(
             (Pipeline::from_vec(vec![expr]), err)
         }
         b"alias" => parse_alias(working_set, lite_command, None, expand_aliases_denylist),
+        b"new-alias" => parse_new_alias(working_set, lite_command, None, expand_aliases_denylist),
         b"module" => parse_module(working_set, lite_command, expand_aliases_denylist),
         b"use" => {
             let (pipeline, _, err) =
