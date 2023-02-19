@@ -388,11 +388,13 @@ fn build_collapsed_table(
     config: &Config,
     term_width: usize,
 ) -> Result<Option<String>, ShellError> {
-    let value = Value::Record {
+    let mut value = Value::Record {
         cols,
         vals,
         span: Span::new(0, 0),
     };
+
+    colorize_value(&mut value, config, style_computer);
 
     let theme = load_theme_from_config(config);
     let table = nu_table::NuTable::new(
@@ -1605,10 +1607,12 @@ impl PagingTableCreator {
         let term_width = get_width_param(self.width_param);
         let need_footer = matches!(config.footer_mode, FooterMode::RowCount(limit) if batch.len() as u64 > limit)
             || matches!(config.footer_mode, FooterMode::Always);
-        let value = Value::List {
+        let mut value = Value::List {
             vals: batch,
             span: Span::new(0, 0),
         };
+
+        colorize_value(&mut value, config, &style_computer);
 
         let table = nu_table::NuTable::new(
             value,
@@ -1847,4 +1851,26 @@ fn with_footer(config: &Config, with_header: bool, count_records: usize) -> bool
 fn need_footer(config: &Config, count_records: u64) -> bool {
     matches!(config.footer_mode, FooterMode::RowCount(limit) if count_records > limit)
         || matches!(config.footer_mode, FooterMode::Always)
+}
+
+fn colorize_value(value: &mut Value, config: &Config, style_computer: &StyleComputer) {
+    match value {
+        Value::Record { vals, .. } => {
+            for val in vals {
+                colorize_value(val, config, style_computer);
+            }
+        }
+        Value::List { vals, .. } => {
+            for val in vals {
+                colorize_value(val, config, style_computer);
+            }
+        }
+        val => {
+            let (text, style) = value_to_styled_string(val, config, style_computer);
+            if let Some(color) = style.color_style {
+                let text = color.paint(text);
+                *val = Value::string(text.to_string(), val.span().unwrap_or(Span::unknown()));
+            }
+        }
+    }
 }
