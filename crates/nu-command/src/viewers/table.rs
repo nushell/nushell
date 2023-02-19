@@ -1002,10 +1002,7 @@ fn convert_to_table2<'a>(
 
     if with_index {
         if with_header {
-            data[0].push(NuTable::create_cell(
-                "#",
-                header_style(style_computer, String::from("#")),
-            ));
+            data[0].push(NuTable::create_cell("#", header_style(style_computer, "#")));
         }
 
         let mut last_index = 0;
@@ -1147,8 +1144,7 @@ fn convert_to_table2<'a>(
             }
         }
 
-        let head_cell =
-            NuTable::create_cell(header.clone(), header_style(style_computer, header.clone()));
+        let head_cell = NuTable::create_cell(header.clone(), header_style(style_computer, &header));
         data[0].push(head_cell);
 
         for (row, item) in input.clone().enumerate() {
@@ -1270,8 +1266,8 @@ fn lookup_index_value(item: &Value, config: &Config) -> Option<String> {
         .map(|value| value.into_string("", config))
 }
 
-fn header_style(style_computer: &StyleComputer, header: String) -> TextStyle {
-    let style = style_computer.compute("header", &Value::string(header.as_str(), Span::unknown()));
+fn header_style(style_computer: &StyleComputer, header: &str) -> TextStyle {
+    let style = style_computer.compute("header", &Value::string(header, Span::unknown()));
     TextStyle {
         alignment: Alignment::Center,
         color_style: Some(style),
@@ -1855,9 +1851,16 @@ fn need_footer(config: &Config, count_records: u64) -> bool {
 
 fn colorize_value(value: &mut Value, config: &Config, style_computer: &StyleComputer) {
     match value {
-        Value::Record { vals, .. } => {
+        Value::Record { cols, vals, .. } => {
             for val in vals {
                 colorize_value(val, config, style_computer);
+            }
+
+            let style = header_style(style_computer, "");
+            if let Some(color) = style.color_style {
+                for header in cols {
+                    *header = color.paint(header.to_owned()).to_string();
+                }
             }
         }
         Value::List { vals, .. } => {
