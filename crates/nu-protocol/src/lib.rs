@@ -1,3 +1,4 @@
+mod alias;
 pub mod ast;
 mod cli_error;
 pub mod config;
@@ -19,6 +20,7 @@ pub mod util;
 mod value;
 mod variable;
 
+pub use alias::*;
 pub use cli_error::*;
 pub use config::*;
 pub use engine::{ENV_VARIABLE_ID, IN_VARIABLE_ID, NU_VARIABLE_ID};

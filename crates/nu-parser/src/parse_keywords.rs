@@ -6,7 +6,7 @@ use nu_protocol::{
         ImportPatternMember, PathMember, Pipeline, PipelineElement,
     },
     engine::{StateWorkingSet, DEFAULT_OVERLAY_NAME},
-    span, BlockId, Exportable, Module, PositionalArg, Span, Spanned, SyntaxShape, Type,
+    span, Alias, BlockId, Exportable, Module, PositionalArg, Span, Spanned, SyntaxShape, Type,
 };
 use std::collections::HashSet;
 use std::path::{Path, PathBuf};
@@ -21,7 +21,7 @@ use crate::{
     lex,
     lite_parser::{lite_parse, LiteCommand, LiteElement},
     parser::{
-        check_call, check_name, garbage, garbage_pipeline, parse, parse_import_pattern,
+        check_call, check_name, garbage, garbage_pipeline, parse, parse_call, parse_import_pattern,
         parse_internal_call, parse_multispan_value, parse_signature, parse_string, parse_value,
         parse_var_with_opt_type, trim_quotes, ParsedInternalCall,
     },
@@ -101,6 +101,34 @@ pub fn parse_def_predecl(
                 name,
                 usage: "run external command".into(),
                 signature,
+            };
+
+            if working_set.add_predecl(Box::new(decl)).is_some() {
+                return Some(ParseError::DuplicateCommandDef(spans[1]));
+            }
+        }
+    } else if name == b"new-alias" && spans.len() >= 4 {
+        let (name_expr, ..) = parse_string(working_set, spans[1], expand_aliases_denylist);
+        let name = name_expr.as_string();
+
+        if let Some(name) = name {
+            if name.contains('#')
+                || name.contains('^')
+                || name.parse::<bytesize::ByteSize>().is_ok()
+                || name.parse::<f64>().is_ok()
+            {
+                return Some(ParseError::CommandDefNotValid(spans[1]));
+            }
+
+            // The signature will get replaced by the replacement signature
+            // let mut signature = Signature::new(name.clone());
+            // signature.name = name;
+
+            // The fields get replaced during parsing
+            let decl = Alias {
+                name,
+                command: None,
+                wrapped_call: Expression::garbage(name_expr.span),
             };
 
             if working_set.add_predecl(Box::new(decl)).is_some() {
@@ -595,6 +623,197 @@ pub fn parse_extern(
     )
 }
 
+pub fn parse_new_alias(
+    working_set: &mut StateWorkingSet,
+    lite_command: &LiteCommand,
+    module_name: Option<&[u8]>,
+    expand_aliases_denylist: &[usize],
+) -> (Pipeline, Option<ParseError>) {
+    let spans = &lite_command.parts;
+
+    let (name_span, split_id) =
+        if spans.len() > 1 && working_set.get_span_contents(spans[0]) == b"export" {
+            (spans[1], 2)
+        } else {
+            (spans[0], 1)
+        };
+
+    let name = working_set.get_span_contents(name_span);
+
+    if name != b"new-alias" {
+        return (
+            garbage_pipeline(spans),
+            Some(ParseError::InternalError(
+                "Alias statement unparsable".into(),
+                span(spans),
+            )),
+        );
+    }
+
+    if let Some((span, err)) = check_name(working_set, spans) {
+        return (Pipeline::from_vec(vec![garbage(*span)]), Some(err));
+    }
+
+    if let Some(decl_id) = working_set.find_decl(b"new-alias", &Type::Any) {
+        let (command_spans, rest_spans) = spans.split_at(split_id);
+
+        let ParsedInternalCall { call, output, .. } = parse_internal_call(
+            working_set,
+            span(command_spans),
+            rest_spans,
+            decl_id,
+            expand_aliases_denylist,
+        );
+
+        if call.has_flag("help") {
+            return (
+                Pipeline::from_vec(vec![Expression {
+                    expr: Expr::Call(call),
+                    span: span(spans),
+                    ty: output,
+                    custom_completion: None,
+                }]),
+                None,
+            );
+        }
+
+        if spans.len() >= split_id + 3 {
+            let alias_name = working_set.get_span_contents(spans[split_id]);
+
+            let alias_name = if alias_name.starts_with(b"\"")
+                && alias_name.ends_with(b"\"")
+                && alias_name.len() > 1
+            {
+                alias_name[1..(alias_name.len() - 1)].to_vec()
+            } else {
+                alias_name.to_vec()
+            };
+
+            if let Some(mod_name) = module_name {
+                if alias_name == mod_name {
+                    return (
+                        Pipeline::from_vec(vec![Expression {
+                            expr: Expr::Call(call),
+                            span: span(spans),
+                            ty: output,
+                            custom_completion: None,
+                        }]),
+                        Some(ParseError::NamedAsModule(
+                            "alias".to_string(),
+                            String::from_utf8_lossy(&alias_name).to_string(),
+                            spans[split_id],
+                        )),
+                    );
+                }
+
+                if &alias_name == b"main" {
+                    return (
+                        Pipeline::from_vec(vec![Expression {
+                            expr: Expr::Call(call),
+                            span: span(spans),
+                            ty: output,
+                            custom_completion: None,
+                        }]),
+                        Some(ParseError::ExportMainAliasNotAllowed(spans[split_id])),
+                    );
+                }
+            }
+
+            let _equals = working_set.get_span_contents(spans[split_id + 1]);
+
+            let replacement_spans = &spans[(split_id + 2)..];
+
+            let (expr, err) = parse_call(
+                working_set,
+                replacement_spans,
+                replacement_spans[0],
+                expand_aliases_denylist,
+                false, // TODO: Should this be set properly???
+            );
+
+            if let Some(e) = err {
+                return (garbage_pipeline(replacement_spans), Some(e));
+            }
+
+            let (command, wrapped_call) = match expr {
+                Expression {
+                    expr: Expr::Call(ref call),
+                    ..
+                } => (Some(working_set.get_decl(call.decl_id).clone_box()), expr),
+                Expression {
+                    expr: Expr::ExternalCall(..),
+                    ..
+                } => (None, expr),
+                _ => {
+                    return (
+                        Pipeline::from_vec(vec![Expression {
+                            expr: Expr::Call(call),
+                            span: span(spans),
+                            ty: output,
+                            custom_completion: None,
+                        }]),
+                        Some(ParseError::InternalError(
+                            "Parsed call not a call".into(),
+                            expr.span,
+                        )),
+                    )
+                }
+            };
+
+            if let Some(decl_id) = working_set.find_predecl(&alias_name) {
+                let alias_decl = working_set.get_decl_mut(decl_id);
+
+                let alias = Alias {
+                    name: String::from_utf8_lossy(&alias_name).to_string(),
+                    command,
+                    wrapped_call,
+                };
+
+                *alias_decl = Box::new(alias);
+            } else {
+                return (
+                    garbage_pipeline(spans),
+                    Some(ParseError::InternalError(
+                        "Predeclaration failed to add declaration".into(),
+                        spans[split_id],
+                    )),
+                );
+            }
+
+            // It's OK if it returns None: The decl was already merged in previous parse pass.
+            working_set.merge_predecl(&alias_name);
+        }
+
+        let err = if spans.len() < 4 {
+            Some(ParseError::IncorrectValue(
+                "Incomplete alias".into(),
+                span(&spans[..split_id]),
+                "incomplete alias".into(),
+            ))
+        } else {
+            None
+        };
+
+        return (
+            Pipeline::from_vec(vec![Expression {
+                expr: Expr::Call(call),
+                span: span(spans),
+                ty: Type::Any,
+                custom_completion: None,
+            }]),
+            err,
+        );
+    }
+
+    (
+        garbage_pipeline(spans),
+        Some(ParseError::InternalError(
+            "Alias statement unparsable".into(),
+            span(spans),
+        )),
+    )
+}
+
 pub fn parse_alias(
     working_set: &mut StateWorkingSet,
     lite_command: &LiteCommand,
@@ -789,7 +1008,9 @@ pub fn parse_export_in_block(
     let full_name = if lite_command.parts.len() > 1 {
         let sub = working_set.get_span_contents(lite_command.parts[1]);
         match sub {
-            b"alias" | b"def" | b"def-env" | b"extern" | b"use" => [b"export ", sub].concat(),
+            b"alias" | b"new-alias" | b"def" | b"def-env" | b"extern" | b"use" => {
+                [b"export ", sub].concat()
+            }
             _ => b"export".to_vec(),
         }
     } else {
@@ -858,6 +1079,9 @@ pub fn parse_export_in_block(
 
     match full_name.as_slice() {
         b"export alias" => parse_alias(working_set, lite_command, None, expand_aliases_denylist),
+        b"export new-alias" => {
+            parse_new_alias(working_set, lite_command, None, expand_aliases_denylist)
+        }
         b"export def" | b"export def-env" => {
             parse_def(working_set, lite_command, None, expand_aliases_denylist)
         }
@@ -1227,6 +1451,79 @@ pub fn parse_export_in_module(
 
                 result
             }
+            b"new-alias" => {
+                let lite_command = LiteCommand {
+                    comments: lite_command.comments.clone(),
+                    parts: spans[1..].to_vec(),
+                };
+                let (pipeline, err) = parse_new_alias(
+                    working_set,
+                    &lite_command,
+                    Some(module_name),
+                    expand_aliases_denylist,
+                );
+                error = error.or(err);
+
+                let export_alias_decl_id =
+                    if let Some(id) = working_set.find_decl(b"export new-alias", &Type::Any) {
+                        id
+                    } else {
+                        return (
+                            garbage_pipeline(spans),
+                            vec![],
+                            Some(ParseError::InternalError(
+                                "missing 'export new-alias' command".into(),
+                                export_span,
+                            )),
+                        );
+                    };
+
+                // Trying to warp the 'new-alias' call into the 'export new-alias' in a very clumsy way
+                if let Some(PipelineElement::Expression(
+                    _,
+                    Expression {
+                        expr: Expr::Call(ref alias_call),
+                        ..
+                    },
+                )) = pipeline.elements.get(0)
+                {
+                    call = alias_call.clone();
+
+                    call.head = span(&spans[0..=1]);
+                    call.decl_id = export_alias_decl_id;
+                } else {
+                    error = error.or_else(|| {
+                        Some(ParseError::InternalError(
+                            "unexpected output from parsing a definition".into(),
+                            span(&spans[1..]),
+                        ))
+                    });
+                };
+
+                let mut result = vec![];
+
+                let alias_name = match spans.get(2) {
+                    Some(span) => working_set.get_span_contents(*span),
+                    None => &[],
+                };
+                let alias_name = trim_quotes(alias_name);
+
+                if let Some(alias_id) = working_set.find_decl(alias_name, &Type::Any) {
+                    result.push(Exportable::Decl {
+                        name: alias_name.to_vec(),
+                        id: alias_id,
+                    });
+                } else {
+                    error = error.or_else(|| {
+                        Some(ParseError::InternalError(
+                            "failed to find added alias".into(),
+                            span(&spans[1..]),
+                        ))
+                    });
+                }
+
+                result
+            }
             b"use" => {
                 let lite_command = LiteCommand {
                     comments: lite_command.comments.clone(),
@@ -1509,6 +1806,16 @@ pub fn parse_module_block(
                             }
                             b"alias" => {
                                 let (pipeline, err) = parse_alias(
+                                    working_set,
+                                    command,
+                                    None, // using aliases named as the module locally is OK
+                                    expand_aliases_denylist,
+                                );
+
+                                (pipeline, err)
+                            }
+                            b"new-alias" => {
+                                let (pipeline, err) = parse_new_alias(
                                     working_set,
                                     command,
                                     None, // using aliases named as the module locally is OK
