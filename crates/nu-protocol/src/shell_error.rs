@@ -50,11 +50,13 @@ pub enum ShellError {
     /// Check the relevant pipeline and extract or convert values as needed.
     #[error("Pipeline mismatch.")]
     #[diagnostic(code(nu::shell::pipeline_mismatch))]
-    PipelineMismatch(
-        String,
-        #[label("expected: {0}")] Span,
-        #[label("value originates from here")] Span,
-    ),
+    PipelineMismatch {
+        exp_input_type: String,
+        #[label("expected: {exp_input_type}")]
+        dst_span: Span,
+        #[label("value originates from here")]
+        src_span: Span,
+    },
 
     #[error("Input type not supported.")]
     #[diagnostic(code(nu::shell::only_supports_this_input_type))]

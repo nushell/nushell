@@ -100,7 +100,11 @@ fn err_from_value(rest: &Value, name: Span) -> ShellError {
                     span,
                 )
             } else {
-                ShellError::PipelineMismatch("string, row or list".into(), name, span)
+                ShellError::PipelineMismatch {
+                    exp_input_type: "string, row or list".into(),
+                    dst_span: name,
+                    src_span: span,
+                }
             }
         }
         Err(error) => error,

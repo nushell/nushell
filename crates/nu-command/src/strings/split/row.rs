@@ -132,7 +132,11 @@ fn split_row_helper(
                 }
             } else {
                 vec![Value::Error {
-                    error: ShellError::PipelineMismatch("string".into(), name, v_span),
+                    error: ShellError::PipelineMismatch {
+                        exp_input_type: "string".into(),
+                        dst_span: name,
+                        src_span: v_span,
+                    },
                 }]
             }
         }

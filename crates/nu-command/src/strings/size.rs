@@ -131,7 +131,11 @@ fn size(
             match v.as_string() {
                 Ok(s) => counter(&s, span),
                 Err(_) => Value::Error {
-                    error: ShellError::PipelineMismatch("string".into(), span, value_span),
+                    error: ShellError::PipelineMismatch {
+                        exp_input_type: "string".into(),
+                        dst_span: span,
+                        src_span: value_span,
+                    },
                 },
             }
         },

@@ -197,7 +197,11 @@ fn join_list(parts: &[Value], head: Span, span: Span, args: &Arguments) -> Value
                     Value::List { vals, span }
                 }
                 Err(_) => Value::Error {
-                    error: ShellError::PipelineMismatch("string or record".into(), head, span),
+                    error: ShellError::PipelineMismatch {
+                        exp_input_type: "string or record".into(),
+                        dst_span: head,
+                        src_span: span,
+                    },
                 },
             }
         }
