@@ -44,7 +44,7 @@ impl Command for SubCommand {
         let target: i64 = call.req(engine_state, stack, 0)?;
         // This doesn't match explicit nulls
         if matches!(input, PipelineData::Empty) {
-            return Err(ShellError::PipelineEmpty(head));
+            return Err(ShellError::PipelineEmpty { dst_span: head });
         }
         input.map(
             move |value| operate(value, target, head),

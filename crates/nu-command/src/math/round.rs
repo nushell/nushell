@@ -45,7 +45,7 @@ impl Command for SubCommand {
         let head = call.head;
         // This doesn't match explicit nulls
         if matches!(input, PipelineData::Empty) {
-            return Err(ShellError::PipelineEmpty(head));
+            return Err(ShellError::PipelineEmpty { dst_span: head });
         }
         input.map(
             move |value| operate(value, head, precision_param),

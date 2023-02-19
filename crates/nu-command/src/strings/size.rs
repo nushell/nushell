@@ -118,7 +118,7 @@ fn size(
     let span = call.head;
     // This doesn't match explicit nulls
     if matches!(input, PipelineData::Empty) {
-        return Err(ShellError::PipelineEmpty(span));
+        return Err(ShellError::PipelineEmpty { dst_span: span });
     }
     input.map(
         move |v| {

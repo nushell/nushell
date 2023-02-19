@@ -37,7 +37,7 @@ impl Command for SubCommand {
         let use_degrees = call.has_flag("degrees");
         // This doesn't match explicit nulls
         if matches!(input, PipelineData::Empty) {
-            return Err(ShellError::PipelineEmpty(head));
+            return Err(ShellError::PipelineEmpty { dst_span: head });
         }
         input.map(
             move |value| operate(value, head, use_degrees),

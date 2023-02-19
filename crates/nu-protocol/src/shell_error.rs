@@ -85,7 +85,10 @@ pub enum ShellError {
     /// Only use this command to process values from a previous expression.
     #[error("Pipeline empty.")]
     #[diagnostic(code(nu::shell::pipeline_mismatch))]
-    PipelineEmpty(#[label("no input value was piped in")] Span),
+    PipelineEmpty {
+        #[label("no input value was piped in")]
+        dst_span: Span,
+    },
 
     /// A command received an argument of the wrong type.
     ///
