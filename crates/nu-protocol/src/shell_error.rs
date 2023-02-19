@@ -58,6 +58,15 @@ pub enum ShellError {
         src_span: Span,
     },
 
+    // TODO: properly unify
+    /// The pipelined input into a command was not of the expected type. For example, it might
+    /// expect a string input, but received a table instead.
+    ///
+    /// (duplicate of [`ShellError::PipelineMismatch`] that reports the observed type)
+    ///
+    /// ## Resolution
+    ///
+    /// Check the relevant pipeline and extract or convert values as needed.
     #[error("Input type not supported.")]
     #[diagnostic(code(nu::shell::only_supports_this_input_type))]
     OnlySupportsThisInputType(
