@@ -228,20 +228,19 @@ impl PipelineData {
                 },
                 // Propagate errors by explicitly matching them before the final case.
                 Value::Error { error } => Err(error),
-                other => Err(ShellError::OnlySupportsThisInputType(
-                    "list, binary, raw data or range".into(),
-                    other.get_type().to_string(),
-                    span,
-                    // This line requires the Value::Error match above.
-                    other.expect_span(),
-                )),
+                other => Err(ShellError::OnlySupportsThisInputType {
+                    exp_input_type: "list, binary, raw data or range".into(),
+                    wrong_type: other.get_type().to_string(),
+                    dst_span: span,
+                    src_span: other.expect_span(),
+                }),
             },
-            PipelineData::Empty => Err(ShellError::OnlySupportsThisInputType(
-                "list, binary, raw data or range".into(),
-                "null".into(),
-                span,
-                span, // TODO: make PipelineData::Empty spanned, so that the span can be used here.
-            )),
+            PipelineData::Empty => Err(ShellError::OnlySupportsThisInputType {
+                exp_input_type: "list, binary, raw data or range".into(),
+                wrong_type: "null".into(),
+                dst_span: span,
+                src_span: span,
+            }),
             other => Ok(PipelineIterator(other)),
         }
     }

@@ -115,12 +115,12 @@ where
             };
 
             return Value::Error {
-                error: ShellError::OnlySupportsThisInputType(
-                    "string or binary".into(),
-                    other.get_type().to_string(),
-                    span,
-                    other.expect_span(),
-                ),
+                error: ShellError::OnlySupportsThisInputType {
+                    exp_input_type: "string or binary".into(),
+                    wrong_type: other.get_type().to_string(),
+                    dst_span: span,
+                    src_span: other.expect_span(),
+                },
             };
         }
     };

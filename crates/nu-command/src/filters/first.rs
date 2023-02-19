@@ -142,13 +142,12 @@ fn first_helper(
             }
             // Propagate errors by explicitly matching them before the final case.
             Value::Error { error } => Err(error),
-            other => Err(ShellError::OnlySupportsThisInputType(
-                "list, binary or range".into(),
-                other.get_type().to_string(),
-                head,
-                // This line requires the Value::Error match above.
-                other.expect_span(),
-            )),
+            other => Err(ShellError::OnlySupportsThisInputType {
+                exp_input_type: "list, binary or range".into(),
+                wrong_type: other.get_type().to_string(),
+                dst_span: head,
+                src_span: other.expect_span(),
+            }),
         },
         PipelineData::ListStream(mut ls, metadata) => {
             if return_single_element {
@@ -164,18 +163,18 @@ fn first_helper(
                     .set_metadata(metadata))
             }
         }
-        PipelineData::ExternalStream { span, .. } => Err(ShellError::OnlySupportsThisInputType(
-            "list, binary or range".into(),
-            "raw data".into(),
-            head,
-            span,
-        )),
-        PipelineData::Empty => Err(ShellError::OnlySupportsThisInputType(
-            "list, binary or range".into(),
-            "null".into(),
-            call.head,
-            call.head, // TODO: make PipelineData::Empty spanned, so that the span can be used here.
-        )),
+        PipelineData::ExternalStream { span, .. } => Err(ShellError::OnlySupportsThisInputType {
+            exp_input_type: "list, binary or range".into(),
+            wrong_type: "raw data".into(),
+            dst_span: head,
+            src_span: span,
+        }),
+        PipelineData::Empty => Err(ShellError::OnlySupportsThisInputType {
+            exp_input_type: "list, binary or range".into(),
+            wrong_type: "null".into(),
+            dst_span: call.head,
+            src_span: call.head,
+        }),
     }
 }
 #[cfg(test)]

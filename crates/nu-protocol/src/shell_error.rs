@@ -69,12 +69,14 @@ pub enum ShellError {
     /// Check the relevant pipeline and extract or convert values as needed.
     #[error("Input type not supported.")]
     #[diagnostic(code(nu::shell::only_supports_this_input_type))]
-    OnlySupportsThisInputType(
-        String,
-        String,
-        #[label("only {0} input data is supported")] Span,
-        #[label("input type: {1}")] Span,
-    ),
+    OnlySupportsThisInputType {
+        exp_input_type: String,
+        wrong_type: String,
+        #[label("only {exp_input_type} input data is supported")]
+        dst_span: Span,
+        #[label("input type: {wrong_type}")]
+        src_span: Span,
+    },
 
     /// No input value was piped into the command.
     ///
