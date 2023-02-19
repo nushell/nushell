@@ -90,6 +90,7 @@ pub enum ShellError {
         dst_span: Span,
     },
 
+    // TODO: remove non type error usages
     /// A command received an argument of the wrong type.
     ///
     /// ## Resolution
@@ -99,6 +100,7 @@ pub enum ShellError {
     #[diagnostic(code(nu::shell::type_mismatch))]
     TypeMismatch(String, #[label = "{0}"] Span),
 
+    // TODO: merge with `TypeMismatch` as they are currently identical in capability
     /// A command received an argument of the wrong type.
     ///
     /// ## Resolution
