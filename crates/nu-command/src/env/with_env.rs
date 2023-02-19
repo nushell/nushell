@@ -63,6 +63,11 @@ impl Command for WithEnv {
                 result: Some(Value::test_string("Z")),
             },
             Example {
+                description: "Set by key-value record",
+                example: r#"with-env {X: "Y", W: "Z"} { [$env.X $env.W] }"#,
+                result: None,
+            },
+            Example {
                 description: "Set by row(e.g. `open x.json` or `from json`)",
                 example: r#"'{"X":"Y","W":"Z"}'|from json|with-env $in { [$env.X $env.W] }"#,
                 result: None,
