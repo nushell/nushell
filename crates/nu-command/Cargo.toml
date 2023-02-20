@@ -100,7 +100,7 @@ wax = { version = "0.5.0" }
 which = { version = "4.4.0", optional = true }
 
 [target.'cfg(windows)'.dependencies]
-winreg = "0.10.1"
+winreg = "0.11.0"
 
 [target.'cfg(unix)'.dependencies]
 libc = "0.2"
