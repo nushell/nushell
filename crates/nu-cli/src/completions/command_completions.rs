@@ -4,6 +4,7 @@ use nu_protocol::{
     engine::{EngineState, StateWorkingSet},
     Span,
 };
+use nu_utils::utils::is_passthrough_command;
 use reedline::Suggestion;
 use std::sync::Arc;
 
@@ -199,7 +200,7 @@ impl Completer for CommandCompletion {
         let commands = if matches!(self.flat_shape, nu_parser::FlatShape::External)
             || matches!(self.flat_shape, nu_parser::FlatShape::InternalCall)
             || ((span.end - span.start) == 0)
-            || working_set.is_sudo()
+            || is_passthrough_command(working_set.delta.get_file_contents())
         {
             // we're in a gap or at a command
             if working_set.get_span_contents(span).is_empty() && !self.force_completion_after_space
