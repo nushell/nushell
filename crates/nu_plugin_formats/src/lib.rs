@@ -17,18 +17,22 @@ impl Plugin for FromCmds {
                     "How many bytes of the body to preview",
                     Some('b'),
                 )
+                .usage("Parse text as .eml and create record.")
                 .plugin_examples(eml::examples())
                 .category(Category::Formats),
             PluginSignature::build(ics::CMD_NAME)
                 .input_output_types(vec![(Type::String, Type::Table(vec![]))])
+                .usage("Parse text as .ics and create table.")
                 .plugin_examples(ics::examples())
                 .category(Category::Formats),
             PluginSignature::build(vcf::CMD_NAME)
                 .input_output_types(vec![(Type::String, Type::Table(vec![]))])
+                .usage("Parse text as .vcf and create table.")
                 .plugin_examples(vcf::examples())
                 .category(Category::Formats),
             PluginSignature::build(ini::CMD_NAME)
                 .input_output_types(vec![(Type::String, Type::Record(vec![]))])
+                .usage("Parse text as .ini and create table.")
                 .plugin_examples(ini::examples())
                 .category(Category::Formats),
         ]
