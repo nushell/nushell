@@ -12,6 +12,7 @@ use std::io::BufReader;
 use std::path::PathBuf;
 use std::str::FromStr;
 use std::time::Duration;
+use url::Url;
 
 #[derive(PartialEq, Eq)]
 pub enum BodyType {
@@ -28,6 +29,28 @@ pub fn http_client(allow_insecure: bool) -> reqwest::blocking::Client {
         .danger_accept_invalid_certs(allow_insecure)
         .build()
         .expect("Failed to build reqwest client")
+}
+
+pub fn http_parse_url(
+    call: &Call,
+    span: Span,
+    raw_url: Value,
+) -> Result<(String, Url), ShellError> {
+    let requested_url = raw_url.as_string()?;
+    let url = match url::Url::parse(&requested_url) {
+        Ok(u) => u,
+        Err(_e) => {
+            return Err(ShellError::UnsupportedInput(
+                "Incomplete or incorrect URL. Expected a full URL, e.g., https://www.example.com"
+                    .to_string(),
+                format!("value: '{requested_url:?}'"),
+                call.head,
+                span,
+            ));
+        }
+    };
+
+    Ok((requested_url, url))
 }
 
 pub fn response_to_buffer(
