@@ -98,6 +98,7 @@ url = "2.2.1"
 uuid = { version = "1.2.2", features = ["v4"] }
 wax = { version = "0.5.0" }
 which = { version = "4.4.0", optional = true }
+print-positions = "0.6.1"
 
 [target.'cfg(windows)'.dependencies]
 winreg = "0.10.1"

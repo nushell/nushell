@@ -5,7 +5,7 @@ use nu_protocol::{
     engine::{Command, EngineState, Stack},
     Category, Example, PipelineData, ShellError, Signature, Span, SyntaxShape, Type, Value,
 };
-use unicode_width::UnicodeWidthStr;
+use print_positions::print_positions;
 
 #[derive(Clone)]
 pub struct Fill;
@@ -225,7 +225,8 @@ fn fill_string(s: &str, args: &Arguments, span: Span) -> Value {
 fn pad(s: &str, width: usize, pad_char: &str, alignment: FillAlignment, truncate: bool) -> String {
     // Attribution: Most of this function was taken from https://github.com/ogham/rust-pad and tweaked. Thank you!
     // Use width instead of len for graphical display
-    let cols = UnicodeWidthStr::width(s);
+
+    let cols = print_positions(s).count();
 
     if cols >= width {
         if truncate {
