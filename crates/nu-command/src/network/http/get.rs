@@ -1,12 +1,13 @@
-use crate::network::http::client::{
-    http_client, request_add_authorization_header, request_add_custom_headers,
-    request_handle_response, request_set_timeout,
-};
 use nu_engine::CallExt;
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
     Category, Example, PipelineData, ShellError, Signature, SyntaxShape, Type, Value,
+};
+
+use crate::network::http::client::{
+    http_client, http_parse_url, request_add_authorization_header, request_add_custom_headers,
+    request_handle_response, request_set_body, request_set_timeout,
 };
 
 #[derive(Clone)]
@@ -36,6 +37,19 @@ impl Command for SubCommand {
                 SyntaxShape::Any,
                 "the password when authenticating",
                 Some('p'),
+            )
+            .named("data", SyntaxShape::Any, "the content to post", Some('d'))
+            .named(
+                "content-type",
+                SyntaxShape::Any,
+                "the MIME type of content to post",
+                Some('t'),
+            )
+            .named(
+                "content-length",
+                SyntaxShape::Any,
+                "the length of the content being posted",
+                Some('l'),
             )
             .named(
                 "max-time",
@@ -104,18 +118,31 @@ impl Command for SubCommand {
                 example: "http get -H [my-header-key my-header-value] https://www.example.com",
                 result: None,
             },
+            Example {
+                description: "http get from example.com, with body",
+                example: "http get -d 'body' https://www.example.com",
+                result: None,
+            },
+            Example {
+                description: "http get from example.com, with JSON body",
+                example: "http get -t application/json -d { field: value } https://www.example.com",
+                result: None,
+            },
         ]
     }
 }
 
 struct Arguments {
     url: Value,
+    headers: Option<Value>,
+    data: Option<Value>,
+    content_type: Option<String>,
+    content_length: Option<String>,
     raw: bool,
     insecure: Option<bool>,
     user: Option<String>,
     password: Option<String>,
     timeout: Option<Value>,
-    headers: Option<Value>,
 }
 
 fn run_post(
@@ -126,14 +153,17 @@ fn run_post(
 ) -> Result<PipelineData, ShellError> {
     let args = Arguments {
         url: call.req(engine_state, stack, 0)?,
+        headers: call.get_flag(engine_state, stack, "headers")?,
+        data: call.get_flag(engine_state, stack, "data")?,
+        content_type: call.get_flag(engine_state, stack, "content-type")?,
+        content_length: call.get_flag(engine_state, stack, "content-length")?,
         raw: call.has_flag("raw"),
         insecure: call.get_flag(engine_state, stack, "insecure")?,
         user: call.get_flag(engine_state, stack, "user")?,
         password: call.get_flag(engine_state, stack, "password")?,
         timeout: call.get_flag(engine_state, stack, "timeout")?,
-        headers: call.get_flag(engine_state, stack, "headers")?,
     };
-    helper(engine_state, stack, args)
+    helper(engine_state, stack, call, args)
 }
 
 // Helper function that actually goes to retrieve the resource from the url given
@@ -141,35 +171,29 @@ fn run_post(
 fn helper(
     engine_state: &EngineState,
     stack: &mut Stack,
+    call: &Call,
     args: Arguments,
 ) -> Result<PipelineData, ShellError> {
-    let url_value = args.url;
-    let user = args.user.clone();
-    let password = args.password;
-    let timeout = args.timeout;
-    let headers = args.headers;
-    let raw = args.raw;
-
-    let span = url_value.span()?;
-    let requested_url = url_value.as_string()?;
-    let url = match url::Url::parse(&requested_url) {
-        Ok(u) => u,
-        Err(_e) => {
-            return Err(ShellError::TypeMismatch(
-                "Incomplete or incorrect URL. Expected a full URL, e.g., https://www.example.com"
-                    .to_string(),
-                span,
-            ));
-        }
-    };
+    let span = args.url.span()?;
+    let (requested_url, url) = http_parse_url(call, span, args.url)?;
 
     let client = http_client(args.insecure.is_some());
     let mut request = client.get(url);
 
-    request = request_set_timeout(timeout, request)?;
-    request = request_add_authorization_header(user, password, request);
-    request = request_add_custom_headers(headers, request)?;
+    if let Some(data) = args.data {
+        request = request_set_body(args.content_type, args.content_length, data, request)?;
+    }
+    request = request_set_timeout(args.timeout, request)?;
+    request = request_add_authorization_header(args.user, args.password, request);
+    request = request_add_custom_headers(args.headers, request)?;
 
     let response = request.send().and_then(|r| r.error_for_status());
-    request_handle_response(engine_state, stack, span, &requested_url, raw, response)
+    request_handle_response(
+        engine_state,
+        stack,
+        span,
+        &requested_url,
+        args.raw,
+        response,
+    )
 }
