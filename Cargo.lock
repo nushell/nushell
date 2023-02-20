@@ -2777,6 +2777,7 @@ dependencies = [
  "percent-encoding",
  "polars",
  "powierza-coefficient",
+ "print-positions",
  "proptest",
  "quick-xml 0.27.1",
  "quickcheck",
@@ -3892,6 +3893,15 @@ dependencies = [
  "diff",
  "output_vt100",
  "yansi",
+]
+
+[[package]]
+name = "print-positions"
+version = "0.6.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "1df593470e3ef502e48cb0cfc9a3a61e5f61e967b78e1ed35a67ac615cfbd208"
+dependencies = [
+ "unicode-segmentation",
 ]
 
 [[package]]
@@ -5486,9 +5496,9 @@ dependencies = [
 
 [[package]]
 name = "unicode-segmentation"
-version = "1.10.0"
+version = "1.10.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "0fdbf052a0783de01e944a6ce7a8cb939e295b1e7be835a1112c3b9a7f047a5a"
+checksum = "1dd624098567895118886609431a7c3b8f516e41d30e0643f03d94592a147e36"
 
 [[package]]
 name = "unicode-width"
