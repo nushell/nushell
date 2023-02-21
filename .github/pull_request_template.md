@@ -15,9 +15,9 @@ Don't forget to add tests that cover your changes.
 
 Make sure you've run and fixed any issues with these commands:
 
-- `cargo fmt --all -- --check` to check standard code formatting (`cargo fmt --all` applies these changes)
-- `cargo clippy --workspace -- -D warnings -D clippy::unwrap_used -A clippy::needless_collect` to check that you're using the standard code style
-- `cargo test --workspace` to check that all tests pass
+- `make fmt-check` to check standard code formatting (`make fmt` applies these changes)
+- `make clippy` to check that you're using the standard code style
+- `make test` to check that all tests pass
 
 # After Submitting
 
