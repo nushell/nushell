@@ -9,7 +9,6 @@ use nu_protocol::{
     engine::{EngineState, Stack, StateWorkingSet},
     BlockId, PipelineData, Span, Value,
 };
-use nu_utils::utils::is_passthrough_command;
 use reedline::{Completer as ReedlineCompleter, Suggestion};
 use std::str;
 use std::sync::Arc;
@@ -142,9 +141,11 @@ impl NuCompleter {
                         let span_offset: usize = alias_offset.iter().sum();
                         let mut spans: Vec<String> = vec![];
 
-                        let is_passthrough_command =
-                            is_passthrough_command(self.engine_state.get_file_contents());
                         for (flat_idx, flat) in flattened.iter().enumerate() {
+                            let is_passthrough_command = spans
+                                .first()
+                                .filter(|content| *content == &String::from("sudo"))
+                                .is_some();
                             // Read the current spam to string
                             let current_span = working_set.get_span_contents(flat.0).to_vec();
                             let current_span_str = String::from_utf8_lossy(&current_span);

@@ -1008,8 +1008,8 @@ impl EngineState {
             .unwrap_or_default()
     }
 
-    pub fn get_file_contents(&self) -> Vec<(Vec<u8>, usize, usize)> {
-        self.file_contents.clone()
+    pub fn get_file_contents(&self) -> &Vec<(Vec<u8>, usize, usize)> {
+        &self.file_contents
     }
 }
 
@@ -1196,8 +1196,8 @@ impl StateDelta {
         self.scope.pop();
     }
 
-    pub fn get_file_contents(&self) -> Vec<(Vec<u8>, usize, usize)> {
-        self.file_contents.clone()
+    pub fn get_file_contents(&self) -> &Vec<(Vec<u8>, usize, usize)> {
+        &self.file_contents
     }
 }
 
@@ -2427,43 +2427,5 @@ mod engine_state_tests {
         assert_eq!(&engine_state.files[1].0, "child.nu");
 
         Ok(())
-    }
-
-    #[test]
-    fn test_is_last_command_passthrough() {
-        let commands = vec![
-            ("    hello", false),
-            ("    sudo ", true),
-            ("sudo ", true),
-            ("	hello", false),
-            ("	sudo", false),
-            ("	sudo ", true),
-            (" 	sudo ", true),
-            ("	 sudo ", true),
-            ("	hello ", false),
-            ("    hello | sudo ", true),
-            ("    sudo|sudo", false),
-            ("sudo | sudo ", true),
-            ("	hello sud", false),
-            ("	sudo | sud ", false),
-            ("	sudo|sudo ", true),
-            (" 	sudo | sudo ls | sudo ", true),
-        ];
-        for (idx, ele) in commands.iter().enumerate() {
-            let mut engine_state = EngineState::new();
-            engine_state.add_file("test.nu".into(), vec![]);
-
-            let mut working_set = StateWorkingSet::new(&engine_state);
-            let input = ele.0.as_bytes();
-            working_set.add_file("child.nu".into(), input);
-
-            let is_passthrough_command =
-                nu_utils::utils::is_passthrough_command(working_set.delta.get_file_contents());
-            assert_eq!(
-                is_passthrough_command, ele.1,
-                "index for '{}': {}",
-                ele.0, idx
-            );
-        }
     }
 }
