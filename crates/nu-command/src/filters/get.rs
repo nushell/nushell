@@ -21,8 +21,7 @@ impl Command for Get {
     fn extra_usage(&self) -> &str {
         r#"This is equivalent to using the cell path access syntax: `$env.OS` is the same as `$env | get OS`.
 
-If multiple column names, row numbers, or cell paths are given, this will behave
-very similarly to `select`."#
+If multiple cell paths are given, this will produce a list of values."#
     }
 
     fn signature(&self) -> nu_protocol::Signature {
