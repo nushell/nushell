@@ -1,0 +1,23 @@
+name: "Build nu with nix on ubuntu"
+
+on:
+  pull_request:
+  push: # Run CI on the main branch after every merge. This is important to fill the GitHub Actions cache in a way that pull requests can see it
+    branches:
+      - main
+
+jobs:
+  build-flake:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - uses: cachix/install-nix-action@v19
+      - name: check flake
+        run: nix -Lv --fallback flake check
+  build-legacy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - uses: cachix/install-nix-action@v19
+      - name: build package
+        run: nix-build
