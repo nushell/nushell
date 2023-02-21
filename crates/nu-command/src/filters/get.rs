@@ -18,6 +18,13 @@ impl Command for Get {
         "Extract data using a cell path."
     }
 
+    fn extra_usage(&self) -> &str {
+        r#"This is equivalent to using the cell path access syntax: `$env.OS` is the same as `$env | get OS`.
+
+If multiple column names, row numbers, or cell paths are given, this will behave
+very similarly to `select`."#
+    }
+
     fn signature(&self) -> nu_protocol::Signature {
         Signature::build("get")
             .input_output_types(vec![
