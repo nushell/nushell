@@ -21,6 +21,7 @@ impl Command for SubCommand {
     fn signature(&self) -> Signature {
         Signature::build("http post")
             .input_output_types(vec![(Type::Nothing, Type::Any)])
+            .allow_variants_without_examples(true)
             .required("URL", SyntaxShape::String, "the URL to post to")
             .required("data", SyntaxShape::Any, "the contents of the post body")
             .named(
@@ -183,4 +184,16 @@ fn helper(
         args.raw,
         response,
     )
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_examples() {
+        use crate::test_examples;
+
+        test_examples(SubCommand {})
+    }
 }
