@@ -82,11 +82,11 @@ serde_yaml = "0.9.4"
 sha2 = "0.10.0"
 # Disable default features b/c the default features build Git (very slow to compile)
 percent-encoding = "2.2.0"
-reedline = { version = "0.15.0", features = ["bashisms", "sqlite"] }
+reedline = { version = "0.16.0", features = ["bashisms", "sqlite"] }
 rusqlite = { version = "0.28.0", features = ["bundled"], optional = true }
 shadow-rs = { version = "0.20.0", default-features = false }
 sqlparser = { version = "0.30.0", features = ["serde"], optional = true }
-sysinfo = "0.27.7"
+sysinfo = "0.28.0"
 tabled = "0.10.0"
 terminal_size = "0.2.1"
 thiserror = "1.0.31"
@@ -98,9 +98,10 @@ url = "2.2.1"
 uuid = { version = "1.2.2", features = ["v4"] }
 wax = { version = "0.5.0" }
 which = { version = "4.4.0", optional = true }
+print-positions = "0.6.1"
 
 [target.'cfg(windows)'.dependencies]
-winreg = "0.10.1"
+winreg = "0.11.0"
 
 [target.'cfg(unix)'.dependencies]
 libc = "0.2"
