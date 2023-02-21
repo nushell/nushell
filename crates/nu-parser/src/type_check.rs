@@ -568,6 +568,7 @@ pub fn math_result_type(
                 (x, y) if x == y => (Type::Nothing, None),
                 (Type::Any, _) => (Type::Nothing, None),
                 (_, Type::Any) => (Type::Nothing, None),
+                (Type::List(_), Type::List(_)) => (Type::Nothing, None),
                 (x, y) => (
                     Type::Nothing,
                     Some(ParseError::Mismatch(x.to_string(), y.to_string(), rhs.span)),
