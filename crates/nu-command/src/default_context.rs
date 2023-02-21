@@ -182,7 +182,6 @@ pub fn create_default_context() -> EngineState {
             Explain,
             Inspect,
             Metadata,
-            Profile,
             TimeIt,
             View,
             ViewFiles,

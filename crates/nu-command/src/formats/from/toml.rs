@@ -106,11 +106,11 @@ pub fn convert_string_to_value(string_input: String, span: Span) -> Result<Value
     match result {
         Ok(value) => Ok(convert_toml_to_value(&value, span)),
 
-        Err(_x) => Err(ShellError::CantConvert(
+        Err(err) => Err(ShellError::CantConvert(
             "structured toml data".into(),
             "string".into(),
             span,
-            None,
+            Some(err.to_string()),
         )),
     }
 }
@@ -131,7 +131,7 @@ mod tests {
         let input_string = String::from(
             r#"
             command.build = "go build"
-        
+
             [command.deploy]
             script = "./deploy.sh"
             "#,
@@ -148,8 +148,8 @@ mod tests {
     fn string_to_toml_value_fails() {
         let input_string = String::from(
             r#"
-            command.build = 
-        
+            command.build =
+
             [command.deploy]
             script = "./deploy.sh"
             "#,

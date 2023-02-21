@@ -388,11 +388,13 @@ fn build_collapsed_table(
     config: &Config,
     term_width: usize,
 ) -> Result<Option<String>, ShellError> {
-    let value = Value::Record {
+    let mut value = Value::Record {
         cols,
         vals,
         span: Span::new(0, 0),
     };
+
+    colorize_value(&mut value, config, style_computer);
 
     let theme = load_theme_from_config(config);
     let table = nu_table::NuTable::new(
@@ -612,9 +614,9 @@ fn handle_row_stream(
     call: &Call,
     row_offset: usize,
     ctrlc: Option<Arc<AtomicBool>>,
-    metadata: Option<Box<PipelineMetadata>>,
+    metadata: Option<PipelineMetadata>,
 ) -> Result<PipelineData, ShellError> {
-    let stream = match metadata.as_deref() {
+    let stream = match metadata {
         // First, `ls` sources:
         Some(PipelineMetadata {
             data_source: DataSource::Ls,
@@ -1000,10 +1002,7 @@ fn convert_to_table2<'a>(
 
     if with_index {
         if with_header {
-            data[0].push(NuTable::create_cell(
-                "#",
-                header_style(style_computer, String::from("#")),
-            ));
+            data[0].push(NuTable::create_cell("#", header_style(style_computer, "#")));
         }
 
         let mut last_index = 0;
@@ -1145,8 +1144,7 @@ fn convert_to_table2<'a>(
             }
         }
 
-        let head_cell =
-            NuTable::create_cell(header.clone(), header_style(style_computer, header.clone()));
+        let head_cell = NuTable::create_cell(header.clone(), header_style(style_computer, &header));
         data[0].push(head_cell);
 
         for (row, item) in input.clone().enumerate() {
@@ -1268,8 +1266,8 @@ fn lookup_index_value(item: &Value, config: &Config) -> Option<String> {
         .map(|value| value.into_string("", config))
 }
 
-fn header_style(style_computer: &StyleComputer, header: String) -> TextStyle {
-    let style = style_computer.compute("header", &Value::string(header.as_str(), Span::unknown()));
+fn header_style(style_computer: &StyleComputer, header: &str) -> TextStyle {
+    let style = style_computer.compute("header", &Value::string(header, Span::unknown()));
     TextStyle {
         alignment: Alignment::Center,
         color_style: Some(style),
@@ -1605,10 +1603,12 @@ impl PagingTableCreator {
         let term_width = get_width_param(self.width_param);
         let need_footer = matches!(config.footer_mode, FooterMode::RowCount(limit) if batch.len() as u64 > limit)
             || matches!(config.footer_mode, FooterMode::Always);
-        let value = Value::List {
+        let mut value = Value::List {
             vals: batch,
             span: Span::new(0, 0),
         };
+
+        colorize_value(&mut value, config, &style_computer);
 
         let table = nu_table::NuTable::new(
             value,
@@ -1847,4 +1847,33 @@ fn with_footer(config: &Config, with_header: bool, count_records: usize) -> bool
 fn need_footer(config: &Config, count_records: u64) -> bool {
     matches!(config.footer_mode, FooterMode::RowCount(limit) if count_records > limit)
         || matches!(config.footer_mode, FooterMode::Always)
+}
+
+fn colorize_value(value: &mut Value, config: &Config, style_computer: &StyleComputer) {
+    match value {
+        Value::Record { cols, vals, .. } => {
+            for val in vals {
+                colorize_value(val, config, style_computer);
+            }
+
+            let style = header_style(style_computer, "");
+            if let Some(color) = style.color_style {
+                for header in cols {
+                    *header = color.paint(header.to_owned()).to_string();
+                }
+            }
+        }
+        Value::List { vals, .. } => {
+            for val in vals {
+                colorize_value(val, config, style_computer);
+            }
+        }
+        val => {
+            let (text, style) = value_to_styled_string(val, config, style_computer);
+            if let Some(color) = style.color_style {
+                let text = color.paint(text);
+                *val = Value::string(text.to_string(), val.span().unwrap_or(Span::unknown()));
+            }
+        }
+    }
 }

@@ -2777,6 +2777,7 @@ dependencies = [
  "percent-encoding",
  "polars",
  "powierza-coefficient",
+ "print-positions",
  "proptest",
  "quick-xml 0.27.1",
  "quickcheck",
@@ -2813,7 +2814,7 @@ dependencies = [
  "wax",
  "which",
  "windows",
- "winreg",
+ "winreg 0.11.0",
 ]
 
 [[package]]
@@ -3895,6 +3896,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "print-positions"
+version = "0.6.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "1df593470e3ef502e48cb0cfc9a3a61e5f61e967b78e1ed35a67ac615cfbd208"
+dependencies = [
+ "unicode-segmentation",
+]
+
+[[package]]
 name = "proc-macro-error"
 version = "1.0.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4191,8 +4201,9 @@ dependencies = [
 
 [[package]]
 name = "reedline"
-version = "0.15.0"
-source = "git+https://github.com/nushell/reedline.git?branch=main#829a1a9f491a04d7b4159bc69d46cfc8184ccf53"
+version = "0.16.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "a02723e44c03f5ef62ad35665a43cfa1df3b78cbb75e31ea9ddc6d2f0d9b4658"
 dependencies = [
  "chrono",
  "crossterm 0.24.0",
@@ -4276,7 +4287,7 @@ dependencies = [
  "wasm-bindgen",
  "wasm-bindgen-futures",
  "web-sys",
- "winreg",
+ "winreg 0.10.1",
 ]
 
 [[package]]
@@ -5027,9 +5038,9 @@ dependencies = [
 
 [[package]]
 name = "sysinfo"
-version = "0.27.7"
+version = "0.28.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "975fe381e0ecba475d4acff52466906d95b153a40324956552e027b2a9eaa89e"
+checksum = "727220a596b4ca0af040a07091e49f5c105ec8f2592674339a5bf35be592f76e"
 dependencies = [
  "cfg-if 1.0.0",
  "core-foundation-sys",
@@ -5486,9 +5497,9 @@ dependencies = [
 
 [[package]]
 name = "unicode-segmentation"
-version = "1.10.0"
+version = "1.10.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "0fdbf052a0783de01e944a6ce7a8cb939e295b1e7be835a1112c3b9a7f047a5a"
+checksum = "1dd624098567895118886609431a7c3b8f516e41d30e0643f03d94592a147e36"
 
 [[package]]
 name = "unicode-width"
@@ -5958,6 +5969,16 @@ version = "0.10.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "80d0f4e272c85def139476380b12f9ac60926689dd2e01d4923222f40580869d"
 dependencies = [
+ "winapi 0.3.9",
+]
+
+[[package]]
+name = "winreg"
+version = "0.11.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "76a1a57ff50e9b408431e8f97d5456f2807f8eb2a2cd79b06068fc87f8ecf189"
+dependencies = [
+ "cfg-if 1.0.0",
  "winapi 0.3.9",
 ]
 

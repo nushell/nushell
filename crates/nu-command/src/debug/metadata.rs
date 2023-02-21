@@ -75,7 +75,7 @@ impl Command for Metadata {
             None => {
                 let mut cols = vec![];
                 let mut vals = vec![];
-                if let Some(x) = input.metadata().as_deref() {
+                if let Some(x) = &input.metadata() {
                     match x {
                         PipelineMetadata {
                             data_source: DataSource::Ls,
@@ -88,12 +88,6 @@ impl Command for Metadata {
                         } => {
                             cols.push("source".into());
                             vals.push(Value::string("into html --list", head))
-                        }
-                        PipelineMetadata {
-                            data_source: DataSource::Profiling(values),
-                        } => {
-                            cols.push("profiling".into());
-                            vals.push(Value::list(values.clone(), head))
                         }
                     }
                 }
@@ -124,11 +118,7 @@ impl Command for Metadata {
     }
 }
 
-fn build_metadata_record(
-    arg: &Value,
-    metadata: &Option<Box<PipelineMetadata>>,
-    head: Span,
-) -> Value {
+fn build_metadata_record(arg: &Value, metadata: &Option<PipelineMetadata>, head: Span) -> Value {
     let mut cols = vec![];
     let mut vals = vec![];
 
@@ -150,7 +140,7 @@ fn build_metadata_record(
         });
     }
 
-    if let Some(x) = metadata.as_deref() {
+    if let Some(x) = &metadata {
         match x {
             PipelineMetadata {
                 data_source: DataSource::Ls,
@@ -163,12 +153,6 @@ fn build_metadata_record(
             } => {
                 cols.push("source".into());
                 vals.push(Value::string("into html --list", head))
-            }
-            PipelineMetadata {
-                data_source: DataSource::Profiling(values),
-            } => {
-                cols.push("profiling".into());
-                vals.push(Value::list(values.clone(), head))
             }
         }
     }
