@@ -4,7 +4,7 @@ use nu_engine::{eval_block, CallExt};
 use nu_protocol::{
     ast::Call,
     engine::{Closure, Command, EngineState, Stack},
-    Category, Example, PipelineData, ShellError, Signature, SyntaxShape, Type, Value,
+    Category, Example, PipelineData, ShellError, Signature, Span, SyntaxShape, Type, Value,
 };
 
 #[derive(Clone)]
@@ -65,7 +65,10 @@ impl Command for WithEnv {
             Example {
                 description: "Set by key-value record",
                 example: r#"with-env {X: "Y", W: "Z"} { [$env.X $env.W] }"#,
-                result: None,
+                result: Some(Value::list(
+                    vec![Value::test_string("Y"), Value::test_string("Z")],
+                    Span::test_data(),
+                )),
             },
         ]
     }
