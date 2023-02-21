@@ -442,6 +442,7 @@ pub fn create_default_context() -> EngineState {
             Http,
             HttpDelete,
             HttpGet,
+            HttpHead,
             HttpPost,
             HttpPut,
             Url,
