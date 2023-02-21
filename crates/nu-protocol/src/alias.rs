@@ -8,12 +8,6 @@ use crate::{PipelineData, Type};
 use std::path::PathBuf;
 
 #[derive(Clone)]
-pub enum WrappedCall {
-    Call(Box<Call>),
-    ExternalCall(Box<Expression>, Vec<Expression>, bool), // head, args, is_subexpression
-}
-
-#[derive(Clone)]
 pub struct Alias {
     pub name: String,
     pub command: Option<Box<dyn Command>>, // None if external call
