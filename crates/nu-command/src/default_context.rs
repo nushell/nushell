@@ -443,6 +443,7 @@ pub fn create_default_context() -> EngineState {
             HttpDelete,
             HttpGet,
             HttpPost,
+            HttpPut,
             Url,
             UrlBuildQuery,
             UrlEncode,
