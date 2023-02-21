@@ -95,6 +95,7 @@ fn command(
     let sort_options = SortOptions {
         descending: call.has_flag("reverse"),
         nulls_last: call.has_flag("nulls-last"),
+        multithreaded: true,
     };
 
     let mut res = df.as_series(call.head)?.argsort(sort_options).into_series();

@@ -145,6 +145,7 @@ fn from_parquet(
             rechunk: false,
             row_count: None,
             low_memory: false,
+            cloud_options: None,
         };
 
         let df: NuLazyFrame = LazyFrame::scan_parquet(file, args)
