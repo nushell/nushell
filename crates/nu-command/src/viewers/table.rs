@@ -614,9 +614,9 @@ fn handle_row_stream(
     call: &Call,
     row_offset: usize,
     ctrlc: Option<Arc<AtomicBool>>,
-    metadata: Option<Box<PipelineMetadata>>,
+    metadata: Option<PipelineMetadata>,
 ) -> Result<PipelineData, ShellError> {
-    let stream = match metadata.as_deref() {
+    let stream = match metadata {
         // First, `ls` sources:
         Some(PipelineMetadata {
             data_source: DataSource::Ls,
