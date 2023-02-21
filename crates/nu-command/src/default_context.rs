@@ -440,6 +440,7 @@ pub fn create_default_context() -> EngineState {
         // Network
         bind_command! {
             Http,
+            HttpDelete,
             HttpGet,
             HttpPost,
             Url,
