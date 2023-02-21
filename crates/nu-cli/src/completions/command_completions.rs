@@ -229,21 +229,30 @@ impl Completer for CommandCompletion {
 }
 
 pub fn find_non_whitespace_index(contents: &[u8], start: usize) -> usize {
-    contents[start..]
-        .iter()
-        .take_while(|x| x.is_ascii_whitespace())
-        .count()
-        + start
+    match contents.get(start..) {
+        Some(contents) => {
+            contents
+                .iter()
+                .take_while(|x| x.is_ascii_whitespace())
+                .count()
+                + start
+        }
+        None => start,
+    }
 }
 
-pub fn is_passthrough_command(working_set_file_contents: &Vec<(Vec<u8>, usize, usize)>) -> bool {
+pub fn is_passthrough_command(working_set_file_contents: &[(Vec<u8>, usize, usize)]) -> bool {
     for (contents, _, _) in working_set_file_contents {
         let last_pipe_pos_rev = contents.iter().rev().position(|x| x == &b'|');
         let last_pipe_pos = last_pipe_pos_rev.map(|x| contents.len() - x).unwrap_or(0);
 
         let cur_pos = find_non_whitespace_index(contents, last_pipe_pos);
 
-        if contents[cur_pos..].starts_with(b"sudo ") {
+        let result = match contents.get(cur_pos..) {
+            Some(contents) => contents.starts_with(b"sudo "),
+            None => false,
+        };
+        if result {
             return true;
         }
     }
