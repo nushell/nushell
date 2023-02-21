@@ -209,6 +209,13 @@ fn get_documentation(
         } else {
             let _ = write!(long_desc, "\n  > {}\n", example.example);
         }
+
+        match &example.result {
+            Some(result) => {
+                let _ = write!(long_desc, "  {:?}\n", result);
+            }
+            None => {}
+        }
     }
 
     long_desc.push('\n');
