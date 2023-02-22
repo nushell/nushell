@@ -60,19 +60,22 @@ impl Command for Let {
             .as_keyword()
             .expect("internal error: missing keyword");
 
-        let rhs = eval_expression_with_input(
+        let (rhs, external_failed) = eval_expression_with_input(
             engine_state,
             stack,
             keyword_expr,
             input,
             call.redirect_stdout,
             call.redirect_stderr,
-        )?
-        .0;
-
-        stack.add_var(var_id, rhs.into_value(call.head));
-
-        Ok(PipelineData::empty())
+        )?;
+        if external_failed {
+            // rhs must be a PipelineData::ExternalStream and it's failed
+            // return the failed stream (with a non-zero exit code) so the engine knows to stop running
+            Ok(rhs)
+        } else {
+            stack.add_var(var_id, rhs.into_value(call.head));
+            Ok(PipelineData::empty())
+        }
     }
 
     fn examples(&self) -> Vec<Example> {
