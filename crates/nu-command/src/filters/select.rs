@@ -35,7 +35,13 @@ impl Command for Select {
     }
 
     fn usage(&self) -> &str {
-        "Down-select table to only these columns."
+        "Select only these columns or rows from the input. Opposite of `reject`."
+    }
+
+    fn extra_usage(&self) -> &str {
+        r#"This differs from `get` in that, rather than accessing the given value in the data structure,
+it removes all non-selected values from the structure. Hence, using `select` on a table will
+produce a table, a list will produce a list, and a record will produce a record."#
     }
 
     fn search_terms(&self) -> Vec<&str> {
@@ -72,13 +78,13 @@ impl Command for Select {
                 result: Some(Value::test_record(vec!["a"], vec![Value::test_string("a")])),
             },
             Example {
-                description: "Select just the name column",
+                description: "Select just the `name` column",
                 example: "ls | select name",
                 result: None,
             },
             Example {
-                description: "Select the name and size columns",
-                example: "ls | select name size",
+                description: "Select the first four rows (this is the same as `first 4`)",
+                example: "ls | select 0 1 2 3",
                 result: None,
             },
         ]

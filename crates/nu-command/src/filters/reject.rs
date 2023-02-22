@@ -29,7 +29,11 @@ impl Command for Reject {
     }
 
     fn usage(&self) -> &str {
-        "Remove the given columns from the table. To remove rows, use 'drop'."
+        "Remove the given columns or rows from the table. Opposite of `select`."
+    }
+
+    fn extra_usage(&self) -> &str {
+        "To remove a quantity of rows or columns, use `skip`, `drop`, or `drop column`."
     }
 
     fn run(

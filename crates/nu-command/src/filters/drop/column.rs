@@ -26,7 +26,7 @@ impl Command for DropColumn {
     }
 
     fn usage(&self) -> &str {
-        "Remove N columns at the right-hand end of the input table. To remove columns by name, use 'reject'."
+        "Remove N columns at the right-hand end of the input table. To remove columns by name, use `reject`."
     }
 
     fn search_terms(&self) -> Vec<&str> {
