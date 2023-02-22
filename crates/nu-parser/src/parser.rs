@@ -5044,7 +5044,9 @@ pub fn parse_expression(
                     is_subexpression,
                 )
                 .0,
-                Some(ParseError::LetInPipeline(
+                Some(ParseError::AssignInPipeline(
+                    String::from_utf8(bytes)
+                        .expect("builtin commands bytes should be able to convert to string"),
                     String::from_utf8_lossy(match spans.len() {
                         1 | 2 | 3 => b"value",
                         _ => working_set.get_span_contents(spans[3]),
