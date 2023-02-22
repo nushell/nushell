@@ -212,7 +212,7 @@ fn get_documentation(
 
         match &example.result {
             Some(result) => {
-                let _ = write!(long_desc, "  {:?}\n", result);
+                let _ = write!(long_desc, "{:#?}\n", result);
             }
             None => {}
         }
