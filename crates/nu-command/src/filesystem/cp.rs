@@ -462,11 +462,10 @@ fn copy_file_with_progressbar(src: PathBuf, dst: PathBuf, span: Span) -> Value {
     }
 
     // Get the name of the file to print it out at the end
-    let file_name = std::path::Path::new(&src)
+    let file_name = &src
         .file_name()
         .unwrap_or_else(|| std::ffi::OsStr::new(""))
-        .to_str()
-        .unwrap_or("");
+        .to_string_lossy();
     let msg = format!("copied {:} to {:}", src.display(), dst.display());
     bar.finished_msg(format!(" {} copied!", &file_name));
 
