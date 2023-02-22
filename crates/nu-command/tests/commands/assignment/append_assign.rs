@@ -99,10 +99,9 @@ fn append_assign_type_mismatch() {
         r#"
             mut a = [1 2];
             $a ++= [a];
+            $a | to json -r;
         "#
     ));
 
-    assert!(actual
-        .err
-        .contains("expected list<int>, found list<string>"));
+    assert_eq!(actual.out, r#"[1,2,"a"]"#);
 }
