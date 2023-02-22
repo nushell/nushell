@@ -1,6 +1,6 @@
 use crate::Query;
 use nu_plugin::{EvaluatedCall, LabeledError, Plugin};
-use nu_protocol::{Category, PluginSignature, Spanned, SyntaxShape, Value};
+use nu_protocol::{Category, PluginExample, PluginSignature, Spanned, SyntaxShape, Value};
 
 impl Plugin for Query {
     fn signature(&self) -> Vec<PluginSignature> {
@@ -23,6 +23,7 @@ impl Plugin for Query {
             .usage("execute selector query on html/web")
             .named("query", SyntaxShape::String, "selector query", Some('q'))
             .switch("as-html", "return the query output as html", Some('m'))
+            .plugin_examples(web_examples())
             .named(
                 "attribute",
                 SyntaxShape::String,
@@ -67,4 +68,22 @@ impl Plugin for Query {
             }),
         }
     }
+}
+
+pub fn web_examples() -> Vec<PluginExample> {
+    vec![PluginExample {
+        example: "http get https://phoronix.com | query web -q 'header'".into(),
+        description: "Retrieve all <header> elements from phoronix.com website".into(),
+        result: None,
+    }, PluginExample {
+        example: "http get https://developer.valvesoftware.com/wiki/List_of_TF2_console_commands_and_variables
+    | query web -t [Name Cmd? Default Min Max Flags Description]".into(),
+        description: "Retrieve a html table from Valve website and parse it into a nushell table using table headers as guides".into(),
+        result: None
+    },
+    PluginExample {
+        example: "http get https://www.nushell.sh | query web -q 'h2, h2 + p'".into(),
+        description: "Pass multiple css selectors to extract several elements within single query".into(),
+        result: None,
+    }]
 }
