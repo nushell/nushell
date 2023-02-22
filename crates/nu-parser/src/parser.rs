@@ -3662,6 +3662,25 @@ pub fn parse_signature_helper(
                                                     expression.ty.clone(),
                                                 );
                                             }
+                                            Type::List(_) => {
+                                                if var_type.is_list() && expression.ty.is_list() {
+                                                    working_set.set_variable_type(
+                                                        var_id,
+                                                        expression.ty.clone(),
+                                                    );
+                                                } else {
+                                                    error = error.or_else(|| {
+                                                        Some(ParseError::AssignmentMismatch(
+                                                            "Default value wrong type".into(),
+                                                            format!(
+                                                                "default value not {0}",
+                                                                expression.ty
+                                                            ),
+                                                            expression.span,
+                                                        ))
+                                                    })
+                                                }
+                                            }
                                             t => {
                                                 if t != &expression.ty {
                                                     error = error.or_else(|| {
