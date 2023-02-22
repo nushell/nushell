@@ -246,9 +246,10 @@ fn action(input: &Value, args: &Arguments, span: Span) -> Value {
             vals: _,
             span: _,
         } => Value::Error {
+            // Watch out for CantConvert's argument order
             error: ShellError::CantConvert(
-                "record".into(),
                 "string".into(),
+                "record".into(),
                 span,
                 Some("try using the `to nuon` command".into()),
             ),
