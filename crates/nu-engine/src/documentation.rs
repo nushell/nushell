@@ -48,6 +48,7 @@ fn get_documentation(
     const G: &str = "\x1b[32m"; // green
     const C: &str = "\x1b[36m"; // cyan
     const BB: &str = "\x1b[1;34m"; // bold blue
+    const WD: &str = "\x1b[2;37m"; // white dimmed
     const RESET: &str = "\x1b[0m"; // reset
 
     let cmd_name = &sig.name;
@@ -214,7 +215,9 @@ fn get_documentation(
             Some(result) => {
                 let _ = write!(long_desc, "{:#?}\n", result);
             }
-            None => {}
+            None => {
+                let _ = write!(long_desc, "  {WD}...{RESET}\n");
+            }
         }
     }
 
