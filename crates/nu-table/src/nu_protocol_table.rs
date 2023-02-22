@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use crate::{string_truncate, string_width, Alignments, TableTheme};
+use crate::{string_width, Alignments, TableTheme};
 use nu_color_config::StyleComputer;
 use nu_protocol::{Config, Span, Value};
 use tabled::{
@@ -17,14 +17,13 @@ use serde_json::Value as Json;
 ///
 /// It doesn't support alignment and a proper width control.
 pub struct NuTable {
-    inner: Option<String>,
+    inner: String,
 }
 
 impl NuTable {
     pub fn new(
         value: Value,
         collapse: bool,
-        termwidth: usize,
         config: &Config,
         style_computer: &StyleComputer,
         theme: &TableTheme,
@@ -34,44 +33,19 @@ impl NuTable {
         load_theme(&mut table, style_computer, theme);
         let cfg = table.get_config().clone();
 
-        let mut val = nu_protocol_value_to_json(value, config, with_footer);
+        let val = nu_protocol_value_to_json(value, config, with_footer);
+        let table = build_table(val, cfg, collapse);
 
-        let table = build_table(val.clone(), cfg.clone(), collapse);
-        let table_width = string_width(&table);
-
-        if table_width > termwidth {
-            // Doing a soffisticated width control would require some deep rooted changes.
-            // (Which is might neessery to be done)
-            //
-            // Instead we peek biggest cells 1 by 1 and truncating them.
-
-            loop {
-                match get_biggest_value(&mut val) {
-                    Some((value, width)) => {
-                        if width == 0 {
-                            return Self { inner: None };
-                        }
-
-                        let need_to_cut = width - 1;
-                        __truncate_value(value, need_to_cut);
-
-                        let table = build_table(val.clone(), cfg.clone(), collapse);
-                        let table_width = string_width(&table);
-
-                        if table_width <= termwidth {
-                            return Self { inner: Some(table) };
-                        }
-                    }
-                    None => return Self { inner: None },
-                }
-            }
-        }
-
-        Self { inner: Some(table) }
+        Self { inner: table }
     }
 
-    pub fn draw(&self) -> Option<String> {
-        self.inner.clone()
+    pub fn draw(&self, termwidth: usize) -> Option<String> {
+        let table_width = string_width(&self.inner);
+        if table_width > termwidth {
+            None
+        } else {
+            Some(self.inner.clone())
+        }
     }
 }
 
@@ -250,76 +224,4 @@ where
             .with(Alignment::Horizontal(Alignments::default().data))
             .with(AlignmentStrategy::PerLine),
     );
-}
-
-fn __truncate_value(value: &mut Json, width: usize) {
-    match value {
-        Json::Null => *value = Json::String(string_truncate("null", width)),
-        Json::Bool(b) => {
-            let val = if *b { "true" } else { "false" };
-
-            *value = Json::String(string_truncate(val, width));
-        }
-        Json::Number(n) => {
-            let n = n.to_string();
-            *value = Json::String(string_truncate(&n, width));
-        }
-        Json::String(s) => {
-            *value = Json::String(string_truncate(s, width));
-        }
-        Json::Array(_) | Json::Object(_) => {
-            unreachable!("must never happen")
-        }
-    }
-}
-
-fn get_biggest_value(value: &mut Json) -> Option<(&mut Json, usize)> {
-    match value {
-        Json::Null => Some((value, 4)),
-        Json::Bool(_) => Some((value, 4)),
-        Json::Number(n) => {
-            let width = n.to_string().len();
-            Some((value, width))
-        }
-        Json::String(s) => {
-            let width = string_width(s);
-            Some((value, width))
-        }
-        Json::Array(arr) => {
-            if arr.is_empty() {
-                return None;
-            }
-
-            let mut width = 0;
-            let mut index = 0;
-            for (i, value) in arr.iter_mut().enumerate() {
-                if let Some((_, w)) = get_biggest_value(value) {
-                    if w >= width {
-                        index = i;
-                        width = w;
-                    }
-                }
-            }
-
-            get_biggest_value(&mut arr[index])
-        }
-        Json::Object(map) => {
-            if map.is_empty() {
-                return None;
-            }
-
-            let mut width = 0;
-            let mut index = String::new();
-            for (key, mut value) in map.clone() {
-                if let Some((_, w)) = get_biggest_value(&mut value) {
-                    if w >= width {
-                        index = key;
-                        width = w;
-                    }
-                }
-            }
-
-            get_biggest_value(&mut map[&index])
-        }
-    }
 }

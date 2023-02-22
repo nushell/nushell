@@ -354,17 +354,9 @@ fn build_collapsed_table(
     colorize_value(&mut value, config, style_computer);
 
     let theme = load_theme_from_config(config);
-    let table = nu_table::NuTable::new(
-        value,
-        true,
-        term_width,
-        config,
-        style_computer,
-        &theme,
-        false,
-    );
+    let table = nu_table::NuTable::new(value, true, config, style_computer, &theme, false);
 
-    let table = table.draw();
+    let table = table.draw(term_width);
 
     Ok(table)
 }
@@ -1674,17 +1666,10 @@ impl PagingTableCreator {
 
         colorize_value(&mut value, config, &style_computer);
 
-        let table = nu_table::NuTable::new(
-            value,
-            true,
-            term_width,
-            config,
-            &style_computer,
-            &theme,
-            need_footer,
-        );
+        let table =
+            nu_table::NuTable::new(value, true, config, &style_computer, &theme, need_footer);
 
-        Ok(table.draw())
+        Ok(table.draw(term_width))
     }
 
     fn build_general(&mut self, batch: &[Value]) -> Result<Option<String>, ShellError> {
