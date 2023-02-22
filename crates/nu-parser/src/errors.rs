@@ -122,35 +122,15 @@ pub enum ParseError {
     )]
     BuiltinCommandInPipeline(String, #[label("not allowed in pipeline")] Span),
 
-    #[error("Let statement used in pipeline.")]
+    #[error("{0} statement used in pipeline.")]
     #[diagnostic(
         code(nu::parser::unexpected_keyword),
         url(docsrs),
         help(
-            "Assigning '{0}' to '{1}' does not produce a value to be piped. If the pipeline result is meant to be assigned to '{1}', use 'let {1} = ({0} | ...)'."
+            "Assigning '{1}' to '{2}' does not produce a value to be piped. If the pipeline result is meant to be assigned to '{2}', use '{0} {2} = ({1} | ...)'."
         )
     )]
-    LetInPipeline(String, String, #[label("let in pipeline")] Span),
-
-    #[error("Const statement used in pipeline.")]
-    #[diagnostic(
-        code(nu::parser::unexpected_keyword),
-        url(docsrs),
-        help(
-            "Assigning '{0}' to '{1}' does not produce a value to be piped. If the pipeline result is meant to be assigned to '{1}', use 'const {1} = ({0} | ...)'."
-        )
-    )]
-    ConstInPipeline(String, String, #[label("const in pipeline")] Span),
-
-    #[error("Mut statement used in pipeline.")]
-    #[diagnostic(
-        code(nu::parser::unexpected_keyword),
-        url(docsrs),
-        help(
-            "Assigning '{0}' to '{1}' does not produce a value to be piped. If the pipeline result is meant to be assigned to '{1}', use 'mut {1} = ({0} | ...)'."
-        )
-    )]
-    MutInPipeline(String, String, #[label("mut in pipeline")] Span),
+    AssignInPipeline(String, String, String, #[label("'{0}' in pipeline")] Span),
 
     #[error("Let used with builtin variable name.")]
     #[diagnostic(
@@ -465,9 +445,7 @@ impl ParseError {
             ParseError::ExpectedKeyword(_, s) => *s,
             ParseError::UnexpectedKeyword(_, s) => *s,
             ParseError::BuiltinCommandInPipeline(_, s) => *s,
-            ParseError::LetInPipeline(_, _, s) => *s,
-            ParseError::MutInPipeline(_, _, s) => *s,
-            ParseError::ConstInPipeline(_, _, s) => *s,
+            ParseError::AssignInPipeline(_, _, _, s) => *s,
             ParseError::LetBuiltinVar(_, s) => *s,
             ParseError::MutBuiltinVar(_, s) => *s,
             ParseError::ConstBuiltinVar(_, s) => *s,
