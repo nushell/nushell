@@ -23,6 +23,7 @@ mod every;
 #[cfg(not(windows))]
 mod exec;
 mod export_def;
+mod fill;
 mod find;
 mod first;
 mod flatten;

@@ -1,6 +1,6 @@
 use nu_test_support::fs::Stub::FileWithContent;
 use nu_test_support::playground::Playground;
-use nu_test_support::{nu, pipeline};
+use nu_test_support::{nu, nu_repl_code, pipeline};
 
 #[test]
 fn table_0() {
@@ -21,7 +21,213 @@ fn table_collapse_0() {
     let actual = nu!(r#"[[a b, c]; [1 2 3] [4 5 [1 2 3]]] | table --collapse"#);
     assert_eq!(
         actual.out,
-        "╭───┬───┬───╮│ a │ b │ c │ ─── ─── ─── │ 1 │ 2 │ 3 │ ─── ─── ─── │ 4 │ 5 │ 1 ││   │    ─── │   │   │ 2 ││   │    ─── │   │   │ 3 │╰───┴───┴───╯"
+        "╭───┬───┬───╮\
+         │ a │ b │ c │\
+         ├───┼───┼───┤\
+         │ 1 │ 2 │ 3 │\
+         ├───┼───┼───┤\
+         │ 4 │ 5 │ 1 │\
+         │   │   ├───┤\
+         │   │   │ 2 │\
+         │   │   ├───┤\
+         │   │   │ 3 │\
+         ╰───┴───┴───╯"
+    );
+}
+
+#[test]
+fn table_collapse_basic() {
+    let actual = nu!(nu_repl_code(&[
+        "let-env config = { table_mode: basic };",
+        "[[a b, c]; [1 2 3] [4 5 [1 2 3]]] | table --collapse"
+    ]));
+    assert_eq!(
+        actual.out,
+        "+---+---+---+\
+         | a | b | c |\
+         +---+---+---+\
+         | 1 | 2 | 3 |\
+         +---+---+---+\
+         | 4 | 5 | 1 |\
+         |   |   +---+\
+         |   |   | 2 |\
+         |   |   +---+\
+         |   |   | 3 |\
+         +---+---+---+"
+    );
+}
+
+#[test]
+fn table_collapse_heavy() {
+    let actual = nu!(nu_repl_code(&[
+        "let-env config = { table_mode: heavy };",
+        "[[a b, c]; [1 2 3] [4 5 [1 2 3]]] | table --collapse"
+    ]));
+    assert_eq!(
+        actual.out,
+        "┏━━━┳━━━┳━━━┓\
+         ┃ a ┃ b ┃ c ┃\
+         ┣━━━╋━━━╋━━━┫\
+         ┃ 1 ┃ 2 ┃ 3 ┃\
+         ┣━━━╋━━━╋━━━┫\
+         ┃ 4 ┃ 5 ┃ 1 ┃\
+         ┃   ┃   ┣━━━┫\
+         ┃   ┃   ┃ 2 ┃\
+         ┃   ┃   ┣━━━┫\
+         ┃   ┃   ┃ 3 ┃\
+         ┗━━━┻━━━┻━━━┛"
+    );
+}
+
+#[test]
+fn table_collapse_compact() {
+    let actual = nu!(nu_repl_code(&[
+        "let-env config = { table_mode: compact };",
+        "[[a b, c]; [1 2 3] [4 5 [1 2 3]]] | table --collapse"
+    ]));
+    assert_eq!(
+        actual.out,
+        "┌───┬───┬───┐\
+         │ a │ b │ c │\
+         ├───┼───┼───┤\
+         │ 1 │ 2 │ 3 │\
+         ├───┼───┼───┤\
+         │ 4 │ 5 │ 1 │\
+         │   │   ├───┤\
+         │   │   │ 2 │\
+         │   │   ├───┤\
+         │   │   │ 3 │\
+         └───┴───┴───┘"
+    );
+}
+
+#[test]
+fn table_collapse_compact_double() {
+    let actual = nu!(nu_repl_code(&[
+        "let-env config = { table_mode: compact_double };",
+        "[[a b, c]; [1 2 3] [4 5 [1 2 3]]] | table --collapse"
+    ]));
+    assert_eq!(
+        actual.out,
+        "╔═══╦═══╦═══╗\
+         ║ a ║ b ║ c ║\
+         ╠═══╬═══╬═══╣\
+         ║ 1 ║ 2 ║ 3 ║\
+         ╠═══╬═══╬═══╣\
+         ║ 4 ║ 5 ║ 1 ║\
+         ║   ║   ╠═══╣\
+         ║   ║   ║ 2 ║\
+         ║   ║   ╠═══╣\
+         ║   ║   ║ 3 ║\
+         ╚═══╩═══╩═══╝"
+    );
+}
+
+#[test]
+fn table_collapse_compact_light() {
+    let actual = nu!(nu_repl_code(&[
+        "let-env config = { table_mode: light };",
+        "[[a b, c]; [1 2 3] [4 5 [1 2 3]]] | table --collapse"
+    ]));
+    assert_eq!(
+        actual.out,
+        "┌───┬───┬───┐\
+         │ a │ b │ c │\
+         ├───┼───┼───┤\
+         │ 1 │ 2 │ 3 │\
+         ├───┼───┼───┤\
+         │ 4 │ 5 │ 1 │\
+         │   │   ├───┤\
+         │   │   │ 2 │\
+         │   │   ├───┤\
+         │   │   │ 3 │\
+         └───┴───┴───┘"
+    );
+}
+
+#[test]
+fn table_collapse_none() {
+    let actual = nu!(nu_repl_code(&[
+        "let-env config = { table_mode: none };",
+        "[[a b, c]; [1 2 3] [4 5 [1 2 3]]] | table --collapse"
+    ]));
+    assert_eq!(
+        actual.out,
+        concat!(
+            " a   b   c ",
+            " 1   2   3 ",
+            " 4   5   1 ",
+            "         2 ",
+            "         3 ",
+        )
+    );
+}
+
+#[test]
+fn table_collapse_compact_reinforced() {
+    let actual = nu!(nu_repl_code(&[
+        "let-env config = { table_mode: reinforced };",
+        "[[a b, c]; [1 2 3] [4 5 [1 2 3]]] | table --collapse"
+    ]));
+    assert_eq!(
+        actual.out,
+        "┏───┬───┬───┓\
+         │ a │ b │ c │\
+         ├───┼───┼───┤\
+         │ 1 │ 2 │ 3 │\
+         ├───┼───┼───┤\
+         │ 4 │ 5 │ 1 │\
+         │   │   ├───┤\
+         │   │   │ 2 │\
+         │   │   ├───┤\
+         │   │   │ 3 │\
+         ┗───┴───┴───┛"
+    );
+}
+
+#[test]
+fn table_collapse_compact_thin() {
+    let actual = nu!(nu_repl_code(&[
+        "let-env config = { table_mode: thin };",
+        "[[a b, c]; [1 2 3] [4 5 [1 2 3]]] | table --collapse"
+    ]));
+    assert_eq!(
+        actual.out,
+        "┌───┬───┬───┐\
+         │ a │ b │ c │\
+         ├───┼───┼───┤\
+         │ 1 │ 2 │ 3 │\
+         ├───┼───┼───┤\
+         │ 4 │ 5 │ 1 │\
+         │   │   ├───┤\
+         │   │   │ 2 │\
+         │   │   ├───┤\
+         │   │   │ 3 │\
+         └───┴───┴───┘"
+    );
+}
+
+#[test]
+fn table_collapse_hearts() {
+    let actual = nu!(nu_repl_code(&[
+        "let-env config = { table_mode: with_love };",
+        "[[a b, c]; [1 2 3] [4 5 [1 2 3]]] | table --collapse"
+    ]));
+    assert_eq!(
+        actual.out,
+        concat!(
+            "❤❤❤❤❤❤❤❤❤❤❤❤❤",
+            "❤ a ❤ b ❤ c ❤",
+            "❤❤❤❤❤❤❤❤❤❤❤❤❤",
+            "❤ 1 ❤ 2 ❤ 3 ❤",
+            "❤❤❤❤❤❤❤❤❤❤❤❤❤",
+            "❤ 4 ❤ 5 ❤ 1 ❤",
+            "❤   ❤   ❤❤❤❤❤",
+            "❤   ❤   ❤ 2 ❤",
+            "❤   ❤   ❤❤❤❤❤",
+            "❤   ❤   ❤ 3 ❤",
+            "❤❤❤❤❤❤❤❤❤❤❤❤❤",
+        )
     );
 }
 
@@ -228,7 +434,7 @@ fn table_expand_record_2() {
         field3: [ [ head1, head2, head3 ]; [ 1 2 3 ] [ 79 79 79 ] [ { f1: 'a string', f2: 1000 }, 1, 2 ] ],\
         field4: { f1: 1, f2: 3, f3: { f1: f1, f2: f2, f3: f3 } }\
     }";
-    let actual = nu!(format!("{} | table --expand", structure));
+    let actual = nu!(format!("{structure} | table --expand"));
 
     assert_eq!(
         actual.out,
@@ -438,8 +644,6 @@ fn test_expand_big_0() {
             "open sample.toml | table --expand"
         ));
 
-        _print_lines(&actual.out, 80);
-
         let expected = join_lines([
             "╭──────────────────┬───────────────────────────────────────────────────────────╮",
             "│                  │ ╭───┬─────────┬────────────╮                              │",
@@ -632,8 +836,6 @@ fn test_expand_big_0() {
             "open sample.toml | table --expand --width=120"
         ));
 
-        _print_lines(&actual.out, 120);
-
         let expected = join_lines([
             "╭──────────────────┬───────────────────────────────────────────────────────────────────────────────────────────────────╮",
             "│                  │ ╭───┬─────────┬────────────╮                                                                      │",
@@ -772,17 +974,28 @@ fn test_expand_big_0() {
             "│                  │ ╰───────────┴───────────────────────────────────────────────────────────────────────────────────╯ │",
             "│                  │ ╭─────────────────────────────────┬─────────────────────────────────────────────────────────────╮ │",
             "│ target           │ │                                 │ ╭──────────────┬──────────────────────────────────────────╮ │ │",
-            "│                  │ │ cfg(not(target_os = \"windows\")) │ │              │ ╭────────────────┬─────────────────────╮ │ │ │",
-            "│                  │ │                                 │ │ dependencies │ │ openssl        │ {record 3 fields}   │ │ │ │",
-            "│                  │ │                                 │ │              │ │ signal-hook    │ {record 2 fields}   │ │ │ │",
-            "│                  │ │                                 │ │              │ ╰────────────────┴─────────────────────╯ │ │ │",
+            "│                  │ │ cfg(not(target_os = \"windows\")) │ │              │ ╭─────────────┬────────────────────────╮ │ │ │",
+            "│                  │ │                                 │ │ dependencies │ │             │ ╭──────────┬─────────╮ │ │ │ │",
+            "│                  │ │                                 │ │              │ │ openssl     │ │ features │ [list 1 │ │ │ │ │",
+            "│                  │ │                                 │ │              │ │             │ │          │  item]  │ │ │ │ │",
+            "│                  │ │                                 │ │              │ │             │ │ optional │ true    │ │ │ │ │",
+            "│                  │ │                                 │ │              │ │             │ │ version  │ 0.10.38 │ │ │ │ │",
+            "│                  │ │                                 │ │              │ │             │ ╰──────────┴─────────╯ │ │ │ │",
+            "│                  │ │                                 │ │              │ │ signal-hook │ {record 2 fields}      │ │ │ │",
+            "│                  │ │                                 │ │              │ ╰─────────────┴────────────────────────╯ │ │ │",
             "│                  │ │                                 │ ╰──────────────┴──────────────────────────────────────────╯ │ │",
-            "│                  │ │                                 │ ╭──────────────┬──────────────────────────────╮             │ │",
-            "│                  │ │ cfg(target_family = \"unix\")     │ │              │ ╭──────┬───────────────────╮ │             │ │",
-            "│                  │ │                                 │ │ dependencies │ │ atty │ 0.2               │ │             │ │",
-            "│                  │ │                                 │ │              │ │ nix  │ {record 3 fields} │ │             │ │",
-            "│                  │ │                                 │ │              │ ╰──────┴───────────────────╯ │             │ │",
-            "│                  │ │                                 │ ╰──────────────┴──────────────────────────────╯             │ │",
+            "│                  │ │                                 │ ╭──────────────┬──────────────────────────────────────────╮ │ │",
+            "│                  │ │ cfg(target_family = \"unix\")     │ │              │ ╭──────┬───────────────────────────────╮ │ │ │",
+            "│                  │ │                                 │ │ dependencies │ │ atty │ 0.2                           │ │ │ │",
+            "│                  │ │                                 │ │              │ │      │ ╭──────────────────┬────────╮ │ │ │ │",
+            "│                  │ │                                 │ │              │ │ nix  │ │ default-features │ false  │ │ │ │ │",
+            "│                  │ │                                 │ │              │ │      │ │ features         │ [list  │ │ │ │ │",
+            "│                  │ │                                 │ │              │ │      │ │                  │ 4      │ │ │ │ │",
+            "│                  │ │                                 │ │              │ │      │ │                  │ items] │ │ │ │ │",
+            "│                  │ │                                 │ │              │ │      │ │ version          │ 0.25   │ │ │ │ │",
+            "│                  │ │                                 │ │              │ │      │ ╰──────────────────┴────────╯ │ │ │ │",
+            "│                  │ │                                 │ │              │ ╰──────┴───────────────────────────────╯ │ │ │",
+            "│                  │ │                                 │ ╰──────────────┴──────────────────────────────────────────╯ │ │",
             "│                  │ │                                 │ ╭────────────────────┬──────────────────╮                   │ │",
             "│                  │ │ cfg(windows)                    │ │                    │ ╭────────┬─────╮ │                   │ │",
             "│                  │ │                                 │ │ build-dependencies │ │ winres │ 0.1 │ │                   │ │",
@@ -815,8 +1028,6 @@ fn test_expand_big_0() {
             cwd: dirs.test(), pipeline(
             "open sample.toml | table --expand --width=60"
         ));
-
-        _print_lines(&actual.out, 60);
 
         let expected = join_lines([
             "╭──────────────────┬───────────────────────────────────────╮",
@@ -1084,8 +1295,6 @@ fn test_expand_big_0() {
             "open sample.toml | table --expand --width=40"
         ));
 
-        _print_lines(&actual.out, 40);
-
         let expected = join_lines([
             "╭──────────────────┬───────────────────╮",
             "│ bench            │ [table 1 row]     │",
@@ -1115,12 +1324,471 @@ fn test_expand_big_0() {
             "│                  │ │           │ } │ │",
             "│                  │ ╰───────────┴───╯ │",
             "│ target           │ {record 3 fields} │",
-            "│ workspace        │ {record 1 field}  │",
+            "│                  │ ╭─────────┬─────╮ │",
+            "│ workspace        │ │ members │ [li │ │",
+            "│                  │ │         │ st  │ │",
+            "│                  │ │         │ 13  │ │",
+            "│                  │ │         │ ite │ │",
+            "│                  │ │         │ ms] │ │",
+            "│                  │ ╰─────────┴─────╯ │",
             "╰──────────────────┴───────────────────╯",
         ]);
 
         assert_eq!(actual.out, expected);
     })
+}
+
+#[test]
+fn table_expande_with_no_header_internally_0() {
+    let nu_value = r##"{ "config            ": { "ls": { "use_ls_colors": true, "clickable_links": false }, "rm": { "always_trash": false }, "cd": { "abbreviations": false }, "table": { "mode": "rounded", "index_mode": "always", "trim": { "methodology": "wrapping", "wrapping_try_keep_words": true, "truncating_suffix": "..." } }, "explore": { "help_banner": true, "exit_esc": true, "command_bar_text": "#C4C9C6", "status_bar_background": { "fg": "#1D1F21", "bg": "#C4C9C6" }, "highlight": { "bg": "yellow", "fg": "black" }, "status": {}, "try": {}, "table": { "split_line": "#404040", "cursor": true, "line_index": true, "line_shift": true, "line_head_top": true, "line_head_bottom": true, "show_head": true, "show_index": true }, "config": { "cursor_color": { "bg": "yellow", "fg": "black" } } }, "history": { "max_size": 10000, "sync_on_enter": true, "file_format": "plaintext" }, "completions": { "case_sensitive": false, "quick": true, "partial": true, "algorithm": "prefix", "external": { "enable": true, "max_results": 100, "completer": null } }, "filesize": { "metric": true, "format": "auto" }, "cursor_shape": { "emacs": "line", "vi_insert": "block", "vi_normal": "underscore" }, "color_config": { "separator": "white", "leading_trailing_space_bg": { "attr": "n" }, "header": "green_bold", "empty": "blue", "bool": null, "int": "white", "filesize": null, "duration": "white", "date": null, "range": "white", "float": "white", "string": "white", "nothing": "white", "binary": "white", "cellpath": "white", "row_index": "green_bold", "record": "white", "list": "white", "block": "white", "hints": "dark_gray", "shape_and": "purple_bold", "shape_binary": "purple_bold", "shape_block": "blue_bold", "shape_bool": "light_cyan", "shape_custom": "green", "shape_datetime": "cyan_bold", "shape_directory": "cyan", "shape_external": "cyan", "shape_externalarg": "green_bold", "shape_filepath": "cyan", "shape_flag": "blue_bold", "shape_float": "purple_bold", "shape_garbage": { "fg": "#FFFFFF", "bg": "#FF0000", "attr": "b" }, "shape_globpattern": "cyan_bold", "shape_int": "purple_bold", "shape_internalcall": "cyan_bold", "shape_list": "cyan_bold", "shape_literal": "blue", "shape_matching_brackets": { "attr": "u" }, "shape_nothing": "light_cyan", "shape_operator": "yellow", "shape_or": "purple_bold", "shape_pipe": "purple_bold", "shape_range": "yellow_bold", "shape_record": "cyan_bold", "shape_redirection": "purple_bold", "shape_signature": "green_bold", "shape_string": "green", "shape_string_interpolation": "cyan_bold", "shape_table": "blue_bold", "shape_variable": "purple" }, "use_grid_icons": true, "footer_mode": "25", "float_precision": 2, "use_ansi_coloring": true, "edit_mode": "emacs", "shell_integration": true, "show_banner": true, "render_right_prompt_on_last_line": false, "hooks": { "pre_prompt": [ null ], "pre_execution": [ null ], "env_change": { "PWD": [ null ] }, "display_output": null }, "menus": [ { "name": "completion_menu", "only_buffer_difference": false, "marker": "| ", "type": { "layout": "columnar", "columns": 4, "col_width": 20, "col_padding": 2 }, "style": { "text": "green", "selected_text": "green_reverse", "description_text": "yellow" } }, { "name": "history_menu", "only_buffer_difference": true, "marker": "? ", "type": { "layout": "list", "page_size": 10 }, "style": { "text": "green", "selected_text": "green_reverse", "description_text": "yellow" } }, { "name": "help_menu", "only_buffer_difference": true, "marker": "? ", "type": { "layout": "description", "columns": 4, "col_width": 20, "col_padding": 2, "selection_rows": 4, "description_rows": 10 }, "style": { "text": "green", "selected_text": "green_reverse", "description_text": "yellow" } }, { "name": "commands_menu", "only_buffer_difference": false, "marker": "# ", "type": { "layout": "columnar", "columns": 4, "col_width": 20, "col_padding": 2 }, "style": { "text": "green", "selected_text": "green_reverse", "description_text": "yellow" }, "source": null }, { "name": "vars_menu", "only_buffer_difference": true, "marker": "# ", "type": { "layout": "list", "page_size": 10 }, "style": { "text": "green", "selected_text": "green_reverse", "description_text": "yellow" }, "source": null }, { "name": "commands_with_description", "only_buffer_difference": true, "marker": "# ", "type": { "layout": "description", "columns": 4, "col_width": 20, "col_padding": 2, "selection_rows": 4, "description_rows": 10 }, "style": { "text": "green", "selected_text": "green_reverse", "description_text": "yellow" }, "source": null } ], "keybindings": [ { "name": "completion_menu", "modifier": "none", "keycode": "tab", "mode": [ "emacs", "vi_normal", "vi_insert" ], "event": { "until": [ { "send": "menu", "name": "completion_menu" }, { "send": "menunext" } ] } }, { "name": "completion_previous", "modifier": "shift", "keycode": "backtab", "mode": [ "emacs", "vi_normal", "vi_insert" ], "event": { "send": "menuprevious" } }, { "name": "history_menu", "modifier": "control", "keycode": "char_r", "mode": "emacs", "event": { "send": "menu", "name": "history_menu" } }, { "name": "next_page", "modifier": "control", "keycode": "char_x", "mode": "emacs", "event": { "send": "menupagenext" } }, { "name": "undo_or_previous_page", "modifier": "control", "keycode": "char_z", "mode": "emacs", "event": { "until": [ { "send": "menupageprevious" }, { "edit": "undo" } ] } }, { "name": "yank", "modifier": "control", "keycode": "char_y", "mode": "emacs", "event": { "until": [ { "edit": "pastecutbufferafter" } ] } }, { "name": "unix-line-discard", "modifier": "control", "keycode": "char_u", "mode": [ "emacs", "vi_normal", "vi_insert" ], "event": { "until": [ { "edit": "cutfromlinestart" } ] } }, { "name": "kill-line", "modifier": "control", "keycode": "char_k", "mode": [ "emacs", "vi_normal", "vi_insert" ], "event": { "until": [ { "edit": "cuttolineend" } ] } }, { "name": "commands_menu", "modifier": "control", "keycode": "char_t", "mode": [ "emacs", "vi_normal", "vi_insert" ], "event": { "send": "menu", "name": "commands_menu" } }, { "name": "vars_menu", "modifier": "alt", "keycode": "char_o", "mode": [ "emacs", "vi_normal", "vi_insert" ], "event": { "send": "menu", "name": "vars_menu" } }, { "name": "commands_with_description", "modifier": "control", "keycode": "char_s", "mode": [ "emacs", "vi_normal", "vi_insert" ], "event": { "send": "menu", "name": "commands_with_description" } } ] } }"##;
+
+    let actual = nu!(format!("{} | table --expand --width 141", nu_value.trim()));
+
+    assert_eq!(
+        actual.out,
+        join_lines([
+            "╭────────────────────┬──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╮",
+            "│                    │ ╭──────────────────────────────────┬───────────────────────────────────────────────────────────────────────────────╮ │",
+            "│ config             │ │                                  │ ╭─────────────────┬───────╮                                                   │ │",
+            "│                    │ │ ls                               │ │ use_ls_colors   │ true  │                                                   │ │",
+            "│                    │ │                                  │ │ clickable_links │ false │                                                   │ │",
+            "│                    │ │                                  │ ╰─────────────────┴───────╯                                                   │ │",
+            "│                    │ │                                  │ ╭──────────────┬───────╮                                                      │ │",
+            "│                    │ │ rm                               │ │ always_trash │ false │                                                      │ │",
+            "│                    │ │                                  │ ╰──────────────┴───────╯                                                      │ │",
+            "│                    │ │                                  │ ╭───────────────┬───────╮                                                     │ │",
+            "│                    │ │ cd                               │ │ abbreviations │ false │                                                     │ │",
+            "│                    │ │                                  │ ╰───────────────┴───────╯                                                     │ │",
+            "│                    │ │                                  │ ╭────────────┬────────────────────────────────────────╮                       │ │",
+            "│                    │ │ table                            │ │ mode       │ rounded                                │                       │ │",
+            "│                    │ │                                  │ │ index_mode │ always                                 │                       │ │",
+            "│                    │ │                                  │ │            │ ╭─────────────────────────┬──────────╮ │                       │ │",
+            "│                    │ │                                  │ │ trim       │ │ methodology             │ wrapping │ │                       │ │",
+            "│                    │ │                                  │ │            │ │ wrapping_try_keep_words │ true     │ │                       │ │",
+            "│                    │ │                                  │ │            │ │ truncating_suffix       │ ...      │ │                       │ │",
+            "│                    │ │                                  │ │            │ ╰─────────────────────────┴──────────╯ │                       │ │",
+            "│                    │ │                                  │ ╰────────────┴────────────────────────────────────────╯                       │ │",
+            "│                    │ │                                  │ ╭───────────────────────────────┬───────────────────────────────────────────╮ │ │",
+            "│                    │ │ explore                          │ │ help_banner                   │ true                                      │ │ │",
+            "│                    │ │                                  │ │ exit_esc                      │ true                                      │ │ │",
+            "│                    │ │                                  │ │ command_bar_text              │ #C4C9C6                                   │ │ │",
+            "│                    │ │                                  │ │                               │ ╭────┬─────────╮                          │ │ │",
+            "│                    │ │                                  │ │ status_bar_background         │ │ fg │ #1D1F21 │                          │ │ │",
+            "│                    │ │                                  │ │                               │ │ bg │ #C4C9C6 │                          │ │ │",
+            "│                    │ │                                  │ │                               │ ╰────┴─────────╯                          │ │ │",
+            "│                    │ │                                  │ │                               │ ╭────┬────────╮                           │ │ │",
+            "│                    │ │                                  │ │ highlight                     │ │ bg │ yellow │                           │ │ │",
+            "│                    │ │                                  │ │                               │ │ fg │ black  │                           │ │ │",
+            "│                    │ │                                  │ │                               │ ╰────┴────────╯                           │ │ │",
+            "│                    │ │                                  │ │                               │                                           │ │ │",
+            "│                    │ │                                  │ │ status                        │                                           │ │ │",
+            "│                    │ │                                  │ │                               │                                           │ │ │",
+            "│                    │ │                                  │ │ try                           │                                           │ │ │",
+            "│                    │ │                                  │ │                               │ ╭──────────────────┬─────────╮            │ │ │",
+            "│                    │ │                                  │ │ table                         │ │ split_line       │ #404040 │            │ │ │",
+            "│                    │ │                                  │ │                               │ │ cursor           │ true    │            │ │ │",
+            "│                    │ │                                  │ │                               │ │ line_index       │ true    │            │ │ │",
+            "│                    │ │                                  │ │                               │ │ line_shift       │ true    │            │ │ │",
+            "│                    │ │                                  │ │                               │ │ line_head_top    │ true    │            │ │ │",
+            "│                    │ │                                  │ │                               │ │ line_head_bottom │ true    │            │ │ │",
+            "│                    │ │                                  │ │                               │ │ show_head        │ true    │            │ │ │",
+            "│                    │ │                                  │ │                               │ │ show_index       │ true    │            │ │ │",
+            "│                    │ │                                  │ │                               │ ╰──────────────────┴─────────╯            │ │ │",
+            "│                    │ │                                  │ │                               │ ╭──────────────┬─────────────────╮        │ │ │",
+            "│                    │ │                                  │ │ config                        │ │              │ ╭────┬────────╮ │        │ │ │",
+            "│                    │ │                                  │ │                               │ │ cursor_color │ │ bg │ yellow │ │        │ │ │",
+            "│                    │ │                                  │ │                               │ │              │ │ fg │ black  │ │        │ │ │",
+            "│                    │ │                                  │ │                               │ │              │ ╰────┴────────╯ │        │ │ │",
+            "│                    │ │                                  │ │                               │ ╰──────────────┴─────────────────╯        │ │ │",
+            "│                    │ │                                  │ ╰───────────────────────────────┴───────────────────────────────────────────╯ │ │",
+            "│                    │ │                                  │ ╭───────────────┬───────────╮                                                 │ │",
+            "│                    │ │ history                          │ │ max_size      │ 10000     │                                                 │ │",
+            "│                    │ │                                  │ │ sync_on_enter │ true      │                                                 │ │",
+            "│                    │ │                                  │ │ file_format   │ plaintext │                                                 │ │",
+            "│                    │ │                                  │ ╰───────────────┴───────────╯                                                 │ │",
+            "│                    │ │                                  │ ╭────────────────┬────────────────────────╮                                   │ │",
+            "│                    │ │ completions                      │ │ case_sensitive │ false                  │                                   │ │",
+            "│                    │ │                                  │ │ quick          │ true                   │                                   │ │",
+            "│                    │ │                                  │ │ partial        │ true                   │                                   │ │",
+            "│                    │ │                                  │ │ algorithm      │ prefix                 │                                   │ │",
+            "│                    │ │                                  │ │                │ ╭─────────────┬──────╮ │                                   │ │",
+            "│                    │ │                                  │ │ external       │ │ enable      │ true │ │                                   │ │",
+            "│                    │ │                                  │ │                │ │ max_results │ 100  │ │                                   │ │",
+            "│                    │ │                                  │ │                │ │ completer   │      │ │                                   │ │",
+            "│                    │ │                                  │ │                │ ╰─────────────┴──────╯ │                                   │ │",
+            "│                    │ │                                  │ ╰────────────────┴────────────────────────╯                                   │ │",
+            "│                    │ │                                  │ ╭────────┬──────╮                                                             │ │",
+            "│                    │ │ filesize                         │ │ metric │ true │                                                             │ │",
+            "│                    │ │                                  │ │ format │ auto │                                                             │ │",
+            "│                    │ │                                  │ ╰────────┴──────╯                                                             │ │",
+            "│                    │ │                                  │ ╭───────────┬────────────╮                                                    │ │",
+            "│                    │ │ cursor_shape                     │ │ emacs     │ line       │                                                    │ │",
+            "│                    │ │                                  │ │ vi_insert │ block      │                                                    │ │",
+            "│                    │ │                                  │ │ vi_normal │ underscore │                                                    │ │",
+            "│                    │ │                                  │ ╰───────────┴────────────╯                                                    │ │",
+            "│                    │ │                                  │ ╭────────────────────────────┬────────────────────╮                           │ │",
+            "│                    │ │ color_config                     │ │ separator                  │ white              │                           │ │",
+            "│                    │ │                                  │ │                            │ ╭──────┬───╮       │                           │ │",
+            "│                    │ │                                  │ │ leading_trailing_space_bg  │ │ attr │ n │       │                           │ │",
+            "│                    │ │                                  │ │                            │ ╰──────┴───╯       │                           │ │",
+            "│                    │ │                                  │ │ header                     │ green_bold         │                           │ │",
+            "│                    │ │                                  │ │ empty                      │ blue               │                           │ │",
+            "│                    │ │                                  │ │ bool                       │                    │                           │ │",
+            "│                    │ │                                  │ │ int                        │ white              │                           │ │",
+            "│                    │ │                                  │ │ filesize                   │                    │                           │ │",
+            "│                    │ │                                  │ │ duration                   │ white              │                           │ │",
+            "│                    │ │                                  │ │ date                       │                    │                           │ │",
+            "│                    │ │                                  │ │ range                      │ white              │                           │ │",
+            "│                    │ │                                  │ │ float                      │ white              │                           │ │",
+            "│                    │ │                                  │ │ string                     │ white              │                           │ │",
+            "│                    │ │                                  │ │ nothing                    │ white              │                           │ │",
+            "│                    │ │                                  │ │ binary                     │ white              │                           │ │",
+            "│                    │ │                                  │ │ cellpath                   │ white              │                           │ │",
+            "│                    │ │                                  │ │ row_index                  │ green_bold         │                           │ │",
+            "│                    │ │                                  │ │ record                     │ white              │                           │ │",
+            "│                    │ │                                  │ │ list                       │ white              │                           │ │",
+            "│                    │ │                                  │ │ block                      │ white              │                           │ │",
+            "│                    │ │                                  │ │ hints                      │ dark_gray          │                           │ │",
+            "│                    │ │                                  │ │ shape_and                  │ purple_bold        │                           │ │",
+            "│                    │ │                                  │ │ shape_binary               │ purple_bold        │                           │ │",
+            "│                    │ │                                  │ │ shape_block                │ blue_bold          │                           │ │",
+            "│                    │ │                                  │ │ shape_bool                 │ light_cyan         │                           │ │",
+            "│                    │ │                                  │ │ shape_custom               │ green              │                           │ │",
+            "│                    │ │                                  │ │ shape_datetime             │ cyan_bold          │                           │ │",
+            "│                    │ │                                  │ │ shape_directory            │ cyan               │                           │ │",
+            "│                    │ │                                  │ │ shape_external             │ cyan               │                           │ │",
+            "│                    │ │                                  │ │ shape_externalarg          │ green_bold         │                           │ │",
+            "│                    │ │                                  │ │ shape_filepath             │ cyan               │                           │ │",
+            "│                    │ │                                  │ │ shape_flag                 │ blue_bold          │                           │ │",
+            "│                    │ │                                  │ │ shape_float                │ purple_bold        │                           │ │",
+            "│                    │ │                                  │ │                            │ ╭──────┬─────────╮ │                           │ │",
+            "│                    │ │                                  │ │ shape_garbage              │ │ fg   │ #FFFFFF │ │                           │ │",
+            "│                    │ │                                  │ │                            │ │ bg   │ #FF0000 │ │                           │ │",
+            "│                    │ │                                  │ │                            │ │ attr │ b       │ │                           │ │",
+            "│                    │ │                                  │ │                            │ ╰──────┴─────────╯ │                           │ │",
+            "│                    │ │                                  │ │ shape_globpattern          │ cyan_bold          │                           │ │",
+            "│                    │ │                                  │ │ shape_int                  │ purple_bold        │                           │ │",
+            "│                    │ │                                  │ │ shape_internalcall         │ cyan_bold          │                           │ │",
+            "│                    │ │                                  │ │ shape_list                 │ cyan_bold          │                           │ │",
+            "│                    │ │                                  │ │ shape_literal              │ blue               │                           │ │",
+            "│                    │ │                                  │ │                            │ ╭──────┬───╮       │                           │ │",
+            "│                    │ │                                  │ │ shape_matching_brackets    │ │ attr │ u │       │                           │ │",
+            "│                    │ │                                  │ │                            │ ╰──────┴───╯       │                           │ │",
+            "│                    │ │                                  │ │ shape_nothing              │ light_cyan         │                           │ │",
+            "│                    │ │                                  │ │ shape_operator             │ yellow             │                           │ │",
+            "│                    │ │                                  │ │ shape_or                   │ purple_bold        │                           │ │",
+            "│                    │ │                                  │ │ shape_pipe                 │ purple_bold        │                           │ │",
+            "│                    │ │                                  │ │ shape_range                │ yellow_bold        │                           │ │",
+            "│                    │ │                                  │ │ shape_record               │ cyan_bold          │                           │ │",
+            "│                    │ │                                  │ │ shape_redirection          │ purple_bold        │                           │ │",
+            "│                    │ │                                  │ │ shape_signature            │ green_bold         │                           │ │",
+            "│                    │ │                                  │ │ shape_string               │ green              │                           │ │",
+            "│                    │ │                                  │ │ shape_string_interpolation │ cyan_bold          │                           │ │",
+            "│                    │ │                                  │ │ shape_table                │ blue_bold          │                           │ │",
+            "│                    │ │                                  │ │ shape_variable             │ purple             │                           │ │",
+            "│                    │ │                                  │ ╰────────────────────────────┴────────────────────╯                           │ │",
+            "│                    │ │ use_grid_icons                   │ true                                                                          │ │",
+            "│                    │ │ footer_mode                      │ 25                                                                            │ │",
+            "│                    │ │ float_precision                  │ 2                                                                             │ │",
+            "│                    │ │ use_ansi_coloring                │ true                                                                          │ │",
+            "│                    │ │ edit_mode                        │ emacs                                                                         │ │",
+            "│                    │ │ shell_integration                │ true                                                                          │ │",
+            "│                    │ │ show_banner                      │ true                                                                          │ │",
+            "│                    │ │ render_right_prompt_on_last_line │ false                                                                         │ │",
+            "│                    │ │                                  │ ╭────────────────┬────────────────────╮                                       │ │",
+            "│                    │ │ hooks                            │ │                │ ╭───┬──╮           │                                       │ │",
+            "│                    │ │                                  │ │ pre_prompt     │ │ 0 │  │           │                                       │ │",
+            "│                    │ │                                  │ │                │ ╰───┴──╯           │                                       │ │",
+            "│                    │ │                                  │ │                │ ╭───┬──╮           │                                       │ │",
+            "│                    │ │                                  │ │ pre_execution  │ │ 0 │  │           │                                       │ │",
+            "│                    │ │                                  │ │                │ ╰───┴──╯           │                                       │ │",
+            "│                    │ │                                  │ │                │ ╭─────┬──────────╮ │                                       │ │",
+            "│                    │ │                                  │ │ env_change     │ │     │ ╭───┬──╮ │ │                                       │ │",
+            "│                    │ │                                  │ │                │ │ PWD │ │ 0 │  │ │ │                                       │ │",
+            "│                    │ │                                  │ │                │ │     │ ╰───┴──╯ │ │                                       │ │",
+            "│                    │ │                                  │ │                │ ╰─────┴──────────╯ │                                       │ │",
+            "│                    │ │                                  │ │ display_output │                    │                                       │ │",
+            "│                    │ │                                  │ ╰────────────────┴────────────────────╯                                       │ │",
+            "│                    │ │                                  │ ╭───┬───────────────────────────┬────────────────────────┬────────┬─────╮     │ │",
+            "│                    │ │ menus                            │ │ # │           name            │ only_buffer_difference │ marker │ ... │     │ │",
+            "│                    │ │                                  │ ├───┼───────────────────────────┼────────────────────────┼────────┼─────┤     │ │",
+            "│                    │ │                                  │ │ 0 │ completion_menu           │ false                  │ |      │ ... │     │ │",
+            "│                    │ │                                  │ │ 1 │ history_menu              │ true                   │ ?      │ ... │     │ │",
+            "│                    │ │                                  │ │ 2 │ help_menu                 │ true                   │ ?      │ ... │     │ │",
+            "│                    │ │                                  │ │ 3 │ commands_menu             │ false                  │ #      │ ... │     │ │",
+            "│                    │ │                                  │ │ 4 │ vars_menu                 │ true                   │ #      │ ... │     │ │",
+            "│                    │ │                                  │ │ 5 │ commands_with_description │ true                   │ #      │ ... │     │ │",
+            "│                    │ │                                  │ ╰───┴───────────────────────────┴────────────────────────┴────────┴─────╯     │ │",
+            "│                    │ │                                  │ ╭────┬───────────────────────────┬──────────┬─────────┬───────────────┬─────╮ │ │",
+            "│                    │ │ keybindings                      │ │  # │           name            │ modifier │ keycode │     mode      │ ... │ │ │",
+            "│                    │ │                                  │ ├────┼───────────────────────────┼──────────┼─────────┼───────────────┼─────┤ │ │",
+            "│                    │ │                                  │ │  0 │ completion_menu           │ none     │ tab     │ ╭───┬───────╮ │ ... │ │ │",
+            "│                    │ │                                  │ │    │                           │          │         │ │ 0 │ emacs │ │     │ │ │",
+            "│                    │ │                                  │ │    │                           │          │         │ │ 1 │ vi_no │ │     │ │ │",
+            "│                    │ │                                  │ │    │                           │          │         │ │   │ rmal  │ │     │ │ │",
+            "│                    │ │                                  │ │    │                           │          │         │ │ 2 │ vi_in │ │     │ │ │",
+            "│                    │ │                                  │ │    │                           │          │         │ │   │ sert  │ │     │ │ │",
+            "│                    │ │                                  │ │    │                           │          │         │ ╰───┴───────╯ │     │ │ │",
+            "│                    │ │                                  │ │  1 │ completion_previous       │ shift    │ backtab │ ╭───┬───────╮ │ ... │ │ │",
+            "│                    │ │                                  │ │    │                           │          │         │ │ 0 │ emacs │ │     │ │ │",
+            "│                    │ │                                  │ │    │                           │          │         │ │ 1 │ vi_no │ │     │ │ │",
+            "│                    │ │                                  │ │    │                           │          │         │ │   │ rmal  │ │     │ │ │",
+            "│                    │ │                                  │ │    │                           │          │         │ │ 2 │ vi_in │ │     │ │ │",
+            "│                    │ │                                  │ │    │                           │          │         │ │   │ sert  │ │     │ │ │",
+            "│                    │ │                                  │ │    │                           │          │         │ ╰───┴───────╯ │     │ │ │",
+            "│                    │ │                                  │ │  2 │ history_menu              │ control  │ char_r  │ emacs         │ ... │ │ │",
+            "│                    │ │                                  │ │  3 │ next_page                 │ control  │ char_x  │ emacs         │ ... │ │ │",
+            "│                    │ │                                  │ │  4 │ undo_or_previous_page     │ control  │ char_z  │ emacs         │ ... │ │ │",
+            "│                    │ │                                  │ │  5 │ yank                      │ control  │ char_y  │ emacs         │ ... │ │ │",
+            "│                    │ │                                  │ │  6 │ unix-line-discard         │ control  │ char_u  │ ╭───┬───────╮ │ ... │ │ │",
+            "│                    │ │                                  │ │    │                           │          │         │ │ 0 │ emacs │ │     │ │ │",
+            "│                    │ │                                  │ │    │                           │          │         │ │ 1 │ vi_no │ │     │ │ │",
+            "│                    │ │                                  │ │    │                           │          │         │ │   │ rmal  │ │     │ │ │",
+            "│                    │ │                                  │ │    │                           │          │         │ │ 2 │ vi_in │ │     │ │ │",
+            "│                    │ │                                  │ │    │                           │          │         │ │   │ sert  │ │     │ │ │",
+            "│                    │ │                                  │ │    │                           │          │         │ ╰───┴───────╯ │     │ │ │",
+            "│                    │ │                                  │ │  7 │ kill-line                 │ control  │ char_k  │ ╭───┬───────╮ │ ... │ │ │",
+            "│                    │ │                                  │ │    │                           │          │         │ │ 0 │ emacs │ │     │ │ │",
+            "│                    │ │                                  │ │    │                           │          │         │ │ 1 │ vi_no │ │     │ │ │",
+            "│                    │ │                                  │ │    │                           │          │         │ │   │ rmal  │ │     │ │ │",
+            "│                    │ │                                  │ │    │                           │          │         │ │ 2 │ vi_in │ │     │ │ │",
+            "│                    │ │                                  │ │    │                           │          │         │ │   │ sert  │ │     │ │ │",
+            "│                    │ │                                  │ │    │                           │          │         │ ╰───┴───────╯ │     │ │ │",
+            "│                    │ │                                  │ │  8 │ commands_menu             │ control  │ char_t  │ ╭───┬───────╮ │ ... │ │ │",
+            "│                    │ │                                  │ │    │                           │          │         │ │ 0 │ emacs │ │     │ │ │",
+            "│                    │ │                                  │ │    │                           │          │         │ │ 1 │ vi_no │ │     │ │ │",
+            "│                    │ │                                  │ │    │                           │          │         │ │   │ rmal  │ │     │ │ │",
+            "│                    │ │                                  │ │    │                           │          │         │ │ 2 │ vi_in │ │     │ │ │",
+            "│                    │ │                                  │ │    │                           │          │         │ │   │ sert  │ │     │ │ │",
+            "│                    │ │                                  │ │    │                           │          │         │ ╰───┴───────╯ │     │ │ │",
+            "│                    │ │                                  │ │  9 │ vars_menu                 │ alt      │ char_o  │ ╭───┬───────╮ │ ... │ │ │",
+            "│                    │ │                                  │ │    │                           │          │         │ │ 0 │ emacs │ │     │ │ │",
+            "│                    │ │                                  │ │    │                           │          │         │ │ 1 │ vi_no │ │     │ │ │",
+            "│                    │ │                                  │ │    │                           │          │         │ │   │ rmal  │ │     │ │ │",
+            "│                    │ │                                  │ │    │                           │          │         │ │ 2 │ vi_in │ │     │ │ │",
+            "│                    │ │                                  │ │    │                           │          │         │ │   │ sert  │ │     │ │ │",
+            "│                    │ │                                  │ │    │                           │          │         │ ╰───┴───────╯ │     │ │ │",
+            "│                    │ │                                  │ │ 10 │ commands_with_description │ control  │ char_s  │ ╭───┬───────╮ │ ... │ │ │",
+            "│                    │ │                                  │ │    │                           │          │         │ │ 0 │ emacs │ │     │ │ │",
+            "│                    │ │                                  │ │    │                           │          │         │ │ 1 │ vi_no │ │     │ │ │",
+            "│                    │ │                                  │ │    │                           │          │         │ │   │ rmal  │ │     │ │ │",
+            "│                    │ │                                  │ │    │                           │          │         │ │ 2 │ vi_in │ │     │ │ │",
+            "│                    │ │                                  │ │    │                           │          │         │ │   │ sert  │ │     │ │ │",
+            "│                    │ │                                  │ │    │                           │          │         │ ╰───┴───────╯ │     │ │ │",
+            "│                    │ │                                  │ ╰────┴───────────────────────────┴──────────┴─────────┴───────────────┴─────╯ │ │",
+            "│                    │ ╰──────────────────────────────────┴───────────────────────────────────────────────────────────────────────────────╯ │",
+            "╰────────────────────┴──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯",
+        ])
+    );
+}
+
+#[test]
+fn table_expande_with_no_header_internally_1() {
+    let nu_value = r##"{ "config            ": { "ls": { "use_ls_colors": true, "clickable_links": false }, "rm": { "always_trash": false }, "cd": { "abbreviations": false }, "table": { "mode": "rounded", "index_mode": "always", "trim": { "methodology": "wrapping", "wrapping_try_keep_words": true, "truncating_suffix": "..." } }, "explore": { "help_banner": true, "exit_esc": true, "command_bar_text": "#C4C9C6", "status_bar_background": { "fg": "#1D1F21", "bg": "#C4C9C6" }, "highlight": { "bg": "yellow", "fg": "black" }, "status": {}, "try": {}, "table": { "split_line": "#404040", "cursor": true, "line_index": true, "line_shift": true, "line_head_top": true, "line_head_bottom": true, "show_head": true, "show_index": true }, "config": { "cursor_color": { "bg": "yellow", "fg": "black" } } }, "history": { "max_size": 10000, "sync_on_enter": true, "file_format": "plaintext" }, "completions": { "case_sensitive": false, "quick": true, "partial": true, "algorithm": "prefix", "external": { "enable": true, "max_results": 100, "completer": null } }, "filesize": { "metric": true, "format": "auto" }, "cursor_shape": { "emacs": "line", "vi_insert": "block", "vi_normal": "underscore" }, "color_config": { "separator": "white", "leading_trailing_space_bg": { "attr": "n" }, "header": "green_bold", "empty": "blue", "bool": null, "int": "white", "filesize": null, "duration": "white", "date": null, "range": "white", "float": "white", "string": "white", "nothing": "white", "binary": "white", "cellpath": "white", "row_index": "green_bold", "record": "white", "list": "white", "block": "white", "hints": "dark_gray", "shape_and": "purple_bold", "shape_binary": "purple_bold", "shape_block": "blue_bold", "shape_bool": "light_cyan", "shape_custom": "green", "shape_datetime": "cyan_bold", "shape_directory": "cyan", "shape_external": "cyan", "shape_externalarg": "green_bold", "shape_filepath": "cyan", "shape_flag": "blue_bold", "shape_float": "purple_bold", "shape_garbage": { "fg": "#FFFFFF", "bg": "#FF0000", "attr": "b" }, "shape_globpattern": "cyan_bold", "shape_int": "purple_bold", "shape_internalcall": "cyan_bold", "shape_list": "cyan_bold", "shape_literal": "blue", "shape_matching_brackets": { "attr": "u" }, "shape_nothing": "light_cyan", "shape_operator": "yellow", "shape_or": "purple_bold", "shape_pipe": "purple_bold", "shape_range": "yellow_bold", "shape_record": "cyan_bold", "shape_redirection": "purple_bold", "shape_signature": "green_bold", "shape_string": "green", "shape_string_interpolation": "cyan_bold", "shape_table": "blue_bold", "shape_variable": "purple" }, "use_grid_icons": true, "footer_mode": "25", "float_precision": 2, "use_ansi_coloring": true, "edit_mode": "emacs", "shell_integration": true, "show_banner": true, "render_right_prompt_on_last_line": false, "hooks": { "pre_prompt": [ null ], "pre_execution": [ null ], "env_change": { "PWD": [ null ] }, "display_output": null }, "menus": [ { "name": "completion_menu", "only_buffer_difference": false, "marker": "| ", "type": { "layout": "columnar", "columns": 4, "col_width": 20, "col_padding": 2 }, "style": { "text": "green", "selected_text": "green_reverse", "description_text": "yellow" } }, { "name": "history_menu", "only_buffer_difference": true, "marker": "? ", "type": { "layout": "list", "page_size": 10 }, "style": { "text": "green", "selected_text": "green_reverse", "description_text": "yellow" } }, { "name": "help_menu", "only_buffer_difference": true, "marker": "? ", "type": { "layout": "description", "columns": 4, "col_width": 20, "col_padding": 2, "selection_rows": 4, "description_rows": 10 }, "style": { "text": "green", "selected_text": "green_reverse", "description_text": "yellow" } }, { "name": "commands_menu", "only_buffer_difference": false, "marker": "# ", "type": { "layout": "columnar", "columns": 4, "col_width": 20, "col_padding": 2 }, "style": { "text": "green", "selected_text": "green_reverse", "description_text": "yellow" }, "source": null }, { "name": "vars_menu", "only_buffer_difference": true, "marker": "# ", "type": { "layout": "list", "page_size": 10 }, "style": { "text": "green", "selected_text": "green_reverse", "description_text": "yellow" }, "source": null }, { "name": "commands_with_description", "only_buffer_difference": true, "marker": "# ", "type": { "layout": "description", "columns": 4, "col_width": 20, "col_padding": 2, "selection_rows": 4, "description_rows": 10 }, "style": { "text": "green", "selected_text": "green_reverse", "description_text": "yellow" }, "source": null } ], "keybindings": [ { "name": "completion_menu", "modifier": "none", "keycode": "tab", "mode": [ "emacs", "vi_normal", "vi_insert" ], "event": { "until": [ { "send": "menu", "name": "completion_menu" }, { "send": "menunext" } ] } }, { "name": "completion_previous", "modifier": "shift", "keycode": "backtab", "mode": [ "emacs", "vi_normal", "vi_insert" ], "event": { "send": "menuprevious" } }, { "name": "history_menu", "modifier": "control", "keycode": "char_r", "mode": "emacs", "event": { "send": "menu", "name": "history_menu" } }, { "name": "next_page", "modifier": "control", "keycode": "char_x", "mode": "emacs", "event": { "send": "menupagenext" } }, { "name": "undo_or_previous_page", "modifier": "control", "keycode": "char_z", "mode": "emacs", "event": { "until": [ { "send": "menupageprevious" }, { "edit": "undo" } ] } }, { "name": "yank", "modifier": "control", "keycode": "char_y", "mode": "emacs", "event": { "until": [ { "edit": "pastecutbufferafter" } ] } }, { "name": "unix-line-discard", "modifier": "control", "keycode": "char_u", "mode": [ "emacs", "vi_normal", "vi_insert" ], "event": { "until": [ { "edit": "cutfromlinestart" } ] } }, { "name": "kill-line", "modifier": "control", "keycode": "char_k", "mode": [ "emacs", "vi_normal", "vi_insert" ], "event": { "until": [ { "edit": "cuttolineend" } ] } }, { "name": "commands_menu", "modifier": "control", "keycode": "char_t", "mode": [ "emacs", "vi_normal", "vi_insert" ], "event": { "send": "menu", "name": "commands_menu" } }, { "name": "vars_menu", "modifier": "alt", "keycode": "char_o", "mode": [ "emacs", "vi_normal", "vi_insert" ], "event": { "send": "menu", "name": "vars_menu" } }, { "name": "commands_with_description", "modifier": "control", "keycode": "char_s", "mode": [ "emacs", "vi_normal", "vi_insert" ], "event": { "send": "menu", "name": "commands_with_description" } } ] } }"##;
+
+    let actual = nu!(format!("{} | table --expand --width 136", nu_value.trim()));
+
+    assert_eq!(
+        actual.out,
+        join_lines([
+            "╭────────────────────┬─────────────────────────────────────────────────────────────────────────────────────────────────────────────────╮",
+            "│                    │ ╭──────────────────────────────────┬──────────────────────────────────────────────────────────────────────────╮ │",
+            "│ config             │ │                                  │ ╭─────────────────┬───────╮                                              │ │",
+            "│                    │ │ ls                               │ │ use_ls_colors   │ true  │                                              │ │",
+            "│                    │ │                                  │ │ clickable_links │ false │                                              │ │",
+            "│                    │ │                                  │ ╰─────────────────┴───────╯                                              │ │",
+            "│                    │ │                                  │ ╭──────────────┬───────╮                                                 │ │",
+            "│                    │ │ rm                               │ │ always_trash │ false │                                                 │ │",
+            "│                    │ │                                  │ ╰──────────────┴───────╯                                                 │ │",
+            "│                    │ │                                  │ ╭───────────────┬───────╮                                                │ │",
+            "│                    │ │ cd                               │ │ abbreviations │ false │                                                │ │",
+            "│                    │ │                                  │ ╰───────────────┴───────╯                                                │ │",
+            "│                    │ │                                  │ ╭────────────┬────────────────────────────────────────╮                  │ │",
+            "│                    │ │ table                            │ │ mode       │ rounded                                │                  │ │",
+            "│                    │ │                                  │ │ index_mode │ always                                 │                  │ │",
+            "│                    │ │                                  │ │            │ ╭─────────────────────────┬──────────╮ │                  │ │",
+            "│                    │ │                                  │ │ trim       │ │ methodology             │ wrapping │ │                  │ │",
+            "│                    │ │                                  │ │            │ │ wrapping_try_keep_words │ true     │ │                  │ │",
+            "│                    │ │                                  │ │            │ │ truncating_suffix       │ ...      │ │                  │ │",
+            "│                    │ │                                  │ │            │ ╰─────────────────────────┴──────────╯ │                  │ │",
+            "│                    │ │                                  │ ╰────────────┴────────────────────────────────────────╯                  │ │",
+            "│                    │ │                                  │ ╭────────────────────────────┬─────────────────────────────────────────╮ │ │",
+            "│                    │ │ explore                          │ │ help_banner                │ true                                    │ │ │",
+            "│                    │ │                                  │ │ exit_esc                   │ true                                    │ │ │",
+            "│                    │ │                                  │ │ command_bar_text           │ #C4C9C6                                 │ │ │",
+            "│                    │ │                                  │ │                            │ ╭────┬─────────╮                        │ │ │",
+            "│                    │ │                                  │ │ status_bar_background      │ │ fg │ #1D1F21 │                        │ │ │",
+            "│                    │ │                                  │ │                            │ │ bg │ #C4C9C6 │                        │ │ │",
+            "│                    │ │                                  │ │                            │ ╰────┴─────────╯                        │ │ │",
+            "│                    │ │                                  │ │                            │ ╭────┬────────╮                         │ │ │",
+            "│                    │ │                                  │ │ highlight                  │ │ bg │ yellow │                         │ │ │",
+            "│                    │ │                                  │ │                            │ │ fg │ black  │                         │ │ │",
+            "│                    │ │                                  │ │                            │ ╰────┴────────╯                         │ │ │",
+            "│                    │ │                                  │ │                            │                                         │ │ │",
+            "│                    │ │                                  │ │ status                     │                                         │ │ │",
+            "│                    │ │                                  │ │                            │                                         │ │ │",
+            "│                    │ │                                  │ │ try                        │                                         │ │ │",
+            "│                    │ │                                  │ │                            │ ╭──────────────────┬─────────╮          │ │ │",
+            "│                    │ │                                  │ │ table                      │ │ split_line       │ #404040 │          │ │ │",
+            "│                    │ │                                  │ │                            │ │ cursor           │ true    │          │ │ │",
+            "│                    │ │                                  │ │                            │ │ line_index       │ true    │          │ │ │",
+            "│                    │ │                                  │ │                            │ │ line_shift       │ true    │          │ │ │",
+            "│                    │ │                                  │ │                            │ │ line_head_top    │ true    │          │ │ │",
+            "│                    │ │                                  │ │                            │ │ line_head_bottom │ true    │          │ │ │",
+            "│                    │ │                                  │ │                            │ │ show_head        │ true    │          │ │ │",
+            "│                    │ │                                  │ │                            │ │ show_index       │ true    │          │ │ │",
+            "│                    │ │                                  │ │                            │ ╰──────────────────┴─────────╯          │ │ │",
+            "│                    │ │                                  │ │                            │ ╭──────────────┬─────────────────╮      │ │ │",
+            "│                    │ │                                  │ │ config                     │ │              │ ╭────┬────────╮ │      │ │ │",
+            "│                    │ │                                  │ │                            │ │ cursor_color │ │ bg │ yellow │ │      │ │ │",
+            "│                    │ │                                  │ │                            │ │              │ │ fg │ black  │ │      │ │ │",
+            "│                    │ │                                  │ │                            │ │              │ ╰────┴────────╯ │      │ │ │",
+            "│                    │ │                                  │ │                            │ ╰──────────────┴─────────────────╯      │ │ │",
+            "│                    │ │                                  │ ╰────────────────────────────┴─────────────────────────────────────────╯ │ │",
+            "│                    │ │                                  │ ╭───────────────┬───────────╮                                            │ │",
+            "│                    │ │ history                          │ │ max_size      │ 10000     │                                            │ │",
+            "│                    │ │                                  │ │ sync_on_enter │ true      │                                            │ │",
+            "│                    │ │                                  │ │ file_format   │ plaintext │                                            │ │",
+            "│                    │ │                                  │ ╰───────────────┴───────────╯                                            │ │",
+            "│                    │ │                                  │ ╭────────────────┬────────────────────────╮                              │ │",
+            "│                    │ │ completions                      │ │ case_sensitive │ false                  │                              │ │",
+            "│                    │ │                                  │ │ quick          │ true                   │                              │ │",
+            "│                    │ │                                  │ │ partial        │ true                   │                              │ │",
+            "│                    │ │                                  │ │ algorithm      │ prefix                 │                              │ │",
+            "│                    │ │                                  │ │                │ ╭─────────────┬──────╮ │                              │ │",
+            "│                    │ │                                  │ │ external       │ │ enable      │ true │ │                              │ │",
+            "│                    │ │                                  │ │                │ │ max_results │ 100  │ │                              │ │",
+            "│                    │ │                                  │ │                │ │ completer   │      │ │                              │ │",
+            "│                    │ │                                  │ │                │ ╰─────────────┴──────╯ │                              │ │",
+            "│                    │ │                                  │ ╰────────────────┴────────────────────────╯                              │ │",
+            "│                    │ │                                  │ ╭────────┬──────╮                                                        │ │",
+            "│                    │ │ filesize                         │ │ metric │ true │                                                        │ │",
+            "│                    │ │                                  │ │ format │ auto │                                                        │ │",
+            "│                    │ │                                  │ ╰────────┴──────╯                                                        │ │",
+            "│                    │ │                                  │ ╭───────────┬────────────╮                                               │ │",
+            "│                    │ │ cursor_shape                     │ │ emacs     │ line       │                                               │ │",
+            "│                    │ │                                  │ │ vi_insert │ block      │                                               │ │",
+            "│                    │ │                                  │ │ vi_normal │ underscore │                                               │ │",
+            "│                    │ │                                  │ ╰───────────┴────────────╯                                               │ │",
+            "│                    │ │                                  │ ╭────────────────────────────┬────────────────────╮                      │ │",
+            "│                    │ │ color_config                     │ │ separator                  │ white              │                      │ │",
+            "│                    │ │                                  │ │                            │ ╭──────┬───╮       │                      │ │",
+            "│                    │ │                                  │ │ leading_trailing_space_bg  │ │ attr │ n │       │                      │ │",
+            "│                    │ │                                  │ │                            │ ╰──────┴───╯       │                      │ │",
+            "│                    │ │                                  │ │ header                     │ green_bold         │                      │ │",
+            "│                    │ │                                  │ │ empty                      │ blue               │                      │ │",
+            "│                    │ │                                  │ │ bool                       │                    │                      │ │",
+            "│                    │ │                                  │ │ int                        │ white              │                      │ │",
+            "│                    │ │                                  │ │ filesize                   │                    │                      │ │",
+            "│                    │ │                                  │ │ duration                   │ white              │                      │ │",
+            "│                    │ │                                  │ │ date                       │                    │                      │ │",
+            "│                    │ │                                  │ │ range                      │ white              │                      │ │",
+            "│                    │ │                                  │ │ float                      │ white              │                      │ │",
+            "│                    │ │                                  │ │ string                     │ white              │                      │ │",
+            "│                    │ │                                  │ │ nothing                    │ white              │                      │ │",
+            "│                    │ │                                  │ │ binary                     │ white              │                      │ │",
+            "│                    │ │                                  │ │ cellpath                   │ white              │                      │ │",
+            "│                    │ │                                  │ │ row_index                  │ green_bold         │                      │ │",
+            "│                    │ │                                  │ │ record                     │ white              │                      │ │",
+            "│                    │ │                                  │ │ list                       │ white              │                      │ │",
+            "│                    │ │                                  │ │ block                      │ white              │                      │ │",
+            "│                    │ │                                  │ │ hints                      │ dark_gray          │                      │ │",
+            "│                    │ │                                  │ │ shape_and                  │ purple_bold        │                      │ │",
+            "│                    │ │                                  │ │ shape_binary               │ purple_bold        │                      │ │",
+            "│                    │ │                                  │ │ shape_block                │ blue_bold          │                      │ │",
+            "│                    │ │                                  │ │ shape_bool                 │ light_cyan         │                      │ │",
+            "│                    │ │                                  │ │ shape_custom               │ green              │                      │ │",
+            "│                    │ │                                  │ │ shape_datetime             │ cyan_bold          │                      │ │",
+            "│                    │ │                                  │ │ shape_directory            │ cyan               │                      │ │",
+            "│                    │ │                                  │ │ shape_external             │ cyan               │                      │ │",
+            "│                    │ │                                  │ │ shape_externalarg          │ green_bold         │                      │ │",
+            "│                    │ │                                  │ │ shape_filepath             │ cyan               │                      │ │",
+            "│                    │ │                                  │ │ shape_flag                 │ blue_bold          │                      │ │",
+            "│                    │ │                                  │ │ shape_float                │ purple_bold        │                      │ │",
+            "│                    │ │                                  │ │                            │ ╭──────┬─────────╮ │                      │ │",
+            "│                    │ │                                  │ │ shape_garbage              │ │ fg   │ #FFFFFF │ │                      │ │",
+            "│                    │ │                                  │ │                            │ │ bg   │ #FF0000 │ │                      │ │",
+            "│                    │ │                                  │ │                            │ │ attr │ b       │ │                      │ │",
+            "│                    │ │                                  │ │                            │ ╰──────┴─────────╯ │                      │ │",
+            "│                    │ │                                  │ │ shape_globpattern          │ cyan_bold          │                      │ │",
+            "│                    │ │                                  │ │ shape_int                  │ purple_bold        │                      │ │",
+            "│                    │ │                                  │ │ shape_internalcall         │ cyan_bold          │                      │ │",
+            "│                    │ │                                  │ │ shape_list                 │ cyan_bold          │                      │ │",
+            "│                    │ │                                  │ │ shape_literal              │ blue               │                      │ │",
+            "│                    │ │                                  │ │                            │ ╭──────┬───╮       │                      │ │",
+            "│                    │ │                                  │ │ shape_matching_brackets    │ │ attr │ u │       │                      │ │",
+            "│                    │ │                                  │ │                            │ ╰──────┴───╯       │                      │ │",
+            "│                    │ │                                  │ │ shape_nothing              │ light_cyan         │                      │ │",
+            "│                    │ │                                  │ │ shape_operator             │ yellow             │                      │ │",
+            "│                    │ │                                  │ │ shape_or                   │ purple_bold        │                      │ │",
+            "│                    │ │                                  │ │ shape_pipe                 │ purple_bold        │                      │ │",
+            "│                    │ │                                  │ │ shape_range                │ yellow_bold        │                      │ │",
+            "│                    │ │                                  │ │ shape_record               │ cyan_bold          │                      │ │",
+            "│                    │ │                                  │ │ shape_redirection          │ purple_bold        │                      │ │",
+            "│                    │ │                                  │ │ shape_signature            │ green_bold         │                      │ │",
+            "│                    │ │                                  │ │ shape_string               │ green              │                      │ │",
+            "│                    │ │                                  │ │ shape_string_interpolation │ cyan_bold          │                      │ │",
+            "│                    │ │                                  │ │ shape_table                │ blue_bold          │                      │ │",
+            "│                    │ │                                  │ │ shape_variable             │ purple             │                      │ │",
+            "│                    │ │                                  │ ╰────────────────────────────┴────────────────────╯                      │ │",
+            "│                    │ │ use_grid_icons                   │ true                                                                     │ │",
+            "│                    │ │ footer_mode                      │ 25                                                                       │ │",
+            "│                    │ │ float_precision                  │ 2                                                                        │ │",
+            "│                    │ │ use_ansi_coloring                │ true                                                                     │ │",
+            "│                    │ │ edit_mode                        │ emacs                                                                    │ │",
+            "│                    │ │ shell_integration                │ true                                                                     │ │",
+            "│                    │ │ show_banner                      │ true                                                                     │ │",
+            "│                    │ │ render_right_prompt_on_last_line │ false                                                                    │ │",
+            "│                    │ │                                  │ ╭────────────────┬────────────────────╮                                  │ │",
+            "│                    │ │ hooks                            │ │                │ ╭───┬──╮           │                                  │ │",
+            "│                    │ │                                  │ │ pre_prompt     │ │ 0 │  │           │                                  │ │",
+            "│                    │ │                                  │ │                │ ╰───┴──╯           │                                  │ │",
+            "│                    │ │                                  │ │                │ ╭───┬──╮           │                                  │ │",
+            "│                    │ │                                  │ │ pre_execution  │ │ 0 │  │           │                                  │ │",
+            "│                    │ │                                  │ │                │ ╰───┴──╯           │                                  │ │",
+            "│                    │ │                                  │ │                │ ╭─────┬──────────╮ │                                  │ │",
+            "│                    │ │                                  │ │ env_change     │ │     │ ╭───┬──╮ │ │                                  │ │",
+            "│                    │ │                                  │ │                │ │ PWD │ │ 0 │  │ │ │                                  │ │",
+            "│                    │ │                                  │ │                │ │     │ ╰───┴──╯ │ │                                  │ │",
+            "│                    │ │                                  │ │                │ ╰─────┴──────────╯ │                                  │ │",
+            "│                    │ │                                  │ │ display_output │                    │                                  │ │",
+            "│                    │ │                                  │ ╰────────────────┴────────────────────╯                                  │ │",
+            "│                    │ │                                  │ ╭───┬───────────────────────────┬────────────────────────┬─────╮         │ │",
+            "│                    │ │ menus                            │ │ # │           name            │ only_buffer_difference │ ... │         │ │",
+            "│                    │ │                                  │ ├───┼───────────────────────────┼────────────────────────┼─────┤         │ │",
+            "│                    │ │                                  │ │ 0 │ completion_menu           │ false                  │ ... │         │ │",
+            "│                    │ │                                  │ │ 1 │ history_menu              │ true                   │ ... │         │ │",
+            "│                    │ │                                  │ │ 2 │ help_menu                 │ true                   │ ... │         │ │",
+            "│                    │ │                                  │ │ 3 │ commands_menu             │ false                  │ ... │         │ │",
+            "│                    │ │                                  │ │ 4 │ vars_menu                 │ true                   │ ... │         │ │",
+            "│                    │ │                                  │ │ 5 │ commands_with_description │ true                   │ ... │         │ │",
+            "│                    │ │                                  │ ╰───┴───────────────────────────┴────────────────────────┴─────╯         │ │",
+            "│                    │ │                                  │ ╭────┬───────────────────────────┬──────────┬─────────┬──────────┬─────╮ │ │",
+            "│                    │ │ keybindings                      │ │  # │           name            │ modifier │ keycode │   mode   │ ... │ │ │",
+            "│                    │ │                                  │ ├────┼───────────────────────────┼──────────┼─────────┼──────────┼─────┤ │ │",
+            "│                    │ │                                  │ │  0 │ completion_menu           │ none     │ tab     │ [list 3  │ ... │ │ │",
+            "│                    │ │                                  │ │    │                           │          │         │ items]   │     │ │ │",
+            "│                    │ │                                  │ │  1 │ completion_previous       │ shift    │ backtab │ [list 3  │ ... │ │ │",
+            "│                    │ │                                  │ │    │                           │          │         │ items]   │     │ │ │",
+            "│                    │ │                                  │ │  2 │ history_menu              │ control  │ char_r  │ emacs    │ ... │ │ │",
+            "│                    │ │                                  │ │  3 │ next_page                 │ control  │ char_x  │ emacs    │ ... │ │ │",
+            "│                    │ │                                  │ │  4 │ undo_or_previous_page     │ control  │ char_z  │ emacs    │ ... │ │ │",
+            "│                    │ │                                  │ │  5 │ yank                      │ control  │ char_y  │ emacs    │ ... │ │ │",
+            "│                    │ │                                  │ │  6 │ unix-line-discard         │ control  │ char_u  │ [list 3  │ ... │ │ │",
+            "│                    │ │                                  │ │    │                           │          │         │ items]   │     │ │ │",
+            "│                    │ │                                  │ │  7 │ kill-line                 │ control  │ char_k  │ [list 3  │ ... │ │ │",
+            "│                    │ │                                  │ │    │                           │          │         │ items]   │     │ │ │",
+            "│                    │ │                                  │ │  8 │ commands_menu             │ control  │ char_t  │ [list 3  │ ... │ │ │",
+            "│                    │ │                                  │ │    │                           │          │         │ items]   │     │ │ │",
+            "│                    │ │                                  │ │  9 │ vars_menu                 │ alt      │ char_o  │ [list 3  │ ... │ │ │",
+            "│                    │ │                                  │ │    │                           │          │         │ items]   │     │ │ │",
+            "│                    │ │                                  │ │ 10 │ commands_with_description │ control  │ char_s  │ [list 3  │ ... │ │ │",
+            "│                    │ │                                  │ │    │                           │          │         │ items]   │     │ │ │",
+            "│                    │ │                                  │ ╰────┴───────────────────────────┴──────────┴─────────┴──────────┴─────╯ │ │",
+            "│                    │ ╰──────────────────────────────────┴──────────────────────────────────────────────────────────────────────────╯ │",
+            "╰────────────────────┴─────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯",
+        ])
+    );
 }
 
 fn join_lines(lines: impl IntoIterator<Item = impl AsRef<str>>) -> String {
@@ -1132,6 +1800,7 @@ fn join_lines(lines: impl IntoIterator<Item = impl AsRef<str>>) -> String {
 }
 
 // util function to easier copy && paste
+#[allow(dead_code)]
 fn _print_lines(s: &str, w: usize) {
     eprintln!("{:#?}", _split_str_by_width(s, w));
 }

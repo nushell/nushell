@@ -61,6 +61,10 @@ impl Type {
         matches!(self, Type::Int | Type::Float | Type::Number)
     }
 
+    pub fn is_list(&self) -> bool {
+        matches!(self, Type::List(_))
+    }
+
     /// Does this type represent a data structure containing values that can be addressed using 'cell paths'?
     pub fn accepts_cell_paths(&self) -> bool {
         matches!(self, Type::List(_) | Type::Record(_) | Type::Table(_))

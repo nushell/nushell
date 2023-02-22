@@ -80,7 +80,7 @@ fn ignore_program_errors_works_for_external_with_semicolon() {
     let actual = nu!(
         cwd: ".", pipeline(
         r#"
-        do -p { nu -c 'exit 1' }; `text`
+        do -p { nu -c 'exit 1' }; "text"
         "#
     ));
 

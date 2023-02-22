@@ -1,40 +1,44 @@
 [package]
 authors = ["The Nushell Project Developers"]
+build = "build.rs"
 description = "Nushell's built-in commands"
-repository = "https://github.com/nushell/nushell/tree/main/crates/nu-command"
 edition = "2021"
 license = "MIT"
 name = "nu-command"
-version = "0.75.1"
-build = "build.rs"
+repository = "https://github.com/nushell/nushell/tree/main/crates/nu-command"
+version = "0.76.1"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
+[lib]
+bench = false
+
 [dependencies]
-nu-color-config = { path = "../nu-color-config", version = "0.75.1" }
-nu-engine = { path = "../nu-engine", version = "0.75.1" }
-nu-glob = { path = "../nu-glob", version = "0.75.1" }
-nu-json = { path = "../nu-json", version = "0.75.1" }
-nu-parser = { path = "../nu-parser", version = "0.75.1" }
-nu-path = { path = "../nu-path", version = "0.75.1" }
-nu-pretty-hex = { path = "../nu-pretty-hex", version = "0.75.1" }
-nu-protocol = { path = "../nu-protocol", version = "0.75.1" }
-nu-system = { path = "../nu-system", version = "0.75.1" }
-nu-table = { path = "../nu-table", version = "0.75.1" }
-nu-term-grid = { path = "../nu-term-grid", version = "0.75.1" }
-nu-utils = { path = "../nu-utils", version = "0.75.1" }
-nu-explore = { path = "../nu-explore", version = "0.75.1" }
 nu-ansi-term = "0.46.0"
+nu-color-config = { path = "../nu-color-config", version = "0.76.1" }
+nu-engine = { path = "../nu-engine", version = "0.76.1" }
+nu-explore = { path = "../nu-explore", version = "0.76.1" }
+nu-glob = { path = "../nu-glob", version = "0.76.1" }
+nu-json = { path = "../nu-json", version = "0.76.1" }
+nu-parser = { path = "../nu-parser", version = "0.76.1" }
+nu-path = { path = "../nu-path", version = "0.76.1" }
+nu-pretty-hex = { path = "../nu-pretty-hex", version = "0.76.1" }
+nu-protocol = { path = "../nu-protocol", version = "0.76.1" }
+nu-system = { path = "../nu-system", version = "0.76.1" }
+nu-table = { path = "../nu-table", version = "0.76.1" }
+nu-term-grid = { path = "../nu-term-grid", version = "0.76.1" }
+nu-utils = { path = "../nu-utils", version = "0.76.1" }
 num-format = { version = "0.4.3" }
 
 # Potential dependencies for extras
+Inflector = "0.11"
 alphanumeric-sort = "1.4.4"
 atty = "0.2.14"
 base64 = "0.21.0"
 byteorder = "1.4.3"
 bytesize = "1.1.0"
 calamine = "0.19.1"
-chrono = { version = "0.4.23", features = ["unstable-locales", "std"], default-features = false }
+chrono = { version = "0.4.23", features = ["std", "unstable-locales"], default-features = false }
 chrono-humanize = "0.2.1"
 chrono-tz = "0.8.1"
 crossterm = "0.24.0"
@@ -42,17 +46,14 @@ csv = "1.1.6"
 dialoguer = { default-features = false, version = "0.10.3" }
 digest = { default-features = false, version = "0.10.0" }
 dtparse = "1.2.0"
-eml-parser = "0.1.0"
 encoding_rs = "0.8.30"
 fancy-regex = "0.11.0"
 filesize = "0.2.0"
 filetime = "0.2.15"
 fs_extra = "1.3.0"
 htmlescape = "0.3.1"
-ical = "0.8.0"
 indexmap = { version = "1.7", features = ["serde-1"] }
 indicatif = "0.17.2"
-Inflector = "0.11"
 is-root = "0.1.2"
 itertools = "0.10.0"
 log = "0.4.14"
@@ -72,46 +73,46 @@ rand = "0.8"
 rayon = "1.6.1"
 regex = "1.7.1"
 reqwest = { version = "0.11", features = ["blocking", "json"] }
-roxmltree = "0.17.0"
+roxmltree = "0.18.0"
 rust-embed = "6.3.0"
 same-file = "1.0.6"
 serde = { version = "1.0.123", features = ["derive"] }
-rust-ini = "0.18.0"
 serde_urlencoded = "0.7.0"
 serde_yaml = "0.9.4"
 sha2 = "0.10.0"
 # Disable default features b/c the default features build Git (very slow to compile)
+percent-encoding = "2.2.0"
+reedline = { version = "0.16.0", features = ["bashisms", "sqlite"] }
+rusqlite = { version = "0.28.0", features = ["bundled"], optional = true }
 shadow-rs = { version = "0.20.0", default-features = false }
-sysinfo = "0.27.7"
+sqlparser = { version = "0.30.0", features = ["serde"], optional = true }
+sysinfo = "0.28.0"
+tabled = "0.10.0"
 terminal_size = "0.2.1"
 thiserror = "1.0.31"
 titlecase = "2.0.0"
 toml = "0.7.1"
-unicode-segmentation = "1.8.0"
+unicode-segmentation = "1.10.0"
+unicode-width = "0.1.10"
 url = "2.2.1"
-percent-encoding = "2.2.0"
-uuid = { version = "1.2.2", features = ["v4"] }
-which = { version = "4.4.0", optional = true }
-reedline = { version = "0.15.0", features = ["bashisms", "sqlite"] }
+uuid = { version = "1.3.0", features = ["v4"] }
 wax = { version = "0.5.0" }
-rusqlite = { version = "0.28.0", features = ["bundled"], optional = true }
-sqlparser = { version = "0.30.0", features = ["serde"], optional = true }
+which = { version = "4.4.0", optional = true }
+print-positions = "0.6.1"
 
 [target.'cfg(windows)'.dependencies]
-winreg = "0.10.1"
+winreg = "0.11.0"
 
 [target.'cfg(unix)'.dependencies]
+libc = "0.2"
 umask = "2.0.0"
 users = "0.11.0"
-libc = "0.2"
 
 [target.'cfg(not(any(target_os = "android", target_os = "ios")))'.dependencies.trash]
-version = "3.0.1"
 optional = true
+version = "3.0.1"
 
 [dependencies.polars]
-version = "0.26.1"
-optional = true
 features = [
 	"arg_where",
 	"checked_arithmetic",
@@ -120,9 +121,9 @@ features = [
 	"csv-file",
 	"cum_agg",
 	"default",
+	"dtype-categorical",
 	"dtype-datetime",
 	"dtype-struct",
-	"dtype-categorical",
 	"dynamic_groupby",
 	"ipc",
 	"is_in",
@@ -139,27 +140,29 @@ features = [
 	"strings",
 	"to_dummies",
 ]
+optional = true
+version = "0.27.2"
 
 [target.'cfg(windows)'.dependencies.windows]
-version = "0.44.0"
 features = ["Win32_Foundation", "Win32_Storage_FileSystem", "Win32_System_SystemServices"]
+version = "0.44.0"
 
 [features]
+dataframe = ["num", "polars", "sqlparser"]
+plugin = ["nu-parser/plugin"]
+sqlite = ["rusqlite"]                      # TODO: given that rusqlite is included in reedline, should we just always include it?
 trash-support = ["trash"]
 which-support = ["which"]
-plugin = ["nu-parser/plugin"]
-dataframe = ["polars", "num", "sqlparser"]
-sqlite = ["rusqlite"]                      # TODO: given that rusqlite is included in reedline, should we just always include it?
 
 [build-dependencies]
 shadow-rs = { version = "0.20.0", default-features = false }
 
 [dev-dependencies]
-nu-test-support = { path = "../nu-test-support", version = "0.75.1" }
+nu-test-support = { path = "../nu-test-support", version = "0.76.1" }
 
-hamcrest2 = "0.3.0"
 dirs-next = "2.0.0"
-proptest = "1.0.0"
+hamcrest2 = "0.3.0"
+proptest = "1.1.0"
 quickcheck = "1.0.3"
 quickcheck_macros = "1.0.0"
-rstest = { version = "0.15.0", default-features = false }
+rstest = { version = "0.16.0", default-features = false }

@@ -173,19 +173,9 @@ fn hide_env_twice_allowed() -> TestResult {
 }
 
 #[test]
-#[ignore = "Re-enable after virtualenv update"]
-fn hides_def_runs_env_1() -> TestResult {
+fn hides_def_runs_env() -> TestResult {
     run_test(
         r#"let-env foo = "bar"; def foo [] { "foo" }; hide foo; $env.foo"#,
-        "bar",
-    )
-}
-
-#[test]
-#[ignore = "Re-enable after virtualenv update"]
-fn hides_def_runs_env_2() -> TestResult {
-    run_test(
-        r#"def foo [] { "foo" }; let-env foo = "bar"; hide foo; $env.foo"#,
         "bar",
     )
 }

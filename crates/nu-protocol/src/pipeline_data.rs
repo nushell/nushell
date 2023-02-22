@@ -40,14 +40,16 @@ const LINE_ENDING_PATTERN: &[char] = &['\r', '\n'];
 /// Nushell.
 #[derive(Debug)]
 pub enum PipelineData {
-    Value(Value, Option<PipelineMetadata>),
-    ListStream(ListStream, Option<PipelineMetadata>),
+    // Note: the PipelineMetadata is boxed everywhere because the DataSource::Profiling caused
+    // stack overflow on Windows CI when testing virtualenv
+    Value(Value, Option<Box<PipelineMetadata>>),
+    ListStream(ListStream, Option<Box<PipelineMetadata>>),
     ExternalStream {
         stdout: Option<RawStream>,
         stderr: Option<RawStream>,
         exit_code: Option<ListStream>,
         span: Span,
-        metadata: Option<PipelineMetadata>,
+        metadata: Option<Box<PipelineMetadata>>,
         trim_end_newline: bool,
     },
     Empty,
@@ -62,10 +64,11 @@ pub struct PipelineMetadata {
 pub enum DataSource {
     Ls,
     HtmlThemes,
+    Profiling(Vec<Value>),
 }
 
 impl PipelineData {
-    pub fn new_with_metadata(metadata: Option<PipelineMetadata>, span: Span) -> PipelineData {
+    pub fn new_with_metadata(metadata: Option<Box<PipelineMetadata>>, span: Span) -> PipelineData {
         PipelineData::Value(Value::Nothing { span }, metadata)
     }
 
@@ -73,7 +76,7 @@ impl PipelineData {
         PipelineData::Empty
     }
 
-    pub fn metadata(&self) -> Option<PipelineMetadata> {
+    pub fn metadata(&self) -> Option<Box<PipelineMetadata>> {
         match self {
             PipelineData::ListStream(_, x) => x.clone(),
             PipelineData::ExternalStream { metadata: x, .. } => x.clone(),
@@ -82,7 +85,7 @@ impl PipelineData {
         }
     }
 
-    pub fn set_metadata(mut self, metadata: Option<PipelineMetadata>) -> Self {
+    pub fn set_metadata(mut self, metadata: Option<Box<PipelineMetadata>>) -> Self {
         match &mut self {
             PipelineData::ListStream(_, x) => *x = metadata,
             PipelineData::ExternalStream { metadata: x, .. } => *x = metadata,
@@ -284,7 +287,7 @@ impl PipelineData {
     pub fn collect_string_strict(
         self,
         span: Span,
-    ) -> Result<(String, Span, Option<PipelineMetadata>), ShellError> {
+    ) -> Result<(String, Span, Option<Box<PipelineMetadata>>), ShellError> {
         match self {
             PipelineData::Empty => Ok((String::new(), span, None)),
             PipelineData::Value(Value::String { val, span }, metadata) => Ok((val, span, metadata)),
@@ -809,9 +812,10 @@ impl Iterator for PipelineIterator {
 
 pub trait IntoPipelineData {
     fn into_pipeline_data(self) -> PipelineData;
+
     fn into_pipeline_data_with_metadata(
         self,
-        metadata: impl Into<Option<PipelineMetadata>>,
+        metadata: impl Into<Option<Box<PipelineMetadata>>>,
     ) -> PipelineData;
 }
 
@@ -822,9 +826,10 @@ where
     fn into_pipeline_data(self) -> PipelineData {
         PipelineData::Value(self.into(), None)
     }
+
     fn into_pipeline_data_with_metadata(
         self,
-        metadata: impl Into<Option<PipelineMetadata>>,
+        metadata: impl Into<Option<Box<PipelineMetadata>>>,
     ) -> PipelineData {
         PipelineData::Value(self.into(), metadata.into())
     }
@@ -834,7 +839,7 @@ pub trait IntoInterruptiblePipelineData {
     fn into_pipeline_data(self, ctrlc: Option<Arc<AtomicBool>>) -> PipelineData;
     fn into_pipeline_data_with_metadata(
         self,
-        metadata: impl Into<Option<PipelineMetadata>>,
+        metadata: impl Into<Option<Box<PipelineMetadata>>>,
         ctrlc: Option<Arc<AtomicBool>>,
     ) -> PipelineData;
 }
@@ -857,7 +862,7 @@ where
 
     fn into_pipeline_data_with_metadata(
         self,
-        metadata: impl Into<Option<PipelineMetadata>>,
+        metadata: impl Into<Option<Box<PipelineMetadata>>>,
         ctrlc: Option<Arc<AtomicBool>>,
     ) -> PipelineData {
         PipelineData::ListStream(

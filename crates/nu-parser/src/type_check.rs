@@ -84,6 +84,8 @@ pub fn math_result_type(
                     }
                 }
                 (Type::Table(a), Type::Table(_)) => (Type::Table(a.clone()), None),
+                (Type::String, Type::String) => (Type::String, None),
+                (Type::Binary, Type::Binary) => (Type::Binary, None),
                 (Type::Any, _) | (_, Type::Any) => (Type::Any, None),
                 _ => {
                     *op = Expression::garbage(op.span);
@@ -140,6 +142,10 @@ pub fn math_result_type(
                 (Type::Int, Type::Duration) => (Type::Duration, None),
                 (Type::Duration, Type::Float) => (Type::Duration, None),
                 (Type::Float, Type::Duration) => (Type::Duration, None),
+                (Type::Int, Type::String) => (Type::String, None),
+                (Type::String, Type::Int) => (Type::String, None),
+                (Type::Int, Type::List(a)) => (Type::List(a.clone()), None),
+                (Type::List(a), Type::Int) => (Type::List(a.clone()), None),
 
                 (Type::Custom(a), Type::Custom(b)) if a == b => (Type::Custom(a.to_string()), None),
                 (Type::Custom(a), _) => (Type::Custom(a.to_string()), None),
@@ -562,6 +568,7 @@ pub fn math_result_type(
                 (x, y) if x == y => (Type::Nothing, None),
                 (Type::Any, _) => (Type::Nothing, None),
                 (_, Type::Any) => (Type::Nothing, None),
+                (Type::List(_), Type::List(_)) => (Type::Nothing, None),
                 (x, y) => (
                     Type::Nothing,
                     Some(ParseError::Mismatch(x.to_string(), y.to_string(), rhs.span)),

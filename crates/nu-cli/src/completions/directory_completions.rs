@@ -8,7 +8,7 @@ use std::fs;
 use std::path::Path;
 use std::sync::Arc;
 
-use super::{partial_from, prepend_base_dir};
+use super::{partial_from, prepend_base_dir, SortBy};
 
 const SEP: char = std::path::MAIN_SEPARATOR;
 
@@ -60,12 +60,20 @@ impl Completer for DirectoryCompletion {
 
         // Sort items
         let mut sorted_items = items;
-        sorted_items.sort_by(|a, b| a.value.cmp(&b.value));
-        sorted_items.sort_by(|a, b| {
-            let a_distance = levenshtein_distance(&prefix_str, &a.value);
-            let b_distance = levenshtein_distance(&prefix_str, &b.value);
-            a_distance.cmp(&b_distance)
-        });
+
+        match self.get_sort_by() {
+            SortBy::Ascending => {
+                sorted_items.sort_by(|a, b| a.value.cmp(&b.value));
+            }
+            SortBy::LevenshteinDistance => {
+                sorted_items.sort_by(|a, b| {
+                    let a_distance = levenshtein_distance(&prefix_str, &a.value);
+                    let b_distance = levenshtein_distance(&prefix_str, &b.value);
+                    a_distance.cmp(&b_distance)
+                });
+            }
+            _ => (),
+        }
 
         // Separate the results between hidden and non hidden
         let mut hidden: Vec<Suggestion> = vec![];

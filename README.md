@@ -6,6 +6,7 @@
 [![@nu_shell](https://img.shields.io/badge/twitter-@nu_shell-1DA1F3?style=flat-square)](https://twitter.com/nu_shell)
 ![GitHub commit activity](https://img.shields.io/github/commit-activity/m/nushell/nushell)
 ![GitHub contributors](https://img.shields.io/github/contributors/nushell/nushell)
+[![codecov](https://codecov.io/github/nushell/nushell/branch/main/graph/badge.svg?token=JheS8qu2II)](https://codecov.io/github/nushell/nushell)
 
 A new type of shell.
 
@@ -32,7 +33,7 @@ This project has reached a minimum-viable-product level of quality. Many people 
 
 ## Learning About Nu
 
-The [Nushell book](https://www.nushell.sh/book/) is the primary source of Nushell documentation. You can find [a full list of Nu commands in the book](https://www.nushell.sh/book/command_reference.html), and we have many examples of using Nu in our [cookbook](https://www.nushell.sh/cookbook/).
+The [Nushell book](https://www.nushell.sh/book/) is the primary source of Nushell documentation. You can find [a full list of Nu commands in the book](https://www.nushell.sh/commands/), and we have many examples of using Nu in our [cookbook](https://www.nushell.sh/cookbook/).
 
 We're also active on [Discord](https://discord.gg/NtAbbGn) and [Twitter](https://twitter.com/nu_shell); come and chat with us!
 
