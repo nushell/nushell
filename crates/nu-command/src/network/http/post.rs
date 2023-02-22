@@ -99,23 +99,23 @@ impl Command for SubCommand {
     fn examples(&self) -> Vec<Example> {
         vec![
             Example {
-                description: "Post content to url.com",
-                example: "http post url.com 'body'",
+                description: "Post content to example.com",
+                example: "http post https://www.example.com 'body'",
                 result: None,
             },
             Example {
-                description: "Post content to url.com, with username and password",
-                example: "http post -u myuser -p mypass url.com 'body'",
+                description: "Post content to example.com, with username and password",
+                example: "http post -u myuser -p mypass https://www.example.com 'body'",
                 result: None,
             },
             Example {
-                description: "Post content to url.com, with custom header",
-                example: "http post -H [my-header-key my-header-value] url.com",
+                description: "Post content to example.com, with custom header",
+                example: "http post -H [my-header-key my-header-value] https://www.example.com",
                 result: None,
             },
             Example {
-                description: "Post content to url.com, with JSON body",
-                example: "http post -t application/json url.com { field: value }",
+                description: "Post content to example.com, with JSON body",
+                example: "http post -t application/json https://www.example.com { field: value }",
                 result: None,
             },
         ]

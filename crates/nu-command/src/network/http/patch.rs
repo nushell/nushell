@@ -99,23 +99,23 @@ impl Command for SubCommand {
     fn examples(&self) -> Vec<Example> {
         vec![
             Example {
-                description: "Patch content to url.com",
-                example: "http patch url.com 'body'",
+                description: "Patch content to example.com",
+                example: "http patch https://www.example.com 'body'",
                 result: None,
             },
             Example {
-                description: "Patch content to url.com, with username and password",
-                example: "http patch -u myuser -p mypass url.com 'body'",
+                description: "Patch content to example.com, with username and password",
+                example: "http patch -u myuser -p mypass https://www.example.com 'body'",
                 result: None,
             },
             Example {
-                description: "Patch content to url.com, with custom header",
-                example: "http patch -H [my-header-key my-header-value] url.com",
+                description: "Patch content to example.com, with custom header",
+                example: "http patch -H [my-header-key my-header-value] https://www.example.com",
                 result: None,
             },
             Example {
-                description: "Patch content to url.com, with JSON body",
-                example: "http patch -t application/json url.com { field: value }",
+                description: "Patch content to example.com, with JSON body",
+                example: "http patch -t application/json https://www.example.com { field: value }",
                 result: None,
             },
         ]

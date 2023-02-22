@@ -99,23 +99,23 @@ impl Command for SubCommand {
     fn examples(&self) -> Vec<Example> {
         vec![
             Example {
-                description: "Put content to url.com",
-                example: "http put url.com 'body'",
+                description: "Put content to example.com",
+                example: "http put https://www.example.com 'body'",
                 result: None,
             },
             Example {
-                description: "Put content to url.com, with username and password",
-                example: "http put -u myuser -p mypass url.com 'body'",
+                description: "Put content to example.com, with username and password",
+                example: "http put -u myuser -p mypass https://www.example.com 'body'",
                 result: None,
             },
             Example {
-                description: "Put content to url.com, with custom header",
-                example: "http put -H [my-header-key my-header-value] url.com",
+                description: "Put content to example.com, with custom header",
+                example: "http put -H [my-header-key my-header-value] https://www.example.com",
                 result: None,
             },
             Example {
-                description: "Put content to url.com, with JSON body",
-                example: "http put -t application/json url.com { field: value }",
+                description: "Put content to example.com, with JSON body",
+                example: "http put -t application/json https://www.example.com { field: value }",
                 result: None,
             },
         ]
