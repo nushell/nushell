@@ -59,7 +59,6 @@ fn is_item_terminator(
             || c == b'\r'
             || c == b'|'
             || c == b';'
-            || c == b'#'
             || additional_whitespace.contains(&c)
             || special_tokens.contains(&c))
 }

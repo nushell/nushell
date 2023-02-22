@@ -232,6 +232,14 @@ fn table_collapse_hearts() {
 }
 
 #[test]
+fn table_collapse_doesnot_support_width_control() {
+    let actual = nu!(
+        r#"[[a]; [11111111111111111111111111111111111111111111111111111111111111111111111111111111]] | table --collapse"#
+    );
+    assert_eq!(actual.out, "Couldn't fit table into 80 columns!");
+}
+
+#[test]
 fn table_expand_0() {
     let actual = nu!(r#"[[a b, c]; [1 2 3] [4 5 [1 2 3]]] | table --expand"#);
     assert_eq!(
@@ -1380,10 +1388,8 @@ fn table_expande_with_no_header_internally_0() {
             "│                    │ │                                  │ │ highlight                     │ │ bg │ yellow │                           │ │ │",
             "│                    │ │                                  │ │                               │ │ fg │ black  │                           │ │ │",
             "│                    │ │                                  │ │                               │ ╰────┴────────╯                           │ │ │",
-            "│                    │ │                                  │ │                               │                                           │ │ │",
-            "│                    │ │                                  │ │ status                        │                                           │ │ │",
-            "│                    │ │                                  │ │                               │                                           │ │ │",
-            "│                    │ │                                  │ │ try                           │                                           │ │ │",
+            "│                    │ │                                  │ │ status                        │ {record 0 fields}                         │ │ │",
+            "│                    │ │                                  │ │ try                           │ {record 0 fields}                         │ │ │",
             "│                    │ │                                  │ │                               │ ╭──────────────────┬─────────╮            │ │ │",
             "│                    │ │                                  │ │ table                         │ │ split_line       │ #404040 │            │ │ │",
             "│                    │ │                                  │ │                               │ │ cursor           │ true    │            │ │ │",
@@ -1624,10 +1630,8 @@ fn table_expande_with_no_header_internally_1() {
             "│                    │ │                                  │ │ highlight                  │ │ bg │ yellow │                         │ │ │",
             "│                    │ │                                  │ │                            │ │ fg │ black  │                         │ │ │",
             "│                    │ │                                  │ │                            │ ╰────┴────────╯                         │ │ │",
-            "│                    │ │                                  │ │                            │                                         │ │ │",
-            "│                    │ │                                  │ │ status                     │                                         │ │ │",
-            "│                    │ │                                  │ │                            │                                         │ │ │",
-            "│                    │ │                                  │ │ try                        │                                         │ │ │",
+            "│                    │ │                                  │ │ status                     │ {record 0 fields}                       │ │ │",
+            "│                    │ │                                  │ │ try                        │ {record 0 fields}                       │ │ │",
             "│                    │ │                                  │ │                            │ ╭──────────────────┬─────────╮          │ │ │",
             "│                    │ │                                  │ │ table                      │ │ split_line       │ #404040 │          │ │ │",
             "│                    │ │                                  │ │                            │ │ cursor           │ true    │          │ │ │",

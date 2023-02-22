@@ -1,3 +1,4 @@
+#!/usr/bin/env python
 # Example of using a Python script as a Nushell plugin
 #
 # The example uses JSON encoding but it should be a similar process using
@@ -38,73 +39,76 @@ def signatures():
     return {
         "Signature": [
             {
-                "name": "nu-python",
-                "usage": "Signature test for Python",
-                "extra_usage": "",
-                "input_type": "Any",
-                "output_type": "Any",
-                "required_positional": [
-                    {
-                        "name": "a",
-                        "desc": "required integer value",
-                        "shape": "Int",
-                        "var_id": None,
-                    },
-                    {
-                        "name": "b",
-                        "desc": "required string value",
+                "sig": {
+                    "name": "nu-python",
+                    "usage": "Signature test for Python",
+                    "extra_usage": "",
+                    "input_type": "Any",
+                    "output_type": "Any",
+                    "required_positional": [
+                        {
+                            "name": "a",
+                            "desc": "required integer value",
+                            "shape": "Int",
+                            "var_id": None,
+                        },
+                        {
+                            "name": "b",
+                            "desc": "required string value",
+                            "shape": "String",
+                            "var_id": None,
+                        },
+                    ],
+                    "optional_positional": [
+                        {
+                            "name": "opt",
+                            "desc": "Optional number",
+                            "shape": "Int",
+                            "var_id": None,
+                        }
+                    ],
+                    "rest_positional": {
+                        "name": "rest",
+                        "desc": "rest value string",
                         "shape": "String",
                         "var_id": None,
                     },
-                ],
-                "optional_positional": [
-                    {
-                        "name": "opt",
-                        "desc": "Optional number",
-                        "shape": "Int",
-                        "var_id": None,
-                    }
-                ],
-                "rest_positional": {
-                    "name": "rest",
-                    "desc": "rest value string",
-                    "shape": "String",
-                    "var_id": None,
+                    "vectorizes_over_list": False,
+                    "named": [
+                        {
+                            "long": "help",
+                            "short": "h",
+                            "arg": None,
+                            "required": False,
+                            "desc": "Display the help message for this command",
+                            "var_id": None,
+                        },
+                        {
+                            "long": "flag",
+                            "short": "f",
+                            "arg": None,
+                            "required": False,
+                            "desc": "a flag for the signature",
+                            "var_id": None,
+                        },
+                        {
+                            "long": "named",
+                            "short": "n",
+                            "arg": "String",
+                            "required": False,
+                            "desc": "named string",
+                            "var_id": None,
+                        },
+                    ],
+                    "input_output_types": [["Any", "Any"]],
+                    "allow_variants_without_examples": True,
+                    "search_terms": ["Python", "Example"],
+                    "is_filter": False,
+                    "creates_scope": False,
+                    "allows_unknown_args": False,
+                    "category": "Experimental",
                 },
-                "vectorizes_over_list": False,
-                "named": [
-                    {
-                        "long": "help",
-                        "short": "h",
-                        "arg": None,
-                        "required": False,
-                        "desc": "Display the help message for this command",
-                        "var_id": None
-                    },
-                    {
-                        "long": "flag",
-                        "short": "f",
-                        "arg": None,
-                        "required": False,
-                        "desc": "a flag for the signature",
-                        "var_id": None,
-                    },
-                    {
-                        "long": "named",
-                        "short": "n",
-                        "arg": "String",
-                        "required": False,
-                        "desc": "named string",
-                        "var_id": None,
-                    },
-                ],
-                "input_output_types": [["Any", "Any"]],
-                "allow_variants_without_examples": True,
-                "search_terms": ["Python", "Example"],
-                "is_filter": False,
-                "creates_scope": False,
-                "allows_unknown_args": False,
-                "category": "Experimental",
+                "examples": [],
             }
         ]
     }

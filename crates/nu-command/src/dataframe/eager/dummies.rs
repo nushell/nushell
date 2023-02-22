@@ -116,7 +116,7 @@ fn command(
     let df = NuDataFrame::try_from_pipeline(input, call.head)?;
 
     df.as_ref()
-        .to_dummies()
+        .to_dummies(None)
         .map_err(|e| {
             ShellError::GenericError(
                 "Error calculating dummies".into(),

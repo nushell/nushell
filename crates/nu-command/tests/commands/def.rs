@@ -149,3 +149,51 @@ fn def_fails_with_invalid_name() {
     ));
     assert!(actual.err.contains(err_msg));
 }
+
+#[test]
+fn def_errors_with_specified_list_type() {
+    let actual = nu!(
+        cwd: ".", pipeline(
+        r#"
+        def test-command [ foo: list<any> ] {}
+        "#
+    ));
+
+    assert!(actual.err.contains("unknown type"));
+}
+
+#[test]
+fn def_with_list() {
+    Playground::setup("def_with_list", |dirs, _| {
+        let data = r#"
+def e [
+param: list
+] {echo $param};
+            "#;
+        fs::write(dirs.root().join("def_test"), data).expect("Unable to write file");
+        let actual = nu!(
+            cwd: dirs.root(),
+            "source def_test; e [one] | to json -r"
+        );
+
+        assert!(actual.out.contains(r#"one"#));
+    })
+}
+
+#[test]
+fn def_with_default_list() {
+    Playground::setup("def_with_default_list", |dirs, _| {
+        let data = r#"
+def f [
+param: list = [one]
+] {echo $param};
+            "#;
+        fs::write(dirs.root().join("def_test"), data).expect("Unable to write file");
+        let actual = nu!(
+            cwd: dirs.root(),
+            "source def_test; f | to json -r"
+        );
+
+        assert!(actual.out.contains(r#"["one"]"#));
+    })
+}

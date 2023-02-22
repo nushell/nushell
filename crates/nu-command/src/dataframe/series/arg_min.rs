@@ -5,7 +5,7 @@ use nu_protocol::{
     engine::{Command, EngineState, Stack},
     Category, Example, PipelineData, ShellError, Signature, Span, Type, Value,
 };
-use polars::prelude::{IntoSeries, NewChunkedArray, UInt32Chunked};
+use polars::prelude::{ArgAgg, IntoSeries, NewChunkedArray, UInt32Chunked};
 
 #[derive(Clone)]
 pub struct ArgMin;

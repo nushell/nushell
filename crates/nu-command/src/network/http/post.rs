@@ -6,7 +6,7 @@ use nu_protocol::{
 };
 
 use crate::network::http::client::{
-    http_client, request_add_authorization_header, request_add_custom_headers,
+    http_client, http_parse_url, request_add_authorization_header, request_add_custom_headers,
     request_handle_response, request_set_body, request_set_timeout,
 };
 
@@ -21,8 +21,8 @@ impl Command for SubCommand {
     fn signature(&self) -> Signature {
         Signature::build("http post")
             .input_output_types(vec![(Type::Nothing, Type::Any)])
-            .required("path", SyntaxShape::String, "the URL to post to")
-            .required("body", SyntaxShape::Any, "the contents of the post body")
+            .required("URL", SyntaxShape::String, "the URL to post to")
+            .required("data", SyntaxShape::Any, "the contents of the post body")
             .named(
                 "user",
                 SyntaxShape::Any,
@@ -113,7 +113,7 @@ impl Command for SubCommand {
                 result: None,
             },
             Example {
-                description: "Post content to url.com with a json body",
+                description: "Post content to url.com, with JSON body",
                 example: "http post -t application/json url.com { field: value }",
                 result: None,
             },
@@ -122,16 +122,16 @@ impl Command for SubCommand {
 }
 
 struct Arguments {
-    path: Value,
-    body: Value,
-    timeout: Option<Value>,
+    url: Value,
     headers: Option<Value>,
+    data: Value,
+    content_type: Option<String>,
+    content_length: Option<String>,
     raw: bool,
     insecure: Option<bool>,
     user: Option<String>,
     password: Option<String>,
-    content_type: Option<String>,
-    content_length: Option<String>,
+    timeout: Option<Value>,
 }
 
 fn run_post(
@@ -141,16 +141,16 @@ fn run_post(
     _input: PipelineData,
 ) -> Result<PipelineData, ShellError> {
     let args = Arguments {
-        path: call.req(engine_state, stack, 0)?,
-        body: call.req(engine_state, stack, 1)?,
-        timeout: call.get_flag(engine_state, stack, "timeout")?,
+        url: call.req(engine_state, stack, 0)?,
         headers: call.get_flag(engine_state, stack, "headers")?,
-        raw: call.has_flag("raw"),
-        user: call.get_flag(engine_state, stack, "user")?,
-        password: call.get_flag(engine_state, stack, "password")?,
-        insecure: call.get_flag(engine_state, stack, "insecure")?,
+        data: call.req(engine_state, stack, 1)?,
         content_type: call.get_flag(engine_state, stack, "content-type")?,
         content_length: call.get_flag(engine_state, stack, "content-length")?,
+        raw: call.has_flag("raw"),
+        insecure: call.get_flag(engine_state, stack, "insecure")?,
+        user: call.get_flag(engine_state, stack, "user")?,
+        password: call.get_flag(engine_state, stack, "password")?,
+        timeout: call.get_flag(engine_state, stack, "timeout")?,
     };
     helper(engine_state, stack, call, args)
 }
@@ -163,38 +163,24 @@ fn helper(
     call: &Call,
     args: Arguments,
 ) -> Result<PipelineData, ShellError> {
-    let url_value = args.path;
-    let body = args.body;
-    let user = args.user.clone();
-    let password = args.password;
-    let timeout = args.timeout;
-    let headers = args.headers;
-    let content_type = args.content_type;
-    let content_length = args.content_length;
-    let raw = args.raw;
+    let span = args.url.span()?;
+    let (requested_url, url) = http_parse_url(call, span, args.url)?;
 
-    let span = url_value.span()?;
-    let requested_url = url_value.as_string()?;
-    let url = match url::Url::parse(&requested_url) {
-        Ok(u) => u,
-        Err(_e) => {
-            return Err(ShellError::UnsupportedInput(
-                "Incomplete or incorrect URL. Expected a full URL, e.g., https://www.example.com"
-                    .to_string(),
-                format!("value: '{requested_url:?}'"),
-                call.head,
-                span,
-            ));
-        }
-    };
+    let client = http_client(args.insecure.is_some());
+    let mut request = client.post(url);
 
-    let mut request = http_client(args.insecure.is_some()).post(url);
-
-    request = request_set_body(content_type, content_length, body, request)?;
-    request = request_set_timeout(timeout, request)?;
-    request = request_add_authorization_header(user, password, request);
-    request = request_add_custom_headers(headers, request)?;
+    request = request_set_body(args.content_type, args.content_length, args.data, request)?;
+    request = request_set_timeout(args.timeout, request)?;
+    request = request_add_authorization_header(args.user, args.password, request);
+    request = request_add_custom_headers(args.headers, request)?;
 
     let response = request.send().and_then(|r| r.error_for_status());
-    request_handle_response(engine_state, stack, span, &requested_url, raw, response)
+    request_handle_response(
+        engine_state,
+        stack,
+        span,
+        &requested_url,
+        args.raw,
+        response,
+    )
 }

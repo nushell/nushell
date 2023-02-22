@@ -3662,6 +3662,25 @@ pub fn parse_signature_helper(
                                                     expression.ty.clone(),
                                                 );
                                             }
+                                            Type::List(_) => {
+                                                if var_type.is_list() && expression.ty.is_list() {
+                                                    working_set.set_variable_type(
+                                                        var_id,
+                                                        expression.ty.clone(),
+                                                    );
+                                                } else {
+                                                    error = error.or_else(|| {
+                                                        Some(ParseError::AssignmentMismatch(
+                                                            "Default value wrong type".into(),
+                                                            format!(
+                                                                "default value not {0}",
+                                                                expression.ty
+                                                            ),
+                                                            expression.span,
+                                                        ))
+                                                    })
+                                                }
+                                            }
                                             t => {
                                                 if t != &expression.ty {
                                                     error = error.or_else(|| {
@@ -5015,22 +5034,12 @@ pub fn parse_expression(
     {
         parse_math_expression(working_set, &spans[pos..], None, expand_aliases_denylist)
     } else {
-        let bytes = working_set.get_span_contents(spans[pos]);
+        let bytes = working_set.get_span_contents(spans[pos]).to_vec();
 
         // For now, check for special parses of certain keywords
-        match bytes {
-            b"def" => (
-                parse_call(
-                    working_set,
-                    &spans[pos..],
-                    spans[0],
-                    expand_aliases_denylist,
-                    is_subexpression,
-                )
-                .0,
-                Some(ParseError::BuiltinCommandInPipeline("def".into(), spans[0])),
-            ),
-            b"extern" => (
+        match bytes.as_slice() {
+            b"def" | b"extern" | b"for" | b"module" | b"use" | b"source" | b"alias" | b"export"
+            | b"hide" => (
                 parse_call(
                     working_set,
                     &spans[pos..],
@@ -5040,11 +5049,12 @@ pub fn parse_expression(
                 )
                 .0,
                 Some(ParseError::BuiltinCommandInPipeline(
-                    "extern".into(),
+                    String::from_utf8(bytes)
+                        .expect("builtin commands bytes should be able to convert to string"),
                     spans[0],
                 )),
             ),
-            b"for" => (
+            b"let" | b"const" | b"mut" => (
                 parse_call(
                     working_set,
                     &spans[pos..],
@@ -5053,18 +5063,9 @@ pub fn parse_expression(
                     is_subexpression,
                 )
                 .0,
-                Some(ParseError::BuiltinCommandInPipeline("for".into(), spans[0])),
-            ),
-            b"let" => (
-                parse_call(
-                    working_set,
-                    &spans[pos..],
-                    spans[0],
-                    expand_aliases_denylist,
-                    is_subexpression,
-                )
-                .0,
-                Some(ParseError::LetInPipeline(
+                Some(ParseError::AssignInPipeline(
+                    String::from_utf8(bytes)
+                        .expect("builtin commands bytes should be able to convert to string"),
                     String::from_utf8_lossy(match spans.len() {
                         1 | 2 | 3 => b"value",
                         _ => working_set.get_span_contents(spans[3]),
@@ -5077,91 +5078,6 @@ pub fn parse_expression(
                     .to_string(),
                     spans[0],
                 )),
-            ),
-            b"const" => (
-                parse_call(
-                    working_set,
-                    &spans[pos..],
-                    spans[0],
-                    expand_aliases_denylist,
-                    is_subexpression,
-                )
-                .0,
-                Some(ParseError::ConstInPipeline(
-                    String::from_utf8_lossy(match spans.len() {
-                        1 | 2 | 3 => b"value",
-                        _ => working_set.get_span_contents(spans[3]),
-                    })
-                    .to_string(),
-                    String::from_utf8_lossy(match spans.len() {
-                        1 => b"variable",
-                        _ => working_set.get_span_contents(spans[1]),
-                    })
-                    .to_string(),
-                    spans[0],
-                )),
-            ),
-            b"mut" => (
-                parse_call(
-                    working_set,
-                    &spans[pos..],
-                    spans[0],
-                    expand_aliases_denylist,
-                    is_subexpression,
-                )
-                .0,
-                Some(ParseError::MutInPipeline(
-                    String::from_utf8_lossy(match spans.len() {
-                        1 | 2 | 3 => b"value",
-                        _ => working_set.get_span_contents(spans[3]),
-                    })
-                    .to_string(),
-                    String::from_utf8_lossy(match spans.len() {
-                        1 => b"variable",
-                        _ => working_set.get_span_contents(spans[1]),
-                    })
-                    .to_string(),
-                    spans[0],
-                )),
-            ),
-            b"alias" => (
-                parse_call(
-                    working_set,
-                    &spans[pos..],
-                    spans[0],
-                    expand_aliases_denylist,
-                    is_subexpression,
-                )
-                .0,
-                Some(ParseError::BuiltinCommandInPipeline(
-                    "alias".into(),
-                    spans[0],
-                )),
-            ),
-            b"module" => (
-                parse_call(
-                    working_set,
-                    &spans[pos..],
-                    spans[0],
-                    expand_aliases_denylist,
-                    is_subexpression,
-                )
-                .0,
-                Some(ParseError::BuiltinCommandInPipeline(
-                    "module".into(),
-                    spans[0],
-                )),
-            ),
-            b"use" => (
-                parse_call(
-                    working_set,
-                    &spans[pos..],
-                    spans[0],
-                    expand_aliases_denylist,
-                    is_subexpression,
-                )
-                .0,
-                Some(ParseError::BuiltinCommandInPipeline("use".into(), spans[0])),
             ),
             b"overlay" => {
                 if spans.len() > 1 && working_set.get_span_contents(spans[1]) == b"list" {
@@ -5190,45 +5106,6 @@ pub fn parse_expression(
                     )
                 }
             }
-            b"source" => (
-                parse_call(
-                    working_set,
-                    &spans[pos..],
-                    spans[0],
-                    expand_aliases_denylist,
-                    is_subexpression,
-                )
-                .0,
-                Some(ParseError::BuiltinCommandInPipeline(
-                    "source".into(),
-                    spans[0],
-                )),
-            ),
-            b"export" => (
-                parse_call(
-                    working_set,
-                    &spans[pos..],
-                    spans[0],
-                    expand_aliases_denylist,
-                    is_subexpression,
-                )
-                .0,
-                Some(ParseError::UnexpectedKeyword("export".into(), spans[0])),
-            ),
-            b"hide" => (
-                parse_call(
-                    working_set,
-                    &spans[pos..],
-                    spans[0],
-                    expand_aliases_denylist,
-                    is_subexpression,
-                )
-                .0,
-                Some(ParseError::BuiltinCommandInPipeline(
-                    "hide".into(),
-                    spans[0],
-                )),
-            ),
             b"where" => parse_where_expr(working_set, &spans[pos..], expand_aliases_denylist),
             #[cfg(feature = "plugin")]
             b"register" => (
