@@ -381,29 +381,29 @@ fn interactive_copy(
     }
 }
 
-// `copy_file` uses `std::fs::copy` to copy a file. There is another function called `copy_file_with_progressbar`
-// which uses `read` and `write` instead. This is to get the progress of the copy. If you make any changes in this
-// function try to match the changes in `copy_file_with_progressbar`
+// This uses `std::fs::copy` to copy a file. There is another function called `copy_file_with_progressbar`
+// which uses `read` and `write` instead. This is to get the progress of the copy. Try to keep the logic in
+// this function in sync with `copy_file_with_progressbar`
 fn copy_file(src: PathBuf, dst: PathBuf, span: Span) -> Value {
     match std::fs::copy(&src, &dst) {
         Ok(_) => {
             let msg = format!("copied {:} to {:}", src.display(), dst.display());
             Value::String { val: msg, span }
         }
-        Err(e) => error_return(e, src, dst, span),
+        Err(e) => convert_io_error(e, src, dst, span),
     }
 }
 
-// `copy_file_with_progressbar` uses `read` and `write` to copy a file. There is another function called `copy_file`
-// which uses `std::fs::copy` instead which is faster but can't gt the process of the copy. If you make any changes
-// in this function try to match the changes in `copy_file`
+// This uses `read` and `write` to copy a file. There is another function called `copy_file`
+// which uses `std::fs::copy` instead which is faster but does not provide progress updates for the copy. try to keep the
+// logic in this function in sync with `copy_file`
 fn copy_file_with_progressbar(src: PathBuf, dst: PathBuf, span: Span) -> Value {
     let mut bytes_processed: u64 = 0;
     let mut process_failed: Option<std::io::Error> = None;
 
     let file_in = match std::fs::File::open(&src) {
         Ok(file) => file,
-        Err(error) => return error_return(error, src, dst, span),
+        Err(error) => return convert_io_error(error, src, dst, span),
     };
 
     let file_size = match file_in.metadata() {
@@ -415,7 +415,7 @@ fn copy_file_with_progressbar(src: PathBuf, dst: PathBuf, span: Span) -> Value {
 
     let file_out = match std::fs::File::create(&dst) {
         Ok(file) => file,
-        Err(error) => return error_return(error, src, dst, span),
+        Err(error) => return convert_io_error(error, src, dst, span),
     };
     let mut buffer = [0u8; 8192];
     let mut buf_reader = BufReader::new(file_in);
@@ -448,7 +448,7 @@ fn copy_file_with_progressbar(src: PathBuf, dst: PathBuf, span: Span) -> Value {
                 }
             }
             Err(e) => {
-                // There was a problem reading th src file
+                // There was a problem reading the src file
                 process_failed = Some(e);
                 break;
             }
@@ -458,7 +458,7 @@ fn copy_file_with_progressbar(src: PathBuf, dst: PathBuf, span: Span) -> Value {
     // If copying the file failed
     if let Some(error) = process_failed {
         bar.abandoned_msg("# !! Error !!".to_owned());
-        return error_return(error, src, dst, span);
+        return convert_io_error(error, src, dst, span);
     }
 
     // Get the name of the file to print it out at the end
@@ -517,8 +517,8 @@ fn copy_symlink(src: PathBuf, dst: PathBuf, span: Span) -> Value {
     }
 }
 
-// Function to get errors returned by `cp` more specific
-fn error_return(error: std::io::Error, src: PathBuf, dst: PathBuf, span: Span) -> Value {
+// Function to convert io::Errors to more specific ShellErrors
+fn convert_io_error(error: std::io::Error, src: PathBuf, dst: PathBuf, span: Span) -> Value {
     let message_src = format!(
         "copying file '{src_display}' failed: {error}",
         src_display = src.display()
