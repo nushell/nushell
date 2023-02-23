@@ -54,6 +54,18 @@ fn lex_shebang() {
             span: Span::new(21, 37)
         }
     );
+
+    let file = b" #!usr/bin/nu env";
+    let output = lex(file, 0, &[], &[], false);
+
+    assert!(output.1.is_none());
+    assert_eq!(
+        output.0.get(0).unwrap(),
+        &Token {
+            contents: TokenContents::Comment,
+            span: Span::new(1, 17)
+        }
+    );
 }
 
 #[test]
