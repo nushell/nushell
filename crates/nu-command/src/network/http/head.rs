@@ -7,7 +7,7 @@ use nu_protocol::{
 
 use crate::network::http::client::{
     http_client, http_parse_url, request_add_authorization_header, request_add_custom_headers,
-    request_handle_response, request_set_timeout,
+    request_handle_response_headers, request_set_timeout,
 };
 
 #[derive(Clone)]
@@ -50,11 +50,6 @@ impl Command for SubCommand {
                 SyntaxShape::Any,
                 "custom headers you want to add ",
                 Some('H'),
-            )
-            .switch(
-                "raw",
-                "fetch contents as text rather than a table",
-                Some('r'),
             )
             .switch(
                 "insecure",
@@ -111,7 +106,6 @@ impl Command for SubCommand {
 struct Arguments {
     url: Value,
     headers: Option<Value>,
-    raw: bool,
     insecure: Option<bool>,
     user: Option<String>,
     password: Option<String>,
@@ -127,23 +121,17 @@ fn run_head(
     let args = Arguments {
         url: call.req(engine_state, stack, 0)?,
         headers: call.get_flag(engine_state, stack, "headers")?,
-        raw: call.has_flag("raw"),
         insecure: call.get_flag(engine_state, stack, "insecure")?,
         user: call.get_flag(engine_state, stack, "user")?,
         password: call.get_flag(engine_state, stack, "password")?,
         timeout: call.get_flag(engine_state, stack, "timeout")?,
     };
-    helper(engine_state, stack, call, args)
+    helper(call, args)
 }
 
 // Helper function that actually goes to retrieve the resource from the url given
 // The Option<String> return a possible file extension which can be used in AutoConvert commands
-fn helper(
-    engine_state: &EngineState,
-    stack: &mut Stack,
-    call: &Call,
-    args: Arguments,
-) -> Result<PipelineData, ShellError> {
+fn helper(call: &Call, args: Arguments) -> Result<PipelineData, ShellError> {
     let span = args.url.span()?;
     let (requested_url, url) = http_parse_url(call, span, args.url)?;
 
@@ -155,14 +143,7 @@ fn helper(
     request = request_add_custom_headers(args.headers, request)?;
 
     let response = request.send().and_then(|r| r.error_for_status());
-    request_handle_response(
-        engine_state,
-        stack,
-        span,
-        &requested_url,
-        args.raw,
-        response,
-    )
+    request_handle_response_headers(span, &requested_url, response)
 }
 
 #[cfg(test)]
