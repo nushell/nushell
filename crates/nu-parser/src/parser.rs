@@ -1692,7 +1692,9 @@ pub fn parse_string_interpolation(
                 0
             };
 
-            if current_byte == b'(' && (!double_quote || preceding_consecutive_backslashes % 2 == 0)
+            if current_byte == b'('
+                && ((!starts_with_dollar_double_quote && !starts_with_dollar_single_quote)
+                    || preceding_consecutive_backslashes % 2 == 0)
             {
                 mode = InterpolationMode::Expression;
                 if token_start < b {
