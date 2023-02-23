@@ -5038,8 +5038,8 @@ pub fn parse_expression(
 
         // For now, check for special parses of certain keywords
         match bytes.as_slice() {
-            b"def" | b"extern" | b"for" | b"module" | b"use" | b"source" | b"alias" | b"new-alias" 
-            | b"export" | b"hide" => (
+            b"def" | b"extern" | b"for" | b"module" | b"use" | b"source" | b"alias"
+            | b"new-alias" | b"export" | b"hide" => (
                 parse_call(
                     working_set,
                     &spans[pos..],
