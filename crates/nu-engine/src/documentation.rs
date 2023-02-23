@@ -213,7 +213,7 @@ fn get_documentation(
 
         match &example.result {
             Some(result) => {
-                let _ = write!(long_desc, "{:#?}\n", result);
+                let _ = write!(long_desc, "  {}\n", result.into_string(" ", engine_state.get_config()));
             }
             None => {
                 let _ = write!(long_desc, "  {WD}...{RESET}\n");
