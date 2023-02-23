@@ -60,7 +60,7 @@ pub fn create_default_context() -> EngineState {
             While,
         };
 
-        #[cfg(feature = "plugin")]
+        //#[cfg(feature = "plugin")]
         bind_command!(Register);
 
         working_set.render()
