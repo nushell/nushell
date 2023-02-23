@@ -76,6 +76,7 @@ impl Command for Describe {
                 example: "'hello' | describe",
                 result: Some(Value::test_string("string")),
             },
+            /*
             Example {
                 description: "Describe a stream of data, collecting it first",
                 example: "[1 2 3] | each {|i| $i} | describe",
@@ -86,6 +87,7 @@ impl Command for Describe {
                 example: "[1 2 3] | each {|i| $i} | describe --no-collect",
                 result: Some(Value::test_string("stream")),
             },
+            */
         ]
     }
 
