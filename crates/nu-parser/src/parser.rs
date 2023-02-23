@@ -1594,6 +1594,23 @@ pub fn parse_range(
     )
 }
 
+pub(crate) fn parse_percent_expr(
+    working_set: &mut StateWorkingSet,
+    span: Span,
+    expand_aliases_denylist: &[usize],
+) -> (Expression, Option<ParseError>) {
+    trace!("parsing: dollar expression");
+    let contents = working_set.get_span_contents(span);
+
+    if contents.starts_with(b"%\"") || contents.starts_with(b"%'") {
+        parse_string_interpolation(working_set, span, expand_aliases_denylist)
+    } else if let (expr, None) = parse_range(working_set, span, expand_aliases_denylist) {
+        (expr, None)
+    } else {
+        parse_full_cell_path(working_set, None, span, expand_aliases_denylist)
+    }
+}
+
 pub(crate) fn parse_dollar_expr(
     working_set: &mut StateWorkingSet,
     span: Span,
@@ -1625,18 +1642,22 @@ pub fn parse_string_interpolation(
 
     let contents = working_set.get_span_contents(span);
 
-    let mut double_quote = false;
+    let starts_with_dollar_double_quote = contents.starts_with(b"$\"");
+    let starts_with_dollar_single_quote = contents.starts_with(b"$'");
+    let ends_with_double_quote = contents.ends_with(b"\"");
+    let ends_with_single_quote = contents.ends_with(b"'");
+    let starts_with_percent_double_quote = contents.starts_with(b"%\"");
+    let starts_with_percent_single_quote = contents.starts_with(b"%'");
 
-    let (start, end) = if contents.starts_with(b"$\"") {
-        double_quote = true;
-        let end = if contents.ends_with(b"\"") && contents.len() > 2 {
+    let (start, end) = if starts_with_dollar_double_quote || starts_with_percent_double_quote {
+        let end = if ends_with_double_quote && contents.len() > 2 {
             span.end - 1
         } else {
             span.end
         };
         (span.start + 2, end)
-    } else if contents.starts_with(b"$'") {
-        let end = if contents.ends_with(b"'") && contents.len() > 2 {
+    } else if starts_with_dollar_single_quote || starts_with_percent_single_quote {
+        let end = if ends_with_single_quote && contents.len() > 2 {
             span.end - 1
         } else {
             span.end
@@ -1678,14 +1699,15 @@ pub fn parse_string_interpolation(
                     let span = Span::new(token_start, b);
                     let str_contents = working_set.get_span_contents(span);
 
-                    let str_contents = if double_quote {
-                        let (str_contents, err) = unescape_string(str_contents, span);
-                        error = error.or(err);
+                    let str_contents =
+                        if starts_with_percent_double_quote || starts_with_percent_single_quote {
+                            let (str_contents, err) = unescape_string(str_contents, span);
+                            error = error.or(err);
 
-                        str_contents
-                    } else {
-                        str_contents.to_vec()
-                    };
+                            str_contents
+                        } else {
+                            str_contents.to_vec()
+                        };
 
                     output.push(Expression {
                         expr: Expr::String(String::from_utf8_lossy(&str_contents).to_string()),
@@ -1750,14 +1772,15 @@ pub fn parse_string_interpolation(
                 let span = Span::new(token_start, end);
                 let str_contents = working_set.get_span_contents(span);
 
-                let str_contents = if double_quote {
-                    let (str_contents, err) = unescape_string(str_contents, span);
-                    error = error.or(err);
+                let str_contents =
+                    if starts_with_percent_double_quote || starts_with_percent_single_quote {
+                        let (str_contents, err) = unescape_string(str_contents, span);
+                        error = error.or(err);
 
-                    str_contents
-                } else {
-                    str_contents.to_vec()
-                };
+                        str_contents
+                    } else {
+                        str_contents.to_vec()
+                    };
 
                 output.push(Expression {
                     expr: Expr::String(String::from_utf8_lossy(&str_contents).to_string()),
@@ -2624,31 +2647,15 @@ pub fn unescape_string(bytes: &[u8], span: Span) -> (Vec<u8>, Option<ParseError>
 }
 
 pub fn unescape_unquote_string(bytes: &[u8], span: Span) -> (String, Option<ParseError>) {
-    if bytes.starts_with(b"\"") {
-        // Needs unescaping
-        let bytes = trim_quotes(bytes);
+    let bytes = trim_quotes(bytes);
 
-        let (bytes, err) = unescape_string(bytes, span);
-
-        if let Ok(token) = String::from_utf8(bytes) {
-            (token, err)
-        } else {
-            (
-                String::new(),
-                Some(ParseError::Expected("string".into(), span)),
-            )
-        }
+    if let Ok(token) = String::from_utf8(bytes.into()) {
+        (token, None)
     } else {
-        let bytes = trim_quotes(bytes);
-
-        if let Ok(token) = String::from_utf8(bytes.into()) {
-            (token, None)
-        } else {
-            (
-                String::new(),
-                Some(ParseError::Expected("string".into(), span)),
-            )
-        }
+        (
+            String::new(),
+            Some(ParseError::Expected("string".into(), span)),
+        )
     }
 }
 
@@ -4412,6 +4419,7 @@ pub fn parse_value(
     }
 
     match bytes[0] {
+        b'%' => return parse_percent_expr(working_set, span, expand_aliases_denylist),
         b'$' => return parse_dollar_expr(working_set, span, expand_aliases_denylist),
         b'(' => {
             if let (expr, None) = parse_range(working_set, span, expand_aliases_denylist) {
