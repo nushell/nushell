@@ -272,3 +272,15 @@ fn select_failed3() {
     assert!(actual.out.is_empty());
     assert!(actual.err.contains("cannot find column"));
 }
+
+#[test]
+fn select_failed4() {
+    let actual = nu!(
+        cwd: ".", pipeline(
+        r#"
+        [{a: 1 b: 10}, {a:2, b:11}] | select 0 0
+        "#
+    ));
+
+    assert!(actual.err.contains("Select only allows unique row"));
+}

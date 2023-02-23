@@ -5,6 +5,7 @@ use nu_protocol::{
     Category, Example, IntoInterruptiblePipelineData, IntoPipelineData, PipelineData,
     PipelineIterator, ShellError, Signature, Span, SyntaxShape, Type, Value,
 };
+use std::collections::HashSet;
 
 #[derive(Clone)]
 pub struct Select;
@@ -98,7 +99,7 @@ fn select(
     input: PipelineData,
     ignore_errors: bool,
 ) -> Result<PipelineData, ShellError> {
-    let mut rows = vec![];
+    let mut unique_rows: HashSet<usize> = HashSet::new();
 
     let mut new_columns = vec![];
 
@@ -118,23 +119,32 @@ fn select(
                         Vec::new(),
                     ));
                 }
-
-                rows.push(*val);
+                if unique_rows.contains(val) {
+                    return Err(ShellError::GenericError(
+                        "Select only allows unique rows".into(),
+                        "duplicated row".into(),
+                        Some(*span),
+                        None,
+                        Vec::new(),
+                    ));
+                }
+                unique_rows.insert(*val);
             }
             _ => new_columns.push(column),
         };
     }
     let columns = new_columns;
+    let mut unique_rows: Vec<usize> = unique_rows.into_iter().collect();
 
-    let input = if !rows.is_empty() {
-        rows.sort_unstable();
+    let input = if !unique_rows.is_empty() {
+        unique_rows.sort_unstable();
         // let skip = call.has_flag("skip");
         let metadata = input.metadata();
         let pipeline_iter: PipelineIterator = input.into_iter();
 
         NthIterator {
             input: pipeline_iter,
-            rows,
+            rows: unique_rows,
             skip: false,
             current: 0,
         }
