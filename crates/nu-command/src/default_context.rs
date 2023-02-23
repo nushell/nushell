@@ -26,52 +26,6 @@ pub fn create_default_context() -> EngineState {
         #[cfg(feature = "sqlite")]
         add_database_decls(&mut working_set);
 
-        // Core
-        bind_command! {
-            Alias,
-            Break,
-            Commandline,
-            Const,
-            Continue,
-            Def,
-            DefEnv,
-            Describe,
-            Do,
-            Echo,
-            ErrorMake,
-            ExportAlias,
-            ExportCommand,
-            ExportDef,
-            ExportDefEnv,
-            ExportExtern,
-            ExportUse,
-            Extern,
-            For,
-            Help,
-            HelpAliases,
-            HelpCommands,
-            HelpModules,
-            HelpOperators,
-            Hide,
-            HideEnv,
-            If,
-            Ignore,
-            Overlay,
-            OverlayUse,
-            OverlayList,
-            OverlayNew,
-            OverlayHide,
-            Let,
-            Loop,
-            Module,
-            Mut,
-            Return,
-            Try,
-            Use,
-            Version,
-            While,
-        };
-
         // Charts
         bind_command! {
             Histogram
@@ -493,9 +447,6 @@ pub fn create_default_context() -> EngineState {
             StrFindReplaceDeprecated,
             MathEvalDeprecated,
         };
-
-        #[cfg(feature = "plugin")]
-        bind_command!(Register);
 
         working_set.render()
     };
