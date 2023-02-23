@@ -299,6 +299,18 @@ pub fn lex_item(
     }
 }
 
+// borrowed from rustc-lexer
+fn strip_shebang(input: &[u8]) -> &[u8] {
+    let src = String::from_utf8_lossy(input);
+    if let Some(rest) = src.strip_prefix("#!") {
+        // (the `#`) + (the '!') = 2
+        let len = 2 + rest.lines().next().unwrap_or_default().len();
+        &input[len..]
+    } else {
+        input
+    }
+}
+
 pub fn lex(
     input: &[u8],
     span_offset: usize,
@@ -306,6 +318,7 @@ pub fn lex(
     special_tokens: &[u8],
     skip_comment: bool,
 ) -> (Vec<Token>, Option<ParseError>) {
+    let input = strip_shebang(input);
     let mut error = None;
 
     let mut curr_offset = 0;

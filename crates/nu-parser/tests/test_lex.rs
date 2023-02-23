@@ -23,6 +23,40 @@ fn lex_newline() {
 }
 
 #[test]
+fn lex_shebang() {
+    let file = b"#!usr/bin/nu env";
+
+    let output = lex(file, 0, &[], &[], true);
+
+    assert!(output.0.is_empty());
+    assert!(output.1.is_none());
+
+    let file = b"#!usr/bin/nu env\nlet name = \"nushell\"";
+    let output = lex(file, 0, &[], &[], true);
+
+    assert!(output.1.is_none());
+    assert_eq!(
+        output.0.get(0).unwrap(),
+        &Token {
+            contents: TokenContents::Eol,
+            span: Span::new(0, 1)
+        }
+    );
+
+    let file = b"let name = \"nushell\"\n#!usr/bin/nu env";
+    let output = lex(file, 0, &[], &[], false);
+
+    assert!(output.1.is_none());
+    assert_eq!(
+        output.0.get(5).unwrap(),
+        &Token {
+            contents: TokenContents::Comment,
+            span: Span::new(21, 37)
+        }
+    );
+}
+
+#[test]
 fn lex_empty() {
     let file = b"";
 
