@@ -699,7 +699,11 @@ pub fn eval_expression_with_input(
         }
     };
 
-    Ok(might_consume_external_result(input))
+    if redirect_stdout {
+        Ok((input, false))
+    } else {
+        Ok(might_consume_external_result(input))
+    }
 }
 
 // Try to catch and detect if external command runs to failed.
@@ -1269,8 +1273,21 @@ pub fn eval_subexpression(
     mut input: PipelineData,
 ) -> Result<PipelineData, ShellError> {
     for pipeline in block.pipelines.iter() {
-        for expr in pipeline.elements.iter() {
-            input = eval_element_with_input(engine_state, stack, expr, input, true, false)?.0
+        for (expr_indx, expr) in pipeline.elements.iter().enumerate() {
+            input = eval_element_with_input(engine_state, stack, expr, input, true, false)?.0;
+            // In subexpression, we always need to redirect stdout because the result might used to
+            // assign to a variable.
+            //
+            // But we can still check if external result is failed to run when it's the last expression
+            // in pipeline.  e.g: (^false; echo aaa)
+            if expr_indx == pipeline.elements.len() - 1 {
+                let consume_result = might_consume_external_result(input);
+                input = consume_result.0;
+                let failed_to_run = consume_result.1;
+                if failed_to_run {
+                    return Ok(input);
+                }
+            }
         }
     }
 
