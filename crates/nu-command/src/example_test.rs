@@ -9,12 +9,13 @@ pub fn test_examples(cmd: impl Command + 'static) {
 #[cfg(test)]
 mod test_examples {
     use super::super::{
-        Ansi, Date, Echo, Enumerate, Flatten, From, Get, If, Into, IntoString, Let, LetEnv, Math,
-        MathEuler, MathPi, MathRound, ParEach, Path, Random, Sort, SortBy, Split, SplitColumn,
-        SplitRow, Str, StrJoin, StrLength, StrReplace, Update, Url, Values, Wrap,
+        Ansi, Date, Enumerate, Flatten, From, Get, Into, IntoString, LetEnv, Math, MathEuler,
+        MathPi, MathRound, ParEach, Path, Random, Sort, SortBy, Split, SplitColumn, SplitRow, Str,
+        StrJoin, StrLength, StrReplace, Update, Url, Values, Wrap,
     };
-    use crate::{Break, Each, Mut, To};
+    use crate::{Each, To};
     use itertools::Itertools;
+    use nu_cmd_lang::{Break, Echo, If, Let, Mut};
     use nu_protocol::{
         ast::Block,
         engine::{Command, EngineState, Stack, StateDelta, StateWorkingSet},

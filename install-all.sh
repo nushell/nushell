@@ -9,7 +9,7 @@ echo ""
 
 echo "Install nushell from local..."
 echo "----------------------------------------------"
-cargo install --path . --features=dataframe
+cargo install --force --path . --features=dataframe
 
 NU_PLUGINS=(
     'nu_plugin_inc'
@@ -17,6 +17,7 @@ NU_PLUGINS=(
     'nu_plugin_query'
     'nu_plugin_example'
     'nu_plugin_custom_values'
+    'nu_plugin_formats'
 )
 
 for plugin in "${NU_PLUGINS[@]}"
@@ -25,5 +26,5 @@ do
     echo "----------------------------------------------"
     echo "Install plugin $plugin from local..."
     echo "----------------------------------------------"
-    cd crates/"$plugin" && cargo install --path . && cd ../../
+    cd crates/"$plugin" && cargo install --force --path . && cd ../../
 done

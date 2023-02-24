@@ -358,7 +358,7 @@ fn env_change_block_dont_preserve_command() {
     #[cfg(windows)]
     assert_ne!(actual_repl.out, "foo");
     #[cfg(not(windows))]
-    assert!(actual_repl.err.contains("ExternalCommand"));
+    assert!(actual_repl.err.contains("external_command"));
 }
 
 #[test]
@@ -409,7 +409,7 @@ fn env_change_dont_panic_with_many_args() {
 
     let actual_repl = nu!(cwd: "tests/hooks", nu_repl_code(inp));
 
-    assert!(actual_repl.err.contains("IncompatibleParametersSingle"));
+    assert!(actual_repl.err.contains("incompatible_parameters"));
     assert_eq!(actual_repl.out, "");
 }
 
@@ -428,8 +428,9 @@ fn err_hook_wrong_env_type_1() {
     ];
 
     let actual_repl = nu!(cwd: "tests/hooks", nu_repl_code(inp));
+    dbg!(&actual_repl.err);
 
-    assert!(actual_repl.err.contains("UnsupportedConfigValue"));
+    assert!(actual_repl.err.contains("unsupported_config_value"));
     assert_eq!(actual_repl.out, "");
 }
 
@@ -446,7 +447,7 @@ fn err_hook_wrong_env_type_2() {
 
     let actual_repl = nu!(cwd: "tests/hooks", nu_repl_code(inp));
 
-    assert!(actual_repl.err.contains("TypeMismatch"));
+    assert!(actual_repl.err.contains("type_mismatch"));
     assert_eq!(actual_repl.out, "");
 }
 
@@ -468,7 +469,7 @@ fn err_hook_wrong_env_type_3() {
 
     let actual_repl = nu!(cwd: "tests/hooks", nu_repl_code(inp));
 
-    assert!(actual_repl.err.contains("UnsupportedConfigValue"));
+    assert!(actual_repl.err.contains("unsupported_config_value"));
     assert_eq!(actual_repl.out, "");
 }
 
@@ -491,7 +492,7 @@ fn err_hook_non_boolean_condition_output() {
 
     let actual_repl = nu!(cwd: "tests/hooks", nu_repl_code(inp));
 
-    assert!(actual_repl.err.contains("UnsupportedConfigValue"));
+    assert!(actual_repl.err.contains("unsupported_config_value"));
     assert_eq!(actual_repl.out, "");
 }
 
@@ -514,7 +515,7 @@ fn err_hook_non_condition_not_a_block() {
 
     let actual_repl = nu!(cwd: "tests/hooks", nu_repl_code(inp));
 
-    assert!(actual_repl.err.contains("UnsupportedConfigValue"));
+    assert!(actual_repl.err.contains("unsupported_config_value"));
     assert_eq!(actual_repl.out, "");
 }
 
@@ -536,7 +537,7 @@ fn err_hook_parse_error() {
 
     let actual_repl = nu!(cwd: "tests/hooks", nu_repl_code(inp));
 
-    assert!(actual_repl.err.contains("UnsupportedConfigValue"));
+    assert!(actual_repl.err.contains("unsupported_config_value"));
     assert_eq!(actual_repl.out, "");
 }
 
@@ -547,5 +548,5 @@ fn err_hook_dont_allow_string() {
     let actual_repl = nu!(cwd: "tests/hooks", nu_repl_code(inp));
 
     assert!(actual_repl.out.is_empty());
-    assert!(actual_repl.err.contains("UnsupportedConfigValue"));
+    assert!(actual_repl.err.contains("unsupported_config_value"));
 }

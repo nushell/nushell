@@ -7,6 +7,8 @@ use reedline::Suggestion;
 use std::path::{is_separator, Path};
 use std::sync::Arc;
 
+use super::SortBy;
+
 const SEP: char = std::path::MAIN_SEPARATOR;
 
 #[derive(Clone)]
@@ -55,12 +57,20 @@ impl Completer for FileCompletion {
 
         // Sort items
         let mut sorted_items = items;
-        sorted_items.sort_by(|a, b| a.value.cmp(&b.value));
-        sorted_items.sort_by(|a, b| {
-            let a_distance = levenshtein_distance(&prefix_str, &a.value);
-            let b_distance = levenshtein_distance(&prefix_str, &b.value);
-            a_distance.cmp(&b_distance)
-        });
+
+        match self.get_sort_by() {
+            SortBy::Ascending => {
+                sorted_items.sort_by(|a, b| a.value.cmp(&b.value));
+            }
+            SortBy::LevenshteinDistance => {
+                sorted_items.sort_by(|a, b| {
+                    let a_distance = levenshtein_distance(&prefix_str, &a.value);
+                    let b_distance = levenshtein_distance(&prefix_str, &b.value);
+                    a_distance.cmp(&b_distance)
+                });
+            }
+            _ => (),
+        }
 
         // Separate the results between hidden and non hidden
         let mut hidden: Vec<Suggestion> = vec![];
@@ -141,6 +151,16 @@ pub fn file_path_completion(
                             || path.contains('#')
                             || path.contains('(')
                             || path.contains(')')
+                            || path.starts_with('0')
+                            || path.starts_with('1')
+                            || path.starts_with('2')
+                            || path.starts_with('3')
+                            || path.starts_with('4')
+                            || path.starts_with('5')
+                            || path.starts_with('6')
+                            || path.starts_with('7')
+                            || path.starts_with('8')
+                            || path.starts_with('9')
                         {
                             path = format!("`{path}`");
                         }

@@ -1,25 +1,29 @@
 use std::collections::HashMap;
 
-use crate::{table::TrimStrategyModifier, Alignments, TableTheme};
+use crate::{string_width, Alignments, TableTheme};
 use nu_color_config::StyleComputer;
 use nu_protocol::{Config, Span, Value};
 use tabled::{
-    color::Color, formatting::AlignmentStrategy, object::Segment, papergrid::records::Records,
-    Alignment, Modify, Table,
+    color::Color,
+    formatting::AlignmentStrategy,
+    object::Segment,
+    papergrid::{records::Records, GridConfig},
+    Alignment, Modify,
 };
+
+use serde_json::Value as Json;
 
 /// NuTable has a recursive table representation of nu_protocol::Value.
 ///
 /// It doesn't support alignment and a proper width control.
 pub struct NuTable {
-    inner: tabled::Table,
+    inner: String,
 }
 
 impl NuTable {
     pub fn new(
         value: Value,
         collapse: bool,
-        termwidth: usize,
         config: &Config,
         style_computer: &StyleComputer,
         theme: &TableTheme,
@@ -30,29 +34,33 @@ impl NuTable {
         let cfg = table.get_config().clone();
 
         let val = nu_protocol_value_to_json(value, config, with_footer);
-        let mut table = json_to_table::json_to_table(&val);
-        table.set_config(cfg);
-
-        if collapse {
-            table.collapse();
-        }
-
-        let mut table: Table<_> = table.into();
-        table.with(TrimStrategyModifier::new(termwidth, &config.trim_strategy));
+        let table = build_table(val, cfg, collapse);
 
         Self { inner: table }
     }
 
-    pub fn draw(&self) -> Option<String> {
-        Some(self.inner.to_string())
+    pub fn draw(&self, termwidth: usize) -> Option<String> {
+        let table_width = string_width(&self.inner);
+        if table_width > termwidth {
+            None
+        } else {
+            Some(self.inner.clone())
+        }
     }
 }
 
-fn nu_protocol_value_to_json(
-    value: Value,
-    config: &Config,
-    with_footer: bool,
-) -> serde_json::Value {
+fn build_table(val: Json, cfg: GridConfig, collapse: bool) -> String {
+    let mut table = json_to_table::json_to_table(&val);
+    table.set_config(cfg);
+
+    if collapse {
+        table.collapse();
+    }
+
+    table.to_string()
+}
+
+fn nu_protocol_value_to_json(value: Value, config: &Config, with_footer: bool) -> Json {
     match value {
         Value::Record { cols, vals, .. } => {
             let mut map = serde_json::Map::new();
@@ -61,7 +69,7 @@ fn nu_protocol_value_to_json(
                 map.insert(key, val);
             }
 
-            serde_json::Value::Object(map)
+            Json::Object(map)
         }
         Value::List { vals, .. } => {
             let mut used_cols: Option<&[String]> = None;
@@ -95,29 +103,27 @@ fn nu_protocol_value_to_json(
                     });
                     let head = build_map(head, config);
 
-                    arr.push(serde_json::Value::Object(head.clone()));
+                    arr.push(Json::Object(head.clone()));
 
                     for value in &vals {
                         if let Ok((_, vals)) = value.as_record() {
                             let vals = build_map(vals.iter().cloned(), config);
 
                             let mut map = serde_json::Map::new();
-                            connect_maps(&mut map, serde_json::Value::Object(vals));
+                            connect_maps(&mut map, Json::Object(vals));
 
-                            arr.push(serde_json::Value::Object(map));
+                            arr.push(Json::Object(map));
                         }
                     }
 
                     if with_footer {
-                        arr.push(serde_json::Value::Object(head));
+                        arr.push(Json::Object(head));
                     }
 
-                    return serde_json::Value::Array(arr);
+                    return Json::Array(arr);
                 } else {
                     let mut map = vec![];
-                    let head = serde_json::Value::Array(vec![serde_json::Value::String(
-                        cols[0].to_owned(),
-                    )]);
+                    let head = Json::Array(vec![Json::String(cols[0].to_owned())]);
 
                     map.push(head.clone());
                     for value in vals {
@@ -136,7 +142,7 @@ fn nu_protocol_value_to_json(
                         map.push(head);
                     }
 
-                    return serde_json::Value::Array(map);
+                    return Json::Array(map);
                 };
             }
 
@@ -146,16 +152,16 @@ fn nu_protocol_value_to_json(
                 map.push(val);
             }
 
-            serde_json::Value::Array(map)
+            Json::Array(map)
         }
-        val => serde_json::Value::String(val.into_abbreviated_string(config)),
+        val => Json::String(val.into_abbreviated_string(config)),
     }
 }
 
 fn build_map(
     values: impl Iterator<Item = Value> + DoubleEndedIterator,
     config: &Config,
-) -> serde_json::Map<String, serde_json::Value> {
+) -> serde_json::Map<String, Json> {
     let mut map = serde_json::Map::new();
     let mut last_val: Option<Value> = None;
     for val in values.rev() {
@@ -174,7 +180,7 @@ fn build_map(
             let mut new_m = serde_json::Map::new();
             let col = val.into_abbreviated_string(&Config::default());
 
-            new_m.insert(col, serde_json::Value::Object(map));
+            new_m.insert(col, Json::Object(map));
             map = new_m;
         }
     }
@@ -182,13 +188,13 @@ fn build_map(
     map
 }
 
-fn connect_maps(map: &mut serde_json::Map<String, serde_json::Value>, value: serde_json::Value) {
-    if let serde_json::Value::Object(m) = value {
+fn connect_maps(map: &mut serde_json::Map<String, Json>, value: Json) {
+    if let Json::Object(m) = value {
         for (key, value) in m {
             if value.is_object() {
                 let mut new_m = serde_json::Map::new();
                 connect_maps(&mut new_m, value);
-                map.insert(key, serde_json::Value::Object(new_m));
+                map.insert(key, Json::Object(new_m));
             } else {
                 map.insert(key, value);
             }
@@ -201,7 +207,7 @@ fn load_theme<R>(table: &mut tabled::Table<R>, style_computer: &StyleComputer, t
 where
     R: Records,
 {
-    let mut theme = theme.theme.clone();
+    let mut theme = theme.into_full().unwrap_or_else(|| theme.theme.clone());
     theme.set_horizontals(HashMap::default());
 
     table.with(theme);

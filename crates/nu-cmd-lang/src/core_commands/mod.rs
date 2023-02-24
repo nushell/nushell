@@ -1,10 +1,8 @@
 mod alias;
-mod ast;
 mod break_;
 mod commandline;
 mod const_;
 mod continue_;
-mod debug;
 mod def;
 mod def_env;
 mod describe;
@@ -30,7 +28,6 @@ mod if_;
 mod ignore;
 mod let_;
 mod loop_;
-mod metadata;
 mod module;
 mod mut_;
 pub(crate) mod overlay;
@@ -41,12 +38,10 @@ mod version;
 mod while_;
 
 pub use alias::Alias;
-pub use ast::Ast;
 pub use break_::Break;
 pub use commandline::Commandline;
 pub use const_::Const;
 pub use continue_::Continue;
-pub use debug::Debug;
 pub use def::Def;
 pub use def_env::DefEnv;
 pub use describe::Describe;
@@ -72,7 +67,6 @@ pub use if_::If;
 pub use ignore::Ignore;
 pub use let_::Let;
 pub use loop_::Loop;
-pub use metadata::Metadata;
 pub use module::Module;
 pub use mut_::Mut;
 pub use overlay::*;
@@ -81,8 +75,8 @@ pub use try_::Try;
 pub use use_::Use;
 pub use version::Version;
 pub use while_::While;
-#[cfg(feature = "plugin")]
+//#[cfg(feature = "plugin")]
 mod register;
 
-#[cfg(feature = "plugin")]
+//#[cfg(feature = "plugin")]
 pub use register::Register;
