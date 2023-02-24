@@ -213,11 +213,22 @@ fn get_documentation(
 
         match &example.result {
             Some(result) => {
-                for item in PipelineData::Value(result.clone(), None) {
+                let decl_id = engine_state.find_decl("table".as_bytes(), &[]).unwrap();
+                let table = engine_state
+                    .get_decl(decl_id)
+                    .run(
+                        engine_state,
+                        stack,
+                        &Call::new(Span::new(0, 0)),
+                        PipelineData::Value(result.clone(), None),
+                    )
+                    .unwrap();
+
+                for item in table {
                     let _ = write!(
                         long_desc,
-                        "{}\n",
-                        item.into_string("\n", engine_state.get_config())
+                        "  {}\n",
+                        item.into_string("\n  ", engine_state.get_config())
                     );
                 }
             }
