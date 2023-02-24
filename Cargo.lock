@@ -2561,6 +2561,7 @@ dependencies = [
  "nix",
  "nu-ansi-term",
  "nu-cli",
+ "nu-cmd-lang",
  "nu-color-config",
  "nu-command",
  "nu-engine",
@@ -2628,6 +2629,43 @@ dependencies = [
 ]
 
 [[package]]
+name = "nu-cmd-lang"
+version = "0.76.1"
+dependencies = [
+ "atty",
+ "chrono",
+ "crossterm 0.24.0",
+ "fancy-regex",
+ "itertools",
+ "libc",
+ "log",
+ "lscolors",
+ "nu-ansi-term",
+ "nu-color-config",
+ "nu-engine",
+ "nu-explore",
+ "nu-json",
+ "nu-parser",
+ "nu-path",
+ "nu-pretty-hex",
+ "nu-protocol",
+ "nu-system",
+ "nu-table",
+ "nu-term-grid",
+ "nu-test-support",
+ "nu-utils",
+ "once_cell",
+ "pathdiff",
+ "rayon",
+ "serde",
+ "shadow-rs",
+ "sysinfo 0.27.7",
+ "tabled",
+ "terminal_size 0.2.1",
+ "url",
+]
+
+[[package]]
 name = "nu-color-config"
 version = "0.76.1"
 dependencies = [
@@ -2680,6 +2718,7 @@ dependencies = [
  "mime_guess",
  "notify",
  "nu-ansi-term",
+ "nu-cmd-lang",
  "nu-color-config",
  "nu-engine",
  "nu-explore",
@@ -5008,6 +5047,7 @@ dependencies = [
  "libc",
  "ntapi",
  "once_cell",
+ "rayon",
  "winapi",
 ]
 
