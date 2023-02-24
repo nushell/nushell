@@ -213,7 +213,9 @@ fn get_documentation(
 
         match &example.result {
             Some(result) => {
-                let decl_id = engine_state.find_decl("table".as_bytes(), &[]).unwrap();
+                let decl_id = engine_state
+                    .find_decl("table".as_bytes(), &[])
+                    .expect("could not find `table` in the engine state");
                 let table = engine_state
                     .get_decl(decl_id)
                     .run(
@@ -222,18 +224,18 @@ fn get_documentation(
                         &Call::new(Span::new(0, 0)),
                         PipelineData::Value(result.clone(), None),
                     )
-                    .unwrap();
+                    .expect("could not run `table` on the output `Value` of the example");
 
                 for item in table {
-                    let _ = write!(
+                    let _ = writeln!(
                         long_desc,
-                        "{}\n",
+                        "{}",
                         item.into_string("", engine_state.get_config())
                     );
                 }
             }
             None => {
-                let _ = write!(long_desc, "  {WD}...{RESET}\n");
+                let _ = writeln!(long_desc, "  {WD}...{RESET}");
             }
         }
     }
