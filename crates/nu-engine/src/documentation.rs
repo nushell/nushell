@@ -229,8 +229,9 @@ fn get_documentation(
                 for item in table {
                     let _ = writeln!(
                         long_desc,
-                        "{}",
+                        "  {}",
                         item.into_string("", engine_state.get_config())
+                            .replace("\n", "\n  ")
                     );
                 }
             }
