@@ -14,13 +14,13 @@ def test_assert [] {
     test_failing { std assert false }
     test_failing { std assert (1 + 2 == 4) }
 
-    std assert_eq (1 + 2) 3
-    test_failing { std assert_eq 1 "foo" }
-    test_failing { std assert_eq (1 + 2) 4) }
+    std assert eq (1 + 2) 3
+    test_failing { std assert eq 1 "foo" }
+    test_failing { std assert eq (1 + 2) 4) }
 
-    std assert_ne (1 + 2) 4
-    test_failing { std assert_ne 1 "foo" }
-    test_failing { std assert_ne (1 + 2) 3) }
+    std assert ne (1 + 2) 4
+    test_failing { std assert ne 1 "foo" }
+    test_failing { std assert ne (1 + 2) 3) }
 }
 
 def tests [] {

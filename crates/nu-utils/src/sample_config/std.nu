@@ -27,7 +27,7 @@ export def assert [cond: bool] {
 # ```nushell
 # >_ assert_eq $a "a string"
 # Error:
-#   × left and right operand of `assert_eq` should have the same type
+#   × left and right operand of `assert eq` should have the same type
 #    ╭─[entry #12:5:1]
 #  5 │     if not $cond {
 #  6 │         error make {msg: $msg}
@@ -48,15 +48,15 @@ export def assert [cond: bool] {
 #  7 │     }
 #    ╰────
 # ```
-export def assert_eq [left: any, right: any] {
-    _assert (($left | describe) == ($right | describe)) $"left and right operand of `assert_eq` should have the same type"
+export def "assert eq" [left: any, right: any] {
+    _assert (($left | describe) == ($right | describe)) $"left and right operand of `assert eq` should have the same type"
     _assert ($left == $right) "left is not equal to right"
 }
 
 # ```nushell
 # >_ assert_ne $a "a string"
 # Error:
-#   × left and right operand of `assert_eq` should have the same type
+#   × left and right operand of `assert eq` should have the same type
 #    ╭─[entry #12:5:1]
 #  5 │     if not $cond {
 #  6 │         error make {msg: $msg}
@@ -77,8 +77,8 @@ export def assert_eq [left: any, right: any] {
 #  7 │     }
 #    ╰────
 # ```
-export def assert_ne [left: any, right: any] {
-    _assert (($left | describe) == ($right | describe)) $"left and right operand of `assert_eq` should have the same type"
+export def "assert ne" [left: any, right: any] {
+    _assert (($left | describe) == ($right | describe)) $"left and right operand of `assert eq` should have the same type"
     _assert ($left != $right) "left is equal to right"
 }
 
