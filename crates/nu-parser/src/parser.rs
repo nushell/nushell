@@ -20,7 +20,7 @@ use nu_protocol::{
 
 use crate::parse_keywords::{
     parse_alias, parse_def, parse_def_predecl, parse_export_in_block, parse_extern, parse_for,
-    parse_hide, parse_let_or_const, parse_module, parse_new_alias, parse_overlay, parse_source,
+    parse_hide, parse_let_or_const, parse_module, parse_old_alias, parse_overlay, parse_source,
     parse_use, parse_where, parse_where_expr,
 };
 
@@ -5038,8 +5038,8 @@ pub fn parse_expression(
 
         // For now, check for special parses of certain keywords
         match bytes.as_slice() {
-            b"def" | b"extern" | b"for" | b"module" | b"use" | b"source" | b"alias"
-            | b"new-alias" | b"export" | b"hide" => (
+            b"def" | b"extern" | b"for" | b"module" | b"use" | b"source" | b"old-alias"
+            | b"alias" | b"export" | b"hide" => (
                 parse_call(
                     working_set,
                     &spans[pos..],
@@ -5232,8 +5232,8 @@ pub fn parse_builtin_commands(
             let (expr, err) = parse_for(working_set, &lite_command.parts, expand_aliases_denylist);
             (Pipeline::from_vec(vec![expr]), err)
         }
+        b"old-alias" => parse_old_alias(working_set, lite_command, None, expand_aliases_denylist),
         b"alias" => parse_alias(working_set, lite_command, None, expand_aliases_denylist),
-        b"new-alias" => parse_new_alias(working_set, lite_command, None, expand_aliases_denylist),
         b"module" => parse_module(working_set, lite_command, expand_aliases_denylist),
         b"use" => {
             let (pipeline, _, err) =

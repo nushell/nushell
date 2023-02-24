@@ -107,7 +107,7 @@ pub fn parse_def_predecl(
                 return Some(ParseError::DuplicateCommandDef(spans[1]));
             }
         }
-    } else if name == b"new-alias" && spans.len() >= 4 {
+    } else if name == b"alias" && spans.len() >= 4 {
         let (name_expr, ..) = parse_string(working_set, spans[1], expand_aliases_denylist);
         let name = name_expr.as_string();
 
@@ -623,7 +623,7 @@ pub fn parse_extern(
     )
 }
 
-pub fn parse_new_alias(
+pub fn parse_alias(
     working_set: &mut StateWorkingSet,
     lite_command: &LiteCommand,
     module_name: Option<&[u8]>,
@@ -640,7 +640,7 @@ pub fn parse_new_alias(
 
     let name = working_set.get_span_contents(name_span);
 
-    if name != b"new-alias" {
+    if name != b"alias" {
         return (
             garbage_pipeline(spans),
             Some(ParseError::InternalError(
@@ -654,7 +654,7 @@ pub fn parse_new_alias(
         return (Pipeline::from_vec(vec![garbage(*span)]), Some(err));
     }
 
-    if let Some(decl_id) = working_set.find_decl(b"new-alias", &Type::Any) {
+    if let Some(decl_id) = working_set.find_decl(b"alias", &Type::Any) {
         let (command_spans, rest_spans) = spans.split_at(split_id);
 
         let ParsedInternalCall { call, output, .. } = parse_internal_call(
@@ -814,7 +814,7 @@ pub fn parse_new_alias(
     )
 }
 
-pub fn parse_alias(
+pub fn parse_old_alias(
     working_set: &mut StateWorkingSet,
     lite_command: &LiteCommand,
     module_name: Option<&[u8]>,
@@ -877,7 +877,7 @@ pub fn parse_alias(
 
     let name = working_set.get_span_contents(name_span);
 
-    if name == b"alias" {
+    if name == b"old-alias" {
         if let Some((span, err)) = check_name(working_set, spans) {
             return (Pipeline::from_vec(vec![garbage(*span)]), Some(err));
         }
@@ -1008,7 +1008,7 @@ pub fn parse_export_in_block(
     let full_name = if lite_command.parts.len() > 1 {
         let sub = working_set.get_span_contents(lite_command.parts[1]);
         match sub {
-            b"alias" | b"new-alias" | b"def" | b"def-env" | b"extern" | b"use" => {
+            b"old-alias" | b"alias" | b"def" | b"def-env" | b"extern" | b"use" => {
                 [b"export ", sub].concat()
             }
             _ => b"export".to_vec(),
@@ -1078,10 +1078,10 @@ pub fn parse_export_in_block(
     }
 
     match full_name.as_slice() {
-        b"export alias" => parse_alias(working_set, lite_command, None, expand_aliases_denylist),
-        b"export new-alias" => {
-            parse_new_alias(working_set, lite_command, None, expand_aliases_denylist)
+        b"export old-alias" => {
+            parse_old_alias(working_set, lite_command, None, expand_aliases_denylist)
         }
+        b"export alias" => parse_alias(working_set, lite_command, None, expand_aliases_denylist),
         b"export def" | b"export def-env" => {
             parse_def(working_set, lite_command, None, expand_aliases_denylist)
         }
@@ -1378,12 +1378,12 @@ pub fn parse_export_in_module(
 
                 result
             }
-            b"alias" => {
+            b"old-alias" => {
                 let lite_command = LiteCommand {
                     comments: lite_command.comments.clone(),
                     parts: spans[1..].to_vec(),
                 };
-                let (pipeline, err) = parse_alias(
+                let (pipeline, err) = parse_old_alias(
                     working_set,
                     &lite_command,
                     Some(module_name),
@@ -1392,20 +1392,20 @@ pub fn parse_export_in_module(
                 error = error.or(err);
 
                 let export_alias_decl_id =
-                    if let Some(id) = working_set.find_decl(b"export alias", &Type::Any) {
+                    if let Some(id) = working_set.find_decl(b"export old-alias", &Type::Any) {
                         id
                     } else {
                         return (
                             garbage_pipeline(spans),
                             vec![],
                             Some(ParseError::InternalError(
-                                "missing 'export alias' command".into(),
+                                "missing 'export old-alias' command".into(),
                                 export_span,
                             )),
                         );
                     };
 
-                // Trying to warp the 'alias' call into the 'export alias' in a very clumsy way
+                // Trying to warp the 'old-alias' call into the 'export old-alias' in a very clumsy way
                 if let Some(PipelineElement::Expression(
                     _,
                     Expression {
@@ -1451,12 +1451,12 @@ pub fn parse_export_in_module(
 
                 result
             }
-            b"new-alias" => {
+            b"alias" => {
                 let lite_command = LiteCommand {
                     comments: lite_command.comments.clone(),
                     parts: spans[1..].to_vec(),
                 };
-                let (pipeline, err) = parse_new_alias(
+                let (pipeline, err) = parse_alias(
                     working_set,
                     &lite_command,
                     Some(module_name),
@@ -1465,20 +1465,20 @@ pub fn parse_export_in_module(
                 error = error.or(err);
 
                 let export_alias_decl_id =
-                    if let Some(id) = working_set.find_decl(b"export new-alias", &Type::Any) {
+                    if let Some(id) = working_set.find_decl(b"export alias", &Type::Any) {
                         id
                     } else {
                         return (
                             garbage_pipeline(spans),
                             vec![],
                             Some(ParseError::InternalError(
-                                "missing 'export new-alias' command".into(),
+                                "missing 'export alias' command".into(),
                                 export_span,
                             )),
                         );
                     };
 
-                // Trying to warp the 'new-alias' call into the 'export new-alias' in a very clumsy way
+                // Trying to warp the 'alias' call into the 'export alias' in a very clumsy way
                 if let Some(PipelineElement::Expression(
                     _,
                     Expression {
@@ -1804,8 +1804,8 @@ pub fn parse_module_block(
 
                                 (pipeline, err)
                             }
-                            b"alias" => {
-                                let (pipeline, err) = parse_alias(
+                            b"old-alias" => {
+                                let (pipeline, err) = parse_old_alias(
                                     working_set,
                                     command,
                                     None, // using aliases named as the module locally is OK
@@ -1814,8 +1814,8 @@ pub fn parse_module_block(
 
                                 (pipeline, err)
                             }
-                            b"new-alias" => {
-                                let (pipeline, err) = parse_new_alias(
+                            b"alias" => {
+                                let (pipeline, err) = parse_alias(
                                     working_set,
                                     command,
                                     None, // using aliases named as the module locally is OK

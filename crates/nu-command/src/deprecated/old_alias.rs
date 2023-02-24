@@ -5,11 +5,11 @@ use nu_protocol::{
 };
 
 #[derive(Clone)]
-pub struct NewAlias;
+pub struct OldAlias;
 
-impl Command for NewAlias {
+impl Command for OldAlias {
     fn name(&self) -> &str {
-        "new-alias"
+        "old-alias"
     }
 
     fn usage(&self) -> &str {
@@ -17,7 +17,7 @@ impl Command for NewAlias {
     }
 
     fn signature(&self) -> nu_protocol::Signature {
-        Signature::build("new-alias")
+        Signature::build("old-alias")
             .input_output_types(vec![(Type::Nothing, Type::Nothing)])
             .required("name", SyntaxShape::String, "name of the alias")
             .required(
@@ -52,10 +52,17 @@ impl Command for NewAlias {
     }
 
     fn examples(&self) -> Vec<Example> {
-        vec![Example {
-            description: "Alias ll to ls -l",
-            example: "new-alias ll = ls -l",
-            result: Some(Value::nothing(Span::test_data())),
-        }]
+        vec![
+            Example {
+                description: "Alias ll to ls -l",
+                example: "old-alias ll = ls -l",
+                result: Some(Value::nothing(Span::test_data())),
+            },
+            Example {
+                description: "Make an alias that makes a list of all custom commands",
+                example: "old-alias customs = ($nu.scope.commands | where is_custom | get command)",
+                result: Some(Value::nothing(Span::test_data())),
+            },
+        ]
     }
 }

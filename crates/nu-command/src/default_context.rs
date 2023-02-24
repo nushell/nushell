@@ -479,8 +479,6 @@ pub fn create_default_context() -> EngineState {
         // Experimental
         bind_command! {
             IsAdmin,
-            ExportNewAlias,
-            NewAlias,
         };
 
         // Deprecated
@@ -494,6 +492,8 @@ pub fn create_default_context() -> EngineState {
             StrIntDeprecated,
             StrFindReplaceDeprecated,
             MathEvalDeprecated,
+            OldAlias,
+            ExportOldAlias,
         };
 
         #[cfg(feature = "plugin")]
