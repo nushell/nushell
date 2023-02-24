@@ -49,46 +49,7 @@ impl Command for ToJson {
 
         let span = call.head;
         // allow ranges to expand and turn into array
-        let input = match input {
-            PipelineData::Value(Value::Range { val, span }, ..) => {
-                match (&val.to, &val.from) {
-                    (Value::Float { val, .. }, _) | (_, Value::Float { val, .. }) => {
-                        if *val == f64::INFINITY || *val == f64::NEG_INFINITY {
-                            return Err(ShellError::GenericError(
-                                "Cannot create range".into(),
-                                "Infinity is not allowed when converting to json".into(),
-                                Some(span),
-                                Some("Consider removing infinity".into()),
-                                vec![],
-                            ));
-                        }
-                    }
-                    (Value::Int { val, span }, _) => {
-                        if *val == i64::MAX || *val == i64::MIN {
-                            return Err(ShellError::GenericError(
-                                "Cannot create range".into(),
-                                "Unbounded ranges are not allowed when converting to json".into(),
-                                Some(*span),
-                                Some(
-                                    "Consider using ranges with valid start and end point.".into(),
-                                ),
-                                vec![],
-                            ));
-                        }
-                    }
-                    _ => (),
-                }
-                let range_values: Vec<Value> = val.into_range_iter(None)?.collect();
-                PipelineData::Value(
-                    Value::List {
-                        vals: range_values,
-                        span,
-                    },
-                    None,
-                )
-            }
-            _ => input,
-        };
+        let input = input.try_expand_range()?;
         let value = input.into_value(span);
         let json_value = value_to_json_value(&value)?;
 
