@@ -48,6 +48,8 @@ impl Command for ToJson {
         let use_tabs = call.has_flag("tabs");
 
         let span = call.head;
+        // allow ranges to expand and turn into array
+        let input = input.try_expand_range()?;
         let value = input.into_value(span);
         let json_value = value_to_json_value(&value)?;
 

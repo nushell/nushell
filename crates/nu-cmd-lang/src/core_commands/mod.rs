@@ -75,8 +75,8 @@ pub use try_::Try;
 pub use use_::Use;
 pub use version::Version;
 pub use while_::While;
-#[cfg(feature = "plugin")]
+//#[cfg(feature = "plugin")]
 mod register;
 
-#[cfg(feature = "plugin")]
+//#[cfg(feature = "plugin")]
 pub use register::Register;

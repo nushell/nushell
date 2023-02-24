@@ -8,14 +8,9 @@ pub fn test_examples(cmd: impl Command + 'static) {
 
 #[cfg(test)]
 mod test_examples {
-    use super::super::{
-        Ansi, Date, Enumerate, Flatten, From, Get, Into, IntoString, LetEnv, Math, MathEuler,
-        MathPi, MathRound, ParEach, Path, Random, Sort, SortBy, Split, SplitColumn, SplitRow, Str,
-        StrJoin, StrLength, StrReplace, Update, Url, Values, Wrap,
-    };
-    use crate::{Each, To};
+    use crate::{Break, Describe, Mut};
+    use crate::{Echo, If, Let};
     use itertools::Itertools;
-    use nu_cmd_lang::{Break, Echo, If, Let, Mut};
     use nu_protocol::{
         ast::Block,
         engine::{Command, EngineState, Stack, StateDelta, StateWorkingSet},
@@ -62,42 +57,13 @@ mod test_examples {
             // Base functions that are needed for testing
             // Try to keep this working set small to keep tests running as fast as possible
             let mut working_set = StateWorkingSet::new(&engine_state);
-            working_set.add_decl(Box::new(Ansi));
             working_set.add_decl(Box::new(Break));
-            working_set.add_decl(Box::new(Date));
-            working_set.add_decl(Box::new(Each));
+            working_set.add_decl(Box::new(Describe));
             working_set.add_decl(Box::new(Echo));
-            working_set.add_decl(Box::new(Enumerate));
-            working_set.add_decl(Box::new(Flatten));
-            working_set.add_decl(Box::new(From));
-            working_set.add_decl(Box::new(Get));
             working_set.add_decl(Box::new(If));
-            working_set.add_decl(Box::new(Into));
-            working_set.add_decl(Box::new(IntoString));
             working_set.add_decl(Box::new(Let));
-            working_set.add_decl(Box::new(LetEnv));
-            working_set.add_decl(Box::new(Math));
-            working_set.add_decl(Box::new(MathEuler));
-            working_set.add_decl(Box::new(MathPi));
-            working_set.add_decl(Box::new(MathRound));
             working_set.add_decl(Box::new(Mut));
-            working_set.add_decl(Box::new(Path));
-            working_set.add_decl(Box::new(ParEach));
-            working_set.add_decl(Box::new(Random));
-            working_set.add_decl(Box::new(Sort));
-            working_set.add_decl(Box::new(SortBy));
-            working_set.add_decl(Box::new(Split));
-            working_set.add_decl(Box::new(SplitColumn));
-            working_set.add_decl(Box::new(SplitRow));
-            working_set.add_decl(Box::new(Str));
-            working_set.add_decl(Box::new(StrJoin));
-            working_set.add_decl(Box::new(StrLength));
-            working_set.add_decl(Box::new(StrReplace));
-            working_set.add_decl(Box::new(To));
-            working_set.add_decl(Box::new(Url));
-            working_set.add_decl(Box::new(Update));
-            working_set.add_decl(Box::new(Values));
-            working_set.add_decl(Box::new(Wrap));
+
             // Adding the command that is being tested to the working set
             working_set.add_decl(cmd);
 

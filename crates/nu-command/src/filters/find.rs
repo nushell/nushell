@@ -1,4 +1,4 @@
-use crate::help::highlight_search_string;
+use nu_cmd_lang::help::highlight_search_string;
 
 use fancy_regex::Regex;
 use lscolors::{Color as LsColors_Color, LsColors, Style as LsColors_Style};

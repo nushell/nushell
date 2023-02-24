@@ -1,11 +1,11 @@
 # Nushell <!-- omit in toc -->
 [![Crates.io](https://img.shields.io/crates/v/nu.svg)](https://crates.io/crates/nu)
-![Build Status](https://img.shields.io/github/actions/workflow/status/nushell/nushell/ci.yml?branch=main)
+[![Build Status](https://img.shields.io/github/actions/workflow/status/nushell/nushell/ci.yml?branch=main)](https://github.com/nushell/nushell/actions)
 [![Discord](https://img.shields.io/discord/601130461678272522.svg?logo=discord)](https://discord.gg/NtAbbGn)
 [![The Changelog #363](https://img.shields.io/badge/The%20Changelog-%23363-61c192.svg)](https://changelog.com/podcast/363)
 [![@nu_shell](https://img.shields.io/badge/twitter-@nu_shell-1DA1F3?style=flat-square)](https://twitter.com/nu_shell)
-![GitHub commit activity](https://img.shields.io/github/commit-activity/m/nushell/nushell)
-![GitHub contributors](https://img.shields.io/github/contributors/nushell/nushell)
+[![GitHub commit activity](https://img.shields.io/github/commit-activity/m/nushell/nushell)](https://github.com/nushell/nushell/graphs/commit-activity)
+[![GitHub contributors](https://img.shields.io/github/contributors/nushell/nushell)](https://github.com/nushell/nushell/graphs/contributors)
 [![codecov](https://codecov.io/github/nushell/nushell/branch/main/graph/badge.svg?token=JheS8qu2II)](https://codecov.io/github/nushell/nushell)
 
 A new type of shell.

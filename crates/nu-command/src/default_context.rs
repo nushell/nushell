@@ -3,7 +3,7 @@ use nu_protocol::engine::{EngineState, StateWorkingSet};
 use crate::*;
 
 pub fn create_default_context() -> EngineState {
-    let mut engine_state = EngineState::new();
+    let mut engine_state = nu_cmd_lang::create_default_context();
 
     let delta = {
         let mut working_set = StateWorkingSet::new(&engine_state);
@@ -25,52 +25,6 @@ pub fn create_default_context() -> EngineState {
         // Adds all related commands to query databases
         #[cfg(feature = "sqlite")]
         add_database_decls(&mut working_set);
-
-        // Core
-        bind_command! {
-            Alias,
-            Break,
-            Commandline,
-            Const,
-            Continue,
-            Def,
-            DefEnv,
-            Describe,
-            Do,
-            Echo,
-            ErrorMake,
-            ExportAlias,
-            ExportCommand,
-            ExportDef,
-            ExportDefEnv,
-            ExportExtern,
-            ExportUse,
-            Extern,
-            For,
-            Help,
-            HelpAliases,
-            HelpCommands,
-            HelpModules,
-            HelpOperators,
-            Hide,
-            HideEnv,
-            If,
-            Ignore,
-            Overlay,
-            OverlayUse,
-            OverlayList,
-            OverlayNew,
-            OverlayHide,
-            Let,
-            Loop,
-            Module,
-            Mut,
-            Return,
-            Try,
-            Use,
-            Version,
-            While,
-        };
 
         // Charts
         bind_command! {
@@ -440,8 +394,12 @@ pub fn create_default_context() -> EngineState {
         // Network
         bind_command! {
             Http,
+            HttpDelete,
             HttpGet,
+            HttpHead,
+            HttpPatch,
             HttpPost,
+            HttpPut,
             Url,
             UrlBuildQuery,
             UrlEncode,
@@ -495,9 +453,6 @@ pub fn create_default_context() -> EngineState {
             OldAlias,
             ExportOldAlias,
         };
-
-        #[cfg(feature = "plugin")]
-        bind_command!(Register);
 
         working_set.render()
     };

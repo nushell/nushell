@@ -15,11 +15,11 @@ pub struct SubCommand;
 
 impl Command for SubCommand {
     fn name(&self) -> &str {
-        "http post"
+        "http patch"
     }
 
     fn signature(&self) -> Signature {
-        Signature::build("http post")
+        Signature::build("http patch")
             .input_output_types(vec![(Type::Nothing, Type::Any)])
             .allow_variants_without_examples(true)
             .required("URL", SyntaxShape::String, "the URL to post to")
@@ -75,11 +75,11 @@ impl Command for SubCommand {
     }
 
     fn usage(&self) -> &str {
-        "Post a body to a URL."
+        "Patch a body to a URL."
     }
 
     fn extra_usage(&self) -> &str {
-        "Performs HTTP POST operation."
+        "Performs HTTP PATCH operation."
     }
 
     fn search_terms(&self) -> Vec<&str> {
@@ -93,29 +93,29 @@ impl Command for SubCommand {
         call: &Call,
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
-        run_post(engine_state, stack, call, input)
+        run_patch(engine_state, stack, call, input)
     }
 
     fn examples(&self) -> Vec<Example> {
         vec![
             Example {
-                description: "Post content to example.com",
-                example: "http post https://www.example.com 'body'",
+                description: "Patch content to example.com",
+                example: "http patch https://www.example.com 'body'",
                 result: None,
             },
             Example {
-                description: "Post content to example.com, with username and password",
-                example: "http post -u myuser -p mypass https://www.example.com 'body'",
+                description: "Patch content to example.com, with username and password",
+                example: "http patch -u myuser -p mypass https://www.example.com 'body'",
                 result: None,
             },
             Example {
-                description: "Post content to example.com, with custom header",
-                example: "http post -H [my-header-key my-header-value] https://www.example.com",
+                description: "Patch content to example.com, with custom header",
+                example: "http patch -H [my-header-key my-header-value] https://www.example.com",
                 result: None,
             },
             Example {
-                description: "Post content to example.com, with JSON body",
-                example: "http post -t application/json https://www.example.com { field: value }",
+                description: "Patch content to example.com, with JSON body",
+                example: "http patch -t application/json https://www.example.com { field: value }",
                 result: None,
             },
         ]
@@ -135,7 +135,7 @@ struct Arguments {
     timeout: Option<Value>,
 }
 
-fn run_post(
+fn run_patch(
     engine_state: &EngineState,
     stack: &mut Stack,
     call: &Call,
@@ -168,7 +168,7 @@ fn helper(
     let (requested_url, url) = http_parse_url(call, span, args.url)?;
 
     let client = http_client(args.insecure.is_some());
-    let mut request = client.post(url);
+    let mut request = client.patch(url);
 
     request = request_set_body(args.content_type, args.content_length, args.data, request)?;
     request = request_set_timeout(args.timeout, request)?;

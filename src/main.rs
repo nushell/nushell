@@ -169,6 +169,7 @@ fn main() -> Result<()> {
             "chop" => test_bins::chop(),
             "repeater" => test_bins::repeater(),
             "nu_repl" => test_bins::nu_repl(),
+            "input_bytes_length" => test_bins::input_bytes_length(),
             _ => std::process::exit(1),
         }
         std::process::exit(0)
