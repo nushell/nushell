@@ -227,8 +227,8 @@ fn get_documentation(
                 for item in table {
                     let _ = write!(
                         long_desc,
-                        "  {}\n",
-                        item.into_string("\n  ", engine_state.get_config())
+                        "{}\n",
+                        item.into_string("", engine_state.get_config())
                     );
                 }
             }
