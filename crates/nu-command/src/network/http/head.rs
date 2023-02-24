@@ -7,7 +7,7 @@ use nu_protocol::{
 
 use crate::network::http::client::{
     http_client, http_parse_url, request_add_authorization_header, request_add_custom_headers,
-    request_handle_response, request_set_body, request_set_timeout,
+    request_handle_response_headers, request_set_timeout,
 };
 
 #[derive(Clone)]
@@ -15,15 +15,18 @@ pub struct SubCommand;
 
 impl Command for SubCommand {
     fn name(&self) -> &str {
-        "http post"
+        "http head"
     }
 
     fn signature(&self) -> Signature {
-        Signature::build("http post")
+        Signature::build("http head")
             .input_output_types(vec![(Type::Nothing, Type::Any)])
             .allow_variants_without_examples(true)
-            .required("URL", SyntaxShape::String, "the URL to post to")
-            .required("data", SyntaxShape::Any, "the contents of the post body")
+            .required(
+                "URL",
+                SyntaxShape::String,
+                "the URL to fetch the contents from",
+            )
             .named(
                 "user",
                 SyntaxShape::Any,
@@ -35,18 +38,6 @@ impl Command for SubCommand {
                 SyntaxShape::Any,
                 "the password when authenticating",
                 Some('p'),
-            )
-            .named(
-                "content-type",
-                SyntaxShape::Any,
-                "the MIME type of content to post",
-                Some('t'),
-            )
-            .named(
-                "content-length",
-                SyntaxShape::Any,
-                "the length of the content being posted",
-                Some('l'),
             )
             .named(
                 "max-time",
@@ -61,11 +52,6 @@ impl Command for SubCommand {
                 Some('H'),
             )
             .switch(
-                "raw",
-                "return values as a string instead of a table",
-                Some('r'),
-            )
-            .switch(
                 "insecure",
                 "allow insecure server connections when using SSL",
                 Some('k'),
@@ -75,15 +61,15 @@ impl Command for SubCommand {
     }
 
     fn usage(&self) -> &str {
-        "Post a body to a URL."
+        "Get the headers from a URL."
     }
 
     fn extra_usage(&self) -> &str {
-        "Performs HTTP POST operation."
+        "Performs HTTP HEAD operation."
     }
 
     fn search_terms(&self) -> Vec<&str> {
-        vec!["network", "send", "push"]
+        vec!["network", "request", "curl", "wget", "headers", "header"]
     }
 
     fn run(
@@ -93,29 +79,24 @@ impl Command for SubCommand {
         call: &Call,
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
-        run_post(engine_state, stack, call, input)
+        run_head(engine_state, stack, call, input)
     }
 
     fn examples(&self) -> Vec<Example> {
         vec![
             Example {
-                description: "Post content to example.com",
-                example: "http post https://www.example.com 'body'",
+                description: "Get headers from example.com",
+                example: "http head https://www.example.com",
                 result: None,
             },
             Example {
-                description: "Post content to example.com, with username and password",
-                example: "http post -u myuser -p mypass https://www.example.com 'body'",
+                description: "Get headers from example.com, with username and password",
+                example: "http head -u myuser -p mypass https://www.example.com",
                 result: None,
             },
             Example {
-                description: "Post content to example.com, with custom header",
-                example: "http post -H [my-header-key my-header-value] https://www.example.com",
-                result: None,
-            },
-            Example {
-                description: "Post content to example.com, with JSON body",
-                example: "http post -t application/json https://www.example.com { field: value }",
+                description: "Get headers from example.com, with custom header",
+                example: "http head -H [my-header-key my-header-value] https://www.example.com",
                 result: None,
             },
         ]
@@ -125,17 +106,13 @@ impl Command for SubCommand {
 struct Arguments {
     url: Value,
     headers: Option<Value>,
-    data: Value,
-    content_type: Option<String>,
-    content_length: Option<String>,
-    raw: bool,
     insecure: Option<bool>,
     user: Option<String>,
     password: Option<String>,
     timeout: Option<Value>,
 }
 
-fn run_post(
+fn run_head(
     engine_state: &EngineState,
     stack: &mut Stack,
     call: &Call,
@@ -144,46 +121,29 @@ fn run_post(
     let args = Arguments {
         url: call.req(engine_state, stack, 0)?,
         headers: call.get_flag(engine_state, stack, "headers")?,
-        data: call.req(engine_state, stack, 1)?,
-        content_type: call.get_flag(engine_state, stack, "content-type")?,
-        content_length: call.get_flag(engine_state, stack, "content-length")?,
-        raw: call.has_flag("raw"),
         insecure: call.get_flag(engine_state, stack, "insecure")?,
         user: call.get_flag(engine_state, stack, "user")?,
         password: call.get_flag(engine_state, stack, "password")?,
         timeout: call.get_flag(engine_state, stack, "timeout")?,
     };
-    helper(engine_state, stack, call, args)
+    helper(call, args)
 }
 
 // Helper function that actually goes to retrieve the resource from the url given
 // The Option<String> return a possible file extension which can be used in AutoConvert commands
-fn helper(
-    engine_state: &EngineState,
-    stack: &mut Stack,
-    call: &Call,
-    args: Arguments,
-) -> Result<PipelineData, ShellError> {
+fn helper(call: &Call, args: Arguments) -> Result<PipelineData, ShellError> {
     let span = args.url.span()?;
     let (requested_url, url) = http_parse_url(call, span, args.url)?;
 
     let client = http_client(args.insecure.is_some());
-    let mut request = client.post(url);
+    let mut request = client.head(url);
 
-    request = request_set_body(args.content_type, args.content_length, args.data, request)?;
     request = request_set_timeout(args.timeout, request)?;
     request = request_add_authorization_header(args.user, args.password, request);
     request = request_add_custom_headers(args.headers, request)?;
 
     let response = request.send().and_then(|r| r.error_for_status());
-    request_handle_response(
-        engine_state,
-        stack,
-        span,
-        &requested_url,
-        args.raw,
-        response,
-    )
+    request_handle_response_headers(span, &requested_url, response)
 }
 
 #[cfg(test)]

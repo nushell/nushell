@@ -21,6 +21,7 @@ impl Command for SubCommand {
     fn signature(&self) -> Signature {
         Signature::build("http get")
             .input_output_types(vec![(Type::Nothing, Type::Any)])
+            .allow_variants_without_examples(true)
             .required(
                 "URL",
                 SyntaxShape::String,
@@ -98,33 +99,33 @@ impl Command for SubCommand {
         call: &Call,
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
-        run_post(engine_state, stack, call, input)
+        run_get(engine_state, stack, call, input)
     }
 
     fn examples(&self) -> Vec<Example> {
         vec![
             Example {
-                description: "http get content from example.com",
+                description: "Get content from example.com",
                 example: "http get https://www.example.com",
                 result: None,
             },
             Example {
-                description: "http get content from example.com, with username and password",
+                description: "Get content from example.com, with username and password",
                 example: "http get -u myuser -p mypass https://www.example.com",
                 result: None,
             },
             Example {
-                description: "http get content from example.com, with custom header",
+                description: "Get content from example.com, with custom header",
                 example: "http get -H [my-header-key my-header-value] https://www.example.com",
                 result: None,
             },
             Example {
-                description: "http get from example.com, with body",
+                description: "Get content from example.com, with body",
                 example: "http get -d 'body' https://www.example.com",
                 result: None,
             },
             Example {
-                description: "http get from example.com, with JSON body",
+                description: "Get content from example.com, with JSON body",
                 example: "http get -t application/json -d { field: value } https://www.example.com",
                 result: None,
             },
@@ -145,7 +146,7 @@ struct Arguments {
     timeout: Option<Value>,
 }
 
-fn run_post(
+fn run_get(
     engine_state: &EngineState,
     stack: &mut Stack,
     call: &Call,
@@ -196,4 +197,16 @@ fn helper(
         args.raw,
         response,
     )
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_examples() {
+        use crate::test_examples;
+
+        test_examples(SubCommand {})
+    }
 }
