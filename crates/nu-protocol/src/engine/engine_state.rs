@@ -1007,6 +1007,10 @@ impl EngineState {
             .map(|d| d.as_string().unwrap_or_default())
             .unwrap_or_default()
     }
+
+    pub fn get_file_contents(&self) -> &Vec<(Vec<u8>, usize, usize)> {
+        &self.file_contents
+    }
 }
 
 /// A temporary extension to the global state. This handles bridging between the global state and the
@@ -1190,6 +1194,10 @@ impl StateDelta {
 
     pub fn exit_scope(&mut self) {
         self.scope.pop();
+    }
+
+    pub fn get_file_contents(&self) -> &Vec<(Vec<u8>, usize, usize)> {
+        &self.file_contents
     }
 }
 
