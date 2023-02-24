@@ -163,7 +163,9 @@ jobs:
     strategy:
       fail-fast: true
       matrix:
-        platform: [windows-latest, ubuntu-20.04]
+        # disabled mac due to problems with merging coverage and similarity to linux
+        # disabled windows due to running out of disk space when having too many crates or tests
+        platform: [ubuntu-20.04] # windows-latest
         rust:
           - stable
 
