@@ -1,7 +1,7 @@
 use nu_protocol::{
     ast::Call,
     engine::{EngineState, Stack},
-    Example, IntoPipelineData, Signature, Span, SyntaxShape, Value,
+    Example, IntoPipelineData, PipelineData, Signature, Span, SyntaxShape, Value,
 };
 use std::fmt::Write;
 
@@ -213,7 +213,13 @@ fn get_documentation(
 
         match &example.result {
             Some(result) => {
-                let _ = write!(long_desc, "  {}\n", result.into_string(" ", engine_state.get_config()));
+                for item in PipelineData::Value(result.clone(), None) {
+                    let _ = write!(
+                        long_desc,
+                        "{}\n",
+                        item.into_string("\n", engine_state.get_config())
+                    );
+                }
             }
             None => {
                 let _ = write!(long_desc, "  {WD}...{RESET}\n");
