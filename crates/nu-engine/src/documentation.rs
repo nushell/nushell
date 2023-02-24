@@ -232,6 +232,7 @@ fn get_documentation(
                         "  {}",
                         item.into_string("", engine_state.get_config())
                             .replace("\n", "\n  ")
+                            .trim()
                     );
                 }
             }
