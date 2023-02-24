@@ -967,108 +967,6 @@ pub fn eval_block_with_early_return(
     }
 }
 
-#[allow(clippy::too_many_arguments)]
-fn collect_profiling_metadata(
-    pipeline_idx: usize,
-    element_idx: usize,
-    element_str: String,
-    element_span: Span,
-    start_time: Instant,
-    end_time: Instant,
-    profiling_config: &ProfilingConfig,
-    eval_result: &Result<(PipelineData, bool), ShellError>,
-    input_metadata: &mut PipelineMetadata,
-) {
-    let element_str = Value::string(element_str, element_span);
-    let time_ns = (end_time - start_time).as_nanos() as i64;
-
-    let mut cols = vec![
-        "pipeline_idx".to_string(),
-        "element_idx".to_string(),
-        "depth".to_string(),
-        "span".to_string(),
-    ];
-
-    let mut vals = vec![
-        Value::int(pipeline_idx as i64, element_span),
-        Value::int(element_idx as i64, element_span),
-        Value::int(profiling_config.depth, element_span),
-        Value::record(
-            vec!["start".to_string(), "end".to_string()],
-            vec![
-                Value::int(element_span.start as i64, element_span),
-                Value::int(element_span.end as i64, element_span),
-            ],
-            element_span,
-        ),
-    ];
-
-    if profiling_config.collect_source {
-        cols.push("source".to_string());
-        vals.push(element_str);
-    }
-
-    if profiling_config.collect_values {
-        let value = match &eval_result {
-            Ok((PipelineData::Value(val, ..), ..)) => val.clone(),
-            Ok((PipelineData::ListStream(..), ..)) => Value::string("list stream", element_span),
-            Ok((PipelineData::ExternalStream { .. }, ..)) => {
-                Value::string("raw stream", element_span)
-            }
-            Ok((PipelineData::Empty, ..)) => Value::Nothing { span: element_span },
-            Err(err) => Value::Error { error: err.clone() },
-        };
-
-        cols.push("value".to_string());
-        vals.push(value);
-    }
-
-    cols.push("time".to_string());
-    vals.push(Value::Duration {
-        val: time_ns,
-        span: element_span,
-    });
-
-    let record = Value::Record {
-        cols,
-        vals,
-        span: element_span,
-    };
-
-    let element_metadata = if let Ok((pipeline_data, ..)) = &eval_result {
-        pipeline_data.metadata()
-    } else {
-        None
-    };
-
-    if let PipelineMetadata {
-        data_source: DataSource::Profiling(tgt_vals),
-    } = input_metadata
-    {
-        tgt_vals.push(record);
-    } else {
-        *input_metadata = PipelineMetadata {
-            data_source: DataSource::Profiling(vec![record]),
-        };
-    }
-
-    if let Some(PipelineMetadata {
-        data_source: DataSource::Profiling(element_vals),
-    }) = element_metadata.map(|m| *m)
-    {
-        if let PipelineMetadata {
-            data_source: DataSource::Profiling(tgt_vals),
-        } = input_metadata
-        {
-            tgt_vals.extend(element_vals);
-        } else {
-            *input_metadata = PipelineMetadata {
-                data_source: DataSource::Profiling(element_vals),
-            };
-        }
-    }
-}
-
 pub fn eval_block(
     engine_state: &EngineState,
     stack: &mut Stack,
@@ -1469,5 +1367,107 @@ fn compute(size: i64, unit: Unit, span: Span) -> Value {
                 ),
             },
         },
+    }
+}
+
+#[allow(clippy::too_many_arguments)]
+fn collect_profiling_metadata(
+    pipeline_idx: usize,
+    element_idx: usize,
+    element_str: String,
+    element_span: Span,
+    start_time: Instant,
+    end_time: Instant,
+    profiling_config: &ProfilingConfig,
+    eval_result: &Result<(PipelineData, bool), ShellError>,
+    input_metadata: &mut PipelineMetadata,
+) {
+    let element_str = Value::string(element_str, element_span);
+    let time_ns = (end_time - start_time).as_nanos() as i64;
+
+    let mut cols = vec![
+        "pipeline_idx".to_string(),
+        "element_idx".to_string(),
+        "depth".to_string(),
+        "span".to_string(),
+    ];
+
+    let mut vals = vec![
+        Value::int(pipeline_idx as i64, element_span),
+        Value::int(element_idx as i64, element_span),
+        Value::int(profiling_config.depth, element_span),
+        Value::record(
+            vec!["start".to_string(), "end".to_string()],
+            vec![
+                Value::int(element_span.start as i64, element_span),
+                Value::int(element_span.end as i64, element_span),
+            ],
+            element_span,
+        ),
+    ];
+
+    if profiling_config.collect_source {
+        cols.push("source".to_string());
+        vals.push(element_str);
+    }
+
+    if profiling_config.collect_values {
+        let value = match &eval_result {
+            Ok((PipelineData::Value(val, ..), ..)) => val.clone(),
+            Ok((PipelineData::ListStream(..), ..)) => Value::string("list stream", element_span),
+            Ok((PipelineData::ExternalStream { .. }, ..)) => {
+                Value::string("raw stream", element_span)
+            }
+            Ok((PipelineData::Empty, ..)) => Value::Nothing { span: element_span },
+            Err(err) => Value::Error { error: err.clone() },
+        };
+
+        cols.push("value".to_string());
+        vals.push(value);
+    }
+
+    cols.push("time".to_string());
+    vals.push(Value::Duration {
+        val: time_ns,
+        span: element_span,
+    });
+
+    let record = Value::Record {
+        cols,
+        vals,
+        span: element_span,
+    };
+
+    let element_metadata = if let Ok((pipeline_data, ..)) = &eval_result {
+        pipeline_data.metadata()
+    } else {
+        None
+    };
+
+    if let PipelineMetadata {
+        data_source: DataSource::Profiling(tgt_vals),
+    } = input_metadata
+    {
+        tgt_vals.push(record);
+    } else {
+        *input_metadata = PipelineMetadata {
+            data_source: DataSource::Profiling(vec![record]),
+        };
+    }
+
+    if let Some(PipelineMetadata {
+        data_source: DataSource::Profiling(element_vals),
+    }) = element_metadata.map(|m| *m)
+    {
+        if let PipelineMetadata {
+            data_source: DataSource::Profiling(tgt_vals),
+        } = input_metadata
+        {
+            tgt_vals.extend(element_vals);
+        } else {
+            *input_metadata = PipelineMetadata {
+                data_source: DataSource::Profiling(element_vals),
+            };
+        }
     }
 }
