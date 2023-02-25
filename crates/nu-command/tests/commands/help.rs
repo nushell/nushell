@@ -374,3 +374,16 @@ fn help_modules_main_2() {
 
     assert_eq!(actual.out, "spam");
 }
+
+#[ignore = "TODO: Can't have alias with the same name as command"]
+#[test]
+fn help_alias_before_command() {
+    let code = &[
+        "alias SPAM = echo 'spam'",
+        "def SPAM [] { 'spam' }",
+        "help SPAM",
+    ];
+    let actual = nu!(cwd: ".", nu_repl_code(code));
+
+    assert!(actual.out.contains("Alias"));
+}
