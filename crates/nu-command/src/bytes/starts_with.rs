@@ -63,56 +63,46 @@ impl Command for BytesStartsWith {
         };
 
         match input {
-            PipelineData::ExternalStream { stdout, span, .. } if stdout.is_some() => {
-                let stream = stdout.expect("stdout is some");
-
+            PipelineData::ExternalStream {
+                stdout: Some(stream),
+                span,
+                ..
+            } => {
                 let mut i = 0;
 
                 for item in stream {
-                    match item {
-                        Ok(v) => match v {
-                            Value::String { val, span } => {
-                                let bytes = val.as_bytes();
-                                let max = bytes.len().min(arg.pattern.len() - i);
-
-                                if bytes[..max] == arg.pattern[i..i + max] {
-                                    i += max;
-
-                                    if i >= arg.pattern.len() {
-                                        return Ok(Value::boolean(true, span).into_pipeline_data());
-                                    }
-                                } else {
-                                    return Ok(Value::boolean(false, span).into_pipeline_data());
-                                }
+                    let byte_slice = match &item {
+                        // String and binary data are valid byte patterns
+                        Ok(Value::String { val, .. }) => val.as_bytes(),
+                        Ok(Value::Binary { val, .. }) => val,
+                        // If any Error value is output, echo it back
+                        Ok(v @ Value::Error { .. }) => return Ok(v.clone().into_pipeline_data()),
+                        // Unsupported data
+                        Ok(other) => {
+                            return Ok(Value::Error {
+                                error: ShellError::OnlySupportsThisInputType(
+                                    "string and binary".into(),
+                                    other.get_type().to_string(),
+                                    span,
+                                    // This line requires the Value::Error match above.
+                                    other.expect_span(),
+                                ),
                             }
-                            Value::Binary { val: bytes, span } => {
-                                let max = bytes.len().min(arg.pattern.len() - i);
+                            .into_pipeline_data());
+                        }
+                        Err(err) => return Err(err.to_owned()),
+                    };
 
-                                if bytes[..max] == arg.pattern[i..i + max] {
-                                    i += max;
+                    let max = byte_slice.len().min(arg.pattern.len() - i);
 
-                                    if i >= arg.pattern.len() {
-                                        return Ok(Value::boolean(true, span).into_pipeline_data());
-                                    }
-                                } else {
-                                    return Ok(Value::boolean(false, span).into_pipeline_data());
-                                }
-                            }
-                            Value::Error { .. } => return Ok(v.clone().into_pipeline_data()),
-                            other => {
-                                return Ok(Value::Error {
-                                    error: ShellError::OnlySupportsThisInputType(
-                                        "binary".into(),
-                                        other.get_type().to_string(),
-                                        span,
-                                        // This line requires the Value::Error match above.
-                                        other.expect_span(),
-                                    ),
-                                }
-                                .into_pipeline_data());
-                            }
-                        },
-                        Err(err) => return Err(err),
+                    if byte_slice[..max] == arg.pattern[i..i + max] {
+                        i += max;
+
+                        if i >= arg.pattern.len() {
+                            return Ok(Value::boolean(true, span).into_pipeline_data());
+                        }
+                    } else {
+                        return Ok(Value::boolean(false, span).into_pipeline_data());
                     }
                 }
 
