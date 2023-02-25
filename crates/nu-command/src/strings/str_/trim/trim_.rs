@@ -53,21 +53,21 @@ impl Command for SubCommand {
             )
             .switch(
                 "left",
-                "trims characters only from the beginning of the string (default: whitespace)",
+                "trims characters only from the beginning of the string",
                 Some('l'),
             )
             .switch(
                 "right",
-                "trims characters only from the end of the string (default: whitespace)",
+                "trims characters only from the end of the string",
                 Some('r'),
             )
             .switch(
                 "all",
-                "trims all characters from both sides of the string *and* in the middle (default: whitespace)",
+                "trims all characters from both sides of the string *and* in the middle",
                 Some('a'),
             )
-            .switch("both", "trims all characters from left and right side of the string (default: whitespace)", Some('b'))
-            .switch("format", "trims spaces replacing multiple characters with singles in the middle (default: whitespace)", Some('f'))
+            .switch("both", "trims all characters from left and right side of the string", Some('b'))
+            .switch("format", "trims spaces replacing multiple characters with singles in the middle", Some('f'))
     }
     fn usage(&self) -> &str {
         "Trim whitespace or specific character"
