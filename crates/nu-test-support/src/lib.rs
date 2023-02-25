@@ -6,9 +6,22 @@ pub mod playground;
 // Needs to be reexported for `nu!` macro
 pub use nu_path;
 
+#[derive(Debug)]
 pub struct Outcome {
     pub out: String,
     pub err: String,
+}
+
+impl<Str> PartialEq<Result<Str, Str>> for Outcome
+where
+    Str: AsRef<str>,
+{
+    fn eq(&self, other: &Result<Str, Str>) -> bool {
+        match other {
+            Ok(out) => out.as_ref() == self.out,
+            Err(err) => err.as_ref() == self.err,
+        }
+    }
 }
 
 #[cfg(windows)]
