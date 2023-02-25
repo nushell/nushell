@@ -115,7 +115,10 @@ fn long_stream_mixed_exact() {
         "#
     );
 
-    assert_eq!(actual.err, "", "invocation failed. command line limit likely reached");
+    assert_eq!(
+        actual.err, "",
+        "invocation failed. command line limit likely reached"
+    );
     assert_eq!(actual.out, "true");
 }
 
@@ -134,6 +137,9 @@ fn long_stream_mixed_overflow() {
         "#
     );
 
-    assert_eq!(actual.err, "", "invocation failed. command line limit likely reached");
+    assert_eq!(
+        actual.err, "",
+        "invocation failed. command line limit likely reached"
+    );
     assert_eq!(actual.out, "false");
 }
