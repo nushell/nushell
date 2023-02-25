@@ -43,7 +43,7 @@ fn alias_hiding_2() {
 
 #[test]
 fn alias_fails_with_invalid_name() {
-    let err_msg = "alias name can't be a number, a filesize, or contain a hash # or caret ^";
+    let err_msg = "name can't be a number, a filesize, or contain a hash # or caret ^";
     let actual = nu!(
         cwd: ".", pipeline(
         r#"
