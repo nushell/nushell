@@ -259,6 +259,33 @@ fn from_nuon_duration() {
 }
 
 #[test]
+fn to_nuon_datetime() {
+    let actual = nu!(
+        cwd: "tests/fixtures/formats", pipeline(
+        r#"
+            2019-05-10
+            | to nuon
+        "#
+    ));
+
+    assert_eq!(actual.out, "2019-05-10T00:00:00+00:00");
+}
+
+#[test]
+fn from_nuon_datetime() {
+    let actual = nu!(
+        cwd: "tests/fixtures/formats", pipeline(
+        r#"
+            "2019-05-10T00:00:00+00:00"
+            | from nuon
+            | describe
+        "#
+    ));
+
+    assert_eq!(actual.out, "date");
+}
+
+#[test]
 fn binary_to() {
     let actual = nu!(
         cwd: "tests/fixtures/formats", pipeline(
