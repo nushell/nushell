@@ -205,6 +205,100 @@ fn from_nuon_range() {
 }
 
 #[test]
+fn to_nuon_filesize() {
+    let actual = nu!(
+        cwd: "tests/fixtures/formats", pipeline(
+        r#"
+            1kib
+            | to nuon
+        "#
+    ));
+
+    assert_eq!(actual.out, "1024b");
+}
+
+#[test]
+fn from_nuon_filesize() {
+    let actual = nu!(
+        cwd: "tests/fixtures/formats", pipeline(
+        r#"
+            "1024b"
+            | from nuon
+            | describe
+        "#
+    ));
+
+    assert_eq!(actual.out, "filesize");
+}
+
+#[test]
+fn to_nuon_duration() {
+    let actual = nu!(
+        cwd: "tests/fixtures/formats", pipeline(
+        r#"
+            1min
+            | to nuon
+        "#
+    ));
+
+    assert_eq!(actual.out, "60000000000ns");
+}
+
+#[test]
+fn from_nuon_duration() {
+    let actual = nu!(
+        cwd: "tests/fixtures/formats", pipeline(
+        r#"
+            "60000000000ns"
+            | from nuon
+            | describe
+        "#
+    ));
+
+    assert_eq!(actual.out, "duration");
+}
+
+#[test]
+fn to_nuon_datetime() {
+    let actual = nu!(
+        cwd: "tests/fixtures/formats", pipeline(
+        r#"
+            2019-05-10
+            | to nuon
+        "#
+    ));
+
+    assert_eq!(actual.out, "2019-05-10T00:00:00+00:00");
+}
+
+#[test]
+fn from_nuon_datetime() {
+    let actual = nu!(
+        cwd: "tests/fixtures/formats", pipeline(
+        r#"
+            "2019-05-10T00:00:00+00:00"
+            | from nuon
+            | describe
+        "#
+    ));
+
+    assert_eq!(actual.out, "date");
+}
+
+#[test]
+fn to_nuon_errs_on_closure() {
+    let actual = nu!(
+        cwd: "tests/fixtures/formats", pipeline(
+        r#"
+            {|| to nuon}
+            | to nuon
+        "#
+    ));
+
+    assert!(actual.err.contains("not nuon-compatible"));
+}
+
+#[test]
 fn binary_to() {
     let actual = nu!(
         cwd: "tests/fixtures/formats", pipeline(
