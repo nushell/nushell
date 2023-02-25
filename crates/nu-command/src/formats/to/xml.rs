@@ -87,38 +87,26 @@ fn to_xml_entry<W: Write>(
         ));
     };
 
-    let tag = entry.get_data_by_key(COLUMN_TAG_NAME).ok_or(ShellError::CantConvert(
-        "XML".into(),
-        entry.get_type().to_string(),
-        entry.span()?,
-        None,
-    ))?;
-    let attrs = entry.get_data_by_key(COLUMN_ATTRS_NAME).ok_or(ShellError::CantConvert(
-        "XML".into(),
-        entry.get_type().to_string(),
-        entry.span()?,
-        None,
-    ))?;
-    let content = entry.get_data_by_key(COLUMN_CONTENT_NAME).ok_or(ShellError::CantConvert(
-        "XML".into(),
-        entry.get_type().to_string(),
-        entry.span()?,
-        None,
-    ))?;
+    // If key is not found it is assumed to be nothing. This way
+    // user can write a tag like {tag: a content: [...]} instead
+    // of longer {tag: a attributes: {} content: [...]}
+    let tag = entry
+        .get_data_by_key(COLUMN_TAG_NAME)
+        .unwrap_or(Value::nothing(Span::unknown()));
+    let attrs = entry
+        .get_data_by_key(COLUMN_ATTRS_NAME)
+        .unwrap_or(Value::nothing(Span::unknown()));
+    let content = entry
+        .get_data_by_key(COLUMN_CONTENT_NAME)
+        .unwrap_or(Value::nothing(Span::unknown()));
 
     match (tag, attrs, content) {
         (Value::Nothing { .. }, Value::Nothing { .. }, Value::String { val, .. }) => {
             to_xml_text(val, writer)
         }
-        (
-            Value::String { val: tag_name, .. },
-            Value::Record {
-                cols: attr_cols,
-                vals: attr_vals,
-                ..
-            },
-            Value::List { vals: children, .. },
-        ) => {to_tag(tag_name, attr_cols, attr_vals, children, writer)}
+        (Value::String { val: tag_name, .. }, attrs, children) => {
+            to_tag_like(tag_name, attrs, children, writer)
+        }
         _ => Ok(()),
     }
     .map_err(|_| {
@@ -134,6 +122,83 @@ fn to_xml_entry<W: Write>(
 }
 
 /// Convert record to tag-like entry: tag, PI, comment.
+fn to_tag_like<W: Write>(
+    tag: String,
+    attrs: Value,
+    content: Value,
+    writer: &mut quick_xml::Writer<W>,
+) -> Result<(), ()> {
+    if tag == "!" {
+        to_comment(attrs, content, writer)
+    } else if tag.starts_with('?') {
+        let tag = &tag[1..];
+
+        let content: String = match content {
+            Value::String { val, .. } => val,
+            Value::Nothing { .. } => "".into(),
+            _ => {
+                return Err(());
+            }
+        };
+
+        to_processing_instruction(tag, attrs, content, writer)
+    } else {
+        // Allow tag to have no attributes or content for short hand input
+        // alternatives like {tag: a attributes: {} content: []}, {tag: a attribbutes: null
+        // content: null}, {tag: a}. See to_xml_entry for more
+        let (attr_cols, attr_values) = match attrs {
+            Value::Record { cols, vals, .. } => (cols, vals),
+            Value::Nothing { .. } => (Vec::new(), Vec::new()),
+            _ => {
+                return Err(());
+            }
+        };
+
+        let content = match content {
+            Value::List { vals, .. } => vals,
+            Value::Nothing { .. } => Vec::new(),
+            _ => {
+                return Err(());
+            }
+        };
+
+        to_tag(tag, attr_cols, attr_values, content, writer)
+    }
+}
+
+fn to_comment<W: Write>(
+    attrs: Value,
+    content: Value,
+    writer: &mut quick_xml::Writer<W>,
+) -> Result<(), ()> {
+    match (attrs, content) {
+        (Value::Nothing { .. }, Value::String { val, .. }) => {
+            let comment_content = BytesText::new(val.as_str());
+            writer
+                .write_event(Event::Comment(comment_content))
+                .map_err(|_| ())
+        }
+        _ => Err(()),
+    }
+}
+
+fn to_processing_instruction<W: Write>(
+    tag: &str,
+    attrs: Value,
+    content: String,
+    writer: &mut quick_xml::Writer<W>,
+) -> Result<(), ()> {
+    if !matches!(attrs, Value::Nothing{..}) {
+        return Err(());
+    }
+
+    let content_text = format!("{} {}", tag, content);
+    let pi_content = BytesText::new(content_text.as_str());
+    writer
+        .write_event(Event::PI(pi_content))
+        .map_err(|_| ())
+}
+
 fn to_tag<W: Write>(
     tag: String,
     attr_cols: Vec<String>,
@@ -149,21 +214,25 @@ fn to_tag<W: Write>(
     let mut open_tag_event = BytesStart::new(tag.clone());
     add_attributes(&mut open_tag_event, &attributes);
 
-    writer.write_event(Event::Start(open_tag_event)).map_err(|_| ())?;
+    writer
+        .write_event(Event::Start(open_tag_event))
+        .map_err(|_| ())?;
 
-    children.into_iter()
-        .try_for_each(|child| to_xml_entry(child, writer)).map_err(|_| ())?;
+    children
+        .into_iter()
+        .try_for_each(|child| to_xml_entry(child, writer))
+        .map_err(|_| ())?;
 
     let close_tag_event = BytesEnd::new(tag);
-    writer.write_event(Event::End(close_tag_event)).map_err(|_| ())
+    writer
+        .write_event(Event::End(close_tag_event))
+        .map_err(|_| ())
 }
 
-fn parse_attributes(
-    cols: Vec<String>,
-    vals: Vec<Value>) -> Result<IndexMap<String, String>, ()> {
+fn parse_attributes(cols: Vec<String>, vals: Vec<Value>) -> Result<IndexMap<String, String>, ()> {
     let mut h = IndexMap::new();
     for (k, v) in cols.into_iter().zip(vals.into_iter()) {
-        if let Value::String {val, ..} = v {
+        if let Value::String { val, .. } = v {
             h.insert(k, val);
         } else {
             return Err(());
