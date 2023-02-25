@@ -39,12 +39,13 @@ impl Command for SubCommand {
 
     fn signature(&self) -> Signature {
         Signature::build("str trim")
-        .input_output_types(vec![(Type::String, Type::String)])
-        .vectorizes_over_list(true)
-        .rest(
+            .input_output_types(vec![(Type::String, Type::String)])
+            .vectorizes_over_list(true)
+            .rest(
                 "rest",
                 SyntaxShape::CellPath,
-                "For a data structure input, trim strings at the given cell paths",            )
+                "For a data structure input, trim strings at the given cell paths",
+            )
             .named(
                 "char",
                 SyntaxShape::String,
@@ -66,8 +67,16 @@ impl Command for SubCommand {
                 "trims all characters from both sides of the string *and* in the middle",
                 Some('a'),
             )
-            .switch("both", "trims all characters from left and right side of the string", Some('b'))
-            .switch("format", "trims spaces replacing multiple characters with singles in the middle", Some('f'))
+            .switch(
+                "both",
+                "trims all characters from left and right side of the string",
+                Some('b'),
+            )
+            .switch(
+                "format",
+                "trims spaces replacing multiple characters with singles in the middle",
+                Some('f'),
+            )
     }
     fn usage(&self) -> &str {
         "Trim whitespace or specific character"
