@@ -232,6 +232,33 @@ fn from_nuon_filesize() {
 }
 
 #[test]
+fn to_nuon_duration() {
+    let actual = nu!(
+        cwd: "tests/fixtures/formats", pipeline(
+        r#"
+            1min
+            | to nuon
+        "#
+    ));
+
+    assert_eq!(actual.out, "60000000000ns");
+}
+
+#[test]
+fn from_nuon_duration() {
+    let actual = nu!(
+        cwd: "tests/fixtures/formats", pipeline(
+        r#"
+            "60000000000ns"
+            | from nuon
+            | describe
+        "#
+    ));
+
+    assert_eq!(actual.out, "duration");
+}
+
+#[test]
 fn binary_to() {
     let actual = nu!(
         cwd: "tests/fixtures/formats", pipeline(
