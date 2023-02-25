@@ -1,3 +1,4 @@
+use crate::formats::nu_xml_format::{COLUMN_ATTRS_NAME, COLUMN_CONTENT_NAME, COLUMN_TAG_NAME};
 use indexmap::IndexMap;
 use nu_engine::CallExt;
 use nu_protocol::ast::Call;
@@ -60,103 +61,120 @@ impl Command for ToXml {
         stack: &mut Stack,
         call: &Call,
         input: PipelineData,
-    ) -> Result<nu_protocol::PipelineData, ShellError> {
+    ) -> Result<PipelineData, ShellError> {
         let head = call.head;
-        let config = engine_state.get_config();
         let pretty: Option<Spanned<i64>> = call.get_flag(engine_state, stack, "pretty")?;
-        to_xml(input, head, pretty, config)
+        to_xml(input, head, pretty)
     }
 }
 
-pub fn add_attributes<'a>(
-    element: &mut quick_xml::events::BytesStart<'a>,
-    attributes: &'a IndexMap<String, String>,
-) {
+pub fn add_attributes<'a>(element: &mut BytesStart<'a>, attributes: &'a IndexMap<String, String>) {
     for (k, v) in attributes {
         element.push_attribute((k.as_str(), v.as_str()));
     }
 }
 
-pub fn get_attributes(row: &Value, config: &Config) -> Option<IndexMap<String, String>> {
-    if let Value::Record { .. } = row {
-        if let Some(Value::Record { cols, vals, .. }) = row.get_data_by_key("attributes") {
-            let mut h = IndexMap::new();
-            for (k, v) in cols.iter().zip(vals.iter()) {
-                h.insert(k.clone(), v.clone().into_abbreviated_string(config));
-            }
-            return Some(h);
-        }
-    }
-    None
-}
-
-pub fn get_children(row: &Value) -> Option<Vec<Value>> {
-    if let Value::Record { .. } = row {
-        if let Some(Value::List { vals, .. }) = row.get_data_by_key("children") {
-            return Some(vals);
-        }
-    }
-    None
-}
-
-pub fn is_xml_row(row: &Value) -> bool {
-    if let Value::Record { cols, .. } = &row {
-        let keys: HashSet<&String> = cols.iter().collect();
-        let children: String = "children".to_string();
-        let attributes: String = "attributes".to_string();
-        return keys.contains(&children) && keys.contains(&attributes) && keys.len() == 2;
-    }
-    false
-}
-
-pub fn write_xml_events<W: Write>(
-    current: Value,
+fn to_xml_entry<W: Write>(
+    entry: Value,
     writer: &mut quick_xml::Writer<W>,
-    config: &Config,
 ) -> Result<(), ShellError> {
-    match current {
-        Value::Record { cols, vals, span } => {
-            for (k, v) in cols.iter().zip(vals.iter()) {
-                let mut e = BytesStart::new(k);
-                if !is_xml_row(v) {
-                    return Err(ShellError::GenericError(
-                        "Expected a row with 'children' and 'attributes' columns".to_string(),
-                        "missing 'children' and 'attributes' columns ".to_string(),
-                        Some(span),
-                        None,
-                        Vec::new(),
-                    ));
-                }
-                let a = get_attributes(v, config);
-                if let Some(ref a) = a {
-                    add_attributes(&mut e, a);
-                }
-                writer
-                    .write_event(Event::Start(e))
-                    .expect("Couldn't open XML node");
-                let c = get_children(v);
-                if let Some(c) = c {
-                    for v in c {
-                        write_xml_events(v, writer, config)?;
-                    }
-                }
-                writer
-                    .write_event(Event::End(BytesEnd::new(k)))
-                    .expect("Couldn't close XML node");
-            }
+    if !matches!(entry, Value::Record { .. }) {
+        return Err(ShellError::CantConvert(
+            "XML".into(),
+            entry.get_type().to_string(),
+            entry.span()?,
+            None,
+        ));
+    };
+
+    let tag = entry.get_data_by_key(COLUMN_TAG_NAME).ok_or(ShellError::CantConvert(
+        "XML".into(),
+        entry.get_type().to_string(),
+        entry.span()?,
+        None,
+    ))?;
+    let attrs = entry.get_data_by_key(COLUMN_ATTRS_NAME).ok_or(ShellError::CantConvert(
+        "XML".into(),
+        entry.get_type().to_string(),
+        entry.span()?,
+        None,
+    ))?;
+    let content = entry.get_data_by_key(COLUMN_CONTENT_NAME).ok_or(ShellError::CantConvert(
+        "XML".into(),
+        entry.get_type().to_string(),
+        entry.span()?,
+        None,
+    ))?;
+
+    match (tag, attrs, content) {
+        (Value::Nothing { .. }, Value::Nothing { .. }, Value::String { val, .. }) => {
+            to_xml_text(val, writer)
         }
-        Value::List { vals, .. } => {
-            for v in vals {
-                write_xml_events(v, writer, config)?;
-            }
-        }
-        _ => {
-            let s = current.into_abbreviated_string(config);
-            writer
-                .write_event(Event::Text(BytesText::from_escaped(s.as_str())))
-                .expect("Couldn't write XML text");
+        (
+            Value::String { val: tag_name, .. },
+            Value::Record {
+                cols: attr_cols,
+                vals: attr_vals,
+                ..
+            },
+            Value::List { vals: children, .. },
+        ) => {to_tag(tag_name, attr_cols, attr_vals, children, writer)}
+        _ => Ok(()),
+    }
+    .map_err(|_| {
+        ShellError::CantConvert(
+            "XML".into(),
+            entry.get_type().to_string(),
+            entry.span().unwrap_or(Span::unknown()),
+            None,
+        )
+    })?;
+
+    Ok(())
+}
+
+/// Convert record to tag-like entry: tag, PI, comment.
+fn to_tag<W: Write>(
+    tag: String,
+    attr_cols: Vec<String>,
+    attr_vals: Vec<Value>,
+    children: Vec<Value>,
+    writer: &mut quick_xml::Writer<W>,
+) -> Result<(), ()> {
+    if tag.starts_with('!') || tag.starts_with('?') {
+        return Err(());
+    }
+
+    let attributes = parse_attributes(attr_cols, attr_vals)?;
+    let mut open_tag_event = BytesStart::new(tag.clone());
+    add_attributes(&mut open_tag_event, &attributes);
+
+    writer.write_event(Event::Start(open_tag_event)).map_err(|_| ())?;
+
+    children.into_iter()
+        .try_for_each(|child| to_xml_entry(child, writer)).map_err(|_| ())?;
+
+    let close_tag_event = BytesEnd::new(tag);
+    writer.write_event(Event::End(close_tag_event)).map_err(|_| ())
+}
+
+fn parse_attributes(
+    cols: Vec<String>,
+    vals: Vec<Value>) -> Result<IndexMap<String, String>, ()> {
+    let mut h = IndexMap::new();
+    for (k, v) in cols.into_iter().zip(vals.into_iter()) {
+        if let Value::String {val, ..} = v {
+            h.insert(k, val);
+        } else {
+            return Err(());
         }
     }
+    Ok(h)
+}
+
+fn to_xml_text<W: Write>(val: String, writer: &mut quick_xml::Writer<W>) -> Result<(), ()> {
+    let text = Event::Text(BytesText::new(val.as_str()));
+    writer.write_event(text).map_err(|_| ())?;
     Ok(())
 }
 
@@ -164,7 +182,6 @@ fn to_xml(
     input: PipelineData,
     head: Span,
     pretty: Option<Spanned<i64>>,
-    config: &Config,
 ) -> Result<PipelineData, ShellError> {
     let mut w = pretty.as_ref().map_or_else(
         || quick_xml::Writer::new(Cursor::new(Vec::new())),
@@ -174,7 +191,7 @@ fn to_xml(
     let value = input.into_value(head);
     let value_type = value.get_type();
 
-    match write_xml_events(value, &mut w, config) {
+    match to_xml_entry(value, &mut w) {
         Ok(_) => {
             let b = w.into_inner().into_inner();
             let s = if let Ok(s) = String::from_utf8(b) {
