@@ -304,7 +304,7 @@ fn run_custom_command_with_empty_rest() {
     );
 
     assert_eq!(actual.out, r#"true"#);
-    assert_eq!(actual.err, r#""#);
+    assert_eq!(actual, Err(r#""#));
 }
 
 //FIXME: jt: blocked on https://github.com/nushell/engine-q/issues/912
@@ -325,7 +325,7 @@ fn run_custom_command_with_rest_other_name() {
     );
 
     assert_eq!(actual.out, r#"Salutations, ABCDE"#);
-    assert_eq!(actual.err, r#""#);
+    assert_eq!(actual, Err(r#""#));
 }
 
 #[test]
@@ -1074,7 +1074,7 @@ fn date_and_duration_overflow() {
         "#)
     );
 
-    // assert_eq!(actual.err, "overflow");
+    // assert_eq!(actual, Err("overflow"));
     assert!(actual.err.contains("duration too large"));
 }
 

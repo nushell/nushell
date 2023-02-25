@@ -239,7 +239,7 @@ mod stdin_evaluation {
             "#
         ));
 
-        assert_eq!(actual.err, "");
+        assert_eq!(actual, Err(""));
     }
 
     #[test]

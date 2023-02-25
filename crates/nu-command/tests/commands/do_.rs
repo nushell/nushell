@@ -71,7 +71,7 @@ fn ignore_shell_errors_works_for_external_with_semicolon() {
         "#
     ));
 
-    assert_eq!(actual.err, "");
+    assert_eq!(actual, Err(""));
     assert_eq!(actual.out, "text");
 }
 
@@ -84,7 +84,7 @@ fn ignore_program_errors_works_for_external_with_semicolon() {
         "#
     ));
 
-    assert_eq!(actual.err, "");
+    assert_eq!(actual, Err(""));
     assert_eq!(actual.out, "text");
 }
 
@@ -94,7 +94,7 @@ fn ignore_error_should_work_for_external_command() {
         r#"do -i { nu --testbin fail asdf }; echo post"#
     ));
 
-    assert_eq!(actual.err, "");
+    assert_eq!(actual, Err(""));
     assert_eq!(actual.out, "post");
 }
 
