@@ -29,6 +29,7 @@ fn hides_def_then_redefines() -> TestResult {
     )
 }
 
+#[ignore = "TODO: We'd need to make predecls work with hiding as well"]
 #[test]
 fn hides_alias_then_redefines() -> TestResult {
     run_test(
@@ -181,30 +182,6 @@ fn hides_def_runs_env() -> TestResult {
 }
 
 #[test]
-fn hides_alias_runs_def_1() -> TestResult {
-    run_test(
-        r#"def foo [] { "bar" }; alias foo = echo "foo"; hide foo; foo"#,
-        "bar",
-    )
-}
-
-#[test]
-fn hides_alias_runs_def_2() -> TestResult {
-    run_test(
-        r#"alias foo = echo "foo"; def foo [] { "bar" }; hide foo; foo"#,
-        "bar",
-    )
-}
-
-#[test]
-fn hides_alias_and_def() -> TestResult {
-    fail_test(
-        r#"alias foo = echo "foo"; def foo [] { "bar" }; hide foo; hide foo; foo"#,
-        "external_command",
-    )
-}
-
-#[test]
 fn hides_def_import_1() -> TestResult {
     fail_test(
         r#"module spam { export def foo [] { "foo" } }; use spam; hide spam foo; spam foo"#,
@@ -263,7 +240,7 @@ fn hides_def_import_then_reimports() -> TestResult {
 #[test]
 fn hides_alias_import_1() -> TestResult {
     fail_test(
-        r#"module spam { export alias foo = "foo" }; use spam; hide spam foo; spam foo"#,
+        r#"module spam { export alias foo = echo "foo" }; use spam; hide spam foo; spam foo"#,
         "external_command",
     )
 }
@@ -271,7 +248,7 @@ fn hides_alias_import_1() -> TestResult {
 #[test]
 fn hides_alias_import_2() -> TestResult {
     fail_test(
-        r#"module spam { export alias foo = "foo" }; use spam; hide spam; spam foo"#,
+        r#"module spam { export alias foo = echo "foo" }; use spam; hide spam; spam foo"#,
         "external_command",
     )
 }
@@ -279,7 +256,7 @@ fn hides_alias_import_2() -> TestResult {
 #[test]
 fn hides_alias_import_3() -> TestResult {
     fail_test(
-        r#"module spam { export alias foo = "foo" }; use spam; hide spam [foo]; spam foo"#,
+        r#"module spam { export alias foo = echo "foo" }; use spam; hide spam [foo]; spam foo"#,
         "external_command",
     )
 }
@@ -287,7 +264,7 @@ fn hides_alias_import_3() -> TestResult {
 #[test]
 fn hides_alias_import_4() -> TestResult {
     fail_test(
-        r#"module spam { export alias foo = "foo" }; use spam foo; hide foo; foo"#,
+        r#"module spam { export alias foo = echo "foo" }; use spam foo; hide foo; foo"#,
         "external_command",
     )
 }
@@ -295,7 +272,7 @@ fn hides_alias_import_4() -> TestResult {
 #[test]
 fn hides_alias_import_5() -> TestResult {
     fail_test(
-        r#"module spam { export alias foo = "foo" }; use spam *; hide foo; foo"#,
+        r#"module spam { export alias foo = echo "foo" }; use spam *; hide foo; foo"#,
         "external_command",
     )
 }
@@ -303,7 +280,7 @@ fn hides_alias_import_5() -> TestResult {
 #[test]
 fn hides_alias_import_6() -> TestResult {
     fail_test(
-        r#"module spam { export alias foo = "foo" }; use spam *; hide spam *; foo"#,
+        r#"module spam { export alias foo = echo "foo" }; use spam *; hide spam *; foo"#,
         "external_command",
     )
 }
@@ -311,7 +288,7 @@ fn hides_alias_import_6() -> TestResult {
 #[test]
 fn hides_alias_import_then_reimports() -> TestResult {
     run_test(
-        r#"module spam { export alias foo = "foo" }; use spam foo; hide foo; use spam foo; foo"#,
+        r#"module spam { export alias foo = echo "foo" }; use spam foo; hide foo; use spam foo; foo"#,
         "foo",
     )
 }

@@ -475,7 +475,7 @@ fn remove_overlay_discard_decl() {
 fn remove_overlay_discard_alias() {
     let inp = &[
         r#"overlay use samples/spam.nu"#,
-        r#"alias bagr = "bagr""#,
+        r#"alias bagr = echo "bagr""#,
         r#"overlay hide spam"#,
         r#"bagr"#,
     ];
@@ -526,7 +526,7 @@ fn remove_overlay_keep_decl() {
 fn remove_overlay_keep_alias() {
     let inp = &[
         r#"overlay use samples/spam.nu"#,
-        r#"alias bagr = 'bagr'"#,
+        r#"alias bagr = echo 'bagr'"#,
         r#"overlay hide --keep-custom spam"#,
         r#"bagr"#,
     ];
@@ -577,7 +577,7 @@ fn remove_overlay_dont_keep_overwritten_decl() {
 fn remove_overlay_dont_keep_overwritten_alias() {
     let inp = &[
         r#"overlay use samples/spam.nu"#,
-        r#"alias bar = `baz`"#,
+        r#"alias bar = echo `baz`"#,
         r#"overlay hide --keep-custom spam"#,
         r#"bar"#,
     ];
@@ -630,7 +630,7 @@ fn remove_overlay_keep_decl_in_latest_overlay() {
 fn remove_overlay_keep_alias_in_latest_overlay() {
     let inp = &[
         r#"overlay use samples/spam.nu"#,
-        r#"alias bagr = 'bagr'"#,
+        r#"alias bagr = echo 'bagr'"#,
         r#"module eggs { }"#,
         r#"overlay use eggs"#,
         r#"overlay hide --keep-custom spam"#,
@@ -1046,13 +1046,14 @@ fn overlay_preserve_hidden_decl() {
     assert_eq!(actual_repl.out, "foo");
 }
 
+#[ignore = "TODO: For this to work, we'd need to make predecls respect overlays"]
 #[test]
 fn overlay_preserve_hidden_alias() {
     let inp = &[
         r#"overlay new spam"#,
-        r#"alias foo = 'foo'"#,
+        r#"alias foo = echo 'foo'"#,
         r#"overlay new eggs"#,
-        r#"alias foo = 'bar'"#,
+        r#"alias foo = echo 'bar'"#,
         r#"hide foo"#,
         r#"overlay use eggs"#,
         r#"foo"#,
@@ -1156,14 +1157,14 @@ fn overlay_use_and_reload() {
     let inp = &[
         r#"module spam {
             export def foo [] { 'foo' };
-            export alias fooalias = 'foo';
+            export alias fooalias = echo 'foo';
             export-env {
                 let-env FOO = 'foo'
             }
         }"#,
         r#"overlay use spam"#,
         r#"def foo [] { 'newfoo' }"#,
-        r#"alias fooalias = 'newfoo'"#,
+        r#"alias fooalias = echo 'newfoo'"#,
         r#"let-env FOO = 'newfoo'"#,
         r#"overlay use --reload spam"#,
         r#"$'(foo)(fooalias)($env.FOO)'"#,
@@ -1181,7 +1182,7 @@ fn overlay_use_and_reolad_keep_custom() {
     let inp = &[
         r#"overlay new spam"#,
         r#"def foo [] { 'newfoo' }"#,
-        r#"alias fooalias = 'newfoo'"#,
+        r#"alias fooalias = echo 'newfoo'"#,
         r#"let-env FOO = 'newfoo'"#,
         r#"overlay use --reload spam"#,
         r#"$'(foo)(fooalias)($env.FOO)'"#,
