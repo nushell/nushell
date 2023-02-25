@@ -658,20 +658,6 @@ pub fn eval_expression_with_input(
             expr: Expr::Call(call),
             ..
         } => {
-            // We have command alias => unwrap and re-eval
-            if let Some(alias) = engine_state.get_decl(call.decl_id).as_alias() {
-                let unwrapped_call = alias.unwrap_call_from_alias(call)?;
-
-                return eval_expression_with_input(
-                    engine_state,
-                    stack,
-                    &unwrapped_call,
-                    input,
-                    redirect_stdout,
-                    redirect_stderr,
-                );
-            }
-
             if !redirect_stdout || redirect_stderr {
                 // we're doing something different than the defaults
                 let mut call = call.clone();

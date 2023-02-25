@@ -1,10 +1,10 @@
 use crate::engine::{EngineState, Stack};
+use crate::PipelineData;
 use crate::{
-    ast::{Argument, Call, Expr, Expression},
+    ast::{Call, Expression},
     engine::Command,
     BlockId, Example, ShellError, Signature,
 };
-use crate::{PipelineData, Type};
 use std::path::PathBuf;
 
 #[derive(Clone)]
@@ -12,81 +12,6 @@ pub struct Alias {
     pub name: String,
     pub command: Option<Box<dyn Command>>, // None if external call
     pub wrapped_call: Expression,
-}
-
-impl Alias {
-    pub fn unwrap_call_from_alias(&self, call: &Call) -> Result<Expression, ShellError> {
-        match &self.wrapped_call {
-            Expression {
-                expr: Expr::Call(wrapped_call),
-                ty,
-                span,
-                custom_completion,
-            } => {
-                let mut final_call = wrapped_call.clone();
-
-                for arg in &call.arguments {
-                    final_call.arguments.push(arg.clone());
-                }
-
-                Ok(Expression {
-                    expr: Expr::Call(final_call),
-                    span: *span,
-                    ty: ty.clone(),
-                    custom_completion: *custom_completion,
-                })
-            }
-            Expression {
-                expr: Expr::ExternalCall(head, args, is_subexpression),
-                ty,
-                span,
-                custom_completion,
-            } => {
-                let mut final_args = args.clone();
-
-                // logic taken from KnownExternal::run()
-                for arg in &call.arguments {
-                    match arg {
-                        Argument::Positional(positional) => final_args.push(positional.clone()),
-                        Argument::Named(named) => {
-                            if let Some(short) = &named.1 {
-                                final_args.push(Expression {
-                                    expr: Expr::String(format!("-{}", short.item)),
-                                    span: named.0.span,
-                                    ty: Type::String,
-                                    custom_completion: None,
-                                });
-                            } else {
-                                final_args.push(Expression {
-                                    expr: Expr::String(format!("--{}", named.0.item)),
-                                    span: named.0.span,
-                                    ty: Type::String,
-                                    custom_completion: None,
-                                });
-                            }
-                            if let Some(arg) = &named.2 {
-                                final_args.push(arg.clone());
-                            }
-                        }
-                        Argument::Unknown(unknown) => final_args.push(unknown.clone()),
-                    }
-                }
-
-                Ok(Expression {
-                    expr: Expr::ExternalCall(head.clone(), final_args, *is_subexpression),
-                    span: *span,
-                    ty: ty.clone(),
-                    custom_completion: *custom_completion,
-                })
-            }
-            _ => Err(ShellError::NushellFailedSpannedHelp(
-                "Alias aliases unsupported expression".to_string(),
-                format!("{:?} not supported", self.wrapped_call.expr),
-                self.wrapped_call.span,
-                "Only call to a custom or external command is supported.".to_string(),
-            )),
-        }
-    }
 }
 
 impl Command for Alias {
