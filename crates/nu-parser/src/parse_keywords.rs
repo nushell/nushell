@@ -732,7 +732,11 @@ pub fn parse_alias(
             );
 
             if let Some(e) = err {
-                return (garbage_pipeline(replacement_spans), Some(e));
+                if let ParseError::MissingPositional(..) = e {
+                    // ignore missing required positional
+                } else {
+                    return (garbage_pipeline(replacement_spans), Some(e));
+                }
             }
 
             let (command, wrapped_call) = match expr {
