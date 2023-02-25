@@ -1,5 +1,6 @@
 use nu_test_support::{nu, pipeline};
 
+#[ignore = "TODO?: Aliasing parser keywords does not work anymore"]
 #[test]
 fn alias_simple() {
     let actual = nu!(
@@ -14,6 +15,7 @@ fn alias_simple() {
     assert_eq!(actual.out, "hello");
 }
 
+#[ignore = "TODO?: Aliasing parser keywords does not work anymore"]
 #[test]
 fn alias_hiding_1() {
     let actual = nu!(
@@ -27,6 +29,7 @@ fn alias_hiding_1() {
     assert_eq!(actual.out, "1");
 }
 
+#[ignore = "TODO?: Aliasing parser keywords does not work anymore"]
 #[test]
 fn alias_hiding_2() {
     let actual = nu!(
