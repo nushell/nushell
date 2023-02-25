@@ -241,12 +241,14 @@ fn handle_table_command(
         PipelineData::ExternalStream { .. } => Ok(input),
         PipelineData::Value(Value::Binary { val, .. }, ..) => Ok(PipelineData::ExternalStream {
             stdout: Some(RawStream::new(
-                Box::new(
+                Box::new(if call.redirect_stdout {
+                    vec![Ok(val)].into_iter()
+                } else {
                     vec![Ok(format!("{}\n", nu_pretty_hex::pretty_hex(&val))
                         .as_bytes()
                         .to_vec())]
-                    .into_iter(),
-                ),
+                    .into_iter()
+                }),
                 ctrlc,
                 call.head,
                 None,

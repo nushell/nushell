@@ -108,3 +108,26 @@ fn top_level_values_from_json() {
         assert_eq!(actual.out, type_name);
     }
 }
+
+#[test]
+fn ranges_to_json_as_array() {
+    let value = r#"[  1,  2,  3]"#;
+    let actual = nu!(r#"1..3 | to json"#);
+    assert_eq!(actual.out, value);
+}
+
+#[test]
+fn unbounded_from_in_range_fails() {
+    let actual = nu!(r#"1.. | to json"#);
+    assert!(actual.err.contains("Cannot create range"));
+}
+
+#[test]
+fn inf_in_range_fails() {
+    let actual = nu!(r#"inf..5 | to json"#);
+    assert!(actual.err.contains("Cannot create range"));
+    let actual = nu!(r#"5..inf | to json"#);
+    assert!(actual.err.contains("Cannot create range"));
+    let actual = nu!(r#"-inf..inf | to json"#);
+    assert!(actual.err.contains("Cannot create range"));
+}

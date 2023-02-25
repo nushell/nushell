@@ -283,3 +283,21 @@ fn save_list_stream() {
         assert_eq!(actual, "a\nb\nc\nd\n")
     })
 }
+
+#[test]
+fn writes_out_range() {
+    Playground::setup("save_test_14", |dirs, sandbox| {
+        sandbox.with_files(vec![]);
+
+        let expected_file = dirs.test().join("list_sample.json");
+
+        nu!(
+            cwd: dirs.root(),
+            r#"1..3 | save save_test_14/list_sample.json"#,
+        );
+
+        let actual = file_contents(expected_file);
+        println!("{actual}");
+        assert_eq!(actual, "[\n  1,\n  2,\n  3\n]")
+    })
+}
