@@ -175,7 +175,7 @@ fn capture_error_with_both_stdout_stderr_messages_not_hang_nushell() {
                 do -c {bash test.sh} | complete | get stdout | str trim
                 "#,
             ));
-            assert_eq!(actual, Ok(expect_body));
+            assert_eq!(actual, Ok(&expect_body));
             // check for stderr
             let actual = nu!(
                 cwd: dirs.test(), pipeline(
@@ -183,7 +183,7 @@ fn capture_error_with_both_stdout_stderr_messages_not_hang_nushell() {
                 do -c {bash test.sh} | complete | get stderr | str trim
                 "#,
             ));
-            assert_eq!(actual, Ok(expect_body));
+            assert_eq!(actual, Ok(&expect_body));
         },
     )
 }

@@ -350,7 +350,7 @@ fn list_all_columns() {
             "ls | columns | to md"
         );
         let expected = ["name", "type", "size", "modified"].join("");
-        assert_eq!(actual, Ok(expected, "column names are incorrect for ls"));
+        assert_eq!(actual, Ok(expected), "column names are incorrect for ls");
         // Long
         let actual = nu!(
             cwd: dirs.test(),
@@ -552,7 +552,7 @@ fn list_ignores_ansi() {
         let actual = nu!(
             cwd: dirs.test(), pipeline(
             r#"
-                ls | find .txt | each { ls $in.name } 
+                ls | find .txt | each { ls $in.name }
             "#
         ));
 

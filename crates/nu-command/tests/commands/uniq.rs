@@ -297,6 +297,6 @@ fn table_with_ignore_case() {
 
     print!("{}", actual.out);
     print!("{}", expected.out);
-    assert_eq!(actual, Ok(expected.out));
-    assert_eq!(actual, Ok(expected.out));
+    assert_eq!(actual, Ok(&expected.out));
+    assert_eq!(actual, Ok(&expected.out));
 }
