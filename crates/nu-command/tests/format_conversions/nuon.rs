@@ -205,6 +205,33 @@ fn from_nuon_range() {
 }
 
 #[test]
+fn to_nuon_filesize() {
+    let actual = nu!(
+        cwd: "tests/fixtures/formats", pipeline(
+        r#"
+            1kib
+            | to nuon
+        "#
+    ));
+
+    assert_eq!(actual.out, "1024b");
+}
+
+#[test]
+fn from_nuon_filesize() {
+    let actual = nu!(
+        cwd: "tests/fixtures/formats", pipeline(
+        r#"
+            "1024b"
+            | from nuon
+            | describe
+        "#
+    ));
+
+    assert_eq!(actual.out, "filesize");
+}
+
+#[test]
 fn binary_to() {
     let actual = nu!(
         cwd: "tests/fixtures/formats", pipeline(
