@@ -79,6 +79,22 @@ fn to_xml_entry<W: Write>(
     top_level: bool,
     writer: &mut quick_xml::Writer<W>,
 ) -> Result<(), ShellError> {
+    // Allow using strings directly as content.
+    // So user can write
+    // {tag: a content: ['qwe']}
+    // instead of longer
+    // {tag: a content: [{content: 'qwe'}]}
+    if let (Value::String { val, .. }, false) = (&entry, top_level) {
+        return to_xml_text(val.as_str(), writer).map_err(|_| {
+            ShellError::CantConvert(
+                "XML".into(),
+                entry.get_type().to_string(),
+                entry.span().unwrap_or(Span::unknown()),
+                None,
+            )
+        });
+    }
+
     if !matches!(entry, Value::Record { .. }) {
         return Err(ShellError::CantConvert(
             "XML".into(),
@@ -112,7 +128,7 @@ fn to_xml_entry<W: Write>(
                     None,
                 ))
             }
-            to_xml_text(val, writer)
+            to_xml_text(val.as_str(), writer)
         }
         (Value::String { val: tag_name, .. }, attrs, children) => {
             to_tag_like(tag_name, attrs, children, top_level, writer)
@@ -262,8 +278,8 @@ fn parse_attributes(cols: Vec<String>, vals: Vec<Value>) -> Result<IndexMap<Stri
     Ok(h)
 }
 
-fn to_xml_text<W: Write>(val: String, writer: &mut quick_xml::Writer<W>) -> Result<(), ()> {
-    let text = Event::Text(BytesText::new(val.as_str()));
+fn to_xml_text<W: Write>(val: &str, writer: &mut quick_xml::Writer<W>) -> Result<(), ()> {
+    let text = Event::Text(BytesText::new(val));
     writer.write_event(text).map_err(|_| ())?;
     Ok(())
 }
