@@ -76,6 +76,7 @@ pub fn add_attributes<'a>(element: &mut BytesStart<'a>, attributes: &'a IndexMap
 
 fn to_xml_entry<W: Write>(
     entry: Value,
+    top_level: bool,
     writer: &mut quick_xml::Writer<W>,
 ) -> Result<(), ShellError> {
     if !matches!(entry, Value::Record { .. }) {
@@ -102,10 +103,19 @@ fn to_xml_entry<W: Write>(
 
     match (tag, attrs, content) {
         (Value::Nothing { .. }, Value::Nothing { .. }, Value::String { val, .. }) => {
+            // Strings can not appear on top level of document
+            if top_level {
+                return Err(ShellError::CantConvert(
+                    "XML".into(),
+                    entry.get_type().to_string(),
+                    entry.span().unwrap_or(Span::unknown()),
+                    None,
+                ))
+            }
             to_xml_text(val, writer)
         }
         (Value::String { val: tag_name, .. }, attrs, children) => {
-            to_tag_like(tag_name, attrs, children, writer)
+            to_tag_like(tag_name, attrs, children, top_level, writer)
         }
         _ => Ok(()),
     }
@@ -126,11 +136,22 @@ fn to_tag_like<W: Write>(
     tag: String,
     attrs: Value,
     content: Value,
+    top_level: bool,
     writer: &mut quick_xml::Writer<W>,
 ) -> Result<(), ()> {
     if tag == "!" {
+        // Comments can not appear on top level of document
+        if top_level {
+            return Err(());
+        }
+
         to_comment(attrs, content, writer)
     } else if tag.starts_with('?') {
+        // PIs can not appear on top level of document
+        if top_level {
+            return Err(());
+        }
+
         let tag = &tag[1..];
 
         let content: String = match content {
@@ -220,7 +241,7 @@ fn to_tag<W: Write>(
 
     children
         .into_iter()
-        .try_for_each(|child| to_xml_entry(child, writer))
+        .try_for_each(|child| to_xml_entry(child, false, writer))
         .map_err(|_| ())?;
 
     let close_tag_event = BytesEnd::new(tag);
@@ -260,7 +281,7 @@ fn to_xml(
     let value = input.into_value(head);
     let value_type = value.get_type();
 
-    match to_xml_entry(value, &mut w) {
+    match to_xml_entry(value, true, &mut w) {
         Ok(_) => {
             let b = w.into_inner().into_inner();
             let s = if let Ok(s) = String::from_utf8(b) {
