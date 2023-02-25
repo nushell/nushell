@@ -449,9 +449,32 @@ impl EngineState {
         None
     }
 
+    // Get the path environment variable in a platform agnostic way
+    pub fn get_path_env_var(&self) -> Option<&Value> {
+        let env_path_name_windows: &str = "Path";
+        let env_path_name_nix: &str = "PATH";
+
+        for overlay_id in self.scope.active_overlays.iter().rev() {
+            let overlay_name = String::from_utf8_lossy(self.get_overlay_name(*overlay_id));
+            if let Some(env_vars) = self.env_vars.get(overlay_name.as_ref()) {
+                if let Some(val) = env_vars.get(env_path_name_nix) {
+                    return Some(val);
+                } else if let Some(val) = env_vars.get(env_path_name_windows) {
+                    return Some(val);
+                } else {
+                    return None;
+                }
+            }
+        }
+
+        None
+    }
+
     #[cfg(feature = "plugin")]
     pub fn update_plugin_file(&self) -> Result<(), ShellError> {
         use std::io::Write;
+
+        use crate::{PluginExample, PluginSignature};
 
         // Updating the signatures plugin file with the added signatures
         self.plugin_signatures
@@ -481,7 +504,18 @@ impl EngineState {
                         file_name = format!("`{file_name}`");
                     }
 
-                    serde_json::to_string_pretty(&decl.signature())
+                    let sig = decl.signature();
+                    let examples = decl
+                        .examples()
+                        .into_iter()
+                        .map(|eg| PluginExample {
+                            example: eg.example.into(),
+                            description: eg.description.into(),
+                            result: eg.result,
+                        })
+                        .collect();
+                    let sig_with_examples = PluginSignature::new(sig, examples);
+                    serde_json::to_string_pretty(&sig_with_examples)
                         .map(|signature| {
                             // Extracting the possible path to the shell used to load the plugin
                             let shell_str = shell
@@ -973,6 +1007,10 @@ impl EngineState {
             .map(|d| d.as_string().unwrap_or_default())
             .unwrap_or_default()
     }
+
+    pub fn get_file_contents(&self) -> &Vec<(Vec<u8>, usize, usize)> {
+        &self.file_contents
+    }
 }
 
 /// A temporary extension to the global state. This handles bridging between the global state and the
@@ -1156,6 +1194,10 @@ impl StateDelta {
 
     pub fn exit_scope(&mut self) {
         self.scope.pop();
+    }
+
+    pub fn get_file_contents(&self) -> &Vec<(Vec<u8>, usize, usize)> {
+        &self.file_contents
     }
 }
 

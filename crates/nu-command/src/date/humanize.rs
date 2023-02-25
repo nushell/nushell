@@ -45,7 +45,7 @@ impl Command for SubCommand {
         _stack: &mut Stack,
         call: &Call,
         input: PipelineData,
-    ) -> Result<nu_protocol::PipelineData, nu_protocol::ShellError> {
+    ) -> Result<PipelineData, ShellError> {
         let head = call.head;
         // This doesn't match explicit nulls
         if matches!(input, PipelineData::Empty) {
@@ -90,7 +90,7 @@ fn helper(value: Value, head: Span) -> Value {
             span: head,
         },
         _ => Value::Error {
-            error: ShellError::DatetimeParseError(head),
+            error: ShellError::DatetimeParseError(value.debug_value(), head),
         },
     }
 }

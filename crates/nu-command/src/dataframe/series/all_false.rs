@@ -11,7 +11,7 @@ pub struct AllFalse;
 
 impl Command for AllFalse {
     fn name(&self) -> &str {
-        "all-false"
+        "dfr all-false"
     }
 
     fn usage(&self) -> &str {
@@ -29,7 +29,7 @@ impl Command for AllFalse {
         vec![
             Example {
                 description: "Returns true if all values are false",
-                example: "[false false false] | into df | all-false",
+                example: "[false false false] | dfr into-df | dfr all-false",
                 result: Some(
                     NuDataFrame::try_from_columns(vec![Column::new(
                         "all_false".to_string(),
@@ -41,9 +41,9 @@ impl Command for AllFalse {
             },
             Example {
                 description: "Checks the result from a comparison",
-                example: r#"let s = ([5 6 2 10] | into df);
+                example: r#"let s = ([5 6 2 10] | dfr into-df);
     let res = ($s > 9);
-    $res | all-false"#,
+    $res | dfr all-false"#,
                 result: Some(
                     NuDataFrame::try_from_columns(vec![Column::new(
                         "all_false".to_string(),

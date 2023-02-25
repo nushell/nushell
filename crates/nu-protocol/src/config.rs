@@ -65,6 +65,7 @@ pub struct Config {
     pub external_completer: Option<usize>,
     pub filesize_metric: bool,
     pub table_mode: String,
+    pub table_show_empty: bool,
     pub use_ls_colors: bool,
     pub color_config: HashMap<String, Value>,
     pub use_grid_icons: bool,
@@ -106,6 +107,7 @@ impl Default for Config {
         Config {
             filesize_metric: false,
             table_mode: "rounded".into(),
+            table_show_empty: true,
             external_completer: None,
             use_ls_colors: true,
             color_config: HashMap::new(),
@@ -884,6 +886,9 @@ impl Value {
                                                 vals[index] = reconstruct_trim_strategy!(span);
                                             }
                                         }
+                                    }
+                                    "show_empty" => {
+                                        try_bool!(cols, vals, index, span, table_show_empty)
                                     }
                                     x => {
                                         invalid_key!(

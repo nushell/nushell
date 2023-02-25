@@ -11,8 +11,7 @@ use std::io::{BufReader, ErrorKind, Read, Write as WriteTrait};
 use std::path::{Path, PathBuf};
 use std::process::{Child, ChildStdout, Command as CommandSys, Stdio};
 
-use nu_protocol::{CustomValue, ShellError, Span};
-use nu_protocol::{Signature, Value};
+use nu_protocol::{CustomValue, PluginSignature, ShellError, Span, Value};
 
 use super::EvaluatedCall;
 
@@ -91,10 +90,10 @@ pub(crate) fn call_plugin(
 ) -> Result<PluginResponse, ShellError> {
     if let Some(mut stdin_writer) = child.stdin.take() {
         let encoding_clone = encoding.clone();
-        std::thread::spawn(move || {
-            // PluginCall information
-            encoding_clone.encode_call(&plugin_call, &mut stdin_writer)
-        });
+        // If the child process fills its stdout buffer, it may end up waiting until the parent
+        // reads the stdout, and not be able to read stdin in the meantime, causing a deadlock.
+        // Writing from another thread ensures that stdout is being read at the same time, avoiding the problem.
+        std::thread::spawn(move || encoding_clone.encode_call(&plugin_call, &mut stdin_writer));
     }
 
     // Deserialize response from plugin to extract the resulting value
@@ -118,7 +117,7 @@ pub fn get_signature(
     path: &Path,
     shell: &Option<PathBuf>,
     current_envs: &HashMap<String, String>,
-) -> Result<Vec<Signature>, ShellError> {
+) -> Result<Vec<PluginSignature>, ShellError> {
     let mut plugin_cmd = create_command(path, shell);
     let program_name = plugin_cmd.get_program().to_os_string().into_string();
 
@@ -154,6 +153,9 @@ pub fn get_signature(
     // Create message to plugin to indicate that signature is required and
     // send call to plugin asking for signature
     let encoding_clone = encoding.clone();
+    // If the child process fills its stdout buffer, it may end up waiting until the parent
+    // reads the stdout, and not be able to read stdin in the meantime, causing a deadlock.
+    // Writing from another thread ensures that stdout is being read at the same time, avoiding the problem.
     std::thread::spawn(move || {
         encoding_clone.encode_call(&PluginCall::Signature, &mut stdin_writer)
     });
@@ -180,7 +182,7 @@ pub fn get_signature(
 // The next trait and functions are part of the plugin that is being created
 // The `Plugin` trait defines the API which plugins use to "hook" into nushell.
 pub trait Plugin {
-    fn signature(&self) -> Vec<Signature>;
+    fn signature(&self) -> Vec<PluginSignature>;
     fn run(
         &mut self,
         name: &str,
@@ -308,22 +310,23 @@ fn print_help(plugin: &mut impl Plugin, encoder: impl PluginEncoder) {
     let mut help = String::new();
 
     plugin.signature().iter().for_each(|signature| {
-        let res = write!(help, "\nCommand: {}", signature.name)
-            .and_then(|_| writeln!(help, "\nUsage:\n > {}", signature.usage))
+        let res = write!(help, "\nCommand: {}", signature.sig.name)
+            .and_then(|_| writeln!(help, "\nUsage:\n > {}", signature.sig.usage))
             .and_then(|_| {
-                if !signature.extra_usage.is_empty() {
-                    writeln!(help, "\nExtra usage:\n > {}", signature.extra_usage)
+                if !signature.sig.extra_usage.is_empty() {
+                    writeln!(help, "\nExtra usage:\n > {}", signature.sig.extra_usage)
                 } else {
                     Ok(())
                 }
             })
             .and_then(|_| {
-                let flags = get_flags_section(signature);
+                let flags = get_flags_section(&signature.sig);
                 write!(help, "{flags}")
             })
             .and_then(|_| writeln!(help, "\nParameters:"))
             .and_then(|_| {
                 signature
+                    .sig
                     .required_positional
                     .iter()
                     .try_for_each(|positional| {
@@ -336,6 +339,7 @@ fn print_help(plugin: &mut impl Plugin, encoder: impl PluginEncoder) {
             })
             .and_then(|_| {
                 signature
+                    .sig
                     .optional_positional
                     .iter()
                     .try_for_each(|positional| {
@@ -347,7 +351,7 @@ fn print_help(plugin: &mut impl Plugin, encoder: impl PluginEncoder) {
                     })
             })
             .and_then(|_| {
-                if let Some(rest_positional) = &signature.rest_positional {
+                if let Some(rest_positional) = &signature.sig.rest_positional {
                     writeln!(
                         help,
                         "  ...{} <{}>: {}",

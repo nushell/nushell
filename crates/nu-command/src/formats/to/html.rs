@@ -157,7 +157,7 @@ impl Command for ToHtml {
         stack: &mut Stack,
         call: &Call,
         input: PipelineData,
-    ) -> Result<nu_protocol::PipelineData, ShellError> {
+    ) -> Result<PipelineData, ShellError> {
         to_html(input, call, engine_state, stack)
     }
 }
@@ -320,9 +320,9 @@ fn to_html(
             vals: result,
             span: head,
         }
-        .into_pipeline_data_with_metadata(PipelineMetadata {
+        .into_pipeline_data_with_metadata(Box::new(PipelineMetadata {
             data_source: DataSource::HtmlThemes,
-        }));
+        })));
     } else {
         let theme_span = match &theme {
             Some(v) => v.span,

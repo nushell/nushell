@@ -106,13 +106,21 @@ pub fn evaluate_file(
             &file,
             file_path_str,
             PipelineData::empty(),
+            true,
         ) {
             std::process::exit(1);
         }
-        if !eval_source(engine_state, stack, args.as_bytes(), "<commandline>", input) {
+        if !eval_source(
+            engine_state,
+            stack,
+            args.as_bytes(),
+            "<commandline>",
+            input,
+            true,
+        ) {
             std::process::exit(1);
         }
-    } else if !eval_source(engine_state, stack, &file, file_path_str, input) {
+    } else if !eval_source(engine_state, stack, &file, file_path_str, input, true) {
         std::process::exit(1);
     }
 
@@ -146,12 +154,10 @@ pub(crate) fn print_table_or_error(
         if command.get_block_id().is_some() {
             print_or_exit(pipeline_data, engine_state, config);
         } else {
-            let table = command.run(
-                engine_state,
-                stack,
-                &Call::new(Span::new(0, 0)),
-                pipeline_data,
-            );
+            // The final call on table command, it's ok to set redirect_output to false.
+            let mut call = Call::new(Span::new(0, 0));
+            call.redirect_stdout = false;
+            let table = command.run(engine_state, stack, &call, pipeline_data);
 
             match table {
                 Ok(table) => {

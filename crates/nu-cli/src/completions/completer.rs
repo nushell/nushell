@@ -111,18 +111,11 @@ impl NuCompleter {
     }
 
     fn completion_helper(&mut self, line: &str, pos: usize) -> Vec<Suggestion> {
-        // pos: is the position of the cursor in the shell input.
-        // e.g. lets say you have an alias -> `alias ll = ls -l` and you type in the shell:
-        // > ll -a | c
-        // and your cursor is right after `c` then `pos` = 9
-
         let mut working_set = StateWorkingSet::new(&self.engine_state);
-        let mut offset = working_set.next_span_start();
+        let offset = working_set.next_span_start();
         let (mut new_line, alias_offset) = try_find_alias(line.as_bytes(), &working_set);
-        // new_line: vector containing all alias "translations" so if it was `ll` now is `ls -l`.
-        // alias_offset:vector the offset between the name and the alias)
-        let initial_line = line.to_string(); // Entire line in the shell input.
-        let alias_total_offset: usize = alias_offset.iter().sum(); // the sum of all alias offsets.
+        let initial_line = line.to_string();
+        let alias_total_offset: usize = alias_offset.iter().sum();
         new_line.insert(alias_total_offset + pos, b'a');
         let pos = offset + pos;
         let config = self.engine_state.get_config();
@@ -142,6 +135,10 @@ impl NuCompleter {
                         let mut spans: Vec<String> = vec![];
 
                         for (flat_idx, flat) in flattened.iter().enumerate() {
+                            let is_passthrough_command = spans
+                                .first()
+                                .filter(|content| *content == &String::from("sudo"))
+                                .is_some();
                             // Read the current spam to string
                             let current_span = working_set.get_span_contents(flat.0).to_vec();
                             let current_span_str = String::from_utf8_lossy(&current_span);
@@ -163,22 +160,14 @@ impl NuCompleter {
                                     most_left_variable(flat_idx, &working_set, flattened.clone());
 
                                 // Create a new span
-                                // if flat_idx == 0
-                                let mut span_start = flat.0.start;
-                                let mut span_end = flat.0.end - 1 - span_offset;
-
-                                if flat_idx != 0 {
-                                    span_start = flat.0.start - span_offset;
-                                    span_end = flat.0.end - 1 - span_offset;
-                                }
-
-                                if span_end < span_start {
-                                    span_start = flat.0.start;
-                                    span_end = flat.0.end - 1;
-                                    offset += span_offset
-                                }
-
-                                let new_span = Span::new(span_start, span_end);
+                                let new_span = if flat_idx == 0 {
+                                    Span::new(flat.0.start, flat.0.end - 1 - span_offset)
+                                } else {
+                                    Span::new(
+                                        flat.0.start - span_offset,
+                                        flat.0.end - 1 - span_offset,
+                                    )
+                                };
 
                                 // Parses the prefix. Completion should look up to the cursor position, not after.
                                 let mut prefix = working_set.get_span_contents(flat.0).to_vec();
@@ -192,10 +181,6 @@ impl NuCompleter {
                                         self.stack.clone(),
                                         most_left_var.unwrap_or((vec![], vec![])),
                                     );
-
-                                    if offset > new_span.start {
-                                        offset -= span_offset;
-                                    }
 
                                     return self.process_completion(
                                         &mut completer,
@@ -236,8 +221,9 @@ impl NuCompleter {
                                 }
 
                                 // specially check if it is currently empty - always complete commands
-                                if flat_idx == 0
-                                    && working_set.get_span_contents(new_span).is_empty()
+                                if (is_passthrough_command && flat_idx == 1)
+                                    || (flat_idx == 0
+                                        && working_set.get_span_contents(new_span).is_empty())
                                 {
                                     let mut completer = CommandCompletion::new(
                                         self.engine_state.clone(),
@@ -258,7 +244,7 @@ impl NuCompleter {
                                 }
 
                                 // Completions that depends on the previous expression (e.g: use, source-env)
-                                if flat_idx > 0 {
+                                if (is_passthrough_command && flat_idx > 1) || flat_idx > 0 {
                                     if let Some(previous_expr) = flattened.get(flat_idx - 1) {
                                         // Read the content for the previous expression
                                         let prev_expr_str =
@@ -594,4 +580,61 @@ pub fn map_value_completions<'a>(
         None
     })
     .collect()
+}
+
+#[cfg(test)]
+mod completer_tests {
+    use super::*;
+
+    #[test]
+    fn test_completion_helper() {
+        let mut engine_state = nu_command::create_default_context();
+
+        // Custom additions
+        let delta = {
+            let working_set = nu_protocol::engine::StateWorkingSet::new(&engine_state);
+            working_set.render()
+        };
+
+        if let Err(err) = engine_state.merge_delta(delta) {
+            assert!(false, "Error merging delta: {:?}", err);
+        }
+
+        let mut completer = NuCompleter::new(engine_state.into(), Stack::new());
+        let dataset = vec![
+            ("sudo", false, "", Vec::new()),
+            ("sudo l", true, "l", vec!["ls", "let", "lines", "loop"]),
+            (" sudo", false, "", Vec::new()),
+            (" sudo le", true, "le", vec!["let", "length"]),
+            (
+                "ls | c",
+                true,
+                "c",
+                vec!["cd", "config", "const", "cp", "cal"],
+            ),
+            ("ls | sudo m", true, "m", vec!["mv", "mut", "move"]),
+        ];
+        for (line, has_result, begins_with, expected_values) in dataset {
+            let result = completer.completion_helper(line, line.len());
+            // Test whether the result is empty or not
+            assert_eq!(result.len() > 0, has_result, "line: {}", line);
+
+            // Test whether the result begins with the expected value
+            result
+                .iter()
+                .for_each(|x| assert!(x.value.starts_with(begins_with)));
+
+            // Test whether the result contains all the expected values
+            assert_eq!(
+                result
+                    .iter()
+                    .map(|x| expected_values.contains(&x.value.as_str()))
+                    .filter(|x| *x == true)
+                    .count(),
+                expected_values.len(),
+                "line: {}",
+                line
+            );
+        }
+    }
 }

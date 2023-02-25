@@ -31,7 +31,7 @@ impl Command for SubCommand {
         _stack: &mut Stack,
         call: &Call,
         input: PipelineData,
-    ) -> Result<nu_protocol::PipelineData, nu_protocol::ShellError> {
+    ) -> Result<PipelineData, ShellError> {
         let head = call.head;
         // This doesn't match explicit nulls
         if matches!(input, PipelineData::Empty) {
@@ -45,7 +45,7 @@ impl Command for SubCommand {
 
     fn examples(&self) -> Vec<Example> {
         vec![Example {
-            description: "Apply the hyperbolic tangent to 10*pi",
+            description: "Apply the hyperbolic tangent to 10*π",
             example: "(math pi) * 10 | math tanh",
             result: Some(Value::test_float(1f64)),
         }]

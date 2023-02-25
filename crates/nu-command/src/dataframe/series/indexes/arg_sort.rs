@@ -12,7 +12,7 @@ pub struct ArgSort;
 
 impl Command for ArgSort {
     fn name(&self) -> &str {
-        "arg-sort"
+        "dfr arg-sort"
     }
 
     fn usage(&self) -> &str {
@@ -36,7 +36,7 @@ impl Command for ArgSort {
         vec![
             Example {
                 description: "Returns indexes for a sorted series",
-                example: "[1 2 2 3 3] | into df | arg-sort",
+                example: "[1 2 2 3 3] | dfr into-df | dfr arg-sort",
                 result: Some(
                     NuDataFrame::try_from_columns(vec![Column::new(
                         "arg_sort".to_string(),
@@ -54,7 +54,7 @@ impl Command for ArgSort {
             },
             Example {
                 description: "Returns indexes for a sorted series",
-                example: "[1 2 2 3 3] | into df | arg-sort -r",
+                example: "[1 2 2 3 3] | dfr into-df | dfr arg-sort -r",
                 result: Some(
                     NuDataFrame::try_from_columns(vec![Column::new(
                         "arg_sort".to_string(),
@@ -95,6 +95,7 @@ fn command(
     let sort_options = SortOptions {
         descending: call.has_flag("reverse"),
         nulls_last: call.has_flag("nulls-last"),
+        multithreaded: true,
     };
 
     let mut res = df.as_series(call.head)?.argsort(sort_options).into_series();

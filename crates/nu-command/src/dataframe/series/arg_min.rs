@@ -5,14 +5,14 @@ use nu_protocol::{
     engine::{Command, EngineState, Stack},
     Category, Example, PipelineData, ShellError, Signature, Span, Type, Value,
 };
-use polars::prelude::{IntoSeries, NewChunkedArray, UInt32Chunked};
+use polars::prelude::{ArgAgg, IntoSeries, NewChunkedArray, UInt32Chunked};
 
 #[derive(Clone)]
 pub struct ArgMin;
 
 impl Command for ArgMin {
     fn name(&self) -> &str {
-        "arg-min"
+        "dfr arg-min"
     }
 
     fn usage(&self) -> &str {
@@ -33,7 +33,7 @@ impl Command for ArgMin {
     fn examples(&self) -> Vec<Example> {
         vec![Example {
             description: "Returns index for min value",
-            example: "[1 3 2] | into df | arg-min",
+            example: "[1 3 2] | dfr into-df | dfr arg-min",
             result: Some(
                 NuDataFrame::try_from_columns(vec![Column::new(
                     "arg_min".to_string(),

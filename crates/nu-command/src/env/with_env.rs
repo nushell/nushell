@@ -4,7 +4,7 @@ use nu_engine::{eval_block, CallExt};
 use nu_protocol::{
     ast::Call,
     engine::{Closure, Command, EngineState, Stack},
-    Category, Example, PipelineData, ShellError, Signature, SyntaxShape, Type, Value,
+    Category, Example, PipelineData, ShellError, Signature, Span, SyntaxShape, Type, Value,
 };
 
 #[derive(Clone)]
@@ -41,7 +41,7 @@ impl Command for WithEnv {
         stack: &mut Stack,
         call: &Call,
         input: PipelineData,
-    ) -> Result<nu_protocol::PipelineData, nu_protocol::ShellError> {
+    ) -> Result<PipelineData, ShellError> {
         with_env(engine_state, stack, call, input)
     }
 
@@ -63,9 +63,12 @@ impl Command for WithEnv {
                 result: Some(Value::test_string("Z")),
             },
             Example {
-                description: "Set by row(e.g. `open x.json` or `from json`)",
-                example: r#"'{"X":"Y","W":"Z"}'|from json|with-env $in { [$env.X $env.W] }"#,
-                result: None,
+                description: "Set by key-value record",
+                example: r#"with-env {X: "Y", W: "Z"} { [$env.X $env.W] }"#,
+                result: Some(Value::list(
+                    vec![Value::test_string("Y"), Value::test_string("Z")],
+                    Span::test_data(),
+                )),
             },
         ]
     }

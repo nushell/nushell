@@ -12,7 +12,7 @@ pub struct ArgUnique;
 
 impl Command for ArgUnique {
     fn name(&self) -> &str {
-        "arg-unique"
+        "dfr arg-unique"
     }
 
     fn usage(&self) -> &str {
@@ -33,7 +33,7 @@ impl Command for ArgUnique {
     fn examples(&self) -> Vec<Example> {
         vec![Example {
             description: "Returns indexes for unique values",
-            example: "[1 2 2 3 3] | into df | arg-unique",
+            example: "[1 2 2 3 3] | dfr into-df | dfr arg-unique",
             result: Some(
                 NuDataFrame::try_from_columns(vec![Column::new(
                     "arg_unique".to_string(),

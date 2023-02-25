@@ -2,8 +2,8 @@ use nu_engine::CallExt;
 use nu_protocol::ast::{Call, CellPath};
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
-    Category, Example, IntoInterruptiblePipelineData, IntoPipelineData, PipelineData, Signature,
-    Span, SyntaxShape, Type, Value,
+    Category, Example, IntoInterruptiblePipelineData, IntoPipelineData, PipelineData, ShellError,
+    Signature, Span, SyntaxShape, Type, Value,
 };
 
 #[derive(Clone)]
@@ -16,6 +16,12 @@ impl Command for Get {
 
     fn usage(&self) -> &str {
         "Extract data using a cell path."
+    }
+
+    fn extra_usage(&self) -> &str {
+        r#"This is equivalent to using the cell path access syntax: `$env.OS` is the same as `$env | get OS`.
+
+If multiple cell paths are given, this will produce a list of values."#
     }
 
     fn signature(&self) -> nu_protocol::Signature {
@@ -54,7 +60,7 @@ impl Command for Get {
         stack: &mut Stack,
         call: &Call,
         input: PipelineData,
-    ) -> Result<nu_protocol::PipelineData, nu_protocol::ShellError> {
+    ) -> Result<PipelineData, ShellError> {
         let span = call.head;
         let cell_path: CellPath = call.req(engine_state, stack, 0)?;
         let rest: Vec<CellPath> = call.rest(engine_state, stack, 1)?;

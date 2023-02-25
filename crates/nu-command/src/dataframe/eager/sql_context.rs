@@ -30,7 +30,7 @@ impl SQLContext {
         // Determine involved dataframe
         // Implicit join require some more work in query parsers, Explicit join are preferred for now.
         let tbl = select_stmt.from.get(0).ok_or_else(|| {
-            PolarsError::NotFound(ErrString::from("No table found in select statement"))
+            PolarsError::ComputeError(ErrString::from("No table found in select statement"))
         })?;
         let mut alias_map = HashMap::new();
         let tbl_name = match &tbl.relation {
@@ -39,7 +39,9 @@ impl SQLContext {
                     .0
                     .get(0)
                     .ok_or_else(|| {
-                        PolarsError::NotFound(ErrString::from("No table found in select statement"))
+                        PolarsError::ComputeError(ErrString::from(
+                            "No table found in select statement",
+                        ))
                     })?
                     .value
                     .to_string();
@@ -181,7 +183,7 @@ impl SQLContext {
         } else {
             let ast = ast
                 .get(0)
-                .ok_or_else(|| PolarsError::NotFound(ErrString::from("No statement found")))?;
+                .ok_or_else(|| PolarsError::ComputeError(ErrString::from("No statement found")))?;
             Ok(match ast {
                 Statement::Query(query) => {
                     let rs = match &*query.body {

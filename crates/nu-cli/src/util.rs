@@ -1,5 +1,5 @@
 use crate::repl::eval_hook;
-use nu_engine::eval_block;
+use nu_engine::{eval_block, eval_block_with_early_return};
 use nu_parser::{escape_quote_string, lex, parse, unescape_unquote_string, Token, TokenContents};
 use nu_protocol::engine::StateWorkingSet;
 use nu_protocol::CliError;
@@ -203,6 +203,7 @@ pub fn eval_source(
     source: &[u8],
     fname: &str,
     input: PipelineData,
+    allow_return: bool,
 ) -> bool {
     let start_time = std::time::Instant::now();
 
@@ -230,7 +231,13 @@ pub fn eval_source(
         return false;
     }
 
-    match eval_block(engine_state, stack, &block, input, false, false) {
+    let b = if allow_return {
+        eval_block_with_early_return(engine_state, stack, &block, input, false, false)
+    } else {
+        eval_block(engine_state, stack, &block, input, false, false)
+    };
+
+    match b {
         Ok(pipeline_data) => {
             let config = engine_state.get_config();
             let result;
@@ -290,6 +297,7 @@ pub fn eval_source(
         file!(),
         line!(),
         column!(),
+        engine_state.get_config().use_ansi_coloring,
     );
 
     true

@@ -37,7 +37,8 @@ impl CommandCompletion {
     ) -> Vec<String> {
         let mut executables = vec![];
 
-        let paths = self.engine_state.get_env_var("PATH");
+        // os agnostic way to get the PATH env var
+        let paths = self.engine_state.get_path_env_var();
 
         if let Some(paths) = paths {
             if let Ok(paths) = paths.as_list() {
@@ -164,7 +165,7 @@ impl Completer for CommandCompletion {
             .flattened
             .iter()
             .rev()
-            .skip_while(|x| x.0.end + offset > pos)
+            .skip_while(|x| x.0.end > pos)
             .take_while(|x| {
                 matches!(
                     x.1,
@@ -198,6 +199,7 @@ impl Completer for CommandCompletion {
         let commands = if matches!(self.flat_shape, nu_parser::FlatShape::External)
             || matches!(self.flat_shape, nu_parser::FlatShape::InternalCall)
             || ((span.end - span.start) == 0)
+            || is_passthrough_command(working_set.delta.get_file_contents())
         {
             // we're in a gap or at a command
             if working_set.get_span_contents(span).is_empty() && !self.force_completion_after_space
@@ -223,5 +225,106 @@ impl Completer for CommandCompletion {
 
     fn get_sort_by(&self) -> SortBy {
         SortBy::LevenshteinDistance
+    }
+}
+
+pub fn find_non_whitespace_index(contents: &[u8], start: usize) -> usize {
+    match contents.get(start..) {
+        Some(contents) => {
+            contents
+                .iter()
+                .take_while(|x| x.is_ascii_whitespace())
+                .count()
+                + start
+        }
+        None => start,
+    }
+}
+
+pub fn is_passthrough_command(working_set_file_contents: &[(Vec<u8>, usize, usize)]) -> bool {
+    for (contents, _, _) in working_set_file_contents {
+        let last_pipe_pos_rev = contents.iter().rev().position(|x| x == &b'|');
+        let last_pipe_pos = last_pipe_pos_rev.map(|x| contents.len() - x).unwrap_or(0);
+
+        let cur_pos = find_non_whitespace_index(contents, last_pipe_pos);
+
+        let result = match contents.get(cur_pos..) {
+            Some(contents) => contents.starts_with(b"sudo "),
+            None => false,
+        };
+        if result {
+            return true;
+        }
+    }
+    false
+}
+
+#[cfg(test)]
+mod command_completions_tests {
+    use super::*;
+
+    #[test]
+    fn test_find_non_whitespace_index() {
+        let commands = vec![
+            ("    hello", 4),
+            ("sudo ", 0),
+            (" 	sudo ", 2),
+            ("	 sudo ", 2),
+            ("	hello ", 1),
+            ("	  hello ", 3),
+            ("    hello | sudo ", 4),
+            ("     sudo|sudo", 5),
+            ("sudo | sudo ", 0),
+            ("	hello sud", 1),
+        ];
+        for (idx, ele) in commands.iter().enumerate() {
+            let index = find_non_whitespace_index(&Vec::from(ele.0.as_bytes()), 0);
+            assert_eq!(index, ele.1, "Failed on index {}", idx);
+        }
+    }
+
+    #[test]
+    fn test_is_last_command_passthrough() {
+        let commands = vec![
+            ("    hello", false),
+            ("    sudo ", true),
+            ("sudo ", true),
+            ("	hello", false),
+            ("	sudo", false),
+            ("	sudo ", true),
+            (" 	sudo ", true),
+            ("	 sudo ", true),
+            ("	hello ", false),
+            ("    hello | sudo ", true),
+            ("    sudo|sudo", false),
+            ("sudo | sudo ", true),
+            ("	hello sud", false),
+            ("	sudo | sud ", false),
+            ("	sudo|sudo ", true),
+            (" 	sudo | sudo ls | sudo ", true),
+        ];
+        for (idx, ele) in commands.iter().enumerate() {
+            let input = ele.0.as_bytes();
+
+            let mut engine_state = EngineState::new();
+            engine_state.add_file("test.nu".into(), vec![]);
+
+            let delta = {
+                let mut working_set = StateWorkingSet::new(&engine_state);
+                working_set.add_file("child.nu".into(), input);
+                working_set.render()
+            };
+
+            if let Err(err) = engine_state.merge_delta(delta) {
+                assert!(false, "Merge delta has failed: {}", err);
+            }
+
+            let is_passthrough_command = is_passthrough_command(engine_state.get_file_contents());
+            assert_eq!(
+                is_passthrough_command, ele.1,
+                "index for '{}': {}",
+                ele.0, idx
+            );
+        }
     }
 }

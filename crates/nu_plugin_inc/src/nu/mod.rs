@@ -1,11 +1,11 @@
 use crate::inc::SemVerAction;
 use crate::Inc;
 use nu_plugin::{EvaluatedCall, LabeledError, Plugin};
-use nu_protocol::{ast::CellPath, Signature, SyntaxShape, Value};
+use nu_protocol::{ast::CellPath, PluginSignature, SyntaxShape, Value};
 
 impl Plugin for Inc {
-    fn signature(&self) -> Vec<Signature> {
-        vec![Signature::build("inc")
+    fn signature(&self) -> Vec<PluginSignature> {
+        vec![PluginSignature::build("inc")
             .usage("Increment a value or version. Optionally use the column of a table.")
             .optional("cell_path", SyntaxShape::CellPath, "cell path to update")
             .switch(

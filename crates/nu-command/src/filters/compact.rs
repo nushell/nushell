@@ -45,7 +45,7 @@ impl Command for Compact {
         stack: &mut Stack,
         call: &Call,
         input: PipelineData,
-    ) -> Result<nu_protocol::PipelineData, ShellError> {
+    ) -> Result<PipelineData, ShellError> {
         compact(engine_state, stack, call, input)
     }
 
@@ -88,7 +88,7 @@ pub fn compact(
     stack: &mut Stack,
     call: &Call,
     input: PipelineData,
-) -> Result<nu_protocol::PipelineData, ShellError> {
+) -> Result<PipelineData, ShellError> {
     let columns: Vec<String> = call.rest(engine_state, stack, 0)?;
     let metadata = input.metadata();
     input

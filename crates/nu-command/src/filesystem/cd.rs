@@ -60,7 +60,7 @@ impl Command for Cd {
         stack: &mut Stack,
         call: &Call,
         _input: PipelineData,
-    ) -> Result<nu_protocol::PipelineData, nu_protocol::ShellError> {
+    ) -> Result<PipelineData, ShellError> {
         let path_val: Option<Spanned<String>> = call.opt(engine_state, stack, 0)?;
         let cwd = current_dir(engine_state, stack)?;
         let config = engine_state.get_config();
@@ -135,7 +135,7 @@ impl Command for Cd {
                         }
 
                         // if canonicalize failed, let's check to see if it's abbreviated
-                        Err(e1) => {
+                        Err(_) => {
                             if use_abbrev {
                                 match query(&path_no_whitespace, None, v.span) {
                                     Ok(path) => path,
@@ -147,10 +147,7 @@ impl Command for Cd {
                                     }
                                 }
                             } else {
-                                return Err(ShellError::DirectoryNotFound(
-                                    v.span,
-                                    Some(format!("IO Error: {e1:?}")),
-                                ));
+                                return Err(ShellError::DirectoryNotFound(v.span, None));
                             }
                         }
                     };

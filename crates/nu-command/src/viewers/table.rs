@@ -55,7 +55,7 @@ impl Command for Table {
         vec!["display", "render"]
     }
 
-    fn signature(&self) -> nu_protocol::Signature {
+    fn signature(&self) -> Signature {
         Signature::build("table")
             .input_output_types(vec![(Type::Any, Type::Any)])
             // TODO: make this more precise: what turns into string and what into raw stream
@@ -241,12 +241,14 @@ fn handle_table_command(
         PipelineData::ExternalStream { .. } => Ok(input),
         PipelineData::Value(Value::Binary { val, .. }, ..) => Ok(PipelineData::ExternalStream {
             stdout: Some(RawStream::new(
-                Box::new(
+                Box::new(if call.redirect_stdout {
+                    vec![Ok(val)].into_iter()
+                } else {
                     vec![Ok(format!("{}\n", nu_pretty_hex::pretty_hex(&val))
                         .as_bytes()
                         .to_vec())]
-                    .into_iter(),
-                ),
+                    .into_iter()
+                }),
                 ctrlc,
                 call.head,
                 None,
@@ -276,61 +278,18 @@ fn handle_table_command(
             ctrlc,
             metadata,
         ),
-        PipelineData::Value(Value::Record { cols, vals, span }, ..) => {
-            // Create a StyleComputer to compute styles for each value in the table.
-            let style_computer = &StyleComputer::from_config(engine_state, stack);
-            let result = match table_view {
-                TableView::General => build_general_table2(
-                    style_computer,
-                    cols,
-                    vals,
-                    ctrlc.clone(),
-                    config,
-                    term_width,
-                ),
-                TableView::Expanded {
-                    limit,
-                    flatten,
-                    flatten_separator,
-                } => {
-                    let sep = flatten_separator.as_deref().unwrap_or(" ");
-                    build_expanded_table(
-                        cols,
-                        vals,
-                        span,
-                        ctrlc.clone(),
-                        config,
-                        style_computer,
-                        term_width,
-                        limit,
-                        flatten,
-                        sep,
-                    )
-                }
-                TableView::Collapsed => {
-                    build_collapsed_table(style_computer, cols, vals, config, term_width)
-                }
-            }?;
-
-            let result = strip_output_color(result, config);
-
-            let result = result.unwrap_or_else(|| {
-                if nu_utils::ctrl_c::was_pressed(&ctrlc) {
-                    "".into()
-                } else {
-                    // assume this failed because the table was too wide
-                    // TODO: more robust error classification
-                    format!("Couldn't fit table into {term_width} columns!")
-                }
-            });
-
-            let val = Value::String {
-                val: result,
-                span: call.head,
-            };
-
-            Ok(val.into_pipeline_data())
-        }
+        PipelineData::Value(Value::Record { cols, vals, span }, ..) => handle_record(
+            cols,
+            vals,
+            span,
+            engine_state,
+            stack,
+            call,
+            table_view,
+            term_width,
+            ctrlc,
+            config,
+        ),
         PipelineData::Value(Value::LazyRecord { val, .. }, ..) => {
             let collected = val.collect()?.into_pipeline_data();
             handle_table_command(
@@ -388,24 +347,18 @@ fn build_collapsed_table(
     config: &Config,
     term_width: usize,
 ) -> Result<Option<String>, ShellError> {
-    let value = Value::Record {
+    let mut value = Value::Record {
         cols,
         vals,
         span: Span::new(0, 0),
     };
 
-    let theme = load_theme_from_config(config);
-    let table = nu_table::NuTable::new(
-        value,
-        true,
-        term_width,
-        config,
-        style_computer,
-        &theme,
-        false,
-    );
+    colorize_value(&mut value, config, style_computer);
 
-    let table = table.draw();
+    let theme = load_theme_from_config(config);
+    let table = nu_table::NuTable::new(value, true, config, style_computer, &theme, false);
+
+    let table = table.draw(term_width);
 
     Ok(table)
 }
@@ -525,32 +478,39 @@ fn build_expanded_table(
                     }
                 }
                 Value::Record { cols, vals, span } => {
-                    let result = build_expanded_table(
-                        cols.clone(),
-                        vals.clone(),
-                        span,
-                        ctrlc.clone(),
-                        config,
-                        style_computer,
-                        value_width,
-                        deep,
-                        flatten,
-                        flatten_sep,
-                    )?;
+                    if cols.is_empty() {
+                        // Like list case return styled string instead of empty value
+                        let value = Value::Record { cols, vals, span };
+                        let text = value_to_styled_string(&value, config, style_computer).0;
+                        wrap_text(&text, value_width, config)
+                    } else {
+                        let result = build_expanded_table(
+                            cols.clone(),
+                            vals.clone(),
+                            span,
+                            ctrlc.clone(),
+                            config,
+                            style_computer,
+                            value_width,
+                            deep,
+                            flatten,
+                            flatten_sep,
+                        )?;
 
-                    match result {
-                        Some(result) => {
-                            is_expanded = true;
-                            result
-                        }
-                        None => {
-                            let failed_value = value_to_styled_string(
-                                &Value::Record { cols, vals, span },
-                                config,
-                                style_computer,
-                            );
+                        match result {
+                            Some(result) => {
+                                is_expanded = true;
+                                result
+                            }
+                            None => {
+                                let failed_value = value_to_styled_string(
+                                    &Value::Record { cols, vals, span },
+                                    config,
+                                    style_computer,
+                                );
 
-                            wrap_text(&failed_value.0, value_width, config)
+                                wrap_text(&failed_value.0, value_width, config)
+                            }
                         }
                     }
                 }
@@ -605,6 +565,79 @@ fn build_expanded_table(
     Ok(table)
 }
 
+#[allow(clippy::too_many_arguments)]
+fn handle_record(
+    cols: Vec<String>,
+    vals: Vec<Value>,
+    span: Span,
+    engine_state: &EngineState,
+    stack: &mut Stack,
+    call: &Call,
+    table_view: TableView,
+    term_width: usize,
+    ctrlc: Option<Arc<AtomicBool>>,
+    config: &Config,
+) -> Result<PipelineData, ShellError> {
+    // Create a StyleComputer to compute styles for each value in the table.
+    let style_computer = &StyleComputer::from_config(engine_state, stack);
+
+    let result = if cols.is_empty() {
+        create_empty_placeholder("record", term_width, engine_state, stack)
+    } else {
+        let result = match table_view {
+            TableView::General => build_general_table2(
+                style_computer,
+                cols,
+                vals,
+                ctrlc.clone(),
+                config,
+                term_width,
+            ),
+            TableView::Expanded {
+                limit,
+                flatten,
+                flatten_separator,
+            } => {
+                let sep = flatten_separator.as_deref().unwrap_or(" ");
+                build_expanded_table(
+                    cols,
+                    vals,
+                    span,
+                    ctrlc.clone(),
+                    config,
+                    style_computer,
+                    term_width,
+                    limit,
+                    flatten,
+                    sep,
+                )
+            }
+            TableView::Collapsed => {
+                build_collapsed_table(style_computer, cols, vals, config, term_width)
+            }
+        }?;
+
+        let result = strip_output_color(result, config);
+
+        result.unwrap_or_else(|| {
+            if nu_utils::ctrl_c::was_pressed(&ctrlc) {
+                "".into()
+            } else {
+                // assume this failed because the table was too wide
+                // TODO: more robust error classification
+                format!("Couldn't fit table into {term_width} columns!")
+            }
+        })
+    };
+
+    let val = Value::String {
+        val: result,
+        span: call.head,
+    };
+
+    Ok(val.into_pipeline_data())
+}
+
 fn handle_row_stream(
     engine_state: &EngineState,
     stack: &mut Stack,
@@ -612,9 +645,9 @@ fn handle_row_stream(
     call: &Call,
     row_offset: usize,
     ctrlc: Option<Arc<AtomicBool>>,
-    metadata: Option<PipelineMetadata>,
-) -> Result<PipelineData, nu_protocol::ShellError> {
-    let stream = match metadata {
+    metadata: Option<Box<PipelineMetadata>>,
+) -> Result<PipelineData, ShellError> {
+    let stream = match metadata.as_deref() {
         // First, `ls` sources:
         Some(PipelineMetadata {
             data_source: DataSource::Ls,
@@ -719,18 +752,18 @@ fn handle_row_stream(
 
     Ok(PipelineData::ExternalStream {
         stdout: Some(RawStream::new(
-            Box::new(PagingTableCreator {
-                row_offset,
-                // These are passed in as a way to have PagingTable create StyleComputers
-                // for the values it outputs. Because engine_state is passed in, config doesn't need to.
-                engine_state: engine_state.clone(),
-                stack: stack.clone(),
-                ctrlc: ctrlc.clone(),
+            Box::new(PagingTableCreator::new(
                 head,
                 stream,
+                // These are passed in as a way to have PagingTable create StyleComputers
+                // for the values it outputs. Because engine_state is passed in, config doesn't need to.
+                engine_state.clone(),
+                stack.clone(),
+                ctrlc.clone(),
+                row_offset,
                 width_param,
-                view: table_view,
-            }),
+                table_view,
+            )),
             ctrlc,
             head,
             None,
@@ -1000,10 +1033,7 @@ fn convert_to_table2<'a>(
 
     if with_index {
         if with_header {
-            data[0].push(NuTable::create_cell(
-                "#",
-                header_style(style_computer, String::from("#")),
-            ));
+            data[0].push(NuTable::create_cell("#", header_style(style_computer, "#")));
         }
 
         let mut last_index = 0;
@@ -1040,8 +1070,13 @@ fn convert_to_table2<'a>(
     }
 
     if !with_header {
-        if available_width >= ADDITIONAL_CELL_SPACE {
+        if available_width > ADDITIONAL_CELL_SPACE {
             available_width -= PADDING_SPACE;
+        } else {
+            // it means we have no space left for actual content;
+            // which means there's no point in index itself if it was even used.
+            // so we do not print it.
+            return Ok(None);
         }
 
         for (row, item) in input.into_iter().enumerate() {
@@ -1053,7 +1088,7 @@ fn convert_to_table2<'a>(
                 return Err(error.clone());
             }
 
-            let value = convert_to_table2_entry(
+            let mut value = convert_to_table2_entry(
                 item,
                 config,
                 &ctrlc,
@@ -1063,6 +1098,16 @@ fn convert_to_table2<'a>(
                 flatten_sep,
                 available_width,
             );
+
+            let value_width = string_width(&value.0);
+            if value_width > available_width {
+                // it must only happen when a string is produced, so we can safely wrap it.
+                // (it might be string table representation as well) (I guess I mean default { table ...} { list ...})
+                //
+                // todo: Maybe convert_to_table2_entry could do for strings to not mess caller code?
+
+                value.0 = wrap_text(&value.0, available_width, config);
+            }
 
             let value = NuTable::create_cell(value.0, value.1);
             data[row].push(value);
@@ -1130,8 +1175,7 @@ fn convert_to_table2<'a>(
             }
         }
 
-        let head_cell =
-            NuTable::create_cell(header.clone(), header_style(style_computer, header.clone()));
+        let head_cell = NuTable::create_cell(header.clone(), header_style(style_computer, &header));
         data[0].push(head_cell);
 
         for (row, item) in input.clone().enumerate() {
@@ -1253,8 +1297,8 @@ fn lookup_index_value(item: &Value, config: &Config) -> Option<String> {
         .map(|value| value.into_string("", config))
 }
 
-fn header_style(style_computer: &StyleComputer, header: String) -> TextStyle {
-    let style = style_computer.compute("header", &Value::string(header.as_str(), Span::unknown()));
+fn header_style(style_computer: &StyleComputer, header: &str) -> TextStyle {
+    let style = style_computer.compute("header", &Value::string(header, Span::unknown()));
     TextStyle {
         alignment: Alignment::Center,
         color_style: Some(style),
@@ -1333,24 +1377,31 @@ fn convert_to_table2_entry(
         return value_to_styled_string(item, config, style_computer);
     }
 
-    let table = match &item {
+    match &item {
         Value::Record { span, cols, vals } => {
             if cols.is_empty() && vals.is_empty() {
                 return value_to_styled_string(item, config, style_computer);
             }
 
-            convert_to_table2(
-                0,
-                std::iter::once(item),
+            // we verify what is the structure of a Record cause it might represent
+
+            let table = build_expanded_table(
+                cols.clone(),
+                vals.clone(),
+                *span,
                 ctrlc.clone(),
                 config,
-                *span,
                 style_computer,
+                width,
                 deep.map(|i| i - 1),
                 flatten,
                 flatten_sep,
-                width,
-            )
+            );
+
+            match table {
+                Ok(Some(table)) => (table, TextStyle::default()),
+                _ => value_to_styled_string(item, config, style_computer),
+            }
         }
         Value::List { vals, span } => {
             if flatten {
@@ -1363,7 +1414,7 @@ fn convert_to_table2_entry(
                 }
             }
 
-            convert_to_table2(
+            let table = convert_to_table2(
                 0,
                 vals.iter(),
                 ctrlc.clone(),
@@ -1374,24 +1425,24 @@ fn convert_to_table2_entry(
                 flatten,
                 flatten_sep,
                 width,
-            )
+            );
+
+            let (table, whead, windex) = match table {
+                Ok(Some(out)) => out,
+                _ => return value_to_styled_string(item, config, style_computer),
+            };
+
+            let count_rows = table.count_rows();
+            let table_config =
+                create_table_config(config, style_computer, count_rows, whead, windex, false);
+
+            let table = table.draw(table_config, usize::MAX);
+            match table {
+                Some(table) => (table, TextStyle::default()),
+                None => value_to_styled_string(item, config, style_computer),
+            }
         }
-        _ => return value_to_styled_string(item, config, style_computer), // unknown type.
-    };
-
-    let (table, whead, windex) = match table {
-        Ok(Some(out)) => out,
-        _ => return value_to_styled_string(item, config, style_computer),
-    };
-
-    let count_rows = table.count_rows();
-    let table_config =
-        create_table_config(config, style_computer, count_rows, whead, windex, false);
-
-    let table = table.draw(table_config, usize::MAX);
-    match table {
-        Some(table) => (table, TextStyle::default()),
-        None => value_to_styled_string(item, config, style_computer),
+        _ => value_to_styled_string(item, config, style_computer), // unknown type.
     }
 }
 
@@ -1502,9 +1553,36 @@ struct PagingTableCreator {
     row_offset: usize,
     width_param: Option<i64>,
     view: TableView,
+    elements_displayed: usize,
+    reached_end: bool,
 }
 
 impl PagingTableCreator {
+    #[allow(clippy::too_many_arguments)]
+    fn new(
+        head: Span,
+        stream: ListStream,
+        engine_state: EngineState,
+        stack: Stack,
+        ctrlc: Option<Arc<AtomicBool>>,
+        row_offset: usize,
+        width_param: Option<i64>,
+        view: TableView,
+    ) -> Self {
+        PagingTableCreator {
+            head,
+            stream,
+            engine_state,
+            stack,
+            ctrlc,
+            row_offset,
+            width_param,
+            view,
+            elements_displayed: 0,
+            reached_end: false,
+        }
+    }
+
     fn build_extended(
         &mut self,
         batch: &[Value],
@@ -1583,22 +1661,17 @@ impl PagingTableCreator {
         let term_width = get_width_param(self.width_param);
         let need_footer = matches!(config.footer_mode, FooterMode::RowCount(limit) if batch.len() as u64 > limit)
             || matches!(config.footer_mode, FooterMode::Always);
-        let value = Value::List {
+        let mut value = Value::List {
             vals: batch,
             span: Span::new(0, 0),
         };
 
-        let table = nu_table::NuTable::new(
-            value,
-            true,
-            term_width,
-            config,
-            &style_computer,
-            &theme,
-            need_footer,
-        );
+        colorize_value(&mut value, config, &style_computer);
 
-        Ok(table.draw())
+        let table =
+            nu_table::NuTable::new(value, true, config, &style_computer, &theme, need_footer);
+
+        Ok(table.draw(term_width))
     }
 
     fn build_general(&mut self, batch: &[Value]) -> Result<Option<String>, ShellError> {
@@ -1643,6 +1716,7 @@ impl Iterator for PagingTableCreator {
         let start_time = Instant::now();
 
         let mut idx = 0;
+        let mut reached_end = true;
 
         // Pull from stream until time runs out or we have enough items
         for item in self.stream.by_ref() {
@@ -1651,10 +1725,12 @@ impl Iterator for PagingTableCreator {
 
             // If we've been buffering over a second, go ahead and send out what we have so far
             if (Instant::now() - start_time).as_secs() >= 1 {
+                reached_end = false;
                 break;
             }
 
             if idx == STREAM_PAGE_SIZE {
+                reached_end = false;
                 break;
             }
 
@@ -1663,8 +1739,24 @@ impl Iterator for PagingTableCreator {
             }
         }
 
+        // Count how much elements were displayed and if end of stream was reached
+        self.elements_displayed += idx;
+        self.reached_end = self.reached_end || reached_end;
+
         if batch.is_empty() {
-            return None;
+            // If this iterator has not displayed a single entry and reached its end (no more elements
+            // or interrupted by ctrl+c) display as "empty list"
+            return if self.elements_displayed == 0 && self.reached_end {
+                // Increase elements_displayed by one so on next iteration next branch of this
+                // if else triggers and terminates stream
+                self.elements_displayed = 1;
+                let term_width = get_width_param(self.width_param);
+                let result =
+                    create_empty_placeholder("list", term_width, &self.engine_state, &self.stack);
+                Some(Ok(result.into_bytes()))
+            } else {
+                None
+            };
         }
 
         let table = match &self.view {
@@ -1707,17 +1799,17 @@ impl Iterator for PagingTableCreator {
 
 fn load_theme_from_config(config: &Config) -> TableTheme {
     match config.table_mode.as_str() {
-        "basic" => nu_table::TableTheme::basic(),
-        "thin" => nu_table::TableTheme::thin(),
-        "light" => nu_table::TableTheme::light(),
-        "compact" => nu_table::TableTheme::compact(),
-        "with_love" => nu_table::TableTheme::with_love(),
-        "compact_double" => nu_table::TableTheme::compact_double(),
-        "rounded" => nu_table::TableTheme::rounded(),
-        "reinforced" => nu_table::TableTheme::reinforced(),
-        "heavy" => nu_table::TableTheme::heavy(),
-        "none" => nu_table::TableTheme::none(),
-        _ => nu_table::TableTheme::rounded(),
+        "basic" => TableTheme::basic(),
+        "thin" => TableTheme::thin(),
+        "light" => TableTheme::light(),
+        "compact" => TableTheme::compact(),
+        "with_love" => TableTheme::with_love(),
+        "compact_double" => TableTheme::compact_double(),
+        "rounded" => TableTheme::rounded(),
+        "reinforced" => TableTheme::reinforced(),
+        "heavy" => TableTheme::heavy(),
+        "none" => TableTheme::none(),
+        _ => TableTheme::rounded(),
     }
 }
 
@@ -1825,4 +1917,58 @@ fn with_footer(config: &Config, with_header: bool, count_records: usize) -> bool
 fn need_footer(config: &Config, count_records: u64) -> bool {
     matches!(config.footer_mode, FooterMode::RowCount(limit) if count_records > limit)
         || matches!(config.footer_mode, FooterMode::Always)
+}
+
+fn create_empty_placeholder(
+    value_type_name: &str,
+    termwidth: usize,
+    engine_state: &EngineState,
+    stack: &Stack,
+) -> String {
+    let config = engine_state.get_config();
+
+    if !config.table_show_empty {
+        return "".into();
+    }
+
+    let empty_info_string = format!("empty {}", value_type_name);
+    let cell = NuTable::create_cell(empty_info_string, TextStyle::default().dimmed());
+    let data = vec![vec![cell]];
+    let table = NuTable::new(data, (1, 1));
+
+    let style_computer = &StyleComputer::from_config(engine_state, stack);
+    let config = create_table_config(config, style_computer, 1, false, false, false);
+
+    table
+        .draw(config, termwidth)
+        .expect("Could not create empty table placeholder")
+}
+
+fn colorize_value(value: &mut Value, config: &Config, style_computer: &StyleComputer) {
+    match value {
+        Value::Record { cols, vals, .. } => {
+            for val in vals {
+                colorize_value(val, config, style_computer);
+            }
+
+            let style = header_style(style_computer, "");
+            if let Some(color) = style.color_style {
+                for header in cols {
+                    *header = color.paint(header.to_owned()).to_string();
+                }
+            }
+        }
+        Value::List { vals, .. } => {
+            for val in vals {
+                colorize_value(val, config, style_computer);
+            }
+        }
+        val => {
+            let (text, style) = value_to_styled_string(val, config, style_computer);
+            if let Some(color) = style.color_style {
+                let text = color.paint(text);
+                *val = Value::string(text.to_string(), val.span().unwrap_or(Span::unknown()));
+            }
+        }
+    }
 }

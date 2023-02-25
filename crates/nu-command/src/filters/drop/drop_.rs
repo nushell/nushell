@@ -29,7 +29,7 @@ impl Command for Drop {
     }
 
     fn usage(&self) -> &str {
-        "Remove items/rows from the end of the input list/table. Counterpart of 'skip'. Opposite of 'last'."
+        "Remove items/rows from the end of the input list/table. Counterpart of `skip`. Opposite of `last`."
     }
 
     fn search_terms(&self) -> Vec<&str> {

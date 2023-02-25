@@ -48,7 +48,7 @@ impl Command for Open {
         stack: &mut Stack,
         call: &Call,
         input: PipelineData,
-    ) -> Result<nu_protocol::PipelineData, nu_protocol::ShellError> {
+    ) -> Result<PipelineData, ShellError> {
         let raw = call.has_flag("raw");
         let call_span = call.head;
         let ctrlc = engine_state.ctrlc.clone();

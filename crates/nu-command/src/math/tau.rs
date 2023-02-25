@@ -1,6 +1,8 @@
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
-use nu_protocol::{Category, Example, IntoPipelineData, PipelineData, Signature, Type, Value};
+use nu_protocol::{
+    Category, Example, IntoPipelineData, PipelineData, ShellError, Signature, Type, Value,
+};
 
 #[derive(Clone)]
 pub struct SubCommand;
@@ -27,9 +29,9 @@ impl Command for SubCommand {
     #[allow(clippy::approx_constant)]
     fn examples(&self) -> Vec<Example> {
         vec![Example {
-            example: "(math tau) / 2",
-            description: "Compare π and τ",
-            result: Some(Value::test_float(std::f64::consts::PI)),
+            example: "math tau | math round --precision 2",
+            description: "Get the first two decimal digits of τ",
+            result: Some(Value::test_float(6.28)),
         }]
     }
 
@@ -39,7 +41,7 @@ impl Command for SubCommand {
         _stack: &mut Stack,
         call: &Call,
         _input: PipelineData,
-    ) -> Result<nu_protocol::PipelineData, nu_protocol::ShellError> {
+    ) -> Result<PipelineData, ShellError> {
         Ok(Value::float(std::f64::consts::TAU, call.head).into_pipeline_data())
     }
 }

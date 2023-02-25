@@ -29,7 +29,11 @@ impl Command for Reject {
     }
 
     fn usage(&self) -> &str {
-        "Remove the given columns from the table. To remove rows, use 'drop'."
+        "Remove the given columns or rows from the table. Opposite of `select`."
+    }
+
+    fn extra_usage(&self) -> &str {
+        "To remove a quantity of rows or columns, use `skip`, `drop`, or `drop column`."
     }
 
     fn run(
@@ -38,7 +42,7 @@ impl Command for Reject {
         stack: &mut Stack,
         call: &Call,
         input: PipelineData,
-    ) -> Result<nu_protocol::PipelineData, nu_protocol::ShellError> {
+    ) -> Result<PipelineData, ShellError> {
         let columns: Vec<CellPath> = call.rest(engine_state, stack, 0)?;
         let span = call.head;
         reject(engine_state, span, input, columns)

@@ -3,12 +3,14 @@ use nu_engine::CallExt;
 use nu_protocol::ast::{Call, CellPath};
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::Span;
-use nu_protocol::{Example, PipelineData, ShellError, Signature, SyntaxShape, Type, Value};
+use nu_protocol::{
+    Category, Example, PipelineData, ShellError, Signature, SyntaxShape, Type, Value,
+};
 use std::marker::PhantomData;
 
 pub trait HashDigest: digest::Digest + Clone {
     fn name() -> &'static str;
-    fn examples() -> Vec<Example>;
+    fn examples() -> Vec<Example<'static>>;
 }
 
 #[derive(Clone)]
@@ -50,6 +52,7 @@ where
 
     fn signature(&self) -> Signature {
         Signature::build(self.name())
+            .category(Category::Hash)
             .input_output_types(vec![
                 (Type::String, Type::String),
                 (Type::String, Type::Binary),
@@ -70,7 +73,7 @@ where
         &self.usage
     }
 
-    fn examples(&self) -> Vec<Example> {
+    fn examples(&self) -> Vec<Example<'static>> {
         D::examples()
     }
 
@@ -80,7 +83,7 @@ where
         stack: &mut Stack,
         call: &Call,
         input: PipelineData,
-    ) -> Result<nu_protocol::PipelineData, nu_protocol::ShellError> {
+    ) -> Result<PipelineData, ShellError> {
         let binary = call.has_flag("binary");
         let cell_paths: Vec<CellPath> = call.rest(engine_state, stack, 0)?;
         let cell_paths = (!cell_paths.is_empty()).then_some(cell_paths);

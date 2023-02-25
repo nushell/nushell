@@ -1,8 +1,9 @@
 use nu_engine::CallExt;
+use nu_path::canonicalize_with;
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
-    Category, Example, PipelineData, ShellError, Signature, Spanned, SyntaxShape, Type, Value,
+    Category, Example, PipelineData, ShellError, Signature, Spanned, SyntaxShape, Type,
 };
 use std::path::Path;
 
@@ -15,7 +16,7 @@ impl Command for Start {
     }
 
     fn usage(&self) -> &str {
-        "Open a folder or file in the default application or viewer."
+        "Open a folder,file or website in the default application or viewer."
     }
 
     fn search_terms(&self) -> Vec<&str> {
@@ -25,7 +26,7 @@ impl Command for Start {
     fn signature(&self) -> nu_protocol::Signature {
         Signature::build("start")
             .input_output_types(vec![(Type::Nothing, Type::Any), (Type::String, Type::Any)])
-            .optional("filepath", SyntaxShape::Filepath, "the filepath to open")
+            .required("path", SyntaxShape::String, "path to open")
             .category(Category::FileSystem)
     }
 
@@ -34,45 +35,68 @@ impl Command for Start {
         engine_state: &EngineState,
         stack: &mut Stack,
         call: &Call,
-        input: PipelineData,
-    ) -> Result<nu_protocol::PipelineData, nu_protocol::ShellError> {
-        let path = call.opt::<Spanned<String>>(engine_state, stack, 0)?;
-
-        let path = {
-            if let Some(path_val) = path {
-                Some(Spanned {
-                    item: nu_utils::strip_ansi_string_unlikely(path_val.item),
-                    span: path_val.span,
-                })
-            } else {
-                path
-            }
-        };
-
-        let path = if let Some(path) = path {
-            path
-        } else {
-            // Collect a filename from the input
-            match input {
-                PipelineData::Value(Value::Nothing { .. }, ..) => {
-                    return Err(ShellError::MissingParameter(
-                        "needs filename".to_string(),
-                        call.head,
-                    ))
-                }
-                PipelineData::Value(val, ..) => val.as_spanned_string()?,
-                _ => {
-                    return Err(ShellError::MissingParameter(
-                        "needs filename".to_string(),
-                        call.head,
-                    ));
-                }
-            }
+        _input: PipelineData,
+    ) -> Result<PipelineData, ShellError> {
+        let path = call.req::<Spanned<String>>(engine_state, stack, 0)?;
+        let path = Spanned {
+            item: nu_utils::strip_ansi_string_unlikely(path.item),
+            span: path.span,
         };
         let path_no_whitespace = &path.item.trim_end_matches(|x| matches!(x, '\x09'..='\x0d'));
-        let path = Path::new(path_no_whitespace);
-
-        open::that(path)?;
+        // only check if file exists in current current directory
+        let file_path = Path::new(path_no_whitespace);
+        if file_path.exists() {
+            open::that(path_no_whitespace)?;
+        } else if file_path.starts_with("https://") || file_path.starts_with("http://") {
+            let url = url::Url::parse(&path.item).map_err(|_| {
+                ShellError::GenericError(
+                    format!("Cannot parse url: {}", &path.item),
+                    "".to_string(),
+                    Some(path.span),
+                    Some("cannot parse".to_string()),
+                    Vec::new(),
+                )
+            })?;
+            open::that(url.as_str())?;
+        } else {
+            // try to distinguish between file not found and opening url without prefix
+            if let Ok(path) =
+                canonicalize_with(path_no_whitespace, std::env::current_dir()?.as_path())
+            {
+                open::that(path)?;
+            } else {
+                // open crate does not allow opening URL without prefix
+                let path_with_prefix = Path::new("https://").join(&path.item);
+                let common_domains = vec!["com", "net", "org", "edu", "sh"];
+                if let Some(url) = path_with_prefix.to_str() {
+                    let url = url::Url::parse(url).map_err(|_| {
+                        ShellError::GenericError(
+                            format!("Cannot parse url: {}", &path.item),
+                            "".to_string(),
+                            Some(path.span),
+                            Some("cannot parse".to_string()),
+                            Vec::new(),
+                        )
+                    })?;
+                    if let Some(domain) = url.host() {
+                        let domain = domain.to_string();
+                        let ext = Path::new(&domain).extension().and_then(|s| s.to_str());
+                        if let Some(url_ext) = ext {
+                            if common_domains.contains(&url_ext) {
+                                open::that(url.as_str())?;
+                            }
+                        }
+                    }
+                    return Err(ShellError::GenericError(
+                        format!("Cannot find file or url: {}", &path.item),
+                        "".to_string(),
+                        Some(path.span),
+                        Some("Use prefix https:// to disambiguate URLs from files".to_string()),
+                        Vec::new(),
+                    ));
+                }
+            };
+        }
         Ok(PipelineData::Empty)
     }
 
@@ -96,6 +120,11 @@ impl Command for Start {
             Example {
                 description: "Open a pdf with the default pdf viewer",
                 example: "start file.pdf",
+                result: None,
+            },
+            Example {
+                description: "Open a website with default browser",
+                example: "start https://www.nushell.sh",
                 result: None,
             },
         ]

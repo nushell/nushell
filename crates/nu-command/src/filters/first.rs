@@ -43,7 +43,7 @@ impl Command for First {
     }
 
     fn usage(&self) -> &str {
-        "Return only the first several rows of the input. Counterpart of 'last'. Opposite of 'skip'."
+        "Return only the first several rows of the input. Counterpart of `last`. Opposite of `skip`."
     }
 
     fn run(
@@ -52,7 +52,7 @@ impl Command for First {
         stack: &mut Stack,
         call: &Call,
         input: PipelineData,
-    ) -> Result<nu_protocol::PipelineData, nu_protocol::ShellError> {
+    ) -> Result<PipelineData, ShellError> {
         first_helper(engine_state, stack, call, input)
     }
 
@@ -88,7 +88,7 @@ fn first_helper(
     stack: &mut Stack,
     call: &Call,
     input: PipelineData,
-) -> Result<nu_protocol::PipelineData, nu_protocol::ShellError> {
+) -> Result<PipelineData, ShellError> {
     let head = call.head;
     let rows: Option<i64> = call.opt(engine_state, stack, 0)?;
     // FIXME: for backwards compatibility reasons, if `rows` is not specified we

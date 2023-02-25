@@ -94,6 +94,57 @@ fn lex_incomplete_quote() {
 }
 
 #[test]
+fn lex_comments_no_space() {
+    // test for parses that contain tokens that normally introduce comments
+    // Code:
+    // let z = 42 #the comment
+    // let x#y = 69 #hello
+    // let flk = nixpkgs#hello #hello
+    let file = b"let z = 42 #the comment \n let x#y = 69 #hello \n let flk = nixpkgs#hello #hello";
+    let output = lex(file, 0, &[], &[], false);
+
+    assert_eq!(
+        output.0.get(4).unwrap(),
+        &Token {
+            contents: TokenContents::Comment,
+            span: Span::new(11, 24)
+        }
+    );
+
+    assert_eq!(
+        output.0.get(7).unwrap(),
+        &Token {
+            contents: TokenContents::Item,
+            span: Span::new(30, 33)
+        }
+    );
+
+    assert_eq!(
+        output.0.get(10).unwrap(),
+        &Token {
+            contents: TokenContents::Comment,
+            span: Span::new(39, 46)
+        }
+    );
+
+    assert_eq!(
+        output.0.get(15).unwrap(),
+        &Token {
+            contents: TokenContents::Item,
+            span: Span::new(58, 71)
+        }
+    );
+
+    assert_eq!(
+        output.0.get(16).unwrap(),
+        &Token {
+            contents: TokenContents::Comment,
+            span: Span::new(72, 78)
+        }
+    );
+}
+
+#[test]
 fn lex_comments() {
     // Comments should keep the end of line token
     // Code:

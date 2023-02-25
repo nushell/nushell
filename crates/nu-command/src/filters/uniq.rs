@@ -67,7 +67,7 @@ impl Command for Uniq {
         stack: &mut Stack,
         call: &Call,
         input: PipelineData,
-    ) -> Result<nu_protocol::PipelineData, nu_protocol::ShellError> {
+    ) -> Result<PipelineData, ShellError> {
         let mapper = Box::new(move |ms: ItemMapperState| -> ValueCounter {
             item_mapper(ms.item, ms.flag_ignore_case, ms.index)
         });
@@ -264,8 +264,8 @@ pub fn uniq(
     call: &Call,
     input: Vec<Value>,
     item_mapper: Box<dyn Fn(ItemMapperState) -> ValueCounter>,
-    metadata: Option<PipelineMetadata>,
-) -> Result<nu_protocol::PipelineData, nu_protocol::ShellError> {
+    metadata: Option<Box<PipelineMetadata>>,
+) -> Result<PipelineData, ShellError> {
     let ctrlc = engine_state.ctrlc.clone();
     let head = call.head;
     let flag_show_count = call.has_flag("count");

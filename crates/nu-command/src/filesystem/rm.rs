@@ -45,7 +45,7 @@ impl Command for Rm {
 
     fn signature(&self) -> Signature {
         let sig = Signature::build("rm")
-            .input_output_types(vec![(Type::Nothing, Type::List(Box::new(Type::String)))])
+            .input_output_types(vec![(Type::Nothing, Type::Nothing)])
             .required(
                 "filename",
                 SyntaxShape::Filepath,
@@ -329,7 +329,7 @@ fn rm(
         }
     }
 
-    Ok(all_targets
+    all_targets
         .into_keys()
         .map(move |f| {
             let is_empty = || match f.read_dir() {
@@ -450,5 +450,8 @@ fn rm(
             }
         })
         .filter(|x| !matches!(x.get_type(), Type::Nothing))
-        .into_pipeline_data(ctrlc))
+        .into_pipeline_data(ctrlc)
+        .print_not_formatted(engine_state, false, true)?;
+
+    Ok(PipelineData::empty())
 }

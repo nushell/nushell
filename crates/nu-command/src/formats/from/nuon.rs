@@ -57,7 +57,7 @@ impl Command for FromNuon {
         _stack: &mut Stack,
         call: &Call,
         input: PipelineData,
-    ) -> Result<nu_protocol::PipelineData, ShellError> {
+    ) -> Result<PipelineData, ShellError> {
         let head = call.head;
         let (string_input, _span, metadata) = input.collect_string_strict(head)?;
 

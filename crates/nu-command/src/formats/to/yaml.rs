@@ -36,8 +36,9 @@ impl Command for ToYaml {
         _stack: &mut Stack,
         call: &Call,
         input: PipelineData,
-    ) -> Result<nu_protocol::PipelineData, ShellError> {
+    ) -> Result<PipelineData, ShellError> {
         let head = call.head;
+        let input = input.try_expand_range()?;
         to_yaml(input, head)
     }
 }

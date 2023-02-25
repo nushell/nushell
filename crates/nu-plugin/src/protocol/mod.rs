@@ -3,7 +3,7 @@ mod plugin_custom_value;
 mod plugin_data;
 
 pub use evaluated_call::EvaluatedCall;
-use nu_protocol::{ShellError, Signature, Span, Value};
+use nu_protocol::{PluginSignature, ShellError, Span, Value};
 pub use plugin_custom_value::PluginCustomValue;
 pub use plugin_data::PluginData;
 use serde::{Deserialize, Serialize};
@@ -97,7 +97,7 @@ impl From<ShellError> for LabeledError {
 #[derive(Serialize, Deserialize)]
 pub enum PluginResponse {
     Error(LabeledError),
-    Signature(Vec<Signature>),
+    Signature(Vec<PluginSignature>),
     Value(Box<Value>),
     PluginData(String, PluginData),
 }

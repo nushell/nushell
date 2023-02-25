@@ -8,7 +8,7 @@ use nu_protocol::{
 use super::eager::ToDataFrame;
 use super::expressions::ExprCol;
 use super::lazy::{LazyCollect, ToLazyFrame};
-use crate::Let;
+use nu_cmd_lang::Let;
 
 pub fn test_dataframe(cmds: Vec<Box<dyn Command + 'static>>) {
     if cmds.is_empty() {
@@ -30,7 +30,7 @@ pub fn test_dataframe(cmds: Vec<Box<dyn Command + 'static>>) {
         working_set.add_decl(Box::new(ExprCol));
 
         // Adding the command that is being tested to the working set
-        for cmd in cmds {
+        for cmd in cmds.clone() {
             working_set.add_decl(cmd);
         }
 

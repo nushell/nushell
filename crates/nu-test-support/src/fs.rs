@@ -137,6 +137,7 @@ pub enum Stub<'a> {
     FileWithContent(&'a str, &'a str),
     FileWithContentToBeTrimmed(&'a str, &'a str),
     EmptyFile(&'a str),
+    FileWithPermission(&'a str, bool),
 }
 
 pub fn file_contents(full_path: impl AsRef<Path>) -> String {
@@ -204,6 +205,11 @@ pub fn executable_path() -> PathBuf {
     let mut path = binaries();
     path.push("nu");
     path
+}
+
+pub fn installed_nu_path() -> PathBuf {
+    let path = std::env::var_os(crate::NATIVE_PATH_ENV_VAR);
+    which::which_in("nu", path, ".").unwrap_or_else(|_| executable_path())
 }
 
 pub fn root() -> PathBuf {

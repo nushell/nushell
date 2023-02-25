@@ -43,7 +43,7 @@ impl Command for ConfigReset {
         _stack: &mut Stack,
         call: &Call,
         _input: PipelineData,
-    ) -> Result<nu_protocol::PipelineData, nu_protocol::ShellError> {
+    ) -> Result<PipelineData, ShellError> {
         let only_nu = call.has_flag("nu");
         let only_env = call.has_flag("env");
         let no_backup = call.has_flag("without-backup");

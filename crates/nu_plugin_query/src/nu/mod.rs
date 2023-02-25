@@ -1,28 +1,29 @@
 use crate::Query;
 use nu_plugin::{EvaluatedCall, LabeledError, Plugin};
-use nu_protocol::{Category, Signature, Spanned, SyntaxShape, Value};
+use nu_protocol::{Category, PluginExample, PluginSignature, Spanned, SyntaxShape, Value};
 
 impl Plugin for Query {
-    fn signature(&self) -> Vec<Signature> {
+    fn signature(&self) -> Vec<PluginSignature> {
         vec![
-            Signature::build("query")
+            PluginSignature::build("query")
             .usage("Show all the query commands")
             .category(Category::Filters),
 
-            Signature::build("query json")
+            PluginSignature::build("query json")
             .usage("execute json query on json file (open --raw <file> | query json 'query string')")
             .required("query", SyntaxShape::String, "json query")
             .category(Category::Filters),
 
-            Signature::build("query xml")
+            PluginSignature::build("query xml")
             .usage("execute xpath query on xml")
             .required("query", SyntaxShape::String, "xpath query")
             .category(Category::Filters),
 
-            Signature::build("query web")
+            PluginSignature::build("query web")
             .usage("execute selector query on html/web")
             .named("query", SyntaxShape::String, "selector query", Some('q'))
             .switch("as-html", "return the query output as html", Some('m'))
+            .plugin_examples(web_examples())
             .named(
                 "attribute",
                 SyntaxShape::String,
@@ -67,4 +68,27 @@ impl Plugin for Query {
             }),
         }
     }
+}
+
+pub fn web_examples() -> Vec<PluginExample> {
+    vec![PluginExample {
+        example: "http get https://phoronix.com | query web -q 'header'".into(),
+        description: "Retrieve all <header> elements from phoronix.com website".into(),
+        result: None,
+    }, PluginExample {
+        example: "http get https://en.wikipedia.org/wiki/List_of_cities_in_India_by_population
+    | query web -t [Rank City 'Population(2011)[3]' 'Population(2001)' 'State or union territory']".into(),
+        description: "Retrieve a html table from Wikipedia and parse it into a nushell table using table headers as guides".into(),
+        result: None
+    },
+    PluginExample {
+        example: "http get https://www.nushell.sh | query web -q 'h2, h2 + p' | group 2 | each {rotate --ccw tagline description} | flatten".into(),
+        description: "Pass multiple css selectors to extract several elements within single query, group the query results together and rotate them to create a table".into(),
+        result: None,
+    },
+    PluginExample {
+        example: "http get https://example.org | query web --query a --attribute href".into(),
+        description: "Retrieve a specific html attribute instead of the default text".into(),
+        result: None,
+    }]
 }

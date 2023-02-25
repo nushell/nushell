@@ -64,6 +64,7 @@ impl Command for ToXml {
     ) -> Result<PipelineData, ShellError> {
         let head = call.head;
         let pretty: Option<Spanned<i64>> = call.get_flag(engine_state, stack, "pretty")?;
+        let input = input.try_expand_range()?;
         to_xml(input, head, pretty)
     }
 }

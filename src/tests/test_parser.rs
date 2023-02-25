@@ -147,8 +147,8 @@ fn bad_var_name2() -> TestResult {
 #[test]
 fn long_flag() -> TestResult {
     run_test(
-        r#"([a, b, c] | each --numbered { |it| if $it.index == 1 { 100 } else { 0 } }).1"#,
-        "100",
+        r#"([a, b, c] | enumerate | each --keep-empty { |e| if $e.index != 1 { 100 }}).1 | to nuon"#,
+        "null",
     )
 }
 
@@ -224,7 +224,7 @@ fn commands_have_usage() -> TestResult {
 #[test]
 fn equals_separates_long_flag() -> TestResult {
     run_test(
-        r#"'nushell' | str lpad --length=10 --character='-'"#,
+        r#"'nushell' | fill --alignment right --width=10 --character='-'"#,
         "---nushell",
     )
 }

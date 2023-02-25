@@ -299,11 +299,11 @@ fn run_custom_command_with_empty_rest() {
     let actual = nu!(
         cwd: ".",
         r#"
-            def rest-me-with-empty-rest [...rest: string] { echo $rest }; rest-me-with-empty-rest
+            def rest-me-with-empty-rest [...rest: string] { $rest }; rest-me-with-empty-rest | is-empty
         "#
     );
 
-    assert_eq!(actual.out, r#""#);
+    assert_eq!(actual.out, r#"true"#);
     assert_eq!(actual.err, r#""#);
 }
 
@@ -1257,6 +1257,13 @@ mod parse {
         let actual = nu!(cwd: ".", "debug ferris");
 
         assert!(actual.err.contains("extra positional argument"),);
+    }
+
+    #[test]
+    fn ensure_backticks_are_bareword_command() {
+        let actual = nu!(cwd: ".", "`8abc123`");
+
+        assert!(actual.err.contains("was not found"),);
     }
 }
 

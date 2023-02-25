@@ -1,19 +1,14 @@
-use base64::{alphabet, engine::general_purpose::PAD, engine::GeneralPurpose, Engine};
 use nu_engine::CallExt;
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
-use nu_protocol::util::BufferedReader;
-use nu_protocol::RawStream;
 use nu_protocol::{
-    Category, Example, PipelineData, ShellError, Signature, Span, SyntaxShape, Type, Value,
+    Category, Example, PipelineData, ShellError, Signature, SyntaxShape, Type, Value,
 };
-use reqwest::blocking::Response;
-use reqwest::StatusCode;
-use std::collections::HashMap;
-use std::io::BufReader;
-use std::path::PathBuf;
-use std::str::FromStr;
-use std::time::Duration;
+
+use crate::network::http::client::{
+    http_client, http_parse_url, request_add_authorization_header, request_add_custom_headers,
+    request_handle_response, request_set_body, request_set_timeout,
+};
 
 #[derive(Clone)]
 pub struct SubCommand;
@@ -26,6 +21,7 @@ impl Command for SubCommand {
     fn signature(&self) -> Signature {
         Signature::build("http get")
             .input_output_types(vec![(Type::Nothing, Type::Any)])
+            .allow_variants_without_examples(true)
             .required(
                 "URL",
                 SyntaxShape::String,
@@ -43,11 +39,24 @@ impl Command for SubCommand {
                 "the password when authenticating",
                 Some('p'),
             )
+            .named("data", SyntaxShape::Any, "the content to post", Some('d'))
             .named(
-                "timeout",
+                "content-type",
+                SyntaxShape::Any,
+                "the MIME type of content to post",
+                Some('t'),
+            )
+            .named(
+                "content-length",
+                SyntaxShape::Any,
+                "the length of the content being posted",
+                Some('l'),
+            )
+            .named(
+                "max-time",
                 SyntaxShape::Int,
                 "timeout period in seconds",
-                Some('t'),
+                Some('m'),
             )
             .named(
                 "headers",
@@ -59,6 +68,11 @@ impl Command for SubCommand {
                 "raw",
                 "fetch contents as text rather than a table",
                 Some('r'),
+            )
+            .switch(
+                "insecure",
+                "allow insecure server connections when using SSL",
+                Some('k'),
             )
             .filter()
             .category(Category::Network)
@@ -84,25 +98,35 @@ impl Command for SubCommand {
         stack: &mut Stack,
         call: &Call,
         input: PipelineData,
-    ) -> Result<nu_protocol::PipelineData, nu_protocol::ShellError> {
-        run_fetch(engine_state, stack, call, input)
+    ) -> Result<PipelineData, ShellError> {
+        run_get(engine_state, stack, call, input)
     }
 
     fn examples(&self) -> Vec<Example> {
         vec![
             Example {
-                description: "http get content from example.com",
+                description: "Get content from example.com",
                 example: "http get https://www.example.com",
                 result: None,
             },
             Example {
-                description: "http get content from example.com, with username and password",
+                description: "Get content from example.com, with username and password",
                 example: "http get -u myuser -p mypass https://www.example.com",
                 result: None,
             },
             Example {
-                description: "http get content from example.com, with custom header",
+                description: "Get content from example.com, with custom header",
                 example: "http get -H [my-header-key my-header-value] https://www.example.com",
+                result: None,
+            },
+            Example {
+                description: "Get content from example.com, with body",
+                example: "http get -d 'body' https://www.example.com",
+                result: None,
+            },
+            Example {
+                description: "Get content from example.com, with JSON body",
+                example: "http get -t application/json -d { field: value } https://www.example.com",
                 result: None,
             },
         ]
@@ -111,28 +135,36 @@ impl Command for SubCommand {
 
 struct Arguments {
     url: Value,
+    headers: Option<Value>,
+    data: Option<Value>,
+    content_type: Option<String>,
+    content_length: Option<String>,
     raw: bool,
+    insecure: Option<bool>,
     user: Option<String>,
     password: Option<String>,
     timeout: Option<Value>,
-    headers: Option<Value>,
 }
 
-fn run_fetch(
+fn run_get(
     engine_state: &EngineState,
     stack: &mut Stack,
     call: &Call,
     _input: PipelineData,
-) -> Result<nu_protocol::PipelineData, nu_protocol::ShellError> {
+) -> Result<PipelineData, ShellError> {
     let args = Arguments {
         url: call.req(engine_state, stack, 0)?,
+        headers: call.get_flag(engine_state, stack, "headers")?,
+        data: call.get_flag(engine_state, stack, "data")?,
+        content_type: call.get_flag(engine_state, stack, "content-type")?,
+        content_length: call.get_flag(engine_state, stack, "content-length")?,
         raw: call.has_flag("raw"),
+        insecure: call.get_flag(engine_state, stack, "insecure")?,
         user: call.get_flag(engine_state, stack, "user")?,
         password: call.get_flag(engine_state, stack, "password")?,
         timeout: call.get_flag(engine_state, stack, "timeout")?,
-        headers: call.get_flag(engine_state, stack, "headers")?,
     };
-    helper(engine_state, stack, args)
+    helper(engine_state, stack, call, args)
 }
 
 // Helper function that actually goes to retrieve the resource from the url given
@@ -140,280 +172,41 @@ fn run_fetch(
 fn helper(
     engine_state: &EngineState,
     stack: &mut Stack,
+    call: &Call,
     args: Arguments,
-) -> std::result::Result<PipelineData, ShellError> {
-    // There is no need to error-check this, as the URL is already guaranteed by basic nu command argument type checks.
-    let url_value = args.url;
+) -> Result<PipelineData, ShellError> {
+    let span = args.url.span()?;
+    let (requested_url, url) = http_parse_url(call, span, args.url)?;
 
-    let span = url_value.span()?;
-    let requested_url = url_value.as_string()?;
-    let url = match url::Url::parse(&requested_url) {
-        Ok(u) => u,
-        Err(_e) => {
-            return Err(ShellError::TypeMismatch(
-                "Incomplete or incorrect URL. Expected a full URL, e.g., https://www.example.com"
-                    .to_string(),
-                span,
-            ));
-        }
-    };
-    let user = args.user.clone();
-    let password = args.password;
-    let timeout = args.timeout;
-    let headers = args.headers;
-    let raw = args.raw;
-    let base64_engine = GeneralPurpose::new(&alphabet::STANDARD, PAD);
-
-    let login = match (user, password) {
-        (Some(user), Some(password)) => {
-            let mut enc_str = String::new();
-            base64_engine.encode_string(&format!("{user}:{password}"), &mut enc_str);
-            Some(enc_str)
-        }
-        (Some(user), _) => {
-            let mut enc_str = String::new();
-            base64_engine.encode_string(&format!("{user}:"), &mut enc_str);
-            Some(enc_str)
-        }
-        (_, Some(password)) => {
-            let mut enc_str = String::new();
-            base64_engine.encode_string(&format!(":{password}"), &mut enc_str);
-            Some(enc_str)
-        }
-        _ => None,
-    };
-
-    let client = http_client();
+    let client = http_client(args.insecure.is_some());
     let mut request = client.get(url);
 
-    if let Some(timeout) = timeout {
-        let val = timeout.as_i64()?;
-        if val.is_negative() || val < 1 {
-            return Err(ShellError::TypeMismatch(
-                "Timeout value must be an integer and larger than 0".to_string(),
-                // timeout is already guaranteed to not be an error
-                timeout.expect_span(),
-            ));
-        }
-
-        request = request.timeout(Duration::from_secs(val as u64));
+    if let Some(data) = args.data {
+        request = request_set_body(args.content_type, args.content_length, data, request)?;
     }
+    request = request_set_timeout(args.timeout, request)?;
+    request = request_add_authorization_header(args.user, args.password, request);
+    request = request_add_custom_headers(args.headers, request)?;
 
-    if let Some(login) = login {
-        request = request.header("Authorization", format!("Basic {login}"));
-    }
-
-    if let Some(headers) = headers {
-        let mut custom_headers: HashMap<String, Value> = HashMap::new();
-
-        match &headers {
-            Value::List { vals: table, .. } => {
-                if table.len() == 1 {
-                    // single row([key1 key2]; [val1 val2])
-                    match &table[0] {
-                        Value::Record { cols, vals, .. } => {
-                            for (k, v) in cols.iter().zip(vals.iter()) {
-                                custom_headers.insert(k.to_string(), v.clone());
-                            }
-                        }
-
-                        x => {
-                            return Err(ShellError::CantConvert(
-                                "string list or single row".into(),
-                                x.get_type().to_string(),
-                                headers.span().unwrap_or_else(|_| Span::new(0, 0)),
-                                None,
-                            ));
-                        }
-                    }
-                } else {
-                    // primitive values ([key1 val1 key2 val2])
-                    for row in table.chunks(2) {
-                        if row.len() == 2 {
-                            custom_headers.insert(row[0].as_string()?, row[1].clone());
-                        }
-                    }
-                }
-            }
-
-            x => {
-                return Err(ShellError::CantConvert(
-                    "string list or single row".into(),
-                    x.get_type().to_string(),
-                    headers.span().unwrap_or_else(|_| Span::new(0, 0)),
-                    None,
-                ));
-            }
-        };
-
-        for (k, v) in &custom_headers {
-            if let Ok(s) = v.as_string() {
-                request = request.header(k, s);
-            }
-        }
-    }
-
-    // Explicitly turn 4xx and 5xx statuses into errors.
-    match request.send().and_then(|r| r.error_for_status()) {
-        Ok(resp) => match resp.headers().get("content-type") {
-            Some(content_type) => {
-                let content_type = content_type.to_str().map_err(|e| {
-                    ShellError::GenericError(
-                        e.to_string(),
-                        "".to_string(),
-                        None,
-                        Some("MIME type were invalid".to_string()),
-                        Vec::new(),
-                    )
-                })?;
-                let content_type = mime::Mime::from_str(content_type).map_err(|_| {
-                    ShellError::GenericError(
-                        format!("MIME type unknown: {content_type}"),
-                        "".to_string(),
-                        None,
-                        Some("given unknown MIME type".to_string()),
-                        Vec::new(),
-                    )
-                })?;
-                let ext = match (content_type.type_(), content_type.subtype()) {
-                    (mime::TEXT, mime::PLAIN) => {
-                        let path_extension = url::Url::parse(&requested_url)
-                            .map_err(|_| {
-                                ShellError::GenericError(
-                                    format!("Cannot parse URL: {requested_url}"),
-                                    "".to_string(),
-                                    None,
-                                    Some("cannot parse".to_string()),
-                                    Vec::new(),
-                                )
-                            })?
-                            .path_segments()
-                            .and_then(|segments| segments.last())
-                            .and_then(|name| if name.is_empty() { None } else { Some(name) })
-                            .and_then(|name| {
-                                PathBuf::from(name)
-                                    .extension()
-                                    .map(|name| name.to_string_lossy().to_string())
-                            });
-                        path_extension
-                    }
-                    _ => Some(content_type.subtype().to_string()),
-                };
-
-                let output = response_to_buffer(resp, engine_state, span);
-
-                if raw {
-                    return Ok(output);
-                }
-
-                if let Some(ext) = ext {
-                    match engine_state.find_decl(format!("from {ext}").as_bytes(), &[]) {
-                        Some(converter_id) => engine_state.get_decl(converter_id).run(
-                            engine_state,
-                            stack,
-                            &Call::new(span),
-                            output,
-                        ),
-                        None => Ok(output),
-                    }
-                } else {
-                    Ok(output)
-                }
-            }
-            None => Ok(response_to_buffer(resp, engine_state, span)),
-        },
-        Err(e) if e.is_timeout() => Err(ShellError::NetworkFailure(
-            format!("Request to {requested_url} has timed out"),
-            span,
-        )),
-        Err(e) if e.is_status() => match e.status() {
-            Some(err_code) if err_code == StatusCode::NOT_FOUND => Err(ShellError::NetworkFailure(
-                format!("Requested file not found (404): {requested_url:?}"),
-                span,
-            )),
-            Some(err_code) if err_code == StatusCode::MOVED_PERMANENTLY => {
-                Err(ShellError::NetworkFailure(
-                    format!("Resource moved permanently (301): {requested_url:?}"),
-                    span,
-                ))
-            }
-            Some(err_code) if err_code == StatusCode::BAD_REQUEST => Err(
-                ShellError::NetworkFailure(format!("Bad request (400) to {requested_url:?}"), span),
-            ),
-            Some(err_code) if err_code == StatusCode::FORBIDDEN => Err(ShellError::NetworkFailure(
-                format!("Access forbidden (403) to {requested_url:?}"),
-                span,
-            )),
-            _ => Err(ShellError::NetworkFailure(
-                format!(
-                    "Cannot make request to {:?}. Error is {:?}",
-                    requested_url,
-                    e.to_string()
-                ),
-                span,
-            )),
-        },
-        Err(e) => Err(ShellError::NetworkFailure(
-            format!(
-                "Cannot make request to {:?}. Error is {:?}",
-                requested_url,
-                e.to_string()
-            ),
-            span,
-        )),
-    }
-}
-
-fn response_to_buffer(
-    response: Response,
-    engine_state: &EngineState,
-    span: Span,
-) -> nu_protocol::PipelineData {
-    // Try to get the size of the file to be downloaded.
-    // This is helpful to show the progress of the stream.
-    let buffer_size = match &response.headers().get("content-length") {
-        Some(content_length) => {
-            let content_length = &(*content_length).clone(); // binding
-
-            let content_length = content_length
-                .to_str()
-                .unwrap_or("")
-                .parse::<u64>()
-                .unwrap_or(0);
-
-            if content_length == 0 {
-                None
-            } else {
-                Some(content_length)
-            }
-        }
-        _ => None,
-    };
-    let buffered_input = BufReader::new(response);
-
-    PipelineData::ExternalStream {
-        stdout: Some(RawStream::new(
-            Box::new(BufferedReader {
-                input: buffered_input,
-            }),
-            engine_state.ctrlc.clone(),
-            span,
-            buffer_size,
-        )),
-        stderr: None,
-        exit_code: None,
+    let response = request.send().and_then(|r| r.error_for_status());
+    request_handle_response(
+        engine_state,
+        stack,
         span,
-        metadata: None,
-        trim_end_newline: false,
-    }
+        &requested_url,
+        args.raw,
+        response,
+    )
 }
 
-// Only panics if the user agent is invalid but we define it statically so either
-// it always or never fails
-#[allow(clippy::unwrap_used)]
-fn http_client() -> reqwest::blocking::Client {
-    reqwest::blocking::Client::builder()
-        .user_agent("nushell")
-        .build()
-        .unwrap()
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_examples() {
+        use crate::test_examples;
+
+        test_examples(SubCommand {})
+    }
 }

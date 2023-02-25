@@ -39,12 +39,13 @@ impl Command for SubCommand {
 
     fn signature(&self) -> Signature {
         Signature::build("str trim")
-        .input_output_types(vec![(Type::String, Type::String)])
-        .vectorizes_over_list(true)
-        .rest(
+            .input_output_types(vec![(Type::String, Type::String)])
+            .vectorizes_over_list(true)
+            .rest(
                 "rest",
                 SyntaxShape::CellPath,
-                "For a data structure input, trim strings at the given cell paths",            )
+                "For a data structure input, trim strings at the given cell paths",
+            )
             .named(
                 "char",
                 SyntaxShape::String,
@@ -53,21 +54,29 @@ impl Command for SubCommand {
             )
             .switch(
                 "left",
-                "trims characters only from the beginning of the string (default: whitespace)",
+                "trims characters only from the beginning of the string",
                 Some('l'),
             )
             .switch(
                 "right",
-                "trims characters only from the end of the string (default: whitespace)",
+                "trims characters only from the end of the string",
                 Some('r'),
             )
             .switch(
                 "all",
-                "trims all characters from both sides of the string *and* in the middle (default: whitespace)",
+                "trims all characters from both sides of the string *and* in the middle",
                 Some('a'),
             )
-            .switch("both", "trims all characters from left and right side of the string (default: whitespace)", Some('b'))
-            .switch("format", "trims spaces replacing multiple characters with singles in the middle (default: whitespace)", Some('f'))
+            .switch(
+                "both",
+                "trims all characters from left and right side of the string",
+                Some('b'),
+            )
+            .switch(
+                "format",
+                "trims spaces replacing multiple characters with singles in the middle",
+                Some('f'),
+            )
     }
     fn usage(&self) -> &str {
         "Trim whitespace or specific character"
@@ -83,7 +92,7 @@ impl Command for SubCommand {
         stack: &mut Stack,
         call: &Call,
         input: PipelineData,
-    ) -> Result<nu_protocol::PipelineData, nu_protocol::ShellError> {
+    ) -> Result<PipelineData, ShellError> {
         let character = call.get_flag::<Spanned<String>>(engine_state, stack, "char")?;
         let to_trim = match character.as_ref() {
             Some(v) => {
