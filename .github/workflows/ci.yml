@@ -184,8 +184,8 @@ jobs:
         run: |
           source <(cargo llvm-cov show-env --export-prefix) # Set the environment variables needed to get coverage.
           cargo llvm-cov clean --workspace # Remove artifacts that may affect the coverage results.
-          cargo build --lib --bins --examples --workspace --profile ci
-          cargo test --lib --bins --examples --workspace --profile ci --exclude nu_plugin_* ${{ matrix.flags }}
+          cargo build --workspace --profile ci
+          cargo test --workspace --profile ci
           cargo llvm-cov report --profile ci --lcov --output-path lcov.info
 
       - name: Upload coverage reports to Codecov with GitHub Action
