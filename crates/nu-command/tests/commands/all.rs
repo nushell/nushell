@@ -58,10 +58,13 @@ fn checks_all_columns_of_a_table_is_true() {
 
 #[test]
 fn checks_if_all_returns_error_with_invalid_command() {
+    // Using `with-env` to remove `st` possibly being an external program
     let actual = nu!(
         cwd: ".", pipeline(
         r#"
-            [red orange yellow green blue purple] | all {|it| ($it | st length) > 4 }
+            with-env {PATH: ""} {
+                [red orange yellow green blue purple] | all {|it| ($it | st length) > 4 }
+            }
         "#
     ));
 
