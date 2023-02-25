@@ -699,10 +699,13 @@ pub fn eval_expression_with_input(
         }
     };
 
-    if redirect_stdout {
-        Ok((input, false))
-    } else {
+    // Note: for `table` command, it mights returns `ExternalStream with stdout`
+    // whatever `redirect_output` is true or false, so we only want to consume ExternalStream
+    // if relative stdout is None.
+    if let PipelineData::ExternalStream { stdout: None, .. } = input {
         Ok(might_consume_external_result(input))
+    } else {
+        Ok((input, false))
     }
 }
 
