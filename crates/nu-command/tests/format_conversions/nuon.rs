@@ -286,6 +286,19 @@ fn from_nuon_datetime() {
 }
 
 #[test]
+fn to_nuon_errs_on_closure() {
+    let actual = nu!(
+        cwd: "tests/fixtures/formats", pipeline(
+        r#"
+            {|| to nuon}
+            | to nuon
+        "#
+    ));
+
+    assert!(actual.err.contains("not nuon-compatible"));
+}
+
+#[test]
 fn binary_to() {
     let actual = nu!(
         cwd: "tests/fixtures/formats", pipeline(
