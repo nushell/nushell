@@ -37,7 +37,7 @@ fn row() {
                 "#
         ));
 
-        assert_eq!(actual.out, "2");
+        assert_eq!(actual, Ok("2"));
     });
 }
 

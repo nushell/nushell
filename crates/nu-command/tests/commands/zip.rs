@@ -42,7 +42,7 @@ fn zips_two_tables() {
             )
         ));
 
-        assert_eq!(actual.out, "true");
+        assert_eq!(actual, Ok("true"));
     })
 }
 
@@ -55,5 +55,5 @@ fn zips_two_lists() {
         "#
     ));
 
-    assert_eq!(actual.out, "0-1-2-3-4-5-6-7-8-9");
+    assert_eq!(actual, Ok("0-1-2-3-4-5-6-7-8-9"));
 }

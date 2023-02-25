@@ -30,6 +30,6 @@ fn adds_row_data_if_column_missing() {
             "#
         ));
 
-        assert_eq!(actual.out, "2");
+        assert_eq!(actual, Ok("2"));
     });
 }

@@ -5,13 +5,13 @@ use nu_test_support::{nu, pipeline};
 #[test]
 fn simple_get_record() {
     let actual = nu!(r#"({foo: 'bar'} | get foo) == "bar""#);
-    assert_eq!(actual.out, "true");
+    assert_eq!(actual, Ok("true"));
 }
 
 #[test]
 fn simple_get_list() {
     let actual = nu!(r#"([{foo: 'bar'}] | get foo) == [bar]"#);
-    assert_eq!(actual.out, "true");
+    assert_eq!(actual, Ok("true"));
 }
 
 #[test]
@@ -32,7 +32,7 @@ fn fetches_a_row() {
             "#
         ));
 
-        assert_eq!(actual.out, "zion");
+        assert_eq!(actual, Ok("zion"));
     })
 }
 
@@ -58,7 +58,7 @@ fn fetches_by_index() {
             "#
         ));
 
-        assert_eq!(actual.out, "Andrés N. Robalino <andres@androbtech.com>");
+        assert_eq!(actual, Ok("Andrés N. Robalino <andres@androbtech.com>"));
     })
 }
 
@@ -81,7 +81,7 @@ fn fetches_by_column_path() {
             "#
         ));
 
-        assert_eq!(actual.out, "nu");
+        assert_eq!(actual, Ok("nu"));
     })
 }
 
@@ -106,7 +106,7 @@ fn column_paths_are_either_double_quoted_or_regular_unquoted_words_separated_by_
             "#
         ));
 
-        assert_eq!(actual.out, "3");
+        assert_eq!(actual, Ok("3"));
     })
 }
 
@@ -139,7 +139,7 @@ fn fetches_more_than_one_column_path() {
             "#
         ));
 
-        assert_eq!(actual.out, "JT");
+        assert_eq!(actual, Ok("JT"));
     })
 }
 
@@ -229,7 +229,7 @@ fn quoted_column_access() {
         r#"'[{"foo bar": {"baz": 4}}]' | from json | get "foo bar".baz.0 "#
     );
 
-    assert_eq!(actual.out, "4");
+    assert_eq!(actual, Ok("4"));
 }
 
 #[test]

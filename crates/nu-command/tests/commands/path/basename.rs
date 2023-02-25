@@ -12,7 +12,7 @@ fn returns_basename_of_empty_input() {
         "#
     ));
 
-    assert_eq!(actual.out, "");
+    assert_eq!(actual, Ok(""));
 }
 
 #[test]
@@ -25,7 +25,7 @@ fn replaces_basename_of_empty_input() {
         "#
     ));
 
-    assert_eq!(actual.out, "newname.txt");
+    assert_eq!(actual, Ok("newname.txt"));
 }
 
 #[test]
@@ -38,7 +38,7 @@ fn returns_basename_of_path_ending_with_dot() {
         "#
     ));
 
-    assert_eq!(actual.out, "file.txt");
+    assert_eq!(actual, Ok("file.txt"));
 }
 
 #[test]
@@ -52,7 +52,7 @@ fn replaces_basename_of_path_ending_with_dot() {
     ));
 
     let expected = join_path_sep(&["some", "viking.txt"]);
-    assert_eq!(actual.out, expected);
+    assert_eq!(actual, Ok(expected));
 }
 
 #[test]
@@ -65,7 +65,7 @@ fn returns_basename_of_path_ending_with_double_dot() {
         "#
     ));
 
-    assert_eq!(actual.out, "");
+    assert_eq!(actual, Ok(""));
 }
 
 #[test]
@@ -79,5 +79,5 @@ fn replaces_basename_of_path_ending_with_double_dot() {
     ));
 
     let expected = join_path_sep(&["some/file.txt/..", "eggs"]);
-    assert_eq!(actual.out, expected);
+    assert_eq!(actual, Ok(expected));
 }

@@ -13,5 +13,5 @@ fn table_to_bson_and_back_into_table() {
         "#
     ));
 
-    assert_eq!(actual.out, "whel");
+    assert_eq!(actual, Ok("whel"));
 }

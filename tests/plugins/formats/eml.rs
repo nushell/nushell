@@ -12,14 +12,14 @@ fn from_eml_get_to_field() {
         "open sample.eml | get To.Address"
     );
 
-    assert_eq!(actual.out, "to@example.com");
+    assert_eq!(actual, Ok("to@example.com"));
     let actual = nu_with_plugins!(
         cwd: TEST_CWD,
         plugin: ("nu_plugin_formats"),
         "open sample.eml | get To | get Name"
     );
 
-    assert_eq!(actual.out, "");
+    assert_eq!(actual, Ok(""));
 }
 
 // The Reply-To field in this email is "replyto@example.com" <replyto@example.com>, meaning both the Name and Address values are identical.
@@ -31,7 +31,7 @@ fn from_eml_get_replyto_field() {
         "open sample.eml | get Reply-To | get Address"
     );
 
-    assert_eq!(actual.out, "replyto@example.com");
+    assert_eq!(actual, Ok("replyto@example.com"));
 
     let actual = nu_with_plugins!(
         cwd: TEST_CWD,
@@ -39,7 +39,7 @@ fn from_eml_get_replyto_field() {
         "open sample.eml | get Reply-To | get Name"
     );
 
-    assert_eq!(actual.out, "replyto@example.com");
+    assert_eq!(actual, Ok("replyto@example.com"));
 }
 
 #[test]
@@ -50,7 +50,7 @@ fn from_eml_get_subject_field() {
         "open sample.eml | get Subject"
     );
 
-    assert_eq!(actual.out, "Test Message");
+    assert_eq!(actual, Ok("Test Message"));
 }
 
 #[test]
@@ -61,5 +61,5 @@ fn from_eml_get_another_header_field() {
         "open sample.eml | get MIME-Version"
     );
 
-    assert_eq!(actual.out, "1.0");
+    assert_eq!(actual, Ok("1.0"));
 }

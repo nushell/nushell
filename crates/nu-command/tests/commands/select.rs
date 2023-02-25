@@ -19,7 +19,7 @@ fn regular_columns() {
         "#
     ));
 
-    assert_eq!(actual.out, "Robalino");
+    assert_eq!(actual, Ok("Robalino"));
 }
 
 #[test]
@@ -61,7 +61,7 @@ fn complex_nested_columns() {
             "#
         ));
 
-        assert_eq!(actual.out, "0.9999999");
+        assert_eq!(actual, Ok("0.9999999"));
     })
 }
 
@@ -100,7 +100,7 @@ fn column_names_with_spaces() {
         "#
     ));
 
-    assert_eq!(actual.out, "Robalino Jnth");
+    assert_eq!(actual, Ok("Robalino Jnth"));
 }
 
 #[test]
@@ -119,7 +119,7 @@ fn ignores_duplicate_columns_selected() {
         "#
     ));
 
-    assert_eq!(actual.out, "first name last name");
+    assert_eq!(actual, Ok("first name last name"));
 }
 
 #[test]
@@ -137,7 +137,7 @@ fn selects_a_row() {
             "#
         ));
 
-        assert_eq!(actual.out, "arepas.txt");
+        assert_eq!(actual, Ok("arepas.txt"));
     });
 }
 
@@ -156,7 +156,7 @@ fn selects_many_rows() {
             "#
         ));
 
-        assert_eq!(actual.out, "2");
+        assert_eq!(actual, Ok("2"));
     });
 }
 
@@ -169,7 +169,7 @@ fn select_ignores_errors_successfully1() {
         "#
     ));
 
-    assert_eq!(actual.out, "3".to_string());
+    assert_eq!(actual, Ok("3".to_string()));
     assert!(actual.err.is_empty());
 }
 
@@ -182,7 +182,7 @@ fn select_ignores_errors_successfully2() {
             "#
     ));
 
-    assert_eq!(actual.out, "[[b]; [null], [null], [null]]".to_string());
+    assert_eq!(actual, Ok("[[b]; [null], [null], [null]]".to_string()));
     assert!(actual.err.is_empty());
 }
 
@@ -193,7 +193,7 @@ fn select_ignores_errors_successfully3() {
         r#"sys | select -i invalid_key | to nuon"#
     ));
 
-    assert_eq!(actual.out, "{invalid_key: null}".to_string());
+    assert_eq!(actual, Ok("{invalid_key: null}".to_string()));
     assert!(actual.err.is_empty());
 }
 

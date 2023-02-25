@@ -385,7 +385,7 @@ fn mv_ignores_ansi() {
             "#
         );
 
-        assert_eq!(actual.out, "success.txt");
+        assert_eq!(actual, Ok("success.txt"));
     })
 }
 

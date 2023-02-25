@@ -9,7 +9,7 @@ fn gets_the_last_row() {
         "ls | sort-by name | last 1 | get name.0 | str trim"
     );
 
-    assert_eq!(actual.out, "utf16.ini");
+    assert_eq!(actual, Ok("utf16.ini"));
 }
 
 #[test]
@@ -31,7 +31,7 @@ fn gets_last_rows_by_amount() {
             "#
         ));
 
-        assert_eq!(actual.out, "3");
+        assert_eq!(actual, Ok("3"));
     })
 }
 
@@ -49,7 +49,7 @@ fn gets_last_row_when_no_amount_given() {
             "#
         ));
 
-        assert_eq!(actual.out, "1");
+        assert_eq!(actual, Ok("1"));
     })
 }
 
@@ -62,7 +62,7 @@ fn requests_more_rows_than_table_has() {
         "#
     ));
 
-    assert_eq!(actual.out, "1");
+    assert_eq!(actual, Ok("1"));
 }
 
 #[test]
@@ -76,7 +76,7 @@ fn gets_last_row_as_list_when_amount_given() {
             "#
     ));
 
-    assert_eq!(actual.out, "list<int> (stream)");
+    assert_eq!(actual, Ok("list<int> (stream)"));
 }
 
 #[test]

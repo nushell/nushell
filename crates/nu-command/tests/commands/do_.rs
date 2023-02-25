@@ -23,7 +23,7 @@ fn capture_errors_works_for_external() {
         "#
     ));
     assert!(actual.err.contains("External command failed"));
-    assert_eq!(actual.out, "");
+    assert_eq!(actual, Ok(""));
 }
 
 #[test]
@@ -35,7 +35,7 @@ fn capture_errors_works_for_external_with_pipeline() {
         "#
     ));
     assert!(actual.err.contains("External command failed"));
-    assert_eq!(actual.out, "");
+    assert_eq!(actual, Ok(""));
 }
 
 #[test]
@@ -47,7 +47,7 @@ fn capture_errors_works_for_external_with_semicolon() {
         "#
     ));
     assert!(actual.err.contains("External command failed"));
-    assert_eq!(actual.out, "");
+    assert_eq!(actual, Ok(""));
 }
 
 #[test]
@@ -59,7 +59,7 @@ fn do_with_semicolon_break_on_failed_external() {
         "#
     ));
 
-    assert_eq!(actual.out, "");
+    assert_eq!(actual, Ok(""));
 }
 
 #[test]
@@ -72,7 +72,7 @@ fn ignore_shell_errors_works_for_external_with_semicolon() {
     ));
 
     assert_eq!(actual, Err(""));
-    assert_eq!(actual.out, "text");
+    assert_eq!(actual, Ok("text"));
 }
 
 #[test]
@@ -85,7 +85,7 @@ fn ignore_program_errors_works_for_external_with_semicolon() {
     ));
 
     assert_eq!(actual, Err(""));
-    assert_eq!(actual.out, "text");
+    assert_eq!(actual, Ok("text"));
 }
 
 #[test]
@@ -95,7 +95,7 @@ fn ignore_error_should_work_for_external_command() {
     ));
 
     assert_eq!(actual, Err(""));
-    assert_eq!(actual.out, "post");
+    assert_eq!(actual, Ok("post"));
 }
 
 #[test]
@@ -119,7 +119,7 @@ fn capture_error_with_too_much_stderr_not_hang_nushell() {
             "#,
         ));
 
-        assert_eq!(actual.out, large_file_body);
+        assert_eq!(actual, Ok(large_file_body));
     })
 }
 
@@ -144,7 +144,7 @@ fn capture_error_with_too_much_stdout_not_hang_nushell() {
             "#,
         ));
 
-        assert_eq!(actual.out, large_file_body);
+        assert_eq!(actual, Ok(large_file_body));
     })
 }
 
@@ -175,7 +175,7 @@ fn capture_error_with_both_stdout_stderr_messages_not_hang_nushell() {
                 do -c {bash test.sh} | complete | get stdout | str trim
                 "#,
             ));
-            assert_eq!(actual.out, expect_body);
+            assert_eq!(actual, Ok(expect_body));
             // check for stderr
             let actual = nu!(
                 cwd: dirs.test(), pipeline(
@@ -183,7 +183,7 @@ fn capture_error_with_both_stdout_stderr_messages_not_hang_nushell() {
                 do -c {bash test.sh} | complete | get stderr | str trim
                 "#,
             ));
-            assert_eq!(actual.out, expect_body);
+            assert_eq!(actual, Ok(expect_body));
         },
     )
 }

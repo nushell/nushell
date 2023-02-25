@@ -13,7 +13,7 @@ fn can_query_single_table() {
         "#
     ));
 
-    assert_eq!(actual.out, "4");
+    assert_eq!(actual, Ok("4"));
 }
 
 #[cfg(feature = "sqlite")]

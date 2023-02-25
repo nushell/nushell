@@ -34,7 +34,7 @@ fn explicit_glob() {
             "#
         ));
 
-        assert_eq!(actual.out, "2");
+        assert_eq!(actual, Ok("2"));
     })
 }
 
@@ -150,7 +150,7 @@ fn external_args_with_quoted() {
             "#
         ));
 
-        assert_eq!(actual.out, "foo=bar 'hi'");
+        assert_eq!(actual, Ok("foo=bar 'hi'"));
     })
 }
 
@@ -165,7 +165,7 @@ fn external_arg_with_long_flag_value_quoted() {
             "#
         ));
 
-        assert_eq!(actual.out, "--foo=bar");
+        assert_eq!(actual, Ok("--foo=bar"));
     })
 }
 
@@ -198,7 +198,7 @@ fn external_command_escape_args() {
             "#
         ));
 
-        assert_eq!(actual.out, r#""abcd"#);
+        assert_eq!(actual, Ok(r#""abcd"#));
     })
 }
 
@@ -208,7 +208,7 @@ fn external_command_not_expand_tilde_with_quotes() {
         "external command not expand tilde with quotes",
         |dirs, _| {
             let actual = nu!(cwd: dirs.test(), pipeline(r#"nu --testbin nonu "~""#));
-            assert_eq!(actual.out, r#"~"#);
+            assert_eq!(actual, Ok(r#"~"#));
         },
     )
 }
@@ -218,7 +218,7 @@ fn external_command_receives_raw_binary_data() {
     Playground::setup("external command receives raw binary data", |dirs, _| {
         let actual =
             nu!(cwd: dirs.test(), pipeline(r#"0x[deadbeef] | nu --testbin input_bytes_length"#));
-        assert_eq!(actual.out, r#"4"#);
+        assert_eq!(actual, Ok(r#"4"#));
     })
 }
 
@@ -307,5 +307,5 @@ fn quotes_trimmed_when_shelling_out() {
         "#
     ));
 
-    assert_eq!(actual.out, "foo");
+    assert_eq!(actual, Ok("foo"));
 }

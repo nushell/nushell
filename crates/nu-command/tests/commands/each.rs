@@ -9,7 +9,7 @@ fn each_works_separately() {
         "#
     ));
 
-    assert_eq!(actual.out, "[11,12,13]");
+    assert_eq!(actual, Ok("[11,12,13]"));
 }
 
 #[test]
@@ -21,7 +21,7 @@ fn each_group_works() {
         "#
     ));
 
-    assert_eq!(actual.out, "[[1,2,3],[4,5,6]]");
+    assert_eq!(actual, Ok("[[1,2,3],[4,5,6]]"));
 }
 
 #[test]
@@ -33,7 +33,7 @@ fn each_window() {
         "#
     ));
 
-    assert_eq!(actual.out, "[[1,2,3],[2,3,4]]");
+    assert_eq!(actual, Ok("[[1,2,3],[2,3,4]]"));
 }
 
 #[test]
@@ -45,7 +45,7 @@ fn each_window_stride() {
         "#
     ));
 
-    assert_eq!(actual.out, "[[1,2,3],[3,4,5]]");
+    assert_eq!(actual, Ok("[[1,2,3],[3,4,5]]"));
 }
 
 #[test]
@@ -57,7 +57,7 @@ fn each_no_args_in_block() {
         "#
     ));
 
-    assert_eq!(actual.out, r#"{"foo": "c","bar": "d"}"#);
+    assert_eq!(actual, Ok(r#"{"foo": "c","bar": "d"}"#));
 }
 
 #[test]
@@ -69,7 +69,7 @@ fn each_implicit_it_in_block() {
         "#
     ));
 
-    assert_eq!(actual.out, "ace");
+    assert_eq!(actual, Ok("ace"));
 }
 
 #[test]
@@ -79,7 +79,7 @@ fn each_uses_enumerate_index() {
         r#"[7 8 9 10] | enumerate | each {|el| $el.index } | to nuon"#
     ));
 
-    assert_eq!(actual.out, "[0, 1, 2, 3]");
+    assert_eq!(actual, Ok("[0, 1, 2, 3]"));
 }
 
 #[test]
@@ -89,5 +89,5 @@ fn each_while_uses_enumerate_index() {
         r#"[7 8 9 10] | enumerate | each while {|el| $el.index } | to nuon"#
     ));
 
-    assert_eq!(actual.out, "[0, 1, 2, 3]");
+    assert_eq!(actual, Ok("[0, 1, 2, 3]"));
 }

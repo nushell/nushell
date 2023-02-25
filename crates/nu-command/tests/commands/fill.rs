@@ -11,7 +11,7 @@ fn string_fill_plain() {
         )
     );
 
-    assert_eq!(actual.out, "+abc+");
+    assert_eq!(actual, Ok("+abc+"));
 }
 
 #[test]

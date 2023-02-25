@@ -30,7 +30,7 @@ fn use_module_file_within_block() {
             )
         );
 
-        assert_eq!(actual.out, "hello world");
+        assert_eq!(actual, Ok("hello world"));
     })
 }
 
@@ -79,7 +79,7 @@ fn use_eval_export_env() {
 
         let actual = nu!(cwd: dirs.test(), pipeline(&inp.join("; ")));
 
-        assert_eq!(actual.out, "foo");
+        assert_eq!(actual, Ok("foo"));
     })
 }
 
@@ -117,7 +117,7 @@ fn use_do_cd() {
 
         let actual = nu!(cwd: dirs.test(), pipeline(&inp.join("; ")));
 
-        assert_eq!(actual.out, "test2");
+        assert_eq!(actual, Ok("test2"));
     })
 }
 
@@ -137,7 +137,7 @@ fn use_do_cd_file_relative() {
 
         let actual = nu!(cwd: dirs.test(), pipeline(&inp.join("; ")));
 
-        assert_eq!(actual.out, "test1");
+        assert_eq!(actual, Ok("test1"));
     })
 }
 
@@ -161,7 +161,7 @@ fn use_dont_cd_overlay() {
 
         let actual = nu!(cwd: dirs.test(), pipeline(&inp.join("; ")));
 
-        assert_eq!(actual.out, "use_dont_cd_overlay");
+        assert_eq!(actual, Ok("use_dont_cd_overlay"));
     })
 }
 
@@ -180,7 +180,7 @@ fn use_export_env_combined() {
         let inp = &[r#"use spam.nu"#, r#"$env.FOO"#];
 
         let actual = nu!(cwd: dirs.test(), pipeline(&inp.join("; ")));
-        assert_eq!(actual.out, "foo");
+        assert_eq!(actual, Ok("foo"));
     })
 }
 
@@ -222,7 +222,7 @@ fn use_main_1() {
 
     let actual = nu!(cwd: ".", pipeline(&inp.join("; ")));
 
-    assert_eq!(actual.out, "spam");
+    assert_eq!(actual, Ok("spam"));
 }
 
 #[test]
@@ -235,7 +235,7 @@ fn use_main_2() {
 
     let actual = nu!(cwd: ".", pipeline(&inp.join("; ")));
 
-    assert_eq!(actual.out, "spam");
+    assert_eq!(actual, Ok("spam"));
 }
 
 #[test]
@@ -248,7 +248,7 @@ fn use_main_3() {
 
     let actual = nu!(cwd: ".", pipeline(&inp.join("; ")));
 
-    assert_eq!(actual.out, "spam");
+    assert_eq!(actual, Ok("spam"));
 }
 
 #[test]
@@ -261,7 +261,7 @@ fn use_main_4() {
 
     let actual = nu!(cwd: ".", pipeline(&inp.join("; ")));
 
-    assert_eq!(actual.out, "spam");
+    assert_eq!(actual, Ok("spam"));
 }
 
 #[test]
@@ -275,7 +275,7 @@ fn use_main_def_env() {
 
     let actual = nu!(cwd: ".", pipeline(&inp.join("; ")));
 
-    assert_eq!(actual.out, "spam");
+    assert_eq!(actual, Ok("spam"));
 }
 
 #[test]

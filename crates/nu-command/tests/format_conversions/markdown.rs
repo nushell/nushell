@@ -9,7 +9,7 @@ fn md_empty() {
         "#
     ));
 
-    assert_eq!(actual.out, "");
+    assert_eq!(actual, Ok(""));
 }
 
 #[test]
@@ -21,7 +21,7 @@ fn md_empty_pretty() {
         "#
     ));
 
-    assert_eq!(actual.out, "");
+    assert_eq!(actual, Ok(""));
 }
 
 #[test]
@@ -33,7 +33,7 @@ fn md_simple() {
         "#
     ));
 
-    assert_eq!(actual.out, "3");
+    assert_eq!(actual, Ok("3"));
 }
 
 #[test]
@@ -45,7 +45,7 @@ fn md_simple_pretty() {
         "#
     ));
 
-    assert_eq!(actual.out, "3");
+    assert_eq!(actual, Ok("3"));
 }
 
 #[test]
@@ -57,7 +57,7 @@ fn md_table() {
         "#
     ));
 
-    assert_eq!(actual.out, "|name||-||jason|");
+    assert_eq!(actual, Ok("|name||-||jason|"));
 }
 
 #[test]
@@ -69,7 +69,7 @@ fn md_table_pretty() {
         "#
     ));
 
-    assert_eq!(actual.out, "| name   || ------ || joseph |");
+    assert_eq!(actual, Ok("| name   || ------ || joseph |"));
 }
 
 #[test]

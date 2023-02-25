@@ -16,7 +16,7 @@ fn url_join_simple() {
         )
     );
 
-    assert_eq!(actual.out, "http://localhost");
+    assert_eq!(actual, Ok("http://localhost"));
 }
 
 #[test]
@@ -35,7 +35,7 @@ fn url_join_with_only_user() {
         )
     );
 
-    assert_eq!(actual.out, "http://localhost");
+    assert_eq!(actual, Ok("http://localhost"));
 }
 
 #[test]
@@ -54,7 +54,7 @@ fn url_join_with_only_pwd() {
         )
     );
 
-    assert_eq!(actual.out, "http://localhost");
+    assert_eq!(actual, Ok("http://localhost"));
 }
 
 #[test]
@@ -73,7 +73,7 @@ fn url_join_with_user_and_pwd() {
         )
     );
 
-    assert_eq!(actual.out, "http://usr:pwd@localhost");
+    assert_eq!(actual, Ok("http://usr:pwd@localhost"));
 }
 
 #[test]
@@ -93,7 +93,7 @@ fn url_join_with_query() {
         )
     );
 
-    assert_eq!(actual.out, "http://usr:pwd@localhost?par_1=aaa&par_2=bbb");
+    assert_eq!(actual, Ok("http://usr:pwd@localhost?par_1=aaa&par_2=bbb"));
 }
 
 #[test]
@@ -238,7 +238,7 @@ fn url_join_with_port() {
         )
     );
 
-    assert_eq!(actual.out, "http://localhost:1234");
+    assert_eq!(actual, Ok("http://localhost:1234"));
 
     let actual = nu!(
         cwd: ".", pipeline(
@@ -252,7 +252,7 @@ fn url_join_with_port() {
         )
     );
 
-    assert_eq!(actual.out, "http://localhost:1234");
+    assert_eq!(actual, Ok("http://localhost:1234"));
 }
 
 #[test]
@@ -337,7 +337,7 @@ fn url_join_with_fragment() {
         )
     );
 
-    assert_eq!(actual.out, "http://usr:pwd@localhost:1234#frag");
+    assert_eq!(actual, Ok("http://usr:pwd@localhost:1234#frag"));
 }
 
 #[test]

@@ -58,7 +58,7 @@ fn summarizes_by_column_given_with_normalize_percentage() {
             "#
         ));
 
-        assert_eq!(actual.out, "*********************************");
+        assert_eq!(actual, Ok("*********************************"));
         // 33%
     })
 }
@@ -88,7 +88,7 @@ fn summarizes_by_values() {
             "#
         ));
 
-        assert_eq!(actual.out, "2");
+        assert_eq!(actual, Ok("2"));
     })
 }
 
@@ -136,7 +136,7 @@ fn count() {
 
     let bit_json = r#"[  {    "bit": 1,    "count": 3,    "quantile": 0.5,    "percentage": "50.00%"  },  {    "bit": 0,    "count": 6,    "quantile": 1,    "percentage": "100.00%"  }]"#;
 
-    assert_eq!(actual.out, bit_json);
+    assert_eq!(actual, Ok(bit_json));
 }
 
 #[test]
@@ -154,5 +154,5 @@ fn count_with_normalize_percentage() {
 
     let bit_json = r#"[  {    "bit": 1,    "count": 2,    "quantile": 0.25,    "percentage": "25.00%"  },  {    "bit": 0,    "count": 6,    "quantile": 0.75,    "percentage": "75.00%"  }]"#;
 
-    assert_eq!(actual.out, bit_json);
+    assert_eq!(actual, Ok(bit_json));
 }

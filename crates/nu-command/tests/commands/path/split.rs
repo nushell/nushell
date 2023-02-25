@@ -9,7 +9,7 @@ fn splits_empty_path() {
         "#
     ));
 
-    assert_eq!(actual.out, "true");
+    assert_eq!(actual, Ok("true"));
 }
 
 #[test]
@@ -23,7 +23,7 @@ fn splits_correctly_single_path() {
         "#
     ));
 
-    assert_eq!(actual.out, "spam.txt");
+    assert_eq!(actual, Ok("spam.txt"));
 }
 
 #[test]
@@ -44,5 +44,5 @@ fn splits_correctly_with_column_path() {
         "#
     ));
 
-    assert_eq!(actual.out, "6");
+    assert_eq!(actual, Ok("6"));
 }

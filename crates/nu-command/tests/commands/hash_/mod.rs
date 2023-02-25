@@ -10,7 +10,7 @@ fn base64_defaults_to_encoding_with_standard_character_type() {
         )
     );
 
-    assert_eq!(actual.out, "dXNlcm5hbWU6cGFzc3dvcmQ=");
+    assert_eq!(actual, Ok("dXNlcm5hbWU6cGFzc3dvcmQ="));
 }
 
 #[test]
@@ -23,7 +23,7 @@ fn base64_encode_characterset_binhex() {
         )
     );
 
-    assert_eq!(actual.out, "F@0NEPjJD97kE\'&bEhFZEP3");
+    assert_eq!(actual, Ok("F@0NEPjJD97kE\'&bEhFZEP3"));
 }
 
 #[test]
@@ -51,7 +51,7 @@ fn base64_decode_characterset_binhex() {
         )
     );
 
-    assert_eq!(actual.out, "username:password");
+    assert_eq!(actual, Ok("username:password"));
 }
 
 #[test]
@@ -79,7 +79,7 @@ fn md5_works_with_file() {
         )
     );
 
-    assert_eq!(actual.out, "4de97601d232c427977ef11db396c951");
+    assert_eq!(actual, Ok("4de97601d232c427977ef11db396c951"));
 }
 
 #[test]

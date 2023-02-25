@@ -12,7 +12,7 @@ fn returns_dirname_of_empty_input() {
         "#
     ));
 
-    assert_eq!(actual.out, "");
+    assert_eq!(actual, Ok(""));
 }
 
 #[test]
@@ -25,7 +25,7 @@ fn replaces_dirname_of_empty_input() {
         "#
     ));
 
-    assert_eq!(actual.out, "newdir");
+    assert_eq!(actual, Ok("newdir"));
 }
 
 #[test]
@@ -38,7 +38,7 @@ fn returns_dirname_of_path_ending_with_dot() {
         "#
     ));
 
-    assert_eq!(actual.out, "some");
+    assert_eq!(actual, Ok("some"));
 }
 
 #[test]
@@ -52,7 +52,7 @@ fn replaces_dirname_of_path_ending_with_dot() {
     ));
 
     let expected = join_path_sep(&["eggs", "dir"]);
-    assert_eq!(actual.out, expected);
+    assert_eq!(actual, Ok(expected));
 }
 
 #[test]
@@ -65,7 +65,7 @@ fn returns_dirname_of_path_ending_with_double_dot() {
         "#
     ));
 
-    assert_eq!(actual.out, "some/dir");
+    assert_eq!(actual, Ok("some/dir"));
 }
 
 #[test]
@@ -79,7 +79,7 @@ fn replaces_dirname_of_path_with_double_dot() {
     ));
 
     let expected = join_path_sep(&["eggs", ".."]);
-    assert_eq!(actual.out, expected);
+    assert_eq!(actual, Ok(expected));
 }
 
 #[test]
@@ -92,7 +92,7 @@ fn returns_dirname_of_zero_levels() {
         "#
     ));
 
-    assert_eq!(actual.out, "some/dir/with/spam.txt");
+    assert_eq!(actual, Ok("some/dir/with/spam.txt"));
 }
 
 #[test]
@@ -105,7 +105,7 @@ fn replaces_dirname_of_zero_levels_with_empty_string() {
         "#
     ));
 
-    assert_eq!(actual.out, "");
+    assert_eq!(actual, Ok(""));
 }
 
 #[test]
@@ -119,7 +119,7 @@ fn replaces_dirname_of_more_levels() {
     ));
 
     let expected = join_path_sep(&["eggs", "with/spam.txt"]);
-    assert_eq!(actual.out, expected);
+    assert_eq!(actual, Ok(expected));
 }
 
 #[test]
@@ -133,5 +133,5 @@ fn replaces_dirname_of_way_too_many_levels() {
     ));
 
     let expected = join_path_sep(&["eggs", "some/dir/with/spam.txt"]);
-    assert_eq!(actual.out, expected);
+    assert_eq!(actual, Ok(expected));
 }

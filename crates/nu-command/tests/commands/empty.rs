@@ -12,7 +12,7 @@ fn reports_emptiness() {
         "#
     ));
 
-    assert_eq!(actual.out, "true");
+    assert_eq!(actual, Ok("true"));
 }
 
 #[test]
@@ -27,7 +27,7 @@ fn reports_nonemptiness() {
         "#
     ));
 
-    assert_eq!(actual.out, "false");
+    assert_eq!(actual, Ok("false"));
 }
 
 #[test]
@@ -42,7 +42,7 @@ fn reports_emptiness_by_columns() {
         "#
     ));
 
-    assert_eq!(actual.out, "true");
+    assert_eq!(actual, Ok("true"));
 }
 
 #[test]
@@ -57,5 +57,5 @@ fn reports_nonemptiness_by_columns() {
         "#
     ));
 
-    assert_eq!(actual.out, "false");
+    assert_eq!(actual, Ok("false"));
 }

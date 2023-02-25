@@ -31,7 +31,7 @@ fn picks_up_env_keys_when_entering_trusted_directory() {
 
         let actual = Trusted::in_path(&dirs, || nu!(cwd: dirs.test(), "echo $env.testkey"));
 
-        assert_eq!(actual.out, expected);
+        assert_eq!(actual, Ok(expected));
     })
 }
 
@@ -65,7 +65,7 @@ fn picks_up_and_lets_go_env_keys_when_entering_trusted_directory_with_implied_cd
             foo
             echo $env.testkey"#
         );
-        assert_eq!(actual.out, "testvalue");
+        assert_eq!(actual, Ok("testvalue"));
         //Assert testkey is gone when leaving foo
         let actual = nu!(
             cwd: dirs.test(),
@@ -88,7 +88,7 @@ fn picks_up_and_lets_go_env_keys_when_entering_trusted_directory_with_implied_cd
             echo $env.bar
             "#
         );
-        assert_eq!(actual.out, "testvaluetrue");
+        assert_eq!(actual, Ok("testvaluetrue"));
         //Assert bar removed after leaving bar
         let actual = nu!(
             cwd: dirs.test(),
@@ -126,7 +126,7 @@ fn picks_up_script_vars_when_entering_trusted_directory() {
 
         // scriptvars are not supported
         // and why is myval expected when myscript is "echo myval"
-        assert_eq!(actual.out, expected);
+        assert_eq!(actual, Ok(expected));
     })
 }
 
@@ -150,7 +150,7 @@ fn picks_up_env_keys_when_entering_trusted_directory_indirectly() {
             "#)
         });
 
-        assert_eq!(actual.out, expected);
+        assert_eq!(actual, Ok(expected));
     })
 }
 
@@ -177,7 +177,7 @@ fn entering_a_trusted_directory_runs_entry_scripts() {
             "#))
         });
 
-        assert_eq!(actual.out, "hello.txt");
+        assert_eq!(actual, Ok("hello.txt"));
     })
 }
 
@@ -206,7 +206,7 @@ fn leaving_a_trusted_directory_runs_exit_scripts() {
             "#)
         });
 
-        assert_eq!(actual.out, "bye.txt");
+        assert_eq!(actual, Ok("bye.txt"));
     })
 }
 
@@ -237,7 +237,7 @@ fn entry_scripts_are_called_when_revisiting_a_trusted_directory() {
             "#)
         });
 
-        assert_eq!(actual.out, "hello.txt");
+        assert_eq!(actual, Ok("hello.txt"));
     })
 }
 
@@ -268,7 +268,7 @@ fn given_a_trusted_directory_with_entry_scripts_when_entering_a_subdirectory_ent
             "#)
         });
 
-        assert_eq!(actual.out, "0");
+        assert_eq!(actual, Ok("0"));
     })
 }
 
@@ -299,7 +299,7 @@ fn given_a_trusted_directory_with_exit_scripts_when_entering_a_subdirectory_exit
             "#)
         });
 
-        assert_eq!(actual.out, "0");
+        assert_eq!(actual, Ok("0"));
     })
 }
 
@@ -330,7 +330,7 @@ fn given_a_hierarchy_of_trusted_directories_when_entering_in_any_nested_ones_sho
             "#)
         });
 
-        assert_eq!(actual.out, "nushell");
+        assert_eq!(actual, Ok("nushell"));
     })
 }
 
@@ -361,7 +361,7 @@ fn given_a_hierarchy_of_trusted_directories_nested_ones_should_overwrite_variabl
             "#)
         });
 
-        assert_eq!(actual.out, "Andrab");
+        assert_eq!(actual, Ok("Andrab"));
     })
 }
 
@@ -396,7 +396,7 @@ fn local_config_should_not_be_added_when_running_scripts() {
             "#)
         });
 
-        assert_eq!(actual.out, "nu");
+        assert_eq!(actual, Ok("nu"));
     })
 }
 #[test]
@@ -428,7 +428,7 @@ fn given_a_hierarchy_of_trusted_directories_going_back_restores_overwritten_vari
             "#)
         });
 
-        assert_eq!(actual.out, "nushell");
+        assert_eq!(actual, Ok("nushell"));
     })
 }
 
@@ -459,7 +459,7 @@ fn local_config_env_var_present_and_removed_correctly() {
             r#"autoenv trust -q foo; cd foo
                echo $env.testkey"#
         );
-        assert_eq!(actual.out, "testvalue");
+        assert_eq!(actual, Ok("testvalue"));
         //Assert testkey is present also in subdirectories
         let actual = nu!(
             cwd: dirs.test(),
@@ -467,14 +467,14 @@ fn local_config_env_var_present_and_removed_correctly() {
                cd bar
                echo $env.testkey"#
         );
-        assert_eq!(actual.out, "testvalue");
+        assert_eq!(actual, Ok("testvalue"));
         //Assert testkey is present also when jumping over foo
         let actual = nu!(
             cwd: dirs.test(),
             r#"autoenv trust -q foo; cd foo/bar
                echo $env.testkey"#
         );
-        assert_eq!(actual.out, "testvalue");
+        assert_eq!(actual, Ok("testvalue"));
         //Assert testkey removed after leaving foo
         let actual = nu!(
             cwd: dirs.test(),
@@ -521,7 +521,7 @@ fn local_config_env_var_gets_overwritten() {
             r#"autoenv trust -q foo; cd foo
                echo $env.overwrite_me"#
         );
-        assert_eq!(actual.out, "foo");
+        assert_eq!(actual, Ok("foo"));
         //Assert overwrite_me is bar in bar
         let actual = nu!(
             cwd: dirs.test(),
@@ -531,7 +531,7 @@ fn local_config_env_var_gets_overwritten() {
                cd bar
                echo $env.overwrite_me"#
         );
-        assert_eq!(actual.out, "bar");
+        assert_eq!(actual, Ok("bar"));
         //Assert overwrite_me is present also when jumping over foo
         let actual = nu!(
             cwd: dirs.test(),
@@ -539,7 +539,7 @@ fn local_config_env_var_gets_overwritten() {
                echo $env.overwrite_me
             "#
         );
-        assert_eq!(actual.out, "bar");
+        assert_eq!(actual, Ok("bar"));
         //Assert overwrite_me removed after leaving bar
         let actual = nu!(
             cwd: dirs.test(),
@@ -548,7 +548,7 @@ fn local_config_env_var_gets_overwritten() {
                cd ..
                echo $env.overwrite_me"#
         );
-        assert_eq!(actual.out, "foo");
+        assert_eq!(actual, Ok("foo"));
     });
 }
 
@@ -623,7 +623,7 @@ fn autoenv_test_exit_scripts() {
                rm foo/bye.txt | ignore; cd .
                "#
         );
-        assert_eq!(actual.out, "1");
+        assert_eq!(actual, Ok("1"));
 
         // Entering a subdir should not trigger exitscripts
         let actual = nu!(
@@ -633,7 +633,7 @@ fn autoenv_test_exit_scripts() {
                cd bar
                ls .. | where name =~ "bye.txt" | length"#
         );
-        assert_eq!(actual.out, "0");
+        assert_eq!(actual, Ok("0"));
 
         // Also run exitscripts when jumping over directory
         let actual = nu!(
@@ -644,7 +644,7 @@ fn autoenv_test_exit_scripts() {
                ls foo | where name =~ "bye.txt" | length
                rm foo/bye.txt | ignore; cd ."#
         );
-        assert_eq!(actual.out, "1");
+        assert_eq!(actual, Ok("1"));
     });
 }
 

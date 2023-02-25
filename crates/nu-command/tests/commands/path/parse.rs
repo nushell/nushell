@@ -12,7 +12,7 @@ fn parses_single_path_prefix() {
         "#
     ));
 
-    assert_eq!(actual.out, "C:");
+    assert_eq!(actual, Ok("C:"));
 }
 
 #[test]
@@ -26,7 +26,7 @@ fn parses_single_path_parent() {
         "#
     ));
 
-    assert_eq!(actual.out, "home/viking");
+    assert_eq!(actual, Ok("home/viking"));
 }
 
 #[test]
@@ -40,7 +40,7 @@ fn parses_single_path_stem() {
         "#
     ));
 
-    assert_eq!(actual.out, "spam");
+    assert_eq!(actual, Ok("spam"));
 }
 
 #[test]
@@ -54,7 +54,7 @@ fn parses_custom_extension_gets_extension() {
         "#
     ));
 
-    assert_eq!(actual.out, "tar.gz");
+    assert_eq!(actual, Ok("tar.gz"));
 }
 
 #[test]
@@ -68,7 +68,7 @@ fn parses_custom_extension_gets_stem() {
         "#
     ));
 
-    assert_eq!(actual.out, "spam");
+    assert_eq!(actual, Ok("spam"));
 }
 
 #[test]
@@ -82,7 +82,7 @@ fn parses_ignoring_extension_gets_extension() {
         "#
     ));
 
-    assert_eq!(actual.out, "");
+    assert_eq!(actual, Ok(""));
 }
 
 #[test]
@@ -96,7 +96,7 @@ fn parses_ignoring_extension_gets_stem() {
         "#
     ));
 
-    assert_eq!(actual.out, "spam.tar.gz");
+    assert_eq!(actual, Ok("spam.tar.gz"));
 }
 
 #[test]
@@ -111,7 +111,7 @@ fn parses_column_path_extension() {
         "#
     ));
 
-    assert_eq!(actual.out, "png");
+    assert_eq!(actual, Ok("png"));
 }
 
 #[test]
@@ -132,5 +132,5 @@ fn parses_into_correct_number_of_columns() {
     #[cfg(not(windows))]
     let expected = "3";
 
-    assert_eq!(actual.out, expected);
+    assert_eq!(actual, Ok(expected));
 }

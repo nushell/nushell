@@ -26,7 +26,7 @@ fn module_private_import_decl() {
 
         let actual = nu!(cwd: dirs.test(), pipeline(&inp.join("; ")));
 
-        assert_eq!(actual.out, "foo");
+        assert_eq!(actual, Ok("foo"));
     })
 }
 
@@ -53,7 +53,7 @@ fn module_private_import_alias() {
 
         let actual = nu!(cwd: dirs.test(), pipeline(&inp.join("; ")));
 
-        assert_eq!(actual.out, "foo");
+        assert_eq!(actual, Ok("foo"));
     })
 }
 
@@ -105,7 +105,7 @@ fn module_public_import_decl() {
 
         let actual = nu!(cwd: dirs.test(), pipeline(&inp.join("; ")));
 
-        assert_eq!(actual.out, "foo");
+        assert_eq!(actual, Ok("foo"));
     })
 }
 
@@ -130,7 +130,7 @@ fn module_public_import_alias() {
 
         let actual = nu!(cwd: dirs.test(), pipeline(&inp.join("; ")));
 
-        assert_eq!(actual.out, "foo");
+        assert_eq!(actual, Ok("foo"));
     })
 }
 
@@ -168,10 +168,10 @@ fn module_nested_imports() {
         let inp2 = &[r#"use main.nu bar"#, r#"bar"#];
 
         let actual = nu!(cwd: dirs.test(), pipeline(&inp1.join("; ")));
-        assert_eq!(actual.out, "foo");
+        assert_eq!(actual, Ok("foo"));
 
         let actual = nu!(cwd: dirs.test(), pipeline(&inp2.join("; ")));
-        assert_eq!(actual.out, "bar");
+        assert_eq!(actual, Ok("bar"));
     })
 }
 
@@ -212,10 +212,10 @@ fn module_nested_imports_in_dirs() {
         let inp2 = &[r#"use main.nu bar"#, r#"bar"#];
 
         let actual = nu!(cwd: dirs.test(), pipeline(&inp1.join("; ")));
-        assert_eq!(actual.out, "foo");
+        assert_eq!(actual, Ok("foo"));
 
         let actual = nu!(cwd: dirs.test(), pipeline(&inp2.join("; ")));
-        assert_eq!(actual.out, "bar");
+        assert_eq!(actual, Ok("bar"));
     })
 }
 
@@ -241,7 +241,7 @@ fn module_public_import_decl_prefixed() {
 
         let actual = nu!(cwd: dirs.test(), pipeline(&inp.join("; ")));
 
-        assert_eq!(actual.out, "foo");
+        assert_eq!(actual, Ok("foo"));
     })
 }
 
@@ -283,10 +283,10 @@ fn module_nested_imports_in_dirs_prefixed() {
         let inp2 = &[r#"use main.nu "spam2 spam3 bar""#, r#"spam2 spam3 bar"#];
 
         let actual = nu!(cwd: dirs.test(), pipeline(&inp1.join("; ")));
-        assert_eq!(actual.out, "foo");
+        assert_eq!(actual, Ok("foo"));
 
         let actual = nu!(cwd: dirs.test(), pipeline(&inp2.join("; ")));
-        assert_eq!(actual.out, "bar");
+        assert_eq!(actual, Ok("bar"));
     })
 }
 
@@ -313,7 +313,7 @@ fn module_import_env_1() {
 
         let actual = nu!(cwd: dirs.test(), pipeline(&inp.join("; ")));
 
-        assert_eq!(actual.out, "foo");
+        assert_eq!(actual, Ok("foo"));
     })
 }
 
@@ -338,7 +338,7 @@ fn module_import_env_2() {
 
         let actual = nu!(cwd: dirs.test(), pipeline(&inp.join("; ")));
 
-        assert_eq!(actual.out, "foo");
+        assert_eq!(actual, Ok("foo"));
     })
 }
 
@@ -448,7 +448,7 @@ fn module_import_const_file() {
 
         let actual = nu!(cwd: dirs.test(), pipeline(&inp.join("; ")));
 
-        assert_eq!(actual.out, "foo");
+        assert_eq!(actual, Ok("foo"));
     })
 }
 
@@ -471,7 +471,7 @@ fn module_import_const_module_name() {
 
         let actual = nu!(cwd: dirs.test(), pipeline(&inp.join("; ")));
 
-        assert_eq!(actual.out, "foo");
+        assert_eq!(actual, Ok("foo"));
     })
 }
 
@@ -481,7 +481,7 @@ fn module_valid_def_name() {
 
     let actual = nu!(cwd: ".", pipeline(&inp.join("; ")));
 
-    assert_eq!(actual.out, "");
+    assert_eq!(actual, Ok(""));
 }
 
 #[test]
@@ -499,7 +499,7 @@ fn module_valid_alias_name_1() {
 
     let actual = nu!(cwd: ".", pipeline(&inp.join("; ")));
 
-    assert_eq!(actual.out, "");
+    assert_eq!(actual, Ok(""));
 }
 
 #[test]
@@ -508,7 +508,7 @@ fn module_valid_alias_name_2() {
 
     let actual = nu!(cwd: ".", pipeline(&inp.join("; ")));
 
-    assert_eq!(actual.out, "");
+    assert_eq!(actual, Ok(""));
 }
 
 #[test]
@@ -535,7 +535,7 @@ fn module_valid_known_external_name() {
 
     let actual = nu!(cwd: ".", pipeline(&inp.join("; ")));
 
-    assert_eq!(actual.out, "");
+    assert_eq!(actual, Ok(""));
 }
 
 #[test]
@@ -560,5 +560,5 @@ fn main_inside_module_is_main() {
 
     let actual = nu!(cwd: ".", pipeline(&inp.join("; ")));
 
-    assert_eq!(actual.out, "foo");
+    assert_eq!(actual, Ok("foo"));
 }

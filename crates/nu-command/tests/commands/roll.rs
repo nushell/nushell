@@ -27,7 +27,7 @@ mod rows {
             | get status
         "#)));
 
-        assert_eq!(actual.out, "HERE");
+        assert_eq!(actual, Ok("HERE"));
     }
 
     #[test]
@@ -40,7 +40,7 @@ mod rows {
             | get status
         "#)));
 
-        assert_eq!(actual.out, "HERE");
+        assert_eq!(actual, Ok("HERE"));
     }
 }
 
@@ -72,7 +72,7 @@ mod columns {
             | str join "-"
         "#)));
 
-        assert_eq!(actual.out, "origin-stars-commit_author");
+        assert_eq!(actual, Ok("origin-stars-commit_author"));
     }
 
     #[test]
@@ -85,7 +85,7 @@ mod columns {
             | str join "-"
         "#)));
 
-        assert_eq!(actual.out, "origin-stars-commit_author");
+        assert_eq!(actual, Ok("origin-stars-commit_author"));
     }
 
     struct ThirtyTwo<'a>(usize, &'a str);
@@ -100,7 +100,7 @@ mod columns {
             format!("{four_bitstring} | roll right --by 3 --cells-only | columns | str join '-' ")
         );
 
-        assert_eq!(actual.out, expected_value.1);
+        assert_eq!(actual, Ok(expected_value.1));
     }
 
     #[test]

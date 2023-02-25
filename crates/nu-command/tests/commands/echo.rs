@@ -9,7 +9,7 @@ fn echo_range_is_lazy() {
         "#
     ));
 
-    assert_eq!(actual.out, "[1,2,3]");
+    assert_eq!(actual, Ok("[1,2,3]"));
 }
 
 #[test]
@@ -21,7 +21,7 @@ fn echo_range_handles_inclusive() {
         "#
     ));
 
-    assert_eq!(actual.out, "[1,2,3]");
+    assert_eq!(actual, Ok("[1,2,3]"));
 }
 
 #[test]
@@ -33,7 +33,7 @@ fn echo_range_handles_exclusive() {
         "#
     ));
 
-    assert_eq!(actual.out, "[1,2]");
+    assert_eq!(actual, Ok("[1,2]"));
 }
 
 #[test]
@@ -45,7 +45,7 @@ fn echo_range_handles_inclusive_down() {
         "#
     ));
 
-    assert_eq!(actual.out, "[3,2,1]");
+    assert_eq!(actual, Ok("[3,2,1]"));
 }
 
 #[test]
@@ -57,5 +57,5 @@ fn echo_range_handles_exclusive_down() {
         "#
     ));
 
-    assert_eq!(actual.out, "[3,2]");
+    assert_eq!(actual, Ok("[3,2]"));
 }

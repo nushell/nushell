@@ -9,7 +9,7 @@ fn length_columns_in_cal_table() {
         "#
     ));
 
-    assert_eq!(actual.out, "7");
+    assert_eq!(actual, Ok("7"));
 }
 
 #[test]
@@ -21,5 +21,5 @@ fn length_columns_no_rows() {
         "#
     ));
 
-    assert_eq!(actual.out, "0");
+    assert_eq!(actual, Ok("0"));
 }

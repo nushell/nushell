@@ -9,7 +9,7 @@ fn early_return_if_true() {
         "#
     ));
 
-    assert_eq!(actual.out, r#"2"#);
+    assert_eq!(actual, Ok(r#"2"#));
 }
 
 #[test]
@@ -21,7 +21,7 @@ fn early_return_if_false() {
         "#
     ));
 
-    assert_eq!(actual.out, r#"100"#);
+    assert_eq!(actual, Ok(r#"100"#));
 }
 
 #[test]

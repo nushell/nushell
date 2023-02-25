@@ -26,7 +26,7 @@ fn rows() {
                 "#
         ));
 
-        assert_eq!(actual.out, "4");
+        assert_eq!(actual, Ok("4"));
     })
 }
 
@@ -64,5 +64,5 @@ fn works_with_binary_list() {
             "#
     ));
 
-    assert_eq!(actual.out, "true");
+    assert_eq!(actual, Ok("true"));
 }

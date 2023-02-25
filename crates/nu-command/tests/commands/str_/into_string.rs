@@ -12,7 +12,7 @@ fn from_range() {
         )
     );
 
-    assert_eq!(actual.out, "[\"1\",\"2\",\"3\",\"4\",\"5\"]");
+    assert_eq!(actual, Ok("[\"1\",\"2\",\"3\",\"4\",\"5\"]"));
 }
 
 #[test]
@@ -25,7 +25,7 @@ fn from_number() {
         )
     );
 
-    assert_eq!(actual.out, "5");
+    assert_eq!(actual, Ok("5"));
 }
 
 #[test]
@@ -38,7 +38,7 @@ fn from_decimal() {
         )
     );
 
-    assert_eq!(actual.out, "1.5");
+    assert_eq!(actual, Ok("1.5"));
 }
 
 #[test]
@@ -51,7 +51,7 @@ fn from_boolean() {
         )
     );
 
-    assert_eq!(actual.out, "true");
+    assert_eq!(actual, Ok("true"));
 }
 
 #[test]
@@ -64,7 +64,7 @@ fn from_string() {
         )
     );
 
-    assert_eq!(actual.out, "one");
+    assert_eq!(actual, Ok("one"));
 }
 
 #[test]
@@ -83,7 +83,7 @@ fn from_filename() {
             "ls sample.toml | get name | into string | get 0"
         );
 
-        assert_eq!(actual.out, "sample.toml");
+        assert_eq!(actual, Ok("sample.toml"));
     })
 }
 
@@ -105,7 +105,7 @@ fn from_filesize() {
 
         let expected = if cfg!(windows) { "27 B" } else { "25 B" };
 
-        assert_eq!(actual.out, expected);
+        assert_eq!(actual, Ok(expected));
     })
 }
 
@@ -169,7 +169,7 @@ fn from_nothing() {
         "#
     ));
 
-    assert_eq!(actual.out, "");
+    assert_eq!(actual, Ok(""));
 }
 
 #[test]
@@ -181,7 +181,7 @@ fn int_into_string() {
         "#
     ));
 
-    assert_eq!(actual.out, "10");
+    assert_eq!(actual, Ok("10"));
 }
 
 #[test]
@@ -195,7 +195,7 @@ fn int_into_string_decimals_0() {
         )
     );
 
-    assert_eq!(actual.out, "10");
+    assert_eq!(actual, Ok("10"));
 }
 
 #[test]
@@ -209,7 +209,7 @@ fn int_into_string_decimals_1() {
         )
     );
 
-    assert_eq!(actual.out, "10.0");
+    assert_eq!(actual, Ok("10.0"));
 }
 
 #[test]
@@ -223,7 +223,7 @@ fn int_into_string_decimals_10() {
         )
     );
 
-    assert_eq!(actual.out, "10.0000000000");
+    assert_eq!(actual, Ok("10.0000000000"));
 }
 
 #[test]
@@ -238,7 +238,7 @@ fn int_into_string_decimals_respects_system_locale_de() {
         )
     );
 
-    assert_eq!(actual.out, "10,0");
+    assert_eq!(actual, Ok("10,0"));
 }
 
 #[test]
@@ -253,5 +253,5 @@ fn int_into_string_decimals_respects_system_locale_en() {
         )
     );
 
-    assert_eq!(actual.out, "10.0");
+    assert_eq!(actual, Ok("10.0"));
 }

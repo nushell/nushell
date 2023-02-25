@@ -38,7 +38,7 @@ fn counter_clockwise() {
             | str join "-"
         "#)));
 
-    assert_eq!(actual.out, expected.out);
+    assert_eq!(actual, Ok(expected.out));
 }
 
 #[test]
@@ -79,5 +79,5 @@ fn clockwise() {
             | str join "-"
         "#)));
 
-    assert_eq!(actual.out, expected.out);
+    assert_eq!(actual, Ok(expected.out));
 }

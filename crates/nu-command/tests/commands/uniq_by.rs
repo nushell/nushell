@@ -26,7 +26,7 @@ fn removes_duplicate_rows() {
             "#
         ));
 
-        assert_eq!(actual.out, "3");
+        assert_eq!(actual, Ok("3"));
     })
 }
 
@@ -48,8 +48,8 @@ fn uniq_when_keys_out_of_order() {
 
     print!("{}", actual.out);
     print!("{}", expected.out);
-    assert_eq!(actual.out, expected.out);
-    assert_eq!(actual.out, expected.out);
+    assert_eq!(actual, Ok(expected.out));
+    assert_eq!(actual, Ok(expected.out));
 }
 
 #[test]
@@ -66,7 +66,7 @@ fn uniq_counting() {
             | get 0
         "#
     ));
-    assert_eq!(actual.out, "2");
+    assert_eq!(actual, Ok("2"));
 
     let actual = nu!(
         cwd: "tests/fixtures/formats", pipeline(
@@ -80,7 +80,7 @@ fn uniq_counting() {
             | get 0
         "#
     ));
-    assert_eq!(actual.out, "1");
+    assert_eq!(actual, Ok("1"));
 }
 
 #[test]
@@ -102,7 +102,7 @@ fn uniq_unique() {
     ));
     print!("{}", actual.out);
     print!("{}", expected.out);
-    assert_eq!(actual.out, expected.out);
+    assert_eq!(actual, Ok(expected.out));
 }
 
 #[test]
@@ -123,7 +123,7 @@ fn table() {
     ));
     print!("{}", actual.out);
     print!("{}", expected.out);
-    assert_eq!(actual.out, expected.out);
+    assert_eq!(actual, Ok(expected.out));
 }
 
 #[test]
@@ -144,7 +144,7 @@ fn uniq_by_multiple_columns() {
     ));
     print!("{}", actual.out);
     print!("{}", expected.out);
-    assert_eq!(actual.out, expected.out);
+    assert_eq!(actual, Ok(expected.out));
 }
 
 #[test]
@@ -192,8 +192,8 @@ fn table_with_ignore_case() {
 
     print!("{}", actual.out);
     print!("{}", expected.out);
-    assert_eq!(actual.out, expected.out);
-    assert_eq!(actual.out, expected.out);
+    assert_eq!(actual, Ok(expected.out));
+    assert_eq!(actual, Ok(expected.out));
 }
 
 #[test]

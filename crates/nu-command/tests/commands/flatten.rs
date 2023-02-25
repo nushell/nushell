@@ -15,7 +15,7 @@ fn flatten_nested_tables_with_columns() {
         "#
     ));
 
-    assert_eq!(actual.out, "Andres,nuno");
+    assert_eq!(actual, Ok("Andres,nuno"));
 }
 
 #[test]
@@ -31,7 +31,7 @@ fn flatten_nested_tables_that_have_many_columns() {
         "#
     ));
 
-    assert_eq!(actual.out, "arepa,nurepa");
+    assert_eq!(actual, Ok("arepa,nurepa"));
 }
 
 #[test]
@@ -43,7 +43,7 @@ fn flatten_nested_tables() {
         "#
     ));
 
-    assert_eq!(actual.out, "Nicolás");
+    assert_eq!(actual, Ok("Nicolás"));
 }
 
 #[test]
@@ -74,7 +74,7 @@ fn flatten_row_column_explicitly() {
             "open katz.json | flatten people --all | where name == Andres | length"
         );
 
-        assert_eq!(actual.out, "1");
+        assert_eq!(actual, Ok("1"));
     })
 }
 
@@ -108,7 +108,7 @@ fn flatten_row_columns_having_same_column_names_flats_separately() {
             "open katz.json | flatten --all | flatten people city | get city_name | length"
         );
 
-        assert_eq!(actual.out, "4");
+        assert_eq!(actual, Ok("4"));
     })
 }
 
@@ -142,7 +142,7 @@ fn flatten_table_columns_explicitly() {
             "open katz.json | flatten city --all | where people.name == Katz | length"
         );
 
-        assert_eq!(actual.out, "2");
+        assert_eq!(actual, Ok("2"));
     })
 }
 

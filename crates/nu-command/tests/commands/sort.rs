@@ -13,7 +13,7 @@ fn by_invalid_types() {
     ));
 
     let json_output = r#"[1,"foo"]"#;
-    assert_eq!(actual.out, json_output);
+    assert_eq!(actual, Ok(json_output));
 }
 
 #[test]
@@ -30,7 +30,7 @@ fn sort_primitive_values() {
         "#
     ));
 
-    assert_eq!(actual.out, "authors = [\"The Nushell Project Developers\"]");
+    assert_eq!(actual, Ok("authors = [\"The Nushell Project Developers\"]"));
 }
 
 #[test]
@@ -43,7 +43,7 @@ fn sort_different_types() {
     ));
 
     let json_output = r#"[1,2,3,4,"a","b","c","d",[1,2,3],[4,5,6]]"#;
-    assert_eq!(actual.out, json_output);
+    assert_eq!(actual, Ok(json_output));
 }
 
 #[test]
@@ -53,7 +53,7 @@ fn sort_natural() {
         r#"['1' '2' '3' '4' '5' '10' '100'] | sort -n | to nuon"#
     ));
 
-    assert_eq!(actual.out, r#"["1", "2", "3", "4", "5", "10", "100"]"#);
+    assert_eq!(actual, Ok(r#"["1", "2", "3", "4", "5", "10", "100"]"#));
 }
 
 #[test]
@@ -76,7 +76,7 @@ fn sort_record_insensitive() {
         r#"{abe:1,zed:2,ABE:3} | sort -i | to nuon"#
     ));
 
-    assert_eq!(actual.out, r#"{abe: 1, ABE: 3, zed: 2}"#);
+    assert_eq!(actual, Ok(r#"{abe: 1, ABE: 3, zed: 2}"#));
 }
 
 #[test]
@@ -86,7 +86,7 @@ fn sort_record_insensitive_reverse() {
         r#"{abe:1,zed:2,ABE:3} | sort -ir | to nuon"#
     ));
 
-    assert_eq!(actual.out, r#"{zed: 2, ABE: 3, abe: 1}"#);
+    assert_eq!(actual, Ok(r#"{zed: 2, ABE: 3, abe: 1}"#));
 }
 
 #[test]
@@ -96,7 +96,7 @@ fn sort_record_values_natural() {
         r#"{1:"1",2:"2",4:"100",3:"10"} | sort -vn | to nuon"#
     ));
 
-    assert_eq!(actual.out, r#"{"1": "1", "2": "2", "3": "10", "4": "100"}"#);
+    assert_eq!(actual, Ok(r#"{"1": "1", "2": "2", "3": "10", "4": "100"}"#));
 }
 
 #[test]
@@ -106,7 +106,7 @@ fn sort_record_values_insensitive() {
         r#"{1:abe,2:zed,3:ABE} | sort -vi | to nuon"#
     ));
 
-    assert_eq!(actual.out, r#"{"1": abe, "3": ABE, "2": zed}"#);
+    assert_eq!(actual, Ok(r#"{"1": abe, "3": ABE, "2": zed}"#));
 }
 
 #[test]
@@ -116,5 +116,5 @@ fn sort_record_values_insensitive_reverse() {
         r#"{1:abe,2:zed,3:ABE} | sort -vir | to nuon"#
     ));
 
-    assert_eq!(actual.out, r#"{"2": zed, "3": ABE, "1": abe}"#);
+    assert_eq!(actual, Ok(r#"{"2": zed, "3": ABE, "1": abe}"#));
 }

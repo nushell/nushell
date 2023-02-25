@@ -39,7 +39,7 @@ fn plugins_are_declared_with_wix() {
             "#
     ));
 
-    assert_eq!(actual.out, "0");
+    assert_eq!(actual, Ok("0"));
 }
 
 #[test]
@@ -185,7 +185,7 @@ fn run_script_that_looks_like_module() {
 
         let actual = nu!(cwd: dirs.test(), inp_lines.join("; "));
 
-        assert_eq!(actual.out, "eggs");
+        assert_eq!(actual, Ok("eggs"));
     })
 }
 

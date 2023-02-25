@@ -25,7 +25,7 @@ fn parses_csv() {
             "#
         ));
 
-        assert_eq!(actual.out, "Ecuador");
+        assert_eq!(actual, Ok("Ecuador"));
     })
 }
 
@@ -62,7 +62,7 @@ fn parses_bson() {
         "open sample.bson | get root | select 0 | get b"
     );
 
-    assert_eq!(actual.out, "hello");
+    assert_eq!(actual, Ok("hello"));
 }
 
 #[cfg(feature = "bson")]
@@ -79,7 +79,7 @@ fn parses_more_bson_complexity() {
         "#
     ));
 
-    assert_eq!(actual.out, "function");
+    assert_eq!(actual, Ok("function"));
 }
 
 // sample.db has the following format:
@@ -120,7 +120,7 @@ fn parses_sqlite() {
         "#
     ));
 
-    assert_eq!(actual.out, "3");
+    assert_eq!(actual, Ok("3"));
 }
 
 #[cfg(feature = "sqlite")]
@@ -135,7 +135,7 @@ fn parses_sqlite_get_column_name() {
         "#
     ));
 
-    assert_eq!(actual.out, "hello");
+    assert_eq!(actual, Ok("hello"));
 }
 
 #[test]
@@ -145,7 +145,7 @@ fn parses_toml() {
         "open cargo_sample.toml | get package.edition"
     );
 
-    assert_eq!(actual.out, "2018");
+    assert_eq!(actual, Ok("2018"));
 }
 
 #[test]
@@ -243,7 +243,7 @@ fn open_dir_is_ls() {
             "#
         ));
 
-        assert_eq!(actual.out, "3");
+        assert_eq!(actual, Ok("3"));
     })
 }
 

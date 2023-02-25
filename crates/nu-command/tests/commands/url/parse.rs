@@ -20,7 +20,7 @@ fn url_parse_simple() {
                 }
             "#
     ));
-    assert_eq!(actual.out, "true");
+    assert_eq!(actual, Ok("true"));
 }
 
 #[test]
@@ -44,7 +44,7 @@ fn url_parse_with_port() {
             "#
     ));
 
-    assert_eq!(actual.out, "true");
+    assert_eq!(actual, Ok("true"));
 }
 
 #[test]
@@ -68,7 +68,7 @@ fn url_parse_with_path() {
             "#
     ));
 
-    assert_eq!(actual.out, "true");
+    assert_eq!(actual, Ok("true"));
 }
 
 #[test]
@@ -92,7 +92,7 @@ fn url_parse_with_params() {
             "#
     ));
 
-    assert_eq!(actual.out, "true");
+    assert_eq!(actual, Ok("true"));
 }
 
 #[test]
@@ -116,7 +116,7 @@ fn url_parse_with_fragment() {
             "#
     ));
 
-    assert_eq!(actual.out, "true");
+    assert_eq!(actual, Ok("true"));
 }
 
 #[test]
@@ -140,7 +140,7 @@ fn url_parse_with_username_and_password() {
             "#
     ));
 
-    assert_eq!(actual.out, "true");
+    assert_eq!(actual, Ok("true"));
 }
 
 #[test]

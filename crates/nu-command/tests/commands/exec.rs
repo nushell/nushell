@@ -11,7 +11,7 @@ fn basic_exec() {
             "#
         ));
 
-        assert_eq!(actual.out, "a b c");
+        assert_eq!(actual, Ok("a b c"));
     })
 }
 
@@ -25,7 +25,7 @@ fn exec_complex_args() {
             "#
         ));
 
-        assert_eq!(actual.out, "b --bar=2 -sab --arwr - -DTEEE=aasd-290 -90 --");
+        assert_eq!(actual, Ok("b --bar=2 -sab --arwr - -DTEEE=aasd-290 -90 --"));
     })
 }
 
@@ -39,7 +39,7 @@ fn exec_fail_batched_short_args() {
             "#
         ));
 
-        assert_eq!(actual.out, "");
+        assert_eq!(actual, Ok(""));
     })
 }
 
@@ -53,6 +53,6 @@ fn exec_misc_values() {
             "#
         ));
 
-        assert_eq!(actual.out, "abc a b c");
+        assert_eq!(actual, Ok("abc a b c"));
     })
 }

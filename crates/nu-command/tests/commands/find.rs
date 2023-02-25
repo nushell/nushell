@@ -11,7 +11,7 @@ fn find_with_list_search_with_string() {
     "#
     ));
 
-    assert_eq!(actual.out, "moe");
+    assert_eq!(actual, Ok("moe"));
 }
 
 #[test]
@@ -23,7 +23,7 @@ fn find_with_list_search_with_char() {
     "#
     ));
 
-    assert_eq!(actual.out, r#"["larry","curly"]"#);
+    assert_eq!(actual, Ok(r#"["larry","curly"]"#));
 }
 
 #[test]
@@ -35,7 +35,7 @@ fn find_with_list_search_with_number() {
     "#
     ));
 
-    assert_eq!(actual.out, "3");
+    assert_eq!(actual, Ok("3"));
 }
 
 #[test]
@@ -47,7 +47,7 @@ fn find_with_string_search_with_string() {
     "#
     ));
 
-    assert_eq!(actual.out, "Cargo.toml");
+    assert_eq!(actual, Ok("Cargo.toml"));
 }
 
 #[test]
@@ -59,7 +59,7 @@ fn find_with_string_search_with_string_not_found() {
     "#
     ));
 
-    assert_eq!(actual.out, "true");
+    assert_eq!(actual, Ok("true"));
 }
 
 #[test]
@@ -82,7 +82,7 @@ fn find_with_filepath_search_with_string() {
             "#
         ));
 
-        assert_eq!(actual.out, r#"["arepas.clu"]"#);
+        assert_eq!(actual, Ok(r#"["arepas.clu"]"#));
     })
 }
 
@@ -106,7 +106,7 @@ fn find_with_filepath_search_with_multiple_patterns() {
             "#
         ));
 
-        assert_eq!(actual.out, r#"["amigos.txt","arepas.clu"]"#);
+        assert_eq!(actual, Ok(r#"["amigos.txt","arepas.clu"]"#));
     })
 }
 
@@ -119,5 +119,5 @@ fn find_takes_into_account_linebreaks_in_string() {
         "#
     ));
 
-    assert_eq!(actual.out, "2");
+    assert_eq!(actual, Ok("2"));
 }

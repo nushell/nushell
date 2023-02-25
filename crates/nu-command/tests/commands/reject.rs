@@ -17,7 +17,7 @@ fn regular_columns() {
         "#
     ));
 
-    assert_eq!(actual.out, "last_name, rusty_at");
+    assert_eq!(actual, Ok("last_name, rusty_at"));
 }
 
 #[test]
@@ -25,7 +25,7 @@ fn skip_cell_rejection() {
     let actual = nu!(cwd: ".", pipeline(
         r#"[ {a: 1, b: 2,c:txt}, { a:val } ] | reject a | get c.0"#));
 
-    assert_eq!(actual.out, "txt");
+    assert_eq!(actual, Ok("txt"));
 }
 
 #[test]
@@ -58,7 +58,7 @@ fn complex_nested_columns() {
         "#,
     ));
 
-    assert_eq!(actual.out, "releases");
+    assert_eq!(actual, Ok("releases"));
 }
 
 #[test]
@@ -77,7 +77,7 @@ fn ignores_duplicate_columns_rejected() {
         "#
     ));
 
-    assert_eq!(actual.out, "last name");
+    assert_eq!(actual, Ok("last name"));
 }
 
 #[test]
@@ -116,5 +116,5 @@ fn reject_nested_field() {
         )
     );
 
-    assert_eq!(actual.out, "{a: {c: 5}}");
+    assert_eq!(actual, Ok("{a: {c: 5}}"));
 }

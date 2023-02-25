@@ -11,7 +11,7 @@ fn list_shells_1() {
             r#"enter foo; enter ../bar; g| get active.2"#
         ));
 
-        assert_eq!(actual.out, "true");
+        assert_eq!(actual, Ok("true"));
     })
 }
 
@@ -26,6 +26,6 @@ fn list_shells_2() {
             r#"enter foo; enter ../bar; shells| get active.2"#
         ));
 
-        assert_eq!(actual.out, "true");
+        assert_eq!(actual, Ok("true"));
     })
 }

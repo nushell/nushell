@@ -11,7 +11,7 @@ fn sets_the_column() {
         "#
     ));
 
-    assert_eq!(actual.out, "0.7.0");
+    assert_eq!(actual, Ok("0.7.0"));
 }
 
 #[test]
@@ -20,7 +20,7 @@ fn doesnt_convert_record_to_table() {
         cwd: ".", r#"{a:1} | update a 2 | to nuon"#
     );
 
-    assert_eq!(actual.out, "{a: 2}");
+    assert_eq!(actual, Ok("{a: 2}"));
 }
 
 #[cfg(features = "inc")]
@@ -35,7 +35,7 @@ fn sets_the_column_from_a_block_run_output() {
         "#
     ));
 
-    assert_eq!(actual.out, "0.7.0");
+    assert_eq!(actual, Ok("0.7.0"));
 }
 
 #[test]
@@ -50,7 +50,7 @@ fn sets_the_column_from_a_block_full_stream_output() {
         "#
     ));
 
-    assert_eq!(actual.out, "true");
+    assert_eq!(actual, Ok("true"));
 }
 
 #[test]
@@ -65,7 +65,7 @@ fn sets_the_column_from_a_subexpression() {
         "#
     ));
 
-    assert_eq!(actual.out, "true");
+    assert_eq!(actual, Ok("true"));
 }
 
 #[test]
@@ -90,7 +90,7 @@ fn update_list() {
         "#
     ));
 
-    assert_eq!(actual.out, r#"[1,"abc",3]"#);
+    assert_eq!(actual, Ok(r#"[1,"abc",3]"#));
 }
 
 #[test]
@@ -122,5 +122,5 @@ fn update_uses_enumerate_index() {
         r#"[[a]; [7] [6]] | enumerate | update item.a {|el| $el.index + 1 + $el.item.a } | flatten | to nuon"#
     ));
 
-    assert_eq!(actual.out, "[[index, a]; [0, 8], [1, 8]]");
+    assert_eq!(actual, Ok("[[index, a]; [0, 8], [1, 8]]"));
 }

@@ -21,7 +21,7 @@ fn trims() {
             "open sample.toml | str trim dependency.name | get dependency.name"
         );
 
-        assert_eq!(actual.out, "nu");
+        assert_eq!(actual, Ok("nu"));
     })
 }
 
@@ -54,7 +54,7 @@ fn capitalizes() {
             "open sample.toml | str capitalize dependency.name | get dependency.name"
         );
 
-        assert_eq!(actual.out, "Nu");
+        assert_eq!(actual, Ok("Nu"));
     })
 }
 
@@ -74,7 +74,7 @@ fn downcases() {
             "open sample.toml | str downcase dependency.name | get dependency.name"
         );
 
-        assert_eq!(actual.out, "light");
+        assert_eq!(actual, Ok("light"));
     })
 }
 
@@ -94,7 +94,7 @@ fn upcases() {
             "open sample.toml | str upcase package.name | get package.name"
         );
 
-        assert_eq!(actual.out, "NUSHELL");
+        assert_eq!(actual, Ok("NUSHELL"));
     })
 }
 
@@ -114,7 +114,7 @@ fn camelcases() {
             "open sample.toml | str camel-case dependency.name | get dependency.name"
         );
 
-        assert_eq!(actual.out, "thisIsATest");
+        assert_eq!(actual, Ok("thisIsATest"));
     })
 }
 
@@ -133,7 +133,7 @@ fn converts_to_int() {
         "#
     ));
 
-    assert_eq!(actual.out, "1");
+    assert_eq!(actual, Ok("1"));
 }
 
 #[test]
@@ -148,7 +148,7 @@ fn converts_to_decimal() {
         "#
     ));
 
-    assert_eq!(actual.out, "3.1415");
+    assert_eq!(actual, Ok("3.1415"));
 }
 
 #[test]
@@ -171,7 +171,7 @@ fn find_and_replaces() {
              "#
         ));
 
-        assert_eq!(actual.out, "1-800-5289");
+        assert_eq!(actual, Ok("1-800-5289"));
     })
 }
 
@@ -195,7 +195,7 @@ fn find_and_replaces_without_passing_field() {
              "#
         ));
 
-        assert_eq!(actual.out, "1-800-5289");
+        assert_eq!(actual, Ok("1-800-5289"));
     })
 }
 
@@ -239,7 +239,7 @@ fn substrings_the_input() {
              "#
         ));
 
-        assert_eq!(actual.out, "ROBALINO");
+        assert_eq!(actual, Ok("ROBALINO"));
     })
 }
 
@@ -288,7 +288,7 @@ fn substrings_the_input_and_returns_the_string_if_end_index_exceeds_length() {
              "#
         ));
 
-        assert_eq!(actual.out, "nu-arepas");
+        assert_eq!(actual, Ok("nu-arepas"));
     })
 }
 
@@ -312,7 +312,7 @@ fn substrings_the_input_and_returns_blank_if_start_index_exceeds_length() {
              "#
         ));
 
-        assert_eq!(actual.out, "");
+        assert_eq!(actual, Ok(""));
     })
 }
 
@@ -336,7 +336,7 @@ fn substrings_the_input_and_treats_start_index_as_zero_if_blank_start_index_give
              "#
         ));
 
-        assert_eq!(actual.out, "nu");
+        assert_eq!(actual, Ok("nu"));
     })
 }
 
@@ -360,7 +360,7 @@ fn substrings_the_input_and_treats_end_index_as_length_if_blank_end_index_given(
              "#
         ));
 
-        assert_eq!(actual.out, "arepas");
+        assert_eq!(actual, Ok("arepas"));
     })
 }
 
@@ -385,5 +385,5 @@ fn test_redirection_trim() {
         "#
     ));
 
-    assert_eq!(actual.out, "7");
+    assert_eq!(actual, Ok("7"));
 }

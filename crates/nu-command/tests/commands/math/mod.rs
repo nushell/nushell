@@ -15,7 +15,7 @@ fn one_arg() {
         "#
     ));
 
-    assert_eq!(actual.out, "1");
+    assert_eq!(actual, Ok("1"));
 }
 
 #[test]
@@ -27,7 +27,7 @@ fn add() {
         "#
     ));
 
-    assert_eq!(actual.out, "2");
+    assert_eq!(actual, Ok("2"));
 }
 
 #[test]
@@ -39,7 +39,7 @@ fn add_compound() {
         "#
     ));
 
-    assert_eq!(actual.out, "5");
+    assert_eq!(actual, Ok("5"));
 }
 
 #[test]
@@ -51,7 +51,7 @@ fn precedence_of_operators() {
         "#
     ));
 
-    assert_eq!(actual.out, "5");
+    assert_eq!(actual, Ok("5"));
 }
 
 #[test]
@@ -63,7 +63,7 @@ fn precedence_of_operators2() {
         "#
     ));
 
-    assert_eq!(actual.out, "6");
+    assert_eq!(actual, Ok("6"));
 }
 
 #[test]
@@ -75,7 +75,7 @@ fn precedence_of_operators3() {
         "#
     ));
 
-    assert_eq!(actual.out, "-40");
+    assert_eq!(actual, Ok("-40"));
 }
 
 #[test]
@@ -87,7 +87,7 @@ fn precedence_of_operators4() {
         "#
     ));
 
-    assert_eq!(actual.out, "-40");
+    assert_eq!(actual, Ok("-40"));
 }
 
 #[test]
@@ -99,7 +99,7 @@ fn division_of_ints() {
         "#
     ));
 
-    assert_eq!(actual.out, "2");
+    assert_eq!(actual, Ok("2"));
 }
 
 #[test]
@@ -111,7 +111,7 @@ fn division_of_ints2() {
         "#
     ));
 
-    assert_eq!(actual.out, "0.25");
+    assert_eq!(actual, Ok("0.25"));
 }
 
 #[test]
@@ -171,7 +171,7 @@ fn floor_division_of_ints() {
         "#
     ));
 
-    assert_eq!(actual.out, "2");
+    assert_eq!(actual, Ok("2"));
 }
 
 #[test]
@@ -183,7 +183,7 @@ fn floor_division_of_ints2() {
         "#
     ));
 
-    assert_eq!(actual.out, "-2");
+    assert_eq!(actual, Ok("-2"));
 }
 
 #[test]
@@ -195,7 +195,7 @@ fn floor_division_of_floats() {
         "#
     ));
 
-    assert_eq!(actual.out, "-2");
+    assert_eq!(actual, Ok("-2"));
 }
 
 #[test]
@@ -254,7 +254,7 @@ fn proper_precedence_history() {
         "#
     ));
 
-    assert_eq!(actual.out, "1.5");
+    assert_eq!(actual, Ok("1.5"));
 }
 
 #[test]
@@ -266,7 +266,7 @@ fn parens_precedence() {
         "#
     ));
 
-    assert_eq!(actual.out, "12");
+    assert_eq!(actual, Ok("12"));
 }
 
 #[test]
@@ -278,7 +278,7 @@ fn modulo() {
         "#
     ));
 
-    assert_eq!(actual.out, "1");
+    assert_eq!(actual, Ok("1"));
 }
 
 #[test]
@@ -290,7 +290,7 @@ fn unit_multiplication_math() {
         "#
     ));
 
-    assert_eq!(actual.out, "1.9 MiB");
+    assert_eq!(actual, Ok("1.9 MiB"));
 }
 
 #[test]
@@ -302,7 +302,7 @@ fn unit_multiplication_float_math() {
         "#
     ));
 
-    assert_eq!(actual.out, "1.1 MiB");
+    assert_eq!(actual, Ok("1.1 MiB"));
 }
 
 #[test]
@@ -314,7 +314,7 @@ fn unit_float_floor_division_math() {
         "#
     ));
 
-    assert_eq!(actual.out, "325.5 KiB");
+    assert_eq!(actual, Ok("325.5 KiB"));
 }
 
 #[test]
@@ -326,7 +326,7 @@ fn unit_division_math() {
         "#
     ));
 
-    assert_eq!(actual.out, "244.1 KiB");
+    assert_eq!(actual, Ok("244.1 KiB"));
 }
 
 #[test]
@@ -338,7 +338,7 @@ fn unit_float_division_math() {
         "#
     ));
 
-    assert_eq!(actual.out, "315.0 KiB");
+    assert_eq!(actual, Ok("315.0 KiB"));
 }
 
 #[test]
@@ -350,7 +350,7 @@ fn duration_math() {
         "#
     ));
 
-    assert_eq!(actual.out, "1wk 1day");
+    assert_eq!(actual, Ok("1wk 1day"));
 }
 
 #[test]
@@ -362,7 +362,7 @@ fn duration_decimal_math() {
         "#
     ));
 
-    assert_eq!(actual.out, "6day");
+    assert_eq!(actual, Ok("6day"));
 }
 
 #[test]
@@ -374,7 +374,7 @@ fn duration_math_with_nanoseconds() {
         "#
     ));
 
-    assert_eq!(actual.out, "1wk 10ns");
+    assert_eq!(actual, Ok("1wk 10ns"));
 }
 
 #[test]
@@ -386,7 +386,7 @@ fn duration_decimal_math_with_nanoseconds() {
         "#
     ));
 
-    assert_eq!(actual.out, "1wk 3day 10ns");
+    assert_eq!(actual, Ok("1wk 3day 10ns"));
 }
 
 #[test]
@@ -398,7 +398,7 @@ fn duration_decimal_math_with_all_units() {
         "#
     ));
 
-    assert_eq!(actual.out, "1wk 3day 8hr 10min 16sec 121ms 11µs 12ns");
+    assert_eq!(actual, Ok("1wk 3day 8hr 10min 16sec 121ms 11µs 12ns"));
 }
 
 #[test]
@@ -410,7 +410,7 @@ fn duration_decimal_dans_test() {
         "#
     ));
 
-    assert_eq!(actual.out, "3sec 140ms");
+    assert_eq!(actual, Ok("3sec 140ms"));
 }
 
 #[test]
@@ -422,7 +422,7 @@ fn duration_math_with_negative() {
         "#
     ));
 
-    assert_eq!(actual.out, "-6day");
+    assert_eq!(actual, Ok("-6day"));
 }
 
 #[test]
@@ -434,7 +434,7 @@ fn compound_comparison() {
         "#
     ));
 
-    assert_eq!(actual.out, "true");
+    assert_eq!(actual, Ok("true"));
 }
 
 #[test]
@@ -446,7 +446,7 @@ fn compound_comparison2() {
         "#
     ));
 
-    assert_eq!(actual.out, "true");
+    assert_eq!(actual, Ok("true"));
 }
 
 #[test]
@@ -458,7 +458,7 @@ fn compound_where() {
         "#
     ));
 
-    assert_eq!(actual.out, r#"[{"a": 2,"b": 1}]"#);
+    assert_eq!(actual, Ok(r#"[{"a": 2,"b": 1}]"#));
 }
 
 #[test]
@@ -470,7 +470,7 @@ fn compound_where_paren() {
         "#
     ));
 
-    assert_eq!(actual.out, r#"[{"a": 2,"b": 1},{"a": 2,"b": 2}]"#);
+    assert_eq!(actual, Ok(r#"[{"a": 2,"b": 1},{"a": 2,"b": 2}]"#));
 }
 
 // TODO: these ++ tests are not really testing *math* functionality, maybe find another place for them
@@ -484,7 +484,7 @@ fn adding_lists() {
         "#
     ));
 
-    assert_eq!(actual.out, "[1, 3, 5, 6]");
+    assert_eq!(actual, Ok("[1, 3, 5, 6]"));
 }
 
 #[test]
@@ -496,7 +496,7 @@ fn adding_list_and_value() {
         "#
     ));
 
-    assert_eq!(actual.out, "[1, 3, 5]");
+    assert_eq!(actual, Ok("[1, 3, 5]"));
 }
 
 #[test]
@@ -508,7 +508,7 @@ fn adding_value_and_list() {
         "#
     ));
 
-    assert_eq!(actual.out, "[1, 3, 5]");
+    assert_eq!(actual, Ok("[1, 3, 5]"));
 }
 
 #[test]
@@ -519,7 +519,7 @@ fn adding_tables() {
             [[a b]; [1 2]] ++ [[c d]; [10 11]] | to nuon
         "#
     ));
-    assert_eq!(actual.out, "[{a: 1, b: 2}, {c: 10, d: 11}]");
+    assert_eq!(actual, Ok("[{a: 1, b: 2}, {c: 10, d: 11}]"));
 }
 
 #[test]
@@ -530,7 +530,7 @@ fn append_strings() {
             "foo" ++ "bar"
         "#
     ));
-    assert_eq!(actual.out, "foobar");
+    assert_eq!(actual, Ok("foobar"));
 }
 
 #[test]
@@ -541,7 +541,7 @@ fn append_binary_values() {
             0x[01 02] ++ 0x[03 04] | to nuon
         "#
     ));
-    assert_eq!(actual.out, "0x[01020304]");
+    assert_eq!(actual, Ok("0x[01020304]"));
 }
 
 #[test]
@@ -550,12 +550,12 @@ fn int_multiple_string() {
         cwd: "tests/fixtures/formats", pipeline(
         r#"3 * "ab""#
     ));
-    assert_eq!(actual.out, "ababab");
+    assert_eq!(actual, Ok("ababab"));
     let actual = nu!(
         cwd: "tests/fixtures/formats", pipeline(
         r#""ab" * 3"#
     ));
-    assert_eq!(actual.out, "ababab");
+    assert_eq!(actual, Ok("ababab"));
 }
 
 #[test]
@@ -564,10 +564,10 @@ fn int_multiple_list() {
         cwd: "tests/fixtures/formats", pipeline(
         r#"3 * [1 2] | to nuon"#
     ));
-    assert_eq!(actual.out, "[1, 2, 1, 2, 1, 2]");
+    assert_eq!(actual, Ok("[1, 2, 1, 2, 1, 2]"));
     let actual = nu!(
         cwd: "tests/fixtures/formats", pipeline(
         r#"[1 2] * 3 | to nuon"#
     ));
-    assert_eq!(actual.out, "[1, 2, 1, 2, 1, 2]");
+    assert_eq!(actual, Ok("[1, 2, 1, 2, 1, 2]"));
 }

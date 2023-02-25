@@ -6,7 +6,7 @@ fn const_bool() {
 
     let actual = nu!(cwd: "tests/const_", pipeline(&inp.join("; ")));
 
-    assert_eq!(actual.out, "false");
+    assert_eq!(actual, Ok("false"));
 }
 
 #[test]
@@ -15,7 +15,7 @@ fn const_int() {
 
     let actual = nu!(cwd: "tests/const_", pipeline(&inp.join("; ")));
 
-    assert_eq!(actual.out, "10");
+    assert_eq!(actual, Ok("10"));
 }
 
 #[test]
@@ -24,7 +24,7 @@ fn const_float() {
 
     let actual = nu!(cwd: "tests/const_", pipeline(&inp.join("; ")));
 
-    assert_eq!(actual.out, "1.234");
+    assert_eq!(actual, Ok("1.234"));
 }
 
 #[test]
@@ -51,7 +51,7 @@ fn const_list() {
 
     let actual = nu!(cwd: "tests/const_", pipeline(&inp.join("; ")));
 
-    assert_eq!(actual.out, "list<string>");
+    assert_eq!(actual, Ok("list<string>"));
 }
 
 #[test]
@@ -60,7 +60,7 @@ fn const_record() {
 
     let actual = nu!(cwd: "tests/const_", pipeline(&inp.join("; ")));
 
-    assert_eq!(actual.out, "record<a: int, b: int, c: int>");
+    assert_eq!(actual, Ok("record<a: int, b: int, c: int>"));
 }
 
 #[test]
@@ -72,7 +72,7 @@ fn const_table() {
 
     let actual = nu!(cwd: "tests/const_", pipeline(&inp.join("; ")));
 
-    assert_eq!(actual.out, "table<a: int, b: int, c: int>");
+    assert_eq!(actual, Ok("table<a: int, b: int, c: int>"));
 }
 
 #[test]
@@ -81,7 +81,7 @@ fn const_string() {
 
     let actual = nu!(cwd: "tests/const_", pipeline(&inp.join("; ")));
 
-    assert_eq!(actual.out, "abc");
+    assert_eq!(actual, Ok("abc"));
 }
 
 #[test]
@@ -90,7 +90,7 @@ fn const_nothing() {
 
     let actual = nu!(cwd: "tests/const_", pipeline(&inp.join("; ")));
 
-    assert_eq!(actual.out, "nothing");
+    assert_eq!(actual, Ok("nothing"));
 }
 
 #[test]

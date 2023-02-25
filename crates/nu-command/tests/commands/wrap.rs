@@ -27,7 +27,7 @@ fn wrap_rows_into_a_row() {
             "#
         ));
 
-        assert_eq!(actual.out, "Robalino");
+        assert_eq!(actual, Ok("Robalino"));
     })
 }
 
@@ -56,6 +56,6 @@ fn wrap_rows_into_a_table() {
             "#
         ));
 
-        assert_eq!(actual.out, "Katz");
+        assert_eq!(actual, Ok("Katz"));
     })
 }

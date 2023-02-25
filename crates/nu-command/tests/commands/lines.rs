@@ -16,7 +16,7 @@ fn lines() {
         "#
     ));
 
-    assert_eq!(actual.out, "rustyline");
+    assert_eq!(actual, Ok("rustyline"));
 }
 
 #[test]
@@ -31,7 +31,7 @@ fn lines_proper_buffering() {
         "#
     ));
 
-    assert_eq!(actual.out, "[8193,3]");
+    assert_eq!(actual, Ok("[8193,3]"));
 }
 
 #[test]
@@ -46,7 +46,7 @@ fn lines_multi_value_split() {
         "#
     ));
 
-    assert_eq!(actual.out, "6");
+    assert_eq!(actual, Ok("6"));
 }
 
 /// test whether this handles CRLF and LF in the same input
@@ -59,5 +59,5 @@ fn lines_mixed_line_endings() {
         "#
     ));
 
-    assert_eq!(actual.out, "3");
+    assert_eq!(actual, Ok("3"));
 }

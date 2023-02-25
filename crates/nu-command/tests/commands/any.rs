@@ -10,7 +10,7 @@ fn checks_any_row_is_true() {
         "#
     ));
 
-    assert_eq!(actual.out, "true");
+    assert_eq!(actual, Ok("true"));
 }
 
 #[test]
@@ -29,7 +29,7 @@ fn checks_any_column_of_a_table_is_true() {
         "#
     ));
 
-    assert_eq!(actual.out, "true");
+    assert_eq!(actual, Ok("true"));
 }
 
 #[test]
@@ -54,7 +54,7 @@ fn works_with_1_param_blocks() {
         r#"[1 2 3] | any {|e| print $e | false }"#
     ));
 
-    assert_eq!(actual.out, "123false");
+    assert_eq!(actual, Ok("123false"));
 }
 
 #[test]
@@ -64,7 +64,7 @@ fn works_with_0_param_blocks() {
         r#"[1 2 3] | any { print $in | false }"#
     ));
 
-    assert_eq!(actual.out, "123false");
+    assert_eq!(actual, Ok("123false"));
 }
 
 #[test]
@@ -74,7 +74,7 @@ fn early_exits_with_1_param_blocks() {
         r#"[1 2 3] | any {|e| print $e | true }"#
     ));
 
-    assert_eq!(actual.out, "1true");
+    assert_eq!(actual, Ok("1true"));
 }
 
 #[test]
@@ -84,7 +84,7 @@ fn early_exits_with_0_param_blocks() {
         r#"[1 2 3] | any { print $in | true }"#
     ));
 
-    assert_eq!(actual.out, "1true");
+    assert_eq!(actual, Ok("1true"));
 }
 
 #[test]
@@ -94,7 +94,7 @@ fn any_uses_enumerate_index() {
         r#"[7 8 9] | enumerate | any {|el| print $el.index | false }"#
     ));
 
-    assert_eq!(actual.out, "012false");
+    assert_eq!(actual, Ok("012false"));
 }
 
 #[test]
@@ -104,5 +104,5 @@ fn unique_env_each_iteration() {
         "[1 2] | any { print ($env.PWD | str ends-with 'formats') | cd '/' | false } | to nuon"
     );
 
-    assert_eq!(actual.out, "truetruefalse");
+    assert_eq!(actual, Ok("truetruefalse"));
 }

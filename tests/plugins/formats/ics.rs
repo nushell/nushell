@@ -50,7 +50,7 @@ fn infers_types() {
             "open calendar.ics | get events.0 | length"
         );
 
-        assert_eq!(actual.out, "2");
+        assert_eq!(actual, Ok("2"));
     })
 }
 
@@ -94,6 +94,6 @@ fn from_ics_text_to_table() {
             "#
         );
 
-        assert_eq!(actual.out, "Maryland Game");
+        assert_eq!(actual, Ok("Maryland Game"));
     })
 }

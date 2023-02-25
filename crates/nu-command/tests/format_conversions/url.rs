@@ -12,5 +12,5 @@ fn can_encode_and_decode_urlencoding() {
             "#
     ));
 
-    assert_eq!(actual.out, "comté");
+    assert_eq!(actual, Ok("comté"));
 }

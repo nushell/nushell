@@ -9,5 +9,5 @@ fn continue_for_loop() {
         "#
     ));
 
-    assert_eq!(actual.out, r#"1345678910"#);
+    assert_eq!(actual, Ok(r#"1345678910"#));
 }

@@ -27,7 +27,7 @@ fn changes_the_column_name() {
                 "#
         ));
 
-        assert_eq!(actual.out, "4");
+        assert_eq!(actual, Ok("4"));
     })
 }
 
@@ -57,7 +57,7 @@ fn keeps_remaining_original_names_given_less_new_names_than_total_original_names
                 "#
         ));
 
-        assert_eq!(actual.out, "4");
+        assert_eq!(actual, Ok("4"));
     })
 }
 

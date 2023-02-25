@@ -11,7 +11,7 @@ fn insert_the_column() {
         "#
     ));
 
-    assert_eq!(actual.out, "0.7.0");
+    assert_eq!(actual, Ok("0.7.0"));
 }
 
 #[test]
@@ -20,7 +20,7 @@ fn doesnt_convert_record_to_table() {
         cwd: ".", r#"{a:1} | insert b 2 | to nuon"#
     );
 
-    assert_eq!(actual.out, "{a: 1, b: 2}");
+    assert_eq!(actual, Ok("{a: 1, b: 2}"));
 }
 
 #[test]
@@ -47,7 +47,7 @@ fn insert_into_list() {
         "#
     ));
 
-    assert_eq!(actual.out, r#"[1,"abc",2,3]"#);
+    assert_eq!(actual, Ok(r#"[1,"abc",2,3]"#));
 }
 
 #[test]
@@ -59,7 +59,7 @@ fn insert_into_list_begin() {
         "#
     ));
 
-    assert_eq!(actual.out, r#"["abc",1,2,3]"#);
+    assert_eq!(actual, Ok(r#"["abc",1,2,3]"#));
 }
 
 #[test]
@@ -71,7 +71,7 @@ fn insert_into_list_end() {
         "#
     ));
 
-    assert_eq!(actual.out, r#"[1,2,3,"abc"]"#);
+    assert_eq!(actual, Ok(r#"[1,2,3,"abc"]"#));
 }
 
 #[test]
@@ -83,7 +83,7 @@ fn insert_past_end_list() {
         "#
     ));
 
-    assert_eq!(actual.out, r#"[1,2,3,null,null,"abc"]"#);
+    assert_eq!(actual, Ok(r#"[1,2,3,null,null,"abc"]"#));
 }
 
 #[test]
@@ -93,5 +93,5 @@ fn insert_uses_enumerate_index() {
         r#"[[a]; [7] [6]] | enumerate | insert b {|el| $el.index + 1 + $el.item.a } | flatten | to nuon"#
     ));
 
-    assert_eq!(actual.out, "[[index, a, b]; [0, 7, 8], [1, 6, 8]]");
+    assert_eq!(actual, Ok("[[index, a, b]; [0, 7, 8], [1, 6, 8]]"));
 }

@@ -19,7 +19,7 @@ fn lists_regular_files() {
             "#
         ));
 
-        assert_eq!(actual.out, "3");
+        assert_eq!(actual, Ok("3"));
     })
 }
 
@@ -41,7 +41,7 @@ fn lists_regular_files_using_asterisk_wildcard() {
             "#
         ));
 
-        assert_eq!(actual.out, "3");
+        assert_eq!(actual, Ok("3"));
     })
 }
 
@@ -63,7 +63,7 @@ fn lists_regular_files_using_question_mark_wildcard() {
             "#
         ));
 
-        assert_eq!(actual.out, "3");
+        assert_eq!(actual, Ok("3"));
     })
 }
 
@@ -92,7 +92,7 @@ fn lists_all_files_in_directories_from_stream() {
             "#
         ));
 
-        assert_eq!(actual.out, "4");
+        assert_eq!(actual, Ok("4"));
     })
 }
 
@@ -109,7 +109,7 @@ fn does_not_fail_if_glob_matches_empty_directory() {
             "#
         ));
 
-        assert_eq!(actual.out, "0");
+        assert_eq!(actual, Ok("0"));
     })
 }
 
@@ -146,7 +146,7 @@ fn list_files_from_two_parents_up_using_multiple_dots() {
             "#
         );
 
-        assert_eq!(actual.out, "5");
+        assert_eq!(actual, Ok("5"));
     })
 }
 
@@ -169,7 +169,7 @@ fn lists_hidden_file_when_explicitly_specified() {
             "#
         ));
 
-        assert_eq!(actual.out, "1");
+        assert_eq!(actual, Ok("1"));
     })
 }
 
@@ -203,7 +203,7 @@ fn lists_all_hidden_files_when_glob_contains_dot() {
             "#
         ));
 
-        assert_eq!(actual.out, "3");
+        assert_eq!(actual, Ok("3"));
     })
 }
 
@@ -240,7 +240,7 @@ fn lists_all_hidden_files_when_glob_does_not_contain_dot() {
             "#
         ));
 
-        assert_eq!(actual.out, "5");
+        assert_eq!(actual, Ok("5"));
     })
 }
 
@@ -264,7 +264,7 @@ fn glob_with_hidden_directory() {
             "#
         ));
 
-        assert_eq!(actual.out, "");
+        assert_eq!(actual, Ok(""));
         assert!(actual.err.contains("No matches found"));
 
         // will list files if provide `-a` flag.
@@ -276,7 +276,7 @@ fn glob_with_hidden_directory() {
             "#
         ));
 
-        assert_eq!(actual.out, "4");
+        assert_eq!(actual, Ok("4"));
     })
 }
 
@@ -331,7 +331,7 @@ fn lists_files_including_starting_with_dot() {
             "#
         ));
 
-        assert_eq!(actual.out, "5");
+        assert_eq!(actual, Ok("5"));
     })
 }
 
@@ -350,7 +350,7 @@ fn list_all_columns() {
             "ls | columns | to md"
         );
         let expected = ["name", "type", "size", "modified"].join("");
-        assert_eq!(actual.out, expected, "column names are incorrect for ls");
+        assert_eq!(actual, Ok(expected, "column names are incorrect for ls"));
         // Long
         let actual = nu!(
             cwd: dirs.test(),

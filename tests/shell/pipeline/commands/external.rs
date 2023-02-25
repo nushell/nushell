@@ -68,7 +68,7 @@ fn automatically_change_directory_with_trailing_slash_and_same_name_as_command()
 fn correctly_escape_external_arguments() {
     let actual = nu!(cwd: ".", r#"^nu --testbin cococo '$0'"#);
 
-    assert_eq!(actual.out, "$0");
+    assert_eq!(actual, Ok("$0"));
 }
 
 #[test]
@@ -80,21 +80,21 @@ fn execute_binary_in_string() {
         ^$"($cmd)" --testbin cococo "$0"
     "#);
 
-    assert_eq!(actual.out, "$0");
+    assert_eq!(actual, Ok("$0"));
 }
 
 #[test]
 fn single_quote_dollar_external() {
     let actual = nu!(cwd: ".", r#"let author = 'JT'; ^echo $'foo=($author)'"#);
 
-    assert_eq!(actual.out, "foo=JT");
+    assert_eq!(actual, Ok("foo=JT"));
 }
 
 #[test]
 fn redirects_custom_command_external() {
     let actual = nu!(cwd: ".", r#"def foo [] { nu --testbin cococo foo bar }; foo | str length"#);
 
-    assert_eq!(actual.out, "8");
+    assert_eq!(actual, Ok("8"));
 }
 
 #[test]
@@ -128,7 +128,7 @@ fn command_substitution_wont_output_extra_newline() {
         with-env [FOO "bar"] { echo $"prefix (nu --testbin echo_env FOO) suffix" }
         "#
     );
-    assert_eq!(actual.out, "prefix bar suffix");
+    assert_eq!(actual, Ok("prefix bar suffix"));
 
     let actual = nu!(
         cwd: ".",
@@ -136,7 +136,7 @@ fn command_substitution_wont_output_extra_newline() {
         with-env [FOO "bar"] { (nu --testbin echo_env FOO) }
         "#
     );
-    assert_eq!(actual.out, "bar");
+    assert_eq!(actual, Ok("bar"));
 }
 
 mod it_evaluation {
@@ -163,7 +163,7 @@ mod it_evaluation {
                 "#
             ));
 
-            assert_eq!(actual.out, "jonathan_likes_cake.txt");
+            assert_eq!(actual, Ok("jonathan_likes_cake.txt"));
         })
     }
 
@@ -188,7 +188,7 @@ mod it_evaluation {
                 "#
             ));
 
-            assert_eq!(actual.out, "AndrásWithKitKat");
+            assert_eq!(actual, Ok("AndrásWithKitKat"));
         })
     }
 
@@ -201,7 +201,7 @@ mod it_evaluation {
             "#
         );
 
-        assert_eq!(actual.out, "1");
+        assert_eq!(actual, Ok("1"));
     }
     #[test]
     fn supports_fetching_given_a_column_path_to_it() {
@@ -221,7 +221,7 @@ mod it_evaluation {
                 "#
             ));
 
-            assert_eq!(actual.out, "zion");
+            assert_eq!(actual, Ok("zion"));
         })
     }
 }
@@ -270,7 +270,7 @@ mod external_words {
         nu --testbin cococo joturner@foo.bar.baz
         "#);
 
-        assert_eq!(actual.out, "joturner@foo.bar.baz");
+        assert_eq!(actual, Ok("joturner@foo.bar.baz"));
     }
 
     //FIXME: jt: limitation in testing - can't use single ticks currently
@@ -281,7 +281,7 @@ mod external_words {
         nu --testbin cococo 'test "things"'
         "#);
 
-        assert_eq!(actual.out, "test \"things\"");
+        assert_eq!(actual, Ok("test \"things\""));
     }
 
     #[rstest::rstest]
@@ -313,7 +313,7 @@ mod external_words {
                 "#)
             ));
 
-            assert_eq!(actual.out, "zion");
+            assert_eq!(actual, Ok("zion"));
         })
     }
 }
@@ -329,7 +329,7 @@ mod nu_commands {
         nu -c "echo 'foo'"
         "#);
 
-        assert_eq!(actual.out, "foo");
+        assert_eq!(actual, Ok("foo"));
     }
 
     #[test]
@@ -350,7 +350,7 @@ mod nu_commands {
         nu -c "\# '"
         "#);
 
-        assert_eq!(actual.out, "");
+        assert_eq!(actual, Ok(""));
     }
 
     #[test]
@@ -387,7 +387,7 @@ mod nu_script {
         nu script.nu
         "#);
 
-        assert_eq!(actual.out, "done");
+        assert_eq!(actual, Ok("done"));
     }
 
     #[test]
@@ -396,7 +396,7 @@ mod nu_script {
         nu script_multiline.nu
         "#);
 
-        assert_eq!(actual.out, "23");
+        assert_eq!(actual, Ok("23"));
     }
 }
 
@@ -424,7 +424,7 @@ mod tilde_expansion {
                 "#
         );
 
-        assert_eq!(actual.out, "1~1");
+        assert_eq!(actual, Ok("1~1"));
     }
 }
 
@@ -476,7 +476,7 @@ mod external_command_arguments {
                 "#
                 ));
 
-                assert_eq!(actual.out, "ferris_not_here.txt");
+                assert_eq!(actual, Ok("ferris_not_here.txt"));
             },
         )
     }
@@ -511,7 +511,7 @@ mod external_command_arguments {
             "^echo \"a;b\""
         );
 
-        assert_eq!(actual.out, "a;b");
+        assert_eq!(actual, Ok("a;b"));
     }
 
     #[cfg(not(windows))]
@@ -522,7 +522,7 @@ mod external_command_arguments {
             "^echo \"a&b\""
         );
 
-        assert_eq!(actual.out, "a&b");
+        assert_eq!(actual, Ok("a&b"));
     }
 
     #[cfg(not(windows))]
@@ -533,7 +533,7 @@ mod external_command_arguments {
             "nu --testbin cococo \"$(ls)\""
         );
 
-        assert_eq!(actual.out, "$(ls)");
+        assert_eq!(actual, Ok("$(ls)"));
     }
 
     #[cfg(not(windows))]
@@ -544,6 +544,6 @@ mod external_command_arguments {
             "nu --testbin cococo (echo \"a;&$(hello)\")"
         );
 
-        assert_eq!(actual.out, "a;&$(hello)");
+        assert_eq!(actual, Ok("a;&$(hello)"));
     }
 }

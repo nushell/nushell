@@ -8,7 +8,7 @@ fn filters_by_unit_size_comparison() {
         "ls | where size > 1kib | sort-by size | get name | first | str trim"
     );
 
-    assert_eq!(actual.out, "cargo_sample.toml");
+    assert_eq!(actual, Ok("cargo_sample.toml"));
 }
 
 #[test]
@@ -18,7 +18,7 @@ fn filters_with_nothing_comparison() {
         r#"'[{"foo": 3}, {"foo": null}, {"foo": 4}]' | from json | get -i foo | compact | where $it > 1 | math sum"#
     );
 
-    assert_eq!(actual.out, "7");
+    assert_eq!(actual, Ok("7"));
 }
 
 #[test]
@@ -28,7 +28,7 @@ fn where_inside_block_works() {
         "{|x| ls | where $it =~ 'foo' } | describe"
     );
 
-    assert_eq!(actual.out, "closure");
+    assert_eq!(actual, Ok("closure"));
 }
 
 #[test]
@@ -38,7 +38,7 @@ fn filters_with_0_arity_block() {
         "[1 2 3 4] | where { $in < 3 } | to nuon"
     );
 
-    assert_eq!(actual.out, "[1, 2]");
+    assert_eq!(actual, Ok("[1, 2]"));
 }
 
 #[test]
@@ -48,7 +48,7 @@ fn filters_with_1_arity_block() {
         "[1 2 3 6 7 8] | where {|e| $e < 5 } | to nuon"
     );
 
-    assert_eq!(actual.out, "[1, 2, 3]");
+    assert_eq!(actual, Ok("[1, 2, 3]"));
 }
 
 #[test]
@@ -58,7 +58,7 @@ fn unique_env_each_iteration() {
         "[1 2] | where { print ($env.PWD | str ends-with 'formats') | cd '/' | true } | to nuon"
     );
 
-    assert_eq!(actual.out, "truetrue[1, 2]");
+    assert_eq!(actual, Ok("truetrue[1, 2]"));
 }
 
 #[test]
@@ -68,7 +68,7 @@ fn where_in_table() {
         r#"'[{"name": "foo", "size": 3}, {"name": "foo", "size": 2}, {"name": "bar", "size": 4}]' | from json | where name in ["foo"] | get size | math sum"#
     );
 
-    assert_eq!(actual.out, "5");
+    assert_eq!(actual, Ok("5"));
 }
 
 #[test]
@@ -78,7 +78,7 @@ fn where_not_in_table() {
         r#"'[{"name": "foo", "size": 3}, {"name": "foo", "size": 2}, {"name": "bar", "size": 4}]' | from json | where name not-in ["foo"] | get size | math sum"#
     );
 
-    assert_eq!(actual.out, "4");
+    assert_eq!(actual, Ok("4"));
 }
 
 #[test]
@@ -88,7 +88,7 @@ fn where_uses_enumerate_index() {
         r#"[7 8 9 10] | enumerate | where {|el| $el.index < 2 } | to nuon"#
     );
 
-    assert_eq!(actual.out, "[[index, item]; [0, 7], [1, 8]]");
+    assert_eq!(actual, Ok("[[index, item]; [0, 7], [1, 8]]"));
 }
 
 #[cfg(feature = "sqlite")]
@@ -105,7 +105,7 @@ fn binary_operator_comparisons() {
         "#
     ));
 
-    assert_eq!(actual.out, "4253");
+    assert_eq!(actual, Ok("4253"));
 
     let actual = nu!(
         cwd: "tests/fixtures/formats", pipeline(
@@ -118,7 +118,7 @@ fn binary_operator_comparisons() {
         "#
     ));
 
-    assert_eq!(actual.out, "4253");
+    assert_eq!(actual, Ok("4253"));
 
     let actual = nu!(
         cwd: "tests/fixtures/formats", pipeline(
@@ -131,7 +131,7 @@ fn binary_operator_comparisons() {
         "#
     ));
 
-    assert_eq!(actual.out, "1");
+    assert_eq!(actual, Ok("1"));
 
     let actual = nu!(
         cwd: "tests/fixtures/formats", pipeline(
@@ -144,7 +144,7 @@ fn binary_operator_comparisons() {
         "#
     ));
 
-    assert_eq!(actual.out, "1");
+    assert_eq!(actual, Ok("1"));
 
     let actual = nu!(
         cwd: "tests/fixtures/formats", pipeline(
@@ -157,7 +157,7 @@ fn binary_operator_comparisons() {
         "#
     ));
 
-    assert_eq!(actual.out, "42");
+    assert_eq!(actual, Ok("42"));
 }
 
 #[cfg(feature = "sqlite")]
@@ -173,7 +173,7 @@ fn contains_operator() {
         "#
     ));
 
-    assert_eq!(actual.out, "4");
+    assert_eq!(actual, Ok("4"));
 
     let actual = nu!(
         cwd: "tests/fixtures/formats", pipeline(
@@ -185,7 +185,7 @@ fn contains_operator() {
         "#
     ));
 
-    assert_eq!(actual.out, "2");
+    assert_eq!(actual, Ok("2"));
 }
 
 #[test]

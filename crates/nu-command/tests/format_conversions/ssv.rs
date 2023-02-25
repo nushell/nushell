@@ -25,7 +25,7 @@ fn from_ssv_text_to_table() {
             "#
         ));
 
-        assert_eq!(actual.out, "172.30.78.158");
+        assert_eq!(actual, Ok("172.30.78.158"));
     })
 }
 
@@ -52,7 +52,7 @@ fn from_ssv_text_to_table_with_separator_specified() {
             "#
         ));
 
-        assert_eq!(actual.out, "172.30.78.158");
+        assert_eq!(actual, Ok("172.30.78.158"));
     })
 }
 

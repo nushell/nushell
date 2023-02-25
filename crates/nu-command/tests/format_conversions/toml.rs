@@ -12,7 +12,7 @@ fn record_map_to_toml() {
         "#
     ));
 
-    assert_eq!(actual.out, "true");
+    assert_eq!(actual, Ok("true"));
 }
 
 #[test]
@@ -27,7 +27,7 @@ fn nested_records_to_toml() {
         "#
     ));
 
-    assert_eq!(actual.out, "true");
+    assert_eq!(actual, Ok("true"));
 }
 
 #[test]
@@ -42,7 +42,7 @@ fn records_with_tables_to_toml() {
         "#
     ));
 
-    assert_eq!(actual.out, "true");
+    assert_eq!(actual, Ok("true"));
 }
 
 #[test]
@@ -57,7 +57,7 @@ fn nested_tables_to_toml() {
         "#
     ));
 
-    assert_eq!(actual.out, "true");
+    assert_eq!(actual, Ok("true"));
 }
 
 #[test]
@@ -70,7 +70,7 @@ fn table_to_toml_fails() {
         "#
     ));
 
-    assert_eq!(actual.out, "true");
+    assert_eq!(actual, Ok("true"));
 }
 
 #[test]
@@ -83,7 +83,7 @@ fn string_to_toml_fails() {
         "#
     ));
 
-    assert_eq!(actual.out, "true");
+    assert_eq!(actual, Ok("true"));
 }
 
 #[test]
@@ -98,5 +98,5 @@ fn big_record_to_toml_text_and_from_toml_text_back_into_record() {
         "#
     ));
 
-    assert_eq!(actual.out, "nu");
+    assert_eq!(actual, Ok("nu"));
 }

@@ -12,5 +12,5 @@ fn table_to_xml_text_and_from_xml_text_back_into_table() {
         "#
     ));
 
-    assert_eq!(actual.out, "true");
+    assert_eq!(actual, Ok("true"));
 }

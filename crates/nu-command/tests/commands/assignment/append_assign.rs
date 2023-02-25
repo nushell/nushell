@@ -20,7 +20,7 @@ fn append_assign_int() {
 
     print!("{}", actual.out);
     print!("{}", expected.out);
-    assert_eq!(actual.out, expected.out);
+    assert_eq!(actual, Ok(expected.out));
 }
 
 #[test]
@@ -43,7 +43,7 @@ fn append_assign_string() {
 
     print!("{}", actual.out);
     print!("{}", expected.out);
-    assert_eq!(actual.out, expected.out);
+    assert_eq!(actual, Ok(expected.out));
 }
 
 #[test]
@@ -66,7 +66,7 @@ fn append_assign_any() {
 
     print!("{}", actual.out);
     print!("{}", expected.out);
-    assert_eq!(actual.out, expected.out);
+    assert_eq!(actual, Ok(expected.out));
 }
 
 #[test]
@@ -89,7 +89,7 @@ fn append_assign_both_empty() {
 
     print!("{}", actual.out);
     print!("{}", expected.out);
-    assert_eq!(actual.out, expected.out);
+    assert_eq!(actual, Ok(expected.out));
 }
 
 #[test]
@@ -103,5 +103,5 @@ fn append_assign_type_mismatch() {
         "#
     ));
 
-    assert_eq!(actual.out, r#"[1,2,"a"]"#);
+    assert_eq!(actual, Ok(r#"[1,2,"a"]"#));
 }

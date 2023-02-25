@@ -9,7 +9,7 @@ fn table_to_csv_text_and_from_csv_text_back_into_table() {
         "open caco3_plastics.csv | to csv | from csv | first | get origin "
     );
 
-    assert_eq!(actual.out, "SPAIN");
+    assert_eq!(actual, Ok("SPAIN"));
 }
 
 #[test]
@@ -97,7 +97,7 @@ fn infers_types() {
             "#
         ));
 
-        assert_eq!(actual.out, "4");
+        assert_eq!(actual, Ok("4"));
     })
 }
 
@@ -124,7 +124,7 @@ fn from_csv_text_to_table() {
             "#
         ));
 
-        assert_eq!(actual.out, "3");
+        assert_eq!(actual, Ok("3"));
     })
 }
 
@@ -151,7 +151,7 @@ fn from_csv_text_with_separator_to_table() {
             "#
         ));
 
-        assert_eq!(actual.out, "3");
+        assert_eq!(actual, Ok("3"));
     })
 }
 
@@ -178,7 +178,7 @@ fn from_csv_text_with_tab_separator_to_table() {
             "#
         ));
 
-        assert_eq!(actual.out, "3");
+        assert_eq!(actual, Ok("3"));
     })
 }
 
@@ -204,7 +204,7 @@ fn from_csv_text_skipping_headers_to_table() {
             "#
         ));
 
-        assert_eq!(actual.out, "3");
+        assert_eq!(actual, Ok("3"));
     })
 }
 

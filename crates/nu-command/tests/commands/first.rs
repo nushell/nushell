@@ -21,7 +21,7 @@ fn gets_first_rows_by_amount() {
             "#
         ));
 
-        assert_eq!(actual.out, "3");
+        assert_eq!(actual, Ok("3"));
     })
 }
 
@@ -44,7 +44,7 @@ fn gets_all_rows_if_amount_higher_than_all_rows() {
             "#
         ));
 
-        assert_eq!(actual.out, "4");
+        assert_eq!(actual, Ok("4"));
     })
 }
 
@@ -62,7 +62,7 @@ fn gets_first_row_when_no_amount_given() {
             "#
         ));
 
-        assert_eq!(actual.out, "1");
+        assert_eq!(actual, Ok("1"));
     })
 }
 
@@ -77,7 +77,7 @@ fn gets_first_row_as_list_when_amount_given() {
             "#
     ));
 
-    assert_eq!(actual.out, "list<int> (stream)");
+    assert_eq!(actual, Ok("list<int> (stream)"));
 }
 
 #[test]
@@ -90,7 +90,7 @@ fn works_with_binary_list() {
             "#
     ));
 
-    assert_eq!(actual.out, "true");
+    assert_eq!(actual, Ok("true"));
 }
 
 #[test]

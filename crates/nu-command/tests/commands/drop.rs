@@ -13,7 +13,7 @@ fn columns() {
         "#)
     );
 
-    assert_eq!(actual.out, "1");
+    assert_eq!(actual, Ok("1"));
 }
 
 #[test]
@@ -40,7 +40,7 @@ fn more_columns_than_table_has() {
         "#)
     );
 
-    assert_eq!(actual.out, "true");
+    assert_eq!(actual, Ok("true"));
 }
 
 #[test]
@@ -60,28 +60,28 @@ fn rows() {
         "#)
     );
 
-    assert_eq!(actual.out, "3");
+    assert_eq!(actual, Ok("3"));
 }
 
 #[test]
 fn more_rows_than_table_has() {
     let actual = nu!(cwd: ".", "[date] | drop 50 | length");
 
-    assert_eq!(actual.out, "0");
+    assert_eq!(actual, Ok("0"));
 }
 
 #[test]
 fn nth_range_inclusive() {
     let actual = nu!(cwd: ".", "echo 10..15 | drop nth (2..3) | to json --raw");
 
-    assert_eq!(actual.out, "[10,11,14,15]");
+    assert_eq!(actual, Ok("[10,11,14,15]"));
 }
 
 #[test]
 fn nth_range_exclusive() {
     let actual = nu!(cwd: ".", "echo 10..15 | drop nth (1..<3) | to json --raw");
 
-    assert_eq!(actual.out, "[10,13,14,15]");
+    assert_eq!(actual, Ok("[10,13,14,15]"));
 }
 
 #[test]

@@ -12,7 +12,7 @@ fn env_shorthand() {
     let actual = nu!(cwd: ".", r#"
         FOO=bar echo $env.FOO
         "#);
-    assert_eq!(actual.out, "bar");
+    assert_eq!(actual, Ok("bar"));
 }
 
 #[test]
@@ -20,7 +20,7 @@ fn env_shorthand_with_equals() {
     let actual = nu!(cwd: ".", r#"
         RUST_LOG=my_module=info $env.RUST_LOG
     "#);
-    assert_eq!(actual.out, "my_module=info");
+    assert_eq!(actual, Ok("my_module=info"));
 }
 
 #[test]
@@ -29,7 +29,7 @@ fn env_shorthand_with_interpolation() {
         let num = 123
         FOO=$"($num) bar" echo $env.FOO
         "#);
-    assert_eq!(actual.out, "123 bar");
+    assert_eq!(actual, Ok("123 bar"));
 }
 
 #[test]
@@ -37,7 +37,7 @@ fn env_shorthand_with_comma_equals() {
     let actual = nu!(cwd: ".", r#"
         RUST_LOG=info,my_module=info $env.RUST_LOG
     "#);
-    assert_eq!(actual.out, "info,my_module=info");
+    assert_eq!(actual, Ok("info,my_module=info"));
 }
 
 #[test]
@@ -45,7 +45,7 @@ fn env_shorthand_with_comma_colons_equals() {
     let actual = nu!(cwd: ".", r#"
         RUST_LOG=info,my_module=info,lib_crate::lib_mod=trace $env.RUST_LOG
     "#);
-    assert_eq!(actual.out, "info,my_module=info,lib_crate::lib_mod=trace");
+    assert_eq!(actual, Ok("info,my_module=info,lib_crate::lib_mod=trace"));
 }
 
 #[test]
@@ -75,7 +75,7 @@ fn env_shorthand_multi() {
     let actual = nu!(cwd: ".", r#"
         FOO=bar BAR=baz $env.FOO + $env.BAR
     "#);
-    assert_eq!(actual.out, "barbaz");
+    assert_eq!(actual, Ok("barbaz"));
 }
 
 #[test]
@@ -83,7 +83,7 @@ fn env_assignment() {
     let actual = nu!(cwd: ".", r#"
         $env.FOOBAR = "barbaz"; $env.FOOBAR
     "#);
-    assert_eq!(actual.out, "barbaz");
+    assert_eq!(actual, Ok("barbaz"));
 }
 
 #[test]
@@ -112,7 +112,7 @@ fn passes_with_env_env_var_to_external_process() {
     let actual = nu!(cwd: ".", r#"
         with-env [FOO foo] {nu --testbin echo_env FOO}
         "#);
-    assert_eq!(actual.out, "foo");
+    assert_eq!(actual, Ok("foo"));
 }
 
 #[test]
@@ -145,7 +145,7 @@ fn passes_env_from_local_cfg_to_external_process() {
             "#)
         });
 
-        assert_eq!(actual.out, "foo");
+        assert_eq!(actual, Ok("foo"));
     })
 }
 

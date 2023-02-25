@@ -17,7 +17,7 @@ fn selects_a_row() {
             "#
         ));
 
-        assert_eq!(actual.out, "notes.txt");
+        assert_eq!(actual, Ok("notes.txt"));
     });
 }
 
@@ -40,7 +40,7 @@ fn selects_some_rows() {
             "#
         ));
 
-        assert_eq!(actual.out, "2");
+        assert_eq!(actual, Ok("2"));
     });
 }
 
@@ -63,6 +63,6 @@ fn negative_indices() {
             "#
         ));
 
-        assert_eq!(actual.out, "1");
+        assert_eq!(actual, Ok("1"));
     });
 }

@@ -12,7 +12,7 @@ fn returns_type_of_missing_file() {
         "#
     ));
 
-    assert_eq!(actual.out, "");
+    assert_eq!(actual, Ok(""));
 }
 
 #[test]
@@ -30,7 +30,7 @@ fn returns_type_of_existing_file() {
             "#
         ));
 
-        assert_eq!(actual.out, "dir");
+        assert_eq!(actual, Ok("dir"));
     })
 }
 
@@ -49,6 +49,6 @@ fn returns_type_of_existing_directory() {
             "#
         ));
 
-        assert_eq!(actual.out, "file");
+        assert_eq!(actual, Ok("file"));
     })
 }

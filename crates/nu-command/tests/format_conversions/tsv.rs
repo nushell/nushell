@@ -9,7 +9,7 @@ fn table_to_tsv_text_and_from_tsv_text_back_into_table() {
         "open caco3_plastics.tsv | to tsv | from tsv | first | get origin"
     );
 
-    assert_eq!(actual.out, "SPAIN");
+    assert_eq!(actual, Ok("SPAIN"));
 }
 
 #[test]
@@ -19,7 +19,7 @@ fn table_to_tsv_text_and_from_tsv_text_back_into_table_using_csv_separator() {
         r"open caco3_plastics.tsv | to tsv | from csv --separator '\t' | first | get origin"
     );
 
-    assert_eq!(actual.out, "SPAIN");
+    assert_eq!(actual, Ok("SPAIN"));
 }
 
 #[test]
@@ -101,7 +101,7 @@ fn from_tsv_text_to_table() {
             "#
         ));
 
-        assert_eq!(actual.out, "3");
+        assert_eq!(actual, Ok("3"));
     })
 }
 
@@ -127,6 +127,6 @@ fn from_tsv_text_skipping_headers_to_table() {
             "#
         ));
 
-        assert_eq!(actual.out, "3");
+        assert_eq!(actual, Ok("3"));
     })
 }

@@ -10,7 +10,7 @@ fn chooses_highest_increment_if_given_more_than_one() {
         "open cargo_sample.toml | inc package.version --major --minor | get package.version"
     );
 
-    assert_eq!(actual.out, "1.0.0");
+    assert_eq!(actual, Ok("1.0.0"));
 
     let actual = nu_with_plugins!(
         cwd: "tests/fixtures/formats",
@@ -19,7 +19,7 @@ fn chooses_highest_increment_if_given_more_than_one() {
         "open cargo_sample.toml | inc package.version --minor --major | get package.version"
     );
 
-    assert_eq!(actual.out, "1.0.0");
+    assert_eq!(actual, Ok("1.0.0"));
 }
 
 #[test]
@@ -39,7 +39,7 @@ fn by_one_with_field_passed() {
             "open sample.toml | inc package.edition | get package.edition"
         );
 
-        assert_eq!(actual.out, "2019");
+        assert_eq!(actual, Ok("2019"));
     })
 }
 
@@ -60,7 +60,7 @@ fn by_one_with_no_field_passed() {
             "open sample.toml | get package.contributors | inc"
         );
 
-        assert_eq!(actual.out, "3");
+        assert_eq!(actual, Ok("3"));
     })
 }
 
@@ -81,7 +81,7 @@ fn semversion_major_inc() {
             "open sample.toml | inc package.version -M | get package.version"
         );
 
-        assert_eq!(actual.out, "1.0.0");
+        assert_eq!(actual, Ok("1.0.0"));
     })
 }
 
@@ -102,7 +102,7 @@ fn semversion_minor_inc() {
             "open sample.toml | inc package.version --minor | get package.version"
         );
 
-        assert_eq!(actual.out, "0.2.0");
+        assert_eq!(actual, Ok("0.2.0"));
     })
 }
 
@@ -123,7 +123,7 @@ fn semversion_patch_inc() {
             "open sample.toml | inc package.version --patch | get package.version"
         );
 
-        assert_eq!(actual.out, "0.1.4");
+        assert_eq!(actual, Ok("0.1.4"));
     })
 }
 
@@ -144,6 +144,6 @@ fn semversion_without_passing_field() {
             "open sample.toml | get package.version | inc --patch"
         );
 
-        assert_eq!(actual.out, "0.1.4");
+        assert_eq!(actual, Ok("0.1.4"));
     })
 }

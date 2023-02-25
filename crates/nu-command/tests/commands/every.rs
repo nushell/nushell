@@ -49,7 +49,7 @@ fn gets_no_rows_by_every_skip_zero() {
             "#
         ));
 
-        assert_eq!(actual.out, "[]");
+        assert_eq!(actual, Ok("[]"));
     })
 }
 
@@ -100,7 +100,7 @@ fn gets_no_rows_by_every_skip_one() {
             "#
         ));
 
-        assert_eq!(actual.out, "[]");
+        assert_eq!(actual, Ok("[]"));
     })
 }
 
@@ -130,7 +130,7 @@ fn gets_first_row_by_every_too_much() {
             "#
         ));
 
-        assert_eq!(actual.out, expected.out);
+        assert_eq!(actual, Ok(expected.out));
     })
 }
 
@@ -154,7 +154,7 @@ fn gets_all_rows_except_first_by_every_skip_too_much() {
             "#
         ));
 
-        assert_eq!(actual.out, r#"["arepas.clu","los.txt","tres.txt"]"#);
+        assert_eq!(actual, Ok(r#"["arepas.clu","los.txt","tres.txt"]"#));
     })
 }
 
@@ -179,7 +179,7 @@ fn gets_every_third_row() {
             "#
         ));
 
-        assert_eq!(actual.out, r#"["amigos.txt","quatro.txt"]"#);
+        assert_eq!(actual, Ok(r#"["amigos.txt","quatro.txt"]"#));
     })
 }
 
@@ -204,6 +204,6 @@ fn skips_every_third_row() {
             "#
         ));
 
-        assert_eq!(actual.out, r#"["arepas.clu","los.txt","tres.txt"]"#);
+        assert_eq!(actual, Ok(r#"["arepas.clu","los.txt","tres.txt"]"#));
     })
 }

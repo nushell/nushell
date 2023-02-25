@@ -7,7 +7,7 @@ fn which_ls() {
         "which ls | get path.0 | str trim"
     );
 
-    assert_eq!(actual.out, "Nushell built-in command");
+    assert_eq!(actual, Ok("Nushell built-in command"));
 }
 
 #[test]
@@ -17,7 +17,7 @@ fn which_alias_ls() {
         "alias ls = ls -a; which ls | get path.0 | str trim"
     );
 
-    assert_eq!(actual.out, "Nushell alias: ls -a");
+    assert_eq!(actual, Ok("Nushell alias: ls -a"));
 }
 
 #[test]
@@ -27,7 +27,7 @@ fn which_def_ls() {
         "def ls [] {echo def}; which ls | get path.0 | str trim"
     );
 
-    assert_eq!(actual.out, "Nushell custom command");
+    assert_eq!(actual, Ok("Nushell custom command"));
 }
 
 #[test]
@@ -37,7 +37,7 @@ fn correct_precedence_alias_def_custom() {
         "def ls [] {echo def}; alias ls = echo alias; which ls | get path.0 | str trim"
     );
 
-    assert_eq!(actual.out, "Nushell alias: echo alias");
+    assert_eq!(actual, Ok("Nushell alias: echo alias"));
 }
 
 #[test]
@@ -69,7 +69,7 @@ fn correctly_report_of_shadowed_alias() {
         helper | get path | str contains alias2"#
     );
 
-    assert_eq!(actual.out, "true");
+    assert_eq!(actual, Ok("true"));
 }
 
 #[test]

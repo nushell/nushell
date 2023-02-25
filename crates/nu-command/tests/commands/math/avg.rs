@@ -21,5 +21,5 @@ fn can_average_bytes() {
         "[100kb, 10b, 100mib] | math avg | to json -r"
     );
 
-    assert_eq!(actual.out, "34985870");
+    assert_eq!(actual, Ok("34985870"));
 }

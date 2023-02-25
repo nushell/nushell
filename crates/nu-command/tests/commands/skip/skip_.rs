@@ -12,7 +12,7 @@ fn binary_skip() {
         "#
     ));
 
-    assert_eq!(actual.out, "772");
+    assert_eq!(actual, Ok("772"));
 }
 
 #[test]

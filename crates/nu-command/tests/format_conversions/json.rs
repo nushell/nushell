@@ -14,7 +14,7 @@ fn table_to_json_text_and_from_json_text_back_into_table() {
         "#
     ));
 
-    assert_eq!(actual.out, "markup");
+    assert_eq!(actual, Ok("markup"));
 }
 
 #[test]
@@ -39,7 +39,7 @@ fn from_json_text_to_table() {
             "open katz.txt | from json | get katz | get rusty_luck | length "
         );
 
-        assert_eq!(actual.out, "4");
+        assert_eq!(actual, Ok("4"));
     })
 }
 
@@ -66,7 +66,7 @@ fn from_json_text_recognizing_objects_independently_to_table() {
             "#
         ));
 
-        assert_eq!(actual.out, "3");
+        assert_eq!(actual, Ok("3"));
     })
 }
 
@@ -95,7 +95,7 @@ fn table_to_json_text() {
             "#
         ));
 
-        assert_eq!(actual.out, "JonAndrehudaTZ");
+        assert_eq!(actual, Ok("JonAndrehudaTZ"));
     })
 }
 
@@ -103,9 +103,9 @@ fn table_to_json_text() {
 fn top_level_values_from_json() {
     for (value, type_name) in [("null", "nothing"), ("true", "bool"), ("false", "bool")] {
         let actual = nu!(r#""{}" | from json | to json"#, value);
-        assert_eq!(actual.out, value);
+        assert_eq!(actual, Ok(value));
         let actual = nu!(r#""{}" | from json | describe"#, value);
-        assert_eq!(actual.out, type_name);
+        assert_eq!(actual, Ok(type_name));
     }
 }
 
@@ -113,7 +113,7 @@ fn top_level_values_from_json() {
 fn ranges_to_json_as_array() {
     let value = r#"[  1,  2,  3]"#;
     let actual = nu!(r#"1..3 | to json"#);
-    assert_eq!(actual.out, value);
+    assert_eq!(actual, Ok(value));
 }
 
 #[test]

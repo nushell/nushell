@@ -37,7 +37,7 @@ fn help_aliases() {
     ];
     let actual = nu!(cwd: ".", nu_repl_code(code));
 
-    assert_eq!(actual.out, "1");
+    assert_eq!(actual, Ok("1"));
 }
 
 #[test]
@@ -57,7 +57,7 @@ fn help_alias_usage_1() {
         ];
         let actual = nu!(cwd: dirs.test(), nu_repl_code(code));
 
-        assert_eq!(actual.out, "line1");
+        assert_eq!(actual, Ok("line1"));
     })
 }
 
@@ -69,7 +69,7 @@ fn help_alias_usage_2() {
     ];
     let actual = nu!(cwd: ".", nu_repl_code(code));
 
-    assert_eq!(actual.out, "line2");
+    assert_eq!(actual, Ok("line2"));
 }
 
 #[test]
@@ -340,7 +340,7 @@ fn help_modules_main_2() {
 
     let actual = nu!(cwd: ".", pipeline(&inp.join("; ")));
 
-    assert_eq!(actual.out, "spam");
+    assert_eq!(actual, Ok("spam"));
 }
 
 #[test]

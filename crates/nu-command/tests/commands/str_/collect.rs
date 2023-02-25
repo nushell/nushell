@@ -10,7 +10,7 @@ fn test_1() {
         )
     );
 
-    assert_eq!(actual.out, "12345");
+    assert_eq!(actual, Ok("12345"));
 }
 
 #[test]
@@ -23,7 +23,7 @@ fn test_2() {
         )
     );
 
-    assert_eq!(actual.out, "a<sep>b<sep>c<sep>d");
+    assert_eq!(actual, Ok("a<sep>b<sep>c<sep>d"));
 }
 
 #[test]
@@ -36,5 +36,5 @@ fn construct_a_path() {
         )
     );
 
-    assert_eq!(actual.out, "sample.txt");
+    assert_eq!(actual, Ok("sample.txt"));
 }

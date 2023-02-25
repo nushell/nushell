@@ -29,7 +29,7 @@ fn all() {
             "#
         ));
 
-        assert_eq!(actual.out, "448");
+        assert_eq!(actual, Ok("448"));
     })
 }
 

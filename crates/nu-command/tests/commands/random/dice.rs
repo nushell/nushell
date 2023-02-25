@@ -9,5 +9,5 @@ fn rolls_4_roll() {
         "#
     ));
 
-    assert_eq!(actual.out, "4");
+    assert_eq!(actual, Ok("4"));
 }

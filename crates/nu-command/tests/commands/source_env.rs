@@ -44,7 +44,7 @@ fn sources_also_files_under_custom_lib_dirs_path() {
         "#
         ));
 
-        assert_eq!(actual.out, "hello nu");
+        assert_eq!(actual, Ok("hello nu"));
     })
 }
 
@@ -61,7 +61,7 @@ fn try_source_foo_with_double_quotes_in(testdir: &str, playdir: &str) {
 
         let actual = nu!(cwd: dirs.test(), &cmd);
 
-        assert_eq!(actual.out, "foo");
+        assert_eq!(actual, Ok("foo"));
     });
 }
 
@@ -78,7 +78,7 @@ fn try_source_foo_with_single_quotes_in(testdir: &str, playdir: &str) {
 
         let actual = nu!(cwd: dirs.test(), &cmd);
 
-        assert_eq!(actual.out, "foo");
+        assert_eq!(actual, Ok("foo"));
     });
 }
 
@@ -95,7 +95,7 @@ fn try_source_foo_without_quotes_in(testdir: &str, playdir: &str) {
 
         let actual = nu!(cwd: dirs.test(), &cmd);
 
-        assert_eq!(actual.out, "foo");
+        assert_eq!(actual, Ok("foo"));
     });
 }
 
@@ -153,7 +153,7 @@ fn can_source_dynamic_path() {
         let cmd = format!("let file = `{foo_file}`; source-env $file");
         let actual = nu!(cwd: dirs.test(), &cmd);
 
-        assert_eq!(actual.out, "foo");
+        assert_eq!(actual, Ok("foo"));
     });
 }
 
@@ -171,7 +171,7 @@ fn source_env_eval_export_env() {
 
         let actual = nu!(cwd: dirs.test(), pipeline(&inp.join("; ")));
 
-        assert_eq!(actual.out, "foo");
+        assert_eq!(actual, Ok("foo"));
     })
 }
 
@@ -216,7 +216,7 @@ fn source_env_do_cd() {
 
         let actual = nu!(cwd: dirs.test(), pipeline(&inp.join("; ")));
 
-        assert_eq!(actual.out, "test2");
+        assert_eq!(actual, Ok("test2"));
     })
 }
 
@@ -239,7 +239,7 @@ fn source_env_do_cd_file_relative() {
 
         let actual = nu!(cwd: dirs.test(), pipeline(&inp.join("; ")));
 
-        assert_eq!(actual.out, "test1");
+        assert_eq!(actual, Ok("test1"));
     })
 }
 
@@ -264,7 +264,7 @@ fn source_env_dont_cd_overlay() {
 
         let actual = nu!(cwd: dirs.test(), pipeline(&inp.join("; ")));
 
-        assert_eq!(actual.out, "source_env_dont_cd_overlay");
+        assert_eq!(actual, Ok("source_env_dont_cd_overlay"));
     })
 }
 
@@ -311,7 +311,7 @@ fn source_env_const_file() {
 
         let actual = nu!(cwd: dirs.test(), pipeline(&inp.join("; ")));
 
-        assert_eq!(actual.out, "foo");
+        assert_eq!(actual, Ok("foo"));
     })
 }
 

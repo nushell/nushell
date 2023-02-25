@@ -7,7 +7,7 @@ fn list_shells() {
         r#"g | get path | length "#
     ));
 
-    assert_eq!(actual.out, "1");
+    assert_eq!(actual, Ok("1"));
 }
 
 #[test]
@@ -41,7 +41,7 @@ fn switch_to_last_used_shell_1() {
             r#"enter foo; enter ../bar; g 0; g -;g | get active.2"#
         ));
 
-        assert_eq!(actual.out, "true");
+        assert_eq!(actual, Ok("true"));
     })
 }
 
@@ -56,7 +56,7 @@ fn switch_to_last_used_shell_2() {
             r#"enter foo; enter ../bar; n; g -;g | get active.2"#
         ));
 
-        assert_eq!(actual.out, "true");
+        assert_eq!(actual, Ok("true"));
     })
 }
 
@@ -71,7 +71,7 @@ fn switch_to_last_used_shell_3() {
             r#"enter foo; enter ../bar; p; g -;g | get active.2"#
         ));
 
-        assert_eq!(actual.out, "true");
+        assert_eq!(actual, Ok("true"));
     })
 }
 
@@ -86,6 +86,6 @@ fn switch_to_last_used_shell_4() {
             r#"enter foo; enter ../bar; g 2; exit; g -;g | get active.0"#
         ));
 
-        assert_eq!(actual.out, "true");
+        assert_eq!(actual, Ok("true"));
     })
 }

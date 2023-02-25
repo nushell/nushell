@@ -451,7 +451,7 @@ fn parse_script_failure_with_complex_internal_stream() {
             "#
         ));
 
-        assert_eq!(actual.out, "false".to_string());
+        assert_eq!(actual, Ok("false".to_string()));
     })
 }
 
@@ -760,7 +760,7 @@ fn parse_script_with_nested_scripts_success() {
             "#
         ));
 
-        assert_eq!(actual.out, "true");
+        assert_eq!(actual, Ok("true"));
     })
 }
 
@@ -790,6 +790,6 @@ fn nu_check_respects_file_pwd() {
             "#
         ));
 
-        assert_eq!(actual.out, "true");
+        assert_eq!(actual, Ok("true"));
     })
 }

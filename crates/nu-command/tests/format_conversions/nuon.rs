@@ -13,7 +13,7 @@ fn to_nuon_correct_compaction() {
         "#
     ));
 
-    assert_eq!(actual.out, "true");
+    assert_eq!(actual, Ok("true"));
 }
 
 #[test]
@@ -28,7 +28,7 @@ fn to_nuon_list_of_numbers() {
         "#
     ));
 
-    assert_eq!(actual.out, "true");
+    assert_eq!(actual, Ok("true"));
 }
 
 #[test]
@@ -43,7 +43,7 @@ fn to_nuon_list_of_strings() {
         "#
     ));
 
-    assert_eq!(actual.out, "true");
+    assert_eq!(actual, Ok("true"));
 }
 
 #[test]
@@ -58,7 +58,7 @@ fn to_nuon_table() {
         "#
     ));
 
-    assert_eq!(actual.out, "true");
+    assert_eq!(actual, Ok("true"));
 }
 
 #[test]
@@ -72,7 +72,7 @@ fn to_nuon_bool() {
         "#
     ));
 
-    assert_eq!(actual.out, "false");
+    assert_eq!(actual, Ok("false"));
 }
 
 #[test]
@@ -86,7 +86,7 @@ fn to_nuon_escaping() {
         "#
     ));
 
-    assert_eq!(actual.out, "hello\"world");
+    assert_eq!(actual, Ok("hello\"world"));
 }
 
 #[test]
@@ -100,7 +100,7 @@ fn to_nuon_escaping2() {
         "#
     ));
 
-    assert_eq!(actual.out, "hello\\world");
+    assert_eq!(actual, Ok("hello\\world"));
 }
 
 #[test]
@@ -115,7 +115,7 @@ fn to_nuon_escaping3() {
         "#
     ));
 
-    assert_eq!(actual.out, "true");
+    assert_eq!(actual, Ok("true"));
 }
 
 #[test]
@@ -130,7 +130,7 @@ fn to_nuon_escaping4() {
         "#
     ));
 
-    assert_eq!(actual.out, "true");
+    assert_eq!(actual, Ok("true"));
 }
 
 #[test]
@@ -145,7 +145,7 @@ fn to_nuon_escaping5() {
         "#
     ));
 
-    assert_eq!(actual.out, "true");
+    assert_eq!(actual, Ok("true"));
 }
 
 #[test]
@@ -159,7 +159,7 @@ fn to_nuon_negative_int() {
         "#
     ));
 
-    assert_eq!(actual.out, "-1");
+    assert_eq!(actual, Ok("-1"));
 }
 
 #[test]
@@ -174,7 +174,7 @@ fn to_nuon_records() {
         "#
     ));
 
-    assert_eq!(actual.out, "true");
+    assert_eq!(actual, Ok("true"));
 }
 
 #[test]
@@ -213,7 +213,7 @@ fn binary_to() {
         "#
     ));
 
-    assert_eq!(actual.out, "0x[ABCDEF]");
+    assert_eq!(actual, Ok("0x[ABCDEF]"));
 }
 
 #[test]
@@ -225,7 +225,7 @@ fn binary_roundtrip() {
         "#
     ));
 
-    assert_eq!(actual.out, "0x[1FFF]");
+    assert_eq!(actual, Ok("0x[1FFF]"));
 }
 
 #[test]
@@ -366,14 +366,14 @@ fn does_not_quote_strings_unnecessarily() {
         let test = [["a", "b", "c d"]; [1 2 3] [4 5 6]]; $test | to nuon
     "#
     ));
-    assert_eq!(actual.out, "[[a, b, \"c d\"]; [1, 2, 3], [4, 5, 6]]");
+    assert_eq!(actual, Ok("[[a, b, \"c d\"]; [1, 2, 3], [4, 5, 6]]"));
     let actual = nu!(
         cwd: "tests/fixtures/formats", pipeline(
             r#"
          let a = {"ro name": "sam" rank: 10}; $a | to nuon
     "#
     ));
-    assert_eq!(actual.out, "{\"ro name\": sam, rank: 10}");
+    assert_eq!(actual, Ok("{\"ro name\": sam, rank: 10}"));
 }
 
 #[test]
@@ -399,7 +399,7 @@ fn quotes_some_strings_necessarily() {
         "#
     ));
 
-    assert_eq!(actual.out, "list<string>");
+    assert_eq!(actual, Ok("list<string>"));
 }
 
 #[test]

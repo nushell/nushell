@@ -8,7 +8,7 @@ fn can_get_custom_value_from_plugin_and_instantly_collapse_it() {
         "custom-value generate"
     );
 
-    assert_eq!(actual.out, "I used to be a custom value! My data was (abc)");
+    assert_eq!(actual, Ok("I used to be a custom value! My data was (abc)"));
 }
 
 #[test]
@@ -47,7 +47,7 @@ fn can_get_describe_plugin_custom_values() {
         "custom-value generate | describe"
     );
 
-    assert_eq!(actual.out, "CoolCustomValue");
+    assert_eq!(actual, Ok("CoolCustomValue"));
 }
 
 // There are currently no custom values defined by the engine that aren't hidden behind an extra

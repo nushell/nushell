@@ -7,7 +7,7 @@ fn with_env_extends_environment() {
         "with-env [FOO BARRRR] {echo $env} | get FOO"
     );
 
-    assert_eq!(actual.out, "BARRRR");
+    assert_eq!(actual, Ok("BARRRR"));
 }
 
 #[test]
@@ -17,7 +17,7 @@ fn with_env_shorthand() {
         "FOO=BARRRR echo $env | get FOO"
     );
 
-    assert_eq!(actual.out, "BARRRR");
+    assert_eq!(actual, Ok("BARRRR"));
 }
 
 #[test]
@@ -27,7 +27,7 @@ fn shorthand_doesnt_reorder_arguments() {
         "FOO=BARRRR nu --testbin cococo first second"
     );
 
-    assert_eq!(actual.out, "first second");
+    assert_eq!(actual, Ok("first second"));
 }
 
 #[test]
@@ -37,7 +37,7 @@ fn with_env_shorthand_trims_quotes() {
         "FOO='BARRRR' echo $env | get FOO"
     );
 
-    assert_eq!(actual.out, "BARRRR");
+    assert_eq!(actual, Ok("BARRRR"));
 }
 
 #[test]
@@ -62,7 +62,7 @@ fn test_redirection2() {
         "let x = (FOO=BAR nu --testbin cococo niceenvvar); $x | str trim | str length"
     );
 
-    assert_eq!(actual.out, "10");
+    assert_eq!(actual, Ok("10"));
 }
 
 #[test]
@@ -79,7 +79,7 @@ fn with_env_hides_variables_in_parent_scope() {
         "#
     );
 
-    assert_eq!(actual.out, "11");
+    assert_eq!(actual, Ok("11"));
 }
 
 #[test]
@@ -94,5 +94,5 @@ fn with_env_shorthand_can_not_hide_variables() {
         "#
     );
 
-    assert_eq!(actual.out, "1null1");
+    assert_eq!(actual, Ok("1null1"));
 }

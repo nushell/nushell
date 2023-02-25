@@ -13,7 +13,7 @@ fn add_overlay() {
     let actual = nu!(cwd: "tests/overlays", pipeline(&inp.join("; ")));
     let actual_repl = nu!(cwd: "tests/overlays", nu_repl_code(inp));
 
-    assert_eq!(actual.out, "foo");
+    assert_eq!(actual, Ok("foo"));
     assert_eq!(actual_repl.out, "foo");
 }
 
@@ -28,7 +28,7 @@ fn add_overlay_as_new_name() {
     let actual = nu!(cwd: "tests/overlays", pipeline(&inp.join("; ")));
     let actual_repl = nu!(cwd: "tests/overlays", nu_repl_code(inp));
 
-    assert_eq!(actual.out, "foo");
+    assert_eq!(actual, Ok("foo"));
     assert_eq!(actual_repl.out, "foo");
 }
 
@@ -44,7 +44,7 @@ fn add_overlay_twice() {
     let actual = nu!(cwd: "tests/overlays", pipeline(&inp.join("; ")));
     let actual_repl = nu!(cwd: "tests/overlays", nu_repl_code(inp));
 
-    assert_eq!(actual.out, "foo");
+    assert_eq!(actual, Ok("foo"));
     assert_eq!(actual_repl.out, "foo");
 }
 
@@ -59,7 +59,7 @@ fn add_prefixed_overlay() {
     let actual = nu!(cwd: "tests/overlays", pipeline(&inp.join("; ")));
     let actual_repl = nu!(cwd: "tests/overlays", nu_repl_code(inp));
 
-    assert_eq!(actual.out, "foo");
+    assert_eq!(actual, Ok("foo"));
     assert_eq!(actual_repl.out, "foo");
 }
 
@@ -75,7 +75,7 @@ fn add_prefixed_overlay_twice() {
     let actual = nu!(cwd: "tests/overlays", pipeline(&inp.join("; ")));
     let actual_repl = nu!(cwd: "tests/overlays", nu_repl_code(inp));
 
-    assert_eq!(actual.out, "foo");
+    assert_eq!(actual, Ok("foo"));
     assert_eq!(actual_repl.out, "foo");
 }
 
@@ -124,7 +124,7 @@ fn prefixed_overlay_keeps_custom_decl() {
     let actual = nu!(cwd: "tests/overlays", pipeline(&inp.join("; ")));
     let actual_repl = nu!(cwd: "tests/overlays", nu_repl_code(inp));
 
-    assert_eq!(actual.out, "bar");
+    assert_eq!(actual, Ok("bar"));
     assert_eq!(actual_repl.out, "bar");
 }
 
@@ -139,7 +139,7 @@ fn add_overlay_env() {
     let actual = nu!(cwd: "tests/overlays", pipeline(&inp.join("; ")));
     let actual_repl = nu!(cwd: "tests/overlays", nu_repl_code(inp));
 
-    assert_eq!(actual.out, "foo");
+    assert_eq!(actual, Ok("foo"));
     assert_eq!(actual_repl.out, "foo");
 }
 
@@ -154,7 +154,7 @@ fn add_prefixed_overlay_env_no_prefix() {
     let actual = nu!(cwd: "tests/overlays", pipeline(&inp.join("; ")));
     let actual_repl = nu!(cwd: "tests/overlays", nu_repl_code(inp));
 
-    assert_eq!(actual.out, "foo");
+    assert_eq!(actual, Ok("foo"));
     assert_eq!(actual_repl.out, "foo");
 }
 
@@ -165,7 +165,7 @@ fn add_overlay_from_file_decl() {
     let actual = nu!(cwd: "tests/overlays", pipeline(&inp.join("; ")));
     let actual_repl = nu!(cwd: "tests/overlays", nu_repl_code(inp));
 
-    assert_eq!(actual.out, "foo");
+    assert_eq!(actual, Ok("foo"));
     assert_eq!(actual_repl.out, "foo");
 }
 
@@ -179,7 +179,7 @@ fn add_overlay_from_const_file_decl() {
 
     let actual = nu!(cwd: "tests/overlays", pipeline(&inp.join("; ")));
 
-    assert_eq!(actual.out, "foo");
+    assert_eq!(actual, Ok("foo"));
 }
 
 #[test]
@@ -193,7 +193,7 @@ fn add_overlay_from_const_module_name_decl() {
 
     let actual = nu!(cwd: "tests/overlays", pipeline(&inp.join("; ")));
 
-    assert_eq!(actual.out, "foo");
+    assert_eq!(actual, Ok("foo"));
 }
 
 #[test]
@@ -206,7 +206,7 @@ fn new_overlay_from_const_name() {
 
     let actual = nu!(cwd: "tests/overlays", pipeline(&inp.join("; ")));
 
-    assert_eq!(actual.out, "spam");
+    assert_eq!(actual, Ok("spam"));
 }
 
 #[test]
@@ -240,7 +240,7 @@ fn add_overlay_from_file_alias() {
     let actual = nu!(cwd: "tests/overlays", pipeline(&inp.join("; ")));
     let actual_repl = nu!(cwd: "tests/overlays", nu_repl_code(inp));
 
-    assert_eq!(actual.out, "bar");
+    assert_eq!(actual, Ok("bar"));
     assert_eq!(actual_repl.out, "bar");
 }
 
@@ -251,7 +251,7 @@ fn add_overlay_from_file_env() {
     let actual = nu!(cwd: "tests/overlays", pipeline(&inp.join("; ")));
     let actual_repl = nu!(cwd: "tests/overlays", nu_repl_code(inp));
 
-    assert_eq!(actual.out, "baz");
+    assert_eq!(actual, Ok("baz"));
     assert_eq!(actual_repl.out, "baz");
 }
 
@@ -286,7 +286,7 @@ fn update_overlay_from_module() {
     let actual = nu!(cwd: "tests/overlays", pipeline(&inp.join("; ")));
     let actual_repl = nu!(cwd: "tests/overlays", nu_repl_code(inp));
 
-    assert_eq!(actual.out, "bar");
+    assert_eq!(actual, Ok("bar"));
     assert_eq!(actual_repl.out, "bar");
 }
 
@@ -303,7 +303,7 @@ fn update_overlay_from_module_env() {
     let actual = nu!(cwd: "tests/overlays", pipeline(&inp.join("; ")));
     let actual_repl = nu!(cwd: "tests/overlays", nu_repl_code(inp));
 
-    assert_eq!(actual.out, "bar");
+    assert_eq!(actual, Ok("bar"));
     assert_eq!(actual_repl.out, "bar");
 }
 
@@ -321,7 +321,7 @@ fn overlay_use_do_not_eval_twice() {
     let actual = nu!(cwd: "tests/overlays", pipeline(&inp.join("; ")));
     let actual_repl = nu!(cwd: "tests/overlays", nu_repl_code(inp));
 
-    assert_eq!(actual.out, "bar");
+    assert_eq!(actual, Ok("bar"));
     assert_eq!(actual_repl.out, "bar");
 }
 
@@ -375,7 +375,7 @@ fn remove_overlay_scoped() {
     let actual = nu!(cwd: "tests/overlays", pipeline(&inp.join("; ")));
     let actual_repl = nu!(cwd: "tests/overlays", nu_repl_code(inp));
 
-    assert_eq!(actual.out, "foo");
+    assert_eq!(actual, Ok("foo"));
     assert_eq!(actual_repl.out, "foo");
 }
 
@@ -407,7 +407,7 @@ fn remove_overlay_scoped_env() {
     let actual = nu!(cwd: "tests/overlays", pipeline(&inp.join("; ")));
     let actual_repl = nu!(cwd: "tests/overlays", nu_repl_code(inp));
 
-    assert_eq!(actual.out, "foo");
+    assert_eq!(actual, Ok("foo"));
     assert_eq!(actual_repl.out, "foo");
 }
 
@@ -418,7 +418,7 @@ fn list_default_overlay() {
     let actual = nu!(cwd: "tests/overlays", pipeline(&inp.join("; ")));
     let actual_repl = nu!(cwd: "tests/overlays", nu_repl_code(inp));
 
-    assert_eq!(actual.out, "zero");
+    assert_eq!(actual, Ok("zero"));
     assert_eq!(actual_repl.out, "zero");
 }
 
@@ -433,7 +433,7 @@ fn list_last_overlay() {
     let actual = nu!(cwd: "tests/overlays", pipeline(&inp.join("; ")));
     let actual_repl = nu!(cwd: "tests/overlays", nu_repl_code(inp));
 
-    assert_eq!(actual.out, "spam");
+    assert_eq!(actual, Ok("spam"));
     assert_eq!(actual_repl.out, "spam");
 }
 
@@ -448,7 +448,7 @@ fn list_overlay_scoped() {
     let actual = nu!(cwd: "tests/overlays", pipeline(&inp.join("; ")));
     let actual_repl = nu!(cwd: "tests/overlays", nu_repl_code(inp));
 
-    assert_eq!(actual.out, "spam");
+    assert_eq!(actual, Ok("spam"));
     assert_eq!(actual_repl.out, "spam");
 }
 
@@ -675,7 +675,7 @@ fn preserve_overrides() {
     let actual = nu!(cwd: "tests/overlays", pipeline(&inp.join("; ")));
     let actual_repl = nu!(cwd: "tests/overlays", nu_repl_code(inp));
 
-    assert_eq!(actual.out, "new-foo");
+    assert_eq!(actual, Ok("new-foo"));
     assert_eq!(actual_repl.out, "new-foo");
 }
 
@@ -692,7 +692,7 @@ fn reset_overrides() {
     let actual = nu!(cwd: "tests/overlays", pipeline(&inp.join("; ")));
     let actual_repl = nu!(cwd: "tests/overlays", nu_repl_code(inp));
 
-    assert_eq!(actual.out, "foo");
+    assert_eq!(actual, Ok("foo"));
     assert_eq!(actual_repl.out, "foo");
 }
 
@@ -703,7 +703,7 @@ fn overlay_new() {
     let actual = nu!(cwd: "tests/overlays", pipeline(&inp.join("; ")));
     let actual_repl = nu!(cwd: "tests/overlays", nu_repl_code(inp));
 
-    assert_eq!(actual.out, "spam");
+    assert_eq!(actual, Ok("spam"));
     assert_eq!(actual_repl.out, "spam");
 }
 
@@ -719,7 +719,7 @@ fn overlay_keep_pwd() {
     let actual = nu!(cwd: "tests/overlays", pipeline(&inp.join("; ")));
     let actual_repl = nu!(cwd: "tests/overlays", nu_repl_code(inp));
 
-    assert_eq!(actual.out, "samples");
+    assert_eq!(actual, Ok("samples"));
     assert_eq!(actual_repl.out, "samples");
 }
 
@@ -743,7 +743,7 @@ fn overlay_add_renamed() {
     let actual = nu!(cwd: "tests/overlays", pipeline(&inp.join("; ")));
     let actual_repl = nu!(cwd: "tests/overlays", nu_repl_code(inp));
 
-    assert_eq!(actual.out, "foo");
+    assert_eq!(actual, Ok("foo"));
     assert_eq!(actual_repl.out, "foo");
 }
 
@@ -760,7 +760,7 @@ fn overlay_add_renamed_const() {
     let actual = nu!(cwd: "tests/overlays", pipeline(&inp.join("; ")));
     let actual_repl = nu!(cwd: "tests/overlays", nu_repl_code(inp));
 
-    assert_eq!(actual.out, "foo");
+    assert_eq!(actual, Ok("foo"));
     assert_eq!(actual_repl.out, "foo");
 }
 
@@ -774,7 +774,7 @@ fn overlay_add_renamed_from_file() {
     let actual = nu!(cwd: "tests/overlays", pipeline(&inp.join("; ")));
     let actual_repl = nu!(cwd: "tests/overlays", nu_repl_code(inp));
 
-    assert_eq!(actual.out, "foo");
+    assert_eq!(actual, Ok("foo"));
     assert_eq!(actual_repl.out, "foo");
 }
 
@@ -806,7 +806,7 @@ fn overlay_can_add_renamed_overlay() {
     let actual = nu!(cwd: "tests/overlays", pipeline(&inp.join("; ")));
     let actual_repl = nu!(cwd: "tests/overlays", nu_repl_code(inp));
 
-    assert_eq!(actual.out, "foofoo");
+    assert_eq!(actual, Ok("foofoo"));
     assert_eq!(actual_repl.out, "foofoo");
 }
 
@@ -839,7 +839,7 @@ fn overlay_remove_and_add_renamed_overlay() {
     let actual = nu!(cwd: "tests/overlays", pipeline(&inp.join("; ")));
     let actual_repl = nu!(cwd: "tests/overlays", nu_repl_code(inp));
 
-    assert_eq!(actual.out, "foo");
+    assert_eq!(actual, Ok("foo"));
     assert_eq!(actual_repl.out, "foo");
 }
 
@@ -854,7 +854,7 @@ fn overlay_use_export_env() {
     let actual = nu!(cwd: "tests/overlays", pipeline(&inp.join("; ")));
     let actual_repl = nu!(cwd: "tests/overlays", nu_repl_code(inp));
 
-    assert_eq!(actual.out, "foo");
+    assert_eq!(actual, Ok("foo"));
     assert_eq!(actual_repl.out, "foo");
 }
 
@@ -893,7 +893,7 @@ fn overlay_use_do_cd() {
 
         let actual = nu!(cwd: dirs.test(), pipeline(&inp.join("; ")));
 
-        assert_eq!(actual.out, "test2");
+        assert_eq!(actual, Ok("test2"));
     })
 }
 
@@ -916,7 +916,7 @@ fn overlay_use_do_cd_file_relative() {
 
         let actual = nu!(cwd: dirs.test(), pipeline(&inp.join("; ")));
 
-        assert_eq!(actual.out, "test1");
+        assert_eq!(actual, Ok("test1"));
     })
 }
 
@@ -943,7 +943,7 @@ fn overlay_use_dont_cd_overlay() {
 
         let actual = nu!(cwd: dirs.test(), pipeline(&inp.join("; ")));
 
-        assert_eq!(actual.out, "overlay_use_dont_cd_overlay");
+        assert_eq!(actual, Ok("overlay_use_dont_cd_overlay"));
     })
 }
 
@@ -961,7 +961,7 @@ fn overlay_use_find_scoped_module() {
 
         let actual = nu!(cwd: dirs.test(), inp);
 
-        assert_eq!(actual.out, "spam");
+        assert_eq!(actual, Ok("spam"));
     })
 }
 
@@ -980,7 +980,7 @@ fn overlay_preserve_hidden_env_1() {
     let actual = nu!(cwd: "tests/overlays", pipeline(&inp.join("; ")));
     let actual_repl = nu!(cwd: "tests/overlays", nu_repl_code(inp));
 
-    assert_eq!(actual.out, "foo");
+    assert_eq!(actual, Ok("foo"));
     assert_eq!(actual_repl.out, "foo");
 }
 
@@ -1002,7 +1002,7 @@ fn overlay_preserve_hidden_env_2() {
     let actual = nu!(cwd: "tests/overlays", pipeline(&inp.join("; ")));
     let actual_repl = nu!(cwd: "tests/overlays", nu_repl_code(inp));
 
-    assert_eq!(actual.out, "foo");
+    assert_eq!(actual, Ok("foo"));
     assert_eq!(actual_repl.out, "foo");
 }
 
@@ -1022,7 +1022,7 @@ fn overlay_reset_hidden_env() {
     let actual = nu!(cwd: "tests/overlays", pipeline(&inp.join("; ")));
     let actual_repl = nu!(cwd: "tests/overlays", nu_repl_code(inp));
 
-    assert_eq!(actual.out, "bar");
+    assert_eq!(actual, Ok("bar"));
     assert_eq!(actual_repl.out, "bar");
 }
 
@@ -1042,7 +1042,7 @@ fn overlay_preserve_hidden_decl() {
     let actual = nu!(cwd: "tests/overlays", pipeline(&inp.join("; ")));
     let actual_repl = nu!(cwd: "tests/overlays", nu_repl_code(inp));
 
-    assert_eq!(actual.out, "foo");
+    assert_eq!(actual, Ok("foo"));
     assert_eq!(actual_repl.out, "foo");
 }
 
@@ -1061,7 +1061,7 @@ fn overlay_preserve_hidden_alias() {
     let actual = nu!(cwd: "tests/overlays", pipeline(&inp.join("; ")));
     let actual_repl = nu!(cwd: "tests/overlays", nu_repl_code(inp));
 
-    assert_eq!(actual.out, "foo");
+    assert_eq!(actual, Ok("foo"));
     assert_eq!(actual_repl.out, "foo");
 }
 
@@ -1075,7 +1075,7 @@ fn overlay_trim_single_quote() {
 
     let actual = nu!(cwd: "tests/overlays", pipeline(&inp.join("; ")));
 
-    assert_eq!(actual.out, "spam");
+    assert_eq!(actual, Ok("spam"));
 }
 
 #[test]
@@ -1106,7 +1106,7 @@ fn overlay_trim_double_quote() {
 
     let actual = nu!(cwd: "tests/overlays", pipeline(&inp.join("; ")));
 
-    assert_eq!(actual.out, "spam");
+    assert_eq!(actual, Ok("spam"));
 }
 
 #[test]
@@ -1147,7 +1147,7 @@ fn overlay_use_and_restore_older_env_vars() {
     let actual = nu!(cwd: "tests/overlays", pipeline(&inp.join("; ")));
     let actual_repl = nu!(cwd: "tests/overlays", nu_repl_code(inp));
 
-    assert_eq!(actual.out, "new-bazbaz");
+    assert_eq!(actual, Ok("new-bazbaz"));
     assert_eq!(actual_repl.out, "new-bazbaz");
 }
 
@@ -1172,7 +1172,7 @@ fn overlay_use_and_reload() {
     let actual = nu!(cwd: "tests/overlays", pipeline(&inp.join("; ")));
     let actual_repl = nu!(cwd: "tests/overlays", nu_repl_code(inp));
 
-    assert_eq!(actual.out, "foofoofoo");
+    assert_eq!(actual, Ok("foofoofoo"));
     assert_eq!(actual_repl.out, "foofoofoo");
 }
 
@@ -1190,7 +1190,7 @@ fn overlay_use_and_reolad_keep_custom() {
     let actual = nu!(cwd: "tests/overlays", pipeline(&inp.join("; ")));
     let actual_repl = nu!(cwd: "tests/overlays", nu_repl_code(inp));
 
-    assert_eq!(actual.out, "newfoonewfoonewfoo");
+    assert_eq!(actual, Ok("newfoonewfoonewfoo"));
     assert_eq!(actual_repl.out, "newfoonewfoonewfoo");
 }
 
@@ -1204,7 +1204,7 @@ fn overlay_use_main() {
 
     let actual = nu!(cwd: ".", pipeline(&inp.join("; ")));
 
-    assert_eq!(actual.out, "spam");
+    assert_eq!(actual, Ok("spam"));
 }
 
 #[test]
@@ -1217,7 +1217,7 @@ fn overlay_use_main_prefix() {
 
     let actual = nu!(cwd: ".", pipeline(&inp.join("; ")));
 
-    assert_eq!(actual.out, "spam");
+    assert_eq!(actual, Ok("spam"));
 }
 
 #[test]
@@ -1231,7 +1231,7 @@ fn overlay_use_main_def_env() {
 
     let actual = nu!(cwd: ".", pipeline(&inp.join("; ")));
 
-    assert_eq!(actual.out, "spam");
+    assert_eq!(actual, Ok("spam"));
 }
 
 #[test]

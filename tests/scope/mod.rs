@@ -100,5 +100,5 @@ fn correctly_report_of_shadowed_alias() {
         helper | where alias == xaz | get expansion.0"#
     );
 
-    assert_eq!(actual.out, "echo alias2");
+    assert_eq!(actual, Ok("echo alias2"));
 }

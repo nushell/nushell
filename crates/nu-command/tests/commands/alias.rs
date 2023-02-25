@@ -11,7 +11,7 @@ fn alias_simple() {
         "#
     ));
 
-    assert_eq!(actual.out, "hello");
+    assert_eq!(actual, Ok("hello"));
 }
 
 #[test]
@@ -24,7 +24,7 @@ fn alias_hiding_1() {
         "#
     ));
 
-    assert_eq!(actual.out, "1");
+    assert_eq!(actual, Ok("1"));
 }
 
 #[test]
@@ -38,7 +38,7 @@ fn alias_hiding_2() {
         "#
     ));
 
-    assert_eq!(actual.out, "0");
+    assert_eq!(actual, Ok("0"));
 }
 
 #[test]

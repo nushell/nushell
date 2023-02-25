@@ -28,7 +28,7 @@ fn takes_rows_of_nu_value_strings_and_pipes_it_to_stdin_of_external() {
         ));
 
         // chop will remove the last escaped double quote from \"Estados Unidos\"
-        assert_eq!(actual.out, "Ecuado");
+        assert_eq!(actual, Ok("Ecuado"));
     })
 }
 
@@ -55,7 +55,7 @@ fn treats_dot_dot_as_path_not_range() {
         ));
 
         // chop will remove the last escaped double quote from \"Estados Unidos\"
-        assert_eq!(actual.out, "Jason");
+        assert_eq!(actual, Ok("Jason"));
     })
 }
 
@@ -68,7 +68,7 @@ fn subexpression_properly_redirects() {
         "#
     );
 
-    assert_eq!(actual.out, "hello");
+    assert_eq!(actual, Ok("hello"));
 }
 
 #[test]
@@ -80,7 +80,7 @@ fn argument_subexpression() {
         "#
     );
 
-    assert_eq!(actual.out, "foo");
+    assert_eq!(actual, Ok("foo"));
 }
 
 #[test]
@@ -92,7 +92,7 @@ fn for_loop() {
         "#
     );
 
-    assert_eq!(actual.out, "123");
+    assert_eq!(actual, Ok("123"));
 }
 
 #[test]
@@ -119,7 +119,7 @@ fn subexpression_handles_dot() {
             "#
         ));
 
-        assert_eq!(actual.out, "AndKitKat");
+        assert_eq!(actual, Ok("AndKitKat"));
     })
 }
 
@@ -132,7 +132,7 @@ fn string_interpolation_with_it() {
             "#
     );
 
-    assert_eq!(actual.out, "foo");
+    assert_eq!(actual, Ok("foo"));
 }
 
 #[test]
@@ -144,7 +144,7 @@ fn string_interpolation_with_it_column_path() {
         "#
     );
 
-    assert_eq!(actual.out, "sammie");
+    assert_eq!(actual, Ok("sammie"));
 }
 
 #[test]
@@ -156,7 +156,7 @@ fn string_interpolation_shorthand_overlap() {
         "#
     );
 
-    assert_eq!(actual.out, "3 + 4 = 7");
+    assert_eq!(actual, Ok("3 + 4 = 7"));
 }
 
 // FIXME: jt - we don't currently have a way to escape the single ticks easily
@@ -170,7 +170,7 @@ fn string_interpolation_and_paren() {
         "#
     );
 
-    assert_eq!(actual.out, "a paren is (");
+    assert_eq!(actual, Ok("a paren is ("));
 }
 
 #[test]
@@ -183,7 +183,7 @@ fn string_interpolation_with_unicode() {
         "#
     );
 
-    assert_eq!(actual.out, "カ");
+    assert_eq!(actual, Ok("カ"));
 }
 
 #[test]
@@ -195,7 +195,7 @@ fn run_custom_command() {
         "#
     );
 
-    assert_eq!(actual.out, "15");
+    assert_eq!(actual, Ok("15"));
 }
 
 #[test]
@@ -207,7 +207,7 @@ fn run_custom_command_with_flag() {
         "#
     );
 
-    assert_eq!(actual.out, "10");
+    assert_eq!(actual, Ok("10"));
 }
 
 #[test]
@@ -219,7 +219,7 @@ fn run_custom_command_with_flag_missing() {
         "#
     );
 
-    assert_eq!(actual.out, "empty");
+    assert_eq!(actual, Ok("empty"));
 }
 
 #[test]
@@ -231,7 +231,7 @@ fn run_custom_subcommand() {
         "#
     );
 
-    assert_eq!(actual.out, "bobbob");
+    assert_eq!(actual, Ok("bobbob"));
 }
 
 #[test]
@@ -243,7 +243,7 @@ fn run_inner_custom_command() {
         "#
     );
 
-    assert_eq!(actual.out, "10");
+    assert_eq!(actual, Ok("10"));
 }
 
 #[test]
@@ -267,7 +267,7 @@ fn run_custom_command_with_rest() {
         "#
     );
 
-    assert_eq!(actual.out, r#"["world","hello"]"#);
+    assert_eq!(actual, Ok(r#"["world","hello"]"#));
 }
 
 #[test]
@@ -279,7 +279,7 @@ fn run_custom_command_with_rest_and_arg() {
         "#
     );
 
-    assert_eq!(actual.out, r#"["yay","world","hello"]"#);
+    assert_eq!(actual, Ok(r#"["yay","world","hello"]"#));
 }
 
 #[test]
@@ -291,7 +291,7 @@ fn run_custom_command_with_rest_and_flag() {
         "#
     );
 
-    assert_eq!(actual.out, r#"["world","hello","yay"]"#);
+    assert_eq!(actual, Ok(r#"["world","hello","yay"]"#));
 }
 
 #[test]
@@ -303,7 +303,7 @@ fn run_custom_command_with_empty_rest() {
         "#
     );
 
-    assert_eq!(actual.out, r#"true"#);
+    assert_eq!(actual, Ok(r#"true"#));
     assert_eq!(actual, Err(r#""#));
 }
 
@@ -324,7 +324,7 @@ fn run_custom_command_with_rest_other_name() {
         "#
     );
 
-    assert_eq!(actual.out, r#"Salutations, ABCDE"#);
+    assert_eq!(actual, Ok(r#"Salutations, ABCDE"#));
     assert_eq!(actual, Err(r#""#));
 }
 
@@ -337,7 +337,7 @@ fn alias_a_load_env() {
         "#
     );
 
-    assert_eq!(actual.out, r#"SAM"#);
+    assert_eq!(actual, Ok(r#"SAM"#));
 }
 
 #[test]
@@ -351,7 +351,7 @@ fn let_variable() {
         "#
     );
 
-    assert_eq!(actual.out, "17");
+    assert_eq!(actual, Ok("17"));
 }
 
 #[test]
@@ -376,7 +376,7 @@ fn let_env_variable() {
         "#
     );
 
-    assert_eq!(actual.out, "hello world");
+    assert_eq!(actual, Ok("hello world"));
 }
 
 #[test]
@@ -391,7 +391,7 @@ fn let_env_hides_variable() {
         "#
     );
 
-    assert_eq!(actual.out, "hello world");
+    assert_eq!(actual, Ok("hello world"));
     assert!(actual.err.contains("not_found"));
 }
 
@@ -410,7 +410,7 @@ fn let_env_hides_variable_in_parent_scope() {
         "#
     );
 
-    assert_eq!(actual.out, "hello world");
+    assert_eq!(actual, Ok("hello world"));
     assert!(actual.err.contains("not_found"));
 }
 
@@ -457,7 +457,7 @@ fn unlet_variable_in_parent_scope() {
         "#
     );
 
-    assert_eq!(actual.out, "1211");
+    assert_eq!(actual, Ok("1211"));
 }
 
 #[test]
@@ -480,7 +480,7 @@ fn proper_shadow_let_env_aliases() {
         let-env DEBUG = "true"; echo $env.DEBUG | table; do { let-env DEBUG = "false"; echo $env.DEBUG } | table; echo $env.DEBUG
         "#
     );
-    assert_eq!(actual.out, "truefalsetrue");
+    assert_eq!(actual, Ok("truefalsetrue"));
 }
 
 #[test]
@@ -493,7 +493,7 @@ fn load_env_variable() {
         "#
     );
 
-    assert_eq!(actual.out, "hello world");
+    assert_eq!(actual, Ok("hello world"));
 }
 
 #[test]
@@ -506,7 +506,7 @@ fn load_env_variable_arg() {
         "#
     );
 
-    assert_eq!(actual.out, "hello world");
+    assert_eq!(actual, Ok("hello world"));
 }
 
 #[test]
@@ -529,7 +529,7 @@ fn proper_shadow_load_env_aliases() {
         let-env DEBUG = "true"; echo $env.DEBUG | table; do { echo {DEBUG: "false"} | load-env; echo $env.DEBUG } | table; echo $env.DEBUG
         "#
     );
-    assert_eq!(actual.out, "truefalsetrue");
+    assert_eq!(actual, Ok("truefalsetrue"));
 }
 
 //FIXME: jt: load-env can not currently hide variables because null no longer hides
@@ -545,7 +545,7 @@ fn load_env_can_hide_var_envs() {
         echo $env.DEBUG
         "#
     );
-    assert_eq!(actual.out, "1");
+    assert_eq!(actual, Ok("1"));
     assert!(actual.err.contains("error"));
     assert!(actual.err.contains("Unknown column"));
 }
@@ -566,7 +566,7 @@ fn load_env_can_hide_var_envs_in_parent_scope() {
         echo $env.DEBUG
         "#
     );
-    assert_eq!(actual.out, "11");
+    assert_eq!(actual, Ok("11"));
     assert!(actual.err.contains("error"));
     assert!(actual.err.contains("Unknown column"));
 }
@@ -579,7 +579,7 @@ fn proper_shadow_let_aliases() {
         let DEBUG = false; echo $DEBUG | table; do { let DEBUG = true; echo $DEBUG } | table; echo $DEBUG
         "#
     );
-    assert_eq!(actual.out, "falsetruefalse");
+    assert_eq!(actual, Ok("falsetruefalse"));
 }
 
 #[test]
@@ -612,7 +612,7 @@ fn block_params_override_correct() {
         [1, 2, 3] | each { |a| echo $a } | to json --raw
         "#
     );
-    assert_eq!(actual.out, "[1,2,3]");
+    assert_eq!(actual, Ok("[1,2,3]"));
 }
 
 #[test]
@@ -623,7 +623,7 @@ fn hex_number() {
         0x10
         "#
     );
-    assert_eq!(actual.out, "16");
+    assert_eq!(actual, Ok("16"));
 }
 
 #[test]
@@ -634,7 +634,7 @@ fn binary_number() {
         0b10
         "#
     );
-    assert_eq!(actual.out, "2");
+    assert_eq!(actual, Ok("2"));
 }
 
 #[test]
@@ -645,7 +645,7 @@ fn octal_number() {
         0o10
         "#
     );
-    assert_eq!(actual.out, "8");
+    assert_eq!(actual, Ok("8"));
 }
 
 #[test]
@@ -656,7 +656,7 @@ fn run_dynamic_blocks() {
         let block = { echo "holaaaa" }; do $block
         "#
     );
-    assert_eq!(actual.out, "holaaaa");
+    assert_eq!(actual, Ok("holaaaa"));
 }
 
 #[cfg(feature = "which-support")]
@@ -677,7 +677,7 @@ fn can_process_one_row_from_internal_and_pipes_it_to_stdin_of_external() {
         r#""nushelll" | nu --testbin chop"#
     );
 
-    assert_eq!(actual.out, "nushell");
+    assert_eq!(actual, Ok("nushell"));
 }
 
 #[test]
@@ -713,7 +713,7 @@ fn negative_decimal_start() {
         "#
     );
 
-    assert_eq!(actual.out, "2.7");
+    assert_eq!(actual, Ok("2.7"));
 }
 
 #[test]
@@ -725,7 +725,7 @@ fn string_inside_of() {
         "#
     );
 
-    assert_eq!(actual.out, "true");
+    assert_eq!(actual, Ok("true"));
 }
 
 #[test]
@@ -737,7 +737,7 @@ fn string_not_inside_of() {
         "#
     );
 
-    assert_eq!(actual.out, "false");
+    assert_eq!(actual, Ok("false"));
 }
 
 #[test]
@@ -749,7 +749,7 @@ fn index_row() {
         "#
     );
 
-    assert_eq!(actual.out, r#"{"name": "bob"}"#);
+    assert_eq!(actual, Ok(r#"{"name": "bob"}"#));
 }
 
 #[test]
@@ -761,7 +761,7 @@ fn index_cell() {
         "#
     );
 
-    assert_eq!(actual.out, "bob");
+    assert_eq!(actual, Ok("bob"));
 }
 
 #[test]
@@ -773,7 +773,7 @@ fn index_cell_alt() {
         "#
     );
 
-    assert_eq!(actual.out, "bob");
+    assert_eq!(actual, Ok("bob"));
 }
 
 #[test]
@@ -785,7 +785,7 @@ fn not_echoing_ranges_without_numbers() {
         "#
     );
 
-    assert_eq!(actual.out, "..");
+    assert_eq!(actual, Ok(".."));
 }
 
 #[test]
@@ -797,7 +797,7 @@ fn not_echoing_exclusive_ranges_without_numbers() {
         "#
     );
 
-    assert_eq!(actual.out, "..<");
+    assert_eq!(actual, Ok("..<"));
 }
 
 #[test]
@@ -809,7 +809,7 @@ fn echoing_ranges() {
         "#
     );
 
-    assert_eq!(actual.out, "6");
+    assert_eq!(actual, Ok("6"));
 }
 
 #[test]
@@ -821,7 +821,7 @@ fn echoing_exclusive_ranges() {
         "#
     );
 
-    assert_eq!(actual.out, "6");
+    assert_eq!(actual, Ok("6"));
 }
 
 #[test]
@@ -833,7 +833,7 @@ fn table_literals1() {
         "#
     );
 
-    assert_eq!(actual.out, "13");
+    assert_eq!(actual, Ok("13"));
 }
 
 #[test]
@@ -845,7 +845,7 @@ fn table_literals2() {
         "#
     );
 
-    assert_eq!(actual.out, "33");
+    assert_eq!(actual, Ok("33"));
 }
 
 #[test]
@@ -857,7 +857,7 @@ fn list_with_commas() {
         "#
     );
 
-    assert_eq!(actual.out, "6");
+    assert_eq!(actual, Ok("6"));
 }
 
 #[test]
@@ -869,7 +869,7 @@ fn range_with_left_var() {
         "#
     );
 
-    assert_eq!(actual.out, "52");
+    assert_eq!(actual, Ok("52"));
 }
 
 #[test]
@@ -881,7 +881,7 @@ fn range_with_right_var() {
         "#
     );
 
-    assert_eq!(actual.out, "459");
+    assert_eq!(actual, Ok("459"));
 }
 
 #[test]
@@ -893,7 +893,7 @@ fn range_with_open_left() {
         "#
     );
 
-    assert_eq!(actual.out, "465");
+    assert_eq!(actual, Ok("465"));
 }
 
 #[test]
@@ -905,7 +905,7 @@ fn exclusive_range_with_open_left() {
         "#
     );
 
-    assert_eq!(actual.out, "465");
+    assert_eq!(actual, Ok("465"));
 }
 
 #[test]
@@ -917,7 +917,7 @@ fn range_with_open_right() {
         "#
     );
 
-    assert_eq!(actual.out, "95");
+    assert_eq!(actual, Ok("95"));
 }
 
 #[test]
@@ -929,7 +929,7 @@ fn exclusive_range_with_open_right() {
         "#
     );
 
-    assert_eq!(actual.out, "95");
+    assert_eq!(actual, Ok("95"));
 }
 
 #[test]
@@ -941,7 +941,7 @@ fn range_with_mixed_types() {
         "#
     );
 
-    assert_eq!(actual.out, "55");
+    assert_eq!(actual, Ok("55"));
 }
 
 #[test]
@@ -953,7 +953,7 @@ fn filesize_math() {
         "#
     );
 
-    assert_eq!(actual.out, "1000.0 KiB");
+    assert_eq!(actual, Ok("1000.0 KiB"));
     // why 1000.0 KB instead of 1.0 MB?
     // looks like `byte.get_appropriate_unit(false)` behaves this way
 }
@@ -979,7 +979,7 @@ fn filesize_math3() {
         "#
     );
 
-    assert_eq!(actual.out, "10.0 KiB");
+    assert_eq!(actual, Ok("10.0 KiB"));
 }
 #[test]
 fn filesize_math4() {
@@ -990,7 +990,7 @@ fn filesize_math4() {
         "#
     );
 
-    assert_eq!(actual.out, "500.0 KiB");
+    assert_eq!(actual, Ok("500.0 KiB"));
 }
 
 #[test]
@@ -1002,7 +1002,7 @@ fn filesize_math5() {
         "#
     );
 
-    assert_eq!(actual.out, "1000.0 KiB");
+    assert_eq!(actual, Ok("1000.0 KiB"));
 }
 
 #[test]
@@ -1014,7 +1014,7 @@ fn filesize_math6() {
         "#
     );
 
-    assert_eq!(actual.out, "1000.0 MiB");
+    assert_eq!(actual, Ok("1000.0 MiB"));
 }
 
 #[test]
@@ -1026,7 +1026,7 @@ fn filesize_math7() {
         "#
     );
 
-    assert_eq!(actual.out, "1000.0 GiB");
+    assert_eq!(actual, Ok("1000.0 GiB"));
 }
 
 #[test]
@@ -1038,7 +1038,7 @@ fn exclusive_range_with_mixed_types() {
         "#
     );
 
-    assert_eq!(actual.out, "55");
+    assert_eq!(actual, Ok("55"));
 }
 
 #[test]
@@ -1050,7 +1050,7 @@ fn table_with_commas() {
         "#
     );
 
-    assert_eq!(actual.out, "141");
+    assert_eq!(actual, Ok("141"));
 }
 
 #[test]
@@ -1087,7 +1087,7 @@ fn pipeline_params_simple() {
         "#)
     );
 
-    assert_eq!(actual.out, "6");
+    assert_eq!(actual, Ok("6"));
 }
 
 #[test]
@@ -1099,7 +1099,7 @@ fn pipeline_params_inner() {
         "#)
     );
 
-    assert_eq!(actual.out, "126");
+    assert_eq!(actual, Ok("126"));
 }
 
 #[test]
@@ -1117,7 +1117,7 @@ fn better_table_lex() {
         "#)
     );
 
-    assert_eq!(actual.out, "10");
+    assert_eq!(actual, Ok("10"));
 }
 
 #[test]
@@ -1130,7 +1130,7 @@ fn better_subexpr_lex() {
         "#)
     );
 
-    assert_eq!(actual.out, "6");
+    assert_eq!(actual, Ok("6"));
 }
 
 #[test]
@@ -1142,7 +1142,7 @@ fn subsubcommand() {
         "#)
     );
 
-    assert_eq!(actual.out, "localhost loaded");
+    assert_eq!(actual, Ok("localhost loaded"));
 }
 
 #[test]
@@ -1154,7 +1154,7 @@ fn manysubcommand() {
         "#)
     );
 
-    assert_eq!(actual.out, "localhost loaded");
+    assert_eq!(actual, Ok("localhost loaded"));
 }
 
 #[test]
@@ -1166,7 +1166,7 @@ fn nothing_string_1() {
         "#)
     );
 
-    assert_eq!(actual.out, "false");
+    assert_eq!(actual, Ok("false"));
 }
 
 #[test]
@@ -1183,7 +1183,7 @@ fn hide_alias_shadowing() {
         test-shadowing
         "#)
     );
-    assert_eq!(actual.out, "hello");
+    assert_eq!(actual, Ok("hello"));
 }
 
 // FIXME: Seems like subexpression are no longer scoped. Should we remove this test?
@@ -1201,7 +1201,7 @@ fn hide_alias_does_not_escape_scope() {
         test-alias
         "#)
     );
-    assert_eq!(actual.out, "hello");
+    assert_eq!(actual, Ok("hello"));
 }
 
 #[test]
@@ -1292,7 +1292,7 @@ mod tilde_expansion {
                 "#
         );
 
-        assert_eq!(actual.out, "1~1");
+        assert_eq!(actual, Ok("1~1"));
     }
 }
 
@@ -1306,7 +1306,7 @@ mod variable_scoping {
                 $func
             );
 
-            assert_eq!(actual.out, $res);
+            assert_eq!(actual, Ok($res));
         };
     }
     macro_rules! test_variable_scope_list {

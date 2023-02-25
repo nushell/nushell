@@ -12,7 +12,7 @@ fn checks_if_existing_file_exists() {
             "echo spam.txt | path exists"
         );
 
-        assert_eq!(actual.out, "true");
+        assert_eq!(actual, Ok("true"));
     })
 }
 
@@ -24,7 +24,7 @@ fn checks_if_missing_file_exists() {
             "echo spam.txt | path exists"
         );
 
-        assert_eq!(actual.out, "false");
+        assert_eq!(actual, Ok("false"));
     })
 }
 
@@ -36,7 +36,7 @@ fn checks_if_dot_exists() {
             "echo '.' | path exists"
         );
 
-        assert_eq!(actual.out, "true");
+        assert_eq!(actual, Ok("true"));
     })
 }
 
@@ -48,12 +48,12 @@ fn checks_if_double_dot_exists() {
             "echo '..' | path exists"
         );
 
-        assert_eq!(actual.out, "true");
+        assert_eq!(actual, Ok("true"));
     })
 }
 
 #[test]
 fn checks_tilde_relative_path_exists() {
     let actual = nu!(cwd: ".", "'~' | path exists");
-    assert_eq!(actual.out, "true");
+    assert_eq!(actual, Ok("true"));
 }

@@ -9,7 +9,7 @@ fn mut_variable() {
         "#
     ));
 
-    assert_eq!(actual.out, "4");
+    assert_eq!(actual, Ok("4"));
 }
 
 #[test]
@@ -21,7 +21,7 @@ fn mut_variable_in_loop() {
         "#
     ));
 
-    assert_eq!(actual.out, "56");
+    assert_eq!(actual, Ok("56"));
 }
 
 #[test]
@@ -45,7 +45,7 @@ fn mut_add_assign() {
         "#
     ));
 
-    assert_eq!(actual.out, "5");
+    assert_eq!(actual, Ok("5"));
 }
 
 #[test]
@@ -57,7 +57,7 @@ fn mut_minus_assign() {
         "#
     ));
 
-    assert_eq!(actual.out, "1");
+    assert_eq!(actual, Ok("1"));
 }
 
 #[test]
@@ -69,7 +69,7 @@ fn mut_multiply_assign() {
         "#
     ));
 
-    assert_eq!(actual.out, "6");
+    assert_eq!(actual, Ok("6"));
 }
 
 #[test]
@@ -81,7 +81,7 @@ fn mut_divide_assign() {
         "#
     ));
 
-    assert_eq!(actual.out, "4");
+    assert_eq!(actual, Ok("4"));
 }
 
 #[test]
@@ -93,7 +93,7 @@ fn mut_path_insert() {
         "#
     ));
 
-    assert_eq!(actual.out, "456");
+    assert_eq!(actual, Ok("456"));
 }
 
 #[test]
@@ -105,7 +105,7 @@ fn mut_path_insert_list() {
         "#
     ));
 
-    assert_eq!(actual.out, "[0, 1, 2, 3]");
+    assert_eq!(actual, Ok("[0, 1, 2, 3]"));
 }
 
 #[test]
@@ -117,7 +117,7 @@ fn mut_path_upsert() {
         "#
     ));
 
-    assert_eq!(actual.out, "11");
+    assert_eq!(actual, Ok("11"));
 }
 
 #[test]
@@ -129,7 +129,7 @@ fn mut_path_upsert_list() {
         "#
     ));
 
-    assert_eq!(actual.out, "[[[3, 0], 2, 0], 1, 0]");
+    assert_eq!(actual, Ok("[[[3, 0], 2, 0], 1, 0]"));
 }
 
 #[test]
@@ -141,5 +141,5 @@ fn mut_path_operator_assign() {
         "#
     ));
 
-    assert_eq!(actual.out, "5");
+    assert_eq!(actual, Ok("5"));
 }

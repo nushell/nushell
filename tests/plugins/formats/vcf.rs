@@ -38,7 +38,7 @@ fn infers_types() {
             "open contacts.vcf | length"
         );
 
-        assert_eq!(actual.out, "2");
+        assert_eq!(actual, Ok("2"));
     })
 }
 
@@ -78,6 +78,6 @@ fn from_vcf_text_to_table() {
             "#
         );
 
-        assert_eq!(actual.out, "john.doe99@gmail.com");
+        assert_eq!(actual, Ok("john.doe99@gmail.com"));
     })
 }

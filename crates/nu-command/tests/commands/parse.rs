@@ -29,7 +29,7 @@ mod simple {
                 "#
             ));
 
-            assert_eq!(actual.out, "JonathanParsed");
+            assert_eq!(actual, Ok("JonathanParsed"));
         })
     }
 
@@ -45,7 +45,7 @@ mod simple {
                 "#
             ));
 
-            assert_eq!(actual.out, "123");
+            assert_eq!(actual, Ok("123"));
         })
     }
 
@@ -61,7 +61,7 @@ mod simple {
                 "#
             ));
 
-            assert_eq!(actual.out, "123");
+            assert_eq!(actual, Ok("123"));
         })
     }
 
@@ -78,7 +78,7 @@ mod simple {
                 "#
             ));
 
-            assert_eq!(actual.out, "something bad happened");
+            assert_eq!(actual, Ok("something bad happened"));
         })
     }
 
@@ -129,7 +129,7 @@ mod regex {
                 "#
             ));
 
-            assert_eq!(actual.out, "1842");
+            assert_eq!(actual, Ok("1842"));
         })
     }
 
@@ -148,7 +148,7 @@ mod regex {
                 "#
             ));
 
-            assert_eq!(actual.out, "b89976da");
+            assert_eq!(actual, Ok("b89976da"));
         })
     }
 
@@ -167,7 +167,7 @@ mod regex {
                 "#
             ));
 
-            assert_eq!(actual.out, "let format access variables also");
+            assert_eq!(actual, Ok("let format access variables also"));
         })
     }
 

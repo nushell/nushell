@@ -9,7 +9,7 @@ fn break_for_loop() {
         "#
     ));
 
-    assert_eq!(actual.out, r#"1"#);
+    assert_eq!(actual, Ok(r#"1"#));
 }
 
 #[test]
@@ -21,7 +21,7 @@ fn break_while_loop() {
         "#
     ));
 
-    assert_eq!(actual.out, r#"hello"#);
+    assert_eq!(actual, Ok(r#"hello"#));
 }
 
 #[test]
@@ -33,5 +33,5 @@ fn break_each() {
         "#
     ));
 
-    assert_eq!(actual.out, r#"6"#);
+    assert_eq!(actual, Ok(r#"6"#));
 }

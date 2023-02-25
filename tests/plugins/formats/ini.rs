@@ -50,6 +50,6 @@ fn read_ini_with_missing_session() {
             r#"open some_missing.ini | get "".min-width "#
         );
 
-        assert_eq!(actual.out, "450");
+        assert_eq!(actual, Ok("450"));
     })
 }

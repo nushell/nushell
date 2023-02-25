@@ -34,7 +34,7 @@ fn nonempty_glob_lists_matching_paths() {
             pipeline("glob '*' | length"),
         );
 
-        assert_eq!(actual.out, "3");
+        assert_eq!(actual, Ok("3"));
     })
 }
 

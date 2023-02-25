@@ -12,7 +12,7 @@ fn from_ods_file_to_table() {
         "#
     ));
 
-    assert_eq!(actual.out, "Gill");
+    assert_eq!(actual, Ok("Gill"));
 }
 
 #[test]
@@ -27,5 +27,5 @@ fn from_ods_file_to_table_select_sheet() {
         "#
     ));
 
-    assert_eq!(actual.out, "SalesOrders");
+    assert_eq!(actual, Ok("SalesOrders"));
 }

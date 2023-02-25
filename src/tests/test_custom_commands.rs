@@ -143,7 +143,7 @@ fn override_table() -> TestResult {
 #[test]
 fn override_table_eval_file() {
     let actual = nu!(cwd: ".", r#"def table [] { "hi" }; table"#);
-    assert_eq!(actual.out, "hi");
+    assert_eq!(actual, Ok("hi"));
 }
 
 // This test is disabled on Windows because they cause a stack overflow in CI (but not locally!).

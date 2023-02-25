@@ -13,7 +13,7 @@ fn creates_the_resulting_string_from_the_given_fields() {
         "#
     ));
 
-    assert_eq!(actual.out, "nu has license ISC");
+    assert_eq!(actual, Ok("nu has license ISC"));
 }
 
 #[test]
@@ -26,7 +26,7 @@ fn given_fields_can_be_column_paths() {
         "#
     ));
 
-    assert_eq!(actual.out, "nu is a new type of shell");
+    assert_eq!(actual, Ok("nu is a new type of shell"));
 }
 
 #[test]
@@ -39,7 +39,7 @@ fn can_use_variables() {
         "#
     ));
 
-    assert_eq!(actual.out, "nu is a new type of shell");
+    assert_eq!(actual, Ok("nu is a new type of shell"));
 }
 
 #[test]
@@ -74,7 +74,7 @@ fn format_filesize_works() {
             "#
         ));
 
-        assert_eq!(actual.out, "0.0 KB");
+        assert_eq!(actual, Ok("0.0 KB"));
     })
 }
 
@@ -97,10 +97,10 @@ fn format_filesize_works_with_nonempty_files() {
             );
 
             #[cfg(not(windows))]
-            assert_eq!(actual.out, "25");
+            assert_eq!(actual, Ok("25"));
 
             #[cfg(windows)]
-            assert_eq!(actual.out, "27");
+            assert_eq!(actual, Ok("27"));
         },
     )
 }

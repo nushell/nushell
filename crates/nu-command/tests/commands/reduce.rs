@@ -14,7 +14,7 @@ fn reduce_table_column() {
         )
     );
 
-    assert_eq!(actual.out, "180.6");
+    assert_eq!(actual, Ok("180.6"));
 }
 
 #[test]
@@ -29,7 +29,7 @@ fn reduce_table_column_with_path() {
         )
     );
 
-    assert_eq!(actual.out, "180.6");
+    assert_eq!(actual, Ok("180.6"));
 }
 
 #[test]
@@ -43,7 +43,7 @@ fn reduce_rows_example() {
         )
     );
 
-    assert_eq!(actual.out, "14.8");
+    assert_eq!(actual, Ok("14.8"));
 }
 
 #[test]
@@ -61,7 +61,7 @@ fn reduce_with_return_in_closure() {
         )
     );
 
-    assert_eq!(actual.out, "20");
+    assert_eq!(actual, Ok("20"));
     assert!(actual.err.is_empty());
 }
 
@@ -77,7 +77,7 @@ fn reduce_enumerate_example() {
         )
     );
 
-    assert_eq!(actual.out, "1");
+    assert_eq!(actual, Ok("1"));
 }
 
 #[test]
@@ -93,7 +93,7 @@ fn reduce_enumerate_integer_addition_example() {
         )
     );
 
-    assert_eq!(actual.out, "10");
+    assert_eq!(actual, Ok("10"));
 }
 
 #[test]
@@ -112,7 +112,7 @@ fn folding_with_tables() {
         )
     );
 
-    assert_eq!(actual.out, "1000");
+    assert_eq!(actual, Ok("1000"));
 }
 
 #[test]
@@ -151,5 +151,5 @@ fn enumerate_reduce_example() {
         )
     );
 
-    assert_eq!(actual.out, "1");
+    assert_eq!(actual, Ok("1"));
 }

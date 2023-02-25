@@ -6,7 +6,7 @@ fn config_is_mutable() {
         "$env.config.ls.clickable_links = false;",
         "$env.config.ls.clickable_links"]));
 
-    assert_eq!(actual.out, "false");
+    assert_eq!(actual, Ok("false"));
 }
 
 #[test]
@@ -15,7 +15,7 @@ fn config_preserved_after_do() {
         "do -i { $env.config.ls.clickable_links = false }",
         "$env.config.ls.clickable_links"]));
 
-    assert_eq!(actual.out, "true");
+    assert_eq!(actual, Ok("true"));
 }
 
 #[test]
@@ -24,7 +24,7 @@ fn config_affected_when_mutated() {
         r#"$env.config = { filesize: { metric: true, format:"auto" } }"#,
         "20mib | into string"]));
 
-    assert_eq!(actual.out, "21.0 MB");
+    assert_eq!(actual, Ok("21.0 MB"));
 }
 
 #[test]
@@ -34,7 +34,7 @@ fn config_affected_when_deep_mutated() {
         r#"$env.config.filesize.metric = true"#,
         r#"20mib | into string"#]));
 
-    assert_eq!(actual.out, "21.0 MB");
+    assert_eq!(actual, Ok("21.0 MB"));
 }
 
 #[test]
@@ -76,7 +76,7 @@ fn config_unsupported_key_reverted() {
         r#"$env.config.foo = 1"#,
         r#"'foo' in $env.config"#]));
 
-    assert_eq!(actual.out, "false");
+    assert_eq!(actual, Ok("false"));
 }
 
 #[test]
@@ -86,7 +86,7 @@ fn config_unsupported_type_reverted() {
         r#"$env.config.ls = ''"#,
         r#"$env.config.ls | describe"#]));
 
-    assert_eq!(actual.out, "record");
+    assert_eq!(actual, Ok("record"));
 }
 
 #[test]
@@ -97,5 +97,5 @@ fn config_unsupported_value_reverted() {
         r#"$env.config.history.file_format = ''"#,
         r#"$env.config.history.file_format | to json"#]));
 
-    assert_eq!(actual.out, "\"plaintext\"");
+    assert_eq!(actual, Ok("\"plaintext\""));
 }
