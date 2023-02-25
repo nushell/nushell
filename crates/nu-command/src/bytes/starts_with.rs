@@ -4,6 +4,7 @@ use nu_protocol::ast::Call;
 use nu_protocol::ast::CellPath;
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::Category;
+use nu_protocol::IntoPipelineData;
 use nu_protocol::{Example, PipelineData, ShellError, Signature, Span, SyntaxShape, Type, Value};
 
 struct Arguments {
@@ -60,13 +61,73 @@ impl Command for BytesStartsWith {
             pattern,
             cell_paths,
         };
-        operate(
-            starts_with,
-            arg,
-            input,
-            call.head,
-            engine_state.ctrlc.clone(),
-        )
+
+        match input {
+            PipelineData::ExternalStream { stdout, span, .. } if stdout.is_some() => {
+                let stream = stdout.expect("stdout is some");
+
+                let mut i = 0;
+
+                for item in stream {
+                    match item {
+                        Ok(v) => match v {
+                            Value::String { val, span } => {
+                                let bytes = val.as_bytes();
+                                let max = bytes.len().min(arg.pattern.len() - i);
+
+                                if bytes[..max] == arg.pattern[i..i + max] {
+                                    i += max;
+
+                                    if i >= arg.pattern.len() {
+                                        return Ok(Value::boolean(true, span).into_pipeline_data());
+                                    }
+                                } else {
+                                    return Ok(Value::boolean(false, span).into_pipeline_data());
+                                }
+                            }
+                            Value::Binary { val: bytes, span } => {
+                                let max = bytes.len().min(arg.pattern.len() - i);
+
+                                if bytes[..max] == arg.pattern[i..i + max] {
+                                    i += max;
+
+                                    if i >= arg.pattern.len() {
+                                        return Ok(Value::boolean(true, span).into_pipeline_data());
+                                    }
+                                } else {
+                                    return Ok(Value::boolean(false, span).into_pipeline_data());
+                                }
+                            }
+                            Value::Error { .. } => return Ok(v.clone().into_pipeline_data()),
+                            other => {
+                                return Ok(Value::Error {
+                                    error: ShellError::OnlySupportsThisInputType(
+                                        "binary".into(),
+                                        other.get_type().to_string(),
+                                        span,
+                                        // This line requires the Value::Error match above.
+                                        other.expect_span(),
+                                    ),
+                                }
+                                .into_pipeline_data());
+                            }
+                        },
+                        Err(err) => return Err(err),
+                    }
+                }
+
+                // We reached the end of the stream and never returned,
+                // the pattern wasn't exhausted so it probably doesn't match
+                Ok(Value::boolean(false, span).into_pipeline_data())
+            }
+            _ => operate(
+                starts_with,
+                arg,
+                input,
+                call.head,
+                engine_state.ctrlc.clone(),
+            ),
+        }
     }
 
     fn examples(&self) -> Vec<Example> {
