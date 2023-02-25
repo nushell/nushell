@@ -191,6 +191,20 @@ fn to_nuon_range() {
 }
 
 #[test]
+fn from_nuon_range() {
+    let actual = nu!(
+        cwd: "tests/fixtures/formats", pipeline(
+        r#"
+            "1..42"
+            | from nuon
+            | describe
+        "#
+    ));
+
+    assert_eq!(actual.out, "range");
+}
+
+#[test]
 fn binary_to() {
     let actual = nu!(
         cwd: "tests/fixtures/formats", pipeline(
