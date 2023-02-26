@@ -210,32 +210,30 @@ fn get_documentation(
             let _ = write!(long_desc, "\n  > {}\n", example.example);
         }
 
-        match &example.result {
-            Some(result) => {
-                let decl_id = engine_state
-                    .find_decl("table".as_bytes(), &[])
-                    .expect("could not find `table` in the engine state");
-                let table = engine_state
-                    .get_decl(decl_id)
-                    .run(
-                        engine_state,
-                        stack,
-                        &Call::new(Span::new(0, 0)),
-                        PipelineData::Value(result.clone(), None),
-                    )
-                    .expect("could not run `table` on the output `Value` of the example");
+        if let Some(result) = &example.result {
+            let table = engine_state
+                .find_decl("table".as_bytes(), &[])
+                .and_then(|decl_id| {
+                    engine_state
+                        .get_decl(decl_id)
+                        .run(
+                            engine_state,
+                            stack,
+                            &Call::new(Span::new(0, 0)),
+                            PipelineData::Value(result.clone(), None),
+                        )
+                        .ok()
+                });
 
-                for item in table {
-                    let _ = writeln!(
-                        long_desc,
-                        "  {}",
-                        item.into_string("", engine_state.get_config())
-                            .replace('\n', "\n  ")
-                            .trim()
-                    );
-                }
+            for item in table.into_iter().flatten() {
+                let _ = writeln!(
+                    long_desc,
+                    "  {}",
+                    item.into_string("", engine_state.get_config())
+                        .replace('\n', "\n  ")
+                        .trim()
+                );
             }
-            None => {}
         }
     }
 
