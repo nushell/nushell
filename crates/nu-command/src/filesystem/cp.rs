@@ -153,8 +153,6 @@ impl Command for Cp {
         let mut result = Vec::new();
 
         for entry in sources.into_iter().flatten() {
-            // Before copying any file check the if the user has pressed ctrl+c
-            // in case we need to cancel the process.
             if nu_utils::ctrl_c::was_pressed(&ctrlc) {
                 return Ok(PipelineData::empty());
             }
@@ -205,11 +203,11 @@ impl Command for Cp {
                                 interactive_copy(interactive, src, dst, span, &None, copy_file)
                             }
                         } else if progress {
-                            // uses std::io::copy to get the progress
-                            // slower std::fs::copy but useful if user needs to see the progress
+                            // use std::io::copy to get the progress
+                            // slower then std::fs::copy but useful if user needs to see the progress
                             copy_file_with_progressbar(src, dst, span, &ctrlc)
                         } else {
-                            // uses std::fs::copy
+                            // use std::fs::copy
                             copy_file(src, dst, span, &None)
                         };
                         result.push(res);
@@ -400,18 +398,19 @@ fn interactive_copy(
 // This uses `std::fs::copy` to copy a file. There is another function called `copy_file_with_progressbar`
 // which uses `read` and `write` instead. This is to get the progress of the copy. Try to keep the logic in
 // this function in sync with `copy_file_with_progressbar`
+// FIXME: `std::fs::copy` can't be interrupted. Consider using something else
 fn copy_file(
     src: PathBuf,
     dst: PathBuf,
     span: Span,
-    ctrlc_status: &Option<Arc<AtomicBool>>,
+    _ctrlc_status: &Option<Arc<AtomicBool>>,
 ) -> Value {
     match std::fs::copy(&src, &dst) {
         Ok(_) => {
             let msg = format!("copied {:} to {:}", src.display(), dst.display());
             Value::String { val: msg, span }
         }
-        Err(e) => convert_io_error(e, src, dst, span, ctrlc_status),
+        Err(e) => convert_io_error(e, src, dst, span),
     }
 }
 
@@ -429,7 +428,7 @@ fn copy_file_with_progressbar(
 
     let file_in = match std::fs::File::open(&src) {
         Ok(file) => file,
-        Err(error) => return convert_io_error(error, src, dst, span, ctrlc_status),
+        Err(error) => return convert_io_error(error, src, dst, span),
     };
 
     let file_size = match file_in.metadata() {
@@ -441,14 +440,13 @@ fn copy_file_with_progressbar(
 
     let file_out = match std::fs::File::create(&dst) {
         Ok(file) => file,
-        Err(error) => return convert_io_error(error, src, dst, span, ctrlc_status),
+        Err(error) => return convert_io_error(error, src, dst, span),
     };
     let mut buffer = [0u8; 8192];
     let mut buf_reader = BufReader::new(file_in);
     let mut buf_writer = BufWriter::new(file_out);
 
     loop {
-        // Interrupt the progress if Ctrl-C is pressed
         if nu_utils::ctrl_c::was_pressed(ctrlc_status) {
             let err = std::io::Error::new(ErrorKind::Interrupted, "Interrupted");
             process_failed = Some(err);
@@ -495,7 +493,7 @@ fn copy_file_with_progressbar(
         } else {
             bar.abandoned_msg("# !! Error !!".to_owned());
         }
-        return convert_io_error(error, src, dst, span, ctrlc_status);
+        return convert_io_error(error, src, dst, span);
     }
 
     // Get the name of the file to print it out at the end
@@ -559,13 +557,7 @@ fn copy_symlink(
 }
 
 // Function to convert io::Errors to more specific ShellErrors
-fn convert_io_error(
-    error: std::io::Error,
-    src: PathBuf,
-    dst: PathBuf,
-    span: Span,
-    _ctrlc_status: &Option<Arc<AtomicBool>>,
-) -> Value {
+fn convert_io_error(error: std::io::Error, src: PathBuf, dst: PathBuf, span: Span) -> Value {
     let message_src = format!(
         "copying file '{src_display}' failed: {error}",
         src_display = src.display()
