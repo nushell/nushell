@@ -94,7 +94,15 @@ impl Command for SubCommand {
     }
 }
 
-fn action(input: &Value, Arguments { substring, case_insensitive, .. }: &Arguments, head: Span) -> Value {
+fn action(
+    input: &Value,
+    Arguments {
+        substring,
+        case_insensitive,
+        ..
+    }: &Arguments,
+    head: Span,
+) -> Value {
     match input {
         Value::String { val: s, .. } => {
             let starts_with = if *case_insensitive {
