@@ -168,6 +168,7 @@ fn main() -> Result<()> {
             "nonu" => test_bins::nonu(),
             "chop" => test_bins::chop(),
             "repeater" => test_bins::repeater(),
+            "repeat_bytes" => test_bins::repeat_bytes(),
             "nu_repl" => test_bins::nu_repl(),
             "input_bytes_length" => test_bins::input_bytes_length(),
             _ => std::process::exit(1),

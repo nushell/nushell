@@ -84,6 +84,32 @@ pub fn repeater() {
     let _ = stdout.flush();
 }
 
+// A version of repeater that can output binary data, even null bytes
+pub fn repeat_bytes() {
+    let mut stdout = io::stdout();
+    let args = args();
+    let mut args = args.iter().skip(1);
+
+    while let (Some(binary), Some(count)) = (args.next(), args.next()) {
+        let bytes: Vec<u8> = (0..binary.len())
+            .step_by(2)
+            .map(|i| {
+                u8::from_str_radix(&binary[i..i + 2], 16)
+                    .expect("binary string is valid hexadecimal")
+            })
+            .collect();
+        let count: u64 = count.parse().expect("repeat count must be a number");
+
+        for _ in 0..count {
+            stdout
+                .write_all(&bytes)
+                .expect("writing to stdout must not fail");
+        }
+    }
+
+    let _ = stdout.flush();
+}
+
 pub fn iecho() {
     // println! panics if stdout gets closed, whereas writeln gives us an error
     let mut stdout = io::stdout();
