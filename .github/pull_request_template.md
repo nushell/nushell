@@ -15,9 +15,11 @@ Don't forget to add tests that cover your changes.
 
 Make sure you've run and fixed any issues with these commands:
 
-- `make fmt-check` to check standard code formatting (`make fmt` applies these changes)
-- `make clippy` to check that you're using the standard code style
-- `make test` to check that all tests pass
+> **Note**
+> run `use toolkit.nu` to activate the tools mentionned below
+- `toolkit fmt --check` to check standard code formatting (`toolkit fmt` applies these changes)
+- `toolkit clippy` to check that you're using the standard code style
+- `toolkit test` to check that all tests pass
 
 # After Submitting
 
