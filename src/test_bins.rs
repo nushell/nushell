@@ -1,4 +1,4 @@
-use std::io::{self, BufRead, Write};
+use std::io::{self, BufRead, Write, BufWriter};
 
 use nu_cli::{eval_env_change_hook, eval_hook};
 use nu_command::create_default_context;
@@ -81,6 +81,28 @@ pub fn repeater() {
     for _ in 0..count {
         let _ = write!(stdout, "{letter}");
     }
+    let _ = stdout.flush();
+}
+
+// A version of repeater that can output binary data, even null bytes
+pub fn repeat_bytes() {
+    // Wrapping in BufWriter helps prevent error 232 BrokenPipe "The pipe is being closed"
+    let mut stdout = BufWriter::new(io::stdout());
+    let args = args();
+    let mut args = args.iter().skip(1);
+
+    while let (Some(binary), Some(count)) = (args.next(), args.next()) {
+        let bytes: Vec<u8> = (0..binary.len())
+            .step_by(2)
+            .map(|i| u8::from_str_radix(&binary[i..i + 2], 16).expect("binary string is valid hexadecimal"))
+            .collect();
+        let count: u64 = count.parse().expect("repeat count must be a number");
+
+        for _ in 0..count {
+            stdout.write(&bytes).expect("writing to stdout must not fail");
+        }
+    }
+
     let _ = stdout.flush();
 }
 

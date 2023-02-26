@@ -38,6 +38,18 @@ fn short_stream_binary() {
 }
 
 #[test]
+fn short_stream_mismatch() {
+    let actual = nu!(
+        cwd: ".",
+        r#"
+            nu --testbin repeater (0x[010203]) 5 | bytes starts-with 0x[010204]
+        "#
+    );
+
+    assert_eq!(actual.out, "false");
+}
+
+#[test]
 fn short_stream_binary_overflow() {
     let actual = nu!(
         cwd: ".",
@@ -93,7 +105,7 @@ fn long_stream_string_exact() {
     let actual = nu!(
         cwd: ".",
         r#"
-            nu --testbin repeater (0x[68656c6c]) 8192 | bytes starts-with (0..<8192 | each { "hell" | into binary } | bytes collect)
+            nu --testbin repeater hell 8192 | bytes starts-with (0..<8192 | each { "hell" | into binary } | bytes collect)
         "#
     );
 
@@ -103,15 +115,13 @@ fn long_stream_string_exact() {
 #[test]
 fn long_stream_mixed_exact() {
     // ranges are inclusive..inclusive, so we don't need to +1 to check for an overflow
-    // NOTE: These commands run pretty close to the limit for how long command arguments can be
-    // Maybe there's a better way. Perhaps a new testbin?
     let actual = nu!(
         cwd: ".",
         r#"
-            let binseg = (0..<2048 | each { 0x[01020304] } | bytes collect)
+            let binseg = (0..<2048 | each { 0x[003d9fbf] } | bytes collect)
             let strseg = (0..<2048 | each { "hell" | into binary } | bytes collect)
 
-            nu --testbin repeater (bytes build $binseg $strseg) 4 | bytes starts-with (bytes build $binseg $strseg)
+            nu --testbin repeat_bytes 003d9fbf 2048 68656c6c 2048 | bytes starts-with (bytes build $binseg $strseg)
         "#
     );
 
@@ -125,15 +135,13 @@ fn long_stream_mixed_exact() {
 #[test]
 fn long_stream_mixed_overflow() {
     // ranges are inclusive..inclusive, so we don't need to +1 to check for an overflow
-    // NOTE: These commands run pretty close to the limit for how long command arguments can be
-    // Maybe there's a better way. Perhaps a new testbin?
     let actual = nu!(
         cwd: ".",
         r#"
-            let binseg = (0..<2048 | each { 0x[01020304] } | bytes collect)
+            let binseg = (0..<2048 | each { 0x[003d9fbf] } | bytes collect)
             let strseg = (0..<2048 | each { "hell" | into binary } | bytes collect)
 
-            nu --testbin repeater (bytes build $binseg $strseg) 1 | bytes starts-with (bytes build $binseg $strseg 0x[01])
+            nu --testbin repeat_bytes 003d9fbf 2048 68656c6c 2048 | bytes starts-with (bytes build $binseg $strseg 0x[01])
         "#
     );
 
