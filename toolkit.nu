@@ -1,5 +1,10 @@
-# this file regroups a bunch of development tools to make the development
+# this module regroups a bunch of development tools to make the development
 # process easier for anyone.
+#
+# the main purpose of `toolkit` is to offer an easy to use interface for the
+# developer during a PR cycle, namely to (**1**) format the source base,
+# (**2**) catch classical flaws in the new changes with *clippy* and (**3**)
+# make sure all the tests pass.
 
 # apply formatting to the whole source base
 export def fmt [
