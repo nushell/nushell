@@ -2,12 +2,10 @@ use nu_engine::env_to_strings;
 use nu_protocol::{
     ast::Call,
     engine::{Command, EngineState, Stack},
-    Category, Example, PipelineData, ShellError, Signature, Span, Spanned, Type,
+    Category, Example, PipelineData, ShellError, Signature, Type,
 };
 
-use crate::ExternalCommand;
-
-use super::utils::get_editor;
+use super::utils::{gen_command, get_editor};
 
 #[derive(Clone)]
 pub struct ConfigNu;
@@ -62,35 +60,11 @@ impl Command for ConfigNu {
 
         let (item, config_args) = get_editor(engine_state, stack)?;
 
-        let name = Spanned {
-            item,
-            span: call.head,
-        };
-
-        let mut args = vec![Spanned {
-            item: nu_config.to_string_lossy().to_string(),
-            span: Span::unknown(),
-        }];
-
-        let number_of_args = config_args.len() + 1;
-
-        for arg in config_args {
-            args.push(Spanned {
-                item: arg,
-                span: Span::unknown(),
-            })
-        }
-
-        let command = ExternalCommand {
-            name,
-            args,
-            arg_keep_raw: vec![false; number_of_args],
-            redirect_stdout: false,
-            redirect_stderr: false,
-            env_vars: env_vars_str,
-            trim_end_newline: false,
-        };
-
-        command.run_with_input(engine_state, stack, input, true)
+        gen_command(call.head, nu_config, item, config_args, env_vars_str).run_with_input(
+            engine_state,
+            stack,
+            input,
+            true,
+        )
     }
 }
