@@ -278,47 +278,49 @@ impl Command for Cp {
 
                 for (s, d) in sources {
                     // Check if the user has pressed ctrl+c before copying a file
-                    if !nu_utils::ctrl_c::was_pressed(&ctrlc) {
-                        if s.is_dir() && !d.exists() {
-                            std::fs::create_dir_all(&d).map_err(|e| {
-                                ShellError::GenericError(
-                                    e.to_string(),
-                                    e.to_string(),
-                                    Some(dst.span),
-                                    None,
-                                    Vec::new(),
-                                )
-                            })?;
-                        }
-                        if s.is_symlink() && not_follow_symlink {
-                            let res = if interactive && d.exists() {
-                                interactive_copy(interactive, s, d, span, &None, copy_symlink)
-                            } else {
-                                copy_symlink(s, d, span, &None)
-                            };
-                            result.push(res);
-                        } else if s.is_file() {
-                            let res = if interactive && d.exists() {
-                                if progress {
-                                    interactive_copy(
-                                        interactive,
-                                        s,
-                                        d,
-                                        span,
-                                        &ctrlc,
-                                        copy_file_with_progressbar,
-                                    )
-                                } else {
-                                    interactive_copy(interactive, s, d, span, &None, copy_file)
-                                }
-                            } else if progress {
-                                copy_file_with_progressbar(s, d, span, &ctrlc)
-                            } else {
-                                copy_file(s, d, span, &None)
-                            };
-                            result.push(res);
-                        };
+                    if nu_utils::ctrl_c::was_pressed(&ctrlc) {
+                        return Ok(PipelineData::empty());
                     }
+
+                    if s.is_dir() && !d.exists() {
+                        std::fs::create_dir_all(&d).map_err(|e| {
+                            ShellError::GenericError(
+                                e.to_string(),
+                                e.to_string(),
+                                Some(dst.span),
+                                None,
+                                Vec::new(),
+                            )
+                        })?;
+                    }
+                    if s.is_symlink() && not_follow_symlink {
+                        let res = if interactive && d.exists() {
+                            interactive_copy(interactive, s, d, span, &None, copy_symlink)
+                        } else {
+                            copy_symlink(s, d, span, &None)
+                        };
+                        result.push(res);
+                    } else if s.is_file() {
+                        let res = if interactive && d.exists() {
+                            if progress {
+                                interactive_copy(
+                                    interactive,
+                                    s,
+                                    d,
+                                    span,
+                                    &ctrlc,
+                                    copy_file_with_progressbar,
+                                )
+                            } else {
+                                interactive_copy(interactive, s, d, span, &None, copy_file)
+                            }
+                        } else if progress {
+                            copy_file_with_progressbar(s, d, span, &ctrlc)
+                        } else {
+                            copy_file(s, d, span, &None)
+                        };
+                        result.push(res);
+                    };
                 }
             }
         }
