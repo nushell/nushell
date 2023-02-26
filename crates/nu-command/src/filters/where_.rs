@@ -33,6 +33,11 @@ not supported."#
                 ),
                 (Type::Table(vec![]), Type::Table(vec![])),
             ])
+            .switch(
+                "ignore-errors",
+                "if row condition can not be applied to element, assume condition as false instead of erroring out",
+                Some('i')
+            )
             .required(
                 "row_condition",
                 SyntaxShape::RowCondition,
@@ -53,6 +58,7 @@ not supported."#
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
         let closure: Closure = call.req(engine_state, stack, 0)?;
+        let ignore_errors = call.has_flag("ignore-errors");
 
         let span = call.head;
 
@@ -97,7 +103,13 @@ not supported."#
                             None
                         }
                     }
-                    Err(err) => Some(Value::Error { error: err }),
+                    Err(err) => {
+                        if ignore_errors {
+                            None
+                        } else {
+                            Some(Value::Error { error: err })
+                        }
+                    }
                 }
             })
             .into_pipeline_data(ctrlc)
@@ -123,6 +135,18 @@ not supported."#
                 example: "[1 2] | where {|x| $x > 1}",
                 result: Some(Value::List {
                     vals: vec![Value::test_int(2)],
+                    span: Span::test_data(),
+                }),
+            },
+            Example {
+                description: "Filter rows of a table with missing values",
+                example: "[{a: 1} {a: 2} {b: 3}] | where --ignore-errors a > 1",
+                result: Some(Value::List {
+                    vals: vec![Value::Record {
+                        cols: vec!["a".to_string()],
+                        vals: vec![Value::test_int(2)],
+                        span: Span::test_data(),
+                    }],
                     span: Span::test_data(),
                 }),
             },
