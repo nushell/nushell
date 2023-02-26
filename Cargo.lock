@@ -2950,6 +2950,7 @@ version = "0.76.1"
 dependencies = [
  "getset",
  "hamcrest2",
+ "itertools",
  "nu-engine",
  "nu-glob",
  "nu-parser",

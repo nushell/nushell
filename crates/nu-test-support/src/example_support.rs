@@ -1,7 +1,8 @@
+use itertools::Itertools;
 use nu_protocol::{
     ast::Block,
     engine::{EngineState, Stack, StateDelta, StateWorkingSet},
-    Example, PipelineData, Span, Type, Value,
+    Example, PipelineData, Signature, Span, Type, Value,
 };
 use std::collections::HashSet;
 
@@ -153,4 +154,69 @@ pub fn eval_block(
         Err(err) => panic!("test eval error in `{}`: {:?}", "TODO", err),
         Ok(result) => result.into_value(Span::test_data()),
     }
+}
+
+pub fn check_example_evaluates_to_expected_output(
+    example: &Example,
+    cwd: &std::path::Path,
+    engine_state: &mut Box<EngineState>,
+) {
+    let mut stack = Stack::new();
+
+    // Set up PWD
+    stack.add_env_var("PWD".to_string(), Value::test_string(cwd.to_string_lossy()));
+
+    engine_state
+        .merge_env(&mut stack, cwd)
+        .expect("Error merging environment");
+
+    let empty_input = PipelineData::empty();
+    let result = eval(example.example, empty_input, cwd, engine_state);
+
+    // Note. Value implements PartialEq for Bool, Int, Float, String and Block
+    // If the command you are testing requires to compare another case, then
+    // you need to define its equality in the Value struct
+    if let Some(expected) = example.result.as_ref() {
+        assert_eq!(
+            &result, expected,
+            "The example result differs from the expected value",
+        )
+    }
+}
+
+pub fn check_all_signature_input_output_types_entries_have_examples(
+    signature: Signature,
+    witnessed_type_transformations: HashSet<(Type, Type)>,
+) {
+    let declared_type_transformations =
+        HashSet::from_iter(signature.input_output_types.into_iter());
+    assert!(
+        witnessed_type_transformations.is_subset(&declared_type_transformations),
+        "This should not be possible (bug in test): the type transformations \
+        collected in the course of matching examples to the signature type map \
+        contain type transformations not present in the signature type map."
+    );
+
+    if !signature.allow_variants_without_examples {
+        assert_eq!(
+            witnessed_type_transformations,
+            declared_type_transformations,
+            "There are entries in the signature type map which do not correspond to any example: \
+            {:?}",
+            declared_type_transformations
+                .difference(&witnessed_type_transformations)
+                .map(|(s1, s2)| format!("{s1} -> {s2}"))
+                .join(", ")
+        );
+    }
+}
+
+fn eval(
+    contents: &str,
+    input: PipelineData,
+    cwd: &std::path::Path,
+    engine_state: &mut Box<EngineState>,
+) -> Value {
+    let (block, delta) = parse(contents, engine_state);
+    eval_block(block, input, cwd, engine_state, delta)
 }
