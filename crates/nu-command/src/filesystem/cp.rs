@@ -1,6 +1,8 @@
 use std::fs::read_link;
 use std::io::{BufReader, BufWriter, ErrorKind, Read, Write};
 use std::path::PathBuf;
+use std::sync::atomic::AtomicBool;
+use std::sync::Arc;
 
 use nu_engine::env::current_dir;
 use nu_engine::CallExt;
@@ -151,6 +153,10 @@ impl Command for Cp {
         let mut result = Vec::new();
 
         for entry in sources.into_iter().flatten() {
+            if nu_utils::ctrl_c::was_pressed(&ctrlc) {
+                return Ok(PipelineData::empty());
+            }
+
             let mut sources = FileStructure::new();
             sources.walk_decorate(&entry, engine_state, stack)?;
 
@@ -190,18 +196,19 @@ impl Command for Cp {
                                     src,
                                     dst,
                                     span,
+                                    &ctrlc,
                                     copy_file_with_progressbar,
                                 )
                             } else {
-                                interactive_copy(interactive, src, dst, span, copy_file)
+                                interactive_copy(interactive, src, dst, span, &None, copy_file)
                             }
                         } else if progress {
-                            // uses std::io::copy to get the progress
-                            // slower std::fs::copy but useful if user needs to see the progress
-                            copy_file_with_progressbar(src, dst, span)
+                            // use std::io::copy to get the progress
+                            // slower then std::fs::copy but useful if user needs to see the progress
+                            copy_file_with_progressbar(src, dst, span, &ctrlc)
                         } else {
-                            // uses std::fs::copy
-                            copy_file(src, dst, span)
+                            // use std::fs::copy
+                            copy_file(src, dst, span, &None)
                         };
                         result.push(res);
                     }
@@ -268,6 +275,11 @@ impl Command for Cp {
                 })?;
 
                 for (s, d) in sources {
+                    // Check if the user has pressed ctrl+c before copying a file
+                    if nu_utils::ctrl_c::was_pressed(&ctrlc) {
+                        return Ok(PipelineData::empty());
+                    }
+
                     if s.is_dir() && !d.exists() {
                         std::fs::create_dir_all(&d).map_err(|e| {
                             ShellError::GenericError(
@@ -281,9 +293,9 @@ impl Command for Cp {
                     }
                     if s.is_symlink() && not_follow_symlink {
                         let res = if interactive && d.exists() {
-                            interactive_copy(interactive, s, d, span, copy_symlink)
+                            interactive_copy(interactive, s, d, span, &None, copy_symlink)
                         } else {
-                            copy_symlink(s, d, span)
+                            copy_symlink(s, d, span, &None)
                         };
                         result.push(res);
                     } else if s.is_file() {
@@ -294,15 +306,16 @@ impl Command for Cp {
                                     s,
                                     d,
                                     span,
+                                    &ctrlc,
                                     copy_file_with_progressbar,
                                 )
                             } else {
-                                interactive_copy(interactive, s, d, span, copy_file)
+                                interactive_copy(interactive, s, d, span, &None, copy_file)
                             }
                         } else if progress {
-                            copy_file_with_progressbar(s, d, span)
+                            copy_file_with_progressbar(s, d, span, &ctrlc)
                         } else {
-                            copy_file(s, d, span)
+                            copy_file(s, d, span, &None)
                         };
                         result.push(res);
                     };
@@ -357,7 +370,8 @@ fn interactive_copy(
     src: PathBuf,
     dst: PathBuf,
     span: Span,
-    copy_impl: impl Fn(PathBuf, PathBuf, Span) -> Value,
+    _ctrl_status: &Option<Arc<AtomicBool>>,
+    copy_impl: impl Fn(PathBuf, PathBuf, Span, &Option<Arc<AtomicBool>>) -> Value,
 ) -> Value {
     let (interaction, confirmed) = try_interaction(
         interactive,
@@ -377,14 +391,20 @@ fn interactive_copy(
         let msg = format!("{:} not copied to {:}", src.display(), dst.display());
         Value::String { val: msg, span }
     } else {
-        copy_impl(src, dst, span)
+        copy_impl(src, dst, span, &None)
     }
 }
 
 // This uses `std::fs::copy` to copy a file. There is another function called `copy_file_with_progressbar`
 // which uses `read` and `write` instead. This is to get the progress of the copy. Try to keep the logic in
 // this function in sync with `copy_file_with_progressbar`
-fn copy_file(src: PathBuf, dst: PathBuf, span: Span) -> Value {
+// FIXME: `std::fs::copy` can't be interrupted. Consider using something else
+fn copy_file(
+    src: PathBuf,
+    dst: PathBuf,
+    span: Span,
+    _ctrlc_status: &Option<Arc<AtomicBool>>,
+) -> Value {
     match std::fs::copy(&src, &dst) {
         Ok(_) => {
             let msg = format!("copied {:} to {:}", src.display(), dst.display());
@@ -397,7 +417,12 @@ fn copy_file(src: PathBuf, dst: PathBuf, span: Span) -> Value {
 // This uses `read` and `write` to copy a file. There is another function called `copy_file`
 // which uses `std::fs::copy` instead which is faster but does not provide progress updates for the copy. try to keep the
 // logic in this function in sync with `copy_file`
-fn copy_file_with_progressbar(src: PathBuf, dst: PathBuf, span: Span) -> Value {
+fn copy_file_with_progressbar(
+    src: PathBuf,
+    dst: PathBuf,
+    span: Span,
+    ctrlc_status: &Option<Arc<AtomicBool>>,
+) -> Value {
     let mut bytes_processed: u64 = 0;
     let mut process_failed: Option<std::io::Error> = None;
 
@@ -422,6 +447,12 @@ fn copy_file_with_progressbar(src: PathBuf, dst: PathBuf, span: Span) -> Value {
     let mut buf_writer = BufWriter::new(file_out);
 
     loop {
+        if nu_utils::ctrl_c::was_pressed(ctrlc_status) {
+            let err = std::io::Error::new(ErrorKind::Interrupted, "Interrupted");
+            process_failed = Some(err);
+            break;
+        }
+
         // Read src file
         match buf_reader.read(&mut buffer) {
             // src file read successfully
@@ -457,7 +488,11 @@ fn copy_file_with_progressbar(src: PathBuf, dst: PathBuf, span: Span) -> Value {
 
     // If copying the file failed
     if let Some(error) = process_failed {
-        bar.abandoned_msg("# !! Error !!".to_owned());
+        if error.kind() == ErrorKind::Interrupted {
+            bar.abandoned_msg("# !! Interrupted !!".to_owned());
+        } else {
+            bar.abandoned_msg("# !! Error !!".to_owned());
+        }
         return convert_io_error(error, src, dst, span);
     }
 
@@ -472,7 +507,12 @@ fn copy_file_with_progressbar(src: PathBuf, dst: PathBuf, span: Span) -> Value {
     Value::String { val: msg, span }
 }
 
-fn copy_symlink(src: PathBuf, dst: PathBuf, span: Span) -> Value {
+fn copy_symlink(
+    src: PathBuf,
+    dst: PathBuf,
+    span: Span,
+    _ctrlc_status: &Option<Arc<AtomicBool>>,
+) -> Value {
     let target_path = read_link(src.as_path());
     let target_path = match target_path {
         Ok(p) => p,
