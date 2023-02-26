@@ -42,15 +42,15 @@ impl Command for UpdateCells {
             Example {
                 description: "Update the zero value cells to empty strings.",
                 example: r#"[
-    ["2021-04-16", "2021-06-10", "2021-09-18", "2021-10-15", "2021-11-16", "2021-11-17", "2021-11-18"];
-    [          37,            0,            0,            0,           37,            0,            0]
-] | update cells { |value|
-      if $value == 0 {
-        ""
-      } else {
-        $value
-      }
-}"#,
+        ["2021-04-16", "2021-06-10", "2021-09-18", "2021-10-15", "2021-11-16", "2021-11-17", "2021-11-18"];
+        [          37,            0,            0,            0,           37,            0,            0]
+    ] | update cells { |value|
+          if $value == 0 {
+            ""
+          } else {
+            $value
+          }
+    }"#,
                 result: Some(Value::List {
                     vals: vec![Value::Record {
                         cols: vec![
@@ -79,15 +79,15 @@ impl Command for UpdateCells {
             Example {
                 description: "Update the zero value cells to empty strings in 2 last columns.",
                 example: r#"[
-    ["2021-04-16", "2021-06-10", "2021-09-18", "2021-10-15", "2021-11-16", "2021-11-17", "2021-11-18"];
-    [          37,            0,            0,            0,           37,            0,            0]
-] | update cells -c ["2021-11-18", "2021-11-17"] { |value|
-        if $value == 0 {
-          ""
-        } else {
-          $value
-        }
-}"#,
+        ["2021-04-16", "2021-06-10", "2021-09-18", "2021-10-15", "2021-11-16", "2021-11-17", "2021-11-18"];
+        [          37,            0,            0,            0,           37,            0,            0]
+    ] | update cells -c ["2021-11-18", "2021-11-17"] { |value|
+            if $value == 0 {
+              ""
+            } else {
+              $value
+            }
+    }"#,
                 result: Some(Value::List {
                     vals: vec![Value::Record {
                         cols: vec![
