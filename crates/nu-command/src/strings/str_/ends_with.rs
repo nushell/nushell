@@ -77,6 +77,11 @@ impl Command for SubCommand {
                 example: "'my_library.rb' | str ends-with '.txt'",
                 result: Some(Value::test_bool(false)),
             },
+            Example {
+                description: "Checks if string ends with '.RB', case-insensitive",
+                example: "'my_library.rb' | str ends-with -i '.RB'",
+                result: Some(Value::test_bool(true)),
+            },
         ]
     }
 }

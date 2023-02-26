@@ -76,14 +76,19 @@ impl Command for SubCommand {
                 result: Some(Value::test_bool(true)),
             },
             Example {
-                description: "Checks if input string starts with 'my'",
+                description: "Checks if input string starts with 'Car'",
                 example: "'Cargo.toml' | str starts-with 'Car'",
                 result: Some(Value::test_bool(true)),
             },
             Example {
-                description: "Checks if input string starts with 'my'",
+                description: "Checks if input string starts with '.toml'",
                 example: "'Cargo.toml' | str starts-with '.toml'",
                 result: Some(Value::test_bool(false)),
+            },
+            Example {
+                description: "Checks if input string starts with 'cargo', case-insensitive",
+                example: "'Cargo.toml' | str starts-with -i 'cargo'",
+                result: Some(Value::test_bool(true)),
             },
         ]
     }
