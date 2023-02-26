@@ -155,167 +155,169 @@ impl Command for Cp {
         for entry in sources.into_iter().flatten() {
             // Before copying any file check the if the user has pressed ctrl+c
             // in case we need to cancel the process.
-            if !nu_utils::ctrl_c::was_pressed(&ctrlc) {
-                let mut sources = FileStructure::new();
-                sources.walk_decorate(&entry, engine_state, stack)?;
+            if nu_utils::ctrl_c::was_pressed(&ctrlc) {
+                return Ok(PipelineData::empty());
+            }
 
-                if entry.is_file() {
-                    let sources = sources.paths_applying_with(|(source_file, _depth_level)| {
-                        if destination.is_dir() {
-                            let mut dest = canonicalize_with(&dst.item, &current_dir_path)?;
-                            if let Some(name) = entry.file_name() {
-                                dest.push(name);
-                            }
-                            Ok((source_file, dest))
-                        } else {
-                            Ok((source_file, destination.clone()))
+            let mut sources = FileStructure::new();
+            sources.walk_decorate(&entry, engine_state, stack)?;
+
+            if entry.is_file() {
+                let sources = sources.paths_applying_with(|(source_file, _depth_level)| {
+                    if destination.is_dir() {
+                        let mut dest = canonicalize_with(&dst.item, &current_dir_path)?;
+                        if let Some(name) = entry.file_name() {
+                            dest.push(name);
                         }
-                    })?;
+                        Ok((source_file, dest))
+                    } else {
+                        Ok((source_file, destination.clone()))
+                    }
+                })?;
 
-                    for (src, dst) in sources {
-                        if src.is_file() {
-                            let dst =
-                                canonicalize_with(dst.as_path(), &current_dir_path).unwrap_or(dst);
-                            let res = if src == dst {
-                                let message = format!(
-                                    "src {source:?} and dst {destination:?} are identical(not copied)"
-                                );
+                for (src, dst) in sources {
+                    if src.is_file() {
+                        let dst =
+                            canonicalize_with(dst.as_path(), &current_dir_path).unwrap_or(dst);
+                        let res = if src == dst {
+                            let message = format!(
+                                "src {source:?} and dst {destination:?} are identical(not copied)"
+                            );
 
-                                return Err(ShellError::GenericError(
-                                    "Copy aborted".into(),
-                                    message,
-                                    Some(span),
+                            return Err(ShellError::GenericError(
+                                "Copy aborted".into(),
+                                message,
+                                Some(span),
+                                None,
+                                Vec::new(),
+                            ));
+                        } else if interactive && dst.exists() {
+                            if progress {
+                                interactive_copy(
+                                    interactive,
+                                    src,
+                                    dst,
+                                    span,
+                                    &ctrlc,
+                                    copy_file_with_progressbar,
+                                )
+                            } else {
+                                interactive_copy(interactive, src, dst, span, &None, copy_file)
+                            }
+                        } else if progress {
+                            // uses std::io::copy to get the progress
+                            // slower std::fs::copy but useful if user needs to see the progress
+                            copy_file_with_progressbar(src, dst, span, &ctrlc)
+                        } else {
+                            // uses std::fs::copy
+                            copy_file(src, dst, span, &None)
+                        };
+                        result.push(res);
+                    }
+                }
+            } else if entry.is_dir() {
+                let destination = if !destination.exists() {
+                    destination.clone()
+                } else {
+                    match entry.file_name() {
+                        Some(name) => destination.join(name),
+                        None => {
+                            return Err(ShellError::GenericError(
+                                "Copy aborted. Not a valid path".into(),
+                                "not a valid path".into(),
+                                Some(dst.span),
+                                None,
+                                Vec::new(),
+                            ))
+                        }
+                    }
+                };
+
+                std::fs::create_dir_all(&destination).map_err(|e| {
+                    ShellError::GenericError(
+                        e.to_string(),
+                        e.to_string(),
+                        Some(dst.span),
+                        None,
+                        Vec::new(),
+                    )
+                })?;
+
+                let not_follow_symlink = call.has_flag("no-symlink");
+                let sources = sources.paths_applying_with(|(source_file, depth_level)| {
+                    let mut dest = destination.clone();
+
+                    let path = if not_follow_symlink {
+                        expand_path_with(&source_file, &current_dir_path)
+                    } else {
+                        canonicalize_with(&source_file, &current_dir_path).or_else(|err| {
+                            // check if dangling symbolic link.
+                            let path = expand_path_with(&source_file, &current_dir_path);
+                            if path.is_symlink() && !path.exists() {
+                                Ok(path)
+                            } else {
+                                Err(err)
+                            }
+                        })?
+                    };
+
+                    #[allow(clippy::needless_collect)]
+                    let comps: Vec<_> = path
+                        .components()
+                        .map(|fragment| fragment.as_os_str())
+                        .rev()
+                        .take(1 + depth_level)
+                        .collect();
+
+                    for fragment in comps.into_iter().rev() {
+                        dest.push(fragment);
+                    }
+
+                    Ok((PathBuf::from(&source_file), dest))
+                })?;
+
+                for (s, d) in sources {
+                    // Check if the user has pressed ctrl+c before copying a file
+                    if !nu_utils::ctrl_c::was_pressed(&ctrlc) {
+                        if s.is_dir() && !d.exists() {
+                            std::fs::create_dir_all(&d).map_err(|e| {
+                                ShellError::GenericError(
+                                    e.to_string(),
+                                    e.to_string(),
+                                    Some(dst.span),
                                     None,
                                     Vec::new(),
-                                ));
-                            } else if interactive && dst.exists() {
+                                )
+                            })?;
+                        }
+                        if s.is_symlink() && not_follow_symlink {
+                            let res = if interactive && d.exists() {
+                                interactive_copy(interactive, s, d, span, &None, copy_symlink)
+                            } else {
+                                copy_symlink(s, d, span, &None)
+                            };
+                            result.push(res);
+                        } else if s.is_file() {
+                            let res = if interactive && d.exists() {
                                 if progress {
                                     interactive_copy(
                                         interactive,
-                                        src,
-                                        dst,
+                                        s,
+                                        d,
                                         span,
                                         &ctrlc,
                                         copy_file_with_progressbar,
                                     )
                                 } else {
-                                    interactive_copy(interactive, src, dst, span, &None, copy_file)
+                                    interactive_copy(interactive, s, d, span, &None, copy_file)
                                 }
                             } else if progress {
-                                // uses std::io::copy to get the progress
-                                // slower std::fs::copy but useful if user needs to see the progress
-                                copy_file_with_progressbar(src, dst, span, &ctrlc)
+                                copy_file_with_progressbar(s, d, span, &ctrlc)
                             } else {
-                                // uses std::fs::copy
-                                copy_file(src, dst, span, &None)
+                                copy_file(s, d, span, &None)
                             };
                             result.push(res);
-                        }
-                    }
-                } else if entry.is_dir() {
-                    let destination = if !destination.exists() {
-                        destination.clone()
-                    } else {
-                        match entry.file_name() {
-                            Some(name) => destination.join(name),
-                            None => {
-                                return Err(ShellError::GenericError(
-                                    "Copy aborted. Not a valid path".into(),
-                                    "not a valid path".into(),
-                                    Some(dst.span),
-                                    None,
-                                    Vec::new(),
-                                ))
-                            }
-                        }
-                    };
-
-                    std::fs::create_dir_all(&destination).map_err(|e| {
-                        ShellError::GenericError(
-                            e.to_string(),
-                            e.to_string(),
-                            Some(dst.span),
-                            None,
-                            Vec::new(),
-                        )
-                    })?;
-
-                    let not_follow_symlink = call.has_flag("no-symlink");
-                    let sources = sources.paths_applying_with(|(source_file, depth_level)| {
-                        let mut dest = destination.clone();
-
-                        let path = if not_follow_symlink {
-                            expand_path_with(&source_file, &current_dir_path)
-                        } else {
-                            canonicalize_with(&source_file, &current_dir_path).or_else(|err| {
-                                // check if dangling symbolic link.
-                                let path = expand_path_with(&source_file, &current_dir_path);
-                                if path.is_symlink() && !path.exists() {
-                                    Ok(path)
-                                } else {
-                                    Err(err)
-                                }
-                            })?
                         };
-
-                        #[allow(clippy::needless_collect)]
-                        let comps: Vec<_> = path
-                            .components()
-                            .map(|fragment| fragment.as_os_str())
-                            .rev()
-                            .take(1 + depth_level)
-                            .collect();
-
-                        for fragment in comps.into_iter().rev() {
-                            dest.push(fragment);
-                        }
-
-                        Ok((PathBuf::from(&source_file), dest))
-                    })?;
-
-                    for (s, d) in sources {
-                        // Check if the user has pressed ctrl+c before copying a file
-                        if !nu_utils::ctrl_c::was_pressed(&ctrlc) {
-                            if s.is_dir() && !d.exists() {
-                                std::fs::create_dir_all(&d).map_err(|e| {
-                                    ShellError::GenericError(
-                                        e.to_string(),
-                                        e.to_string(),
-                                        Some(dst.span),
-                                        None,
-                                        Vec::new(),
-                                    )
-                                })?;
-                            }
-                            if s.is_symlink() && not_follow_symlink {
-                                let res = if interactive && d.exists() {
-                                    interactive_copy(interactive, s, d, span, &None, copy_symlink)
-                                } else {
-                                    copy_symlink(s, d, span, &None)
-                                };
-                                result.push(res);
-                            } else if s.is_file() {
-                                let res = if interactive && d.exists() {
-                                    if progress {
-                                        interactive_copy(
-                                            interactive,
-                                            s,
-                                            d,
-                                            span,
-                                            &ctrlc,
-                                            copy_file_with_progressbar,
-                                        )
-                                    } else {
-                                        interactive_copy(interactive, s, d, span, &None, copy_file)
-                                    }
-                                } else if progress {
-                                    copy_file_with_progressbar(s, d, span, &ctrlc)
-                                } else {
-                                    copy_file(s, d, span, &None)
-                                };
-                                result.push(res);
-                            };
-                        }
                     }
                 }
             }
