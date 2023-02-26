@@ -5,11 +5,11 @@ fn splits_empty_path() {
     let actual = nu!(
         cwd: "tests", pipeline(
         r#"
-            echo '' | path split
+            echo '' | path split | is-empty
         "#
     ));
 
-    assert_eq!(actual.out, "");
+    assert_eq!(actual.out, "true");
 }
 
 #[test]

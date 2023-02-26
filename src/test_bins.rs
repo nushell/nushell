@@ -1,4 +1,4 @@
-use std::io::{self, BufRead, Write};
+use std::io::{self, BufRead, Read, Write};
 
 use nu_cli::{eval_env_change_hook, eval_hook};
 use nu_command::create_default_context;
@@ -255,6 +255,13 @@ fn did_chop_arguments() -> bool {
     }
 
     false
+}
+
+pub fn input_bytes_length() {
+    let stdin = io::stdin();
+    let count = stdin.lock().bytes().count();
+
+    println!("{}", count);
 }
 
 fn args() -> Vec<String> {

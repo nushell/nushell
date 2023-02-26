@@ -55,11 +55,11 @@ fn find_with_string_search_with_string_not_found() {
     let actual = nu!(
     cwd: ".", pipeline(
     r#"
-        [moe larry curly] | find shemp
+        [moe larry curly] | find shemp | is-empty
     "#
     ));
 
-    assert_eq!(actual.out, "");
+    assert_eq!(actual.out, "true");
 }
 
 #[test]

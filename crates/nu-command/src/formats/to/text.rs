@@ -39,6 +39,7 @@ impl Command for ToText {
         } else {
             "\n"
         };
+        let input = input.try_expand_range()?;
 
         if let PipelineData::ListStream(stream, _) = input {
             Ok(PipelineData::ExternalStream {

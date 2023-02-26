@@ -73,6 +73,12 @@ impl Command for Input {
                     }
                     buffer.push(buf[0]);
 
+                    // 03 symbolizes SIGINT/Ctrl+C
+                    if buf.contains(&3) {
+                        let _ = crossterm::terminal::disable_raw_mode();
+                        return Err(ShellError::IOError("SIGINT".to_string()));
+                    }
+
                     if buf[0] == c {
                         let _ = crossterm::terminal::disable_raw_mode();
                         break;
@@ -104,13 +110,19 @@ impl Command for Input {
                     match crossterm::event::read() {
                         Ok(Event::Key(k)) => match k.code {
                             // TODO: maintain keycode parity with existing command
-                            KeyCode::Char(_)
+                            KeyCode::Char(c) => {
                                 if k.modifiers == KeyModifiers::ALT
-                                    || k.modifiers == KeyModifiers::CONTROL =>
-                            {
-                                continue
+                                    || k.modifiers == KeyModifiers::CONTROL
+                                {
+                                    if k.modifiers == KeyModifiers::CONTROL && c == 'c' {
+                                        crossterm::terminal::disable_raw_mode()?;
+                                        return Err(ShellError::IOError("SIGINT".to_string()));
+                                    }
+                                    continue;
+                                }
+
+                                buf.push(c);
                             }
-                            KeyCode::Char(c) => buf.push(c),
                             KeyCode::Backspace => {
                                 let _ = buf.pop();
                             }

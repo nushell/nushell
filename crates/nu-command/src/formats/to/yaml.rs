@@ -38,6 +38,7 @@ impl Command for ToYaml {
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
         let head = call.head;
+        let input = input.try_expand_range()?;
         to_yaml(input, head)
     }
 }

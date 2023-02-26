@@ -8,7 +8,7 @@ fn better_empty_redirection() {
     let actual = nu!(
         cwd: "tests/fixtures/formats", pipeline(
         r#"
-            ls | each { |it| nu --testbin cococo $it.name }
+            ls | each { |it| nu --testbin cococo $it.name } | ignore
         "#
     ));
 
@@ -211,6 +211,15 @@ fn external_command_not_expand_tilde_with_quotes() {
             assert_eq!(actual.out, r#"~"#);
         },
     )
+}
+
+#[test]
+fn external_command_receives_raw_binary_data() {
+    Playground::setup("external command receives raw binary data", |dirs, _| {
+        let actual =
+            nu!(cwd: dirs.test(), pipeline(r#"0x[deadbeef] | nu --testbin input_bytes_length"#));
+        assert_eq!(actual.out, r#"4"#);
+    })
 }
 
 #[cfg(windows)]

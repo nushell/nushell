@@ -8,7 +8,7 @@ Write-Output ""
 
 Write-Output "Install nushell from local..."
 Write-Output "----------------------------------------------"
-cargo install --path . --features=dataframe
+cargo install --force --path . --features=dataframe
 
 $NU_PLUGINS = @(
     'nu_plugin_example',
@@ -25,7 +25,7 @@ foreach ( $plugin in $NU_PLUGINS) {
     Write-Output "Install plugin $plugin from local..."
     Write-Output "----------------------------------------------"
     Set-Location crates/$plugin
-    cargo install --path .
+    cargo install --force --path .
     Set-Location ../../
 }
 

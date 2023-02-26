@@ -4,7 +4,9 @@ use base64::engine::GeneralPurpose;
 use base64::{alphabet, Engine};
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{EngineState, Stack};
-use nu_protocol::{BufferedReader, PipelineData, RawStream, ShellError, Span, Value};
+use nu_protocol::{
+    BufferedReader, IntoPipelineData, PipelineData, RawStream, ShellError, Span, Value,
+};
 use reqwest::blocking::{RequestBuilder, Response};
 use reqwest::{blocking, Error, StatusCode};
 use std::collections::HashMap;
@@ -12,6 +14,7 @@ use std::io::BufReader;
 use std::path::PathBuf;
 use std::str::FromStr;
 use std::time::Duration;
+use url::Url;
 
 #[derive(PartialEq, Eq)]
 pub enum BodyType {
@@ -22,16 +25,38 @@ pub enum BodyType {
 
 // Only panics if the user agent is invalid but we define it statically so either
 // it always or never fails
-pub fn http_client(allow_insecure: bool) -> reqwest::blocking::Client {
-    reqwest::blocking::Client::builder()
+pub fn http_client(allow_insecure: bool) -> blocking::Client {
+    blocking::Client::builder()
         .user_agent("nushell")
         .danger_accept_invalid_certs(allow_insecure)
         .build()
         .expect("Failed to build reqwest client")
 }
 
+pub fn http_parse_url(
+    call: &Call,
+    span: Span,
+    raw_url: Value,
+) -> Result<(String, Url), ShellError> {
+    let requested_url = raw_url.as_string()?;
+    let url = match url::Url::parse(&requested_url) {
+        Ok(u) => u,
+        Err(_e) => {
+            return Err(ShellError::UnsupportedInput(
+                "Incomplete or incorrect URL. Expected a full URL, e.g., https://www.example.com"
+                    .to_string(),
+                format!("value: '{requested_url:?}'"),
+                call.head,
+                span,
+            ));
+        }
+    };
+
+    Ok((requested_url, url))
+}
+
 pub fn response_to_buffer(
-    response: blocking::Response,
+    response: Response,
     engine_state: &EngineState,
     span: Span,
 ) -> PipelineData {
@@ -240,6 +265,51 @@ pub fn request_add_custom_headers(
     Ok(request)
 }
 
+fn handle_response_error(span: Span, requested_url: &String, response: Error) -> ShellError {
+    // Explicitly turn 4xx and 5xx statuses into errors.
+    if response.is_timeout() {
+        ShellError::NetworkFailure(format!("Request to {requested_url} has timed out"), span)
+    } else if response.is_status() {
+        match response.status() {
+            Some(err_code) if err_code == StatusCode::NOT_FOUND => ShellError::NetworkFailure(
+                format!("Requested file not found (404): {requested_url:?}"),
+                span,
+            ),
+            Some(err_code) if err_code == StatusCode::MOVED_PERMANENTLY => {
+                ShellError::NetworkFailure(
+                    format!("Resource moved permanently (301): {requested_url:?}"),
+                    span,
+                )
+            }
+            Some(err_code) if err_code == StatusCode::BAD_REQUEST => {
+                ShellError::NetworkFailure(format!("Bad request (400) to {requested_url:?}"), span)
+            }
+
+            Some(err_code) if err_code == StatusCode::FORBIDDEN => ShellError::NetworkFailure(
+                format!("Access forbidden (403) to {requested_url:?}"),
+                span,
+            ),
+            _ => ShellError::NetworkFailure(
+                format!(
+                    "Cannot make request to {:?}. Error is {:?}",
+                    requested_url,
+                    response.to_string()
+                ),
+                span,
+            ),
+        }
+    } else {
+        ShellError::NetworkFailure(
+            format!(
+                "Cannot make request to {:?}. Error is {:?}",
+                requested_url,
+                response.to_string()
+            ),
+            span,
+        )
+    }
+}
+
 pub fn request_handle_response(
     engine_state: &EngineState,
     stack: &mut Stack,
@@ -248,7 +318,6 @@ pub fn request_handle_response(
     raw: bool,
     response: Result<Response, Error>,
 ) -> Result<PipelineData, ShellError> {
-    // Explicitly turn 4xx and 5xx statuses into errors.
     match response {
         Ok(resp) => match resp.headers().get("content-type") {
             Some(content_type) => {
@@ -317,44 +386,40 @@ pub fn request_handle_response(
             }
             None => Ok(response_to_buffer(resp, engine_state, span)),
         },
-        Err(e) if e.is_timeout() => Err(ShellError::NetworkFailure(
-            format!("Request to {requested_url} has timed out"),
-            span,
-        )),
-        Err(e) if e.is_status() => match e.status() {
-            Some(err_code) if err_code == StatusCode::NOT_FOUND => Err(ShellError::NetworkFailure(
-                format!("Requested file not found (404): {requested_url:?}"),
-                span,
-            )),
-            Some(err_code) if err_code == StatusCode::MOVED_PERMANENTLY => {
-                Err(ShellError::NetworkFailure(
-                    format!("Resource moved permanently (301): {requested_url:?}"),
-                    span,
-                ))
+        Err(e) => Err(handle_response_error(span, requested_url, e)),
+    }
+}
+
+pub fn request_handle_response_headers(
+    span: Span,
+    requested_url: &String,
+    response: Result<Response, Error>,
+) -> Result<PipelineData, ShellError> {
+    match response {
+        Ok(resp) => {
+            let cols: Vec<String> = resp.headers().keys().map(|name| name.to_string()).collect();
+
+            let mut vals = Vec::with_capacity(cols.len());
+            for value in resp.headers().values() {
+                match value.to_str() {
+                    Ok(str_value) => vals.push(Value::String {
+                        val: str_value.to_string(),
+                        span,
+                    }),
+                    Err(err) => {
+                        return Err(ShellError::GenericError(
+                            format!("Failure when converting header value: {err}"),
+                            "".to_string(),
+                            None,
+                            Some("Failure when converting header value".to_string()),
+                            Vec::new(),
+                        ))
+                    }
+                }
             }
-            Some(err_code) if err_code == StatusCode::BAD_REQUEST => Err(
-                ShellError::NetworkFailure(format!("Bad request (400) to {requested_url:?}"), span),
-            ),
-            Some(err_code) if err_code == StatusCode::FORBIDDEN => Err(ShellError::NetworkFailure(
-                format!("Access forbidden (403) to {requested_url:?}"),
-                span,
-            )),
-            _ => Err(ShellError::NetworkFailure(
-                format!(
-                    "Cannot make request to {:?}. Error is {:?}",
-                    requested_url,
-                    e.to_string()
-                ),
-                span,
-            )),
-        },
-        Err(e) => Err(ShellError::NetworkFailure(
-            format!(
-                "Cannot make request to {:?}. Error is {:?}",
-                requested_url,
-                e.to_string()
-            ),
-            span,
-        )),
+
+            Ok(Value::Record { cols, vals, span }.into_pipeline_data())
+        }
+        Err(e) => Err(handle_response_error(span, requested_url, e)),
     }
 }
