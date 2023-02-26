@@ -1216,7 +1216,18 @@ pub fn eval_subexpression(
                 input = consume_result.0;
                 let failed_to_run = consume_result.1;
                 if failed_to_run {
-                    return Ok(input);
+                    if let PipelineData::ExternalStream { span, .. } = input {
+                        return Ok(PipelineData::Value(
+                            Value::Error {
+                                error: ShellError::ExternalCommand(
+                                    "External command failed".to_string(),
+                                    "".to_string(),
+                                    span,
+                                ),
+                            },
+                            None,
+                        ));
+                    }
                 }
             }
         }
