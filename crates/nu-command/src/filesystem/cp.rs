@@ -1,8 +1,8 @@
 use std::fs::read_link;
 use std::io::{BufReader, BufWriter, ErrorKind, Read, Write};
 use std::path::PathBuf;
-use std::sync::Arc;
 use std::sync::atomic::AtomicBool;
+use std::sync::Arc;
 
 use nu_engine::env::current_dir;
 use nu_engine::CallExt;
@@ -158,7 +158,7 @@ impl Command for Cp {
             if !nu_utils::ctrl_c::was_pressed(&ctrlc) {
                 let mut sources = FileStructure::new();
                 sources.walk_decorate(&entry, engine_state, stack)?;
-    
+
                 if entry.is_file() {
                     let sources = sources.paths_applying_with(|(source_file, _depth_level)| {
                         if destination.is_dir() {
@@ -171,7 +171,7 @@ impl Command for Cp {
                             Ok((source_file, destination.clone()))
                         }
                     })?;
-    
+
                     for (src, dst) in sources {
                         if src.is_file() {
                             let dst =
@@ -180,7 +180,7 @@ impl Command for Cp {
                                 let message = format!(
                                     "src {source:?} and dst {destination:?} are identical(not copied)"
                                 );
-    
+
                                 return Err(ShellError::GenericError(
                                     "Copy aborted".into(),
                                     message,
@@ -229,7 +229,7 @@ impl Command for Cp {
                             }
                         }
                     };
-    
+
                     std::fs::create_dir_all(&destination).map_err(|e| {
                         ShellError::GenericError(
                             e.to_string(),
@@ -239,11 +239,11 @@ impl Command for Cp {
                             Vec::new(),
                         )
                     })?;
-    
+
                     let not_follow_symlink = call.has_flag("no-symlink");
                     let sources = sources.paths_applying_with(|(source_file, depth_level)| {
                         let mut dest = destination.clone();
-    
+
                         let path = if not_follow_symlink {
                             expand_path_with(&source_file, &current_dir_path)
                         } else {
@@ -257,7 +257,7 @@ impl Command for Cp {
                                 }
                             })?
                         };
-    
+
                         #[allow(clippy::needless_collect)]
                         let comps: Vec<_> = path
                             .components()
@@ -265,14 +265,14 @@ impl Command for Cp {
                             .rev()
                             .take(1 + depth_level)
                             .collect();
-    
+
                         for fragment in comps.into_iter().rev() {
                             dest.push(fragment);
                         }
-    
+
                         Ok((PathBuf::from(&source_file), dest))
                     })?;
-    
+
                     for (s, d) in sources {
                         // Check if the user has pressed ctrl+c before copying a file
                         if !nu_utils::ctrl_c::was_pressed(&ctrlc) {
@@ -396,7 +396,12 @@ fn interactive_copy(
 // This uses `std::fs::copy` to copy a file. There is another function called `copy_file_with_progressbar`
 // which uses `read` and `write` instead. This is to get the progress of the copy. Try to keep the logic in
 // this function in sync with `copy_file_with_progressbar`
-fn copy_file(src: PathBuf, dst: PathBuf, span: Span, ctrlc_status: &Option<Arc<AtomicBool>>) -> Value {
+fn copy_file(
+    src: PathBuf,
+    dst: PathBuf,
+    span: Span,
+    ctrlc_status: &Option<Arc<AtomicBool>>,
+) -> Value {
     match std::fs::copy(&src, &dst) {
         Ok(_) => {
             let msg = format!("copied {:} to {:}", src.display(), dst.display());
@@ -409,7 +414,12 @@ fn copy_file(src: PathBuf, dst: PathBuf, span: Span, ctrlc_status: &Option<Arc<A
 // This uses `read` and `write` to copy a file. There is another function called `copy_file`
 // which uses `std::fs::copy` instead which is faster but does not provide progress updates for the copy. try to keep the
 // logic in this function in sync with `copy_file`
-fn copy_file_with_progressbar(src: PathBuf, dst: PathBuf, span: Span, ctrlc_status: &Option<Arc<AtomicBool>>) -> Value {
+fn copy_file_with_progressbar(
+    src: PathBuf,
+    dst: PathBuf,
+    span: Span,
+    ctrlc_status: &Option<Arc<AtomicBool>>,
+) -> Value {
     let mut bytes_processed: u64 = 0;
     let mut process_failed: Option<std::io::Error> = None;
 
@@ -446,7 +456,7 @@ fn copy_file_with_progressbar(src: PathBuf, dst: PathBuf, span: Span, ctrlc_stat
                             // Update the total amount of bytes that has been saved and then print the progress bar
                             bytes_processed += bytes_written as u64;
                             bar.update_bar(bytes_processed);
-    
+
                             // the last block of bytes is going to be lower than the buffer size
                             // let's break the loop once we write the last block
                             if bytes_read < buffer.len() {
@@ -495,7 +505,12 @@ fn copy_file_with_progressbar(src: PathBuf, dst: PathBuf, span: Span, ctrlc_stat
     Value::String { val: msg, span }
 }
 
-fn copy_symlink(src: PathBuf, dst: PathBuf, span: Span, _ctrlc_status: &Option<Arc<AtomicBool>>) -> Value {
+fn copy_symlink(
+    src: PathBuf,
+    dst: PathBuf,
+    span: Span,
+    _ctrlc_status: &Option<Arc<AtomicBool>>,
+) -> Value {
     let target_path = read_link(src.as_path());
     let target_path = match target_path {
         Ok(p) => p,
@@ -540,7 +555,13 @@ fn copy_symlink(src: PathBuf, dst: PathBuf, span: Span, _ctrlc_status: &Option<A
 }
 
 // Function to convert io::Errors to more specific ShellErrors
-fn convert_io_error(error: std::io::Error, src: PathBuf, dst: PathBuf, span: Span, _ctrlc_status: &Option<Arc<AtomicBool>>) -> Value {
+fn convert_io_error(
+    error: std::io::Error,
+    src: PathBuf,
+    dst: PathBuf,
+    span: Span,
+    _ctrlc_status: &Option<Arc<AtomicBool>>,
+) -> Value {
     let message_src = format!(
         "copying file '{src_display}' failed: {error}",
         src_display = src.display()
