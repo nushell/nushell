@@ -1,4 +1,5 @@
 pub mod commands;
+pub mod example_support;
 pub mod fs;
 pub mod locale_override;
 pub mod macros;

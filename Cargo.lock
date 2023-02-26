@@ -2950,8 +2950,11 @@ version = "0.76.1"
 dependencies = [
  "getset",
  "hamcrest2",
+ "nu-engine",
  "nu-glob",
+ "nu-parser",
  "nu-path",
+ "nu-protocol",
  "nu-utils",
  "num-format",
  "once_cell",
