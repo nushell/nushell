@@ -448,44 +448,44 @@ fn copy_file_with_progressbar(
     let mut buf_writer = BufWriter::new(file_out);
 
     loop {
-        if !nu_utils::ctrl_c::was_pressed(ctrlc_status) {
-            // Read src file
-            match buf_reader.read(&mut buffer) {
-                // src file read successfully
-                Ok(bytes_read) => {
-                    // Write dst file
-                    match buf_writer.write(&buffer[..bytes_read]) {
-                        // dst file written successfully
-                        Ok(bytes_written) => {
-                            // Update the total amount of bytes that has been saved and then print the progress bar
-                            bytes_processed += bytes_written as u64;
-                            bar.update_bar(bytes_processed);
-
-                            // the last block of bytes is going to be lower than the buffer size
-                            // let's break the loop once we write the last block
-                            if bytes_read < buffer.len() {
-                                break;
-                            }
-                        }
-                        Err(e) => {
-                            // There was a problem writing the dst file
-                            process_failed = Some(e);
-                            break;
-                        }
-                    }
-                }
-                Err(e) => {
-                    // There was a problem reading the src file
-                    process_failed = Some(e);
-                    break;
-                }
-            };
-        } else {
-            //ErrorKind::Interrupted
+        // Interrupt the progress if Ctrl-C is pressed
+        if nu_utils::ctrl_c::was_pressed(ctrlc_status) {
             let err = std::io::Error::new(ErrorKind::Interrupted, "Interrupted");
             process_failed = Some(err);
             break;
         }
+
+        // Read src file
+        match buf_reader.read(&mut buffer) {
+            // src file read successfully
+            Ok(bytes_read) => {
+                // Write dst file
+                match buf_writer.write(&buffer[..bytes_read]) {
+                    // dst file written successfully
+                    Ok(bytes_written) => {
+                        // Update the total amount of bytes that has been saved and then print the progress bar
+                        bytes_processed += bytes_written as u64;
+                        bar.update_bar(bytes_processed);
+
+                        // the last block of bytes is going to be lower than the buffer size
+                        // let's break the loop once we write the last block
+                        if bytes_read < buffer.len() {
+                            break;
+                        }
+                    }
+                    Err(e) => {
+                        // There was a problem writing the dst file
+                        process_failed = Some(e);
+                        break;
+                    }
+                }
+            }
+            Err(e) => {
+                // There was a problem reading the src file
+                process_failed = Some(e);
+                break;
+            }
+        };
     }
 
     // If copying the file failed
