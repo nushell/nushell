@@ -12,7 +12,6 @@ mod date;
 mod default;
 mod drop;
 mod each;
-mod echo;
 mod empty;
 mod enter;
 mod error_make;
