@@ -687,7 +687,11 @@ pub fn parse_alias(
     if let Some(decl_id) = working_set.find_decl(b"alias", &Type::Any) {
         let (command_spans, rest_spans) = spans.split_at(split_id);
 
-        let ParsedInternalCall { call, output, .. } = parse_internal_call(
+        let ParsedInternalCall {
+            call: alias_call,
+            output,
+            ..
+        } = parse_internal_call(
             working_set,
             span(command_spans),
             rest_spans,
@@ -695,16 +699,17 @@ pub fn parse_alias(
             expand_aliases_denylist,
         );
 
-        if call.has_flag("help") {
-            return (
-                Pipeline::from_vec(vec![Expression {
-                    expr: Expr::Call(call),
-                    span: span(spans),
-                    ty: output,
-                    custom_completion: None,
-                }]),
-                None,
-            );
+        let has_help_flag = alias_call.has_flag("help");
+
+        let alias_pipeline = Pipeline::from_vec(vec![Expression {
+            expr: Expr::Call(alias_call),
+            span: span(spans),
+            ty: output,
+            custom_completion: None,
+        }]);
+
+        if has_help_flag {
+            return (alias_pipeline, None);
         }
 
         if spans.len() >= split_id + 3 {
@@ -722,12 +727,7 @@ pub fn parse_alias(
             if let Some(mod_name) = module_name {
                 if alias_name == mod_name {
                     return (
-                        Pipeline::from_vec(vec![Expression {
-                            expr: Expr::Call(call),
-                            span: span(spans),
-                            ty: output,
-                            custom_completion: None,
-                        }]),
+                        alias_pipeline,
                         Some(ParseError::NamedAsModule(
                             "alias".to_string(),
                             String::from_utf8_lossy(&alias_name).to_string(),
@@ -738,12 +738,7 @@ pub fn parse_alias(
 
                 if &alias_name == b"main" {
                     return (
-                        Pipeline::from_vec(vec![Expression {
-                            expr: Expr::Call(call),
-                            span: span(spans),
-                            ty: output,
-                            custom_completion: None,
-                        }]),
+                        alias_pipeline,
                         Some(ParseError::ExportMainAliasNotAllowed(spans[split_id])),
                     );
                 }
@@ -778,12 +773,7 @@ pub fn parse_alias(
 
                     if is_parser_keyword(cmd_name) {
                         return (
-                            Pipeline::from_vec(vec![Expression {
-                                expr: Expr::Call(call.clone()),
-                                span: span(spans),
-                                ty: output,
-                                custom_completion: None,
-                            }]),
+                            alias_pipeline,
                             Some(ParseError::CantAliasKeyword(call.head)),
                         );
                     }
@@ -796,12 +786,7 @@ pub fn parse_alias(
                 } => (None, expr),
                 _ => {
                     return (
-                        Pipeline::from_vec(vec![Expression {
-                            expr: Expr::Call(call),
-                            span: span(spans),
-                            ty: output,
-                            custom_completion: None,
-                        }]),
+                        alias_pipeline,
                         Some(ParseError::InternalError(
                             "Parsed call not a call".into(),
                             expr.span,
@@ -844,15 +829,7 @@ pub fn parse_alias(
             None
         };
 
-        return (
-            Pipeline::from_vec(vec![Expression {
-                expr: Expr::Call(call),
-                span: span(spans),
-                ty: Type::Any,
-                custom_completion: None,
-            }]),
-            err,
-        );
+        return (alias_pipeline, err);
     }
 
     (
