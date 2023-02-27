@@ -24,3 +24,17 @@ fn number_int() -> TestResult {
 fn number_float() -> TestResult {
     run_test(r#"def foo [x:number] { $x }; foo 1.4"#, "1.4")
 }
+
+#[test]
+fn date_minus_duration() -> TestResult {
+    let input = "2023-04-22 - 2day | date format %Y-%m-%d";
+    let expected = "2023-04-20";
+    run_test(input, expected)
+}
+
+#[test]
+fn date_plus_duration() -> TestResult {
+    let input = "2023-04-18 + 2day | date format %Y-%m-%d";
+    let expected = "2023-04-20";
+    run_test(input, expected)
+}
