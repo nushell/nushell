@@ -1217,54 +1217,55 @@ pub fn eval_subexpression(
                 // we throws out `ShellError::ExternalCommand`.  And show it's stderr message information.
                 // In the case, we need to capture stderr first during eval.
                 input = eval_element_with_input(engine_state, stack, expr, input, true, true)?.0;
-                let consume_result = might_consume_external_result(input);
-                input = consume_result.0;
-                let failed_to_run = consume_result.1;
-                if let PipelineData::ExternalStream {
-                    stdout,
-                    stderr,
-                    exit_code,
-                    span,
-                    metadata,
-                    trim_end_newline,
-                } = input
-                {
-                    let stderr_msg = match stderr {
-                        None => "".to_string(),
-                        Some(stderr_stream) => stderr_stream.into_string().map(|s| s.item)?,
-                    };
-                    if failed_to_run {
-                        return Ok(PipelineData::Value(
-                            Value::Error {
-                                error: ShellError::ExternalCommand(
-                                    "External command failed".to_string(),
-                                    stderr_msg,
-                                    span,
-                                ),
-                            },
-                            None,
-                        ));
-                    } else {
-                        // we've captured stderr message, but it's running success.
-                        // So we need to re-print stderr message out.
-                        if !stderr_msg.is_empty() {
-                            eprintln!("{stderr_msg}");
-                        }
-                        input = PipelineData::ExternalStream {
-                            stdout,
-                            stderr: None,
-                            exit_code,
-                            span,
-                            metadata,
-                            trim_end_newline,
-                        };
-                    }
-                }
+                input = check_subexp_substitution(input)?;
             }
         }
     }
 
     Ok(input)
+}
+
+fn check_subexp_substitution(mut input: PipelineData) -> Result<PipelineData, ShellError> {
+    let consume_result = might_consume_external_result(input);
+    input = consume_result.0;
+    let failed_to_run = consume_result.1;
+    if let PipelineData::ExternalStream {
+        stdout,
+        stderr,
+        exit_code,
+        span,
+        metadata,
+        trim_end_newline,
+    } = input
+    {
+        let stderr_msg = match stderr {
+            None => "".to_string(),
+            Some(stderr_stream) => stderr_stream.into_string().map(|s| s.item)?,
+        };
+        if failed_to_run {
+            Err(ShellError::ExternalCommand(
+                "External command failed".to_string(),
+                stderr_msg,
+                span,
+            ))
+        } else {
+            // we've captured stderr message, but it's running success.
+            // So we need to re-print stderr message out.
+            if !stderr_msg.is_empty() {
+                eprintln!("{stderr_msg}");
+            }
+            Ok(PipelineData::ExternalStream {
+                stdout,
+                stderr: None,
+                exit_code,
+                span,
+                metadata,
+                trim_end_newline,
+            })
+        }
+    } else {
+        Ok(input)
+    }
 }
 
 pub fn eval_variable(
