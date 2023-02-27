@@ -238,9 +238,14 @@ pub enum ShellError {
     /// ## Resolution
     ///
     /// Check to make sure both values are compatible, and that the values are enumerable in Nushell.
-    #[error("Invalid range {0}..{1}")]
+    #[error("Invalid range {left_flank}..{right_flank}")]
     #[diagnostic(code(nu::shell::invalid_range))]
-    InvalidRange(String, String, #[label = "expected a valid range"] Span),
+    InvalidRange {
+        left_flank: String,
+        right_flank: String,
+        #[label = "expected a valid range"]
+        span: Span,
+    },
 
     /// Catastrophic nushell failure. This reflects a completely unexpected or unrecoverable error.
     ///

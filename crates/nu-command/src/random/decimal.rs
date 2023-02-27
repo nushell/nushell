@@ -88,11 +88,11 @@ fn decimal(
     };
 
     match min.partial_cmp(&max) {
-        Some(Ordering::Greater) => Err(ShellError::InvalidRange(
-            min.to_string(),
-            max.to_string(),
+        Some(Ordering::Greater) => Err(ShellError::InvalidRange {
+            left_flank: min.to_string(),
+            right_flank: max.to_string(),
             span,
-        )),
+        }),
         Some(Ordering::Equal) => Ok(PipelineData::Value(
             Value::Float {
                 val: min,
