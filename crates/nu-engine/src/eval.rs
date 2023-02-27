@@ -1205,28 +1205,59 @@ pub fn eval_subexpression(
 ) -> Result<PipelineData, ShellError> {
     for pipeline in block.pipelines.iter() {
         for (expr_indx, expr) in pipeline.elements.iter().enumerate() {
-            input = eval_element_with_input(engine_state, stack, expr, input, true, false)?.0;
-            // In subexpression, we always need to redirect stdout because the result might used to
-            // assign to a variable.
-            //
-            // But we can still check if external result is failed to run when it's the last expression
-            // in pipeline.  e.g: (^false; echo aaa)
-            if expr_indx == pipeline.elements.len() - 1 {
+            if expr_indx != pipeline.elements.len() - 1 {
+                input = eval_element_with_input(engine_state, stack, expr, input, true, false)?.0;
+            } else {
+                // In subexpression, we always need to redirect stdout because the result is substituted to a Value.
+                //
+                // But we can check if external result is failed to run when it's the last expression
+                // in pipeline.  e.g: (^false; echo aaa)
+                //
+                // If external command is failed to run, it can't be convert into value, in this case
+                // we throws out `ShellError::ExternalCommand`.  And show it's stderr message information.
+                // In the case, we need to capture stderr first during eval.
+                input = eval_element_with_input(engine_state, stack, expr, input, true, true)?.0;
                 let consume_result = might_consume_external_result(input);
                 input = consume_result.0;
                 let failed_to_run = consume_result.1;
-                if failed_to_run {
-                    if let PipelineData::ExternalStream { span, .. } = input {
+                if let PipelineData::ExternalStream {
+                    stdout,
+                    stderr,
+                    exit_code,
+                    span,
+                    metadata,
+                    trim_end_newline,
+                } = input
+                {
+                    let stderr_msg = match stderr {
+                        None => "".to_string(),
+                        Some(stderr_stream) => stderr_stream.into_string().map(|s| s.item)?,
+                    };
+                    if failed_to_run {
                         return Ok(PipelineData::Value(
                             Value::Error {
                                 error: ShellError::ExternalCommand(
                                     "External command failed".to_string(),
-                                    "".to_string(),
+                                    stderr_msg,
                                     span,
                                 ),
                             },
                             None,
                         ));
+                    } else {
+                        // we've captured stderr message, but it's running success.
+                        // So we need to re-print stderr message out.
+                        if !stderr_msg.is_empty() {
+                            eprintln!("{stderr_msg}");
+                        }
+                        input = PipelineData::ExternalStream {
+                            stdout,
+                            stderr: None,
+                            exit_code,
+                            span,
+                            metadata,
+                            trim_end_newline,
+                        };
                     }
                 }
             }
