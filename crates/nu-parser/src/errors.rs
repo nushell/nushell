@@ -95,6 +95,10 @@ pub enum ParseError {
     )]
     UnexpectedKeyword(String, #[label("unexpected {0}")] Span),
 
+    #[error("Can't create alias to parser keyword.")]
+    #[diagnostic(code(nu::parser::cant_alias_keyword))]
+    CantAliasKeyword(#[label("not supported in alias")] Span),
+
     #[error("Unknown operator")]
     #[diagnostic(code(nu::parser::unknown_operator), help("{1}"))]
     UnknownOperator(
@@ -419,6 +423,7 @@ impl ParseError {
             ParseError::UnsupportedOperation(_, _, _, s, _) => *s,
             ParseError::ExpectedKeyword(_, s) => *s,
             ParseError::UnexpectedKeyword(_, s) => *s,
+            ParseError::CantAliasKeyword(s) => *s,
             ParseError::BuiltinCommandInPipeline(_, s) => *s,
             ParseError::AssignInPipeline(_, _, _, s) => *s,
             ParseError::LetBuiltinVar(_, s) => *s,

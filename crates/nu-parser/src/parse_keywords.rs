@@ -28,6 +28,36 @@ use crate::{
     unescape_unquote_string, ParseError, Token, TokenContents,
 };
 
+const PARSER_KEYWORDS: &[&[u8]] = &[
+    b"export",
+    b"def",
+    b"export def",
+    b"for",
+    b"extern",
+    b"export extern",
+    b"alias",
+    b"export alias",
+    b"export-env",
+    b"module",
+    b"use",
+    b"export use",
+    b"hide",
+    b"overlay",
+    b"overlay use",
+    b"overlay hide",
+    b"overlay new",
+    b"let",
+    b"const",
+    b"mut",
+    b"source",
+    b"where",
+    b"register",
+];
+
+pub fn is_parser_keyword(name: &[u8]) -> bool {
+    PARSER_KEYWORDS.contains(&name)
+}
+
 pub fn parse_def_predecl(
     working_set: &mut StateWorkingSet,
     spans: &[Span],
@@ -743,7 +773,23 @@ pub fn parse_alias(
                 Expression {
                     expr: Expr::Call(ref call),
                     ..
-                } => (Some(working_set.get_decl(call.decl_id).clone_box()), expr),
+                } => {
+                    let cmd_name = working_set.get_span_contents(call.head);
+
+                    if is_parser_keyword(cmd_name) {
+                        return (
+                            Pipeline::from_vec(vec![Expression {
+                                expr: Expr::Call(call.clone()),
+                                span: span(spans),
+                                ty: output,
+                                custom_completion: None,
+                            }]),
+                            Some(ParseError::CantAliasKeyword(call.head)),
+                        );
+                    }
+
+                    (Some(working_set.get_decl(call.decl_id).clone_box()), expr)
+                }
                 Expression {
                     expr: Expr::ExternalCall(..),
                     ..
