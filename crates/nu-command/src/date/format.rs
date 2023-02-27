@@ -207,14 +207,6 @@ pub(crate) fn generate_strftime_list(head: Span, show_parse_only_formats: bool) 
             description: "The proleptic Gregorian year divided by 100, zero-padded to 2 digits.",
         },
         FormatSpecification {
-            spec: "%Y",
-            description: "The full proleptic Gregorian year, zero-padded to 4 digits.",
-        },
-        FormatSpecification {
-            spec: "%C",
-            description: "The proleptic Gregorian year divided by 100, zero-padded to 2 digits.",
-        },
-        FormatSpecification {
             spec: "%y",
             description: "The proleptic Gregorian year modulo 100, zero-padded to 2 digits.",
         },
