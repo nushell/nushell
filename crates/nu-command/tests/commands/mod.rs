@@ -10,7 +10,6 @@ mod compact;
 mod cp;
 mod date;
 mod default;
-mod do_;
 mod drop;
 mod each;
 mod echo;
