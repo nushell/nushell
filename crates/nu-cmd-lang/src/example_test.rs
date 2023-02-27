@@ -7,7 +7,6 @@ pub fn test_examples(cmd: impl Command + 'static) {
 }
 
 #[cfg(test)]
-#[cfg(test)]
 mod test_examples {
     use crate::{Break, Describe, Mut};
     use crate::{Echo, If, Let};
