@@ -11,7 +11,7 @@ version = "0.76.1"
 bench = false
 
 [dependencies]
-bytesize = "1.1.0"
+bytesize = "1.2.0"
 chrono = { default-features = false, features = ['std'], version = "0.4.23" }
 itertools = "0.10"
 miette = {version = "5.5.0", features = ["fancy-no-backtrace"]}
