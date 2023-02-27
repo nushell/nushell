@@ -722,6 +722,7 @@ Please join our {}Discord{} community at {}https://discord.gg/NtAbbGn{}
 Our {}GitHub{} repository is at {}https://github.com/nushell/nushell{}
 Our {}Documentation{} is located at {}http://nushell.sh{}
 {}Tweet{} us at {}@nu_shell{}
+Learn how to remove this at: {}http://nushell.sh/book/configuration.html#remove-welcome-message{}
 
 It's been this long since {}Nushell{}'s first commit:
 {}{}
@@ -753,6 +754,8 @@ It's been this long since {}Nushell{}'s first commit:
         "\x1b[0m",    //after Tweet
         "\x1b[1;36m", //before @nu_shell cyan_bold
         "\x1b[0m",    //after @nu_shell
+        "\x1b[32m",   //before Welcome Message
+        "\x1b[0m",    //after Welcome Message
         "\x1b[32m",   //before Nushell
         "\x1b[0m",    //after Nushell
         age,
