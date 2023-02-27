@@ -43,7 +43,7 @@ chrono = { version = "0.4.23", features = ["std", "unstable-locales"], default-f
 chrono-humanize = "0.2.1"
 chrono-tz = "0.8.1"
 crossterm = "0.24.0"
-csv = "1.1.6"
+csv = "1.2.0"
 dialoguer = { default-features = false, version = "0.10.3" }
 digest = { default-features = false, version = "0.10.0" }
 dtparse = "1.2.0"
