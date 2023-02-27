@@ -9,6 +9,7 @@ use nu_protocol::{Example, PipelineData, ShellError, Signature, Span, SyntaxShap
 struct Arguments {
     substring: String,
     cell_paths: Option<Vec<CellPath>>,
+    case_insensitive: bool,
 }
 
 impl CmdArgument for Arguments {
@@ -35,6 +36,7 @@ impl Command for SubCommand {
                 SyntaxShape::CellPath,
                 "For a data structure input, check strings at the given cell paths, and replace with result",
             )
+            .switch("ignore-case", "search is case insensitive", Some('i'))
             .category(Category::Strings)
     }
 
@@ -58,6 +60,7 @@ impl Command for SubCommand {
         let args = Arguments {
             substring: call.req::<String>(engine_state, stack, 0)?,
             cell_paths,
+            case_insensitive: call.has_flag("ignore-case"),
         };
         operate(action, args, input, call.head, engine_state.ctrlc.clone())
     }
@@ -74,13 +77,25 @@ impl Command for SubCommand {
                 example: "'my_library.rb' | str ends-with '.txt'",
                 result: Some(Value::test_bool(false)),
             },
+            Example {
+                description: "Checks if string ends with '.RB', case-insensitive",
+                example: "'my_library.rb' | str ends-with -i '.RB'",
+                result: Some(Value::test_bool(true)),
+            },
         ]
     }
 }
 
 fn action(input: &Value, args: &Arguments, head: Span) -> Value {
     match input {
-        Value::String { val, .. } => Value::boolean(val.ends_with(&args.substring), head),
+        Value::String { val: s, .. } => {
+            let ends_with = if args.case_insensitive {
+                s.to_lowercase().ends_with(&args.substring.to_lowercase())
+            } else {
+                s.ends_with(&args.substring)
+            };
+            Value::boolean(ends_with, head)
+        }
         Value::Error { .. } => input.clone(),
         _ => Value::Error {
             error: ShellError::OnlySupportsThisInputType(
