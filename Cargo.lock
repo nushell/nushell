@@ -2659,7 +2659,7 @@ dependencies = [
  "rayon",
  "serde",
  "shadow-rs",
- "sysinfo 0.27.7",
+ "sysinfo 0.28.0",
  "tabled",
  "terminal_size 0.2.1",
  "url",
@@ -3820,7 +3820,7 @@ checksum = "a741a3325c544c97c7a9ff57d857f089b60041bd92b06c41582df6940ffaa05b"
 dependencies = [
  "once_cell",
  "rayon",
- "sysinfo 0.27.7",
+ "sysinfo 0.27.8",
 ]
 
 [[package]]
@@ -5038,16 +5038,15 @@ dependencies = [
 
 [[package]]
 name = "sysinfo"
-version = "0.27.7"
+version = "0.27.8"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "975fe381e0ecba475d4acff52466906d95b153a40324956552e027b2a9eaa89e"
+checksum = "a902e9050fca0a5d6877550b769abd2bd1ce8c04634b941dbe2809735e1a1e33"
 dependencies = [
  "cfg-if",
  "core-foundation-sys",
  "libc",
  "ntapi",
  "once_cell",
- "rayon",
  "winapi",
 ]
 
