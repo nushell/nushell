@@ -7,7 +7,6 @@ mod bytes;
 mod cal;
 mod cd;
 mod compact;
-mod continue_;
 mod cp;
 mod date;
 mod def;
