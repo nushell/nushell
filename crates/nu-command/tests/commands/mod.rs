@@ -9,7 +9,6 @@ mod cd;
 mod compact;
 mod cp;
 mod date;
-mod def;
 mod default;
 mod do_;
 mod drop;
