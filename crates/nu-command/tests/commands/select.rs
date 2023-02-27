@@ -282,5 +282,5 @@ fn select_failed4() {
         "#
     ));
 
-    assert!(actual.err.contains("Select only allows unique row"));
+    assert!(actual.err.contains("Select can't get the same row twice"));
 }

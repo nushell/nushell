@@ -121,8 +121,8 @@ fn select(
                 }
                 if unique_rows.contains(val) {
                     return Err(ShellError::GenericError(
-                        "Select only allows unique rows".into(),
-                        "duplicated row".into(),
+                        "Select can't get the same row twice".into(),
+                        "duplicated row index".into(),
                         Some(*span),
                         None,
                         Vec::new(),
