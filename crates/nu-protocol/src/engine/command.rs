@@ -1,6 +1,6 @@
 use std::path::PathBuf;
 
-use crate::{ast::Call, BlockId, Example, PipelineData, ShellError, Signature};
+use crate::{ast::Call, Alias, BlockId, Example, PipelineData, ShellError, Signature};
 
 use super::{EngineState, Stack};
 
@@ -10,6 +10,7 @@ pub enum CommandType {
     Custom,
     Keyword,
     External,
+    Alias,
     Plugin,
     Other,
 }
@@ -45,6 +46,16 @@ pub trait Command: Send + Sync + CommandClone {
     // This is a signature for a known external command
     fn is_known_external(&self) -> bool {
         false
+    }
+
+    // This is an alias of another command
+    fn is_alias(&self) -> bool {
+        false
+    }
+
+    // Return reference to the command as Alias
+    fn as_alias(&self) -> Option<&Alias> {
+        None
     }
 
     // This is an enhanced method to determine if a command is custom command or not
@@ -88,13 +99,15 @@ pub trait Command: Send + Sync + CommandClone {
             self.is_custom_command(),
             self.is_parser_keyword(),
             self.is_known_external(),
+            self.is_alias(),
             self.is_plugin().is_some(),
         ) {
-            (true, false, false, false, false) => CommandType::Builtin,
-            (true, true, false, false, false) => CommandType::Custom,
-            (true, false, true, false, false) => CommandType::Keyword,
-            (false, true, false, true, false) => CommandType::External,
-            (true, false, false, false, true) => CommandType::Plugin,
+            (true, false, false, false, false, false) => CommandType::Builtin,
+            (true, true, false, false, false, false) => CommandType::Custom,
+            (true, false, true, false, false, false) => CommandType::Keyword,
+            (false, true, false, true, false, false) => CommandType::External,
+            (_, _, _, _, true, _) => CommandType::Alias,
+            (true, false, false, false, false, true) => CommandType::Plugin,
             _ => CommandType::Other,
         }
     }

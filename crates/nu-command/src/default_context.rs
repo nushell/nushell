@@ -450,6 +450,8 @@ pub fn create_default_context() -> EngineState {
             StrIntDeprecated,
             StrFindReplaceDeprecated,
             MathEvalDeprecated,
+            OldAlias,
+            ExportOldAlias,
         };
 
         working_set.render()

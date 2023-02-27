@@ -1,23 +1,21 @@
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
-use nu_protocol::{
-    Category, Example, PipelineData, ShellError, Signature, Span, SyntaxShape, Type, Value,
-};
+use nu_protocol::{Category, Example, PipelineData, ShellError, Signature, SyntaxShape, Type};
 
 #[derive(Clone)]
-pub struct ExportAlias;
+pub struct ExportOldAlias;
 
-impl Command for ExportAlias {
+impl Command for ExportOldAlias {
     fn name(&self) -> &str {
-        "export alias"
+        "export old-alias"
     }
 
     fn usage(&self) -> &str {
-        "Alias a command (with optional flags) to a new name and export it from a module"
+        "Define an alias and export it from a module"
     }
 
     fn signature(&self) -> nu_protocol::Signature {
-        Signature::build("export alias")
+        Signature::build("export old-alias")
             .input_output_types(vec![(Type::Nothing, Type::Nothing)])
             .required("name", SyntaxShape::String, "name of the alias")
             .required(
@@ -37,10 +35,6 @@ impl Command for ExportAlias {
         true
     }
 
-    fn search_terms(&self) -> Vec<&str> {
-        vec!["abbr", "aka", "fn", "func", "function"]
-    }
-
     fn run(
         &self,
         _engine_state: &EngineState,
@@ -53,9 +47,13 @@ impl Command for ExportAlias {
 
     fn examples(&self) -> Vec<Example> {
         vec![Example {
-            description: "Alias ll to ls -l and export it from a module",
-            example: "module spam { export alias ll = ls -l }",
-            result: Some(Value::nothing(Span::test_data())),
+            description: "export an alias of ll to ls -l, from a module",
+            example: "export old-alias ll = ls -l",
+            result: None,
         }]
+    }
+
+    fn search_terms(&self) -> Vec<&str> {
+        vec!["aka", "abbr", "module"]
     }
 }

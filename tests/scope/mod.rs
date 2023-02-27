@@ -1,5 +1,6 @@
 use nu_test_support::nu;
 
+#[ignore = "TODO: This shows old-style aliases. New aliases are under commands"]
 #[test]
 fn scope_shows_alias() {
     let actual = nu!(
