@@ -20,8 +20,8 @@ use nu_protocol::{
 
 use crate::parse_keywords::{
     parse_alias, parse_def, parse_def_predecl, parse_export_in_block, parse_extern, parse_for,
-    parse_hide, parse_let_or_const, parse_module, parse_overlay, parse_source, parse_use,
-    parse_where, parse_where_expr,
+    parse_hide, parse_let_or_const, parse_module, parse_old_alias, parse_overlay, parse_source,
+    parse_use, parse_where, parse_where_expr,
 };
 
 use itertools::Itertools;
@@ -253,6 +253,50 @@ pub fn check_name<'a>(
     }
 }
 
+fn parse_external_arg(
+    working_set: &mut StateWorkingSet,
+    span: Span,
+    expand_aliases_denylist: &[usize],
+) -> (Expression, Option<ParseError>) {
+    let contents = working_set.get_span_contents(span);
+
+    let mut error = None;
+
+    if contents.starts_with(b"$") || contents.starts_with(b"(") {
+        let (arg, err) = parse_dollar_expr(working_set, span, expand_aliases_denylist);
+        error = error.or(err);
+        (arg, error)
+    } else if contents.starts_with(b"[") {
+        let (arg, err) = parse_list_expression(
+            working_set,
+            span,
+            &SyntaxShape::Any,
+            expand_aliases_denylist,
+        );
+        error = error.or(err);
+        (arg, error)
+    } else {
+        // Eval stage trims the quotes, so we don't have to do the same thing when parsing.
+        let contents = if contents.starts_with(b"\"") {
+            let (contents, err) = unescape_string(contents, span);
+            error = error.or(err);
+            String::from_utf8_lossy(&contents).to_string()
+        } else {
+            String::from_utf8_lossy(contents).to_string()
+        };
+
+        (
+            Expression {
+                expr: Expr::String(contents),
+                span,
+                ty: Type::String,
+                custom_completion: None,
+            },
+            error,
+        )
+    }
+}
+
 pub fn parse_external_call(
     working_set: &mut StateWorkingSet,
     spans: &[Span],
@@ -293,38 +337,9 @@ pub fn parse_external_call(
     };
 
     for span in &spans[1..] {
-        let contents = working_set.get_span_contents(*span);
-
-        if contents.starts_with(b"$") || contents.starts_with(b"(") {
-            let (arg, err) = parse_dollar_expr(working_set, *span, expand_aliases_denylist);
-            error = error.or(err);
-            args.push(arg);
-        } else if contents.starts_with(b"[") {
-            let (arg, err) = parse_list_expression(
-                working_set,
-                *span,
-                &SyntaxShape::Any,
-                expand_aliases_denylist,
-            );
-            error = error.or(err);
-            args.push(arg);
-        } else {
-            // Eval stage trims the quotes, so we don't have to do the same thing when parsing.
-            let contents = if contents.starts_with(b"\"") {
-                let (contents, err) = unescape_string(contents, *span);
-                error = error.or(err);
-                String::from_utf8_lossy(&contents).to_string()
-            } else {
-                String::from_utf8_lossy(contents).to_string()
-            };
-
-            args.push(Expression {
-                expr: Expr::String(contents),
-                span: *span,
-                ty: Type::String,
-                custom_completion: None,
-            });
-        }
+        let (arg, err) = parse_external_arg(working_set, *span, expand_aliases_denylist);
+        error = error.or(err);
+        args.push(arg);
     }
     (
         Expression {
@@ -784,18 +799,41 @@ pub fn parse_internal_call(
     let signature = decl.signature();
     let output = signature.output_type.clone();
 
-    working_set.type_scope.add_type(output.clone());
-
-    if signature.creates_scope {
-        working_set.enter_scope();
-    }
-
     // The index into the positional parameter in the definition
     let mut positional_idx = 0;
 
     // The index into the spans of argument data given to parse
     // Starting at the first argument
     let mut spans_idx = 0;
+
+    if let Some(alias) = decl.as_alias() {
+        if let Expression {
+            expr: Expr::Call(wrapped_call),
+            ..
+        } = &alias.wrapped_call
+        {
+            // Replace this command's call with the aliased call, but keep the alias name
+            call = *wrapped_call.clone();
+            call.head = command_span;
+            // Skip positionals passed to aliased call
+            positional_idx = call.positional_len();
+        } else {
+            return ParsedInternalCall {
+                call: Box::new(call),
+                output: Type::Any,
+                error: Some(ParseError::UnknownState(
+                    "Alias does not point to internal call.".to_string(),
+                    command_span,
+                )),
+            };
+        }
+    }
+
+    working_set.type_scope.add_type(output.clone());
+
+    if signature.creates_scope {
+        working_set.enter_scope();
+    }
 
     while spans_idx < spans.len() {
         let arg_span = spans[spans_idx];
@@ -1163,16 +1201,61 @@ pub fn parse_call(
             }
         }
 
-        trace!("parsing: internal call");
+        // TODO: Try to remove the clone
+        let decl = working_set.get_decl(decl_id).clone();
 
-        // parse internal command
-        let parsed_call = parse_internal_call(
-            working_set,
-            span(&spans[cmd_start..pos]),
-            &spans[pos..],
-            decl_id,
-            expand_aliases_denylist,
-        );
+        let parsed_call = if let Some(alias) = decl.as_alias() {
+            if let Expression {
+                expr: Expr::ExternalCall(head, args, is_subexpression),
+                span: _,
+                ty,
+                custom_completion,
+            } = &alias.wrapped_call
+            {
+                trace!("parsing: alias of external call");
+
+                let mut error = None;
+                let mut final_args = args.clone();
+
+                for arg_span in spans.iter().skip(1) {
+                    let (arg, err) =
+                        parse_external_arg(working_set, *arg_span, expand_aliases_denylist);
+                    error = error.or(err);
+                    final_args.push(arg);
+                }
+
+                let mut head = head.clone();
+                head.span = spans[0]; // replacing the spans preserves syntax highlighting
+
+                return (
+                    Expression {
+                        expr: Expr::ExternalCall(head, final_args, *is_subexpression),
+                        span: span(spans),
+                        ty: ty.clone(),
+                        custom_completion: *custom_completion,
+                    },
+                    error,
+                );
+            } else {
+                trace!("parsing: alias of internal call");
+                parse_internal_call(
+                    working_set,
+                    span(&spans[cmd_start..pos]),
+                    &spans[pos..],
+                    decl_id,
+                    expand_aliases_denylist,
+                )
+            }
+        } else {
+            trace!("parsing: internal call");
+            parse_internal_call(
+                working_set,
+                span(&spans[cmd_start..pos]),
+                &spans[pos..],
+                decl_id,
+                expand_aliases_denylist,
+            )
+        };
 
         (
             Expression {
@@ -5038,8 +5121,8 @@ pub fn parse_expression(
 
         // For now, check for special parses of certain keywords
         match bytes.as_slice() {
-            b"def" | b"extern" | b"for" | b"module" | b"use" | b"source" | b"alias" | b"export"
-            | b"hide" => (
+            b"def" | b"extern" | b"for" | b"module" | b"use" | b"source" | b"old-alias"
+            | b"alias" | b"export" | b"hide" => (
                 parse_call(
                     working_set,
                     &spans[pos..],
@@ -5232,6 +5315,7 @@ pub fn parse_builtin_commands(
             let (expr, err) = parse_for(working_set, &lite_command.parts, expand_aliases_denylist);
             (Pipeline::from_vec(vec![expr]), err)
         }
+        b"old-alias" => parse_old_alias(working_set, lite_command, None, expand_aliases_denylist),
         b"alias" => parse_alias(working_set, lite_command, None, expand_aliases_denylist),
         b"module" => parse_module(working_set, lite_command, expand_aliases_denylist),
         b"use" => {

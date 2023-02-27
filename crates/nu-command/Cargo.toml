@@ -37,13 +37,13 @@ alphanumeric-sort = "1.4.4"
 atty = "0.2.14"
 base64 = "0.21.0"
 byteorder = "1.4.3"
-bytesize = "1.1.0"
+bytesize = "1.2.0"
 calamine = "0.19.1"
 chrono = { version = "0.4.23", features = ["std", "unstable-locales"], default-features = false }
 chrono-humanize = "0.2.1"
 chrono-tz = "0.8.1"
 crossterm = "0.24.0"
-csv = "1.1.6"
+csv = "1.2.0"
 dialoguer = { default-features = false, version = "0.10.3" }
 digest = { default-features = false, version = "0.10.0" }
 dtparse = "1.2.0"

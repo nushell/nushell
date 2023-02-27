@@ -5,19 +5,19 @@ use nu_protocol::{
 };
 
 #[derive(Clone)]
-pub struct ExportAlias;
+pub struct OldAlias;
 
-impl Command for ExportAlias {
+impl Command for OldAlias {
     fn name(&self) -> &str {
-        "export alias"
+        "old-alias"
     }
 
     fn usage(&self) -> &str {
-        "Alias a command (with optional flags) to a new name and export it from a module"
+        "Alias a command (with optional flags) to a new name"
     }
 
     fn signature(&self) -> nu_protocol::Signature {
-        Signature::build("export alias")
+        Signature::build("old-alias")
             .input_output_types(vec![(Type::Nothing, Type::Nothing)])
             .required("name", SyntaxShape::String, "name of the alias")
             .required(
@@ -52,10 +52,17 @@ impl Command for ExportAlias {
     }
 
     fn examples(&self) -> Vec<Example> {
-        vec![Example {
-            description: "Alias ll to ls -l and export it from a module",
-            example: "module spam { export alias ll = ls -l }",
-            result: Some(Value::nothing(Span::test_data())),
-        }]
+        vec![
+            Example {
+                description: "Alias ll to ls -l",
+                example: "old-alias ll = ls -l",
+                result: Some(Value::nothing(Span::test_data())),
+            },
+            Example {
+                description: "Make an alias that makes a list of all custom commands",
+                example: "old-alias customs = ($nu.scope.commands | where is_custom | get command)",
+                result: Some(Value::nothing(Span::test_data())),
+            },
+        ]
     }
 }

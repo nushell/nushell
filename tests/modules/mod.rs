@@ -45,7 +45,7 @@ fn module_private_import_alias() {
             .with_files(vec![FileWithContentToBeTrimmed(
                 "spam.nu",
                 r#"
-                    export alias foo-helper = "foo"
+                    export alias foo-helper = echo "foo"
                 "#,
             )]);
 
@@ -122,7 +122,7 @@ fn module_public_import_alias() {
             .with_files(vec![FileWithContentToBeTrimmed(
                 "spam.nu",
                 r#"
-                    export alias foo = "foo"
+                    export alias foo = echo "foo"
                 "#,
             )]);
 
@@ -160,7 +160,7 @@ fn module_nested_imports() {
                 "spam3.nu",
                 r#"
                     export def foo [] { "foo" }
-                    export alias bar = "bar"
+                    export alias bar = echo "bar"
                 "#,
             )]);
 
@@ -204,7 +204,7 @@ fn module_nested_imports_in_dirs() {
                 "spam/spam3/spam3.nu",
                 r#"
                     export def foo [] { "foo" }
-                    export alias bar = "bar"
+                    export alias bar = echo "bar"
                 "#,
             )]);
 
@@ -275,7 +275,7 @@ fn module_nested_imports_in_dirs_prefixed() {
                 "spam/spam3/spam3.nu",
                 r#"
                     export def foo [] { "foo" }
-                    export alias bar = "bar"
+                    export alias bar = echo "bar"
                 "#,
             )]);
 
@@ -495,7 +495,7 @@ fn module_invalid_def_name() {
 
 #[test]
 fn module_valid_alias_name_1() {
-    let inp = &[r#"module spam { alias spam = "spam" }"#];
+    let inp = &[r#"module spam { alias spam = echo "spam" }"#];
 
     let actual = nu!(cwd: ".", pipeline(&inp.join("; ")));
 
@@ -504,7 +504,7 @@ fn module_valid_alias_name_1() {
 
 #[test]
 fn module_valid_alias_name_2() {
-    let inp = &[r#"module spam { alias main = "spam" }"#];
+    let inp = &[r#"module spam { alias main = echo "spam" }"#];
 
     let actual = nu!(cwd: ".", pipeline(&inp.join("; ")));
 
@@ -513,7 +513,7 @@ fn module_valid_alias_name_2() {
 
 #[test]
 fn module_invalid_alias_name() {
-    let inp = &[r#"module spam { export alias spam = "spam" }"#];
+    let inp = &[r#"module spam { export alias spam = echo "spam" }"#];
 
     let actual = nu!(cwd: ".", pipeline(&inp.join("; ")));
 
@@ -522,7 +522,7 @@ fn module_invalid_alias_name() {
 
 #[test]
 fn module_main_alias_not_allowed() {
-    let inp = &[r#"module spam { export alias main = 'spam' }"#];
+    let inp = &[r#"module spam { export alias main = echo 'spam' }"#];
 
     let actual = nu!(cwd: ".", pipeline(&inp.join("; ")));
 
