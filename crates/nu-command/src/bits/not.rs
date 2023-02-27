@@ -151,7 +151,7 @@ fn operate(value: Value, head: Span, signed: bool, number_size: NumberBytes) -> 
             Value::Error { .. } => other,
             _ => Value::Error {
                 error: ShellError::OnlySupportsThisInputType {
-                    exp_input_type: "numeric".into(),
+                    exp_input_type: "integer".into(),
                     wrong_type: other.get_type().to_string(),
                     dst_span: head,
                     src_span: other.expect_span(),
