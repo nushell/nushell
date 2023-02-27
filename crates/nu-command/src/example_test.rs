@@ -14,15 +14,15 @@ mod test_examples {
         StrJoin, StrLength, StrReplace, Update, Url, Values, Wrap,
     };
     use crate::{Each, To};
+    use nu_cmd_lang::example_support::{
+        check_all_signature_input_output_types_entries_have_examples,
+        check_example_evaluates_to_expected_output,
+        check_example_input_and_output_types_match_command_signature,
+    };
     use nu_cmd_lang::{Break, Echo, If, Let, Mut};
     use nu_protocol::{
         engine::{Command, EngineState, StateWorkingSet},
         Type,
-    };
-    use nu_test_support::example_support::{
-        check_all_signature_input_output_types_entries_have_examples,
-        check_example_evaluates_to_expected_output,
-        check_example_input_and_output_types_match_command_signature,
     };
     use std::collections::HashSet;
 

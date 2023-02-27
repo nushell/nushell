@@ -8,16 +8,16 @@ pub fn test_examples(cmd: impl Command + 'static) {
 
 #[cfg(test)]
 mod test_examples {
+    use crate::example_support::{
+        check_all_signature_input_output_types_entries_have_examples,
+        check_example_evaluates_to_expected_output,
+        check_example_input_and_output_types_match_command_signature,
+    };
     use crate::{Break, Describe, Mut};
     use crate::{Echo, If, Let};
     use nu_protocol::{
         engine::{Command, EngineState, StateWorkingSet},
         Type,
-    };
-    use nu_test_support::example_support::{
-        check_all_signature_input_output_types_entries_have_examples,
-        check_example_evaluates_to_expected_output,
-        check_example_input_and_output_types_match_command_signature,
     };
     use std::collections::HashSet;
 
