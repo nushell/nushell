@@ -160,6 +160,7 @@ shadow-rs = { version = "0.20.0", default-features = false }
 
 [dev-dependencies]
 nu-test-support = { path = "../nu-test-support", version = "0.76.1" }
+mockito = "0.32.3"
 
 dirs-next = "2.0.0"
 hamcrest2 = "0.3.0"
