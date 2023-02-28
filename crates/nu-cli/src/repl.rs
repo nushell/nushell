@@ -20,6 +20,7 @@ use nu_protocol::{
 };
 use nu_utils::utils::perf;
 use reedline::{CursorConfig, DefaultHinter, EditCommand, Emacs, SqliteBackedHistory, Vi};
+use std::path::Path;
 use std::{
     io::{self, Write},
     sync::atomic::Ordering,
@@ -1183,6 +1184,7 @@ fn looks_like_path(orig: &str) -> bool {
         || orig.starts_with('~')
         || orig.starts_with('/')
         || orig.starts_with('\\')
+        || Path::new(&orig).is_dir()
 }
 
 #[test]
