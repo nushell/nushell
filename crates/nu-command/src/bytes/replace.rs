@@ -43,7 +43,7 @@ impl Command for BytesReplace {
     }
 
     fn usage(&self) -> &str {
-        "Find and replace binary"
+        "Find and replace binary."
     }
 
     fn search_terms(&self) -> Vec<&str> {

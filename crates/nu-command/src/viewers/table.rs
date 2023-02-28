@@ -48,7 +48,7 @@ impl Command for Table {
     }
 
     fn extra_usage(&self) -> &str {
-        "If the table contains a column called 'index', this column is used as the table index instead of the usual continuous index"
+        "If the table contains a column called 'index', this column is used as the table index instead of the usual continuous index."
     }
 
     fn search_terms(&self) -> Vec<&str> {

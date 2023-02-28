@@ -15,7 +15,7 @@ impl Command for AllTrue {
     }
 
     fn usage(&self) -> &str {
-        "Returns true if all values are true"
+        "Returns true if all values are true."
     }
 
     fn signature(&self) -> Signature {

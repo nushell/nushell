@@ -15,7 +15,7 @@ impl Command for Metadata {
     }
 
     fn usage(&self) -> &str {
-        "Get the metadata for items in the stream"
+        "Get the metadata for items in the stream."
     }
 
     fn signature(&self) -> nu_protocol::Signature {

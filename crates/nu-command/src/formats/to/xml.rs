@@ -51,7 +51,7 @@ impl Command for ToXml {
     }
 
     fn usage(&self) -> &str {
-        "Convert table into .xml text"
+        "Convert table into .xml text."
     }
 
     fn run(

@@ -32,7 +32,7 @@ impl Command for External {
     }
 
     fn usage(&self) -> &str {
-        "Runs external command"
+        "Runs external command."
     }
 
     fn signature(&self) -> nu_protocol::Signature {

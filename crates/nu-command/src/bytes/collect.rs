@@ -26,7 +26,7 @@ impl Command for BytesCollect {
     }
 
     fn usage(&self) -> &str {
-        "Concatenate multiple binary into a single binary, with an optional separator between each"
+        "Concatenate multiple binary into a single binary, with an optional separator between each."
     }
 
     fn search_terms(&self) -> Vec<&str> {

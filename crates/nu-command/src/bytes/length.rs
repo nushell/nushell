@@ -27,7 +27,7 @@ impl Command for BytesLen {
     }
 
     fn usage(&self) -> &str {
-        "Output the length of any bytes in the pipeline"
+        "Output the length of any bytes in the pipeline."
     }
 
     fn search_terms(&self) -> Vec<&str> {

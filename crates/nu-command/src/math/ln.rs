@@ -18,7 +18,7 @@ impl Command for SubCommand {
     }
 
     fn usage(&self) -> &str {
-        "Returns the natural logarithm. Base: (math e)"
+        "Returns the natural logarithm. Base: (math e)."
     }
 
     fn search_terms(&self) -> Vec<&str> {

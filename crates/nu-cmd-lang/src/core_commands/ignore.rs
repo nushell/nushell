@@ -11,7 +11,7 @@ impl Command for Ignore {
     }
 
     fn usage(&self) -> &str {
-        "Ignore the output of the previous command in the pipeline"
+        "Ignore the output of the previous command in the pipeline."
     }
 
     fn signature(&self) -> nu_protocol::Signature {

@@ -17,7 +17,7 @@ impl Command for Replace {
     }
 
     fn usage(&self) -> &str {
-        "Replace the leftmost (sub)string by a regex pattern"
+        "Replace the leftmost (sub)string by a regex pattern."
     }
 
     fn signature(&self) -> Signature {

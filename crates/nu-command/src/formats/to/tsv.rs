@@ -28,7 +28,7 @@ impl Command for ToTsv {
     }
 
     fn usage(&self) -> &str {
-        "Convert table into .tsv text"
+        "Convert table into .tsv text."
     }
 
     fn examples(&self) -> Vec<Example> {

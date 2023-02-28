@@ -32,7 +32,7 @@ impl Command for ToMd {
     }
 
     fn usage(&self) -> &str {
-        "Convert table into simple Markdown"
+        "Convert table into simple Markdown."
     }
 
     fn examples(&self) -> Vec<Example> {

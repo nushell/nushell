@@ -15,7 +15,7 @@ impl Command for ToLazyFrame {
     }
 
     fn usage(&self) -> &str {
-        "Converts a dataframe into a lazy dataframe"
+        "Converts a dataframe into a lazy dataframe."
     }
 
     fn signature(&self) -> Signature {

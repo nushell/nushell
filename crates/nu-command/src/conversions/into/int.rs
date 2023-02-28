@@ -49,7 +49,7 @@ impl Command for SubCommand {
     }
 
     fn usage(&self) -> &str {
-        "Convert value to integer"
+        "Convert value to integer."
     }
 
     fn search_terms(&self) -> Vec<&str> {

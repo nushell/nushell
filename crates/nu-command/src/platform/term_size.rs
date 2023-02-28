@@ -14,7 +14,7 @@ impl Command for TermSize {
     }
 
     fn usage(&self) -> &str {
-        "Returns a record containing the number of columns (width) and rows (height) of the terminal"
+        "Returns a record containing the number of columns (width) and rows (height) of the terminal."
     }
 
     fn signature(&self) -> Signature {

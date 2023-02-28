@@ -28,7 +28,7 @@ impl Command for SubCommand {
     }
 
     fn usage(&self) -> &str {
-        "Generate a random boolean value"
+        "Generate a random boolean value."
     }
 
     fn search_terms(&self) -> Vec<&str> {

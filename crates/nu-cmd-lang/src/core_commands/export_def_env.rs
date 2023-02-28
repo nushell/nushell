@@ -13,7 +13,7 @@ impl Command for ExportDefEnv {
     }
 
     fn usage(&self) -> &str {
-        "Define a custom command that participates in the environment and export it from a module"
+        "Define a custom command that participates in the environment and export it from a module."
     }
 
     fn signature(&self) -> nu_protocol::Signature {

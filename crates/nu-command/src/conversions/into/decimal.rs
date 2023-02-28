@@ -28,7 +28,7 @@ impl Command for SubCommand {
     }
 
     fn usage(&self) -> &str {
-        "Convert text into a decimal"
+        "Convert text into a decimal."
     }
 
     fn search_terms(&self) -> Vec<&str> {

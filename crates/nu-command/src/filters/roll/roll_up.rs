@@ -29,7 +29,7 @@ impl Command for RollUp {
     }
 
     fn usage(&self) -> &str {
-        "Roll table rows up"
+        "Roll table rows up."
     }
 
     fn examples(&self) -> Vec<Example> {

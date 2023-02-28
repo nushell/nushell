@@ -13,7 +13,7 @@ impl Command for HistorySession {
     }
 
     fn usage(&self) -> &str {
-        "Get the command history session"
+        "Get the command history session."
     }
 
     fn signature(&self) -> nu_protocol::Signature {

@@ -13,7 +13,7 @@ impl Command for OldAlias {
     }
 
     fn usage(&self) -> &str {
-        "Alias a command (with optional flags) to a new name"
+        "Alias a command (with optional flags) to a new name."
     }
 
     fn signature(&self) -> nu_protocol::Signature {

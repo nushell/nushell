@@ -37,7 +37,7 @@ impl Command for Fill {
     }
 
     fn usage(&self) -> &str {
-        "Fill and Align"
+        "Fill and Align."
     }
 
     fn signature(&self) -> nu_protocol::Signature {

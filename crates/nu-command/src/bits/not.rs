@@ -33,7 +33,7 @@ impl Command for SubCommand {
     }
 
     fn usage(&self) -> &str {
-        "Performs logical negation on each bit"
+        "Performs logical negation on each bit."
     }
 
     fn search_terms(&self) -> Vec<&str> {

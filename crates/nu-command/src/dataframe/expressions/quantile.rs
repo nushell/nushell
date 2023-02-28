@@ -16,7 +16,7 @@ impl Command for ExprQuantile {
     }
 
     fn usage(&self) -> &str {
-        "Aggregates the columns to the selected quantile"
+        "Aggregates the columns to the selected quantile."
     }
 
     fn signature(&self) -> Signature {

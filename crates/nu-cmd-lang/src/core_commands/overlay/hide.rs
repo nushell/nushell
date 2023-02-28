@@ -14,7 +14,7 @@ impl Command for OverlayHide {
     }
 
     fn usage(&self) -> &str {
-        "Hide an active overlay"
+        "Hide an active overlay."
     }
 
     fn signature(&self) -> nu_protocol::Signature {

@@ -14,7 +14,7 @@ impl Command for ColumnsDF {
     }
 
     fn usage(&self) -> &str {
-        "Show dataframe columns"
+        "Show dataframe columns."
     }
 
     fn signature(&self) -> Signature {

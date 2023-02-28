@@ -16,7 +16,7 @@ impl Command for WithColumn {
     }
 
     fn usage(&self) -> &str {
-        "Adds a series to the dataframe"
+        "Adds a series to the dataframe."
     }
 
     fn signature(&self) -> Signature {

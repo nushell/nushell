@@ -24,7 +24,7 @@ impl Command for SubCommand {
     }
 
     fn usage(&self) -> &str {
-        "Make text uppercase"
+        "Make text uppercase."
     }
 
     fn search_terms(&self) -> Vec<&str> {

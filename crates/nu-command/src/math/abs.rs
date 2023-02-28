@@ -18,7 +18,7 @@ impl Command for SubCommand {
     }
 
     fn usage(&self) -> &str {
-        "Returns the absolute value of a number"
+        "Returns the absolute value of a number."
     }
 
     fn search_terms(&self) -> Vec<&str> {

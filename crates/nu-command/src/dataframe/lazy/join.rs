@@ -16,7 +16,7 @@ impl Command for LazyJoin {
     }
 
     fn usage(&self) -> &str {
-        "Joins a lazy frame with other lazy frame"
+        "Joins a lazy frame with other lazy frame."
     }
 
     fn signature(&self) -> Signature {

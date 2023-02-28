@@ -15,7 +15,7 @@ impl Command for ToDataFrame {
     }
 
     fn usage(&self) -> &str {
-        "Converts a list, table or record into a dataframe"
+        "Converts a list, table or record into a dataframe."
     }
 
     fn signature(&self) -> Signature {

@@ -20,7 +20,7 @@ impl Command for Url {
     }
 
     fn usage(&self) -> &str {
-        "Various commands for working with URLs"
+        "Various commands for working with URLs."
     }
 
     fn extra_usage(&self) -> &str {

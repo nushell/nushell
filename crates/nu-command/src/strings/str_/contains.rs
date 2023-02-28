@@ -43,7 +43,7 @@ impl Command for SubCommand {
     }
 
     fn usage(&self) -> &str {
-        "Checks if string input contains a substring"
+        "Checks if string input contains a substring."
     }
 
     fn search_terms(&self) -> Vec<&str> {

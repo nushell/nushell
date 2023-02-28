@@ -27,7 +27,7 @@ impl Command for SubCommand {
     }
 
     fn usage(&self) -> &str {
-        "Reverse every string in the pipeline"
+        "Reverse every string in the pipeline."
     }
 
     fn search_terms(&self) -> Vec<&str> {

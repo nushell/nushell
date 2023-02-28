@@ -16,7 +16,7 @@ impl Command for ToNu {
     }
 
     fn usage(&self) -> &str {
-        "Converts a section of the dataframe into nushell Table"
+        "Converts a section of the dataframe into nushell Table."
     }
 
     fn signature(&self) -> Signature {
