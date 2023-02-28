@@ -115,12 +115,14 @@ jobs:
 
         # Get only the latest tagged version for stability reasons
       - name: Install virtualenv
-        run: git clone https://github.com/pypa/virtualenv.git && cd virtualenv && git checkout $(git describe --tags | cut -d - -f 1)
+        run: git clone https://github.com/pypa/virtualenv.git
         shell: bash
 
       - name: Test Nushell in virtualenv
         run: |
           cd virtualenv
+          # if we encounter problems with bleeding edge tests pin to the latest tag
+          # git checkout $(git describe --tags | cut -d - -f 1)
           # We need to disable failing on coverage levels.
           nu -c "open pyproject.toml | upsert tool.coverage.report.fail_under 1 | save patchproject.toml"
           mv patchproject.toml pyproject.toml
