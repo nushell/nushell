@@ -106,7 +106,7 @@ impl Command for SubCommand {
 struct Arguments {
     url: Value,
     headers: Option<Value>,
-    insecure: Option<bool>,
+    insecure: bool,
     user: Option<String>,
     password: Option<String>,
     timeout: Option<Value>,
@@ -121,11 +121,12 @@ fn run_head(
     let args = Arguments {
         url: call.req(engine_state, stack, 0)?,
         headers: call.get_flag(engine_state, stack, "headers")?,
-        insecure: call.get_flag(engine_state, stack, "insecure")?,
+        insecure: call.has_flag("insecure"),
         user: call.get_flag(engine_state, stack, "user")?,
         password: call.get_flag(engine_state, stack, "password")?,
-        timeout: call.get_flag(engine_state, stack, "timeout")?,
+        timeout: call.get_flag(engine_state, stack, "max-time")?,
     };
+
     helper(call, args)
 }
 
@@ -135,7 +136,7 @@ fn helper(call: &Call, args: Arguments) -> Result<PipelineData, ShellError> {
     let span = args.url.span()?;
     let (requested_url, url) = http_parse_url(call, span, args.url)?;
 
-    let client = http_client(args.insecure.is_some());
+    let client = http_client(args.insecure);
     let mut request = client.head(url);
 
     request = request_set_timeout(args.timeout, request)?;
