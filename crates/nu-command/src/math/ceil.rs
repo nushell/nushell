@@ -58,8 +58,8 @@ impl Command for SubCommand {
 fn operate(value: Value, head: Span) -> Value {
     match value {
         Value::Int { .. } => value,
-        Value::Float { val, span } => Value::Float {
-            val: val.ceil(),
+        Value::Float { val, span } => Value::Int {
+            val: val.ceil() as i64,
             span,
         },
         Value::Error { .. } => value,
