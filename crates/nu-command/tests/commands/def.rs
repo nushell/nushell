@@ -151,7 +151,7 @@ fn def_fails_with_invalid_name() {
 }
 
 #[test]
-fn def_errors_with_specified_list_type() {
+fn def_with_specified_list_type() {
     let actual = nu!(
         cwd: ".", pipeline(
         r#"
@@ -159,7 +159,31 @@ fn def_errors_with_specified_list_type() {
         "#
     ));
 
-    assert!(actual.err.contains("unknown type"));
+    assert!(actual.err.is_empty());
+}
+
+#[test]
+fn def_with_specified_list_type_nested() {
+    let actual = nu!(
+        cwd: ".", pipeline(
+        r#"
+        def test-command [ foo: list<list<any>> ] {}
+        "#
+    ));
+
+    assert!(actual.err.is_empty());
+}
+
+#[test]
+fn def_with_specified_list_type_unterminated() {
+    let actual = nu!(
+        cwd: ".", pipeline(
+        r#"
+        def test-command [ foo: list<any ] {}
+        "#
+    ));
+
+    assert!(actual.err.contains("use `>` to terminate it"));
 }
 
 #[test]
