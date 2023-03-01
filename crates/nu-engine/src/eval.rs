@@ -1217,7 +1217,9 @@ pub fn eval_subexpression(
                 // we throws out `ShellError::ExternalCommand`.  And show it's stderr message information.
                 // In the case, we need to capture stderr first during eval.
                 input = eval_element_with_input(engine_state, stack, expr, input, true, true)?.0;
-                input = check_subexp_substitution(input)?;
+                if matches!(input, PipelineData::ExternalStream { .. }) {
+                    input = check_subexp_substitution(input)?;
+                }
             }
         }
     }
