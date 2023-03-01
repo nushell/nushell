@@ -6,7 +6,9 @@ use nu_protocol::{
     Category, Example, IntoPipelineData, PipelineData, ShellError, Signature, Span, Type, Value,
 };
 use std::time::{Duration, UNIX_EPOCH};
-use sysinfo::{ComponentExt, CpuExt, DiskExt, NetworkExt, System, SystemExt, UserExt};
+use sysinfo::{
+    ComponentExt, CpuExt, CpuRefreshKind, DiskExt, NetworkExt, System, SystemExt, UserExt,
+};
 
 #[derive(Clone)]
 pub struct Sys;
@@ -199,7 +201,10 @@ pub fn net(sys: &mut System, span: Span) -> Option<Value> {
 }
 
 pub fn cpu(sys: &mut System, span: Span) -> Option<Value> {
-    sys.refresh_cpu();
+    // FIXME: we must refresh the CPU *twice* System::MINIMUM_CPU_UPDATE_INTERVAL apart to
+    // get valid usage data, we're currently only doing it once. Consider using a LazyRecord
+    // to avoid slowing down all calls to `sys`
+    sys.refresh_cpu_specifics(CpuRefreshKind::everything());
 
     let mut output = vec![];
     for cpu in sys.cpus() {
@@ -243,12 +248,6 @@ pub fn cpu(sys: &mut System, span: Span) -> Option<Value> {
         cols.push("vendor_id".into());
         vals.push(Value::String {
             val: trim_cstyle_null(cpu.vendor_id().to_string()),
-            span,
-        });
-
-        cols.push("freq".into());
-        vals.push(Value::Int {
-            val: sys.physical_core_count().unwrap_or(0) as i64,
             span,
         });
 
