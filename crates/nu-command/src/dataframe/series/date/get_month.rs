@@ -16,7 +16,7 @@ impl Command for GetMonth {
     }
 
     fn usage(&self) -> &str {
-        "Gets month from date"
+        "Gets month from date."
     }
 
     fn signature(&self) -> Signature {

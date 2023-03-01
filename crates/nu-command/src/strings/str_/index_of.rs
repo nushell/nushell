@@ -65,7 +65,7 @@ impl Command for SubCommand {
     }
 
     fn usage(&self) -> &str {
-        "Returns start index of first occurrence of string in input, or -1 if no match"
+        "Returns start index of first occurrence of string in input, or -1 if no match."
     }
 
     fn search_terms(&self) -> Vec<&str> {

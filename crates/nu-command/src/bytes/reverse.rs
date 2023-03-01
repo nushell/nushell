@@ -27,7 +27,7 @@ impl Command for BytesReverse {
     }
 
     fn usage(&self) -> &str {
-        "Reverse the bytes in the pipeline"
+        "Reverse the bytes in the pipeline."
     }
 
     fn search_terms(&self) -> Vec<&str> {

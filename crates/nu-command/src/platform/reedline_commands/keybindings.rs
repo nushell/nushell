@@ -20,7 +20,7 @@ impl Command for Keybindings {
     }
 
     fn usage(&self) -> &str {
-        "Keybindings related commands"
+        "Keybindings related commands."
     }
 
     fn extra_usage(&self) -> &str {

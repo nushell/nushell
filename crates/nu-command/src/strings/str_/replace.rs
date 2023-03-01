@@ -57,7 +57,7 @@ impl Command for SubCommand {
     }
 
     fn usage(&self) -> &str {
-        "Find and replace text"
+        "Find and replace text."
     }
 
     fn search_terms(&self) -> Vec<&str> {

@@ -18,7 +18,7 @@ impl Command for DropDuplicates {
     }
 
     fn usage(&self) -> &str {
-        "Drops duplicate values in dataframe"
+        "Drops duplicate values in dataframe."
     }
 
     fn signature(&self) -> Signature {

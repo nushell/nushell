@@ -28,7 +28,7 @@ impl Command for NuCheck {
     }
 
     fn usage(&self) -> &str {
-        "Validate and parse input content"
+        "Validate and parse input content."
     }
 
     fn search_terms(&self) -> Vec<&str> {

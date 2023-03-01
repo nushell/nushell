@@ -29,7 +29,7 @@ impl Command for SubCommand {
     }
 
     fn usage(&self) -> &str {
-        "Split a list into multiple lists using a separator"
+        "Split a list into multiple lists using a separator."
     }
 
     fn search_terms(&self) -> Vec<&str> {

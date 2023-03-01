@@ -16,7 +16,7 @@ impl Command for LazyFilter {
     }
 
     fn usage(&self) -> &str {
-        "Filter dataframe based in expression"
+        "Filter dataframe based in expression."
     }
 
     fn signature(&self) -> Signature {

@@ -16,7 +16,7 @@ impl Command for ArgMax {
     }
 
     fn usage(&self) -> &str {
-        "Return index for max value in series"
+        "Return index for max value in series."
     }
 
     fn search_terms(&self) -> Vec<&str> {

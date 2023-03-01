@@ -43,7 +43,7 @@ impl Command for FileSize {
     }
 
     fn usage(&self) -> &str {
-        "Converts a column of filesizes to some specified format"
+        "Converts a column of filesizes to some specified format."
     }
 
     fn search_terms(&self) -> Vec<&str> {

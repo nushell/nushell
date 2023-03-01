@@ -36,7 +36,7 @@ impl Command for SubCommand {
     }
 
     fn usage(&self) -> &str {
-        "Convert value to a binary primitive"
+        "Convert value to a binary primitive."
     }
 
     fn search_terms(&self) -> Vec<&str> {

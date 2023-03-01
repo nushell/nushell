@@ -24,7 +24,7 @@ impl Command for SubCommand {
     }
 
     fn usage(&self) -> &str {
-        "Generate a random integer [min..max]"
+        "Generate a random integer [min..max]."
     }
 
     fn search_terms(&self) -> Vec<&str> {

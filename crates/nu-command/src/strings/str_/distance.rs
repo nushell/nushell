@@ -43,7 +43,7 @@ impl Command for SubCommand {
     }
 
     fn usage(&self) -> &str {
-        "Compare two strings and return the edit distance/Levenshtein distance"
+        "Compare two strings and return the edit distance/Levenshtein distance."
     }
 
     fn search_terms(&self) -> Vec<&str> {

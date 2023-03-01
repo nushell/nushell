@@ -115,7 +115,7 @@ impl PipelineData {
         match self {
             PipelineData::Empty => Value::nothing(span),
             PipelineData::Value(Value::Nothing { .. }, ..) => Value::nothing(span),
-            PipelineData::Value(v, ..) => v,
+            PipelineData::Value(v, ..) => v.with_span(span),
             PipelineData::ListStream(s, ..) => Value::List {
                 vals: s.collect(),
                 span, // FIXME?

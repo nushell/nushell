@@ -51,7 +51,7 @@ impl Command for SubCommand {
     }
 
     fn usage(&self) -> &str {
-        "Get the final component of a path"
+        "Get the final component of a path."
     }
 
     fn run(

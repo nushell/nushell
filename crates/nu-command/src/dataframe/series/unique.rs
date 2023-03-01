@@ -19,7 +19,7 @@ impl Command for Unique {
     }
 
     fn usage(&self) -> &str {
-        "Returns unique values from a dataframe"
+        "Returns unique values from a dataframe."
     }
 
     fn signature(&self) -> Signature {

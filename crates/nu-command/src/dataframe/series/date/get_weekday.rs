@@ -16,7 +16,7 @@ impl Command for GetWeekDay {
     }
 
     fn usage(&self) -> &str {
-        "Gets weekday from date"
+        "Gets weekday from date."
     }
 
     fn signature(&self) -> Signature {

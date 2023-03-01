@@ -21,7 +21,7 @@ impl Command for Move {
     }
 
     fn usage(&self) -> &str {
-        "Move columns before or after other columns"
+        "Move columns before or after other columns."
     }
 
     fn signature(&self) -> nu_protocol::Signature {

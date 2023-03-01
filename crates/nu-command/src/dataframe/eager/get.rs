@@ -18,7 +18,7 @@ impl Command for GetDF {
     }
 
     fn usage(&self) -> &str {
-        "Creates dataframe with the selected columns"
+        "Creates dataframe with the selected columns."
     }
 
     fn signature(&self) -> Signature {

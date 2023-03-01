@@ -14,7 +14,7 @@ impl Command for IsAdmin {
     }
 
     fn usage(&self) -> &str {
-        "Check if nushell is running with administrator or root privileges"
+        "Check if nushell is running with administrator or root privileges."
     }
 
     fn signature(&self) -> nu_protocol::Signature {

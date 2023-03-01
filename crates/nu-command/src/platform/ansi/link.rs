@@ -45,7 +45,7 @@ impl Command for SubCommand {
     }
 
     fn usage(&self) -> &str {
-        "Add a link (using OSC 8 escape sequence) to the given string"
+        "Add a link (using OSC 8 escape sequence) to the given string."
     }
 
     fn run(

@@ -39,7 +39,7 @@ impl Command for SubCommand {
     }
 
     fn usage(&self) -> &str {
-        "Get the type of the object a path refers to (e.g., file, dir, symlink)"
+        "Get the type of the object a path refers to (e.g., file, dir, symlink)."
     }
 
     fn extra_usage(&self) -> &str {

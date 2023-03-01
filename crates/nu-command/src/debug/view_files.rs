@@ -13,7 +13,7 @@ impl Command for ViewFiles {
     }
 
     fn usage(&self) -> &str {
-        "View the files registered in nushell's EngineState memory"
+        "View the files registered in nushell's EngineState memory."
     }
 
     fn extra_usage(&self) -> &str {

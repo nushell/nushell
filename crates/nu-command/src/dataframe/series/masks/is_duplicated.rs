@@ -16,7 +16,7 @@ impl Command for IsDuplicated {
     }
 
     fn usage(&self) -> &str {
-        "Creates mask indicating duplicated values"
+        "Creates mask indicating duplicated values."
     }
 
     fn signature(&self) -> Signature {

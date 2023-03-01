@@ -22,7 +22,7 @@ impl Command for OpenDataFrame {
     }
 
     fn usage(&self) -> &str {
-        "Opens csv, json, arrow, or parquet file to create dataframe"
+        "Opens csv, json, arrow, or parquet file to create dataframe."
     }
 
     fn signature(&self) -> Signature {

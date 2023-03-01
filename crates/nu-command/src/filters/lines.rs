@@ -18,7 +18,7 @@ impl Command for Lines {
     }
 
     fn usage(&self) -> &str {
-        "Converts input to lines"
+        "Converts input to lines."
     }
 
     fn signature(&self) -> nu_protocol::Signature {

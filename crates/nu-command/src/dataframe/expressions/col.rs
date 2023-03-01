@@ -16,7 +16,7 @@ impl Command for ExprCol {
     }
 
     fn usage(&self) -> &str {
-        "Creates a named column expression"
+        "Creates a named column expression."
     }
 
     fn signature(&self) -> Signature {

@@ -17,7 +17,7 @@ impl Command for StrFTime {
     }
 
     fn usage(&self) -> &str {
-        "Formats date based on string rule"
+        "Formats date based on string rule."
     }
 
     fn signature(&self) -> Signature {

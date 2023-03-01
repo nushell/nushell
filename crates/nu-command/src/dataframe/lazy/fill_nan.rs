@@ -15,7 +15,7 @@ impl Command for LazyFillNA {
     }
 
     fn usage(&self) -> &str {
-        "Replaces NaN values with the given expression"
+        "Replaces NaN values with the given expression."
     }
 
     fn signature(&self) -> Signature {

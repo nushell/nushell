@@ -18,7 +18,7 @@ impl Command for SubCommand {
     }
 
     fn usage(&self) -> &str {
-        "Returns the square root of the input number"
+        "Returns the square root of the input number."
     }
 
     fn search_terms(&self) -> Vec<&str> {

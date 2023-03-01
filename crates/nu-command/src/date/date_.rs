@@ -20,7 +20,7 @@ impl Command for Date {
     }
 
     fn usage(&self) -> &str {
-        "Date-related commands"
+        "Date-related commands."
     }
 
     fn extra_usage(&self) -> &str {

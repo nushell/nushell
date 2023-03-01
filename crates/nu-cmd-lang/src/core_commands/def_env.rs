@@ -13,7 +13,7 @@ impl Command for DefEnv {
     }
 
     fn usage(&self) -> &str {
-        "Define a custom command, which participates in the caller environment"
+        "Define a custom command, which participates in the caller environment."
     }
 
     fn signature(&self) -> nu_protocol::Signature {

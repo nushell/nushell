@@ -17,7 +17,7 @@ impl Command for DropNulls {
     }
 
     fn usage(&self) -> &str {
-        "Drops null values in dataframe"
+        "Drops null values in dataframe."
     }
 
     fn signature(&self) -> Signature {

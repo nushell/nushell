@@ -14,7 +14,7 @@ impl Command for Return {
     }
 
     fn usage(&self) -> &str {
-        "Return early from a function"
+        "Return early from a function."
     }
 
     fn signature(&self) -> nu_protocol::Signature {

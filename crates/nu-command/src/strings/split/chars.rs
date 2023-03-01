@@ -28,7 +28,7 @@ impl Command for SubCommand {
     }
 
     fn usage(&self) -> &str {
-        "Split a string into a list of characters"
+        "Split a string into a list of characters."
     }
 
     fn search_terms(&self) -> Vec<&str> {

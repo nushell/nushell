@@ -28,7 +28,7 @@ impl Command for SubCommand {
     }
 
     fn usage(&self) -> &str {
-        "Convert a string to Title Case"
+        "Convert a string to Title Case."
     }
 
     fn search_terms(&self) -> Vec<&str> {

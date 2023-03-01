@@ -19,7 +19,7 @@ impl Command for SubCommand {
     }
 
     fn usage(&self) -> &str {
-        "Generate a random uuid4 string"
+        "Generate a random uuid4 string."
     }
 
     fn search_terms(&self) -> Vec<&str> {

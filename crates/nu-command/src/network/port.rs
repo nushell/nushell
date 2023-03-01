@@ -29,7 +29,7 @@ impl Command for SubCommand {
     }
 
     fn usage(&self) -> &str {
-        "Get a free port from system"
+        "Get a free port from system."
     }
 
     fn search_terms(&self) -> Vec<&str> {
