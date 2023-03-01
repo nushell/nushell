@@ -1,4 +1,4 @@
-use std::path::{Component, Path, PathBuf};
+use std::{path::{Component, Path, PathBuf}, fs};
 
 use nu_glob::MatchOptions;
 use nu_path::{canonicalize_with, expand_path_with};
@@ -26,6 +26,12 @@ pub fn glob_from(
 > {
     let path = PathBuf::from(&pattern.item);
     let path = expand_path_with(path, cwd);
+    let is_symlink = match fs::symlink_metadata(&path) {
+        Ok(attr) => attr.file_type().is_symlink(),
+        Err(_) => {
+            false
+        }
+    };
 
     let (prefix, pattern) = if path.to_string_lossy().contains('*') {
         // Path is a glob pattern => do not check for existence
@@ -40,6 +46,8 @@ pub fn glob_from(
             p.push(c);
         }
         (Some(p), path)
+    } else if is_symlink {
+        (path.parent().map(|parent| parent.to_path_buf()), path)
     } else {
         let path = if let Ok(p) = canonicalize_with(path, cwd) {
             p
