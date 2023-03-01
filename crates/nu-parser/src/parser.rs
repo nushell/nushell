@@ -2834,12 +2834,67 @@ pub fn parse_string_strict(
     }
 }
 
+fn parse_list_shape(
+    working_set: &StateWorkingSet,
+    bytes: &[u8],
+    span: Span,
+) -> (SyntaxShape, Option<ParseError>) {
+    assert!(bytes.starts_with(b"list<"));
+
+    let start = span.start + 5;
+    let end = span.end;
+    let is_terminated = bytes.ends_with(b">");
+    let unterminated_error = ParseError::LabeledError(
+        "Unterminated list type annotation".into(),
+        "use `>` to terminate it".into(),
+        span,
+    );
+
+    let inner_span = Span::new(start, if is_terminated { end - 1 } else { end });
+
+    let src = &bytes[5..{
+        if is_terminated {
+            bytes.len() - 1
+        } else {
+            bytes.len()
+        }
+    }];
+
+    // list<>
+    if src.is_empty() && is_terminated {
+        return (SyntaxShape::List(Box::new(SyntaxShape::Any)), None);
+    } else if src.is_empty() {
+        // list<
+        return (
+            SyntaxShape::List(Box::new(SyntaxShape::Any)),
+            Some(unterminated_error),
+        );
+    }
+
+    let (shape, err) = parse_shape_name(working_set, src, inner_span);
+    if err.is_some() {
+        return (shape, err);
+    }
+
+    let error = if !is_terminated {
+        Some(unterminated_error)
+    } else {
+        None
+    };
+
+    (SyntaxShape::List(Box::new(shape)), error)
+}
+
 //TODO: Handle error case for unknown shapes
 pub fn parse_shape_name(
     working_set: &StateWorkingSet,
     bytes: &[u8],
     span: Span,
 ) -> (SyntaxShape, Option<ParseError>) {
+    if bytes.starts_with(b"list<") {
+        return parse_list_shape(working_set, bytes, span);
+    }
+
     let result = match bytes {
         b"any" => SyntaxShape::Any,
         b"binary" => SyntaxShape::Binary,

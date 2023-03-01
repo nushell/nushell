@@ -477,3 +477,54 @@ fn or_and_xor() -> TestResult {
 fn unbalanced_delimiter() -> TestResult {
     fail_test(r#"{a:{b:5}}}"#, "unbalanced { and }")
 }
+
+#[test]
+fn list_type_annotations() -> TestResult {
+    let input = "def test [list: list<string>] { $list | length }; test [ 'nushell', 'nunu' ]";
+    let expected = "2";
+    run_test(input, expected)
+}
+
+#[test]
+fn list_type_annotations_nested() -> TestResult {
+    let input =
+        "def test [list: list<list<string>>] { $list | length }; test [ ['nushell'], ['nunu'] ]";
+    let expected = "2";
+    run_test(input, expected)
+}
+
+#[test]
+fn list_type_annotations_nested_with_err() -> TestResult {
+    let input =
+        "def test [list: list<list<string>] { $list | length }; test [ ['nushell'], ['nunu'] ]";
+    let expected = "use `>` to terminate it";
+    fail_test(input, expected)
+}
+
+#[test]
+fn list_type_annotations_not_terminated() -> TestResult {
+    let input = "def test [list: list<int] { $list | length }; test [2 5 4]";
+    let expected = "use `>` to terminate it";
+    fail_test(input, expected)
+}
+
+#[test]
+fn list_type_annotations_inner_not_type() -> TestResult {
+    let input = "def test [list: list<integer>] { $list | length }; test [2 5 4]";
+    let expected = "unknown type";
+    fail_test(input, expected)
+}
+
+#[test]
+fn list_type_annotations_with_spaces() -> TestResult {
+    let input = "def test [list: list< int>] { $list | length }; test [2 5 4]";
+    let expected = "use `>` to terminate it";
+    fail_test(input, expected)
+}
+
+#[test]
+fn list_type_annotations_mismatched_type() -> TestResult {
+    let input = "def test [list: list<int>] { $list | length }; test ['nushell', 'nunu', 'nu']";
+    let expected = "expected int";
+    fail_test(input, expected)
+}
