@@ -234,7 +234,7 @@ fn equals_separates_long_flag() -> TestResult {
 fn let_env_expressions() -> TestResult {
     let env = HashMap::from([("VENV_OLD_PATH", "Foobar"), ("Path", "Quux")]);
     run_test_with_env(
-        r#"let-env Path = if (env | any {|x| $x.name == VENV_OLD_PATH}) { $env.VENV_OLD_PATH } else { $env.Path }; echo $env.Path"#,
+        r#"let-env Path = if ($env | columns | "VENV_OLD_PATH" in $in) { $env.VENV_OLD_PATH } else { $env.Path }; echo $env.Path"#,
         "Foobar",
         &env,
     )

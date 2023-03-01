@@ -343,7 +343,6 @@ pub fn create_default_context() -> EngineState {
 
         // Env
         bind_command! {
-            Env,
             ExportEnv,
             LetEnv,
             LoadEnv,
