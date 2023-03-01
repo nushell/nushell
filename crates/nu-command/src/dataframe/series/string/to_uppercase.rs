@@ -16,7 +16,7 @@ impl Command for ToUpperCase {
     }
 
     fn usage(&self) -> &str {
-        "Uppercase the strings in the column"
+        "Uppercase the strings in the column."
     }
 
     fn search_terms(&self) -> Vec<&str> {

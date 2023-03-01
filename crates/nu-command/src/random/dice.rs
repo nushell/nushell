@@ -34,7 +34,7 @@ impl Command for SubCommand {
     }
 
     fn usage(&self) -> &str {
-        "Generate a random dice roll"
+        "Generate a random dice roll."
     }
 
     fn search_terms(&self) -> Vec<&str> {

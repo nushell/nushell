@@ -52,7 +52,7 @@ impl Command for Rolling {
     }
 
     fn usage(&self) -> &str {
-        "Rolling calculation for a series"
+        "Rolling calculation for a series."
     }
 
     fn signature(&self) -> Signature {

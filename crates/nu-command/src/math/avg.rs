@@ -19,7 +19,7 @@ impl Command for SubCommand {
     }
 
     fn usage(&self) -> &str {
-        "Returns the average of a list of numbers"
+        "Returns the average of a list of numbers."
     }
 
     fn search_terms(&self) -> Vec<&str> {

@@ -12,7 +12,7 @@ impl Command for To {
     }
 
     fn usage(&self) -> &str {
-        "Translate structured data to a format"
+        "Translate structured data to a format."
     }
 
     fn signature(&self) -> nu_protocol::Signature {

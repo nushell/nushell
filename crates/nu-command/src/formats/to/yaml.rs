@@ -19,7 +19,7 @@ impl Command for ToYaml {
     }
 
     fn usage(&self) -> &str {
-        "Convert table into .yaml/.yml text"
+        "Convert table into .yaml/.yml text."
     }
 
     fn examples(&self) -> Vec<Example> {

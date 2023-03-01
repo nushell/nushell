@@ -23,7 +23,7 @@ impl Command for Explore {
     }
 
     fn usage(&self) -> &str {
-        "Explore acts as a table pager, just like `less` does for text"
+        "Explore acts as a table pager, just like `less` does for text."
     }
 
     fn signature(&self) -> nu_protocol::Signature {

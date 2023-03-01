@@ -720,9 +720,9 @@ fn get_banner(engine_state: &mut EngineState, stack: &mut Stack) -> String {
 
 Please join our {}Discord{} community at {}https://discord.gg/NtAbbGn{}
 Our {}GitHub{} repository is at {}https://github.com/nushell/nushell{}
-Our {}Documentation{} is located at {}http://nushell.sh{}
+Our {}Documentation{} is located at {}https://nushell.sh{}
 {}Tweet{} us at {}@nu_shell{}
-Learn how to remove this at: {}http://nushell.sh/book/configuration.html#remove-welcome-message{}
+Learn how to remove this at: {}https://nushell.sh/book/configuration.html#remove-welcome-message{}
 
 It's been this long since {}Nushell{}'s first commit:
 {}{}

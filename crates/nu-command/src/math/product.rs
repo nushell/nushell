@@ -19,7 +19,7 @@ impl Command for SubCommand {
     }
 
     fn usage(&self) -> &str {
-        "Returns the product of a list of numbers or the products of each column of a table"
+        "Returns the product of a list of numbers or the products of each column of a table."
     }
 
     fn search_terms(&self) -> Vec<&str> {

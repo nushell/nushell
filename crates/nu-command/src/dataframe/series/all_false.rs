@@ -15,7 +15,7 @@ impl Command for AllFalse {
     }
 
     fn usage(&self) -> &str {
-        "Returns true if all values are false"
+        "Returns true if all values are false."
     }
 
     fn signature(&self) -> Signature {

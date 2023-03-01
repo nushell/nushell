@@ -17,7 +17,7 @@ impl Command for OverlayUse {
     }
 
     fn usage(&self) -> &str {
-        "Use definitions from a module as an overlay"
+        "Use definitions from a module as an overlay."
     }
 
     fn signature(&self) -> nu_protocol::Signature {

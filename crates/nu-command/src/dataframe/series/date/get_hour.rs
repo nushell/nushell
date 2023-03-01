@@ -16,7 +16,7 @@ impl Command for GetHour {
     }
 
     fn usage(&self) -> &str {
-        "Gets hour from date"
+        "Gets hour from date."
     }
 
     fn signature(&self) -> Signature {

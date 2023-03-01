@@ -27,7 +27,7 @@ impl Command for SubCommand {
     }
 
     fn usage(&self) -> &str {
-        "Returns the input number rounded to the specified precision"
+        "Returns the input number rounded to the specified precision."
     }
 
     fn search_terms(&self) -> Vec<&str> {

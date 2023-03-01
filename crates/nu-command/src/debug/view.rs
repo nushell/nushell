@@ -20,7 +20,7 @@ impl Command for View {
     }
 
     fn usage(&self) -> &str {
-        "Various commands for viewing debug information"
+        "Various commands for viewing debug information."
     }
 
     fn extra_usage(&self) -> &str {

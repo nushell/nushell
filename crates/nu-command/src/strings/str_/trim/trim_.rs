@@ -60,7 +60,7 @@ impl Command for SubCommand {
             )
     }
     fn usage(&self) -> &str {
-        "Trim whitespace or specific character"
+        "Trim whitespace or specific character."
     }
 
     fn search_terms(&self) -> Vec<&str> {

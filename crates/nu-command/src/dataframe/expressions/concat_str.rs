@@ -16,7 +16,7 @@ impl Command for ExprConcatStr {
     }
 
     fn usage(&self) -> &str {
-        "Creates a concat string expression"
+        "Creates a concat string expression."
     }
 
     fn signature(&self) -> Signature {

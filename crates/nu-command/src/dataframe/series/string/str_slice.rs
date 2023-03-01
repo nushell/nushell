@@ -17,7 +17,7 @@ impl Command for StrSlice {
     }
 
     fn usage(&self) -> &str {
-        "Slices the string from the start position until the selected length"
+        "Slices the string from the start position until the selected length."
     }
 
     fn signature(&self) -> Signature {

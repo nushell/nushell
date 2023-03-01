@@ -20,7 +20,7 @@ impl Command for Bits {
     }
 
     fn usage(&self) -> &str {
-        "Various commands for working with bits"
+        "Various commands for working with bits."
     }
 
     fn extra_usage(&self) -> &str {

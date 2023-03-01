@@ -20,7 +20,7 @@ impl Command for Http {
     }
 
     fn usage(&self) -> &str {
-        "Various commands for working with http methods"
+        "Various commands for working with http methods."
     }
 
     fn extra_usage(&self) -> &str {

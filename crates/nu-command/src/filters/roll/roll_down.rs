@@ -29,7 +29,7 @@ impl Command for RollDown {
     }
 
     fn usage(&self) -> &str {
-        "Roll table rows down"
+        "Roll table rows down."
     }
 
     fn examples(&self) -> Vec<Example> {

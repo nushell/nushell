@@ -57,7 +57,7 @@ impl Command for SubCommand {
     }
 
     fn usage(&self) -> &str {
-        "Convert value to string"
+        "Convert value to string."
     }
 
     fn search_terms(&self) -> Vec<&str> {

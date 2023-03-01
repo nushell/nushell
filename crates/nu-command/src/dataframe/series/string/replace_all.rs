@@ -17,7 +17,7 @@ impl Command for ReplaceAll {
     }
 
     fn usage(&self) -> &str {
-        "Replace all (sub)strings by a regex pattern"
+        "Replace all (sub)strings by a regex pattern."
     }
 
     fn signature(&self) -> Signature {

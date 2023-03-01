@@ -24,7 +24,7 @@ impl Command for SubCommand {
     }
 
     fn usage(&self) -> &str {
-        "Computes the median of a list of numbers"
+        "Computes the median of a list of numbers."
     }
 
     fn search_terms(&self) -> Vec<&str> {

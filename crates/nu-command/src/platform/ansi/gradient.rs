@@ -54,7 +54,7 @@ impl Command for SubCommand {
     }
 
     fn usage(&self) -> &str {
-        "Add a color gradient (using ANSI color codes) to the given string"
+        "Add a color gradient (using ANSI color codes) to the given string."
     }
 
     fn run(

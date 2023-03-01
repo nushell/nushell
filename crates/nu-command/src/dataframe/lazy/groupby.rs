@@ -16,7 +16,7 @@ impl Command for ToLazyGroupBy {
     }
 
     fn usage(&self) -> &str {
-        "Creates a group-by object that can be used for other aggregations"
+        "Creates a group-by object that can be used for other aggregations."
     }
 
     fn signature(&self) -> Signature {

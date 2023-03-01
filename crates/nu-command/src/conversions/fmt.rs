@@ -15,7 +15,7 @@ impl Command for Fmt {
     }
 
     fn usage(&self) -> &str {
-        "Format a number"
+        "Format a number."
     }
 
     fn signature(&self) -> nu_protocol::Signature {

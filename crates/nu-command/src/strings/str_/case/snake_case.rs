@@ -27,7 +27,7 @@ impl Command for SubCommand {
     }
 
     fn usage(&self) -> &str {
-        "Convert a string to snake_case"
+        "Convert a string to snake_case."
     }
 
     fn search_terms(&self) -> Vec<&str> {

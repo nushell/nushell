@@ -15,7 +15,7 @@ impl Command for Dummies {
     }
 
     fn usage(&self) -> &str {
-        "Creates a new dataframe with dummy variables"
+        "Creates a new dataframe with dummy variables."
     }
 
     fn signature(&self) -> Signature {

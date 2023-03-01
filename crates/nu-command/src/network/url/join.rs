@@ -19,7 +19,7 @@ impl Command for SubCommand {
     }
 
     fn usage(&self) -> &str {
-        "Converts a record to url"
+        "Converts a record to url."
     }
 
     fn search_terms(&self) -> Vec<&str> {

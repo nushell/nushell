@@ -19,7 +19,7 @@ impl Command for SubCommand {
     }
 
     fn usage(&self) -> &str {
-        "Returns the sum of a list of numbers or of each column in a table"
+        "Returns the sum of a list of numbers or of each column in a table."
     }
 
     fn search_terms(&self) -> Vec<&str> {

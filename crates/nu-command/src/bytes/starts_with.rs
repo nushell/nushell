@@ -40,7 +40,7 @@ impl Command for BytesStartsWith {
     }
 
     fn usage(&self) -> &str {
-        "Check if bytes starts with a pattern"
+        "Check if bytes starts with a pattern."
     }
 
     fn search_terms(&self) -> Vec<&str> {

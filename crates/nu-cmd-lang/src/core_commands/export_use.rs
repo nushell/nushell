@@ -13,7 +13,7 @@ impl Command for ExportUse {
     }
 
     fn usage(&self) -> &str {
-        "Use definitions from a module and export them from this module"
+        "Use definitions from a module and export them from this module."
     }
 
     fn signature(&self) -> nu_protocol::Signature {

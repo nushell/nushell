@@ -16,7 +16,7 @@ impl Command for ExprWhen {
     }
 
     fn usage(&self) -> &str {
-        "Creates and modifies a when expression"
+        "Creates and modifies a when expression."
     }
 
     fn signature(&self) -> Signature {

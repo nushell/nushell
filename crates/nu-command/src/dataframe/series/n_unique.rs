@@ -14,7 +14,7 @@ impl Command for NUnique {
     }
 
     fn usage(&self) -> &str {
-        "Counts unique values"
+        "Counts unique values."
     }
 
     fn signature(&self) -> Signature {

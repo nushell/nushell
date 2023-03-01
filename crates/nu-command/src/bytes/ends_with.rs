@@ -39,7 +39,7 @@ impl Command for BytesEndsWith {
     }
 
     fn usage(&self) -> &str {
-        "Check if bytes ends with a pattern"
+        "Check if bytes ends with a pattern."
     }
 
     fn search_terms(&self) -> Vec<&str> {

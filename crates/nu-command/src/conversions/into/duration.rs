@@ -39,7 +39,7 @@ impl Command for SubCommand {
     }
 
     fn usage(&self) -> &str {
-        "Convert value to duration"
+        "Convert value to duration."
     }
 
     fn extra_usage(&self) -> &str {
