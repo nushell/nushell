@@ -13,7 +13,7 @@ impl Command for FromNuon {
     }
 
     fn usage(&self) -> &str {
-        "Convert from nuon to structured data"
+        "Convert from nuon to structured data."
     }
 
     fn signature(&self) -> nu_protocol::Signature {

@@ -18,7 +18,7 @@ impl Command for SubCommand {
     }
 
     fn usage(&self) -> &str {
-        "Returns the ceil of a number (smallest integer greater than or equal to that number)"
+        "Returns the ceil of a number (smallest integer greater than or equal to that number)."
     }
 
     fn search_terms(&self) -> Vec<&str> {

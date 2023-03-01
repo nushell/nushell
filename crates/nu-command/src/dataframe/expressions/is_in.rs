@@ -16,7 +16,7 @@ impl Command for ExprIsIn {
     }
 
     fn usage(&self) -> &str {
-        "Creates an is-in expression"
+        "Creates an is-in expression."
     }
 
     fn signature(&self) -> Signature {

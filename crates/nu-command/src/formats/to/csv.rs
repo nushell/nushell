@@ -56,7 +56,7 @@ impl Command for ToCsv {
     }
 
     fn usage(&self) -> &str {
-        "Convert table into .csv text "
+        "Convert table into .csv text ."
     }
 
     fn run(

@@ -14,7 +14,7 @@ impl Command for SeqChar {
     }
 
     fn usage(&self) -> &str {
-        "Print a sequence of ASCII characters"
+        "Print a sequence of ASCII characters."
     }
 
     fn signature(&self) -> Signature {

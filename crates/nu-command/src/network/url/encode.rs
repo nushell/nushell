@@ -20,7 +20,7 @@ impl Command for SubCommand {
             .input_output_types(vec![(Type::String, Type::String)])
             .vectorizes_over_list(true)
             .switch(
-            "all", 
+            "all",
             "encode all non-alphanumeric chars including `/`, `.`, `:`",
             Some('a'))
             .rest(
@@ -32,7 +32,7 @@ impl Command for SubCommand {
     }
 
     fn usage(&self) -> &str {
-        "Converts a string to a percent encoded web safe string"
+        "Converts a string to a percent encoded web safe string."
     }
 
     fn search_terms(&self) -> Vec<&str> {

@@ -12,7 +12,7 @@ impl Command for From {
     }
 
     fn usage(&self) -> &str {
-        "Parse a string or binary data into structured data"
+        "Parse a string or binary data into structured data."
     }
 
     fn signature(&self) -> nu_protocol::Signature {

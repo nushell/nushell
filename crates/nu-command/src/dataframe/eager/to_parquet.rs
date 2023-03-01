@@ -19,7 +19,7 @@ impl Command for ToParquet {
     }
 
     fn usage(&self) -> &str {
-        "Saves dataframe to parquet file"
+        "Saves dataframe to parquet file."
     }
 
     fn signature(&self) -> Signature {

@@ -11,7 +11,7 @@ impl Command for Extern {
     }
 
     fn usage(&self) -> &str {
-        "Define a signature for an external command"
+        "Define a signature for an external command."
     }
 
     fn signature(&self) -> nu_protocol::Signature {

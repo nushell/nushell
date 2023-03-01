@@ -15,7 +15,7 @@ impl Command for Try {
     }
 
     fn usage(&self) -> &str {
-        "Try to run a block, if it fails optionally run a catch block"
+        "Try to run a block, if it fails optionally run a catch block."
     }
 
     fn signature(&self) -> nu_protocol::Signature {

@@ -16,7 +16,7 @@ impl Command for LPadDeprecated {
     }
 
     fn usage(&self) -> &str {
-        "Deprecated command"
+        "Deprecated command."
     }
 
     fn run(

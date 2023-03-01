@@ -16,7 +16,7 @@ impl Command for TimeIt {
     }
 
     fn usage(&self) -> &str {
-        "Time the running time of a closure"
+        "Time the running time of a closure."
     }
 
     fn signature(&self) -> nu_protocol::Signature {

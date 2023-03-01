@@ -54,7 +54,7 @@ impl Command for SubCommand {
     }
 
     fn usage(&self) -> &str {
-        "Get the parent directory of a path"
+        "Get the parent directory of a path."
     }
 
     fn run(

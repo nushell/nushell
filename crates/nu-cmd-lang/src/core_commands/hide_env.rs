@@ -31,7 +31,7 @@ impl Command for HideEnv {
     }
 
     fn usage(&self) -> &str {
-        "Hide environment variables in the current scope"
+        "Hide environment variables in the current scope."
     }
 
     fn run(

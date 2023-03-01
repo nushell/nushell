@@ -23,7 +23,7 @@ impl Command for ConfigEnv {
     }
 
     fn usage(&self) -> &str {
-        "Edit nu environment configurations"
+        "Edit nu environment configurations."
     }
 
     fn examples(&self) -> Vec<Example> {

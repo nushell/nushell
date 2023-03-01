@@ -15,7 +15,7 @@ impl Command for LastDF {
     }
 
     fn usage(&self) -> &str {
-        "Creates new dataframe with tail rows or creates a last expression"
+        "Creates new dataframe with tail rows or creates a last expression."
     }
 
     fn signature(&self) -> Signature {

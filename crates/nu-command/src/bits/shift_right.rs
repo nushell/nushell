@@ -36,7 +36,7 @@ impl Command for SubCommand {
     }
 
     fn usage(&self) -> &str {
-        "Bitwise shift right for integers"
+        "Bitwise shift right for integers."
     }
 
     fn search_terms(&self) -> Vec<&str> {

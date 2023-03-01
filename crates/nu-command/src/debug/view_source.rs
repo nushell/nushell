@@ -16,7 +16,7 @@ impl Command for ViewSource {
     }
 
     fn usage(&self) -> &str {
-        "View a block, module, or a definition"
+        "View a block, module, or a definition."
     }
 
     fn signature(&self) -> nu_protocol::Signature {

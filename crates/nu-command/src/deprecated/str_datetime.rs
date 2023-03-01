@@ -17,7 +17,7 @@ impl Command for StrDatetimeDeprecated {
     }
 
     fn usage(&self) -> &str {
-        "Deprecated command"
+        "Deprecated command."
     }
 
     fn run(

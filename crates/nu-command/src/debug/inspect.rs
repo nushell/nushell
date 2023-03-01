@@ -15,7 +15,7 @@ impl Command for Inspect {
     }
 
     fn usage(&self) -> &str {
-        "Inspect pipeline results while running a pipeline"
+        "Inspect pipeline results while running a pipeline."
     }
 
     fn signature(&self) -> nu_protocol::Signature {

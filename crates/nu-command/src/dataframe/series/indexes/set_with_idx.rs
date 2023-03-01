@@ -17,7 +17,7 @@ impl Command for SetWithIndex {
     }
 
     fn usage(&self) -> &str {
-        "Sets value in the given index"
+        "Sets value in the given index."
     }
 
     fn signature(&self) -> Signature {

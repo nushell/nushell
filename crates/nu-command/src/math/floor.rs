@@ -18,7 +18,7 @@ impl Command for SubCommand {
     }
 
     fn usage(&self) -> &str {
-        "Returns the floor of a number (largest integer less than or equal to that number)"
+        "Returns the floor of a number (largest integer less than or equal to that number)."
     }
 
     fn search_terms(&self) -> Vec<&str> {

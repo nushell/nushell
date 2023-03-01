@@ -25,7 +25,7 @@ impl Command for SubCommand {
     }
 
     fn usage(&self) -> &str {
-        "Strip ANSI escape sequences from a string"
+        "Strip ANSI escape sequences from a string."
     }
 
     fn run(

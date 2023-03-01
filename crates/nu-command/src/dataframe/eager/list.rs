@@ -15,7 +15,7 @@ impl Command for ListDF {
     }
 
     fn usage(&self) -> &str {
-        "Lists stored dataframes"
+        "Lists stored dataframes."
     }
 
     fn signature(&self) -> Signature {

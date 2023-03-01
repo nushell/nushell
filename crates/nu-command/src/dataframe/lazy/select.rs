@@ -15,7 +15,7 @@ impl Command for LazySelect {
     }
 
     fn usage(&self) -> &str {
-        "Selects columns from lazyframe"
+        "Selects columns from lazyframe."
     }
 
     fn signature(&self) -> Signature {

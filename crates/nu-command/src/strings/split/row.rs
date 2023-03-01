@@ -33,7 +33,7 @@ impl Command for SubCommand {
     }
 
     fn usage(&self) -> &str {
-        "Split a string into multiple rows using a separator"
+        "Split a string into multiple rows using a separator."
     }
 
     fn search_terms(&self) -> Vec<&str> {

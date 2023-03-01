@@ -49,7 +49,7 @@ impl Command for BytesAdd {
     }
 
     fn usage(&self) -> &str {
-        "Add specified bytes to the input"
+        "Add specified bytes to the input."
     }
 
     fn search_terms(&self) -> Vec<&str> {

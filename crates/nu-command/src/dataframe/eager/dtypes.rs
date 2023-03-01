@@ -14,7 +14,7 @@ impl Command for DataTypes {
     }
 
     fn usage(&self) -> &str {
-        "Show dataframe data types"
+        "Show dataframe data types."
     }
 
     fn signature(&self) -> Signature {
