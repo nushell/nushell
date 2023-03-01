@@ -183,12 +183,12 @@ fn action(
         ),
         Value::Error { .. } => input.clone(),
         _ => Value::Error {
-            error: ShellError::OnlySupportsThisInputType(
-                "string".into(),
-                input.get_type().to_string(),
-                head,
-                input.expect_span(),
-            ),
+            error: ShellError::OnlySupportsThisInputType {
+                exp_input_type: "string".into(),
+                wrong_type: input.get_type().to_string(),
+                dst_span: head,
+                src_span: input.expect_span(),
+            },
         },
     }
 }

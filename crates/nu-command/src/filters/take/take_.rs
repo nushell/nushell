@@ -74,32 +74,31 @@ impl Command for Take {
                     .set_metadata(metadata)),
                 // Propagate errors by explicitly matching them before the final case.
                 Value::Error { error } => Err(error),
-                other => Err(ShellError::OnlySupportsThisInputType(
-                    "list, binary or range".into(),
-                    other.get_type().to_string(),
-                    call.head,
-                    // This line requires the Value::Error match above.
-                    other.expect_span(),
-                )),
+                other => Err(ShellError::OnlySupportsThisInputType {
+                    exp_input_type: "list, binary or range".into(),
+                    wrong_type: other.get_type().to_string(),
+                    dst_span: call.head,
+                    src_span: other.expect_span(),
+                }),
             },
             PipelineData::ListStream(ls, metadata) => Ok(ls
                 .take(rows_desired)
                 .into_pipeline_data(ctrlc)
                 .set_metadata(metadata)),
             PipelineData::ExternalStream { span, .. } => {
-                Err(ShellError::OnlySupportsThisInputType(
-                    "list, binary or range".into(),
-                    "raw data".into(),
-                    call.head,
-                    span,
-                ))
+                Err(ShellError::OnlySupportsThisInputType {
+                    exp_input_type: "list, binary or range".into(),
+                    wrong_type: "raw data".into(),
+                    dst_span: call.head,
+                    src_span: span,
+                })
             }
-            PipelineData::Empty => Err(ShellError::OnlySupportsThisInputType(
-                "list, binary or range".into(),
-                "null".into(),
-                call.head,
-                call.head, // TODO: make PipelineData::Empty spanned, so that the span can be used here.
-            )),
+            PipelineData::Empty => Err(ShellError::OnlySupportsThisInputType {
+                exp_input_type: "list, binary or range".into(),
+                wrong_type: "null".into(),
+                dst_span: call.head,
+                src_span: call.head,
+            }),
         }
     }
 
