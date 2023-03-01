@@ -1,6 +1,5 @@
 [package]
 authors = ["The Nushell Project Developers"]
-build = "build.rs"
 description = "Nushell's built-in commands"
 edition = "2021"
 license = "MIT"
@@ -154,9 +153,6 @@ plugin = ["nu-parser/plugin"]
 sqlite = ["rusqlite"]                      # TODO: given that rusqlite is included in reedline, should we just always include it?
 trash-support = ["trash"]
 which-support = ["which"]
-
-[build-dependencies]
-shadow-rs = { version = "0.20.0", default-features = false }
 
 [dev-dependencies]
 nu-test-support = { path = "../nu-test-support", version = "0.76.1" }
