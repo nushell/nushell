@@ -2852,13 +2852,7 @@ fn parse_list_shape(
 
     let inner_span = Span::new(start, if is_terminated { end - 1 } else { end });
 
-    let src = &bytes[5..{
-        if is_terminated {
-            bytes.len() - 1
-        } else {
-            bytes.len()
-        }
-    }];
+    let src = working_set.get_span_contents(inner_span);
 
     // list<>
     if src.is_empty() && is_terminated {
