@@ -16,7 +16,7 @@ impl Command for GetSecond {
     }
 
     fn usage(&self) -> &str {
-        "Gets second from date"
+        "Gets second from date."
     }
 
     fn signature(&self) -> Signature {

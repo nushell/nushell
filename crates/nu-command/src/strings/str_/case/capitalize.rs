@@ -26,7 +26,7 @@ impl Command for SubCommand {
     }
 
     fn usage(&self) -> &str {
-        "Capitalize first letter of text"
+        "Capitalize first letter of text."
     }
 
     fn search_terms(&self) -> Vec<&str> {

@@ -14,7 +14,7 @@ impl Command for FromJson {
     }
 
     fn usage(&self) -> &str {
-        "Convert from json to structured data"
+        "Convert from json to structured data."
     }
 
     fn signature(&self) -> nu_protocol::Signature {

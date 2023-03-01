@@ -14,7 +14,7 @@ impl Command for For {
     }
 
     fn usage(&self) -> &str {
-        "Loop over a range"
+        "Loop over a range."
     }
 
     fn signature(&self) -> nu_protocol::Signature {

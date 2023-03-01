@@ -16,7 +16,7 @@ impl Command for ToLowerCase {
     }
 
     fn usage(&self) -> &str {
-        "Lowercase the strings in the column"
+        "Lowercase the strings in the column."
     }
 
     fn signature(&self) -> Signature {

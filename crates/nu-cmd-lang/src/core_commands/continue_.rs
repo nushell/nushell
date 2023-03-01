@@ -11,7 +11,7 @@ impl Command for Continue {
     }
 
     fn usage(&self) -> &str {
-        "Continue a loop from the next iteration"
+        "Continue a loop from the next iteration."
     }
 
     fn signature(&self) -> nu_protocol::Signature {

@@ -24,7 +24,7 @@ impl Command for SubCommand {
     }
 
     fn usage(&self) -> &str {
-        "Returns the standard deviation of a list of numbers, or of each column in a table"
+        "Returns the standard deviation of a list of numbers, or of each column in a table."
     }
 
     fn search_terms(&self) -> Vec<&str> {

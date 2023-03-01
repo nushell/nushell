@@ -13,7 +13,7 @@ impl Command for Module {
     }
 
     fn usage(&self) -> &str {
-        "Define a custom module"
+        "Define a custom module."
     }
 
     fn signature(&self) -> nu_protocol::Signature {

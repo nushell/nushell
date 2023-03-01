@@ -16,7 +16,7 @@ impl Command for GetMinute {
     }
 
     fn usage(&self) -> &str {
-        "Gets minute from date"
+        "Gets minute from date."
     }
 
     fn signature(&self) -> Signature {

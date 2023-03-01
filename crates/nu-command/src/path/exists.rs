@@ -41,7 +41,7 @@ impl Command for SubCommand {
     }
 
     fn usage(&self) -> &str {
-        "Check whether a path exists"
+        "Check whether a path exists."
     }
 
     fn extra_usage(&self) -> &str {

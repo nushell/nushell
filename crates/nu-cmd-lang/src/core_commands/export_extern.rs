@@ -11,7 +11,7 @@ impl Command for ExportExtern {
     }
 
     fn usage(&self) -> &str {
-        "Define an extern and export it from a module"
+        "Define an extern and export it from a module."
     }
 
     fn signature(&self) -> nu_protocol::Signature {

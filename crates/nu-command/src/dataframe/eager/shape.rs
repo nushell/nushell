@@ -17,7 +17,7 @@ impl Command for ShapeDF {
     }
 
     fn usage(&self) -> &str {
-        "Shows column and row size for a dataframe"
+        "Shows column and row size for a dataframe."
     }
 
     fn signature(&self) -> Signature {

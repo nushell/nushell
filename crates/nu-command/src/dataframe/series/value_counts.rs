@@ -17,7 +17,7 @@ impl Command for ValueCount {
     }
 
     fn usage(&self) -> &str {
-        "Returns a dataframe with the counts for unique values in series"
+        "Returns a dataframe with the counts for unique values in series."
     }
 
     fn signature(&self) -> Signature {

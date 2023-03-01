@@ -16,7 +16,7 @@ impl Command for ArgSort {
     }
 
     fn usage(&self) -> &str {
-        "Returns indexes for a sorted series"
+        "Returns indexes for a sorted series."
     }
 
     fn search_terms(&self) -> Vec<&str> {

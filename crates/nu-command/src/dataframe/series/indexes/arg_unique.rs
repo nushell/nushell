@@ -16,7 +16,7 @@ impl Command for ArgUnique {
     }
 
     fn usage(&self) -> &str {
-        "Returns indexes for unique values"
+        "Returns indexes for unique values."
     }
 
     fn search_terms(&self) -> Vec<&str> {

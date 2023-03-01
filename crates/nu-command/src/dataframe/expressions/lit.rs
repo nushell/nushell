@@ -15,7 +15,7 @@ impl Command for ExprLit {
     }
 
     fn usage(&self) -> &str {
-        "Creates a literal expression"
+        "Creates a literal expression."
     }
 
     fn signature(&self) -> Signature {

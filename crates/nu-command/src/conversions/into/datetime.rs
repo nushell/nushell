@@ -139,7 +139,7 @@ impl Command for SubCommand {
     }
 
     fn usage(&self) -> &str {
-        "Convert text into a datetime"
+        "Convert text into a datetime."
     }
 
     fn search_terms(&self) -> Vec<&str> {

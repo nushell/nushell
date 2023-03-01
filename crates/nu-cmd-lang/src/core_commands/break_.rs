@@ -11,7 +11,7 @@ impl Command for Break {
     }
 
     fn usage(&self) -> &str {
-        "Break a loop"
+        "Break a loop."
     }
 
     fn signature(&self) -> nu_protocol::Signature {

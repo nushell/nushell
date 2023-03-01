@@ -15,7 +15,7 @@ impl Command for NNull {
     }
 
     fn usage(&self) -> &str {
-        "Counts null values"
+        "Counts null values."
     }
 
     fn signature(&self) -> Signature {

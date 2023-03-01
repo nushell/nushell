@@ -16,7 +16,7 @@ impl Command for GetDay {
     }
 
     fn usage(&self) -> &str {
-        "Gets day from date"
+        "Gets day from date."
     }
 
     fn signature(&self) -> Signature {

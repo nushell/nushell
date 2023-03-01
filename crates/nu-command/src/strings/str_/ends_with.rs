@@ -41,7 +41,7 @@ impl Command for SubCommand {
     }
 
     fn usage(&self) -> &str {
-        "Check if an input ends with a string"
+        "Check if an input ends with a string."
     }
 
     fn search_terms(&self) -> Vec<&str> {

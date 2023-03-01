@@ -13,7 +13,7 @@ impl Command for Def {
     }
 
     fn usage(&self) -> &str {
-        "Define a custom command"
+        "Define a custom command."
     }
 
     fn signature(&self) -> nu_protocol::Signature {

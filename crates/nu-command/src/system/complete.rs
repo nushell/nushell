@@ -21,7 +21,7 @@ impl Command for Complete {
     }
 
     fn usage(&self) -> &str {
-        "Capture the outputs and exit code from an external piped in command in a nushell table"
+        "Capture the outputs and exit code from an external piped in command in a nushell table."
     }
 
     fn extra_usage(&self) -> &str {

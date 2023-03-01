@@ -18,7 +18,7 @@ impl Command for SubCommand {
     }
 
     fn usage(&self) -> &str {
-        "Returns the floor of a number (largest integer less than or equal to that number)"
+        "Returns the floor of a number (largest integer less than or equal to that number)."
     }
 
     fn search_terms(&self) -> Vec<&str> {
@@ -58,8 +58,8 @@ impl Command for SubCommand {
 fn operate(value: Value, head: Span) -> Value {
     match value {
         Value::Int { .. } => value,
-        Value::Float { val, span } => Value::Float {
-            val: val.floor(),
+        Value::Float { val, span } => Value::Int {
+            val: val.floor() as i64,
             span,
         },
         Value::Error { .. } => value,

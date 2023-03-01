@@ -129,7 +129,7 @@ struct Arguments {
     content_type: Option<String>,
     content_length: Option<String>,
     raw: bool,
-    insecure: Option<bool>,
+    insecure: bool,
     user: Option<String>,
     password: Option<String>,
     timeout: Option<Value>,
@@ -148,11 +148,12 @@ fn run_post(
         content_type: call.get_flag(engine_state, stack, "content-type")?,
         content_length: call.get_flag(engine_state, stack, "content-length")?,
         raw: call.has_flag("raw"),
-        insecure: call.get_flag(engine_state, stack, "insecure")?,
+        insecure: call.has_flag("insecure"),
         user: call.get_flag(engine_state, stack, "user")?,
         password: call.get_flag(engine_state, stack, "password")?,
-        timeout: call.get_flag(engine_state, stack, "timeout")?,
+        timeout: call.get_flag(engine_state, stack, "max-time")?,
     };
+
     helper(engine_state, stack, call, args)
 }
 
@@ -167,7 +168,7 @@ fn helper(
     let span = args.url.span()?;
     let (requested_url, url) = http_parse_url(call, span, args.url)?;
 
-    let client = http_client(args.insecure.is_some());
+    let client = http_client(args.insecure);
     let mut request = client.post(url);
 
     request = request_set_body(args.content_type, args.content_length, args.data, request)?;

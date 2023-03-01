@@ -32,7 +32,7 @@ impl Command for SubCommand {
     }
 
     fn usage(&self) -> &str {
-        "Convert value to boolean"
+        "Convert value to boolean."
     }
 
     fn search_terms(&self) -> Vec<&str> {

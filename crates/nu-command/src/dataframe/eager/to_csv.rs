@@ -19,7 +19,7 @@ impl Command for ToCSV {
     }
 
     fn usage(&self) -> &str {
-        "Saves dataframe to csv file"
+        "Saves dataframe to csv file."
     }
 
     fn signature(&self) -> Signature {

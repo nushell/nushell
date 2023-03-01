@@ -48,7 +48,7 @@ impl Command for IntoSqliteDb {
     }
 
     fn usage(&self) -> &str {
-        "Convert table into a SQLite database"
+        "Convert table into a SQLite database."
     }
 
     fn search_terms(&self) -> Vec<&str> {

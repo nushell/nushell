@@ -55,7 +55,7 @@ impl Command for SubCommand {
     }
 
     fn usage(&self) -> &str {
-        "Split a string's words into separate rows"
+        "Split a string's words into separate rows."
     }
 
     fn search_terms(&self) -> Vec<&str> {

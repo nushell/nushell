@@ -13,7 +13,7 @@ impl Command for ExportDef {
     }
 
     fn usage(&self) -> &str {
-        "Define a custom command and export it from a module"
+        "Define a custom command and export it from a module."
     }
 
     fn signature(&self) -> nu_protocol::Signature {

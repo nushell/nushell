@@ -16,7 +16,7 @@ impl Command for GetYear {
     }
 
     fn usage(&self) -> &str {
-        "Gets year from date"
+        "Gets year from date."
     }
 
     fn signature(&self) -> Signature {

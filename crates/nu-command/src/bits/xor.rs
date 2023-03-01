@@ -26,7 +26,7 @@ impl Command for SubCommand {
     }
 
     fn usage(&self) -> &str {
-        "Performs bitwise xor for integers"
+        "Performs bitwise xor for integers."
     }
 
     fn search_terms(&self) -> Vec<&str> {

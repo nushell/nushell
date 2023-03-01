@@ -16,7 +16,7 @@ impl Command for SampleDF {
     }
 
     fn usage(&self) -> &str {
-        "Create sample dataframe"
+        "Create sample dataframe."
     }
 
     fn signature(&self) -> Signature {
