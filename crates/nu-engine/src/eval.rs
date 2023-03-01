@@ -699,7 +699,14 @@ pub fn eval_expression_with_input(
         }
     };
 
-    Ok(might_consume_external_result(input))
+    // Note: for `table` command, it mights returns `ExternalStream with stdout`
+    // whatever `redirect_output` is true or false, so we only want to consume ExternalStream
+    // if relative stdout is None.
+    if let PipelineData::ExternalStream { stdout: None, .. } = input {
+        Ok(might_consume_external_result(input))
+    } else {
+        Ok((input, false))
+    }
 }
 
 // Try to catch and detect if external command runs to failed.
@@ -1197,12 +1204,70 @@ pub fn eval_subexpression(
     mut input: PipelineData,
 ) -> Result<PipelineData, ShellError> {
     for pipeline in block.pipelines.iter() {
-        for expr in pipeline.elements.iter() {
-            input = eval_element_with_input(engine_state, stack, expr, input, true, false)?.0
+        for (expr_indx, expr) in pipeline.elements.iter().enumerate() {
+            if expr_indx != pipeline.elements.len() - 1 {
+                input = eval_element_with_input(engine_state, stack, expr, input, true, false)?.0;
+            } else {
+                // In subexpression, we always need to redirect stdout because the result is substituted to a Value.
+                //
+                // But we can check if external result is failed to run when it's the last expression
+                // in pipeline.  e.g: (^false; echo aaa)
+                //
+                // If external command is failed to run, it can't be convert into value, in this case
+                // we throws out `ShellError::ExternalCommand`.  And show it's stderr message information.
+                // In the case, we need to capture stderr first during eval.
+                input = eval_element_with_input(engine_state, stack, expr, input, true, true)?.0;
+                if matches!(input, PipelineData::ExternalStream { .. }) {
+                    input = check_subexp_substitution(input)?;
+                }
+            }
         }
     }
 
     Ok(input)
+}
+
+fn check_subexp_substitution(mut input: PipelineData) -> Result<PipelineData, ShellError> {
+    let consume_result = might_consume_external_result(input);
+    input = consume_result.0;
+    let failed_to_run = consume_result.1;
+    if let PipelineData::ExternalStream {
+        stdout,
+        stderr,
+        exit_code,
+        span,
+        metadata,
+        trim_end_newline,
+    } = input
+    {
+        let stderr_msg = match stderr {
+            None => "".to_string(),
+            Some(stderr_stream) => stderr_stream.into_string().map(|s| s.item)?,
+        };
+        if failed_to_run {
+            Err(ShellError::ExternalCommand(
+                "External command failed".to_string(),
+                stderr_msg,
+                span,
+            ))
+        } else {
+            // we've captured stderr message, but it's running success.
+            // So we need to re-print stderr message out.
+            if !stderr_msg.is_empty() {
+                eprintln!("{stderr_msg}");
+            }
+            Ok(PipelineData::ExternalStream {
+                stdout,
+                stderr: None,
+                exit_code,
+                span,
+                metadata,
+                trim_end_newline,
+            })
+        }
+    } else {
+        Ok(input)
+    }
 }
 
 pub fn eval_variable(
