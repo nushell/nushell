@@ -2,9 +2,12 @@
 
 [![crate](https://img.shields.io/crates/v/nu-json.svg?style=flat-square)](https://crates.io/crates/nu-json)
 
-> a fork of [serde_hjson](https://crates.io/crates/serde-hjson).
+> a fork of [serde_hjson](https://crates.io/crates/serde-hjson). 
 
 > Unlike serde_hjson, this project is actively maintained and improved.
+
+> The changes made to this crate are kept in [CHANGELOG](https://github.com/nushell/nushell/blob/main/crates/nu-json/CHANGELOG.md).
+
 
 The Rust implementation of Hjson is based on the [Serde JSON Serialization Library](https://github.com/serde-rs/json). 
 
