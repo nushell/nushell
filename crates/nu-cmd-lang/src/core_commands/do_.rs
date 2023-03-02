@@ -24,7 +24,7 @@ impl Command for Do {
         Signature::build("do")
             .required(
                 "closure",
-                SyntaxShape::OneOf(vec![SyntaxShape::Block, SyntaxShape::Any]),
+                SyntaxShape::OneOf(vec![SyntaxShape::Closure(None), SyntaxShape::Any]),
                 "the closure to run",
             )
             .input_output_types(vec![(Type::Any, Type::Any)])

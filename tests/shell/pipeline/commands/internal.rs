@@ -649,11 +649,11 @@ fn octal_number() {
 }
 
 #[test]
-fn run_dynamic_blocks() {
+fn run_dynamic_closures() {
     let actual = nu!(
         cwd: ".",
         r#"
-        let block = { echo "holaaaa" }; do $block
+        let closure = {|| echo "holaaaa" }; do $closure
         "#
     );
     assert_eq!(actual.out, "holaaaa");
@@ -1176,7 +1176,7 @@ fn hide_alias_shadowing() {
         r#"
         def test-shadowing [] {
             alias greet = echo hello;
-            let xyz = { greet };
+            let xyz = {|| greet };
             hide greet;
             do $xyz
         };
