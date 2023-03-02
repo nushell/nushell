@@ -32,7 +32,7 @@ impl Command for SubCommand {
                 (Type::String, Type::Int),
                 (Type::Number, Type::Int),
                 (Type::Bool, Type::Int),
-                // Unix timestamp in seconds
+                // Unix timestamp in nanoseconds
                 (Type::Date, Type::Int),
                 // TODO: Users should do this by dividing a Filesize by a Filesize explicitly
                 (Type::Filesize, Type::Int),
@@ -124,9 +124,9 @@ impl Command for SubCommand {
                 }),
             },
             Example {
-                description: "Convert date to integer (Unix timestamp)",
-                example: "2022-02-02 | into int",
-                result: Some(Value::test_int(1643760000)),
+                description: "Convert date to integer (Unix nanosecond timestamp)",
+                example: "1983-04-13T12:09:14.123456789-05:00 | into int",
+                result: Some(Value::test_int(419101754123456789)),
             },
             Example {
                 description: "Convert to integer from binary",
@@ -218,7 +218,7 @@ fn action(input: &Value, args: &Arguments, span: Span) -> Value {
             }
         }
         Value::Date { val, .. } => Value::Int {
-            val: val.timestamp(),
+            val: val.timestamp_nanos(),
             span,
         },
         Value::Duration { val, .. } => Value::Int { val: *val, span },

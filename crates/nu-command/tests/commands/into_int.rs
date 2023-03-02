@@ -1,3 +1,4 @@
+use chrono::{DateTime, FixedOffset, NaiveDate, TimeZone};
 use nu_test_support::{nu, pipeline};
 
 #[test]
@@ -46,4 +47,39 @@ fn into_int_binary() {
     ));
 
     assert!(actual.out.contains("16843009"));
+}
+
+#[test]
+fn into_int_datetime1() {
+    let dt = DateTime::parse_from_rfc3339("1983-04-13T12:09:14.123456789+00:00");
+    eprintln!("dt debug {:?}", dt);
+    assert_eq!(
+        dt,
+        Ok(FixedOffset::east_opt(0)
+            .unwrap()
+            .from_local_datetime(
+                &NaiveDate::from_ymd_opt(1983, 4, 13)
+                    .unwrap()
+                    .and_hms_nano_opt(12, 9, 14, 123456789)
+                    .unwrap()
+            )
+            .unwrap())
+    );
+
+    let dt_nano = dt.expect("foo").timestamp_nanos();
+    assert_eq!(dt_nano % 1_000_000_000, 123456789);
+}
+
+#[test]
+fn into_int_datetime2() {
+    let actual = nu!(
+        cwd: ".", pipeline(
+        r#"
+        "1983-04-13T12:09:14.123456789-05:00" 
+        | into datetime --format "%+" 
+        | into int
+        "#
+    ));
+
+    assert_eq!("419101754123456789", actual.out);
 }
