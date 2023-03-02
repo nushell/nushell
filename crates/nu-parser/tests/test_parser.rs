@@ -1856,7 +1856,6 @@ mod input_types {
         );
 
         let err = err.unwrap();
-        println!("debug err: {err:?}");
 
         assert!(matches!(err, ParseError::VariableNotFound(_)));
     }
