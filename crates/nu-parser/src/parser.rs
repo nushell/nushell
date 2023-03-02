@@ -4261,6 +4261,7 @@ pub fn parse_closure_expression(
     shape: &SyntaxShape,
     span: Span,
     expand_aliases_denylist: &[usize],
+    require_pipe: bool,
 ) -> (Expression, Option<ParseError>) {
     trace!("parsing: closure expression");
 
@@ -4337,7 +4338,16 @@ pub fn parse_closure_expression(
             Some((Box::new(Signature::new("closure".to_string())), *span)),
             1,
         ),
-        _ => (None, 0),
+        _ => {
+            if require_pipe {
+                return (
+                    garbage(span),
+                    Some(ParseError::Expected("pipe".into(), span)),
+                );
+            } else {
+                (None, 0)
+            }
+        }
     };
 
     // TODO: Finish this
@@ -4518,8 +4528,24 @@ pub fn parse_value(
                     None => return (expr, None),
                 }
             }
-            if matches!(shape, SyntaxShape::Closure(_)) || matches!(shape, SyntaxShape::Any) {
-                return parse_closure_expression(working_set, shape, span, expand_aliases_denylist);
+            if matches!(shape, SyntaxShape::Closure(Some(_))) || matches!(shape, SyntaxShape::Any) {
+                return parse_closure_expression(
+                    working_set,
+                    shape,
+                    span,
+                    expand_aliases_denylist,
+                    true,
+                );
+            } else if matches!(shape, SyntaxShape::Closure(None)) {
+                // Closure(None) is a special case, thought only be used by `def`
+                // because we can't modify mutable variable inside custom command.
+                return parse_closure_expression(
+                    working_set,
+                    shape,
+                    span,
+                    expand_aliases_denylist,
+                    false,
+                );
             } else if matches!(shape, SyntaxShape::Block) {
                 return parse_block_expression(working_set, shape, span, expand_aliases_denylist);
             } else if matches!(shape, SyntaxShape::Record) {
