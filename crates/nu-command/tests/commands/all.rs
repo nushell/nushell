@@ -85,7 +85,7 @@ fn works_with_1_param_blocks() {
 fn works_with_0_param_blocks() {
     let actual = nu!(
         cwd: ".", pipeline(
-        r#"[1 2 3] | all { print $in | true }"#
+        r#"[1 2 3] | all {|| print $in | true }"#
     ));
 
     assert_eq!(actual.out, "123true");
@@ -105,7 +105,7 @@ fn early_exits_with_1_param_blocks() {
 fn early_exits_with_0_param_blocks() {
     let actual = nu!(
         cwd: ".", pipeline(
-        r#"[1 2 3] | all { print $in | false }"#
+        r#"[1 2 3] | all {|| print $in | false }"#
     ));
 
     assert_eq!(actual.out, "1false");
@@ -125,7 +125,7 @@ fn all_uses_enumerate_index() {
 fn unique_env_each_iteration() {
     let actual = nu!(
         cwd: "tests/fixtures/formats",
-        "[1 2] | all { print ($env.PWD | str ends-with 'formats') | cd '/' | true } | to nuon"
+        "[1 2] | all {|| print ($env.PWD | str ends-with 'formats') | cd '/' | true } | to nuon"
     );
 
     assert_eq!(actual.out, "truetruetrue");

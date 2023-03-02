@@ -26,7 +26,10 @@ impl Command for Try {
                 "catch_block",
                 SyntaxShape::Keyword(
                     b"catch".to_vec(),
-                    Box::new(SyntaxShape::Closure(Some(vec![SyntaxShape::Any]))),
+                    Box::new(SyntaxShape::OneOf(vec![
+                        SyntaxShape::Closure(None),
+                        SyntaxShape::Closure(Some(vec![SyntaxShape::Any])),
+                    ])),
                 ),
                 "block to run if try block fails",
             )

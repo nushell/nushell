@@ -4537,8 +4537,8 @@ pub fn parse_value(
                     true,
                 );
             } else if matches!(shape, SyntaxShape::Closure(None)) {
-                // Closure(None) is a special case, thought only be used by `def`
-                // because we can't modify mutable variable inside custom command.
+                // Closure(None) is a special case.
+                // Should only be used in command signature definition.
                 return parse_closure_expression(
                     working_set,
                     shape,
