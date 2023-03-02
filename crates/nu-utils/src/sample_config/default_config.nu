@@ -12,7 +12,7 @@ let dark_theme = {
     empty: blue
     # Closures can be used to choose colors for specific values.
     # The value (in this case, a bool) is piped into the closure.
-    bool: { if $in { 'light_cyan' } else { 'light_gray' } }
+    bool: {|| if $in { 'light_cyan' } else { 'light_gray' } }
     int: white
     filesize: {|e|
       if $e == 0b {
@@ -22,7 +22,7 @@ let dark_theme = {
       } else { 'blue' }
     }
     duration: white
-    date: { (date now) - $in |
+    date: {|| (date now) - $in |
       if $in < 1hr {
         'red3b'
       } else if $in < 6hr {
@@ -93,7 +93,7 @@ let light_theme = {
     empty: blue
     # Closures can be used to choose colors for specific values.
     # The value (in this case, a bool) is piped into the closure.
-    bool: { if $in { 'dark_cyan' } else { 'dark_gray' } }
+    bool: {|| if $in { 'dark_cyan' } else { 'dark_gray' } }
     int: dark_gray
     filesize: {|e|
       if $e == 0b {
@@ -103,7 +103,7 @@ let light_theme = {
       } else { 'blue_bold' }
     }
     duration: dark_gray
-  date: { (date now) - $in |
+  date: {|| (date now) - $in |
     if $in < 1hr {
       'red3b'
     } else if $in < 6hr {

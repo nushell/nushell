@@ -38,6 +38,13 @@ pub enum ParseError {
     #[diagnostic(code(nu::parser::parse_mismatch))]
     Expected(String, #[label("expected {0}")] Span),
 
+    #[error("Missing || inside closure")]
+    #[diagnostic(
+        code(nu::parser::closure_missing_pipe),
+        help("Try add || to the beginning of closure")
+    )]
+    ClosureMissingPipe(#[label("Parsing as a closure, but || is missing")] Span),
+
     #[error("Type mismatch during operation.")]
     #[diagnostic(code(nu::parser::type_mismatch))]
     Mismatch(String, String, #[label("expected {0}, found {1}")] Span), // expected, found, span
@@ -479,6 +486,7 @@ impl ParseError {
             ParseError::UnknownOperator(_, _, s) => *s,
             ParseError::InvalidLiteral(_, _, s) => *s,
             ParseError::NotAConstant(s) => *s,
+            ParseError::ClosureMissingPipe(s) => *s,
         }
     }
 }

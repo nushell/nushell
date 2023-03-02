@@ -4340,10 +4340,7 @@ pub fn parse_closure_expression(
         ),
         _ => {
             if require_pipe {
-                return (
-                    garbage(span),
-                    Some(ParseError::Expected("pipe".into(), span)),
-                );
+                return (garbage(span), Some(ParseError::ClosureMissingPipe(span)));
             } else {
                 (None, 0)
             }
