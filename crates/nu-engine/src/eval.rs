@@ -6,10 +6,9 @@ use nu_protocol::{
         Operator, PathMember, PipelineElement, Redirection,
     },
     engine::{EngineState, ProfilingConfig, Stack},
-    Config, DataSource, IntoInterruptiblePipelineData, IntoPipelineData, PipelineData,
-    PipelineMetadata, Range, ShellError, Span, Spanned, Unit, Value, VarId, ENV_VARIABLE_ID,
+    DataSource, IntoInterruptiblePipelineData, IntoPipelineData, PipelineData, PipelineMetadata,
+    Range, ShellError, Span, Spanned, Unit, Value, VarId, ENV_VARIABLE_ID,
 };
-use nu_utils::stdout_write_all_and_flush;
 use std::collections::HashMap;
 use std::time::Instant;
 
@@ -1107,24 +1106,7 @@ pub fn eval_block(
                 } => {
                     let exit_code = exit_code.take();
 
-                    // Drain the input to the screen via tabular output
-                    let config = engine_state.get_config();
-
-                    match engine_state.find_decl("table".as_bytes(), &[]) {
-                        Some(decl_id) => {
-                            let table = engine_state.get_decl(decl_id).run(
-                                engine_state,
-                                stack,
-                                &Call::new(Span::new(0, 0)),
-                                input,
-                            )?;
-
-                            print_or_return(table, config)?;
-                        }
-                        None => {
-                            print_or_return(input, config)?;
-                        }
-                    };
+                    input.drain()?;
 
                     if let Some(exit_code) = exit_code {
                         let mut v: Vec<_> = exit_code.collect();
@@ -1134,40 +1116,7 @@ pub fn eval_block(
                         }
                     }
                 }
-                _ => {
-                    // Drain the input to the screen via tabular output
-                    let config = engine_state.get_config();
-
-                    match engine_state.find_decl("table".as_bytes(), &[]) {
-                        Some(decl_id) => {
-                            let table = engine_state.get_decl(decl_id);
-
-                            if let Some(block_id) = table.get_block_id() {
-                                let block = engine_state.get_block(block_id);
-                                eval_block(
-                                    engine_state,
-                                    stack,
-                                    block,
-                                    input,
-                                    redirect_stdout,
-                                    redirect_stderr,
-                                )?;
-                            } else {
-                                let table = table.run(
-                                    engine_state,
-                                    stack,
-                                    &Call::new(Span::new(0, 0)),
-                                    input,
-                                )?;
-
-                                print_or_return(table, config)?;
-                            }
-                        }
-                        None => {
-                            print_or_return(input, config)?;
-                        }
-                    };
-                }
+                _ => input.drain()?,
             }
 
             input = PipelineData::empty()
@@ -1180,21 +1129,6 @@ pub fn eval_block(
     } else {
         Ok(input)
     }
-}
-
-fn print_or_return(pipeline_data: PipelineData, config: &Config) -> Result<(), ShellError> {
-    for item in pipeline_data {
-        if let Value::Error { error } = item {
-            return Err(error);
-        }
-
-        let mut out = item.into_string("\n", config);
-        out.push('\n');
-
-        stdout_write_all_and_flush(out)?;
-    }
-
-    Ok(())
 }
 
 pub fn eval_subexpression(
