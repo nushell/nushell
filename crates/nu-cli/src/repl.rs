@@ -459,15 +459,16 @@ pub fn evaluate_repl(
                         .into_diagnostic()?; // todo: don't stop repl if error here?
                 }
 
-                engine_state
-                    .repl_buffer_state
-                    .lock()
-                    .expect("repl buffer state mutex")
-                    .replace(line_editor.current_buffer_contents().to_string());
-
                 // Right before we start running the code the user gave us,
                 // fire the "pre_execution" hook
                 if let Some(hook) = config.hooks.pre_execution.clone() {
+                    // Set the REPL buffer to the current command for the "pre_execution" hook
+                    engine_state
+                        .repl_buffer_state
+                        .lock()
+                        .expect("repl buffer state mutex")
+                        .replace(s.to_string());
+
                     if let Err(err) = eval_hook(engine_state, stack, None, vec![], &hook) {
                         report_error_new(engine_state, &err);
                     }
@@ -476,6 +477,13 @@ pub fn evaluate_repl(
                 if shell_integration {
                     run_ansi_sequence(PRE_EXECUTE_MARKER)?;
                 }
+
+                // The next REPL buffer could've been edited by `commandline`. Update it.
+                engine_state
+                    .repl_buffer_state
+                    .lock()
+                    .expect("repl buffer state mutex")
+                    .replace(line_editor.current_buffer_contents().to_string());
 
                 let start_time = Instant::now();
                 let tokens = lex(s.as_bytes(), 0, &[], &[], false);
