@@ -1847,7 +1847,6 @@ mod input_types {
         add_declarations(&mut engine_state);
 
         let mut working_set = StateWorkingSet::new(&engine_state);
-        env_logger::init();
         let (_, err) = parse(
             &mut working_set,
             None,
