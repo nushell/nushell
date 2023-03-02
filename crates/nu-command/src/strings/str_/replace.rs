@@ -209,7 +209,7 @@ fn action(
                         }
                     }
                     Err(e) => Value::Error {
-                        error: ShellError::IncorrectValue(format!("Regex error: {e}"), find.span),
+                        error: ShellError::IncorrectValue { msg: format!("Regex error: {e}"), span: find.span },
                     },
                 }
             }

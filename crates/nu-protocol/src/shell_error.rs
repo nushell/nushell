@@ -121,7 +121,11 @@ pub enum ShellError {
     /// Correct the argument value before passing it in or change the command.
     #[error("Incorrect value.")]
     #[diagnostic(code(nu::shell::incorrect_value))]
-    IncorrectValue(String, #[label = "{0}"] Span),
+    IncorrectValue {
+        msg: String,
+        #[label = "{msg}"]
+        span: Span,
+    },
 
     /// This value cannot be used with this operator.
     ///
