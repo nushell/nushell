@@ -6,7 +6,7 @@
 
 > Unlike serde_hjson, this project is actively maintained and improved.
 
-> The changes made to this crate are kept in [CHANGELOG](https://github.com/nushell/nushell/blob/main/crates/nu-json/CHANGELOG.md).
+> The changes made to this crate are kept in [CHANGELOG](/crates/nu-json/CHANGELOG.md).
 
 
 The Rust implementation of Hjson is based on the [Serde JSON Serialization Library](https://github.com/serde-rs/json). 
