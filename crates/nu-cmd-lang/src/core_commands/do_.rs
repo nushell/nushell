@@ -22,7 +22,11 @@ impl Command for Do {
 
     fn signature(&self) -> Signature {
         Signature::build("do")
-            .required("closure", SyntaxShape::Any, "the closure to run")
+            .required(
+                "closure",
+                SyntaxShape::OneOf(vec![SyntaxShape::Block, SyntaxShape::Any]),
+                "the closure to run",
+            )
             .input_output_types(vec![(Type::Any, Type::Any)])
             .switch(
                 "ignore-errors",
