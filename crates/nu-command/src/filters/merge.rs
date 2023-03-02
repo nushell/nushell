@@ -174,17 +174,18 @@ repeating this process with row 1, and so on."#
                     val.span()?
                 };
 
-                Err(ShellError::PipelineMismatch(
-                    "input, and argument, to be both record or both table".to_string(),
-                    call.head,
-                    span,
-                ))
+                Err(ShellError::PipelineMismatch {
+                    exp_input_type: "input, and argument, to be both record or both table"
+                        .to_string(),
+                    dst_span: call.head,
+                    src_span: span,
+                })
             }
-            _ => Err(ShellError::PipelineMismatch(
-                "input, and argument, to be both record or both table".to_string(),
-                call.head,
-                Span::new(call.head.start, call.head.start),
-            )),
+            _ => Err(ShellError::PipelineMismatch {
+                exp_input_type: "input, and argument, to be both record or both table".to_string(),
+                dst_span: call.head,
+                src_span: Span::new(call.head.start, call.head.start),
+            }),
         }
     }
 }

@@ -131,12 +131,12 @@ impl Prompt for NushellPrompt {
         match edit_mode {
             PromptEditMode::Default => match &self.default_prompt_indicator {
                 Some(indicator) => indicator,
-                None => "〉",
+                None => "> ",
             }
             .into(),
             PromptEditMode::Emacs => match &self.default_prompt_indicator {
                 Some(indicator) => indicator,
-                None => "〉",
+                None => "> ",
             }
             .into(),
             PromptEditMode::Vi(vi_mode) => match vi_mode {
@@ -146,7 +146,7 @@ impl Prompt for NushellPrompt {
                 },
                 PromptViMode::Insert => match &self.default_vi_insert_prompt_indicator {
                     Some(indicator) => indicator,
-                    None => "〉",
+                    None => "> ",
                 },
             }
             .into(),

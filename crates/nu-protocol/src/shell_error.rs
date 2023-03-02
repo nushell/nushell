@@ -34,8 +34,13 @@ pub enum ShellError {
     /// Check the inputs to the operation and add guards for their sizes.
     /// Integers are generally of size i64, floats are generally f64.
     #[error("Operator overflow.")]
-    #[diagnostic(code(nu::shell::operator_overflow), help("{2}"))]
-    OperatorOverflow(String, #[label = "{0}"] Span, String),
+    #[diagnostic(code(nu::shell::operator_overflow), help("{help}"))]
+    OperatorOverflow {
+        msg: String,
+        #[label = "{msg}"]
+        span: Span,
+        help: String,
+    },
 
     /// The pipelined input into a command was not of the expected type. For example, it might
     /// expect a string input, but received a table instead.
@@ -45,20 +50,33 @@ pub enum ShellError {
     /// Check the relevant pipeline and extract or convert values as needed.
     #[error("Pipeline mismatch.")]
     #[diagnostic(code(nu::shell::pipeline_mismatch))]
-    PipelineMismatch(
-        String,
-        #[label("expected: {0}")] Span,
-        #[label("value originates from here")] Span,
-    ),
+    PipelineMismatch {
+        exp_input_type: String,
+        #[label("expected: {exp_input_type}")]
+        dst_span: Span,
+        #[label("value originates from here")]
+        src_span: Span,
+    },
 
+    // TODO: properly unify
+    /// The pipelined input into a command was not of the expected type. For example, it might
+    /// expect a string input, but received a table instead.
+    ///
+    /// (duplicate of [`ShellError::PipelineMismatch`] that reports the observed type)
+    ///
+    /// ## Resolution
+    ///
+    /// Check the relevant pipeline and extract or convert values as needed.
     #[error("Input type not supported.")]
     #[diagnostic(code(nu::shell::only_supports_this_input_type))]
-    OnlySupportsThisInputType(
-        String,
-        String,
-        #[label("only {0} input data is supported")] Span,
-        #[label("input type: {1}")] Span,
-    ),
+    OnlySupportsThisInputType {
+        exp_input_type: String,
+        wrong_type: String,
+        #[label("only {exp_input_type} input data is supported")]
+        dst_span: Span,
+        #[label("input type: {wrong_type}")]
+        src_span: Span,
+    },
 
     /// No input value was piped into the command.
     ///
@@ -67,8 +85,12 @@ pub enum ShellError {
     /// Only use this command to process values from a previous expression.
     #[error("Pipeline empty.")]
     #[diagnostic(code(nu::shell::pipeline_mismatch))]
-    PipelineEmpty(#[label("no input value was piped in")] Span),
+    PipelineEmpty {
+        #[label("no input value was piped in")]
+        dst_span: Span,
+    },
 
+    // TODO: remove non type error usages
     /// A command received an argument of the wrong type.
     ///
     /// ## Resolution
@@ -78,6 +100,7 @@ pub enum ShellError {
     #[diagnostic(code(nu::shell::type_mismatch))]
     TypeMismatch(String, #[label = "{0}"] Span),
 
+    // TODO: merge with `TypeMismatch` as they are currently identical in capability
     /// A command received an argument of the wrong type.
     ///
     /// ## Resolution
@@ -215,9 +238,14 @@ pub enum ShellError {
     /// ## Resolution
     ///
     /// Check to make sure both values are compatible, and that the values are enumerable in Nushell.
-    #[error("Invalid range {0}..{1}")]
+    #[error("Invalid range {left_flank}..{right_flank}")]
     #[diagnostic(code(nu::shell::invalid_range))]
-    InvalidRange(String, String, #[label = "expected a valid range"] Span),
+    InvalidRange {
+        left_flank: String,
+        right_flank: String,
+        #[label = "expected a valid range"]
+        span: Span,
+    },
 
     /// Catastrophic nushell failure. This reflects a completely unexpected or unrecoverable error.
     ///

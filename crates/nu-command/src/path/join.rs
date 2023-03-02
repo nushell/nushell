@@ -80,7 +80,7 @@ the output of 'path parse' and 'path split' subcommands."#
                 handle_value(input.into_value(head), &args, head),
                 metadata,
             )),
-            PipelineData::Empty { .. } => Err(ShellError::PipelineEmpty(head)),
+            PipelineData::Empty { .. } => Err(ShellError::PipelineEmpty { dst_span: head }),
             _ => Err(ShellError::UnsupportedInput(
                 "Input value cannot be joined".to_string(),
                 "value originates from here".into(),
@@ -197,7 +197,11 @@ fn join_list(parts: &[Value], head: Span, span: Span, args: &Arguments) -> Value
                     Value::List { vals, span }
                 }
                 Err(_) => Value::Error {
-                    error: ShellError::PipelineMismatch("string or record".into(), head, span),
+                    error: ShellError::PipelineMismatch {
+                        exp_input_type: "string or record".into(),
+                        dst_span: head,
+                        src_span: span,
+                    },
                 },
             }
         }

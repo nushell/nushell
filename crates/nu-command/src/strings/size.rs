@@ -118,7 +118,7 @@ fn size(
     let span = call.head;
     // This doesn't match explicit nulls
     if matches!(input, PipelineData::Empty) {
-        return Err(ShellError::PipelineEmpty(span));
+        return Err(ShellError::PipelineEmpty { dst_span: span });
     }
     input.map(
         move |v| {
@@ -131,7 +131,11 @@ fn size(
             match v.as_string() {
                 Ok(s) => counter(&s, span),
                 Err(_) => Value::Error {
-                    error: ShellError::PipelineMismatch("string".into(), span, value_span),
+                    error: ShellError::PipelineMismatch {
+                        exp_input_type: "string".into(),
+                        dst_span: span,
+                        src_span: value_span,
+                    },
                 },
             }
         },

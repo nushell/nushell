@@ -184,11 +184,11 @@ impl Command for Move {
                 call.head,
             )?
             .into_pipeline_data()),
-            _ => Err(ShellError::PipelineMismatch(
-                "record or table".to_string(),
-                call.head,
-                Span::new(call.head.start, call.head.start),
-            )),
+            _ => Err(ShellError::PipelineMismatch {
+                exp_input_type: "record or table".to_string(),
+                dst_span: call.head,
+                src_span: Span::new(call.head.start, call.head.start),
+            }),
         }
     }
 }

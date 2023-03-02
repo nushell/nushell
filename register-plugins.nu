@@ -9,14 +9,13 @@ def keep-plugin-executables [] {
 }
 
 # get list of all plugin files from their installed directory
-ls ((which nu).path.0 | path dirname)
-| where name =~ nu_plugin
-| keep-plugin-executables
-| each {|plugin|
+let plugins = (ls ((which nu).path.0 | path dirname) | where name =~ nu_plugin | keep-plugin-executables)
+for plugin in $plugins {
     print -n $"registering ($plugin.name), "
     nu -c $"register '($plugin.name)'"
     print "success!"
 }
+
 # print helpful message
 print "\nplugins registered, please restart nushell"
 
