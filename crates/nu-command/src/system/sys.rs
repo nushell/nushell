@@ -3,8 +3,10 @@ use chrono::Local;
 use nu_protocol::{
     ast::Call,
     engine::{Command, EngineState, Stack},
-    Category, Example, IntoPipelineData, PipelineData, ShellError, Signature, Span, Type, Value,
+    Category, Example, IntoPipelineData, LazyRecord, PipelineData, ShellError, Signature, Span,
+    Type, Value,
 };
+use serde::{Deserialize, Serialize};
 use std::time::{Duration, UNIX_EPOCH};
 use sysinfo::{
     ComponentExt, CpuExt, CpuRefreshKind, DiskExt, NetworkExt, System, SystemExt, UserExt,
@@ -36,7 +38,13 @@ impl Command for Sys {
         call: &Call,
         _input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
-        run_sys(call)
+        let span = call.span();
+        let ret = Value::LazyRecord {
+            val: Box::new(SysResult { span }),
+            span,
+        };
+
+        Ok(ret.into_pipeline_data())
     }
 
     fn examples(&self) -> Vec<Example> {
@@ -60,51 +68,53 @@ impl Command for Sys {
     }
 }
 
-fn run_sys(call: &Call) -> Result<PipelineData, ShellError> {
-    let span = call.head;
-    let mut sys = System::new();
+#[derive(Debug, Serialize, Deserialize)]
+pub struct SysResult {
+    pub span: Span,
+}
 
-    let mut headers = vec![];
-    let mut values = vec![];
-
-    if let Some(value) = host(&mut sys, span) {
-        headers.push("host".into());
-        values.push(value);
-    }
-    if let Some(value) = cpu(&mut sys, span) {
-        headers.push("cpu".into());
-        values.push(value);
-    }
-    if let Some(value) = disks(&mut sys, span) {
-        headers.push("disks".into());
-        values.push(value);
-    }
-    if let Some(value) = mem(&mut sys, span) {
-        headers.push("mem".into());
-        values.push(value);
-    }
-    if let Some(value) = temp(&mut sys, span) {
-        headers.push("temp".into());
-        values.push(value);
-    }
-    if let Some(value) = net(&mut sys, span) {
-        headers.push("net".into());
-        values.push(value);
+impl LazyRecord for SysResult {
+    fn column_names(&self) -> Vec<&'static str> {
+        vec!["host", "cpu", "disks", "mem", "temp", "net"]
     }
 
-    Ok(Value::Record {
-        cols: headers,
-        vals: values,
-        span,
+    fn get_column_value(&self, column: &str) -> Result<Value, ShellError> {
+        let span = self.span;
+
+        match column {
+            "host" => Ok(host(span)),
+            "cpu" => Ok(cpu(span)),
+            "disks" => Ok(disks(span)),
+            "mem" => Ok(mem(span)),
+            "temp" => Ok(temp(span)),
+            "net" => Ok(net(span)),
+            _ => Err(ShellError::LazyRecordAccessFailed {
+                message: format!("Could not find column '{column}'"),
+                column_name: column.to_string(),
+                span,
+            }),
+        }
     }
-    .into_pipeline_data())
+
+    fn span(&self) -> Span {
+        self.span
+    }
+
+    fn typetag_name(&self) -> &'static str {
+        "sys"
+    }
+
+    fn typetag_deserialize(&self) {
+        unimplemented!("typetag_deserialize")
+    }
 }
 
 pub fn trim_cstyle_null(s: String) -> String {
     s.trim_matches(char::from(0)).to_string()
 }
 
-pub fn disks(sys: &mut System, span: Span) -> Option<Value> {
+pub fn disks(span: Span) -> Value {
+    let mut sys = System::new();
     sys.refresh_disks();
     sys.refresh_disks_list();
 
@@ -157,14 +167,11 @@ pub fn disks(sys: &mut System, span: Span) -> Option<Value> {
 
         output.push(Value::Record { cols, vals, span });
     }
-    if !output.is_empty() {
-        Some(Value::List { vals: output, span })
-    } else {
-        None
-    }
+    Value::List { vals: output, span }
 }
 
-pub fn net(sys: &mut System, span: Span) -> Option<Value> {
+pub fn net(span: Span) -> Value {
+    let mut sys = System::new();
     sys.refresh_networks();
     sys.refresh_networks_list();
 
@@ -193,18 +200,16 @@ pub fn net(sys: &mut System, span: Span) -> Option<Value> {
 
         output.push(Value::Record { cols, vals, span });
     }
-    if !output.is_empty() {
-        Some(Value::List { vals: output, span })
-    } else {
-        None
-    }
+    Value::List { vals: output, span }
 }
 
-pub fn cpu(sys: &mut System, span: Span) -> Option<Value> {
-    // FIXME: we must refresh the CPU *twice* System::MINIMUM_CPU_UPDATE_INTERVAL apart to
-    // get valid usage data, we're currently only doing it once. Consider using a LazyRecord
-    // to avoid slowing down all calls to `sys`
+pub fn cpu(span: Span) -> Value {
+    let mut sys = System::new();
     sys.refresh_cpu_specifics(CpuRefreshKind::everything());
+    // We must refresh the CPU twice MINIMUM_CPU_UPDATE_INTERVAL apart to get valid usage data
+    // MINIMUM_CPU_UPDATE_INTERVAL is 200ms or thereabouts, depending on the OS 🐌
+    std::thread::sleep(System::MINIMUM_CPU_UPDATE_INTERVAL);
+    sys.refresh_cpu_specifics(CpuRefreshKind::new().with_cpu_usage());
 
     let mut output = vec![];
     for cpu in sys.cpus() {
@@ -254,14 +259,11 @@ pub fn cpu(sys: &mut System, span: Span) -> Option<Value> {
         output.push(Value::Record { cols, vals, span });
     }
 
-    if !output.is_empty() {
-        Some(Value::List { vals: output, span })
-    } else {
-        None
-    }
+    Value::List { vals: output, span }
 }
 
-pub fn mem(sys: &mut System, span: Span) -> Option<Value> {
+pub fn mem(span: Span) -> Value {
+    let mut sys = System::new();
     sys.refresh_memory();
 
     let mut cols = vec![];
@@ -318,10 +320,11 @@ pub fn mem(sys: &mut System, span: Span) -> Option<Value> {
         span,
     });
 
-    Some(Value::Record { cols, vals, span })
+    Value::Record { cols, vals, span }
 }
 
-pub fn host(sys: &mut System, span: Span) -> Option<Value> {
+pub fn host(span: Span) -> Value {
+    let mut sys = System::new();
     sys.refresh_users_list();
 
     let mut cols = vec![];
@@ -414,10 +417,11 @@ pub fn host(sys: &mut System, span: Span) -> Option<Value> {
         vals.push(Value::List { vals: users, span });
     }
 
-    Some(Value::Record { cols, vals, span })
+    Value::Record { cols, vals, span }
 }
 
-pub fn temp(sys: &mut System, span: Span) -> Option<Value> {
+pub fn temp(span: Span) -> Value {
+    let mut sys = System::new();
     sys.refresh_components();
     sys.refresh_components_list();
 
@@ -455,9 +459,5 @@ pub fn temp(sys: &mut System, span: Span) -> Option<Value> {
         output.push(Value::Record { cols, vals, span });
     }
 
-    if !output.is_empty() {
-        Some(Value::List { vals: output, span })
-    } else {
-        None
-    }
+    Value::List { vals: output, span }
 }
