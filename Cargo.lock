@@ -2818,7 +2818,6 @@ dependencies = [
  "serde_urlencoded",
  "serde_yaml",
  "sha2",
- "shadow-rs",
  "sqlparser",
  "sysinfo 0.28.0",
  "tabled",
