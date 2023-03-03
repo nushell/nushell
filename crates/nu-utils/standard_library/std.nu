@@ -123,17 +123,18 @@ export def match [
     }
 }
 
-# Add the given paths to PATH
-export def-env "path-add" [
-    --ret(-r) # return the env (useful in pipelines to avoid scoping)
-    --prepend(-p) # prepend instead of appending.
-    ...paths # the paths to add
-    ] {
-    let-env PATH = if $prepend {
-        ($env.PATH | prepend  $paths)
-    } else {
-        ($env.PATH | append $paths)
-    }
+# Add the given paths to the PATH.
+export def-env "path add" [
+    --ret (-r)  # return $env.PATH, useful in pipelines to avoid scoping.
+    --append (-a)  # append to $env.PATH instead of prepending to.
+    ...paths  # the paths to add to $env.PATH.
+] {
+    let-env PATH = (
+        $env.PATH
+        | if $append { append $paths }
+        else { prepend $paths }
+    )
+
     if $ret {
         $env.PATH
     }
