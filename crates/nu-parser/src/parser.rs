@@ -2867,7 +2867,7 @@ fn parse_list_shape(
 
     let (shape, err) = parse_shape_name(working_set, src, inner_span);
     if err.is_some() {
-        return (shape, err);
+        return (SyntaxShape::List(Box::new(shape)), err);
     }
 
     let error = if !is_terminated {
