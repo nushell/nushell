@@ -467,7 +467,11 @@ pub fn evaluate_repl(
                         .repl_buffer_state
                         .lock()
                         .expect("repl buffer state mutex")
-                        .replace(s.to_string());
+                        .to_string();
+                    *engine_state
+                        .repl_buffer_state
+                        .lock()
+                        .expect("repl buffer state mutex") = s.to_string();
 
                     if let Err(err) = eval_hook(engine_state, stack, None, vec![], &hook) {
                         report_error_new(engine_state, &err);
@@ -475,11 +479,10 @@ pub fn evaluate_repl(
 
                     // Restore the REPL buffer state for the next command. It could've been edited
                     // by `commandline`.
-                    engine_state
+                    *engine_state
                         .repl_buffer_state
                         .lock()
-                        .expect("repl buffer state mutex")
-                        .replace(next_repl_buffer.unwrap_or("".to_string()));
+                        .expect("repl buffer state mutex") = next_repl_buffer.to_string();
                 }
 
                 if shell_integration {
@@ -637,23 +640,20 @@ pub fn evaluate_repl(
                     run_ansi_sequence(RESET_APPLICATION_MODE)?;
                 }
 
-                if let Some(buffer) = engine_state
+                let repl_buffer = engine_state
                     .repl_buffer_state
                     .lock()
                     .expect("repl buffer state mutex")
-                    .as_ref()
-                {
-                    line_editor.run_edit_commands(&[
-                        EditCommand::Clear,
-                        EditCommand::InsertString(buffer.to_string()),
-                    ]);
-                }
+                    .to_string();
+                line_editor.run_edit_commands(&[
+                    EditCommand::Clear,
+                    EditCommand::InsertString(repl_buffer),
+                ]);
 
-                engine_state
+                *engine_state
                     .repl_buffer_state
                     .lock()
-                    .expect("repl buffer state mutex")
-                    .replace("".to_string());
+                    .expect("repl buffer state mutex") = "".to_string();
                 *engine_state
                     .repl_cursor_pos
                     .lock()

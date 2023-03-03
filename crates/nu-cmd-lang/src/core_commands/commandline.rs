@@ -65,28 +65,24 @@ impl Command for Commandline {
                 .expect("repl cursor pos mutex");
 
             if call.has_flag("append") {
-                let buffer = buffer.as_mut().unwrap();
                 buffer.push_str(&cmd.as_string()?);
                 *cursor_pos = buffer.len();
             } else if call.has_flag("insert") {
-                let buffer = buffer.as_mut().unwrap();
                 buffer.insert_str(*cursor_pos, &cmd.as_string()?);
             } else {
-                buffer.replace(cmd.as_string()?);
+                *buffer = cmd.as_string()?;
             }
             Ok(Value::Nothing { span: call.head }.into_pipeline_data())
-        } else if let Some(ref cmd) = *engine_state
-            .repl_buffer_state
-            .lock()
-            .expect("repl buffer state mutex")
-        {
+        } else {
+            let buffer = engine_state
+                .repl_buffer_state
+                .lock()
+                .expect("repl buffer state mutex");
             Ok(Value::String {
-                val: cmd.clone(),
+                val: buffer.to_string(),
                 span: call.head,
             }
             .into_pipeline_data())
-        } else {
-            Ok(Value::Nothing { span: call.head }.into_pipeline_data())
         }
     }
 }
