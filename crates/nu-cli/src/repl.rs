@@ -14,7 +14,7 @@ use nu_parser::{lex, parse, trim_quotes_str};
 use nu_protocol::{
     ast::PathMember,
     config::NuCursorShape,
-    engine::{EngineState, ReplOperation, Stack, StateWorkingSet},
+    engine::{EngineState, Stack, StateWorkingSet},
     format_duration, BlockId, HistoryFileFormat, PipelineData, PositionalArg, ShellError, Span,
     Spanned, Type, Value, VarId,
 };
@@ -637,22 +637,16 @@ pub fn evaluate_repl(
                     run_ansi_sequence(RESET_APPLICATION_MODE)?;
                 }
 
-                let mut ops = engine_state
-                    .repl_operation_queue
+                if let Some(buffer) = engine_state
+                    .repl_buffer_state
                     .lock()
-                    .expect("repl op queue mutex");
-                while let Some(op) = ops.pop_front() {
-                    match op {
-                        ReplOperation::Append(s) => line_editor.run_edit_commands(&[
-                            EditCommand::MoveToEnd,
-                            EditCommand::InsertString(s),
-                        ]),
-                        ReplOperation::Insert(s) => {
-                            line_editor.run_edit_commands(&[EditCommand::InsertString(s)])
-                        }
-                        ReplOperation::Replace(s) => line_editor
-                            .run_edit_commands(&[EditCommand::Clear, EditCommand::InsertString(s)]),
-                    }
+                    .expect("repl buffer state mutex")
+                    .as_ref()
+                {
+                    line_editor.run_edit_commands(&[
+                        EditCommand::Clear,
+                        EditCommand::InsertString(buffer.to_string()),
+                    ]);
                 }
 
                 engine_state

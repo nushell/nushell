@@ -1,6 +1,5 @@
 use nu_engine::CallExt;
 use nu_protocol::ast::Call;
-use nu_protocol::engine::ReplOperation;
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::Category;
 use nu_protocol::IntoPipelineData;
@@ -60,28 +59,21 @@ impl Command for Commandline {
                 .repl_buffer_state
                 .lock()
                 .expect("repl buffer state mutex");
-            let mut ops = engine_state
-                .repl_operation_queue
-                .lock()
-                .expect("repl op queue mutex");
             let mut cursor_pos = engine_state
                 .repl_cursor_pos
                 .lock()
                 .expect("repl cursor pos mutex");
 
-            ops.push_back(if call.has_flag("append") {
+            if call.has_flag("append") {
                 let buffer = buffer.as_mut().unwrap();
                 buffer.push_str(&cmd.as_string()?);
                 *cursor_pos = buffer.len();
-                ReplOperation::Append(cmd.as_string()?)
             } else if call.has_flag("insert") {
                 let buffer = buffer.as_mut().unwrap();
                 buffer.insert_str(*cursor_pos, &cmd.as_string()?);
-                ReplOperation::Insert(cmd.as_string()?)
             } else {
                 buffer.replace(cmd.as_string()?);
-                ReplOperation::Replace(cmd.as_string()?)
-            });
+            }
             Ok(Value::Nothing { span: call.head }.into_pipeline_data())
         } else if let Some(ref cmd) = *engine_state
             .repl_buffer_state
