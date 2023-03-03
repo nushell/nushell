@@ -20,8 +20,8 @@ use nu_protocol::{
 
 use crate::parse_keywords::{
     parse_alias, parse_def, parse_def_predecl, parse_export_in_block, parse_extern, parse_for,
-    parse_hide, parse_let_or_const, parse_module, parse_old_alias, parse_overlay, parse_source,
-    parse_use, parse_where, parse_where_expr,
+    parse_hide, parse_let_or_const, parse_module, parse_old_alias, parse_overlay,
+    parse_overlay_hide2, parse_source, parse_use, parse_where, parse_where_expr,
 };
 
 use itertools::Itertools;
@@ -2681,9 +2681,9 @@ pub fn unescape_string(bytes: &[u8], span: Span) -> (Vec<u8>, Option<ParseError>
                     }
                     // fall through -- escape not accepted above, must be error.
                     err = Some(ParseError::InvalidLiteral(
-                        "invalid unicode escape '\\u{X...}', must be 1-6 hex digits, max value 10FFFF".into(),
-                        "string".into(),
-                        Span::new(span.start + idx, span.end),
+                            "invalid unicode escape '\\u{X...}', must be 1-6 hex digits, max value 10FFFF".into(),
+                            "string".into(),
+                            Span::new(span.start + idx, span.end),
                     ));
                     break 'us_loop;
                 }
@@ -4658,17 +4658,17 @@ pub fn parse_value(
             } else {
                 /* Parser very sensitive to order of shapes tried.  Recording the original order for postierity
                 let shapes = [
-                    SyntaxShape::Binary,
-                    SyntaxShape::Int,
-                    SyntaxShape::Number,
-                    SyntaxShape::Range,
-                    SyntaxShape::DateTime,
-                    SyntaxShape::Filesize,
-                    SyntaxShape::Duration,
-                    SyntaxShape::Record,
-                    SyntaxShape::Closure(None),
-                    SyntaxShape::Block,
-                    SyntaxShape::String,
+                SyntaxShape::Binary,
+                SyntaxShape::Int,
+                SyntaxShape::Number,
+                SyntaxShape::Range,
+                SyntaxShape::DateTime,
+                SyntaxShape::Filesize,
+                SyntaxShape::Duration,
+                SyntaxShape::Record,
+                SyntaxShape::Closure(None),
+                SyntaxShape::Block,
+                SyntaxShape::String,
                 ];
                 */
                 let shapes = [
@@ -5302,6 +5302,39 @@ pub fn parse_builtin_commands(
     expand_aliases_denylist: &[usize],
     is_subexpression: bool,
 ) -> (Pipeline, Option<ParseError>) {
+    if !is_math_expression_like(working_set, lite_command.parts[0], expand_aliases_denylist) {
+        trace!(
+            "parsing: BUILTIN: notmathexpression: '{}'",
+            String::from_utf8_lossy(working_set.get_span_contents(span(&lite_command.parts)))
+        );
+
+        let (call_expr, error) = parse_call(
+            working_set,
+            &lite_command.parts,
+            lite_command.parts[0],
+            expand_aliases_denylist,
+            is_subexpression,
+        );
+
+        if error.is_none() {
+            if let Expression {
+                expr: Expr::Call(call),
+                ..
+            } = call_expr
+            {
+                trace!("parsing: BUILTIN: got call");
+                // Apply parse keyword side effects
+                let cmd = working_set.get_decl(call.decl_id);
+                if cmd.name() == "overlay hide" {
+                    trace!("parsing: BUILTIN: got overlay hide");
+                    return parse_overlay_hide2(working_set, &call);
+                }
+            }
+        }
+    }
+
+    trace!("parsing: BUILTIN: going forward");
+
     let name = working_set.get_span_contents(lite_command.parts[0]);
 
     match name {
@@ -5339,6 +5372,7 @@ pub fn parse_builtin_commands(
                 expand_aliases_denylist,
                 is_subexpression,
             );
+
             (Pipeline::from_vec(vec![expr]), err)
         }
     }

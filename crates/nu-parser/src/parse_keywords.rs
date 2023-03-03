@@ -28,35 +28,22 @@ use crate::{
     unescape_unquote_string, ParseError, Token, TokenContents,
 };
 
-const PARSER_KEYWORDS: &[&[u8]] = &[
-    b"export",
-    b"def",
-    b"export def",
-    b"for",
-    b"extern",
-    b"export extern",
-    b"alias",
-    b"export alias",
-    b"export-env",
-    b"module",
-    b"use",
-    b"export use",
-    b"hide",
-    b"overlay",
-    b"overlay use",
-    b"overlay hide",
-    b"overlay new",
-    b"let",
-    b"const",
-    b"mut",
-    b"source",
-    b"where",
-    b"register",
-];
+/// These parser keywords can be aliased
+pub const ALIASABLE_PARSER_KEYWORDS: &[&[u8]] = &[b"overlay hide"];
 
-pub fn is_parser_keyword(name: &[u8]) -> bool {
-    PARSER_KEYWORDS.contains(&name)
-}
+// /// Check whether spans start with a parser keyword that can be aliased
+// pub fn is_aliasable_parser_keyword(
+//     working_set: &StateWorkingSet,
+//     lite_command: &LiteCommand,
+// ) -> bool {
+//     if let (Some(span1), Some(span2)) = (lite_command.parts.get(0), lite_command.parts.get(1)) {
+//         let cmd_name = working_set.get_span_contents(span(&[*span1, *span2]));
+//         log::info!("CMD NAME: {}", String::from_utf8_lossy(cmd_name));
+//         ALIASABLE_PARSER_KEYWORDS.contains(&cmd_name)
+//     } else {
+//         false
+//     }
+// }
 
 pub fn parse_def_predecl(
     working_set: &mut StateWorkingSet,
@@ -766,19 +753,28 @@ pub fn parse_alias(
 
             let (command, wrapped_call) = match expr {
                 Expression {
-                    expr: Expr::Call(ref call),
+                    expr: Expr::Call(ref rhs_call),
                     ..
                 } => {
-                    let cmd_name = working_set.get_span_contents(call.head);
+                    let cmd = working_set.get_decl(rhs_call.decl_id);
 
-                    if is_parser_keyword(cmd_name) {
+                    if cmd.is_parser_keyword()
+                        && !ALIASABLE_PARSER_KEYWORDS.contains(&cmd.name().as_bytes())
+                    {
                         return (
                             alias_pipeline,
-                            Some(ParseError::CantAliasKeyword(call.head)),
+                            Some(ParseError::CantAliasKeyword(
+                                ALIASABLE_PARSER_KEYWORDS
+                                    .iter()
+                                    .map(|bytes| String::from_utf8_lossy(bytes).to_string())
+                                    .collect::<Vec<String>>()
+                                    .join(", "),
+                                rhs_call.head,
+                            )),
                         );
                     }
 
-                    (Some(working_set.get_decl(call.decl_id).clone_box()), expr)
+                    (Some(cmd.clone_box()), expr)
                 }
                 Expression {
                     expr: Expr::ExternalCall(..),
@@ -3161,6 +3157,70 @@ pub fn parse_overlay_use(
     }]);
 
     (pipeline, error)
+}
+
+pub fn parse_overlay_hide2(
+    working_set: &mut StateWorkingSet,
+    call: &Call,
+) -> (Pipeline, Option<ParseError>) {
+    let (overlay_name, overlay_name_span) = if let Some(expr) = call.positional_nth(0) {
+        match eval_constant(working_set, expr) {
+            Ok(val) => match value_as_string(val, expr.span) {
+                Ok(s) => (s, expr.span),
+                Err(err) => {
+                    return (garbage_pipeline(&[call.head]), Some(err));
+                }
+            },
+            Err(err) => {
+                return (garbage_pipeline(&[call.head]), Some(err));
+            }
+        }
+    } else {
+        (
+            String::from_utf8_lossy(working_set.last_overlay_name()).to_string(),
+            call.head,
+        )
+    };
+
+    let keep_custom = call.has_flag("keep-custom");
+
+    let pipeline = Pipeline::from_vec(vec![Expression {
+        expr: Expr::Call(Box::new(call.clone())),
+        span: call.head,
+        ty: Type::Any,
+        custom_completion: None,
+    }]);
+
+    if overlay_name == DEFAULT_OVERLAY_NAME {
+        return (
+            pipeline,
+            Some(ParseError::CantHideDefaultOverlay(
+                overlay_name,
+                overlay_name_span,
+            )),
+        );
+    }
+
+    if !working_set
+        .unique_overlay_names()
+        .contains(&overlay_name.as_bytes().to_vec())
+    {
+        return (
+            pipeline,
+            Some(ParseError::ActiveOverlayNotFound(overlay_name_span)),
+        );
+    }
+
+    if working_set.num_overlays() < 2 {
+        return (
+            pipeline,
+            Some(ParseError::CantRemoveLastOverlay(overlay_name_span)),
+        );
+    }
+
+    working_set.remove_overlay(overlay_name.as_bytes(), keep_custom);
+
+    (pipeline, None)
 }
 
 pub fn parse_overlay_hide(
