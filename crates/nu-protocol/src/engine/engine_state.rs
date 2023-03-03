@@ -135,6 +135,7 @@ pub struct EngineState {
     pub config: Config,
     pub pipeline_externals_state: Arc<(AtomicU32, AtomicU32)>,
     pub repl_buffer_state: Arc<Mutex<Option<String>>>,
+    pub repl_cursor_pos: Arc<Mutex<usize>>,
     pub repl_operation_queue: Arc<Mutex<VecDeque<ReplOperation>>>,
     #[cfg(feature = "plugin")]
     pub plugin_signatures: Option<PathBuf>,
@@ -186,7 +187,8 @@ impl EngineState {
             previous_env_vars: HashMap::new(),
             config: Config::default(),
             pipeline_externals_state: Arc::new((AtomicU32::new(0), AtomicU32::new(0))),
-            repl_buffer_state: Arc::new(Mutex::new(None)),
+            repl_buffer_state: Arc::new(Mutex::new(Some("".to_string()))),
+            repl_cursor_pos: Arc::new(Mutex::new(0)),
             repl_operation_queue: Arc::new(Mutex::new(VecDeque::new())),
             #[cfg(feature = "plugin")]
             plugin_signatures: None,
