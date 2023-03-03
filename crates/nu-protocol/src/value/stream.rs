@@ -76,8 +76,8 @@ impl RawStream {
         }
     }
 
-    pub fn drain(mut self) -> Result<(), ShellError> {
-        while let Some(next) = self.next() {
+    pub fn drain(self) -> Result<(), ShellError> {
+        for next in self {
             match next {
                 Ok(val) => {
                     if let Value::Error { error } = val {
@@ -215,8 +215,8 @@ impl ListStream {
             .join(separator)
     }
 
-    pub fn drain(mut self) -> Result<(), ShellError> {
-        while let Some(next) = self.next() {
+    pub fn drain(self) -> Result<(), ShellError> {
+        for next in self {
             if let Value::Error { error } = next {
                 return Err(error);
             }
