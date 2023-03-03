@@ -4,8 +4,6 @@
 
 > a fork of [serde_hjson](https://crates.io/crates/serde-hjson). 
 
-> Unlike serde_hjson, this project is actively maintained and improved.
-
 > The changes made to this crate are kept in [CHANGELOG](/crates/nu-json/CHANGELOG.md).
 
 

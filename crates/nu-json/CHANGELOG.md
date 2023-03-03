@@ -25,13 +25,13 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/) a
 - in case of vulnerabilities.
 -->
  
- # [0.76.0] - 2023-02-21
+# [0.76.0] - 2023-02-21
 
 ### Changed
 
 - Disable auto-benchmark harness for this crate
  
- # [0.75.0] - 2023-01-31
+# [0.75.0] - 2023-01-31
 
 ### Changed
 
@@ -39,50 +39,26 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/) a
 - Use variable names directly in the format strings 
 - Apply more recent/nightly clippy lints
  
- # [0.74.0] - 2023-01-10
-
-### Changed
-
-- Bump version to 0.74 according to the parent project
- 
- # [0.73.0] - 2022-12-20
+# [0.73.0] - 2022-12-20
 
 ### Changed
 
 - Remove unused dev-dependencies
 - The lazy_static crate has been replaced by once_cell
  
- # [0.71.0] - 2022-11-29
+# [0.71.0] - 2022-11-29
 
 ### Fixed
 
 - Fixed json parsing
  
- # [0.71.0] - 2022-11-08
+# [0.71.0] - 2022-11-08
 
 ### Changed
 
 - Run a round of clippy --fix to fix a ton of lints
 
-# [0.70.0] - 2022-10-18
-
-### Changed
-
-- Bump version to 0.70 according to the parent project 
-
-# [0.69.0] - 2022-09-27
-
-### Changed
-
-- Bump version to 0.69 according to the parent project 
-
-# [0.68.0] - 2022-09-06
-
-### Changed
-
-- Bump version to 0.68 according to the parent project 
-
- # [0.67.0] - 2022-08-16
+# [0.67.0] - 2022-08-16
 
 ### Added
 
@@ -92,41 +68,17 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/) a
 
 - Replace the regex crate with the fancy-regex crate
  
- # [0.66.0] - 2022-07-26
+# [0.66.0] - 2022-07-26
 
 ### Fixed
 
 - Prevents panic when parsing JSON containing large number
  
-# [0.65.0] - 2022-07-05
-
-### Changed
-
-- Bump version to 0.65 according to the parent project 
-
 # [0.64.0] - 2022-06-15
 
 ### Changed
 
 - Address lints from clippy for beta/nightly
-
-# [0.63.0] - 2022-05-25
-
-### Changed
-
-- Bump version to 0.63 according to the parent project 
-
-# [0.62.0] - 2022-05-04
-
-### Changed
-
-- Bump version to 0.62 according to the parent project 
-
-# [0.61.0] - 2022-04-12
-
-### Changed
-
-- Bump version to 0.61 according to the parent project 
 
 # [0.60.1] - 2022-03-27
 
@@ -160,12 +112,6 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/) a
 - Update this cargo crate to edition 2021
 - Strip trailing whitespace in files
 
-# [0.43.0] - 2022-01-18
-
-### Changed
-
-- Bump version to 0.43 according to the parent project 
-
 # [0.42.0] - 2021-12-28
 
 ### Fixed
@@ -182,59 +128,11 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/) a
 
 - avoid unnecessary allocation (serialization)
 
-# [0.40.0] - 2021-11-16
-
-### Changed
-
-- Bump version to 0.40 according to the parent project 
-
-# [0.39.0] - 2021-10-26
-
-### Changed
-
-- Bump version to 0.39 according to the parent project 
-
-# [0.38.0] - 2021-10-05
-
-### Changed
-
-- Bump version to 0.38 according to the parent project 
-
 # [0.37.0] - 2021-09-14
 
 ### Changed
 
 - Add general refactorings
-
-# [0.36.0] - 2021-08-24
-
-### Changed
-
-- Bump version to 0.36.0 according to the parent project
-
-# [0.35.0] - 2021-08-03
-
-### Changed
-
-- Bump version to 0.35.0 according to the parent project
-
-# [0.34.0] - 2021-07-13
-
-### Changed
-
-- Bump version to 0.34 according to the parent project
-
-# [0.33.0] - 2021-06-22
-
-### Changed
-
-- Bump version to 0.33 according to the parent project
-
-# [0.32.0] - 2021-05-31
-
-### Changed
-
-- Bump version to 0.32 according to the parent project
 
 # [0.31.0] - 2021-05-11
 
@@ -242,23 +140,11 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/) a
 
 - Clippy fixes for new Rust version
 
-# [0.30.0] - 2021-04-20
-
-### Changed
-
-- Bump version to 0.30 according to the parent project
-
 # [0.29.2] - 2021-04-06
 
 ### Fixed
 
 - Fix typos and capitalization of "Unicode"
-
-# [0.29.1] - 2021-03-31
-
-### Changed
-
-- Bump version to 0.29.1 according to the parent project
 
 # [0.29.0] - 2021-03-30
 
@@ -278,23 +164,11 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/) a
 
 - Fix latest clippy warnings
 
-# [0.26.0] - 2021-01-26
-
-### Changed
-
-- Bump version to 0.26.0 according to the parent project
-
 # [0.25.2] - 2021-01-11
 
 ### Changed
 
 - Update num-traits requirement from 0.1.32 to 0.2.14
-
-# [0.25.1] - 2021-01-06
-
-### Changed
-
-- Bump version to 0.25.1 according to the parent project
 
 # [0.25.0] - 2021-01-05
 
@@ -302,29 +176,12 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/) a
 
 - Rust 1.49 Clippy Fixes
 
-## [0.24.0] - 2020-12-15
+# [0.22.0] - 2020-11-22
 
 ### Changed
-
-- Bump version to 0.24 according to the parent project
-
-## [0.23.0] - 2020-11-24
-
-### Changed
-
-- Bump version to 0.23 according to the parent project
-
-## [0.22.0] - 2020-11-22
-
-### Changed
-
-- Added Cargo.toml
-- LICENSE file added
-
-...
-
-
-## [0.0.1] - unknown
 
 - Fork of serde-hjson
-- Added to the 'Nu Project'
+- The crate added to the 'Nu Project'
+- Added Cargo.toml
+- LICENSE file added
+- Bump version to 0.22 according to the parent project
