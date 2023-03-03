@@ -22,10 +22,10 @@ nu-utils = { path = "../nu-utils", version = "0.76.1" }
 fancy-regex = "0.11.0"
 itertools = "0.10.0"
 log = "0.4.14"
-shadow-rs = { version = "0.20.0", default-features = false }
+shadow-rs = { version = "0.21.0", default-features = false }
 
 [build-dependencies]
-shadow-rs = { version = "0.20.0", default-features = false }
+shadow-rs = { version = "0.21.0", default-features = false }
 
 [dev-dependencies]
 nu-test-support = { path="../nu-test-support", version = "0.76.1"  }

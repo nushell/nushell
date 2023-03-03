@@ -84,7 +84,6 @@ sha2 = "0.10.0"
 percent-encoding = "2.2.0"
 reedline = { version = "0.16.0", features = ["bashisms", "sqlite"] }
 rusqlite = { version = "0.28.0", features = ["bundled"], optional = true }
-shadow-rs = { version = "0.20.0", default-features = false }
 sqlparser = { version = "0.30.0", features = ["serde"], optional = true }
 sysinfo = "0.28.0"
 tabled = "0.10.0"
