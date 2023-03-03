@@ -48,7 +48,7 @@ impl Command for SubCommand {
     }
 
     fn usage(&self) -> &str {
-        "Returns the most frequent element(s) from a list of numbers or tables"
+        "Returns the most frequent element(s) from a list of numbers or tables."
     }
 
     fn search_terms(&self) -> Vec<&str> {

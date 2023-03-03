@@ -17,7 +17,7 @@ impl Command for StrIntDeprecated {
     }
 
     fn usage(&self) -> &str {
-        "Deprecated command"
+        "Deprecated command."
     }
 
     fn run(

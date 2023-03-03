@@ -48,7 +48,7 @@ impl Command for IntoSqliteDb {
     }
 
     fn usage(&self) -> &str {
-        "Convert table into a SQLite database"
+        "Convert table into a SQLite database."
     }
 
     fn search_terms(&self) -> Vec<&str> {
@@ -218,13 +218,12 @@ fn action(
         }
         // Propagate errors by explicitly matching them before the final case.
         Value::Error { error } => Err(error.clone()),
-        other => Err(ShellError::OnlySupportsThisInputType(
-            "list".into(),
-            other.get_type().to_string(),
-            span,
-            // This line requires the Value::Error match above.
-            other.expect_span(),
-        )),
+        other => Err(ShellError::OnlySupportsThisInputType {
+            exp_input_type: "list".into(),
+            wrong_type: other.get_type().to_string(),
+            dst_span: span,
+            src_span: other.expect_span(),
+        }),
     }
 }
 

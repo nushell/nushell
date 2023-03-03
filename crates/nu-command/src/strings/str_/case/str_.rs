@@ -20,7 +20,7 @@ impl Command for Str {
     }
 
     fn usage(&self) -> &str {
-        "Various commands for working with string data"
+        "Various commands for working with string data."
     }
 
     fn extra_usage(&self) -> &str {

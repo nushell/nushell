@@ -17,7 +17,7 @@ impl Command for StrDecimalDeprecated {
     }
 
     fn usage(&self) -> &str {
-        "Deprecated command"
+        "Deprecated command."
     }
 
     fn run(

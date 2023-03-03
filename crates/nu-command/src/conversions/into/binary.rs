@@ -36,7 +36,7 @@ impl Command for SubCommand {
     }
 
     fn usage(&self) -> &str {
-        "Convert value to a binary primitive"
+        "Convert value to a binary primitive."
     }
 
     fn search_terms(&self) -> Vec<&str> {
@@ -188,13 +188,13 @@ pub fn action(input: &Value, _args: &CellPathOnlyArgs, span: Span) -> Value {
         // Propagate errors by explicitly matching them before the final case.
         Value::Error { .. } => input.clone(),
         other => Value::Error {
-            error: ShellError::OnlySupportsThisInputType(
-                "integer, float, filesize, string, date, duration, binary or bool".into(),
-                other.get_type().to_string(),
-                span,
-                // This line requires the Value::Error match above.
-                other.expect_span(),
-            ),
+            error: ShellError::OnlySupportsThisInputType {
+                exp_input_type: "integer, float, filesize, string, date, duration, binary or bool"
+                    .into(),
+                wrong_type: other.get_type().to_string(),
+                dst_span: span,
+                src_span: other.expect_span(),
+            },
         },
     }
 }

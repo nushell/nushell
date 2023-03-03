@@ -34,7 +34,7 @@ impl Command for Tutor {
     }
 
     fn usage(&self) -> &str {
-        "Run the tutorial. To begin, run: tutor"
+        "Run the tutorial. To begin, run: tutor."
     }
 
     fn search_terms(&self) -> Vec<&str> {

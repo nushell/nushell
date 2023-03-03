@@ -41,7 +41,7 @@ impl Command for Commandline {
     }
 
     fn usage(&self) -> &str {
-        "View or modify the current command line input buffer"
+        "View or modify the current command line input buffer."
     }
 
     fn search_terms(&self) -> Vec<&str> {

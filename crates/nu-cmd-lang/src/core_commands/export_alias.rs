@@ -13,7 +13,7 @@ impl Command for ExportAlias {
     }
 
     fn usage(&self) -> &str {
-        "Alias a command (with optional flags) to a new name and export it from a module"
+        "Alias a command (with optional flags) to a new name and export it from a module."
     }
 
     fn signature(&self) -> nu_protocol::Signature {

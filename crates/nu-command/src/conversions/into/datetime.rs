@@ -139,7 +139,7 @@ impl Command for SubCommand {
     }
 
     fn usage(&self) -> &str {
-        "Convert text into a datetime"
+        "Convert text into a datetime."
     }
 
     fn search_terms(&self) -> Vec<&str> {
@@ -213,13 +213,12 @@ fn action(input: &Value, args: &Arguments, head: Span) -> Value {
         Value::Error { .. } => return input.clone(),
         other => {
             return Value::Error {
-                error: ShellError::OnlySupportsThisInputType(
-                    "string and integer".into(),
-                    other.get_type().to_string(),
-                    head,
-                    // This line requires the Value::Error match above.
-                    other.expect_span(),
-                ),
+                error: ShellError::OnlySupportsThisInputType {
+                    exp_input_type: "string and integer".into(),
+                    wrong_type: other.get_type().to_string(),
+                    dst_span: head,
+                    src_span: other.expect_span(),
+                },
             };
         }
     };
@@ -332,13 +331,12 @@ fn action(input: &Value, args: &Arguments, head: Span) -> Value {
         // Propagate errors by explicitly matching them before the final case.
         Value::Error { .. } => input.clone(),
         other => Value::Error {
-            error: ShellError::OnlySupportsThisInputType(
-                "string".into(),
-                other.get_type().to_string(),
-                head,
-                // This line requires the Value::Error match above.
-                other.expect_span(),
-            ),
+            error: ShellError::OnlySupportsThisInputType {
+                exp_input_type: "string".into(),
+                wrong_type: other.get_type().to_string(),
+                dst_span: head,
+                src_span: other.expect_span(),
+            },
         },
     }
 }

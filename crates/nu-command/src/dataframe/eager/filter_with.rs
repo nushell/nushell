@@ -19,7 +19,7 @@ impl Command for FilterWith {
     }
 
     fn usage(&self) -> &str {
-        "Filters dataframe using a mask or expression as reference"
+        "Filters dataframe using a mask or expression as reference."
     }
 
     fn signature(&self) -> Signature {

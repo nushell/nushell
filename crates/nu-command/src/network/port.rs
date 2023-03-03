@@ -29,7 +29,7 @@ impl Command for SubCommand {
     }
 
     fn usage(&self) -> &str {
-        "Get a free port from system"
+        "Get a free port from system."
     }
 
     fn search_terms(&self) -> Vec<&str> {
@@ -79,11 +79,11 @@ fn get_free_port(
 
         // check input range valid.
         if start_port > end_port {
-            return Err(ShellError::InvalidRange(
-                start_port.to_string(),
-                end_port.to_string(),
-                call.head,
-            ));
+            return Err(ShellError::InvalidRange {
+                left_flank: start_port.to_string(),
+                right_flank: end_port.to_string(),
+                span: call.head,
+            });
         }
 
         // try given port one by one.

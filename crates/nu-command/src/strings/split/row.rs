@@ -33,7 +33,7 @@ impl Command for SubCommand {
     }
 
     fn usage(&self) -> &str {
-        "Split a string into multiple rows using a separator"
+        "Split a string into multiple rows using a separator."
     }
 
     fn search_terms(&self) -> Vec<&str> {
@@ -132,7 +132,11 @@ fn split_row_helper(
                 }
             } else {
                 vec![Value::Error {
-                    error: ShellError::PipelineMismatch("string".into(), name, v_span),
+                    error: ShellError::PipelineMismatch {
+                        exp_input_type: "string".into(),
+                        dst_span: name,
+                        src_span: v_span,
+                    },
                 }]
             }
         }

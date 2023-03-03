@@ -22,7 +22,7 @@ impl Command for SubCommand {
     }
 
     fn usage(&self) -> &str {
-        "Finds the minimum within a list of numbers or tables"
+        "Finds the minimum within a list of numbers or tables."
     }
 
     fn search_terms(&self) -> Vec<&str> {

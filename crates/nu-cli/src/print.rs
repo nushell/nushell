@@ -28,7 +28,7 @@ impl Command for Print {
     }
 
     fn usage(&self) -> &str {
-        "Print the given values to stdout"
+        "Print the given values to stdout."
     }
 
     fn extra_usage(&self) -> &str {

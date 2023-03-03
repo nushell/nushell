@@ -16,7 +16,7 @@ impl Command for IsUnique {
     }
 
     fn usage(&self) -> &str {
-        "Creates mask indicating unique values"
+        "Creates mask indicating unique values."
     }
 
     fn signature(&self) -> Signature {

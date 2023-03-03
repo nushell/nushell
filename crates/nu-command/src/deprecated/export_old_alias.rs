@@ -11,7 +11,7 @@ impl Command for ExportOldAlias {
     }
 
     fn usage(&self) -> &str {
-        "Define an alias and export it from a module"
+        "Define an alias and export it from a module."
     }
 
     fn signature(&self) -> nu_protocol::Signature {

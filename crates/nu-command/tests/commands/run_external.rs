@@ -139,6 +139,17 @@ fn failed_command_with_semicolon_will_not_execute_following_cmds() {
     })
 }
 
+#[test]
+fn semicolon_works_within_subcommand() {
+    Playground::setup("external failed command with semicolon", |dirs, _| {
+        let actual = nu!(
+            cwd: dirs.test(), pipeline(r#"(nu --testbin outcome_err "aa"; echo done)"#
+        ));
+
+        assert!(!actual.out.contains("done"));
+    })
+}
+
 #[cfg(not(windows))]
 #[test]
 fn external_args_with_quoted() {

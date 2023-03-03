@@ -14,7 +14,7 @@ impl Command for OverlayNew {
     }
 
     fn usage(&self) -> &str {
-        "Create an empty overlay"
+        "Create an empty overlay."
     }
 
     fn signature(&self) -> nu_protocol::Signature {

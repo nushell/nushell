@@ -18,7 +18,7 @@ impl Command for SliceDF {
     }
 
     fn usage(&self) -> &str {
-        "Creates new dataframe from a slice of rows"
+        "Creates new dataframe from a slice of rows."
     }
 
     fn signature(&self) -> Signature {

@@ -54,7 +54,7 @@ impl Command for SubCommand {
     }
 
     fn usage(&self) -> &str {
-        "Get the parent directory of a path"
+        "Get the parent directory of a path."
     }
 
     fn run(
@@ -73,7 +73,7 @@ impl Command for SubCommand {
 
         // This doesn't match explicit nulls
         if matches!(input, PipelineData::Empty) {
-            return Err(ShellError::PipelineEmpty(head));
+            return Err(ShellError::PipelineEmpty { dst_span: head });
         }
         input.map(
             move |value| super::operate(&get_dirname, &args, value, head),

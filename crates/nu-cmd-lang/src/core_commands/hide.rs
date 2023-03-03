@@ -23,7 +23,7 @@ impl Command for Hide {
     }
 
     fn usage(&self) -> &str {
-        "Hide definitions in the current scope"
+        "Hide definitions in the current scope."
     }
 
     fn extra_usage(&self) -> &str {

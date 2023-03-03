@@ -49,7 +49,7 @@ impl Command for SubCommand {
     }
 
     fn usage(&self) -> &str {
-        "Convert value to integer"
+        "Convert value to integer."
     }
 
     fn search_terms(&self) -> Vec<&str> {
@@ -246,13 +246,13 @@ fn action(input: &Value, args: &Arguments, span: Span) -> Value {
         // Propagate errors by explicitly matching them before the final case.
         Value::Error { .. } => input.clone(),
         other => Value::Error {
-            error: ShellError::OnlySupportsThisInputType(
-                "integer, float, filesize, date, string, binary, duration or bool".into(),
-                other.get_type().to_string(),
-                span,
-                // This line requires the Value::Error match above.
-                other.expect_span(),
-            ),
+            error: ShellError::OnlySupportsThisInputType {
+                exp_input_type: "integer, float, filesize, date, string, binary, duration or bool"
+                    .into(),
+                wrong_type: other.get_type().to_string(),
+                dst_span: span,
+                src_span: other.expect_span(),
+            },
         },
     }
 }
@@ -293,13 +293,12 @@ fn convert_int(input: &Value, head: Span, radix: u32) -> Value {
         Value::Error { .. } => return input.clone(),
         other => {
             return Value::Error {
-                error: ShellError::OnlySupportsThisInputType(
-                    "string and integer".into(),
-                    other.get_type().to_string(),
-                    head,
-                    // This line requires the Value::Error match above.
-                    other.expect_span(),
-                ),
+                error: ShellError::OnlySupportsThisInputType {
+                    exp_input_type: "string and integer".into(),
+                    wrong_type: other.get_type().to_string(),
+                    dst_span: head,
+                    src_span: other.expect_span(),
+                },
             };
         }
     };

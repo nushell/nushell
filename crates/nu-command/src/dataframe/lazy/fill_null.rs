@@ -15,7 +15,7 @@ impl Command for LazyFillNull {
     }
 
     fn usage(&self) -> &str {
-        "Replaces NULL values with the given expression"
+        "Replaces NULL values with the given expression."
     }
 
     fn signature(&self) -> Signature {

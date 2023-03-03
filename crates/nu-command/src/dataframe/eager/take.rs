@@ -19,7 +19,7 @@ impl Command for TakeDF {
     }
 
     fn usage(&self) -> &str {
-        "Creates new dataframe using the given indices"
+        "Creates new dataframe using the given indices."
     }
 
     fn signature(&self) -> Signature {

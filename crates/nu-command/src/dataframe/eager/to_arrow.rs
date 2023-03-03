@@ -19,7 +19,7 @@ impl Command for ToArrow {
     }
 
     fn usage(&self) -> &str {
-        "Saves dataframe to arrow file"
+        "Saves dataframe to arrow file."
     }
 
     fn signature(&self) -> Signature {

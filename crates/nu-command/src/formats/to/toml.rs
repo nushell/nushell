@@ -19,7 +19,7 @@ impl Command for ToToml {
     }
 
     fn usage(&self) -> &str {
-        "Convert record into .toml text"
+        "Convert record into .toml text."
     }
 
     fn examples(&self) -> Vec<Example> {

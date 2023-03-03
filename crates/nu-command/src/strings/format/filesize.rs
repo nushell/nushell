@@ -43,7 +43,7 @@ impl Command for FileSize {
     }
 
     fn usage(&self) -> &str {
-        "Converts a column of filesizes to some specified format"
+        "Converts a column of filesizes to some specified format."
     }
 
     fn search_terms(&self) -> Vec<&str> {
@@ -106,12 +106,12 @@ fn format_value_impl(val: &Value, arg: &Arguments, span: Span) -> Value {
         },
         Value::Error { .. } => val.clone(),
         _ => Value::Error {
-            error: ShellError::OnlySupportsThisInputType(
-                "filesize".into(),
-                val.get_type().to_string(),
-                span,
-                val.expect_span(),
-            ),
+            error: ShellError::OnlySupportsThisInputType {
+                exp_input_type: "filesize".into(),
+                wrong_type: val.get_type().to_string(),
+                dst_span: span,
+                src_span: val.expect_span(),
+            },
         },
     }
 }

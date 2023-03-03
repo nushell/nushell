@@ -22,7 +22,7 @@ impl Command for SubCommand {
     }
 
     fn usage(&self) -> &str {
-        "Returns the maximum of a list of numbers, or of columns in a table"
+        "Returns the maximum of a list of numbers, or of columns in a table."
     }
 
     fn search_terms(&self) -> Vec<&str> {

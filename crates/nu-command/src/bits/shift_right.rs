@@ -36,7 +36,7 @@ impl Command for SubCommand {
     }
 
     fn usage(&self) -> &str {
-        "Bitwise shift right for integers"
+        "Bitwise shift right for integers."
     }
 
     fn search_terms(&self) -> Vec<&str> {
@@ -68,7 +68,7 @@ impl Command for SubCommand {
         }
         // This doesn't match explicit nulls
         if matches!(input, PipelineData::Empty) {
-            return Err(ShellError::PipelineEmpty(head));
+            return Err(ShellError::PipelineEmpty { dst_span: head });
         }
         input.map(
             move |value| operate(value, bits, head, signed, bytes_len),
@@ -150,13 +150,12 @@ fn operate(value: Value, bits: usize, head: Span, signed: bool, number_size: Num
         // Propagate errors by explicitly matching them before the final case.
         Value::Error { .. } => value,
         other => Value::Error {
-            error: ShellError::OnlySupportsThisInputType(
-                "integer".into(),
-                other.get_type().to_string(),
-                head,
-                // This line requires the Value::Error match above.
-                other.expect_span(),
-            ),
+            error: ShellError::OnlySupportsThisInputType {
+                exp_input_type: "integer".into(),
+                wrong_type: other.get_type().to_string(),
+                dst_span: head,
+                src_span: other.expect_span(),
+            },
         },
     }
 }

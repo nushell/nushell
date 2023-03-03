@@ -22,7 +22,7 @@ impl Command for Roll {
     }
 
     fn usage(&self) -> &str {
-        "Rolling commands for tables"
+        "Rolling commands for tables."
     }
 
     fn extra_usage(&self) -> &str {

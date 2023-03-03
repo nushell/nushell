@@ -33,7 +33,7 @@ impl Command for DetectColumns {
     }
 
     fn usage(&self) -> &str {
-        "Attempt to automatically split text into multiple columns"
+        "Attempt to automatically split text into multiple columns."
     }
 
     fn search_terms(&self) -> Vec<&str> {

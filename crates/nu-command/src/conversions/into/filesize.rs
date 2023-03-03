@@ -31,7 +31,7 @@ impl Command for SubCommand {
     }
 
     fn usage(&self) -> &str {
-        "Convert value to filesize"
+        "Convert value to filesize."
     }
 
     fn search_terms(&self) -> Vec<&str> {
@@ -117,12 +117,12 @@ pub fn action(input: &Value, _args: &CellPathOnlyArgs, span: Span) -> Value {
                 span: value_span,
             },
             other => Value::Error {
-                error: ShellError::OnlySupportsThisInputType(
-                    "string and integer".into(),
-                    other.get_type().to_string(),
-                    span,
-                    value_span,
-                ),
+                error: ShellError::OnlySupportsThisInputType {
+                    exp_input_type: "string and integer".into(),
+                    wrong_type: other.get_type().to_string(),
+                    dst_span: span,
+                    src_span: value_span,
+                },
             },
         }
     } else {

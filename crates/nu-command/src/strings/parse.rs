@@ -204,11 +204,11 @@ fn operate(
                         }
                     }
                     Err(_) => {
-                        return Err(ShellError::PipelineMismatch(
-                            "string".into(),
-                            head,
-                            v.span()?,
-                        ))
+                        return Err(ShellError::PipelineMismatch {
+                            exp_input_type: "string".into(),
+                            dst_span: head,
+                            src_span: v.span()?,
+                        })
                     }
                 }
             }
@@ -346,11 +346,11 @@ impl Iterator for ParseStreamer {
                     &mut self.excess,
                 ),
                 Err(_) => Some(Value::Error {
-                    error: ShellError::PipelineMismatch(
-                        "string".into(),
-                        self.span,
-                        v.span().unwrap_or(self.span),
-                    ),
+                    error: ShellError::PipelineMismatch {
+                        exp_input_type: "string".into(),
+                        dst_span: self.span,
+                        src_span: v.span().unwrap_or(self.span),
+                    },
                 }),
             }
         } else {
@@ -386,7 +386,11 @@ impl Iterator for ParseStreamerExternal {
                     &mut self.excess,
                 ),
                 Err(_) => Some(Value::Error {
-                    error: ShellError::PipelineMismatch("string".into(), self.span, self.span),
+                    error: ShellError::PipelineMismatch {
+                        exp_input_type: "string".into(),
+                        dst_span: self.span,
+                        src_span: self.span,
+                    },
                 }),
             }
         } else if let Some(Err(err)) = v {

@@ -17,7 +17,7 @@ impl Command for NotSeries {
     }
 
     fn usage(&self) -> &str {
-        "Inverts boolean mask"
+        "Inverts boolean mask."
     }
 
     fn signature(&self) -> Signature {

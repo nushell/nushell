@@ -27,7 +27,7 @@ impl Command for SubCommand {
     }
 
     fn usage(&self) -> &str {
-        "Returns the input number rounded to the specified precision"
+        "Returns the input number rounded to the specified precision."
     }
 
     fn search_terms(&self) -> Vec<&str> {
@@ -45,7 +45,7 @@ impl Command for SubCommand {
         let head = call.head;
         // This doesn't match explicit nulls
         if matches!(input, PipelineData::Empty) {
-            return Err(ShellError::PipelineEmpty(head));
+            return Err(ShellError::PipelineEmpty { dst_span: head });
         }
         input.map(
             move |value| operate(value, head, precision_param),
@@ -95,12 +95,12 @@ fn operate(value: Value, head: Span, precision: Option<i64>) -> Value {
         Value::Int { .. } => value,
         Value::Error { .. } => value,
         other => Value::Error {
-            error: ShellError::OnlySupportsThisInputType(
-                "numeric".into(),
-                other.get_type().to_string(),
-                head,
-                other.expect_span(),
-            ),
+            error: ShellError::OnlySupportsThisInputType {
+                exp_input_type: "numeric".into(),
+                wrong_type: other.get_type().to_string(),
+                dst_span: head,
+                src_span: other.expect_span(),
+            },
         },
     }
 }

@@ -27,7 +27,7 @@ impl Command for SubCommand {
     }
 
     fn usage(&self) -> &str {
-        "Convert value to record"
+        "Convert value to record."
     }
 
     fn search_terms(&self) -> Vec<&str> {
@@ -185,13 +185,12 @@ fn into_record(
         Value::Record { cols, vals, span } => Value::Record { cols, vals, span },
         Value::Error { .. } => input,
         other => Value::Error {
-            error: ShellError::OnlySupportsThisInputType(
-                "string".into(),
-                other.get_type().to_string(),
-                call.head,
-                // This line requires the Value::Error match above.
-                other.expect_span(),
-            ),
+            error: ShellError::OnlySupportsThisInputType {
+                exp_input_type: "string".into(),
+                wrong_type: other.get_type().to_string(),
+                dst_span: call.head,
+                src_span: other.expect_span(),
+            },
         },
     };
     Ok(res.into_pipeline_data())

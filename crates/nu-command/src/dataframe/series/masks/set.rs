@@ -17,7 +17,7 @@ impl Command for SetSeries {
     }
 
     fn usage(&self) -> &str {
-        "Sets value where given mask is true"
+        "Sets value where given mask is true."
     }
 
     fn signature(&self) -> Signature {

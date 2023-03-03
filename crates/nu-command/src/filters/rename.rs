@@ -183,13 +183,12 @@ fn rename(
                 // Propagate errors by explicitly matching them before the final case.
                 Value::Error { .. } => item.clone(),
                 other => Value::Error {
-                    error: ShellError::OnlySupportsThisInputType(
-                        "record".into(),
-                        other.get_type().to_string(),
-                        head_span,
-                        // This line requires the Value::Error match above.
-                        other.expect_span(),
-                    ),
+                    error: ShellError::OnlySupportsThisInputType {
+                        exp_input_type: "record".into(),
+                        wrong_type: other.get_type().to_string(),
+                        dst_span: head_span,
+                        src_span: other.expect_span(),
+                    },
                 },
             },
             engine_state.ctrlc.clone(),

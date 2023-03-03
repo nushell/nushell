@@ -1996,11 +1996,7 @@ impl Value {
                 if let Some(val) = lhs.checked_add(*rhs) {
                     Ok(Value::Int { val, span })
                 } else {
-                    Err(ShellError::OperatorOverflow(
-                        "add operation overflowed".into(),
-                        span,
-                        "Consider using floating point values for increased range by promoting operand with 'into decimal'. Note: float has reduced precision!".into()
-                    ))
+                    Err(ShellError::OperatorOverflow { msg: "add operation overflowed".into(), span, help: "Consider using floating point values for increased range by promoting operand with 'into decimal'. Note: float has reduced precision!".into() })
                 }
             }
             (Value::Int { val: lhs, .. }, Value::Float { val: rhs, .. }) => Ok(Value::Float {
@@ -2023,33 +2019,33 @@ impl Value {
                 if let Some(val) = lhs.checked_add_signed(chrono::Duration::nanoseconds(*rhs)) {
                     Ok(Value::Date { val, span })
                 } else {
-                    Err(ShellError::OperatorOverflow(
-                        "addition operation overflowed".into(),
+                    Err(ShellError::OperatorOverflow {
+                        msg: "addition operation overflowed".into(),
                         span,
-                        "".into(),
-                    ))
+                        help: "".into(),
+                    })
                 }
             }
             (Value::Duration { val: lhs, .. }, Value::Duration { val: rhs, .. }) => {
                 if let Some(val) = lhs.checked_add(*rhs) {
                     Ok(Value::Duration { val, span })
                 } else {
-                    Err(ShellError::OperatorOverflow(
-                        "add operation overflowed".into(),
+                    Err(ShellError::OperatorOverflow {
+                        msg: "add operation overflowed".into(),
                         span,
-                        "".into(),
-                    ))
+                        help: "".into(),
+                    })
                 }
             }
             (Value::Filesize { val: lhs, .. }, Value::Filesize { val: rhs, .. }) => {
                 if let Some(val) = lhs.checked_add(*rhs) {
                     Ok(Value::Filesize { val, span })
                 } else {
-                    Err(ShellError::OperatorOverflow(
-                        "add operation overflowed".into(),
+                    Err(ShellError::OperatorOverflow {
+                        msg: "add operation overflowed".into(),
                         span,
-                        "".into(),
-                    ))
+                        help: "".into(),
+                    })
                 }
             }
 
@@ -2110,11 +2106,7 @@ impl Value {
                 if let Some(val) = lhs.checked_sub(*rhs) {
                     Ok(Value::Int { val, span })
                 } else {
-                    Err(ShellError::OperatorOverflow(
-                        "subtraction operation overflowed".into(),
-                        span,
-                        "Consider using floating point values for increased range by promoting operand with 'into decimal'. Note: float has reduced precision!".into()
-                    ))
+                    Err(ShellError::OperatorOverflow { msg: "subtraction operation overflowed".into(), span, help: "Consider using floating point values for increased range by promoting operand with 'into decimal'. Note: float has reduced precision!".into() })
                 }
             }
             (Value::Int { val: lhs, .. }, Value::Float { val: rhs, .. }) => Ok(Value::Float {
@@ -2135,43 +2127,43 @@ impl Value {
                 if let Some(v) = result.num_nanoseconds() {
                     Ok(Value::Duration { val: v, span })
                 } else {
-                    Err(ShellError::OperatorOverflow(
-                        "subtraction operation overflowed".into(),
+                    Err(ShellError::OperatorOverflow {
+                        msg: "subtraction operation overflowed".into(),
                         span,
-                        "".into(),
-                    ))
+                        help: "".into(),
+                    })
                 }
             }
             (Value::Date { val: lhs, .. }, Value::Duration { val: rhs, .. }) => {
                 match lhs.checked_sub_signed(chrono::Duration::nanoseconds(*rhs)) {
                     Some(val) => Ok(Value::Date { val, span }),
-                    _ => Err(ShellError::OperatorOverflow(
-                        "subtraction operation overflowed".into(),
+                    _ => Err(ShellError::OperatorOverflow {
+                        msg: "subtraction operation overflowed".into(),
                         span,
-                        "".into(),
-                    )),
+                        help: "".into(),
+                    }),
                 }
             }
             (Value::Duration { val: lhs, .. }, Value::Duration { val: rhs, .. }) => {
                 if let Some(val) = lhs.checked_sub(*rhs) {
                     Ok(Value::Duration { val, span })
                 } else {
-                    Err(ShellError::OperatorOverflow(
-                        "subtraction operation overflowed".into(),
+                    Err(ShellError::OperatorOverflow {
+                        msg: "subtraction operation overflowed".into(),
                         span,
-                        "".into(),
-                    ))
+                        help: "".into(),
+                    })
                 }
             }
             (Value::Filesize { val: lhs, .. }, Value::Filesize { val: rhs, .. }) => {
                 if let Some(val) = lhs.checked_sub(*rhs) {
                     Ok(Value::Filesize { val, span })
                 } else {
-                    Err(ShellError::OperatorOverflow(
-                        "add operation overflowed".into(),
+                    Err(ShellError::OperatorOverflow {
+                        msg: "add operation overflowed".into(),
                         span,
-                        "".into(),
-                    ))
+                        help: "".into(),
+                    })
                 }
             }
 
@@ -2195,11 +2187,7 @@ impl Value {
                 if let Some(val) = lhs.checked_mul(*rhs) {
                     Ok(Value::Int { val, span })
                 } else {
-                    Err(ShellError::OperatorOverflow(
-                        "multiply operation overflowed".into(),
-                        span,
-                        "Consider using floating point values for increased range by promoting operand with 'into decimal'. Note: float has reduced precision!".into()
-                    ))
+                    Err(ShellError::OperatorOverflow { msg: "multiply operation overflowed".into(), span, help: "Consider using floating point values for increased range by promoting operand with 'into decimal'. Note: float has reduced precision!".into() })
                 }
             }
             (Value::Int { val: lhs, .. }, Value::Float { val: rhs, .. }) => Ok(Value::Float {
@@ -3192,11 +3180,7 @@ impl Value {
                 if let Some(val) = lhs.checked_pow(*rhs as u32) {
                     Ok(Value::Int { val, span })
                 } else {
-                    Err(ShellError::OperatorOverflow(
-                        "pow operation overflowed".into(),
-                        span,
-                        "Consider using floating point values for increased range by promoting operand with 'into decimal'. Note: float has reduced precision!".into()
-                    ))
+                    Err(ShellError::OperatorOverflow { msg: "pow operation overflowed".into(), span, help: "Consider using floating point values for increased range by promoting operand with 'into decimal'. Note: float has reduced precision!".into() })
                 }
             }
             (Value::Int { val: lhs, .. }, Value::Float { val: rhs, .. }) => Ok(Value::Float {

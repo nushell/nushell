@@ -20,7 +20,7 @@ impl Command for Bytes {
     }
 
     fn usage(&self) -> &str {
-        "Various commands for working with byte data"
+        "Various commands for working with byte data."
     }
 
     fn extra_usage(&self) -> &str {

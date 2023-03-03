@@ -17,7 +17,7 @@ impl Command for LazyAggregate {
     }
 
     fn usage(&self) -> &str {
-        "Performs a series of aggregations from a group-by"
+        "Performs a series of aggregations from a group-by."
     }
 
     fn signature(&self) -> Signature {

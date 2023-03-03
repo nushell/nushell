@@ -16,7 +16,7 @@ impl Command for ArgMin {
     }
 
     fn usage(&self) -> &str {
-        "Return index for min value in series"
+        "Return index for min value in series."
     }
 
     fn search_terms(&self) -> Vec<&str> {

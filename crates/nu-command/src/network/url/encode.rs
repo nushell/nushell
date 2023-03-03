@@ -20,7 +20,7 @@ impl Command for SubCommand {
             .input_output_types(vec![(Type::String, Type::String)])
             .vectorizes_over_list(true)
             .switch(
-            "all", 
+            "all",
             "encode all non-alphanumeric chars including `/`, `.`, `:`",
             Some('a'))
             .rest(
@@ -32,7 +32,7 @@ impl Command for SubCommand {
     }
 
     fn usage(&self) -> &str {
-        "Converts a string to a percent encoded web safe string"
+        "Converts a string to a percent encoded web safe string."
     }
 
     fn search_terms(&self) -> Vec<&str> {
@@ -100,12 +100,12 @@ fn action_all(input: &Value, _arg: &CellPathOnlyArgs, head: Span) -> Value {
         }
         Value::Error { .. } => input.clone(),
         _ => Value::Error {
-            error: ShellError::OnlySupportsThisInputType(
-                "string".into(),
-                input.get_type().to_string(),
-                head,
-                input.expect_span(),
-            ),
+            error: ShellError::OnlySupportsThisInputType {
+                exp_input_type: "string".into(),
+                wrong_type: input.get_type().to_string(),
+                dst_span: head,
+                src_span: input.expect_span(),
+            },
         },
     }
 }
@@ -121,12 +121,12 @@ fn action(input: &Value, _arg: &CellPathOnlyArgs, head: Span) -> Value {
         }
         Value::Error { .. } => input.clone(),
         _ => Value::Error {
-            error: ShellError::OnlySupportsThisInputType(
-                "string".into(),
-                input.get_type().to_string(),
-                head,
-                input.expect_span(),
-            ),
+            error: ShellError::OnlySupportsThisInputType {
+                exp_input_type: "string".into(),
+                wrong_type: input.get_type().to_string(),
+                dst_span: head,
+                src_span: input.expect_span(),
+            },
         },
     }
 }

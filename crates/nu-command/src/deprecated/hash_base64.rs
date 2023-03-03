@@ -15,7 +15,7 @@ impl Command for HashBase64 {
     }
 
     fn usage(&self) -> &str {
-        "Deprecated command"
+        "Deprecated command."
     }
 
     fn run(

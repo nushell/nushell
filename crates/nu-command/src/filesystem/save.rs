@@ -380,13 +380,12 @@ fn stream_to_file(
                     // Propagate errors by explicitly matching them before the final case.
                     Value::Error { error } => return Err(error),
                     other => {
-                        return Err(ShellError::OnlySupportsThisInputType(
-                            "string or binary".into(),
-                            other.get_type().to_string(),
-                            span,
-                            // This line requires the Value::Error match above.
-                            other.expect_span(),
-                        ));
+                        return Err(ShellError::OnlySupportsThisInputType {
+                            exp_input_type: "string or binary".into(),
+                            wrong_type: other.get_type().to_string(),
+                            dst_span: span,
+                            src_span: other.expect_span(),
+                        });
                     }
                 },
                 Err(err) => {

@@ -15,7 +15,7 @@ impl Command for ExprAsNu {
     }
 
     fn usage(&self) -> &str {
-        "Convert expression into a nu value for access and exploration"
+        "Convert expression into a nu value for access and exploration."
     }
 
     fn signature(&self) -> Signature {

@@ -41,7 +41,7 @@ impl Command for RollRight {
     }
 
     fn usage(&self) -> &str {
-        "Roll table columns right"
+        "Roll table columns right."
     }
 
     fn examples(&self) -> Vec<Example> {
