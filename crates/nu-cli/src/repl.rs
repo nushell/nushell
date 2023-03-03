@@ -644,17 +644,17 @@ pub fn evaluate_repl(
                     .repl_buffer_state
                     .lock()
                     .expect("repl buffer state mutex");
-                line_editor.run_edit_commands(&[
-                    EditCommand::Clear,
-                    EditCommand::InsertString(repl_buffer.to_string()),
-                ]);
-                *repl_buffer = "".to_string();
-                drop(repl_buffer);
-
                 let mut repl_cursor_pos = engine_state
                     .repl_cursor_pos
                     .lock()
                     .expect("repl cursor pos mutex");
+                line_editor.run_edit_commands(&[
+                    EditCommand::Clear,
+                    EditCommand::InsertString(repl_buffer.to_string()),
+                    EditCommand::MoveToPosition(*repl_cursor_pos),
+                ]);
+                *repl_buffer = "".to_string();
+                drop(repl_buffer);
                 *repl_cursor_pos = 0;
                 drop(repl_cursor_pos);
             }

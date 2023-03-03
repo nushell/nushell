@@ -17,6 +17,11 @@ impl Command for Commandline {
         Signature::build("commandline")
             .input_output_types(vec![(Type::Nothing, Type::Nothing)])
             .switch(
+                "cursor",
+                "Set or get the current cursor position",
+                Some('c'),
+            )
+            .switch(
                 "append",
                 "appends the string to the end of the buffer",
                 Some('a'),
@@ -64,7 +69,32 @@ impl Command for Commandline {
                 .lock()
                 .expect("repl cursor pos mutex");
 
-            if call.has_flag("append") {
+            if call.has_flag("cursor") {
+                let cmd_str = cmd.as_string()?;
+                match cmd_str.parse::<i64>() {
+                    Ok(n) => {
+                        *cursor_pos = if n <= 0 {
+                            0usize
+                        } else {
+                            buffer
+                                .char_indices()
+                                .map(|(i, _c)| i)
+                                .nth(n as usize)
+                                .unwrap_or(buffer.len())
+                        }
+                    }
+                    Err(_) => {
+                        return Err(ShellError::CantConvert {
+                            to_type: "int".to_string(),
+                            from_type: "string".to_string(),
+                            span: cmd.span()?,
+                            help: Some(format!(
+                                r#"string "{cmd_str}" does not represent a valid integer"#
+                            )),
+                        })
+                    }
+                }
+            } else if call.has_flag("append") {
                 buffer.push_str(&cmd.as_string()?);
                 *cursor_pos = buffer.len();
             } else if call.has_flag("insert") {
@@ -78,11 +108,27 @@ impl Command for Commandline {
                 .repl_buffer_state
                 .lock()
                 .expect("repl buffer state mutex");
-            Ok(Value::String {
-                val: buffer.to_string(),
-                span: call.head,
+            if call.has_flag("cursor") {
+                let cursor_pos = engine_state
+                    .repl_cursor_pos
+                    .lock()
+                    .expect("repl cursor pos mutex");
+                let char_pos = buffer
+                    .char_indices()
+                    .position(|(i, _c)| i == *cursor_pos)
+                    .unwrap_or(buffer.len());
+                Ok(Value::String {
+                    val: char_pos.to_string(),
+                    span: call.head,
+                }
+                .into_pipeline_data())
+            } else {
+                Ok(Value::String {
+                    val: buffer.to_string(),
+                    span: call.head,
+                }
+                .into_pipeline_data())
             }
-            .into_pipeline_data())
         }
     }
 }

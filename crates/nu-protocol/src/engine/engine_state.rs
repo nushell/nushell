@@ -126,6 +126,7 @@ pub struct EngineState {
     pub config: Config,
     pub pipeline_externals_state: Arc<(AtomicU32, AtomicU32)>,
     pub repl_buffer_state: Arc<Mutex<String>>,
+    // A byte position, as `EditCommand::MoveToPosition` is also a byte position
     pub repl_cursor_pos: Arc<Mutex<usize>>,
     #[cfg(feature = "plugin")]
     pub plugin_signatures: Option<PathBuf>,
