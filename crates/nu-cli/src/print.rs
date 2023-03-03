@@ -54,13 +54,13 @@ Since this command has no output, there is no point in piping it with other comm
         let to_stderr = call.has_flag("stderr");
 
         // This will allow for easy printing of pipelines as well
-        if !input.is_nothing() {
+        if !args.is_empty() {
+            for arg in args {
+                arg.into_pipeline_data()
+                    .print(engine_state, stack, no_newline, to_stderr)?;
+            }
+        } else if !input.is_nothing() {
             input.print(engine_state, stack, no_newline, to_stderr)?;
-        }
-
-        for arg in args {
-            arg.into_pipeline_data()
-                .print(engine_state, stack, no_newline, to_stderr)?;
         }
 
         Ok(PipelineData::empty())
