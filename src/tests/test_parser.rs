@@ -486,6 +486,13 @@ fn list_type_annotations() -> TestResult {
 }
 
 #[test]
+fn list_type_annotations_empty() -> TestResult {
+    let input = "def test [list: list<>] { $list | length }; test [ ['nushell'], ['nunu'] ]";
+    let expected = "2";
+    run_test(input, expected)
+}
+
+#[test]
 fn list_type_annotations_nested() -> TestResult {
     let input =
         "def test [list: list<list<string>>] { $list | length }; test [ ['nushell'], ['nunu'] ]";
