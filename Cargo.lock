@@ -2804,6 +2804,7 @@ dependencies = [
  "native-tls",
  "notify",
  "nu-ansi-term",
+ "nu-cli",
  "nu-cmd-lang",
  "nu-color-config",
  "nu-engine",

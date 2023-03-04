@@ -1,5 +1,7 @@
 use fancy_regex::Regex;
 use itertools::Itertools;
+use nu_cli::eval_hook;
+use nu_cli::report_error_new;
 use nu_engine::env_to_strings;
 use nu_engine::CallExt;
 use nu_protocol::{
@@ -324,9 +326,35 @@ impl ExternalCommand {
                             }
                         };
 
+                        let mut err_str = err.to_string();
+                        let mut engine_state = engine_state.clone();
+                        if let Some(hook) = engine_state.config.hooks.command_not_found.clone() {
+                            match eval_hook(
+                                &mut engine_state,
+                                stack,
+                                None,
+                                vec![(
+                                    "cmd_name".into(),
+                                    Value::string(self.name.item.to_string(), self.name.span),
+                                )],
+                                &hook,
+                            ) {
+                                Ok(hook_output) => {
+                                    if let PipelineData::Value(Value::String { val, .. }, ..) =
+                                        hook_output
+                                    {
+                                        err_str = format!("{}\n{}", err_str, val);
+                                    }
+                                }
+                                Err(err) => {
+                                    report_error_new(&engine_state, &err);
+                                }
+                            }
+                        }
+
                         Err(ShellError::ExternalCommand {
                             label,
-                            help: err.to_string(),
+                            help: err_str,
                             span: self.name.span,
                         })
                     }

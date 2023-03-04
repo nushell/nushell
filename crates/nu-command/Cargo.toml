@@ -13,6 +13,7 @@ version = "0.77.2"
 bench = false
 
 [dependencies]
+nu-cli = { path = "../nu-cli", version = "0.77.2" }
 nu-cmd-lang = { path = "../nu-cmd-lang", version = "0.77.2" }
 nu-color-config = { path = "../nu-color-config", version = "0.77.2" }
 nu-engine = { path = "../nu-engine", version = "0.77.2" }
