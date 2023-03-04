@@ -105,12 +105,6 @@ pub fn version(
         vals.push(Value::string(cargo_version, call.head));
     }
 
-    let pkg_version: Option<&str> = Some(shadow::PKG_VERSION).filter(|x| !x.is_empty());
-    if let Some(pkg_version) = pkg_version {
-        cols.push("pkg_version".to_string());
-        vals.push(Value::string(pkg_version, call.head));
-    }
-
     let build_time = Some(build::BUILD_TIME).filter(|x| !x.is_empty());
     if let Some(build_time) = build_time {
         cols.push("build_time".to_string());
