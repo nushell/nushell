@@ -48,7 +48,7 @@ fn treats_dot_dot_as_path_not_range() {
         r#"
             mkdir temp;
             cd temp;
-            echo (open ../nu_times.csv).name.0 | table;
+            print (open ../nu_times.csv).name.0 | table;
             cd ..;
             rmdir temp
             "#
@@ -385,9 +385,9 @@ fn let_env_hides_variable() {
         cwd: ".",
         r#"
             let-env TESTENVVAR = "hello world"
-            echo $env.TESTENVVAR
+            print $env.TESTENVVAR
             hide-env TESTENVVAR
-            echo $env.TESTENVVAR
+            print $env.TESTENVVAR
         "#
     );
 
@@ -401,12 +401,12 @@ fn let_env_hides_variable_in_parent_scope() {
         cwd: ".",
         r#"
             let-env TESTENVVAR = "hello world"
-            echo $env.TESTENVVAR
+            print $env.TESTENVVAR
             do {
                 hide-env TESTENVVAR
-                echo $env.TESTENVVAR
+                print $env.TESTENVVAR
             }
-            echo $env.TESTENVVAR
+            print $env.TESTENVVAR
         "#
     );
 
@@ -446,14 +446,14 @@ fn unlet_variable_in_parent_scope() {
         cwd: ".",
         r#"
             let-env DEBUG = "1"
-            echo $env.DEBUG
+            print $env.DEBUG
             do {
                 let-env DEBUG = "2"
-                echo $env.DEBUG
+                print $env.DEBUG
                 hide-env DEBUG
-                echo $env.DEBUG
+                print $env.DEBUG
             }
-            echo $env.DEBUG
+            print $env.DEBUG
         "#
     );
 
@@ -477,7 +477,7 @@ fn proper_shadow_let_env_aliases() {
     let actual = nu!(
         cwd: ".",
         r#"
-        let-env DEBUG = "true"; echo $env.DEBUG | table; do { let-env DEBUG = "false"; echo $env.DEBUG } | table; echo $env.DEBUG
+        let-env DEBUG = "true"; print $env.DEBUG | table; do { let-env DEBUG = "false"; print $env.DEBUG } | table; print $env.DEBUG
         "#
     );
     assert_eq!(actual.out, "truefalsetrue");
@@ -526,7 +526,7 @@ fn proper_shadow_load_env_aliases() {
     let actual = nu!(
         cwd: ".",
         r#"
-        let-env DEBUG = "true"; echo $env.DEBUG | table; do { echo {DEBUG: "false"} | load-env; echo $env.DEBUG } | table; echo $env.DEBUG
+        let-env DEBUG = "true"; print $env.DEBUG | table; do { echo {DEBUG: "false"} | load-env; print $env.DEBUG } | table; print $env.DEBUG
         "#
     );
     assert_eq!(actual.out, "truefalsetrue");
@@ -576,7 +576,7 @@ fn proper_shadow_let_aliases() {
     let actual = nu!(
         cwd: ".",
         r#"
-        let DEBUG = false; echo $DEBUG | table; do { let DEBUG = true; echo $DEBUG } | table; echo $DEBUG
+        let DEBUG = false; print $DEBUG | table; do { let DEBUG = true; print $DEBUG } | table; print $DEBUG
         "#
     );
     assert_eq!(actual.out, "falsetruefalse");
