@@ -48,7 +48,7 @@ impl Command for Use {
         let import_pattern = if let Some(Expression {
             expr: Expr::ImportPattern(pat),
             ..
-        }) = call.parser_info_nth(0)
+        }) = call.get_parser_info("import_pattern")
         {
             pat
         } else {

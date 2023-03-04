@@ -8,7 +8,7 @@ use nu_protocol::{
     engine::{StateWorkingSet, DEFAULT_OVERLAY_NAME},
     span, Alias, BlockId, Exportable, Module, PositionalArg, Span, Spanned, SyntaxShape, Type,
 };
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 use std::path::{Path, PathBuf};
 
 static LIB_DIRS_ENV: &str = "NU_LIB_DIRS";
@@ -916,7 +916,7 @@ pub fn parse_old_alias(
                 decl_id,
                 redirect_stdout: true,
                 redirect_stderr: false,
-                parser_info: vec![],
+                parser_info: HashMap::new(),
             }));
             return (
                 Pipeline::from_vec(vec![Expression {
@@ -1217,7 +1217,7 @@ pub fn parse_export_in_module(
         arguments: vec![],
         redirect_stdout: true,
         redirect_stderr: false,
-        parser_info: vec![],
+        parser_info: HashMap::new(),
     });
 
     let exportables = if let Some(kw_span) = spans.get(1) {
@@ -2041,7 +2041,7 @@ pub fn parse_module(
             ],
             redirect_stdout: true,
             redirect_stderr: false,
-            parser_info: vec![],
+            parser_info: HashMap::new(),
         });
 
         (
@@ -2398,7 +2398,7 @@ pub fn parse_use(
     };
 
     let mut call = call;
-    call.add_parser_info(import_pattern_expr);
+    call.set_parser_info("import_pattern".to_string(), import_pattern_expr);
 
     (
         Pipeline::from_vec(vec![Expression {
@@ -2619,7 +2619,7 @@ pub fn parse_hide(
         };
 
         let mut call = call;
-        call.add_parser_info(import_pattern_expr);
+        call.set_parser_info("import_pattern".to_string(), import_pattern_expr);
 
         (
             Pipeline::from_vec(vec![Expression {
@@ -2936,16 +2936,19 @@ pub fn parse_overlay_use(
 
     // Change the call argument to include the Overlay expression with the module ID
     let mut call = call;
-    call.add_parser_info(Expression {
-        expr: Expr::Overlay(if is_module_updated {
-            Some(origin_module_id)
-        } else {
-            None
-        }),
-        span: overlay_name_span,
-        ty: Type::Any,
-        custom_completion: None,
-    });
+    call.set_parser_info(
+        "overlay_expr".to_string(),
+        Expression {
+            expr: Expr::Overlay(if is_module_updated {
+                Some(origin_module_id)
+            } else {
+                None
+            }),
+            span: overlay_name_span,
+            ty: Type::Any,
+            custom_completion: None,
+        },
+    );
 
     let pipeline = Pipeline::from_vec(vec![Expression {
         expr: Expr::Call(call),
@@ -3117,7 +3120,7 @@ pub fn parse_let_or_const(
                             ],
                             redirect_stdout: true,
                             redirect_stderr: false,
-                            parser_info: vec![],
+                            parser_info: HashMap::new(),
                         });
 
                         return (
@@ -3242,7 +3245,7 @@ pub fn parse_mut(
                             ],
                             redirect_stdout: true,
                             redirect_stderr: false,
-                            parser_info: vec![],
+                            parser_info: HashMap::new(),
                         });
 
                         return (
@@ -3417,12 +3420,15 @@ pub fn parse_source(
 
                             // FIXME: Adding this expression to the positional creates a syntax highlighting error
                             // after writing `source example.nu`
-                            call_with_block.add_parser_info(Expression {
-                                expr: Expr::Int(block_id as i64),
-                                span: spans[1],
-                                ty: Type::Any,
-                                custom_completion: None,
-                            });
+                            call_with_block.set_parser_info(
+                                "block_id".to_string(),
+                                Expression {
+                                    expr: Expr::Int(block_id as i64),
+                                    span: spans[1],
+                                    ty: Type::Any,
+                                    custom_completion: None,
+                                },
+                            );
 
                             return (
                                 Pipeline::from_vec(vec![Expression {
