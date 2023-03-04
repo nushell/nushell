@@ -20,7 +20,7 @@ impl Command for Version {
     }
 
     fn usage(&self) -> &str {
-        "Display Nu version."
+        "Display Nu version, and its build configuration."
     }
 
     fn run(
