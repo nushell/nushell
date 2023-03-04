@@ -1,4 +1,4 @@
-use nu_engine::{eval_block, find_in_dirs_env, redirect_env, CallExt};
+use nu_engine::{eval_block, find_in_dirs_env, get_dirs_var_from_call, redirect_env, CallExt};
 use nu_parser::trim_quotes_str;
 use nu_protocol::ast::{Call, Expr};
 use nu_protocol::engine::{Command, EngineState, Stack};
@@ -114,7 +114,12 @@ impl Command for OverlayUse {
 
             // Evaluate the export-env block (if any) and keep its environment
             if let Some(block_id) = module.env_block {
-                let maybe_path = find_in_dirs_env(&name_arg.item, engine_state, caller_stack)?;
+                let maybe_path = find_in_dirs_env(
+                    &name_arg.item,
+                    engine_state,
+                    caller_stack,
+                    get_dirs_var_from_call(call),
+                )?;
 
                 let block = engine_state.get_block(block_id);
                 let mut callee_stack = caller_stack.gather_captures(&block.captures);

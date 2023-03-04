@@ -1,4 +1,5 @@
 use log::trace;
+use nu_engine::get_dirs_var_from_call;
 use nu_path::canonicalize_with;
 use nu_protocol::{
     ast::{
@@ -7,13 +8,14 @@ use nu_protocol::{
     },
     engine::{StateWorkingSet, DEFAULT_OVERLAY_NAME},
     span, Alias, BlockId, Exportable, Module, PositionalArg, Span, Spanned, SyntaxShape, Type,
+    VarId,
 };
 use std::collections::{HashMap, HashSet};
 use std::path::{Path, PathBuf};
 
-static LIB_DIRS_ENV: &str = "NU_LIB_DIRS";
+pub const LIB_DIRS_VAR: &str = "NU_LIB_DIRS";
 #[cfg(feature = "plugin")]
-static PLUGIN_DIRS_ENV: &str = "NU_PLUGIN_DIRS";
+pub const PLUGIN_DIRS_VAR: &str = "NU_PLUGIN_DIRS";
 
 use crate::{
     eval::{eval_constant, value_as_string},
@@ -2229,9 +2231,12 @@ pub fn parse_use(
             unescape_unquote_string(&import_pattern.head.name, import_pattern.head.span);
 
         if err.is_none() {
-            if let Some(module_path) =
-                find_in_dirs(&module_filename, working_set, &cwd, LIB_DIRS_ENV)
-            {
+            if let Some(module_path) = find_in_dirs_with_id(
+                &module_filename,
+                working_set,
+                &cwd,
+                get_dirs_var_from_call(&call),
+            ) {
                 if let Some(i) = working_set
                     .parsed_module_files
                     .iter()
@@ -2889,9 +2894,12 @@ pub fn parse_overlay_use(
             if let Ok(module_filename) =
                 String::from_utf8(trim_quotes(overlay_name.as_bytes()).to_vec())
             {
-                if let Some(module_path) =
-                    find_in_dirs(&module_filename, working_set, &cwd, LIB_DIRS_ENV)
-                {
+                if let Some(module_path) = find_in_dirs_with_id(
+                    &module_filename,
+                    working_set,
+                    &cwd,
+                    get_dirs_var_from_call(&call),
+                ) {
                     let overlay_name = if let Some(stem) = module_path.file_stem() {
                         stem.to_string_lossy().to_string()
                     } else {
@@ -3414,7 +3422,7 @@ pub fn parse_source(
                     }
                 };
 
-                if let Some(path) = find_in_dirs(&filename, working_set, &cwd, LIB_DIRS_ENV) {
+                if let Some(path) = find_in_dirs(&filename, working_set, &cwd, LIB_DIRS_VAR) {
                     if let Ok(contents) = std::fs::read(&path) {
                         // Change currently parsed directory
                         let prev_currently_parsed_cwd = if let Some(parent) = path.parent() {
@@ -3678,7 +3686,7 @@ pub fn parse_register(
             if let Some(err) = err {
                 Err(err)
             } else {
-                let path = if let Some(p) = find_in_dirs(&name, working_set, &cwd, PLUGIN_DIRS_ENV)
+                let path = if let Some(p) = find_in_dirs(&name, working_set, &cwd, PLUGIN_DIRS_VAR)
                 {
                     p
                 } else {
@@ -3823,12 +3831,67 @@ pub fn parse_register(
 ///   a) the directory of a file currently being parsed
 ///   b) current working directory (PWD)
 ///
-/// Then, if the file is not found in the actual cwd, NU_LIB_DIRS is checked.
-/// If there is a relative path in NU_LIB_DIRS, it is assumed to be relative to the actual cwd
+/// Then, if the file is not found in the actual cwd, dirs_var is checked.
+/// If dirs_var is an Expr::Var, then we look for a const with that VarId,
+/// and if dirs_var is an Expr::String, then we look for an environment with that name.
+/// If there is a relative path in dirs_var, it is assumed to be relative to the actual cwd
 /// determined in the first step.
 ///
 /// Always returns an absolute path
+pub fn find_in_dirs_with_id(
+    filename: &str,
+    working_set: &StateWorkingSet,
+    cwd: &str,
+    dirs_var_id: Option<VarId>,
+) -> Option<PathBuf> {
+    // Choose whether to use file-relative or PWD-relative path
+    let actual_cwd = if let Some(currently_parsed_cwd) = &working_set.currently_parsed_cwd {
+        currently_parsed_cwd.as_path()
+    } else {
+        Path::new(cwd)
+    };
+    if let Ok(p) = canonicalize_with(filename, actual_cwd) {
+        return Some(p);
+    }
+
+    let path = Path::new(filename);
+    if !path.is_relative() {
+        return None;
+    }
+
+    working_set
+        .find_constant(dirs_var_id?)?
+        .as_list()
+        .ok()?
+        .iter()
+        .map(|lib_dir| -> Option<PathBuf> {
+            let dir = lib_dir.as_path().ok()?;
+            let dir_abs = canonicalize_with(dir, actual_cwd).ok()?;
+            canonicalize_with(filename, dir_abs).ok()
+        })
+        .find(Option::is_some)
+        .flatten()
+}
+
+pub fn find_dirs_var(working_set: &StateWorkingSet, var_name: &str) -> Option<VarId> {
+    working_set
+        .find_variable(format!("${}", var_name).as_bytes())
+        .filter(|var_id| working_set.find_constant(*var_id).is_some())
+}
+
 pub fn find_in_dirs(
+    filename: &str,
+    working_set: &StateWorkingSet,
+    cwd: &str,
+    dirs_var_name: &str,
+) -> Option<PathBuf> {
+    find_dirs_var(working_set, dirs_var_name)
+        .and_then(|var_id| find_in_dirs_with_id(filename, working_set, cwd, Some(var_id)))
+        .or_else(|| find_in_dirs_old(filename, working_set, cwd, dirs_var_name))
+}
+
+// TODO: remove (see #8310)
+pub fn find_in_dirs_old(
     filename: &str,
     working_set: &StateWorkingSet,
     cwd: &str,
