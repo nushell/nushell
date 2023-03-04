@@ -19,7 +19,7 @@ use /path/to/standard_library/std.nu
 
 ### :mag: a concrete example
 - my name is @amtoine and i use the `ghq` tool to manage `git` projects
-> **Note**
+> **Note**  
 > `ghq` stores any repository inside `$env.GHQ_ROOT` under `<host>/<owner>/<repo>/`
 - the path to my local fork of `nushell` is then defined as
 ```bash
