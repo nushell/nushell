@@ -10,7 +10,7 @@
 
 A new type of shell.
 
-![Example of nushell](images/nushell-autocomplete6.gif "Example of nushell")
+![Example of nushell](images/nushell-autocomplete7.gif "Example of nushell")
 
 ## Table of Contents <!-- omit in toc -->
 
