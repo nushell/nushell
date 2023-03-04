@@ -206,9 +206,10 @@ pub fn net(span: Span) -> Value {
 pub fn cpu(span: Span) -> Value {
     let mut sys = System::new();
     sys.refresh_cpu_specifics(CpuRefreshKind::everything());
-    // We must refresh the CPU twice MINIMUM_CPU_UPDATE_INTERVAL apart to get valid usage data
-    // MINIMUM_CPU_UPDATE_INTERVAL is 200ms or thereabouts, depending on the OS 🐌
-    std::thread::sleep(System::MINIMUM_CPU_UPDATE_INTERVAL);
+    // We must refresh the CPU twice a while apart to get valid usage data.
+    // In theory we could just sleep MINIMUM_CPU_UPDATE_INTERVAL, but I've noticed that
+    // that gives poor results (error of ~5%). Decided to wait 2x that long, somewhat arbitrarily
+    std::thread::sleep(System::MINIMUM_CPU_UPDATE_INTERVAL * 2);
     sys.refresh_cpu_specifics(CpuRefreshKind::new().with_cpu_usage());
 
     let mut output = vec![];
@@ -235,8 +236,12 @@ pub fn cpu(span: Span) -> Value {
         });
 
         cols.push("cpu_usage".into());
+
+        // sysinfo CPU usage numbers are not very precise unless you wait a long time between refreshes.
+        // Round to 1DP (chosen somewhat arbitrarily) so people aren't misled by high-precision floats.
+        let rounded_usage = (cpu.cpu_usage() * 10.0).round() / 10.0;
         vals.push(Value::Float {
-            val: cpu.cpu_usage() as f64,
+            val: rounded_usage as f64,
             span,
         });
 
