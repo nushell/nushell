@@ -48,12 +48,23 @@ pub fn version(
     call: &Call,
     _input: PipelineData,
 ) -> Result<PipelineData, ShellError> {
-    let tag = call.head;
-    let mut cols = vec![];
-    let mut vals = vec![];
+    // Pre-allocate the arrays in the worst case (12 items):
+    // - version
+    // - branch
+    // - commit_hash
+    // - build_os
+    // - build_target
+    // - rust_version
+    // - cargo_version
+    // - build_time
+    // - build_rust_channel
+    // - features
+    // - installed_plugins
+    let mut cols = Vec::with_capacity(12);
+    let mut vals = Vec::with_capacity(12);
 
     cols.push("version".to_string());
-    vals.push(Value::string(env!("CARGO_PKG_VERSION"), tag));
+    vals.push(Value::string(env!("CARGO_PKG_VERSION"), call.head));
 
     cols.push("branch".to_string());
     vals.push(Value::string(build::BRANCH, call.head));
