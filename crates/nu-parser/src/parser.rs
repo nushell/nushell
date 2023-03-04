@@ -5291,7 +5291,7 @@ pub fn parse_expression(
                 arguments,
                 redirect_stdout: true,
                 redirect_stderr: false,
-                parser_info: vec![],
+                parser_info: HashMap::new(),
             }));
 
             (
@@ -6137,7 +6137,7 @@ fn wrap_expr_with_collect(working_set: &mut StateWorkingSet, expr: &Expression) 
                 decl_id,
                 redirect_stdout: true,
                 redirect_stderr: false,
-                parser_info: vec![],
+                parser_info: HashMap::new(),
             })),
             span,
             ty: Type::String,

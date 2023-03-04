@@ -66,23 +66,24 @@ impl Command for OverlayUse {
         let mut name_arg: Spanned<String> = call.req(engine_state, caller_stack, 0)?;
         name_arg.item = trim_quotes_str(&name_arg.item).to_string();
 
-        let maybe_origin_module_id = if let Some(overlay_expr) = call.parser_info_nth(0) {
-            if let Expr::Overlay(module_id) = overlay_expr.expr {
-                module_id
+        let maybe_origin_module_id =
+            if let Some(overlay_expr) = call.get_parser_info("overlay_expr") {
+                if let Expr::Overlay(module_id) = overlay_expr.expr {
+                    module_id
+                } else {
+                    return Err(ShellError::NushellFailedSpanned {
+                        msg: "Not an overlay".to_string(),
+                        label: "requires an overlay (path or a string)".to_string(),
+                        span: overlay_expr.span,
+                    });
+                }
             } else {
                 return Err(ShellError::NushellFailedSpanned {
-                    msg: "Not an overlay".to_string(),
-                    label: "requires an overlay (path or a string)".to_string(),
-                    span: overlay_expr.span,
+                    msg: "Missing positional".to_string(),
+                    label: "missing required overlay".to_string(),
+                    span: call.head,
                 });
-            }
-        } else {
-            return Err(ShellError::NushellFailedSpanned {
-                msg: "Missing positional".to_string(),
-                label: "missing required overlay".to_string(),
-                span: call.head,
-            });
-        };
+            };
 
         let overlay_name = if let Some(name) = call.opt(engine_state, caller_stack, 1)? {
             name
