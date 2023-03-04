@@ -42,12 +42,15 @@ impl Command for SourceEnv {
 
         // Note: this hidden positional is the block_id that corresponded to the 0th position
         // it is put here by the parser
-        let block_id: i64 = call.req_parser_info(engine_state, caller_stack, 0)?;
+        let block_id: i64 = call.req_parser_info(engine_state, caller_stack, "block_id")?;
 
         // Set the currently evaluated directory (file-relative PWD)
-        let mut parent = if let Some(path) =
-            find_in_dirs_env(&source_filename.item, engine_state, caller_stack)?
-        {
+        let mut parent = if let Some(path) = find_in_dirs_env(
+            &source_filename.item,
+            engine_state,
+            caller_stack,
+            call.get_parser_info("dirs_var").map(|x| &x.expr),
+        )? {
             PathBuf::from(&path)
         } else {
             return Err(ShellError::FileNotFound(source_filename.span));

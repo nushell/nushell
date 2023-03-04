@@ -48,7 +48,7 @@ impl Command for Use {
         let import_pattern = if let Some(Expression {
             expr: Expr::ImportPattern(pat),
             ..
-        }) = call.parser_info_nth(0)
+        }) = call.get_parser_info("import_pattern")
         {
             pat
         } else {
@@ -72,9 +72,12 @@ impl Command for Use {
                 let module_arg_str = String::from_utf8_lossy(
                     engine_state.get_span_contents(&import_pattern.head.span),
                 );
-                let maybe_parent = if let Some(path) =
-                    find_in_dirs_env(&module_arg_str, engine_state, caller_stack)?
-                {
+                let maybe_parent = if let Some(path) = find_in_dirs_env(
+                    &module_arg_str,
+                    engine_state,
+                    caller_stack,
+                    call.get_parser_info("dirs_var").map(|x| &x.expr),
+                )? {
                     path.parent().map(|p| p.to_path_buf()).or(None)
                 } else {
                     None

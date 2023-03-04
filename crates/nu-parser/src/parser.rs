@@ -19,9 +19,9 @@ use nu_protocol::{
 };
 
 use crate::parse_keywords::{
-    parse_alias, parse_def, parse_def_predecl, parse_export_in_block, parse_extern, parse_for,
-    parse_hide, parse_let_or_const, parse_module, parse_old_alias, parse_overlay, parse_source,
-    parse_use, parse_where, parse_where_expr,
+    find_dirs_var, parse_alias, parse_def, parse_def_predecl, parse_export_in_block, parse_extern,
+    parse_for, parse_hide, parse_let_or_const, parse_module, parse_old_alias, parse_overlay,
+    parse_source, parse_use, parse_where, parse_where_expr, LIB_DIRS_VAR,
 };
 
 use itertools::Itertools;
@@ -780,6 +780,23 @@ pub struct ParsedInternalCall {
     pub error: Option<ParseError>,
 }
 
+fn attach_parser_info_builtin(working_set: &StateWorkingSet, name: &str, call: &mut Call) {
+    match name {
+        "use" | "overlay use" | "source-env" | "nu-check" => {
+            call.set_parser_info(
+                "dirs_var".to_string(),
+                Expression {
+                    expr: find_dirs_var(working_set, LIB_DIRS_VAR),
+                    span: call.head,
+                    ty: Type::Any,
+                    custom_completion: None,
+                },
+            );
+        }
+        _ => {}
+    }
+}
+
 pub fn parse_internal_call(
     working_set: &mut StateWorkingSet,
     command_span: Span,
@@ -798,6 +815,10 @@ pub fn parse_internal_call(
     let decl = working_set.get_decl(decl_id);
     let signature = decl.signature();
     let output = signature.output_type.clone();
+
+    if decl.is_builtin() {
+        attach_parser_info_builtin(working_set, decl.name(), &mut call);
+    }
 
     // The index into the positional parameter in the definition
     let mut positional_idx = 0;
@@ -5253,7 +5274,7 @@ pub fn parse_expression(
                 arguments,
                 redirect_stdout: true,
                 redirect_stderr: false,
-                parser_info: vec![],
+                parser_info: HashMap::new(),
             }));
 
             (
@@ -6050,7 +6071,7 @@ fn wrap_expr_with_collect(working_set: &mut StateWorkingSet, expr: &Expression) 
                 decl_id,
                 redirect_stdout: true,
                 redirect_stderr: false,
-                parser_info: vec![],
+                parser_info: HashMap::new(),
             })),
             span,
             ty: Type::String,

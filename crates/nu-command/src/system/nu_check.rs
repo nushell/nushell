@@ -106,7 +106,12 @@ impl Command for NuCheck {
             _ => {
                 if let Some(path_str) = path {
                     // look up the path as relative to FILE_PWD or inside NU_LIB_DIRS (same process as source-env)
-                    let path = match find_in_dirs_env(&path_str.item, engine_state, stack) {
+                    let path = match find_in_dirs_env(
+                        &path_str.item,
+                        engine_state,
+                        stack,
+                        call.get_parser_info("dirs_var").map(|x| &x.expr),
+                    ) {
                         Ok(path) => {
                             if let Some(path) = path {
                                 path
