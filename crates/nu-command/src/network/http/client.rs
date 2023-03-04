@@ -280,8 +280,8 @@ pub fn request_add_custom_headers(
     Ok(request)
 }
 
-fn handle_response_error(span: Span, requested_url: &str, responce_err: Error) -> ShellError {
-    match responce_err {
+fn handle_response_error(span: Span, requested_url: &str, response_err: Error) -> ShellError {
+    match response_err {
         Error::Status(301, _) => ShellError::NetworkFailure(
             format!("Resource moved permanently (301): {requested_url:?}"),
             span,
@@ -303,7 +303,7 @@ fn handle_response_error(span: Span, requested_url: &str, responce_err: Error) -
             format!(
                 "Cannot make request to {:?}. Error is {:?}",
                 requested_url,
-                responce_err.to_string()
+                response_err.to_string()
             ),
             span,
         ),
