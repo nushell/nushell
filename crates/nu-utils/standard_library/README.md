@@ -9,7 +9,7 @@ complex applications using standardized tools gathered incrementally.
 In this library, you might find `rust`-like `assert` commands to write tests, tools to
 manipulate paths and strings, etc, etc, ...
 
-## use the standard library in the REPL or in scripts
+## :toolbox: use the standard library in the REPL or in scripts
 in order to "import" the standard library to either the interactive [*REPL*][REPL] of
 `nushell` or inside some `.nu` script, you might want to use the
 [`use`](https://nushell.sh/commands/docs/use.html) command!
@@ -17,7 +17,7 @@ in order to "import" the standard library to either the interactive [*REPL*][REP
 use /path/to/standard_library/std.nu
 ```
 
-### a concrete example
+### :mag: a concrete example
 - my name is @amtoine and i use the `ghq` tool to manage `git` projects
 > **Note**
 > `ghq` stores any repository inside `$env.GHQ_ROOT` under `<host>/<owner>/<repo>/`
@@ -50,15 +50,15 @@ Exported commands:
 This module does not export environment.
 ```
 
-## contribute to the standard library
-### add new commands
+## :pencil2: contribute to the standard library
+### :wrench: add new commands
 - add new standard commands to [`std.nu`](std.nu)
 - add associated tests to [`tests.nu`](tests.nu)
     - define a new `test_<feature>` before the `main`
     - import the `assert` functions you need at the top of the functions, e.g. `use std.nu "assert eq"`
     - add a call to `test_<feature>` at the bottom of the `main`
 
-### run the tests
+### :test_tube: run the tests
 the following call should return nothing
 ```bash
 nu ($env.STD_LIB | path join "tests.nu")
