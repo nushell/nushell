@@ -179,10 +179,7 @@ impl<'e, 's> ScopeData<'e, 's> {
                                 if let Some(result) = x.result {
                                     result
                                 } else {
-                                    Value::String {
-                                        val: "".to_string(),
-                                        span,
-                                    }
+                                    Value::Nothing { span }
                                 },
                             ],
                             span,
