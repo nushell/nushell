@@ -72,7 +72,7 @@ quick-xml = "0.27"
 rand = "0.8"
 rayon = "1.6.1"
 regex = "1.7.1"
-ureq = { version = "2.6.2", features = ["json", "charset", "native-tls"] }
+ureq = { version = "2.6.2", default-features = false, features = ["json", "charset", "native-tls", "gzip"] }
 native-tls = "0.2.11"
 roxmltree = "0.18.0"
 rust-embed = "6.3.0"
