@@ -54,7 +54,7 @@ fn external_failed_should_be_caught() {
 fn loop_try_break_should_be_successful() {
     let output = nu!(
         cwd: ".",
-        "loop { try { echo 'successful'; break } catch { echo 'failed'; continue } }"
+        "loop { try { print 'successful'; break } catch { print 'failed'; continue } }"
     );
 
     assert_eq!(output.out, "successful");
@@ -66,7 +66,7 @@ fn loop_catch_break_should_show_failed() {
         cwd: ".",
         "loop {
             try { invalid 1;
-            continue; } catch { echo 'failed'; break }
+            continue; } catch { print 'failed'; break }
         }
         "
     );

@@ -254,10 +254,10 @@ fn test_open_block_command() {
         r#"
             def "from blockcommandparser" [] { lines | split column ",|," }
             let values = (open sample.blockcommandparser)
-            echo ($values | get column1 | get 0)
-            echo ($values | get column2 | get 0)
-            echo ($values | get column1 | get 1)
-            echo ($values | get column2 | get 1)
+            print ($values | get column1 | get 0)
+            print ($values | get column2 | get 0)
+            print ($values | get column1 | get 1)
+            print ($values | get column2 | get 1)
         "#
     );
 

@@ -33,7 +33,7 @@ fn loop_break_on_external_failed() {
             } else {
                 $total += 1;
             }
-            echo 1;
+            print 1;
             nu --testbin fail;
         }"#
     );
