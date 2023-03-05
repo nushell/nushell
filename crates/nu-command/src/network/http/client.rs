@@ -7,8 +7,8 @@ use nu_protocol::engine::{EngineState, Stack};
 use nu_protocol::{
     BufferedReader, IntoPipelineData, PipelineData, RawStream, ShellError, Span, Value,
 };
-use reqwest::blocking::{RequestBuilder, Response};
-use reqwest::{blocking, Error, StatusCode};
+use ureq::{Error, ErrorKind, Request, Response};
+
 use std::collections::HashMap;
 use std::io::BufReader;
 use std::path::PathBuf;
@@ -25,12 +25,16 @@ pub enum BodyType {
 
 // Only panics if the user agent is invalid but we define it statically so either
 // it always or never fails
-pub fn http_client(allow_insecure: bool) -> blocking::Client {
-    blocking::Client::builder()
-        .user_agent("nushell")
+pub fn http_client(allow_insecure: bool) -> ureq::Agent {
+    let tls = native_tls::TlsConnector::builder()
         .danger_accept_invalid_certs(allow_insecure)
         .build()
-        .expect("Failed to build reqwest client")
+        .expect("Failed to build network tls");
+
+    ureq::builder()
+        .user_agent("nushell")
+        .tls_connector(std::sync::Arc::new(tls))
+        .build()
 }
 
 pub fn http_parse_url(
@@ -62,15 +66,9 @@ pub fn response_to_buffer(
 ) -> PipelineData {
     // Try to get the size of the file to be downloaded.
     // This is helpful to show the progress of the stream.
-    let buffer_size = match &response.headers().get("content-length") {
+    let buffer_size = match response.header("content-length") {
         Some(content_length) => {
-            let content_length = &(*content_length).clone(); // binding
-
-            let content_length = content_length
-                .to_str()
-                .unwrap_or("")
-                .parse::<u64>()
-                .unwrap_or(0);
+            let content_length = content_length.parse::<u64>().unwrap_or_default();
 
             if content_length == 0 {
                 None
@@ -81,7 +79,8 @@ pub fn response_to_buffer(
         _ => None,
     };
 
-    let buffered_input = BufReader::new(response);
+    let reader = response.into_reader();
+    let buffered_input = BufReader::new(reader);
 
     PipelineData::ExternalStream {
         stdout: Some(RawStream::new(
@@ -103,8 +102,8 @@ pub fn response_to_buffer(
 pub fn request_add_authorization_header(
     user: Option<String>,
     password: Option<String>,
-    mut request: RequestBuilder,
-) -> RequestBuilder {
+    mut request: Request,
+) -> Request {
     let base64_engine = GeneralPurpose::new(&alphabet::STANDARD, PAD);
 
     let login = match (user, password) {
@@ -127,71 +126,87 @@ pub fn request_add_authorization_header(
     };
 
     if let Some(login) = login {
-        request = request.header("Authorization", format!("Basic {login}"));
+        request = request.set("Authorization", &format!("Basic {login}"));
     }
 
     request
 }
 
-pub fn request_set_body(
+pub fn send_request(
+    request: Request,
+    span: Span,
+    body: Option<Value>,
     content_type: Option<String>,
-    content_length: Option<String>,
-    body: Value,
-    mut request: RequestBuilder,
-) -> Result<RequestBuilder, ShellError> {
-    // set the content-type header before using e.g., request.json
-    // because that will avoid duplicating the header value
-    if let Some(val) = &content_type {
-        request = request.header("Content-Type", val);
+) -> Result<Response, ShellError> {
+    let request_url = request.url().to_string();
+    if body.is_none() {
+        return request
+            .call()
+            .map_err(|err| handle_response_error(span, &request_url, err));
     }
+    let body = body.expect("Should never be none.");
 
     let body_type = match content_type {
         Some(it) if it == "application/json" => BodyType::Json,
         Some(it) if it == "application/x-www-form-urlencoded" => BodyType::Form,
         _ => BodyType::Unknown,
     };
-
     match body {
-        Value::Binary { val, .. } => {
-            request = request.body(val);
-        }
-        Value::String { val, .. } => {
-            request = request.body(val);
-        }
+        Value::Binary { val, .. } => request
+            .send_bytes(&val)
+            .map_err(|err| handle_response_error(span, &request_url, err)),
+        Value::String { val, .. } => request
+            .send_string(&val)
+            .map_err(|err| handle_response_error(span, &request_url, err)),
         Value::Record { .. } if body_type == BodyType::Json => {
             let data = value_to_json_value(&body)?;
-            request = request.json(&data);
+            request
+                .send_json(data)
+                .map_err(|err| handle_response_error(span, &request_url, err))
         }
-        Value::Record { .. } if body_type == BodyType::Form => {
-            let data = value_to_json_value(&body)?;
-            request = request.form(&data);
+        Value::Record { cols, vals, .. } if body_type == BodyType::Form => {
+            let mut data: Vec<(String, String)> = Vec::with_capacity(cols.len());
+
+            for (col, val) in cols.iter().zip(vals.iter()) {
+                data.push((col.clone(), val.as_string()?))
+            }
+
+            let data = data
+                .iter()
+                .map(|(a, b)| (a.as_str(), b.as_str()))
+                .collect::<Vec<(&str, &str)>>();
+
+            request
+                .send_form(&data[..])
+                .map_err(|err| handle_response_error(span, &request_url, err))
         }
         Value::List { vals, .. } if body_type == BodyType::Form => {
             if vals.len() % 2 != 0 {
                 return Err(ShellError::IOError("unsupported body input".into()));
             }
+
             let data = vals
                 .chunks(2)
                 .map(|it| Ok((it[0].as_string()?, it[1].as_string()?)))
                 .collect::<Result<Vec<(String, String)>, ShellError>>()?;
-            request = request.form(&data)
-        }
-        _ => {
-            return Err(ShellError::IOError("unsupported body input".into()));
-        }
-    };
 
-    if let Some(val) = content_length {
-        request = request.header("Content-Length", val);
+            let data = data
+                .iter()
+                .map(|(a, b)| (a.as_str(), b.as_str()))
+                .collect::<Vec<(&str, &str)>>();
+
+            request
+                .send_form(&data)
+                .map_err(|err| handle_response_error(span, &request_url, err))
+        }
+        _ => Err(ShellError::IOError("unsupported body input".into())),
     }
-
-    Ok(request)
 }
 
 pub fn request_set_timeout(
     timeout: Option<Value>,
-    mut request: RequestBuilder,
-) -> Result<RequestBuilder, ShellError> {
+    mut request: Request,
+) -> Result<Request, ShellError> {
     if let Some(timeout) = timeout {
         let val = timeout.as_i64()?;
         if val.is_negative() || val < 1 {
@@ -210,8 +225,8 @@ pub fn request_set_timeout(
 
 pub fn request_add_custom_headers(
     headers: Option<Value>,
-    mut request: RequestBuilder,
-) -> Result<RequestBuilder, ShellError> {
+    mut request: Request,
+) -> Result<Request, ShellError> {
     if let Some(headers) = headers {
         let mut custom_headers: HashMap<String, Value> = HashMap::new();
 
@@ -257,7 +272,7 @@ pub fn request_add_custom_headers(
 
         for (k, v) in &custom_headers {
             if let Ok(s) = v.as_string() {
-                request = request.header(k, s);
+                request = request.set(k, &s);
             }
         }
     }
@@ -265,48 +280,41 @@ pub fn request_add_custom_headers(
     Ok(request)
 }
 
-fn handle_response_error(span: Span, requested_url: &String, response: Error) -> ShellError {
-    // Explicitly turn 4xx and 5xx statuses into errors.
-    if response.is_timeout() {
-        ShellError::NetworkFailure(format!("Request to {requested_url} has timed out"), span)
-    } else if response.is_status() {
-        match response.status() {
-            Some(err_code) if err_code == StatusCode::NOT_FOUND => ShellError::NetworkFailure(
-                format!("Requested file not found (404): {requested_url:?}"),
-                span,
-            ),
-            Some(err_code) if err_code == StatusCode::MOVED_PERMANENTLY => {
-                ShellError::NetworkFailure(
-                    format!("Resource moved permanently (301): {requested_url:?}"),
-                    span,
-                )
-            }
-            Some(err_code) if err_code == StatusCode::BAD_REQUEST => {
-                ShellError::NetworkFailure(format!("Bad request (400) to {requested_url:?}"), span)
-            }
-
-            Some(err_code) if err_code == StatusCode::FORBIDDEN => ShellError::NetworkFailure(
-                format!("Access forbidden (403) to {requested_url:?}"),
-                span,
-            ),
-            _ => ShellError::NetworkFailure(
-                format!(
-                    "Cannot make request to {:?}. Error is {:?}",
-                    requested_url,
-                    response.to_string()
-                ),
-                span,
-            ),
+fn handle_response_error(span: Span, requested_url: &str, response_err: Error) -> ShellError {
+    match response_err {
+        Error::Status(301, _) => ShellError::NetworkFailure(
+            format!("Resource moved permanently (301): {requested_url:?}"),
+            span,
+        ),
+        Error::Status(400, _) => {
+            ShellError::NetworkFailure(format!("Bad request (400) to {requested_url:?}"), span)
         }
-    } else {
-        ShellError::NetworkFailure(
+        Error::Status(403, _) => {
+            ShellError::NetworkFailure(format!("Access forbidden (403) to {requested_url:?}"), span)
+        }
+        Error::Status(404, _) => ShellError::NetworkFailure(
+            format!("Requested file not found (404): {requested_url:?}"),
+            span,
+        ),
+        Error::Status(408, _) => {
+            ShellError::NetworkFailure(format!("Request timeout (408): {requested_url:?}"), span)
+        }
+        Error::Status(_, _) => ShellError::NetworkFailure(
             format!(
                 "Cannot make request to {:?}. Error is {:?}",
                 requested_url,
-                response.to_string()
+                response_err.to_string()
             ),
             span,
-        )
+        ),
+
+        Error::Transport(t) => match t {
+            t if t.kind() == ErrorKind::ConnectionFailed => ShellError::NetworkFailure(
+                format!("Cannot make request to {requested_url}, there was an error establishing a connection.",),
+                span,
+            ),
+            t => ShellError::NetworkFailure(t.to_string(), span),
+        },
     }
 }
 
@@ -316,20 +324,11 @@ pub fn request_handle_response(
     span: Span,
     requested_url: &String,
     raw: bool,
-    response: Result<Response, Error>,
+    response: Result<Response, ShellError>,
 ) -> Result<PipelineData, ShellError> {
     match response {
-        Ok(resp) => match resp.headers().get("content-type") {
+        Ok(resp) => match resp.header("content-type") {
             Some(content_type) => {
-                let content_type = content_type.to_str().map_err(|e| {
-                    ShellError::GenericError(
-                        e.to_string(),
-                        "".to_string(),
-                        None,
-                        Some("MIME type were invalid".to_string()),
-                        Vec::new(),
-                    )
-                })?;
                 let content_type = mime::Mime::from_str(content_type).map_err(|_| {
                     ShellError::GenericError(
                         format!("MIME type unknown: {content_type}"),
@@ -386,29 +385,29 @@ pub fn request_handle_response(
             }
             None => Ok(response_to_buffer(resp, engine_state, span)),
         },
-        Err(e) => Err(handle_response_error(span, requested_url, e)),
+        Err(e) => Err(e),
     }
 }
 
 pub fn request_handle_response_headers(
     span: Span,
-    requested_url: &String,
-    response: Result<Response, Error>,
+    response: Result<Response, ShellError>,
 ) -> Result<PipelineData, ShellError> {
     match response {
         Ok(resp) => {
-            let cols: Vec<String> = resp.headers().keys().map(|name| name.to_string()).collect();
+            let cols = resp.headers_names();
 
             let mut vals = Vec::with_capacity(cols.len());
-            for value in resp.headers().values() {
-                match value.to_str() {
-                    Ok(str_value) => vals.push(Value::String {
+            for key in &cols {
+                match resp.header(key) {
+                    // match value.to_str() {
+                    Some(str_value) => vals.push(Value::String {
                         val: str_value.to_string(),
                         span,
                     }),
-                    Err(err) => {
+                    None => {
                         return Err(ShellError::GenericError(
-                            format!("Failure when converting header value: {err}"),
+                            "Failure when converting header value".to_string(),
                             "".to_string(),
                             None,
                             Some("Failure when converting header value".to_string()),
@@ -420,6 +419,6 @@ pub fn request_handle_response_headers(
 
             Ok(Value::Record { cols, vals, span }.into_pipeline_data())
         }
-        Err(e) => Err(handle_response_error(span, requested_url, e)),
+        Err(e) => Err(e),
     }
 }
