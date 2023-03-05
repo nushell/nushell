@@ -284,7 +284,7 @@ impl Command for Cp {
                 let mut n_file = 0;
 
                 for (s, d) in sources {
-                    n_file = n_file + 1;
+                    n_file += 1;
                     overall_pb.update_bar(n_file);
 
                     // Check if the user has pressed ctrl+c before copying a file
@@ -523,9 +523,7 @@ fn copy_file_with_progressbar(
 
     // With this I am able to update the overall progress bar.
     let mut stdout = stdout();
-    stdout
-        .execute(cursor::MoveToPreviousLine(0))
-        .unwrap_or_default();
+    let _tmp_pos = stdout.execute(cursor::MoveToPreviousLine(0));
 
     Value::String { val: msg, span }
 }

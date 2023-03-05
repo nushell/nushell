@@ -1,4 +1,4 @@
-use indicatif::{MultiProgress, ProgressBar, ProgressState, ProgressStyle};
+use indicatif::{ProgressBar, ProgressState, ProgressStyle};
 use std::fmt;
 
 // This module includes the progress bar used to show the progress when using the command `save`
