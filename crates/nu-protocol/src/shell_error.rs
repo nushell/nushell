@@ -205,7 +205,11 @@ pub enum ShellError {
     /// Check your syntax for mismatched braces, RegExp syntax errors, etc, based on the specific error message.
     #[error("Delimiter error")]
     #[diagnostic(code(nu::shell::delimiter_error))]
-    DelimiterError(String, #[label("{0}")] Span),
+    DelimiterError {
+        msg: String,
+        #[label("{msg}")]
+        span: Span,
+    },
 
     /// An operation received parameters with some sort of incompatibility
     /// (for example, different number of rows in a table, incompatible column names, etc).

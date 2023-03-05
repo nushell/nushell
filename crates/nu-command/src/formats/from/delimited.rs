@@ -68,7 +68,10 @@ pub fn from_delimited_data(
 
     Ok(
         from_delimited_string_to_value(concat_string, noheaders, no_infer, sep, trim, name)
-            .map_err(|x| ShellError::DelimiterError(x.to_string(), name))?
+            .map_err(|x| ShellError::DelimiterError {
+                msg: x.to_string(),
+                span: name,
+            })?
             .into_pipeline_data_with_metadata(metadata),
     )
 }

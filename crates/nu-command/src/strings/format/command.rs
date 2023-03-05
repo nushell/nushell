@@ -157,10 +157,10 @@ fn extract_formatting_operations(
         }
 
         if column_span_end < column_span_start {
-            return Err(ShellError::DelimiterError(
-                "there are unmatched curly braces".to_string(),
-                error_span,
-            ));
+            return Err(ShellError::DelimiterError {
+                msg: "there are unmatched curly braces".to_string(),
+                span: error_span,
+            });
         }
 
         if !column_name.is_empty() {
