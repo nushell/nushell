@@ -254,10 +254,10 @@ fn add_month_to_table(
         Err(()) => match full_year_value {
             Some(x) => return Err(get_invalid_year_shell_error(x.span)),
             None => {
-                return Err(ShellError::UnknownOperator(
-                    "Issue parsing command, invalid command".to_string(),
-                    tag,
-                ))
+                return Err(ShellError::UnknownOperator {
+                    op_token: "Issue parsing command, invalid command".to_string(),
+                    span: tag,
+                })
             }
         },
     };

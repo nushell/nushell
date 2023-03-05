@@ -160,9 +160,13 @@ pub enum ShellError {
     /// ## Resolution
     ///
     /// Did you write the correct operator?
-    #[error("Unknown operator: {0}.")]
+    #[error("Unknown operator: {op_token}.")]
     #[diagnostic(code(nu::shell::unknown_operator))]
-    UnknownOperator(String, #[label = "unknown operator"] Span),
+    UnknownOperator {
+        op_token: String,
+        #[label = "unknown operator"]
+        span: Span,
+    },
 
     /// An expected command parameter is missing.
     ///

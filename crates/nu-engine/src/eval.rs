@@ -19,9 +19,10 @@ pub fn eval_operator(op: &Expression) -> Result<Operator, ShellError> {
             expr: Expr::Operator(operator),
             ..
         } => Ok(operator.clone()),
-        Expression { span, expr, .. } => {
-            Err(ShellError::UnknownOperator(format!("{expr:?}"), *span))
-        }
+        Expression { span, expr, .. } => Err(ShellError::UnknownOperator {
+            op_token: format!("{expr:?}"),
+            span: *span,
+        }),
     }
 }
 
