@@ -846,10 +846,10 @@ pub fn eval_env_change_hook(
                 }
             }
             x => {
-                return Err(ShellError::TypeMismatch(
-                    "record for the 'env_change' hook".to_string(),
-                    x.span()?,
-                ));
+                return Err(ShellError::TypeMismatch {
+                    err_message: "record for the 'env_change' hook".to_string(),
+                    span: x.span()?,
+                });
             }
         }
     }

@@ -195,11 +195,10 @@ pub fn request_set_timeout(
     if let Some(timeout) = timeout {
         let val = timeout.as_i64()?;
         if val.is_negative() || val < 1 {
-            return Err(ShellError::TypeMismatch(
-                "Timeout value must be an integer and larger than 0".to_string(),
-                // timeout is already guaranteed to not be an error
-                timeout.expect_span(),
-            ));
+            return Err(ShellError::TypeMismatch {
+                err_message: "Timeout value must be an integer and larger than 0".to_string(),
+                span: timeout.expect_span(),
+            });
         }
 
         request = request.timeout(Duration::from_secs(val as u64));

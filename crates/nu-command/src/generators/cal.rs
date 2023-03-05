@@ -142,7 +142,10 @@ pub fn cal(
 }
 
 fn get_invalid_year_shell_error(head: Span) -> ShellError {
-    ShellError::TypeMismatch("The year is invalid".to_string(), head)
+    ShellError::TypeMismatch {
+        err_message: "The year is invalid".to_string(),
+        span: head,
+    }
 }
 
 struct MonthHelper {
@@ -275,10 +278,10 @@ fn add_month_to_table(
         if days_of_the_week.contains(&s.as_str()) {
             week_start_day = s.to_string();
         } else {
-            return Err(ShellError::TypeMismatch(
-                "The specified week start day is invalid".to_string(),
-                day.span,
-            ));
+            return Err(ShellError::TypeMismatch {
+                err_message: "The specified week start day is invalid".to_string(),
+                span: day.span,
+            });
         }
     }
 

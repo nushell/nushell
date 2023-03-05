@@ -154,10 +154,10 @@ fn string_helper(
     let decimals_value: Option<i64> = call.get_flag(engine_state, stack, "decimals")?;
     if let Some(decimal_val) = decimals_value {
         if decimals && decimal_val.is_negative() {
-            return Err(ShellError::TypeMismatch(
-                "Cannot accept negative integers for decimals arguments".to_string(),
-                head,
-            ));
+            return Err(ShellError::TypeMismatch {
+                err_message: "Cannot accept negative integers for decimals arguments".to_string(),
+                span: head,
+            });
         }
     }
     let cell_paths = call.rest(engine_state, stack, 0)?;

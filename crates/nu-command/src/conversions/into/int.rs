@@ -70,10 +70,10 @@ impl Command for SubCommand {
         let radix: u32 = match radix {
             Some(Value::Int { val, span }) => {
                 if !(2..=36).contains(&val) {
-                    return Err(ShellError::TypeMismatch(
-                        "Radix must lie in the range [2, 36]".to_string(),
+                    return Err(ShellError::TypeMismatch {
+                        err_message: "Radix must lie in the range [2, 36]".to_string(),
                         span,
-                    ));
+                    });
                 }
                 val as u32
             }

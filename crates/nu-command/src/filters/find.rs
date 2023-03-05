@@ -185,8 +185,10 @@ fn find_with_regex(
 
     let regex = flags.to_string() + regex.as_str();
 
-    let re = Regex::new(regex.as_str())
-        .map_err(|e| ShellError::TypeMismatch(format!("invalid regex: {e}"), span))?;
+    let re = Regex::new(regex.as_str()).map_err(|e| ShellError::TypeMismatch {
+        err_message: format!("invalid regex: {e}"),
+        span,
+    })?;
 
     input.filter(
         move |value| match value {

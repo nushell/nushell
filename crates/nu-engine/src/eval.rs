@@ -339,7 +339,10 @@ pub fn eval_expression(
             let lhs = eval_expression(engine_state, stack, expr)?;
             match lhs {
                 Value::Bool { val, .. } => Ok(Value::boolean(!val, expr.span)),
-                _ => Err(ShellError::TypeMismatch("bool".to_string(), expr.span)),
+                _ => Err(ShellError::TypeMismatch {
+                    err_message: "bool".to_string(),
+                    span: expr.span,
+                }),
             }
         }
         Expr::BinaryOp(lhs, op, rhs) => {
