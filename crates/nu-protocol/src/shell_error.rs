@@ -123,9 +123,13 @@ pub enum ShellError {
     ///
     /// Not all values, for example custom values, can be used with all operators. Either
     /// implement support for the operator on this type, or convert the type to a supported one.
-    #[error("Unsupported operator: {0}.")]
+    #[error("Unsupported operator: {operator}.")]
     #[diagnostic(code(nu::shell::unsupported_operator))]
-    UnsupportedOperator(Operator, #[label = "unsupported operator"] Span),
+    UnsupportedOperator {
+        operator: Operator,
+        #[label = "unsupported operator"]
+        span: Span,
+    },
 
     /// This value cannot be used with this operator.
     ///
