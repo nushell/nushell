@@ -509,6 +509,28 @@ fn list_type_annotations_nested_with_err() -> TestResult {
 }
 
 #[test]
+fn list_type_annotations_nested_with_unknown_type() -> TestResult {
+    let input =
+        "def test [list: list<list<str>>] { $list | length }; test [ ['nushell'], ['nunu'] ]";
+    let expected = "unknown type";
+    fail_test(input, expected)
+}
+
+#[test]
+fn list_type_annotations_nested_mismatched_type() -> TestResult {
+    let input = "\
+def test [
+    list: list<list<int>>
+] { 
+    $list | length 
+} 
+
+test [['nushell', 'nunu', 'nu']]";
+    let expected = "expected int";
+    fail_test(input, expected)
+}
+
+#[test]
 fn list_type_annotations_not_terminated() -> TestResult {
     let input = "def test [list: list<int] { $list | length }; test [2 5 4]";
     let expected = "use `>` to terminate it";
@@ -523,8 +545,29 @@ fn list_type_annotations_inner_not_type() -> TestResult {
 }
 
 #[test]
-fn list_type_annotations_with_spaces() -> TestResult {
+fn list_type_annotations_inner_original_list() -> TestResult {
+    let input = "def test [list: list<list>] { $list | length }; test [[2 5 4] [a b c]]";
+    let expected = "2";
+    run_test(input, expected)
+}
+
+#[test]
+fn list_type_annotations_unknown_separators() -> TestResult {
+    let input = "def test [list: list<int, string>] { $list | length }; test [2 5 4]";
+    let expected = "use `>` to terminate it";
+    fail_test(input, expected)
+}
+
+#[test]
+fn list_type_annotations_with_spaces_before() -> TestResult {
     let input = "def test [list: list< int>] { $list | length }; test [2 5 4]";
+    let expected = "use `>` to terminate it";
+    fail_test(input, expected)
+}
+
+#[test]
+fn list_type_annotations_with_spaces_after() -> TestResult {
+    let input = "def test [list: list<int > ] { $list | length }; test [2 5 4]";
     let expected = "use `>` to terminate it";
     fail_test(input, expected)
 }
