@@ -198,7 +198,7 @@ impl PipelineData {
 
     pub fn drain(self) -> Result<(), ShellError> {
         match self {
-            PipelineData::Value(Value::Error {error}, _)  => Err(error),
+            PipelineData::Value(Value::Error { error }, _) => Err(error),
             PipelineData::Value(_, _) => Ok(()),
             PipelineData::ListStream(stream, _) => stream.drain(),
             PipelineData::ExternalStream { stdout, stderr, .. } => {
