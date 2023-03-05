@@ -173,7 +173,7 @@ pub fn send_request(
 
             let data = data
                 .iter()
-                .map(|(a, b)| (&**a, &**b))
+                .map(|(a, b)| (a.as_str(), b.as_str()))
                 .collect::<Vec<(&str, &str)>>();
 
             request
@@ -192,7 +192,7 @@ pub fn send_request(
 
             let data = data
                 .iter()
-                .map(|(a, b)| (&**a, &**b))
+                .map(|(a, b)| (a.as_str(), b.as_str()))
                 .collect::<Vec<(&str, &str)>>();
 
             request
