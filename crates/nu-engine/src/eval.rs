@@ -457,7 +457,7 @@ pub fn eval_expression(
                                 stack.vars.insert(*var_id, rhs);
                                 Ok(Value::nothing(lhs.span))
                             } else {
-                                Err(ShellError::AssignmentRequiresMutableVar(lhs.span))
+                                Err(ShellError::AssignmentRequiresMutableVar { lhs_span: lhs.span })
                             }
                         }
                         Expr::FullCellPath(cell_path) => match &cell_path.head.expr {
@@ -499,12 +499,14 @@ pub fn eval_expression(
                                     }
                                     Ok(Value::nothing(cell_path.head.span))
                                 } else {
-                                    Err(ShellError::AssignmentRequiresMutableVar(lhs.span))
+                                    Err(ShellError::AssignmentRequiresMutableVar {
+                                        lhs_span: lhs.span,
+                                    })
                                 }
                             }
-                            _ => Err(ShellError::AssignmentRequiresVar(lhs.span)),
+                            _ => Err(ShellError::AssignmentRequiresVar { lhs_span: lhs.span }),
                         },
-                        _ => Err(ShellError::AssignmentRequiresVar(lhs.span)),
+                        _ => Err(ShellError::AssignmentRequiresVar { lhs_span: lhs.span }),
                     }
                 }
             }

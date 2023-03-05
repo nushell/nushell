@@ -131,23 +131,29 @@ pub enum ShellError {
         span: Span,
     },
 
-    /// This value cannot be used with this operator.
+    /// Invalid assignment left-hand side
     ///
     /// ## Resolution
     ///
     /// Assignment requires that you assign to a variable or variable cell path.
     #[error("Assignment operations require a variable.")]
     #[diagnostic(code(nu::shell::assignment_requires_variable))]
-    AssignmentRequiresVar(#[label = "needs to be a variable"] Span),
+    AssignmentRequiresVar {
+        #[label = "needs to be a variable"]
+        lhs_span: Span,
+    },
 
-    /// This value cannot be used with this operator.
+    /// Invalid assignment left-hand side
     ///
     /// ## Resolution
     ///
     /// Assignment requires that you assign to a mutable variable or cell path.
     #[error("Assignment to an immutable variable.")]
     #[diagnostic(code(nu::shell::assignment_requires_mutable_variable))]
-    AssignmentRequiresMutableVar(#[label = "needs to be a mutable variable"] Span),
+    AssignmentRequiresMutableVar {
+        #[label = "needs to be a mutable variable"]
+        lhs_span: Span,
+    },
 
     /// An operator was not recognized during evaluation.
     ///
