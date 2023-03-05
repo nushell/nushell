@@ -1,5 +1,5 @@
 use std::fs::read_link;
-use std::io::{BufReader, BufWriter, ErrorKind, Read, Write};
+use std::io::{stdout, BufReader, BufWriter, ErrorKind, Read, Write};
 use std::path::PathBuf;
 use std::sync::atomic::AtomicBool;
 use std::sync::Arc;
@@ -18,6 +18,7 @@ use super::util::try_interaction;
 
 use crate::filesystem::util::FileStructure;
 use crate::progress_bar;
+use crossterm::{cursor, ExecutableCommand};
 
 const GLOB_PARAMS: nu_glob::MatchOptions = nu_glob::MatchOptions {
     case_sensitive: true,
@@ -274,7 +275,18 @@ impl Command for Cp {
                     Ok((PathBuf::from(&source_file), dest))
                 })?;
 
+                let mut overall_pb = progress_bar::NuProgressBar::new(
+                    progress_bar::ProgressType::ProgressItems,
+                    Some(sources.len() as u64),
+                    "".to_string(),
+                );
+
+                let mut n_file = 0;
+
                 for (s, d) in sources {
+                    n_file = n_file + 1;
+                    overall_pb.update_bar(n_file);
+
                     // Check if the user has pressed ctrl+c before copying a file
                     if nu_utils::ctrl_c::was_pressed(&ctrlc) {
                         return Ok(PipelineData::empty());
@@ -320,6 +332,8 @@ impl Command for Cp {
                         result.push(res);
                     };
                 }
+
+                overall_pb.finished_msg("".to_string(), false);
             }
         }
 
@@ -425,6 +439,10 @@ fn copy_file_with_progressbar(
 ) -> Value {
     let mut bytes_processed: u64 = 0;
     let mut process_failed: Option<std::io::Error> = None;
+    let file_name = &src
+        .file_name()
+        .unwrap_or_else(|| std::ffi::OsStr::new(""))
+        .to_string_lossy();
 
     let file_in = match std::fs::File::open(&src) {
         Ok(file) => file,
@@ -436,7 +454,11 @@ fn copy_file_with_progressbar(
         _ => None,
     };
 
-    let mut bar = progress_bar::NuProgressBar::new(file_size);
+    let mut bar = progress_bar::NuProgressBar::new(
+        progress_bar::ProgressType::ProgressBytes,
+        file_size,
+        file_name.to_string(),
+    );
 
     let file_out = match std::fs::File::create(&dst) {
         Ok(file) => file,
@@ -496,13 +518,14 @@ fn copy_file_with_progressbar(
         return convert_io_error(error, src, dst, span);
     }
 
-    // Get the name of the file to print it out at the end
-    let file_name = &src
-        .file_name()
-        .unwrap_or_else(|| std::ffi::OsStr::new(""))
-        .to_string_lossy();
     let msg = format!("copied {:} to {:}", src.display(), dst.display());
-    bar.finished_msg(format!(" {} copied!", &file_name));
+    bar.finished_msg(format!(" {} copied!", &file_name), true);
+
+    // With this I am able to update the overall progress bar.
+    let mut stdout = stdout();
+    stdout
+        .execute(cursor::MoveToPreviousLine(0))
+        .unwrap_or_default();
 
     Value::String { val: msg, span }
 }
