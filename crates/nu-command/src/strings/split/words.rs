@@ -119,16 +119,16 @@ fn split_words(
 
     if matches!(word_length, None) {
         if call.has_flag("grapheme-clusters") {
-            return Err(ShellError::IncompatibleParametersSingle(
-                "--grapheme-clusters (-g) requires --min-word-length (-l)".to_string(),
+            return Err(ShellError::IncompatibleParametersSingle {
+                msg: "--grapheme-clusters (-g) requires --min-word-length (-l)".to_string(),
                 span,
-            ));
+            });
         }
         if call.has_flag("utf-8-bytes") {
-            return Err(ShellError::IncompatibleParametersSingle(
-                "--utf-8-bytes (-b) requires --min-word-length (-l)".to_string(),
+            return Err(ShellError::IncompatibleParametersSingle {
+                msg: "--utf-8-bytes (-b) requires --min-word-length (-l)".to_string(),
                 span,
-            ));
+            });
         }
     }
     let graphemes = grapheme_flags(call)?;

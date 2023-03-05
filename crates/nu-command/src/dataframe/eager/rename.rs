@@ -156,10 +156,10 @@ fn command_lazy(
 
     if columns.len() != new_names.len() {
         let value: Value = call.req(engine_state, stack, 1)?;
-        return Err(ShellError::IncompatibleParametersSingle(
-            "New name list has different size to column list".into(),
-            value.span()?,
-        ));
+        return Err(ShellError::IncompatibleParametersSingle {
+            msg: "New name list has different size to column list".into(),
+            span: value.span()?,
+        });
     }
 
     let lazy = lazy.into_polars();

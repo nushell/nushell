@@ -220,7 +220,11 @@ pub enum ShellError {
     /// inputs to make sure they match that way.
     #[error("Incompatible parameters.")]
     #[diagnostic(code(nu::shell::incompatible_parameters))]
-    IncompatibleParametersSingle(String, #[label = "{0}"] Span),
+    IncompatibleParametersSingle {
+        msg: String,
+        #[label = "{msg}"]
+        span: Span,
+    },
 
     /// This build of nushell implements this feature, but it has not been enabled.
     ///

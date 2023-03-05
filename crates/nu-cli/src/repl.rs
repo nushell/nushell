@@ -1109,10 +1109,10 @@ fn run_hook_block(
             if let Some(arg) = arguments.get(idx) {
                 callee_stack.add_var(*var_id, arg.1.clone())
             } else {
-                return Err(ShellError::IncompatibleParametersSingle(
-                    "This hook block has too many parameters".into(),
+                return Err(ShellError::IncompatibleParametersSingle {
+                    msg: "This hook block has too many parameters".into(),
                     span,
-                ));
+                });
             }
         }
     }

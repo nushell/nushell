@@ -744,10 +744,10 @@ Format: #
                     "bg" => nu_style.bg = Some(v.as_string()?),
                     "attr" => nu_style.attr = Some(v.as_string()?),
                     _ => {
-                        return Err(ShellError::IncompatibleParametersSingle(
-                            format!("problem with key: {k}"),
-                            code.expect_span(),
-                        ))
+                        return Err(ShellError::IncompatibleParametersSingle {
+                            msg: format!("problem with key: {k}"),
+                            span: code.expect_span(),
+                        })
                     }
                 }
             }

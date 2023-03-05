@@ -151,10 +151,12 @@ impl UrlComponents {
                                 port: Some(p),
                                 ..self
                             }),
-                            Err(_) => Err(ShellError::IncompatibleParametersSingle(
-                                String::from("Port parameter should represent an unsigned integer"),
+                            Err(_) => Err(ShellError::IncompatibleParametersSingle {
+                                msg: String::from(
+                                    "Port parameter should represent an unsigned integer",
+                                ),
                                 span,
-                            )),
+                            }),
                         }
                     }
                 }
@@ -163,12 +165,12 @@ impl UrlComponents {
                     ..self
                 }),
                 Value::Error { error } => Err(error),
-                other => Err(ShellError::IncompatibleParametersSingle(
-                    String::from(
+                other => Err(ShellError::IncompatibleParametersSingle {
+                    msg: String::from(
                         "Port parameter should be an unsigned integer or a string representing it",
                     ),
-                    other.expect_span(),
-                )),
+                    span: other.expect_span(),
+                }),
             };
         }
 
@@ -210,10 +212,10 @@ impl UrlComponents {
                     })
                 }
                 Value::Error { error } => Err(error),
-                other => Err(ShellError::IncompatibleParametersSingle(
-                    String::from("Key params has to be a record"),
-                    other.expect_span(),
-                )),
+                other => Err(ShellError::IncompatibleParametersSingle {
+                    msg: String::from("Key params has to be a record"),
+                    span: other.expect_span(),
+                }),
             };
         }
 
