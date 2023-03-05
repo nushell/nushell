@@ -324,7 +324,10 @@ impl UrlComponents {
     }
 
     fn generate_shell_error_for_missing_parameter(pname: String, span: Span) -> ShellError {
-        ShellError::MissingParameter(pname, span)
+        ShellError::MissingParameter {
+            param_name: pname,
+            span,
+        }
     }
 }
 

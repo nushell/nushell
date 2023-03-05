@@ -158,10 +158,11 @@ fn action(
                 (None, None, None, None) => {
                     // Error - no colors
                     Value::Error {
-                        error: ShellError::MissingParameter(
-                            "please supply foreground and/or background color parameters".into(),
-                            *command_span,
-                        ),
+                        error: ShellError::MissingParameter {
+                            param_name:
+                                "please supply foreground and/or background color parameters".into(),
+                            span: *command_span,
+                        },
                     }
                 }
                 (None, None, None, Some(bg_end)) => {

@@ -641,7 +641,12 @@ Format: #
         // this record is defined in nu-color-config crate
         let code: Value = match call.opt(engine_state, stack, 0)? {
             Some(c) => c,
-            None => return Err(ShellError::MissingParameter("code".into(), call.head)),
+            None => {
+                return Err(ShellError::MissingParameter {
+                    param_name: "code".into(),
+                    span: call.head,
+                })
+            }
         };
 
         let param_is_string = matches!(code, Value::String { val: _, span: _ });

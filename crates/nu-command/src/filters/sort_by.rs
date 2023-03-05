@@ -87,7 +87,10 @@ impl Command for SortBy {
         let mut vec: Vec<_> = input.into_iter_strict(call.head)?.collect();
 
         if columns.is_empty() {
-            return Err(ShellError::MissingParameter("columns".into(), call.head));
+            return Err(ShellError::MissingParameter {
+                param_name: "columns".into(),
+                span: call.head,
+            });
         }
 
         crate::sort(&mut vec, columns, call.head, insensitive, natural)?;

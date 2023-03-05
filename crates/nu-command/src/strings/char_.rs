@@ -246,10 +246,10 @@ impl Command for Char {
         if call.has_flag("integer") {
             let args: Vec<i64> = call.rest(engine_state, stack, 0)?;
             if args.is_empty() {
-                return Err(ShellError::MissingParameter(
-                    "missing at least one unicode character".into(),
-                    call_span,
-                ));
+                return Err(ShellError::MissingParameter {
+                    param_name: "missing at least one unicode character".into(),
+                    span: call_span,
+                });
             }
             let mut multi_byte = String::new();
             for (i, &arg) in args.iter().enumerate() {
@@ -263,10 +263,10 @@ impl Command for Char {
         } else if call.has_flag("unicode") {
             let args: Vec<String> = call.rest(engine_state, stack, 0)?;
             if args.is_empty() {
-                return Err(ShellError::MissingParameter(
-                    "missing at least one unicode character".into(),
-                    call_span,
-                ));
+                return Err(ShellError::MissingParameter {
+                    param_name: "missing at least one unicode character".into(),
+                    span: call_span,
+                });
             }
             let mut multi_byte = String::new();
             for (i, arg) in args.iter().enumerate() {
@@ -280,10 +280,10 @@ impl Command for Char {
         } else {
             let args: Vec<String> = call.rest(engine_state, stack, 0)?;
             if args.is_empty() {
-                return Err(ShellError::MissingParameter(
-                    "missing name of the character".into(),
-                    call_span,
-                ));
+                return Err(ShellError::MissingParameter {
+                    param_name: "missing name of the character".into(),
+                    span: call_span,
+                });
             }
             let special_character = str_to_character(&args[0]);
             if let Some(output) = special_character {

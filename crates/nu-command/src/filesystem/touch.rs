@@ -119,10 +119,10 @@ impl Command for Touch {
                     );
                 }
                 None => {
-                    return Err(ShellError::MissingParameter(
-                        "reference".to_string(),
-                        call.head,
-                    ));
+                    return Err(ShellError::MissingParameter {
+                        param_name: "reference".to_string(),
+                        span: call.head,
+                    });
                 }
             }
         }

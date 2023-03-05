@@ -173,9 +173,13 @@ pub enum ShellError {
     /// ## Resolution
     ///
     /// Add the expected parameter and try again.
-    #[error("Missing parameter: {0}.")]
+    #[error("Missing parameter: {param_name}.")]
     #[diagnostic(code(nu::shell::missing_parameter))]
-    MissingParameter(String, #[label = "missing parameter: {0}"] Span),
+    MissingParameter {
+        param_name: String,
+        #[label = "missing parameter: {param_name}"]
+        span: Span,
+    },
 
     /// Two parameters conflict with each other or are otherwise mutually exclusive.
     ///
