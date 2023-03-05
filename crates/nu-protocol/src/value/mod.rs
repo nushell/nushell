@@ -2573,7 +2573,14 @@ impl Value {
             && (self.get_type() != Type::Any)
             && (rhs.get_type() != Type::Any)
         {
-            return Err(ShellError::TypeMismatch("compatible type".to_string(), op));
+            return Err(ShellError::TypeMismatch(
+                format!(
+                    "incompatible type '{}' and '{}'",
+                    self.get_type(),
+                    rhs.get_type()
+                ),
+                op,
+            ));
         }
 
         if let Some(ordering) = self.partial_cmp(rhs) {
@@ -2606,7 +2613,14 @@ impl Value {
             && (self.get_type() != Type::Any)
             && (rhs.get_type() != Type::Any)
         {
-            return Err(ShellError::TypeMismatch("compatible type".to_string(), op));
+            return Err(ShellError::TypeMismatch(
+                format!(
+                    "incompatible type '{}' and '{}'",
+                    self.get_type(),
+                    rhs.get_type()
+                ),
+                op,
+            ));
         }
 
         self.partial_cmp(rhs)
@@ -2637,7 +2651,14 @@ impl Value {
             && (self.get_type() != Type::Any)
             && (rhs.get_type() != Type::Any)
         {
-            return Err(ShellError::TypeMismatch("compatible type".to_string(), op));
+            return Err(ShellError::TypeMismatch(
+                format!(
+                    "incompatible type '{}' and '{}'",
+                    self.get_type(),
+                    rhs.get_type()
+                ),
+                op,
+            ));
         }
 
         self.partial_cmp(rhs)
@@ -2668,7 +2689,14 @@ impl Value {
             && (self.get_type() != Type::Any)
             && (rhs.get_type() != Type::Any)
         {
-            return Err(ShellError::TypeMismatch("compatible type".to_string(), op));
+            return Err(ShellError::TypeMismatch(
+                format!(
+                    "incompatible type '{}' and '{}'",
+                    self.get_type(),
+                    rhs.get_type()
+                ),
+                op,
+            ));
         }
 
         match self.partial_cmp(rhs) {
