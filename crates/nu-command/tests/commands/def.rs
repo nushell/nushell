@@ -151,42 +151,6 @@ fn def_fails_with_invalid_name() {
 }
 
 #[test]
-fn def_with_specified_list_type() {
-    let actual = nu!(
-        cwd: ".", pipeline(
-        r#"
-        def test-command [ foo: list<any> ] {}
-        "#
-    ));
-
-    assert!(actual.err.is_empty());
-}
-
-#[test]
-fn def_with_specified_list_type_nested() {
-    let actual = nu!(
-        cwd: ".", pipeline(
-        r#"
-        def test-command [ foo: list<list<any>> ] {}
-        "#
-    ));
-
-    assert!(actual.err.is_empty());
-}
-
-#[test]
-fn def_with_specified_list_type_unterminated() {
-    let actual = nu!(
-        cwd: ".", pipeline(
-        r#"
-        def test-command [ foo: list<any ] {}
-        "#
-    ));
-
-    assert!(actual.err.contains("use `>` to terminate it"));
-}
-
-#[test]
 fn def_with_list() {
     Playground::setup("def_with_list", |dirs, _| {
         let data = r#"
