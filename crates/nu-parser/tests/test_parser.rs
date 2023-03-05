@@ -83,7 +83,7 @@ fn test_int(
             },
         ) = &expressions[0]
         {
-            compare_rhs_binaryOp(test_tag, &expected_val, &observed_val);
+            compare_rhs_binaryOp(test_tag, &expected_val, observed_val);
         }
     }
 }

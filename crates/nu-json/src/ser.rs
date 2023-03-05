@@ -856,11 +856,7 @@ fn escape_char<W>(wr: &mut W, value: char) -> Result<()>
 where
     W: io::Write,
 {
-    // FIXME: this allocation is required in order to be compatible with stable
-    // rust, which doesn't support encoding a `char` into a stack buffer.
-    let mut s = String::new();
-    s.push(value);
-    escape_bytes(wr, s.as_bytes())
+    escape_bytes(wr, value.encode_utf8(&mut [0; 4]).as_bytes())
 }
 
 fn fmt_f32_or_null<W>(wr: &mut W, value: f32) -> Result<()>

@@ -18,7 +18,7 @@ nu-utils = { path = "../nu-utils", version = "0.76.1"  }
 
 chrono = { version="0.4.23", features = ["std"], default-features = false }
 serde = {version = "1.0.143", default-features = false }
-sysinfo ="0.28.0"
+sysinfo ="0.28.2"
 
 [features]
 plugin = []

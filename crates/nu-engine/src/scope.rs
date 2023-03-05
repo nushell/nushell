@@ -166,7 +166,7 @@ impl<'e, 's> ScopeData<'e, 's> {
                         .examples()
                         .into_iter()
                         .map(|x| Value::Record {
-                            cols: vec!["description".into(), "example".into()],
+                            cols: vec!["description".into(), "example".into(), "result".into()],
                             vals: vec![
                                 Value::String {
                                     val: x.description.to_string(),
@@ -175,6 +175,11 @@ impl<'e, 's> ScopeData<'e, 's> {
                                 Value::String {
                                     val: x.example.to_string(),
                                     span,
+                                },
+                                if let Some(result) = x.result {
+                                    result
+                                } else {
+                                    Value::Nothing { span }
                                 },
                             ],
                             span,
