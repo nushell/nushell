@@ -174,6 +174,17 @@ fn convert_yaml_value_to_nu_value(
 
             Value::from(collected)
         }
+        serde_yaml::Value::Tagged(t) => {
+            let tag = &t.tag;
+            let value = match &t.value {
+                serde_yaml::Value::String(s) => s,
+                _ => "",
+            };
+            Value::String {
+                val: format!("{} {}", tag, value),
+                span,
+            }
+        }
         serde_yaml::Value::Null => Value::nothing(span),
         x => unimplemented!("Unsupported YAML case: {:?}", x),
     })
