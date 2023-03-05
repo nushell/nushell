@@ -7,7 +7,7 @@ use nu_protocol::engine::{EngineState, Stack};
 use nu_protocol::{
     BufferedReader, IntoPipelineData, PipelineData, RawStream, ShellError, Span, Value,
 };
-use ureq::{Error, Request, Response};
+use ureq::{Error, ErrorKind, Request, Response};
 
 use std::collections::HashMap;
 use std::io::BufReader;
@@ -308,10 +308,13 @@ fn handle_response_error(span: Span, requested_url: &str, response_err: Error) -
             span,
         ),
 
-        Error::Transport(t) => ShellError::NetworkFailure(
-            format!("error: ({}). message: {:?}.", t.kind(), t.message(),),
-            span,
-        ),
+        Error::Transport(t) => match t {
+            t if t.kind() == ErrorKind::ConnectionFailed => ShellError::NetworkFailure(
+                format!("Cannot make request to {requested_url}, there was an error establishing a connection.",),
+                span,
+            ),
+            t => ShellError::NetworkFailure(t.to_string(), span),
+        },
     }
 }
 
