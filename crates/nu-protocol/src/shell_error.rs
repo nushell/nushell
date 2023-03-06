@@ -348,15 +348,6 @@ pub enum ShellError {
         span: Span,
     },
 
-    /// A referenced module or overlay was not found at runtime.
-    ///
-    /// ## Resolution
-    ///
-    /// Check the module name. Did you typo it? Did you forget to declare it? Is the casing right?
-    #[error("Module or overlay'{0}' not found")]
-    #[diagnostic(code(nu::shell::module_or_overlay_not_found))]
-    ModuleOrOverlayNotFoundAtRuntime(String, #[label = "not a module or overlay"] Span),
-
     /// A referenced overlay was not found at runtime.
     ///
     /// ## Resolution
