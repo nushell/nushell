@@ -26,20 +26,20 @@ impl CoolCustomValue {
                 if let Some(cool) = val.as_any().downcast_ref::<Self>() {
                     Ok(cool.clone())
                 } else {
-                    Err(ShellError::CantConvert(
-                        "cool".into(),
-                        "non-cool".into(),
-                        *span,
-                        None,
-                    ))
+                    Err(ShellError::CantConvert {
+                        to_type: "cool".into(),
+                        from_type: "non-cool".into(),
+                        span: *span,
+                        help: None,
+                    })
                 }
             }
-            x => Err(ShellError::CantConvert(
-                "cool".into(),
-                x.get_type().to_string(),
-                x.span()?,
-                None,
-            )),
+            x => Err(ShellError::CantConvert {
+                to_type: "cool".into(),
+                from_type: x.get_type().to_string(),
+                span: x.span()?,
+                help: None,
+            }),
         }
     }
 }

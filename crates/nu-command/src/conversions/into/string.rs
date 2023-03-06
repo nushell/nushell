@@ -247,28 +247,28 @@ fn action(input: &Value, args: &Arguments, span: Span) -> Value {
             span: _,
         } => Value::Error {
             // Watch out for CantConvert's argument order
-            error: ShellError::CantConvert(
-                "string".into(),
-                "record".into(),
+            error: ShellError::CantConvert {
+                to_type: "string".into(),
+                from_type: "record".into(),
                 span,
-                Some("try using the `to nuon` command".into()),
-            ),
+                help: Some("try using the `to nuon` command".into()),
+            },
         },
         Value::Binary { .. } => Value::Error {
-            error: ShellError::CantConvert(
-                "string".into(),
-                "binary".into(),
+            error: ShellError::CantConvert {
+                to_type: "string".into(),
+                from_type: "binary".into(),
                 span,
-                Some("try using the `decode` command".into()),
-            ),
+                help: Some("try using the `decode` command".into()),
+            },
         },
         x => Value::Error {
-            error: ShellError::CantConvert(
-                String::from("string"),
-                x.get_type().to_string(),
+            error: ShellError::CantConvert {
+                to_type: String::from("string"),
+                from_type: x.get_type().to_string(),
                 span,
-                None,
-            ),
+                help: None,
+            },
         },
     }
 }

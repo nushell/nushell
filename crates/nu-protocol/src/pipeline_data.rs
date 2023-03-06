@@ -587,12 +587,10 @@ impl PipelineData {
             let stderr = stderr_handler.map(|(handler, stderr_span, stderr_ctrlc)| {
                 let stderr_bytes = handler
                     .join()
-                    .map_err(|err| {
-                        ShellError::ExternalCommand(
-                            "Fail to receive external commands stderr message".to_string(),
-                            format!("{err:?}"),
-                            stderr_span,
-                        )
+                    .map_err(|err| ShellError::ExternalCommand {
+                        label: "Fail to receive external commands stderr message".to_string(),
+                        help: format!("{err:?}"),
+                        span: stderr_span,
                     })
                     .unwrap_or_default();
                 RawStream::new(

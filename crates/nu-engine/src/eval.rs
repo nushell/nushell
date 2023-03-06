@@ -197,7 +197,7 @@ fn eval_external(
 ) -> Result<PipelineData, ShellError> {
     let decl_id = engine_state
         .find_decl("run-external".as_bytes(), &[])
-        .ok_or(ShellError::ExternalNotSupported(head.span))?;
+        .ok_or(ShellError::ExternalNotSupported { span: head.span })?;
 
     let command = engine_state.get_decl(decl_id);
 
@@ -260,12 +260,12 @@ pub fn eval_expression(
         }),
         Expr::ValueWithUnit(e, unit) => match eval_expression(engine_state, stack, e)? {
             Value::Int { val, .. } => Ok(compute(val, unit.item, unit.span)),
-            x => Err(ShellError::CantConvert(
-                "unit value".into(),
-                x.get_type().to_string(),
-                e.span,
-                None,
-            )),
+            x => Err(ShellError::CantConvert {
+                to_type: "unit value".into(),
+                from_type: x.get_type().to_string(),
+                span: e.span,
+                help: None,
+            }),
         },
         Expr::Range(from, next, to, operator) => {
             let from = if let Some(f) = from {
@@ -473,9 +473,9 @@ pub fn eval_expression(
                                     lhs.upsert_data_at_cell_path(&cell_path.tail, rhs)?;
                                     if is_env {
                                         if cell_path.tail.is_empty() {
-                                            return Err(ShellError::CannotReplaceEnv(
-                                                cell_path.head.span,
-                                            ));
+                                            return Err(ShellError::CannotReplaceEnv {
+                                                span: cell_path.head.span,
+                                            });
                                         }
 
                                         // The special $env treatment: for something like $env.config.history.max_size = 2000,
@@ -1251,11 +1251,11 @@ fn check_subexp_substitution(mut input: PipelineData) -> Result<PipelineData, Sh
             Some(stderr_stream) => stderr_stream.into_string().map(|s| s.item)?,
         };
         if failed_to_run {
-            Err(ShellError::ExternalCommand(
-                "External command failed".to_string(),
-                stderr_msg,
+            Err(ShellError::ExternalCommand {
+                label: "External command failed".to_string(),
+                help: stderr_msg,
                 span,
-            ))
+            })
         } else {
             // we've captured stderr message, but it's running success.
             // So we need to re-print stderr message out.
