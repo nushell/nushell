@@ -34,10 +34,6 @@ impl CustomValue for NuExpression {
         Ok(self.to_value(span))
     }
 
-    fn to_json(&self) -> nu_json::Value {
-        nu_json::Value::Null
-    }
-
     fn as_any(&self) -> &dyn std::any::Any {
         self
     }

@@ -33,10 +33,6 @@ impl CustomValue for NuDataFrame {
         Ok(Value::List { vals, span })
     }
 
-    fn to_json(&self) -> nu_json::Value {
-        nu_json::Value::Null
-    }
-
     fn as_any(&self) -> &dyn std::any::Any {
         self
     }
