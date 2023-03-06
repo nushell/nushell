@@ -13,7 +13,6 @@ use nu_protocol::{
 struct Arguments {
     zone_options: Option<Spanned<Zone>>,
     format_options: Option<DatetimeFormat>,
-    precision: i64,
     cell_paths: Option<Vec<CellPath>>,
 }
 
@@ -82,12 +81,6 @@ impl Command for SubCommand {
                 Some('o'),
             )
             .named(
-                "precision",
-                SyntaxShape::Int,
-                "number of decimal digits of sub-second precision in input timestamp, 0 = seconds, 3 = ms, 9 = nanoseconds",
-                Some('r'),
-            )
-            .named(
                 "format",
                 SyntaxShape::String,
                 "Specify expected format of string input to parse to datetime. Use --list to see options",
@@ -138,24 +131,9 @@ impl Command for SubCommand {
                 .as_ref()
                 .map(|fmt| DatetimeFormat(fmt.to_string()));
 
-            let precision_arg = call.get_flag::<i64>(engine_state, stack, "precision")?;
-            let precision = match precision_arg {
-                Some(arg) => {
-                    if arg < 0 {
-                        0
-                    } else if arg > 9 {
-                        9
-                    } else {
-                        arg
-                    }
-                }
-                _ => 9,
-            };
-
             let args = Arguments {
                 format_options,
                 zone_options,
-                precision,
                 cell_paths,
             };
             operate(action, args, input, call.head, engine_state.ctrlc.clone())
@@ -171,51 +149,39 @@ impl Command for SubCommand {
     }
 
     fn examples(&self) -> Vec<Example> {
-        let example_result_1 = |nanos: i64|  {
+        let example_result_1 = |nanos: i64| {
             Some(Value::Date {
-                val:  Utc.timestamp_nanos(nanos).into(),
+                val: Utc.timestamp_nanos(nanos).into(),
                 span: Span::test_data(),
             })
         };
-        vec![ 
-        
+        vec![
             Example {
                 description: "Convert any standard timestamp string to datetime",
                 example: "'27.02.2021 1:55 pm +0000' | into datetime",
-                result: example_result_1(1614434100_000000000)
+                result: example_result_1(1614434100_000000000),
             },
             Example {
                 description: "Convert any standard timestamp string to datetime",
                 example: "'2021-02-27T13:55:40.2246+00:00' | into datetime",
-                result: example_result_1(1614434140_224600000)
+                result: example_result_1(1614434140_224600000),
             },
             Example {
-                description: "Convert non-standard timestamp string to datetime using a custom format",
+                description:
+                    "Convert non-standard timestamp string to datetime using a custom format",
                 example: "'20210227_135540+0000' | into datetime -f '%Y%m%d_%H%M%S%z'",
-                result: example_result_1(1614434140_000000000)
-
-            },
-            Example {
-                description: "Convert standard (seconds) unix epoch timestamp int to a UTC datetime",
-                example: "1614434140 | into datetime --precision 0",
-                result: example_result_1(1614434140_000000000)
-            },
-            Example {
-                description: "Convert extended (nanoseconds) unix epoch timestamp int to a UTC datetime",
-                example: "1614434140123456789 | into datetime",
-                result: example_result_1(1614434140_123456789)
+                result: example_result_1(1614434140_000000000),
             },
             Example {
                 description:
-                    "Convert timestamp (no larger than 8e+12) to datetime using a specified timezone offset (between -12 and 12)",
-                example: "1614434140 | into datetime --offset -5 --precision 0",
-                result: None,
+                    "Convert nanosecond-precision unix timestamp to a datetime with offset from UTC",
+                example: "1614434140123456789 | into datetime --offset -5",
+                result: example_result_1(1614434140_123456789),
             },
             Example {
-                description:
-                    "Convert a millisecond-precise timestamp",
-                example: "1656165681720 | into datetime --precision 3",
-                result: example_result_1(1656165681_720000000)
+                description: "Convert standard (seconds) unix timestamp to a UTC datetime",
+                example: "1614434140 * 1_000_000_000 | into datetime",
+                result: example_result_1(1614434140_000000000),
             },
         ]
     }
@@ -227,9 +193,8 @@ struct DatetimeFormat(String);
 fn action(input: &Value, args: &Arguments, head: Span) -> Value {
     let timezone = &args.zone_options;
     let dateformat = &args.format_options;
-    let precision = args.precision;
 
-    const HOUR:i32 = 60 * 60;
+    const HOUR: i32 = 60 * 60;
 
     // Check to see if input looks like a Unix timestamp (i.e. can it be parsed to an int?)
     let timestamp = match input {
@@ -249,13 +214,7 @@ fn action(input: &Value, args: &Arguments, head: Span) -> Value {
         }
     };
 
-    if let Ok(ts_val) = timestamp {
-        // scale user input by specified precision
-        let mut ts = ts_val;
-        for _ in precision..9 {
-            ts *= 10;
-        }
-
+    if let Ok(ts) = timestamp {
         macro_rules! match_datetime {
             ($expr:expr) => {
                 match $expr {
@@ -267,9 +226,9 @@ fn action(input: &Value, args: &Arguments, head: Span) -> Value {
             };
         }
 
-        
-
         return match timezone {
+            // note all these `.timestamp_nanos()` could overflow if we didn't check range in `<date> | into int`.
+
             // default to UTC
             None => Value::Date {
                 val: Utc.timestamp_nanos(ts).into(),
@@ -364,7 +323,6 @@ mod tests {
             zone_options: None,
             format_options: fmt_options,
             cell_paths: None,
-            precision: 9,
         };
         let actual = action(&date_str, &args, Span::test_data());
         let expected = Value::Date {
@@ -382,7 +340,6 @@ mod tests {
             zone_options: None,
             format_options: None,
             cell_paths: None,
-            precision: 9,
         };
         let actual = action(&date_str, &args, Span::test_data());
         let expected = Value::Date {
@@ -395,7 +352,7 @@ mod tests {
 
     #[test]
     fn takes_timestamp_offset() {
-        let date_str = Value::test_string("1614434140");
+        let date_str = Value::test_string("1614434140000000000");
         let timezone_option = Some(Spanned {
             item: Zone::East(8),
             span: Span::test_data(),
@@ -404,7 +361,6 @@ mod tests {
             zone_options: timezone_option,
             format_options: None,
             cell_paths: None,
-            precision: 0,
         };
         let actual = action(&date_str, &args, Span::test_data());
         let expected = Value::Date {
@@ -418,7 +374,7 @@ mod tests {
 
     #[test]
     fn takes_timestamp_offset_as_int() {
-        let date_int = Value::test_int(1614434140);
+        let date_int = Value::test_int(1614434140_000000000);
         let timezone_option = Some(Spanned {
             item: Zone::East(8),
             span: Span::test_data(),
@@ -427,7 +383,6 @@ mod tests {
             zone_options: timezone_option,
             format_options: None,
             cell_paths: None,
-            precision: 0,
         };
         let actual = action(&date_int, &args, Span::test_data());
         let expected = Value::Date {
@@ -441,7 +396,7 @@ mod tests {
 
     #[test]
     fn takes_timestamp() {
-        let date_str = Value::test_string("1614434140");
+        let date_str = Value::test_string("1614434140000000000");
         let timezone_option = Some(Spanned {
             item: Zone::Local,
             span: Span::test_data(),
@@ -450,7 +405,6 @@ mod tests {
             zone_options: timezone_option,
             format_options: None,
             cell_paths: None,
-            precision: 0,
         };
         let actual = action(&date_str, &args, Span::test_data());
         let expected = Value::Date {
@@ -463,12 +417,11 @@ mod tests {
 
     #[test]
     fn takes_timestamp_without_timezone() {
-        let date_str = Value::test_string("1614434140");
+        let date_str = Value::test_string("1614434140000000000");
         let args = Arguments {
             zone_options: None,
             format_options: None,
             cell_paths: None,
-            precision: 0,
         };
         let actual = action(&date_str, &args, Span::test_data());
 
@@ -481,25 +434,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore]   //todo is there some input that *should* produce invalid timestamp?
-    fn takes_invalid_timestamp() {
-        let date_str = Value::test_string("10440970000000");
-        let timezone_option = Some(Spanned {
-            item: Zone::Utc,
-            span: Span::test_data(),
-        });
-        let args = Arguments {
-            zone_options: timezone_option,
-            format_options: None,
-            cell_paths: None,
-            precision: 9,
-        };
-        let actual = action(&date_str, &args, Span::test_data());
-
-        assert_eq!(actual.get_type(), Error);
-    }
-
-    #[test]
     fn communicates_parsing_error_given_an_invalid_datetimelike_string() {
         let date_str = Value::test_string("16.11.1984 8:00 am Oops0000");
         let fmt_options = Some(DatetimeFormat("%d.%m.%Y %H:%M %P %z".to_string()));
@@ -507,7 +441,6 @@ mod tests {
             zone_options: None,
             format_options: fmt_options,
             cell_paths: None,
-            precision: 9,
         };
         let actual = action(&date_str, &args, Span::test_data());
 
