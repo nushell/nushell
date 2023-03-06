@@ -128,13 +128,13 @@ pub(super) fn compute_between_series(
                     )),
                 }
             }
-            _ => Err(ShellError::IncompatibleParametersSingle(
-                format!(
+            _ => Err(ShellError::IncompatibleParametersSingle {
+                msg: format!(
                     "Operation {} can only be done with boolean values",
                     operator.item
                 ),
-                operation_span,
-            )),
+                span: operation_span,
+            }),
         },
         Operator::Boolean(Boolean::Or) => match lhs.dtype() {
             DataType::Boolean => {
@@ -157,13 +157,13 @@ pub(super) fn compute_between_series(
                     )),
                 }
             }
-            _ => Err(ShellError::IncompatibleParametersSingle(
-                format!(
+            _ => Err(ShellError::IncompatibleParametersSingle {
+                msg: format!(
                     "Operation {} can only be done with boolean values",
                     operator.item
                 ),
-                operation_span,
-            )),
+                span: operation_span,
+            }),
         },
         _ => Err(ShellError::OperatorMismatch {
             op_span: operator.span,

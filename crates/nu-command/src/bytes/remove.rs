@@ -61,10 +61,10 @@ impl Command for BytesRemove {
         let cell_paths = (!cell_paths.is_empty()).then_some(cell_paths);
         let pattern_to_remove = call.req::<Spanned<Vec<u8>>>(engine_state, stack, 0)?;
         if pattern_to_remove.item.is_empty() {
-            return Err(ShellError::TypeMismatch(
-                "the pattern to remove cannot be empty".to_string(),
-                pattern_to_remove.span,
-            ));
+            return Err(ShellError::TypeMismatch {
+                err_message: "the pattern to remove cannot be empty".to_string(),
+                span: pattern_to_remove.span,
+            });
         }
 
         let pattern_to_remove: Vec<u8> = pattern_to_remove.item;

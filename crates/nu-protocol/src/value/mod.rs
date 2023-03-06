@@ -763,7 +763,7 @@ impl Value {
                         // Records (and tables) are the only built-in which support column names,
                         // so only use this message for them.
                         Value::Record { .. } => {
-                            err_or_null!(ShellError::TypeMismatchGenericMessage {
+                            err_or_null!(ShellError::TypeMismatch {
                                 err_message: "Can't access record values with a row index. Try specifying a column name instead".into(),
                                 span: *origin_span, }, *origin_span)
                         }
@@ -2573,7 +2573,10 @@ impl Value {
             && (self.get_type() != Type::Any)
             && (rhs.get_type() != Type::Any)
         {
-            return Err(ShellError::TypeMismatch("compatible type".to_string(), op));
+            return Err(ShellError::TypeMismatch {
+                err_message: "compatible type".to_string(),
+                span: op,
+            });
         }
 
         if let Some(ordering) = self.partial_cmp(rhs) {
@@ -2606,7 +2609,10 @@ impl Value {
             && (self.get_type() != Type::Any)
             && (rhs.get_type() != Type::Any)
         {
-            return Err(ShellError::TypeMismatch("compatible type".to_string(), op));
+            return Err(ShellError::TypeMismatch {
+                err_message: "compatible type".to_string(),
+                span: op,
+            });
         }
 
         self.partial_cmp(rhs)
@@ -2637,7 +2643,10 @@ impl Value {
             && (self.get_type() != Type::Any)
             && (rhs.get_type() != Type::Any)
         {
-            return Err(ShellError::TypeMismatch("compatible type".to_string(), op));
+            return Err(ShellError::TypeMismatch {
+                err_message: "compatible type".to_string(),
+                span: op,
+            });
         }
 
         self.partial_cmp(rhs)
@@ -2668,7 +2677,10 @@ impl Value {
             && (self.get_type() != Type::Any)
             && (rhs.get_type() != Type::Any)
         {
-            return Err(ShellError::TypeMismatch("compatible type".to_string(), op));
+            return Err(ShellError::TypeMismatch {
+                err_message: "compatible type".to_string(),
+                span: op,
+            });
         }
 
         match self.partial_cmp(rhs) {

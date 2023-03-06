@@ -78,13 +78,18 @@ impl Command for Skip {
         let metadata = input.metadata();
 
         let n: usize = match n {
-            Some(Value::Int { val, span }) => val.try_into().map_err(|err| {
-                ShellError::TypeMismatch(
-                    format!("Could not convert {val} to unsigned integer: {err}"),
+            Some(Value::Int { val, span }) => {
+                val.try_into().map_err(|err| ShellError::TypeMismatch {
+                    err_message: format!("Could not convert {val} to unsigned integer: {err}"),
                     span,
-                )
-            })?,
-            Some(_) => return Err(ShellError::TypeMismatch("expected integer".into(), span)),
+                })?
+            }
+            Some(_) => {
+                return Err(ShellError::TypeMismatch {
+                    err_message: "expected integer".into(),
+                    span,
+                })
+            }
             None => 1,
         };
 

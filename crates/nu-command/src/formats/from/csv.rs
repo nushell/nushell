@@ -124,10 +124,10 @@ fn from_csv(
             } else {
                 let vec_s: Vec<char> = s.chars().collect();
                 if vec_s.len() != 1 {
-                    return Err(ShellError::MissingParameter(
-                        "single character separator".into(),
+                    return Err(ShellError::MissingParameter {
+                        param_name: "single character separator".into(),
                         span,
-                    ));
+                    });
                 };
                 vec_s[0]
             }

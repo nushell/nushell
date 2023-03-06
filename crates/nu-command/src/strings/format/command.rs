@@ -157,10 +157,10 @@ fn extract_formatting_operations(
         }
 
         if column_span_end < column_span_start {
-            return Err(ShellError::DelimiterError(
-                "there are unmatched curly braces".to_string(),
-                error_span,
-            ));
+            return Err(ShellError::DelimiterError {
+                msg: "there are unmatched curly braces".to_string(),
+                span: error_span,
+            });
         }
 
         if !column_name.is_empty() {
@@ -301,10 +301,10 @@ fn format_record(
                         }
                     }
                     Some(err) => {
-                        return Err(ShellError::TypeMismatch(
-                            format!("expression is invalid, detail message: {err:?}"),
-                            *span,
-                        ))
+                        return Err(ShellError::TypeMismatch {
+                            err_message: format!("expression is invalid, detail message: {err:?}"),
+                            span: *span,
+                        })
                     }
                 }
             }

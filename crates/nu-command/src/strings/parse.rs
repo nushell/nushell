@@ -285,10 +285,10 @@ fn build_regex(input: &str, span: Span) -> Result<String, ShellError> {
             column.push(c);
 
             if loop_input.peek().is_none() {
-                return Err(ShellError::DelimiterError(
-                    "Found opening `{` without an associated closing `}`".to_owned(),
+                return Err(ShellError::DelimiterError {
+                    msg: "Found opening `{` without an associated closing `}`".to_owned(),
                     span,
-                ));
+                });
             }
         }
 

@@ -155,10 +155,10 @@ fn action(input: &Value, args: &Arguments, head: Span) -> Value {
                 match start.cmp(&end) {
                     Ordering::Equal => Value::string("", head),
                     Ordering::Greater => Value::Error {
-                        error: ShellError::TypeMismatch(
-                            "End must be greater than or equal to Start".to_string(),
-                            head,
-                        ),
+                        error: ShellError::TypeMismatch {
+                            err_message: "End must be greater than or equal to Start".to_string(),
+                            span: head,
+                        },
                     },
                     Ordering::Less => Value::String {
                         val: {
@@ -220,10 +220,10 @@ fn process_arguments(range: &Value, head: Span) -> Result<(isize, isize), ShellE
         }
         Value::List { vals, .. } => {
             if vals.len() > 2 {
-                Err(ShellError::TypeMismatch(
-                    "More than two indices given".to_string(),
-                    head,
-                ))
+                Err(ShellError::TypeMismatch {
+                    err_message: "More than two indices given".to_string(),
+                    span: head,
+                })
             } else {
                 let idx: Vec<String> = vals
                     .iter()
@@ -231,11 +231,12 @@ fn process_arguments(range: &Value, head: Span) -> Result<(isize, isize), ShellE
                         match v {
                             Value::Int { val, .. } => Ok(val.to_string()),
                             Value::String { val, .. } => Ok(val.to_string()),
-                            _ => Err(ShellError::TypeMismatch(
-                                "could not perform substring. Expecting a string or int"
-                                    .to_string(),
-                                head,
-                            )),
+                            _ => Err(ShellError::TypeMismatch {
+                                err_message:
+                                    "could not perform substring. Expecting a string or int"
+                                        .to_string(),
+                                span: head,
+                            }),
                         }
                         .unwrap_or_else(|_| String::from(""))
                     })
@@ -243,14 +244,16 @@ fn process_arguments(range: &Value, head: Span) -> Result<(isize, isize), ShellE
 
                 let start = idx
                     .get(0)
-                    .ok_or_else(|| {
-                        ShellError::TypeMismatch("could not perform substring".to_string(), head)
+                    .ok_or_else(|| ShellError::TypeMismatch {
+                        err_message: "could not perform substring".to_string(),
+                        span: head,
                     })?
                     .to_string();
                 let end = idx
                     .get(1)
-                    .ok_or_else(|| {
-                        ShellError::TypeMismatch("could not perform substring".to_string(), head)
+                    .ok_or_else(|| ShellError::TypeMismatch {
+                        err_message: "could not perform substring".to_string(),
+                        span: head,
                     })?
                     .to_string();
                 Ok(SubstringText(start, end))
@@ -261,35 +264,39 @@ fn process_arguments(range: &Value, head: Span) -> Result<(isize, isize), ShellE
 
             let start = idx
                 .first()
-                .ok_or_else(|| {
-                    ShellError::TypeMismatch("could not perform substring".to_string(), head)
+                .ok_or_else(|| ShellError::TypeMismatch {
+                    err_message: "could not perform substring".to_string(),
+                    span: head,
                 })?
                 .to_string();
             let end = idx
                 .get(1)
-                .ok_or_else(|| {
-                    ShellError::TypeMismatch("could not perform substring".to_string(), head)
+                .ok_or_else(|| ShellError::TypeMismatch {
+                    err_message: "could not perform substring".to_string(),
+                    span: head,
                 })?
                 .to_string();
 
             Ok(SubstringText(start, end))
         }
-        _ => Err(ShellError::TypeMismatch(
-            "could not perform substring".to_string(),
-            head,
-        )),
+        _ => Err(ShellError::TypeMismatch {
+            err_message: "could not perform substring".to_string(),
+            span: head,
+        }),
     }?;
     let start = match &search {
         SubstringText(start, _) if start.is_empty() || start == "_" => 0,
-        SubstringText(start, _) => start.trim().parse().map_err(|_| {
-            ShellError::TypeMismatch("could not perform substring".to_string(), head)
+        SubstringText(start, _) => start.trim().parse().map_err(|_| ShellError::TypeMismatch {
+            err_message: "could not perform substring".to_string(),
+            span: head,
         })?,
     };
 
     let end = match &search {
         SubstringText(_, end) if end.is_empty() || end == "_" => isize::max_value(),
-        SubstringText(_, end) => end.trim().parse().map_err(|_| {
-            ShellError::TypeMismatch("could not perform substring".to_string(), head)
+        SubstringText(_, end) => end.trim().parse().map_err(|_| ShellError::TypeMismatch {
+            err_message: "could not perform substring".to_string(),
+            span: head,
         })?,
     };
 
