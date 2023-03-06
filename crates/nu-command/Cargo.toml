@@ -70,7 +70,7 @@ pathdiff = "0.2.1"
 powierza-coefficient = "1.0.2"
 quick-xml = "0.27"
 rand = "0.8"
-rayon = "1.6.1"
+rayon = "1.7.0"
 regex = "1.7.1"
 ureq = { version = "2.6.2", default-features = false, features = ["json", "charset", "native-tls", "gzip"] }
 native-tls = "0.2.11"
