@@ -1064,7 +1064,10 @@ impl Value {
                             // Otherwise, it's prohibited.
                             vals.push(new_val);
                         } else {
-                            return Err(ShellError::InsertAfterNextFreeIndex(vals.len(), *span));
+                            return Err(ShellError::InsertAfterNextFreeIndex {
+                                available_idx: vals.len(),
+                                span: *span,
+                            });
                         }
                     }
                     Value::Error { error } => return Err(error.to_owned()),
@@ -1477,7 +1480,10 @@ impl Value {
                             // Otherwise, it's prohibited.
                             vals.push(new_val);
                         } else {
-                            return Err(ShellError::InsertAfterNextFreeIndex(vals.len(), *span));
+                            return Err(ShellError::InsertAfterNextFreeIndex {
+                                available_idx: vals.len(),
+                                span: *span,
+                            });
                         }
                     }
                     v => return Err(ShellError::NotAList(*span, v.span()?)),

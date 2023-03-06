@@ -507,12 +507,13 @@ pub enum ShellError {
     /// ## Resolution
     ///
     /// To insert data into a list, assign to the last used index + 1.
-    #[error("Inserted at wrong row number (should be {0}).")]
+    #[error("Inserted at wrong row number (should be {available_idx}).")]
     #[diagnostic(code(nu::shell::access_beyond_end))]
-    InsertAfterNextFreeIndex(
-        usize,
-        #[label = "can't insert at index (the next available index is {0})"] Span,
-    ),
+    InsertAfterNextFreeIndex {
+        available_idx: usize,
+        #[label = "can't insert at index (the next available index is {available_idx})"]
+        span: Span,
+    },
 
     /// You attempted to access an index when it's empty.
     ///
