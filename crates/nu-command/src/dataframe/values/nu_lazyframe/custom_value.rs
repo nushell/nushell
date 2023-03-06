@@ -47,10 +47,6 @@ impl CustomValue for NuLazyFrame {
         Ok(Value::Record { cols, vals, span })
     }
 
-    fn to_json(&self) -> nu_json::Value {
-        nu_json::Value::Null
-    }
-
     fn as_any(&self) -> &dyn std::any::Any {
         self
     }

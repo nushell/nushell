@@ -17,11 +17,6 @@ pub trait CustomValue: fmt::Debug + Send + Sync {
     // That already exist in nushell
     fn to_base_value(&self, span: Span) -> Result<Value, ShellError>;
 
-    // Json representation of custom value
-    fn to_json(&self) -> nu_json::Value {
-        nu_json::Value::Null
-    }
-
     // Any representation used to downcast object to its original type
     fn as_any(&self) -> &dyn std::any::Any;
 
