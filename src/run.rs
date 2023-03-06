@@ -201,15 +201,18 @@ pub(crate) fn run_repl(
     let mut stack = nu_protocol::engine::Stack::new();
     let start_time = std::time::Instant::now();
 
-    setup_config(
-        &mut engine_state,
-        &mut stack,
-        #[cfg(feature = "plugin")]
-        parsed_nu_cli_args.plugin_file,
-        parsed_nu_cli_args.config_file,
-        parsed_nu_cli_args.env_file,
-        parsed_nu_cli_args.login_shell.is_some(),
-    );
+    if !parsed_nu_cli_args.no_config_file.is_some() {
+        setup_config(
+            &mut engine_state,
+            &mut stack,
+            #[cfg(feature = "plugin")]
+            parsed_nu_cli_args.plugin_file,
+            parsed_nu_cli_args.config_file,
+            parsed_nu_cli_args.env_file,
+            parsed_nu_cli_args.login_shell.is_some(),
+        );
+    }
+
     // Reload use_color from config in case it's different from the default value
     let use_color = engine_state.get_config().use_ansi_coloring;
     perf(
