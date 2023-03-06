@@ -70,7 +70,7 @@ impl Command for SubCommand {
                 Value::Int { val: 10, span },
                 Value::Int { val: 57, span },
                 Value::Int {
-                    val: 000_000_789,
+                    val: 789,
                     span,
                 },
                 Value::String {

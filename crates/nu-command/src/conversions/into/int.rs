@@ -222,18 +222,17 @@ fn action(input: &Value, args: &Arguments, span: Span) -> Value {
         Value::Date { val, .. } => {
             if val
                 < &FixedOffset::east_opt(0)
-                    .unwrap()
+                    .expect("constant")
                     .with_ymd_and_hms(1677, 9, 21, 0, 12, 44).unwrap()
                 || val
                     > &FixedOffset::east_opt(0)
-                        .unwrap()
+                        .expect("constant")
                         .with_ymd_and_hms(2262, 4, 11, 23, 47, 16)
                         .unwrap()
             {
                 Value::Error {
                     error: ShellError::IncorrectValue(
-                        format!("DateTime out of range for timestamp: 1677-09-21T00:12:44Z to 2262-04-11T23:47:16Z"),
-                    
+                        "DateTime out of range for timestamp: 1677-09-21T00:12:44Z to 2262-04-11T23:47:16".to_string(),                    
                 span), 
                 }
             } else {

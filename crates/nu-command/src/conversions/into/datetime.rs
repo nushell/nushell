@@ -159,28 +159,33 @@ impl Command for SubCommand {
             Example {
                 description: "Convert any standard timestamp string to datetime",
                 example: "'27.02.2021 1:55 pm +0000' | into datetime",
+                #[allow(clippy::inconsistent_digit_grouping)]
                 result: example_result_1(1614434100_000000000),
             },
             Example {
                 description: "Convert any standard timestamp string to datetime",
                 example: "'2021-02-27T13:55:40.2246+00:00' | into datetime",
+                #[allow(clippy::inconsistent_digit_grouping)]
                 result: example_result_1(1614434140_224600000),
             },
             Example {
                 description:
                     "Convert non-standard timestamp string to datetime using a custom format",
                 example: "'20210227_135540+0000' | into datetime -f '%Y%m%d_%H%M%S%z'",
+                #[allow(clippy::inconsistent_digit_grouping)]
                 result: example_result_1(1614434140_000000000),
             },
             Example {
                 description:
                     "Convert nanosecond-precision unix timestamp to a datetime with offset from UTC",
                 example: "1614434140123456789 | into datetime --offset -5",
+                #[allow(clippy::inconsistent_digit_grouping)]
                 result: example_result_1(1614434140_123456789),
             },
             Example {
                 description: "Convert standard (seconds) unix timestamp to a UTC datetime",
                 example: "1614434140 * 1_000_000_000 | into datetime",
+                #[allow(clippy::inconsistent_digit_grouping)]
                 result: example_result_1(1614434140_000000000),
             },
         ]
