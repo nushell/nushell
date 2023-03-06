@@ -197,7 +197,7 @@ fn eval_external(
 ) -> Result<PipelineData, ShellError> {
     let decl_id = engine_state
         .find_decl("run-external".as_bytes(), &[])
-        .ok_or(ShellError::ExternalNotSupported(head.span))?;
+        .ok_or(ShellError::ExternalNotSupported { span: head.span })?;
 
     let command = engine_state.get_decl(decl_id);
 

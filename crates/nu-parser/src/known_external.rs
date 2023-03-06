@@ -45,7 +45,7 @@ impl Command for KnownExternal {
         let head_span = call.head;
         let decl_id = engine_state
             .find_decl("run-external".as_bytes(), &[])
-            .ok_or(ShellError::ExternalNotSupported(head_span))?;
+            .ok_or(ShellError::ExternalNotSupported { span: head_span })?;
 
         let command = engine_state.get_decl(decl_id);
 
