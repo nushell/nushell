@@ -72,7 +72,8 @@ quick-xml = "0.27"
 rand = "0.8"
 rayon = "1.6.1"
 regex = "1.7.1"
-reqwest = { version = "0.11", features = ["blocking", "json"] }
+ureq = { version = "2.6.2", default-features = false, features = ["json", "charset", "native-tls", "gzip"] }
+native-tls = "0.2.11"
 roxmltree = "0.18.0"
 rust-embed = "6.3.0"
 same-file = "1.0.6"
@@ -84,9 +85,8 @@ sha2 = "0.10.0"
 percent-encoding = "2.2.0"
 reedline = { version = "0.16.0", features = ["bashisms", "sqlite"] }
 rusqlite = { version = "0.28.0", features = ["bundled"], optional = true }
-shadow-rs = { version = "0.20.0", default-features = false }
 sqlparser = { version = "0.30.0", features = ["serde"], optional = true }
-sysinfo = "0.28.0"
+sysinfo = "0.28.2"
 tabled = "0.10.0"
 terminal_size = "0.2.1"
 thiserror = "1.0.31"

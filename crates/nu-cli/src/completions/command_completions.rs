@@ -315,9 +315,12 @@ mod command_completions_tests {
                 working_set.render()
             };
 
-            if let Err(err) = engine_state.merge_delta(delta) {
-                assert!(false, "Merge delta has failed: {}", err);
-            }
+            let result = engine_state.merge_delta(delta);
+            assert!(
+                result.is_ok(),
+                "Merge delta has failed: {}",
+                result.err().unwrap()
+            );
 
             let is_passthrough_command = is_passthrough_command(engine_state.get_file_contents());
             assert_eq!(
