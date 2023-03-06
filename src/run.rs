@@ -201,7 +201,7 @@ pub(crate) fn run_repl(
     let mut stack = nu_protocol::engine::Stack::new();
     let start_time = std::time::Instant::now();
 
-    if !parsed_nu_cli_args.no_config_file.is_some() {
+    if parsed_nu_cli_args.no_config_file.is_none() {
         setup_config(
             &mut engine_state,
             &mut stack,
