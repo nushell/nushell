@@ -776,10 +776,10 @@ impl Value {
                         Value::Error { error } => return Err(error.to_owned()),
                         x => {
                             err_or_null!(
-                                ShellError::IncompatiblePathAccess(
-                                    format!("{}", x.get_type()),
-                                    *origin_span,
-                                ),
+                                ShellError::IncompatiblePathAccess {
+                                    type_name: format!("{}", x.get_type()),
+                                    span: *origin_span
+                                },
                                 *origin_span
                             )
                         }
@@ -929,10 +929,10 @@ impl Value {
                     Value::Error { error } => err_or_null!(error.to_owned(), *origin_span),
                     x => {
                         err_or_null!(
-                            ShellError::IncompatiblePathAccess(
-                                format!("{}", x.get_type()),
-                                *origin_span,
-                            ),
+                            ShellError::IncompatiblePathAccess {
+                                type_name: format!("{}", x.get_type()),
+                                span: *origin_span
+                            },
                             *origin_span
                         )
                     }

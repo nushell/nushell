@@ -547,7 +547,11 @@ pub enum ShellError {
     /// Check your types. Only composite types can be pathed into.
     #[error("Data cannot be accessed with a cell path")]
     #[diagnostic(code(nu::shell::incompatible_path_access))]
-    IncompatiblePathAccess(String, #[label("{0} doesn't support cell paths")] Span),
+    IncompatiblePathAccess {
+        type_name: String,
+        #[label("{type_name} doesn't support cell paths")]
+        span: Span,
+    },
 
     /// The requested column does not exist.
     ///

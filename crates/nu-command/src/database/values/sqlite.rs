@@ -309,7 +309,7 @@ impl CustomValue for SQLiteDatabase {
 
     fn follow_path_int(&self, _count: usize, span: Span) -> Result<Value, ShellError> {
         // In theory we could support this, but tables don't have an especially well-defined order
-        Err(ShellError::IncompatiblePathAccess("SQLite databases do not support integer-indexed access. Try specifying a table name instead".into(), span))
+        Err(ShellError::IncompatiblePathAccess { type_name: "SQLite databases do not support integer-indexed access. Try specifying a table name instead".into(), span })
     }
 
     fn follow_path_string(&self, _column_name: String, span: Span) -> Result<Value, ShellError> {
