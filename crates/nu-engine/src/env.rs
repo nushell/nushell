@@ -150,7 +150,7 @@ pub fn env_to_strings(
             Ok(val_str) => {
                 env_vars_str.insert(env_name, val_str);
             }
-            Err(ShellError::EnvVarNotAString {  .. }) => {} // ignore non-string values
+            Err(ShellError::EnvVarNotAString { .. }) => {} // ignore non-string values
             Err(e) => return Err(e),
         }
     }
