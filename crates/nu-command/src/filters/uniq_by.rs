@@ -135,7 +135,11 @@ fn validate(vec: Vec<Value>, columns: &Vec<String>, span: Span) -> Result<(), Sh
         }
 
         if let Some(nonexistent) = nonexistent_column(columns.clone(), cols.to_vec()) {
-            return Err(ShellError::CantFindColumn(nonexistent, span, *val_span));
+            return Err(ShellError::CantFindColumn {
+                col_name: nonexistent,
+                span,
+                src_span: *val_span,
+            });
         }
     }
 

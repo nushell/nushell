@@ -133,12 +133,12 @@ pub fn action(input: &Value, _args: &CellPathOnlyArgs, span: Span) -> Value {
 fn int_from_string(a_string: &str, span: Span) -> Result<i64, ShellError> {
     match a_string.trim().parse::<bytesize::ByteSize>() {
         Ok(n) => Ok(n.0 as i64),
-        Err(_) => Err(ShellError::CantConvert(
-            "int".into(),
-            "string".into(),
+        Err(_) => Err(ShellError::CantConvert {
+            to_type: "int".into(),
+            from_type: "string".into(),
             span,
-            None,
-        )),
+            help: None,
+        }),
     }
 }
 

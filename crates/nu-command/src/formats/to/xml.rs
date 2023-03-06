@@ -185,12 +185,12 @@ fn to_xml(
             };
             Ok(Value::string(s, head).into_pipeline_data())
         }
-        Err(_) => Err(ShellError::CantConvert(
-            "XML".into(),
-            value_type.to_string(),
-            head,
-            None,
-        )),
+        Err(_) => Err(ShellError::CantConvert {
+            to_type: "XML".into(),
+            from_type: value_type.to_string(),
+            span: head,
+            help: None,
+        }),
     }
 }
 

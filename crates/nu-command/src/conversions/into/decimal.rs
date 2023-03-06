@@ -88,12 +88,12 @@ fn action(input: &Value, _args: &CellPathOnlyArgs, head: Span) -> Value {
             match other.parse::<f64>() {
                 Ok(x) => Value::float(x, head),
                 Err(reason) => Value::Error {
-                    error: ShellError::CantConvert(
-                        "float".to_string(),
-                        reason.to_string(),
-                        *span,
-                        None,
-                    ),
+                    error: ShellError::CantConvert {
+                        to_type: "float".to_string(),
+                        from_type: reason.to_string(),
+                        span: *span,
+                        help: None,
+                    },
                 },
             }
         }

@@ -100,14 +100,15 @@ fn with_env(
                         }
                     }
                     x => {
-                        return Err(ShellError::CantConvert(
-                            "string list or single row".into(),
-                            x.get_type().to_string(),
-                            call.positional_nth(1)
+                        return Err(ShellError::CantConvert {
+                            to_type: "string list or single row".into(),
+                            from_type: x.get_type().to_string(),
+                            span: call
+                                .positional_nth(1)
                                 .expect("already checked through .req")
                                 .span,
-                            None,
-                        ));
+                            help: None,
+                        });
                     }
                 }
             } else {
@@ -127,14 +128,15 @@ fn with_env(
             }
         }
         x => {
-            return Err(ShellError::CantConvert(
-                "string list or single row".into(),
-                x.get_type().to_string(),
-                call.positional_nth(1)
+            return Err(ShellError::CantConvert {
+                to_type: "string list or single row".into(),
+                from_type: x.get_type().to_string(),
+                span: call
+                    .positional_nth(1)
                     .expect("already checked through .req")
                     .span,
-                None,
-            ));
+                help: None,
+            });
         }
     };
 

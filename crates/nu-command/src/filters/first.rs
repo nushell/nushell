@@ -110,7 +110,7 @@ fn first_helper(
             Value::List { vals, .. } => {
                 if return_single_element {
                     if vals.is_empty() {
-                        Err(ShellError::AccessEmptyContent(head))
+                        Err(ShellError::AccessEmptyContent { span: head })
                     } else {
                         Ok(vals[0].clone().into_pipeline_data())
                     }
@@ -154,7 +154,7 @@ fn first_helper(
                 if let Some(v) = ls.next() {
                     Ok(v.into_pipeline_data())
                 } else {
-                    Err(ShellError::AccessEmptyContent(head))
+                    Err(ShellError::AccessEmptyContent { span: head })
                 }
             } else {
                 Ok(ls

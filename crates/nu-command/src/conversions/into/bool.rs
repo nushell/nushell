@@ -134,15 +134,15 @@ fn string_to_boolean(s: &str, span: Span) -> Result<bool, ShellError> {
             let val = o.parse::<f64>();
             match val {
                 Ok(f) => Ok(f.abs() >= f64::EPSILON),
-                Err(_) => Err(ShellError::CantConvert(
-                    "boolean".to_string(),
-                    "string".to_string(),
+                Err(_) => Err(ShellError::CantConvert {
+                    to_type: "boolean".to_string(),
+                    from_type: "string".to_string(),
                     span,
-                    Some(
+                    help: Some(
                         r#"the strings "true" and "false" can be converted into a bool"#
                             .to_string(),
                     ),
-                )),
+                }),
             }
         }
     }

@@ -72,23 +72,23 @@ impl NuExpression {
         match value {
             Value::CustomValue { val, span } => match val.as_any().downcast_ref::<Self>() {
                 Some(expr) => Ok(NuExpression(expr.0.clone())),
-                None => Err(ShellError::CantConvert(
-                    "lazy expression".into(),
-                    "non-dataframe".into(),
+                None => Err(ShellError::CantConvert {
+                    to_type: "lazy expression".into(),
+                    from_type: "non-dataframe".into(),
                     span,
-                    None,
-                )),
+                    help: None,
+                }),
             },
             Value::String { val, .. } => Ok(val.lit().into()),
             Value::Int { val, .. } => Ok(val.lit().into()),
             Value::Bool { val, .. } => Ok(val.lit().into()),
             Value::Float { val, .. } => Ok(val.lit().into()),
-            x => Err(ShellError::CantConvert(
-                "lazy expression".into(),
-                x.get_type().to_string(),
-                x.span()?,
-                None,
-            )),
+            x => Err(ShellError::CantConvert {
+                to_type: "lazy expression".into(),
+                from_type: x.get_type().to_string(),
+                span: x.span()?,
+                help: None,
+            }),
         }
     }
 
@@ -160,12 +160,12 @@ impl ExtractedExpr {
                 .map(Self::extract_exprs)
                 .collect::<Result<Vec<ExtractedExpr>, ShellError>>()
                 .map(ExtractedExpr::List),
-            x => Err(ShellError::CantConvert(
-                "expression".into(),
-                x.get_type().to_string(),
-                x.span()?,
-                None,
-            )),
+            x => Err(ShellError::CantConvert {
+                to_type: "expression".into(),
+                from_type: x.get_type().to_string(),
+                span: x.span()?,
+                help: None,
+            }),
         }
     }
 }

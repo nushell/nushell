@@ -270,14 +270,14 @@ pub(super) fn compute_series_single_value(
         Operator::Math(Math::Divide) => match &right {
             Value::Int { val, span } => {
                 if *val == 0 {
-                    Err(ShellError::DivisionByZero(*span))
+                    Err(ShellError::DivisionByZero { span: *span })
                 } else {
                     compute_series_i64(&lhs, *val, <ChunkedArray<Int64Type>>::div, lhs_span)
                 }
             }
             Value::Float { val, span } => {
                 if val.is_zero() {
-                    Err(ShellError::DivisionByZero(*span))
+                    Err(ShellError::DivisionByZero { span: *span })
                 } else {
                     compute_series_decimal(&lhs, *val, <ChunkedArray<Float64Type>>::div, lhs_span)
                 }
