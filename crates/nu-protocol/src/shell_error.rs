@@ -238,6 +238,7 @@ pub enum ShellError {
         span: Span,
     },
 
+    // TODO: consider moving to a more generic error variant for invalid values
     /// The given probability input is invalid. The probability must be between 0 and 1.
     ///
     /// ## Resolution
@@ -245,7 +246,10 @@ pub enum ShellError {
     /// Make sure the probability is between 0 and 1 and try again.
     #[error("Invalid Probability.")]
     #[diagnostic(code(nu::shell::invalid_probability))]
-    InvalidProbability(#[label = "invalid probability"] Span),
+    InvalidProbability {
+        #[label = "invalid probability: must be between 0 and 1"]
+        span: Span,
+    },
 
     /// The first value in a `..` range must be compatible with the second one.
     ///
