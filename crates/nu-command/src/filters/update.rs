@@ -153,7 +153,10 @@ fn update(
                 } else if idx == 0 {
                     return Err(ShellError::AccessEmptyContent(*span));
                 } else {
-                    return Err(ShellError::AccessBeyondEnd(idx - 1, *span));
+                    return Err(ShellError::AccessBeyondEnd {
+                        max_idx: idx - 1,
+                        span: *span,
+                    });
                 }
             }
 

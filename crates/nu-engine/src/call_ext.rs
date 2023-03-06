@@ -100,10 +100,10 @@ impl CallExt for Call {
         } else if self.positional_len() == 0 {
             Err(ShellError::AccessEmptyContent(self.head))
         } else {
-            Err(ShellError::AccessBeyondEnd(
-                self.positional_len() - 1,
-                self.head,
-            ))
+            Err(ShellError::AccessBeyondEnd {
+                max_idx: self.positional_len() - 1,
+                span: self.head,
+            })
         }
     }
 
@@ -119,10 +119,10 @@ impl CallExt for Call {
         } else if self.parser_info.is_empty() {
             Err(ShellError::AccessEmptyContent(self.head))
         } else {
-            Err(ShellError::AccessBeyondEnd(
-                self.parser_info.len() - 1,
-                self.head,
-            ))
+            Err(ShellError::AccessBeyondEnd {
+                max_idx: self.parser_info.len() - 1,
+                span: self.head,
+            })
         }
     }
 }

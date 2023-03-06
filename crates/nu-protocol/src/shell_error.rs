@@ -494,9 +494,13 @@ pub enum ShellError {
     /// ## Resolution
     ///
     /// Check your lengths and try again.
-    #[error("Row number too large (max: {0}).")]
+    #[error("Row number too large (max: {max_idx}).")]
     #[diagnostic(code(nu::shell::access_beyond_end))]
-    AccessBeyondEnd(usize, #[label = "index too large (max: {0})"] Span),
+    AccessBeyondEnd {
+        max_idx: usize,
+        #[label = "index too large (max: {max_idx})"]
+        span: Span,
+    },
 
     /// You attempted to insert data at a list position higher than the end.
     ///

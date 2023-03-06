@@ -727,7 +727,10 @@ impl Value {
                                 )
                             } else {
                                 err_or_null!(
-                                    ShellError::AccessBeyondEnd(val.len() - 1, *origin_span),
+                                    ShellError::AccessBeyondEnd {
+                                        max_idx: val.len() - 1,
+                                        span: *origin_span
+                                    },
                                     *origin_span
                                 );
                             }
@@ -742,7 +745,10 @@ impl Value {
                                 )
                             } else {
                                 err_or_null!(
-                                    ShellError::AccessBeyondEnd(val.len() - 1, *origin_span),
+                                    ShellError::AccessBeyondEnd {
+                                        max_idx: val.len() - 1,
+                                        span: *origin_span
+                                    },
                                     *origin_span
                                 );
                             }
@@ -1175,7 +1181,10 @@ impl Value {
                         } else if vals.is_empty() {
                             return Err(ShellError::AccessEmptyContent(*span));
                         } else {
-                            return Err(ShellError::AccessBeyondEnd(vals.len() - 1, *span));
+                            return Err(ShellError::AccessBeyondEnd {
+                                max_idx: vals.len() - 1,
+                                span: *span,
+                            });
                         }
                     }
                     Value::Error { error } => return Err(error.to_owned()),
@@ -1270,7 +1279,10 @@ impl Value {
                             } else if vals.is_empty() {
                                 Err(ShellError::AccessEmptyContent(*span))
                             } else {
-                                Err(ShellError::AccessBeyondEnd(vals.len() - 1, *span))
+                                Err(ShellError::AccessBeyondEnd {
+                                    max_idx: vals.len() - 1,
+                                    span: *span,
+                                })
                             }
                         }
                         v => Err(ShellError::NotAList(*span, v.span()?)),
@@ -1354,7 +1366,10 @@ impl Value {
                             } else if vals.is_empty() {
                                 Err(ShellError::AccessEmptyContent(*span))
                             } else {
-                                Err(ShellError::AccessBeyondEnd(vals.len() - 1, *span))
+                                Err(ShellError::AccessBeyondEnd {
+                                    max_idx: vals.len() - 1,
+                                    span: *span,
+                                })
                             }
                         }
                         v => Err(ShellError::NotAList(*span, v.span()?)),
