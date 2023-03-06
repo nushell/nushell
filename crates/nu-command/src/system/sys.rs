@@ -6,7 +6,6 @@ use nu_protocol::{
     Category, Example, IntoPipelineData, LazyRecord, PipelineData, ShellError, Signature, Span,
     Type, Value,
 };
-use serde::{Deserialize, Serialize};
 use std::time::{Duration, UNIX_EPOCH};
 use sysinfo::{
     ComponentExt, CpuExt, CpuRefreshKind, DiskExt, NetworkExt, System, SystemExt, UserExt,
@@ -68,12 +67,12 @@ impl Command for Sys {
     }
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Clone)]
 pub struct SysResult {
     pub span: Span,
 }
 
-impl LazyRecord for SysResult {
+impl LazyRecord<'_> for SysResult {
     fn column_names(&self) -> Vec<&'static str> {
         vec!["host", "cpu", "disks", "mem", "temp", "net"]
     }
@@ -100,12 +99,11 @@ impl LazyRecord for SysResult {
         self.span
     }
 
-    fn typetag_name(&self) -> &'static str {
-        "sys"
-    }
-
-    fn typetag_deserialize(&self) {
-        unimplemented!("typetag_deserialize")
+    fn clone_value(&self, span: Span) -> Value {
+        Value::LazyRecord {
+            val: Box::new((*self).clone()),
+            span,
+        }
     }
 }
 

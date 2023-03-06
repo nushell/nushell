@@ -122,15 +122,15 @@ fn getcol(
                 .into_pipeline_data(ctrlc)
                 .set_metadata(metadata))
         }
-        PipelineData::Value(Value::LazyRecord { val, .. }, ..) => Ok(val
-            .column_names()
-            .into_iter()
-            .map(move |x| Value::String {
-                val: x.into(),
-                span: head,
-            })
-            .into_pipeline_data(ctrlc)
-            .set_metadata(metadata)),
+        PipelineData::Value(Value::LazyRecord { val, .. }, ..) => Ok({
+            // Unfortunate casualty to LazyRecord's column_names not generating 'static strs
+            let cols: Vec<_> = val.column_names().iter().map(|s| s.to_string()).collect();
+
+            cols.into_iter()
+                .map(move |x| Value::String { val: x, span: head })
+                .into_pipeline_data(ctrlc)
+                .set_metadata(metadata)
+        }),
         PipelineData::Value(Value::Record { cols, .. }, ..) => Ok(cols
             .into_iter()
             .map(move |x| Value::String { val: x, span: head })
