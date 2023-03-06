@@ -535,7 +535,10 @@ pub enum ShellError {
     /// Check your lengths and try again.
     #[error("Row number too large.")]
     #[diagnostic(code(nu::shell::access_beyond_end_of_stream))]
-    AccessBeyondEndOfStream(#[label = "index too large"] Span),
+    AccessBeyondEndOfStream {
+        #[label = "index too large"]
+        span: Span,
+    },
 
     /// Tried to index into a type that does not support pathed access.
     ///

@@ -758,7 +758,7 @@ impl Value {
                                 current = item.clone();
                             } else {
                                 err_or_null!(
-                                    ShellError::AccessBeyondEndOfStream(*origin_span),
+                                    ShellError::AccessBeyondEndOfStream { span: *origin_span },
                                     *origin_span
                                 );
                             }
