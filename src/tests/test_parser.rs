@@ -501,3 +501,12 @@ register $file
 ";
     fail_test(input, "Value is not a parse-time constant")
 }
+
+#[test]
+fn register_with_non_string_constant() -> TestResult {
+    let input = "\
+const file = 6
+register $file
+";
+    fail_test(input, "expected String, found Int")
+}
