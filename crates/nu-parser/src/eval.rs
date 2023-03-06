@@ -106,6 +106,10 @@ pub fn eval_constant(
             })
         }
         Expr::Keyword(_, _, expr) => eval_constant(working_set, expr),
+        Expr::Filepath(val) => Ok(Value::String {
+            val: val.clone(),
+            span: expr.span,
+        }),
         Expr::String(s) => Ok(Value::String {
             val: s.clone(),
             span: expr.span,
