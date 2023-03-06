@@ -482,7 +482,10 @@ pub enum ShellError {
     /// Check your range values to make sure they're countable and would not loop forever.
     #[error("Can't convert range to countable values")]
     #[diagnostic(code(nu::shell::range_to_countable))]
-    CannotCreateRange(#[label = "can't convert to countable values"] Span),
+    CannotCreateRange {
+        #[label = "can't convert to countable values"]
+        span: Span,
+    },
 
     /// You attempted to access an index beyond the available length of a value.
     ///
