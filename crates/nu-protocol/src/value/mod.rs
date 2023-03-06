@@ -722,7 +722,7 @@ impl Value {
                                 current = item.clone();
                             } else if val.is_empty() {
                                 err_or_null!(
-                                    ShellError::AccessEmptyContent(*origin_span),
+                                    ShellError::AccessEmptyContent { span: *origin_span },
                                     *origin_span
                                 )
                             } else {
@@ -740,7 +740,7 @@ impl Value {
                                 current = Value::int(*item as i64, *origin_span);
                             } else if val.is_empty() {
                                 err_or_null!(
-                                    ShellError::AccessEmptyContent(*origin_span),
+                                    ShellError::AccessEmptyContent { span: *origin_span },
                                     *origin_span
                                 )
                             } else {
@@ -1182,7 +1182,7 @@ impl Value {
                         if let Some(v) = vals.get_mut(*row_num) {
                             v.update_data_at_cell_path(&cell_path[1..], new_val)?
                         } else if vals.is_empty() {
-                            return Err(ShellError::AccessEmptyContent(*span));
+                            return Err(ShellError::AccessEmptyContent { span: *span });
                         } else {
                             return Err(ShellError::AccessBeyondEnd {
                                 max_idx: vals.len() - 1,
@@ -1280,7 +1280,7 @@ impl Value {
                                 vals.remove(*row_num);
                                 Ok(())
                             } else if vals.is_empty() {
-                                Err(ShellError::AccessEmptyContent(*span))
+                                Err(ShellError::AccessEmptyContent { span: *span })
                             } else {
                                 Err(ShellError::AccessBeyondEnd {
                                     max_idx: vals.len() - 1,
@@ -1367,7 +1367,7 @@ impl Value {
                             if let Some(v) = vals.get_mut(*row_num) {
                                 v.remove_data_at_cell_path(&cell_path[1..])
                             } else if vals.is_empty() {
-                                Err(ShellError::AccessEmptyContent(*span))
+                                Err(ShellError::AccessEmptyContent { span: *span })
                             } else {
                                 Err(ShellError::AccessBeyondEnd {
                                     max_idx: vals.len() - 1,

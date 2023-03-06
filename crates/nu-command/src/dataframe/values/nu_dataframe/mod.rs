@@ -343,7 +343,7 @@ impl NuDataFrame {
         let column = conversion::create_column(&series, row, row + 1, span)?;
 
         if column.len() == 0 {
-            Err(ShellError::AccessEmptyContent(span))
+            Err(ShellError::AccessEmptyContent { span })
         } else {
             let value = column
                 .into_iter()

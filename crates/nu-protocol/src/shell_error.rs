@@ -522,7 +522,10 @@ pub enum ShellError {
     /// Check your lengths and try again.
     #[error("Row number too large (empty content).")]
     #[diagnostic(code(nu::shell::access_beyond_end))]
-    AccessEmptyContent(#[label = "index too large (empty content)"] Span),
+    AccessEmptyContent {
+        #[label = "index too large (empty content)"]
+        span: Span,
+    },
 
     // TODO: check to be taken over by `AccessBeyondEnd`
     /// You attempted to access an index beyond the available length of a stream.

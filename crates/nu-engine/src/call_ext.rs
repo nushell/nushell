@@ -98,7 +98,7 @@ impl CallExt for Call {
             let result = eval_expression(engine_state, stack, expr)?;
             FromValue::from_value(&result)
         } else if self.positional_len() == 0 {
-            Err(ShellError::AccessEmptyContent(self.head))
+            Err(ShellError::AccessEmptyContent { span: self.head })
         } else {
             Err(ShellError::AccessBeyondEnd {
                 max_idx: self.positional_len() - 1,
@@ -117,7 +117,7 @@ impl CallExt for Call {
             let result = eval_expression(engine_state, stack, expr)?;
             FromValue::from_value(&result)
         } else if self.parser_info.is_empty() {
-            Err(ShellError::AccessEmptyContent(self.head))
+            Err(ShellError::AccessEmptyContent { span: self.head })
         } else {
             Err(ShellError::AccessBeyondEnd {
                 max_idx: self.parser_info.len() - 1,
