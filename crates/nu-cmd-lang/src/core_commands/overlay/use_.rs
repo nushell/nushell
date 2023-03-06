@@ -98,10 +98,10 @@ impl Command for OverlayUse {
                 return Err(ShellError::NonUtf8(name_arg.span));
             }
         } else {
-            return Err(ShellError::OverlayNotFoundAtRuntime(
-                name_arg.item,
-                name_arg.span,
-            ));
+            return Err(ShellError::OverlayNotFoundAtRuntime {
+                overlay_name: name_arg.item,
+                span: name_arg.span,
+            });
         };
 
         if let Some(module_id) = maybe_origin_module_id {

@@ -61,10 +61,10 @@ impl Command for OverlayHide {
         };
 
         if !stack.is_overlay_active(&overlay_name.item) {
-            return Err(ShellError::OverlayNotFoundAtRuntime(
-                overlay_name.item,
-                overlay_name.span,
-            ));
+            return Err(ShellError::OverlayNotFoundAtRuntime {
+                overlay_name: overlay_name.item,
+                span: overlay_name.span,
+            });
         }
 
         let keep_env: Option<Vec<Spanned<String>>> =

@@ -353,9 +353,13 @@ pub enum ShellError {
     /// ## Resolution
     ///
     /// Check the overlay name. Did you typo it? Did you forget to declare it? Is the casing right?
-    #[error("Overlay '{0}' not found")]
+    #[error("Overlay '{overlay_name}' not found")]
     #[diagnostic(code(nu::shell::overlay_not_found))]
-    OverlayNotFoundAtRuntime(String, #[label = "overlay not found"] Span),
+    OverlayNotFoundAtRuntime {
+        overlay_name: String,
+        #[label = "overlay not found"]
+        span: Span,
+    },
 
     /// The given item was not found. This is a fairly generic error that depends on context.
     ///
