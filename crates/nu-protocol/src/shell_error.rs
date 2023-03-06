@@ -310,16 +310,6 @@ pub enum ShellError {
         help: String,
     },
 
-    /// Catastrophic nushell failure. This reflects a completely unexpected or unrecoverable error.
-    ///
-    /// ## Resolution
-    ///
-    /// It is very likely that this is a bug. Please file an issue at https://github.com/nushell/nushell/issues with relevant information.
-    #[error("Nushell failed: {0}.")]
-    #[diagnostic(code(nu::shell::nushell_failed_spanned_help))]
-    // Only use this one if Nushell completely falls over and hits a state that isn't possible or isn't recoverable
-    NushellFailedSpannedHelp(String, String, #[label = "{1}"] Span, #[help] String),
-
     /// A referenced variable was not found at runtime.
     ///
     /// ## Resolution
