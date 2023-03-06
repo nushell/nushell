@@ -263,9 +263,9 @@ pub fn group(
 
             data_group(values, &Some(block), name)
         }
-        Grouper::ByBlock => Err(ShellError::NushellFailed(
-            "Block not implemented: This should never happen.".into(),
-        )),
+        Grouper::ByBlock => Err(ShellError::NushellFailed {
+            msg: "Block not implemented: This should never happen.".into(),
+        }),
     }
 }
 

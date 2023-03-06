@@ -270,30 +270,45 @@ pub enum ShellError {
     /// ## Resolution
     ///
     /// It is very likely that this is a bug. Please file an issue at https://github.com/nushell/nushell/issues with relevant information.
-    #[error("Nushell failed: {0}.")]
+    #[error("Nushell failed: {msg}.")]
+    #[help(
+        "This shouldn't happen. Please file an issue: https://github.com/nushell/nushell/issues"
+    )]
     #[diagnostic(code(nu::shell::nushell_failed))]
     // Only use this one if Nushell completely falls over and hits a state that isn't possible or isn't recoverable
-    NushellFailed(String),
+    NushellFailed { msg: String },
 
     /// Catastrophic nushell failure. This reflects a completely unexpected or unrecoverable error.
     ///
     /// ## Resolution
     ///
     /// It is very likely that this is a bug. Please file an issue at https://github.com/nushell/nushell/issues with relevant information.
-    #[error("Nushell failed: {0}.")]
+    #[error("Nushell failed: {msg}.")]
+    #[help(
+        "This shouldn't happen. Please file an issue: https://github.com/nushell/nushell/issues"
+    )]
     #[diagnostic(code(nu::shell::nushell_failed_spanned))]
     // Only use this one if Nushell completely falls over and hits a state that isn't possible or isn't recoverable
-    NushellFailedSpanned(String, String, #[label = "{1}"] Span),
+    NushellFailedSpanned {
+        msg: String,
+        label: String,
+        #[label = "{label}"]
+        span: Span,
+    },
 
     /// Catastrophic nushell failure. This reflects a completely unexpected or unrecoverable error.
     ///
     /// ## Resolution
     ///
     /// It is very likely that this is a bug. Please file an issue at https://github.com/nushell/nushell/issues with relevant information.
-    #[error("Nushell failed: {0}.")]
+    #[error("Nushell failed: {msg}.")]
     #[diagnostic(code(nu::shell::nushell_failed_help))]
     // Only use this one if Nushell completely falls over and hits a state that isn't possible or isn't recoverable
-    NushellFailedHelp(String, #[help] String),
+    NushellFailedHelp {
+        msg: String,
+        #[help]
+        help: String,
+    },
 
     /// Catastrophic nushell failure. This reflects a completely unexpected or unrecoverable error.
     ///

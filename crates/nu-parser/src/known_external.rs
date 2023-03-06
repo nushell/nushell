@@ -54,11 +54,11 @@ impl Command for KnownExternal {
         let extern_name = if let Some(name_bytes) = engine_state.find_decl_name(call.decl_id, &[]) {
             String::from_utf8_lossy(name_bytes)
         } else {
-            return Err(ShellError::NushellFailedSpanned(
-                "known external name not found".to_string(),
-                "could not find name for this command".to_string(),
-                call.head,
-            ));
+            return Err(ShellError::NushellFailedSpanned {
+                msg: "known external name not found".to_string(),
+                label: "could not find name for this command".to_string(),
+                span: call.head,
+            });
         };
 
         let extern_name: Vec<_> = extern_name.split(' ').collect();

@@ -144,11 +144,11 @@ pub fn highlight_search_in_table(
         let (cols, mut vals, record_span) = if let Value::Record { cols, vals, span } = record {
             (cols, vals, span)
         } else {
-            return Err(ShellError::NushellFailedSpanned(
-                "Expected record".to_string(),
-                format!("got {}", record.get_type()),
-                record.span()?,
-            ));
+            return Err(ShellError::NushellFailedSpanned {
+                msg: "Expected record".to_string(),
+                label: format!("got {}", record.get_type()),
+                span: record.span()?,
+            });
         };
 
         let has_match = cols.iter().zip(vals.iter_mut()).fold(

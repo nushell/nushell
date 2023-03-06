@@ -152,7 +152,9 @@ impl Stack {
         self.active_overlays
             .last()
             .cloned()
-            .ok_or_else(|| ShellError::NushellFailed("No active overlay".into()))
+            .ok_or_else(|| ShellError::NushellFailed {
+                msg: "No active overlay".into(),
+            })
     }
 
     pub fn captures_to_stack(&self, captures: &HashMap<VarId, Value>) -> Stack {

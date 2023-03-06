@@ -77,18 +77,12 @@ pub fn convert_env_values(engine_state: &mut EngineState, stack: &Stack) -> Opti
             }
         } else {
             error = error.or_else(|| {
-                Some(ShellError::NushellFailedHelp(
-                    "Last active overlay not found in permanent state.".into(),
-                    "This error happened during the conversion of environment variables from strings to Nushell values.".into(),
-                ))
+                Some(ShellError::NushellFailedHelp { msg: "Last active overlay not found in permanent state.".into(), help: "This error happened during the conversion of environment variables from strings to Nushell values.".into() })
             });
         }
     } else {
         error = error.or_else(|| {
-            Some(ShellError::NushellFailedHelp(
-                "Last active overlay not found in stack.".into(),
-                "This error happened during the conversion of environment variables from strings to Nushell values.".into(),
-            ))
+            Some(ShellError::NushellFailedHelp { msg: "Last active overlay not found in stack.".into(), help: "This error happened during the conversion of environment variables from strings to Nushell values.".into() })
         });
     }
 
