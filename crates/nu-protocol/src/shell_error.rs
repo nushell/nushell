@@ -226,15 +226,6 @@ pub enum ShellError {
         span: Span,
     },
 
-    /// This build of nushell implements this feature, but it has not been enabled.
-    ///
-    /// ## Resolution
-    ///
-    /// Rebuild nushell with the appropriate feature enabled.
-    #[error("Feature not enabled.")]
-    #[diagnostic(code(nu::shell::feature_not_enabled))]
-    FeatureNotEnabled(#[label = "feature not enabled"] Span),
-
     /// You're trying to run an unsupported external command.
     ///
     /// ## Resolution
