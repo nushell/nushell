@@ -1251,11 +1251,11 @@ fn check_subexp_substitution(mut input: PipelineData) -> Result<PipelineData, Sh
             Some(stderr_stream) => stderr_stream.into_string().map(|s| s.item)?,
         };
         if failed_to_run {
-            Err(ShellError::ExternalCommand(
-                "External command failed".to_string(),
-                stderr_msg,
+            Err(ShellError::ExternalCommand {
+                label: "External command failed".to_string(),
+                help: stderr_msg,
                 span,
-            ))
+            })
         } else {
             // we've captured stderr message, but it's running success.
             // So we need to re-print stderr message out.
