@@ -63,12 +63,12 @@ impl CustomValuePlugin {
             return Ok(value.into_value(call.head));
         }
 
-        Err(ShellError::CantConvert(
-            "cool or second".into(),
-            "non-cool and non-second".into(),
-            call.head,
-            None,
-        )
+        Err(ShellError::CantConvert {
+            to_type: "cool or second".into(),
+            from_type: "non-cool and non-second".into(),
+            span: call.head,
+            help: None,
+        }
         .into())
     }
 }

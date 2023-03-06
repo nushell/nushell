@@ -307,12 +307,7 @@ fn action(input: &Value, args: &Arguments, head: Span) -> Value {
                     Ok(d) => Value::Date { val: d, span: head },
                     Err(reason) => {
                         Value::Error {
-                            error: ShellError::CantConvert(
-                                format!("could not parse as datetime using format '{}'", dt.0),
-                                reason.to_string(),
-                                head,
-                                Some("you can use `into datetime` without a format string to enable flexible parsing".to_string())
-                            ),
+                            error: ShellError::CantConvert { to_type: format!("could not parse as datetime using format '{}'", dt.0), from_type: reason.to_string(), span: head, help: Some("you can use `into datetime` without a format string to enable flexible parsing".to_string()) },
                         }
                     }
                 },

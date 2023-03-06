@@ -59,7 +59,12 @@ impl From<ShellError> for LabeledError {
             ShellError::GenericError(label, msg, span, _help, _related) => {
                 LabeledError { label, msg, span }
             }
-            ShellError::CantConvert(expected, input, span, _help) => LabeledError {
+            ShellError::CantConvert {
+                to_type: expected,
+                from_type: input,
+                span,
+                help: _help,
+            } => LabeledError {
                 label: format!("Can't convert to {expected}"),
                 msg: format!("can't convert {expected} to {input}"),
                 span: Some(span),

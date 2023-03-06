@@ -240,12 +240,12 @@ impl NuDataFrame {
             let df = lazy.collect(span)?;
             Ok(df)
         } else {
-            Err(ShellError::CantConvert(
-                "lazy or eager dataframe".into(),
-                value.get_type().to_string(),
-                value.span()?,
-                None,
-            ))
+            Err(ShellError::CantConvert {
+                to_type: "lazy or eager dataframe".into(),
+                from_type: value.get_type().to_string(),
+                span: value.span()?,
+                help: None,
+            })
         }
     }
 
@@ -256,19 +256,19 @@ impl NuDataFrame {
                     df: df.df.clone(),
                     from_lazy: false,
                 }),
-                None => Err(ShellError::CantConvert(
-                    "dataframe".into(),
-                    "non-dataframe".into(),
+                None => Err(ShellError::CantConvert {
+                    to_type: "dataframe".into(),
+                    from_type: "non-dataframe".into(),
                     span,
-                    None,
-                )),
+                    help: None,
+                }),
             },
-            x => Err(ShellError::CantConvert(
-                "dataframe".into(),
-                x.get_type().to_string(),
-                x.span()?,
-                None,
-            )),
+            x => Err(ShellError::CantConvert {
+                to_type: "dataframe".into(),
+                from_type: x.get_type().to_string(),
+                span: x.span()?,
+                help: None,
+            }),
         }
     }
 

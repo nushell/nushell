@@ -468,12 +468,12 @@ fn action(
                     }
                 } else {
                     Value::Error {
-                        error: ShellError::CantConvert(
-                            "string".into(),
-                            "duration".into(),
+                        error: ShellError::CantConvert {
+                            to_type: "string".into(),
+                            from_type: "duration".into(),
                             span,
-                            None,
-                        ),
+                            help: None,
+                        },
                     }
                 }
             } else {

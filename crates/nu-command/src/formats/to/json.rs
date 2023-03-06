@@ -70,12 +70,12 @@ impl Command for ToJson {
             }
             .into_pipeline_data()),
             _ => Ok(Value::Error {
-                error: ShellError::CantConvert(
-                    "JSON".into(),
-                    value.get_type().to_string(),
+                error: ShellError::CantConvert {
+                    to_type: "JSON".into(),
+                    from_type: value.get_type().to_string(),
                     span,
-                    None,
-                ),
+                    help: None,
+                },
             }
             .into_pipeline_data()),
         }

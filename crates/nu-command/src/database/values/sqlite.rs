@@ -62,19 +62,19 @@ impl SQLiteDatabase {
                     path: db.path.clone(),
                     ctrlc: db.ctrlc.clone(),
                 }),
-                None => Err(ShellError::CantConvert(
-                    "database".into(),
-                    "non-database".into(),
+                None => Err(ShellError::CantConvert {
+                    to_type: "database".into(),
+                    from_type: "non-database".into(),
                     span,
-                    None,
-                )),
+                    help: None,
+                }),
             },
-            x => Err(ShellError::CantConvert(
-                "database".into(),
-                x.get_type().to_string(),
-                x.span()?,
-                None,
-            )),
+            x => Err(ShellError::CantConvert {
+                to_type: "database".into(),
+                from_type: x.get_type().to_string(),
+                span: x.span()?,
+                help: None,
+            }),
         }
     }
 

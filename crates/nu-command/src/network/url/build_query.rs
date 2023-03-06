@@ -89,12 +89,12 @@ fn to_url(input: PipelineData, head: Span) -> Result<PipelineData, ShellError> {
 
                 match serde_urlencoded::to_string(row_vec) {
                     Ok(s) => Ok(s),
-                    _ => Err(ShellError::CantConvert(
-                        "URL".into(),
-                        value.get_type().to_string(),
-                        head,
-                        None,
-                    )),
+                    _ => Err(ShellError::CantConvert {
+                        to_type: "URL".into(),
+                        from_type: value.get_type().to_string(),
+                        span: head,
+                        help: None,
+                    }),
                 }
             }
             // Propagate existing errors

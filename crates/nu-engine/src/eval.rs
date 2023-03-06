@@ -260,12 +260,12 @@ pub fn eval_expression(
         }),
         Expr::ValueWithUnit(e, unit) => match eval_expression(engine_state, stack, e)? {
             Value::Int { val, .. } => Ok(compute(val, unit.item, unit.span)),
-            x => Err(ShellError::CantConvert(
-                "unit value".into(),
-                x.get_type().to_string(),
-                e.span,
-                None,
-            )),
+            x => Err(ShellError::CantConvert {
+                to_type: "unit value".into(),
+                from_type: x.get_type().to_string(),
+                span: e.span,
+                help: None,
+            }),
         },
         Expr::Range(from, next, to, operator) => {
             let from = if let Some(f) = from {

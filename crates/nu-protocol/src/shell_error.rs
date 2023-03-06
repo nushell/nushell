@@ -378,14 +378,16 @@ pub enum ShellError {
     /// ## Resolution
     ///
     /// Not all values can be coerced this way. Check the supported type(s) and try again.
-    #[error("Can't convert to {0}.")]
+    #[error("Can't convert to {to_type}.")]
     #[diagnostic(code(nu::shell::cant_convert))]
-    CantConvert(
-        String,
-        String,
-        #[label("can't convert {1} to {0}")] Span,
-        #[help] Option<String>,
-    ),
+    CantConvert {
+        to_type: String,
+        from_type: String,
+        #[label("can't convert {from_type} to {to_type}")]
+        span: Span,
+        #[help]
+        help: Option<String>,
+    },
 
     /// Failed to convert a value of one type into a different type. Includes hint for what the first value is.
     ///
