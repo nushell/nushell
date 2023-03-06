@@ -454,9 +454,12 @@ pub enum ShellError {
     #[error("Cannot replace environment.")]
     #[diagnostic(
         code(nu::shell::cannot_replace_env),
-        help(r#"Assigning a value to $env is not allowed."#)
+        help(r#"Assigning a value to '$env' is not allowed."#)
     )]
-    CannotReplaceEnv(#[label("setting $env not allowed")] Span),
+    CannotReplaceEnv {
+        #[label("setting '$env' not allowed")]
+        span: Span,
+    },
 
     /// Division by zero is not a thing.
     ///
