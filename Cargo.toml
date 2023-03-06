@@ -65,7 +65,7 @@ nu-utils = { path = "./crates/nu-utils", version = "0.76.1" }
 
 reedline = { version = "0.16.0", features = ["bashisms", "sqlite"] }
 
-rayon = "1.6.1"
+rayon = "1.7.0"
 is_executable = "1.0.1"
 simplelog = "0.12.0"
 time = "0.3.12"
