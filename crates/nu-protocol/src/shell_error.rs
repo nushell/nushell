@@ -519,6 +519,7 @@ pub enum ShellError {
     #[diagnostic(code(nu::shell::access_beyond_end))]
     AccessEmptyContent(#[label = "index too large (empty content)"] Span),
 
+    // TODO: check to be taken over by `AccessBeyondEnd`
     /// You attempted to access an index beyond the available length of a stream.
     ///
     /// ## Resolution
