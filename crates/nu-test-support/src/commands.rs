@@ -1,11 +1,27 @@
 use std::{
     io::Read,
     process::{Command, Stdio},
+    sync::{
+        atomic::{AtomicBool, Ordering::Relaxed},
+        Mutex,
+    },
 };
 
-pub fn ensure_binary_present(package: &str) {
+static CARGO_BUILD_LOCK: Mutex<()> = Mutex::new(());
+static PLUGINS_BUILT: AtomicBool = AtomicBool::new(false);
+
+// This runs `cargo build --package nu_plugin_*` to ensure that all plugins
+// have been built before plugin tests run. We use a lock to avoid multiple
+// simultaneous `cargo build` invocations clobbering each other.
+pub fn ensure_plugins_built() {
+    let _guard = CARGO_BUILD_LOCK.lock().expect("could not get mutex lock");
+
+    if PLUGINS_BUILT.load(Relaxed) {
+        return;
+    }
+
     let cargo_path = env!("CARGO");
-    let mut arguments = vec!["build", "--package", package, "--quiet"];
+    let mut arguments = vec!["build", "--package", "nu_plugin_*", "--quiet"];
 
     let profile = std::env::var("NUSHELL_CARGO_TARGET");
     if let Ok(profile) = &profile {
@@ -40,4 +56,6 @@ pub fn ensure_binary_present(package: &str) {
     if !success {
         panic!("cargo build failed");
     }
+
+    PLUGINS_BUILT.store(true, Relaxed);
 }
