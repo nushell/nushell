@@ -2643,11 +2643,9 @@ dependencies = [
 [[package]]
 name = "nu-ansi-term"
 version = "0.46.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "77a8165726e8236064dbb45459242600304b42a5ea24ee2948e18e023bf7ba84"
+source = "git+https://github.com/nushell/nu-ansi-term.git?branch=main#555d4e1726b8ae8be0e78b59384cbe172029d922"
 dependencies = [
- "overload",
- "winapi",
+ "windows-sys 0.45.0",
 ]
 
 [[package]]
@@ -3341,12 +3339,6 @@ checksum = "628223faebab4e3e40667ee0b2336d34a5b960ff60ea743ddfdbcf7770bcfb66"
 dependencies = [
  "winapi",
 ]
-
-[[package]]
-name = "overload"
-version = "0.1.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b15813163c1d831bf4a13c3610c05c0d03b39feb07f7e09fa234dac9b15aaf39"
 
 [[package]]
 name = "owo-colors"
@@ -4234,8 +4226,7 @@ dependencies = [
 [[package]]
 name = "reedline"
 version = "0.16.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a02723e44c03f5ef62ad35665a43cfa1df3b78cbb75e31ea9ddc6d2f0d9b4658"
+source = "git+https://github.com/nushell/reedline.git?branch=main#ac1d9549a3df0743c96162a632e5f73d74f12abc"
 dependencies = [
  "chrono",
  "crossterm 0.24.0",
