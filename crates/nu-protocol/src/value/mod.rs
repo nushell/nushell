@@ -2307,7 +2307,7 @@ impl Value {
                         })
                     }
                 } else {
-                    Err(ShellError::DivisionByZero(op))
+                    Err(ShellError::DivisionByZero { span: op })
                 }
             }
             (Value::Int { val: lhs, .. }, Value::Float { val: rhs, .. }) => {
@@ -2317,7 +2317,7 @@ impl Value {
                         span,
                     })
                 } else {
-                    Err(ShellError::DivisionByZero(op))
+                    Err(ShellError::DivisionByZero { span: op })
                 }
             }
             (Value::Float { val: lhs, .. }, Value::Int { val: rhs, .. }) => {
@@ -2327,7 +2327,7 @@ impl Value {
                         span,
                     })
                 } else {
-                    Err(ShellError::DivisionByZero(op))
+                    Err(ShellError::DivisionByZero { span: op })
                 }
             }
             (Value::Float { val: lhs, .. }, Value::Float { val: rhs, .. }) => {
@@ -2337,7 +2337,7 @@ impl Value {
                         span,
                     })
                 } else {
-                    Err(ShellError::DivisionByZero(op))
+                    Err(ShellError::DivisionByZero { span: op })
                 }
             }
             (Value::Filesize { val: lhs, .. }, Value::Filesize { val: rhs, .. }) => {
@@ -2354,7 +2354,7 @@ impl Value {
                         })
                     }
                 } else {
-                    Err(ShellError::DivisionByZero(op))
+                    Err(ShellError::DivisionByZero { span: op })
                 }
             }
             (Value::Filesize { val: lhs, .. }, Value::Int { val: rhs, .. }) => {
@@ -2364,7 +2364,7 @@ impl Value {
                         span,
                     })
                 } else {
-                    Err(ShellError::DivisionByZero(op))
+                    Err(ShellError::DivisionByZero { span: op })
                 }
             }
             (Value::Filesize { val: lhs, .. }, Value::Float { val: rhs, .. }) => {
@@ -2374,7 +2374,7 @@ impl Value {
                         span,
                     })
                 } else {
-                    Err(ShellError::DivisionByZero(op))
+                    Err(ShellError::DivisionByZero { span: op })
                 }
             }
             (Value::Duration { val: lhs, .. }, Value::Duration { val: rhs, .. }) => {
@@ -2391,7 +2391,7 @@ impl Value {
                         })
                     }
                 } else {
-                    Err(ShellError::DivisionByZero(op))
+                    Err(ShellError::DivisionByZero { span: op })
                 }
             }
             (Value::Duration { val: lhs, .. }, Value::Int { val: rhs, .. }) => {
@@ -2401,7 +2401,7 @@ impl Value {
                         span,
                     })
                 } else {
-                    Err(ShellError::DivisionByZero(op))
+                    Err(ShellError::DivisionByZero { span: op })
                 }
             }
             (Value::Duration { val: lhs, .. }, Value::Float { val: rhs, .. }) => {
@@ -2411,7 +2411,7 @@ impl Value {
                         span,
                     })
                 } else {
-                    Err(ShellError::DivisionByZero(op))
+                    Err(ShellError::DivisionByZero { span: op })
                 }
             }
             (Value::CustomValue { val: lhs, span }, rhs) => {
@@ -2439,7 +2439,7 @@ impl Value {
                         span,
                     })
                 } else {
-                    Err(ShellError::DivisionByZero(op))
+                    Err(ShellError::DivisionByZero { span: op })
                 }
             }
             (Value::Int { val: lhs, .. }, Value::Float { val: rhs, .. }) => {
@@ -2451,7 +2451,7 @@ impl Value {
                         span,
                     })
                 } else {
-                    Err(ShellError::DivisionByZero(op))
+                    Err(ShellError::DivisionByZero { span: op })
                 }
             }
             (Value::Float { val: lhs, .. }, Value::Int { val: rhs, .. }) => {
@@ -2463,7 +2463,7 @@ impl Value {
                         span,
                     })
                 } else {
-                    Err(ShellError::DivisionByZero(op))
+                    Err(ShellError::DivisionByZero { span: op })
                 }
             }
             (Value::Float { val: lhs, .. }, Value::Float { val: rhs, .. }) => {
@@ -2475,7 +2475,7 @@ impl Value {
                         span,
                     })
                 } else {
-                    Err(ShellError::DivisionByZero(op))
+                    Err(ShellError::DivisionByZero { span: op })
                 }
             }
             (Value::Filesize { val: lhs, .. }, Value::Filesize { val: rhs, .. }) => {
@@ -2487,7 +2487,7 @@ impl Value {
                         span,
                     })
                 } else {
-                    Err(ShellError::DivisionByZero(op))
+                    Err(ShellError::DivisionByZero { span: op })
                 }
             }
             (Value::Filesize { val: lhs, .. }, Value::Int { val: rhs, .. }) => {
@@ -2499,7 +2499,7 @@ impl Value {
                         span,
                     })
                 } else {
-                    Err(ShellError::DivisionByZero(op))
+                    Err(ShellError::DivisionByZero { span: op })
                 }
             }
             (Value::Filesize { val: lhs, .. }, Value::Float { val: rhs, .. }) => {
@@ -2511,7 +2511,7 @@ impl Value {
                         span,
                     })
                 } else {
-                    Err(ShellError::DivisionByZero(op))
+                    Err(ShellError::DivisionByZero { span: op })
                 }
             }
             (Value::Duration { val: lhs, .. }, Value::Duration { val: rhs, .. }) => {
@@ -2523,7 +2523,7 @@ impl Value {
                         span,
                     })
                 } else {
-                    Err(ShellError::DivisionByZero(op))
+                    Err(ShellError::DivisionByZero { span: op })
                 }
             }
             (Value::Duration { val: lhs, .. }, Value::Int { val: rhs, .. }) => {
@@ -2535,7 +2535,7 @@ impl Value {
                         span,
                     })
                 } else {
-                    Err(ShellError::DivisionByZero(op))
+                    Err(ShellError::DivisionByZero { span: op })
                 }
             }
             (Value::Duration { val: lhs, .. }, Value::Float { val: rhs, .. }) => {
@@ -2547,7 +2547,7 @@ impl Value {
                         span,
                     })
                 } else {
-                    Err(ShellError::DivisionByZero(op))
+                    Err(ShellError::DivisionByZero { span: op })
                 }
             }
             (Value::CustomValue { val: lhs, span }, rhs) => {
@@ -3082,7 +3082,7 @@ impl Value {
                         span,
                     })
                 } else {
-                    Err(ShellError::DivisionByZero(op))
+                    Err(ShellError::DivisionByZero { span: op })
                 }
             }
             (Value::Int { val: lhs, .. }, Value::Float { val: rhs, .. }) => {
@@ -3092,7 +3092,7 @@ impl Value {
                         span,
                     })
                 } else {
-                    Err(ShellError::DivisionByZero(op))
+                    Err(ShellError::DivisionByZero { span: op })
                 }
             }
             (Value::Float { val: lhs, .. }, Value::Int { val: rhs, .. }) => {
@@ -3102,7 +3102,7 @@ impl Value {
                         span,
                     })
                 } else {
-                    Err(ShellError::DivisionByZero(op))
+                    Err(ShellError::DivisionByZero { span: op })
                 }
             }
             (Value::Float { val: lhs, .. }, Value::Float { val: rhs, .. }) => {
@@ -3112,7 +3112,7 @@ impl Value {
                         span,
                     })
                 } else {
-                    Err(ShellError::DivisionByZero(op))
+                    Err(ShellError::DivisionByZero { span: op })
                 }
             }
             (Value::CustomValue { val: lhs, span }, rhs) => {

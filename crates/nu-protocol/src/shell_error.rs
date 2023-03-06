@@ -468,7 +468,10 @@ pub enum ShellError {
     /// Add a guard of some sort to check whether a denominator input to this division is zero, and branch off if that's the case.
     #[error("Division by zero.")]
     #[diagnostic(code(nu::shell::division_by_zero))]
-    DivisionByZero(#[label("division by zero")] Span),
+    DivisionByZero {
+        #[label("division by zero")]
+        span: Span,
+    },
 
     /// An error happened while tryin to create a range.
     ///
