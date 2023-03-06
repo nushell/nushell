@@ -223,7 +223,8 @@ fn action(input: &Value, args: &Arguments, span: Span) -> Value {
             if val
                 < &FixedOffset::east_opt(0)
                     .expect("constant")
-                    .with_ymd_and_hms(1677, 9, 21, 0, 12, 44).unwrap()
+                    .with_ymd_and_hms(1677, 9, 21, 0, 12, 44)
+                    .unwrap()
                 || val
                     > &FixedOffset::east_opt(0)
                         .expect("constant")
@@ -232,8 +233,8 @@ fn action(input: &Value, args: &Arguments, span: Span) -> Value {
             {
                 Value::Error {
                     error: ShellError::IncorrectValue(
-                        "DateTime out of range for timestamp: 1677-09-21T00:12:43Z to 2262-04-11T23:47:16".to_string(),                    
-                span), 
+                        "DateTime out of range for timestamp: 1677-09-21T00:12:43Z to 2262-04-11T23:47:16".to_string(),
+                span),
                 }
             } else {
                 Value::Int {
@@ -380,7 +381,7 @@ fn int_from_string(a_string: &str, span: Span) -> Result<i64, ShellError> {
         }
         _ => match trimmed.parse::<i64>() {
             Ok(n) => Ok(n),
-            Err(_) => match a_string.parse::<f64>() { 
+            Err(_) => match a_string.parse::<f64>() {
                 Ok(f) => Ok(f as i64),
                 _ => Err(ShellError::CantConvert(
                     "int".to_string(),
@@ -515,11 +516,16 @@ mod test {
             },
             Span::test_data(),
         );
-        if let Value::Error{error:ShellError::IncorrectValue(e, ..)} = actual {
-            assert!(e.contains(err_expected), "{e:?} doesn't contain {err_expected}");
-        }
-        else {
+        if let Value::Error {
+            error: ShellError::IncorrectValue(e, ..),
+        } = actual
+        {
+            assert!(
+                e.contains(err_expected),
+                "{e:?} doesn't contain {err_expected}"
+            );
+        } else {
             panic!("Unexpected actual value {actual:?}")
-        }    
+        }
     }
 }

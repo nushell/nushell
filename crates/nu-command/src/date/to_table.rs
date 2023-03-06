@@ -69,10 +69,7 @@ impl Command for SubCommand {
                 Value::Int { val: 22, span },
                 Value::Int { val: 10, span },
                 Value::Int { val: 57, span },
-                Value::Int {
-                    val: 789,
-                    span,
-                },
+                Value::Int { val: 789, span },
                 Value::String {
                     val: "+02:00".to_string(),
                     span,
