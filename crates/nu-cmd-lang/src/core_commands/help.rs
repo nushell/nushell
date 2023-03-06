@@ -106,7 +106,9 @@ You can also learn more at https://www.nushell.sh/book/"#;
             }) = result
             {
                 let rest_spans: Vec<Span> = rest.iter().map(|arg| arg.span).collect();
-                Err(ShellError::NotFound(span(&rest_spans)))
+                Err(ShellError::NotFound {
+                    span: span(&rest_spans),
+                })
             } else {
                 result
             }

@@ -368,7 +368,10 @@ pub enum ShellError {
     /// This error is triggered in various places, and simply signals that "something" was not found. Refer to the specific error message for further details.
     #[error("Not found.")]
     #[diagnostic(code(nu::parser::not_found))]
-    NotFound(#[label = "did not find anything under this name"] Span),
+    NotFound {
+        #[label = "did not find anything under this name"]
+        span: Span,
+    },
 
     /// Failed to convert a value of one type into a different type.
     ///
