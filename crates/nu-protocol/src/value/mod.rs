@@ -812,11 +812,11 @@ impl Value {
                                 }
                             }
                             err_or_null!(
-                                ShellError::CantFindColumn(
-                                    column_name.to_string(),
-                                    *origin_span,
-                                    span,
-                                ),
+                                ShellError::CantFindColumn {
+                                    col_name: column_name.to_string(),
+                                    span: *origin_span,
+                                    src_span: span
+                                },
                                 *origin_span
                             );
                         }
@@ -836,11 +836,11 @@ impl Value {
                                 }
                             }
                             err_or_null!(
-                                ShellError::CantFindColumn(
-                                    column_name.to_string(),
-                                    *origin_span,
-                                    *span,
-                                ),
+                                ShellError::CantFindColumn {
+                                    col_name: column_name.to_string(),
+                                    span: *origin_span,
+                                    src_span: *span
+                                },
                                 *origin_span
                             );
                         }
@@ -880,13 +880,11 @@ impl Value {
                                         Value::nothing(*origin_span)
                                     } else {
                                         Value::Error {
-                                            error: ShellError::CantFindColumn(
-                                                column_name.to_string(),
-                                                *origin_span,
-                                                // Get the exact span of the value, falling back to
-                                                // the list's span if it's a Value::Empty
-                                                val.span().unwrap_or(*span),
-                                            ),
+                                            error: ShellError::CantFindColumn {
+                                                col_name: column_name.to_string(),
+                                                span: *origin_span,
+                                                src_span: val.span().unwrap_or(*span),
+                                            },
                                         }
                                     });
                                 }
@@ -896,13 +894,11 @@ impl Value {
                                     Value::nothing(*origin_span)
                                 } else {
                                     Value::Error {
-                                        error: ShellError::CantFindColumn(
-                                            column_name.to_string(),
-                                            *origin_span,
-                                            // Get the exact span of the value, falling back to
-                                            // the list's span if it's a Value::Empty
-                                            val.span().unwrap_or(*span),
-                                        ),
+                                        error: ShellError::CantFindColumn {
+                                            col_name: column_name.to_string(),
+                                            span: *origin_span,
+                                            src_span: val.span().unwrap_or(*span),
+                                        },
                                     }
                                 });
                             }
@@ -914,11 +910,11 @@ impl Value {
                             };
                         } else {
                             err_or_null!(
-                                ShellError::CantFindColumn(
-                                    column_name.to_string(),
-                                    *origin_span,
-                                    *span,
-                                ),
+                                ShellError::CantFindColumn {
+                                    col_name: column_name.to_string(),
+                                    span: *origin_span,
+                                    src_span: *span
+                                },
                                 *origin_span
                             );
                         }
@@ -1011,11 +1007,11 @@ impl Value {
                                 }
                                 Value::Error { error } => return Err(error.to_owned()),
                                 v => {
-                                    return Err(ShellError::CantFindColumn(
-                                        col_name.to_string(),
-                                        *span,
-                                        v.span()?,
-                                    ))
+                                    return Err(ShellError::CantFindColumn {
+                                        col_name: col_name.to_string(),
+                                        span: *span,
+                                        src_span: v.span()?,
+                                    })
                                 }
                             }
                         }
@@ -1048,11 +1044,11 @@ impl Value {
                     }
                     Value::Error { error } => return Err(error.to_owned()),
                     v => {
-                        return Err(ShellError::CantFindColumn(
-                            col_name.to_string(),
-                            *span,
-                            v.span()?,
-                        ))
+                        return Err(ShellError::CantFindColumn {
+                            col_name: col_name.to_string(),
+                            span: *span,
+                            src_span: v.span()?,
+                        })
                     }
                 },
                 PathMember::Int { val: row_num, span } => match self {
@@ -1127,20 +1123,20 @@ impl Value {
                                         }
                                     }
                                     if !found {
-                                        return Err(ShellError::CantFindColumn(
-                                            col_name.to_string(),
-                                            *span,
-                                            *v_span,
-                                        ));
+                                        return Err(ShellError::CantFindColumn {
+                                            col_name: col_name.to_string(),
+                                            span: *span,
+                                            src_span: *v_span,
+                                        });
                                     }
                                 }
                                 Value::Error { error } => return Err(error.to_owned()),
                                 v => {
-                                    return Err(ShellError::CantFindColumn(
-                                        col_name.to_string(),
-                                        *span,
-                                        v.span()?,
-                                    ))
+                                    return Err(ShellError::CantFindColumn {
+                                        col_name: col_name.to_string(),
+                                        span: *span,
+                                        src_span: v.span()?,
+                                    })
                                 }
                             }
                         }
@@ -1161,20 +1157,20 @@ impl Value {
                             }
                         }
                         if !found {
-                            return Err(ShellError::CantFindColumn(
-                                col_name.to_string(),
-                                *span,
-                                *v_span,
-                            ));
+                            return Err(ShellError::CantFindColumn {
+                                col_name: col_name.to_string(),
+                                span: *span,
+                                src_span: *v_span,
+                            });
                         }
                     }
                     Value::Error { error } => return Err(error.to_owned()),
                     v => {
-                        return Err(ShellError::CantFindColumn(
-                            col_name.to_string(),
-                            *span,
-                            v.span()?,
-                        ))
+                        return Err(ShellError::CantFindColumn {
+                            col_name: col_name.to_string(),
+                            span: *span,
+                            src_span: v.span()?,
+                        })
                     }
                 },
                 PathMember::Int { val: row_num, span } => match self {
@@ -1228,19 +1224,19 @@ impl Value {
                                             }
                                         }
                                         if !found {
-                                            return Err(ShellError::CantFindColumn(
-                                                col_name.to_string(),
-                                                *span,
-                                                *v_span,
-                                            ));
+                                            return Err(ShellError::CantFindColumn {
+                                                col_name: col_name.to_string(),
+                                                span: *span,
+                                                src_span: *v_span,
+                                            });
                                         }
                                     }
                                     v => {
-                                        return Err(ShellError::CantFindColumn(
-                                            col_name.to_string(),
-                                            *span,
-                                            v.span()?,
-                                        ))
+                                        return Err(ShellError::CantFindColumn {
+                                            col_name: col_name.to_string(),
+                                            span: *span,
+                                            src_span: v.span()?,
+                                        })
                                     }
                                 }
                             }
@@ -1260,19 +1256,19 @@ impl Value {
                                 }
                             }
                             if !found {
-                                return Err(ShellError::CantFindColumn(
-                                    col_name.to_string(),
-                                    *span,
-                                    *v_span,
-                                ));
+                                return Err(ShellError::CantFindColumn {
+                                    col_name: col_name.to_string(),
+                                    span: *span,
+                                    src_span: *v_span,
+                                });
                             }
                             Ok(())
                         }
-                        v => Err(ShellError::CantFindColumn(
-                            col_name.to_string(),
-                            *span,
-                            v.span()?,
-                        )),
+                        v => Err(ShellError::CantFindColumn {
+                            col_name: col_name.to_string(),
+                            span: *span,
+                            src_span: v.span()?,
+                        }),
                     },
                     PathMember::Int { val: row_num, span } => match self {
                         Value::List { vals, .. } => {
@@ -1315,19 +1311,19 @@ impl Value {
                                             }
                                         }
                                         if !found {
-                                            return Err(ShellError::CantFindColumn(
-                                                col_name.to_string(),
-                                                *span,
-                                                *v_span,
-                                            ));
+                                            return Err(ShellError::CantFindColumn {
+                                                col_name: col_name.to_string(),
+                                                span: *span,
+                                                src_span: *v_span,
+                                            });
                                         }
                                     }
                                     v => {
-                                        return Err(ShellError::CantFindColumn(
-                                            col_name.to_string(),
-                                            *span,
-                                            v.span()?,
-                                        ))
+                                        return Err(ShellError::CantFindColumn {
+                                            col_name: col_name.to_string(),
+                                            span: *span,
+                                            src_span: v.span()?,
+                                        })
                                     }
                                 }
                             }
@@ -1348,19 +1344,19 @@ impl Value {
                                 }
                             }
                             if !found {
-                                return Err(ShellError::CantFindColumn(
-                                    col_name.to_string(),
-                                    *span,
-                                    *v_span,
-                                ));
+                                return Err(ShellError::CantFindColumn {
+                                    col_name: col_name.to_string(),
+                                    span: *span,
+                                    src_span: *v_span,
+                                });
                             }
                             Ok(())
                         }
-                        v => Err(ShellError::CantFindColumn(
-                            col_name.to_string(),
-                            *span,
-                            v.span()?,
-                        )),
+                        v => Err(ShellError::CantFindColumn {
+                            col_name: col_name.to_string(),
+                            span: *span,
+                            src_span: v.span()?,
+                        }),
                     },
                     PathMember::Int { val: row_num, span } => match self {
                         Value::List { vals, .. } => {

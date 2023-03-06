@@ -560,11 +560,13 @@ pub enum ShellError {
     /// Check the spelling of your column name. Did you forget to rename a column somewhere?
     #[error("Cannot find column")]
     #[diagnostic(code(nu::shell::column_not_found))]
-    CantFindColumn(
-        String,
-        #[label = "cannot find column '{0}'"] Span,
-        #[label = "value originates here"] Span,
-    ),
+    CantFindColumn {
+        col_name: String,
+        #[label = "cannot find column '{col_name}'"]
+        span: Span,
+        #[label = "value originates here"]
+        src_span: Span,
+    },
 
     /// Attempted to insert a column into a table, but a column with that name already exists.
     ///

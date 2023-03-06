@@ -248,11 +248,11 @@ pub fn group(
                 };
                 match row.get_data_by_key(&column_name.item) {
                     Some(group_key) => Ok(group_key.as_string()?),
-                    None => Err(ShellError::CantFindColumn(
-                        column_name.item.to_string(),
-                        column_name.span,
-                        row.expect_span(),
-                    )),
+                    None => Err(ShellError::CantFindColumn {
+                        col_name: column_name.item.to_string(),
+                        span: column_name.span,
+                        src_span: row.expect_span(),
+                    }),
                 }
             });
 
