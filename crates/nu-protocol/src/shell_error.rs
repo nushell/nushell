@@ -340,9 +340,13 @@ pub enum ShellError {
     /// ## Resolution
     ///
     /// Check the module name. Did you typo it? Did you forget to declare it? Is the casing right?
-    #[error("Module '{0}' not found")]
+    #[error("Module '{mod_name}' not found")]
     #[diagnostic(code(nu::shell::module_not_found))]
-    ModuleNotFoundAtRuntime(String, #[label = "module not found"] Span),
+    ModuleNotFoundAtRuntime {
+        mod_name: String,
+        #[label = "module not found"]
+        span: Span,
+    },
 
     /// A referenced module or overlay was not found at runtime.
     ///

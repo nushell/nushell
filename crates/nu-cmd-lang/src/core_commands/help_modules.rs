@@ -120,10 +120,10 @@ pub fn help_modules(
         let module_id = if let Some(id) = engine_state.find_module(name.as_bytes(), &[]) {
             id
         } else {
-            return Err(ShellError::ModuleNotFoundAtRuntime(
-                name,
-                span(&rest.iter().map(|r| r.span).collect::<Vec<Span>>()),
-            ));
+            return Err(ShellError::ModuleNotFoundAtRuntime {
+                mod_name: name,
+                span: span(&rest.iter().map(|r| r.span).collect::<Vec<Span>>()),
+            });
         };
 
         let module = engine_state.get_module(module_id);

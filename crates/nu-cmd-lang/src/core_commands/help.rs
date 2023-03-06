@@ -100,7 +100,11 @@ You can also learn more at https://www.nushell.sh/book/"#;
                 result
             };
 
-            if let Err(ShellError::ModuleNotFoundAtRuntime(_, _)) = result {
+            if let Err(ShellError::ModuleNotFoundAtRuntime {
+                mod_name: _,
+                span: _,
+            }) = result
+            {
                 let rest_spans: Vec<Span> = rest.iter().map(|arg| arg.span).collect();
                 Err(ShellError::NotFound(span(&rest_spans)))
             } else {
