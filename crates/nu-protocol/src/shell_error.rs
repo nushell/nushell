@@ -317,7 +317,10 @@ pub enum ShellError {
     /// Check the variable name. Did you typo it? Did you forget to declare it? Is the casing right?
     #[error("Variable not found")]
     #[diagnostic(code(nu::shell::variable_not_found))]
-    VariableNotFoundAtRuntime(#[label = "variable not found"] Span),
+    VariableNotFoundAtRuntime {
+        #[label = "variable not found"]
+        span: Span,
+    },
 
     /// A referenced environment variable was not found at runtime.
     ///

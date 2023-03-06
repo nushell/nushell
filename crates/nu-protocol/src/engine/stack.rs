@@ -108,7 +108,7 @@ impl Stack {
             return Ok(v.clone().with_span(span));
         }
 
-        Err(ShellError::VariableNotFoundAtRuntime(span))
+        Err(ShellError::VariableNotFoundAtRuntime { span })
     }
 
     pub fn get_var_with_origin(&self, var_id: VarId, span: Span) -> Result<Value, ShellError> {
@@ -116,7 +116,7 @@ impl Stack {
             return Ok(v.clone());
         }
 
-        Err(ShellError::VariableNotFoundAtRuntime(span))
+        Err(ShellError::VariableNotFoundAtRuntime { span })
     }
 
     pub fn add_var(&mut self, var_id: VarId, value: Value) {
