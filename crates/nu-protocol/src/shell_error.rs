@@ -394,16 +394,19 @@ pub enum ShellError {
     /// ## Resolution
     ///
     /// Not all values can be coerced this way. Check the supported type(s) and try again.
-    #[error("Can't convert {1} `{2}` to {0}.")]
+    #[error("Can't convert {from_type} `{details}` to {to_type}.")]
     #[diagnostic(code(nu::shell::cant_convert_with_value))]
-    CantConvertWithValue(
-        String,
-        String,
-        String,
-        #[label("can't be converted to {0}")] Span,
-        #[label("this {1} value...")] Span,
-        #[help] Option<String>,
-    ),
+    CantConvertWithValue {
+        to_type: String,
+        from_type: String,
+        details: String,
+        #[label("can't be converted to {to_type}")]
+        dst_span: Span,
+        #[label("this {from_type} value...")]
+        src_span: Span,
+        #[help]
+        help: Option<String>,
+    },
 
     /// An environment variable cannot be represented as a string.
     ///
