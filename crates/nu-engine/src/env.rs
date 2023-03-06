@@ -208,16 +208,16 @@ pub fn path_str(
             #[cfg(windows)]
             match stack.get_env_var(engine_state, ENV_PATH_NAME_SECONDARY) {
                 Some(v) => Ok((ENV_PATH_NAME_SECONDARY, v)),
-                None => Err(ShellError::EnvVarNotFoundAtRuntime(
-                    ENV_PATH_NAME_SECONDARY.to_string(),
+                None => Err(ShellError::EnvVarNotFoundAtRuntime {
+                    envvar_name: ENV_PATH_NAME_SECONDARY.to_string(),
                     span,
-                )),
+                }),
             }
             #[cfg(not(windows))]
-            Err(ShellError::EnvVarNotFoundAtRuntime(
-                ENV_PATH_NAME.to_string(),
+            Err(ShellError::EnvVarNotFoundAtRuntime {
+                envvar_name: ENV_PATH_NAME.to_string(),
                 span,
-            ))
+            })
         }
     }?;
 

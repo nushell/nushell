@@ -327,9 +327,13 @@ pub enum ShellError {
     /// ## Resolution
     ///
     /// Check the environment variable name. Did you typo it? Did you forget to declare it? Is the casing right?
-    #[error("Environment variable '{0}' not found")]
+    #[error("Environment variable '{envvar_name}' not found")]
     #[diagnostic(code(nu::shell::env_variable_not_found))]
-    EnvVarNotFoundAtRuntime(String, #[label = "environment variable not found"] Span),
+    EnvVarNotFoundAtRuntime {
+        envvar_name: String,
+        #[label = "environment variable not found"]
+        span: Span,
+    },
 
     /// A referenced module was not found at runtime.
     ///
