@@ -1067,7 +1067,12 @@ impl Value {
                         }
                     }
                     Value::Error { error } => return Err(error.to_owned()),
-                    v => return Err(ShellError::NotAList(*span, v.span()?)),
+                    v => {
+                        return Err(ShellError::NotAList {
+                            dst_span: *span,
+                            src_span: v.span()?,
+                        })
+                    }
                 },
             },
             None => {
@@ -1187,7 +1192,12 @@ impl Value {
                         }
                     }
                     Value::Error { error } => return Err(error.to_owned()),
-                    v => return Err(ShellError::NotAList(*span, v.span()?)),
+                    v => {
+                        return Err(ShellError::NotAList {
+                            dst_span: *span,
+                            src_span: v.span()?,
+                        })
+                    }
                 },
             },
             None => {
@@ -1284,7 +1294,10 @@ impl Value {
                                 })
                             }
                         }
-                        v => Err(ShellError::NotAList(*span, v.span()?)),
+                        v => Err(ShellError::NotAList {
+                            dst_span: *span,
+                            src_span: v.span()?,
+                        }),
                     },
                 }
             }
@@ -1371,7 +1384,10 @@ impl Value {
                                 })
                             }
                         }
-                        v => Err(ShellError::NotAList(*span, v.span()?)),
+                        v => Err(ShellError::NotAList {
+                            dst_span: *span,
+                            src_span: v.span()?,
+                        }),
                     },
                 }
             }
@@ -1482,7 +1498,12 @@ impl Value {
                             });
                         }
                     }
-                    v => return Err(ShellError::NotAList(*span, v.span()?)),
+                    v => {
+                        return Err(ShellError::NotAList {
+                            dst_span: *span,
+                            src_span: v.span()?,
+                        })
+                    }
                 },
             },
             None => {

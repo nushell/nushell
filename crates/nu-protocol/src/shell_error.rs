@@ -590,10 +590,12 @@ pub enum ShellError {
     /// Check the input type to this command. Are you sure it's a list?
     #[error("Not a list value")]
     #[diagnostic(code(nu::shell::not_a_list))]
-    NotAList(
-        #[label = "value not a list"] Span,
-        #[label = "value originates here"] Span,
-    ),
+    NotAList {
+        #[label = "value not a list"]
+        dst_span: Span,
+        #[label = "value originates here"]
+        src_span: Span,
+    },
 
     /// An error happened while performing an external command.
     ///
