@@ -290,10 +290,14 @@ impl PipelineData {
         match self {
             PipelineData::Empty => Ok((String::new(), span, None)),
             PipelineData::Value(Value::String { val, span }, metadata) => Ok((val, span, metadata)),
-            PipelineData::Value(val, _) => {
-                Err(ShellError::TypeMismatch("string".into(), val.span()?))
-            }
-            PipelineData::ListStream(_, _) => Err(ShellError::TypeMismatch("string".into(), span)),
+            PipelineData::Value(val, _) => Err(ShellError::TypeMismatch {
+                err_message: "string".into(),
+                span: val.span()?,
+            }),
+            PipelineData::ListStream(_, _) => Err(ShellError::TypeMismatch {
+                err_message: "string".into(),
+                span,
+            }),
             PipelineData::ExternalStream {
                 stdout: None,
                 metadata,

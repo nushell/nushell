@@ -98,17 +98,7 @@ pub enum ShellError {
     /// Convert the argument type before passing it in, or change the command to accept the type.
     #[error("Type mismatch.")]
     #[diagnostic(code(nu::shell::type_mismatch))]
-    TypeMismatch(String, #[label = "{0}"] Span),
-
-    // TODO: merge with `TypeMismatch` as they are currently identical in capability
-    /// A command received an argument of the wrong type.
-    ///
-    /// ## Resolution
-    ///
-    /// Convert the argument type before passing it in, or change the command to accept the type.
-    #[error("Type mismatch.")]
-    #[diagnostic(code(nu::shell::type_mismatch))]
-    TypeMismatchGenericMessage {
+    TypeMismatch {
         err_message: String,
         #[label = "{err_message}"]
         span: Span,
@@ -121,7 +111,11 @@ pub enum ShellError {
     /// Correct the argument value before passing it in or change the command.
     #[error("Incorrect value.")]
     #[diagnostic(code(nu::shell::incorrect_value))]
-    IncorrectValue(String, #[label = "{0}"] Span),
+    IncorrectValue {
+        msg: String,
+        #[label = "{msg}"]
+        span: Span,
+    },
 
     /// This value cannot be used with this operator.
     ///
@@ -129,45 +123,63 @@ pub enum ShellError {
     ///
     /// Not all values, for example custom values, can be used with all operators. Either
     /// implement support for the operator on this type, or convert the type to a supported one.
-    #[error("Unsupported operator: {0}.")]
+    #[error("Unsupported operator: {operator}.")]
     #[diagnostic(code(nu::shell::unsupported_operator))]
-    UnsupportedOperator(Operator, #[label = "unsupported operator"] Span),
+    UnsupportedOperator {
+        operator: Operator,
+        #[label = "unsupported operator"]
+        span: Span,
+    },
 
-    /// This value cannot be used with this operator.
+    /// Invalid assignment left-hand side
     ///
     /// ## Resolution
     ///
     /// Assignment requires that you assign to a variable or variable cell path.
     #[error("Assignment operations require a variable.")]
     #[diagnostic(code(nu::shell::assignment_requires_variable))]
-    AssignmentRequiresVar(#[label = "needs to be a variable"] Span),
+    AssignmentRequiresVar {
+        #[label = "needs to be a variable"]
+        lhs_span: Span,
+    },
 
-    /// This value cannot be used with this operator.
+    /// Invalid assignment left-hand side
     ///
     /// ## Resolution
     ///
     /// Assignment requires that you assign to a mutable variable or cell path.
     #[error("Assignment to an immutable variable.")]
     #[diagnostic(code(nu::shell::assignment_requires_mutable_variable))]
-    AssignmentRequiresMutableVar(#[label = "needs to be a mutable variable"] Span),
+    AssignmentRequiresMutableVar {
+        #[label = "needs to be a mutable variable"]
+        lhs_span: Span,
+    },
 
     /// An operator was not recognized during evaluation.
     ///
     /// ## Resolution
     ///
     /// Did you write the correct operator?
-    #[error("Unknown operator: {0}.")]
+    #[error("Unknown operator: {op_token}.")]
     #[diagnostic(code(nu::shell::unknown_operator))]
-    UnknownOperator(String, #[label = "unknown operator"] Span),
+    UnknownOperator {
+        op_token: String,
+        #[label = "unknown operator"]
+        span: Span,
+    },
 
     /// An expected command parameter is missing.
     ///
     /// ## Resolution
     ///
     /// Add the expected parameter and try again.
-    #[error("Missing parameter: {0}.")]
+    #[error("Missing parameter: {param_name}.")]
     #[diagnostic(code(nu::shell::missing_parameter))]
-    MissingParameter(String, #[label = "missing parameter: {0}"] Span),
+    MissingParameter {
+        param_name: String,
+        #[label = "missing parameter: {param_name}"]
+        span: Span,
+    },
 
     /// Two parameters conflict with each other or are otherwise mutually exclusive.
     ///
@@ -193,7 +205,11 @@ pub enum ShellError {
     /// Check your syntax for mismatched braces, RegExp syntax errors, etc, based on the specific error message.
     #[error("Delimiter error")]
     #[diagnostic(code(nu::shell::delimiter_error))]
-    DelimiterError(String, #[label("{0}")] Span),
+    DelimiterError {
+        msg: String,
+        #[label("{msg}")]
+        span: Span,
+    },
 
     /// An operation received parameters with some sort of incompatibility
     /// (for example, different number of rows in a table, incompatible column names, etc).
@@ -204,7 +220,11 @@ pub enum ShellError {
     /// inputs to make sure they match that way.
     #[error("Incompatible parameters.")]
     #[diagnostic(code(nu::shell::incompatible_parameters))]
-    IncompatibleParametersSingle(String, #[label = "{0}"] Span),
+    IncompatibleParametersSingle {
+        msg: String,
+        #[label = "{msg}"]
+        span: Span,
+    },
 
     /// This build of nushell implements this feature, but it has not been enabled.
     ///

@@ -76,10 +76,10 @@ fn compute_with_value(
                 polars::prelude::Expr::Literal(..) => {
                     with_operator(operator, left, rhs, lhs_span, right.span()?, op)
                 }
-                _ => Err(ShellError::TypeMismatch(
-                    "Only literal expressions or number".into(),
-                    right.span()?,
-                )),
+                _ => Err(ShellError::TypeMismatch {
+                    err_message: "Only literal expressions or number".into(),
+                    span: right.span()?,
+                }),
             }
         }
         _ => {

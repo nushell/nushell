@@ -55,10 +55,10 @@ impl Command for Mkdir {
         let mut stream: VecDeque<Value> = VecDeque::new();
 
         if directories.peek().is_none() {
-            return Err(ShellError::MissingParameter(
-                "requires directory paths".to_string(),
-                call.head,
-            ));
+            return Err(ShellError::MissingParameter {
+                param_name: "requires directory paths".to_string(),
+                span: call.head,
+            });
         }
 
         for (i, dir) in directories.enumerate() {

@@ -360,10 +360,10 @@ fn get_converted_value(
                     Err(e) => ConversionResult::ConversionError(e),
                 }
             } else {
-                ConversionResult::ConversionError(ShellError::MissingParameter(
-                    "block input".into(),
-                    from_span,
-                ))
+                ConversionResult::ConversionError(ShellError::MissingParameter {
+                    param_name: "block input".into(),
+                    span: from_span,
+                })
             }
         } else {
             ConversionResult::CellPathError

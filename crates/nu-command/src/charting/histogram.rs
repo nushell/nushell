@@ -99,11 +99,12 @@ impl Command for Histogram {
         let frequency_column_name = match frequency_name_arg {
             Some(inner) => {
                 if ["value", "count", "quantile", "percentage"].contains(&inner.item.as_str()) {
-                    return Err(ShellError::TypeMismatch(
-                        "frequency-column-name can't be 'value', 'count' or 'percentage'"
-                            .to_string(),
-                        inner.span,
-                    ));
+                    return Err(ShellError::TypeMismatch {
+                        err_message:
+                            "frequency-column-name can't be 'value', 'count' or 'percentage'"
+                                .to_string(),
+                        span: inner.span,
+                    });
                 }
                 inner.item
             }
@@ -118,10 +119,11 @@ impl Command for Histogram {
                 "normalize" => PercentageCalcMethod::Normalize,
                 "relative" => PercentageCalcMethod::Relative,
                 _ => {
-                    return Err(ShellError::TypeMismatch(
-                        "calc method can only be 'normalize' or 'relative'".to_string(),
-                        inner.span,
-                    ))
+                    return Err(ShellError::TypeMismatch {
+                        err_message: "calc method can only be 'normalize' or 'relative'"
+                            .to_string(),
+                        span: inner.span,
+                    })
                 }
             },
         };

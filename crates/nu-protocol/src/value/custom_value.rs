@@ -55,6 +55,6 @@ pub trait CustomValue: fmt::Debug + Send + Sync {
         op: Span,
         _right: &Value,
     ) -> Result<Value, ShellError> {
-        Err(ShellError::UnsupportedOperator(operator, op))
+        Err(ShellError::UnsupportedOperator { operator, span: op })
     }
 }

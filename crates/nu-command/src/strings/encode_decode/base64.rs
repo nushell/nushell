@@ -187,10 +187,10 @@ fn action(
             }
         }
         other => Value::Error {
-            error: ShellError::TypeMismatch(
-                format!("string or binary, not {}", other.get_type()),
-                other.span().unwrap_or(command_span),
-            ),
+            error: ShellError::TypeMismatch {
+                err_message: format!("string or binary, not {}", other.get_type()),
+                span: other.span().unwrap_or(command_span),
+            },
         },
     }
 }

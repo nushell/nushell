@@ -122,10 +122,10 @@ impl Command for ToLazyGroupBy {
             .any(|expr| !matches!(expr, Expr::Column(..)))
         {
             let value: Value = call.req(engine_state, stack, 0)?;
-            return Err(ShellError::IncompatibleParametersSingle(
-                "Expected only Col expressions".into(),
-                value.span()?,
-            ));
+            return Err(ShellError::IncompatibleParametersSingle {
+                msg: "Expected only Col expressions".into(),
+                span: value.span()?,
+            });
         }
 
         let lazy = NuLazyFrame::try_from_pipeline(input, call.head)?;

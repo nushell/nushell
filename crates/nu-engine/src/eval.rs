@@ -19,9 +19,10 @@ pub fn eval_operator(op: &Expression) -> Result<Operator, ShellError> {
             expr: Expr::Operator(operator),
             ..
         } => Ok(operator.clone()),
-        Expression { span, expr, .. } => {
-            Err(ShellError::UnknownOperator(format!("{expr:?}"), *span))
-        }
+        Expression { span, expr, .. } => Err(ShellError::UnknownOperator {
+            op_token: format!("{expr:?}"),
+            span: *span,
+        }),
     }
 }
 
@@ -339,7 +340,10 @@ pub fn eval_expression(
             let lhs = eval_expression(engine_state, stack, expr)?;
             match lhs {
                 Value::Bool { val, .. } => Ok(Value::boolean(!val, expr.span)),
-                _ => Err(ShellError::TypeMismatch("bool".to_string(), expr.span)),
+                _ => Err(ShellError::TypeMismatch {
+                    err_message: "bool".to_string(),
+                    span: expr.span,
+                }),
             }
         }
         Expr::BinaryOp(lhs, op, rhs) => {
@@ -454,7 +458,7 @@ pub fn eval_expression(
                                 stack.vars.insert(*var_id, rhs);
                                 Ok(Value::nothing(lhs.span))
                             } else {
-                                Err(ShellError::AssignmentRequiresMutableVar(lhs.span))
+                                Err(ShellError::AssignmentRequiresMutableVar { lhs_span: lhs.span })
                             }
                         }
                         Expr::FullCellPath(cell_path) => match &cell_path.head.expr {
@@ -496,12 +500,14 @@ pub fn eval_expression(
                                     }
                                     Ok(Value::nothing(cell_path.head.span))
                                 } else {
-                                    Err(ShellError::AssignmentRequiresMutableVar(lhs.span))
+                                    Err(ShellError::AssignmentRequiresMutableVar {
+                                        lhs_span: lhs.span,
+                                    })
                                 }
                             }
-                            _ => Err(ShellError::AssignmentRequiresVar(lhs.span)),
+                            _ => Err(ShellError::AssignmentRequiresVar { lhs_span: lhs.span }),
                         },
-                        _ => Err(ShellError::AssignmentRequiresVar(lhs.span)),
+                        _ => Err(ShellError::AssignmentRequiresVar { lhs_span: lhs.span }),
                     }
                 }
             }

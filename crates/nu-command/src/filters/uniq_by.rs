@@ -60,7 +60,10 @@ impl Command for UniqBy {
         let columns: Vec<String> = call.rest(engine_state, stack, 0)?;
 
         if columns.is_empty() {
-            return Err(ShellError::MissingParameter("columns".into(), call.head));
+            return Err(ShellError::MissingParameter {
+                param_name: "columns".into(),
+                span: call.head,
+            });
         }
 
         let metadata = input.metadata();

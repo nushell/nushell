@@ -219,10 +219,10 @@ fn process_range(
         }
         Value::List { vals, .. } => {
             if vals.len() > 2 {
-                Err(ShellError::TypeMismatch(
-                    String::from("there shouldn't be more than two indexes"),
-                    head,
-                ))
+                Err(ShellError::TypeMismatch {
+                    err_message: String::from("there shouldn't be more than two indexes"),
+                    span: head,
+                })
             } else {
                 let idx: Vec<String> = vals
                     .iter()
@@ -248,18 +248,15 @@ fn process_range(
     let end_index = r.1.parse::<i32>().unwrap_or(input_len as i32);
 
     if start_index < 0 || start_index > end_index {
-        return Err(ShellError::TypeMismatch(
-            String::from("start index can't be negative or greater than end index"),
-            head,
-        ));
+        return Err(ShellError::TypeMismatch {
+            err_message: String::from("start index can't be negative or greater than end index"),
+            span: head,
+        });
     }
 
     if end_index < 0 || end_index < start_index || end_index > input_len as i32 {
-        return Err(ShellError::TypeMismatch(
-            String::from(
-            "end index can't be negative, smaller than start index or greater than input length"),
-            head,
-        ));
+        return Err(ShellError::TypeMismatch { err_message: String::from(
+            "end index can't be negative, smaller than start index or greater than input length"), span: head });
     }
     Ok(IndexOfOptionalBounds(start_index, end_index))
 }

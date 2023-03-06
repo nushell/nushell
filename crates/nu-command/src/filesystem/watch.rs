@@ -95,10 +95,10 @@ impl Command for Watch {
                 match nu_glob::Pattern::new(&absolute_path.to_string_lossy()) {
                     Ok(pattern) => Some(pattern),
                     Err(_) => {
-                        return Err(ShellError::TypeMismatch(
-                            "Glob pattern is invalid".to_string(),
-                            glob.span,
-                        ))
+                        return Err(ShellError::TypeMismatch {
+                            err_message: "Glob pattern is invalid".to_string(),
+                            span: glob.span,
+                        })
                     }
                 }
             }

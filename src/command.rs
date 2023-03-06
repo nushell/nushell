@@ -121,7 +121,10 @@ pub(crate) fn parse_commandline_args(
                             span: expr.span,
                         }))
                     } else {
-                        Err(ShellError::TypeMismatch("string".into(), expr.span))
+                        Err(ShellError::TypeMismatch {
+                            err_message: "string".into(),
+                            span: expr.span,
+                        })
                     }
                 } else {
                     Ok(None)

@@ -94,10 +94,10 @@ impl Command for Touch {
                 Some(reference) => {
                     let reference_path = Path::new(&reference.item);
                     if !reference_path.exists() {
-                        return Err(ShellError::TypeMismatch(
-                            "path provided is invalid".to_string(),
-                            reference.span,
-                        ));
+                        return Err(ShellError::TypeMismatch {
+                            err_message: "path provided is invalid".to_string(),
+                            span: reference.span,
+                        });
                     }
 
                     date = Some(
@@ -119,10 +119,10 @@ impl Command for Touch {
                     );
                 }
                 None => {
-                    return Err(ShellError::MissingParameter(
-                        "reference".to_string(),
-                        call.head,
-                    ));
+                    return Err(ShellError::MissingParameter {
+                        param_name: "reference".to_string(),
+                        span: call.head,
+                    });
                 }
             }
         }

@@ -195,20 +195,20 @@ impl Command for LazyJoin {
 
         if left_on.len() != right_on.len() {
             let right_on: Value = call.req(engine_state, stack, 2)?;
-            return Err(ShellError::IncompatibleParametersSingle(
-                "The right column list has a different size to the left column list".into(),
-                right_on.span()?,
-            ));
+            return Err(ShellError::IncompatibleParametersSingle {
+                msg: "The right column list has a different size to the left column list".into(),
+                span: right_on.span()?,
+            });
         }
 
         // Checking that both list of expressions are made out of col expressions or strings
         for (index, list) in &[(1usize, &left_on), (2, &left_on)] {
             if list.iter().any(|expr| !matches!(expr, Expr::Column(..))) {
                 let value: Value = call.req(engine_state, stack, *index)?;
-                return Err(ShellError::IncompatibleParametersSingle(
-                    "Expected only a string, col expressions or list of strings".into(),
-                    value.span()?,
-                ));
+                return Err(ShellError::IncompatibleParametersSingle {
+                    msg: "Expected only a string, col expressions or list of strings".into(),
+                    span: value.span()?,
+                });
             }
         }
 
