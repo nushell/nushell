@@ -1,7 +1,7 @@
+use crate::hook::eval_hook;
+use crate::util::report_error_new;
 use fancy_regex::Regex;
 use itertools::Itertools;
-use nu_cli::eval_hook;
-use nu_cli::report_error_new;
 use nu_engine::env_to_strings;
 use nu_engine::CallExt;
 use nu_protocol::{

@@ -13,7 +13,6 @@ version = "0.77.2"
 bench = false
 
 [dependencies]
-nu-cli = { path = "../nu-cli", version = "0.77.2" }
 nu-cmd-lang = { path = "../nu-cmd-lang", version = "0.77.2" }
 nu-color-config = { path = "../nu-color-config", version = "0.77.2" }
 nu-engine = { path = "../nu-engine", version = "0.77.2" }
@@ -61,6 +60,7 @@ itertools = "0.10.0"
 log = "0.4.14"
 lscolors = { version = "0.12.0", features = ["crossterm"], default-features = false }
 md5 = { package = "md-5", version = "0.10.0" }
+miette = { version = "5.5.0", features = ["fancy-no-backtrace"] }
 mime = "0.3.16"
 mime_guess = "2.0.4"
 notify = "4.0.17"

@@ -1,8 +1,8 @@
-use crate::repl::eval_hook;
+use nu_command::hook::eval_hook;
+use nu_command::util::{report_error, report_error_new};
 use nu_engine::{eval_block, eval_block_with_early_return};
 use nu_parser::{escape_quote_string, lex, parse, unescape_unquote_string, Token, TokenContents};
 use nu_protocol::engine::StateWorkingSet;
-use nu_protocol::CliError;
 use nu_protocol::{
     engine::{EngineState, Stack},
     print_if_stream, PipelineData, ShellError, Span, Value,
@@ -10,7 +10,7 @@ use nu_protocol::{
 #[cfg(windows)]
 use nu_utils::enable_vt_processing;
 use nu_utils::utils::perf;
-use std::path::{Path, PathBuf};
+use std::path::Path;
 
 // This will collect environment variables from std::env and adds them to a stack.
 //
@@ -308,43 +308,6 @@ fn set_last_exit_code(stack: &mut Stack, exit_code: i64) {
         "LAST_EXIT_CODE".to_string(),
         Value::int(exit_code, Span::unknown()),
     );
-}
-
-pub fn report_error(
-    working_set: &StateWorkingSet,
-    error: &(dyn miette::Diagnostic + Send + Sync + 'static),
-) {
-    eprintln!("Error: {:?}", CliError(error, working_set));
-    // reset vt processing, aka ansi because illbehaved externals can break it
-    #[cfg(windows)]
-    {
-        let _ = nu_utils::enable_vt_processing();
-    }
-}
-
-pub fn report_error_new(
-    engine_state: &EngineState,
-    error: &(dyn miette::Diagnostic + Send + Sync + 'static),
-) {
-    let working_set = StateWorkingSet::new(engine_state);
-
-    report_error(&working_set, error);
-}
-
-pub fn get_init_cwd() -> PathBuf {
-    std::env::current_dir().unwrap_or_else(|_| {
-        std::env::var("PWD")
-            .map(Into::into)
-            .unwrap_or_else(|_| nu_path::home_dir().unwrap_or_default())
-    })
-}
-
-pub fn get_guaranteed_cwd(engine_state: &EngineState, stack: &Stack) -> PathBuf {
-    nu_engine::env::current_dir(engine_state, stack).unwrap_or_else(|e| {
-        let working_set = StateWorkingSet::new(engine_state);
-        report_error(&working_set, &e);
-        get_init_cwd()
-    })
 }
 
 #[cfg(test)]
