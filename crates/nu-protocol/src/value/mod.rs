@@ -1401,11 +1401,11 @@ impl Value {
                                     for col in cols.iter().zip(vals.iter_mut()) {
                                         if col.0 == col_name {
                                             if cell_path.len() == 1 {
-                                                return Err(ShellError::ColumnAlreadyExists(
-                                                    col_name.to_string(),
-                                                    *span,
-                                                    *v_span,
-                                                ));
+                                                return Err(ShellError::ColumnAlreadyExists {
+                                                    col_name: col_name.to_string(),
+                                                    span: *span,
+                                                    src_span: *v_span,
+                                                });
                                             } else {
                                                 return col.1.insert_data_at_cell_path(
                                                     &cell_path[1..],
@@ -1440,11 +1440,11 @@ impl Value {
                         for col in cols.iter().zip(vals.iter_mut()) {
                             if col.0 == col_name {
                                 if cell_path.len() == 1 {
-                                    return Err(ShellError::ColumnAlreadyExists(
-                                        col_name.to_string(),
-                                        *span,
-                                        *v_span,
-                                    ));
+                                    return Err(ShellError::ColumnAlreadyExists {
+                                        col_name: col_name.to_string(),
+                                        span: *span,
+                                        src_span: *v_span,
+                                    });
                                 } else {
                                     return col.1.insert_data_at_cell_path(
                                         &cell_path[1..],

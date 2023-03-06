@@ -575,11 +575,13 @@ pub enum ShellError {
     /// Drop or rename the existing column (check `rename -h`) and try again.
     #[error("Column already exists")]
     #[diagnostic(code(nu::shell::column_already_exists))]
-    ColumnAlreadyExists(
-        String,
-        #[label = "column '{0}' already exists"] Span,
-        #[label = "value originates here"] Span,
-    ),
+    ColumnAlreadyExists {
+        col_name: String,
+        #[label = "column '{col_name}' already exists"]
+        span: Span,
+        #[label = "value originates here"]
+        src_span: Span,
+    },
 
     /// The given operation can only be performed on lists.
     ///
