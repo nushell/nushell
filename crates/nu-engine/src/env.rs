@@ -116,22 +116,22 @@ pub fn env_to_string(
 
                             match std::env::join_paths(paths) {
                                 Ok(p) => Ok(p.to_string_lossy().to_string()),
-                                Err(_) => Err(ShellError::EnvVarNotAString(
-                                    env_name.to_string(),
-                                    value.span()?,
-                                )),
+                                Err(_) => Err(ShellError::EnvVarNotAString {
+                                    envvar_name: env_name.to_string(),
+                                    span: value.span()?,
+                                }),
                             }
                         }
-                        _ => Err(ShellError::EnvVarNotAString(
-                            env_name.to_string(),
-                            value.span()?,
-                        )),
+                        _ => Err(ShellError::EnvVarNotAString {
+                            envvar_name: env_name.to_string(),
+                            span: value.span()?,
+                        }),
                     }
                 } else {
-                    Err(ShellError::EnvVarNotAString(
-                        env_name.to_string(),
-                        value.span()?,
-                    ))
+                    Err(ShellError::EnvVarNotAString {
+                        envvar_name: env_name.to_string(),
+                        span: value.span()?,
+                    })
                 }
             }
         },
@@ -150,7 +150,7 @@ pub fn env_to_strings(
             Ok(val_str) => {
                 env_vars_str.insert(env_name, val_str);
             }
-            Err(ShellError::EnvVarNotAString(..)) => {} // ignore non-string values
+            Err(ShellError::EnvVarNotAString {  .. }) => {} // ignore non-string values
             Err(e) => return Err(e),
         }
     }

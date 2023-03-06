@@ -413,15 +413,19 @@ pub enum ShellError {
     /// ## Resolution
     ///
     /// Not all types can be converted to environment variable values, which must be strings. Check the input type and try again.
-    #[error("{0} is not representable as a string.")]
+    #[error("'{envvar_name}' is not representable as a string.")]
     #[diagnostic(
-        code(nu::shell::env_var_not_a_string),
-        help(
-            r#"The '{0}' environment variable must be a string or be convertible to a string.
-Either make sure {0} is a string, or add a 'to_string' entry for it in ENV_CONVERSIONS."#
-        )
-    )]
-    EnvVarNotAString(String, #[label("value not representable as a string")] Span),
+            code(nu::shell::env_var_not_a_string),
+            help(
+                r#"The '{envvar_name}' environment variable must be a string or be convertible to a string.
+    Either make sure '{envvar_name}' is a string, or add a 'to_string' entry for it in ENV_CONVERSIONS."#
+            )
+        )]
+    EnvVarNotAString {
+        envvar_name: String,
+        #[label("value not representable as a string")]
+        span: Span,
+    },
 
     /// This environment variable cannot be set manually.
     ///
