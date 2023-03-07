@@ -21,7 +21,7 @@ use nu_protocol::{
 use crate::parse_keywords::{
     is_unaliasable_parser_keyword, parse_alias, parse_def, parse_def_predecl,
     parse_export_in_block, parse_extern, parse_for, parse_hide, parse_let_or_const, parse_module,
-    parse_old_alias, parse_overlay, parse_overlay_hide2, parse_source, parse_use, parse_where,
+    parse_old_alias, parse_overlay, parse_overlay_hide, parse_source, parse_use, parse_where,
     parse_where_expr,
 };
 
@@ -5325,7 +5325,7 @@ pub fn parse_builtin_commands(
                 // Apply parse keyword side effects
                 let cmd = working_set.get_decl(call.decl_id);
                 if cmd.name() == "overlay hide" {
-                    return parse_overlay_hide2(working_set, &call);
+                    return parse_overlay_hide(working_set, &call);
                 }
             }
         }

@@ -2711,9 +2711,6 @@ pub fn parse_overlay(
             b"new" => {
                 return parse_overlay_new(working_set, spans, expand_aliases_denylist);
             }
-            b"hide" => {
-                return parse_overlay_hide(working_set, spans, expand_aliases_denylist);
-            }
             _ => { /* continue parsing overlay */ }
         }
     }
@@ -3189,7 +3186,7 @@ pub fn parse_overlay_use(
     (pipeline, error)
 }
 
-pub fn parse_overlay_hide2(
+pub fn parse_overlay_hide(
     working_set: &mut StateWorkingSet,
     call: &Call,
 ) -> (Pipeline, Option<ParseError>) {
@@ -3217,124 +3214,6 @@ pub fn parse_overlay_hide2(
     let pipeline = Pipeline::from_vec(vec![Expression {
         expr: Expr::Call(Box::new(call.clone())),
         span: call.head,
-        ty: Type::Any,
-        custom_completion: None,
-    }]);
-
-    if overlay_name == DEFAULT_OVERLAY_NAME {
-        return (
-            pipeline,
-            Some(ParseError::CantHideDefaultOverlay(
-                overlay_name,
-                overlay_name_span,
-            )),
-        );
-    }
-
-    if !working_set
-        .unique_overlay_names()
-        .contains(&overlay_name.as_bytes().to_vec())
-    {
-        return (
-            pipeline,
-            Some(ParseError::ActiveOverlayNotFound(overlay_name_span)),
-        );
-    }
-
-    if working_set.num_overlays() < 2 {
-        return (
-            pipeline,
-            Some(ParseError::CantRemoveLastOverlay(overlay_name_span)),
-        );
-    }
-
-    working_set.remove_overlay(overlay_name.as_bytes(), keep_custom);
-
-    (pipeline, None)
-}
-
-pub fn parse_overlay_hide(
-    working_set: &mut StateWorkingSet,
-    spans: &[Span],
-    expand_aliases_denylist: &[usize],
-) -> (Pipeline, Option<ParseError>) {
-    if spans.len() > 1 && working_set.get_span_contents(span(&spans[0..2])) != b"overlay hide" {
-        return (
-            garbage_pipeline(spans),
-            Some(ParseError::UnknownState(
-                "internal error: Wrong call name for 'overlay hide' command".into(),
-                span(spans),
-            )),
-        );
-    }
-
-    let call = match working_set.find_decl(b"overlay hide", &Type::Any) {
-        Some(decl_id) => {
-            let ParsedInternalCall {
-                call,
-                error: mut err,
-                output,
-            } = parse_internal_call(
-                working_set,
-                span(&spans[0..2]),
-                &spans[2..],
-                decl_id,
-                expand_aliases_denylist,
-            );
-            let decl = working_set.get_decl(decl_id);
-
-            let call_span = span(spans);
-
-            err = check_call(call_span, &decl.signature(), &call).or(err);
-            if err.is_some() || call.has_flag("help") {
-                return (
-                    Pipeline::from_vec(vec![Expression {
-                        expr: Expr::Call(call),
-                        span: call_span,
-                        ty: output,
-                        custom_completion: None,
-                    }]),
-                    err,
-                );
-            }
-
-            call
-        }
-        None => {
-            return (
-                garbage_pipeline(spans),
-                Some(ParseError::UnknownState(
-                    "internal error: 'overlay hide' declaration not found".into(),
-                    span(spans),
-                )),
-            )
-        }
-    };
-
-    let (overlay_name, overlay_name_span) = if let Some(expr) = call.positional_nth(0) {
-        match eval_constant(working_set, expr) {
-            Ok(val) => match value_as_string(val, expr.span) {
-                Ok(s) => (s, expr.span),
-                Err(err) => {
-                    return (garbage_pipeline(spans), Some(err));
-                }
-            },
-            Err(err) => {
-                return (garbage_pipeline(spans), Some(err));
-            }
-        }
-    } else {
-        (
-            String::from_utf8_lossy(working_set.last_overlay_name()).to_string(),
-            call.head,
-        )
-    };
-
-    let keep_custom = call.has_flag("keep-custom");
-
-    let pipeline = Pipeline::from_vec(vec![Expression {
-        expr: Expr::Call(call),
-        span: span(spans),
         ty: Type::Any,
         custom_completion: None,
     }]);
