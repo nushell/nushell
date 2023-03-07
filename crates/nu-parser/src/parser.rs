@@ -5302,7 +5302,9 @@ pub fn parse_builtin_commands(
     expand_aliases_denylist: &[usize],
     is_subexpression: bool,
 ) -> (Pipeline, Option<ParseError>) {
-    if !is_math_expression_like(working_set, lite_command.parts[0], expand_aliases_denylist) {
+    if !is_math_expression_like(working_set, lite_command.parts[0], expand_aliases_denylist)
+        && (working_set.get_span_contents(lite_command.parts[0]) != b"let")
+    {
         trace!(
             "parsing: BUILTIN: notmathexpression: '{}'",
             String::from_utf8_lossy(working_set.get_span_contents(span(&lite_command.parts)))
