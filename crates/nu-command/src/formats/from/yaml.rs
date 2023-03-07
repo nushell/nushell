@@ -180,8 +180,9 @@ fn convert_yaml_value_to_nu_value(
                 serde_yaml::Value::String(s) => s,
                 _ => "",
             };
+
             Value::String {
-                val: format!("{} {}", tag, value),
+                val: format!("{} {}", tag, value).trim().to_string(),
                 span,
             }
         }
@@ -350,6 +351,15 @@ mod test {
                 expected: Ok(Value::Record {
                     cols: vec!["Key".to_string()],
                     vals: vec![Value::test_string("!Value test-${TEST}")],
+                    span: Span::test_data(),
+                }),
+            },
+            TestCase {
+                description: "Valid tag value 3",
+                input: "Key: !Value",
+                expected: Ok(Value::Record {
+                    cols: vec!["Key".to_string()],
+                    vals: vec![Value::test_string("!Value")],
                     span: Span::test_data(),
                 }),
             },
