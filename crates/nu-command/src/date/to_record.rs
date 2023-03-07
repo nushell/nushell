@@ -59,6 +59,7 @@ impl Command for SubCommand {
                 "hour".into(),
                 "minute".into(),
                 "second".into(),
+                "nanosecond".into(),
                 "timezone".into(),
             ];
             let vals = vec![
@@ -68,6 +69,10 @@ impl Command for SubCommand {
                 Value::Int { val: 22, span },
                 Value::Int { val: 10, span },
                 Value::Int { val: 57, span },
+                Value::Int {
+                    val: 123_000_000,
+                    span,
+                },
                 Value::String {
                     val: "+02:00".to_string(),
                     span,
@@ -89,7 +94,7 @@ impl Command for SubCommand {
             },
             Example {
                 description: "Convert a date string into a record.",
-                example: "'2020-04-12 22:10:57 +0200' | date to-record",
+                example: "'2020-04-12T22:10:57.123+02:00' | date to-record",
                 result: example_result_1(),
             },
             // TODO: This should work but does not; see https://github.com/nushell/nushell/issues/7032
@@ -110,6 +115,7 @@ fn parse_date_into_table(date: Result<DateTime<FixedOffset>, Value>, head: Span)
         "hour".into(),
         "minute".into(),
         "second".into(),
+        "nanosecond".into(),
         "timezone".into(),
     ];
     match date {
@@ -121,6 +127,7 @@ fn parse_date_into_table(date: Result<DateTime<FixedOffset>, Value>, head: Span)
                 Value::int(x.hour() as i64, head),
                 Value::int(x.minute() as i64, head),
                 Value::int(x.second() as i64, head),
+                Value::int(x.nanosecond() as i64, head),
                 Value::string(x.offset().to_string(), head),
             ];
             Value::Record {
