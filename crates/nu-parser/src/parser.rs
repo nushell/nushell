@@ -19,9 +19,10 @@ use nu_protocol::{
 };
 
 use crate::parse_keywords::{
-    parse_alias, parse_def, parse_def_predecl, parse_export_in_block, parse_extern, parse_for,
-    parse_hide, parse_let_or_const, parse_module, parse_old_alias, parse_overlay,
-    parse_overlay_hide2, parse_source, parse_use, parse_where, parse_where_expr,
+    is_unaliasable_parser_keyword, parse_alias, parse_def, parse_def_predecl,
+    parse_export_in_block, parse_extern, parse_for, parse_hide, parse_let_or_const, parse_module,
+    parse_old_alias, parse_overlay, parse_overlay_hide2, parse_source, parse_use, parse_where,
+    parse_where_expr,
 };
 
 use itertools::Itertools;
@@ -5303,8 +5304,10 @@ pub fn parse_builtin_commands(
     is_subexpression: bool,
 ) -> (Pipeline, Option<ParseError>) {
     if !is_math_expression_like(working_set, lite_command.parts[0], expand_aliases_denylist)
-        && (working_set.get_span_contents(lite_command.parts[0]) != b"let")
+        && !is_unaliasable_parser_keyword(working_set, &lite_command.parts)
     {
+        // Parse keywords that can be aliased. Note that we check for "unaliasable" keywords
+        // because alias can have any name, therefore, we can't check for "aliasable" keywords.
         let (call_expr, error) = parse_call(
             working_set,
             &lite_command.parts,

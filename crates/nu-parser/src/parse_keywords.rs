@@ -31,19 +31,49 @@ use crate::{
 /// These parser keywords can be aliased
 pub const ALIASABLE_PARSER_KEYWORDS: &[&[u8]] = &[b"overlay hide"];
 
-// /// Check whether spans start with a parser keyword that can be aliased
-// pub fn is_aliasable_parser_keyword(
-//     working_set: &StateWorkingSet,
-//     lite_command: &LiteCommand,
-// ) -> bool {
-//     if let (Some(span1), Some(span2)) = (lite_command.parts.get(0), lite_command.parts.get(1)) {
-//         let cmd_name = working_set.get_span_contents(span(&[*span1, *span2]));
-//         log::info!("CMD NAME: {}", String::from_utf8_lossy(cmd_name));
-//         ALIASABLE_PARSER_KEYWORDS.contains(&cmd_name)
-//     } else {
-//         false
-//     }
-// }
+/// These parser keywords cannot be aliased (either not possible, or support not yet added)
+pub const UNALIASABLE_PARSER_KEYWORDS: &[&[u8]] = &[
+    b"export",
+    b"def",
+    b"export def",
+    b"for",
+    b"extern",
+    b"export extern",
+    b"alias",
+    b"export alias",
+    b"export-env",
+    b"module",
+    b"use",
+    b"export use",
+    b"hide",
+    // b"overlay",
+    // b"overlay hide",
+    b"overlay new",
+    b"overlay use",
+    b"let",
+    b"const",
+    b"mut",
+    b"source",
+    b"where",
+    b"register",
+];
+
+/// Check whether spans start with a parser keyword that can be aliased
+pub fn is_unaliasable_parser_keyword(working_set: &StateWorkingSet, spans: &[Span]) -> bool {
+    // try one word
+    if let Some(span1) = spans.get(0) {
+        let cmd_name = working_set.get_span_contents(*span1);
+        return UNALIASABLE_PARSER_KEYWORDS.contains(&cmd_name);
+    }
+
+    // try two words
+    if let (Some(span1), Some(span2)) = (spans.get(0), spans.get(1)) {
+        let cmd_name = working_set.get_span_contents(span(&[*span1, *span2]));
+        UNALIASABLE_PARSER_KEYWORDS.contains(&cmd_name)
+    } else {
+        false
+    }
+}
 
 pub fn parse_def_predecl(
     working_set: &mut StateWorkingSet,
