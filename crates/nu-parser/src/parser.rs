@@ -5305,11 +5305,6 @@ pub fn parse_builtin_commands(
     if !is_math_expression_like(working_set, lite_command.parts[0], expand_aliases_denylist)
         && (working_set.get_span_contents(lite_command.parts[0]) != b"let")
     {
-        trace!(
-            "parsing: BUILTIN: notmathexpression: '{}'",
-            String::from_utf8_lossy(working_set.get_span_contents(span(&lite_command.parts)))
-        );
-
         let (call_expr, error) = parse_call(
             working_set,
             &lite_command.parts,
@@ -5324,18 +5319,14 @@ pub fn parse_builtin_commands(
                 ..
             } = call_expr
             {
-                trace!("parsing: BUILTIN: got call");
                 // Apply parse keyword side effects
                 let cmd = working_set.get_decl(call.decl_id);
                 if cmd.name() == "overlay hide" {
-                    trace!("parsing: BUILTIN: got overlay hide");
                     return parse_overlay_hide2(working_set, &call);
                 }
             }
         }
     }
-
-    trace!("parsing: BUILTIN: going forward");
 
     let name = working_set.get_span_contents(lite_command.parts[0]);
 
