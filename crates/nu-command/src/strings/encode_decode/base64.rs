@@ -93,7 +93,7 @@ fn action(
         not_valid => return Value::Error { error:ShellError::GenericError(
             "value is not an accepted character set".to_string(),
             format!(
-                "{not_valid} is not a valid character-set.\nPlease use `help hash base64` to see a list of valid character sets."
+                "{not_valid} is not a valid character-set.\nPlease use `help encode base64` to see a list of valid character sets."
             ),
             Some(config_character_set.span),
             None,
