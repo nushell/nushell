@@ -132,12 +132,12 @@ impl NuLazyFrame {
             let df = NuDataFrame::try_from_value(value)?;
             Ok(NuLazyFrame::from_dataframe(df))
         } else {
-            Err(ShellError::CantConvert(
-                "lazy or eager dataframe".into(),
-                value.get_type().to_string(),
-                value.span()?,
-                None,
-            ))
+            Err(ShellError::CantConvert {
+                to_type: "lazy or eager dataframe".into(),
+                from_type: value.get_type().to_string(),
+                span: value.span()?,
+                help: None,
+            })
         }
     }
 
@@ -154,19 +154,19 @@ impl NuLazyFrame {
                     from_eager: false,
                     schema: None,
                 }),
-                None => Err(ShellError::CantConvert(
-                    "lazy frame".into(),
-                    "non-dataframe".into(),
+                None => Err(ShellError::CantConvert {
+                    to_type: "lazy frame".into(),
+                    from_type: "non-dataframe".into(),
                     span,
-                    None,
-                )),
+                    help: None,
+                }),
             },
-            x => Err(ShellError::CantConvert(
-                "lazy frame".into(),
-                x.get_type().to_string(),
-                x.span()?,
-                None,
-            )),
+            x => Err(ShellError::CantConvert {
+                to_type: "lazy frame".into(),
+                from_type: x.get_type().to_string(),
+                span: x.span()?,
+                help: None,
+            }),
         }
     }
 

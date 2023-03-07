@@ -315,17 +315,17 @@ fn convert_str_from_unit_to_unit(
         ("yr", "yr") => Ok(val as f64),
         ("yr", "dec") => Ok(val as f64 / 10.0),
 
-        _ => Err(ShellError::CantConvertWithValue(
-            "string duration".to_string(),
-            "string duration".to_string(),
-            to_unit.to_string(),
-            span,
-            value_span,
-            Some(
+        _ => Err(ShellError::CantConvertWithValue {
+            to_type: "string duration".to_string(),
+            from_type: "string duration".to_string(),
+            details: to_unit.to_string(),
+            dst_span: span,
+            src_span: value_span,
+            help: Some(
                 "supported units are ns, us, ms, sec, min, hr, day, wk, month, yr and dec"
                     .to_string(),
             ),
-        )),
+        }),
     }
 }
 
@@ -348,16 +348,16 @@ fn string_to_duration(s: &str, span: Span, value_span: Span) -> Result<i64, Shel
         }
     }
 
-    Err(ShellError::CantConvertWithValue(
-        "duration".to_string(),
-        "string".to_string(),
-        s.to_string(),
-        span,
-        value_span,
-        Some(
+    Err(ShellError::CantConvertWithValue {
+        to_type: "duration".to_string(),
+        from_type: "string".to_string(),
+        details: s.to_string(),
+        dst_span: span,
+        src_span: value_span,
+        help: Some(
             "supported units are ns, us, ms, sec, min, hr, day, wk, month, yr and dec".to_string(),
         ),
-    ))
+    })
 }
 
 fn string_to_unit_duration(
@@ -384,16 +384,16 @@ fn string_to_unit_duration(
         }
     }
 
-    Err(ShellError::CantConvertWithValue(
-        "duration".to_string(),
-        "string".to_string(),
-        s.to_string(),
-        span,
-        value_span,
-        Some(
+    Err(ShellError::CantConvertWithValue {
+        to_type: "duration".to_string(),
+        from_type: "string".to_string(),
+        details: s.to_string(),
+        dst_span: span,
+        src_span: value_span,
+        help: Some(
             "supported units are ns, us, ms, sec, min, hr, day, wk, month, yr and dec".to_string(),
         ),
-    ))
+    })
 }
 
 fn action(
@@ -468,12 +468,12 @@ fn action(
                     }
                 } else {
                     Value::Error {
-                        error: ShellError::CantConvert(
-                            "string".into(),
-                            "duration".into(),
+                        error: ShellError::CantConvert {
+                            to_type: "string".into(),
+                            from_type: "duration".into(),
                             span,
-                            None,
-                        ),
+                            help: None,
+                        },
                     }
                 }
             } else {

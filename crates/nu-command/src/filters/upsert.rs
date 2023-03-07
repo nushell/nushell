@@ -173,7 +173,10 @@ fn upsert(
                 if let Some(v) = input.next() {
                     pre_elems.push(v);
                 } else {
-                    return Err(ShellError::AccessBeyondEnd(idx, *span));
+                    return Err(ShellError::AccessBeyondEnd {
+                        max_idx: idx,
+                        span: *span,
+                    });
                 }
             }
 

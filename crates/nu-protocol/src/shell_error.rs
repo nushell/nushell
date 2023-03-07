@@ -98,17 +98,7 @@ pub enum ShellError {
     /// Convert the argument type before passing it in, or change the command to accept the type.
     #[error("Type mismatch.")]
     #[diagnostic(code(nu::shell::type_mismatch))]
-    TypeMismatch(String, #[label = "{0}"] Span),
-
-    // TODO: merge with `TypeMismatch` as they are currently identical in capability
-    /// A command received an argument of the wrong type.
-    ///
-    /// ## Resolution
-    ///
-    /// Convert the argument type before passing it in, or change the command to accept the type.
-    #[error("Type mismatch.")]
-    #[diagnostic(code(nu::shell::type_mismatch))]
-    TypeMismatchGenericMessage {
+    TypeMismatch {
         err_message: String,
         #[label = "{err_message}"]
         span: Span,
@@ -121,7 +111,11 @@ pub enum ShellError {
     /// Correct the argument value before passing it in or change the command.
     #[error("Incorrect value.")]
     #[diagnostic(code(nu::shell::incorrect_value))]
-    IncorrectValue(String, #[label = "{0}"] Span),
+    IncorrectValue {
+        msg: String,
+        #[label = "{msg}"]
+        span: Span,
+    },
 
     /// This value cannot be used with this operator.
     ///
@@ -129,45 +123,63 @@ pub enum ShellError {
     ///
     /// Not all values, for example custom values, can be used with all operators. Either
     /// implement support for the operator on this type, or convert the type to a supported one.
-    #[error("Unsupported operator: {0}.")]
+    #[error("Unsupported operator: {operator}.")]
     #[diagnostic(code(nu::shell::unsupported_operator))]
-    UnsupportedOperator(Operator, #[label = "unsupported operator"] Span),
+    UnsupportedOperator {
+        operator: Operator,
+        #[label = "unsupported operator"]
+        span: Span,
+    },
 
-    /// This value cannot be used with this operator.
+    /// Invalid assignment left-hand side
     ///
     /// ## Resolution
     ///
     /// Assignment requires that you assign to a variable or variable cell path.
     #[error("Assignment operations require a variable.")]
     #[diagnostic(code(nu::shell::assignment_requires_variable))]
-    AssignmentRequiresVar(#[label = "needs to be a variable"] Span),
+    AssignmentRequiresVar {
+        #[label = "needs to be a variable"]
+        lhs_span: Span,
+    },
 
-    /// This value cannot be used with this operator.
+    /// Invalid assignment left-hand side
     ///
     /// ## Resolution
     ///
     /// Assignment requires that you assign to a mutable variable or cell path.
     #[error("Assignment to an immutable variable.")]
     #[diagnostic(code(nu::shell::assignment_requires_mutable_variable))]
-    AssignmentRequiresMutableVar(#[label = "needs to be a mutable variable"] Span),
+    AssignmentRequiresMutableVar {
+        #[label = "needs to be a mutable variable"]
+        lhs_span: Span,
+    },
 
     /// An operator was not recognized during evaluation.
     ///
     /// ## Resolution
     ///
     /// Did you write the correct operator?
-    #[error("Unknown operator: {0}.")]
+    #[error("Unknown operator: {op_token}.")]
     #[diagnostic(code(nu::shell::unknown_operator))]
-    UnknownOperator(String, #[label = "unknown operator"] Span),
+    UnknownOperator {
+        op_token: String,
+        #[label = "unknown operator"]
+        span: Span,
+    },
 
     /// An expected command parameter is missing.
     ///
     /// ## Resolution
     ///
     /// Add the expected parameter and try again.
-    #[error("Missing parameter: {0}.")]
+    #[error("Missing parameter: {param_name}.")]
     #[diagnostic(code(nu::shell::missing_parameter))]
-    MissingParameter(String, #[label = "missing parameter: {0}"] Span),
+    MissingParameter {
+        param_name: String,
+        #[label = "missing parameter: {param_name}"]
+        span: Span,
+    },
 
     /// Two parameters conflict with each other or are otherwise mutually exclusive.
     ///
@@ -193,7 +205,11 @@ pub enum ShellError {
     /// Check your syntax for mismatched braces, RegExp syntax errors, etc, based on the specific error message.
     #[error("Delimiter error")]
     #[diagnostic(code(nu::shell::delimiter_error))]
-    DelimiterError(String, #[label("{0}")] Span),
+    DelimiterError {
+        msg: String,
+        #[label("{msg}")]
+        span: Span,
+    },
 
     /// An operation received parameters with some sort of incompatibility
     /// (for example, different number of rows in a table, incompatible column names, etc).
@@ -204,16 +220,11 @@ pub enum ShellError {
     /// inputs to make sure they match that way.
     #[error("Incompatible parameters.")]
     #[diagnostic(code(nu::shell::incompatible_parameters))]
-    IncompatibleParametersSingle(String, #[label = "{0}"] Span),
-
-    /// This build of nushell implements this feature, but it has not been enabled.
-    ///
-    /// ## Resolution
-    ///
-    /// Rebuild nushell with the appropriate feature enabled.
-    #[error("Feature not enabled.")]
-    #[diagnostic(code(nu::shell::feature_not_enabled))]
-    FeatureNotEnabled(#[label = "feature not enabled"] Span),
+    IncompatibleParametersSingle {
+        msg: String,
+        #[label = "{msg}"]
+        span: Span,
+    },
 
     /// You're trying to run an unsupported external command.
     ///
@@ -222,8 +233,12 @@ pub enum ShellError {
     /// Make sure there's an appropriate `run-external` declaration for this external command.
     #[error("Running external commands not supported")]
     #[diagnostic(code(nu::shell::external_commands))]
-    ExternalNotSupported(#[label = "external not supported"] Span),
+    ExternalNotSupported {
+        #[label = "external not supported"]
+        span: Span,
+    },
 
+    // TODO: consider moving to a more generic error variant for invalid values
     /// The given probability input is invalid. The probability must be between 0 and 1.
     ///
     /// ## Resolution
@@ -231,7 +246,10 @@ pub enum ShellError {
     /// Make sure the probability is between 0 and 1 and try again.
     #[error("Invalid Probability.")]
     #[diagnostic(code(nu::shell::invalid_probability))]
-    InvalidProbability(#[label = "invalid probability"] Span),
+    InvalidProbability {
+        #[label = "invalid probability: must be between 0 and 1"]
+        span: Span,
+    },
 
     /// The first value in a `..` range must be compatible with the second one.
     ///
@@ -252,40 +270,47 @@ pub enum ShellError {
     /// ## Resolution
     ///
     /// It is very likely that this is a bug. Please file an issue at https://github.com/nushell/nushell/issues with relevant information.
-    #[error("Nushell failed: {0}.")]
-    #[diagnostic(code(nu::shell::nushell_failed))]
+    #[error("Nushell failed: {msg}.")]
+    #[diagnostic(
+        code(nu::shell::nushell_failed),
+        help(
+        "This shouldn't happen. Please file an issue: https://github.com/nushell/nushell/issues"
+    ))]
     // Only use this one if Nushell completely falls over and hits a state that isn't possible or isn't recoverable
-    NushellFailed(String),
+    NushellFailed { msg: String },
 
     /// Catastrophic nushell failure. This reflects a completely unexpected or unrecoverable error.
     ///
     /// ## Resolution
     ///
     /// It is very likely that this is a bug. Please file an issue at https://github.com/nushell/nushell/issues with relevant information.
-    #[error("Nushell failed: {0}.")]
-    #[diagnostic(code(nu::shell::nushell_failed_spanned))]
+    #[error("Nushell failed: {msg}.")]
+    #[diagnostic(
+        code(nu::shell::nushell_failed_spanned),
+        help(
+        "This shouldn't happen. Please file an issue: https://github.com/nushell/nushell/issues"
+    ))]
     // Only use this one if Nushell completely falls over and hits a state that isn't possible or isn't recoverable
-    NushellFailedSpanned(String, String, #[label = "{1}"] Span),
+    NushellFailedSpanned {
+        msg: String,
+        label: String,
+        #[label = "{label}"]
+        span: Span,
+    },
 
     /// Catastrophic nushell failure. This reflects a completely unexpected or unrecoverable error.
     ///
     /// ## Resolution
     ///
     /// It is very likely that this is a bug. Please file an issue at https://github.com/nushell/nushell/issues with relevant information.
-    #[error("Nushell failed: {0}.")]
+    #[error("Nushell failed: {msg}.")]
     #[diagnostic(code(nu::shell::nushell_failed_help))]
     // Only use this one if Nushell completely falls over and hits a state that isn't possible or isn't recoverable
-    NushellFailedHelp(String, #[help] String),
-
-    /// Catastrophic nushell failure. This reflects a completely unexpected or unrecoverable error.
-    ///
-    /// ## Resolution
-    ///
-    /// It is very likely that this is a bug. Please file an issue at https://github.com/nushell/nushell/issues with relevant information.
-    #[error("Nushell failed: {0}.")]
-    #[diagnostic(code(nu::shell::nushell_failed_spanned_help))]
-    // Only use this one if Nushell completely falls over and hits a state that isn't possible or isn't recoverable
-    NushellFailedSpannedHelp(String, String, #[label = "{1}"] Span, #[help] String),
+    NushellFailedHelp {
+        msg: String,
+        #[help]
+        help: String,
+    },
 
     /// A referenced variable was not found at runtime.
     ///
@@ -294,43 +319,49 @@ pub enum ShellError {
     /// Check the variable name. Did you typo it? Did you forget to declare it? Is the casing right?
     #[error("Variable not found")]
     #[diagnostic(code(nu::shell::variable_not_found))]
-    VariableNotFoundAtRuntime(#[label = "variable not found"] Span),
+    VariableNotFoundAtRuntime {
+        #[label = "variable not found"]
+        span: Span,
+    },
 
     /// A referenced environment variable was not found at runtime.
     ///
     /// ## Resolution
     ///
     /// Check the environment variable name. Did you typo it? Did you forget to declare it? Is the casing right?
-    #[error("Environment variable '{0}' not found")]
+    #[error("Environment variable '{envvar_name}' not found")]
     #[diagnostic(code(nu::shell::env_variable_not_found))]
-    EnvVarNotFoundAtRuntime(String, #[label = "environment variable not found"] Span),
+    EnvVarNotFoundAtRuntime {
+        envvar_name: String,
+        #[label = "environment variable not found"]
+        span: Span,
+    },
 
     /// A referenced module was not found at runtime.
     ///
     /// ## Resolution
     ///
     /// Check the module name. Did you typo it? Did you forget to declare it? Is the casing right?
-    #[error("Module '{0}' not found")]
+    #[error("Module '{mod_name}' not found")]
     #[diagnostic(code(nu::shell::module_not_found))]
-    ModuleNotFoundAtRuntime(String, #[label = "module not found"] Span),
-
-    /// A referenced module or overlay was not found at runtime.
-    ///
-    /// ## Resolution
-    ///
-    /// Check the module name. Did you typo it? Did you forget to declare it? Is the casing right?
-    #[error("Module or overlay'{0}' not found")]
-    #[diagnostic(code(nu::shell::module_or_overlay_not_found))]
-    ModuleOrOverlayNotFoundAtRuntime(String, #[label = "not a module or overlay"] Span),
+    ModuleNotFoundAtRuntime {
+        mod_name: String,
+        #[label = "module not found"]
+        span: Span,
+    },
 
     /// A referenced overlay was not found at runtime.
     ///
     /// ## Resolution
     ///
     /// Check the overlay name. Did you typo it? Did you forget to declare it? Is the casing right?
-    #[error("Overlay '{0}' not found")]
+    #[error("Overlay '{overlay_name}' not found")]
     #[diagnostic(code(nu::shell::overlay_not_found))]
-    OverlayNotFoundAtRuntime(String, #[label = "overlay not found"] Span),
+    OverlayNotFoundAtRuntime {
+        overlay_name: String,
+        #[label = "overlay not found"]
+        span: Span,
+    },
 
     /// The given item was not found. This is a fairly generic error that depends on context.
     ///
@@ -339,66 +370,82 @@ pub enum ShellError {
     /// This error is triggered in various places, and simply signals that "something" was not found. Refer to the specific error message for further details.
     #[error("Not found.")]
     #[diagnostic(code(nu::parser::not_found))]
-    NotFound(#[label = "did not find anything under this name"] Span),
+    NotFound {
+        #[label = "did not find anything under this name"]
+        span: Span,
+    },
 
     /// Failed to convert a value of one type into a different type.
     ///
     /// ## Resolution
     ///
     /// Not all values can be coerced this way. Check the supported type(s) and try again.
-    #[error("Can't convert to {0}.")]
+    #[error("Can't convert to {to_type}.")]
     #[diagnostic(code(nu::shell::cant_convert))]
-    CantConvert(
-        String,
-        String,
-        #[label("can't convert {1} to {0}")] Span,
-        #[help] Option<String>,
-    ),
+    CantConvert {
+        to_type: String,
+        from_type: String,
+        #[label("can't convert {from_type} to {to_type}")]
+        span: Span,
+        #[help]
+        help: Option<String>,
+    },
 
     /// Failed to convert a value of one type into a different type. Includes hint for what the first value is.
     ///
     /// ## Resolution
     ///
     /// Not all values can be coerced this way. Check the supported type(s) and try again.
-    #[error("Can't convert {1} `{2}` to {0}.")]
+    #[error("Can't convert {from_type} `{details}` to {to_type}.")]
     #[diagnostic(code(nu::shell::cant_convert_with_value))]
-    CantConvertWithValue(
-        String,
-        String,
-        String,
-        #[label("can't be converted to {0}")] Span,
-        #[label("this {1} value...")] Span,
-        #[help] Option<String>,
-    ),
+    CantConvertWithValue {
+        to_type: String,
+        from_type: String,
+        details: String,
+        #[label("can't be converted to {to_type}")]
+        dst_span: Span,
+        #[label("this {from_type} value...")]
+        src_span: Span,
+        #[help]
+        help: Option<String>,
+    },
 
     /// An environment variable cannot be represented as a string.
     ///
     /// ## Resolution
     ///
     /// Not all types can be converted to environment variable values, which must be strings. Check the input type and try again.
-    #[error("{0} is not representable as a string.")]
+    #[error("'{envvar_name}' is not representable as a string.")]
     #[diagnostic(
-        code(nu::shell::env_var_not_a_string),
-        help(
-            r#"The '{0}' environment variable must be a string or be convertible to a string.
-Either make sure {0} is a string, or add a 'to_string' entry for it in ENV_CONVERSIONS."#
-        )
-    )]
-    EnvVarNotAString(String, #[label("value not representable as a string")] Span),
+            code(nu::shell::env_var_not_a_string),
+            help(
+                r#"The '{envvar_name}' environment variable must be a string or be convertible to a string.
+    Either make sure '{envvar_name}' is a string, or add a 'to_string' entry for it in ENV_CONVERSIONS."#
+            )
+        )]
+    EnvVarNotAString {
+        envvar_name: String,
+        #[label("value not representable as a string")]
+        span: Span,
+    },
 
     /// This environment variable cannot be set manually.
     ///
     /// ## Resolution
     ///
     /// This environment variable is set automatically by Nushell and cannot not be set manually.
-    #[error("{0} cannot be set manually.")]
+    #[error("{envvar_name} cannot be set manually.")]
     #[diagnostic(
         code(nu::shell::automatic_env_var_set_manually),
         help(
-            r#"The environment variable '{0}' is set automatically by Nushell and cannot not be set manually."#
+            r#"The environment variable '{envvar_name}' is set automatically by Nushell and cannot not be set manually."#
         )
     )]
-    AutomaticEnvVarSetManually(String, #[label("cannot set '{0}' manually")] Span),
+    AutomaticEnvVarSetManually {
+        envvar_name: String,
+        #[label("cannot set '{envvar_name}' manually")]
+        span: Span,
+    },
 
     /// It is not possible to replace the entire environment at once
     ///
@@ -409,9 +456,12 @@ Either make sure {0} is a string, or add a 'to_string' entry for it in ENV_CONVE
     #[error("Cannot replace environment.")]
     #[diagnostic(
         code(nu::shell::cannot_replace_env),
-        help(r#"Assigning a value to $env is not allowed."#)
+        help(r#"Assigning a value to '$env' is not allowed."#)
     )]
-    CannotReplaceEnv(#[label("setting $env not allowed")] Span),
+    CannotReplaceEnv {
+        #[label("setting '$env' not allowed")]
+        span: Span,
+    },
 
     /// Division by zero is not a thing.
     ///
@@ -420,7 +470,10 @@ Either make sure {0} is a string, or add a 'to_string' entry for it in ENV_CONVE
     /// Add a guard of some sort to check whether a denominator input to this division is zero, and branch off if that's the case.
     #[error("Division by zero.")]
     #[diagnostic(code(nu::shell::division_by_zero))]
-    DivisionByZero(#[label("division by zero")] Span),
+    DivisionByZero {
+        #[label("division by zero")]
+        span: Span,
+    },
 
     /// An error happened while tryin to create a range.
     ///
@@ -431,28 +484,36 @@ Either make sure {0} is a string, or add a 'to_string' entry for it in ENV_CONVE
     /// Check your range values to make sure they're countable and would not loop forever.
     #[error("Can't convert range to countable values")]
     #[diagnostic(code(nu::shell::range_to_countable))]
-    CannotCreateRange(#[label = "can't convert to countable values"] Span),
+    CannotCreateRange {
+        #[label = "can't convert to countable values"]
+        span: Span,
+    },
 
     /// You attempted to access an index beyond the available length of a value.
     ///
     /// ## Resolution
     ///
     /// Check your lengths and try again.
-    #[error("Row number too large (max: {0}).")]
+    #[error("Row number too large (max: {max_idx}).")]
     #[diagnostic(code(nu::shell::access_beyond_end))]
-    AccessBeyondEnd(usize, #[label = "index too large (max: {0})"] Span),
+    AccessBeyondEnd {
+        max_idx: usize,
+        #[label = "index too large (max: {max_idx})"]
+        span: Span,
+    },
 
     /// You attempted to insert data at a list position higher than the end.
     ///
     /// ## Resolution
     ///
     /// To insert data into a list, assign to the last used index + 1.
-    #[error("Inserted at wrong row number (should be {0}).")]
+    #[error("Inserted at wrong row number (should be {available_idx}).")]
     #[diagnostic(code(nu::shell::access_beyond_end))]
-    InsertAfterNextFreeIndex(
-        usize,
-        #[label = "can't insert at index (the next available index is {0})"] Span,
-    ),
+    InsertAfterNextFreeIndex {
+        available_idx: usize,
+        #[label = "can't insert at index (the next available index is {available_idx})"]
+        span: Span,
+    },
 
     /// You attempted to access an index when it's empty.
     ///
@@ -461,8 +522,12 @@ Either make sure {0} is a string, or add a 'to_string' entry for it in ENV_CONVE
     /// Check your lengths and try again.
     #[error("Row number too large (empty content).")]
     #[diagnostic(code(nu::shell::access_beyond_end))]
-    AccessEmptyContent(#[label = "index too large (empty content)"] Span),
+    AccessEmptyContent {
+        #[label = "index too large (empty content)"]
+        span: Span,
+    },
 
+    // TODO: check to be taken over by `AccessBeyondEnd`
     /// You attempted to access an index beyond the available length of a stream.
     ///
     /// ## Resolution
@@ -470,7 +535,10 @@ Either make sure {0} is a string, or add a 'to_string' entry for it in ENV_CONVE
     /// Check your lengths and try again.
     #[error("Row number too large.")]
     #[diagnostic(code(nu::shell::access_beyond_end_of_stream))]
-    AccessBeyondEndOfStream(#[label = "index too large"] Span),
+    AccessBeyondEndOfStream {
+        #[label = "index too large"]
+        span: Span,
+    },
 
     /// Tried to index into a type that does not support pathed access.
     ///
@@ -479,7 +547,11 @@ Either make sure {0} is a string, or add a 'to_string' entry for it in ENV_CONVE
     /// Check your types. Only composite types can be pathed into.
     #[error("Data cannot be accessed with a cell path")]
     #[diagnostic(code(nu::shell::incompatible_path_access))]
-    IncompatiblePathAccess(String, #[label("{0} doesn't support cell paths")] Span),
+    IncompatiblePathAccess {
+        type_name: String,
+        #[label("{type_name} doesn't support cell paths")]
+        span: Span,
+    },
 
     /// The requested column does not exist.
     ///
@@ -488,11 +560,13 @@ Either make sure {0} is a string, or add a 'to_string' entry for it in ENV_CONVE
     /// Check the spelling of your column name. Did you forget to rename a column somewhere?
     #[error("Cannot find column")]
     #[diagnostic(code(nu::shell::column_not_found))]
-    CantFindColumn(
-        String,
-        #[label = "cannot find column '{0}'"] Span,
-        #[label = "value originates here"] Span,
-    ),
+    CantFindColumn {
+        col_name: String,
+        #[label = "cannot find column '{col_name}'"]
+        span: Span,
+        #[label = "value originates here"]
+        src_span: Span,
+    },
 
     /// Attempted to insert a column into a table, but a column with that name already exists.
     ///
@@ -501,11 +575,13 @@ Either make sure {0} is a string, or add a 'to_string' entry for it in ENV_CONVE
     /// Drop or rename the existing column (check `rename -h`) and try again.
     #[error("Column already exists")]
     #[diagnostic(code(nu::shell::column_already_exists))]
-    ColumnAlreadyExists(
-        String,
-        #[label = "column '{0}' already exists"] Span,
-        #[label = "value originates here"] Span,
-    ),
+    ColumnAlreadyExists {
+        col_name: String,
+        #[label = "column '{col_name}' already exists"]
+        span: Span,
+        #[label = "value originates here"]
+        src_span: Span,
+    },
 
     /// The given operation can only be performed on lists.
     ///
@@ -514,10 +590,12 @@ Either make sure {0} is a string, or add a 'to_string' entry for it in ENV_CONVE
     /// Check the input type to this command. Are you sure it's a list?
     #[error("Not a list value")]
     #[diagnostic(code(nu::shell::not_a_list))]
-    NotAList(
-        #[label = "value not a list"] Span,
-        #[label = "value originates here"] Span,
-    ),
+    NotAList {
+        #[label = "value not a list"]
+        dst_span: Span,
+        #[label = "value originates here"]
+        src_span: Span,
+    },
 
     /// An error happened while performing an external command.
     ///
@@ -525,8 +603,13 @@ Either make sure {0} is a string, or add a 'to_string' entry for it in ENV_CONVE
     ///
     /// This error is fairly generic. Refer to the specific error message for further details.
     #[error("External command failed")]
-    #[diagnostic(code(nu::shell::external_command), help("{1}"))]
-    ExternalCommand(String, String, #[label("{0}")] Span),
+    #[diagnostic(code(nu::shell::external_command), help("{help}"))]
+    ExternalCommand {
+        label: String,
+        help: String,
+        #[label("{label}")]
+        span: Span,
+    },
 
     /// An operation was attempted with an input unsupported for some reason.
     ///

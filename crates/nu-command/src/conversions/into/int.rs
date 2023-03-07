@@ -70,10 +70,10 @@ impl Command for SubCommand {
         let radix: u32 = match radix {
             Some(Value::Int { val, span }) => {
                 if !(2..=36).contains(&val) {
-                    return Err(ShellError::TypeMismatch(
-                        "Radix must lie in the range [2, 36]".to_string(),
+                    return Err(ShellError::TypeMismatch {
+                        err_message: "Radix must lie in the range [2, 36]".to_string(),
                         span,
-                    ));
+                    });
                 }
                 val as u32
             }
@@ -187,12 +187,12 @@ fn action(input: &Value, args: &Arguments, span: Span) -> Value {
                         Ok(v) => v,
                         _ => {
                             return Value::Error {
-                                error: ShellError::CantConvert(
-                                    "float".to_string(),
-                                    "integer".to_string(),
+                                error: ShellError::CantConvert {
+                                    to_type: "float".to_string(),
+                                    from_type: "integer".to_string(),
                                     span,
-                                    None,
-                                ),
+                                    help: None,
+                                },
                             }
                         }
                     }
@@ -277,12 +277,12 @@ fn convert_int(input: &Value, head: Span, radix: u32) -> Value {
                     Ok(n) => return Value::int(n, head),
                     Err(e) => {
                         return Value::Error {
-                            error: ShellError::CantConvert(
-                                "string".to_string(),
-                                "int".to_string(),
-                                head,
-                                Some(e.to_string()),
-                            ),
+                            error: ShellError::CantConvert {
+                                to_type: "string".to_string(),
+                                from_type: "int".to_string(),
+                                span: head,
+                                help: Some(e.to_string()),
+                            },
                         }
                     }
                 }
@@ -305,7 +305,12 @@ fn convert_int(input: &Value, head: Span, radix: u32) -> Value {
     match i64::from_str_radix(i.trim(), radix) {
         Ok(n) => Value::int(n, head),
         Err(_reason) => Value::Error {
-            error: ShellError::CantConvert("string".to_string(), "int".to_string(), head, None),
+            error: ShellError::CantConvert {
+                to_type: "string".to_string(),
+                from_type: "int".to_string(),
+                span: head,
+                help: None,
+            },
         },
     }
 }
@@ -317,12 +322,12 @@ fn int_from_string(a_string: &str, span: Span) -> Result<i64, ShellError> {
             let num = match i64::from_str_radix(b.trim_start_matches("0b"), 2) {
                 Ok(n) => n,
                 Err(_reason) => {
-                    return Err(ShellError::CantConvert(
-                        "int".to_string(),
-                        "string".to_string(),
+                    return Err(ShellError::CantConvert {
+                        to_type: "int".to_string(),
+                        from_type: "string".to_string(),
                         span,
-                        Some(r#"digits following "0b" can only be 0 or 1"#.to_string()),
-                    ))
+                        help: Some(r#"digits following "0b" can only be 0 or 1"#.to_string()),
+                    })
                 }
             };
             Ok(num)
@@ -331,15 +336,15 @@ fn int_from_string(a_string: &str, span: Span) -> Result<i64, ShellError> {
             let num =
                 match i64::from_str_radix(h.trim_start_matches("0x"), 16) {
                     Ok(n) => n,
-                    Err(_reason) => return Err(ShellError::CantConvert(
-                        "int".to_string(),
-                        "string".to_string(),
+                    Err(_reason) => return Err(ShellError::CantConvert {
+                        to_type: "int".to_string(),
+                        from_type: "string".to_string(),
                         span,
-                        Some(
+                        help: Some(
                             r#"hexadecimal digits following "0x" should be in 0-9, a-f, or A-F"#
                                 .to_string(),
                         ),
-                    )),
+                    }),
                 };
             Ok(num)
         }
@@ -347,12 +352,12 @@ fn int_from_string(a_string: &str, span: Span) -> Result<i64, ShellError> {
             let num = match i64::from_str_radix(o.trim_start_matches("0o"), 8) {
                 Ok(n) => n,
                 Err(_reason) => {
-                    return Err(ShellError::CantConvert(
-                        "int".to_string(),
-                        "string".to_string(),
+                    return Err(ShellError::CantConvert {
+                        to_type: "int".to_string(),
+                        from_type: "string".to_string(),
                         span,
-                        Some(r#"octal digits following "0o" should be in 0-7"#.to_string()),
-                    ))
+                        help: Some(r#"octal digits following "0o" should be in 0-7"#.to_string()),
+                    })
                 }
             };
             Ok(num)
@@ -361,14 +366,14 @@ fn int_from_string(a_string: &str, span: Span) -> Result<i64, ShellError> {
             Ok(n) => Ok(n),
             Err(_) => match a_string.parse::<f64>() {
                 Ok(f) => Ok(f as i64),
-                _ => Err(ShellError::CantConvert(
-                    "int".to_string(),
-                    "string".to_string(),
+                _ => Err(ShellError::CantConvert {
+                    to_type: "int".to_string(),
+                    from_type: "string".to_string(),
                     span,
-                    Some(format!(
+                    help: Some(format!(
                         r#"string "{trimmed}" does not represent a valid integer"#
                     )),
-                )),
+                }),
             },
         },
     }

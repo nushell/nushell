@@ -277,10 +277,10 @@ fn at_impl(input: &[u8], arg: &Arguments, span: Span) -> Value {
         match start.cmp(&end) {
             Ordering::Equal => Value::Binary { val: vec![], span },
             Ordering::Greater => Value::Error {
-                error: ShellError::TypeMismatch(
-                    "End must be greater than or equal to Start".to_string(),
-                    arg.arg_span,
-                ),
+                error: ShellError::TypeMismatch {
+                    err_message: "End must be greater than or equal to Start".to_string(),
+                    span: arg.arg_span,
+                },
             },
             Ordering::Less => Value::Binary {
                 val: {

@@ -26,16 +26,16 @@ pub fn grapheme_flags(call: &Call) -> Result<bool, ShellError> {
     // Note that Nushell already prevents nonexistent flags from being used with commands,
     // so this function can be reused for both the --utf-8-bytes commands and the --code-points commands.
     if g_flag && call.has_flag("utf-8-bytes") {
-        Err(ShellError::IncompatibleParametersSingle(
-            "Incompatible flags: --grapheme-clusters (-g) and --utf-8-bytes (-b)".to_string(),
-            call.head,
-        ))?
+        Err(ShellError::IncompatibleParametersSingle {
+            msg: "Incompatible flags: --grapheme-clusters (-g) and --utf-8-bytes (-b)".to_string(),
+            span: call.head,
+        })?
     }
     if g_flag && call.has_flag("code-points") {
-        Err(ShellError::IncompatibleParametersSingle(
-            "Incompatible flags: --grapheme-clusters (-g) and --utf-8-bytes (-b)".to_string(),
-            call.head,
-        ))?
+        Err(ShellError::IncompatibleParametersSingle {
+            msg: "Incompatible flags: --grapheme-clusters (-g) and --utf-8-bytes (-b)".to_string(),
+            span: call.head,
+        })?
     }
     // Grapheme cluster usage is decided by the non-default -g flag
     Ok(g_flag)

@@ -7,7 +7,7 @@ use nu_protocol::{
 
 use crate::network::http::client::{
     http_client, http_parse_url, request_add_authorization_header, request_add_custom_headers,
-    request_handle_response, request_set_body, request_set_timeout,
+    request_handle_response, request_set_timeout, send_request,
 };
 
 #[derive(Clone)]
@@ -38,19 +38,6 @@ impl Command for SubCommand {
                 SyntaxShape::Any,
                 "the password when authenticating",
                 Some('p'),
-            )
-            .named("data", SyntaxShape::Any, "the content to post", Some('d'))
-            .named(
-                "content-type",
-                SyntaxShape::Any,
-                "the MIME type of content to post",
-                Some('t'),
-            )
-            .named(
-                "content-length",
-                SyntaxShape::Any,
-                "the length of the content being posted",
-                Some('l'),
             )
             .named(
                 "max-time",
@@ -119,16 +106,6 @@ impl Command for SubCommand {
                 example: "http get -H [my-header-key my-header-value] https://www.example.com",
                 result: None,
             },
-            Example {
-                description: "Get content from example.com, with body",
-                example: "http get -d 'body' https://www.example.com",
-                result: None,
-            },
-            Example {
-                description: "Get content from example.com, with JSON body",
-                example: "http get -t application/json -d { field: value } https://www.example.com",
-                result: None,
-            },
         ]
     }
 }
@@ -136,9 +113,6 @@ impl Command for SubCommand {
 struct Arguments {
     url: Value,
     headers: Option<Value>,
-    data: Option<Value>,
-    content_type: Option<String>,
-    content_length: Option<String>,
     raw: bool,
     insecure: bool,
     user: Option<String>,
@@ -155,9 +129,6 @@ fn run_get(
     let args = Arguments {
         url: call.req(engine_state, stack, 0)?,
         headers: call.get_flag(engine_state, stack, "headers")?,
-        data: call.get_flag(engine_state, stack, "data")?,
-        content_type: call.get_flag(engine_state, stack, "content-type")?,
-        content_length: call.get_flag(engine_state, stack, "content-length")?,
         raw: call.has_flag("raw"),
         insecure: call.has_flag("insecure"),
         user: call.get_flag(engine_state, stack, "user")?,
@@ -176,19 +147,16 @@ fn helper(
     args: Arguments,
 ) -> Result<PipelineData, ShellError> {
     let span = args.url.span()?;
-    let (requested_url, url) = http_parse_url(call, span, args.url)?;
+    let (requested_url, _) = http_parse_url(call, span, args.url)?;
 
     let client = http_client(args.insecure);
-    let mut request = client.get(url);
+    let mut request = client.get(&requested_url);
 
-    if let Some(data) = args.data {
-        request = request_set_body(args.content_type, args.content_length, data, request)?;
-    }
     request = request_set_timeout(args.timeout, request)?;
     request = request_add_authorization_header(args.user, args.password, request);
     request = request_add_custom_headers(args.headers, request)?;
 
-    let response = request.send().and_then(|r| r.error_for_status());
+    let response = send_request(request, span, None, None);
     request_handle_response(
         engine_state,
         stack,

@@ -17,27 +17,22 @@ pub trait CustomValue: fmt::Debug + Send + Sync {
     // That already exist in nushell
     fn to_base_value(&self, span: Span) -> Result<Value, ShellError>;
 
-    // Json representation of custom value
-    fn to_json(&self) -> nu_json::Value {
-        nu_json::Value::Null
-    }
-
     // Any representation used to downcast object to its original type
     fn as_any(&self) -> &dyn std::any::Any;
 
     // Follow cell path functions
     fn follow_path_int(&self, _count: usize, span: Span) -> Result<Value, ShellError> {
-        Err(ShellError::IncompatiblePathAccess(
-            format!("{} doesn't support path access", self.value_string()),
+        Err(ShellError::IncompatiblePathAccess {
+            type_name: self.value_string(),
             span,
-        ))
+        })
     }
 
     fn follow_path_string(&self, _column_name: String, span: Span) -> Result<Value, ShellError> {
-        Err(ShellError::IncompatiblePathAccess(
-            format!("{} doesn't support path access", self.value_string()),
+        Err(ShellError::IncompatiblePathAccess {
+            type_name: self.value_string(),
             span,
-        ))
+        })
     }
 
     // ordering with other value
@@ -55,6 +50,6 @@ pub trait CustomValue: fmt::Debug + Send + Sync {
         op: Span,
         _right: &Value,
     ) -> Result<Value, ShellError> {
-        Err(ShellError::UnsupportedOperator(operator, op))
+        Err(ShellError::UnsupportedOperator { operator, span: op })
     }
 }

@@ -55,10 +55,10 @@ impl Command for BytesBuild {
                 // Explicitly propagate errors instead of dropping them.
                 Value::Error { error } => return Err(error),
                 other => {
-                    return Err(ShellError::TypeMismatch(
-                        "only binary data arguments are supported".to_string(),
-                        other.expect_span(),
-                    ))
+                    return Err(ShellError::TypeMismatch {
+                        err_message: "only binary data arguments are supported".to_string(),
+                        span: other.expect_span(),
+                    })
                 }
             }
         }

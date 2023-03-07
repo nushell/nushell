@@ -50,11 +50,11 @@ impl Command for Alias {
         call: &Call,
         _input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
-        Err(ShellError::NushellFailedSpanned(
-            "Can't run alias directly. Unwrap it first".to_string(),
-            "originates from here".to_string(),
-            call.head,
-        ))
+        Err(ShellError::NushellFailedSpanned {
+            msg: "Can't run alias directly. Unwrap it first".to_string(),
+            label: "originates from here".to_string(),
+            span: call.head,
+        })
     }
 
     fn examples(&self) -> Vec<Example> {

@@ -262,11 +262,11 @@ fn move_record_columns(
                         out_cols.push(col.into());
                         out_vals.push(val.clone());
                     } else {
-                        return Err(ShellError::NushellFailedSpanned(
-                            "Error indexing input columns".to_string(),
-                            "originates from here".to_string(),
+                        return Err(ShellError::NushellFailedSpanned {
+                            msg: "Error indexing input columns".to_string(),
+                            label: "originates from here".to_string(),
                             span,
-                        ));
+                        });
                     }
                 }
             }
@@ -276,11 +276,11 @@ fn move_record_columns(
                         out_cols.push(col.into());
                         out_vals.push(val.clone());
                     } else {
-                        return Err(ShellError::NushellFailedSpanned(
-                            "Error indexing input columns".to_string(),
-                            "originates from here".to_string(),
+                        return Err(ShellError::NushellFailedSpanned {
+                            msg: "Error indexing input columns".to_string(),
+                            label: "originates from here".to_string(),
                             span,
-                        ));
+                        });
                     }
                 }
 

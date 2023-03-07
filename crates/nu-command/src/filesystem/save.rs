@@ -101,12 +101,10 @@ impl Command for Save {
 
                 let res = stream_to_file(stream, file, span, progress);
                 if let Some(h) = handler {
-                    h.join().map_err(|err| {
-                        ShellError::ExternalCommand(
-                            "Fail to receive external commands stderr message".to_string(),
-                            format!("{err:?}"),
-                            span,
-                        )
+                    h.join().map_err(|err| ShellError::ExternalCommand {
+                        label: "Fail to receive external commands stderr message".to_string(),
+                        help: format!("{err:?}"),
+                        span,
                     })??;
                     res
                 } else {

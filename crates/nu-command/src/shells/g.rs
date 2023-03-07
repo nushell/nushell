@@ -50,7 +50,9 @@ impl Command for GotoShell {
                     let n = shell_span
                         .item
                         .parse::<usize>()
-                        .map_err(|_| ShellError::NotFound(shell_span.span))?;
+                        .map_err(|_| ShellError::NotFound {
+                            span: shell_span.span,
+                        })?;
 
                     switch_shell(engine_state, stack, call, shell_span.span, SwitchTo::Nth(n))
                 }

@@ -60,7 +60,10 @@ impl Command for UniqBy {
         let columns: Vec<String> = call.rest(engine_state, stack, 0)?;
 
         if columns.is_empty() {
-            return Err(ShellError::MissingParameter("columns".into(), call.head));
+            return Err(ShellError::MissingParameter {
+                param_name: "columns".into(),
+                span: call.head,
+            });
         }
 
         let metadata = input.metadata();
@@ -132,7 +135,11 @@ fn validate(vec: Vec<Value>, columns: &Vec<String>, span: Span) -> Result<(), Sh
         }
 
         if let Some(nonexistent) = nonexistent_column(columns.clone(), cols.to_vec()) {
-            return Err(ShellError::CantFindColumn(nonexistent, span, *val_span));
+            return Err(ShellError::CantFindColumn {
+                col_name: nonexistent,
+                span,
+                src_span: *val_span,
+            });
         }
     }
 

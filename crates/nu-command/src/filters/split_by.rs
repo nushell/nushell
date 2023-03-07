@@ -164,11 +164,11 @@ pub fn split(
                 Box::new(
                     move |_, row: &Value| match row.get_data_by_key(&column_name.item) {
                         Some(group_key) => Ok(group_key.as_string()?),
-                        None => Err(ShellError::CantFindColumn(
-                            column_name.item.to_string(),
-                            column_name.span,
-                            row.span().unwrap_or(column_name.span),
-                        )),
+                        None => Err(ShellError::CantFindColumn {
+                            col_name: column_name.item.to_string(),
+                            span: column_name.span,
+                            src_span: row.span().unwrap_or(column_name.span),
+                        }),
                     },
                 );
 
