@@ -523,7 +523,7 @@ mod test {
             Span::test_data(),
         );
         if let Value::Error {
-            error: ShellError::IncorrectValue(e, ..),
+            error: ShellError::IncorrectValue { msg: e, .. },
         } = actual
         {
             assert!(
