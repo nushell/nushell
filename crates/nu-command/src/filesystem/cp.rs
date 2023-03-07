@@ -283,6 +283,10 @@ impl Command for Cp {
 
                 let mut n_file = 0;
 
+                // these variables help us update the overall progress bar.
+                let mut stdout = stdout();
+                let mut is_pb = false;
+
                 for (s, d) in sources {
                     n_file += 1;
                     overall_pb.update_bar(n_file);
@@ -313,6 +317,7 @@ impl Command for Cp {
                     } else if s.is_file() {
                         let res = if interactive && d.exists() {
                             if progress {
+                                is_pb = true;
                                 interactive_copy(
                                     interactive,
                                     s,
@@ -325,12 +330,20 @@ impl Command for Cp {
                                 interactive_copy(interactive, s, d, span, &None, copy_file)
                             }
                         } else if progress {
+                            is_pb = true;
                             copy_file_with_progressbar(s, d, span, &ctrlc)
                         } else {
                             copy_file(s, d, span, &None)
                         };
                         result.push(res);
                     };
+
+                    // If the previous copy was executed with progress bar on then
+                    // move the terminal cursor up so we can update the overall progress bar.
+                    if is_pb {
+                        let _tmp_pos = stdout.execute(cursor::MoveToPreviousLine(0));
+                        is_pb = false;
+                    }
                 }
 
                 overall_pb.finished_msg("".to_string(), false);
@@ -520,10 +533,6 @@ fn copy_file_with_progressbar(
 
     let msg = format!("copied {:} to {:}", src.display(), dst.display());
     bar.finished_msg(format!(" {} copied!", &file_name), true);
-
-    // With this I am able to update the overall progress bar.
-    let mut stdout = stdout();
-    let _tmp_pos = stdout.execute(cursor::MoveToPreviousLine(0));
 
     Value::String { val: msg, span }
 }
