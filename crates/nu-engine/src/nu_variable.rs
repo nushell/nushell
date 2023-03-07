@@ -36,6 +36,7 @@ impl LazyRecord for NuVariable {
         cols.push("temp-path");
         cols.push("pid");
         cols.push("os-info");
+        cols.push("startup-time");
 
         cols
     }
@@ -177,6 +178,10 @@ impl LazyRecord for NuVariable {
 
                 Ok(os_record)
             }
+            "startup-time" => Ok(Value::Duration {
+                val: self.engine_state.get_startup_time(),
+                span: self.span(),
+            }),
             _ => err(&format!("Could not find column '{column}'")),
         }
     }
