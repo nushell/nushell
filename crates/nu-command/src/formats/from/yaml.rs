@@ -330,14 +330,12 @@ mod test {
     #[test]
     fn test_convert_yaml_value_to_nu_value_for_tagged_values() {
         struct TestCase {
-            description: &'static str,
             input: &'static str,
             expected: Result<Value, ShellError>,
         }
 
         let test_cases: Vec<TestCase> = vec![
             TestCase {
-                description: "Valid tag value 1",
                 input: "Key: !Value ${TEST}-Test-role",
                 expected: Ok(Value::Record {
                     cols: vec!["Key".to_string()],
@@ -346,7 +344,6 @@ mod test {
                 }),
             },
             TestCase {
-                description: "Valid tag value 2",
                 input: "Key: !Value test-${TEST}",
                 expected: Ok(Value::Record {
                     cols: vec!["Key".to_string()],
@@ -355,7 +352,6 @@ mod test {
                 }),
             },
             TestCase {
-                description: "Valid tag value 3",
                 input: "Key: !Value",
                 expected: Ok(Value::Record {
                     cols: vec!["Key".to_string()],
