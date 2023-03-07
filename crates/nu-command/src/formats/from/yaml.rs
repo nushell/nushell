@@ -174,6 +174,18 @@ fn convert_yaml_value_to_nu_value(
 
             Value::from(collected)
         }
+        serde_yaml::Value::Tagged(t) => {
+            let tag = &t.tag;
+            let value = match &t.value {
+                serde_yaml::Value::String(s) => s,
+                _ => "",
+            };
+
+            Value::String {
+                val: format!("{} {}", tag, value).trim().to_string(),
+                span,
+            }
+        }
         serde_yaml::Value::Null => Value::nothing(span),
         x => unimplemented!("Unsupported YAML case: {:?}", x),
     })
@@ -313,5 +325,52 @@ mod test {
         use crate::test_examples;
 
         test_examples(FromYaml {})
+    }
+
+    #[test]
+    fn test_convert_yaml_value_to_nu_value_for_tagged_values() {
+        struct TestCase {
+            description: &'static str,
+            input: &'static str,
+            expected: Result<Value, ShellError>,
+        }
+
+        let test_cases: Vec<TestCase> = vec![
+            TestCase {
+                description: "Valid tag value 1",
+                input: "Key: !Value ${TEST}-Test-role",
+                expected: Ok(Value::Record {
+                    cols: vec!["Key".to_string()],
+                    vals: vec![Value::test_string("!Value ${TEST}-Test-role")],
+                    span: Span::test_data(),
+                }),
+            },
+            TestCase {
+                description: "Valid tag value 2",
+                input: "Key: !Value test-${TEST}",
+                expected: Ok(Value::Record {
+                    cols: vec!["Key".to_string()],
+                    vals: vec![Value::test_string("!Value test-${TEST}")],
+                    span: Span::test_data(),
+                }),
+            },
+            TestCase {
+                description: "Valid tag value 3",
+                input: "Key: !Value",
+                expected: Ok(Value::Record {
+                    cols: vec!["Key".to_string()],
+                    vals: vec![Value::test_string("!Value")],
+                    span: Span::test_data(),
+                }),
+            },
+        ];
+
+        for test_case in test_cases {
+            let doc = serde_yaml::Deserializer::from_str(test_case.input);
+            let v: serde_yaml::Value = serde_yaml::Value::deserialize(doc.last().unwrap()).unwrap();
+            let result = convert_yaml_value_to_nu_value(&v, Span::test_data(), Span::test_data());
+            assert!(result.is_ok());
+            assert!(result.ok().unwrap() == test_case.expected.ok().unwrap());
+        }
     }
 }
