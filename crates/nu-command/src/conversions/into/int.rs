@@ -1,3 +1,5 @@
+use chrono::{FixedOffset, TimeZone};
+
 use crate::input_handler::{operate, CmdArgument};
 use nu_engine::CallExt;
 use nu_protocol::{
@@ -32,7 +34,7 @@ impl Command for SubCommand {
                 (Type::String, Type::Int),
                 (Type::Number, Type::Int),
                 (Type::Bool, Type::Int),
-                // Unix timestamp in seconds
+                // Unix timestamp in nanoseconds
                 (Type::Date, Type::Int),
                 // TODO: Users should do this by dividing a Filesize by a Filesize explicitly
                 (Type::Filesize, Type::Int),
@@ -124,9 +126,9 @@ impl Command for SubCommand {
                 }),
             },
             Example {
-                description: "Convert date to integer (Unix timestamp)",
-                example: "2022-02-02 | into int",
-                result: Some(Value::test_int(1643760000)),
+                description: "Convert date to integer (Unix nanosecond timestamp)",
+                example: "1983-04-13T12:09:14.123456789-05:00 | into int",
+                result: Some(Value::test_int(419101754123456789)),
             },
             Example {
                 description: "Convert to integer from binary",
@@ -217,10 +219,30 @@ fn action(input: &Value, args: &Arguments, span: Span) -> Value {
                 Value::Int { val: 0, span }
             }
         }
-        Value::Date { val, .. } => Value::Int {
-            val: val.timestamp(),
-            span,
-        },
+        Value::Date { val, .. } => {
+            if val
+                < &FixedOffset::east_opt(0)
+                    .expect("constant")
+                    .with_ymd_and_hms(1677, 9, 21, 0, 12, 44)
+                    .unwrap()
+                || val
+                    > &FixedOffset::east_opt(0)
+                        .expect("constant")
+                        .with_ymd_and_hms(2262, 4, 11, 23, 47, 16)
+                        .unwrap()
+            {
+                Value::Error {
+                    error: ShellError::IncorrectValue(
+                        "DateTime out of range for timestamp: 1677-09-21T00:12:43Z to 2262-04-11T23:47:16".to_string(),
+                span),
+                }
+            } else {
+                Value::Int {
+                    val: val.timestamp_nanos(),
+                    span,
+                }
+            }
+        }
         Value::Duration { val, .. } => Value::Int { val: *val, span },
         Value::Binary { val, span } => {
             use byteorder::{BigEndian, ByteOrder, LittleEndian};
@@ -381,6 +403,9 @@ fn int_from_string(a_string: &str, span: Span) -> Result<i64, ShellError> {
 
 #[cfg(test)]
 mod test {
+    use chrono::{DateTime, FixedOffset};
+    use rstest::rstest;
+
     use super::Value;
     use super::*;
     use nu_protocol::Type::Error;
@@ -454,5 +479,58 @@ mod test {
         );
 
         assert_eq!(actual.get_type(), Error)
+    }
+
+    #[rstest]
+    #[case("2262-04-11T23:47:16+00:00", 0x7fffffff_ffffffff)]
+    #[case("1970-01-01T00:00:00+00:00", 0)]
+    #[case("1677-09-21T00:12:44+00:00", -0x7fffffff_ffffffff)]
+    fn datetime_to_int_values_that_work(
+        #[case] dt_in: DateTime<FixedOffset>,
+        #[case] int_expected: i64,
+    ) {
+        let s = Value::test_date(dt_in);
+        let actual = action(
+            &s,
+            &Arguments {
+                radix: 10,
+                cell_paths: None,
+                little_endian: false,
+            },
+            Span::test_data(),
+        );
+        // ignore fractional seconds -- I don't want to hard code test values that might vary due to leap nanoseconds.
+        let exp_truncated = (int_expected / 1_000_000_000) * 1_000_000_000;
+        assert_eq!(actual, Value::test_int(exp_truncated));
+    }
+
+    #[rstest]
+    #[case("2262-04-11T23:47:17+00:00", "DateTime out of range for timestamp")]
+    #[case("1677-09-21T00:12:43+00:00", "DateTime out of range for timestamp")]
+    fn datetime_to_int_values_that_fail(
+        #[case] dt_in: DateTime<FixedOffset>,
+        #[case] err_expected: &str,
+    ) {
+        let s = Value::test_date(dt_in);
+        let actual = action(
+            &s,
+            &Arguments {
+                radix: 10,
+                cell_paths: None,
+                little_endian: false,
+            },
+            Span::test_data(),
+        );
+        if let Value::Error {
+            error: ShellError::IncorrectValue(e, ..),
+        } = actual
+        {
+            assert!(
+                e.contains(err_expected),
+                "{e:?} doesn't contain {err_expected}"
+            );
+        } else {
+            panic!("Unexpected actual value {actual:?}")
+        }
     }
 }
