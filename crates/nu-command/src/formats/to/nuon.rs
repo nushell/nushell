@@ -1,11 +1,13 @@
 use core::fmt::Write;
 use fancy_regex::Regex;
 use nu_engine::get_columns;
+use nu_engine::CallExt;
 use nu_parser::escape_quote_string;
 use nu_protocol::ast::{Call, RangeInclusion};
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
-    Category, Example, IntoPipelineData, PipelineData, ShellError, Signature, SyntaxShape, Span, Type, Value,
+    Category, Example, IntoPipelineData, PipelineData, ShellError, Signature, Span, SyntaxShape,
+    Type, Value,
 };
 use once_cell::sync::Lazy;
 
@@ -42,8 +44,8 @@ impl Command for ToNuon {
 
     fn run(
         &self,
-        _engine_state: &EngineState,
-        _stack: &mut Stack,
+        engine_state: &EngineState,
+        stack: &mut Stack,
         call: &Call,
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
@@ -51,9 +53,19 @@ impl Command for ToNuon {
         let use_tabs = call.has_flag("tabs");
 
         let span = call.head;
-        let nuon_value = to_nuon(call, input)?;
+        // allow ranges to expand and turn into array
+        let input = input.try_expand_range()?;
+        let value = input.into_value(span);
 
-        let nuon_result: Result<String, ()>  = Ok(nuon_value);
+        let nuon_result = if raw {
+            value_to_string(&value, span, 0, &None)
+        } else if use_tabs {
+            let tab_count: usize = call.get_flag(engine_state, stack, "tabs")?.unwrap_or(1);
+            value_to_string(&value, span, 0, &Some("\t".repeat(tab_count)))
+        } else {
+            let indent: usize = call.get_flag(engine_state, stack, "indent")?.unwrap_or(2);
+            value_to_string(&value, span, 0, &Some(" ".repeat(indent)))
+        };
 
         match nuon_result {
             Ok(serde_nuon_string) => Ok(Value::String {
@@ -64,7 +76,7 @@ impl Command for ToNuon {
             _ => Ok(Value::Error {
                 error: ShellError::CantConvert {
                     to_type: "NUON".into(),
-                    from_type: "TYPE".to_string(),
+                    from_type: value.get_type().to_string(),
                     span,
                     help: None,
                 },
@@ -82,7 +94,12 @@ impl Command for ToNuon {
     }
 }
 
-pub fn value_to_string(v: &Value, span: Span) -> Result<String, ShellError> {
+pub fn value_to_string(
+    v: &Value,
+    span: Span,
+    depth: usize,
+    indent: &Option<String>,
+) -> Result<String, ShellError> {
     match v {
         Value::Binary { val, .. } => {
             let mut s = String::with_capacity(2 * val.len());
@@ -171,7 +188,12 @@ pub fn value_to_string(v: &Value, span: Span) -> Result<String, ShellError> {
 
                     if let Value::Record { vals, .. } = val {
                         for val in vals {
-                            row.push(value_to_string_without_quotes(val, span)?);
+                            row.push(value_to_string_without_quotes(
+                                val,
+                                span,
+                                depth + 1,
+                                indent,
+                            )?);
                         }
                     }
 
@@ -186,7 +208,12 @@ pub fn value_to_string(v: &Value, span: Span) -> Result<String, ShellError> {
             } else {
                 let mut collection = vec![];
                 for val in vals {
-                    collection.push(value_to_string_without_quotes(val, span)?);
+                    collection.push(value_to_string_without_quotes(
+                        val,
+                        span,
+                        depth + 1,
+                        indent,
+                    )?);
                 }
                 Ok(format!("[{}]", collection.join(", ")))
             }
@@ -194,13 +221,13 @@ pub fn value_to_string(v: &Value, span: Span) -> Result<String, ShellError> {
         Value::Nothing { .. } => Ok("null".to_string()),
         Value::Range { val, .. } => Ok(format!(
             "{}..{}{}",
-            value_to_string(&val.from, span)?,
+            value_to_string(&val.from, span, depth + 1, indent)?,
             if val.inclusion == RangeInclusion::RightExclusive {
                 "<"
             } else {
                 ""
             },
-            value_to_string(&val.to, span)?
+            value_to_string(&val.to, span, depth + 1, indent)?
         )),
         Value::Record { cols, vals, .. } => {
             let mut collection = vec![];
@@ -209,17 +236,21 @@ pub fn value_to_string(v: &Value, span: Span) -> Result<String, ShellError> {
                     format!(
                         "\"{}\": {}",
                         col,
-                        value_to_string_without_quotes(val, span)?
+                        value_to_string_without_quotes(val, span, depth + 1, indent)?
                     )
                 } else {
-                    format!("{}: {}", col, value_to_string_without_quotes(val, span)?)
+                    format!(
+                        "{}: {}",
+                        col,
+                        value_to_string_without_quotes(val, span, depth + 1, indent)?
+                    )
                 });
             }
             Ok(format!("{{{}}}", collection.join(", ")))
         }
         Value::LazyRecord { val, .. } => {
             let collected = val.collect()?;
-            value_to_string(&collected, span)
+            value_to_string(&collected, span, depth + 1, indent)
         }
         // All strings outside data structures are quoted because they are in 'command position'
         // (could be mistaken for commands by the Nu parser)
@@ -227,7 +258,12 @@ pub fn value_to_string(v: &Value, span: Span) -> Result<String, ShellError> {
     }
 }
 
-fn value_to_string_without_quotes(v: &Value, span: Span) -> Result<String, ShellError> {
+fn value_to_string_without_quotes(
+    v: &Value,
+    span: Span,
+    depth: usize,
+    indent: &Option<String>,
+) -> Result<String, ShellError> {
     match v {
         Value::String { val, .. } => Ok({
             if needs_quotes(val) {
@@ -236,14 +272,8 @@ fn value_to_string_without_quotes(v: &Value, span: Span) -> Result<String, Shell
                 val.clone()
             }
         }),
-        _ => value_to_string(v, span),
+        _ => value_to_string(v, span, depth + 1, indent),
     }
-}
-
-fn to_nuon(call: &Call, input: PipelineData) -> Result<String, ShellError> {
-    let v = input.into_value(call.head);
-
-    value_to_string(&v, call.head)
 }
 
 // This hits, in order:
