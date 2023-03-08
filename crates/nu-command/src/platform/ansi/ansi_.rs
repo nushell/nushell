@@ -641,7 +641,12 @@ Format: #
         // this record is defined in nu-color-config crate
         let code: Value = match call.opt(engine_state, stack, 0)? {
             Some(c) => c,
-            None => return Err(ShellError::MissingParameter("code".into(), call.head)),
+            None => {
+                return Err(ShellError::MissingParameter {
+                    param_name: "code".into(),
+                    span: call.head,
+                })
+            }
         };
 
         let param_is_string = matches!(code, Value::String { val: _, span: _ });
@@ -672,12 +677,13 @@ Format: #
         if (escape || osc) && (param_is_valid_string) {
             let code_vec: Vec<char> = code_string.chars().collect();
             if code_vec[0] == '\\' {
-                return Err(ShellError::TypeMismatch(
-                    "no need for escape characters".into(),
-                    call.get_flag_expr("escape")
+                return Err(ShellError::TypeMismatch {
+                    err_message: "no need for escape characters".into(),
+                    span: call
+                        .get_flag_expr("escape")
                         .expect("Unexpected missing argument")
                         .span,
-                ));
+                });
             }
         }
 
@@ -711,12 +717,13 @@ Format: #
                 match str_to_ansi(&code_string) {
                     Some(c) => c,
                     None => {
-                        return Err(ShellError::TypeMismatch(
-                            String::from("Unknown ansi code"),
-                            call.positional_nth(0)
+                        return Err(ShellError::TypeMismatch {
+                            err_message: String::from("Unknown ansi code"),
+                            span: call
+                                .positional_nth(0)
                                 .expect("Unexpected missing argument")
                                 .span,
-                        ))
+                        })
                     }
                 }
             }
@@ -737,10 +744,10 @@ Format: #
                     "bg" => nu_style.bg = Some(v.as_string()?),
                     "attr" => nu_style.attr = Some(v.as_string()?),
                     _ => {
-                        return Err(ShellError::IncompatibleParametersSingle(
-                            format!("problem with key: {k}"),
-                            code.expect_span(),
-                        ))
+                        return Err(ShellError::IncompatibleParametersSingle {
+                            msg: format!("problem with key: {k}"),
+                            span: code.expect_span(),
+                        })
                     }
                 }
             }

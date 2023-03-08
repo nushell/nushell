@@ -846,10 +846,10 @@ pub fn eval_env_change_hook(
                 }
             }
             x => {
-                return Err(ShellError::TypeMismatch(
-                    "record for the 'env_change' hook".to_string(),
-                    x.span()?,
-                ));
+                return Err(ShellError::TypeMismatch {
+                    err_message: "record for the 'env_change' hook".to_string(),
+                    span: x.span()?,
+                });
             }
         }
     }
@@ -1109,10 +1109,10 @@ fn run_hook_block(
             if let Some(arg) = arguments.get(idx) {
                 callee_stack.add_var(*var_id, arg.1.clone())
             } else {
-                return Err(ShellError::IncompatibleParametersSingle(
-                    "This hook block has too many parameters".into(),
+                return Err(ShellError::IncompatibleParametersSingle {
+                    msg: "This hook block has too many parameters".into(),
                     span,
-                ));
+                });
             }
         }
     }

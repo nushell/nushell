@@ -106,12 +106,10 @@ pub fn create_external_command(
         value
             .as_string()
             .map(|item| Spanned { item, span })
-            .map_err(|_| {
-                ShellError::ExternalCommand(
-                    format!("Cannot convert {} to a string", value.get_type()),
-                    "All arguments to an external command need to be string-compatible".into(),
-                    span,
-                )
+            .map_err(|_| ShellError::ExternalCommand {
+                label: format!("Cannot convert {} to a string", value.get_type()),
+                help: "All arguments to an external command need to be string-compatible".into(),
+                span,
             })
     }
 
@@ -326,18 +324,18 @@ impl ExternalCommand {
                             }
                         };
 
-                        Err(ShellError::ExternalCommand(
+                        Err(ShellError::ExternalCommand {
                             label,
-                            err.to_string(),
-                            self.name.span,
-                        ))
+                            help: err.to_string(),
+                            span: self.name.span,
+                        })
                     }
                     // otherwise, a default error message
-                    _ => Err(ShellError::ExternalCommand(
-                        "can't run executable".into(),
-                        err.to_string(),
-                        self.name.span,
-                    )),
+                    _ => Err(ShellError::ExternalCommand {
+                        label: "can't run executable".into(),
+                        help: err.to_string(),
+                        span: self.name.span,
+                    }),
                 }
             }
             Ok(mut child) => {
@@ -408,23 +406,15 @@ impl ExternalCommand {
                     .spawn(move || {
                         if redirect_stdout {
                             let stdout = stdout.ok_or_else(|| {
-                                ShellError::ExternalCommand(
-                                    "Error taking stdout from external".to_string(),
-                                    "Redirects need access to stdout of an external command"
-                                        .to_string(),
-                                    span,
-                                )
+                                ShellError::ExternalCommand { label: "Error taking stdout from external".to_string(), help: "Redirects need access to stdout of an external command"
+                                        .to_string(), span }
                             })?;
 
                             read_and_redirect_message(stdout, stdout_tx, ctrlc)
                         }
 
                     match child.as_mut().wait() {
-                        Err(err) => Err(ShellError::ExternalCommand(
-                            "External command exited with error".into(),
-                            err.to_string(),
-                            span,
-                        )),
+                        Err(err) => Err(ShellError::ExternalCommand { label: "External command exited with error".into(), help: err.to_string(), span }),
                         Ok(x) => {
                             #[cfg(unix)]
                             {
@@ -455,11 +445,7 @@ impl ExternalCommand {
                                         ))
                                     );
                                     let _ = exit_code_tx.send(Value::Error {
-                                        error: ShellError::ExternalCommand(
-                                            "core dumped".to_string(),
-                                            format!("{cause}: child process '{commandname}' core dumped"),
-                                            head,
-                                        ),
+                                        error: ShellError::ExternalCommand { label: "core dumped".to_string(), help: format!("{cause}: child process '{commandname}' core dumped"), span: head },
                                     });
                                     return Ok(());
                                 }
@@ -481,13 +467,11 @@ impl ExternalCommand {
                     thread::Builder::new()
                         .name("stderr redirector".to_string())
                         .spawn(move || {
-                            let stderr = stderr.ok_or_else(|| {
-                                ShellError::ExternalCommand(
-                                    "Error taking stderr from external".to_string(),
-                                    "Redirects need access to stderr of an external command"
-                                        .to_string(),
-                                    span,
-                                )
+                            let stderr = stderr.ok_or_else(|| ShellError::ExternalCommand {
+                                label: "Error taking stderr from external".to_string(),
+                                help: "Redirects need access to stderr of an external command"
+                                    .to_string(),
+                                span,
                             })?;
 
                             read_and_redirect_message(stderr, stderr_tx, stderr_ctrlc);

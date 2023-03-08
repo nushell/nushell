@@ -115,10 +115,10 @@ fn replace_headers(value: Value, headers: &[String]) -> Result<Value, ShellError
 
             Ok(Value::List { vals, span })
         }
-        _ => Err(ShellError::TypeMismatch(
-            "record".to_string(),
-            value.span()?,
-        )),
+        _ => Err(ShellError::TypeMismatch {
+            err_message: "record".to_string(),
+            span: value.span()?,
+        }),
     }
 }
 
@@ -138,10 +138,11 @@ fn extract_headers(value: &Value, config: &Config) -> Result<Vec<String>, ShellE
         Value::Record { vals, .. } => {
             for v in vals {
                 if !is_valid_header(v) {
-                    return Err(ShellError::TypeMismatch(
-                        "needs compatible type: Null, String, Bool, Float, Int".to_string(),
-                        v.span()?,
-                    ));
+                    return Err(ShellError::TypeMismatch {
+                        err_message: "needs compatible type: Null, String, Bool, Float, Int"
+                            .to_string(),
+                        span: v.span()?,
+                    });
                 }
             }
 
@@ -171,10 +172,10 @@ fn extract_headers(value: &Value, config: &Config) -> Result<Vec<String>, ShellE
                     Vec::new(),
                 )
             })?,
-        _ => Err(ShellError::TypeMismatch(
-            "record".to_string(),
-            value.span()?,
-        )),
+        _ => Err(ShellError::TypeMismatch {
+            err_message: "record".to_string(),
+            span: value.span()?,
+        }),
     }
 }
 

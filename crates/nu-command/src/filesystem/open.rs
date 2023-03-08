@@ -71,17 +71,17 @@ impl Command for Open {
             // Collect a filename from the input
             match input {
                 PipelineData::Value(Value::Nothing { .. }, ..) => {
-                    return Err(ShellError::MissingParameter(
-                        "needs filename".to_string(),
-                        call.head,
-                    ))
+                    return Err(ShellError::MissingParameter {
+                        param_name: "needs filename".to_string(),
+                        span: call.head,
+                    })
                 }
                 PipelineData::Value(val, ..) => val.as_spanned_string()?,
                 _ => {
-                    return Err(ShellError::MissingParameter(
-                        "needs filename".to_string(),
-                        call.head,
-                    ));
+                    return Err(ShellError::MissingParameter {
+                        param_name: "needs filename".to_string(),
+                        span: call.head,
+                    });
                 }
             }
         };

@@ -89,7 +89,7 @@ fn switch_shell(
 
     let new_path = shells
         .get(new_shell)
-        .ok_or(ShellError::NotFound(span))?
+        .ok_or(ShellError::NotFound { span })?
         .to_owned();
 
     stack.add_env_var(

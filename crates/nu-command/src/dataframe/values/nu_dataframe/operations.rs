@@ -151,10 +151,10 @@ impl NuDataFrame {
             }
             Axis::Column => {
                 if self.df.width() != other.df.width() {
-                    return Err(ShellError::IncompatibleParametersSingle(
-                        "Dataframes with different number of columns".into(),
+                    return Err(ShellError::IncompatibleParametersSingle {
+                        msg: "Dataframes with different number of columns".into(),
                         span,
-                    ));
+                    });
                 }
 
                 if !self
@@ -163,10 +163,10 @@ impl NuDataFrame {
                     .iter()
                     .all(|col| other.df.get_column_names().contains(col))
                 {
-                    return Err(ShellError::IncompatibleParametersSingle(
-                        "Dataframes with different columns names".into(),
+                    return Err(ShellError::IncompatibleParametersSingle {
+                        msg: "Dataframes with different columns names".into(),
                         span,
-                    ));
+                    });
                 }
 
                 let new_cols = self

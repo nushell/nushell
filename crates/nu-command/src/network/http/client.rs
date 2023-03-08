@@ -210,11 +210,10 @@ pub fn request_set_timeout(
     if let Some(timeout) = timeout {
         let val = timeout.as_i64()?;
         if val.is_negative() || val < 1 {
-            return Err(ShellError::TypeMismatch(
-                "Timeout value must be an integer and larger than 0".to_string(),
-                // timeout is already guaranteed to not be an error
-                timeout.expect_span(),
-            ));
+            return Err(ShellError::TypeMismatch {
+                err_message: "Timeout value must be an integer and larger than 0".to_string(),
+                span: timeout.expect_span(),
+            });
         }
 
         request = request.timeout(Duration::from_secs(val as u64));
@@ -242,12 +241,12 @@ pub fn request_add_custom_headers(
                         }
 
                         x => {
-                            return Err(ShellError::CantConvert(
-                                "string list or single row".into(),
-                                x.get_type().to_string(),
-                                headers.span().unwrap_or_else(|_| Span::new(0, 0)),
-                                None,
-                            ));
+                            return Err(ShellError::CantConvert {
+                                to_type: "string list or single row".into(),
+                                from_type: x.get_type().to_string(),
+                                span: headers.span().unwrap_or_else(|_| Span::new(0, 0)),
+                                help: None,
+                            });
                         }
                     }
                 } else {
@@ -261,12 +260,12 @@ pub fn request_add_custom_headers(
             }
 
             x => {
-                return Err(ShellError::CantConvert(
-                    "string list or single row".into(),
-                    x.get_type().to_string(),
-                    headers.span().unwrap_or_else(|_| Span::new(0, 0)),
-                    None,
-                ));
+                return Err(ShellError::CantConvert {
+                    to_type: "string list or single row".into(),
+                    from_type: x.get_type().to_string(),
+                    span: headers.span().unwrap_or_else(|_| Span::new(0, 0)),
+                    help: None,
+                });
             }
         };
 

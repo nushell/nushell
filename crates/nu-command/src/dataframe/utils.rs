@@ -7,9 +7,9 @@ pub fn extract_strings(value: Value) -> Result<Vec<String>, ShellError> {
     ) {
         (Ok(col), Err(_)) => Ok(vec![col]),
         (Err(_), Ok(cols)) => Ok(cols),
-        _ => Err(ShellError::IncompatibleParametersSingle(
-            "Expected a string or list of strings".into(),
-            value.span()?,
-        )),
+        _ => Err(ShellError::IncompatibleParametersSingle {
+            msg: "Expected a string or list of strings".into(),
+            span: value.span()?,
+        }),
     }
 }

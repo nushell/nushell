@@ -1,3 +1,5 @@
+use chrono::{FixedOffset, TimeZone};
+
 use crate::input_handler::{operate, CmdArgument};
 use nu_engine::CallExt;
 use nu_protocol::{
@@ -32,7 +34,7 @@ impl Command for SubCommand {
                 (Type::String, Type::Int),
                 (Type::Number, Type::Int),
                 (Type::Bool, Type::Int),
-                // Unix timestamp in seconds
+                // Unix timestamp in nanoseconds
                 (Type::Date, Type::Int),
                 // TODO: Users should do this by dividing a Filesize by a Filesize explicitly
                 (Type::Filesize, Type::Int),
@@ -70,10 +72,10 @@ impl Command for SubCommand {
         let radix: u32 = match radix {
             Some(Value::Int { val, span }) => {
                 if !(2..=36).contains(&val) {
-                    return Err(ShellError::TypeMismatch(
-                        "Radix must lie in the range [2, 36]".to_string(),
+                    return Err(ShellError::TypeMismatch {
+                        err_message: "Radix must lie in the range [2, 36]".to_string(),
                         span,
-                    ));
+                    });
                 }
                 val as u32
             }
@@ -124,9 +126,9 @@ impl Command for SubCommand {
                 }),
             },
             Example {
-                description: "Convert date to integer (Unix timestamp)",
-                example: "2022-02-02 | into int",
-                result: Some(Value::test_int(1643760000)),
+                description: "Convert date to integer (Unix nanosecond timestamp)",
+                example: "1983-04-13T12:09:14.123456789-05:00 | into int",
+                result: Some(Value::test_int(419101754123456789)),
             },
             Example {
                 description: "Convert to integer from binary",
@@ -187,12 +189,12 @@ fn action(input: &Value, args: &Arguments, span: Span) -> Value {
                         Ok(v) => v,
                         _ => {
                             return Value::Error {
-                                error: ShellError::CantConvert(
-                                    "float".to_string(),
-                                    "integer".to_string(),
+                                error: ShellError::CantConvert {
+                                    to_type: "float".to_string(),
+                                    from_type: "integer".to_string(),
                                     span,
-                                    None,
-                                ),
+                                    help: None,
+                                },
                             }
                         }
                     }
@@ -217,10 +219,31 @@ fn action(input: &Value, args: &Arguments, span: Span) -> Value {
                 Value::Int { val: 0, span }
             }
         }
-        Value::Date { val, .. } => Value::Int {
-            val: val.timestamp(),
-            span,
-        },
+        Value::Date { val, .. } => {
+            if val
+                < &FixedOffset::east_opt(0)
+                    .expect("constant")
+                    .with_ymd_and_hms(1677, 9, 21, 0, 12, 44)
+                    .unwrap()
+                || val
+                    > &FixedOffset::east_opt(0)
+                        .expect("constant")
+                        .with_ymd_and_hms(2262, 4, 11, 23, 47, 16)
+                        .unwrap()
+            {
+                Value::Error {
+                    error: ShellError::IncorrectValue {
+                        msg: "DateTime out of range for timestamp: 1677-09-21T00:12:43Z to 2262-04-11T23:47:16".to_string(),
+                        span
+                    },
+                }
+            } else {
+                Value::Int {
+                    val: val.timestamp_nanos(),
+                    span,
+                }
+            }
+        }
         Value::Duration { val, .. } => Value::Int { val: *val, span },
         Value::Binary { val, span } => {
             use byteorder::{BigEndian, ByteOrder, LittleEndian};
@@ -277,12 +300,12 @@ fn convert_int(input: &Value, head: Span, radix: u32) -> Value {
                     Ok(n) => return Value::int(n, head),
                     Err(e) => {
                         return Value::Error {
-                            error: ShellError::CantConvert(
-                                "string".to_string(),
-                                "int".to_string(),
-                                head,
-                                Some(e.to_string()),
-                            ),
+                            error: ShellError::CantConvert {
+                                to_type: "string".to_string(),
+                                from_type: "int".to_string(),
+                                span: head,
+                                help: Some(e.to_string()),
+                            },
                         }
                     }
                 }
@@ -305,7 +328,12 @@ fn convert_int(input: &Value, head: Span, radix: u32) -> Value {
     match i64::from_str_radix(i.trim(), radix) {
         Ok(n) => Value::int(n, head),
         Err(_reason) => Value::Error {
-            error: ShellError::CantConvert("string".to_string(), "int".to_string(), head, None),
+            error: ShellError::CantConvert {
+                to_type: "string".to_string(),
+                from_type: "int".to_string(),
+                span: head,
+                help: None,
+            },
         },
     }
 }
@@ -317,12 +345,12 @@ fn int_from_string(a_string: &str, span: Span) -> Result<i64, ShellError> {
             let num = match i64::from_str_radix(b.trim_start_matches("0b"), 2) {
                 Ok(n) => n,
                 Err(_reason) => {
-                    return Err(ShellError::CantConvert(
-                        "int".to_string(),
-                        "string".to_string(),
+                    return Err(ShellError::CantConvert {
+                        to_type: "int".to_string(),
+                        from_type: "string".to_string(),
                         span,
-                        Some(r#"digits following "0b" can only be 0 or 1"#.to_string()),
-                    ))
+                        help: Some(r#"digits following "0b" can only be 0 or 1"#.to_string()),
+                    })
                 }
             };
             Ok(num)
@@ -331,15 +359,15 @@ fn int_from_string(a_string: &str, span: Span) -> Result<i64, ShellError> {
             let num =
                 match i64::from_str_radix(h.trim_start_matches("0x"), 16) {
                     Ok(n) => n,
-                    Err(_reason) => return Err(ShellError::CantConvert(
-                        "int".to_string(),
-                        "string".to_string(),
+                    Err(_reason) => return Err(ShellError::CantConvert {
+                        to_type: "int".to_string(),
+                        from_type: "string".to_string(),
                         span,
-                        Some(
+                        help: Some(
                             r#"hexadecimal digits following "0x" should be in 0-9, a-f, or A-F"#
                                 .to_string(),
                         ),
-                    )),
+                    }),
                 };
             Ok(num)
         }
@@ -347,12 +375,12 @@ fn int_from_string(a_string: &str, span: Span) -> Result<i64, ShellError> {
             let num = match i64::from_str_radix(o.trim_start_matches("0o"), 8) {
                 Ok(n) => n,
                 Err(_reason) => {
-                    return Err(ShellError::CantConvert(
-                        "int".to_string(),
-                        "string".to_string(),
+                    return Err(ShellError::CantConvert {
+                        to_type: "int".to_string(),
+                        from_type: "string".to_string(),
                         span,
-                        Some(r#"octal digits following "0o" should be in 0-7"#.to_string()),
-                    ))
+                        help: Some(r#"octal digits following "0o" should be in 0-7"#.to_string()),
+                    })
                 }
             };
             Ok(num)
@@ -361,14 +389,14 @@ fn int_from_string(a_string: &str, span: Span) -> Result<i64, ShellError> {
             Ok(n) => Ok(n),
             Err(_) => match a_string.parse::<f64>() {
                 Ok(f) => Ok(f as i64),
-                _ => Err(ShellError::CantConvert(
-                    "int".to_string(),
-                    "string".to_string(),
+                _ => Err(ShellError::CantConvert {
+                    to_type: "int".to_string(),
+                    from_type: "string".to_string(),
                     span,
-                    Some(format!(
+                    help: Some(format!(
                         r#"string "{trimmed}" does not represent a valid integer"#
                     )),
-                )),
+                }),
             },
         },
     }
@@ -376,6 +404,9 @@ fn int_from_string(a_string: &str, span: Span) -> Result<i64, ShellError> {
 
 #[cfg(test)]
 mod test {
+    use chrono::{DateTime, FixedOffset};
+    use rstest::rstest;
+
     use super::Value;
     use super::*;
     use nu_protocol::Type::Error;
@@ -449,5 +480,58 @@ mod test {
         );
 
         assert_eq!(actual.get_type(), Error)
+    }
+
+    #[rstest]
+    #[case("2262-04-11T23:47:16+00:00", 0x7fffffff_ffffffff)]
+    #[case("1970-01-01T00:00:00+00:00", 0)]
+    #[case("1677-09-21T00:12:44+00:00", -0x7fffffff_ffffffff)]
+    fn datetime_to_int_values_that_work(
+        #[case] dt_in: DateTime<FixedOffset>,
+        #[case] int_expected: i64,
+    ) {
+        let s = Value::test_date(dt_in);
+        let actual = action(
+            &s,
+            &Arguments {
+                radix: 10,
+                cell_paths: None,
+                little_endian: false,
+            },
+            Span::test_data(),
+        );
+        // ignore fractional seconds -- I don't want to hard code test values that might vary due to leap nanoseconds.
+        let exp_truncated = (int_expected / 1_000_000_000) * 1_000_000_000;
+        assert_eq!(actual, Value::test_int(exp_truncated));
+    }
+
+    #[rstest]
+    #[case("2262-04-11T23:47:17+00:00", "DateTime out of range for timestamp")]
+    #[case("1677-09-21T00:12:43+00:00", "DateTime out of range for timestamp")]
+    fn datetime_to_int_values_that_fail(
+        #[case] dt_in: DateTime<FixedOffset>,
+        #[case] err_expected: &str,
+    ) {
+        let s = Value::test_date(dt_in);
+        let actual = action(
+            &s,
+            &Arguments {
+                radix: 10,
+                cell_paths: None,
+                little_endian: false,
+            },
+            Span::test_data(),
+        );
+        if let Value::Error {
+            error: ShellError::IncorrectValue { msg: e, .. },
+        } = actual
+        {
+            assert!(
+                e.contains(err_expected),
+                "{e:?} doesn't contain {err_expected}"
+            );
+        } else {
+            panic!("Unexpected actual value {actual:?}")
+        }
     }
 }

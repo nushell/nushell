@@ -132,7 +132,10 @@ where
             span,
         },
         Err(_) => Value::Error {
-            error: ShellError::TypeMismatch("invalid format".to_string(), span),
+            error: ShellError::TypeMismatch {
+                err_message: "invalid format".to_string(),
+                span,
+            },
         },
     }
 }
