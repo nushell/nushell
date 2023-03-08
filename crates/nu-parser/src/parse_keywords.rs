@@ -46,7 +46,7 @@ pub const UNALIASABLE_PARSER_KEYWORDS: &[&[u8]] = &[
     b"use",
     b"export use",
     b"hide",
-    b"overlay",
+    // b"overlay",
     // b"overlay hide",
     // b"overlay new",
     // b"overlay use",

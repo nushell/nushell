@@ -1279,3 +1279,35 @@ fn alias_overlay_hide() {
     assert!(actual.err.contains("external_command"));
     assert!(actual_repl.err.contains("external_command"));
 }
+
+#[test]
+fn alias_overlay_use() {
+    let inp = &[
+        r#"module spam { def foo [] { 'foo' } }"#,
+        r#"alias ou = overlay use"#,
+        r#"ou spam"#,
+        r#"foo"#,
+    ];
+
+    let actual = nu!(cwd: "tests/overlays", pipeline(&inp.join("; ")));
+    let actual_repl = nu!(cwd: "tests/overlays", nu_repl_code(inp));
+
+    assert_eq!(actual.out, "foo");
+    assert_eq!(actual_repl.out, "foo");
+}
+
+#[test]
+fn alias_overlay_new() {
+    let inp = &[
+        r#"alias on = overlay new"#,
+        r#"on spam"#,
+        r#"on eggs"#,
+        r#"overlay list | last"#,
+    ];
+
+    let actual = nu!(cwd: "tests/overlays", pipeline(&inp.join("; ")));
+    let actual_repl = nu!(cwd: "tests/overlays", nu_repl_code(inp));
+
+    assert_eq!(actual.out, "eggs");
+    assert_eq!(actual_repl.out, "eggs");
+}
