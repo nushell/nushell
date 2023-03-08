@@ -85,7 +85,7 @@ fn cant_alias_keyword() {
     let actual = nu!(
         cwd: ".", pipeline(
         r#"
-            alias ou = overlay use
+            alias ou = let
         "#
     ));
     assert!(actual.err.contains("cant_alias_keyword"));

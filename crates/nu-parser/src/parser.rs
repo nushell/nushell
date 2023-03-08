@@ -21,8 +21,8 @@ use nu_protocol::{
 use crate::parse_keywords::{
     is_unaliasable_parser_keyword, parse_alias, parse_def, parse_def_predecl,
     parse_export_in_block, parse_extern, parse_for, parse_hide, parse_let_or_const, parse_module,
-    parse_old_alias, parse_overlay, parse_overlay_hide, parse_source, parse_use, parse_where,
-    parse_where_expr,
+    parse_old_alias, parse_overlay_hide, parse_overlay_new, parse_overlay_use, parse_source,
+    parse_use, parse_where, parse_where_expr,
 };
 
 use itertools::Itertools;
@@ -5163,33 +5163,33 @@ pub fn parse_expression(
                     spans[0],
                 )),
             ),
-            b"overlay" => {
-                if spans.len() > 1 && working_set.get_span_contents(spans[1]) == b"list" {
-                    // whitelist 'overlay list'
-                    parse_call(
-                        working_set,
-                        &spans[pos..],
-                        spans[0],
-                        expand_aliases_denylist,
-                        is_subexpression,
-                    )
-                } else {
-                    (
-                        parse_call(
-                            working_set,
-                            &spans[pos..],
-                            spans[0],
-                            expand_aliases_denylist,
-                            is_subexpression,
-                        )
-                        .0,
-                        Some(ParseError::BuiltinCommandInPipeline(
-                            "overlay".into(),
-                            spans[0],
-                        )),
-                    )
-                }
-            }
+            // b"overlay" => {
+            //     if spans.len() > 1 && working_set.get_span_contents(spans[1]) == b"list" {
+            //         // whitelist 'overlay list'
+            //         parse_call(
+            //             working_set,
+            //             &spans[pos..],
+            //             spans[0],
+            //             expand_aliases_denylist,
+            //             is_subexpression,
+            //         )
+            //     } else {
+            //         (
+            //             parse_call(
+            //                 working_set,
+            //                 &spans[pos..],
+            //                 spans[0],
+            //                 expand_aliases_denylist,
+            //                 is_subexpression,
+            //             )
+            //             .0,
+            //             Some(ParseError::BuiltinCommandInPipeline(
+            //                 "overlay".into(),
+            //                 spans[0],
+            //             )),
+            //         )
+            //     }
+            // }
             b"where" => parse_where_expr(working_set, &spans[pos..], expand_aliases_denylist),
             #[cfg(feature = "plugin")]
             b"register" => (
@@ -5324,8 +5324,13 @@ pub fn parse_builtin_commands(
             {
                 // Apply parse keyword side effects
                 let cmd = working_set.get_decl(call.decl_id);
-                if cmd.name() == "overlay hide" {
-                    return parse_overlay_hide(working_set, &call);
+                match cmd.name() {
+                    "overlay hide" => return parse_overlay_hide(working_set, call),
+                    "overlay new" => return parse_overlay_new(working_set, call),
+                    "overlay use" => {
+                        return parse_overlay_use(working_set, call, expand_aliases_denylist)
+                    }
+                    _ => { /* ??? */ }
                 }
             }
         }
@@ -5352,7 +5357,7 @@ pub fn parse_builtin_commands(
                 parse_use(working_set, &lite_command.parts, expand_aliases_denylist);
             (pipeline, err)
         }
-        b"overlay" => parse_overlay(working_set, &lite_command.parts, expand_aliases_denylist),
+        // b"overlay" => parse_overlay(working_set, &lite_command.parts, expand_aliases_denylist),
         b"source" | b"source-env" => {
             parse_source(working_set, &lite_command.parts, expand_aliases_denylist)
         }
