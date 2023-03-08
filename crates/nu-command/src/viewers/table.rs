@@ -95,6 +95,11 @@ impl Command for Table {
                 "expand the table structure in collapse mode.\nBe aware collapse mode currently doesn't support width control",
                 Some('c'),
             )
+            .switch(
+                "nocolor",
+                "execute table without ansi coloring",
+                None,
+            )
             .category(Category::Viewers)
     }
 
@@ -617,7 +622,7 @@ fn handle_record(
             }
         }?;
 
-        let result = strip_output_color(result, config);
+        let result = strip_output_color(result, config, call.has_flag("nocolor"));
 
         result.unwrap_or_else(|| {
             if nu_utils::ctrl_c::was_pressed(&ctrlc) {
@@ -763,6 +768,7 @@ fn handle_row_stream(
                 row_offset,
                 width_param,
                 table_view,
+                call.has_flag("nocolor"),
             )),
             ctrlc,
             head,
@@ -1555,6 +1561,7 @@ struct PagingTableCreator {
     view: TableView,
     elements_displayed: usize,
     reached_end: bool,
+    nocolor: bool,
 }
 
 impl PagingTableCreator {
@@ -1568,6 +1575,7 @@ impl PagingTableCreator {
         row_offset: usize,
         width_param: Option<i64>,
         view: TableView,
+        nocolor: bool,
     ) -> Self {
         PagingTableCreator {
             head,
@@ -1580,6 +1588,7 @@ impl PagingTableCreator {
             view,
             elements_displayed: 0,
             reached_end: false,
+            nocolor,
         }
     }
 
@@ -1773,8 +1782,9 @@ impl Iterator for PagingTableCreator {
 
         match table {
             Ok(Some(table)) => {
-                let table = strip_output_color(Some(table), self.engine_state.get_config())
-                    .expect("must never happen");
+                let table =
+                    strip_output_color(Some(table), self.engine_state.get_config(), self.nocolor)
+                        .expect("must never happen");
 
                 let mut bytes = table.as_bytes().to_vec();
                 bytes.push(b'\n'); // nu-table tables don't come with a newline on the end
@@ -1868,11 +1878,11 @@ enum TableView {
 }
 
 #[allow(clippy::manual_filter)]
-fn strip_output_color(output: Option<String>, config: &Config) -> Option<String> {
+fn strip_output_color(output: Option<String>, config: &Config, nocolor: bool) -> Option<String> {
     match output {
         Some(output) => {
             // the atty is for when people do ls from vim, there should be no coloring there
-            if !config.use_ansi_coloring || !atty::is(atty::Stream::Stdout) {
+            if nocolor || !config.use_ansi_coloring || !atty::is(atty::Stream::Stdout) {
                 // Draw the table without ansi colors
                 Some(nu_utils::strip_ansi_string_likely(output))
             } else {
