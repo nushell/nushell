@@ -47,11 +47,30 @@ impl Command for ToNuon {
         call: &Call,
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
-        Ok(Value::String {
-            val: to_nuon(call, input)?,
-            span: call.head,
+        let raw = call.has_flag("raw");
+        let use_tabs = call.has_flag("tabs");
+
+        let span = call.head;
+        let nuon_value = to_nuon(call, input)?;
+
+        let nuon_result: Result<String, ()>  = Ok(nuon_value);
+
+        match nuon_result {
+            Ok(serde_nuon_string) => Ok(Value::String {
+                val: serde_nuon_string,
+                span,
+            }
+            .into_pipeline_data()),
+            _ => Ok(Value::Error {
+                error: ShellError::CantConvert {
+                    to_type: "NUON".into(),
+                    from_type: "TYPE".to_string(),
+                    span,
+                    help: None,
+                },
+            }
+            .into_pipeline_data()),
         }
-        .into_pipeline_data())
     }
 
     fn examples(&self) -> Vec<Example> {
