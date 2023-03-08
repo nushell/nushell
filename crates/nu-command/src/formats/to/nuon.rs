@@ -5,7 +5,7 @@ use nu_parser::escape_quote_string;
 use nu_protocol::ast::{Call, RangeInclusion};
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
-    Category, Example, IntoPipelineData, PipelineData, ShellError, Signature, Span, Type, Value,
+    Category, Example, IntoPipelineData, PipelineData, ShellError, Signature, SyntaxShape, Span, Type, Value,
 };
 use once_cell::sync::Lazy;
 
@@ -20,6 +20,19 @@ impl Command for ToNuon {
     fn signature(&self) -> Signature {
         Signature::build("to nuon")
             .input_output_types(vec![(Type::Any, Type::String)])
+            .switch("raw", "remove all of the whitespace", Some('r'))
+            .named(
+                "indent",
+                SyntaxShape::Number,
+                "specify indentation width",
+                Some('i'),
+            )
+            .named(
+                "tabs",
+                SyntaxShape::Number,
+                "specify indentation tab quantity",
+                Some('t'),
+            )
             .category(Category::Experimental)
     }
 
