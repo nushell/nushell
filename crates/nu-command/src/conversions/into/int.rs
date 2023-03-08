@@ -232,9 +232,10 @@ fn action(input: &Value, args: &Arguments, span: Span) -> Value {
                         .unwrap()
             {
                 Value::Error {
-                    error: ShellError::IncorrectValue(
-                        "DateTime out of range for timestamp: 1677-09-21T00:12:43Z to 2262-04-11T23:47:16".to_string(),
-                span),
+                    error: ShellError::IncorrectValue {
+                        msg: "DateTime out of range for timestamp: 1677-09-21T00:12:43Z to 2262-04-11T23:47:16".to_string(),
+                        span
+                    },
                 }
             } else {
                 Value::Int {
@@ -522,7 +523,7 @@ mod test {
             Span::test_data(),
         );
         if let Value::Error {
-            error: ShellError::IncorrectValue(e, ..),
+            error: ShellError::IncorrectValue { msg: e, .. },
         } = actual
         {
             assert!(
