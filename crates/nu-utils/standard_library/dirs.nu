@@ -3,7 +3,8 @@
 # todo:
 # * expand relative to absolute paths (or relative to some prefix?)
 # * what if user does `cd` by hand?
-# * things I learned: let foo = (pipeline) + <expression> is devil's playground.
+# * fix dirs show to use active: true/false
+
 
 # the directory stack
 export-env {

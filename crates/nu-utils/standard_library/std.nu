@@ -1,3 +1,19 @@
+# std.nu, `used` to load all standard library components
+
+# ----------- sub modules to be loaded as part of stdlib ------------------
+# (choose flavor of import that puts your functions in the right namespace)
+# This imports into std top-level namespace: std <subcommand>
+# (not what I want for a new subcommand.)
+# export use dirs.nu *
+# This imports into std *sub* namespace: std dirs <subcommand>
+# export use dirs.nu
+# You could also advise the user to `use` your submodule directly
+# to put the subcommands at the top level: dirs <subcommand>
+
+export use dirs.nu
+
+# ---------------- builtin std functions --------------------
+
 def _assert [
     cond: bool
     msg: string
