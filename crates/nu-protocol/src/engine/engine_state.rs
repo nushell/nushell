@@ -145,6 +145,8 @@ pub struct EngineState {
     // If Nushell was started, e.g., with `nu spam.nu`, the file's parent is stored here
     pub currently_parsed_cwd: Option<PathBuf>,
     pub regex_cache: Arc<Mutex<LruCache<String, Regex>>>,
+    pub is_interactive: bool,
+    pub is_login: bool,
     startup_time: i64,
 }
 
@@ -196,6 +198,8 @@ impl EngineState {
             regex_cache: Arc::new(Mutex::new(LruCache::new(
                 NonZeroUsize::new(REGEX_CACHE_SIZE).expect("tried to create cache of size zero"),
             ))),
+            is_interactive: false,
+            is_login: false,
             startup_time: -1,
         }
     }
