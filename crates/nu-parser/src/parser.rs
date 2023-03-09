@@ -658,6 +658,9 @@ pub fn parse_multispan_value(
             (arg, error)
         }
         SyntaxShape::OneOf(shapes) => {
+            // handle for `if` command.
+            let block_then_exp =
+                shapes.as_slice() == &[SyntaxShape::Block, SyntaxShape::Expression];
             let mut err = None;
             for shape in shapes.iter() {
                 let (s, option_err) = parse_multispan_value(
@@ -669,7 +672,26 @@ pub fn parse_multispan_value(
                 );
                 match option_err {
                     None => return (s, None),
-                    e => err = err.or(e),
+                    e => {
+                        // `if` is parsing block first and then expression.
+                        // when we're writing something like `else if $a`, parseing as a
+                        // block will result to error(because it's not a block)
+                        //
+                        // If parse as a expression also failed, user is more likely concerned
+                        // about expression failure rather then expect block failue.
+                        if block_then_exp {
+                            match &err {
+                                Some(ParseError::Expected(expected, _)) => {
+                                    if expected.starts_with("block") {
+                                        err = e
+                                    }
+                                }
+                                _ => err = err.or(e),
+                            }
+                        } else {
+                            err = err.or(e)
+                        }
+                    }
                 }
             }
             let span = spans[*spans_idx];
