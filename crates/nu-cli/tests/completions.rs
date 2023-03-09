@@ -524,7 +524,7 @@ fn variables_completions() {
     // Test completions for $nu
     let suggestions = completer.complete("$nu.", 4);
 
-    assert_eq!(11, suggestions.len());
+    assert_eq!(12, suggestions.len());
 
     let expected: Vec<String> = vec![
         "config-path".into(),
@@ -537,6 +537,7 @@ fn variables_completions() {
         "os-info".into(),
         "pid".into(),
         "scope".into(),
+        "startup-time".into(),
         "temp-path".into(),
     ];
 
