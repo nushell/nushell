@@ -673,11 +673,11 @@ pub fn parse_multispan_value(
                     None => return (s, None),
                     e => {
                         // `if` is parsing block first and then expression.
-                        // when we're writing something like `else if $a`, parseing as a
+                        // when we're writing something like `else if $a`, parsing as a
                         // block will result to error(because it's not a block)
                         //
                         // If parse as a expression also failed, user is more likely concerned
-                        // about expression failure rather then expect block failue.
+                        // about expression failure rather than "expect block failure"".
                         if block_then_exp {
                             match &err {
                                 Some(ParseError::Expected(expected, _)) => {
