@@ -659,8 +659,7 @@ pub fn parse_multispan_value(
         }
         SyntaxShape::OneOf(shapes) => {
             // handle for `if` command.
-            let block_then_exp =
-                shapes.as_slice() == &[SyntaxShape::Block, SyntaxShape::Expression];
+            let block_then_exp = shapes.as_slice() == [SyntaxShape::Block, SyntaxShape::Expression];
             let mut err = None;
             for shape in shapes.iter() {
                 let (s, option_err) = parse_multispan_value(
