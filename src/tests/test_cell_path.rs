@@ -18,6 +18,11 @@ fn record_single_field_success() -> TestResult {
 }
 
 #[test]
+fn record_single_field_optional_success() -> TestResult {
+    run_test("{foo: 'bar'}.foo? == 'bar'", "true")
+}
+
+#[test]
 fn record_single_field_failure() -> TestResult {
     fail_test("{foo: 'bar'}.foobar", "")
 }
@@ -28,6 +33,18 @@ fn record_int_failure() -> TestResult {
 }
 
 #[test]
+fn record_single_field_optional() -> TestResult {
+    run_test("{foo: 'bar'}.foobar?  | to nuon", "null")
+}
+
+#[test]
+fn record_single_field_optional_short_circuits() -> TestResult {
+    // Check that we return null as soon as the `.foobar?` access
+    // fails instead of erroring on the `.baz` access
+    run_test("{foo: 'bar'}.foobar?.baz  | to nuon", "null")
+}
+
+#[test]
 fn nested_record_field_success() -> TestResult {
     run_test("{foo: {bar: 'baz'} }.foo.bar == 'baz'", "true")
 }
@@ -35,6 +52,11 @@ fn nested_record_field_success() -> TestResult {
 #[test]
 fn nested_record_field_failure() -> TestResult {
     fail_test("{foo: {bar: 'baz'} }.foo.asdf", "")
+}
+
+#[test]
+fn nested_record_field_optional() -> TestResult {
+    run_test("{foo: {bar: 'baz'} }.foo.asdf?  | to nuon", "null")
 }
 
 #[test]
@@ -50,6 +72,23 @@ fn record_with_nested_list_int_failure() -> TestResult {
 #[test]
 fn record_with_nested_list_column_failure() -> TestResult {
     fail_test("{foo: [{bar: 'baz'}]}.foo.0.asdf", "")
+}
+
+#[test]
+fn deeply_nested_optional_cell_path() -> TestResult {
+    run_test(
+        "{foo: [{bar: 'baz'}]}.foo.3?.bar?.asdfdafg?.234?.foobar?  | to nuon",
+        "null",
+    )
+}
+
+// Test whether cell path access short-circuits properly
+#[test]
+fn deeply_nested_cell_path_with_single_optional_member() -> TestResult {
+    run_test(
+        "{foo: [{bar: 'baz'}]}.foo.3?.bar.asdfdafg.234.foobar  | to nuon",
+        "null",
+    )
 }
 
 // Tests for lists
