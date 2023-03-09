@@ -838,10 +838,12 @@ pub fn parse_old_alias(
             PathMember::String {
                 val: "scope".to_string(),
                 span: Span::new(0, 0),
+                optional: todo!(),
             },
             PathMember::String {
                 val: "aliases".to_string(),
                 span: Span::new(0, 0),
+                optional: todo!(),
             },
         ];
         let expr = Expression {

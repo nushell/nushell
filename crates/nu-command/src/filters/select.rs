@@ -106,7 +106,11 @@ fn select(
     for column in columns {
         let CellPath { ref members } = column;
         match members.get(0) {
-            Some(PathMember::Int { val, span }) => {
+            Some(PathMember::Int {
+                val,
+                span,
+                optional,
+            }) => {
                 if members.len() > 1 {
                     if ignore_errors {
                         return Ok(Value::nothing(call_span).into_pipeline_data());

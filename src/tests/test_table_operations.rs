@@ -206,7 +206,6 @@ fn missing_optional_row_fills_in_nothing() -> TestResult {
     )
 }
 
-
 #[test]
 fn string_cell_path() -> TestResult {
     run_test(

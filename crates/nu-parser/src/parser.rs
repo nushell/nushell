@@ -1974,6 +1974,7 @@ pub fn parse_cell_path(
                 ) => tail.push(PathMember::Int {
                     val: val as usize,
                     span,
+                    optional: todo!(),
                 }),
                 _ => {
                     let (result, err) =
@@ -1985,7 +1986,11 @@ pub fn parse_cell_path(
                             span,
                             ..
                         } => {
-                            tail.push(PathMember::String { val: string, span });
+                            tail.push(PathMember::String {
+                                val: string,
+                                span,
+                                optional: todo!(),
+                            });
                         }
                         _ => {
                             error =
@@ -2011,7 +2016,7 @@ pub fn parse_full_cell_path(
     let source = working_set.get_span_contents(span);
     let mut error = None;
 
-    let (tokens, err) = lex(source, span.start, &[b'\n', b'\r'], &[b'.'], true);
+    let (tokens, err) = lex(source, span.start, &[b'\n', b'\r'], &[b'.', b'?'], true);
     error = error.or(err);
 
     let mut tokens = tokens.into_iter().peekable();

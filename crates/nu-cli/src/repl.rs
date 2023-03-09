@@ -876,12 +876,14 @@ pub fn eval_hook(
     let condition_path = PathMember::String {
         val: "condition".to_string(),
         span: value_span,
+        optional: todo!(),
     };
     let mut output = PipelineData::empty();
 
     let code_path = PathMember::String {
         val: "code".to_string(),
         span: value_span,
+        optional: todo!(),
     };
 
     match value {

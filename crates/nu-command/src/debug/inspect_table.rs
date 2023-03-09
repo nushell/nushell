@@ -208,6 +208,7 @@ mod util {
                 let path = PathMember::String {
                     val: header.to_owned(),
                     span: Span::unknown(),
+                    optional: todo!(),
                 };
 
                 item.clone()

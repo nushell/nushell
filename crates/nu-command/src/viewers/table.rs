@@ -934,6 +934,7 @@ fn convert_to_table(
                             let path = PathMember::String {
                                 val: text.clone(),
                                 span: head,
+                                optional: todo!(),
                             };
                             let val = item.clone().follow_cell_path(&[path], false, false);
 
@@ -1321,7 +1322,11 @@ fn create_table2_entry(
     match item {
         Value::Record { .. } => {
             let val = header.to_owned();
-            let path = PathMember::String { val, span: head };
+            let path = PathMember::String {
+                val,
+                span: head,
+                optional: todo!(),
+            };
             let val = item.clone().follow_cell_path(&[path], false, false);
 
             match val {

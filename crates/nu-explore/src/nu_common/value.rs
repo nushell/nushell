@@ -168,6 +168,7 @@ fn record_lookup_value(item: &Value, header: &str) -> Value {
             let path = PathMember::String {
                 val: header.to_owned(),
                 span: NuSpan::unknown(),
+                optional: todo!(),
             };
 
             item.clone()

@@ -5,15 +5,45 @@ use std::fmt::Write;
 
 #[derive(Debug, Clone, PartialOrd, Serialize, Deserialize)]
 pub enum PathMember {
-    String { val: String, span: Span },
-    Int { val: usize, span: Span },
+    String {
+        val: String,
+        span: Span,
+        optional: bool,
+    },
+    Int {
+        val: usize,
+        span: Span,
+        optional: bool,
+    },
 }
 
 impl PartialEq for PathMember {
     fn eq(&self, other: &Self) -> bool {
         match (self, other) {
-            (Self::String { val: l_val, .. }, Self::String { val: r_val, .. }) => l_val == r_val,
-            (Self::Int { val: l_val, .. }, Self::Int { val: r_val, .. }) => l_val == r_val,
+            (
+                Self::String {
+                    val: l_val,
+                    optional: l_opt,
+                    ..
+                },
+                Self::String {
+                    val: r_val,
+                    optional: r_opt,
+                    ..
+                },
+            ) => l_val == r_val && l_opt == r_opt,
+            (
+                Self::Int {
+                    val: l_val,
+                    optional: l_opt,
+                    ..
+                },
+                Self::Int {
+                    val: r_val,
+                    optional: r_opt,
+                    ..
+                },
+            ) => l_val == r_val && l_opt == r_opt,
             _ => false,
         }
     }

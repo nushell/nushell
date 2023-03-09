@@ -714,6 +714,7 @@ impl Value {
                 PathMember::Int {
                     val: count,
                     span: origin_span,
+                    optional,
                 } => {
                     // Treat a numeric path member as `select <val>`
                     match &mut current {
@@ -788,6 +789,7 @@ impl Value {
                 PathMember::String {
                     val: column_name,
                     span: origin_span,
+                    ..
                 } => match &mut current {
                     Value::Record { cols, vals, span } => {
                         let cols = cols.clone();
@@ -859,6 +861,7 @@ impl Value {
                                     &[PathMember::String {
                                         val: column_name.clone(),
                                         span: *origin_span,
+                                        optional: todo!(),
                                     }],
                                     insensitive,
                                     nullify_errors,
@@ -970,6 +973,7 @@ impl Value {
                 PathMember::String {
                     val: col_name,
                     span,
+                    optional,
                 } => match self {
                     Value::List { vals, .. } => {
                         for val in vals.iter_mut() {
@@ -1051,7 +1055,11 @@ impl Value {
                         })
                     }
                 },
-                PathMember::Int { val: row_num, span } => match self {
+                PathMember::Int {
+                    val: row_num,
+                    span,
+                    optional,
+                } => match self {
                     Value::List { vals, .. } => {
                         if let Some(v) = vals.get_mut(*row_num) {
                             v.upsert_data_at_cell_path(&cell_path[1..], new_val)?
@@ -1108,6 +1116,7 @@ impl Value {
                 PathMember::String {
                     val: col_name,
                     span,
+                    optional,
                 } => match self {
                     Value::List { vals, .. } => {
                         for val in vals.iter_mut() {
@@ -1178,7 +1187,11 @@ impl Value {
                         })
                     }
                 },
-                PathMember::Int { val: row_num, span } => match self {
+                PathMember::Int {
+                    val: row_num,
+                    span,
+                    optional,
+                } => match self {
                     Value::List { vals, .. } => {
                         if let Some(v) = vals.get_mut(*row_num) {
                             v.update_data_at_cell_path(&cell_path[1..], new_val)?
@@ -1216,6 +1229,7 @@ impl Value {
                     PathMember::String {
                         val: col_name,
                         span,
+                        optional,
                     } => match self {
                         Value::List { vals, .. } => {
                             for val in vals.iter_mut() {
@@ -1280,7 +1294,11 @@ impl Value {
                             src_span: v.span()?,
                         }),
                     },
-                    PathMember::Int { val: row_num, span } => match self {
+                    PathMember::Int {
+                        val: row_num,
+                        span,
+                        optional,
+                    } => match self {
                         Value::List { vals, .. } => {
                             if vals.get_mut(*row_num).is_some() {
                                 vals.remove(*row_num);
@@ -1307,6 +1325,7 @@ impl Value {
                     PathMember::String {
                         val: col_name,
                         span,
+                        optional,
                     } => match self {
                         Value::List { vals, .. } => {
                             for val in vals.iter_mut() {
@@ -1371,7 +1390,11 @@ impl Value {
                             src_span: v.span()?,
                         }),
                     },
-                    PathMember::Int { val: row_num, span } => match self {
+                    PathMember::Int {
+                        val: row_num,
+                        span,
+                        optional,
+                    } => match self {
                         Value::List { vals, .. } => {
                             if let Some(v) = vals.get_mut(*row_num) {
                                 v.remove_data_at_cell_path(&cell_path[1..])
@@ -1405,6 +1428,7 @@ impl Value {
                 PathMember::String {
                     val: col_name,
                     span,
+                    optional,
                 } => match self {
                     Value::List { vals, .. } => {
                         for val in vals.iter_mut() {
@@ -1483,7 +1507,11 @@ impl Value {
                         ))
                     }
                 },
-                PathMember::Int { val: row_num, span } => match self {
+                PathMember::Int {
+                    val: row_num,
+                    span,
+                    optional,
+                } => match self {
                     Value::List { vals, .. } => {
                         if let Some(v) = vals.get_mut(*row_num) {
                             v.insert_data_at_cell_path(&cell_path[1..], new_val, head_span)?
