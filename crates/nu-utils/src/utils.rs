@@ -18,11 +18,10 @@ pub fn enable_vt_processing() -> Result<()> {
         // enable_processed_output and enable_virtual_terminal_processing should be used
 
         if old_mode & mask == 0 {
-            match console_mode
+            if let Err(err) = console_mode
                 .set_mode(old_mode | ENABLE_PROCESSED_OUTPUT | ENABLE_VIRTUAL_TERMINAL_PROCESSING)
             {
-                Ok(_) => (),
-                Err(err) => return Err(err),
+                return Err(err);
             }
         }
     }
