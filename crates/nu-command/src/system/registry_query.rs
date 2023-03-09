@@ -125,7 +125,7 @@ fn registry_query(
                 vals: vec![
                     Value::string(name, call_span),
                     nu_value,
-                    Value::string(format!("{:?}", reg_type), call_span),
+                    Value::string(format!("{reg_type:?}"), call_span),
                 ],
                 span: *registry_key_span,
             })
@@ -143,7 +143,7 @@ fn registry_query(
                             vals: vec![
                                 Value::string(value.item, call_span),
                                 nu_value,
-                                Value::string(format!("{:?}", reg_type), call_span),
+                                Value::string(format!("{reg_type:?}"), call_span),
                             ],
                             span: value.span,
                         }

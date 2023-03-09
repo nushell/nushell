@@ -252,7 +252,7 @@ fn set_privilege() -> bool {
         }
 
         let mut tps: TOKEN_PRIVILEGES = zeroed();
-        let se_debug_name: Vec<u16> = format!("{}\0", SE_DEBUG_NAME).encode_utf16().collect();
+        let se_debug_name: Vec<u16> = format!("{SE_DEBUG_NAME}\0").encode_utf16().collect();
         tps.PrivilegeCount = 1;
         let ret = LookupPrivilegeValueW(
             ptr::null(),

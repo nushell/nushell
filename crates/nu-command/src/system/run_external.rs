@@ -226,7 +226,7 @@ impl ExternalCommand {
                                 if let Some(cwd) = self.env_vars.get("PWD") {
                                     // append cwd to PATH so `which-rs` looks in the cwd too.
                                     // this approximates what cmd.exe does.
-                                    let path_with_cwd = format!("{};{}", cwd, path);
+                                    let path_with_cwd = format!("{cwd};{path}");
                                     if let Ok(which_path) =
                                         which::which_in(&self.name.item, Some(path_with_cwd), cwd)
                                     {

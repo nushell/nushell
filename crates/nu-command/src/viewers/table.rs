@@ -1931,7 +1931,7 @@ fn create_empty_placeholder(
         return "".into();
     }
 
-    let empty_info_string = format!("empty {}", value_type_name);
+    let empty_info_string = format!("empty {value_type_name}");
     let cell = NuTable::create_cell(empty_info_string, TextStyle::default().dimmed());
     let data = vec![vec![cell]];
     let table = NuTable::new(data, (1, 1));
