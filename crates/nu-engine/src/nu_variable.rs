@@ -37,6 +37,9 @@ impl LazyRecord for NuVariable {
         cols.push("pid");
         cols.push("os-info");
 
+        cols.push("is-interactive");
+        cols.push("is-login");
+
         cols
     }
 
@@ -177,6 +180,14 @@ impl LazyRecord for NuVariable {
 
                 Ok(os_record)
             }
+            "is-interactive" => Ok(Value::Bool {
+                val: self.engine_state.is_interactive,
+                span: self.span,
+            }),
+            "is-login" => Ok(Value::Bool {
+                val: self.engine_state.is_login,
+                span: self.span,
+            }),
             _ => err(&format!("Could not find column '{column}'")),
         }
     }
