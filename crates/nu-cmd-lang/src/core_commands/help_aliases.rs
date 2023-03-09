@@ -203,7 +203,7 @@ fn build_help_aliases(engine_state: &EngineState, stack: &Stack, span: Span) -> 
 
         cols.push("usage".into());
         vals.push(Value::String {
-            val: sig.usage,
+            val: alias.signature().usage,
             span,
         });
 
