@@ -188,28 +188,24 @@ fn build_help_aliases(engine_state: &EngineState, stack: &Stack, span: Span) -> 
         let sig = decl.signature().update_from_command(name, decl.borrow());
 
         let key = sig.name;
-        let usage = sig.extra_usage;
 
         cols.push("name".into());
         vals.push(Value::String { val: key, span });
 
+        let alias = decl.as_alias().expect("must not be caused");
+
         cols.push("expansion".into());
         vals.push(Value::String {
-            val: String::from_utf8_lossy(
-                engine_state.get_span_contents(
-                    &decl
-                        .as_alias()
-                        .expect("must not be caused")
-                        .wrapped_call
-                        .span,
-                ),
-            )
-            .to_string(),
+            val: String::from_utf8_lossy(engine_state.get_span_contents(&alias.wrapped_call.span))
+                .to_string(),
             span,
         });
 
         cols.push("usage".into());
-        vals.push(Value::String { val: usage, span });
+        vals.push(Value::String {
+            val: sig.usage,
+            span,
+        });
 
         aliases.push(Value::Record { cols, vals, span });
     }
