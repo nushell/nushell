@@ -1283,7 +1283,7 @@ fn alias_overlay_hide() {
 #[test]
 fn alias_overlay_use() {
     let inp = &[
-        r#"module spam { def foo [] { 'foo' } }"#,
+        r#"module spam { export def foo [] { 'foo' } }"#,
         r#"alias ou = overlay use"#,
         r#"ou spam"#,
         r#"foo"#,

@@ -5306,31 +5306,41 @@ pub fn parse_builtin_commands(
     if !is_math_expression_like(working_set, lite_command.parts[0], expand_aliases_denylist)
         && !is_unaliasable_parser_keyword(working_set, &lite_command.parts)
     {
-        // Parse keywords that can be aliased. Note that we check for "unaliasable" keywords
-        // because alias can have any name, therefore, we can't check for "aliasable" keywords.
-        let (call_expr, error) = parse_call(
-            working_set,
-            &lite_command.parts,
-            lite_command.parts[0],
-            expand_aliases_denylist,
-            is_subexpression,
-        );
+        let name = working_set.get_span_contents(lite_command.parts[0]);
+        if let Some(decl_id) = working_set.find_decl(name, &Type::Any) {
+            let cmd = working_set.get_decl(decl_id);
+            if cmd.is_alias() {
+                // Parse keywords that can be aliased. Note that we check for "unaliasable" keywords
+                // because alias can have any name, therefore, we can't check for "aliasable" keywords.
+                let (call_expr, error) = parse_call(
+                    working_set,
+                    &lite_command.parts,
+                    lite_command.parts[0],
+                    expand_aliases_denylist,
+                    is_subexpression,
+                );
 
-        if error.is_none() {
-            if let Expression {
-                expr: Expr::Call(call),
-                ..
-            } = call_expr
-            {
-                // Apply parse keyword side effects
-                let cmd = working_set.get_decl(call.decl_id);
-                match cmd.name() {
-                    "overlay hide" => return parse_overlay_hide(working_set, call),
-                    "overlay new" => return parse_overlay_new(working_set, call),
-                    "overlay use" => {
-                        return parse_overlay_use(working_set, call, expand_aliases_denylist)
+                if error.is_none() {
+                    if let Expression {
+                        expr: Expr::Call(call),
+                        ..
+                    } = call_expr
+                    {
+                        // Apply parse keyword side effects
+                        let cmd = working_set.get_decl(call.decl_id);
+                        match cmd.name() {
+                            "overlay hide" => return parse_overlay_hide(working_set, call),
+                            "overlay new" => return parse_overlay_new(working_set, call),
+                            "overlay use" => {
+                                return parse_overlay_use(
+                                    working_set,
+                                    call,
+                                    expand_aliases_denylist,
+                                )
+                            }
+                            _ => { /* ??? */ }
+                        }
                     }
-                    _ => { /* ??? */ }
                 }
             }
         }
@@ -5358,6 +5368,44 @@ pub fn parse_builtin_commands(
             (pipeline, err)
         }
         // b"overlay" => parse_overlay(working_set, &lite_command.parts, expand_aliases_denylist),
+        b"overlay" if lite_command.parts.len() >= 2 &&
+            (working_set.get_span_contents(lite_command.parts[1]) == b"hide" ||
+            working_set.get_span_contents(lite_command.parts[1]) == b"new" ||
+            working_set.get_span_contents(lite_command.parts[1]) == b"use")
+        => {
+        // b"overlay hide" | b"overlay new" | b"overlay use" => {
+            let (call_expr, error) = parse_call(
+                working_set,
+                &lite_command.parts,
+                lite_command.parts[0],
+                expand_aliases_denylist,
+                is_subexpression,
+            );
+
+            log::info!("CALL_EXPR: {:?}", call_expr);
+            log::info!("ERROR: {:?}", error);
+
+            // if error.is_none() {
+            if let Expression {
+                expr: Expr::Call(call),
+                ..
+            } = call_expr
+            {
+                // Apply parse keyword side effects
+                let cmd = working_set.get_decl(call.decl_id);
+                log::info!("CMD NAME: {:?}", cmd.name());
+                match cmd.name() {
+                    "overlay hide" => return parse_overlay_hide(working_set, call),
+                    "overlay new" => return parse_overlay_new(working_set, call),
+                    "overlay use" => {
+                        return parse_overlay_use(working_set, call, expand_aliases_denylist)
+                    }
+                    _ => panic!("error"), //{ /* ??? */ }
+                }
+            } else {
+                panic!("handle error");
+            }
+        }
         b"source" | b"source-env" => {
             parse_source(working_set, &lite_command.parts, expand_aliases_denylist)
         }
