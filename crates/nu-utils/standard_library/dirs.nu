@@ -1,24 +1,27 @@
-# module dirs.nu -- maintain list of remembered directories + navigate them
-#
-# todo:
-# * expand relative to absolute paths (or relative to some prefix?)
-# * what if user does `cd` by hand?
-# * fix dirs show to use active: true/false
-
+# Maintain a list of working directories and navigates them
 
 # the directory stack
 export-env {
     let-env DIRS_POSITION = 0
-    let-env DIRS_LIST = [$env.PWD]
+    let-env DIRS_LIST = [($env.PWD | path expand)]
 }
 
 # Add one or more directories to the list.
 # PWD becomes first of the newly added directories.
 export def-env "add" [
-    ...paths: string    # directory or directories to add to remembered list
+    ...paths: string    # directory or directories to add to working list
     ] {
-    let-env DIRS_LIST = ($env.DIRS_LIST | insert ($env.DIRS_POSITION + 1) $paths | flatten)
-    let-env DIRS_POSITION = $env.DIRS_POSITION + 1
+        mut abspaths = []
+        for p in $paths {
+            if ($p | path type) != 'dir' {
+                let span = (metadata $p).span
+                error make {msg: "not a directory", label: {text: "not a directory", start: $span.start, end: $span.end } }
+            }
+        $abspaths = ($abspaths | append ($p | path expand))
+
+        }
+        let-env DIRS_LIST = ($env.DIRS_LIST | insert ($env.DIRS_POSITION + 1) $abspaths | flatten)
+        let-env DIRS_POSITION = $env.DIRS_POSITION + 1
 
     _fetch 0
 }
@@ -38,7 +41,7 @@ export def-env "prev" [
 }
 
 # Drop the current directory from the list, if it's not the only one.
-# PWD becomes the next remembered directory
+# PWD becomes the next working directory
 export def-env "drop" [] {
     if ($env.DIRS_LIST | length) > 1 {
         let-env DIRS_LIST = (($env.DIRS_LIST | take $env.DIRS_POSITION) | append ($env.DIRS_LIST | skip ($env.DIRS_POSITION + 1)))
@@ -47,18 +50,13 @@ export def-env "drop" [] {
     _fetch 0
 }
 
-# display current remembered directories
+# Display current working directories.
 export def-env "show" [] {
     mut out = []
     for $p in ($env.DIRS_LIST | enumerate) {
         $out = ($out | append [
-            [current, path]; 
-            [(if ($p.index == $env.DIRS_POSITION) {
-                    "==>"
-                } else {
-                    ""
-                })
-            , $p.item]
+            [active, path]; 
+            [($p.index == $env.DIRS_POSITION), $p.item]
         ])
     }
 
