@@ -1121,7 +1121,7 @@ fn run_hook_block(
         eval_block_with_early_return(engine_state, &mut callee_stack, block, input, false, false)?;
 
     if let PipelineData::Value(Value::Error { error }, _) = pipeline_data {
-        return Err(error);
+        return Err(*error);
     }
 
     // If all went fine, preserve the environment of the called block

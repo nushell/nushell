@@ -255,10 +255,14 @@ impl Command for Ls {
                             );
                             match entry {
                                 Ok(value) => Some(value),
-                                Err(err) => Some(Value::Error { error: err }),
+                                Err(err) => Some(Value::Error {
+                                    error: Box::new(err),
+                                }),
                             }
                         }
-                        Err(err) => Some(Value::Error { error: err }),
+                        Err(err) => Some(Value::Error {
+                            error: Box::new(err),
+                        }),
                     }
                 }
                 _ => Some(Value::Nothing { span: call_span }),

@@ -101,7 +101,7 @@ a variable. On the other hand, the "row condition" syntax is not supported."#
                             }
                         }
                         Err(error) => Some(Value::Error {
-                            error: chain_error_with_input(error, x.span()),
+                            error: Box::new(chain_error_with_input(error, x.span())),
                         }),
                     }
                 })
@@ -118,7 +118,11 @@ a variable. On the other hand, the "row condition" syntax is not supported."#
 
                     let x = match x {
                         Ok(x) => x,
-                        Err(err) => return Some(Value::Error { error: err }),
+                        Err(err) => {
+                            return Some(Value::Error {
+                                error: Box::new(err),
+                            })
+                        }
                     };
 
                     if let Some(var) = block.signature.get_positional(0) {
@@ -144,7 +148,7 @@ a variable. On the other hand, the "row condition" syntax is not supported."#
                             }
                         }
                         Err(error) => Some(Value::Error {
-                            error: chain_error_with_input(error, x.span()),
+                            error: Box::new(chain_error_with_input(error, x.span())),
                         }),
                     }
                 })
@@ -177,7 +181,7 @@ a variable. On the other hand, the "row condition" syntax is not supported."#
                         }
                     }
                     Err(error) => Some(Value::Error {
-                        error: chain_error_with_input(error, x.span()),
+                        error: Box::new(chain_error_with_input(error, x.span())),
                     }),
                 }
                 .into_pipeline_data(ctrlc))

@@ -16,7 +16,7 @@ fn from_value_to_delimited_string(
         }
         Value::List { vals, span } => table_to_delimited(vals, span, separator, config, head),
         // Propagate errors by explicitly matching them before the final case.
-        Value::Error { error } => Err(error.clone()),
+        Value::Error { error } => Err(*error.clone()),
         v => Err(make_unsupported_input_error(v, head, v.expect_span())),
     }
 }
@@ -122,7 +122,7 @@ fn to_string_tagged_value(
         Value::Date { val, .. } => Ok(val.to_string()),
         Value::Nothing { .. } => Ok(String::new()),
         // Propagate existing errors
-        Value::Error { error } => Err(error.clone()),
+        Value::Error { error } => Err(*error.clone()),
         _ => Err(make_unsupported_input_error(v, head, span)),
     }
 }

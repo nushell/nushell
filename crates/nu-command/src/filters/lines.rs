@@ -112,7 +112,7 @@ impl Command for Lines {
             PipelineData::Value(val, ..) => {
                 match val {
                     // Propagate existing errors
-                    Value::Error { error } => Err(error),
+                    Value::Error { error } => Err(*error),
                     _ => Err(ShellError::OnlySupportsThisInputType {
                         exp_input_type: "string or raw data".into(),
                         wrong_type: val.get_type().to_string(),
@@ -129,7 +129,9 @@ impl Command for Lines {
                 .enumerate()
                 .map(move |(_idx, x)| match x {
                     Ok(x) => x,
-                    Err(err) => Value::Error { error: err },
+                    Err(err) => Value::Error {
+                        error: Box::new(err),
+                    },
                 })
                 .into_pipeline_data(ctrlc)),
         }
@@ -232,7 +234,7 @@ impl Iterator for RawStreamLinesAdapter {
                                     self.queue.append(&mut lines);
                                 }
                                 // Propagate errors by explicitly matching them before the final case.
-                                Value::Error { error } => return Some(Err(error)),
+                                Value::Error { error } => return Some(Err(*error)),
                                 other => {
                                     return Some(Err(ShellError::OnlySupportsThisInputType {
                                         exp_input_type: "string".into(),

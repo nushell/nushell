@@ -463,7 +463,7 @@ pub fn convert_sqlite_value_to_nu_value(value: ValueRef, span: Span) -> Value {
                 Ok(v) => v,
                 Err(_) => {
                     return Value::Error {
-                        error: ShellError::NonUtf8(span),
+                        error: Box::new(ShellError::NonUtf8(span)),
                     }
                 }
             };

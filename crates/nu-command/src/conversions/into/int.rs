@@ -189,12 +189,12 @@ fn action(input: &Value, args: &Arguments, span: Span) -> Value {
                         Ok(v) => v,
                         _ => {
                             return Value::Error {
-                                error: ShellError::CantConvert {
+                                error: Box::new(ShellError::CantConvert {
                                     to_type: "float".to_string(),
                                     from_type: "integer".to_string(),
                                     span,
                                     help: None,
-                                },
+                                }),
                             }
                         }
                     }
@@ -206,7 +206,9 @@ fn action(input: &Value, args: &Arguments, span: Span) -> Value {
             if radix == 10 {
                 match int_from_string(val, span) {
                     Ok(val) => Value::Int { val, span },
-                    Err(error) => Value::Error { error },
+                    Err(error) => Value::Error {
+                        error: Box::new(error),
+                    },
                 }
             } else {
                 convert_int(input, span, radix)
@@ -232,10 +234,10 @@ fn action(input: &Value, args: &Arguments, span: Span) -> Value {
                         .unwrap()
             {
                 Value::Error {
-                    error: ShellError::IncorrectValue {
+                    error: Box::new(ShellError::IncorrectValue {
                         msg: "DateTime out of range for timestamp: 1677-09-21T00:12:43Z to 2262-04-11T23:47:16".to_string(),
                         span
-                    },
+                    }),
                 }
             } else {
                 Value::Int {
@@ -269,13 +271,13 @@ fn action(input: &Value, args: &Arguments, span: Span) -> Value {
         // Propagate errors by explicitly matching them before the final case.
         Value::Error { .. } => input.clone(),
         other => Value::Error {
-            error: ShellError::OnlySupportsThisInputType {
+            error: Box::new(ShellError::OnlySupportsThisInputType {
                 exp_input_type: "integer, float, filesize, date, string, binary, duration or bool"
                     .into(),
                 wrong_type: other.get_type().to_string(),
                 dst_span: span,
                 src_span: other.expect_span(),
-            },
+            }),
         },
     }
 }
@@ -292,7 +294,7 @@ fn convert_int(input: &Value, head: Span, radix: u32) -> Value {
             {
                 match int_from_string(val, head) {
                     Ok(x) => return Value::int(x, head),
-                    Err(e) => return Value::Error { error: e },
+                    Err(e) => return Value::Error { error: Box::new(e) },
                 }
             } else if val.starts_with("00") {
                 // It's a padded string
@@ -300,12 +302,12 @@ fn convert_int(input: &Value, head: Span, radix: u32) -> Value {
                     Ok(n) => return Value::int(n, head),
                     Err(e) => {
                         return Value::Error {
-                            error: ShellError::CantConvert {
+                            error: Box::new(ShellError::CantConvert {
                                 to_type: "string".to_string(),
                                 from_type: "int".to_string(),
                                 span: head,
                                 help: Some(e.to_string()),
-                            },
+                            }),
                         }
                     }
                 }
@@ -316,24 +318,24 @@ fn convert_int(input: &Value, head: Span, radix: u32) -> Value {
         Value::Error { .. } => return input.clone(),
         other => {
             return Value::Error {
-                error: ShellError::OnlySupportsThisInputType {
+                error: Box::new(ShellError::OnlySupportsThisInputType {
                     exp_input_type: "string and integer".into(),
                     wrong_type: other.get_type().to_string(),
                     dst_span: head,
                     src_span: other.expect_span(),
-                },
+                }),
             };
         }
     };
     match i64::from_str_radix(i.trim(), radix) {
         Ok(n) => Value::int(n, head),
         Err(_reason) => Value::Error {
-            error: ShellError::CantConvert {
+            error: Box::new(ShellError::CantConvert {
                 to_type: "string".to_string(),
                 from_type: "int".to_string(),
                 span: head,
                 help: None,
-            },
+            }),
         },
     }
 }
@@ -483,9 +485,9 @@ mod test {
     }
 
     #[rstest]
-    #[case("2262-04-11T23:47:16+00:00", 0x7fffffff_ffffffff)]
+    #[case("2262-04-11T23:47:16+00:00", 0x7fff_ffff_ffff_ffff)]
     #[case("1970-01-01T00:00:00+00:00", 0)]
-    #[case("1677-09-21T00:12:44+00:00", -0x7fffffff_ffffffff)]
+    #[case("1677-09-21T00:12:44+00:00", -0x7fff_ffff_ffff_ffff)]
     fn datetime_to_int_values_that_work(
         #[case] dt_in: DateTime<FixedOffset>,
         #[case] int_expected: i64,
@@ -522,14 +524,15 @@ mod test {
             },
             Span::test_data(),
         );
-        if let Value::Error {
-            error: ShellError::IncorrectValue { msg: e, .. },
-        } = actual
-        {
-            assert!(
-                e.contains(err_expected),
-                "{e:?} doesn't contain {err_expected}"
-            );
+        if let Value::Error { error } = actual {
+            if let ShellError::IncorrectValue { msg: e, .. } = *error {
+                assert!(
+                    e.contains(err_expected),
+                    "{e:?} doesn't contain {err_expected}"
+                );
+            } else {
+                panic!("Unexpected error variant {error:?}")
+            }
         } else {
             panic!("Unexpected actual value {actual:?}")
         }

@@ -158,9 +158,13 @@ impl Command for Move {
                         call.head,
                     ) {
                         Ok(val) => val,
-                        Err(error) => Value::Error { error },
+                        Err(error) => Value::Error {
+                            error: Box::new(error),
+                        },
                     },
-                    Err(error) => Value::Error { error },
+                    Err(error) => Value::Error {
+                        error: Box::new(error),
+                    },
                 });
 
                 if let Some(md) = metadata {
