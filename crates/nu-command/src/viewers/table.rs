@@ -934,7 +934,7 @@ fn convert_to_table(
                             let path = PathMember::String {
                                 val: text.clone(),
                                 span: head,
-                                optional: todo!(),
+                                optional: false,
                             };
                             let val = item.clone().follow_cell_path(&[path], false, false);
 
@@ -1325,7 +1325,7 @@ fn create_table2_entry(
             let path = PathMember::String {
                 val,
                 span: head,
-                optional: todo!(),
+                optional: false,
             };
             let val = item.clone().follow_cell_path(&[path], false, false);
 

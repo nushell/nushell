@@ -602,7 +602,7 @@ fn create_table2_entry_basic(
             let path = PathMember::String {
                 val,
                 span: head,
-                optional: todo!(),
+                optional: false,
             };
             let val = item.clone().follow_cell_path(&[path], false, false);
 
@@ -634,7 +634,7 @@ fn create_table2_entry(
             let path = PathMember::String {
                 val,
                 span: head,
-                optional: todo!(),
+                optional: false,
             };
             let val = item.clone().follow_cell_path(&[path], false, false);
 

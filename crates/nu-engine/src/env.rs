@@ -319,12 +319,12 @@ fn get_converted_value(
             PathMember::String {
                 val: name.to_string(),
                 span: env_span,
-                optional: todo!(),
+                optional: false,
             },
             PathMember::String {
                 val: direction.to_string(),
                 span: env_span,
-                optional: todo!(),
+                optional: false,
             },
         ];
 

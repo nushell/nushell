@@ -243,7 +243,7 @@ mod test {
                     members: vec![PathMember::Int {
                         val: 0,
                         span,
-                        optional: todo!(),
+                        optional: false,
                     }],
                 },
                 span,

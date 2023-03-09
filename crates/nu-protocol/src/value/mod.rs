@@ -861,7 +861,7 @@ impl Value {
                                     &[PathMember::String {
                                         val: column_name.clone(),
                                         span: *origin_span,
-                                        optional: todo!(),
+                                        optional: false,
                                     }],
                                     insensitive,
                                     nullify_errors,
