@@ -196,7 +196,13 @@ fn build_help_aliases(engine_state: &EngineState, stack: &Stack, span: Span) -> 
         cols.push("expansion".into());
         vals.push(Value::String {
             val: String::from_utf8_lossy(
-                engine_state.get_span_contents(&decl.as_alias().unwrap().wrapped_call.span),
+                engine_state.get_span_contents(
+                    &decl
+                        .as_alias()
+                        .expect("must not be caused")
+                        .wrapped_call
+                        .span,
+                ),
             )
             .to_string(),
             span,
