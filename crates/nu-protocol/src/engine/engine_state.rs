@@ -147,6 +147,7 @@ pub struct EngineState {
     pub regex_cache: Arc<Mutex<LruCache<String, Regex>>>,
     pub is_interactive: bool,
     pub is_login: bool,
+    startup_time: i64,
 }
 
 // The max number of compiled regexes to keep around in a LRU cache, arbitrarily chosen
@@ -199,6 +200,7 @@ impl EngineState {
             ))),
             is_interactive: false,
             is_login: false,
+            startup_time: -1,
         }
     }
 
@@ -1014,6 +1016,14 @@ impl EngineState {
 
     pub fn get_file_contents(&self) -> &Vec<(Vec<u8>, usize, usize)> {
         &self.file_contents
+    }
+
+    pub fn get_startup_time(&self) -> i64 {
+        self.startup_time
+    }
+
+    pub fn set_startup_time(&mut self, startup_time: i64) {
+        self.startup_time = startup_time;
     }
 }
 
