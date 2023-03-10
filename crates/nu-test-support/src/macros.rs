@@ -266,7 +266,7 @@ macro_rules! nu_with_plugins {
                     .display()
             ),+
         );
-        let commands = format!("{registrations}{}", $command);
+        let commands = format!("{}{}", registrations, $command);
 
         let target_cwd = $crate::fs::in_directory(&$cwd);
         // In plugin testing, we need to use installed nushell to drive
