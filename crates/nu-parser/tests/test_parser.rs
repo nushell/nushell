@@ -390,7 +390,11 @@ pub fn parse_cell_path_optional() {
 
     let (block, err) = parse(&mut working_set, None, b"$foo.bar?.baz", true, &[]);
 
-    assert!(err.is_none());
+    if let Some(err) = err {
+        dbg!(err);
+        panic!();
+    }
+
     assert_eq!(block.len(), 1);
     let expressions = &block[0];
     assert_eq!(expressions.len(), 1);
