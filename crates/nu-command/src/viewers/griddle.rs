@@ -280,7 +280,6 @@ fn convert_to_list(
                                 optional: false,
                             }],
                             false,
-                            false,
                         ),
                         _ => Ok(item.clone()),
                     };

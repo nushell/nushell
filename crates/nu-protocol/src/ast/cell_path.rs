@@ -72,6 +72,19 @@ impl CellPath {
 
         output
     }
+
+    pub fn make_optional(&mut self) {
+        for member in &mut self.members {
+            match member {
+                PathMember::String {
+                    ref mut optional, ..
+                } => *optional = true,
+                PathMember::Int {
+                    ref mut optional, ..
+                } => *optional = true,
+            }
+        }
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]

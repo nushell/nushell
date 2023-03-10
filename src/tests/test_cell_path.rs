@@ -23,6 +23,16 @@ fn record_single_field_optional_success() -> TestResult {
 }
 
 #[test]
+fn get_works_with_cell_path_success() -> TestResult {
+    run_test("{foo: 'bar'} | get foo?", "bar")
+}
+
+#[test]
+fn get_works_with_cell_path_missing_data() -> TestResult {
+    run_test("{foo: 'bar'} | get foobar? | to nuon", "null")
+}
+
+#[test]
 fn record_single_field_failure() -> TestResult {
     fail_test("{foo: 'bar'}.foobar", "")
 }
@@ -39,7 +49,12 @@ fn record_single_field_optional() -> TestResult {
 
 #[test]
 fn record_single_field_optional_does_not_short_circuit() -> TestResult {
-    fail_test("{foo: 'bar'}.foobar?.baz  | to nuon", "null")
+    fail_test("{foo: 'bar'}.foobar?.baz", "nothing")
+}
+
+#[test]
+fn record_multiple_optional_fields() -> TestResult {
+    run_test("{foo: 'bar'}.foobar?.baz? | to nuon", "null")
 }
 
 #[test]
@@ -70,23 +85,6 @@ fn record_with_nested_list_int_failure() -> TestResult {
 #[test]
 fn record_with_nested_list_column_failure() -> TestResult {
     fail_test("{foo: [{bar: 'baz'}]}.foo.0.asdf", "")
-}
-
-#[test]
-fn deeply_nested_optional_cell_path() -> TestResult {
-    run_test(
-        "{foo: [{bar: 'baz'}]}.foo.3?.bar?.asdfdafg?.234?.foobar?  | to nuon",
-        "null",
-    )
-}
-
-// Test whether cell path access short-circuits properly
-#[test]
-fn deeply_nested_cell_path_with_single_optional_member() -> TestResult {
-    run_test(
-        "{foo: [{bar: 'baz'}]}.foo.3?.bar.asdfdafg.234.foobar  | to nuon",
-        "null",
-    )
 }
 
 // Tests for lists

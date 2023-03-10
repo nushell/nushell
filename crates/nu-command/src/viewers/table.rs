@@ -936,7 +936,7 @@ fn convert_to_table(
                                 span: head,
                                 optional: false,
                             };
-                            let val = item.clone().follow_cell_path(&[path], false, false);
+                            let val = item.clone().follow_cell_path(&[path], false);
 
                             match val {
                                 Ok(val) => DeferredStyleComputation::Value { value: val },
@@ -1327,7 +1327,7 @@ fn create_table2_entry(
                 span: head,
                 optional: false,
             };
-            let val = item.clone().follow_cell_path(&[path], false, false);
+            let val = item.clone().follow_cell_path(&[path], false);
 
             match val {
                 Ok(val) => convert_to_table2_entry(

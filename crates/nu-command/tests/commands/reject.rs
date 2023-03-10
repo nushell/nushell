@@ -23,7 +23,7 @@ fn regular_columns() {
 #[test]
 fn skip_cell_rejection() {
     let actual = nu!(cwd: ".", pipeline(
-        r#"[ {a: 1, b: 2,c:txt}, { a:val } ] | reject a | get c.0"#));
+        r#"[ {a: 1, b: 2,c:txt}, { a:val } ] | reject a | get c?.0"#));
 
     assert_eq!(actual.out, "txt");
 }

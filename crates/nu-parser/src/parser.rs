@@ -4642,7 +4642,7 @@ pub fn parse_value(
             let source = working_set.get_span_contents(span);
             let mut error = None;
 
-            let (tokens, err) = lex(source, span.start, &[b'\n', b'\r'], &[b'.'], true);
+            let (tokens, err) = lex(source, span.start, &[b'\n', b'\r'], &[b'.', b'?'], true);
             error = error.or(err);
 
             let tokens = tokens.into_iter().peekable();

@@ -62,16 +62,20 @@ If multiple cell paths are given, this will produce a list of values."#
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
         let span = call.head;
-        let cell_path: CellPath = call.req(engine_state, stack, 0)?;
+        let mut cell_path: CellPath = call.req(engine_state, stack, 0)?;
         let rest: Vec<CellPath> = call.rest(engine_state, stack, 1)?;
         let sensitive = call.has_flag("sensitive");
         let ignore_errors = call.has_flag("ignore-errors");
         let ctrlc = engine_state.ctrlc.clone();
         let metadata = input.metadata();
 
+        if ignore_errors {
+            cell_path.make_optional();
+        }
+
         if rest.is_empty() {
             input
-                .follow_cell_path(&cell_path.members, call.head, !sensitive, ignore_errors)
+                .follow_cell_path(&cell_path.members, call.head, !sensitive)
                 .map(|x| x.into_pipeline_data())
         } else {
             let mut output = vec![];
@@ -81,9 +85,7 @@ If multiple cell paths are given, this will produce a list of values."#
             let input = input.into_value(span);
 
             for path in paths {
-                let val = input
-                    .clone()
-                    .follow_cell_path(&path.members, !sensitive, false);
+                let val = input.clone().follow_cell_path(&path.members, !sensitive);
 
                 output.push(val?);
             }

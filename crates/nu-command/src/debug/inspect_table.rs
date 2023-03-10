@@ -212,7 +212,7 @@ mod util {
                 };
 
                 item.clone()
-                    .follow_cell_path(&[path], false, false)
+                    .follow_cell_path(&[path], false)
                     .unwrap_or_else(|_| item.clone())
             }
             item => item.clone(),

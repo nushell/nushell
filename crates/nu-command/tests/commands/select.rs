@@ -201,20 +201,6 @@ fn select_ignores_errors_successfully3() {
 fn select_ignores_errors_successfully4() {
     let actual = nu!(
         cwd: ".", pipeline(
-        r#"[a b c] | select -i invalid_key | to nuon"#
-    ));
-
-    assert_eq!(
-        actual.out,
-        "[[invalid_key]; [null], [null], [null]]".to_string()
-    );
-    assert!(actual.err.is_empty());
-}
-
-#[test]
-fn select_ignores_errors_successfully5() {
-    let actual = nu!(
-        cwd: ".", pipeline(
         r#"[a b c] | select -i 0.0"#
     ));
 
@@ -223,7 +209,7 @@ fn select_ignores_errors_successfully5() {
 }
 
 #[test]
-fn select_ignores_errors_successfully6() {
+fn select_ignores_errors_successfully5() {
     let actual = nu!(
         cwd: ".", pipeline(
         r#""key val\na 1\nb 2\n" | lines | split column -c " " | select -i "100" | to nuon"#
