@@ -1553,12 +1553,12 @@ pub fn parse_range(
             return garbage(span);
         }
     } else {
-        let op_str = "..";
+        let op_str = if token.contains("..=") { "..=" } else { ".." };
         let op_span = Span::new(
             span.start + range_op_pos,
             span.start + range_op_pos + op_str.len(),
         );
-        (RangeInclusion::Inclusive, "..", op_span)
+        (RangeInclusion::Inclusive, op_str, op_span)
     };
 
     // Now, based on the operator positions, figure out where the bounds & next are located and
@@ -5178,7 +5178,11 @@ pub fn parse_expression(
 
         let split = name.splitn(2, |x| *x == b'=');
         let split: Vec<_> = split.collect();
-        if !name.starts_with(b"^") && split.len() == 2 && !split[0].is_empty() {
+        if !name.starts_with(b"^")
+            && split.len() == 2
+            && !split[0].is_empty()
+            && !split[0].ends_with(b"..") // was range op ..=
+        {
             let point = split[0].len() + 1;
 
             let starting_error_count = working_set.parse_errors.len();
