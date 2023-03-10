@@ -1,6 +1,5 @@
 use crate::formats::nu_xml_format::{COLUMN_ATTRS_NAME, COLUMN_CONTENT_NAME, COLUMN_TAG_NAME};
 use indexmap::map::IndexMap;
-use itertools::Itertools;
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
@@ -46,7 +45,7 @@ impl Command for FromXml {
         let info = ParsingInfo {
             span: head,
             keep_comments,
-            keep_processing_instructions
+            keep_processing_instructions,
         };
         from_xml(input, &info)
     }
@@ -58,43 +57,38 @@ impl Command for FromXml {
   <remember>Event</remember>
 </note>' | from xml"#,
             description: "Converts xml formatted string to record",
-            result: Some(Value::Record {
-                cols: vec!["note".to_string()],
-                vals: vec![Value::Record {
-                    cols: vec!["children".to_string(), "attributes".to_string()],
-                    vals: vec![
-                        Value::List {
-                            vals: vec![Value::Record {
-                                cols: vec!["remember".to_string()],
-                                vals: vec![Value::Record {
-                                    cols: vec!["children".to_string(), "attributes".to_string()],
-                                    vals: vec![
-                                        Value::List {
-                                            vals: vec![Value::test_string("Event")],
-                                            span: Span::test_data(),
-                                        },
-                                        Value::Record {
-                                            cols: vec![],
-                                            vals: vec![],
-                                            span: Span::test_data(),
-                                        },
-                                    ],
-                                    span: Span::test_data(),
-                                }],
-                                span: Span::test_data(),
-                            }],
-                            span: Span::test_data(),
-                        },
-                        Value::Record {
-                            cols: vec![],
-                            vals: vec![],
-                            span: Span::test_data(),
-                        },
-                    ],
-                    span: Span::test_data(),
-                }],
-                span: Span::test_data(),
-            }),
+            result: Some(Value::test_record(
+                vec![COLUMN_TAG_NAME, COLUMN_ATTRS_NAME, COLUMN_CONTENT_NAME],
+                vec![
+                    Value::test_string("note"),
+                    Value::test_record(Vec::<&str>::new(), vec![]),
+                    Value::list(
+                        vec![Value::test_record(
+                            vec![COLUMN_TAG_NAME, COLUMN_ATTRS_NAME, COLUMN_CONTENT_NAME],
+                            vec![
+                                Value::test_string("remember"),
+                                Value::test_record(Vec::<&str>::new(), vec![]),
+                                Value::list(
+                                    vec![Value::test_record(
+                                        vec![
+                                            COLUMN_TAG_NAME,
+                                            COLUMN_ATTRS_NAME,
+                                            COLUMN_CONTENT_NAME,
+                                        ],
+                                        vec![
+                                            Value::test_nothing(),
+                                            Value::test_nothing(),
+                                            Value::test_string("Event"),
+                                        ],
+                                    )],
+                                    Span::test_data(),
+                                ),
+                            ],
+                        )],
+                        Span::test_data(),
+                    ),
+                ],
+            )),
         }]
     }
 }
@@ -172,7 +166,9 @@ fn text_to_value(n: &roxmltree::Node, info: &ParsingInfo) -> Option<Value> {
 fn comment_to_value(n: &roxmltree::Node, info: &ParsingInfo) -> Option<Value> {
     if info.keep_comments {
         let span = info.span;
-        let text = n.text().expect("Non-comment node supplied to comment_to_value");
+        let text = n
+            .text()
+            .expect("Non-comment node supplied to comment_to_value");
 
         let mut node = IndexMap::new();
         let content = Value::string(String::from(text), span);
@@ -198,7 +194,9 @@ fn processing_instruction_to_value(n: &roxmltree::Node, info: &ParsingInfo) -> O
         // Add '?' before target to differentiate tags from pi targets
         let tag = format!("?{}", pi.target);
         let tag = Value::string(tag, span);
-        let content = pi.value.map_or_else(|| {Value::nothing(span)}, |x| {Value::string(x, span)});
+        let content = pi
+            .value
+            .map_or_else(|| Value::nothing(span), |x| Value::string(x, span));
 
         node.insert(String::from(COLUMN_TAG_NAME), tag);
         node.insert(String::from(COLUMN_ATTRS_NAME), Value::nothing(span));
@@ -257,9 +255,12 @@ mod tests {
         Value::test_string(input)
     }
 
-    fn row(entries: IndexMap<String, Value>) -> Value {
+    fn attributes(entries: IndexMap<&str, &str>) -> Value {
         Value::from(Spanned {
-            item: entries,
+            item: entries
+                .into_iter()
+                .map(|(k, v)| (k.into(), string(v)))
+                .collect::<IndexMap<String, Value>>(),
             span: Span::test_data(),
         })
     }
@@ -269,6 +270,32 @@ mod tests {
             vals: list.to_vec(),
             span: Span::test_data(),
         }
+    }
+
+    fn content_tag(
+        tag: impl Into<String>,
+        attrs: IndexMap<&str, &str>,
+        content: &[Value],
+    ) -> Value {
+        Value::from(Spanned {
+            item: indexmap! {
+                COLUMN_TAG_NAME.into() => string(tag),
+                COLUMN_ATTRS_NAME.into() => attributes(attrs),
+                COLUMN_CONTENT_NAME.into() => table(content),
+            },
+            span: Span::test_data(),
+        })
+    }
+
+    fn content_string(value: impl Into<String>) -> Value {
+        Value::from(Spanned {
+            item: indexmap! {
+                COLUMN_TAG_NAME.into() => Value::nothing(Span::test_data()),
+                COLUMN_ATTRS_NAME.into() => Value::nothing(Span::test_data()),
+                COLUMN_CONTENT_NAME.into() => string(value),
+            },
+            span: Span::test_data(),
+        })
     }
 
     fn parse(xml: &str) -> Result<Value, roxmltree::Error> {
@@ -284,15 +311,7 @@ mod tests {
     fn parses_empty_element() -> Result<(), roxmltree::Error> {
         let source = "<nu></nu>";
 
-        assert_eq!(
-            parse(source)?,
-            row(indexmap! {
-                "nu".into() => row(indexmap! {
-                    "children".into() => table(&[]),
-                    "attributes".into() => row(indexmap! {})
-                })
-            })
-        );
+        assert_eq!(parse(source)?, content_tag("nu", indexmap! {}, &vec![]));
 
         Ok(())
     }
@@ -303,12 +322,11 @@ mod tests {
 
         assert_eq!(
             parse(source)?,
-            row(indexmap! {
-                "nu".into() => row(indexmap! {
-                    "children".into() => table(&[string("La era de los tres caballeros")]),
-                    "attributes".into() => row(indexmap! {})
-                })
-            })
+            content_tag(
+                "nu",
+                indexmap! {},
+                &vec![content_string("La era de los tres caballeros")]
+            )
         );
 
         Ok(())
@@ -325,31 +343,15 @@ mod tests {
 
         assert_eq!(
             parse(source)?,
-            row(indexmap! {
-                "nu".into() => row(indexmap! {
-                    "children".into() => table(&[
-                        row(indexmap! {
-                            "dev".into() => row(indexmap! {
-                                "children".into() => table(&[string("Andrés")]),
-                                "attributes".into() => row(indexmap! {})
-                            })
-                        }),
-                        row(indexmap! {
-                            "dev".into() => row(indexmap! {
-                                "children".into() => table(&[string("Jonathan")]),
-                                "attributes".into() => row(indexmap! {})
-                            })
-                        }),
-                        row(indexmap! {
-                            "dev".into() => row(indexmap! {
-                                "children".into() => table(&[string("Yehuda")]),
-                                "attributes".into() => row(indexmap! {})
-                            })
-                        })
-                    ]),
-                    "attributes".into() => row(indexmap! {})
-                })
-            })
+            content_tag(
+                "nu",
+                indexmap! {},
+                &vec![
+                    content_tag("dev", indexmap! {}, &vec![content_string("Andrés")]),
+                    content_tag("dev", indexmap! {}, &vec![content_string("Jonathan")]),
+                    content_tag("dev", indexmap! {}, &vec![content_string("Yehuda")])
+                ]
+            )
         );
 
         Ok(())
@@ -363,14 +365,7 @@ mod tests {
 
         assert_eq!(
             parse(source)?,
-            row(indexmap! {
-                "nu".into() => row(indexmap! {
-                    "children".into() => table(&[]),
-                    "attributes".into() => row(indexmap! {
-                        "version".into() => string("2.0")
-                    })
-                })
-            })
+            content_tag("nu", indexmap! {"version" => "2.0"}, &vec![])
         );
 
         Ok(())
@@ -385,21 +380,15 @@ mod tests {
 
         assert_eq!(
             parse(source)?,
-            row(indexmap! {
-                "nu".into() => row(indexmap! {
-                    "children".into() => table(&[
-                           row(indexmap! {
-                                "version".into() => row(indexmap! {
-                                    "children".into() => table(&[string("2.0")]),
-                                    "attributes".into() => row(indexmap! {})
-                                })
-                          })
-                    ]),
-                    "attributes".into() => row(indexmap! {
-                        "version".into() => string("2.0")
-                    })
-                })
-            })
+            content_tag(
+                "nu",
+                indexmap! {"version" => "2.0"},
+                &vec![content_tag(
+                    "version",
+                    indexmap! {},
+                    &vec![content_string("2.0")]
+                )]
+            )
         );
 
         Ok(())
@@ -413,15 +402,7 @@ mod tests {
 
         assert_eq!(
             parse(source)?,
-            row(indexmap! {
-                "nu".into() => row(indexmap! {
-                    "children".into() => table(&[]),
-                    "attributes".into() => row(indexmap! {
-                        "version".into() => string("2.0"),
-                        "age".into() => string("25")
-                    })
-                })
-            })
+            content_tag("nu", indexmap! {"version" => "2.0", "age" => "25"}, &vec![])
         );
 
         Ok(())

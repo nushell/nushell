@@ -4,11 +4,10 @@ use nu_engine::CallExt;
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
-    Category, Config, Example, IntoPipelineData, PipelineData, ShellError, Signature, Span,
-    Spanned, SyntaxShape, Type, Value,
+    Category, Example, IntoPipelineData, PipelineData, ShellError, Signature, Span, Spanned,
+    SyntaxShape, Type, Value,
 };
 use quick_xml::events::{BytesEnd, BytesStart, BytesText, Event};
-use std::collections::HashSet;
 use std::io::Cursor;
 use std::io::Write;
 
@@ -36,14 +35,21 @@ impl Command for ToXml {
         vec![
             Example {
                 description: "Outputs an XML string representing the contents of this table",
-                example: r#"{ "note": { "children": [{ "remember": {"attributes" : {}, "children": [Event]}}], "attributes": {} } } | to xml"#,
+                example: r#"{tag: note attributes: {} content : [{tag: remember attributes: {} content : [{tag: null attrs: null content : Event}]}]} | to xml"#,
+                result: Some(Value::test_string(
+                    "<note><remember>Event</remember></note>",
+                )),
+            },
+            Example {
+                description: "When formatting xml null and empty record fields can be omitted and strings can be written without a wrapping record",
+                example: r#"{tag: note content : [{tag: remember content : [Event]}]} | to xml"#,
                 result: Some(Value::test_string(
                     "<note><remember>Event</remember></note>",
                 )),
             },
             Example {
                 description: "Optionally, formats the text with a custom indentation setting",
-                example: r#"{ "note": { "children": [{ "remember": {"attributes" : {}, "children": [Event]}}], "attributes": {} } } | to xml -p 3"#,
+                example: r#"{tag: note content : [{tag: remember content : [Event]}]} | to xml -p 3"#,
                 result: Some(Value::test_string(
                     "<note>\n   <remember>Event</remember>\n</note>",
                 )),
@@ -127,7 +133,7 @@ fn to_xml_entry<W: Write>(
                     entry.get_type().to_string(),
                     entry.span().unwrap_or(Span::unknown()),
                     None,
-                ))
+                ));
             }
             to_xml_text(val.as_str(), writer)
         }
@@ -226,15 +232,13 @@ fn to_processing_instruction<W: Write>(
     content: String,
     writer: &mut quick_xml::Writer<W>,
 ) -> Result<(), ()> {
-    if !matches!(attrs, Value::Nothing{..}) {
+    if !matches!(attrs, Value::Nothing { .. }) {
         return Err(());
     }
 
     let content_text = format!("{} {}", tag, content);
     let pi_content = BytesText::new(content_text.as_str());
-    writer
-        .write_event(Event::PI(pi_content))
-        .map_err(|_| ())
+    writer.write_event(Event::PI(pi_content)).map_err(|_| ())
 }
 
 fn to_tag<W: Write>(

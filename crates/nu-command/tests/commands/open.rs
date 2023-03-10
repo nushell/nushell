@@ -179,7 +179,18 @@ fn parses_json() {
 fn parses_xml() {
     let actual = nu!(
         cwd: "tests/fixtures/formats",
-        "open jonathan.xml | get rss.children.channel.children | get 0.3.item.children | get 3.link.children.0"
+        pipeline(r#"
+            open jonathan.xml
+            | get content
+            | where tag == channel
+            | get content
+            | flatten
+            | where tag == item
+            | get content
+            | flatten
+            | where tag == guid
+            | get content.0.content.0
+        "#)
     );
 
     assert_eq!(
