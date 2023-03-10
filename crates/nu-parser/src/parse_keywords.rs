@@ -75,6 +75,45 @@ pub fn is_unaliasable_parser_keyword(working_set: &StateWorkingSet, spans: &[Spa
     }
 }
 
+/// This is a new more compact method of calling parse_xxx() functions without repeating the
+/// parse_call() in each function. Remaining keywords can be moved here.
+pub fn parse_keyword(
+    working_set: &mut StateWorkingSet,
+    lite_command: &LiteCommand,
+    expand_aliases_denylist: &[usize],
+    is_subexpression: bool,
+) -> (Pipeline, Option<ParseError>) {
+    let (call_expr, err) = parse_call(
+        working_set,
+        &lite_command.parts,
+        lite_command.parts[0],
+        expand_aliases_denylist,
+        is_subexpression,
+    );
+
+    if err.is_some() {
+        return (Pipeline::from_vec(vec![call_expr]), err);
+    }
+
+    if let Expression {
+        expr: Expr::Call(call),
+        ..
+    } = call_expr.clone()
+    {
+        // Apply parse keyword side effects
+        let cmd = working_set.get_decl(call.decl_id);
+
+        match cmd.name() {
+            "overlay hide" => parse_overlay_hide(working_set, call),
+            "overlay new" => parse_overlay_new(working_set, call),
+            "overlay use" => parse_overlay_use(working_set, call, expand_aliases_denylist),
+            _ => (Pipeline::from_vec(vec![call_expr]), err),
+        }
+    } else {
+        (Pipeline::from_vec(vec![call_expr]), err)
+    }
+}
+
 pub fn parse_def_predecl(
     working_set: &mut StateWorkingSet,
     spans: &[Span],
