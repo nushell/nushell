@@ -2744,6 +2744,10 @@ pub fn parse_string(
 
     let bytes = working_set.get_span_contents(span);
 
+    if bytes.is_empty() {
+        return (Expression::garbage(span), Some(ParseError::Expected("String".into(), span)))
+    }
+
     // Check for bare word interpolation
     if bytes[0] != b'\'' && bytes[0] != b'"' && bytes[0] != b'`' && bytes.contains(&b'(') {
         return parse_string_interpolation(working_set, span, expand_aliases_denylist);
