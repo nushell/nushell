@@ -90,3 +90,17 @@ fn cant_alias_keyword() {
     ));
     assert!(actual.err.contains("cant_alias_keyword"));
 }
+
+#[test]
+fn alias_wont_recurse() {
+    let actual = nu!(
+        cwd: ".", pipeline(
+        r#"
+            alias print = print -e;
+            print 'hello'
+        "#
+    ));
+
+    assert!(actual.out.is_empty());
+    assert_eq!(actual.err, "hello\n");
+}
