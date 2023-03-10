@@ -479,6 +479,11 @@ fn unbalanced_delimiter() -> TestResult {
 }
 
 #[test]
+fn unbalanced_delimiter2() -> TestResult {
+    fail_test(r#"{}#.}"#, "unbalanced { and }")
+}
+
+#[test]
 fn register_with_string_literal() -> TestResult {
     fail_test(r#"register 'nu-plugin-math'"#, "File not found")
 }
