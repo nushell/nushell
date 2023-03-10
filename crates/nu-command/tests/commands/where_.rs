@@ -194,3 +194,10 @@ fn fail_on_non_iterator() {
 
     assert!(actual.err.contains("only_supports_this_input_type"));
 }
+
+#[test]
+fn pass_through_empty_pipelines() {
+    let actual = nu!(cwd: ".", pipeline(r#"null | where name == "foo" | to json"#));
+
+    assert_eq!(actual.out, "[]");
+}
