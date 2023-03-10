@@ -164,53 +164,10 @@ pub fn help_aliases(
 }
 
 fn build_help_aliases(engine_state: &EngineState, stack: &Stack, span: Span) -> Vec<Value> {
-    // All aliases vector
-    let mut aliases: Vec<Value> = Vec::new();
-
     // Getting old aliases
     let mut scope_data = ScopeData::new(engine_state, stack);
     scope_data.populate_aliases();
-    aliases.append(&mut scope_data.collect_aliases(span));
-
-    // Getting all other aliases
-    let commands = engine_state.get_decls_sorted(false);
-
-    for (name_bytes, decl_id) in commands {
-        let decl = engine_state.get_decl(decl_id);
-        if format!("{:?}", decl.command_type()).to_lowercase() != "alias" {
-            continue;
-        }
-
-        let mut cols = vec![];
-        let mut vals = vec![];
-
-        let name = String::from_utf8_lossy(&name_bytes).to_string();
-        let sig = decl.signature().update_from_command(name, decl.borrow());
-
-        let key = sig.name;
-
-        cols.push("name".into());
-        vals.push(Value::String { val: key, span });
-
-        let alias = decl.as_alias().expect("must not be caused");
-
-        cols.push("expansion".into());
-        vals.push(Value::String {
-            val: String::from_utf8_lossy(engine_state.get_span_contents(&alias.wrapped_call.span))
-                .to_string(),
-            span,
-        });
-
-        cols.push("usage".into());
-        vals.push(Value::String {
-            val: alias.signature().usage,
-            span,
-        });
-
-        aliases.push(Value::Record { cols, vals, span });
-    }
-
-    aliases
+    scope_data.collect_aliases(span)
 }
 
 #[cfg(test)]
