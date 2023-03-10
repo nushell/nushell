@@ -718,7 +718,9 @@ impl PipelineData {
                 return self.write_all_and_flush(engine_state, config, no_newline, to_stderr);
             }
 
-            let table = command.run(engine_state, stack, &Call::new(Span::new(0, 0)), self)?;
+            let mut call = Call::new(Span::new(0, 0));
+            call.redirect_stdout = false;
+            let table = command.run(engine_state, stack, &call, self)?;
 
             table.write_all_and_flush(engine_state, config, no_newline, to_stderr)?;
         } else {
