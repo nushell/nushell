@@ -39,7 +39,7 @@ impl Command for FromCsv {
             .named(
                 "escape",
                 SyntaxShape::String,
-                "an escape character for strings containing the quote character, defaults to '\"'",
+                "an escape character for strings containing the quote character",
                 Some('e'),
             )
             .switch(
@@ -152,8 +152,7 @@ fn from_csv(
     let escape = call
         .get_flag(engine_state, stack, "escape")?
         .map(|v: Value| v.as_char())
-        .transpose()?
-        .unwrap_or('"');
+        .transpose()?;
     let no_infer = call.has_flag("no-infer");
     let noheaders = call.has_flag("noheaders");
     let flexible = call.has_flag("flexible");

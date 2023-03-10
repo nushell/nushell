@@ -183,8 +183,92 @@ fn from_csv_text_with_tab_separator_to_table() {
 }
 
 #[test]
-fn from_csv_text_skipping_headers_to_table() {
+fn from_csv_text_with_comments_to_table() {
     Playground::setup("filter_from_csv_test_5", |dirs, sandbox| {
+        sandbox.with_files(vec![FileWithContentToBeTrimmed(
+            "los_tres_caballeros.txt",
+            r#"
+                # This is a comment
+                first_name,last_name,rusty_luck
+                # This one too
+                Andrés,Robalino,1
+                Jonathan,Turner,1
+                Yehuda,Katz,1
+                # This one also
+            "#,
+        )]);
+
+        let actual = nu!(
+            cwd: dirs.test(), pipeline(
+            r##"
+                open los_tres_caballeros.txt
+                | from csv --comment "#"
+                | get rusty_luck
+                | length
+            "##
+        ));
+
+        assert_eq!(actual.out, "3");
+    })
+}
+
+#[test]
+fn from_csv_text_with_custom_quotes_to_table() {
+    Playground::setup("filter_from_csv_test_6", |dirs, sandbox| {
+        sandbox.with_files(vec![FileWithContentToBeTrimmed(
+            "los_tres_caballeros.txt",
+            r#"
+                first_name,last_name,rusty_luck
+                'And''rés',Robalino,1
+                Jonathan,Turner,1
+                Yehuda,Katz,1
+            "#,
+        )]);
+
+        let actual = nu!(
+            cwd: dirs.test(), pipeline(
+            r#"
+                open los_tres_caballeros.txt
+                | from csv --quote "'"
+                | first
+                | get first_name
+            "#
+        ));
+
+        assert_eq!(actual.out, "And'rés");
+    })
+}
+
+#[test]
+fn from_csv_text_with_custom_escapes_to_table() {
+    Playground::setup("filter_from_csv_test_7", |dirs, sandbox| {
+        sandbox.with_files(vec![FileWithContentToBeTrimmed(
+            "los_tres_caballeros.txt",
+            r#"
+                first_name,last_name,rusty_luck
+                "And\"rés",Robalino,1
+                Jonathan,Turner,1
+                Yehuda,Katz,1
+            "#,
+        )]);
+
+        let actual = nu!(
+            cwd: dirs.test(), pipeline(
+            r#"
+                open los_tres_caballeros.txt
+                | from csv --escape '\'
+                | first
+                | get first_name
+            "#
+        ));
+
+        assert_eq!(actual.out, "And\"rés");
+    })
+}
+
+#[test]
+fn from_csv_text_skipping_headers_to_table() {
+    Playground::setup("filter_from_csv_test_8", |dirs, sandbox| {
         sandbox.with_files(vec![FileWithContentToBeTrimmed(
             "los_tres_amigos.txt",
             r#"
@@ -205,6 +289,34 @@ fn from_csv_text_skipping_headers_to_table() {
         ));
 
         assert_eq!(actual.out, "3");
+    })
+}
+
+#[test]
+fn from_csv_text_with_missing_columns_to_table() {
+    Playground::setup("filter_from_csv_test_9", |dirs, sandbox| {
+        sandbox.with_files(vec![FileWithContentToBeTrimmed(
+            "los_tres_caballeros.txt",
+            r#"
+                first_name,last_name,rusty_luck
+                Andrés,Robalino
+                Jonathan,Turner,1
+                Yehuda,Katz,1
+            "#,
+        )]);
+
+        let actual = nu!(
+            cwd: dirs.test(), pipeline(
+            r#"
+                open los_tres_caballeros.txt
+                | from csv --flexible
+                | get -i rusty_luck
+                | compact
+                | length
+            "#
+        ));
+
+        assert_eq!(actual.out, "2");
     })
 }
 

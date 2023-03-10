@@ -21,7 +21,7 @@ fn from_delimited_string_to_value(
         .delimiter(separator as u8)
         .comment(comment.map(|c| c as u8))
         .quote(quote as u8)
-        .escape(Some(escape as u8))
+        .escape(escape.map(|c| c as u8))
         .trim(trim)
         .from_reader(s.as_bytes());
 
@@ -70,7 +70,7 @@ pub(super) struct DelimitedReaderConfig {
     pub separator: char,
     pub comment: Option<char>,
     pub quote: char,
-    pub escape: char,
+    pub escape: Option<char>,
     pub noheaders: bool,
     pub flexible: bool,
     pub no_infer: bool,
