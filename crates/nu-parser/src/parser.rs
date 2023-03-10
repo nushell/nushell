@@ -19,9 +19,10 @@ use nu_protocol::{
 };
 
 use crate::parse_keywords::{
-    parse_alias, parse_def, parse_def_predecl, parse_export_in_block, parse_extern, parse_for,
-    parse_hide, parse_let_or_const, parse_module, parse_old_alias, parse_overlay, parse_source,
-    parse_use, parse_where, parse_where_expr,
+    is_unaliasable_parser_keyword, parse_alias, parse_def, parse_def_predecl,
+    parse_export_in_block, parse_extern, parse_for, parse_hide, parse_keyword, parse_let_or_const,
+    parse_module, parse_old_alias, parse_overlay_hide, parse_overlay_new, parse_overlay_use,
+    parse_source, parse_use, parse_where, parse_where_expr,
 };
 
 use itertools::Itertools;
@@ -2681,9 +2682,9 @@ pub fn unescape_string(bytes: &[u8], span: Span) -> (Vec<u8>, Option<ParseError>
                     }
                     // fall through -- escape not accepted above, must be error.
                     err = Some(ParseError::InvalidLiteral(
-                        "invalid unicode escape '\\u{X...}', must be 1-6 hex digits, max value 10FFFF".into(),
-                        "string".into(),
-                        Span::new(span.start + idx, span.end),
+                            "invalid unicode escape '\\u{X...}', must be 1-6 hex digits, max value 10FFFF".into(),
+                            "string".into(),
+                            Span::new(span.start + idx, span.end),
                     ));
                     break 'us_loop;
                 }
@@ -4665,17 +4666,17 @@ pub fn parse_value(
             } else {
                 /* Parser very sensitive to order of shapes tried.  Recording the original order for postierity
                 let shapes = [
-                    SyntaxShape::Binary,
-                    SyntaxShape::Int,
-                    SyntaxShape::Number,
-                    SyntaxShape::Range,
-                    SyntaxShape::DateTime,
-                    SyntaxShape::Filesize,
-                    SyntaxShape::Duration,
-                    SyntaxShape::Record,
-                    SyntaxShape::Closure(None),
-                    SyntaxShape::Block,
-                    SyntaxShape::String,
+                SyntaxShape::Binary,
+                SyntaxShape::Int,
+                SyntaxShape::Number,
+                SyntaxShape::Range,
+                SyntaxShape::DateTime,
+                SyntaxShape::Filesize,
+                SyntaxShape::Duration,
+                SyntaxShape::Record,
+                SyntaxShape::Closure(None),
+                SyntaxShape::Block,
+                SyntaxShape::String,
                 ];
                 */
                 let shapes = [
@@ -5309,6 +5310,49 @@ pub fn parse_builtin_commands(
     expand_aliases_denylist: &[usize],
     is_subexpression: bool,
 ) -> (Pipeline, Option<ParseError>) {
+    if !is_math_expression_like(working_set, lite_command.parts[0], expand_aliases_denylist)
+        && !is_unaliasable_parser_keyword(working_set, &lite_command.parts)
+    {
+        let name = working_set.get_span_contents(lite_command.parts[0]);
+        if let Some(decl_id) = working_set.find_decl(name, &Type::Any) {
+            let cmd = working_set.get_decl(decl_id);
+            if cmd.is_alias() {
+                // Parse keywords that can be aliased. Note that we check for "unaliasable" keywords
+                // because alias can have any name, therefore, we can't check for "aliasable" keywords.
+                let (call_expr, err) = parse_call(
+                    working_set,
+                    &lite_command.parts,
+                    lite_command.parts[0],
+                    expand_aliases_denylist,
+                    is_subexpression,
+                );
+
+                if err.is_none() {
+                    if let Expression {
+                        expr: Expr::Call(call),
+                        ..
+                    } = call_expr
+                    {
+                        // Apply parse keyword side effects
+                        let cmd = working_set.get_decl(call.decl_id);
+                        match cmd.name() {
+                            "overlay hide" => return parse_overlay_hide(working_set, call),
+                            "overlay new" => return parse_overlay_new(working_set, call),
+                            "overlay use" => {
+                                return parse_overlay_use(
+                                    working_set,
+                                    call,
+                                    expand_aliases_denylist,
+                                )
+                            }
+                            _ => { /* this alias is not a parser keyword */ }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
     let name = working_set.get_span_contents(lite_command.parts[0]);
 
     match name {
@@ -5330,7 +5374,12 @@ pub fn parse_builtin_commands(
                 parse_use(working_set, &lite_command.parts, expand_aliases_denylist);
             (pipeline, err)
         }
-        b"overlay" => parse_overlay(working_set, &lite_command.parts, expand_aliases_denylist),
+        b"overlay" => parse_keyword(
+            working_set,
+            lite_command,
+            expand_aliases_denylist,
+            is_subexpression,
+        ),
         b"source" | b"source-env" => {
             parse_source(working_set, &lite_command.parts, expand_aliases_denylist)
         }
@@ -5346,6 +5395,7 @@ pub fn parse_builtin_commands(
                 expand_aliases_denylist,
                 is_subexpression,
             );
+
             (Pipeline::from_vec(vec![expr]), err)
         }
     }
