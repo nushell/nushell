@@ -74,8 +74,19 @@ fn alias_fails_with_invalid_name() {
     let actual = nu!(
         cwd: ".", pipeline(
         r#"
-            alias ^foo = "bar"
+            alias ^foo = echo "bar"
         "#
     ));
     assert!(actual.err.contains(err_msg));
+}
+
+#[test]
+fn cant_alias_keyword() {
+    let actual = nu!(
+        cwd: ".", pipeline(
+        r#"
+            alias ou = let
+        "#
+    ));
+    assert!(actual.err.contains("cant_alias_keyword"));
 }
