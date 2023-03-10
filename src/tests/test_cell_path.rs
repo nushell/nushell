@@ -38,10 +38,8 @@ fn record_single_field_optional() -> TestResult {
 }
 
 #[test]
-fn record_single_field_optional_short_circuits() -> TestResult {
-    // Check that we return null as soon as the `.foobar?` access
-    // fails instead of erroring on the `.baz` access
-    run_test("{foo: 'bar'}.foobar?.baz  | to nuon", "null")
+fn record_single_field_optional_does_not_short_circuit() -> TestResult {
+    fail_test("{foo: 'bar'}.foobar?.baz  | to nuon", "null")
 }
 
 #[test]
