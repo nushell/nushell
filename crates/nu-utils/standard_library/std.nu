@@ -3,7 +3,6 @@
 # ----------- sub modules to be loaded as part of stdlib ------------------
 # (choose flavor of import that puts your functions in the right namespace)
 # This imports into std top-level namespace: std <subcommand>
-# (not what I want for a new subcommand.)
 # export use dirs.nu *
 # This imports into std *sub* namespace: std dirs <subcommand>
 # export use dirs.nu
@@ -11,6 +10,11 @@
 # to put the subcommands at the top level: dirs <subcommand>
 
 export use dirs.nu
+# the directory stack -- export-env from submodule doesn't work?
+export-env {
+    let-env DIRS_POSITION = 0
+    let-env DIRS_LIST = [($env.PWD | path expand)]
+}
 
 # ---------------- builtin std functions --------------------
 
