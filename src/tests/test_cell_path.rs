@@ -109,10 +109,25 @@ fn jagged_list_access_fails() -> TestResult {
     fail_test("[{}, {foo: 'bar'}].foo", "cannot find column")
 }
 
+#[test]
+fn jagged_list_optional_access_succeeds() -> TestResult {
+    run_test("[{foo: 'bar'}, {}].foo?.0", "bar")?;
+    run_test("[{foo: 'bar'}, {}].foo?.1  | to nuon", "null")?;
+
+    run_test("[{}, {foo: 'bar'}].foo?.0 | to nuon", "null")?;
+    run_test("[{}, {foo: 'bar'}].foo?.1", "bar")
+}
+
 // test that accessing a nonexistent row fails
 #[test]
 fn list_row_access_failure() -> TestResult {
     fail_test("[{foo: 'bar'}, {foo: 'baz'}].2", "")
+}
+
+#[test]
+fn list_row_optional_access_succeeds() -> TestResult {
+    run_test("[{foo: 'bar'}, {foo: 'baz'}].2? | to nuon", "null")?;
+    run_test("[{foo: 'bar'}, {foo: 'baz'}].3? | to nuon", "null")
 }
 
 // regression test for an old bug
