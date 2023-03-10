@@ -116,13 +116,13 @@ fn to_xml_entry<W: Write>(
     // of longer {tag: a attributes: {} content: [...]}
     let tag = entry
         .get_data_by_key(COLUMN_TAG_NAME)
-        .unwrap_or(Value::nothing(Span::unknown()));
+        .unwrap_or_else(|| Value::nothing(Span::unknown()));
     let attrs = entry
         .get_data_by_key(COLUMN_ATTRS_NAME)
-        .unwrap_or(Value::nothing(Span::unknown()));
+        .unwrap_or_else(|| Value::nothing(Span::unknown()));
     let content = entry
         .get_data_by_key(COLUMN_CONTENT_NAME)
-        .unwrap_or(Value::nothing(Span::unknown()));
+        .unwrap_or_else(|| Value::nothing(Span::unknown()));
 
     match (tag, attrs, content) {
         (Value::Nothing { .. }, Value::Nothing { .. }, Value::String { val, .. }) => {
@@ -169,13 +169,11 @@ fn to_tag_like<W: Write>(
         }
 
         to_comment(attrs, content, writer)
-    } else if tag.starts_with('?') {
+    } else if let Some(tag) = tag.strip_prefix('?') {
         // PIs can not appear on top level of document
         if top_level {
             return Err(());
         }
-
-        let tag = &tag[1..];
 
         let content: String = match content {
             Value::String { val, .. } => val,
