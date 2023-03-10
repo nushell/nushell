@@ -463,15 +463,13 @@ pub fn evaluate_repl(
                 // fire the "pre_execution" hook
                 if let Some(hook) = config.hooks.pre_execution.clone() {
                     // Set the REPL buffer to the current command for the "pre_execution" hook
-                    let next_repl_buffer = engine_state
+                    let mut repl_buffer = engine_state
                         .repl_buffer_state
                         .lock()
-                        .expect("repl buffer state mutex")
-                        .to_string();
-                    *engine_state
-                        .repl_buffer_state
-                        .lock()
-                        .expect("repl buffer state mutex") = s.to_string();
+                        .expect("repl buffer state mutex");
+                    let next_repl_buffer = repl_buffer.to_string();
+                    *repl_buffer = s.to_string();
+                    drop(repl_buffer);
 
                     if let Err(err) = eval_hook(engine_state, stack, None, vec![], &hook) {
                         report_error_new(engine_state, &err);
@@ -479,10 +477,12 @@ pub fn evaluate_repl(
 
                     // Restore the REPL buffer state for the next command. It could've been edited
                     // by `commandline`.
-                    *engine_state
+                    let mut repl_buffer = engine_state
                         .repl_buffer_state
                         .lock()
-                        .expect("repl buffer state mutex") = next_repl_buffer.to_string();
+                        .expect("repl buffer state mutex");
+                    *repl_buffer = next_repl_buffer;
+                    drop(repl_buffer);
                 }
 
                 if shell_integration {
@@ -640,24 +640,23 @@ pub fn evaluate_repl(
                     run_ansi_sequence(RESET_APPLICATION_MODE)?;
                 }
 
-                let repl_buffer = engine_state
+                let mut repl_buffer = engine_state
                     .repl_buffer_state
                     .lock()
-                    .expect("repl buffer state mutex")
-                    .to_string();
+                    .expect("repl buffer state mutex");
                 line_editor.run_edit_commands(&[
                     EditCommand::Clear,
-                    EditCommand::InsertString(repl_buffer),
+                    EditCommand::InsertString(repl_buffer.to_string()),
                 ]);
+                *repl_buffer = "".to_string();
+                drop(repl_buffer);
 
-                *engine_state
-                    .repl_buffer_state
-                    .lock()
-                    .expect("repl buffer state mutex") = "".to_string();
-                *engine_state
+                let mut repl_cursor_pos = engine_state
                     .repl_cursor_pos
                     .lock()
-                    .expect("repl cursor pos mutex") = 0;
+                    .expect("repl cursor pos mutex");
+                *repl_cursor_pos = 0;
+                drop(repl_cursor_pos);
             }
             Ok(Signal::CtrlC) => {
                 // `Reedline` clears the line content. New prompt is shown
