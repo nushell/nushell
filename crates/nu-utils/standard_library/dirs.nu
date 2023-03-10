@@ -13,11 +13,12 @@ export def-env "add" [
     ] {
         mut abspaths = []
         for p in $paths {
-            if ($p | path type) != 'dir' {
+            let exp = ($p | path expand)
+            if ($exp | path type) != 'dir' {
                 let span = (metadata $p).span
                 error make {msg: "not a directory", label: {text: "not a directory", start: $span.start, end: $span.end } }
             }
-        $abspaths = ($abspaths | append ($p | path expand))
+        $abspaths = ($abspaths | append $exp)
 
         }
         let-env DIRS_LIST = ($env.DIRS_LIST | insert ($env.DIRS_POSITION + 1) $abspaths | flatten)
@@ -28,14 +29,14 @@ export def-env "add" [
 
 # Advance to the next directory in the list or wrap to beginning.
 export def-env "next" [
-    N:int = 1 # number of positions to move.
+    N:int = 1   # number of positions to move.
 ] {
     _fetch $N    
 }
 
 # Back up to the previous directory or wrap to the end.
 export def-env "prev" [
-    N:int = 1 # number of positions to move.
+    N:int = 1   # number of positions to move.
 ] {
     _fetch (-1 * $N)    
 }
@@ -44,7 +45,10 @@ export def-env "prev" [
 # PWD becomes the next working directory
 export def-env "drop" [] {
     if ($env.DIRS_LIST | length) > 1 {
-        let-env DIRS_LIST = (($env.DIRS_LIST | take $env.DIRS_POSITION) | append ($env.DIRS_LIST | skip ($env.DIRS_POSITION + 1)))
+        let-env DIRS_LIST = (
+            ($env.DIRS_LIST | take $env.DIRS_POSITION) 
+            | append ($env.DIRS_LIST | skip ($env.DIRS_POSITION + 1))
+        )
     }
 
     _fetch 0
@@ -63,18 +67,17 @@ export def-env "show" [] {
     $out
 }
 
-
-
 # fetch item helper
 def-env  _fetch [
-    offset: int,            # signed change to position
+    offset: int,    # signed change to position
 ] {
     # nushell 'mod' operator is really 'remainder', can return negative values.
     # see: https://stackoverflow.com/questions/13683563/whats-the-difference-between-mod-and-remainder    
-    let pos = ($env.DIRS_POSITION + $offset + ($env.DIRS_LIST | length)) mod ($env.DIRS_LIST | length)
-    # echo $"at ($pos); item is: ($env.DIRS_LIST |  get $pos)"
+    let pos = ($env.DIRS_POSITION 
+                + $offset 
+                + ($env.DIRS_LIST | length)
+            ) mod ($env.DIRS_LIST | length)
     let-env DIRS_POSITION = $pos
 
     cd ($env.DIRS_LIST | get $pos )
 }
-            
