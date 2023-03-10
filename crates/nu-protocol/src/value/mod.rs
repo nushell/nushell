@@ -188,6 +188,27 @@ impl Clone for Value {
 }
 
 impl Value {
+    pub fn as_char(&self) -> Result<char, ShellError> {
+        match self {
+            Value::String { val, span } => {
+                let mut chars = val.chars();
+                match (chars.next(), chars.next()) {
+                    (Some(c), None) => Ok(c),
+                    _ => Err(ShellError::MissingParameter {
+                        param_name: "single character separator".into(),
+                        span: *span,
+                    }),
+                }
+            }
+            x => Err(ShellError::CantConvert {
+                to_type: "char".into(),
+                from_type: x.get_type().to_string(),
+                span: self.span()?,
+                help: None,
+            }),
+        }
+    }
+
     /// Converts into string values that can be changed into string natively
     pub fn as_string(&self) -> Result<String, ShellError> {
         match self {

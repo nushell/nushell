@@ -1,4 +1,4 @@
-use super::delimited::{from_delimited_data, trim_from_str};
+use super::delimited::{from_delimited_data, trim_from_str, DelimitedReaderConfig};
 
 use nu_engine::CallExt;
 use nu_protocol::ast::Call;
@@ -18,10 +18,33 @@ impl Command for FromTsv {
     fn signature(&self) -> Signature {
         Signature::build("from tsv")
             .input_output_types(vec![(Type::String, Type::Table(vec![]))])
+            .named(
+                "comment",
+                SyntaxShape::String,
+                "a comment character to ignore lines starting with it, defaults to '#'",
+                Some('c'),
+            )
+            .named(
+                "quote",
+                SyntaxShape::String,
+                "a quote character to ignore separators in strings, defaults to '\"'",
+                Some('q'),
+            )
+            .named(
+                "escape",
+                SyntaxShape::String,
+                "an escape character for strings containing the quote character, defaults to '\"'",
+                Some('e'),
+            )
             .switch(
                 "noheaders",
                 "don't treat the first row as column names",
                 Some('n'),
+            )
+            .switch(
+                "flexible",
+                "allow the number of fields in records to be variable",
+                None,
             )
             .switch("no-infer", "no field type inferencing", None)
             .named(
@@ -101,12 +124,38 @@ fn from_tsv(
 ) -> Result<PipelineData, ShellError> {
     let name = call.head;
 
+    let comment = call
+        .get_flag(engine_state, stack, "comment")?
+        .map(|v: Value| v.as_char())
+        .transpose()?
+        .unwrap_or('#');
+    let quote = call
+        .get_flag(engine_state, stack, "quote")?
+        .map(|v: Value| v.as_char())
+        .transpose()?
+        .unwrap_or('"');
+    let escape = call
+        .get_flag(engine_state, stack, "escape")?
+        .map(|v: Value| v.as_char())
+        .transpose()?
+        .unwrap_or('"');
     let no_infer = call.has_flag("no-infer");
     let noheaders = call.has_flag("noheaders");
-    let trim: Option<Value> = call.get_flag(engine_state, stack, "trim")?;
-    let trim = trim_from_str(trim)?;
+    let flexible = call.has_flag("flexible");
+    let trim = trim_from_str(call.get_flag(engine_state, stack, "trim")?)?;
 
-    from_delimited_data(noheaders, no_infer, '\t', trim, input, name)
+    let config = DelimitedReaderConfig {
+        separator: '\t',
+        comment,
+        quote,
+        escape,
+        noheaders,
+        flexible,
+        no_infer,
+        trim,
+    };
+
+    from_delimited_data(config, input, name)
 }
 
 #[cfg(test)]
