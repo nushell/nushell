@@ -27,7 +27,7 @@ impl Command for FromCsv {
             .named(
                 "comment",
                 SyntaxShape::String,
-                "a comment character to ignore lines starting with it, defaults to '#'",
+                "a comment character to ignore lines starting with it",
                 Some('c'),
             )
             .named(
@@ -99,27 +99,27 @@ impl Command for FromCsv {
                 result: None,
             },
             Example {
-                description: "Convert comma-separated data to a table, ignoring headers",
-                example: "open data.txt | from csv -n",
-                result: None,
-            },
-            Example {
                 description: "Convert semicolon-separated data to a table",
                 example: "open data.txt | from csv --separator ';'",
                 result: None,
             },
             Example {
-                description: "Convert semicolon-separated data to a table, dropping all possible whitespaces around header names and field values",
+                description: "Convert comma-separated data to a table, ignoring lines starting with '#'",
+                example: "open data.txt | from csv --comment '#'",
+                result: None,
+            },
+            Example {
+                description: "Convert comma-separated data to a table, dropping all possible whitespaces around header names and field values",
                 example: "open data.txt | from csv --trim all",
                 result: None,
             },
             Example {
-                description: "Convert semicolon-separated data to a table, dropping all possible whitespaces around header names",
+                description: "Convert comma-separated data to a table, dropping all possible whitespaces around header names",
                 example: "open data.txt | from csv --trim headers",
                 result: None,
             },
             Example {
-                description: "Convert semicolon-separated data to a table, dropping all possible whitespaces around field values",
+                description: "Convert comma-separated data to a table, dropping all possible whitespaces around field values",
                 example: "open data.txt | from csv --trim fields",
                 result: None,
             },
@@ -143,8 +143,7 @@ fn from_csv(
     let comment = call
         .get_flag(engine_state, stack, "comment")?
         .map(|v: Value| v.as_char())
-        .transpose()?
-        .unwrap_or('#');
+        .transpose()?;
     let quote = call
         .get_flag(engine_state, stack, "quote")?
         .map(|v: Value| v.as_char())

@@ -19,7 +19,7 @@ fn from_delimited_string_to_value(
         .has_headers(!noheaders)
         .flexible(flexible)
         .delimiter(separator as u8)
-        .comment(Some(comment as u8))
+        .comment(comment.map(|c| c as u8))
         .quote(quote as u8)
         .escape(Some(escape as u8))
         .trim(trim)
@@ -68,7 +68,7 @@ fn from_delimited_string_to_value(
 
 pub(super) struct DelimitedReaderConfig {
     pub separator: char,
-    pub comment: char,
+    pub comment: Option<char>,
     pub quote: char,
     pub escape: char,
     pub noheaders: bool,

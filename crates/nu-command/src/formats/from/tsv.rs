@@ -21,7 +21,7 @@ impl Command for FromTsv {
             .named(
                 "comment",
                 SyntaxShape::String,
-                "a comment character to ignore lines starting with it, defaults to '#'",
+                "a comment character to ignore lines starting with it",
                 Some('c'),
             )
             .named(
@@ -127,8 +127,7 @@ fn from_tsv(
     let comment = call
         .get_flag(engine_state, stack, "comment")?
         .map(|v: Value| v.as_char())
-        .transpose()?
-        .unwrap_or('#');
+        .transpose()?;
     let quote = call
         .get_flag(engine_state, stack, "quote")?
         .map(|v: Value| v.as_char())
