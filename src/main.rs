@@ -245,6 +245,6 @@ fn main() -> Result<()> {
         )
     } else {
         engine_state.is_interactive = true;
-        run_repl(engine_state, parsed_nu_cli_args, entire_start_time)
+        run_repl(&mut engine_state, parsed_nu_cli_args, entire_start_time)
     }
 }
