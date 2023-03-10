@@ -721,6 +721,8 @@ impl Value {
                         Value::List { vals: val, .. } => {
                             if let Some(item) = val.get(*count) {
                                 current = item.clone();
+                            } else if *optional {
+                                current = Value::nothing(*origin_span);
                             } else if val.is_empty() {
                                 err_or_null!(
                                     ShellError::AccessEmptyContent { span: *origin_span },
@@ -739,6 +741,8 @@ impl Value {
                         Value::Binary { val, .. } => {
                             if let Some(item) = val.get(*count) {
                                 current = Value::int(*item as i64, *origin_span);
+                            } else if *optional {
+                                current = Value::nothing(*origin_span);
                             } else if val.is_empty() {
                                 err_or_null!(
                                     ShellError::AccessEmptyContent { span: *origin_span },
@@ -757,6 +761,8 @@ impl Value {
                         Value::Range { val, .. } => {
                             if let Some(item) = val.clone().into_range_iter(None)?.nth(*count) {
                                 current = item.clone();
+                            } else if *optional {
+                                current = Value::nothing(*origin_span);
                             } else {
                                 err_or_null!(
                                     ShellError::AccessBeyondEndOfStream { span: *origin_span },
@@ -765,7 +771,16 @@ impl Value {
                             }
                         }
                         Value::CustomValue { val, .. } => {
-                            current = val.follow_path_int(*count, *origin_span)?;
+                            current = match val.follow_path_int(*count, *origin_span) {
+                                Ok(val) => val,
+                                Err(err) => {
+                                    if *optional {
+                                        Value::nothing(*origin_span)
+                                    } else {
+                                        return Err(err);
+                                    }
+                                }
+                            };
                         }
                         // Records (and tables) are the only built-in which support column names,
                         // so only use this message for them.
@@ -789,7 +804,7 @@ impl Value {
                 PathMember::String {
                     val: column_name,
                     span: origin_span,
-                    ..
+                    optional,
                 } => match &mut current {
                     Value::Record { cols, vals, span } => {
                         let cols = cols.clone();
@@ -804,6 +819,9 @@ impl Value {
                             }
                         }) {
                             current = found.1.clone();
+                            
+                        } else if *optional {
+                            current = Value::nothing(*origin_span);
                         } else {
                             if from_user_input {
                                 if let Some(suggestion) = did_you_mean(&cols, column_name) {
@@ -828,6 +846,8 @@ impl Value {
 
                         if columns.contains(&column_name.as_str()) {
                             current = val.get_column_value(column_name)?;
+                        } else if *optional {
+                            current = Value::nothing(*origin_span);
                         } else {
                             if from_user_input {
                                 if let Some(suggestion) = did_you_mean(&columns, column_name) {
@@ -861,7 +881,7 @@ impl Value {
                                     &[PathMember::String {
                                         val: column_name.clone(),
                                         span: *origin_span,
-                                        optional: false,
+                                        optional: *optional,
                                     }],
                                     insensitive,
                                     nullify_errors,
