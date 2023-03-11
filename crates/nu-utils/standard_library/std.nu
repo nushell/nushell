@@ -7,50 +7,77 @@ def _assert [
     }
 }
 
-# ```nushell
-# >_ assert ($a == 3)
-# >_ assert ($a != 3)
-# Error:
-#   × condition given to `assert` does not hold
-#    ╭─[entry #12:5:1]
-#  5 │     if not $cond {
-#  6 │         error make {msg: $msg}
-#    ·         ─────┬────
-#    ·              ╰── originates from here
-#  7 │     }
-#    ╰────
-# ```
-export def assert [cond: bool] {
-    _assert $cond "condition given to `assert` does not hold"
+def _assertion-error [start, end, label, message?: string] {
+    error make {
+        msg: $"Assertion failed: ($message)",
+        label: {
+            text: $label,
+            start: $start,
+            end: $end
+        }
+    }
 }
 
 # ```nushell
-# >_ assert_eq $a "a string"
+# >_ let a = 3
+# >_ assert ($a == 3)
+# >_ assert ($a != 3)
 # Error:
-#   × left and right operand of `assert eq` should have the same type
-#    ╭─[entry #12:5:1]
-#  5 │     if not $cond {
-#  6 │         error make {msg: $msg}
-#    ·         ─────┬────
-#    ·              ╰── originates from here
-#  7 │     }
-#    ╰────
-#
-# >_ assert_eq $a 3
-# >_ assert_eq $a 1
-# Error:
-#   × left is not equal to right
-#    ╭─[entry #12:5:1]
-#  5 │     if not $cond {
-#  6 │         error make {msg: $msg}
-#    ·         ─────┬────
-#    ·              ╰── originates from here
-#  7 │     }
-#    ╰────
+#   × Assertion failed: 
+#     ╭─[myscript.nu:11:1]
+#  11 │ assert ($a == 3)
+#  12 │ assert ($a != 3)
+#     ·         ───┬───
+#     ·            ╰── It is not true.
+#  13 │
+#     ╰────
 # ```
-export def "assert eq" [left: any, right: any] {
-    _assert (($left | describe) == ($right | describe)) $"left and right operand of `assert eq` should have the same type"
-    _assert ($left == $right) "left is not equal to right"
+export def assert [cond: bool, message?: string] {
+    if $cond { return }
+    let span = (metadata $cond).span
+    _assertion-error $span.start $span.end "It is not true." $message
+}
+
+assert eq 1 2
+
+# ```nushell
+# >_ let a = 3
+# >_ assert eq $a "a string"
+# Error:
+#   × Assertion failed: 
+#     ╭─[myscript.nu:76:1]
+#  76 │ let a = 3
+#  77 │ assert eq $a "a string"
+#     ·           ──────┬──────
+#     ·                 ╰── Different types cannot be equal: int <-> string.
+#  78 │
+#     ╰────
+#
+#
+# >_ let a = 3
+# >_ assert eq $a 3
+# >_ assert eq $a 1
+# Error:
+#   × Assertion failed: 
+#     ╭─[myscript.nu:81:1]
+#  81 │ assert eq $a 3
+#  82 │ assert eq $a 1
+#     ·           ──┬─
+#     ·             ╰── They are not equal: 3 != 1
+#  83 │
+#     ╰────
+# ```
+export def "assert eq" [left: any, right: any, message?: string] {
+    let left_type = ($left | describe)
+    let right_type = ($right | describe)
+    let left_start = (metadata $left).span.start
+    let right_end = (metadata $right).span.end
+    if ($left_type != $right_type) {
+        _assertion-error $left_start $right_end $"Different types cannot be equal: ($left_type) <-> ($right_type)." $message
+    }
+    if ($left != $right) {
+        _assertion-error $left_start $right_end $"They are not equal: ($left) != ($right)" $message
+    }
 }
 
 # ```nushell
