@@ -258,6 +258,20 @@ pub fn value_to_string(
     }
 }
 
+fn get_true_indentation(depth: usize, indent: &Option<String>) -> String {
+    match indent {
+        Some(i) => i.repeat(depth),
+        None => "".to_string(),
+    }
+}
+
+fn get_true_newline(indent: &Option<String>) -> String {
+    match indent {
+        Some(_) => "\n".to_string(),
+        None => "".to_string(),
+    }
+}
+
 fn value_to_string_without_quotes(
     v: &Value,
     span: Span,
