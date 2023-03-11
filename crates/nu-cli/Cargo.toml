@@ -13,7 +13,7 @@ bench = false
 [dev-dependencies]
 nu-test-support = { path = "../nu-test-support", version = "0.76.1" }
 nu-command = { path = "../nu-command", version = "0.76.1" }
-rstest = { version = "0.16.0", default-features = false }
+rstest = { version = "0.16", default-features = false }
 
 [dependencies]
 nu-engine = { path = "../nu-engine", version = "0.76.1" }
@@ -23,21 +23,19 @@ nu-protocol = { path = "../nu-protocol", version = "0.76.1" }
 nu-utils = { path = "../nu-utils", version = "0.76.1" }
 nu-ansi-term = "0.46.0"
 nu-color-config = { path = "../nu-color-config", version = "0.76.1" }
-
 reedline = { version = "0.16.0", features = ["bashisms", "sqlite"] }
 
-atty = "0.2.14"
-chrono = { default-features = false, features = ["std"], version = "0.4.23" }
+atty = "0.2"
+chrono = { default-features = false, features = ["std"], version = "0.4" }
 crossterm = "0.24.0"
-fancy-regex = "0.11.0"
-fuzzy-matcher = "0.3.7"
-is_executable = "1.0.1"
-once_cell = "1.17.0"
+fancy-regex = "0.11"
+fuzzy-matcher = "0.3"
+is_executable = "1.0"
+once_cell = "1.17"
 log = "0.4"
-miette = { version = "5.5.0", features = ["fancy-no-backtrace"] }
-percent-encoding = "2"
-sysinfo = "0.28.2"
-thiserror = "1.0.31"
+miette = { version = "5.5", features = ["fancy-no-backtrace"] }
+percent-encoding = "2.2"
+sysinfo = "0.28"
 
 [features]
 plugin = []

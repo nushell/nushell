@@ -20,4 +20,4 @@ nu-plugin = { path="../nu-plugin", version = "0.76.1" }
 nu-protocol = { path="../nu-protocol", version = "0.76.1" }
 nu-engine = { path="../nu-engine", version = "0.76.1" }
 
-git2 = "0.16.1"
+git2 = "0.16"

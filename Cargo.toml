@@ -41,11 +41,6 @@ members = [
 ]
 
 [dependencies]
-chrono = { version = "0.4.23", features = ["serde"] }
-crossterm = "0.24.0"
-ctrlc = "3.2.1"
-log = "0.4"
-miette = { version = "5.5.0", features = ["fancy-no-backtrace"] }
 nu-ansi-term = "0.46.0"
 nu-cli = { path = "./crates/nu-cli", version = "0.76.1" }
 nu-color-config = { path = "./crates/nu-color-config", version = "0.76.1" }
@@ -62,19 +57,22 @@ nu-system = { path = "./crates/nu-system", version = "0.76.1" }
 nu-table = { path = "./crates/nu-table", version = "0.76.1" }
 nu-term-grid = { path = "./crates/nu-term-grid", version = "0.76.1" }
 nu-utils = { path = "./crates/nu-utils", version = "0.76.1" }
-
 reedline = { version = "0.16.0", features = ["bashisms", "sqlite"] }
 
-rayon = "1.7.0"
-is_executable = "1.0.1"
-simplelog = "0.12.0"
-time = "0.3.12"
+chrono = { version = "0.4", features = ["serde"] }
+crossterm = "0.24"
+ctrlc = "3.2"
+is_executable = "1.0"
+log = "0.4"
+miette = { version = "5.5", features = ["fancy-no-backtrace"] }
+rayon = "1.7"
+simplelog = "0.12"
+time = "0.3"
 
 [target.'cfg(not(target_os = "windows"))'.dependencies]
 # Our dependencies don't use OpenSSL on Windows
-openssl = { version = "0.10.38", features = ["vendored"], optional = true }
-signal-hook = { version = "0.3.14", default-features = false }
-
+openssl = { version = "0.10", features = ["vendored"], optional = true }
+signal-hook = { version = "0.3", default-features = false }
 
 [target.'cfg(windows)'.build-dependencies]
 winres = "0.1"
@@ -90,14 +88,14 @@ atty = "0.2"
 
 [dev-dependencies]
 nu-test-support = { path = "./crates/nu-test-support", version = "0.76.1" }
-tempfile = "3.4.0"
-assert_cmd = "2.0.2"
+tempfile = "3.4"
+assert_cmd = "2.0"
 criterion = "0.4"
-pretty_assertions = "1.0.0"
-serial_test = "1.0.0"
-hamcrest2 = "0.3.0"
-rstest = { version = "0.16.0", default-features = false }
-itertools = "0.10.3"
+pretty_assertions = "1.3"
+serial_test = "1.0"
+hamcrest2 = "0.3"
+rstest = { version = "0.16", default-features = false }
+itertools = "0.10"
 
 [features]
 plugin = [
