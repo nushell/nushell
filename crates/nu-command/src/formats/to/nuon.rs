@@ -112,7 +112,7 @@ pub fn value_to_string(
     depth: usize,
     indent: &Option<String>,
 ) -> Result<String, ShellError> {
-    let nl = get_true_newline(indent);
+    let (nl, sep) = get_true_separators(indent);
     let idt = get_true_indentation(depth, indent);
     let idt_po = get_true_indentation(depth + 1, indent);
     let idt_pt = get_true_indentation(depth + 2, indent);
@@ -197,7 +197,7 @@ pub fn value_to_string(
                         }
                     })
                     .collect();
-                let headers_output = headers.join(&format!(", {nl}{idt_pt}"));
+                let headers_output = headers.join(&format!(",{sep}{nl}{idt_pt}"));
 
                 let mut table_output = vec![];
                 for val in vals {
@@ -214,13 +214,13 @@ pub fn value_to_string(
                         }
                     }
 
-                    table_output.push(row.join(&format!(", {nl}{idt_pt}")));
+                    table_output.push(row.join(&format!(",{sep}{nl}{idt_pt}")));
                 }
 
                 Ok(format!(
-                    "[{nl}{idt_po}[{nl}{idt_pt}{}{nl}{idt_po}]; {nl}{idt_po}[{nl}{idt_pt}{}{nl}{idt_po}]{nl}{idt}]",
+                    "[{nl}{idt_po}[{nl}{idt_pt}{}{nl}{idt_po}];{sep}{nl}{idt_po}[{nl}{idt_pt}{}{nl}{idt_po}]{nl}{idt}]",
                     headers_output,
-                    table_output.join(&format!("{nl}{idt_po}], {nl}{idt_po}[{nl}{idt_pt}"))
+                    table_output.join(&format!("{nl}{idt_po}],{sep}{nl}{idt_po}[{nl}{idt_pt}"))
                 ))
             } else {
                 let mut collection = vec![];
@@ -232,7 +232,7 @@ pub fn value_to_string(
                 }
                 Ok(format!(
                     "[{nl}{}{nl}{idt}]",
-                    collection.join(&format!(", {nl}"))
+                    collection.join(&format!(",{sep}{nl}"))
                 ))
             }
         }
@@ -266,7 +266,7 @@ pub fn value_to_string(
             }
             Ok(format!(
                 "{{{nl}{}{nl}{idt}}}",
-                collection.join(&format!(", {nl}"))
+                collection.join(&format!(",{sep}{nl}"))
             ))
         }
         Value::LazyRecord { val, .. } => {
@@ -286,10 +286,10 @@ fn get_true_indentation(depth: usize, indent: &Option<String>) -> String {
     }
 }
 
-fn get_true_newline(indent: &Option<String>) -> String {
+fn get_true_separators(indent: &Option<String>) -> (String, String) {
     match indent {
-        Some(_) => "\n".to_string(),
-        None => "".to_string(),
+        Some(_) => ("\n".to_string(), "".to_string()),
+        None => ("".to_string(), " ".to_string()),
     }
 }
 
