@@ -39,7 +39,7 @@ pub fn create_default_context() -> EngineState {
             HelpAliases,
             HelpCommands,
             HelpModules,
-            HelpExtern,
+            HelpExterns,
             HelpOperators,
             Hide,
             HideEnv,

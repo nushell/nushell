@@ -9,15 +9,15 @@ use nu_protocol::{
 };
 
 #[derive(Clone)]
-pub struct HelpExtern;
+pub struct HelpExterns;
 
-impl Command for HelpExtern {
+impl Command for HelpExterns {
     fn name(&self) -> &str {
-        "help extern"
+        "help externs"
     }
 
     fn usage(&self) -> &str {
-        "Show help on nushell extern."
+        "Show help on nushell externs."
     }
 
     fn signature(&self) -> Signature {
@@ -41,18 +41,18 @@ impl Command for HelpExtern {
     fn examples(&self) -> Vec<Example> {
         vec![
             Example {
-                description: "show all extern",
-                example: "help extern",
+                description: "show all externs",
+                example: "help externs",
                 result: None,
             },
             Example {
                 description: "show help for single extern",
-                example: "help extern my-alias",
+                example: "help externs smth",
                 result: None,
             },
             Example {
                 description: "search for string in extern names and usages",
-                example: "help extern --find some-extern",
+                example: "help externs --find smth",
                 result: None,
             },
         ]
@@ -65,11 +65,11 @@ impl Command for HelpExtern {
         call: &Call,
         _input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
-        help_extern(engine_state, stack, call)
+        help_externs(engine_state, stack, call)
     }
 }
 
-pub fn help_extern(
+pub fn help_externs(
     engine_state: &EngineState,
     stack: &mut Stack,
     call: &Call,
@@ -86,7 +86,7 @@ pub fn help_extern(
     let string_style = style_computer.compute("string", &Value::string("search result", head));
 
     if let Some(f) = find {
-        let all_cmds_vec = build_help_extern(engine_state, stack, head);
+        let all_cmds_vec = build_help_externs(engine_state, stack, head);
         let found_cmds_vec =
             highlight_search_in_table(all_cmds_vec, &f.item, &["name", "usage"], &string_style)?;
 
@@ -96,7 +96,7 @@ pub fn help_extern(
     }
 
     if rest.is_empty() {
-        let found_cmds_vec = build_help_extern(engine_state, stack, head);
+        let found_cmds_vec = build_help_externs(engine_state, stack, head);
 
         Ok(found_cmds_vec
             .into_iter()
@@ -135,18 +135,18 @@ pub fn help_extern(
     }
 }
 
-fn build_help_extern(engine_state: &EngineState, stack: &Stack, span: Span) -> Vec<Value> {
+fn build_help_externs(engine_state: &EngineState, stack: &Stack, span: Span) -> Vec<Value> {
     let mut scope = ScopeData::new(engine_state, stack);
     scope.populate_all();
-    scope.collect_extern(span)
+    scope.collect_externs(span)
 }
 
 #[cfg(test)]
 mod test {
     #[test]
     fn test_examples() {
-        use super::HelpExtern;
+        use super::HelpExterns;
         use crate::test_examples;
-        test_examples(HelpExtern {})
+        test_examples(HelpExterns {})
     }
 }

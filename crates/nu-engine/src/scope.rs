@@ -463,7 +463,7 @@ impl<'e, 's> ScopeData<'e, 's> {
         sig_records
     }
 
-    pub fn collect_extern(&self, span: Span) -> Vec<Value> {
+    pub fn collect_externs(&self, span: Span) -> Vec<Value> {
         let mut externals = vec![];
         for ((command_name, _), decl_id) in &self.commands_map {
             let decl = self.engine_state.get_decl(**decl_id);
