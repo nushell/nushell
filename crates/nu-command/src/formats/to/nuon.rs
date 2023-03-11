@@ -102,6 +102,7 @@ pub fn value_to_string(
 ) -> Result<String, ShellError> {
     let nl = get_true_newline(indent);
     let idt = get_true_indentation(depth, indent);
+    let idt_po = get_true_indentation(depth + 1, indent);
 
     match v {
         Value::Binary { val, .. } => {
@@ -212,8 +213,7 @@ pub fn value_to_string(
                 let mut collection = vec![];
                 for val in vals {
                     collection.push(format!(
-                        "{}{}",
-                        get_true_indentation(depth + 1, indent),
+                        "{idt_po}{}",
                         value_to_string_without_quotes(val, span, depth + 1, indent,)?
                     ));
                 }
