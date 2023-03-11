@@ -31,6 +31,17 @@ impl Command for ToXml {
             .category(Category::Formats)
     }
 
+    fn extra_usage(&self) -> &str {
+        r#"Every XML entry is represented via a record with tag, attribute and content fields.
+To represent different types of entries different values must be written to this fields:
+1. Tag entry: {tag: <tag name> attrs: {<attr name>: "<string value>" ...} content: [<entries>]}
+2. Comment entry: {tag: '!' attrs: null content: "<comment string>"}
+3. Processing instruction (PI): {tag: '?<pi name>' attrs: null content: "<pi content string>"}
+4. Text: {tag: null attrs: null content: "<text>"}. Or as plain "<text>" instead of record.
+
+Additionally any field which is: empty record, empty list or null, can be omitted."#
+    }
+
     fn examples(&self) -> Vec<Example> {
         vec![
             Example {
@@ -58,7 +69,7 @@ impl Command for ToXml {
     }
 
     fn usage(&self) -> &str {
-        "Convert table into .xml text."
+        "Convert special record structure into .xml text."
     }
 
     fn run(
@@ -132,9 +143,16 @@ fn to_xml_entry<W: Write>(
             }
             to_xml_text(val.as_str(), span, writer)
         }
-        (Value::String { val: tag_name, span: tag_span }, attrs, children) => {
-            to_tag_like(entry_span, tag_name, tag_span, attrs, children, top_level, writer)
-        }
+        (
+            Value::String {
+                val: tag_name,
+                span: tag_span,
+            },
+            attrs,
+            children,
+        ) => to_tag_like(
+            entry_span, tag_name, tag_span, attrs, children, top_level, writer,
+        ),
         _ => Ok(()),
     }
 }
@@ -216,7 +234,15 @@ fn to_tag_like<W: Write>(
             }
         };
 
-        to_tag(entry_span, tag, tag_span, attr_cols, attr_values, content, writer)
+        to_tag(
+            entry_span,
+            tag,
+            tag_span,
+            attr_cols,
+            attr_values,
+            content,
+            writer,
+        )
     }
 }
 
@@ -243,7 +269,7 @@ fn to_comment<W: Write>(
             from_type: content.get_type().to_string(),
             span: entry_span,
             help: Some("Comment expected to have string content and no attributes".into()),
-        })
+        }),
     }
 }
 
@@ -265,12 +291,14 @@ fn to_processing_instruction<W: Write>(
 
     let content_text = format!("{} {}", tag, content);
     let pi_content = BytesText::new(content_text.as_str());
-    writer.write_event(Event::PI(pi_content)).map_err(|_| ShellError::CantConvert {
-        to_type: "XML".to_string(),
-        from_type: Type::Record(vec![]).to_string(),
-        span: entry_span,
-        help: Some("Failure writing PI to xml".into()),
-    })
+    writer
+        .write_event(Event::PI(pi_content))
+        .map_err(|_| ShellError::CantConvert {
+            to_type: "XML".to_string(),
+            from_type: Type::Record(vec![]).to_string(),
+            span: entry_span,
+            help: Some("Failure writing PI to xml".into()),
+        })
 }
 
 fn to_tag<W: Write>(
@@ -287,7 +315,10 @@ fn to_tag<W: Write>(
             to_type: "XML".to_string(),
             from_type: Type::Record(vec![]).to_string(),
             span: tag_span,
-            help: Some(format!("Incorrect tag name {}, tag name can not start with ! or ?", tag)),
+            help: Some(format!(
+                "Incorrect tag name {}, tag name can not start with ! or ?",
+                tag
+            )),
         });
     }
 
@@ -319,7 +350,10 @@ fn to_tag<W: Write>(
         })
 }
 
-fn parse_attributes(cols: Vec<String>, vals: Vec<Value>) -> Result<IndexMap<String, String>, ShellError> {
+fn parse_attributes(
+    cols: Vec<String>,
+    vals: Vec<Value>,
+) -> Result<IndexMap<String, String>, ShellError> {
     let mut h = IndexMap::new();
     for (k, v) in cols.into_iter().zip(vals.into_iter()) {
         if let Value::String { val, .. } = v {
@@ -336,14 +370,20 @@ fn parse_attributes(cols: Vec<String>, vals: Vec<Value>) -> Result<IndexMap<Stri
     Ok(h)
 }
 
-fn to_xml_text<W: Write>(val: &str, span: Span, writer: &mut quick_xml::Writer<W>) -> Result<(), ShellError> {
+fn to_xml_text<W: Write>(
+    val: &str,
+    span: Span,
+    writer: &mut quick_xml::Writer<W>,
+) -> Result<(), ShellError> {
     let text = Event::Text(BytesText::new(val));
-    writer.write_event(text).map_err(|_| ShellError::CantConvert {
-        to_type: "XML".to_string(),
-        from_type: Type::String.to_string(),
-        span,
-        help: Some("Failure writing string to xml".into()),
-    })
+    writer
+        .write_event(text)
+        .map_err(|_| ShellError::CantConvert {
+            to_type: "XML".to_string(),
+            from_type: Type::String.to_string(),
+            span,
+            help: Some("Failure writing string to xml".into()),
+        })
 }
 
 fn to_xml(
@@ -359,14 +399,14 @@ fn to_xml(
     let value = input.into_value(head);
 
     to_xml_entry(value, true, &mut w).and_then(|_| {
-            let b = w.into_inner().into_inner();
-            let s = if let Ok(s) = String::from_utf8(b) {
-                s
-            } else {
-                return Err(ShellError::NonUtf8(head));
-            };
-            Ok(Value::string(s, head).into_pipeline_data())
-        })
+        let b = w.into_inner().into_inner();
+        let s = if let Ok(s) = String::from_utf8(b) {
+            s
+        } else {
+            return Err(ShellError::NonUtf8(head));
+        };
+        Ok(Value::string(s, head).into_pipeline_data())
+    })
 }
 
 #[cfg(test)]
