@@ -66,60 +66,57 @@ def test_path_add [] {
 
 def test_dirs [] {
 
-    def "myassert eq" [
-        left:any 
-        right:any 
+    def "myassert" [
+        predicate: bool
         msg?:string = "..."
-        --verbose = false (-v)  # enable to see successful tests and values of unequal tests
+        --verbose = false (-v)  # enable to see successful tests
     ] {
-        if $left != $right {
-            let start_span = (metadata $left).span.start
-            let end_span = (metadata $right).span.end
-            let fail_msg = (if $verbose {
-                                $"\n    left: ($left|debug)\n   right: ($right|debug)"
-                            } else {""})
-            error make {msg: $"Assertion failed checking ($msg)($fail_msg)", label: {text: "Values not equal" start: $start_span end: $end_span}}
+        if not $predicate {
+            let span = (metadata $predicate).span
+            error make {msg: $"Assertion failed checking ($msg)",
+                        label: {text: "Condition not true" start: $span.start end: $span.end}}
         } else {
             if $verbose {
                 echo $"check succeeded: ($msg)"
             }
         }
     }
-    
+
     # need some directories to play with
-    let base_path = ($"tmp_(random uuid)" | path expand )
+    let base_path = (($nu.temp-path) | path join $"test_dirs_(random uuid)" | path expand )
+    let path_a = ($base_path | path join "a")
+    let path_b = ($base_path | path join "b")
 
     try {
-        mkdir $base_path ($base_path | path join "a") ($base_path | path join "b")
+        mkdir $base_path $path_a $path_b
         cd $base_path
         use dirs.nu
 
-        myassert eq 1 ($env.DIRS_LIST | length) "list is just pwd after initialization"
-        myassert eq $base_path $env.DIRS_LIST.0 "list is just pwd after initialization"
+        myassert (1 == ($env.DIRS_LIST | length)) "list is just pwd after initialization"
+        myassert ($base_path == $env.DIRS_LIST.0) "list is just pwd after initialization"
 
         dirs next
-        myassert eq $base_path $env.DIRS_LIST.0 "next wraps at end of list"
+        myassert ($base_path == $env.DIRS_LIST.0) "next wraps at end of list"
 
         dirs prev
-        myassert eq $base_path $env.DIRS_LIST.0 "prev wraps at top of list"
+        myassert ($base_path == $env.DIRS_LIST.0) "prev wraps at top of list"
 
-        dirs add ($base_path | path join "b") ($base_path | path join "a")
-        myassert eq ($base_path | path join "b") $env.PWD "add changes PWD to first added dir"
-        myassert eq 3 ($env.DIRS_LIST | length) "add in fact adds to list"
-        myassert eq ($base_path | path join "a") $env.DIRS_LIST.2 "add in fact adds to list"
-        
+        dirs add $path_b $path_a
+        myassert ($path_b == $env.PWD) "add changes PWD to first added dir"
+        myassert (3 == ($env.DIRS_LIST | length)) "add in fact adds to list"
+        myassert ($path_a == $env.DIRS_LIST.2) "add in fact adds to list"
+
         dirs next 2
-        myassert eq $base_path $env.PWD "next wraps at end of list"
+        myassert ($base_path == $env.PWD) "next wraps at end of list"
 
-        dirs prev 1 
-        myassert eq ($base_path | path join "a") $env.PWD "prev wraps at start of list"
+        dirs prev 1
+        myassert ($path_a == $env.PWD) "prev wraps at start of list"
 
         dirs drop
-        myassert eq 2 ($env.DIRS_LIST | length) "drop removes from list"    
-        myassert eq $base_path $env.PWD "drop changes PWD to next in list (after dropped element)"
+        myassert (2 == ($env.DIRS_LIST | length)) "drop removes from list"
+        myassert ($base_path == $env.PWD) "drop changes PWD to next in list (after dropped element)"
 
-        let show_tab = (dirs show)
-        myassert eq $show_tab [[active path]; [true $base_path] [false ($base_path | path join "b")]] "show table contains expected information"
+        myassert ((dirs show) == [[active path]; [true $base_path] [false $path_b]]) "show table contains expected information"
     } catch { |error|
         $error | debug
         true
