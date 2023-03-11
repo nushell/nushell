@@ -1,6 +1,6 @@
 use crate::help::highlight_search_in_table;
 use nu_color_config::StyleComputer;
-use nu_engine::{get_full_help, CallExt};
+use nu_engine::{get_full_help, scope::ScopeData, CallExt};
 use nu_protocol::{
     ast::Call,
     engine::{Command, EngineState, Stack},
@@ -9,29 +9,29 @@ use nu_protocol::{
 };
 
 #[derive(Clone)]
-pub struct HelpExternals;
+pub struct HelpExtern;
 
-impl Command for HelpExternals {
+impl Command for HelpExtern {
     fn name(&self) -> &str {
-        "help externals"
+        "help extern"
     }
 
     fn usage(&self) -> &str {
-        "Show help on nushell externals."
+        "Show help on nushell extern."
     }
 
     fn signature(&self) -> Signature {
-        Signature::build("help externals")
+        Signature::build("help extern")
             .category(Category::Core)
             .rest(
                 "rest",
                 SyntaxShape::String,
-                "the name of external to get help on",
+                "the name of extern to get help on",
             )
             .named(
                 "find",
                 SyntaxShape::String,
-                "string to find in external names and usage",
+                "string to find in extern names and usage",
                 Some('f'),
             )
             .input_output_types(vec![(Type::Nothing, Type::Table(vec![]))])
@@ -41,18 +41,18 @@ impl Command for HelpExternals {
     fn examples(&self) -> Vec<Example> {
         vec![
             Example {
-                description: "show all externals",
-                example: "help aliases",
+                description: "show all extern",
+                example: "help extern",
                 result: None,
             },
             Example {
-                description: "show help for single external",
-                example: "help aliases my-alias",
+                description: "show help for single extern",
+                example: "help extern my-alias",
                 result: None,
             },
             Example {
-                description: "search for string in external names and usages",
-                example: "help aliases --find my-alias",
+                description: "search for string in extern names and usages",
+                example: "help extern --find some-extern",
                 result: None,
             },
         ]
@@ -65,11 +65,11 @@ impl Command for HelpExternals {
         call: &Call,
         _input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
-        help_externals(engine_state, stack, call)
+        help_extern(engine_state, stack, call)
     }
 }
 
-pub fn help_externals(
+pub fn help_extern(
     engine_state: &EngineState,
     stack: &mut Stack,
     call: &Call,
@@ -86,7 +86,7 @@ pub fn help_externals(
     let string_style = style_computer.compute("string", &Value::string("search result", head));
 
     if let Some(f) = find {
-        let all_cmds_vec = build_help_externals(engine_state, head);
+        let all_cmds_vec = build_help_extern(engine_state, stack, head);
         let found_cmds_vec =
             highlight_search_in_table(all_cmds_vec, &f.item, &["name", "usage"], &string_style)?;
 
@@ -96,7 +96,7 @@ pub fn help_externals(
     }
 
     if rest.is_empty() {
-        let found_cmds_vec = build_help_externals(engine_state, head);
+        let found_cmds_vec = build_help_extern(engine_state, stack, head);
 
         Ok(found_cmds_vec
             .into_iter()
@@ -135,66 +135,18 @@ pub fn help_externals(
     }
 }
 
-fn build_help_externals(engine_state: &EngineState, span: Span) -> Vec<Value> {
-    let mut externals = vec![];
-    for (name, decl_id) in engine_state.get_decls_sorted(false) {
-        let decl = engine_state.get_decl(decl_id);
-
-        if decl.is_known_external() {
-            let mut cols = vec![];
-            let mut vals = vec![];
-
-            cols.push("name".into());
-            vals.push(Value::String {
-                val: String::from_utf8_lossy(&name).to_string(),
-                span,
-            });
-
-            let sig = decl.signature();
-            let signatures = sig.to_string().trim_start().replace("\n  ", "\n");
-
-            cols.push("category".to_string());
-            vals.push(Value::String {
-                val: sig.category.to_string(),
-                span,
-            });
-
-            cols.push("usage".to_string());
-            vals.push(Value::String {
-                val: decl.usage().into(),
-                span,
-            });
-
-            cols.push("signatures".into());
-            vals.push(Value::String {
-                val: if decl.is_parser_keyword() {
-                    "".to_string()
-                } else {
-                    signatures
-                },
-                span,
-            });
-
-            let search_terms = decl.search_terms();
-            cols.push("search_terms".to_string());
-            vals.push(Value::String {
-                val: search_terms.join(", "),
-                span,
-            });
-
-            externals.push(Value::Record { cols, vals, span })
-        }
-    }
-
-    externals
+fn build_help_extern(engine_state: &EngineState, stack: &Stack, span: Span) -> Vec<Value> {
+    let mut scope = ScopeData::new(engine_state, stack);
+    scope.populate_all();
+    scope.collect_extern(span)
 }
 
 #[cfg(test)]
 mod test {
     #[test]
     fn test_examples() {
-        use super::HelpExternals;
+        use super::HelpExtern;
         use crate::test_examples;
-        test_examples(HelpExternals {})
+        test_examples(HelpExtern {})
     }
 }
