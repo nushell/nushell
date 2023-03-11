@@ -34,3 +34,17 @@ export def test [
         cargo test --workspace
     }
 }
+
+# run all the necessary checks and tests to submit a perfect PR
+export def "check pr" [
+    --fast: bool  # use the "nextext" `cargo` subcommand to speed up the tests (see [`cargo-nextest`](https://nexte.st/) and [`nextest-rs/nextest`](https://github.com/nextest-rs/nextest))
+] {
+    print "running `toolkit fmt`"
+    fmt
+
+    print "running `toolkit clippy`"
+    clippy
+
+    print "running `toolkit test`"
+    if $fast { test --fast } else { test }
+}
