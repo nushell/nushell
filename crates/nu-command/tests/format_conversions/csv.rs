@@ -321,7 +321,7 @@ fn from_csv_text_with_missing_columns_to_table() {
 }
 
 #[test]
-fn from_csv_text_with_multiple_char_seperator() {
+fn from_csv_text_with_multiple_char_separator() {
     Playground::setup("filter_from_csv_test_10", |dirs, sandbox| {
         sandbox.with_files(vec![FileWithContentToBeTrimmed(
             "los_tres_caballeros.txt",
@@ -346,7 +346,7 @@ fn from_csv_text_with_multiple_char_seperator() {
 }
 
 #[test]
-fn from_csv_text_with_wrong_type_seperator() {
+fn from_csv_text_with_wrong_type_separator() {
     Playground::setup("filter_from_csv_test_11", |dirs, sandbox| {
         sandbox.with_files(vec![FileWithContentToBeTrimmed(
             "los_tres_caballeros.txt",
