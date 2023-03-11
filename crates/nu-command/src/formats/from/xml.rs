@@ -246,12 +246,84 @@ fn from_xml(input: PipelineData, info: &ParsingInfo) -> Result<PipelineData, She
 
     match from_xml_string_to_value(concat_string, info) {
         Ok(x) => Ok(x.into_pipeline_data_with_metadata(metadata)),
-        _ => Err(ShellError::UnsupportedInput(
-            "Could not parse string as XML".to_string(),
-            "value originates from here".into(),
-            info.span,
+        Err(err) => Err(process_xml_parse_error(err, span)),
+    }
+}
+
+fn process_xml_parse_error(err: roxmltree::Error, span: Span) -> ShellError {
+    match err {
+        roxmltree::Error::InvalidXmlPrefixUri(_) => make_cant_convert_error(
+            "The `xmlns:xml` attribute must have an <http://www.w3.org/XML/1998/namespace> URI.",
             span,
-        )),
+        ),
+        roxmltree::Error::UnexpectedXmlUri(_) => make_cant_convert_error(
+            "Only the xmlns:xml attribute can have the http://www.w3.org/XML/1998/namespace  URI.",
+            span,
+        ),
+        roxmltree::Error::UnexpectedXmlnsUri(_) => make_cant_convert_error(
+            "The http://www.w3.org/2000/xmlns/  URI must not be declared.",
+            span,
+        ),
+        roxmltree::Error::InvalidElementNamePrefix(_) => {
+            make_cant_convert_error("xmlns can't be used as an element prefix.", span)
+        }
+        roxmltree::Error::DuplicatedNamespace(_, _) => {
+            make_cant_convert_error("A namespace was already defined on this element.", span)
+        }
+        roxmltree::Error::UnknownNamespace(prefix, _) => {
+            make_cant_convert_error(format!("Unknown prefix {}", prefix), span)
+        }
+        roxmltree::Error::UnexpectedCloseTag { .. } => {
+            make_cant_convert_error("Unexpected close tag", span)
+        }
+        roxmltree::Error::UnexpectedEntityCloseTag(_) => {
+            make_cant_convert_error("Entity value starts with a close tag.", span)
+        }
+        roxmltree::Error::UnknownEntityReference(_, _) => make_cant_convert_error(
+            "A reference to an entity that was not defined in the DTD.",
+            span,
+        ),
+        roxmltree::Error::MalformedEntityReference(_) => {
+            make_cant_convert_error("A malformed entity reference.", span)
+        }
+        roxmltree::Error::EntityReferenceLoop(_) => {
+            make_cant_convert_error("A possible entity reference loop.", span)
+        }
+        roxmltree::Error::InvalidAttributeValue(_) => {
+            make_cant_convert_error("Attribute value cannot have a < character.", span)
+        }
+        roxmltree::Error::DuplicatedAttribute(_, _) => {
+            make_cant_convert_error("An element has a duplicated attributes.", span)
+        }
+        roxmltree::Error::NoRootNode => {
+            make_cant_convert_error("The XML document must have at least one element.", span)
+        }
+        roxmltree::Error::UnclosedRootNode => {
+            make_cant_convert_error("The root node was opened but never closed.", span)
+        }
+        roxmltree::Error::DtdDetected => make_cant_convert_error(
+            "An XML with DTD detected. DTDs are currently disabled due to security reasons.",
+            span,
+        ),
+        roxmltree::Error::NodesLimitReached => {
+            make_cant_convert_error("Node limit was reached.", span)
+        }
+        roxmltree::Error::AttributesLimitReached => {
+            make_cant_convert_error("Attribute limit reached", span)
+        }
+        roxmltree::Error::NamespacesLimitReached => {
+            make_cant_convert_error("Namespace limit reached", span)
+        }
+        roxmltree::Error::ParserError(_) => make_cant_convert_error("Parser error", span),
+    }
+}
+
+fn make_cant_convert_error(help: impl Into<String>, span: Span) -> ShellError {
+    ShellError::CantConvert {
+        from_type: Type::String.to_string(),
+        to_type: "XML".to_string(),
+        span,
+        help: Some(help.into()),
     }
 }
 
