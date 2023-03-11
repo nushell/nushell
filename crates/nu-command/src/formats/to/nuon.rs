@@ -100,6 +100,9 @@ pub fn value_to_string(
     depth: usize,
     indent: &Option<String>,
 ) -> Result<String, ShellError> {
+    let nl = get_true_newline(indent);
+    let idt = get_true_indentation(depth, indent);
+
     match v {
         Value::Binary { val, .. } => {
             let mut s = String::with_capacity(2 * val.len());
