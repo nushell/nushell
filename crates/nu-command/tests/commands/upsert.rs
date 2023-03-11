@@ -17,7 +17,7 @@ fn sets_the_column() {
 #[test]
 fn doesnt_convert_record_to_table() {
     let actual = nu!(
-        cwd: ".", r#"{a:1} | upsert a 2 | to nuon"#
+        cwd: ".", r#"{a:1} | upsert a 2 | to nuon --raw"#
     );
 
     assert_eq!(actual.out, "{a: 2}");
@@ -72,7 +72,7 @@ fn sets_the_column_from_a_subexpression() {
 fn upsert_uses_enumerate_index_inserting() {
     let actual = nu!(
         cwd: ".", pipeline(
-        r#"[[a]; [7] [6]] | enumerate | upsert b {|el| $el.index + 1 + $el.item.a } | flatten | to nuon"#
+        r#"[[a]; [7] [6]] | enumerate | upsert b {|el| $el.index + 1 + $el.item.a } | flatten | to nuon --raw"#
     ));
 
     assert_eq!(actual.out, "[[index, a, b]; [0, 7, 8], [1, 6, 8]]");
@@ -82,7 +82,7 @@ fn upsert_uses_enumerate_index_inserting() {
 fn upsert_uses_enumerate_index_updating() {
     let actual = nu!(
         cwd: ".", pipeline(
-        r#"[[a]; [7] [6]] | enumerate | upsert a {|el| $el.index + 1 + $el.item.a } | flatten | to nuon"#
+        r#"[[a]; [7] [6]] | enumerate | upsert a {|el| $el.index + 1 + $el.item.a } | flatten | to nuon --raw"#
     ));
 
     assert_eq!(actual.out, "[[index, a]; [0, 8], [1, 8]]");

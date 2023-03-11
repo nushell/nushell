@@ -17,7 +17,7 @@ fn sets_the_column() {
 #[test]
 fn doesnt_convert_record_to_table() {
     let actual = nu!(
-        cwd: ".", r#"{a:1} | update a 2 | to nuon"#
+        cwd: ".", r#"{a:1} | update a 2 | to nuon --raw"#
     );
 
     assert_eq!(actual.out, "{a: 2}");
@@ -119,7 +119,7 @@ fn update_nonexistent_column() {
 fn update_uses_enumerate_index() {
     let actual = nu!(
         cwd: ".", pipeline(
-        r#"[[a]; [7] [6]] | enumerate | update item.a {|el| $el.index + 1 + $el.item.a } | flatten | to nuon"#
+        r#"[[a]; [7] [6]] | enumerate | update item.a {|el| $el.index + 1 + $el.item.a } | flatten | to nuon --raw"#
     ));
 
     assert_eq!(actual.out, "[[index, a]; [0, 8], [1, 8]]");

@@ -35,7 +35,7 @@ fn where_inside_block_works() {
 fn filters_with_0_arity_block() {
     let actual = nu!(
         cwd: ".",
-        "[1 2 3 4] | where { $in < 3 } | to nuon"
+        "[1 2 3 4] | where { $in < 3 } | to nuon --raw"
     );
 
     assert_eq!(actual.out, "[1, 2]");
@@ -45,7 +45,7 @@ fn filters_with_0_arity_block() {
 fn filters_with_1_arity_block() {
     let actual = nu!(
         cwd: ".",
-        "[1 2 3 6 7 8] | where {|e| $e < 5 } | to nuon"
+        "[1 2 3 6 7 8] | where {|e| $e < 5 } | to nuon --raw"
     );
 
     assert_eq!(actual.out, "[1, 2, 3]");
@@ -55,7 +55,7 @@ fn filters_with_1_arity_block() {
 fn unique_env_each_iteration() {
     let actual = nu!(
         cwd: "tests/fixtures/formats",
-        "[1 2] | where { print ($env.PWD | str ends-with 'formats') | cd '/' | true } | to nuon"
+        "[1 2] | where { print ($env.PWD | str ends-with 'formats') | cd '/' | true } | to nuon --raw"
     );
 
     assert_eq!(actual.out, "truetrue[1, 2]");
@@ -85,7 +85,7 @@ fn where_not_in_table() {
 fn where_uses_enumerate_index() {
     let actual = nu!(
         cwd: ".",
-        r#"[7 8 9 10] | enumerate | where {|el| $el.index < 2 } | to nuon"#
+        r#"[7 8 9 10] | enumerate | where {|el| $el.index < 2 } | to nuon --raw"#
     );
 
     assert_eq!(actual.out, "[[index, item]; [0, 7], [1, 8]]");

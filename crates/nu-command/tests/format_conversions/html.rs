@@ -80,7 +80,7 @@ fn test_no_color_flag() {
 fn test_list() {
     let actual = nu!(
         cwd: ".",
-        r#"to html --list | where name == C64 | get 0 | to nuon"#
+        r#"to html --list | where name == C64 | get 0 | to nuon --raw"#
     );
     assert_eq!(
         actual.out,

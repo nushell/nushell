@@ -101,7 +101,7 @@ fn mut_path_insert_list() {
     let actual = nu!(
         cwd: ".", pipeline(
         r#"
-        mut a = [0 1 2]; $a.3 = 3; $a | to nuon
+        mut a = [0 1 2]; $a.3 = 3; $a | to nuon --raw
         "#
     ));
 
@@ -125,7 +125,7 @@ fn mut_path_upsert_list() {
     let actual = nu!(
         cwd: ".", pipeline(
         r#"
-        mut a = [[[3] 2] 1]; $a.0.0.1 = 0; $a.0.2 = 0; $a.2 = 0; $a | to nuon
+        mut a = [[[3] 2] 1]; $a.0.0.1 = 0; $a.0.2 = 0; $a.2 = 0; $a | to nuon --raw
         "#
     ));
 

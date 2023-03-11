@@ -111,7 +111,7 @@ fn test_time_closure() {
     use nu_test_support::{nu, nu_repl_code, playground::Playground};
     Playground::setup("test_time_closure", |dirs, _| {
         let inp = [
-            r#"[2 3 4] | timeit { to nuon | save foo.txt }"#,
+            r#"[2 3 4] | timeit { to nuon --raw | save foo.txt }"#,
             "open foo.txt",
         ];
         let actual_repl = nu!(cwd: dirs.test(), nu_repl_code(&inp));
@@ -125,7 +125,7 @@ fn test_time_closure_2() {
     use nu_test_support::{nu, nu_repl_code, playground::Playground};
     Playground::setup("test_time_closure", |dirs, _| {
         let inp = [
-            r#"[2 3 4] | timeit {|e| {result: $e} | to nuon | save foo.txt }"#,
+            r#"[2 3 4] | timeit {|e| {result: $e} | to nuon --raw | save foo.txt }"#,
             "open foo.txt",
         ];
         let actual_repl = nu!(cwd: dirs.test(), nu_repl_code(&inp));

@@ -480,7 +480,7 @@ fn adding_lists() {
     let actual = nu!(
         cwd: "tests/fixtures/formats", pipeline(
         r#"
-            [1 3] ++ [5 6] | to nuon
+            [1 3] ++ [5 6] | to nuon --raw
         "#
     ));
 
@@ -492,7 +492,7 @@ fn adding_list_and_value() {
     let actual = nu!(
         cwd: "tests/fixtures/formats", pipeline(
         r#"
-            [1 3] ++ 5 | to nuon
+            [1 3] ++ 5 | to nuon --raw
         "#
     ));
 
@@ -504,7 +504,7 @@ fn adding_value_and_list() {
     let actual = nu!(
         cwd: "tests/fixtures/formats", pipeline(
         r#"
-            1 ++ [3 5] | to nuon
+            1 ++ [3 5] | to nuon --raw
         "#
     ));
 
@@ -516,7 +516,7 @@ fn adding_tables() {
     let actual = nu!(
         cwd: "tests/fixtures/formats", pipeline(
         r#"
-            [[a b]; [1 2]] ++ [[c d]; [10 11]] | to nuon
+            [[a b]; [1 2]] ++ [[c d]; [10 11]] | to nuon --raw
         "#
     ));
     assert_eq!(actual.out, "[{a: 1, b: 2}, {c: 10, d: 11}]");
@@ -538,7 +538,7 @@ fn append_binary_values() {
     let actual = nu!(
         cwd: "tests/fixtures/formats", pipeline(
         r#"
-            0x[01 02] ++ 0x[03 04] | to nuon
+            0x[01 02] ++ 0x[03 04] | to nuon --raw
         "#
     ));
     assert_eq!(actual.out, "0x[01020304]");
@@ -562,12 +562,12 @@ fn int_multiple_string() {
 fn int_multiple_list() {
     let actual = nu!(
         cwd: "tests/fixtures/formats", pipeline(
-        r#"3 * [1 2] | to nuon"#
+        r#"3 * [1 2] | to nuon --raw"#
     ));
     assert_eq!(actual.out, "[1, 2, 1, 2, 1, 2]");
     let actual = nu!(
         cwd: "tests/fixtures/formats", pipeline(
-        r#"[1 2] * 3 | to nuon"#
+        r#"[1 2] * 3 | to nuon --raw"#
     ));
     assert_eq!(actual.out, "[1, 2, 1, 2, 1, 2]");
 }

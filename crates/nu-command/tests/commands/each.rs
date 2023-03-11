@@ -76,7 +76,7 @@ fn each_implicit_it_in_block() {
 fn each_uses_enumerate_index() {
     let actual = nu!(
         cwd: ".", pipeline(
-        r#"[7 8 9 10] | enumerate | each {|el| $el.index } | to nuon"#
+        r#"[7 8 9 10] | enumerate | each {|el| $el.index } | to nuon --raw"#
     ));
 
     assert_eq!(actual.out, "[0, 1, 2, 3]");
@@ -86,7 +86,7 @@ fn each_uses_enumerate_index() {
 fn each_while_uses_enumerate_index() {
     let actual = nu!(
         cwd: ".", pipeline(
-        r#"[7 8 9 10] | enumerate | each while {|el| $el.index } | to nuon"#
+        r#"[7 8 9 10] | enumerate | each while {|el| $el.index } | to nuon --raw"#
     ));
 
     assert_eq!(actual.out, "[0, 1, 2, 3]");

@@ -101,7 +101,7 @@ fn any_uses_enumerate_index() {
 fn unique_env_each_iteration() {
     let actual = nu!(
         cwd: "tests/fixtures/formats",
-        "[1 2] | any { print ($env.PWD | str ends-with 'formats') | cd '/' | false } | to nuon"
+        "[1 2] | any { print ($env.PWD | str ends-with 'formats') | cd '/' | false } | to nuon --raw"
     );
 
     assert_eq!(actual.out, "truetruefalse");

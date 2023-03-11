@@ -178,7 +178,7 @@ fn select_ignores_errors_successfully2() {
     let actual = nu!(
         cwd: ".", pipeline(
         r#"
-        [{a: 1} {a: 2} {a: 3}] | select -i b | to nuon
+        [{a: 1} {a: 2} {a: 3}] | select -i b | to nuon --raw
             "#
     ));
 
@@ -190,7 +190,7 @@ fn select_ignores_errors_successfully2() {
 fn select_ignores_errors_successfully3() {
     let actual = nu!(
         cwd: ".", pipeline(
-        r#"sys | select -i invalid_key | to nuon"#
+        r#"sys | select -i invalid_key | to nuon --raw"#
     ));
 
     assert_eq!(actual.out, "{invalid_key: null}".to_string());
@@ -201,7 +201,7 @@ fn select_ignores_errors_successfully3() {
 fn select_ignores_errors_successfully4() {
     let actual = nu!(
         cwd: ".", pipeline(
-        r#"[a b c] | select -i invalid_key | to nuon"#
+        r#"[a b c] | select -i invalid_key | to nuon --raw"#
     ));
 
     assert_eq!(
@@ -226,7 +226,7 @@ fn select_ignores_errors_successfully5() {
 fn select_ignores_errors_successfully6() {
     let actual = nu!(
         cwd: ".", pipeline(
-        r#""key val\na 1\nb 2\n" | lines | split column -c " " | select -i "100" | to nuon"#
+        r#""key val\na 1\nb 2\n" | lines | split column -c " " | select -i "100" | to nuon --raw"#
     ));
 
     assert_eq!(

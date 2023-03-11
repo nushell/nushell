@@ -34,7 +34,7 @@ fn filesize_metric_overrides_format() {
 fn filesize_format_auto_metric_true() {
     let code = &[
         r#"let-env config = { filesize: { metric: true, format:"auto" } }"#,
-        r#"[2mb 2gb 2tb] | into string | to nuon"#,
+        r#"[2mb 2gb 2tb] | into string | to nuon --raw"#,
     ];
     let actual = nu!(cwd: ".", nu_repl_code( code ));
     assert_eq!(actual.out, r#"["2.0 MB", "2.0 GB", "2.0 TB"]"#);
@@ -44,7 +44,7 @@ fn filesize_format_auto_metric_true() {
 fn filesize_format_auto_metric_false() {
     let code = &[
         r#"let-env config = { filesize: { metric: false, format:"auto" } }"#,
-        r#"[2mb 2gb 2tb] | into string | to nuon"#,
+        r#"[2mb 2gb 2tb] | into string | to nuon --raw"#,
     ];
     let actual = nu!(cwd: ".", nu_repl_code( code ));
     assert_eq!(actual.out, r#"["1.9 MiB", "1.9 GiB", "1.8 TiB"]"#);
