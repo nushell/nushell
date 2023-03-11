@@ -1,12 +1,3 @@
-def _assert [
-    cond: bool
-    msg: string
-] {
-    if not $cond {
-        error make {msg: $msg}
-    }
-}
-
 def _assertion-error [start, end, label, message?: string] {
     error make {
         msg: $"Assertion failed: ($message)",
@@ -37,8 +28,6 @@ export def assert [cond: bool, message?: string] {
     let span = (metadata $cond).span
     _assertion-error $span.start $span.end "It is not true." $message
 }
-
-assert eq 1 2
 
 # ```nushell
 # >_ let a = 3
@@ -81,32 +70,25 @@ export def "assert eq" [left: any, right: any, message?: string] {
 }
 
 # ```nushell
-# >_ assert_ne $a "a string"
+# >_ let a = 3
+# >_ assert ne $a 1
+# >_ assert ne $a 3
 # Error:
-#   × left and right operand of `assert eq` should have the same type
-#    ╭─[entry #12:5:1]
-#  5 │     if not $cond {
-#  6 │         error make {msg: $msg}
-#    ·         ─────┬────
-#    ·              ╰── originates from here
-#  7 │     }
-#    ╰────
-#
-# >_ assert_ne $a 1
-# >_ assert_ne $a 3
-# Error:
-#   × left is equal to right
-#    ╭─[entry #12:5:1]
-#  5 │     if not $cond {
-#  6 │         error make {msg: $msg}
-#    ·         ─────┬────
-#    ·              ╰── originates from here
-#  7 │     }
-#    ╰────
+#   × Assertion failed:
+#      ╭─[C:\Users\fm\git\nushell\crates\nu-utils\standard_library\std.nu:113:1]
+#  113 │ assert ne $a 1
+#  114 │ assert ne $a 3
+#      ·           ──┬─
+#      ·             ╰── They both are 3
+#  115 │
+#      ╰────
 # ```
-export def "assert ne" [left: any, right: any] {
-    _assert (($left | describe) == ($right | describe)) $"left and right operand of `assert eq` should have the same type"
-    _assert ($left != $right) "left is equal to right"
+export def "assert ne" [left: any, right: any, message?: string] {
+    let left_start = (metadata $left).span.start
+    let right_end = (metadata $right).span.end
+    if ($left == $right) {
+        _assertion-error $left_start $right_end $"They both are ($left)" $message
+    }
 }
 
 # ```nushell
