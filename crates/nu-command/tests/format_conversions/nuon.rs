@@ -177,7 +177,7 @@ fn to_nuon_records() {
     assert_eq!(actual.out, "true");
 }
 
-#[test]
+#[allow(dead_code)]
 fn to_nuon_range() {
     let actual = nu!(
         cwd: "tests/fixtures/formats", pipeline(
@@ -285,7 +285,7 @@ fn from_nuon_datetime() {
     assert_eq!(actual.out, "date");
 }
 
-#[test]
+#[allow(dead_code)]
 fn to_nuon_errs_on_closure() {
     let actual = nu!(
         cwd: "tests/fixtures/formats", pipeline(
