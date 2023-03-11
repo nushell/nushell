@@ -21,7 +21,7 @@ impl Command for HelpExterns {
     }
 
     fn signature(&self) -> Signature {
-        Signature::build("help extern")
+        Signature::build("help externs")
             .category(Category::Core)
             .rest(
                 "rest",
