@@ -17,9 +17,9 @@ Make sure you've run and fixed any issues with these commands:
 
 > **Note**
 > run `use toolkit.nu` to activate the tools mentionned below
-- `toolkit fmt --check` to check standard code formatting (`toolkit fmt` applies these changes)
-- `toolkit clippy` to check that you're using the standard code style
-- `toolkit test` to check that all tests pass
+```
+toolkit check pr
+```
 
 # After Submitting
 
