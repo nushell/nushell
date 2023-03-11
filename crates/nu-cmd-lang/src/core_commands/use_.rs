@@ -14,7 +14,7 @@ impl Command for Use {
     }
 
     fn usage(&self) -> &str {
-        "Use definitions from a module"
+        "Use definitions from a module."
     }
 
     fn signature(&self) -> nu_protocol::Signature {

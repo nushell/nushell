@@ -16,7 +16,7 @@ impl Command for AppendDF {
     }
 
     fn usage(&self) -> &str {
-        "Appends a new dataframe"
+        "Appends a new dataframe."
     }
 
     fn signature(&self) -> Signature {

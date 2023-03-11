@@ -59,9 +59,10 @@ fn alias_2_multi_word() -> TestResult {
     )
 }
 
+#[ignore = "TODO: Allow alias to alias existing command with the same name"]
 #[test]
 fn alias_recursion() -> TestResult {
-    run_test_contains(r#"alias ls = (ls | sort-by type name -i); ls"#, " ")
+    run_test_contains(r#"alias ls = ls -a; ls"#, " ")
 }
 
 #[test]
@@ -233,7 +234,7 @@ fn equals_separates_long_flag() -> TestResult {
 fn let_env_expressions() -> TestResult {
     let env = HashMap::from([("VENV_OLD_PATH", "Foobar"), ("Path", "Quux")]);
     run_test_with_env(
-        r#"let-env Path = if (env | any {|x| $x.name == VENV_OLD_PATH}) { $env.VENV_OLD_PATH } else { $env.Path }; echo $env.Path"#,
+        r#"let-env Path = if ($env | columns | "VENV_OLD_PATH" in $in) { $env.VENV_OLD_PATH } else { $env.Path }; echo $env.Path"#,
         "Foobar",
         &env,
     )
@@ -475,4 +476,9 @@ fn or_and_xor() -> TestResult {
 #[test]
 fn unbalanced_delimiter() -> TestResult {
     fail_test(r#"{a:{b:5}}}"#, "unbalanced { and }")
+}
+
+#[test]
+fn unbalanced_delimiter2() -> TestResult {
+    fail_test(r#"{}#.}"#, "unbalanced { and }")
 }

@@ -21,7 +21,7 @@ nix = { version = "0.25", default-features = false, features = ["fs", "term", "p
 atty = "0.2"
 
 [target.'cfg(any(target_os = "linux", target_os = "android"))'.dependencies]
-procfs  = "0.14.0"
+procfs  = "0.15.1"
 
 [target.'cfg(target_os = "macos")'.dependencies]
 libproc = "0.12.0"

@@ -20,7 +20,7 @@ impl Command for KeybindingsDefault {
     }
 
     fn usage(&self) -> &str {
-        "List default keybindings"
+        "List default keybindings."
     }
 
     fn examples(&self) -> Vec<Example> {

@@ -71,7 +71,7 @@ On Windows, an extra 'prefix' column is added."#
 
         // This doesn't match explicit nulls
         if matches!(input, PipelineData::Empty) {
-            return Err(ShellError::PipelineEmpty(head));
+            return Err(ShellError::PipelineEmpty { dst_span: head });
         }
         input.map(
             move |value| super::operate(&parse, &args, value, head),

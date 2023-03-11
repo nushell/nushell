@@ -7,7 +7,7 @@ use nu_protocol::{
 
 use crate::network::http::client::{
     http_client, http_parse_url, request_add_authorization_header, request_add_custom_headers,
-    request_handle_response_headers, request_set_timeout,
+    request_handle_response_headers, request_set_timeout, send_request,
 };
 
 #[derive(Clone)]
@@ -106,7 +106,7 @@ impl Command for SubCommand {
 struct Arguments {
     url: Value,
     headers: Option<Value>,
-    insecure: Option<bool>,
+    insecure: bool,
     user: Option<String>,
     password: Option<String>,
     timeout: Option<Value>,
@@ -121,11 +121,12 @@ fn run_head(
     let args = Arguments {
         url: call.req(engine_state, stack, 0)?,
         headers: call.get_flag(engine_state, stack, "headers")?,
-        insecure: call.get_flag(engine_state, stack, "insecure")?,
+        insecure: call.has_flag("insecure"),
         user: call.get_flag(engine_state, stack, "user")?,
         password: call.get_flag(engine_state, stack, "password")?,
-        timeout: call.get_flag(engine_state, stack, "timeout")?,
+        timeout: call.get_flag(engine_state, stack, "max-time")?,
     };
+
     helper(call, args)
 }
 
@@ -133,17 +134,17 @@ fn run_head(
 // The Option<String> return a possible file extension which can be used in AutoConvert commands
 fn helper(call: &Call, args: Arguments) -> Result<PipelineData, ShellError> {
     let span = args.url.span()?;
-    let (requested_url, url) = http_parse_url(call, span, args.url)?;
+    let (requested_url, _) = http_parse_url(call, span, args.url)?;
 
-    let client = http_client(args.insecure.is_some());
-    let mut request = client.head(url);
+    let client = http_client(args.insecure);
+    let mut request = client.head(&requested_url);
 
     request = request_set_timeout(args.timeout, request)?;
     request = request_add_authorization_header(args.user, args.password, request);
     request = request_add_custom_headers(args.headers, request)?;
 
-    let response = request.send().and_then(|r| r.error_for_status());
-    request_handle_response_headers(span, &requested_url, response)
+    let response = send_request(request, span, None, None);
+    request_handle_response_headers(span, response)
 }
 
 #[cfg(test)]

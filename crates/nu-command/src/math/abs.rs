@@ -18,7 +18,7 @@ impl Command for SubCommand {
     }
 
     fn usage(&self) -> &str {
-        "Returns the absolute value of a number"
+        "Returns the absolute value of a number."
     }
 
     fn search_terms(&self) -> Vec<&str> {
@@ -68,12 +68,12 @@ fn abs_helper(val: Value, head: Span) -> Value {
         },
         Value::Error { .. } => val,
         other => Value::Error {
-            error: ShellError::OnlySupportsThisInputType(
-                "numeric".into(),
-                other.get_type().to_string(),
-                head,
-                other.expect_span(),
-            ),
+            error: ShellError::OnlySupportsThisInputType {
+                exp_input_type: "numeric".into(),
+                wrong_type: other.get_type().to_string(),
+                dst_span: head,
+                src_span: other.expect_span(),
+            },
         },
     }
 }

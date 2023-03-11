@@ -51,7 +51,7 @@ impl Command for SubCommand {
     }
 
     fn usage(&self) -> &str {
-        "Get the final component of a path"
+        "Get the final component of a path."
     }
 
     fn run(
@@ -69,7 +69,7 @@ impl Command for SubCommand {
 
         // This doesn't match explicit nulls
         if matches!(input, PipelineData::Empty) {
-            return Err(ShellError::PipelineEmpty(head));
+            return Err(ShellError::PipelineEmpty { dst_span: head });
         }
         input.map(
             move |value| super::operate(&get_basename, &args, value, head),

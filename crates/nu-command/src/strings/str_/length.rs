@@ -50,7 +50,7 @@ impl Command for SubCommand {
     }
 
     fn usage(&self) -> &str {
-        "Output the length of any strings in the pipeline"
+        "Output the length of any strings in the pipeline."
     }
 
     fn search_terms(&self) -> Vec<&str> {
@@ -108,12 +108,12 @@ fn action(input: &Value, arg: &Arguments, head: Span) -> Value {
         ),
         Value::Error { .. } => input.clone(),
         _ => Value::Error {
-            error: ShellError::OnlySupportsThisInputType(
-                "string".into(),
-                input.get_type().to_string(),
-                head,
-                input.expect_span(),
-            ),
+            error: ShellError::OnlySupportsThisInputType {
+                exp_input_type: "string".into(),
+                wrong_type: input.get_type().to_string(),
+                dst_span: head,
+                src_span: input.expect_span(),
+            },
         },
     }
 }

@@ -49,7 +49,7 @@ impl Command for BytesIndexOf {
     }
 
     fn usage(&self) -> &str {
-        "Returns start index of first occurrence of pattern in bytes, or -1 if no match"
+        "Returns start index of first occurrence of pattern in bytes, or -1 if no match."
     }
 
     fn search_terms(&self) -> Vec<&str> {
@@ -135,13 +135,12 @@ fn index_of(val: &Value, args: &Arguments, span: Span) -> Value {
         // Propagate errors by explicitly matching them before the final case.
         Value::Error { .. } => val.clone(),
         other => Value::Error {
-            error: ShellError::OnlySupportsThisInputType(
-                "binary".into(),
-                other.get_type().to_string(),
-                span,
-                // This line requires the Value::Error match above.
-                other.expect_span(),
-            ),
+            error: ShellError::OnlySupportsThisInputType {
+                exp_input_type: "binary".into(),
+                wrong_type: other.get_type().to_string(),
+                dst_span: span,
+                src_span: other.expect_span(),
+            },
         },
     }
 }

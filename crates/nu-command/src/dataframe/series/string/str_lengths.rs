@@ -16,7 +16,7 @@ impl Command for StrLengths {
     }
 
     fn usage(&self) -> &str {
-        "Get lengths of all strings"
+        "Get lengths of all strings."
     }
 
     fn signature(&self) -> Signature {

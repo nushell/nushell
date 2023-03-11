@@ -32,7 +32,7 @@ impl Command for SubCommand {
     }
 
     fn usage(&self) -> &str {
-        "Convert value to boolean"
+        "Convert value to boolean."
     }
 
     fn search_terms(&self) -> Vec<&str> {
@@ -134,15 +134,15 @@ fn string_to_boolean(s: &str, span: Span) -> Result<bool, ShellError> {
             let val = o.parse::<f64>();
             match val {
                 Ok(f) => Ok(f.abs() >= f64::EPSILON),
-                Err(_) => Err(ShellError::CantConvert(
-                    "boolean".to_string(),
-                    "string".to_string(),
+                Err(_) => Err(ShellError::CantConvert {
+                    to_type: "boolean".to_string(),
+                    from_type: "string".to_string(),
                     span,
-                    Some(
+                    help: Some(
                         r#"the strings "true" and "false" can be converted into a bool"#
                             .to_string(),
                     ),
-                )),
+                }),
             }
         }
     }
@@ -166,13 +166,12 @@ fn action(input: &Value, _args: &CellPathOnlyArgs, span: Span) -> Value {
         // Propagate errors by explicitly matching them before the final case.
         Value::Error { .. } => input.clone(),
         other => Value::Error {
-            error: ShellError::OnlySupportsThisInputType(
-                "bool, integer, float or string".into(),
-                other.get_type().to_string(),
-                span,
-                // This line requires the Value::Error match above.
-                other.expect_span(),
-            ),
+            error: ShellError::OnlySupportsThisInputType {
+                exp_input_type: "bool, integer, float or string".into(),
+                wrong_type: other.get_type().to_string(),
+                dst_span: span,
+                src_span: other.expect_span(),
+            },
         },
     }
 }

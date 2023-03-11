@@ -28,7 +28,7 @@ impl Command for SubCommand {
     }
 
     fn usage(&self) -> &str {
-        "Generate a random boolean value"
+        "Generate a random boolean value."
     }
 
     fn search_terms(&self) -> Vec<&str> {
@@ -77,7 +77,7 @@ fn bool(
         let probability_is_valid = (0.0..=1.0).contains(&probability);
 
         if !probability_is_valid {
-            return Err(ShellError::InvalidProbability(prob.span));
+            return Err(ShellError::InvalidProbability { span: prob.span });
         }
     }
 

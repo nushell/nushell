@@ -15,7 +15,7 @@ impl Command for Zip {
     }
 
     fn usage(&self) -> &str {
-        "Combine a stream with the input"
+        "Combine a stream with the input."
     }
 
     fn signature(&self) -> nu_protocol::Signature {

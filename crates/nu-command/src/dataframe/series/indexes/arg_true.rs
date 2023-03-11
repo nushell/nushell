@@ -16,7 +16,7 @@ impl Command for ArgTrue {
     }
 
     fn usage(&self) -> &str {
-        "Returns indexes where values are true"
+        "Returns indexes where values are true."
     }
 
     fn search_terms(&self) -> Vec<&str> {

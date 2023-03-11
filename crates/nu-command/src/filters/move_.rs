@@ -21,7 +21,7 @@ impl Command for Move {
     }
 
     fn usage(&self) -> &str {
-        "Move columns before or after other columns"
+        "Move columns before or after other columns."
     }
 
     fn signature(&self) -> nu_protocol::Signature {
@@ -184,11 +184,11 @@ impl Command for Move {
                 call.head,
             )?
             .into_pipeline_data()),
-            _ => Err(ShellError::PipelineMismatch(
-                "record or table".to_string(),
-                call.head,
-                Span::new(call.head.start, call.head.start),
-            )),
+            _ => Err(ShellError::PipelineMismatch {
+                exp_input_type: "record or table".to_string(),
+                dst_span: call.head,
+                src_span: Span::new(call.head.start, call.head.start),
+            }),
         }
     }
 }
@@ -262,11 +262,11 @@ fn move_record_columns(
                         out_cols.push(col.into());
                         out_vals.push(val.clone());
                     } else {
-                        return Err(ShellError::NushellFailedSpanned(
-                            "Error indexing input columns".to_string(),
-                            "originates from here".to_string(),
+                        return Err(ShellError::NushellFailedSpanned {
+                            msg: "Error indexing input columns".to_string(),
+                            label: "originates from here".to_string(),
                             span,
-                        ));
+                        });
                     }
                 }
             }
@@ -276,11 +276,11 @@ fn move_record_columns(
                         out_cols.push(col.into());
                         out_vals.push(val.clone());
                     } else {
-                        return Err(ShellError::NushellFailedSpanned(
-                            "Error indexing input columns".to_string(),
-                            "originates from here".to_string(),
+                        return Err(ShellError::NushellFailedSpanned {
+                            msg: "Error indexing input columns".to_string(),
+                            label: "originates from here".to_string(),
                             span,
-                        ));
+                        });
                     }
                 }
 

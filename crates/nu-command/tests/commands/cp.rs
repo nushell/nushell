@@ -23,7 +23,7 @@ fn copies_a_file_impl(progress: bool) {
         let progress_flag = if progress { "-p" } else { "" };
 
         // Get the hash of the file content to check integrity after copy.
-        let first_hash = get_file_hash(&test_file.display());
+        let first_hash = get_file_hash(test_file.display());
 
         nu!(
             cwd: dirs.root(),
@@ -175,15 +175,15 @@ fn deep_copies_with_recursive_flag_impl(progress: bool) {
         assert!(expected_dir.exists());
         assert!(files_exist_at(
             vec![Path::new("errors.txt"), Path::new("multishells.txt")],
-            &jonathans_expected_copied_dir
+            jonathans_expected_copied_dir
         ));
         assert!(files_exist_at(
             vec![Path::new("coverage.txt"), Path::new("commands.txt")],
-            &andres_expected_copied_dir
+            andres_expected_copied_dir
         ));
         assert!(files_exist_at(
             vec![Path::new("defer-evaluation.txt")],
-            &yehudas_expected_copied_dir
+            yehudas_expected_copied_dir
         ));
     })
 }

@@ -63,7 +63,7 @@ impl Command for SubCommand {
 
         // This doesn't match explicit nulls
         if matches!(input, PipelineData::Empty) {
-            return Err(ShellError::PipelineEmpty(head));
+            return Err(ShellError::PipelineEmpty { dst_span: head });
         }
         input.map(
             move |value| match &format {
@@ -132,7 +132,10 @@ where
             span,
         },
         Err(_) => Value::Error {
-            error: ShellError::TypeMismatch("invalid format".to_string(), span),
+            error: ShellError::TypeMismatch {
+                err_message: "invalid format".to_string(),
+                span,
+            },
         },
     }
 }
@@ -198,14 +201,6 @@ pub(crate) fn generate_strftime_list(head: Span, show_parse_only_formats: bool) 
     }
 
     let specifications = vec![
-        FormatSpecification {
-            spec: "%Y",
-            description: "The full proleptic Gregorian year, zero-padded to 4 digits.",
-        },
-        FormatSpecification {
-            spec: "%C",
-            description: "The proleptic Gregorian year divided by 100, zero-padded to 2 digits.",
-        },
         FormatSpecification {
             spec: "%Y",
             description: "The full proleptic Gregorian year, zero-padded to 4 digits.",

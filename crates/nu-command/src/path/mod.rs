@@ -93,14 +93,18 @@ fn err_from_value(rest: &Value, name: Span) -> ShellError {
     match rest.span() {
         Ok(span) => {
             if rest.is_nothing() {
-                ShellError::OnlySupportsThisInputType(
-                    "string, record or list".into(),
-                    "nothing".into(),
-                    name,
-                    span,
-                )
+                ShellError::OnlySupportsThisInputType {
+                    exp_input_type: "string, record or list".into(),
+                    wrong_type: "nothing".into(),
+                    dst_span: name,
+                    src_span: span,
+                }
             } else {
-                ShellError::PipelineMismatch("string, row or list".into(), name, span)
+                ShellError::PipelineMismatch {
+                    exp_input_type: "string, row or list".into(),
+                    dst_span: name,
+                    src_span: span,
+                }
             }
         }
         Err(error) => error,

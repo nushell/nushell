@@ -18,7 +18,7 @@ impl Command for Lines {
     }
 
     fn usage(&self) -> &str {
-        "Converts input to lines"
+        "Converts input to lines."
     }
 
     fn signature(&self) -> nu_protocol::Signature {
@@ -113,12 +113,12 @@ impl Command for Lines {
                 match val {
                     // Propagate existing errors
                     Value::Error { error } => Err(error),
-                    _ => Err(ShellError::OnlySupportsThisInputType(
-                        "string or raw data".into(),
-                        val.get_type().to_string(),
-                        head,
-                        val.expect_span(),
-                    )),
+                    _ => Err(ShellError::OnlySupportsThisInputType {
+                        exp_input_type: "string or raw data".into(),
+                        wrong_type: val.get_type().to_string(),
+                        dst_span: head,
+                        src_span: val.expect_span(),
+                    }),
                 }
             }
             PipelineData::ExternalStream { stdout: None, .. } => Ok(PipelineData::empty()),
@@ -234,13 +234,12 @@ impl Iterator for RawStreamLinesAdapter {
                                 // Propagate errors by explicitly matching them before the final case.
                                 Value::Error { error } => return Some(Err(error)),
                                 other => {
-                                    return Some(Err(ShellError::OnlySupportsThisInputType(
-                                        "string".into(),
-                                        other.get_type().to_string(),
-                                        self.span,
-                                        // This line requires the Value::Error match above.
-                                        other.expect_span(),
-                                    )));
+                                    return Some(Err(ShellError::OnlySupportsThisInputType {
+                                        exp_input_type: "string".into(),
+                                        wrong_type: other.get_type().to_string(),
+                                        dst_span: self.span,
+                                        src_span: other.expect_span(),
+                                    }));
                                 }
                             }
                         }

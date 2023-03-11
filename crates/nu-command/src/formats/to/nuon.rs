@@ -34,7 +34,6 @@ impl Command for ToNuon {
         call: &Call,
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
-        let input = input.try_expand_range()?;
         Ok(Value::String {
             val: to_nuon(call, input)?,
             span: call.head,

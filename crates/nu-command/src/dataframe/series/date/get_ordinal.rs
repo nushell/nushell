@@ -16,7 +16,7 @@ impl Command for GetOrdinal {
     }
 
     fn usage(&self) -> &str {
-        "Gets ordinal from date"
+        "Gets ordinal from date."
     }
 
     fn signature(&self) -> Signature {

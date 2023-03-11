@@ -41,7 +41,7 @@ impl Command for RollLeft {
     }
 
     fn usage(&self) -> &str {
-        "Roll record or table columns left"
+        "Roll record or table columns left."
     }
 
     fn examples(&self) -> Vec<Example> {

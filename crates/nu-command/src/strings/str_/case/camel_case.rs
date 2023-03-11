@@ -28,7 +28,7 @@ impl Command for SubCommand {
     }
 
     fn usage(&self) -> &str {
-        "Convert a string to camelCase"
+        "Convert a string to camelCase."
     }
 
     fn search_terms(&self) -> Vec<&str> {

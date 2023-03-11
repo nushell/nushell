@@ -17,7 +17,7 @@ impl Command for IsIn {
     }
 
     fn usage(&self) -> &str {
-        "Checks if elements from a series are contained in right series"
+        "Checks if elements from a series are contained in right series."
     }
 
     fn signature(&self) -> Signature {

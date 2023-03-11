@@ -15,7 +15,7 @@ impl Command for ViewSpan {
     }
 
     fn usage(&self) -> &str {
-        "View the contents of a span"
+        "View the contents of a span."
     }
 
     fn extra_usage(&self) -> &str {

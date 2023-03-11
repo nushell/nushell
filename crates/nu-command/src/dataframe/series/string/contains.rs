@@ -17,7 +17,7 @@ impl Command for Contains {
     }
 
     fn usage(&self) -> &str {
-        "Checks if a pattern is contained in a string"
+        "Checks if a pattern is contained in a string."
     }
 
     fn signature(&self) -> Signature {

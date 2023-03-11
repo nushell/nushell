@@ -17,7 +17,7 @@ impl Command for Concatenate {
     }
 
     fn usage(&self) -> &str {
-        "Concatenates strings with other array"
+        "Concatenates strings with other array."
     }
 
     fn signature(&self) -> Signature {

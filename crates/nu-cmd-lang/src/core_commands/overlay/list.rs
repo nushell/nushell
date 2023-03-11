@@ -13,7 +13,7 @@ impl Command for OverlayList {
     }
 
     fn usage(&self) -> &str {
-        "List all active overlays"
+        "List all active overlays."
     }
 
     fn signature(&self) -> nu_protocol::Signature {

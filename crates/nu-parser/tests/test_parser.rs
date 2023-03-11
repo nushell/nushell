@@ -83,7 +83,7 @@ fn test_int(
             },
         ) = &expressions[0]
         {
-            compare_rhs_binaryOp(test_tag, &expected_val, &observed_val);
+            compare_rhs_binaryOp(test_tag, &expected_val, observed_val);
         }
     }
 }
@@ -1201,7 +1201,7 @@ mod input_types {
         }
 
         fn usage(&self) -> &str {
-            "Mock ls command"
+            "Mock ls command."
         }
 
         fn signature(&self) -> nu_protocol::Signature {
@@ -1228,7 +1228,7 @@ mod input_types {
         }
 
         fn usage(&self) -> &str {
-            "Mock group-by command"
+            "Mock group-by command."
         }
 
         fn signature(&self) -> nu_protocol::Signature {
@@ -1257,7 +1257,7 @@ mod input_types {
         }
 
         fn usage(&self) -> &str {
-            "Mock converter command"
+            "Mock converter command."
         }
 
         fn signature(&self) -> nu_protocol::Signature {
@@ -1287,7 +1287,7 @@ mod input_types {
         }
 
         fn usage(&self) -> &str {
-            "Mock custom group-by command"
+            "Mock custom group-by command."
         }
 
         fn signature(&self) -> nu_protocol::Signature {
@@ -1319,7 +1319,7 @@ mod input_types {
         }
 
         fn usage(&self) -> &str {
-            "Mock custom agg command"
+            "Mock custom agg command."
         }
 
         fn signature(&self) -> nu_protocol::Signature {
@@ -1349,7 +1349,7 @@ mod input_types {
         }
 
         fn usage(&self) -> &str {
-            "Mock custom min command"
+            "Mock custom min command."
         }
 
         fn signature(&self) -> nu_protocol::Signature {
@@ -1376,7 +1376,7 @@ mod input_types {
         }
 
         fn usage(&self) -> &str {
-            "Mock custom with-column command"
+            "Mock custom with-column command."
         }
 
         fn signature(&self) -> nu_protocol::Signature {
@@ -1407,7 +1407,7 @@ mod input_types {
         }
 
         fn usage(&self) -> &str {
-            "Mock custom collect command"
+            "Mock custom collect command."
         }
 
         fn signature(&self) -> nu_protocol::Signature {
@@ -1437,7 +1437,7 @@ mod input_types {
         }
 
         fn usage(&self) -> &str {
-            "Mock if command"
+            "Mock if command."
         }
 
         fn signature(&self) -> nu_protocol::Signature {

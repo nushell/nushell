@@ -197,21 +197,21 @@ impl Value {
             Value::Binary { val, .. } => Ok(match std::str::from_utf8(val) {
                 Ok(s) => s.to_string(),
                 Err(_) => {
-                    return Err(ShellError::CantConvert(
-                        "string".into(),
-                        "binary".into(),
-                        self.span()?,
-                        None,
-                    ));
+                    return Err(ShellError::CantConvert {
+                        to_type: "string".into(),
+                        from_type: "binary".into(),
+                        span: self.span()?,
+                        help: None,
+                    });
                 }
             }),
             Value::Date { val, .. } => Ok(val.to_rfc3339_opts(chrono::SecondsFormat::Millis, true)),
-            x => Err(ShellError::CantConvert(
-                "string".into(),
-                x.get_type().to_string(),
-                self.span()?,
-                None,
-            )),
+            x => Err(ShellError::CantConvert {
+                to_type: "string".into(),
+                from_type: x.get_type().to_string(),
+                span: self.span()?,
+                help: None,
+            }),
         }
     }
 
@@ -227,32 +227,32 @@ impl Value {
                     span: *span,
                 },
                 Err(_) => {
-                    return Err(ShellError::CantConvert(
-                        "string".into(),
-                        "binary".into(),
-                        self.span()?,
-                        None,
-                    ))
+                    return Err(ShellError::CantConvert {
+                        to_type: "string".into(),
+                        from_type: "binary".into(),
+                        span: self.span()?,
+                        help: None,
+                    })
                 }
             }),
-            x => Err(ShellError::CantConvert(
-                "string".into(),
-                x.get_type().to_string(),
-                self.span()?,
-                None,
-            )),
+            x => Err(ShellError::CantConvert {
+                to_type: "string".into(),
+                from_type: x.get_type().to_string(),
+                span: self.span()?,
+                help: None,
+            }),
         }
     }
 
     pub fn as_path(&self) -> Result<PathBuf, ShellError> {
         match self {
             Value::String { val, .. } => Ok(PathBuf::from(val)),
-            x => Err(ShellError::CantConvert(
-                "path".into(),
-                x.get_type().to_string(),
-                self.span()?,
-                None,
-            )),
+            x => Err(ShellError::CantConvert {
+                to_type: "path".into(),
+                from_type: x.get_type().to_string(),
+                span: self.span()?,
+                help: None,
+            }),
         }
     }
 
@@ -260,12 +260,12 @@ impl Value {
         match self {
             Value::Block { val, .. } => Ok(*val),
             Value::Closure { val, .. } => Ok(*val),
-            x => Err(ShellError::CantConvert(
-                "block".into(),
-                x.get_type().to_string(),
-                self.span()?,
-                None,
-            )),
+            x => Err(ShellError::CantConvert {
+                to_type: "block".into(),
+                from_type: x.get_type().to_string(),
+                span: self.span()?,
+                help: None,
+            }),
         }
     }
 
@@ -273,48 +273,48 @@ impl Value {
         match self {
             Value::Binary { val, .. } => Ok(val),
             Value::String { val, .. } => Ok(val.as_bytes()),
-            x => Err(ShellError::CantConvert(
-                "binary".into(),
-                x.get_type().to_string(),
-                self.span()?,
-                None,
-            )),
+            x => Err(ShellError::CantConvert {
+                to_type: "binary".into(),
+                from_type: x.get_type().to_string(),
+                span: self.span()?,
+                help: None,
+            }),
         }
     }
 
     pub fn as_record(&self) -> Result<(&[String], &[Value]), ShellError> {
         match self {
             Value::Record { cols, vals, .. } => Ok((cols, vals)),
-            x => Err(ShellError::CantConvert(
-                "record".into(),
-                x.get_type().to_string(),
-                self.span()?,
-                None,
-            )),
+            x => Err(ShellError::CantConvert {
+                to_type: "record".into(),
+                from_type: x.get_type().to_string(),
+                span: self.span()?,
+                help: None,
+            }),
         }
     }
 
     pub fn as_list(&self) -> Result<&[Value], ShellError> {
         match self {
             Value::List { vals, .. } => Ok(vals),
-            x => Err(ShellError::CantConvert(
-                "list".into(),
-                x.get_type().to_string(),
-                self.span()?,
-                None,
-            )),
+            x => Err(ShellError::CantConvert {
+                to_type: "list".into(),
+                from_type: x.get_type().to_string(),
+                span: self.span()?,
+                help: None,
+            }),
         }
     }
 
     pub fn as_bool(&self) -> Result<bool, ShellError> {
         match self {
             Value::Bool { val, .. } => Ok(*val),
-            x => Err(ShellError::CantConvert(
-                "boolean".into(),
-                x.get_type().to_string(),
-                self.span()?,
-                None,
-            )),
+            x => Err(ShellError::CantConvert {
+                to_type: "boolean".into(),
+                from_type: x.get_type().to_string(),
+                span: self.span()?,
+                help: None,
+            }),
         }
     }
 
@@ -322,24 +322,24 @@ impl Value {
         match self {
             Value::Float { val, .. } => Ok(*val),
             Value::Int { val, .. } => Ok(*val as f64),
-            x => Err(ShellError::CantConvert(
-                "float".into(),
-                x.get_type().to_string(),
-                self.span()?,
-                None,
-            )),
+            x => Err(ShellError::CantConvert {
+                to_type: "float".into(),
+                from_type: x.get_type().to_string(),
+                span: self.span()?,
+                help: None,
+            }),
         }
     }
 
     pub fn as_integer(&self) -> Result<i64, ShellError> {
         match self {
             Value::Int { val, .. } => Ok(*val),
-            x => Err(ShellError::CantConvert(
-                "integer".into(),
-                x.get_type().to_string(),
-                self.span()?,
-                None,
-            )),
+            x => Err(ShellError::CantConvert {
+                to_type: "integer".into(),
+                from_type: x.get_type().to_string(),
+                span: self.span()?,
+                help: None,
+            }),
         }
     }
 
@@ -722,12 +722,15 @@ impl Value {
                                 current = item.clone();
                             } else if val.is_empty() {
                                 err_or_null!(
-                                    ShellError::AccessEmptyContent(*origin_span),
+                                    ShellError::AccessEmptyContent { span: *origin_span },
                                     *origin_span
                                 )
                             } else {
                                 err_or_null!(
-                                    ShellError::AccessBeyondEnd(val.len() - 1, *origin_span),
+                                    ShellError::AccessBeyondEnd {
+                                        max_idx: val.len() - 1,
+                                        span: *origin_span
+                                    },
                                     *origin_span
                                 );
                             }
@@ -737,12 +740,15 @@ impl Value {
                                 current = Value::int(*item as i64, *origin_span);
                             } else if val.is_empty() {
                                 err_or_null!(
-                                    ShellError::AccessEmptyContent(*origin_span),
+                                    ShellError::AccessEmptyContent { span: *origin_span },
                                     *origin_span
                                 )
                             } else {
                                 err_or_null!(
-                                    ShellError::AccessBeyondEnd(val.len() - 1, *origin_span),
+                                    ShellError::AccessBeyondEnd {
+                                        max_idx: val.len() - 1,
+                                        span: *origin_span
+                                    },
                                     *origin_span
                                 );
                             }
@@ -752,7 +758,7 @@ impl Value {
                                 current = item.clone();
                             } else {
                                 err_or_null!(
-                                    ShellError::AccessBeyondEndOfStream(*origin_span),
+                                    ShellError::AccessBeyondEndOfStream { span: *origin_span },
                                     *origin_span
                                 );
                             }
@@ -763,17 +769,17 @@ impl Value {
                         // Records (and tables) are the only built-in which support column names,
                         // so only use this message for them.
                         Value::Record { .. } => {
-                            err_or_null!(ShellError::TypeMismatchGenericMessage {
+                            err_or_null!(ShellError::TypeMismatch {
                                 err_message: "Can't access record values with a row index. Try specifying a column name instead".into(),
                                 span: *origin_span, }, *origin_span)
                         }
                         Value::Error { error } => return Err(error.to_owned()),
                         x => {
                             err_or_null!(
-                                ShellError::IncompatiblePathAccess(
-                                    format!("{}", x.get_type()),
-                                    *origin_span,
-                                ),
+                                ShellError::IncompatiblePathAccess {
+                                    type_name: format!("{}", x.get_type()),
+                                    span: *origin_span
+                                },
                                 *origin_span
                             )
                         }
@@ -806,11 +812,11 @@ impl Value {
                                 }
                             }
                             err_or_null!(
-                                ShellError::CantFindColumn(
-                                    column_name.to_string(),
-                                    *origin_span,
-                                    span,
-                                ),
+                                ShellError::CantFindColumn {
+                                    col_name: column_name.to_string(),
+                                    span: *origin_span,
+                                    src_span: span
+                                },
                                 *origin_span
                             );
                         }
@@ -830,11 +836,11 @@ impl Value {
                                 }
                             }
                             err_or_null!(
-                                ShellError::CantFindColumn(
-                                    column_name.to_string(),
-                                    *origin_span,
-                                    *span,
-                                ),
+                                ShellError::CantFindColumn {
+                                    col_name: column_name.to_string(),
+                                    span: *origin_span,
+                                    src_span: *span
+                                },
                                 *origin_span
                             );
                         }
@@ -874,13 +880,11 @@ impl Value {
                                         Value::nothing(*origin_span)
                                     } else {
                                         Value::Error {
-                                            error: ShellError::CantFindColumn(
-                                                column_name.to_string(),
-                                                *origin_span,
-                                                // Get the exact span of the value, falling back to
-                                                // the list's span if it's a Value::Empty
-                                                val.span().unwrap_or(*span),
-                                            ),
+                                            error: ShellError::CantFindColumn {
+                                                col_name: column_name.to_string(),
+                                                span: *origin_span,
+                                                src_span: val.span().unwrap_or(*span),
+                                            },
                                         }
                                     });
                                 }
@@ -890,13 +894,11 @@ impl Value {
                                     Value::nothing(*origin_span)
                                 } else {
                                     Value::Error {
-                                        error: ShellError::CantFindColumn(
-                                            column_name.to_string(),
-                                            *origin_span,
-                                            // Get the exact span of the value, falling back to
-                                            // the list's span if it's a Value::Empty
-                                            val.span().unwrap_or(*span),
-                                        ),
+                                        error: ShellError::CantFindColumn {
+                                            col_name: column_name.to_string(),
+                                            span: *origin_span,
+                                            src_span: val.span().unwrap_or(*span),
+                                        },
                                     }
                                 });
                             }
@@ -908,11 +910,11 @@ impl Value {
                             };
                         } else {
                             err_or_null!(
-                                ShellError::CantFindColumn(
-                                    column_name.to_string(),
-                                    *origin_span,
-                                    *span,
-                                ),
+                                ShellError::CantFindColumn {
+                                    col_name: column_name.to_string(),
+                                    span: *origin_span,
+                                    src_span: *span
+                                },
                                 *origin_span
                             );
                         }
@@ -923,10 +925,10 @@ impl Value {
                     Value::Error { error } => err_or_null!(error.to_owned(), *origin_span),
                     x => {
                         err_or_null!(
-                            ShellError::IncompatiblePathAccess(
-                                format!("{}", x.get_type()),
-                                *origin_span,
-                            ),
+                            ShellError::IncompatiblePathAccess {
+                                type_name: format!("{}", x.get_type()),
+                                span: *origin_span
+                            },
                             *origin_span
                         )
                     }
@@ -1005,11 +1007,11 @@ impl Value {
                                 }
                                 Value::Error { error } => return Err(error.to_owned()),
                                 v => {
-                                    return Err(ShellError::CantFindColumn(
-                                        col_name.to_string(),
-                                        *span,
-                                        v.span()?,
-                                    ))
+                                    return Err(ShellError::CantFindColumn {
+                                        col_name: col_name.to_string(),
+                                        span: *span,
+                                        src_span: v.span()?,
+                                    })
                                 }
                             }
                         }
@@ -1042,11 +1044,11 @@ impl Value {
                     }
                     Value::Error { error } => return Err(error.to_owned()),
                     v => {
-                        return Err(ShellError::CantFindColumn(
-                            col_name.to_string(),
-                            *span,
-                            v.span()?,
-                        ))
+                        return Err(ShellError::CantFindColumn {
+                            col_name: col_name.to_string(),
+                            span: *span,
+                            src_span: v.span()?,
+                        })
                     }
                 },
                 PathMember::Int { val: row_num, span } => match self {
@@ -1058,11 +1060,19 @@ impl Value {
                             // Otherwise, it's prohibited.
                             vals.push(new_val);
                         } else {
-                            return Err(ShellError::InsertAfterNextFreeIndex(vals.len(), *span));
+                            return Err(ShellError::InsertAfterNextFreeIndex {
+                                available_idx: vals.len(),
+                                span: *span,
+                            });
                         }
                     }
                     Value::Error { error } => return Err(error.to_owned()),
-                    v => return Err(ShellError::NotAList(*span, v.span()?)),
+                    v => {
+                        return Err(ShellError::NotAList {
+                            dst_span: *span,
+                            src_span: v.span()?,
+                        })
+                    }
                 },
             },
             None => {
@@ -1118,20 +1128,20 @@ impl Value {
                                         }
                                     }
                                     if !found {
-                                        return Err(ShellError::CantFindColumn(
-                                            col_name.to_string(),
-                                            *span,
-                                            *v_span,
-                                        ));
+                                        return Err(ShellError::CantFindColumn {
+                                            col_name: col_name.to_string(),
+                                            span: *span,
+                                            src_span: *v_span,
+                                        });
                                     }
                                 }
                                 Value::Error { error } => return Err(error.to_owned()),
                                 v => {
-                                    return Err(ShellError::CantFindColumn(
-                                        col_name.to_string(),
-                                        *span,
-                                        v.span()?,
-                                    ))
+                                    return Err(ShellError::CantFindColumn {
+                                        col_name: col_name.to_string(),
+                                        span: *span,
+                                        src_span: v.span()?,
+                                    })
                                 }
                             }
                         }
@@ -1152,20 +1162,20 @@ impl Value {
                             }
                         }
                         if !found {
-                            return Err(ShellError::CantFindColumn(
-                                col_name.to_string(),
-                                *span,
-                                *v_span,
-                            ));
+                            return Err(ShellError::CantFindColumn {
+                                col_name: col_name.to_string(),
+                                span: *span,
+                                src_span: *v_span,
+                            });
                         }
                     }
                     Value::Error { error } => return Err(error.to_owned()),
                     v => {
-                        return Err(ShellError::CantFindColumn(
-                            col_name.to_string(),
-                            *span,
-                            v.span()?,
-                        ))
+                        return Err(ShellError::CantFindColumn {
+                            col_name: col_name.to_string(),
+                            span: *span,
+                            src_span: v.span()?,
+                        })
                     }
                 },
                 PathMember::Int { val: row_num, span } => match self {
@@ -1173,13 +1183,21 @@ impl Value {
                         if let Some(v) = vals.get_mut(*row_num) {
                             v.update_data_at_cell_path(&cell_path[1..], new_val)?
                         } else if vals.is_empty() {
-                            return Err(ShellError::AccessEmptyContent(*span));
+                            return Err(ShellError::AccessEmptyContent { span: *span });
                         } else {
-                            return Err(ShellError::AccessBeyondEnd(vals.len() - 1, *span));
+                            return Err(ShellError::AccessBeyondEnd {
+                                max_idx: vals.len() - 1,
+                                span: *span,
+                            });
                         }
                     }
                     Value::Error { error } => return Err(error.to_owned()),
-                    v => return Err(ShellError::NotAList(*span, v.span()?)),
+                    v => {
+                        return Err(ShellError::NotAList {
+                            dst_span: *span,
+                            src_span: v.span()?,
+                        })
+                    }
                 },
             },
             None => {
@@ -1216,19 +1234,19 @@ impl Value {
                                             }
                                         }
                                         if !found {
-                                            return Err(ShellError::CantFindColumn(
-                                                col_name.to_string(),
-                                                *span,
-                                                *v_span,
-                                            ));
+                                            return Err(ShellError::CantFindColumn {
+                                                col_name: col_name.to_string(),
+                                                span: *span,
+                                                src_span: *v_span,
+                                            });
                                         }
                                     }
                                     v => {
-                                        return Err(ShellError::CantFindColumn(
-                                            col_name.to_string(),
-                                            *span,
-                                            v.span()?,
-                                        ))
+                                        return Err(ShellError::CantFindColumn {
+                                            col_name: col_name.to_string(),
+                                            span: *span,
+                                            src_span: v.span()?,
+                                        })
                                     }
                                 }
                             }
@@ -1248,19 +1266,19 @@ impl Value {
                                 }
                             }
                             if !found {
-                                return Err(ShellError::CantFindColumn(
-                                    col_name.to_string(),
-                                    *span,
-                                    *v_span,
-                                ));
+                                return Err(ShellError::CantFindColumn {
+                                    col_name: col_name.to_string(),
+                                    span: *span,
+                                    src_span: *v_span,
+                                });
                             }
                             Ok(())
                         }
-                        v => Err(ShellError::CantFindColumn(
-                            col_name.to_string(),
-                            *span,
-                            v.span()?,
-                        )),
+                        v => Err(ShellError::CantFindColumn {
+                            col_name: col_name.to_string(),
+                            span: *span,
+                            src_span: v.span()?,
+                        }),
                     },
                     PathMember::Int { val: row_num, span } => match self {
                         Value::List { vals, .. } => {
@@ -1268,12 +1286,18 @@ impl Value {
                                 vals.remove(*row_num);
                                 Ok(())
                             } else if vals.is_empty() {
-                                Err(ShellError::AccessEmptyContent(*span))
+                                Err(ShellError::AccessEmptyContent { span: *span })
                             } else {
-                                Err(ShellError::AccessBeyondEnd(vals.len() - 1, *span))
+                                Err(ShellError::AccessBeyondEnd {
+                                    max_idx: vals.len() - 1,
+                                    span: *span,
+                                })
                             }
                         }
-                        v => Err(ShellError::NotAList(*span, v.span()?)),
+                        v => Err(ShellError::NotAList {
+                            dst_span: *span,
+                            src_span: v.span()?,
+                        }),
                     },
                 }
             }
@@ -1300,19 +1324,19 @@ impl Value {
                                             }
                                         }
                                         if !found {
-                                            return Err(ShellError::CantFindColumn(
-                                                col_name.to_string(),
-                                                *span,
-                                                *v_span,
-                                            ));
+                                            return Err(ShellError::CantFindColumn {
+                                                col_name: col_name.to_string(),
+                                                span: *span,
+                                                src_span: *v_span,
+                                            });
                                         }
                                     }
                                     v => {
-                                        return Err(ShellError::CantFindColumn(
-                                            col_name.to_string(),
-                                            *span,
-                                            v.span()?,
-                                        ))
+                                        return Err(ShellError::CantFindColumn {
+                                            col_name: col_name.to_string(),
+                                            span: *span,
+                                            src_span: v.span()?,
+                                        })
                                     }
                                 }
                             }
@@ -1333,31 +1357,37 @@ impl Value {
                                 }
                             }
                             if !found {
-                                return Err(ShellError::CantFindColumn(
-                                    col_name.to_string(),
-                                    *span,
-                                    *v_span,
-                                ));
+                                return Err(ShellError::CantFindColumn {
+                                    col_name: col_name.to_string(),
+                                    span: *span,
+                                    src_span: *v_span,
+                                });
                             }
                             Ok(())
                         }
-                        v => Err(ShellError::CantFindColumn(
-                            col_name.to_string(),
-                            *span,
-                            v.span()?,
-                        )),
+                        v => Err(ShellError::CantFindColumn {
+                            col_name: col_name.to_string(),
+                            span: *span,
+                            src_span: v.span()?,
+                        }),
                     },
                     PathMember::Int { val: row_num, span } => match self {
                         Value::List { vals, .. } => {
                             if let Some(v) = vals.get_mut(*row_num) {
                                 v.remove_data_at_cell_path(&cell_path[1..])
                             } else if vals.is_empty() {
-                                Err(ShellError::AccessEmptyContent(*span))
+                                Err(ShellError::AccessEmptyContent { span: *span })
                             } else {
-                                Err(ShellError::AccessBeyondEnd(vals.len() - 1, *span))
+                                Err(ShellError::AccessBeyondEnd {
+                                    max_idx: vals.len() - 1,
+                                    span: *span,
+                                })
                             }
                         }
-                        v => Err(ShellError::NotAList(*span, v.span()?)),
+                        v => Err(ShellError::NotAList {
+                            dst_span: *span,
+                            src_span: v.span()?,
+                        }),
                     },
                 }
             }
@@ -1387,11 +1417,11 @@ impl Value {
                                     for col in cols.iter().zip(vals.iter_mut()) {
                                         if col.0 == col_name {
                                             if cell_path.len() == 1 {
-                                                return Err(ShellError::ColumnAlreadyExists(
-                                                    col_name.to_string(),
-                                                    *span,
-                                                    *v_span,
-                                                ));
+                                                return Err(ShellError::ColumnAlreadyExists {
+                                                    col_name: col_name.to_string(),
+                                                    span: *span,
+                                                    src_span: *v_span,
+                                                });
                                             } else {
                                                 return col.1.insert_data_at_cell_path(
                                                     &cell_path[1..],
@@ -1426,11 +1456,11 @@ impl Value {
                         for col in cols.iter().zip(vals.iter_mut()) {
                             if col.0 == col_name {
                                 if cell_path.len() == 1 {
-                                    return Err(ShellError::ColumnAlreadyExists(
-                                        col_name.to_string(),
-                                        *span,
-                                        *v_span,
-                                    ));
+                                    return Err(ShellError::ColumnAlreadyExists {
+                                        col_name: col_name.to_string(),
+                                        span: *span,
+                                        src_span: *v_span,
+                                    });
                                 } else {
                                     return col.1.insert_data_at_cell_path(
                                         &cell_path[1..],
@@ -1462,10 +1492,18 @@ impl Value {
                             // Otherwise, it's prohibited.
                             vals.push(new_val);
                         } else {
-                            return Err(ShellError::InsertAfterNextFreeIndex(vals.len(), *span));
+                            return Err(ShellError::InsertAfterNextFreeIndex {
+                                available_idx: vals.len(),
+                                span: *span,
+                            });
                         }
                     }
-                    v => return Err(ShellError::NotAList(*span, v.span()?)),
+                    v => {
+                        return Err(ShellError::NotAList {
+                            dst_span: *span,
+                            src_span: v.span()?,
+                        })
+                    }
                 },
             },
             None => {
@@ -1591,6 +1629,15 @@ impl Value {
             cols: cols.into_iter().map(|s| s.into()).collect(),
             vals,
 
+            span: Span::test_data(),
+        }
+    }
+
+    /// Note: Only use this for test data, *not* live data, as it will point into unknown source
+    /// when used in errors.
+    pub fn test_date(val: DateTime<FixedOffset>) -> Value {
+        Value::Date {
+            val,
             span: Span::test_data(),
         }
     }
@@ -1996,11 +2043,7 @@ impl Value {
                 if let Some(val) = lhs.checked_add(*rhs) {
                     Ok(Value::Int { val, span })
                 } else {
-                    Err(ShellError::OperatorOverflow(
-                        "add operation overflowed".into(),
-                        span,
-                        "Consider using floating point values for increased range by promoting operand with 'into decimal'. Note: float has reduced precision!".into()
-                    ))
+                    Err(ShellError::OperatorOverflow { msg: "add operation overflowed".into(), span, help: "Consider using floating point values for increased range by promoting operand with 'into decimal'. Note: float has reduced precision!".into() })
                 }
             }
             (Value::Int { val: lhs, .. }, Value::Float { val: rhs, .. }) => Ok(Value::Float {
@@ -2023,33 +2066,33 @@ impl Value {
                 if let Some(val) = lhs.checked_add_signed(chrono::Duration::nanoseconds(*rhs)) {
                     Ok(Value::Date { val, span })
                 } else {
-                    Err(ShellError::OperatorOverflow(
-                        "addition operation overflowed".into(),
+                    Err(ShellError::OperatorOverflow {
+                        msg: "addition operation overflowed".into(),
                         span,
-                        "".into(),
-                    ))
+                        help: "".into(),
+                    })
                 }
             }
             (Value::Duration { val: lhs, .. }, Value::Duration { val: rhs, .. }) => {
                 if let Some(val) = lhs.checked_add(*rhs) {
                     Ok(Value::Duration { val, span })
                 } else {
-                    Err(ShellError::OperatorOverflow(
-                        "add operation overflowed".into(),
+                    Err(ShellError::OperatorOverflow {
+                        msg: "add operation overflowed".into(),
                         span,
-                        "".into(),
-                    ))
+                        help: "".into(),
+                    })
                 }
             }
             (Value::Filesize { val: lhs, .. }, Value::Filesize { val: rhs, .. }) => {
                 if let Some(val) = lhs.checked_add(*rhs) {
                     Ok(Value::Filesize { val, span })
                 } else {
-                    Err(ShellError::OperatorOverflow(
-                        "add operation overflowed".into(),
+                    Err(ShellError::OperatorOverflow {
+                        msg: "add operation overflowed".into(),
                         span,
-                        "".into(),
-                    ))
+                        help: "".into(),
+                    })
                 }
             }
 
@@ -2110,11 +2153,7 @@ impl Value {
                 if let Some(val) = lhs.checked_sub(*rhs) {
                     Ok(Value::Int { val, span })
                 } else {
-                    Err(ShellError::OperatorOverflow(
-                        "subtraction operation overflowed".into(),
-                        span,
-                        "Consider using floating point values for increased range by promoting operand with 'into decimal'. Note: float has reduced precision!".into()
-                    ))
+                    Err(ShellError::OperatorOverflow { msg: "subtraction operation overflowed".into(), span, help: "Consider using floating point values for increased range by promoting operand with 'into decimal'. Note: float has reduced precision!".into() })
                 }
             }
             (Value::Int { val: lhs, .. }, Value::Float { val: rhs, .. }) => Ok(Value::Float {
@@ -2135,43 +2174,43 @@ impl Value {
                 if let Some(v) = result.num_nanoseconds() {
                     Ok(Value::Duration { val: v, span })
                 } else {
-                    Err(ShellError::OperatorOverflow(
-                        "subtraction operation overflowed".into(),
+                    Err(ShellError::OperatorOverflow {
+                        msg: "subtraction operation overflowed".into(),
                         span,
-                        "".into(),
-                    ))
+                        help: "".into(),
+                    })
                 }
             }
             (Value::Date { val: lhs, .. }, Value::Duration { val: rhs, .. }) => {
                 match lhs.checked_sub_signed(chrono::Duration::nanoseconds(*rhs)) {
                     Some(val) => Ok(Value::Date { val, span }),
-                    _ => Err(ShellError::OperatorOverflow(
-                        "subtraction operation overflowed".into(),
+                    _ => Err(ShellError::OperatorOverflow {
+                        msg: "subtraction operation overflowed".into(),
                         span,
-                        "".into(),
-                    )),
+                        help: "".into(),
+                    }),
                 }
             }
             (Value::Duration { val: lhs, .. }, Value::Duration { val: rhs, .. }) => {
                 if let Some(val) = lhs.checked_sub(*rhs) {
                     Ok(Value::Duration { val, span })
                 } else {
-                    Err(ShellError::OperatorOverflow(
-                        "subtraction operation overflowed".into(),
+                    Err(ShellError::OperatorOverflow {
+                        msg: "subtraction operation overflowed".into(),
                         span,
-                        "".into(),
-                    ))
+                        help: "".into(),
+                    })
                 }
             }
             (Value::Filesize { val: lhs, .. }, Value::Filesize { val: rhs, .. }) => {
                 if let Some(val) = lhs.checked_sub(*rhs) {
                     Ok(Value::Filesize { val, span })
                 } else {
-                    Err(ShellError::OperatorOverflow(
-                        "add operation overflowed".into(),
+                    Err(ShellError::OperatorOverflow {
+                        msg: "add operation overflowed".into(),
                         span,
-                        "".into(),
-                    ))
+                        help: "".into(),
+                    })
                 }
             }
 
@@ -2195,11 +2234,7 @@ impl Value {
                 if let Some(val) = lhs.checked_mul(*rhs) {
                     Ok(Value::Int { val, span })
                 } else {
-                    Err(ShellError::OperatorOverflow(
-                        "multiply operation overflowed".into(),
-                        span,
-                        "Consider using floating point values for increased range by promoting operand with 'into decimal'. Note: float has reduced precision!".into()
-                    ))
+                    Err(ShellError::OperatorOverflow { msg: "multiply operation overflowed".into(), span, help: "Consider using floating point values for increased range by promoting operand with 'into decimal'. Note: float has reduced precision!".into() })
                 }
             }
             (Value::Int { val: lhs, .. }, Value::Float { val: rhs, .. }) => Ok(Value::Float {
@@ -2319,7 +2354,7 @@ impl Value {
                         })
                     }
                 } else {
-                    Err(ShellError::DivisionByZero(op))
+                    Err(ShellError::DivisionByZero { span: op })
                 }
             }
             (Value::Int { val: lhs, .. }, Value::Float { val: rhs, .. }) => {
@@ -2329,7 +2364,7 @@ impl Value {
                         span,
                     })
                 } else {
-                    Err(ShellError::DivisionByZero(op))
+                    Err(ShellError::DivisionByZero { span: op })
                 }
             }
             (Value::Float { val: lhs, .. }, Value::Int { val: rhs, .. }) => {
@@ -2339,7 +2374,7 @@ impl Value {
                         span,
                     })
                 } else {
-                    Err(ShellError::DivisionByZero(op))
+                    Err(ShellError::DivisionByZero { span: op })
                 }
             }
             (Value::Float { val: lhs, .. }, Value::Float { val: rhs, .. }) => {
@@ -2349,7 +2384,7 @@ impl Value {
                         span,
                     })
                 } else {
-                    Err(ShellError::DivisionByZero(op))
+                    Err(ShellError::DivisionByZero { span: op })
                 }
             }
             (Value::Filesize { val: lhs, .. }, Value::Filesize { val: rhs, .. }) => {
@@ -2366,7 +2401,7 @@ impl Value {
                         })
                     }
                 } else {
-                    Err(ShellError::DivisionByZero(op))
+                    Err(ShellError::DivisionByZero { span: op })
                 }
             }
             (Value::Filesize { val: lhs, .. }, Value::Int { val: rhs, .. }) => {
@@ -2376,7 +2411,7 @@ impl Value {
                         span,
                     })
                 } else {
-                    Err(ShellError::DivisionByZero(op))
+                    Err(ShellError::DivisionByZero { span: op })
                 }
             }
             (Value::Filesize { val: lhs, .. }, Value::Float { val: rhs, .. }) => {
@@ -2386,7 +2421,7 @@ impl Value {
                         span,
                     })
                 } else {
-                    Err(ShellError::DivisionByZero(op))
+                    Err(ShellError::DivisionByZero { span: op })
                 }
             }
             (Value::Duration { val: lhs, .. }, Value::Duration { val: rhs, .. }) => {
@@ -2403,7 +2438,7 @@ impl Value {
                         })
                     }
                 } else {
-                    Err(ShellError::DivisionByZero(op))
+                    Err(ShellError::DivisionByZero { span: op })
                 }
             }
             (Value::Duration { val: lhs, .. }, Value::Int { val: rhs, .. }) => {
@@ -2413,7 +2448,7 @@ impl Value {
                         span,
                     })
                 } else {
-                    Err(ShellError::DivisionByZero(op))
+                    Err(ShellError::DivisionByZero { span: op })
                 }
             }
             (Value::Duration { val: lhs, .. }, Value::Float { val: rhs, .. }) => {
@@ -2423,7 +2458,7 @@ impl Value {
                         span,
                     })
                 } else {
-                    Err(ShellError::DivisionByZero(op))
+                    Err(ShellError::DivisionByZero { span: op })
                 }
             }
             (Value::CustomValue { val: lhs, span }, rhs) => {
@@ -2451,7 +2486,7 @@ impl Value {
                         span,
                     })
                 } else {
-                    Err(ShellError::DivisionByZero(op))
+                    Err(ShellError::DivisionByZero { span: op })
                 }
             }
             (Value::Int { val: lhs, .. }, Value::Float { val: rhs, .. }) => {
@@ -2463,7 +2498,7 @@ impl Value {
                         span,
                     })
                 } else {
-                    Err(ShellError::DivisionByZero(op))
+                    Err(ShellError::DivisionByZero { span: op })
                 }
             }
             (Value::Float { val: lhs, .. }, Value::Int { val: rhs, .. }) => {
@@ -2475,7 +2510,7 @@ impl Value {
                         span,
                     })
                 } else {
-                    Err(ShellError::DivisionByZero(op))
+                    Err(ShellError::DivisionByZero { span: op })
                 }
             }
             (Value::Float { val: lhs, .. }, Value::Float { val: rhs, .. }) => {
@@ -2487,7 +2522,7 @@ impl Value {
                         span,
                     })
                 } else {
-                    Err(ShellError::DivisionByZero(op))
+                    Err(ShellError::DivisionByZero { span: op })
                 }
             }
             (Value::Filesize { val: lhs, .. }, Value::Filesize { val: rhs, .. }) => {
@@ -2499,7 +2534,7 @@ impl Value {
                         span,
                     })
                 } else {
-                    Err(ShellError::DivisionByZero(op))
+                    Err(ShellError::DivisionByZero { span: op })
                 }
             }
             (Value::Filesize { val: lhs, .. }, Value::Int { val: rhs, .. }) => {
@@ -2511,7 +2546,7 @@ impl Value {
                         span,
                     })
                 } else {
-                    Err(ShellError::DivisionByZero(op))
+                    Err(ShellError::DivisionByZero { span: op })
                 }
             }
             (Value::Filesize { val: lhs, .. }, Value::Float { val: rhs, .. }) => {
@@ -2523,7 +2558,7 @@ impl Value {
                         span,
                     })
                 } else {
-                    Err(ShellError::DivisionByZero(op))
+                    Err(ShellError::DivisionByZero { span: op })
                 }
             }
             (Value::Duration { val: lhs, .. }, Value::Duration { val: rhs, .. }) => {
@@ -2535,7 +2570,7 @@ impl Value {
                         span,
                     })
                 } else {
-                    Err(ShellError::DivisionByZero(op))
+                    Err(ShellError::DivisionByZero { span: op })
                 }
             }
             (Value::Duration { val: lhs, .. }, Value::Int { val: rhs, .. }) => {
@@ -2547,7 +2582,7 @@ impl Value {
                         span,
                     })
                 } else {
-                    Err(ShellError::DivisionByZero(op))
+                    Err(ShellError::DivisionByZero { span: op })
                 }
             }
             (Value::Duration { val: lhs, .. }, Value::Float { val: rhs, .. }) => {
@@ -2559,7 +2594,7 @@ impl Value {
                         span,
                     })
                 } else {
-                    Err(ShellError::DivisionByZero(op))
+                    Err(ShellError::DivisionByZero { span: op })
                 }
             }
             (Value::CustomValue { val: lhs, span }, rhs) => {
@@ -2585,7 +2620,10 @@ impl Value {
             && (self.get_type() != Type::Any)
             && (rhs.get_type() != Type::Any)
         {
-            return Err(ShellError::TypeMismatch("compatible type".to_string(), op));
+            return Err(ShellError::TypeMismatch {
+                err_message: "compatible type".to_string(),
+                span: op,
+            });
         }
 
         if let Some(ordering) = self.partial_cmp(rhs) {
@@ -2618,7 +2656,10 @@ impl Value {
             && (self.get_type() != Type::Any)
             && (rhs.get_type() != Type::Any)
         {
-            return Err(ShellError::TypeMismatch("compatible type".to_string(), op));
+            return Err(ShellError::TypeMismatch {
+                err_message: "compatible type".to_string(),
+                span: op,
+            });
         }
 
         self.partial_cmp(rhs)
@@ -2649,7 +2690,10 @@ impl Value {
             && (self.get_type() != Type::Any)
             && (rhs.get_type() != Type::Any)
         {
-            return Err(ShellError::TypeMismatch("compatible type".to_string(), op));
+            return Err(ShellError::TypeMismatch {
+                err_message: "compatible type".to_string(),
+                span: op,
+            });
         }
 
         self.partial_cmp(rhs)
@@ -2680,7 +2724,10 @@ impl Value {
             && (self.get_type() != Type::Any)
             && (rhs.get_type() != Type::Any)
         {
-            return Err(ShellError::TypeMismatch("compatible type".to_string(), op));
+            return Err(ShellError::TypeMismatch {
+                err_message: "compatible type".to_string(),
+                span: op,
+            });
         }
 
         match self.partial_cmp(rhs) {
@@ -3082,7 +3129,7 @@ impl Value {
                         span,
                     })
                 } else {
-                    Err(ShellError::DivisionByZero(op))
+                    Err(ShellError::DivisionByZero { span: op })
                 }
             }
             (Value::Int { val: lhs, .. }, Value::Float { val: rhs, .. }) => {
@@ -3092,7 +3139,7 @@ impl Value {
                         span,
                     })
                 } else {
-                    Err(ShellError::DivisionByZero(op))
+                    Err(ShellError::DivisionByZero { span: op })
                 }
             }
             (Value::Float { val: lhs, .. }, Value::Int { val: rhs, .. }) => {
@@ -3102,7 +3149,7 @@ impl Value {
                         span,
                     })
                 } else {
-                    Err(ShellError::DivisionByZero(op))
+                    Err(ShellError::DivisionByZero { span: op })
                 }
             }
             (Value::Float { val: lhs, .. }, Value::Float { val: rhs, .. }) => {
@@ -3112,7 +3159,7 @@ impl Value {
                         span,
                     })
                 } else {
-                    Err(ShellError::DivisionByZero(op))
+                    Err(ShellError::DivisionByZero { span: op })
                 }
             }
             (Value::CustomValue { val: lhs, span }, rhs) => {
@@ -3192,11 +3239,7 @@ impl Value {
                 if let Some(val) = lhs.checked_pow(*rhs as u32) {
                     Ok(Value::Int { val, span })
                 } else {
-                    Err(ShellError::OperatorOverflow(
-                        "pow operation overflowed".into(),
-                        span,
-                        "Consider using floating point values for increased range by promoting operand with 'into decimal'. Note: float has reduced precision!".into()
-                    ))
+                    Err(ShellError::OperatorOverflow { msg: "pow operation overflowed".into(), span, help: "Consider using floating point values for increased range by promoting operand with 'into decimal'. Note: float has reduced precision!".into() })
                 }
             }
             (Value::Int { val: lhs, .. }, Value::Float { val: rhs, .. }) => Ok(Value::Float {

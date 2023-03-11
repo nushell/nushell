@@ -414,7 +414,7 @@ pub fn evaluate_repl(
         );
 
         start_time = std::time::Instant::now();
-        let config = engine_state.get_config();
+        let config = &engine_state.get_config().clone();
         let prompt = prompt_update::update_prompt(config, engine_state, stack, &mut nu_prompt);
         perf(
             "update_prompt",
@@ -427,11 +427,14 @@ pub fn evaluate_repl(
 
         entry_num += 1;
 
-        if entry_num == 1 && show_banner {
-            println!(
-                "Startup Time: {}",
-                format_duration(entire_start_time.elapsed().as_nanos() as i64)
-            );
+        if entry_num == 1 {
+            engine_state.set_startup_time(entire_start_time.elapsed().as_nanos() as i64);
+            if show_banner {
+                println!(
+                    "Startup Time: {}",
+                    format_duration(engine_state.get_startup_time())
+                );
+            }
         }
 
         start_time = std::time::Instant::now();
@@ -720,8 +723,9 @@ fn get_banner(engine_state: &mut EngineState, stack: &mut Stack) -> String {
 
 Please join our {}Discord{} community at {}https://discord.gg/NtAbbGn{}
 Our {}GitHub{} repository is at {}https://github.com/nushell/nushell{}
-Our {}Documentation{} is located at {}http://nushell.sh{}
+Our {}Documentation{} is located at {}https://nushell.sh{}
 {}Tweet{} us at {}@nu_shell{}
+Learn how to remove this at: {}https://nushell.sh/book/configuration.html#remove-welcome-message{}
 
 It's been this long since {}Nushell{}'s first commit:
 {}{}
@@ -753,6 +757,8 @@ It's been this long since {}Nushell{}'s first commit:
         "\x1b[0m",    //after Tweet
         "\x1b[1;36m", //before @nu_shell cyan_bold
         "\x1b[0m",    //after @nu_shell
+        "\x1b[32m",   //before Welcome Message
+        "\x1b[0m",    //after Welcome Message
         "\x1b[32m",   //before Nushell
         "\x1b[0m",    //after Nushell
         age,
@@ -843,10 +849,10 @@ pub fn eval_env_change_hook(
                 }
             }
             x => {
-                return Err(ShellError::TypeMismatch(
-                    "record for the 'env_change' hook".to_string(),
-                    x.span()?,
-                ));
+                return Err(ShellError::TypeMismatch {
+                    err_message: "record for the 'env_change' hook".to_string(),
+                    span: x.span()?,
+                });
             }
         }
     }
@@ -1106,10 +1112,10 @@ fn run_hook_block(
             if let Some(arg) = arguments.get(idx) {
                 callee_stack.add_var(*var_id, arg.1.clone())
             } else {
-                return Err(ShellError::IncompatibleParametersSingle(
-                    "This hook block has too many parameters".into(),
+                return Err(ShellError::IncompatibleParametersSingle {
+                    msg: "This hook block has too many parameters".into(),
                     span,
-                ));
+                });
             }
         }
     }

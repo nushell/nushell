@@ -27,7 +27,7 @@ impl Command for SubCommand {
     }
 
     fn usage(&self) -> &str {
-        "Parses a url"
+        "Parses a url."
     }
 
     fn search_terms(&self) -> Vec<&str> {

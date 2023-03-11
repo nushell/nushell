@@ -54,7 +54,7 @@ impl Command for SubCommand {
     }
 
     fn usage(&self) -> &str {
-        "Add a color gradient (using ANSI color codes) to the given string"
+        "Add a color gradient (using ANSI color codes) to the given string."
     }
 
     fn run(
@@ -158,10 +158,11 @@ fn action(
                 (None, None, None, None) => {
                     // Error - no colors
                     Value::Error {
-                        error: ShellError::MissingParameter(
-                            "please supply foreground and/or background color parameters".into(),
-                            *command_span,
-                        ),
+                        error: ShellError::MissingParameter {
+                            param_name:
+                                "please supply foreground and/or background color parameters".into(),
+                            span: *command_span,
+                        },
                     }
                 }
                 (None, None, None, Some(bg_end)) => {
@@ -285,7 +286,10 @@ fn action(
             let got = format!("value is {}, not string", other.get_type());
 
             Value::Error {
-                error: ShellError::TypeMismatch(got, other.span().unwrap_or(*command_span)),
+                error: ShellError::TypeMismatch {
+                    err_message: got,
+                    span: other.span().unwrap_or(*command_span),
+                },
             }
         }
     }

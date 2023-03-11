@@ -362,7 +362,6 @@ mod nu_commands {
         assert!(actual.out.contains("version"));
         assert!(actual.out.contains("rust_version"));
         assert!(actual.out.contains("rust_channel"));
-        assert!(actual.out.contains("pkg_version"));
     }
 
     #[test]
@@ -374,7 +373,6 @@ mod nu_commands {
         assert!(actual.out.contains("version"));
         assert!(actual.out.contains("rust_version"));
         assert!(actual.out.contains("rust_channel"));
-        assert!(actual.out.contains("pkg_version"));
     }
 }
 

@@ -1,7 +1,7 @@
 use nu_protocol::{
     ast::Call,
     engine::{EngineState, Stack},
-    Example, IntoPipelineData, Signature, Span, SyntaxShape, Value,
+    Example, IntoPipelineData, PipelineData, Signature, Span, SyntaxShape, Value,
 };
 use std::fmt::Write;
 
@@ -208,6 +208,32 @@ fn get_documentation(
             }
         } else {
             let _ = write!(long_desc, "\n  > {}\n", example.example);
+        }
+
+        if let Some(result) = &example.result {
+            let table = engine_state
+                .find_decl("table".as_bytes(), &[])
+                .and_then(|decl_id| {
+                    engine_state
+                        .get_decl(decl_id)
+                        .run(
+                            engine_state,
+                            stack,
+                            &Call::new(Span::new(0, 0)),
+                            PipelineData::Value(result.clone(), None),
+                        )
+                        .ok()
+                });
+
+            for item in table.into_iter().flatten() {
+                let _ = writeln!(
+                    long_desc,
+                    "  {}",
+                    item.into_string("", engine_state.get_config())
+                        .replace('\n', "\n  ")
+                        .trim()
+                );
+            }
         }
     }
 

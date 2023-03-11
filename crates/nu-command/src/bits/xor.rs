@@ -26,7 +26,7 @@ impl Command for SubCommand {
     }
 
     fn usage(&self) -> &str {
-        "Performs bitwise xor for integers"
+        "Performs bitwise xor for integers."
     }
 
     fn search_terms(&self) -> Vec<&str> {
@@ -44,7 +44,7 @@ impl Command for SubCommand {
         let target: i64 = call.req(engine_state, stack, 0)?;
         // This doesn't match explicit nulls
         if matches!(input, PipelineData::Empty) {
-            return Err(ShellError::PipelineEmpty(head));
+            return Err(ShellError::PipelineEmpty { dst_span: head });
         }
         input.map(
             move |value| operate(value, target, head),
@@ -80,13 +80,12 @@ fn operate(value: Value, target: i64, head: Span) -> Value {
         // Propagate errors by explicitly matching them before the final case.
         Value::Error { .. } => value,
         other => Value::Error {
-            error: ShellError::OnlySupportsThisInputType(
-                "integer".into(),
-                other.get_type().to_string(),
-                head,
-                // This line requires the Value::Error match above.
-                other.expect_span(),
-            ),
+            error: ShellError::OnlySupportsThisInputType {
+                exp_input_type: "integer".into(),
+                wrong_type: other.get_type().to_string(),
+                dst_span: head,
+                src_span: other.expect_span(),
+            },
         },
     }
 }

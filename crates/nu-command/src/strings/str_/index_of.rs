@@ -65,7 +65,7 @@ impl Command for SubCommand {
     }
 
     fn usage(&self) -> &str {
-        "Returns start index of first occurrence of string in input, or -1 if no match"
+        "Returns start index of first occurrence of string in input, or -1 if no match."
     }
 
     fn search_terms(&self) -> Vec<&str> {
@@ -186,12 +186,12 @@ fn action(
         }
         Value::Error { .. } => input.clone(),
         _ => Value::Error {
-            error: ShellError::OnlySupportsThisInputType(
-                "string".into(),
-                input.get_type().to_string(),
-                head,
-                input.expect_span(),
-            ),
+            error: ShellError::OnlySupportsThisInputType {
+                exp_input_type: "string".into(),
+                wrong_type: input.get_type().to_string(),
+                dst_span: head,
+                src_span: input.expect_span(),
+            },
         },
     }
 }
@@ -219,10 +219,10 @@ fn process_range(
         }
         Value::List { vals, .. } => {
             if vals.len() > 2 {
-                Err(ShellError::TypeMismatch(
-                    String::from("there shouldn't be more than two indexes"),
-                    head,
-                ))
+                Err(ShellError::TypeMismatch {
+                    err_message: String::from("there shouldn't be more than two indexes"),
+                    span: head,
+                })
             } else {
                 let idx: Vec<String> = vals
                     .iter()
@@ -236,30 +236,27 @@ fn process_range(
             }
         }
         Value::Error { error } => Err(error.clone()),
-        _ => Err(ShellError::OnlySupportsThisInputType(
-            "string".into(),
-            input.get_type().to_string(),
-            head,
-            input.expect_span(),
-        )),
+        _ => Err(ShellError::OnlySupportsThisInputType {
+            exp_input_type: "string".into(),
+            wrong_type: input.get_type().to_string(),
+            dst_span: head,
+            src_span: input.expect_span(),
+        }),
     }?;
 
     let start_index = r.0.parse::<i32>().unwrap_or(0);
     let end_index = r.1.parse::<i32>().unwrap_or(input_len as i32);
 
     if start_index < 0 || start_index > end_index {
-        return Err(ShellError::TypeMismatch(
-            String::from("start index can't be negative or greater than end index"),
-            head,
-        ));
+        return Err(ShellError::TypeMismatch {
+            err_message: String::from("start index can't be negative or greater than end index"),
+            span: head,
+        });
     }
 
     if end_index < 0 || end_index < start_index || end_index > input_len as i32 {
-        return Err(ShellError::TypeMismatch(
-            String::from(
-            "end index can't be negative, smaller than start index or greater than input length"),
-            head,
-        ));
+        return Err(ShellError::TypeMismatch { err_message: String::from(
+            "end index can't be negative, smaller than start index or greater than input length"), span: head });
     }
     Ok(IndexOfOptionalBounds(start_index, end_index))
 }

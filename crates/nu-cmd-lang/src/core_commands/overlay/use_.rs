@@ -17,7 +17,7 @@ impl Command for OverlayUse {
     }
 
     fn usage(&self) -> &str {
-        "Use definitions from a module as an overlay"
+        "Use definitions from a module as an overlay."
     }
 
     fn signature(&self) -> nu_protocol::Signature {
@@ -70,18 +70,18 @@ impl Command for OverlayUse {
             if let Expr::Overlay(module_id) = overlay_expr.expr {
                 module_id
             } else {
-                return Err(ShellError::NushellFailedSpanned(
-                    "Not an overlay".to_string(),
-                    "requires an overlay (path or a string)".to_string(),
-                    overlay_expr.span,
-                ));
+                return Err(ShellError::NushellFailedSpanned {
+                    msg: "Not an overlay".to_string(),
+                    label: "requires an overlay (path or a string)".to_string(),
+                    span: overlay_expr.span,
+                });
             }
         } else {
-            return Err(ShellError::NushellFailedSpanned(
-                "Missing positional".to_string(),
-                "missing required overlay".to_string(),
-                call.head,
-            ));
+            return Err(ShellError::NushellFailedSpanned {
+                msg: "Missing positional".to_string(),
+                label: "missing required overlay".to_string(),
+                span: call.head,
+            });
         };
 
         let overlay_name = if let Some(name) = call.opt(engine_state, caller_stack, 1)? {
@@ -98,10 +98,10 @@ impl Command for OverlayUse {
                 return Err(ShellError::NonUtf8(name_arg.span));
             }
         } else {
-            return Err(ShellError::OverlayNotFoundAtRuntime(
-                name_arg.item,
-                name_arg.span,
-            ));
+            return Err(ShellError::OverlayNotFoundAtRuntime {
+                overlay_name: name_arg.item,
+                span: name_arg.span,
+            });
         };
 
         if let Some(module_id) = maybe_origin_module_id {

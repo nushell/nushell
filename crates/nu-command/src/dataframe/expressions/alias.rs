@@ -16,7 +16,7 @@ impl Command for ExprAlias {
     }
 
     fn usage(&self) -> &str {
-        "Creates an alias expression"
+        "Creates an alias expression."
     }
 
     fn signature(&self) -> Signature {

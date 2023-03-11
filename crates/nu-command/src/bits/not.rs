@@ -33,7 +33,7 @@ impl Command for SubCommand {
     }
 
     fn usage(&self) -> &str {
-        "Performs logical negation on each bit"
+        "Performs logical negation on each bit."
     }
 
     fn search_terms(&self) -> Vec<&str> {
@@ -65,7 +65,7 @@ impl Command for SubCommand {
 
         // This doesn't match explicit nulls
         if matches!(input, PipelineData::Empty) {
-            return Err(ShellError::PipelineEmpty(head));
+            return Err(ShellError::PipelineEmpty { dst_span: head });
         }
         input.map(
             move |value| operate(value, head, signed, bytes_len),
@@ -150,12 +150,12 @@ fn operate(value: Value, head: Span, signed: bool, number_size: NumberBytes) -> 
             // Propagate errors inside the value
             Value::Error { .. } => other,
             _ => Value::Error {
-                error: ShellError::OnlySupportsThisInputType(
-                    "numeric".into(),
-                    other.get_type().to_string(),
-                    head,
-                    other.expect_span(),
-                ),
+                error: ShellError::OnlySupportsThisInputType {
+                    exp_input_type: "integer".into(),
+                    wrong_type: other.get_type().to_string(),
+                    dst_span: head,
+                    src_span: other.expect_span(),
+                },
             },
         },
     }

@@ -16,7 +16,7 @@ impl Command for LazyCollect {
     }
 
     fn usage(&self) -> &str {
-        "Collect lazy dataframe into eager dataframe"
+        "Collect lazy dataframe into eager dataframe."
     }
 
     fn signature(&self) -> Signature {

@@ -19,7 +19,7 @@ impl Command for MeltDF {
     }
 
     fn usage(&self) -> &str {
-        "Unpivot a DataFrame from wide to long format"
+        "Unpivot a DataFrame from wide to long format."
     }
 
     fn signature(&self) -> Signature {

@@ -28,7 +28,7 @@ impl Command for Print {
     }
 
     fn usage(&self) -> &str {
-        "Print the given values to stdout"
+        "Print the given values to stdout."
     }
 
     fn extra_usage(&self) -> &str {
@@ -47,15 +47,20 @@ Since this command has no output, there is no point in piping it with other comm
         engine_state: &EngineState,
         stack: &mut Stack,
         call: &Call,
-        _input: PipelineData,
+        input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
         let args: Vec<Value> = call.rest(engine_state, stack, 0)?;
         let no_newline = call.has_flag("no-newline");
         let to_stderr = call.has_flag("stderr");
 
-        for arg in args {
-            arg.into_pipeline_data()
-                .print(engine_state, stack, no_newline, to_stderr)?;
+        // This will allow for easy printing of pipelines as well
+        if !args.is_empty() {
+            for arg in args {
+                arg.into_pipeline_data()
+                    .print(engine_state, stack, no_newline, to_stderr)?;
+            }
+        } else if !input.is_nothing() {
+            input.print(engine_state, stack, no_newline, to_stderr)?;
         }
 
         Ok(PipelineData::empty())

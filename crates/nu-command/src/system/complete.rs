@@ -21,7 +21,7 @@ impl Command for Complete {
     }
 
     fn usage(&self) -> &str {
-        "Capture the outputs and exit code from an external piped in command in a nushell table"
+        "Capture the outputs and exit code from an external piped in command in a nushell table."
     }
 
     fn extra_usage(&self) -> &str {
@@ -95,12 +95,10 @@ impl Command for Complete {
 
                 if let Some((handler, stderr_span)) = stderr_handler {
                     cols.push("stderr".to_string());
-                    let res = handler.join().map_err(|err| {
-                        ShellError::ExternalCommand(
-                            "Fail to receive external commands stderr message".to_string(),
-                            format!("{err:?}"),
-                            stderr_span,
-                        )
+                    let res = handler.join().map_err(|err| ShellError::ExternalCommand {
+                        label: "Fail to receive external commands stderr message".to_string(),
+                        help: format!("{err:?}"),
+                        span: stderr_span,
                     })??;
                     vals.push(res)
                 };

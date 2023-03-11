@@ -16,7 +16,7 @@ impl Command for ExprArgWhere {
     }
 
     fn usage(&self) -> &str {
-        "Creates an expression that returns the arguments where expression is true"
+        "Creates an expression that returns the arguments where expression is true."
     }
 
     fn signature(&self) -> Signature {

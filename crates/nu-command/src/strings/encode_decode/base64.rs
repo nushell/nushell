@@ -93,7 +93,7 @@ fn action(
         not_valid => return Value::Error { error:ShellError::GenericError(
             "value is not an accepted character set".to_string(),
             format!(
-                "{not_valid} is not a valid character-set.\nPlease use `help hash base64` to see a list of valid character sets."
+                "{not_valid} is not a valid character-set.\nPlease use `help encode base64` to see a list of valid character sets."
             ),
             Some(config_character_set.span),
             None,
@@ -187,10 +187,10 @@ fn action(
             }
         }
         other => Value::Error {
-            error: ShellError::TypeMismatch(
-                format!("string or binary, not {}", other.get_type()),
-                other.span().unwrap_or(command_span),
-            ),
+            error: ShellError::TypeMismatch {
+                err_message: format!("string or binary, not {}", other.get_type()),
+                span: other.span().unwrap_or(command_span),
+            },
         },
     }
 }

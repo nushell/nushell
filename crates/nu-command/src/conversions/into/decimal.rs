@@ -28,7 +28,7 @@ impl Command for SubCommand {
     }
 
     fn usage(&self) -> &str {
-        "Convert text into a decimal"
+        "Convert text into a decimal."
     }
 
     fn search_terms(&self) -> Vec<&str> {
@@ -88,12 +88,12 @@ fn action(input: &Value, _args: &CellPathOnlyArgs, head: Span) -> Value {
             match other.parse::<f64>() {
                 Ok(x) => Value::float(x, head),
                 Err(reason) => Value::Error {
-                    error: ShellError::CantConvert(
-                        "float".to_string(),
-                        reason.to_string(),
-                        *span,
-                        None,
-                    ),
+                    error: ShellError::CantConvert {
+                        to_type: "float".to_string(),
+                        from_type: reason.to_string(),
+                        span: *span,
+                        help: None,
+                    },
                 },
             }
         }
@@ -108,13 +108,12 @@ fn action(input: &Value, _args: &CellPathOnlyArgs, head: Span) -> Value {
         // Propagate errors by explicitly matching them before the final case.
         Value::Error { .. } => input.clone(),
         other => Value::Error {
-            error: ShellError::OnlySupportsThisInputType(
-                "string, integer or bool".into(),
-                other.get_type().to_string(),
-                head,
-                // This line requires the Value::Error match above.
-                other.expect_span(),
-            ),
+            error: ShellError::OnlySupportsThisInputType {
+                exp_input_type: "string, integer or bool".into(),
+                wrong_type: other.get_type().to_string(),
+                dst_span: head,
+                src_span: other.expect_span(),
+            },
         },
     }
 }

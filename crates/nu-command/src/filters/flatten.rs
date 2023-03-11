@@ -172,13 +172,12 @@ fn flat_value(columns: &[CellPath], item: &Value, _name_tag: Span, all: bool) ->
                 Value::Error { .. } => return vec![item.clone()],
                 other => {
                     return vec![Value::Error {
-                        error: ShellError::OnlySupportsThisInputType(
-                            "record".into(),
-                            other.get_type().to_string(),
-                            _name_tag,
-                            // This line requires the Value::Error match above.
-                            other.expect_span(),
-                        ),
+                        error: ShellError::OnlySupportsThisInputType {
+                            exp_input_type: "record".into(),
+                            wrong_type: other.get_type().to_string(),
+                            dst_span: _name_tag,
+                            src_span: other.expect_span(),
+                        },
                     }];
                 }
             };

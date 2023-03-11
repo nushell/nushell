@@ -39,7 +39,7 @@ impl Command for SubCommand {
     }
 
     fn usage(&self) -> &str {
-        "Split a string into multiple columns using a separator"
+        "Split a string into multiple columns using a separator."
     }
 
     fn search_terms(&self) -> Vec<&str> {
@@ -182,7 +182,11 @@ fn split_column_helper(
     } else {
         match v.span() {
             Ok(span) => vec![Value::Error {
-                error: ShellError::PipelineMismatch("string".into(), head, span),
+                error: ShellError::PipelineMismatch {
+                    exp_input_type: "string".into(),
+                    dst_span: head,
+                    src_span: span,
+                },
             }],
             Err(error) => vec![Value::Error { error }],
         }

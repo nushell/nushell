@@ -19,7 +19,7 @@ impl Command for ToYaml {
     }
 
     fn usage(&self) -> &str {
-        "Convert table into .yaml/.yml text"
+        "Convert table into .yaml/.yml text."
     }
 
     fn examples(&self) -> Vec<Example> {
@@ -111,7 +111,12 @@ fn to_yaml(input: PipelineData, head: Span) -> Result<PipelineData, ShellError> 
         }
         .into_pipeline_data()),
         _ => Ok(Value::Error {
-            error: ShellError::CantConvert("YAML".into(), value.get_type().to_string(), head, None),
+            error: ShellError::CantConvert {
+                to_type: "YAML".into(),
+                from_type: value.get_type().to_string(),
+                span: head,
+                help: None,
+            },
         }
         .into_pipeline_data()),
     }

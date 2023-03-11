@@ -31,7 +31,7 @@ impl Command for HideEnv {
     }
 
     fn usage(&self) -> &str {
-        "Hide environment variables in the current scope"
+        "Hide environment variables in the current scope."
     }
 
     fn run(
@@ -58,7 +58,10 @@ impl Command for HideEnv {
                         name.span,
                     ));
                 } else {
-                    return Err(ShellError::EnvVarNotFoundAtRuntime(name.item, name.span));
+                    return Err(ShellError::EnvVarNotFoundAtRuntime {
+                        envvar_name: name.item,
+                        span: name.span,
+                    });
                 }
             }
         }

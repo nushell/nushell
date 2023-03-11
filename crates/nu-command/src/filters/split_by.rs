@@ -37,17 +37,15 @@ impl Command for SplitBy {
     fn examples(&self) -> Vec<Example> {
         vec![Example {
             description: "split items by column named \"lang\"",
-            example: r#"
-                {
-                    '2019': [
-                      { name: 'andres', lang: 'rb', year: '2019' },
-                      { name: 'jt', lang: 'rs', year: '2019' }
-                    ],
-                    '2021': [
-                      { name: 'storm', lang: 'rs', 'year': '2021' }
-                    ]
-                } | split-by lang
-                "#,
+            example: r#"{
+        '2019': [
+          { name: 'andres', lang: 'rb', year: '2019' },
+          { name: 'jt', lang: 'rs', year: '2019' }
+        ],
+        '2021': [
+          { name: 'storm', lang: 'rs', 'year': '2021' }
+        ]
+    } | split-by lang"#,
             result: Some(Value::Record {
                 cols: vec!["rb".to_string(), "rs".to_string()],
                 vals: vec![
@@ -166,11 +164,11 @@ pub fn split(
                 Box::new(
                     move |_, row: &Value| match row.get_data_by_key(&column_name.item) {
                         Some(group_key) => Ok(group_key.as_string()?),
-                        None => Err(ShellError::CantFindColumn(
-                            column_name.item.to_string(),
-                            column_name.span,
-                            row.span().unwrap_or(column_name.span),
-                        )),
+                        None => Err(ShellError::CantFindColumn {
+                            col_name: column_name.item.to_string(),
+                            span: column_name.span,
+                            src_span: row.span().unwrap_or(column_name.span),
+                        }),
                     },
                 );
 

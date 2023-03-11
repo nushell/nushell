@@ -26,7 +26,7 @@ impl Command for BytesCollect {
     }
 
     fn usage(&self) -> &str {
-        "Concatenate multiple binary into a single binary, with an optional separator between each"
+        "Concatenate multiple binary into a single binary, with an optional separator between each."
     }
 
     fn search_terms(&self) -> Vec<&str> {
@@ -57,13 +57,12 @@ impl Command for BytesCollect {
                 // Explicitly propagate errors instead of dropping them.
                 Value::Error { error } => return Err(error),
                 other => {
-                    return Err(ShellError::OnlySupportsThisInputType(
-                        "integer".into(),
-                        other.get_type().to_string(),
-                        call.head,
-                        // This line requires the Value::Error match above.
-                        other.expect_span(),
-                    ));
+                    return Err(ShellError::OnlySupportsThisInputType {
+                        exp_input_type: "binary".into(),
+                        wrong_type: other.get_type().to_string(),
+                        dst_span: call.head,
+                        src_span: other.expect_span(),
+                    });
                 }
             }
         }

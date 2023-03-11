@@ -6,7 +6,7 @@ use nu_protocol::{
         ImportPatternMember, PathMember, Pipeline, PipelineElement,
     },
     engine::{StateWorkingSet, DEFAULT_OVERLAY_NAME},
-    span, BlockId, Exportable, Module, PositionalArg, Span, Spanned, SyntaxShape, Type,
+    span, Alias, BlockId, Exportable, Module, PositionalArg, Span, Spanned, SyntaxShape, Type,
 };
 use std::collections::HashSet;
 use std::path::{Path, PathBuf};
@@ -21,12 +21,98 @@ use crate::{
     lex,
     lite_parser::{lite_parse, LiteCommand, LiteElement},
     parser::{
-        check_call, check_name, garbage, garbage_pipeline, parse, parse_import_pattern,
+        check_call, check_name, garbage, garbage_pipeline, parse, parse_call, parse_import_pattern,
         parse_internal_call, parse_multispan_value, parse_signature, parse_string, parse_value,
         parse_var_with_opt_type, trim_quotes, ParsedInternalCall,
     },
     unescape_unquote_string, ParseError, Token, TokenContents,
 };
+
+/// These parser keywords can be aliased
+pub const ALIASABLE_PARSER_KEYWORDS: &[&[u8]] = &[b"overlay hide", b"overlay new", b"overlay use"];
+
+/// These parser keywords cannot be aliased (either not possible, or support not yet added)
+pub const UNALIASABLE_PARSER_KEYWORDS: &[&[u8]] = &[
+    b"export",
+    b"def",
+    b"export def",
+    b"for",
+    b"extern",
+    b"export extern",
+    b"alias",
+    b"export alias",
+    b"export-env",
+    b"module",
+    b"use",
+    b"export use",
+    b"hide",
+    // b"overlay",
+    // b"overlay hide",
+    // b"overlay new",
+    // b"overlay use",
+    b"let",
+    b"const",
+    b"mut",
+    b"source",
+    b"where",
+    b"register",
+];
+
+/// Check whether spans start with a parser keyword that can be aliased
+pub fn is_unaliasable_parser_keyword(working_set: &StateWorkingSet, spans: &[Span]) -> bool {
+    // try two words
+    if let (Some(span1), Some(span2)) = (spans.get(0), spans.get(1)) {
+        let cmd_name = working_set.get_span_contents(span(&[*span1, *span2]));
+        return UNALIASABLE_PARSER_KEYWORDS.contains(&cmd_name);
+    }
+
+    // try one word
+    if let Some(span1) = spans.get(0) {
+        let cmd_name = working_set.get_span_contents(*span1);
+        UNALIASABLE_PARSER_KEYWORDS.contains(&cmd_name)
+    } else {
+        false
+    }
+}
+
+/// This is a new more compact method of calling parse_xxx() functions without repeating the
+/// parse_call() in each function. Remaining keywords can be moved here.
+pub fn parse_keyword(
+    working_set: &mut StateWorkingSet,
+    lite_command: &LiteCommand,
+    expand_aliases_denylist: &[usize],
+    is_subexpression: bool,
+) -> (Pipeline, Option<ParseError>) {
+    let (call_expr, err) = parse_call(
+        working_set,
+        &lite_command.parts,
+        lite_command.parts[0],
+        expand_aliases_denylist,
+        is_subexpression,
+    );
+
+    if err.is_some() {
+        return (Pipeline::from_vec(vec![call_expr]), err);
+    }
+
+    if let Expression {
+        expr: Expr::Call(call),
+        ..
+    } = call_expr.clone()
+    {
+        // Apply parse keyword side effects
+        let cmd = working_set.get_decl(call.decl_id);
+
+        match cmd.name() {
+            "overlay hide" => parse_overlay_hide(working_set, call),
+            "overlay new" => parse_overlay_new(working_set, call),
+            "overlay use" => parse_overlay_use(working_set, call, expand_aliases_denylist),
+            _ => (Pipeline::from_vec(vec![call_expr]), err),
+        }
+    } else {
+        (Pipeline::from_vec(vec![call_expr]), err)
+    }
+}
 
 pub fn parse_def_predecl(
     working_set: &mut StateWorkingSet,
@@ -101,6 +187,34 @@ pub fn parse_def_predecl(
                 name,
                 usage: "run external command".into(),
                 signature,
+            };
+
+            if working_set.add_predecl(Box::new(decl)).is_some() {
+                return Some(ParseError::DuplicateCommandDef(spans[1]));
+            }
+        }
+    } else if name == b"alias" && spans.len() >= 4 {
+        let (name_expr, ..) = parse_string(working_set, spans[1], expand_aliases_denylist);
+        let name = name_expr.as_string();
+
+        if let Some(name) = name {
+            if name.contains('#')
+                || name.contains('^')
+                || name.parse::<bytesize::ByteSize>().is_ok()
+                || name.parse::<f64>().is_ok()
+            {
+                return Some(ParseError::CommandDefNotValid(spans[1]));
+            }
+
+            // The signature will get replaced by the replacement signature
+            // let mut signature = Signature::new(name.clone());
+            // signature.name = name;
+
+            // The fields get replaced during parsing
+            let decl = Alias {
+                name,
+                command: None,
+                wrapped_call: Expression::garbage(name_expr.span),
             };
 
             if working_set.add_predecl(Box::new(decl)).is_some() {
@@ -603,6 +717,203 @@ pub fn parse_alias(
 ) -> (Pipeline, Option<ParseError>) {
     let spans = &lite_command.parts;
 
+    let (name_span, split_id) =
+        if spans.len() > 1 && working_set.get_span_contents(spans[0]) == b"export" {
+            (spans[1], 2)
+        } else {
+            (spans[0], 1)
+        };
+
+    let name = working_set.get_span_contents(name_span);
+
+    if name != b"alias" {
+        return (
+            garbage_pipeline(spans),
+            Some(ParseError::InternalError(
+                "Alias statement unparsable".into(),
+                span(spans),
+            )),
+        );
+    }
+
+    if let Some((span, err)) = check_name(working_set, spans) {
+        return (Pipeline::from_vec(vec![garbage(*span)]), Some(err));
+    }
+
+    if let Some(decl_id) = working_set.find_decl(b"alias", &Type::Any) {
+        let (command_spans, rest_spans) = spans.split_at(split_id);
+
+        let ParsedInternalCall {
+            call: alias_call,
+            output,
+            ..
+        } = parse_internal_call(
+            working_set,
+            span(command_spans),
+            rest_spans,
+            decl_id,
+            expand_aliases_denylist,
+        );
+
+        let has_help_flag = alias_call.has_flag("help");
+
+        let alias_pipeline = Pipeline::from_vec(vec![Expression {
+            expr: Expr::Call(alias_call),
+            span: span(spans),
+            ty: output,
+            custom_completion: None,
+        }]);
+
+        if has_help_flag {
+            return (alias_pipeline, None);
+        }
+
+        if spans.len() >= split_id + 3 {
+            let alias_name = working_set.get_span_contents(spans[split_id]);
+
+            let alias_name = if alias_name.starts_with(b"\"")
+                && alias_name.ends_with(b"\"")
+                && alias_name.len() > 1
+            {
+                alias_name[1..(alias_name.len() - 1)].to_vec()
+            } else {
+                alias_name.to_vec()
+            };
+
+            if let Some(mod_name) = module_name {
+                if alias_name == mod_name {
+                    return (
+                        alias_pipeline,
+                        Some(ParseError::NamedAsModule(
+                            "alias".to_string(),
+                            String::from_utf8_lossy(&alias_name).to_string(),
+                            spans[split_id],
+                        )),
+                    );
+                }
+
+                if &alias_name == b"main" {
+                    return (
+                        alias_pipeline,
+                        Some(ParseError::ExportMainAliasNotAllowed(spans[split_id])),
+                    );
+                }
+            }
+
+            let _equals = working_set.get_span_contents(spans[split_id + 1]);
+
+            let replacement_spans = &spans[(split_id + 2)..];
+
+            let (expr, err) = parse_call(
+                working_set,
+                replacement_spans,
+                replacement_spans[0],
+                expand_aliases_denylist,
+                false, // TODO: Should this be set properly???
+            );
+
+            if let Some(e) = err {
+                if let ParseError::MissingPositional(..) = e {
+                    // ignore missing required positional
+                } else {
+                    return (garbage_pipeline(replacement_spans), Some(e));
+                }
+            }
+
+            let (command, wrapped_call) = match expr {
+                Expression {
+                    expr: Expr::Call(ref rhs_call),
+                    ..
+                } => {
+                    let cmd = working_set.get_decl(rhs_call.decl_id);
+
+                    if cmd.is_parser_keyword()
+                        && !ALIASABLE_PARSER_KEYWORDS.contains(&cmd.name().as_bytes())
+                    {
+                        return (
+                            alias_pipeline,
+                            Some(ParseError::CantAliasKeyword(
+                                ALIASABLE_PARSER_KEYWORDS
+                                    .iter()
+                                    .map(|bytes| String::from_utf8_lossy(bytes).to_string())
+                                    .collect::<Vec<String>>()
+                                    .join(", "),
+                                rhs_call.head,
+                            )),
+                        );
+                    }
+
+                    (Some(cmd.clone_box()), expr)
+                }
+                Expression {
+                    expr: Expr::ExternalCall(..),
+                    ..
+                } => (None, expr),
+                _ => {
+                    return (
+                        alias_pipeline,
+                        Some(ParseError::InternalError(
+                            "Parsed call not a call".into(),
+                            expr.span,
+                        )),
+                    )
+                }
+            };
+
+            if let Some(decl_id) = working_set.find_predecl(&alias_name) {
+                let alias_decl = working_set.get_decl_mut(decl_id);
+
+                let alias = Alias {
+                    name: String::from_utf8_lossy(&alias_name).to_string(),
+                    command,
+                    wrapped_call,
+                };
+
+                *alias_decl = Box::new(alias);
+            } else {
+                return (
+                    garbage_pipeline(spans),
+                    Some(ParseError::InternalError(
+                        "Predeclaration failed to add declaration".into(),
+                        spans[split_id],
+                    )),
+                );
+            }
+
+            // It's OK if it returns None: The decl was already merged in previous parse pass.
+            working_set.merge_predecl(&alias_name);
+        }
+
+        let err = if spans.len() < 4 {
+            Some(ParseError::IncorrectValue(
+                "Incomplete alias".into(),
+                span(&spans[..split_id]),
+                "incomplete alias".into(),
+            ))
+        } else {
+            None
+        };
+
+        return (alias_pipeline, err);
+    }
+
+    (
+        garbage_pipeline(spans),
+        Some(ParseError::InternalError(
+            "Alias statement unparsable".into(),
+            span(spans),
+        )),
+    )
+}
+
+pub fn parse_old_alias(
+    working_set: &mut StateWorkingSet,
+    lite_command: &LiteCommand,
+    module_name: Option<&[u8]>,
+    expand_aliases_denylist: &[usize],
+) -> (Pipeline, Option<ParseError>) {
+    let spans = &lite_command.parts;
+
     // if the call is "alias", turn it into "print $nu.scope.aliases"
     if spans.len() == 1 {
         let head = Expression {
@@ -658,7 +969,7 @@ pub fn parse_alias(
 
     let name = working_set.get_span_contents(name_span);
 
-    if name == b"alias" {
+    if name == b"old-alias" {
         if let Some((span, err)) = check_name(working_set, spans) {
             return (Pipeline::from_vec(vec![garbage(*span)]), Some(err));
         }
@@ -789,7 +1100,9 @@ pub fn parse_export_in_block(
     let full_name = if lite_command.parts.len() > 1 {
         let sub = working_set.get_span_contents(lite_command.parts[1]);
         match sub {
-            b"alias" | b"def" | b"def-env" | b"extern" | b"use" => [b"export ", sub].concat(),
+            b"old-alias" | b"alias" | b"def" | b"def-env" | b"extern" | b"use" => {
+                [b"export ", sub].concat()
+            }
             _ => b"export".to_vec(),
         }
     } else {
@@ -857,6 +1170,9 @@ pub fn parse_export_in_block(
     }
 
     match full_name.as_slice() {
+        b"export old-alias" => {
+            parse_old_alias(working_set, lite_command, None, expand_aliases_denylist)
+        }
         b"export alias" => parse_alias(working_set, lite_command, None, expand_aliases_denylist),
         b"export def" | b"export def-env" => {
             parse_def(working_set, lite_command, None, expand_aliases_denylist)
@@ -1154,6 +1470,79 @@ pub fn parse_export_in_module(
 
                 result
             }
+            b"old-alias" => {
+                let lite_command = LiteCommand {
+                    comments: lite_command.comments.clone(),
+                    parts: spans[1..].to_vec(),
+                };
+                let (pipeline, err) = parse_old_alias(
+                    working_set,
+                    &lite_command,
+                    Some(module_name),
+                    expand_aliases_denylist,
+                );
+                error = error.or(err);
+
+                let export_alias_decl_id =
+                    if let Some(id) = working_set.find_decl(b"export old-alias", &Type::Any) {
+                        id
+                    } else {
+                        return (
+                            garbage_pipeline(spans),
+                            vec![],
+                            Some(ParseError::InternalError(
+                                "missing 'export old-alias' command".into(),
+                                export_span,
+                            )),
+                        );
+                    };
+
+                // Trying to warp the 'old-alias' call into the 'export old-alias' in a very clumsy way
+                if let Some(PipelineElement::Expression(
+                    _,
+                    Expression {
+                        expr: Expr::Call(ref alias_call),
+                        ..
+                    },
+                )) = pipeline.elements.get(0)
+                {
+                    call = alias_call.clone();
+
+                    call.head = span(&spans[0..=1]);
+                    call.decl_id = export_alias_decl_id;
+                } else {
+                    error = error.or_else(|| {
+                        Some(ParseError::InternalError(
+                            "unexpected output from parsing a definition".into(),
+                            span(&spans[1..]),
+                        ))
+                    });
+                };
+
+                let mut result = vec![];
+
+                let alias_name = match spans.get(2) {
+                    Some(span) => working_set.get_span_contents(*span),
+                    None => &[],
+                };
+                let alias_name = trim_quotes(alias_name);
+
+                if let Some(alias_id) = working_set.find_alias(alias_name) {
+                    result.push(Exportable::Alias {
+                        name: alias_name.to_vec(),
+                        id: alias_id,
+                    });
+                } else {
+                    error = error.or_else(|| {
+                        Some(ParseError::InternalError(
+                            "failed to find added alias".into(),
+                            span(&spans[1..]),
+                        ))
+                    });
+                }
+
+                result
+            }
             b"alias" => {
                 let lite_command = LiteCommand {
                     comments: lite_command.comments.clone(),
@@ -1211,8 +1600,8 @@ pub fn parse_export_in_module(
                 };
                 let alias_name = trim_quotes(alias_name);
 
-                if let Some(alias_id) = working_set.find_alias(alias_name) {
-                    result.push(Exportable::Alias {
+                if let Some(alias_id) = working_set.find_decl(alias_name, &Type::Any) {
+                    result.push(Exportable::Decl {
                         name: alias_name.to_vec(),
                         id: alias_id,
                     });
@@ -1502,6 +1891,16 @@ pub fn parse_module_block(
                                     working_set,
                                     command,
                                     None,
+                                    expand_aliases_denylist,
+                                );
+
+                                (pipeline, err)
+                            }
+                            b"old-alias" => {
+                                let (pipeline, err) = parse_old_alias(
+                                    working_set,
+                                    command,
+                                    None, // using aliases named as the module locally is OK
                                     expand_aliases_denylist,
                                 );
 
@@ -2271,220 +2670,27 @@ pub fn parse_hide(
     }
 }
 
-pub fn parse_overlay(
-    working_set: &mut StateWorkingSet,
-    spans: &[Span],
-    expand_aliases_denylist: &[usize],
-) -> (Pipeline, Option<ParseError>) {
-    if working_set.get_span_contents(spans[0]) != b"overlay" {
-        return (
-            garbage_pipeline(spans),
-            Some(ParseError::UnknownState(
-                "internal error: Wrong call name for 'overlay' command".into(),
-                span(spans),
-            )),
-        );
-    }
-
-    if spans.len() > 1 {
-        let subcommand = working_set.get_span_contents(spans[1]);
-
-        match subcommand {
-            b"use" => {
-                return parse_overlay_use(working_set, spans, expand_aliases_denylist);
-            }
-            b"list" => {
-                // TODO: Abstract this code blob, it's repeated all over the place:
-                let call = match working_set.find_decl(b"overlay list", &Type::Any) {
-                    Some(decl_id) => {
-                        let ParsedInternalCall {
-                            call,
-                            error: mut err,
-                            output,
-                        } = parse_internal_call(
-                            working_set,
-                            span(&spans[..2]),
-                            if spans.len() > 2 { &spans[2..] } else { &[] },
-                            decl_id,
-                            expand_aliases_denylist,
-                        );
-                        let decl = working_set.get_decl(decl_id);
-
-                        let call_span = span(spans);
-
-                        err = check_call(call_span, &decl.signature(), &call).or(err);
-                        if err.is_some() || call.has_flag("help") {
-                            return (
-                                Pipeline::from_vec(vec![Expression {
-                                    expr: Expr::Call(call),
-                                    span: call_span,
-                                    ty: output,
-                                    custom_completion: None,
-                                }]),
-                                err,
-                            );
-                        }
-
-                        call
-                    }
-                    None => {
-                        return (
-                            garbage_pipeline(spans),
-                            Some(ParseError::UnknownState(
-                                "internal error: 'overlay' declaration not found".into(),
-                                span(spans),
-                            )),
-                        )
-                    }
-                };
-
-                return (
-                    Pipeline::from_vec(vec![Expression {
-                        expr: Expr::Call(call),
-                        span: span(spans),
-                        ty: Type::Any,
-                        custom_completion: None,
-                    }]),
-                    None,
-                );
-            }
-            b"new" => {
-                return parse_overlay_new(working_set, spans, expand_aliases_denylist);
-            }
-            b"hide" => {
-                return parse_overlay_hide(working_set, spans, expand_aliases_denylist);
-            }
-            _ => { /* continue parsing overlay */ }
-        }
-    }
-
-    let call = match working_set.find_decl(b"overlay", &Type::Any) {
-        Some(decl_id) => {
-            let ParsedInternalCall {
-                call,
-                error: mut err,
-                output,
-            } = parse_internal_call(
-                working_set,
-                spans[0],
-                &spans[1..],
-                decl_id,
-                expand_aliases_denylist,
-            );
-            let decl = working_set.get_decl(decl_id);
-
-            let call_span = span(spans);
-
-            err = check_call(call_span, &decl.signature(), &call).or(err);
-            if err.is_some() || call.has_flag("help") {
-                return (
-                    Pipeline::from_vec(vec![Expression {
-                        expr: Expr::Call(call),
-                        span: call_span,
-                        ty: output,
-                        custom_completion: None,
-                    }]),
-                    err,
-                );
-            }
-
-            call
-        }
-        None => {
-            return (
-                garbage_pipeline(spans),
-                Some(ParseError::UnknownState(
-                    "internal error: 'overlay' declaration not found".into(),
-                    span(spans),
-                )),
-            )
-        }
-    };
-
-    (
-        Pipeline::from_vec(vec![Expression {
-            expr: Expr::Call(call),
-            span: span(spans),
-            ty: Type::Any,
-            custom_completion: None,
-        }]),
-        None,
-    )
-}
-
 pub fn parse_overlay_new(
     working_set: &mut StateWorkingSet,
-    spans: &[Span],
-    expand_aliases_denylist: &[usize],
+    call: Box<Call>,
 ) -> (Pipeline, Option<ParseError>) {
-    if spans.len() > 1 && working_set.get_span_contents(span(&spans[0..2])) != b"overlay new" {
-        return (
-            garbage_pipeline(spans),
-            Some(ParseError::UnknownState(
-                "internal error: Wrong call name for 'overlay new' command".into(),
-                span(spans),
-            )),
-        );
-    }
-
-    let (call, call_span) = match working_set.find_decl(b"overlay new", &Type::Any) {
-        Some(decl_id) => {
-            let ParsedInternalCall {
-                call,
-                error: mut err,
-                output,
-            } = parse_internal_call(
-                working_set,
-                span(&spans[0..2]),
-                &spans[2..],
-                decl_id,
-                expand_aliases_denylist,
-            );
-            let decl = working_set.get_decl(decl_id);
-
-            let call_span = span(spans);
-
-            err = check_call(call_span, &decl.signature(), &call).or(err);
-            if err.is_some() || call.has_flag("help") {
-                return (
-                    Pipeline::from_vec(vec![Expression {
-                        expr: Expr::Call(call),
-                        span: call_span,
-                        ty: output,
-                        custom_completion: None,
-                    }]),
-                    err,
-                );
-            }
-
-            (call, call_span)
-        }
-        None => {
-            return (
-                garbage_pipeline(spans),
-                Some(ParseError::UnknownState(
-                    "internal error: 'overlay new' declaration not found".into(),
-                    span(spans),
-                )),
-            )
-        }
-    };
+    let call_span = call.span();
 
     let (overlay_name, _) = if let Some(expr) = call.positional_nth(0) {
         match eval_constant(working_set, expr) {
             Ok(val) => match value_as_string(val, expr.span) {
                 Ok(s) => (s, expr.span),
                 Err(err) => {
-                    return (garbage_pipeline(spans), Some(err));
+                    return (garbage_pipeline(&[call_span]), Some(err));
                 }
             },
             Err(err) => {
-                return (garbage_pipeline(spans), Some(err));
+                return (garbage_pipeline(&[call_span]), Some(err));
             }
         }
     } else {
         return (
-            garbage_pipeline(spans),
+            garbage_pipeline(&[call_span]),
             Some(ParseError::UnknownState(
                 "internal error: Missing required positional after call parsing".into(),
                 call_span,
@@ -2494,7 +2700,7 @@ pub fn parse_overlay_new(
 
     let pipeline = Pipeline::from_vec(vec![Expression {
         expr: Expr::Call(call),
-        span: span(spans),
+        span: call_span,
         ty: Type::Any,
         custom_completion: None,
     }]);
@@ -2518,78 +2724,26 @@ pub fn parse_overlay_new(
 
 pub fn parse_overlay_use(
     working_set: &mut StateWorkingSet,
-    spans: &[Span],
+    call: Box<Call>,
     expand_aliases_denylist: &[usize],
 ) -> (Pipeline, Option<ParseError>) {
-    if spans.len() > 1 && working_set.get_span_contents(span(&spans[0..2])) != b"overlay use" {
-        return (
-            garbage_pipeline(spans),
-            Some(ParseError::UnknownState(
-                "internal error: Wrong call name for 'overlay use' command".into(),
-                span(spans),
-            )),
-        );
-    }
-
-    // TODO: Allow full import pattern as argument (requires custom naming of module/overlay)
-    let (call, call_span) = match working_set.find_decl(b"overlay use", &Type::Any) {
-        Some(decl_id) => {
-            let ParsedInternalCall {
-                call,
-                error: mut err,
-                output,
-            } = parse_internal_call(
-                working_set,
-                span(&spans[0..2]),
-                &spans[2..],
-                decl_id,
-                expand_aliases_denylist,
-            );
-            let decl = working_set.get_decl(decl_id);
-
-            let call_span = span(spans);
-
-            err = check_call(call_span, &decl.signature(), &call).or(err);
-            if err.is_some() || call.has_flag("help") {
-                return (
-                    Pipeline::from_vec(vec![Expression {
-                        expr: Expr::Call(call),
-                        span: call_span,
-                        ty: output,
-                        custom_completion: None,
-                    }]),
-                    err,
-                );
-            }
-
-            (call, call_span)
-        }
-        None => {
-            return (
-                garbage_pipeline(spans),
-                Some(ParseError::UnknownState(
-                    "internal error: 'overlay use' declaration not found".into(),
-                    span(spans),
-                )),
-            )
-        }
-    };
+    let call_span = call.span();
 
     let (overlay_name, overlay_name_span) = if let Some(expr) = call.positional_nth(0) {
         match eval_constant(working_set, expr) {
             Ok(val) => match value_as_string(val, expr.span) {
                 Ok(s) => (s, expr.span),
                 Err(err) => {
-                    return (garbage_pipeline(spans), Some(err));
+                    return (garbage_pipeline(&[call_span]), Some(err));
                 }
             },
             Err(err) => {
-                return (garbage_pipeline(spans), Some(err));
+                return (garbage_pipeline(&[call_span]), Some(err));
             }
         }
     } else {
         return (
-            garbage_pipeline(spans),
+            garbage_pipeline(&[call_span]),
             Some(ParseError::UnknownState(
                 "internal error: Missing required positional after call parsing".into(),
                 call_span,
@@ -2605,13 +2759,13 @@ pub fn parse_overlay_use(
                         item: s,
                         span: new_name_expression.span,
                     }),
-                    Err(err) => return (garbage_pipeline(spans), Some(err)),
+                    Err(err) => return (garbage_pipeline(&[call_span]), Some(err)),
                 },
-                Err(err) => return (garbage_pipeline(spans), Some(err)),
+                Err(err) => return (garbage_pipeline(&[call_span]), Some(err)),
             }
         } else {
             return (
-                garbage_pipeline(spans),
+                garbage_pipeline(&[call_span]),
                 Some(ParseError::ExpectedKeyword(
                     "as keyword".to_string(),
                     kw_expression.span,
@@ -2627,7 +2781,7 @@ pub fn parse_overlay_use(
 
     let pipeline = Pipeline::from_vec(vec![Expression {
         expr: Expr::Call(call.clone()),
-        span: span(spans),
+        span: call_span,
         ty: Type::Any,
         custom_completion: None,
     }]);
@@ -2726,7 +2880,7 @@ pub fn parse_overlay_use(
                     } else {
                         return (
                             pipeline,
-                            Some(ParseError::ModuleOrOverlayNotFound(spans[1])),
+                            Some(ParseError::ModuleOrOverlayNotFound(overlay_name_span)),
                         );
                     };
 
@@ -2770,7 +2924,7 @@ pub fn parse_overlay_use(
                     } else {
                         return (
                             pipeline,
-                            Some(ParseError::ModuleOrOverlayNotFound(spans[1])),
+                            Some(ParseError::ModuleOrOverlayNotFound(overlay_name_span)),
                         );
                     }
                 } else {
@@ -2780,7 +2934,10 @@ pub fn parse_overlay_use(
                     );
                 }
             } else {
-                return (garbage_pipeline(spans), Some(ParseError::NonUtf8(spans[1])));
+                return (
+                    garbage_pipeline(&[call_span]),
+                    Some(ParseError::NonUtf8(overlay_name_span)),
+                );
             }
         }
     };
@@ -2821,7 +2978,7 @@ pub fn parse_overlay_use(
 
     let pipeline = Pipeline::from_vec(vec![Expression {
         expr: Expr::Call(call),
-        span: span(spans),
+        span: call_span,
         ty: Type::Any,
         custom_completion: None,
     }]);
@@ -2831,78 +2988,26 @@ pub fn parse_overlay_use(
 
 pub fn parse_overlay_hide(
     working_set: &mut StateWorkingSet,
-    spans: &[Span],
-    expand_aliases_denylist: &[usize],
+    call: Box<Call>,
 ) -> (Pipeline, Option<ParseError>) {
-    if spans.len() > 1 && working_set.get_span_contents(span(&spans[0..2])) != b"overlay hide" {
-        return (
-            garbage_pipeline(spans),
-            Some(ParseError::UnknownState(
-                "internal error: Wrong call name for 'overlay hide' command".into(),
-                span(spans),
-            )),
-        );
-    }
-
-    let call = match working_set.find_decl(b"overlay hide", &Type::Any) {
-        Some(decl_id) => {
-            let ParsedInternalCall {
-                call,
-                error: mut err,
-                output,
-            } = parse_internal_call(
-                working_set,
-                span(&spans[0..2]),
-                &spans[2..],
-                decl_id,
-                expand_aliases_denylist,
-            );
-            let decl = working_set.get_decl(decl_id);
-
-            let call_span = span(spans);
-
-            err = check_call(call_span, &decl.signature(), &call).or(err);
-            if err.is_some() || call.has_flag("help") {
-                return (
-                    Pipeline::from_vec(vec![Expression {
-                        expr: Expr::Call(call),
-                        span: call_span,
-                        ty: output,
-                        custom_completion: None,
-                    }]),
-                    err,
-                );
-            }
-
-            call
-        }
-        None => {
-            return (
-                garbage_pipeline(spans),
-                Some(ParseError::UnknownState(
-                    "internal error: 'overlay hide' declaration not found".into(),
-                    span(spans),
-                )),
-            )
-        }
-    };
+    let call_span = call.span();
 
     let (overlay_name, overlay_name_span) = if let Some(expr) = call.positional_nth(0) {
         match eval_constant(working_set, expr) {
             Ok(val) => match value_as_string(val, expr.span) {
                 Ok(s) => (s, expr.span),
                 Err(err) => {
-                    return (garbage_pipeline(spans), Some(err));
+                    return (garbage_pipeline(&[call_span]), Some(err));
                 }
             },
             Err(err) => {
-                return (garbage_pipeline(spans), Some(err));
+                return (garbage_pipeline(&[call_span]), Some(err));
             }
         }
     } else {
         (
             String::from_utf8_lossy(working_set.last_overlay_name()).to_string(),
-            call.head,
+            call_span,
         )
     };
 
@@ -2910,7 +3015,7 @@ pub fn parse_overlay_hide(
 
     let pipeline = Pipeline::from_vec(vec![Expression {
         expr: Expr::Call(call),
-        span: span(spans),
+        span: call_span,
         ty: Type::Any,
         custom_completion: None,
     }]);

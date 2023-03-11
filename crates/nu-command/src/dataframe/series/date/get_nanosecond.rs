@@ -16,7 +16,7 @@ impl Command for GetNanosecond {
     }
 
     fn usage(&self) -> &str {
-        "Gets nanosecond from date"
+        "Gets nanosecond from date."
     }
 
     fn signature(&self) -> Signature {

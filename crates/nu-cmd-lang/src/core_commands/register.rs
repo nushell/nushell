@@ -11,7 +11,7 @@ impl Command for Register {
     }
 
     fn usage(&self) -> &str {
-        "Register a plugin"
+        "Register a plugin."
     }
 
     fn signature(&self) -> nu_protocol::Signature {

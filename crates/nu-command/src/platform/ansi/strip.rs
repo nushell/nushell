@@ -25,7 +25,7 @@ impl Command for SubCommand {
     }
 
     fn usage(&self) -> &str {
-        "Strip ANSI escape sequences from a string"
+        "Strip ANSI escape sequences from a string."
     }
 
     fn run(
@@ -58,7 +58,10 @@ fn action(input: &Value, _args: &CellPathOnlyArgs, command_span: Span) -> Value 
             let got = format!("value is {}, not string", other.get_type());
 
             Value::Error {
-                error: ShellError::TypeMismatch(got, other.span().unwrap_or(command_span)),
+                error: ShellError::TypeMismatch {
+                    err_message: got,
+                    span: other.span().unwrap_or(command_span),
+                },
             }
         }
     }

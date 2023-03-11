@@ -43,7 +43,7 @@ impl Command for BytesReplace {
     }
 
     fn usage(&self) -> &str {
-        "Find and replace binary"
+        "Find and replace binary."
     }
 
     fn search_terms(&self) -> Vec<&str> {
@@ -61,10 +61,10 @@ impl Command for BytesReplace {
         let cell_paths = (!cell_paths.is_empty()).then_some(cell_paths);
         let find = call.req::<Spanned<Vec<u8>>>(engine_state, stack, 0)?;
         if find.item.is_empty() {
-            return Err(ShellError::TypeMismatch(
-                "the pattern to find cannot be empty".to_string(),
-                find.span,
-            ));
+            return Err(ShellError::TypeMismatch {
+                err_message: "the pattern to find cannot be empty".to_string(),
+                span: find.span,
+            });
         }
 
         let arg = Arguments {
@@ -133,13 +133,12 @@ fn replace(val: &Value, args: &Arguments, span: Span) -> Value {
         // Propagate errors by explicitly matching them before the final case.
         Value::Error { .. } => val.clone(),
         other => Value::Error {
-            error: ShellError::OnlySupportsThisInputType(
-                "binary".into(),
-                other.get_type().to_string(),
-                span,
-                // This line requires the Value::Error match above.
-                other.expect_span(),
-            ),
+            error: ShellError::OnlySupportsThisInputType {
+                exp_input_type: "binary".into(),
+                wrong_type: other.get_type().to_string(),
+                dst_span: span,
+                src_span: other.expect_span(),
+            },
         },
     }
 }

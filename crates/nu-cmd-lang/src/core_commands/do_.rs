@@ -17,7 +17,7 @@ impl Command for Do {
     }
 
     fn usage(&self) -> &str {
-        "Run a closure, providing it with the pipeline input"
+        "Run a closure, providing it with the pipeline input."
     }
 
     fn signature(&self) -> Signature {
@@ -161,11 +161,12 @@ impl Command for Do {
                 let stdout = if let Some(handle) = stdout_handler {
                     match handle.join() {
                         Err(err) => {
-                            return Err(ShellError::ExternalCommand(
-                                "Fail to receive external commands stdout message".to_string(),
-                                format!("{err:?}"),
+                            return Err(ShellError::ExternalCommand {
+                                label: "Fail to receive external commands stdout message"
+                                    .to_string(),
+                                help: format!("{err:?}"),
                                 span,
-                            ));
+                            });
                         }
                         Ok(res) => Some(res),
                     }
@@ -183,11 +184,11 @@ impl Command for Do {
                 };
                 if let Some(Value::Int { val: code, .. }) = exit_code.last() {
                     if *code != 0 {
-                        return Err(ShellError::ExternalCommand(
-                            "External command failed".to_string(),
-                            stderr_msg,
+                        return Err(ShellError::ExternalCommand {
+                            label: "External command failed".to_string(),
+                            help: stderr_msg,
                             span,
-                        ));
+                        });
                     }
                 }
 

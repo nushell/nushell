@@ -16,7 +16,7 @@ impl Command for ExprIsIn {
     }
 
     fn usage(&self) -> &str {
-        "Creates an is-in expression"
+        "Creates an is-in expression."
     }
 
     fn signature(&self) -> Signature {
@@ -83,10 +83,10 @@ impl Command for ExprIsIn {
         let list = values.as_series(call.head)?;
 
         if matches!(list.dtype(), DataType::Object(..)) {
-            return Err(ShellError::IncompatibleParametersSingle(
-                "Cannot use a mixed list as argument".into(),
-                call.head,
-            ));
+            return Err(ShellError::IncompatibleParametersSingle {
+                msg: "Cannot use a mixed list as argument".into(),
+                span: call.head,
+            });
         }
 
         let expr: NuExpression = expr.into_polars().is_in(lit(list)).into();

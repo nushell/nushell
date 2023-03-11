@@ -39,7 +39,7 @@ impl Command for SubCommand {
     }
 
     fn usage(&self) -> &str {
-        "Get the type of the object a path refers to (e.g., file, dir, symlink)"
+        "Get the type of the object a path refers to (e.g., file, dir, symlink)."
     }
 
     fn extra_usage(&self) -> &str {
@@ -61,7 +61,7 @@ If nothing is found, an empty string will be returned."#
 
         // This doesn't match explicit nulls
         if matches!(input, PipelineData::Empty) {
-            return Err(ShellError::PipelineEmpty(head));
+            return Err(ShellError::PipelineEmpty { dst_span: head });
         }
         input.map(
             move |value| super::operate(&r#type, &args, value, head),

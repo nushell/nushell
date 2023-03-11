@@ -89,7 +89,11 @@ pub fn sort(
             }
 
             if let Some(nonexistent) = nonexistent_column(sort_columns.clone(), cols.to_vec()) {
-                return Err(ShellError::CantFindColumn(nonexistent, span, *val_span));
+                return Err(ShellError::CantFindColumn {
+                    col_name: nonexistent,
+                    span,
+                    src_span: *val_span,
+                });
             }
 
             // check to make sure each value in each column in the record

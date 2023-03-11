@@ -77,18 +77,12 @@ pub fn convert_env_values(engine_state: &mut EngineState, stack: &Stack) -> Opti
             }
         } else {
             error = error.or_else(|| {
-                Some(ShellError::NushellFailedHelp(
-                    "Last active overlay not found in permanent state.".into(),
-                    "This error happened during the conversion of environment variables from strings to Nushell values.".into(),
-                ))
+                Some(ShellError::NushellFailedHelp { msg: "Last active overlay not found in permanent state.".into(), help: "This error happened during the conversion of environment variables from strings to Nushell values.".into() })
             });
         }
     } else {
         error = error.or_else(|| {
-            Some(ShellError::NushellFailedHelp(
-                "Last active overlay not found in stack.".into(),
-                "This error happened during the conversion of environment variables from strings to Nushell values.".into(),
-            ))
+            Some(ShellError::NushellFailedHelp { msg: "Last active overlay not found in stack.".into(), help: "This error happened during the conversion of environment variables from strings to Nushell values.".into() })
         });
     }
 
@@ -122,22 +116,22 @@ pub fn env_to_string(
 
                             match std::env::join_paths(paths) {
                                 Ok(p) => Ok(p.to_string_lossy().to_string()),
-                                Err(_) => Err(ShellError::EnvVarNotAString(
-                                    env_name.to_string(),
-                                    value.span()?,
-                                )),
+                                Err(_) => Err(ShellError::EnvVarNotAString {
+                                    envvar_name: env_name.to_string(),
+                                    span: value.span()?,
+                                }),
                             }
                         }
-                        _ => Err(ShellError::EnvVarNotAString(
-                            env_name.to_string(),
-                            value.span()?,
-                        )),
+                        _ => Err(ShellError::EnvVarNotAString {
+                            envvar_name: env_name.to_string(),
+                            span: value.span()?,
+                        }),
                     }
                 } else {
-                    Err(ShellError::EnvVarNotAString(
-                        env_name.to_string(),
-                        value.span()?,
-                    ))
+                    Err(ShellError::EnvVarNotAString {
+                        envvar_name: env_name.to_string(),
+                        span: value.span()?,
+                    })
                 }
             }
         },
@@ -156,7 +150,7 @@ pub fn env_to_strings(
             Ok(val_str) => {
                 env_vars_str.insert(env_name, val_str);
             }
-            Err(ShellError::EnvVarNotAString(..)) => {} // ignore non-string values
+            Err(ShellError::EnvVarNotAString { .. }) => {} // ignore non-string values
             Err(e) => return Err(e),
         }
     }
@@ -214,16 +208,16 @@ pub fn path_str(
             #[cfg(windows)]
             match stack.get_env_var(engine_state, ENV_PATH_NAME_SECONDARY) {
                 Some(v) => Ok((ENV_PATH_NAME_SECONDARY, v)),
-                None => Err(ShellError::EnvVarNotFoundAtRuntime(
-                    ENV_PATH_NAME_SECONDARY.to_string(),
+                None => Err(ShellError::EnvVarNotFoundAtRuntime {
+                    envvar_name: ENV_PATH_NAME_SECONDARY.to_string(),
                     span,
-                )),
+                }),
             }
             #[cfg(not(windows))]
-            Err(ShellError::EnvVarNotFoundAtRuntime(
-                ENV_PATH_NAME.to_string(),
+            Err(ShellError::EnvVarNotFoundAtRuntime {
+                envvar_name: ENV_PATH_NAME.to_string(),
                 span,
-            ))
+            })
         }
     }?;
 
@@ -360,10 +354,10 @@ fn get_converted_value(
                     Err(e) => ConversionResult::ConversionError(e),
                 }
             } else {
-                ConversionResult::ConversionError(ShellError::MissingParameter(
-                    "block input".into(),
-                    from_span,
-                ))
+                ConversionResult::ConversionError(ShellError::MissingParameter {
+                    param_name: "block input".into(),
+                    span: from_span,
+                })
             }
         } else {
             ConversionResult::CellPathError

@@ -19,9 +19,10 @@ pub fn eval_operator(op: &Expression) -> Result<Operator, ShellError> {
             expr: Expr::Operator(operator),
             ..
         } => Ok(operator.clone()),
-        Expression { span, expr, .. } => {
-            Err(ShellError::UnknownOperator(format!("{expr:?}"), *span))
-        }
+        Expression { span, expr, .. } => Err(ShellError::UnknownOperator {
+            op_token: format!("{expr:?}"),
+            span: *span,
+        }),
     }
 }
 
@@ -196,7 +197,7 @@ fn eval_external(
 ) -> Result<PipelineData, ShellError> {
     let decl_id = engine_state
         .find_decl("run-external".as_bytes(), &[])
-        .ok_or(ShellError::ExternalNotSupported(head.span))?;
+        .ok_or(ShellError::ExternalNotSupported { span: head.span })?;
 
     let command = engine_state.get_decl(decl_id);
 
@@ -259,12 +260,12 @@ pub fn eval_expression(
         }),
         Expr::ValueWithUnit(e, unit) => match eval_expression(engine_state, stack, e)? {
             Value::Int { val, .. } => Ok(compute(val, unit.item, unit.span)),
-            x => Err(ShellError::CantConvert(
-                "unit value".into(),
-                x.get_type().to_string(),
-                e.span,
-                None,
-            )),
+            x => Err(ShellError::CantConvert {
+                to_type: "unit value".into(),
+                from_type: x.get_type().to_string(),
+                span: e.span,
+                help: None,
+            }),
         },
         Expr::Range(from, next, to, operator) => {
             let from = if let Some(f) = from {
@@ -339,7 +340,10 @@ pub fn eval_expression(
             let lhs = eval_expression(engine_state, stack, expr)?;
             match lhs {
                 Value::Bool { val, .. } => Ok(Value::boolean(!val, expr.span)),
-                _ => Err(ShellError::TypeMismatch("bool".to_string(), expr.span)),
+                _ => Err(ShellError::TypeMismatch {
+                    err_message: "bool".to_string(),
+                    span: expr.span,
+                }),
             }
         }
         Expr::BinaryOp(lhs, op, rhs) => {
@@ -454,7 +458,7 @@ pub fn eval_expression(
                                 stack.vars.insert(*var_id, rhs);
                                 Ok(Value::nothing(lhs.span))
                             } else {
-                                Err(ShellError::AssignmentRequiresMutableVar(lhs.span))
+                                Err(ShellError::AssignmentRequiresMutableVar { lhs_span: lhs.span })
                             }
                         }
                         Expr::FullCellPath(cell_path) => match &cell_path.head.expr {
@@ -469,9 +473,9 @@ pub fn eval_expression(
                                     lhs.upsert_data_at_cell_path(&cell_path.tail, rhs)?;
                                     if is_env {
                                         if cell_path.tail.is_empty() {
-                                            return Err(ShellError::CannotReplaceEnv(
-                                                cell_path.head.span,
-                                            ));
+                                            return Err(ShellError::CannotReplaceEnv {
+                                                span: cell_path.head.span,
+                                            });
                                         }
 
                                         // The special $env treatment: for something like $env.config.history.max_size = 2000,
@@ -496,12 +500,14 @@ pub fn eval_expression(
                                     }
                                     Ok(Value::nothing(cell_path.head.span))
                                 } else {
-                                    Err(ShellError::AssignmentRequiresMutableVar(lhs.span))
+                                    Err(ShellError::AssignmentRequiresMutableVar {
+                                        lhs_span: lhs.span,
+                                    })
                                 }
                             }
-                            _ => Err(ShellError::AssignmentRequiresVar(lhs.span)),
+                            _ => Err(ShellError::AssignmentRequiresVar { lhs_span: lhs.span }),
                         },
-                        _ => Err(ShellError::AssignmentRequiresVar(lhs.span)),
+                        _ => Err(ShellError::AssignmentRequiresVar { lhs_span: lhs.span }),
                     }
                 }
             }
@@ -699,7 +705,14 @@ pub fn eval_expression_with_input(
         }
     };
 
-    Ok(might_consume_external_result(input))
+    // Note: for `table` command, it mights returns `ExternalStream with stdout`
+    // whatever `redirect_output` is true or false, so we only want to consume ExternalStream
+    // if relative stdout is None.
+    if let PipelineData::ExternalStream { stdout: None, .. } = input {
+        Ok(might_consume_external_result(input))
+    } else {
+        Ok((input, false))
+    }
 }
 
 // Try to catch and detect if external command runs to failed.
@@ -1197,12 +1210,70 @@ pub fn eval_subexpression(
     mut input: PipelineData,
 ) -> Result<PipelineData, ShellError> {
     for pipeline in block.pipelines.iter() {
-        for expr in pipeline.elements.iter() {
-            input = eval_element_with_input(engine_state, stack, expr, input, true, false)?.0
+        for (expr_indx, expr) in pipeline.elements.iter().enumerate() {
+            if expr_indx != pipeline.elements.len() - 1 {
+                input = eval_element_with_input(engine_state, stack, expr, input, true, false)?.0;
+            } else {
+                // In subexpression, we always need to redirect stdout because the result is substituted to a Value.
+                //
+                // But we can check if external result is failed to run when it's the last expression
+                // in pipeline.  e.g: (^false; echo aaa)
+                //
+                // If external command is failed to run, it can't be convert into value, in this case
+                // we throws out `ShellError::ExternalCommand`.  And show it's stderr message information.
+                // In the case, we need to capture stderr first during eval.
+                input = eval_element_with_input(engine_state, stack, expr, input, true, true)?.0;
+                if matches!(input, PipelineData::ExternalStream { .. }) {
+                    input = check_subexp_substitution(input)?;
+                }
+            }
         }
     }
 
     Ok(input)
+}
+
+fn check_subexp_substitution(mut input: PipelineData) -> Result<PipelineData, ShellError> {
+    let consume_result = might_consume_external_result(input);
+    input = consume_result.0;
+    let failed_to_run = consume_result.1;
+    if let PipelineData::ExternalStream {
+        stdout,
+        stderr,
+        exit_code,
+        span,
+        metadata,
+        trim_end_newline,
+    } = input
+    {
+        let stderr_msg = match stderr {
+            None => "".to_string(),
+            Some(stderr_stream) => stderr_stream.into_string().map(|s| s.item)?,
+        };
+        if failed_to_run {
+            Err(ShellError::ExternalCommand {
+                label: "External command failed".to_string(),
+                help: stderr_msg,
+                span,
+            })
+        } else {
+            // we've captured stderr message, but it's running success.
+            // So we need to re-print stderr message out.
+            if !stderr_msg.is_empty() {
+                eprintln!("{stderr_msg}");
+            }
+            Ok(PipelineData::ExternalStream {
+                stdout,
+                stderr: None,
+                exit_code,
+                span,
+                metadata,
+                trim_end_newline,
+            })
+        }
+    } else {
+        Ok(input)
+    }
 }
 
 pub fn eval_variable(

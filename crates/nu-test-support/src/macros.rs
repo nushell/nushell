@@ -252,7 +252,7 @@ macro_rules! nu_with_plugins {
         let temp_plugin_file = temp.path().join("plugin.nu");
         std::fs::File::create(&temp_plugin_file).expect("couldn't create temporary plugin file");
 
-        $($crate::commands::ensure_binary_present($plugin_name);)+
+        $crate::commands::ensure_plugins_built();
 
         // TODO: the `$format` is a dummy empty string, but `plugin_name` is repeatable
         // just keep it here for now.  Need to find a way to remove it.

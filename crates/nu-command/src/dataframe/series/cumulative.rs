@@ -49,7 +49,7 @@ impl Command for Cumulative {
     }
 
     fn usage(&self) -> &str {
-        "Cumulative calculation for a series"
+        "Cumulative calculation for a series."
     }
 
     fn signature(&self) -> Signature {

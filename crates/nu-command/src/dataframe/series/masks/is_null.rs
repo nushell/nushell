@@ -15,7 +15,7 @@ impl Command for IsNull {
     }
 
     fn usage(&self) -> &str {
-        "Creates mask where value is null"
+        "Creates mask where value is null."
     }
 
     fn signature(&self) -> Signature {

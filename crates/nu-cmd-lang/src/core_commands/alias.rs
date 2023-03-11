@@ -13,7 +13,7 @@ impl Command for Alias {
     }
 
     fn usage(&self) -> &str {
-        "Alias a command (with optional flags) to a new name"
+        "Alias a command (with optional flags) to a new name."
     }
 
     fn signature(&self) -> nu_protocol::Signature {
@@ -52,17 +52,10 @@ impl Command for Alias {
     }
 
     fn examples(&self) -> Vec<Example> {
-        vec![
-            Example {
-                description: "Alias ll to ls -l",
-                example: "alias ll = ls -l",
-                result: Some(Value::nothing(Span::test_data())),
-            },
-            Example {
-                description: "Make an alias that makes a list of all custom commands",
-                example: "alias customs = ($nu.scope.commands | where is_custom | get command)",
-                result: Some(Value::nothing(Span::test_data())),
-            },
-        ]
+        vec![Example {
+            description: "Alias ll to ls -l",
+            example: "alias ll = ls -l",
+            result: Some(Value::nothing(Span::test_data())),
+        }]
     }
 }

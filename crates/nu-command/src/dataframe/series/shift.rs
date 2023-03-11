@@ -18,7 +18,7 @@ impl Command for Shift {
     }
 
     fn usage(&self) -> &str {
-        "Shifts the values by a given period"
+        "Shifts the values by a given period."
     }
 
     fn signature(&self) -> Signature {

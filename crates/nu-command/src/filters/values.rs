@@ -121,12 +121,12 @@ pub fn get_values<'a>(
             }
             Value::Error { error } => return Err(error.clone()),
             _ => {
-                return Err(ShellError::OnlySupportsThisInputType(
-                    "record or table".into(),
-                    item.get_type().to_string(),
-                    head,
-                    input_span,
-                ))
+                return Err(ShellError::OnlySupportsThisInputType {
+                    exp_input_type: "record or table".into(),
+                    wrong_type: item.get_type().to_string(),
+                    dst_span: head,
+                    src_span: input_span,
+                })
             }
         }
     }
@@ -177,26 +177,20 @@ fn values(
         }
         // Propagate errors
         PipelineData::Value(Value::Error { error }, ..) => Err(error),
-        PipelineData::Value(other, ..) => {
-            Err(ShellError::OnlySupportsThisInputType(
-                "record or table".into(),
-                other.get_type().to_string(),
-                head,
-                // This line requires the Value::Error match above.
-                other.expect_span(),
-            ))
-        }
-        PipelineData::ExternalStream { .. } => {
-            Err(ShellError::OnlySupportsThisInputType(
-                "record or table".into(),
-                "raw data".into(),
-                head,
-                // This line requires the PipelineData::Empty and PipelineData::ListStream matches above.
-                input
-                    .span()
-                    .expect("PipelineData::ExternalStream had no span"),
-            ))
-        }
+        PipelineData::Value(other, ..) => Err(ShellError::OnlySupportsThisInputType {
+            exp_input_type: "record or table".into(),
+            wrong_type: other.get_type().to_string(),
+            dst_span: head,
+            src_span: other.expect_span(),
+        }),
+        PipelineData::ExternalStream { .. } => Err(ShellError::OnlySupportsThisInputType {
+            exp_input_type: "record or table".into(),
+            wrong_type: "raw data".into(),
+            dst_span: head,
+            src_span: input
+                .span()
+                .expect("PipelineData::ExternalStream had no span"),
+        }),
     }
 }
 
