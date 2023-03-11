@@ -197,7 +197,7 @@ pub fn value_to_string(
                         }
                     })
                     .collect();
-                let headers_output = headers.join(&format!(", {nl}{idt_pt}").to_string());
+                let headers_output = headers.join(&format!(", {nl}{idt_pt}"));
 
                 let mut table_output = vec![];
                 for val in vals {
@@ -214,13 +214,13 @@ pub fn value_to_string(
                         }
                     }
 
-                    table_output.push(row.join(&format!(", {nl}{idt_pt}").to_string()));
+                    table_output.push(row.join(&format!(", {nl}{idt_pt}")));
                 }
 
                 Ok(format!(
                     "[{nl}{idt_po}[{nl}{idt_pt}{}{nl}{idt_po}]; {nl}{idt_po}[{nl}{idt_pt}{}{nl}{idt_po}]{nl}{idt}]",
                     headers_output,
-                    table_output.join(&format!("{nl}{idt_po}], {nl}{idt_po}[{nl}{idt_pt}").to_string())
+                    table_output.join(&format!("{nl}{idt_po}], {nl}{idt_po}[{nl}{idt_pt}"))
                 ))
             } else {
                 let mut collection = vec![];
@@ -232,7 +232,7 @@ pub fn value_to_string(
                 }
                 Ok(format!(
                     "[{nl}{}{nl}{idt}]",
-                    collection.join(&format!(", {nl}").to_string())
+                    collection.join(&format!(", {nl}"))
                 ))
             }
         }
@@ -266,7 +266,7 @@ pub fn value_to_string(
             }
             Ok(format!(
                 "{{{nl}{}{nl}{idt}}}",
-                collection.join(&format!(", {nl}").to_string())
+                collection.join(&format!(", {nl}"))
             ))
         }
         Value::LazyRecord { val, .. } => {
