@@ -103,6 +103,7 @@ pub fn value_to_string(
     let nl = get_true_newline(indent);
     let idt = get_true_indentation(depth, indent);
     let idt_po = get_true_indentation(depth + 1, indent);
+    let idt_pt = get_true_indentation(depth + 2, indent);
 
     match v {
         Value::Binary { val, .. } => {
@@ -178,13 +179,13 @@ pub fn value_to_string(
                     .iter()
                     .map(|string| {
                         if needs_quotes(string) {
-                            format!("\"{string}\"")
+                            format!("{idt}\"{string}\"")
                         } else {
-                            string.to_string()
+                            format!("{idt}{string}")
                         }
                     })
                     .collect();
-                let headers_output = headers.join(", ");
+                let headers_output = headers.join(&format!(", {nl}{idt_pt}").to_string());
 
                 let mut table_output = vec![];
                 for val in vals {
@@ -195,19 +196,19 @@ pub fn value_to_string(
                             row.push(value_to_string_without_quotes(
                                 val,
                                 span,
-                                depth + 1,
+                                depth + 2,
                                 indent,
                             )?);
                         }
                     }
 
-                    table_output.push(row.join(", "));
+                    table_output.push(row.join(&format!(", {nl}{idt_pt}").to_string()));
                 }
 
                 Ok(format!(
-                    "[[{}]; [{}]]",
+                    "[{nl}{idt_po}[{nl}{idt_pt}{}{nl}{idt_po}]; {nl}{idt_po}[{nl}{idt_pt}{}{nl}{idt_po}]{nl}{idt}]",
                     headers_output,
-                    table_output.join("], [")
+                    table_output.join(&format!("{nl}{idt_po}], {nl}{idt_po}[{nl}{idt_pt}").to_string())
                 ))
             } else {
                 let mut collection = vec![];
