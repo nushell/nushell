@@ -39,11 +39,23 @@ impl Command for HelpExternals {
     }
 
     fn examples(&self) -> Vec<Example> {
-        vec![Example {
-            description: "show all externals",
-            example: "help externals",
-            result: None,
-        }]
+        vec![
+            Example {
+                description: "show all externals",
+                example: "help aliases",
+                result: None,
+            },
+            Example {
+                description: "show help for single external",
+                example: "help aliases my-alias",
+                result: None,
+            },
+            Example {
+                description: "search for string in external names and usages",
+                example: "help aliases --find my-alias",
+                result: None,
+            },
+        ]
     }
 
     fn run(
@@ -74,7 +86,7 @@ pub fn help_externals(
     let string_style = style_computer.compute("string", &Value::string("search result", head));
 
     if let Some(f) = find {
-        let all_cmds_vec = build_help_externals(engine_state, stack, head);
+        let all_cmds_vec = build_help_externals(engine_state, head);
         let found_cmds_vec =
             highlight_search_in_table(all_cmds_vec, &f.item, &["name", "usage"], &string_style)?;
 
@@ -84,7 +96,7 @@ pub fn help_externals(
     }
 
     if rest.is_empty() {
-        let found_cmds_vec = build_help_externals(engine_state, stack, head);
+        let found_cmds_vec = build_help_externals(engine_state, head);
 
         Ok(found_cmds_vec
             .into_iter()
@@ -123,7 +135,7 @@ pub fn help_externals(
     }
 }
 
-fn build_help_externals(engine_state: &EngineState, stack: &Stack, span: Span) -> Vec<Value> {
+fn build_help_externals(engine_state: &EngineState, span: Span) -> Vec<Value> {
     let mut externals = vec![];
     for (name, decl_id) in engine_state.get_decls_sorted(false) {
         let decl = engine_state.get_decl(decl_id);
@@ -175,4 +187,14 @@ fn build_help_externals(engine_state: &EngineState, stack: &Stack, span: Span) -
     }
 
     externals
+}
+
+#[cfg(test)]
+mod test {
+    #[test]
+    fn test_examples() {
+        use super::HelpExternals;
+        use crate::test_examples;
+        test_examples(HelpExternals {})
+    }
 }
