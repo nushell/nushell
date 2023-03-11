@@ -177,7 +177,7 @@ fn to_nuon_records() {
     assert_eq!(actual.out, "true");
 }
 
-#[allow(dead_code)]
+#[test]
 fn to_nuon_range() {
     let actual = nu!(
         cwd: "tests/fixtures/formats", pipeline(
