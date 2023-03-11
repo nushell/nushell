@@ -1,3 +1,23 @@
+# std.nu, `used` to load all standard library components
+
+# ----------- sub modules to be loaded as part of stdlib ------------------
+# (choose flavor of import that puts your functions in the right namespace)
+# This imports into std top-level namespace: std <subcommand>
+# export use dirs.nu *
+# This imports into std *sub* namespace: std dirs <subcommand>
+# export use dirs.nu
+# You could also advise the user to `use` your submodule directly
+# to put the subcommands at the top level: dirs <subcommand>
+
+export use dirs.nu
+# the directory stack -- export-env from submodule doesn't work?
+export-env {
+    let-env DIRS_POSITION = 0
+    let-env DIRS_LIST = [($env.PWD | path expand)]
+}
+
+# ---------------- builtin std functions --------------------
+
 def _assert [
     cond: bool
     msg: string
