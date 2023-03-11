@@ -15,11 +15,16 @@ Don't forget to add tests that cover your changes.
 
 Make sure you've run and fixed any issues with these commands:
 
+- `cargo fmt --all -- --check` to check standard code formatting (`cargo fmt --all` applies these changes)
+- `cargo clippy --workspace -- -D warnings -D clippy::unwrap_used -A clippy::needless_collect` to check that you're using the standard code style
+- `cargo test --workspace` to check that all tests pass
+
 > **Note**
-> run `use toolkit.nu` to activate the tools mentionned below
-```
-toolkit check pr
-```
+> you can also use the `toolkit` as follows
+> ```bash
+> use toolkit.nu  # or use an `env_change` hook to activate it automatically
+> toolkit check pr
+> ```
 
 # After Submitting
 
