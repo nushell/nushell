@@ -240,19 +240,22 @@ pub fn value_to_string(
             for (col, val) in cols.iter().zip(vals) {
                 collection.push(if needs_quotes(col) {
                     format!(
-                        "\"{}\": {}",
+                        "{idt_po}\"{}\": {}",
                         col,
                         value_to_string_without_quotes(val, span, depth + 1, indent)?
                     )
                 } else {
                     format!(
-                        "{}: {}",
+                        "{idt_po}{}: {}",
                         col,
                         value_to_string_without_quotes(val, span, depth + 1, indent)?
                     )
                 });
             }
-            Ok(format!("{{{}}}", collection.join(", ")))
+            Ok(format!(
+                "{{{nl}{}{nl}{idt}}}",
+                collection.join(&format!(", {nl}").to_string())
+            ))
         }
         Value::LazyRecord { val, .. } => {
             let collected = val.collect()?;
