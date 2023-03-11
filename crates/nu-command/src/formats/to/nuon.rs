@@ -86,11 +86,23 @@ impl Command for ToNuon {
     }
 
     fn examples(&self) -> Vec<Example> {
-        vec![Example {
-            description: "Outputs a nuon string representing the contents of this list",
-            example: "[1 2 3] | to nuon",
-            result: Some(Value::test_string("[1, 2, 3]")),
-        }]
+        vec![
+            Example {
+                description: "Outputs a NUON string representing the contents of this list, with default indentation (same as `to nuon --indent 2`)",
+                example: "[1 2 3] | to nuon",
+                result: Some(Value::test_string("[\n  1,\n  2,\n  3\n]")),
+            },
+            Example {
+                description: "Outputs a NUON array of integers, as a raw unformatted NUON string",
+                example: "[1 2 3] | to nuon --raw",
+                result: Some(Value::test_string("[1, 2, 3]"))
+            },
+            Example {
+                description: "A more complex record with multiple data types",
+                example: "{date: 2000-01-01, data: [1 [2 3] 4.56]} | to nuon",
+                result: Some(Value::test_string("{\n  date: 2000-01-01T00:00:00+00:00,\n  data: [\n    1,\n    [\n      2,\n      3\n    ],\n    4.56\n  ]\n}"))
+            }
+        ]
     }
 }
 
