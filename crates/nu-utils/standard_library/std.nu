@@ -61,6 +61,7 @@ export def "assert eq" [left: any, right: any, message?: string] {
     let right_type = ($right | describe)
     let left_start = (metadata $left).span.start
     let right_end = (metadata $right).span.end
+
     if ($left_type != $right_type) {
         _assertion-error $left_start $right_end $"Different types cannot be equal: ($left_type) <-> ($right_type)." $message
     }
@@ -86,6 +87,7 @@ export def "assert eq" [left: any, right: any, message?: string] {
 export def "assert ne" [left: any, right: any, message?: string] {
     let left_start = (metadata $left).span.start
     let right_end = (metadata $right).span.end
+
     if ($left == $right) {
         _assertion-error $left_start $right_end $"They both are ($left)" $message
     }
