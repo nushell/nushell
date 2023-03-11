@@ -40,7 +40,12 @@ export def "check pr" [
     --fast: bool  # use the "nextext" `cargo` subcommand to speed up the tests (see [`cargo-nextest`](https://nexte.st/) and [`nextest-rs/nextest`](https://github.com/nextest-rs/nextest))
 ] {
     print "running `toolkit fmt`"
-    fmt
+    try {
+        fmt --check
+    } catch {
+        print $"\nplease run (ansi default_dimmed)(ansi default_italic)toolkit fmt(ansi reset) to fix the formatting"
+        return
+    }
 
     print "running `toolkit clippy`"
     clippy
