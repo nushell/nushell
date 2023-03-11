@@ -38,6 +38,8 @@ def tests [] {
     assert ((std match 1 $branches { 0 }) == -1)
     assert ((std match 2 $branches { 0 }) == -2)
     assert ((std match 3 $branches { 0 }) == 0)
+
+    assert ((std banner | lines | length) == 15)
 }
 
 def test_path_add [] {
