@@ -242,3 +242,53 @@ fn from_tsv_text_with_missing_columns_to_table() {
         assert_eq!(actual.out, "2");
     })
 }
+
+#[test]
+fn from_tsv_text_with_multiple_char_comment() {
+    Playground::setup("filter_from_tsv_test_7", |dirs, sandbox| {
+        sandbox.with_files(vec![FileWithContentToBeTrimmed(
+            "los_tres_caballeros.txt",
+            r#"
+                first_name	last_name	rusty_luck
+                Andrés	Robalino	1
+                Jonathan	Turner	1
+                Yehuda	Katz	1
+            "#,
+        )]);
+
+        let actual = nu!(
+            cwd: dirs.test(), pipeline(
+            r#"
+                open los_tres_caballeros.txt
+                | from csv --comment "li"
+            "#
+        ));
+
+        assert!(actual.err.contains("single character separator"));
+    })
+}
+
+#[test]
+fn from_tsv_text_with_wrong_type_comment() {
+    Playground::setup("filter_from_csv_test_8", |dirs, sandbox| {
+        sandbox.with_files(vec![FileWithContentToBeTrimmed(
+            "los_tres_caballeros.txt",
+            r#"
+                first_name	last_name	rusty_luck
+                Andrés	Robalino	1
+                Jonathan	Turner	1
+                Yehuda	Katz	1
+            "#,
+        )]);
+
+        let actual = nu!(
+            cwd: dirs.test(), pipeline(
+            r#"
+                open los_tres_caballeros.txt
+                | from csv --comment ('123' | into int)
+            "#
+        ));
+
+        assert!(actual.err.contains("can't convert int to char"));
+    })
+}
