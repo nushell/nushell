@@ -211,14 +211,16 @@ pub fn value_to_string(
             } else {
                 let mut collection = vec![];
                 for val in vals {
-                    collection.push(value_to_string_without_quotes(
-                        val,
-                        span,
-                        depth + 1,
-                        indent,
-                    )?);
+                    collection.push(format!(
+                        "{}{}",
+                        get_true_indentation(depth + 1, indent),
+                        value_to_string_without_quotes(val, span, depth + 1, indent,)?
+                    ));
                 }
-                Ok(format!("[{}]", collection.join(", ")))
+                Ok(format!(
+                    "[{nl}{}{nl}{idt}]",
+                    collection.join(&format!(", {nl}").to_string())
+                ))
             }
         }
         Value::Nothing { .. } => Ok("null".to_string()),
