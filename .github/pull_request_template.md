@@ -20,7 +20,7 @@ Make sure you've run and fixed any issues with these commands:
 - `cargo test --workspace` to check that all tests pass
 
 > **Note**
-> you can also use the `toolkit` as follows
+> from `nushell` you can also use the `toolkit` as follows
 > ```bash
 > use toolkit.nu  # or use an `env_change` hook to activate it automatically
 > toolkit check pr
