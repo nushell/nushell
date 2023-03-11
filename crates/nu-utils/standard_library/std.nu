@@ -1,6 +1,6 @@
 def _assertion-error [start, end, label, message?: string] {
     error make {
-        msg: $"Assertion failed: ($message)",
+        msg: ($message | default "Assertion failed."),
         label: {
             text: $label,
             start: $start,
