@@ -272,7 +272,7 @@ fn value_to_string_without_quotes(
                 val.clone()
             }
         }),
-        _ => value_to_string(v, span, depth + 1, indent),
+        _ => value_to_string(v, span, depth, indent),
     }
 }
 
