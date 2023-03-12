@@ -10,6 +10,7 @@
 # to put the subcommands at the top level: dirs <subcommand>
 
 export use dirs.nu
+export use xml.nu
 # the directory stack -- export-env from submodule doesn't work?
 export-env {
     let-env DIRS_POSITION = 0
