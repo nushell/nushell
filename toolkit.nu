@@ -54,6 +54,7 @@ def report [
     --fail-clippy: bool
     --fail-test: bool
     --no-fail: bool
+    --pretty: bool = false  # turn the pretty table printing for *GitHub*
 ] {
     [fmt clippy test] | wrap stage
     | merge (
@@ -64,8 +65,24 @@ def report [
         else                 { [$nothing $nothing $nothing] }
         | wrap success
     )
-    | transpose -r
-    | into record
+    | if $pretty {
+        upsert emoji {|it|
+            if ($it.success == $nothing) {
+                ":black_circle:"
+            } else if $it.success {
+                ":green_circle:"
+            } else {
+                ":red_circle:"
+            }
+        }
+        | each {|it|
+            $"- ($it.emoji) `toolkit ($it.stage)`"
+        }
+        | to text
+    } else {
+        transpose -r
+        | into record
+    }
 }
 
 # run all the necessary checks and tests to submit a perfect PR
@@ -161,28 +178,29 @@ def report [
 # now the whole `toolkit check pr` passes! :tada:
 export def "check pr" [
     --fast: bool  # use the "nextext" `cargo` subcommand to speed up the tests (see [`cargo-nextest`](https://nexte.st/) and [`nextest-rs/nextest`](https://github.com/nextest-rs/nextest))
+    --pretty: bool  # turn the pretty table printing for *GitHub*
 ] {
     print $"running ('toolkit fmt' | pretty-print-command)"
     try {
         fmt --check
     } catch {
         print $"\nplease run (ansi default_dimmed)(ansi default_italic)toolkit fmt(ansi reset) to fix the formatting"
-        return (report --fail-fmt)
+        return (report --pretty $pretty --fail-fmt)
     }
 
     print $"running ('toolkit clippy' | pretty-print-command)"
     try {
         clippy
     } catch {
-        return (report --fail-clippy)
+        return (report --pretty $pretty --fail-clippy)
     }
 
     print $"running ('toolkit test' | pretty-print-command)"
     try {
         if $fast { test --fast } else { test }
     } catch {
-        return (report --fail-test)
+        return (report --pretty $pretty --fail-test)
     }
 
-    report --no-fail
+    report --pretty $pretty --no-fail
 }
