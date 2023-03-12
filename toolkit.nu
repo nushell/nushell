@@ -35,6 +35,11 @@ export def test [
     }
 }
 
+# print the pipe input inside backticks, dimmed and italic, as a pretty command
+def pretty-print-command [] {
+    $"`(ansi default_dimmed)(ansi default_italic)($in)(ansi reset)`"
+}
+
 # run all the necessary checks and tests to submit a perfect PR
 #
 # # Example
@@ -125,7 +130,7 @@ export def test [
 export def "check pr" [
     --fast: bool  # use the "nextext" `cargo` subcommand to speed up the tests (see [`cargo-nextest`](https://nexte.st/) and [`nextest-rs/nextest`](https://github.com/nextest-rs/nextest))
 ] {
-    print "running `toolkit fmt`"
+    print $"running ('toolkit fmt' | pretty-print-command)"
     try {
         fmt --check
     } catch {
@@ -133,9 +138,9 @@ export def "check pr" [
         return
     }
 
-    print "running `toolkit clippy`"
+    print $"running ('toolkit clippy' | pretty-print-command)"
     clippy
 
-    print "running `toolkit test`"
+    print $"running ('toolkit test' | pretty-print-command)"
     if $fast { test --fast } else { test }
 }
