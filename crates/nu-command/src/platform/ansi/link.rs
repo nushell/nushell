@@ -122,7 +122,9 @@ fn process_each_path(
             Box::new(|v| process_value(v, text, command_span)),
         );
         if let Err(error) = ret {
-            return Value::Error { error };
+            return Value::Error {
+                error: Box::new(error),
+            };
         }
     }
     value
@@ -139,10 +141,10 @@ fn process_value(value: &Value, text: &Option<String>, command_span: &Span) -> V
             let got = format!("value is {}, not string", other.get_type());
 
             Value::Error {
-                error: ShellError::TypeMismatch {
+                error: Box::new(ShellError::TypeMismatch {
                     err_message: got,
                     span: other.span().unwrap_or(*command_span),
-                },
+                }),
             }
         }
     }

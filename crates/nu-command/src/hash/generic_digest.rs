@@ -111,16 +111,20 @@ where
         other => {
             let span = match input.span() {
                 Ok(span) => span,
-                Err(error) => return Value::Error { error },
+                Err(error) => {
+                    return Value::Error {
+                        error: Box::new(error),
+                    }
+                }
             };
 
             return Value::Error {
-                error: ShellError::OnlySupportsThisInputType {
+                error: Box::new(ShellError::OnlySupportsThisInputType {
                     exp_input_type: "string or binary".into(),
                     wrong_type: other.get_type().to_string(),
                     dst_span: span,
                     src_span: other.expect_span(),
-                },
+                }),
             };
         }
     };

@@ -156,7 +156,7 @@ fn helper(val: Value, head: Span) -> Value {
         }
         Value::Date { val, span: _ } => parse_date_into_table(Ok(val), head),
         _ => Value::Error {
-            error: DatetimeParseError(val.debug_value(), head),
+            error: Box::new(DatetimeParseError(val.debug_value(), head)),
         },
     }
 }

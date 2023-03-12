@@ -41,7 +41,7 @@ fn parse_range(range: Value, head: Span) -> Result<(isize, isize, Span), ShellEr
                     Value::Int { val, .. } => val.to_string(),
                     Value::String { val, .. } => val,
                     // Explicitly propagate errors instead of dropping them.
-                    Value::Error { error } => return Err(error),
+                    Value::Error { error } => return Err(*error),
                     other => {
                         return Err(ShellError::UnsupportedInput(
                             "Only string or list<int> ranges are supported".into(),
@@ -56,7 +56,7 @@ fn parse_range(range: Value, head: Span) -> Result<(isize, isize, Span), ShellEr
                     Value::Int { val, .. } => val.to_string(),
                     Value::String { val, .. } => val,
                     // Explicitly propagate errors instead of dropping them.
-                    Value::Error { error } => return Err(error),
+                    Value::Error { error } => return Err(*error),
                     other => {
                         return Err(ShellError::UnsupportedInput(
                             "Only string or list<int> ranges are supported".into(),
@@ -84,7 +84,7 @@ fn parse_range(range: Value, head: Span) -> Result<(isize, isize, Span), ShellEr
             }
         }
         // Explicitly propagate errors instead of dropping them.
-        Value::Error { error } => return Err(error),
+        Value::Error { error } => return Err(*error),
         other => {
             return Err(ShellError::UnsupportedInput(
                 "could not perform subbytes".to_string(),
@@ -249,12 +249,12 @@ fn at(val: &Value, args: &Arguments, span: Span) -> Value {
         // Propagate errors by explicitly matching them before the final case.
         Value::Error { .. } => val.clone(),
         other => Value::Error {
-            error: ShellError::OnlySupportsThisInputType {
+            error: Box::new(ShellError::OnlySupportsThisInputType {
                 exp_input_type: "binary".into(),
                 wrong_type: other.get_type().to_string(),
                 dst_span: span,
                 src_span: other.expect_span(),
-            },
+            }),
         },
     }
 }
@@ -277,10 +277,10 @@ fn at_impl(input: &[u8], arg: &Arguments, span: Span) -> Value {
         match start.cmp(&end) {
             Ordering::Equal => Value::Binary { val: vec![], span },
             Ordering::Greater => Value::Error {
-                error: ShellError::TypeMismatch {
+                error: Box::new(ShellError::TypeMismatch {
                     err_message: "End must be greater than or equal to Start".to_string(),
                     span: arg.arg_span,
-                },
+                }),
             },
             Ordering::Less => Value::Binary {
                 val: {

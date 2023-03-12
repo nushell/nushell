@@ -145,7 +145,7 @@ impl PipelineData {
                             items.push(val);
                         }
                         Err(e) => {
-                            return Value::Error { error: e };
+                            return Value::Error { error: Box::new(e) };
                         }
                     }
                 }
@@ -165,7 +165,9 @@ impl PipelineData {
                                 output.extend(item);
                             }
                             Err(err) => {
-                                return Value::Error { error: err };
+                                return Value::Error {
+                                    error: Box::new(err),
+                                };
                             }
                         }
                     }
@@ -180,7 +182,9 @@ impl PipelineData {
                         match item.as_string() {
                             Ok(s) => output.push_str(&s),
                             Err(err) => {
-                                return Value::Error { error: err };
+                                return Value::Error {
+                                    error: Box::new(err),
+                                };
                             }
                         }
                     }
@@ -227,7 +231,7 @@ impl PipelineData {
                     Err(error) => Err(error),
                 },
                 // Propagate errors by explicitly matching them before the final case.
-                Value::Error { error } => Err(error),
+                Value::Error { error } => Err(*error),
                 other => Err(ShellError::OnlySupportsThisInputType {
                     exp_input_type: "list, binary, raw data or range".into(),
                     wrong_type: other.get_type().to_string(),
@@ -397,7 +401,7 @@ impl PipelineData {
                 .map(f)
                 .into_pipeline_data(ctrlc)),
             PipelineData::Value(v, ..) => match f(v) {
-                Value::Error { error } => Err(error),
+                Value::Error { error } => Err(*error),
                 v => Ok(v.into_pipeline_data()),
             },
         }
@@ -770,7 +774,7 @@ impl PipelineData {
                 let working_set = StateWorkingSet::new(engine_state);
                 // Value::Errors must always go to stderr, not stdout.
                 is_err = true;
-                format_error(&working_set, &error)
+                format_error(&working_set, &*error)
             } else if no_newline {
                 item.into_string("", config)
             } else {
@@ -821,7 +825,9 @@ impl IntoIterator for PipelineData {
                     )),
                     Err(error) => PipelineIterator(PipelineData::ListStream(
                         ListStream {
-                            stream: Box::new(std::iter::once(Value::Error { error })),
+                            stream: Box::new(std::iter::once(Value::Error {
+                                error: Box::new(error),
+                            })),
                             ctrlc: None,
                         },
                         metadata,
@@ -863,7 +869,7 @@ pub fn print_if_stream(
         let mut exit_codes: Vec<_> = exit_code.into_iter().collect();
         return match exit_codes.pop() {
             #[cfg(unix)]
-            Some(Value::Error { error }) => Err(error),
+            Some(Value::Error { error }) => Err(*error),
             Some(Value::Int { val, .. }) => Ok(val),
             _ => Ok(0),
         };
@@ -887,7 +893,9 @@ impl Iterator for PipelineIterator {
                 ..
             } => stream.next().map(|x| match x {
                 Ok(x) => x,
-                Err(err) => Value::Error { error: err },
+                Err(err) => Value::Error {
+                    error: Box::new(err),
+                },
             }),
         }
     }

@@ -1086,7 +1086,14 @@ pub fn eval_block(
                     // make early return so remaining commands will not be executed.
                     // don't return `Err(ShellError)`, so nushell wouldn't show extra error message.
                 }
-                (Err(error), true) => input = PipelineData::Value(Value::Error { error }, None),
+                (Err(error), true) => {
+                    input = PipelineData::Value(
+                        Value::Error {
+                            error: Box::new(error),
+                        },
+                        None,
+                    )
+                }
                 (output, false) => {
                     let output = output?;
                     input = output.0;
@@ -1191,7 +1198,7 @@ pub fn eval_block(
 fn print_or_return(pipeline_data: PipelineData, config: &Config) -> Result<(), ShellError> {
     for item in pipeline_data {
         if let Value::Error { error } = item {
-            return Err(error);
+            return Err(*error);
         }
 
         let mut out = item.into_string("\n", config);
@@ -1393,49 +1400,49 @@ fn compute(size: i64, unit: Unit, span: Span) -> Value {
         Unit::Minute => match size.checked_mul(1000 * 1000 * 1000 * 60) {
             Some(val) => Value::Duration { val, span },
             None => Value::Error {
-                error: ShellError::GenericError(
+                error: Box::new(ShellError::GenericError(
                     "duration too large".into(),
                     "duration too large".into(),
                     Some(span),
                     None,
                     Vec::new(),
-                ),
+                )),
             },
         },
         Unit::Hour => match size.checked_mul(1000 * 1000 * 1000 * 60 * 60) {
             Some(val) => Value::Duration { val, span },
             None => Value::Error {
-                error: ShellError::GenericError(
+                error: Box::new(ShellError::GenericError(
                     "duration too large".into(),
                     "duration too large".into(),
                     Some(span),
                     None,
                     Vec::new(),
-                ),
+                )),
             },
         },
         Unit::Day => match size.checked_mul(1000 * 1000 * 1000 * 60 * 60 * 24) {
             Some(val) => Value::Duration { val, span },
             None => Value::Error {
-                error: ShellError::GenericError(
+                error: Box::new(ShellError::GenericError(
                     "duration too large".into(),
                     "duration too large".into(),
                     Some(span),
                     None,
                     Vec::new(),
-                ),
+                )),
             },
         },
         Unit::Week => match size.checked_mul(1000 * 1000 * 1000 * 60 * 60 * 24 * 7) {
             Some(val) => Value::Duration { val, span },
             None => Value::Error {
-                error: ShellError::GenericError(
+                error: Box::new(ShellError::GenericError(
                     "duration too large".into(),
                     "duration too large".into(),
                     Some(span),
                     None,
                     Vec::new(),
-                ),
+                )),
             },
         },
     }
@@ -1490,7 +1497,9 @@ fn collect_profiling_metadata(
                 Value::string("raw stream", element_span)
             }
             Ok((PipelineData::Empty, ..)) => Value::Nothing { span: element_span },
-            Err(err) => Value::Error { error: err.clone() },
+            Err(err) => Value::Error {
+                error: Box::new(err.clone()),
+            },
         };
 
         cols.push("value".to_string());

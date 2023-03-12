@@ -93,7 +93,7 @@ pub enum Value {
         span: Span,
     },
     Error {
-        error: ShellError,
+        error: Box<ShellError>,
     },
     Binary {
         val: Vec<u8>,
@@ -150,7 +150,9 @@ impl Clone for Value {
                 match val.collect() {
                     Ok(val) => val,
                     // this is a bit weird, but because clone() is infallible...
-                    Err(error) => Value::Error { error },
+                    Err(error) => Value::Error {
+                        error: Box::new(error),
+                    },
                 }
             }
             Value::List { vals, span } => Value::List {
@@ -346,7 +348,7 @@ impl Value {
     /// Get the span for the current value
     pub fn span(&self) -> Result<Span, ShellError> {
         match self {
-            Value::Error { error } => Err(error.clone()),
+            Value::Error { error } => Err(*error.clone()),
             Value::Bool { span, .. } => Ok(*span),
             Value::Int { span, .. } => Ok(*span),
             Value::Float { span, .. } => Ok(*span),
@@ -494,7 +496,7 @@ impl Value {
         config: &Config,
     ) -> Result<String, ShellError> {
         if let Value::Error { error } = self {
-            Err(error.to_owned())
+            Err(*error.to_owned())
         } else {
             Ok(self.into_string(separator, config))
         }
@@ -535,7 +537,9 @@ impl Value {
             Value::LazyRecord { val, .. } => {
                 let collected = match val.collect() {
                     Ok(val) => val,
-                    Err(error) => Value::Error { error },
+                    Err(error) => Value::Error {
+                        error: Box::new(error),
+                    },
                 };
                 collected.into_string(separator, config)
             }
@@ -773,7 +777,7 @@ impl Value {
                                 err_message: "Can't access record values with a row index. Try specifying a column name instead".into(),
                                 span: *origin_span, }, *origin_span)
                         }
-                        Value::Error { error } => return Err(error.to_owned()),
+                        Value::Error { error } => return Err(*error.to_owned()),
                         x => {
                             err_or_null!(
                                 ShellError::IncompatiblePathAccess {
@@ -880,11 +884,11 @@ impl Value {
                                         Value::nothing(*origin_span)
                                     } else {
                                         Value::Error {
-                                            error: ShellError::CantFindColumn {
+                                            error: Box::new(ShellError::CantFindColumn {
                                                 col_name: column_name.to_string(),
                                                 span: *origin_span,
                                                 src_span: val.span().unwrap_or(*span),
-                                            },
+                                            }),
                                         }
                                     });
                                 }
@@ -894,11 +898,11 @@ impl Value {
                                     Value::nothing(*origin_span)
                                 } else {
                                     Value::Error {
-                                        error: ShellError::CantFindColumn {
+                                        error: Box::new(ShellError::CantFindColumn {
                                             col_name: column_name.to_string(),
                                             span: *origin_span,
                                             src_span: val.span().unwrap_or(*span),
-                                        },
+                                        }),
                                     }
                                 });
                             }
@@ -922,7 +926,7 @@ impl Value {
                     Value::CustomValue { val, .. } => {
                         current = val.follow_path_string(column_name.clone(), *origin_span)?;
                     }
-                    Value::Error { error } => err_or_null!(error.to_owned(), *origin_span),
+                    Value::Error { error } => err_or_null!(*error.to_owned(), *origin_span),
                     x => {
                         err_or_null!(
                             ShellError::IncompatiblePathAccess {
@@ -938,7 +942,7 @@ impl Value {
         // If a single Value::Error was produced by the above (which won't happen if nullify_errors is true), unwrap it now.
         // Note that Value::Errors inside Lists remain as they are, so that the rest of the list can still potentially be used.
         if let Value::Error { error } = current {
-            Err(error)
+            Err(*error)
         } else {
             Ok(current)
         }
@@ -955,7 +959,7 @@ impl Value {
         let new_val = callback(&orig.follow_cell_path(cell_path, false, false)?);
 
         match new_val {
-            Value::Error { error } => Err(error),
+            Value::Error { error } => Err(*error),
             new_val => self.upsert_data_at_cell_path(cell_path, new_val),
         }
     }
@@ -1005,7 +1009,7 @@ impl Value {
                                         }
                                     }
                                 }
-                                Value::Error { error } => return Err(error.to_owned()),
+                                Value::Error { error } => return Err(*error.to_owned()),
                                 v => {
                                     return Err(ShellError::CantFindColumn {
                                         col_name: col_name.to_string(),
@@ -1042,7 +1046,7 @@ impl Value {
                             }
                         }
                     }
-                    Value::Error { error } => return Err(error.to_owned()),
+                    Value::Error { error } => return Err(*error.to_owned()),
                     v => {
                         return Err(ShellError::CantFindColumn {
                             col_name: col_name.to_string(),
@@ -1066,7 +1070,7 @@ impl Value {
                             });
                         }
                     }
-                    Value::Error { error } => return Err(error.to_owned()),
+                    Value::Error { error } => return Err(*error.to_owned()),
                     v => {
                         return Err(ShellError::NotAList {
                             dst_span: *span,
@@ -1093,7 +1097,8 @@ impl Value {
         let new_val = callback(&orig.follow_cell_path(cell_path, false, false)?);
 
         match new_val {
-            Value::Error { error } => Err(error),
+            Value::Error { error } => Err(*error),
+
             new_val => self.update_data_at_cell_path(cell_path, new_val),
         }
     }
@@ -1135,7 +1140,7 @@ impl Value {
                                         });
                                     }
                                 }
-                                Value::Error { error } => return Err(error.to_owned()),
+                                Value::Error { error } => return Err(*error.to_owned()),
                                 v => {
                                     return Err(ShellError::CantFindColumn {
                                         col_name: col_name.to_string(),
@@ -1169,7 +1174,7 @@ impl Value {
                             });
                         }
                     }
-                    Value::Error { error } => return Err(error.to_owned()),
+                    Value::Error { error } => return Err(*error.to_owned()),
                     v => {
                         return Err(ShellError::CantFindColumn {
                             col_name: col_name.to_string(),
@@ -1191,7 +1196,7 @@ impl Value {
                             });
                         }
                     }
-                    Value::Error { error } => return Err(error.to_owned()),
+                    Value::Error { error } => return Err(*error.to_owned()),
                     v => {
                         return Err(ShellError::NotAList {
                             dst_span: *span,
@@ -1436,7 +1441,7 @@ impl Value {
                                     vals.push(new_val.clone());
                                 }
                                 // SIGH...
-                                Value::Error { error } => return Err(error.clone()),
+                                Value::Error { error } => return Err(*error.clone()),
                                 _ => {
                                     return Err(ShellError::UnsupportedInput(
                                         "expected table or record".into(),

@@ -97,7 +97,9 @@ not supported."#
                             None
                         }
                     }
-                    Err(err) => Some(Value::Error { error: err }),
+                    Err(err) => Some(Value::Error {
+                        error: Box::new(err),
+                    }),
                 }
             })
             .into_pipeline_data(ctrlc)

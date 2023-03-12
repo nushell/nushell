@@ -53,7 +53,7 @@ impl Command for BytesBuild {
             match val {
                 Value::Binary { mut val, .. } => output.append(&mut val),
                 // Explicitly propagate errors instead of dropping them.
-                Value::Error { error } => return Err(error),
+                Value::Error { error } => return Err(*error),
                 other => {
                     return Err(ShellError::TypeMismatch {
                         err_message: "only binary data arguments are supported".to_string(),
