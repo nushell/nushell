@@ -804,6 +804,13 @@ pub fn parse_alias(
 
             let replacement_spans = &spans[(split_id + 2)..];
 
+            // Temporarily hide the alias itself to prevent recursion
+            let predecl_id = working_set
+                .delta
+                .last_scope_frame_mut()
+                .predecls
+                .remove(&alias_name);
+
             let (expr, err) = parse_call(
                 working_set,
                 replacement_spans,
@@ -811,6 +818,14 @@ pub fn parse_alias(
                 expand_aliases_denylist,
                 false, // TODO: Should this be set properly???
             );
+
+            if let Some(id) = predecl_id {
+                working_set
+                    .delta
+                    .last_scope_frame_mut()
+                    .predecls
+                    .insert(alias_name.to_vec(), id);
+            }
 
             if let Some(e) = err {
                 if let ParseError::MissingPositional(..) = e {
