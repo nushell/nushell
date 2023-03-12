@@ -66,6 +66,10 @@ def pretty-print-command [] {
 # >                  for val in vals {
 # > ```
 #
+# > **Note**
+# > at every stage, the `toolkit check pr` will return a report of the few stages being run.
+# > that is a record with boolean values for all the stages indicating the success or failure of them
+#
 # - we run the toolkit once and it fails...
 # ```nushell
 # >_ toolkit check pr
@@ -135,12 +139,34 @@ export def "check pr" [
         fmt --check
     } catch {
         print $"\nplease run (ansi default_dimmed)(ansi default_italic)toolkit fmt(ansi reset) to fix the formatting"
-        return
+        return {
+            fmt: false
+            clippy: $nothing
+            tests: $nothing
+        }
     }
 
     print $"running ('toolkit clippy' | pretty-print-command)"
-    clippy
+    try {
+        clippy
+    } catch { return {
+        fmt: true
+        clippy: false
+        tests: $nothing
+    }}
 
     print $"running ('toolkit test' | pretty-print-command)"
-    if $fast { test --fast } else { test }
+    try {
+        if $fast { test --fast } else { test }
+    } catch { return {
+        fmt: true
+        clippy: true
+        tests: false
+    }}
+
+    {
+        fmt: true
+        clippy: true
+        tests: true
+    }
 }
