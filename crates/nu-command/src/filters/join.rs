@@ -78,9 +78,12 @@ impl Command for Join {
         let span = call.head;
         let join_type = join_type(call)?;
 
-        match (&input, &table_2, &l_on, &r_on) {
+        // FIXME: we should handle ListStreams properly instead of collecting
+        let collected_input = input.into_value(span);
+
+        match (&collected_input, &table_2, &l_on, &r_on) {
             (
-                PipelineData::Value(Value::List { vals: rows_1, .. }, ..),
+                Value::List { vals: rows_1, .. },
                 Value::List { vals: rows_2, .. },
                 Value::String { val: l_on, .. },
                 Value::String { val: r_on, .. },
@@ -92,7 +95,7 @@ impl Command for Join {
                 "(PipelineData<table>, table, string, string)".into(),
                 format!(
                     "({:?}, {:?}, {:?} {:?})",
-                    input,
+                    collected_input,
                     table_2.get_type(),
                     l_on.get_type(),
                     r_on.get_type(),
