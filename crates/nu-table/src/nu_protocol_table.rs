@@ -154,7 +154,15 @@ fn nu_protocol_value_to_json(value: Value, config: &Config, with_footer: bool) -
 
             Json::Array(map)
         }
-        val => Json::String(val.into_abbreviated_string(config)),
+        val => {
+            let is_string = matches!(val, Value::String { .. });
+            let mut val = val.into_abbreviated_string(config);
+            if is_string {
+                val = crate::util::normalize_whitespace(val);
+            }
+
+            Json::String(val)
+        }
     }
 }
 

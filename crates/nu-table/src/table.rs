@@ -55,18 +55,18 @@ impl Table {
         text: impl Into<String>,
         style: TextStyle,
     ) -> TCell<CellInfo<'static>, TextStyle> {
-        TCell::new(CellInfo::new(text.into(), CfgWidthFunction::new(4)), style)
+        let text = crate::util::normalize_whitespace(text);
+        TCell::new(CellInfo::new(text, CfgWidthFunction::new(4)), style)
     }
 
     pub fn truncate(&mut self, width: usize, theme: &TableTheme) -> bool {
         let mut truncated = false;
         while self.data.count_rows() > 0 && self.data.count_columns() > 0 {
-            let total;
-            {
+            let total = {
                 let mut table = Builder::custom(self.data.clone()).build();
                 load_theme(&mut table, theme, false, false, None);
-                total = table.total_width();
-            }
+                table.total_width()
+            };
 
             if total > width {
                 truncated = true;

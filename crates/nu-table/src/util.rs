@@ -43,3 +43,28 @@ pub fn string_truncate(text: &str, width: usize) -> String {
         .with(Width::truncate(width))
         .to_string()
 }
+
+// https://github.com/rust-lang/rust/blob/8a73f50d875840b8077b8ec080fa41881d7ce40d/compiler/rustc_errors/src/emitter.rs#L2477-L2497
+const OUTPUT_REPLACEMENTS: &[(char, &str)] = &[
+    ('\t', "    "),
+    ('\r', ""),
+    ('\u{200D}', ""),
+    ('\u{202A}', ""),
+    ('\u{202B}', ""),
+    ('\u{202D}', ""),
+    ('\u{202E}', ""),
+    ('\u{2066}', ""),
+    ('\u{2067}', ""),
+    ('\u{2068}', ""),
+    ('\u{202C}', ""),
+    ('\u{2069}', ""),
+];
+
+pub fn normalize_whitespace(str: impl Into<String>) -> String {
+    let mut s = str.into();
+    for (c, replacement) in OUTPUT_REPLACEMENTS {
+        s = s.replace(*c, replacement);
+    }
+
+    s
+}
