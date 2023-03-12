@@ -127,9 +127,25 @@ def test_dirs [] {
     rm -r $base_path
 }
 
+def test_xml [] {
+    use xml.nu *
+    use std.nu "assert eq"
+
+    let sample_xml = ('<a><b><c a="b"></c></b><c></c><d><e>z</e><e>x</e></d></a>' | from xml)
+
+    assert eq ($sample_xml | xaccess [a]) [$sample_xml]
+    assert eq ($sample_xml | xaccess [*]) [$sample_xml]
+    assert eq ($sample_xml | xaccess [* d e]) [[tag, attributes, content]; [e, {}, [[tag, attributes, content]; [null, null, z]]], [e, {}, [[tag, attributes, content]; [null, null, x]]]]
+    assert eq ($sample_xml | xaccess [* d e 1]) [[tag, attributes, content]; [e, {}, [[tag, attributes, content]; [null, null, x]]]]
+    assert eq ($sample_xml | xupdate [*] {|x| $x | update attributes {i: j}}) ('<a i="j"><b><c a="b"></c></b><c></c><d><e>z</e><e>x</e></d></a>' | from xml)
+    assert eq ($sample_xml | xupdate [* d e *] {|x| $x | update content 'nushell'}) ('<a><b><c a="b"></c></b><c></c><d><e>nushell</e><e>nushell</e></d></a>' | from xml)
+    
+}
+
 def main [] {
     test_assert
     tests
     test_path_add
     test_dirs
+    test_xml
 }
