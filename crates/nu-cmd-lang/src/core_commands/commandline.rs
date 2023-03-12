@@ -4,6 +4,7 @@ use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::Category;
 use nu_protocol::IntoPipelineData;
 use nu_protocol::{PipelineData, ShellError, Signature, SyntaxShape, Type, Value};
+use unicode_segmentation::UnicodeSegmentation;
 
 #[derive(Clone)]
 pub struct Commandline;
@@ -77,7 +78,7 @@ impl Command for Commandline {
                             0usize
                         } else {
                             buffer
-                                .char_indices()
+                                .grapheme_indices(true)
                                 .map(|(i, _c)| i)
                                 .nth(n as usize)
                                 .unwrap_or(buffer.len())
@@ -114,7 +115,7 @@ impl Command for Commandline {
                     .lock()
                     .expect("repl cursor pos mutex");
                 let char_pos = buffer
-                    .char_indices()
+                    .grapheme_indices(true)
                     .position(|(i, _c)| i == *cursor_pos)
                     .unwrap_or(buffer.len());
                 Ok(Value::String {

@@ -44,31 +44,31 @@ fn commandline_test_replace() -> TestResult {
 #[test]
 fn commandline_test_cursor() -> TestResult {
     run_test(
-        "commandline --replace '0😀2'\n\
+        "commandline --replace '0👩‍❤️‍👩2'\n\
         commandline --cursor '1' \n\
         commandline --insert 'x'\n\
         commandline",
-        "0x😀2",
+        "0x👩‍❤️‍👩2",
     )?;
     run_test(
-        "commandline --replace '0😀2'\n\
+        "commandline --replace '0👩‍❤️‍👩2'\n\
         commandline --cursor '2' \n\
         commandline --insert 'x'\n\
         commandline",
-        "0😀x2",
+        "0👩‍❤️‍👩x2",
     )
 }
 
 #[test]
 fn commandline_test_cursor_show_pos() -> TestResult {
     run_test(
-        "commandline --replace '0😀2'\n\
+        "commandline --replace '0👩‍❤️‍👩2'\n\
         commandline --cursor '1' \n\
         commandline --cursor",
         "1",
     )?;
     run_test(
-        "commandline --replace '0😀2'\n\
+        "commandline --replace '0👩‍❤️‍👩2'\n\
         commandline --cursor '2' \n\
         commandline --cursor",
         "2",
