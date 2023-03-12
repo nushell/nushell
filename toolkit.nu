@@ -40,6 +40,34 @@ def pretty-print-command [] {
     $"`(ansi default_dimmed)(ansi default_italic)($in)(ansi reset)`"
 }
 
+# return a report about the check stage
+#
+# - fmt comes first
+# - then clippy
+# - and finally the tests
+#
+# without any option, `report` will return an empty report.
+# otherwise, the truth values will be incremental, following
+# the order above.
+def report [
+    --fail-fmt: bool
+    --fail-clippy: bool
+    --fail-test: bool
+    --no-fail: bool
+] {
+    [fmt clippy test] | wrap stage
+    | merge (
+        if $no_fail          { [true     true     true] }
+        else if $fail_fmt    { [false    $nothing $nothing] }
+        else if $fail_clippy { [true     false    $nothing] }
+        else if $fail_test   { [true     true     false] }
+        else                 { [$nothing $nothing $nothing] }
+        | wrap success
+    )
+    | transpose -r
+    | into record
+}
+
 # run all the necessary checks and tests to submit a perfect PR
 #
 # # Example
@@ -139,34 +167,22 @@ export def "check pr" [
         fmt --check
     } catch {
         print $"\nplease run (ansi default_dimmed)(ansi default_italic)toolkit fmt(ansi reset) to fix the formatting"
-        return {
-            fmt: false
-            clippy: $nothing
-            tests: $nothing
-        }
+        return (report --fail-fmt)
     }
 
     print $"running ('toolkit clippy' | pretty-print-command)"
     try {
         clippy
-    } catch { return {
-        fmt: true
-        clippy: false
-        tests: $nothing
-    }}
+    } catch {
+        return (report --fail-clippy)
+    }
 
     print $"running ('toolkit test' | pretty-print-command)"
     try {
         if $fast { test --fast } else { test }
-    } catch { return {
-        fmt: true
-        clippy: true
-        tests: false
-    }}
-
-    {
-        fmt: true
-        clippy: true
-        tests: true
+    } catch {
+        return (report --fail-test)
     }
+
+    report --no-fail
 }
