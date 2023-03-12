@@ -1,8 +1,8 @@
 mod common;
 
-use common::{create_table};
+use common::create_table;
 
-use nu_table::{TableConfig, TableTheme as theme, Table};
+use nu_table::{Table, TableConfig, TableTheme as theme};
 
 #[test]
 fn replace_tab() {
