@@ -96,11 +96,17 @@ fn alias_wont_recurse() {
     let actual = nu!(
         cwd: ".", pipeline(
         r#"
-            alias print = print -e;
-            print 'hello'
+            module myspamsymbol {
+                export def myfoosymbol [prefix: string, msg: string] {
+                    $prefix + $msg
+                }
+            };
+            use myspamsymbol myfoosymbol;
+            alias myfoosymbol = myfoosymbol 'hello';
+            myfoosymbol ' world'
         "#
     ));
 
-    assert!(actual.out.is_empty());
-    assert_eq!(actual.err, "hello\n");
+    assert_eq!(actual.out, "hello world");
+    assert!(actual.err.is_empty());
 }
