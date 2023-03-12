@@ -90,3 +90,23 @@ fn cant_alias_keyword() {
     ));
     assert!(actual.err.contains("cant_alias_keyword"));
 }
+
+#[test]
+fn alias_wont_recurse() {
+    let actual = nu!(
+        cwd: ".", pipeline(
+        r#"
+            module myspamsymbol {
+                export def myfoosymbol [prefix: string, msg: string] {
+                    $prefix + $msg
+                }
+            };
+            use myspamsymbol myfoosymbol;
+            alias myfoosymbol = myfoosymbol 'hello';
+            myfoosymbol ' world'
+        "#
+    ));
+
+    assert_eq!(actual.out, "hello world");
+    assert!(actual.err.is_empty());
+}
