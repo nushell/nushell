@@ -73,24 +73,24 @@ fn operate(value: Value, head: Span) -> Value {
         }
         Value::Error { .. } => value,
         other => Value::Error {
-            error: ShellError::OnlySupportsThisInputType {
+            error: Box::new(ShellError::OnlySupportsThisInputType {
                 exp_input_type: "numeric".into(),
                 wrong_type: other.get_type().to_string(),
                 dst_span: head,
                 src_span: other.expect_span(),
-            },
+            }),
         },
     }
 }
 
 fn error_negative_sqrt(head: Span, span: Span) -> Value {
     Value::Error {
-        error: ShellError::UnsupportedInput(
+        error: Box::new(ShellError::UnsupportedInput(
             String::from("Can't square root a negative number"),
             "value originates from here".into(),
             head,
             span,
-        ),
+        )),
     }
 }
 

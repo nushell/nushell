@@ -24,12 +24,12 @@ pub fn from_vcf_call(call: &EvaluatedCall, input: &Value) -> Result<Value, Label
     let iter = parser.map(move |contact| match contact {
         Ok(c) => contact_to_value(c, head),
         Err(e) => Value::Error {
-            error: ShellError::UnsupportedInput(
+            error: Box::new(ShellError::UnsupportedInput(
                 format!("input cannot be parsed as .vcf ({e})"),
                 "value originates from here".into(),
                 head,
                 span,
-            ),
+            )),
         },
     });
 

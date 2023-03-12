@@ -155,7 +155,7 @@ fn action(
         Value::String { val: s, .. } => {
             let (start_index, end_index) = match r {
                 Ok(r) => (r.0 as usize, r.1 as usize),
-                Err(e) => return Value::Error { error: e },
+                Err(e) => return Value::Error { error: Box::new(e) },
             };
 
             // When the -e flag is present, search using rfind instead of find.s
@@ -186,12 +186,12 @@ fn action(
         }
         Value::Error { .. } => input.clone(),
         _ => Value::Error {
-            error: ShellError::OnlySupportsThisInputType {
+            error: Box::new(ShellError::OnlySupportsThisInputType {
                 exp_input_type: "string".into(),
                 wrong_type: input.get_type().to_string(),
                 dst_span: head,
                 src_span: input.expect_span(),
-            },
+            }),
         },
     }
 }
@@ -235,7 +235,7 @@ fn process_range(
                 Ok((start_index, end_index))
             }
         }
-        Value::Error { error } => Err(error.clone()),
+        Value::Error { error } => Err(*error.clone()),
         _ => Err(ShellError::OnlySupportsThisInputType {
             exp_input_type: "string".into(),
             wrong_type: input.get_type().to_string(),

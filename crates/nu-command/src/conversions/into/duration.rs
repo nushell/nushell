@@ -174,7 +174,9 @@ fn into_duration(
                         Box::new(move |old| action(old, &d, float_precision, head)),
                     );
                     if let Err(error) = r {
-                        return Value::Error { error };
+                        return Value::Error {
+                            error: Box::new(error),
+                        };
                     }
                 }
 
@@ -430,7 +432,7 @@ fn action(
                             }
                         }
                     }
-                    Err(e) => Value::Error { error: e },
+                    Err(e) => Value::Error { error: Box::new(e) },
                 }
             } else {
                 input.clone()
@@ -464,34 +466,36 @@ fn action(
                                 }
                             }
                         }
-                        Err(e) => Value::Error { error: e },
+                        Err(e) => Value::Error { error: Box::new(e) },
                     }
                 } else {
                     Value::Error {
-                        error: ShellError::CantConvert {
+                        error: Box::new(ShellError::CantConvert {
                             to_type: "string".into(),
                             from_type: "duration".into(),
                             span,
                             help: None,
-                        },
+                        }),
                     }
                 }
             } else {
                 match string_to_duration(val, span, *value_span) {
                     Ok(val) => Value::Duration { val, span },
-                    Err(error) => Value::Error { error },
+                    Err(error) => Value::Error {
+                        error: Box::new(error),
+                    },
                 }
             }
         }
         // Propagate errors by explicitly matching them before the final case.
         Value::Error { .. } => input.clone(),
         other => Value::Error {
-            error: ShellError::OnlySupportsThisInputType {
+            error: Box::new(ShellError::OnlySupportsThisInputType {
                 exp_input_type: "string or duration".into(),
                 wrong_type: other.get_type().to_string(),
                 dst_span: span,
                 src_span: other.expect_span(),
-            },
+            }),
         },
     }
 }

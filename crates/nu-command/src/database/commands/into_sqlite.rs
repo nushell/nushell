@@ -217,7 +217,7 @@ fn action(
             Ok(Value::Nothing { span: *span })
         }
         // Propagate errors by explicitly matching them before the final case.
-        Value::Error { error } => Err(error.clone()),
+        Value::Error { error } => Err(*error.clone()),
         other => Err(ShellError::OnlySupportsThisInputType {
             exp_input_type: "list".into(),
             wrong_type: other.get_type().to_string(),
