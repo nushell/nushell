@@ -182,7 +182,7 @@ fn join(
 
     // Outer Join
     // ----------
-    // Perfom Left Join procedure
+    // Perform Left Join procedure
     // Perform Right Join procedure, but excluding rows in Inner Join
 
     let config = Config::default();
