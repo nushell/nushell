@@ -52,6 +52,7 @@ pub fn create_table(data: VecCells, config: TableConfig, termwidth: usize) -> Op
     table.draw(config, termwidth)
 }
 
+#[allow(unused)]
 pub fn create_row(count_columns: usize) -> Vec<TCell<CellInfo<'static>, TextStyle>> {
     let mut row = Vec::with_capacity(count_columns);
 
