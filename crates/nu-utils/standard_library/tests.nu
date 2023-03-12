@@ -19,8 +19,8 @@ def test_assert [] {
     test_failing { std assert eq (1 + 2) 4) }
 
     std assert ne (1 + 2) 4
-    std assert ne 1 "foo"
-    std assert ne (1 + 2) 3)
+    test_failing { std assert ne 1 "foo" }
+    test_failing { std assert ne (1 + 2) 3) }
 }
 
 def tests [] {

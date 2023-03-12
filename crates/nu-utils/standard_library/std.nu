@@ -30,15 +30,14 @@ def _assertion-error [start, end, label, message?: string] {
 }
 
 # ```nushell
-# >_ let a = 3
-# >_ assert ($a == 3)
-# >_ assert ($a != 3)
+# >_ assert (3 == 3)
+# >_ assert (42 == 3)
 # Error:
 #   × Assertion failed: 
 #     ╭─[myscript.nu:11:1]
-#  11 │ assert ($a == 3)
-#  12 │ assert ($a != 3)
-#     ·         ───┬───
+#  11 │ assert (3 == 3)
+#  12 │ assert (42 == 3)
+#     ·         ───┬────
 #     ·            ╰── It is not true.
 #  13 │
 #     ╰────
@@ -50,31 +49,38 @@ export def assert [cond: bool, message?: string] {
 }
 
 # ```nushell
-# >_ let a = 3
-# >_ assert eq $a "a string"
+# ❯ assert eq 3 "a string"
 # Error:
-#   × Assertion failed: 
-#     ╭─[myscript.nu:76:1]
-#  76 │ let a = 3
-#  77 │ assert eq $a "a string"
-#     ·           ──────┬──────
-#     ·                 ╰── Different types cannot be equal: int <-> string.
-#  78 │
-#     ╰────
+#   × Assertion failed.
+#    ╭─[entry #13:1:1]
+#  1 │ assert eq 3 "a string"
+#    ·           ──────┬─────
+#    ·                 ╰── Different types cannot be equal: int <-> string.
+#    ╰────
 #
 #
-# >_ let a = 3
-# >_ assert eq $a 3
-# >_ assert eq $a 1
+# ❯ assert eq 3 3
+# ❯ assert eq 3 1
 # Error:
-#   × Assertion failed: 
-#     ╭─[myscript.nu:81:1]
-#  81 │ assert eq $a 3
-#  82 │ assert eq $a 1
-#     ·           ──┬─
-#     ·             ╰── They are not equal: 3 != 1
-#  83 │
-#     ╰────
+#   × Assertion failed.
+#    ╭─[entry #14:1:1]
+#  1 │ assert eq 3 1
+#    ·           ─┬─
+#    ·            ╰── They are not equal: 3 != 1
+#    ╰────
+#
+#
+# 👇👇👇 BE CAREFUL! 👇👇👇
+# ❯ assert ( 1 == 1.0) # passes
+# ❯ assert eq 1 1.0
+# Error:
+#   × Assertion failed.
+#    ╭─[entry #16:1:1]
+#  1 │ assert eq 1 1.0
+#    ·           ──┬──
+#    ·             ╰── Different types cannot be equal: int <-> float.
+#    ╰────
+# 
 # ```
 export def "assert eq" [left: any, right: any, message?: string] {
     let left_type = ($left | describe)
@@ -91,25 +97,39 @@ export def "assert eq" [left: any, right: any, message?: string] {
 }
 
 # ```nushell
-# >_ let a = 3
-# >_ assert ne $a 1
-# >_ assert ne $a 3
+# ❯ assert ne 1 3
+# ❯ assert ne 42 42
 # Error:
-#   × Assertion failed:
-#      ╭─[C:\Users\fm\git\nushell\crates\nu-utils\standard_library\std.nu:113:1]
-#  113 │ assert ne $a 1
-#  114 │ assert ne $a 3
-#      ·           ──┬─
-#      ·             ╰── They both are 3
-#  115 │
-#      ╰────
+#   × Assertion failed.
+#    ╭─[entry #23:1:1]
+#  1 │ assert ne 42 42
+#    ·           ──┬──
+#    ·             ╰── They both are 42
+#    ╰────
+# 
+#
+# 👇👇👇 BE CAREFUL! 👇👇👇
+# ❯ assert ( 1 != "a string" ) # passes
+# ❯ assert ne 1 "a string"
+# Error:
+#   × Assertion failed.
+#    ╭─[entry #20:1:1]
+#  1 │ assert ne 1 "a string"
+#    ·           ──────┬─────
+#    ·                 ╰── They are not equal, although they have different types: int <-> string.
+#    ╰────
 # ```
 export def "assert ne" [left: any, right: any, message?: string] {
+    let left_type = ($left | describe)
+    let right_type = ($right | describe)
     let left_start = (metadata $left).span.start
     let right_end = (metadata $right).span.end
 
     if ($left == $right) {
         _assertion-error $left_start $right_end $"They both are ($left)" $message
+    }
+    if ($left_type != $right_type) {
+        _assertion-error $left_start $right_end $"They are not equal, although they have different types: ($left_type) <-> ($right_type)." $message
     }
 }
 
