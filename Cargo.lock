@@ -956,7 +956,7 @@ version = "3.2.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "bbcf33c2a618cbe41ee43ae6e9f2e48368cd9f9db2896f10167d8d762679f639"
 dependencies = [
- "nix 0.26.2",
+ "nix",
  "windows-sys 0.45.0",
 ]
 
@@ -2572,18 +2572,6 @@ checksum = "e4a24736216ec316047a1fc4252e27dabb04218aa4a3f37c6e7ddbf1f9782b54"
 
 [[package]]
 name = "nix"
-version = "0.25.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f346ff70e7dbfd675fe90590b92d59ef2de15a8779ae305ebcbfd3f0caf59be4"
-dependencies = [
- "autocfg",
- "bitflags",
- "cfg-if 1.0.0",
- "libc",
-]
-
-[[package]]
-name = "nix"
 version = "0.26.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "bfdda3d196821d6af13126e40375cdf7da646a96114af134d5f417a9a1dc8e1a"
@@ -2674,7 +2662,7 @@ dependencies = [
  "itertools",
  "log",
  "miette",
- "nix 0.25.1",
+ "nix",
  "nu-ansi-term",
  "nu-cli",
  "nu-cmd-lang",
@@ -3009,7 +2997,7 @@ dependencies = [
  "libproc",
  "log",
  "mach2",
- "nix 0.25.1",
+ "nix",
  "ntapi",
  "once_cell",
  "procfs",
