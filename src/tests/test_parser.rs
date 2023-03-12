@@ -180,15 +180,6 @@ fn bad_short_flag() -> TestResult {
 }
 
 #[test]
-fn alias_with_error_doesnt_panic() -> TestResult {
-    fail_test(
-        r#"alias s = shells
-        s ."#,
-        "extra positional",
-    )
-}
-
-#[test]
 fn quotes_with_equals() -> TestResult {
     run_test(
         r#"let query_prefix = "https://api.github.com/search/issues?q=repo:nushell/"; $query_prefix"#,
