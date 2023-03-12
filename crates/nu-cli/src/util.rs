@@ -314,7 +314,7 @@ pub fn report_error(
     working_set: &StateWorkingSet,
     error: &(dyn miette::Diagnostic + Send + Sync + 'static),
 ) {
-    eprintln!("Error: {:?}", CliError(error, working_set));
+    eprintln!("{:?}", CliError(error, working_set));
     // reset vt processing, aka ansi because illbehaved externals can break it
     #[cfg(windows)]
     {

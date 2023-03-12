@@ -2977,13 +2977,17 @@ dependencies = [
  "nu-test-support",
  "nu-utils",
  "num-format",
+ "owo-colors",
  "serde",
  "serde_json",
  "strum",
  "strum_macros",
  "sys-locale",
+ "terminal_size 0.2.5",
+ "textwrap 0.15.2",
  "thiserror",
  "typetag",
+ "unicode-width",
 ]
 
 [[package]]
