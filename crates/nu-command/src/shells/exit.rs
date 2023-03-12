@@ -19,11 +19,6 @@ impl Command for Exit {
                 SyntaxShape::Int,
                 "Exit code to return immediately with",
             )
-            .switch(
-                "now",
-                "Exit out of all shells immediately (exiting Nu)",
-                Some('n'),
-            )
             .category(Category::Shells)
     }
 
@@ -48,10 +43,6 @@ impl Command for Exit {
             std::process::exit(exit_code as i32);
         }
 
-        if call.has_flag("now") {
-            std::process::exit(0);
-        }
-
         std::process::exit(0);
     }
 
@@ -60,11 +51,6 @@ impl Command for Exit {
             Example {
                 description: "Exit the current shell",
                 example: "exit",
-                result: None,
-            },
-            Example {
-                description: "Exit all shells (exiting Nu)",
-                example: "exit --now",
                 result: None,
             },
         ]
