@@ -90,7 +90,8 @@ fn action(
         "binhex" => GeneralPurpose::new(&alphabet::BIN_HEX, NO_PAD),
         "crypt" => GeneralPurpose::new(&alphabet::CRYPT, NO_PAD),
         "mutf7" => GeneralPurpose::new(&alphabet::IMAP_MUTF7, NO_PAD),
-        not_valid => return Value::Error { error:ShellError::GenericError(
+        not_valid => return Value::Error { error:
+            Box::new(ShellError::GenericError(
             "value is not an accepted character set".to_string(),
             format!(
                 "{not_valid} is not a valid character-set.\nPlease use `help encode base64` to see a list of valid character sets."
@@ -98,7 +99,7 @@ fn action(
             Some(config_character_set.span),
             None,
             Vec::new(),
-        )}
+        ))}
     };
     match input {
         // Propagate existing errors.
@@ -111,13 +112,13 @@ fn action(
                     Ok(bytes_written) => bytes_written,
                     Err(err) => {
                         return Value::Error {
-                            error: ShellError::GenericError(
+                            error: Box::new(ShellError::GenericError(
                                 "Error encoding data".into(),
                                 err.to_string(),
                                 Some(Span::unknown()),
                                 None,
                                 Vec::new(),
-                            ),
+                            )),
                         }
                     }
                 };
@@ -125,13 +126,13 @@ fn action(
                 Value::string(std::str::from_utf8(&enc_vec).unwrap_or(""), command_span)
             }
             ActionType::Decode => Value::Error {
-                error: ShellError::UnsupportedInput(
+                error: Box::new(ShellError::UnsupportedInput(
                     "Binary data can only be encoded".to_string(),
                     "value originates from here".into(),
                     command_span,
                     // This line requires the Value::Error {} match above.
                     input.expect_span(),
-                ),
+                )),
             },
         },
         Value::String {
@@ -158,20 +159,20 @@ fn action(
                                 match String::from_utf8(decoded_value) {
                                     Ok(string_value) => Value::string(string_value, command_span),
                                     Err(e) => Value::Error {
-                                        error: ShellError::GenericError(
+                                        error: Box::new(ShellError::GenericError(
                                             "base64 payload isn't a valid utf-8 sequence"
                                                 .to_owned(),
                                             e.to_string(),
                                             Some(*value_span),
                                             Some("consider using the `--binary` flag".to_owned()),
                                             Vec::new(),
-                                        ),
+                                        )),
                                     },
                                 }
                             }
                         }
                         Err(_) => Value::Error {
-                            error: ShellError::GenericError(
+                            error: Box::new(ShellError::GenericError(
                                 "value could not be base64 decoded".to_string(),
                                 format!(
                                     "invalid base64 input for character set {}",
@@ -180,17 +181,17 @@ fn action(
                                 Some(command_span),
                                 None,
                                 Vec::new(),
-                            ),
+                            )),
                         },
                     }
                 }
             }
         }
         other => Value::Error {
-            error: ShellError::TypeMismatch {
+            error: Box::new(ShellError::TypeMismatch {
                 err_message: format!("string or binary, not {}", other.get_type()),
                 span: other.span().unwrap_or(command_span),
-            },
+            }),
         },
     }
 }

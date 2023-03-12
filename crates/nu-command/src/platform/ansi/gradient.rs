@@ -134,7 +134,9 @@ fn operate(
                         Box::new(move |old| action(old, fgs_hex, fge_hex, bgs_hex, bge_hex, &head)),
                     );
                     if let Err(error) = r {
-                        return Value::Error { error };
+                        return Value::Error {
+                            error: Box::new(error),
+                        };
                     }
                 }
                 ret
@@ -158,11 +160,11 @@ fn action(
                 (None, None, None, None) => {
                     // Error - no colors
                     Value::Error {
-                        error: ShellError::MissingParameter {
+                        error: Box::new(ShellError::MissingParameter {
                             param_name:
                                 "please supply foreground and/or background color parameters".into(),
                             span: *command_span,
-                        },
+                        }),
                     }
                 }
                 (None, None, None, Some(bg_end)) => {
@@ -286,10 +288,10 @@ fn action(
             let got = format!("value is {}, not string", other.get_type());
 
             Value::Error {
-                error: ShellError::TypeMismatch {
+                error: Box::new(ShellError::TypeMismatch {
                     err_message: got,
                     span: other.span().unwrap_or(*command_span),
-                },
+                }),
             }
         }
     }

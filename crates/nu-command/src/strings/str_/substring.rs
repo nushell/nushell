@@ -155,10 +155,10 @@ fn action(input: &Value, args: &Arguments, head: Span) -> Value {
                 match start.cmp(&end) {
                     Ordering::Equal => Value::string("", head),
                     Ordering::Greater => Value::Error {
-                        error: ShellError::TypeMismatch {
+                        error: Box::new(ShellError::TypeMismatch {
                             err_message: "End must be greater than or equal to Start".to_string(),
                             span: head,
-                        },
+                        }),
                     },
                     Ordering::Less => Value::String {
                         val: {
@@ -200,13 +200,13 @@ fn action(input: &Value, args: &Arguments, head: Span) -> Value {
         // Propagate errors by explicitly matching them before the final case.
         Value::Error { .. } => input.clone(),
         other => Value::Error {
-            error: ShellError::UnsupportedInput(
+            error: Box::new(ShellError::UnsupportedInput(
                 "Only string values are supported".into(),
                 format!("input type: {:?}", other.get_type()),
                 head,
                 // This line requires the Value::Error match above.
                 other.expect_span(),
-            ),
+            )),
         },
     }
 }

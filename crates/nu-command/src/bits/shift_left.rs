@@ -115,7 +115,7 @@ where
             match shift_result {
                 Ok(val) => Value::Int { val, span },
                 Err(_) => Value::Error {
-                    error: ShellError::GenericError(
+                    error: Box::new(ShellError::GenericError(
                         "Shift left result beyond the range of 64 bit signed number".to_string(),
                         format!(
                             "{val} of the specified number of bytes shift left {bits} bits exceed limit"
@@ -123,18 +123,18 @@ where
                         Some(span),
                         None,
                         Vec::new(),
-                    ),
+                    )),
                 },
             }
         }
         None => Value::Error {
-            error: ShellError::GenericError(
+            error: Box::new(ShellError::GenericError(
                 "Shift left failed".to_string(),
                 format!("{val} shift left {bits} bits failed, you may shift too many bits"),
                 Some(span),
                 None,
                 Vec::new(),
-            ),
+            )),
         },
     }
 }
@@ -160,12 +160,12 @@ fn operate(value: Value, bits: usize, head: Span, signed: bool, number_size: Num
         // Propagate errors by explicitly matching them before the final case.
         Value::Error { .. } => value,
         other => Value::Error {
-            error: ShellError::OnlySupportsThisInputType {
+            error: Box::new(ShellError::OnlySupportsThisInputType {
                 exp_input_type: "integer".into(),
                 wrong_type: other.get_type().to_string(),
                 dst_span: head,
                 src_span: other.expect_span(),
-            },
+            }),
         },
     }
 }

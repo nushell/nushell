@@ -107,7 +107,7 @@ where
     match rotate_result {
         Ok(val) => Value::Int { val, span },
         Err(_) => Value::Error {
-            error: ShellError::GenericError(
+            error: Box::new(ShellError::GenericError(
                 "Rotate right result beyond the range of 64 bit signed number".to_string(),
                 format!(
                     "{val} of the specified number of bytes rotate right {bits} bits exceed limit"
@@ -115,7 +115,7 @@ where
                 Some(span),
                 None,
                 Vec::new(),
-            ),
+            )),
         },
     }
 }
@@ -141,12 +141,12 @@ fn operate(value: Value, bits: usize, head: Span, signed: bool, number_size: Num
         // Propagate errors by explicitly matching them before the final case.
         Value::Error { .. } => value,
         other => Value::Error {
-            error: ShellError::OnlySupportsThisInputType {
+            error: Box::new(ShellError::OnlySupportsThisInputType {
                 exp_input_type: "integer".into(),
                 wrong_type: other.get_type().to_string(),
                 dst_span: head,
                 src_span: other.expect_span(),
-            },
+            }),
         },
     }
 }
