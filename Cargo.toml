@@ -46,7 +46,6 @@ crossterm = "0.24.0"
 ctrlc = "3.2.1"
 log = "0.4"
 miette = { version = "5.5.0", features = ["fancy-no-backtrace"] }
-nu-ansi-term = "0.47.0"
 nu-cli = { path = "./crates/nu-cli", version = "0.77.0" }
 nu-color-config = { path = "./crates/nu-color-config", version = "0.77.0" }
 nu-cmd-lang = { path = "./crates/nu-cmd-lang", version = "0.77.0" }
@@ -63,6 +62,7 @@ nu-table = { path = "./crates/nu-table", version = "0.77.0" }
 nu-term-grid = { path = "./crates/nu-term-grid", version = "0.77.0" }
 nu-utils = { path = "./crates/nu-utils", version = "0.77.0" }
 
+nu-ansi-term = "0.47.0"
 reedline = { version = "0.16.0", features = ["bashisms", "sqlite"] }
 
 rayon = "1.7.0"

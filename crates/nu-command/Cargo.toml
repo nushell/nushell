@@ -13,7 +13,6 @@ version = "0.77.0"
 bench = false
 
 [dependencies]
-nu-ansi-term = "0.47.0"
 nu-cmd-lang = { path = "../nu-cmd-lang", version = "0.77.0" }
 nu-color-config = { path = "../nu-color-config", version = "0.77.0" }
 nu-engine = { path = "../nu-engine", version = "0.77.0" }
@@ -29,6 +28,8 @@ nu-table = { path = "../nu-table", version = "0.77.0" }
 nu-term-grid = { path = "../nu-term-grid", version = "0.77.0" }
 nu-utils = { path = "../nu-utils", version = "0.77.0" }
 num-format = { version = "0.4.3" }
+
+nu-ansi-term = "0.47.0"
 
 # Potential dependencies for extras
 Inflector = "0.11"
