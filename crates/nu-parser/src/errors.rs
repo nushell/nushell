@@ -386,7 +386,7 @@ pub enum ParseError {
     #[error("Value not a constant")]
     #[diagnostic(
         code(nu::parser::value_not_a_constant),
-        help("Only a subset of expressions are allowed constants during parsing. Using the 'let' command instead")
+        help("Only a subset of expressions are allowed constants during parsing. Use the 'let' command instead")
     )]
     ValueNotAConstant(#[label = "value is not a parse-time constant"] Span),
 
