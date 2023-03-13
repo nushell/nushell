@@ -8,36 +8,38 @@ fn commandline_test_get_empty() -> TestResult {
 #[test]
 fn commandline_test_append() -> TestResult {
     run_test(
-        "commandline --append '123'\n\
+        "commandline --replace '0👩‍❤️‍👩2'\n\
+        commandline --cursor '2'\n\
+        commandline --append 'ab'\n\
         commandline\n\
-        commandline --append '456'\n\
-        commandline",
-        "123\n\
-        123456",
+        commandline --cursor",
+        "0👩‍❤️‍👩2ab\n\
+        2",
     )
 }
 
 #[test]
 fn commandline_test_insert() -> TestResult {
     run_test(
-        "commandline --insert '123'\n\
+        "commandline --replace '0👩‍❤️‍👩2'\n\
+        commandline --cursor '2'\n\
+        commandline --insert 'ab'\n\
         commandline\n\
-        commandline --insert '456'\n\
-        commandline",
-        "123\n\
-        456123",
+        commandline --cursor",
+        "0👩‍❤️‍👩ab2\n\
+        4",
     )
 }
 
 #[test]
 fn commandline_test_replace() -> TestResult {
     run_test(
-        "commandline --append '123'\n\
+        "commandline --replace '0👩‍❤️‍👩2'\n\
+        commandline --replace 'ab'\n\
         commandline\n\
-        commandline --replace '456'\n\
-        commandline",
-        "123\n\
-        456",
+        commandline --cursor",
+        "ab\n\
+        2",
     )
 }
 

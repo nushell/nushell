@@ -97,11 +97,13 @@ impl Command for Commandline {
                 }
             } else if call.has_flag("append") {
                 buffer.push_str(&cmd.as_string()?);
-                *cursor_pos = buffer.len();
             } else if call.has_flag("insert") {
-                buffer.insert_str(*cursor_pos, &cmd.as_string()?);
+                let cmd_str = cmd.as_string()?;
+                buffer.insert_str(*cursor_pos, &cmd_str);
+                *cursor_pos += cmd_str.len();
             } else {
                 *buffer = cmd.as_string()?;
+                *cursor_pos = buffer.len();
             }
             Ok(Value::Nothing { span: call.head }.into_pipeline_data())
         } else {
