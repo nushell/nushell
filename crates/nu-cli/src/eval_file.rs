@@ -145,7 +145,7 @@ pub(crate) fn print_table_or_error(
 
     if let PipelineData::Value(Value::Error { error }, ..) = &pipeline_data {
         let working_set = StateWorkingSet::new(engine_state);
-        report_error(&working_set, error);
+        report_error(&working_set, &**error);
         std::process::exit(1);
     }
 
@@ -193,7 +193,7 @@ fn print_or_exit(pipeline_data: PipelineData, engine_state: &mut EngineState, co
         if let Value::Error { error } = item {
             let working_set = StateWorkingSet::new(engine_state);
 
-            report_error(&working_set, &error);
+            report_error(&working_set, &*error);
 
             std::process::exit(1);
         }

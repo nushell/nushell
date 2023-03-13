@@ -185,15 +185,17 @@ fn split_words_helper(
                     .collect::<Vec<Value>>()
             } else {
                 vec![Value::Error {
-                    error: ShellError::PipelineMismatch {
+                    error: Box::new(ShellError::PipelineMismatch {
                         exp_input_type: "string".into(),
                         dst_span: span,
                         src_span: v_span,
-                    },
+                    }),
                 }]
             }
         }
-        Err(error) => vec![Value::Error { error }],
+        Err(error) => vec![Value::Error {
+            error: Box::new(error),
+        }],
     }
 }
 

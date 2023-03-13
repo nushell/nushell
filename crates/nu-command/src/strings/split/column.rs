@@ -182,13 +182,15 @@ fn split_column_helper(
     } else {
         match v.span() {
             Ok(span) => vec![Value::Error {
-                error: ShellError::PipelineMismatch {
+                error: Box::new(ShellError::PipelineMismatch {
                     exp_input_type: "string".into(),
                     dst_span: head,
                     src_span: span,
-                },
+                }),
             }],
-            Err(error) => vec![Value::Error { error }],
+            Err(error) => vec![Value::Error {
+                error: Box::new(error),
+            }],
         }
     }
 }

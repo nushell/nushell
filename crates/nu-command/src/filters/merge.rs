@@ -125,11 +125,15 @@ repeating this process with row 1, and so on."#
                                             span: call.head,
                                         }
                                     }
-                                    Err(error) => Value::Error { error },
+                                    Err(error) => Value::Error {
+                                        error: Box::new(error),
+                                    },
                                 }
                             }
                             (_, None) => inp,
-                            (Err(error), _) => Value::Error { error },
+                            (Err(error), _) => Value::Error {
+                                error: Box::new(error),
+                            },
                         });
 
                 if let Some(md) = metadata {

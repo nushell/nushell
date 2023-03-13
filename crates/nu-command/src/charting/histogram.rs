@@ -160,7 +160,7 @@ fn run_histogram(
             for v in values {
                 match v {
                     // Propagate existing errors.
-                    Value::Error { error } => return Err(error),
+                    Value::Error { error } => return Err(*error),
                     _ => {
                         let t = v.get_type();
                         let span = v.expect_span();
@@ -198,7 +198,7 @@ fn run_histogram(
                         }
                     }
                     // Propagate existing errors.
-                    Value::Error { error } => return Err(error),
+                    Value::Error { error } => return Err(*error),
                     _ => continue,
                 }
             }

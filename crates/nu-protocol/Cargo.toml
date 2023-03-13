@@ -14,7 +14,6 @@ bench = false
 
 [dependencies]
 nu-utils = { path = "../nu-utils", version = "0.76.1" }
-nu-json = { path = "../nu-json", version = "0.76.1" }
 
 byte-unit = "4.0.9"
 chrono = { version = "0.4.23", features = [
