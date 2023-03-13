@@ -46,7 +46,7 @@ crossterm = "0.24.0"
 ctrlc = "3.2.1"
 log = "0.4"
 miette = { version = "5.5.0", features = ["fancy-no-backtrace"] }
-nu-ansi-term = "0.46.0"
+nu-ansi-term = "0.47.0"
 nu-cli = { path = "./crates/nu-cli", version = "0.76.1" }
 nu-color-config = { path = "./crates/nu-color-config", version = "0.76.1" }
 nu-cmd-lang = { path = "./crates/nu-cmd-lang", version = "0.76.1" }
@@ -158,7 +158,7 @@ bench = false
 # changing versions in each sub-crate of the workspace is tedious
 [patch.crates-io]
 reedline = { git = "https://github.com/nushell/reedline.git", branch = "main" }
-nu-ansi-term = {git = "https://github.com/nushell/nu-ansi-term.git", branch = "main"}
+# nu-ansi-term = {git = "https://github.com/nushell/nu-ansi-term.git", branch = "main"}
 
 # Criterion benchmarking setup
 # Run all benchmarks with `cargo bench`
