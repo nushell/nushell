@@ -3663,28 +3663,27 @@ pub fn parse_register(
     let arguments = call
         .positional_nth(0)
         .map(|expr| {
-            let name_expr = working_set.get_span_contents(expr.span);
+            let val = match eval_constant(working_set, expr) {
+                Ok(val) => val,
+                Err(err) => return Err(err),
+            };
 
-            let (name, err) = unescape_unquote_string(name_expr, expr.span);
+            let filename = match value_as_string(val, expr.span) {
+                Ok(s) => s,
+                Err(err) => return Err(err),
+            };
 
-            if let Some(err) = err {
-                Err(err)
-            } else {
-                let path = if let Some(p) = find_in_dirs(&name, working_set, &cwd, PLUGIN_DIRS_ENV)
-                {
-                    p
-                } else {
-                    return Err(ParseError::RegisteredFileNotFound(name, expr.span));
+            let Some(path) = find_in_dirs(&filename, working_set, &cwd, PLUGIN_DIRS_ENV) else {
+                    return Err(ParseError::RegisteredFileNotFound(filename, expr.span));
                 };
 
-                if path.exists() & path.is_file() {
-                    Ok(path)
-                } else {
-                    Err(ParseError::RegisteredFileNotFound(
-                        format!("{path:?}"),
-                        expr.span,
-                    ))
-                }
+            if path.exists() & path.is_file() {
+                Ok(path)
+            } else {
+                Err(ParseError::RegisteredFileNotFound(
+                    format!("{path:?}"),
+                    expr.span,
+                ))
             }
         })
         .expect("required positional has being checked");

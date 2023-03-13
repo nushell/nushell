@@ -482,3 +482,36 @@ fn unbalanced_delimiter() -> TestResult {
 fn unbalanced_delimiter2() -> TestResult {
     fail_test(r#"{}#.}"#, "unbalanced { and }")
 }
+
+#[test]
+fn register_with_string_literal() -> TestResult {
+    fail_test(r#"register 'nu-plugin-math'"#, "File not found")
+}
+
+#[test]
+fn register_with_string_constant() -> TestResult {
+    let input = "\
+const file = 'nu-plugin-math'
+register $file
+";
+    // should not fail with `not a constant`
+    fail_test(input, "File not found")
+}
+
+#[test]
+fn register_with_string_variable() -> TestResult {
+    let input = "\
+let file = 'nu-plugin-math'
+register $file
+";
+    fail_test(input, "Value is not a parse-time constant")
+}
+
+#[test]
+fn register_with_non_string_constant() -> TestResult {
+    let input = "\
+const file = 6
+register $file
+";
+    fail_test(input, "expected String, found Int")
+}
