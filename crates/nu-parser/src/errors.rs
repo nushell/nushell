@@ -128,26 +128,12 @@ pub enum ParseError {
     )]
     AssignInPipeline(String, String, String, #[label("'{0}' in pipeline")] Span),
 
-    #[error("Let used with builtin variable name.")]
+    #[error("{1} used with builtin variable name")]
     #[diagnostic(
-        code(nu::parser::let_builtin_var),
-        help("'{0}' is the name of a builtin Nushell variable. `let` cannot assign to it.")
+        code(nu::parser::builtin_var_assignment),
+        help("'{0}' is the name of a builtin Nushell variable. `{1}` cannot assign to it.")
     )]
-    LetBuiltinVar(String, #[label("already a builtin variable")] Span),
-
-    #[error("Const used with builtin variable name.")]
-    #[diagnostic(
-        code(nu::parser::let_builtin_var),
-        help("'{0}' is the name of a builtin Nushell variable. `const` cannot assign to it.")
-    )]
-    ConstBuiltinVar(String, #[label("already a builtin variable")] Span),
-
-    #[error("Mut used with builtin variable name.")]
-    #[diagnostic(
-        code(nu::parser::let_builtin_var),
-        help("'{0}' is the name of a builtin Nushell variable. `mut` cannot assign to it.")
-    )]
-    MutBuiltinVar(String, #[label("already a builtin variable")] Span),
+    BuiltinVarAssignment(String, String, #[label("already a builtin var")] Span),
 
     #[error("Incorrect value")]
     #[diagnostic(code(nu::parser::incorrect_value), help("{2}"))]
@@ -392,17 +378,27 @@ pub enum ParseError {
     #[diagnostic(code(nu::shell::error_reading_file))]
     ReadingFile(String, #[label("{0}")] Span),
 
-    /// Tried assigning non-constant value to a constant
+    /// Tried assigning a non-constant value using `const`
     ///
     /// ## Resolution
     ///
     /// Only a subset of expressions are allowed to be assigned as a constant during parsing.
-    #[error("Not a constant.")]
+    #[error("Value not a constant")]
     #[diagnostic(
-        code(nu::parser::not_a_constant),
-        help("Only a subset of expressions are allowed constants during parsing. Try using the 'const' command or typing the value literally.")
+        code(nu::parser::value_not_a_constant),
+        help("Only a subset of expressions are allowed constants during parsing. Using the 'let' command instead")
     )]
-    NotAConstant(#[label = "Value is not a parse-time constant"] Span),
+    ValueNotAConstant(#[label = "value is not a parse-time constant"] Span),
+
+    #[error("Argument not a constant.")]
+    #[diagnostic(
+        code(nu::parser::argument_not_a_constant),
+        help("`{0}` requires a constant argument. Try using the 'const' command or typing the value literally.")
+    )]
+    ArgumentNotAConstant(
+        String,
+        #[label = "argument is not a parse-time constant"] Span,
+    ),
 
     #[error("Invalid literal")] // <problem> in <entity>.
     #[diagnostic()]
@@ -429,9 +425,7 @@ impl ParseError {
             ParseError::CantAliasKeyword(_, s) => *s,
             ParseError::BuiltinCommandInPipeline(_, s) => *s,
             ParseError::AssignInPipeline(_, _, _, s) => *s,
-            ParseError::LetBuiltinVar(_, s) => *s,
-            ParseError::MutBuiltinVar(_, s) => *s,
-            ParseError::ConstBuiltinVar(_, s) => *s,
+            ParseError::BuiltinVarAssignment(_, _, s) => *s,
             ParseError::CaptureOfMutableVar(s) => *s,
             ParseError::IncorrectValue(_, s, _) => *s,
             ParseError::MultipleRestParams(s) => *s,
@@ -486,7 +480,8 @@ impl ParseError {
             ParseError::ShellOutErrRedirect(s) => *s,
             ParseError::UnknownOperator(_, _, s) => *s,
             ParseError::InvalidLiteral(_, _, s) => *s,
-            ParseError::NotAConstant(s) => *s,
+            ParseError::ValueNotAConstant(s) => *s,
+            ParseError::ArgumentNotAConstant(_, s) => *s,
         }
     }
 }

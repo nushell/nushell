@@ -316,6 +316,30 @@ fn source_env_const_file() {
 }
 
 #[test]
+fn source_env_non_const_file() {
+    Playground::setup("source_env_non_const_file", |dirs, sandbox| {
+        sandbox.with_files(vec![FileWithContentToBeTrimmed(
+            "spam.nu",
+            r#"
+                let-env FOO = 'foo'
+            "#,
+        )]);
+
+        let inp = &[
+            r#"let file = 'spam.nu'"#,
+            r#"source-env $file"#,
+            r#"$env.FOO"#,
+        ];
+
+        let actual = nu!(cwd: dirs.test(), pipeline(&inp.join("; ")));
+
+        assert!(actual
+            .err
+            .contains("`source-env` requires a constant argument"));
+    })
+}
+
+#[test]
 fn source_respects_early_return() {
     let actual = nu!(
         cwd: "tests/fixtures/formats", pipeline(

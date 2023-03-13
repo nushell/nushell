@@ -13,6 +13,20 @@ fn mut_variable() {
 }
 
 #[test]
+fn mut_with_builtin_var() {
+    let actual = nu!(
+    cwd: ".",
+    pipeline(
+    r#"
+        mut nu = 420;
+    "#)
+    );
+
+    assert!(actual
+        .err
+        .contains("'nu' is the name of a builtin Nushell variable"));
+}
+#[test]
 fn mut_variable_in_loop() {
     let actual = nu!(
         cwd: ".", pipeline(
@@ -142,4 +156,16 @@ fn mut_path_operator_assign() {
     ));
 
     assert_eq!(actual.out, "5");
+}
+
+#[test]
+fn mut_in_pipeline() {
+    let actual = nu!(
+        cwd: ".", pipeline(
+        r#"
+        mut a = 42 | math sin 
+        "#
+    ));
+
+    assert!(actual.err.contains("mut statement used in pipeline"));
 }

@@ -1,7 +1,7 @@
 use nu_test_support::{nu, pipeline};
 
 #[test]
-fn let_parse_error() {
+fn let_with_builtin_var() {
     let actual = nu!(
         cwd: ".", pipeline(
         r#"
@@ -11,7 +11,7 @@ fn let_parse_error() {
 
     assert!(actual
         .err
-        .contains("'in' is the name of a builtin Nushell variable"));
+        .contains("'in' is the name of a builtin Nushell variable."));
 }
 
 #[test]
@@ -34,4 +34,16 @@ fn let_with_external_failed() {
     );
 
     assert!(!actual.out.contains("fail"));
+}
+
+#[test]
+fn let_in_pipeline() {
+    let actual = nu!(
+        cwd: ".", pipeline(
+        r#"
+        let a = 42 | math sin 
+        "#
+    ));
+
+    assert!(actual.err.contains("let statement used in pipeline"))
 }

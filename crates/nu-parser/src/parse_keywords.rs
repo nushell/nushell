@@ -16,7 +16,7 @@ static LIB_DIRS_ENV: &str = "NU_LIB_DIRS";
 static PLUGIN_DIRS_ENV: &str = "NU_PLUGIN_DIRS";
 
 use crate::{
-    eval::{eval_constant, value_as_string},
+    eval::{eval_constant, value_as_string, EvalMode},
     known_external::KnownExternal,
     lex,
     lite_parser::{lite_parse, LiteCommand, LiteElement},
@@ -2192,8 +2192,9 @@ pub fn parse_use(
 
     let mut error = None;
 
+    let eval_mode = EvalMode::Argument(b"use");
     let (import_pattern_expr, err) =
-        parse_import_pattern(working_set, args_spans, expand_aliases_denylist);
+        parse_import_pattern(working_set, args_spans, expand_aliases_denylist, eval_mode);
     error = error.or(err);
 
     let import_pattern = if let Expression {
@@ -2516,8 +2517,9 @@ pub fn parse_hide(
 
     let mut error = None;
 
+    let eval_mode = EvalMode::Argument(b"hide");
     let (import_pattern_expr, err) =
-        parse_import_pattern(working_set, args_spans, expand_aliases_denylist);
+        parse_import_pattern(working_set, args_spans, expand_aliases_denylist, eval_mode);
     error = error.or(err);
 
     let import_pattern = if let Expression {
@@ -2690,10 +2692,11 @@ pub fn parse_overlay_new(
     call: Box<Call>,
 ) -> (Pipeline, Option<ParseError>) {
     let call_span = call.span();
+    let eval_mode = EvalMode::Argument(b"overlay new");
 
     let (overlay_name, _) = if let Some(expr) = call.positional_nth(0) {
-        match eval_constant(working_set, expr) {
-            Ok(val) => match value_as_string(val, expr.span) {
+        match eval_constant(working_set, expr, eval_mode) {
+            Ok(val) => match value_as_string(val, expr.span, eval_mode) {
                 Ok(s) => (s, expr.span),
                 Err(err) => {
                     return (garbage_pipeline(&[call_span]), Some(err));
@@ -2743,10 +2746,11 @@ pub fn parse_overlay_use(
     expand_aliases_denylist: &[usize],
 ) -> (Pipeline, Option<ParseError>) {
     let call_span = call.span();
+    let eval_mode = EvalMode::Argument(b"overlay use");
 
     let (overlay_name, overlay_name_span) = if let Some(expr) = call.positional_nth(0) {
-        match eval_constant(working_set, expr) {
-            Ok(val) => match value_as_string(val, expr.span) {
+        match eval_constant(working_set, expr, eval_mode) {
+            Ok(val) => match value_as_string(val, expr.span, eval_mode) {
                 Ok(s) => (s, expr.span),
                 Err(err) => {
                     return (garbage_pipeline(&[call_span]), Some(err));
@@ -2768,8 +2772,8 @@ pub fn parse_overlay_use(
 
     let new_name = if let Some(kw_expression) = call.positional_nth(1) {
         if let Some(new_name_expression) = kw_expression.as_keyword() {
-            match eval_constant(working_set, new_name_expression) {
-                Ok(val) => match value_as_string(val, new_name_expression.span) {
+            match eval_constant(working_set, new_name_expression, eval_mode) {
+                Ok(val) => match value_as_string(val, new_name_expression.span, eval_mode) {
                     Ok(s) => Some(Spanned {
                         item: s,
                         span: new_name_expression.span,
@@ -3006,10 +3010,11 @@ pub fn parse_overlay_hide(
     call: Box<Call>,
 ) -> (Pipeline, Option<ParseError>) {
     let call_span = call.span();
+    let eval_mode = EvalMode::Argument(b"overlay hide");
 
     let (overlay_name, overlay_name_span) = if let Some(expr) = call.positional_nth(0) {
-        match eval_constant(working_set, expr) {
-            Ok(val) => match value_as_string(val, expr.span) {
+        match eval_constant(working_set, expr, eval_mode) {
+            Ok(val) => match value_as_string(val, expr.span, eval_mode) {
                 Ok(s) => (s, expr.span),
                 Err(err) => {
                     return (garbage_pipeline(&[call_span]), Some(err));
@@ -3126,11 +3131,15 @@ pub fn parse_let_or_const(
                                 .to_string();
 
                         if ["in", "nu", "env", "nothing"].contains(&var_name.as_str()) {
-                            error = if is_const {
-                                error.or(Some(ParseError::ConstBuiltinVar(var_name, lvalue.span)))
-                            } else {
-                                error.or(Some(ParseError::LetBuiltinVar(var_name, lvalue.span)))
-                            };
+                            error = error.or(Some(ParseError::BuiltinVarAssignment(
+                                var_name,
+                                if is_const {
+                                    "const".into()
+                                } else {
+                                    "let".into()
+                                },
+                                lvalue.span,
+                            )));
                         }
 
                         let var_id = lvalue.as_var();
@@ -3140,7 +3149,7 @@ pub fn parse_let_or_const(
                             working_set.set_variable_type(var_id, rhs_type);
 
                             if is_const {
-                                match eval_constant(working_set, &rvalue) {
+                                match eval_constant(working_set, &rvalue, EvalMode::Assignment) {
                                     Ok(val) => {
                                         working_set.add_constant(var_id, val);
                                     }
@@ -3260,8 +3269,11 @@ pub fn parse_mut(
                                 .to_string();
 
                         if ["in", "nu", "env", "nothing"].contains(&var_name.as_str()) {
-                            error =
-                                error.or(Some(ParseError::MutBuiltinVar(var_name, lvalue.span)));
+                            error = error.or(Some(ParseError::BuiltinVarAssignment(
+                                var_name,
+                                "mut".into(),
+                                lvalue.span,
+                            )));
                         }
 
                         let var_id = lvalue.as_var();
@@ -3337,6 +3349,7 @@ pub fn parse_source(
 
     if name == b"source" || name == b"source-env" {
         let scoped = name == b"source-env";
+        let eval_mode = EvalMode::Argument(if scoped { b"source-env" } else { b"source" });
 
         if let Some(decl_id) = working_set.find_decl(name, &Type::Any) {
             let cwd = working_set.get_cwd();
@@ -3379,7 +3392,7 @@ pub fn parse_source(
 
                 error = error.or(err);
 
-                let val = match eval_constant(working_set, &expr) {
+                let val = match eval_constant(working_set, &expr, eval_mode) {
                     Ok(val) => val,
                     Err(err) => {
                         return (
@@ -3394,7 +3407,7 @@ pub fn parse_source(
                     }
                 };
 
-                let filename = match value_as_string(val, spans[1]) {
+                let filename = match value_as_string(val, spans[1], eval_mode) {
                     Ok(s) => s,
                     Err(err) => {
                         return (

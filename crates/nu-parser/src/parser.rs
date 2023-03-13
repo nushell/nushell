@@ -1,5 +1,5 @@
 use crate::{
-    eval::{eval_constant, value_as_string},
+    eval::{eval_constant, value_as_string, EvalMode},
     lex,
     lite_parser::{lite_parse, LiteCommand, LiteElement},
     parse_mut,
@@ -2944,6 +2944,7 @@ pub fn parse_import_pattern(
     working_set: &mut StateWorkingSet,
     spans: &[Span],
     expand_aliases_denylist: &[usize],
+    mode: EvalMode,
 ) -> (Expression, Option<ParseError>) {
     let mut error = None;
 
@@ -2964,8 +2965,8 @@ pub fn parse_import_pattern(
     );
     error = error.or(err);
 
-    let (maybe_module_id, head_name) = match eval_constant(working_set, &head_expr) {
-        Ok(val) => match value_as_string(val, head_expr.span) {
+    let (maybe_module_id, head_name) = match eval_constant(working_set, &head_expr, mode) {
+        Ok(val) => match value_as_string(val, head_expr.span, mode) {
             Ok(s) => (working_set.find_module(s.as_bytes()), s.into_bytes()),
             Err(err) => {
                 return (garbage(span(spans)), error.or(Some(err)));
