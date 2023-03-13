@@ -1428,7 +1428,7 @@ pub fn parse_int(token: &[u8], span: Span) -> (Expression, Option<ParseError>) {
             (
                 garbage(span),
                 Some(ParseError::InvalidLiteral(
-                    format!("invalid digits for radix {}", radix),
+                    format!("invalid digits for radix {radix}"),
                     "int".into(),
                     span,
                 )),
