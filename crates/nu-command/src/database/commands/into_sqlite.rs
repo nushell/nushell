@@ -117,7 +117,7 @@ fn action(
 
             let table_columns_creation = columns
                 .iter()
-                .map(|(name, sql_type)| format!("`{name}` {sql_type}"))
+                .map(|(name, sql_type)| format!("\"{name}\" {sql_type}"))
                 .join(",");
 
             // get the values
