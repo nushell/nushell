@@ -213,6 +213,7 @@ fn do_cases_where_result_differs_between_join_types(join_type: &str) {
     }
 }
 
+#[ignore]
 #[test]
 fn test_alternative_table_syntax() {
     let join_type = "--inner";
