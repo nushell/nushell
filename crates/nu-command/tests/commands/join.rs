@@ -79,7 +79,10 @@ fn do_cases_where_result_is_same_between_join_types(join_type: &str) {
 
         // Test again with streaming input (using `each` to convert the input into a ListStream)
         let to_list_stream = "each { |i| $i } | ";
-        let expr = format!("{} | {} join {} {} {} | to nuon", left, to_list_stream, right, join_type, on);
+        let expr = format!(
+            "{} | {} join {} {} {} | to nuon",
+            left, to_list_stream, right, join_type, on
+        );
         let actual = nu!(cwd: ".", expr).out;
         assert_eq!(actual, expected);
     }
@@ -199,7 +202,10 @@ fn do_cases_where_result_differs_between_join_types(join_type: &str) {
 
                 // Test again with streaming input (using `each` to convert the input into a ListStream)
                 let to_list_stream = "each { |i| $i } | ";
-                let expr = format!("{} | {} join {} {} {} | to nuon", left, to_list_stream, right, join_type, on);
+                let expr = format!(
+                    "{} | {} join {} {} {} | to nuon",
+                    left, to_list_stream, right, join_type, on
+                );
                 let actual = nu!(cwd: ".", expr).out;
                 assert_eq!(actual, expected);
             }
