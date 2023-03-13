@@ -178,7 +178,7 @@ Our (ansi green)Documentation(ansi reset) is located at (ansi green)https://nush
 Learn how to remove this at: (ansi green)https://nushell.sh/book/configuration.html#remove-welcome-message(ansi reset)
 
 It's been this long since (ansi green)Nushell(ansi reset)'s first commit:
-((date now) - ('2019-05-10 09:59:12-0700' | into datetime))
+((date now) - 2019-05-10T09:59:12-07:00)
 
 Startup Time: ($nu.startup-time)"
 }
