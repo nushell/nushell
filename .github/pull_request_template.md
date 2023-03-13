@@ -25,10 +25,6 @@ Make sure you've run and fixed any issues with these commands:
 > use toolkit.nu  # or use an `env_change` hook to activate it automatically
 > toolkit check pr
 > ```
-> you can replace this whole "Tests + Formatting" section by the list output of
-> ```bash
-> toolkit check pr --pretty
-> ```
 
 # After Submitting
 

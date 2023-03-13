@@ -54,7 +54,6 @@ def report [
     --fail-clippy: bool
     --fail-test: bool
     --no-fail: bool
-    --pretty: bool = false  # turn the pretty table printing for *GitHub*
 ] {
     [fmt clippy test] | wrap stage
     | merge (
@@ -65,24 +64,19 @@ def report [
         else                 { [$nothing $nothing $nothing] }
         | wrap success
     )
-    | if $pretty {
-        upsert emoji {|it|
-            if ($it.success == $nothing) {
-                ":black_circle:"
-            } else if $it.success {
-                ":green_circle:"
-            } else {
-                ":red_circle:"
-            }
+    | upsert emoji {|it|
+        if ($it.success == $nothing) {
+            ":black_circle:"
+        } else if $it.success {
+            ":green_circle:"
+        } else {
+            ":red_circle:"
         }
-        | each {|it|
-            $"- ($it.emoji) `toolkit ($it.stage)`"
-        }
-        | to text
-    } else {
-        transpose -r
-        | into record
     }
+    | each {|it|
+        $"- ($it.emoji) `toolkit ($it.stage)`"
+    }
+    | to text
 }
 
 # run all the necessary checks and tests to submit a perfect PR
@@ -113,7 +107,6 @@ def report [
 #
 # > **Note**
 # > at every stage, the `toolkit check pr` will return a report of the few stages being run.
-# > that is a record with boolean values for all the stages indicating the success or failure of them
 #
 # - we run the toolkit once and it fails...
 # ```nushell
@@ -178,29 +171,28 @@ def report [
 # now the whole `toolkit check pr` passes! :tada:
 export def "check pr" [
     --fast: bool  # use the "nextext" `cargo` subcommand to speed up the tests (see [`cargo-nextest`](https://nexte.st/) and [`nextest-rs/nextest`](https://github.com/nextest-rs/nextest))
-    --pretty: bool  # turn the pretty table printing for *GitHub*
 ] {
     print $"running ('toolkit fmt' | pretty-print-command)"
     try {
         fmt --check
     } catch {
         print $"\nplease run (ansi default_dimmed)(ansi default_italic)toolkit fmt(ansi reset) to fix the formatting"
-        return (report --pretty $pretty --fail-fmt)
+        return (report --fail-fmt)
     }
 
     print $"running ('toolkit clippy' | pretty-print-command)"
     try {
         clippy
     } catch {
-        return (report --pretty $pretty --fail-clippy)
+        return (report --fail-clippy)
     }
 
     print $"running ('toolkit test' | pretty-print-command)"
     try {
         if $fast { test --fast } else { test }
     } catch {
-        return (report --pretty $pretty --fail-test)
+        return (report --fail-test)
     }
 
-    report --pretty $pretty --no-fail
+    report --no-fail
 }
