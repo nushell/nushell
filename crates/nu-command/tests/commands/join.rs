@@ -212,3 +212,18 @@ fn do_cases_where_result_differs_between_join_types(join_type: &str) {
         }
     }
 }
+
+#[test]
+fn test_alternative_table_syntax() {
+    let join_type = "--inner";
+    for ((left, right, on), expected) in [
+        (("[{a: 1}]", "[{a: 1}]", "a"), "[[a]; [1]]"),
+        (("[{a: 1}]", "[[a]; [1]]", "a"), "[[a]; [1]]"),
+        (("[[a]; [1]]", "[{a: 1}]", "a"), "[[a]; [1]]"),
+        (("[[a]; [1]]", "[[a]; [1]]", "a"), "[[a]; [1]]"),
+    ] {
+        let expr = format!("{} | join {} {} {} | to nuon", left, right, join_type, on);
+        let actual = nu!(cwd: ".", &expr).out;
+        assert_eq!(actual, expected, "Expression was {}", &expr);
+    }
+}
