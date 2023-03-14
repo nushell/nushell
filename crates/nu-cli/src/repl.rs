@@ -414,7 +414,7 @@ pub fn evaluate_repl(
         );
 
         start_time = std::time::Instant::now();
-        let config = engine_state.get_config();
+        let config = &engine_state.get_config().clone();
         let prompt = prompt_update::update_prompt(config, engine_state, stack, &mut nu_prompt);
         perf(
             "update_prompt",
@@ -427,11 +427,14 @@ pub fn evaluate_repl(
 
         entry_num += 1;
 
-        if entry_num == 1 && show_banner {
-            println!(
-                "Startup Time: {}",
-                format_duration(entire_start_time.elapsed().as_nanos() as i64)
-            );
+        if entry_num == 1 {
+            engine_state.set_startup_time(entire_start_time.elapsed().as_nanos() as i64);
+            if show_banner {
+                println!(
+                    "Startup Time: {}",
+                    format_duration(engine_state.get_startup_time())
+                );
+            }
         }
 
         start_time = std::time::Instant::now();
@@ -1121,7 +1124,7 @@ fn run_hook_block(
         eval_block_with_early_return(engine_state, &mut callee_stack, block, input, false, false)?;
 
     if let PipelineData::Value(Value::Error { error }, _) = pipeline_data {
-        return Err(error);
+        return Err(*error);
     }
 
     // If all went fine, preserve the environment of the called block

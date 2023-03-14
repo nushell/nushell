@@ -60,66 +60,29 @@ impl Command for Try {
         let result = eval_block(engine_state, stack, try_block, input, false, false);
 
         match result {
-            Err(error) | Ok(PipelineData::Value(Value::Error { error }, ..)) => {
-                if let nu_protocol::ShellError::Break(_) = error {
-                    return Err(error);
-                } else if let nu_protocol::ShellError::Continue(_) = error {
-                    return Err(error);
-                } else if let nu_protocol::ShellError::Return(_, _) = error {
-                    return Err(error);
-                }
-                if let Some(catch_block) = catch_block {
-                    let catch_block = engine_state.get_block(catch_block.block_id);
-                    let err_value = Value::Error { error };
-                    // Put the error value in the positional closure var
-                    if let Some(var) = catch_block.signature.get_positional(0) {
-                        if let Some(var_id) = &var.var_id {
-                            stack.add_var(*var_id, err_value.clone());
-                        }
-                    }
-
-                    eval_block(
-                        engine_state,
-                        stack,
-                        catch_block,
-                        // Make the error accessible with $in, too
-                        err_value.into_pipeline_data(),
-                        false,
-                        false,
-                    )
-                } else {
-                    Ok(PipelineData::empty())
-                }
+            Err(error) => {
+                let error = intercept_block_control(error)?;
+                let err_value = Value::Error {
+                    error: Box::new(error),
+                };
+                handle_catch(err_value, catch_block, engine_state, stack)
+            }
+            Ok(PipelineData::Value(Value::Error { error }, ..)) => {
+                let error = intercept_block_control(*error)?;
+                let err_value = Value::Error {
+                    error: Box::new(error),
+                };
+                handle_catch(err_value, catch_block, engine_state, stack)
             }
             // external command may fail to run
             Ok(pipeline) => {
                 let (pipeline, external_failed) = pipeline.is_external_failed();
                 if external_failed {
-                    if let Some(catch_block) = catch_block {
-                        let catch_block = engine_state.get_block(catch_block.block_id);
-
-                        if let Some(var) = catch_block.signature.get_positional(0) {
-                            if let Some(var_id) = &var.var_id {
-                                // Because external command errors aren't "real" errors,
-                                // (unless do -c is in effect)
-                                // they can't be passed in as Nushell values.
-                                let err_value = Value::nothing(call.head);
-                                stack.add_var(*var_id, err_value);
-                            }
-                        }
-
-                        eval_block(
-                            engine_state,
-                            stack,
-                            catch_block,
-                            // The same null as in the above block is set as the $in value.
-                            Value::nothing(call.head).into_pipeline_data(),
-                            false,
-                            false,
-                        )
-                    } else {
-                        Ok(PipelineData::empty())
-                    }
+                    // Because external command errors aren't "real" errors,
+                    // (unless do -c is in effect)
+                    // they can't be passed in as Nushell values.
+                    let err_value = Value::nothing(call.head);
+                    handle_catch(err_value, catch_block, engine_state, stack)
                 } else {
                     Ok(pipeline)
                 }
@@ -140,6 +103,48 @@ impl Command for Try {
                 result: Some(Value::test_string("missing")),
             },
         ]
+    }
+}
+
+fn handle_catch(
+    err_value: Value,
+    catch_block: Option<Closure>,
+    engine_state: &EngineState,
+    stack: &mut Stack,
+) -> Result<PipelineData, ShellError> {
+    if let Some(catch_block) = catch_block {
+        let catch_block = engine_state.get_block(catch_block.block_id);
+        // Put the error value in the positional closure var
+        if let Some(var) = catch_block.signature.get_positional(0) {
+            if let Some(var_id) = &var.var_id {
+                stack.add_var(*var_id, err_value.clone());
+            }
+        }
+
+        eval_block(
+            engine_state,
+            stack,
+            catch_block,
+            // Make the error accessible with $in, too
+            err_value.into_pipeline_data(),
+            false,
+            false,
+        )
+    } else {
+        Ok(PipelineData::empty())
+    }
+}
+
+/// The flow control commands `break`/`continue`/`return` emit their own [`ShellError`] variants
+/// We need to ignore those in `try` and bubble them through
+///
+/// `Err` when flow control to bubble up with `?`
+fn intercept_block_control(error: ShellError) -> Result<ShellError, ShellError> {
+    match error {
+        nu_protocol::ShellError::Break(_) => Err(error),
+        nu_protocol::ShellError::Continue(_) => Err(error),
+        nu_protocol::ShellError::Return(_, _) => Err(error),
+        _ => Ok(error),
     }
 }
 

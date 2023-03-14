@@ -48,7 +48,7 @@ impl Command for StrCollect {
         for value in input {
             match value {
                 Value::Error { error } => {
-                    return Err(error);
+                    return Err(*error);
                 }
                 value => {
                     strings.push(value.debug_string("\n", config));

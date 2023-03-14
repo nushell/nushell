@@ -477,3 +477,8 @@ fn or_and_xor() -> TestResult {
 fn unbalanced_delimiter() -> TestResult {
     fail_test(r#"{a:{b:5}}}"#, "unbalanced { and }")
 }
+
+#[test]
+fn unbalanced_delimiter2() -> TestResult {
+    fail_test(r#"{}#.}"#, "unbalanced { and }")
+}

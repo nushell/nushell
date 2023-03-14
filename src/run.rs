@@ -194,7 +194,7 @@ pub(crate) fn run_file(
 }
 
 pub(crate) fn run_repl(
-    mut engine_state: nu_protocol::engine::EngineState,
+    engine_state: &mut nu_protocol::engine::EngineState,
     parsed_nu_cli_args: command::NushellCliArgs,
     entire_start_time: std::time::Instant,
 ) -> Result<(), miette::ErrReport> {
@@ -203,7 +203,7 @@ pub(crate) fn run_repl(
 
     if parsed_nu_cli_args.no_config_file.is_none() {
         setup_config(
-            &mut engine_state,
+            engine_state,
             &mut stack,
             #[cfg(feature = "plugin")]
             parsed_nu_cli_args.plugin_file,
@@ -226,7 +226,7 @@ pub(crate) fn run_repl(
 
     let start_time = std::time::Instant::now();
     let ret_val = evaluate_repl(
-        &mut engine_state,
+        engine_state,
         &mut stack,
         config_files::NUSHELL_FOLDER,
         parsed_nu_cli_args.execute,

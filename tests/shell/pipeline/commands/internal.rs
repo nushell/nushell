@@ -22,7 +22,7 @@ fn takes_rows_of_nu_value_strings_and_pipes_it_to_stdin_of_external() {
         r#"
             open nu_times.csv
             | get origin
-            | each { |it| ^echo $it | nu --testbin chop }
+            | each { |it| nu --testbin cococo $it | nu --testbin chop }
             | get 2
             "#
         ));
