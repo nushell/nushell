@@ -9,6 +9,7 @@
 # You could also advise the user to `use` your submodule directly
 # to put the subcommands at the top level: dirs <subcommand>
 
+export use logger.nu
 export use dirs.nu
 # the directory stack -- export-env from submodule doesn't work?
 export-env {
