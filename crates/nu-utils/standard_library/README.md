@@ -54,9 +54,8 @@ This module does not export environment.
 ### :wrench: add new commands
 - add new standard commands to [`std.nu`](std.nu), or preferrably create a new submodule.
 - add associated tests to [`test_std.nu`](tests_std.nu) or preferrably to `test_<submodule>.nu`.
-    - define a new `test_<feature>` before the `main`
+    - define a new exported (!) `test_<feature>` command
     - import the `assert` functions you need at the top of the functions, e.g. `use std.nu "assert eq"`
-    - add a call to `test_<feature>` at the bottom of the `main`
 
 ### :test_tube: run the tests
 the following call should return nothing

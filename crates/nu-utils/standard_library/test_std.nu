@@ -1,6 +1,29 @@
 use std.nu
 
-def test_match [] {
+export def test_assert [] {
+    def test_failing [code: closure] {
+        let code_did_run = (try { do $code; true } catch { false })
+
+        if $code_did_run {
+            error make {msg: (view source $code)}
+        }
+    }
+
+    std assert true
+    std assert (1 + 2 == 3)
+    test_failing { std assert false }
+    test_failing { std assert (1 + 2 == 4) }
+
+    std assert eq (1 + 2) 3
+    test_failing { std assert eq 1 "foo" }
+    test_failing { std assert eq (1 + 2) 4) }
+
+    std assert ne (1 + 2) 4
+    test_failing { std assert ne 1 "foo" }
+    test_failing { std assert ne (1 + 2) 3) }
+}
+
+export def test_match [] {
     use std.nu assert
 
     let branches = {
@@ -17,7 +40,7 @@ def test_match [] {
     assert ((std match 3 $branches { 0 }) == 0)
 }
 
-def test_path_add [] {
+export def test_path_add [] {
     use std.nu "assert eq"
 
     with-env [PATH []] {
@@ -38,10 +61,4 @@ def test_path_add [] {
         assert eq (std path add "fooooo" --ret) ["fooooo", "foo", "bar", "baz"]
         assert eq $env.PATH ["fooooo", "foo", "bar", "baz"]
     }
-}
-
-
-def main [] {
-    test_match
-    test_path_add
 }
