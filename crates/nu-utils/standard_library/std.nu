@@ -1,3 +1,23 @@
+# std.nu, `used` to load all standard library components
+
+# ----------- sub modules to be loaded as part of stdlib ------------------
+# (choose flavor of import that puts your functions in the right namespace)
+# This imports into std top-level namespace: std <subcommand>
+# export use dirs.nu *
+# This imports into std *sub* namespace: std dirs <subcommand>
+# export use dirs.nu
+# You could also advise the user to `use` your submodule directly
+# to put the subcommands at the top level: dirs <subcommand>
+
+export use dirs.nu
+# the directory stack -- export-env from submodule doesn't work?
+export-env {
+    let-env DIRS_POSITION = 0
+    let-env DIRS_LIST = [($env.PWD | path expand)]
+}
+
+# ---------------- builtin std functions --------------------
+
 def _assert [
     cond: bool
     msg: string
@@ -120,5 +140,43 @@ export def match [
          $matchers | get $input | do $in
     } else if ($default != null) {
         do $default
+    }
+}
+
+# Add the given paths to the PATH.
+#
+# # Example
+# - adding some dummy paths to an empty PATH
+# ```nushell
+# >_ with-env [PATH []] {
+#     std path add "foo"
+#     std path add "bar" "baz"
+#     std path add "fooo" --append
+#
+#     assert eq $env.PATH ["bar" "baz" "foo" "fooo"]
+#
+#     print (std path add "returned" --ret)
+# }
+# ╭───┬──────────╮
+# │ 0 │ returned │
+# │ 1 │ bar      │
+# │ 2 │ baz      │
+# │ 3 │ foo      │
+# │ 4 │ fooo     │
+# ╰───┴──────────╯
+# ```
+export def-env "path add" [
+    --ret (-r)  # return $env.PATH, useful in pipelines to avoid scoping.
+    --append (-a)  # append to $env.PATH instead of prepending to.
+    ...paths  # the paths to add to $env.PATH.
+] {
+    let-env PATH = (
+        $env.PATH
+        | if $append { append $paths }
+        else { prepend $paths }
+    )
+
+    if $ret {
+        $env.PATH
     }
 }

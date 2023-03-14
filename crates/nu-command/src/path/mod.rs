@@ -48,12 +48,12 @@ where
             };
             if col.is_empty() {
                 return Value::Error {
-                    error: ShellError::UnsupportedInput(
+                    error: Box::new(ShellError::UnsupportedInput(
                         String::from("when the input is a table, you must specify the columns"),
                         "value originates from here".into(),
                         name,
                         span,
-                    ),
+                    )),
                 };
             }
 
@@ -85,7 +85,7 @@ where
 
 fn handle_invalid_values(rest: Value, name: Span) -> Value {
     Value::Error {
-        error: err_from_value(&rest, name),
+        error: Box::new(err_from_value(&rest, name)),
     }
 }
 

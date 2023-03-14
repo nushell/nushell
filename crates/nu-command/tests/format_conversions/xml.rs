@@ -8,7 +8,15 @@ fn table_to_xml_text_and_from_xml_text_back_into_table() {
             open jonathan.xml
             | to xml
             | from xml
-            | get rss.children.channel.children.0.3.item.children.guid.4.attributes.isPermaLink
+            | get content
+            | where tag == channel
+            | get content
+            | flatten
+            | where tag == item
+            | get content
+            | flatten
+            | where tag == guid
+            | get 0.attributes.isPermaLink
         "#
     ));
 

@@ -58,7 +58,7 @@ impl Command for ConfigNu {
         let mut nu_config = config_path.clone();
         nu_config.push("config.nu");
 
-        let (item, config_args) = get_editor(engine_state, stack)?;
+        let (item, config_args) = get_editor(engine_state, stack, call.head)?;
 
         gen_command(call.head, nu_config, item, config_args, env_vars_str).run_with_input(
             engine_state,

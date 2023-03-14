@@ -86,7 +86,7 @@ fn length_row(call: &Call, input: PipelineData) -> Result<PipelineData, ShellErr
             // Check for and propagate errors
             for value in input.into_iter() {
                 if let Value::Error { error } = value {
-                    return Err(error);
+                    return Err(*error);
                 }
                 count += 1
             }

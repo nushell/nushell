@@ -218,7 +218,7 @@ impl Iterator for RangeIterator {
         } else {
             self.done = true;
             return Some(Value::Error {
-                error: ShellError::CannotCreateRange { span: self.span },
+                error: Box::new(ShellError::CannotCreateRange { span: self.span }),
             });
         };
 
@@ -237,7 +237,9 @@ impl Iterator for RangeIterator {
 
                 Err(error) => {
                     self.done = true;
-                    return Some(Value::Error { error });
+                    return Some(Value::Error {
+                        error: Box::new(error),
+                    });
                 }
             };
             std::mem::swap(&mut self.curr, &mut next);

@@ -193,7 +193,9 @@ impl Command for Mv {
                     interactive,
                 );
                 if let Err(error) = result {
-                    Some(Value::Error { error })
+                    Some(Value::Error {
+                        error: Box::new(error),
+                    })
                 } else if verbose {
                     let val = match result {
                         Ok(true) => format!(
