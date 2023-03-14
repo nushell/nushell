@@ -15,8 +15,10 @@ def current-log-level [] {
     } catch {
         (
             if $env_level == "CRITICAL" { return (CRITICAL_LEVEL)}
+            else if $env_level == "CRIT" { return (CRITICAL_LEVEL)}
             else if $env_level == "ERROR" { return (ERROR_LEVEL) }
             else if $env_level == "WARNING" { return (WARNING_LEVEL) }
+            else if $env_level == "WARN" { return (WARNING_LEVEL) }
             else if $env_level == "INFO" { return (INFO_LEVEL) }
             else if $env_level == "DEBUG" { return (DEBUG_LEVEL) }
             else { return (INFO_LEVEL) }
