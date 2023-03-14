@@ -125,11 +125,15 @@ export def "assert ne" [left: any, right: any, message?: string] {
     let left_start = (metadata $left).span.start
     let right_end = (metadata $right).span.end
 
-    if ($left == $right) {
-        _assertion-error $left_start $right_end $"They both are ($left)" $message
+    if (($left | describe) == ($right | describe)) {
+        # We are happy, nothing to do.
+    } else {
+        _assertion-error $left_start $right_end $"They have different types: ($left_type) <-> ($right_type)." $message
     }
-    if ($left_type != $right_type) {
-        _assertion-error $left_start $right_end $"They are not equal, although they have different types: ($left_type) <-> ($right_type)." $message
+    if ($left != $right) {
+        # We are happy, nothing to do.
+    } else {
+        _assertion-error $left_start $right_end $"They both are ($left)" $message
     }
 }
 
