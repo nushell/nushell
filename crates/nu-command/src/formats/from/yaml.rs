@@ -359,6 +359,22 @@ mod test {
                     span: Span::test_data(),
                 }),
             },
+            TestCase {
+                input: "Key: !True",
+                expected: Ok(Value::Record {
+                    cols: vec!["Key".to_string()],
+                    vals: vec![Value::test_string("!True")],
+                    span: Span::test_data(),
+                }),
+            },
+            TestCase {
+                input: "Key: !123",
+                expected: Ok(Value::Record {
+                    cols: vec!["Key".to_string()],
+                    vals: vec![Value::test_string("!123")],
+                    span: Span::test_data(),
+                }),
+            },
         ];
 
         for test_case in test_cases {
