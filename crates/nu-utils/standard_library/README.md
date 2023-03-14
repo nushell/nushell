@@ -52,8 +52,8 @@ This module does not export environment.
 
 ## :pencil2: contribute to the standard library
 ### :wrench: add new commands
-- add new standard commands to [`std.nu`](std.nu), or preferrably create a new submodule.
-- add associated tests to [`test_std.nu`](tests_std.nu) or preferrably to `test_<submodule>.nu`.
+- add new standard commands to [`std.nu`](std.nu), or preferably create a new submodule.
+- add associated tests to [`test_std.nu`](tests_std.nu) or preferably to `test_<submodule>.nu`.
     - define a new exported (!) `test_<feature>` command
     - import the `assert` functions you need at the top of the functions, e.g. `use std.nu "assert eq"`
 
