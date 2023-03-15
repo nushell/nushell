@@ -1231,13 +1231,17 @@ impl Value {
                                         span: v_span,
                                     } => {
                                         let mut found = false;
-                                        for (i, col) in cols.clone().iter().enumerate() {
+                                        let mut index = 0;
+                                        cols.retain_mut(|col| {
                                             if col == col_name {
-                                                cols.remove(i);
-                                                vals.remove(i);
                                                 found = true;
+                                                vals.remove(index);
+                                                false
+                                            } else {
+                                                index += 1;
+                                                true
                                             }
-                                        }
+                                        });
                                         if !found {
                                             return Err(ShellError::CantFindColumn {
                                                 col_name: col_name.to_string(),

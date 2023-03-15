@@ -118,3 +118,32 @@ fn reject_nested_field() {
 
     assert_eq!(actual.out, "{a: {c: 5}}");
 }
+
+#[test]
+fn reject_two_identical_elements() {
+    let actual = nu!(
+        cwd: ".", pipeline(
+            r#"[[a, a]; [1, 2]] | reject a"#
+        )
+    );
+    assert!(actual.out.contains("record 0 fields"));
+}
+
+#[test]
+fn reject_large_vec_with_two_identical_elements() {
+    let actual = nu!(
+        cwd: ".", pipeline(
+            r#"[[a, b, c, d, e, a]; [1323, 23, 45, 100, 2, 2423]] | reject a"#
+        )
+    );
+    assert!(!actual.out.contains("1323"));
+    assert!(!actual.out.contains("2423"));
+    assert!(actual.out.contains('b'));
+    assert!(actual.out.contains('c'));
+    assert!(actual.out.contains('d'));
+    assert!(actual.out.contains('e'));
+    assert!(actual.out.contains("23"));
+    assert!(actual.out.contains("45"));
+    assert!(actual.out.contains("100"));
+    assert!(actual.out.contains('2'));
+}
