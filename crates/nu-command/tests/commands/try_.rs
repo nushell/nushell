@@ -106,7 +106,7 @@ fn loop_try_break_on_command_should_show_successful() {
 fn catch_block_can_use_error_object() {
     let output = nu!(
         cwd: ".",
-        "try {1 / 0} catch {|err| print ($err | get msg})"
+        "try {1 / 0} catch {|err| print ($err | get msg)}"
     );
     assert_eq!(output.out, "division by zero")
 }
