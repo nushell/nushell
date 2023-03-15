@@ -148,7 +148,7 @@ mod it_evaluation {
     fn takes_rows_of_nu_value_strings() {
         Playground::setup("it_argument_test_1", |dirs, sandbox| {
             sandbox.with_files(vec![
-                EmptyFile("jonathan_likes_cake.txt"),
+                EmptyFile("jt_likes_cake.txt"),
                 EmptyFile("andres_likes_arepas.txt"),
             ]);
 
@@ -163,7 +163,7 @@ mod it_evaluation {
                 "#
             ));
 
-            assert_eq!(actual.out, "jonathan_likes_cake.txt");
+            assert_eq!(actual.out, "jt_likes_cake.txt");
         })
     }
 
@@ -436,7 +436,7 @@ mod external_command_arguments {
             "expands_table_of_primitives_to_positional_arguments",
             |dirs, sandbox| {
                 sandbox.with_files(vec![
-                    EmptyFile("jonathan_likes_cake.txt"),
+                    EmptyFile("jt_likes_cake.txt"),
                     EmptyFile("andres_likes_arepas.txt"),
                     EmptyFile("ferris_not_here.txt"),
                 ]);
@@ -450,7 +450,7 @@ mod external_command_arguments {
 
                 assert_eq!(
                     actual.out,
-                    "andres_likes_arepas.txt ferris_not_here.txt jonathan_likes_cake.txt"
+                    "andres_likes_arepas.txt ferris_not_here.txt jt_likes_cake.txt"
                 );
             },
         )
@@ -462,7 +462,7 @@ mod external_command_arguments {
             "expands_table_of_primitives_to_positional_arguments",
             |dirs, sandbox| {
                 sandbox.with_files(vec![
-                    EmptyFile("jonathan_likes_cake.txt"),
+                    EmptyFile("jt_likes_cake.txt"),
                     EmptyFile("andres_likes_arepas.txt"),
                     EmptyFile("ferris_not_here.txt"),
                 ]);
