@@ -86,7 +86,7 @@ sha2 = "0.10.0"
 percent-encoding = "2.2.0"
 reedline = { version = "0.17.0", features = ["bashisms", "sqlite"] }
 rusqlite = { version = "0.28.0", features = ["bundled"], optional = true }
-sqlparser = { version = "0.30.0", features = ["serde"], optional = true }
+sqlparser = { version = "0.32.0", features = ["serde"], optional = true }
 sysinfo = "0.28.2"
 tabled = "0.10.0"
 terminal_size = "0.2.1"
