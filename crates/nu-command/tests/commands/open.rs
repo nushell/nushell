@@ -193,10 +193,7 @@ fn parses_xml() {
         "#)
     );
 
-    assert_eq!(
-        actual.out,
-        "https://www.jntrnr.com/off-to-new-adventures/"
-    )
+    assert_eq!(actual.out, "https://www.jntrnr.com/off-to-new-adventures/")
 }
 
 #[cfg(feature = "dataframe")]

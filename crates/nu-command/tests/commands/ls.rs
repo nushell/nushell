@@ -73,10 +73,7 @@ fn lists_all_files_in_directories_from_stream() {
         sandbox
             .with_files(vec![EmptyFile("root1.txt"), EmptyFile("root2.txt")])
             .within("dir_a")
-            .with_files(vec![
-                EmptyFile("yehuda.10.txt"),
-                EmptyFile("jt10.txt"),
-            ])
+            .with_files(vec![EmptyFile("yehuda.10.txt"), EmptyFile("jt10.txt")])
             .within("dir_b")
             .with_files(vec![
                 EmptyFile("andres.10.txt"),
@@ -284,10 +281,9 @@ fn glob_with_hidden_directory() {
 #[cfg(unix)]
 fn fails_with_ls_to_dir_without_permission() {
     Playground::setup("ls_test_1", |dirs, sandbox| {
-        sandbox.within("dir_a").with_files(vec![
-            EmptyFile("yehuda.11.txt"),
-            EmptyFile("jt10.txt"),
-        ]);
+        sandbox
+            .within("dir_a")
+            .with_files(vec![EmptyFile("yehuda.11.txt"), EmptyFile("jt10.txt")]);
 
         let actual = nu!(
             cwd: dirs.test(), pipeline(
