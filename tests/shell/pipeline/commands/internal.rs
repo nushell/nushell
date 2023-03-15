@@ -11,7 +11,7 @@ fn takes_rows_of_nu_value_strings_and_pipes_it_to_stdin_of_external() {
             r#"
                 name,rusty_luck,origin
                 Jason,1,Canada
-                Jonathan,1,New Zealand
+                JT,1,New Zealand
                 Andrés,1,Ecuador
                 AndKitKatz,1,Estados Unidos
             "#,
@@ -103,7 +103,7 @@ fn subexpression_handles_dot() {
             r#"
                 name,rusty_luck,origin
                 Jason,1,Canada
-                Jonathan,1,New Zealand
+                JT,1,New Zealand
                 Andrés,1,Ecuador
                 AndKitKatz,1,Estados Unidos
             "#,

@@ -5,7 +5,7 @@ fn table_to_xml_text_and_from_xml_text_back_into_table() {
     let actual = nu!(
         cwd: "tests/fixtures/formats", pipeline(
         r#"
-            open jonathan.xml
+            open jt.xml
             | to xml
             | from xml
             | get content
