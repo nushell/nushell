@@ -108,5 +108,5 @@ fn catch_block_can_use_error_object() {
         cwd: ".",
         "try {1 / 0} catch {|err| print ($err | get msg)}"
     );
-    assert_eq!(output.out, "division by zero")
+    assert_eq!(output.out, "Division by zero")
 }
