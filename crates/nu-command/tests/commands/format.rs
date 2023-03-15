@@ -60,7 +60,7 @@ fn format_filesize_works() {
     Playground::setup("format_filesize_test_1", |dirs, sandbox| {
         sandbox.with_files(vec![
             EmptyFile("yehuda.txt"),
-            EmptyFile("jonathan.txt"),
+            EmptyFile("jttxt"),
             EmptyFile("andres.txt"),
         ]);
 

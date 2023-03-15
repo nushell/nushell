@@ -11,7 +11,7 @@ fn adds_row_data_if_column_missing() {
                 {
                     "amigos": [
                         {"name":   "Yehuda"},
-                        {"name": "Jonathan", "rusty_luck": 0},
+                        {"name": "JT", "rusty_luck": 0},
                         {"name":   "Andres", "rusty_luck": 0},
                         {"name":"GorbyPuff"}
                     ]

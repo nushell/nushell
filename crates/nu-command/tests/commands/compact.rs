@@ -11,7 +11,7 @@ fn discards_rows_where_given_column_is_empty() {
                 {
                     "amigos": [
                         {"name":   "Yehuda", "rusty_luck": 1},
-                        {"name": "Jonathan", "rusty_luck": 1},
+                        {"name": "JT", "rusty_luck": 1},
                         {"name":   "Andres", "rusty_luck": 1},
                         {"name":"GorbyPuff"}
                     ]
