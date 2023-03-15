@@ -16,7 +16,7 @@ impl Command for Start {
     }
 
     fn usage(&self) -> &str {
-        "Open a folder,file or website in the default application or viewer."
+        "Open a folder, file or website in the default application or viewer."
     }
 
     fn search_terms(&self) -> Vec<&str> {

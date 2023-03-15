@@ -25,14 +25,14 @@ fn moves_a_file() {
 #[test]
 fn overwrites_if_moving_to_existing_file_and_force_provided() {
     Playground::setup("mv_test_2", |dirs, sandbox| {
-        sandbox.with_files(vec![EmptyFile("andres.txt"), EmptyFile("jonathan.txt")]);
+        sandbox.with_files(vec![EmptyFile("andres.txt"), EmptyFile("jttxt")]);
 
         let original = dirs.test().join("andres.txt");
-        let expected = dirs.test().join("jonathan.txt");
+        let expected = dirs.test().join("jttxt");
 
         nu!(
             cwd: dirs.test(),
-            "mv andres.txt -f jonathan.txt"
+            "mv andres.txt -f jttxt"
         );
 
         assert!(!original.exists());
@@ -62,15 +62,15 @@ fn moves_a_directory() {
 fn moves_the_file_inside_directory_if_path_to_move_is_existing_directory() {
     Playground::setup("mv_test_4", |dirs, sandbox| {
         sandbox
-            .with_files(vec![EmptyFile("jonathan.txt")])
+            .with_files(vec![EmptyFile("jttxt")])
             .mkdir("expected");
 
-        let original_dir = dirs.test().join("jonathan.txt");
-        let expected = dirs.test().join("expected/jonathan.txt");
+        let original_dir = dirs.test().join("jttxt");
+        let expected = dirs.test().join("expected/jttxt");
 
         nu!(
             cwd: dirs.test(),
-            "mv jonathan.txt expected"
+            "mv jttxt expected"
         );
 
         assert!(!original_dir.exists());
@@ -83,7 +83,7 @@ fn moves_the_directory_inside_directory_if_path_to_move_is_existing_directory() 
     Playground::setup("mv_test_5", |dirs, sandbox| {
         sandbox
             .within("contributors")
-            .with_files(vec![EmptyFile("jonathan.txt")])
+            .with_files(vec![EmptyFile("jttxt")])
             .mkdir("expected");
 
         let original_dir = dirs.test().join("contributors");
@@ -96,7 +96,7 @@ fn moves_the_directory_inside_directory_if_path_to_move_is_existing_directory() 
 
         assert!(!original_dir.exists());
         assert!(expected.exists());
-        assert!(files_exist_at(vec!["jonathan.txt"], expected))
+        assert!(files_exist_at(vec!["jttxt"], expected))
     })
 }
 
@@ -109,8 +109,8 @@ fn moves_using_path_with_wildcard() {
                 EmptyFile("andres.ini"),
                 EmptyFile("caco3_plastics.csv"),
                 EmptyFile("cargo_sample.toml"),
-                EmptyFile("jonathan.ini"),
-                EmptyFile("jonathan.xml"),
+                EmptyFile("jt.ini"),
+                EmptyFile("jt.xml"),
                 EmptyFile("sgml_description.json"),
                 EmptyFile("sample.ini"),
                 EmptyFile("utf16.ini"),
@@ -125,7 +125,7 @@ fn moves_using_path_with_wildcard() {
         nu!(cwd: work_dir, "mv ../originals/*.ini ../expected");
 
         assert!(files_exist_at(
-            vec!["yehuda.ini", "jonathan.ini", "sample.ini", "andres.ini",],
+            vec!["yehuda.ini", "jt.ini", "sample.ini", "andres.ini",],
             expected
         ));
     })
@@ -210,11 +210,11 @@ fn errors_if_source_doesnt_exist() {
 #[test]
 fn error_if_moving_to_existing_file_without_force() {
     Playground::setup("mv_test_10_0", |dirs, sandbox| {
-        sandbox.with_files(vec![EmptyFile("andres.txt"), EmptyFile("jonathan.txt")]);
+        sandbox.with_files(vec![EmptyFile("andres.txt"), EmptyFile("jttxt")]);
 
         let actual = nu!(
             cwd: dirs.test(),
-            "mv andres.txt jonathan.txt"
+            "mv andres.txt jttxt"
         );
         assert!(actual.err.contains("file already exists"))
     })
@@ -309,7 +309,7 @@ fn does_not_error_on_relative_parent_path() {
 fn move_files_using_glob_two_parents_up_using_multiple_dots() {
     Playground::setup("mv_test_12", |dirs, sandbox| {
         sandbox.within("foo").within("bar").with_files(vec![
-            EmptyFile("jonathan.json"),
+            EmptyFile("jtjson"),
             EmptyFile("andres.xml"),
             EmptyFile("yehuda.yaml"),
             EmptyFile("kevin.txt"),
@@ -325,7 +325,7 @@ fn move_files_using_glob_two_parents_up_using_multiple_dots() {
 
         let files = vec![
             "yehuda.yaml",
-            "jonathan.json",
+            "jtjson",
             "andres.xml",
             "kevin.txt",
             "many_more.ppl",
