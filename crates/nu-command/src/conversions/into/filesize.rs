@@ -110,19 +110,21 @@ pub fn action(input: &Value, _args: &CellPathOnlyArgs, span: Span) -> Value {
                     val,
                     span: value_span,
                 },
-                Err(error) => Value::Error { error },
+                Err(error) => Value::Error {
+                    error: Box::new(error),
+                },
             },
             Value::Nothing { .. } => Value::Filesize {
                 val: 0,
                 span: value_span,
             },
             other => Value::Error {
-                error: ShellError::OnlySupportsThisInputType {
+                error: Box::new(ShellError::OnlySupportsThisInputType {
                     exp_input_type: "string and integer".into(),
                     wrong_type: other.get_type().to_string(),
                     dst_span: span,
                     src_span: value_span,
-                },
+                }),
             },
         }
     } else {

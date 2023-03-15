@@ -347,7 +347,7 @@ fn convert_to_table2<'a>(
             }
 
             if let Value::Error { error } = item {
-                return Err(error.clone());
+                return Err(*error.clone());
             }
 
             let index = row + row_offset;
@@ -382,7 +382,7 @@ fn convert_to_table2<'a>(
             }
 
             if let Value::Error { error } = item {
-                return Err(error.clone());
+                return Err(*error.clone());
             }
 
             let value = convert_to_table2_entry(
@@ -444,7 +444,7 @@ fn convert_to_table2<'a>(
             }
 
             if let Value::Error { error } = item {
-                return Err(error.clone());
+                return Err(*error.clone());
             }
 
             let value = create_table2_entry(

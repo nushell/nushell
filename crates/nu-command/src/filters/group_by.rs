@@ -244,7 +244,7 @@ pub fn group(
         Grouper::ByColumn(Some(column_name)) => {
             let block = Box::new(move |_, row: &Value| {
                 if let Value::Error { error } = row {
-                    return Err(error.clone());
+                    return Err(*error.clone());
                 };
                 match row.get_data_by_key(&column_name.item) {
                     Some(group_key) => Ok(group_key.as_string()?),

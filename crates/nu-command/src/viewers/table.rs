@@ -305,7 +305,7 @@ fn handle_table_command(
         PipelineData::Value(Value::Error { error }, ..) => {
             // Propagate this error outward, so that it goes to stderr
             // instead of stdout.
-            Err(error)
+            Err(*error)
         }
         PipelineData::Value(Value::CustomValue { val, span }, ..) => {
             let base_pipeline = val.to_base_value(span)?.into_pipeline_data();
@@ -904,7 +904,7 @@ fn convert_to_table(
         }
 
         if let Value::Error { error } = item {
-            return Err(error.clone());
+            return Err(*error.clone());
         }
 
         let mut row = vec![];
@@ -1044,7 +1044,7 @@ fn convert_to_table2<'a>(
             }
 
             if let Value::Error { error } = item {
-                return Err(error.clone());
+                return Err(*error.clone());
             }
 
             let index = row + row_offset;
@@ -1086,7 +1086,7 @@ fn convert_to_table2<'a>(
             }
 
             if let Value::Error { error } = item {
-                return Err(error.clone());
+                return Err(*error.clone());
             }
 
             let mut value = convert_to_table2_entry(
@@ -1185,7 +1185,7 @@ fn convert_to_table2<'a>(
             }
 
             if let Value::Error { error } = item {
-                return Err(error.clone());
+                return Err(*error.clone());
             }
 
             let mut value = create_table2_entry(

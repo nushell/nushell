@@ -136,7 +136,7 @@ fn expand(path: &Path, span: Span, args: &Arguments) -> Value {
                 }
             }
             Err(_) => Value::Error {
-                error: ShellError::GenericError(
+                error: Box::new(ShellError::GenericError(
                     "Could not expand path".into(),
                     "could not be expanded (path might not exist, non-final \
                             component is not a directory, or other cause)"
@@ -144,7 +144,7 @@ fn expand(path: &Path, span: Span, args: &Arguments) -> Value {
                     Some(span),
                     None,
                     Vec::new(),
-                ),
+                )),
             },
         }
     } else if args.not_follow_symlink {

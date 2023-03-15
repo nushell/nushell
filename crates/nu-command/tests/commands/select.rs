@@ -10,7 +10,7 @@ fn regular_columns() {
                 [first_name, last_name, rusty_at, type];
 
                 [Andrés Robalino 10/11/2013 A]
-                [Jonathan Turner 10/12/2013 B]
+                [JT Turner 10/12/2013 B]
                 [Yehuda Katz 10/11/2013 A]
             ]
             | select rusty_at last_name
@@ -32,7 +32,7 @@ fn complex_nested_columns() {
                     "nu": {
                         "committers": [
                             {"name": "Andrés N. Robalino"},
-                            {"name": "Jonathan Turner"},
+                            {"name": "JT Turner"},
                             {"name": "Yehuda Katz"}
                         ],
                         "releases": [
@@ -73,7 +73,7 @@ fn fails_if_given_unknown_column_name() {
                 [first_name, last_name, rusty_at, type];
 
                 [Andrés Robalino 10/11/2013 A]
-                [Jonathan Turner 10/12/2013 B]
+                [JT Turner 10/12/2013 B]
                 [Yehuda Katz 10/11/2013 A]
             ]
             | select rrusty_at first_name

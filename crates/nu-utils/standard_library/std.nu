@@ -1,85 +1,136 @@
-def _assert [
-    cond: bool
-    msg: string
-] {
-    if not $cond {
-        error make {msg: $msg}
+# std.nu, `used` to load all standard library components
+
+# ----------- sub modules to be loaded as part of stdlib ------------------
+# (choose flavor of import that puts your functions in the right namespace)
+# This imports into std top-level namespace: std <subcommand>
+# export use dirs.nu *
+# This imports into std *sub* namespace: std dirs <subcommand>
+# export use dirs.nu
+# You could also advise the user to `use` your submodule directly
+# to put the subcommands at the top level: dirs <subcommand>
+
+export use dirs.nu
+# the directory stack -- export-env from submodule doesn't work?
+export-env {
+    let-env DIRS_POSITION = 0
+    let-env DIRS_LIST = [($env.PWD | path expand)]
+}
+
+# ---------------- builtin std functions --------------------
+
+def _assertion-error [start, end, label, message?: string] {
+    error make {
+        msg: ($message | default "Assertion failed."),
+        label: {
+            text: $label,
+            start: $start,
+            end: $end
+        }
     }
 }
 
 # ```nushell
-# >_ assert ($a == 3)
-# >_ assert ($a != 3)
+# >_ assert (3 == 3)
+# >_ assert (42 == 3)
 # Error:
-#   × condition given to `assert` does not hold
-#    ╭─[entry #12:5:1]
-#  5 │     if not $cond {
-#  6 │         error make {msg: $msg}
-#    ·         ─────┬────
-#    ·              ╰── originates from here
-#  7 │     }
-#    ╰────
+#   × Assertion failed: 
+#     ╭─[myscript.nu:11:1]
+#  11 │ assert (3 == 3)
+#  12 │ assert (42 == 3)
+#     ·         ───┬────
+#     ·            ╰── It is not true.
+#  13 │
+#     ╰────
 # ```
-export def assert [cond: bool] {
-    _assert $cond "condition given to `assert` does not hold"
+export def assert [cond: bool, message?: string] {
+    if $cond { return }
+    let span = (metadata $cond).span
+    _assertion-error $span.start $span.end "It is not true." $message
 }
 
 # ```nushell
-# >_ assert_eq $a "a string"
+# ❯ assert eq 3 "a string"
 # Error:
-#   × left and right operand of `assert eq` should have the same type
-#    ╭─[entry #12:5:1]
-#  5 │     if not $cond {
-#  6 │         error make {msg: $msg}
-#    ·         ─────┬────
-#    ·              ╰── originates from here
-#  7 │     }
+#   × Assertion failed.
+#    ╭─[entry #13:1:1]
+#  1 │ assert eq 3 "a string"
+#    ·           ──────┬─────
+#    ·                 ╰── Different types cannot be equal: int <-> string.
 #    ╰────
 #
-# >_ assert_eq $a 3
-# >_ assert_eq $a 1
+#
+# ❯ assert eq 3 3
+# ❯ assert eq 3 1
 # Error:
-#   × left is not equal to right
-#    ╭─[entry #12:5:1]
-#  5 │     if not $cond {
-#  6 │         error make {msg: $msg}
-#    ·         ─────┬────
-#    ·              ╰── originates from here
-#  7 │     }
+#   × Assertion failed.
+#    ╭─[entry #14:1:1]
+#  1 │ assert eq 3 1
+#    ·           ─┬─
+#    ·            ╰── They are not equal: 3 != 1
 #    ╰────
+#
+#
+# 👇👇👇 BE CAREFUL! 👇👇👇
+# ❯ assert ( 1 == 1.0) # passes
+# ❯ assert eq 1 1.0
+# Error:
+#   × Assertion failed.
+#    ╭─[entry #16:1:1]
+#  1 │ assert eq 1 1.0
+#    ·           ──┬──
+#    ·             ╰── Different types cannot be equal: int <-> float.
+#    ╰────
+# 
 # ```
-export def "assert eq" [left: any, right: any] {
-    _assert (($left | describe) == ($right | describe)) $"left and right operand of `assert eq` should have the same type"
-    _assert ($left == $right) "left is not equal to right"
+export def "assert eq" [left: any, right: any, message?: string] {
+    let left_type = ($left | describe)
+    let right_type = ($right | describe)
+    let left_start = (metadata $left).span.start
+    let right_end = (metadata $right).span.end
+
+    if ($left_type != $right_type) {
+        _assertion-error $left_start $right_end $"Different types cannot be equal: ($left_type) <-> ($right_type)." $message
+    }
+    if ($left != $right) {
+        _assertion-error $left_start $right_end $"They are not equal: ($left) != ($right)" $message
+    }
 }
 
 # ```nushell
-# >_ assert_ne $a "a string"
+# ❯ assert ne 1 3
+# ❯ assert ne 42 42
 # Error:
-#   × left and right operand of `assert eq` should have the same type
-#    ╭─[entry #12:5:1]
-#  5 │     if not $cond {
-#  6 │         error make {msg: $msg}
-#    ·         ─────┬────
-#    ·              ╰── originates from here
-#  7 │     }
+#   × Assertion failed.
+#    ╭─[entry #23:1:1]
+#  1 │ assert ne 42 42
+#    ·           ──┬──
+#    ·             ╰── They both are 42
 #    ╰────
+# 
 #
-# >_ assert_ne $a 1
-# >_ assert_ne $a 3
+# 👇👇👇 BE CAREFUL! 👇👇👇
+# ❯ assert ( 1 != "a string" ) # passes
+# ❯ assert ne 1 "a string"
 # Error:
-#   × left is equal to right
-#    ╭─[entry #12:5:1]
-#  5 │     if not $cond {
-#  6 │         error make {msg: $msg}
-#    ·         ─────┬────
-#    ·              ╰── originates from here
-#  7 │     }
+#   × Assertion failed.
+#    ╭─[entry #20:1:1]
+#  1 │ assert ne 1 "a string"
+#    ·           ──────┬─────
+#    ·                 ╰── They are not equal, although they have different types: int <-> string.
 #    ╰────
 # ```
-export def "assert ne" [left: any, right: any] {
-    _assert (($left | describe) == ($right | describe)) $"left and right operand of `assert eq` should have the same type"
-    _assert ($left != $right) "left is equal to right"
+export def "assert ne" [left: any, right: any, message?: string] {
+    let left_type = ($left | describe)
+    let right_type = ($right | describe)
+    let left_start = (metadata $left).span.start
+    let right_end = (metadata $right).span.end
+
+    if (($left | describe) != ($right | describe)) {
+        _assertion-error $left_start $right_end $"They have different types: ($left_type) <-> ($right_type)." $message
+    }
+    if ($left == $right) {
+        _assertion-error $left_start $right_end $"They both are ($left)" $message
+    }
 }
 
 # ```nushell
