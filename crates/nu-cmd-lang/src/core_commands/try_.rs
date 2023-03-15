@@ -143,7 +143,7 @@ fn intercept_block_control(error: ShellError) -> Result<ShellError, ShellError> 
 
 /// Convert from `error` to [`Value::Record`] so the error information can be easily accessed in catch.
 fn err_to_record(error: ShellError, head: Span) -> Value {
-    let cols = vec!["msg".to_string(), "detail".to_string(), "raw".to_string()];
+    let cols = vec!["msg".to_string(), "debug".to_string(), "raw".to_string()];
     let vals = vec![
         Value::string(error.to_string(), head),
         Value::string(format!("{error:?}"), head),
