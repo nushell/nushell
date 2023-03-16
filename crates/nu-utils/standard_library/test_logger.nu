@@ -1,40 +1,37 @@
 use std.nu assert
 use logger.nu *
 
-def "assert no message" [output: string] {
-    assert (($output | describe) == "nothing")
+def run [system_level, message_level] {
+    do { nu -c $'use logger.nu; NU_LOG_LEVEL=($system_level) logger log ($message_level) "test message"' } | complete | get -i stderr
+}
+def "assert no message" [system_level, message_level] {
+    let output = (run $system_level $message_level)
+    assert ($output == "")
 }
 
-def "assert message" [level_str: string, output:string] {
-    assert ($output | str contains $level_str)
+def "assert message" [system_level, message_level, message_level_str] {
+    let output = (run $system_level $message_level)
+    assert ($output | str contains $message_level_str)
     assert ($output | str contains "test message")
 }
 
 export def test_critical [] {
-    assert no message (NU_LOG_LEVEL=99 log critical  "test message")
-    assert message CRIT (NU_LOG_LEVEL=CRITICAL log critical "test message")
+    assert no message 99 critical
+    assert message CRITICAL critical CRIT
 }
 export def test_error [] {
-    assert no message (NU_LOG_LEVEL=CRITICAL log error "test message")
-    assert message ERROR (NU_LOG_LEVEL=ERROR log error "test message")
+    assert no message CRITICAL error 
+    assert message ERROR error ERROR
 }
-export def test_warn [] {
-    assert no message (NU_LOG_LEVEL=ERROR log warning "test message")
-    assert message WARN (NU_LOG_LEVEL=WARNING log warning "test message")
+export def test_warning [] {
+    assert no message ERROR warning 
+    assert message  WARNING warning WARN
 }
 export def test_info [] {
-    assert no message (NU_LOG_LEVEL=WARNING log info "test message")
-    assert message INFO (NU_LOG_LEVEL=INFO log info "test message")
+    assert no message WARNING info 
+    assert message  INFO info INFO
 }
 export def test_debug [] {
-    assert no message (NU_LOG_LEVEL=INFO log debug "test message")
-    assert message DEBUG (NU_LOG_LEVEL=DEBUG log debug "test message")
-}
-
-export def example_log [] {
-    log debug "this is a debug message"
-    log info "this is an info message"
-    log warning "this is a warning message"
-    log error "this is an error message"
-    log critical "this is a critical message"
+    assert no message INFO debug 
+    assert message  DEBUG debug DEBUG
 }
