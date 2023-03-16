@@ -86,7 +86,7 @@ fn from_tsv_text_to_table() {
             r#"
                 first Name	Last Name	rusty_luck
                 Andrés	Robalino	1
-                Jonathan	Turner	1
+                JT	Turner	1
                 Yehuda	Katz	1
             "#,
         )]);
@@ -112,7 +112,7 @@ fn from_tsv_text_skipping_headers_to_table() {
             "los_tres_amigos.txt",
             r#"
                 Andrés	Robalino	1
-                Jonathan	Turner	1
+                JT	Turner	1
                 Yehuda	Katz	1
             "#,
         )]);

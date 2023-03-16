@@ -45,7 +45,7 @@ fn fetches_by_index() {
                 [package]
                 name = "nu"
                 version = "0.4.1"
-                authors = ["Yehuda Katz <wycats@gmail.com>", "Jonathan Turner <jonathan.d.turner@gmail.com>", "Andrés N. Robalino <andres@androbtech.com>"]
+                authors = ["Yehuda Katz <wycats@gmail.com>", "JT Turner <547158+jntrnr@users.noreply.github.com>", "Andrés N. Robalino <andres@androbtech.com>"]
                 description = "When arepas shells are tasty and fun."
             "#,
         )]);
@@ -92,7 +92,7 @@ fn column_paths_are_either_double_quoted_or_regular_unquoted_words_separated_by_
             "sample.toml",
             r#"
                 [package]
-                9999 = ["Yehuda Katz <wycats@gmail.com>", "Jonathan Turner <jonathan.d.turner@gmail.com>", "Andrés N. Robalino <andres@androbtech.com>"]
+                9999 = ["Yehuda Katz <wycats@gmail.com>", "JT Turner <jtd.turner@gmail.com>", "Andrés N. Robalino <andres@androbtech.com>"]
                 description = "When arepas shells are tasty and fun."
             "#,
         )]);

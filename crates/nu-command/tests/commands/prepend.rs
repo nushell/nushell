@@ -9,7 +9,7 @@ fn adds_a_row_to_the_beginning() {
             "los_tres_caballeros.txt",
             r#"
                 Andrés N. Robalino
-                Jonathan Turner
+                JT Turner
                 Yehuda Katz
             "#,
         )]);

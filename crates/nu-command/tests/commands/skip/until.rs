@@ -13,17 +13,17 @@ fn condition_is_met() {
                 Chicken Collection,29/04/2020,30/04/2020,31/04/2020
                 Yellow Chickens,,,
                 Andrés,0,0,1
-                Jonathan,0,0,1
+                JT,0,0,1
                 Jason,0,0,1
                 Yehuda,0,0,1
                 Blue Chickens,,,
                 Andrés,0,0,1
-                Jonathan,0,0,1
+                JT,0,0,1
                 Jason,0,0,1
                 Yehuda,0,0,2
                 Red Chickens,,,
                 Andrés,0,0,1
-                Jonathan,0,0,1
+                JT,0,0,1
                 Jason,0,0,1
                 Yehuda,0,0,3
             "#,

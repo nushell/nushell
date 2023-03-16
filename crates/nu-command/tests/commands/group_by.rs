@@ -10,7 +10,7 @@ fn groups() {
             r#"
                 first_name,last_name,rusty_at,type
                 Andrés,Robalino,10/11/2013,A
-                Jonathan,Turner,10/12/2013,B
+                JT,Turner,10/12/2013,B
                 Yehuda,Katz,10/11/2013,A
             "#,
         )]);
@@ -39,7 +39,7 @@ fn errors_if_given_unknown_column_name() {
                     "nu": {
                         "committers": [
                             {"name": "Andrés N. Robalino"},
-                            {"name": "Jonathan Turner"},
+                            {"name": "JT Turner"},
                             {"name": "Yehuda Katz"}
                         ],
                         "releases": [
@@ -79,7 +79,7 @@ fn errors_if_block_given_evaluates_more_than_one_row() {
             r#"
                 first_name,last_name,rusty_at,type
                 Andrés,Robalino,10/11/2013,A
-                Jonathan,Turner,10/12/2013,B
+                JT,Turner,10/12/2013,B
                 Yehuda,Katz,10/11/2013,A
             "#,
         )]);
