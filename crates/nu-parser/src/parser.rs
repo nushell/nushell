@@ -1698,10 +1698,13 @@ pub(crate) fn parse_dollar_expr(
 pub fn parse_paren_expr(
     working_set: &mut StateWorkingSet,
     span: Span,
+    shape: &SyntaxShape,
     expand_aliases_denylist: &[usize],
 ) -> (Expression, Option<ParseError>) {
     if let (expr, None) = parse_range(working_set, span, expand_aliases_denylist) {
         (expr, None)
+    } else if matches!(shape, SyntaxShape::Signature) {
+        return parse_signature(working_set, span, expand_aliases_denylist);
     } else {
         parse_full_cell_path(working_set, None, span, expand_aliases_denylist)
     }
@@ -4567,7 +4570,7 @@ pub fn parse_value(
 
     match bytes[0] {
         b'$' => return parse_dollar_expr(working_set, span, expand_aliases_denylist),
-        b'(' => return parse_paren_expr(working_set, span, expand_aliases_denylist),
+        b'(' => return parse_paren_expr(working_set, span, shape, expand_aliases_denylist),
         b'{' => return parse_brace_expr(working_set, span, shape, expand_aliases_denylist),
         b'[' => match shape {
             SyntaxShape::Any
