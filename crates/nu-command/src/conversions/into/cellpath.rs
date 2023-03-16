@@ -16,15 +16,13 @@ impl Command for SubCommand {
 
     fn signature(&self) -> Signature {
         Signature::build("into cell-path")
-            .input_output_types(vec![
-                (Type::String, Type::CellPath),
-                (Type::List(Box::new(Type::Any)), Type::Table(vec![])),
-            ])
+            .input_output_types(vec![(Type::String, Type::CellPath)])
             .rest(
                 "rest",
                 SyntaxShape::CellPath,
                 "for a data structure input, convert data at the given cell paths",
             )
+            .allow_variants_without_examples(true)
             .category(Category::Conversions)
     }
 
@@ -48,14 +46,18 @@ impl Command for SubCommand {
 
     fn examples(&self) -> Vec<Example> {
         let span = Span::test_data();
-        vec![Example {
-            description: "Convert string into cell-path",
-            example: "let s = 'b.b1'; $s | into cell-path | describe",
-            result: Some(Value::String {
-                val: "cell path".into(),
-                span: Span::test_data(),
-            }),
-        }]
+        vec![
+            Example {
+                description: "Convert string into cell-path",
+                example: "let s = 'b.b1'; $s | into cell-path | describe",
+                result: Some(Value::String { val: "cell path".into(), span }),
+            },
+            Example {
+                description: "Use a string as a cell-path",
+                example: "let a = {a: 1, b:{b1:21, b2:22}}; let s = 'b.b1'; $a | get ($s | into cell-path)",
+                result: Some(Value::Int { val: 21, span }),
+            },
+        ]
     }
 }
 
@@ -77,6 +79,7 @@ fn action(input: &Value, _hideargs: &CellPathOnlyArgs, span: Span) -> Value {
                 .split(".")
                 .map(|s| PathMember::String {
                     val: s.to_string(),
+                    optional: false,
                     span,
                 })
                 .collect();
