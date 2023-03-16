@@ -915,7 +915,7 @@ impl Value {
                     Value::Nothing { .. } if *optional => {
                         current = Value::nothing(*origin_span);
                     }
-                    Value::Error { error } => err_or_null!(error.to_owned(), *origin_span),
+                    Value::Error { error } => err_or_null!(*error.to_owned(), *origin_span),
                     x => {
                         err_or_null!(
                             ShellError::IncompatiblePathAccess {
