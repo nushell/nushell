@@ -4,6 +4,19 @@ def WARNING_LEVEL  [] { 30 }
 def INFO_LEVEL     [] { 20 }
 def DEBUG_LEVEL    [] { 10 }
 
+def parse-string-level [level: string] {
+    (
+        if $level == "CRITICAL" { (CRITICAL_LEVEL)}
+        else if $level == "CRIT" { (CRITICAL_LEVEL)}
+        else if $level == "ERROR" { (ERROR_LEVEL) }
+        else if $level == "WARNING" { (WARNING_LEVEL) }
+        else if $level == "WARN" { (WARNING_LEVEL) }
+        else if $level == "INFO" { (INFO_LEVEL) }
+        else if $level == "DEBUG" { (DEBUG_LEVEL) }
+        else { (INFO_LEVEL) }
+    )
+}
+
 def current-log-level [] {
     let env_level = try {
         $env.NU_LOG_LEVEL
@@ -11,18 +24,9 @@ def current-log-level [] {
         (INFO_LEVEL)
     }
     try {
-        return ($env_level | into int)
+        ($env_level | into int)
     } catch {
-        (
-            if $env_level == "CRITICAL" { return (CRITICAL_LEVEL)}
-            else if $env_level == "CRIT" { return (CRITICAL_LEVEL)}
-            else if $env_level == "ERROR" { return (ERROR_LEVEL) }
-            else if $env_level == "WARNING" { return (WARNING_LEVEL) }
-            else if $env_level == "WARN" { return (WARNING_LEVEL) }
-            else if $env_level == "INFO" { return (INFO_LEVEL) }
-            else if $env_level == "DEBUG" { return (DEBUG_LEVEL) }
-            else { return (INFO_LEVEL) }
-        )
+        parse-string-level $env_level
     }
 }
 
