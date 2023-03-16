@@ -158,7 +158,6 @@ jobs:
 
 
   nu-coverage:
-    needs: nu-tests
     env:
       NUSHELL_CARGO_TARGET: ci
 
