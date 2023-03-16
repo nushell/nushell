@@ -172,10 +172,11 @@ fn record_lookup_value(item: &Value, header: &str) -> Value {
             let path = PathMember::String {
                 val: header.to_owned(),
                 span: NuSpan::unknown(),
+                optional: false,
             };
 
             item.clone()
-                .follow_cell_path(&[path], false, false)
+                .follow_cell_path(&[path], false)
                 .unwrap_or_else(|_| item.clone())
         }
         item => item.clone(),

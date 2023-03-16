@@ -10,7 +10,7 @@ fn wrap_rows_into_a_row() {
             r#"
                 first_name,last_name
                 Andrés,Robalino
-                Jonathan,Turner
+                JT,Turner
                 Yehuda,Katz
             "#,
         )]);
@@ -39,7 +39,7 @@ fn wrap_rows_into_a_table() {
             r#"
                 first_name,last_name
                 Andrés,Robalino
-                Jonathan,Turner
+                JT,Turner
                 Yehuda,Katz
             "#,
         )]);

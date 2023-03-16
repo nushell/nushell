@@ -10,7 +10,7 @@ fn knows_the_filesystems_entered() {
             .within("red_pill")
             .with_files(vec![
                 EmptyFile("andres.nu"),
-                EmptyFile("jonathan.nu"),
+                EmptyFile("jtnu"),
                 EmptyFile("yehuda.nu"),
             ])
             .within("blue_pill")
@@ -32,7 +32,7 @@ fn knows_the_filesystems_entered() {
                 enter expected
                 mkdir recycled
                 enter ../red_pill
-                mv jonathan.nu ../expected
+                mv jtnu ../expected
                 enter ../blue_pill
                 cp *.nxt ../expected/recycled
                 p
@@ -54,7 +54,7 @@ fn knows_the_filesystems_entered() {
         assert!(files_exist_at(
             vec![
                 Path::new("andres.nu"),
-                Path::new("jonathan.nu"),
+                Path::new("jtnu"),
                 Path::new("yehuda.nu"),
             ],
             expected

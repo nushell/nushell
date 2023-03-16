@@ -55,7 +55,7 @@ mod columns {
 
                 [     "Andres",     EC, amarillito]
                 [     "Darren",     US,      black]
-                [   "Jonathan",     US,      black]
+                [   "JT",     US,      black]
                 [     "Yehuda",     US,      black]
                 [      "Jason",     CA,       gold]
             ]"#,

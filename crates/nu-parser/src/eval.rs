@@ -31,7 +31,7 @@ pub fn eval_constant(
         Expr::FullCellPath(cell_path) => {
             let value = eval_constant(working_set, &cell_path.head)?;
 
-            match value.follow_cell_path(&cell_path.tail, false, false) {
+            match value.follow_cell_path(&cell_path.tail, false) {
                 Ok(val) => Ok(val),
                 // TODO: Better error conversion
                 Err(shell_error) => Err(ParseError::LabeledError(
