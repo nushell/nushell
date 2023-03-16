@@ -63,15 +63,10 @@ fn do_cases_where_result_is_same_between_join_types(join_type: &str) {
             // insert into l (a, b) values (1, 1);
             // insert into r (a, b) values (1, 2);
             // select * from l inner join r on l.a = r.a;
-            // a  b  a  b
-            // -  -  -  -
-            // 1  1  1  2
             ("[{a: 1 b: 1}]", "[{a: 1 b: 2}]", "a"),
-            // ("[{a: 1 b: 1}]", " [[a, b]; [1, 2]]", "a"),
             "[[a, b, b_]; [1, 1, 2]]",
         ),
         (("[{a: 1}]", "[{a: 1 b: 1}]", "a"), "[[a, b]; [1, 1]]"),
-        // (("[{a: 1}]", "[[a, b]; [1, 1]]", "a"), "[[a, b]; [1, 1]]"),
     ] {
         let expr = format!("{} | join {} {} {} | to nuon", left, right, join_type, on);
         let actual = nu!(cwd: ".", expr).out;
@@ -138,9 +133,6 @@ fn do_cases_where_result_differs_between_join_types(join_type: &str) {
                 ("--inner", "[]"),
                 ("--left", "[[a, b, b_]; [1, 2, null]]"),
                 // select * from l right outer join r on l.a = r.a;
-                // a  b  a  b
-                // -  -  -  -
-                //       2  1
                 ("--right", "[[a, b, b_]; [2, null, 1]]"),
                 ("--outer", "[[a, b, b_]; [1, 2, null], [2, null, 1]]"),
             ],
@@ -181,11 +173,6 @@ fn do_cases_where_result_differs_between_join_types(join_type: &str) {
                 ("--inner", "[[a, c, b]; [1, 1, 1], [3, 3, 3]]"),
                 ("--left", "[[a, c, b]; [1, 1, 1], [2, 2, null], [3, 3, 3]]"),
                 // select * from l right outer join r on l.a = r.a;
-                // a  c  a  b
-                // -  -  -  -
-                // 1  1  1  1
-                // 3  3  3  3
-                //       4  4
                 ("--right", "[[a, c, b]; [1, 1, 1], [3, 3, 3], [4, null, 4]]"),
                 (
                     "--outer",

@@ -201,7 +201,7 @@ fn join(
     // rows having that value.
     let mut result: Vec<Value> = Vec::new();
     let is_outer = matches!(join_type, JoinType::Outer);
-    let (this, other, other_names, join_type) = match join_type {
+    let (this, other, other_keys, join_type) = match join_type {
         JoinType::Left | JoinType::Outer => (
             left,
             lookup_table(right, right_join_key, sep, cap, &config),
@@ -222,7 +222,7 @@ fn join(
         this,
         right_join_key,
         other,
-        other_names,
+        other_keys,
         shared_join_key,
         &join_type,
         IncludeInner::Yes,
