@@ -72,6 +72,13 @@ fn correctly_escape_external_arguments() {
 }
 
 #[test]
+fn escape_also_escapes_equals() {
+    let actual = nu!(cwd: ".", r#"^MYFOONAME=MYBARVALUE"#);
+
+    assert!(actual.err.contains("executable was not found"));
+}
+
+#[test]
 fn execute_binary_in_string() {
     let actual = nu!(
     cwd: ".",
