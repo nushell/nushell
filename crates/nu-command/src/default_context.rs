@@ -57,6 +57,7 @@ pub fn create_default_context() -> EngineState {
             GroupBy,
             Headers,
             Insert,
+            Join,
             SplitBy,
             Take,
             Merge,
