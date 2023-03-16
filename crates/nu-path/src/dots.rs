@@ -33,6 +33,7 @@ pub fn expand_ndots(path: impl AsRef<Path>) -> PathBuf {
 
     // find if we need to expand any >2 dot paths and early exit if not
     let mut dots_count = 0u8;
+    let mut not_separator_before_dot = false;
     let ndots_present = {
         for chr in path_str.chars() {
             if chr == '.' {
@@ -42,7 +43,7 @@ pub fn expand_ndots(path: impl AsRef<Path>) -> PathBuf {
                     // this path component had >2 dots
                     break;
                 }
-
+                not_separator_before_dot = !is_separator(chr);
                 dots_count = 0;
             }
         }
@@ -50,7 +51,7 @@ pub fn expand_ndots(path: impl AsRef<Path>) -> PathBuf {
         dots_count > 2
     };
 
-    if !ndots_present {
+    if !ndots_present || not_separator_before_dot {
         return path.as_ref().into();
     }
 
