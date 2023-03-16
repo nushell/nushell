@@ -332,6 +332,7 @@ pub fn create_default_context() -> EngineState {
             Into,
             IntoBool,
             IntoBinary,
+            IntoCellPath,
             IntoDatetime,
             IntoDecimal,
             IntoDuration,
