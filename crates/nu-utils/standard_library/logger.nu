@@ -53,5 +53,5 @@ export def "log info" [message: string] {
 # Log debug message
 export def "log debug" [message: string] {
     if (current-log-level) > (DEBUG_LEVEL) { return }
-    echo $"(ansi grey)DEBUG ($message)(ansi reset)"
+    echo $"(ansi default_dimmed)DEBUG ($message)(ansi reset)"
 }
