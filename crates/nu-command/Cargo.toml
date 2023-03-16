@@ -157,7 +157,7 @@ which-support = ["which"]
 
 [dev-dependencies]
 nu-test-support = { path = "../nu-test-support", version = "0.77.1" }
-mockito = "0.32.3"
+mockito = "1.0.0"
 
 dirs-next = "2.0.0"
 hamcrest2 = "0.3.0"
