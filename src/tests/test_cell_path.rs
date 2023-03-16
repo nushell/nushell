@@ -133,3 +133,8 @@ fn list_row_optional_access_succeeds() -> TestResult {
 fn do_not_delve_too_deep_in_nested_lists() -> TestResult {
     fail_test("[[{foo: bar}]].foo", "cannot find column")
 }
+
+#[test]
+fn cell_path_literals() -> TestResult {
+    run_test("let cell_path = $.a.b; {a: {b: 3}} | get $cell_path", "3")
+}
