@@ -175,10 +175,23 @@ fn convert_yaml_value_to_nu_value(
             Value::from(collected)
         }
         serde_yaml::Value::Tagged(t) => {
+            println!("Tag - {:?} | Value - {:?}", &t.tag, &t.value);
             let tag = &t.tag;
             let value = match &t.value {
                 serde_yaml::Value::String(s) => {
                     let val = format!("{} {}", tag, s).trim().to_string();
+                    Value::String { val, span }
+                }
+                serde_yaml::Value::Number(n) => {
+                    let val = format!("{} {}", tag, n).trim().to_string();
+                    Value::String { val, span }
+                }
+                serde_yaml::Value::Bool(b) => {
+                    let val = format!("{} {}", tag, b).trim().to_string();
+                    Value::String { val, span }
+                }
+                serde_yaml::Value::Null => {
+                    let val = format!("{}", tag).trim().to_string();
                     Value::String { val, span }
                 }
                 v => convert_yaml_value_to_nu_value(v, span, val_span)?,
