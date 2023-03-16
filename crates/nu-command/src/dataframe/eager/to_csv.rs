@@ -19,7 +19,7 @@ impl Command for ToCSV {
     }
 
     fn usage(&self) -> &str {
-        "Saves dataframe to csv file."
+        "Saves dataframe to CSV file."
     }
 
     fn signature(&self) -> Signature {
@@ -40,12 +40,12 @@ impl Command for ToCSV {
     fn examples(&self) -> Vec<Example> {
         vec![
             Example {
-                description: "Saves dataframe to csv file",
+                description: "Saves dataframe to CSV file",
                 example: "[[a b]; [1 2] [3 4]] | dfr into-df | dfr to-csv test.csv",
                 result: None,
             },
             Example {
-                description: "Saves dataframe to csv file using other delimiter",
+                description: "Saves dataframe to CSV file using other delimiter",
                 example: "[[a b]; [1 2] [3 4]] | dfr into-df | dfr to-csv test.csv -d '|'",
                 result: None,
             },

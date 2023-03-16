@@ -17,38 +17,38 @@ in order to "import" the standard library to either the interactive [*REPL*][REP
 use /path/to/standard_library/std.nu
 ```
 
-### :mag: a concrete example
-- my name is @amtoine and i use the `ghq` tool to manage `git` projects
-> **Note**  
-> `ghq` stores any repository inside `$env.GHQ_ROOT` under `<host>/<owner>/<repo>/`
-- the path to my local fork of `nushell` is then defined as
-```bash
-let-env NUSHELL_REPO = ($env.GHQ_ROOT | path join "github.com" "amtoine" "nushell")
-```
-- and the full path to the standard library is defined as
-```bash
-let-env STD_LIB = ($env.NUSHELL_REPO | path join "crates" "nu-utils" "standard_library")
-```
-> see the content of `$env.STD_LIB` :yum:
+> ### :mag: a concrete example
+> - my name is @amtoine and i use the `ghq` tool to manage `git` projects
+> > **Note**  
+> > `ghq` stores any repository inside `$env.GHQ_ROOT` under `<host>/<owner>/<repo>/`
+> - the path to my local fork of `nushell` is then defined as
 > ```bash
-> >_ ls $env.STD_LIB | get name | str replace $env.STD_LIB "" | str trim -l -c "/"
-> ╭───┬───────────╮
-> │ 0 │ README.md │
-> │ 1 │ std.nu    │
-> │ 2 │ tests.nu  │
-> ╰───┴───────────╯
+> let-env NUSHELL_REPO = ($env.GHQ_ROOT | path join "github.com" "amtoine" "nushell")
 > ```
-- finally we can `use` the standard library and have access to the commands it exposes :thumbsup:
-```bash
->_ use std.nu
->_ help std
-Module: std
-
-Exported commands:
-  assert (std assert), assert eq (std assert eq), assert ne (std assert ne), match (std match)
-
-This module does not export environment.
-```
+> - and the full path to the standard library is defined as
+> ```bash
+> let-env STD_LIB = ($env.NUSHELL_REPO | path join "crates" "nu-utils" "standard_library")
+> ```
+> > see the content of `$env.STD_LIB` :yum:
+> > ```bash
+> > >_ ls $env.STD_LIB | get name | str replace $env.STD_LIB "" | str trim -l -c "/"
+> > ╭───┬───────────╮
+> > │ 0 │ README.md │
+> > │ 1 │ std.nu    │
+> > │ 2 │ tests.nu  │
+> > ╰───┴───────────╯
+> > ```
+> - finally we can `use` the standard library and have access to the commands it exposes :thumbsup:
+> ```bash
+> >_ use std.nu
+> >_ help std
+> Module: std
+>
+> Exported commands:
+>   assert (std assert), assert eq (std assert eq), assert ne (std assert ne), match (std match)
+>
+> This module does not export environment.
+> ```
 
 ## :pencil2: contribute to the standard library
 ### :wrench: add new commands
@@ -59,9 +59,15 @@ This module does not export environment.
     - add a call to `test_<feature>` at the bottom of the `main`
 
 ### :test_tube: run the tests
-the following call should return nothing
+the following call should return no errors
 ```bash
-nu ($env.STD_LIB | path join "tests.nu")
+nu /path/to/standard_library/tests.nu
 ```
+
+> #### :mag: a concrete example
+> with `STD_LIB` defined as in the example above
+> ```bash
+> nu ($env.STD_LIB | path join "tests.nu")
+> ```
 
 [REPL]: https://en.wikipedia.org/wiki/Read%E2%80%93eval%E2%80%93print_loop
