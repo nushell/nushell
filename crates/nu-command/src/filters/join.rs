@@ -158,8 +158,8 @@ fn join_type(call: &Call) -> Result<JoinType, nu_protocol::ShellError> {
 fn join(
     left: &Vec<Value>,
     right: &Vec<Value>,
-    l_on: &str,
-    r_on: &str,
+    left_join_key: &str,
+    right_join_key: &str,
     join_type: JoinType,
     span: Span,
 ) -> Value {
@@ -191,7 +191,11 @@ fn join(
     let config = Config::default();
     let sep = ",";
     let cap = max(left.len(), right.len());
-    let lr_on = if l_on == r_on { Some(l_on) } else { None };
+    let shared_join_key = if left_join_key == right_join_key {
+        Some(left_join_key)
+    } else {
+        None
+    };
 
     // For the "other" table, create a map from value in `on` column to a list of the
     // rows having that value.
@@ -200,7 +204,7 @@ fn join(
     let (this, other, other_names, join_type) = match join_type {
         JoinType::Left | JoinType::Outer => (
             left,
-            lookup_table(right, r_on, sep, cap, &config),
+            lookup_table(right, right_join_key, sep, cap, &config),
             column_names(right),
             // For Outer we do a Left pass and a Right pass; this is the Left
             // pass.
@@ -208,7 +212,7 @@ fn join(
         ),
         JoinType::Inner | JoinType::Right => (
             right,
-            lookup_table(left, l_on, sep, cap, &config),
+            lookup_table(left, left_join_key, sep, cap, &config),
             column_names(left),
             join_type,
         ),
@@ -216,10 +220,10 @@ fn join(
     join_rows(
         &mut result,
         this,
+        right_join_key,
         other,
         other_names,
-        r_on,
-        lr_on,
+        shared_join_key,
         &join_type,
         IncludeInner::Yes,
         sep,
@@ -229,17 +233,17 @@ fn join(
     if is_outer {
         let (this, other, other_names, join_type) = (
             right,
-            lookup_table(left, l_on, sep, cap, &config),
+            lookup_table(left, left_join_key, sep, cap, &config),
             column_names(left),
             JoinType::Right,
         );
         join_rows(
             &mut result,
             this,
+            right_join_key,
             other,
             other_names,
-            r_on,
-            lr_on,
+            shared_join_key,
             &join_type,
             IncludeInner::No,
             sep,
@@ -256,10 +260,10 @@ fn join(
 fn join_rows(
     result: &mut Vec<Value>,
     this: &Vec<Value>,
+    this_join_key: &str,
     other: HashMap<String, RowEntries>,
     other_keys: &Vec<String>,
-    this_on: &str,
-    lr_on: Option<&str>,
+    shared_join_key: Option<&str>,
     join_type: &JoinType,
     include_inner: IncludeInner,
     sep: &str,
@@ -273,7 +277,7 @@ fn join_rows(
             ..
         } = this_row
         {
-            if let Some(this_valkey) = this_row.get_data_by_key(this_on) {
+            if let Some(this_valkey) = this_row.get_data_by_key(this_join_key) {
                 if let Some(other_rows) = other.get(&this_valkey.into_string(sep, config)) {
                     if matches!(include_inner, IncludeInner::Yes) {
                         for (other_cols, other_vals) in other_rows {
@@ -282,12 +286,12 @@ fn join_rows(
                                 JoinType::Inner | JoinType::Right => merge_records(
                                     (other_cols, other_vals), // `other` (lookup) is the left input table
                                     (this_cols, this_vals),
-                                    lr_on,
+                                    shared_join_key,
                                 ),
                                 JoinType::Left => merge_records(
                                     (this_cols, this_vals), // `this` is the left input table
                                     (other_cols, other_vals),
-                                    lr_on,
+                                    shared_join_key,
                                 ),
                                 _ => panic!("not implemented"),
                             };
@@ -305,7 +309,7 @@ fn join_rows(
                     let other_vals = other_keys
                         .iter()
                         .map(|key| {
-                            if Some(key.as_ref()) == lr_on {
+                            if Some(key.as_ref()) == shared_join_key {
                                 this_row
                                     .get_data_by_key(key)
                                     .unwrap_or_else(|| Value::nothing(span))
@@ -315,12 +319,16 @@ fn join_rows(
                         })
                         .collect();
                     let (res_cols, res_vals) = match join_type {
-                        JoinType::Inner | JoinType::Right => {
-                            merge_records((other_keys, &other_vals), (this_cols, this_vals), lr_on)
-                        }
-                        JoinType::Left => {
-                            merge_records((this_cols, this_vals), (other_keys, &other_vals), lr_on)
-                        }
+                        JoinType::Inner | JoinType::Right => merge_records(
+                            (other_keys, &other_vals),
+                            (this_cols, this_vals),
+                            shared_join_key,
+                        ),
+                        JoinType::Left => merge_records(
+                            (this_cols, this_vals),
+                            (other_keys, &other_vals),
+                            shared_join_key,
+                        ),
                         _ => panic!("not implemented"),
                     };
 
