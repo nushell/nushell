@@ -26,7 +26,7 @@ fn while_auto_print_in_each_iteration() {
 fn while_break_on_external_failed() {
     let actual = nu!(
         cwd: ".",
-        "mut total = 0; while $total < 2 { $total = $total + 1; echo 1; nu --testbin fail }"
+        "mut total = 0; while $total < 2 { $total = $total + 1; print 1; nu --testbin fail }"
     );
     // Note: nu! macro auto replace "\n" and "\r\n" with ""
     // so our output will be `1`

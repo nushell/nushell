@@ -200,6 +200,26 @@ impl PipelineData {
         }
     }
 
+    pub fn drain(self) -> Result<(), ShellError> {
+        match self {
+            PipelineData::Value(Value::Error { error }, _) => Err(*error),
+            PipelineData::Value(_, _) => Ok(()),
+            PipelineData::ListStream(stream, _) => stream.drain(),
+            PipelineData::ExternalStream { stdout, stderr, .. } => {
+                if let Some(stdout) = stdout {
+                    stdout.drain()?;
+                }
+
+                if let Some(stderr) = stderr {
+                    stderr.drain()?;
+                }
+
+                Ok(())
+            }
+            PipelineData::Empty => Ok(()),
+        }
+    }
+
     /// Try convert from self into iterator
     ///
     /// It returns Err if the `self` cannot be converted to an iterator.

@@ -71,11 +71,11 @@ fn with_env_hides_variables_in_parent_scope() {
         cwd: "tests/fixtures/formats",
         r#"
         let-env FOO = "1"
-        echo $env.FOO
+        print $env.FOO
         with-env [FOO null] {
             echo $env.FOO
         }
-        echo $env.FOO
+        print $env.FOO
         "#
     );
 
@@ -88,9 +88,9 @@ fn with_env_shorthand_can_not_hide_variables() {
         cwd: "tests/fixtures/formats",
         r#"
         let-env FOO = "1"
-        echo $env.FOO
-        FOO=null echo $env.FOO
-        echo $env.FOO
+        print $env.FOO
+        FOO=null print $env.FOO
+        print $env.FOO
         "#
     );
 
