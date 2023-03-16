@@ -5103,7 +5103,7 @@ pub fn parse_expression(
 
         let split = name.splitn(2, |x| *x == b'=');
         let split: Vec<_> = split.collect();
-        if split.len() == 2 && !split[0].is_empty() {
+        if !name.starts_with(b"^") && split.len() == 2 && !split[0].is_empty() {
             let point = split[0].len() + 1;
 
             let lhs = parse_string_strict(
