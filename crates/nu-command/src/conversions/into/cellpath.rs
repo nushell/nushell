@@ -76,7 +76,7 @@ fn action(input: &Value, _hideargs: &CellPathOnlyArgs, span: Span) -> Value {
     match input {
         Value::String { val, .. } => {
             let pms: Vec<PathMember> = val
-                .split(".")
+                .split('.')
                 .map(|s| PathMember::String {
                     val: s.to_string(),
                     optional: false,
