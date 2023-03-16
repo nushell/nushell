@@ -241,3 +241,16 @@ fn get_does_not_delve_too_deep_in_nested_lists() {
 
     assert!(actual.err.contains("cannot find column"));
 }
+
+#[test]
+fn ignore_errors_works() {
+    let actual = nu!(
+        cwd: ".",
+        r#"
+        let path = "foo";
+        {} | get -i $path | to nuon
+        "#
+    );
+
+    assert_eq!(actual.out, "null");
+}

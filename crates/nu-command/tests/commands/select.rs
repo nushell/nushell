@@ -256,3 +256,16 @@ fn select_failed4() {
 
     assert!(actual.err.contains("Select can't get the same row twice"));
 }
+
+#[test]
+fn ignore_errors_works() {
+    let actual = nu!(
+        cwd: ".",
+        r#"
+        let path = "foo";
+        [{}] | select -i $path | to nuon
+        "#
+    );
+
+    assert_eq!(actual.out, "[[foo]; [null]]");
+}
