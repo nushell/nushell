@@ -2746,6 +2746,7 @@ dependencies = [
  "nu-test-support",
  "nu-utils",
  "shadow-rs",
+ "unicode-segmentation",
 ]
 
 [[package]]
