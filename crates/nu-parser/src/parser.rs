@@ -1695,6 +1695,75 @@ pub(crate) fn parse_dollar_expr(
     }
 }
 
+pub fn parse_paren_expr(
+    working_set: &mut StateWorkingSet,
+    span: Span,
+    expand_aliases_denylist: &[usize],
+) -> (Expression, Option<ParseError>) {
+    if let (expr, None) = parse_range(working_set, span, expand_aliases_denylist) {
+        (expr, None)
+    } else {
+        parse_full_cell_path(working_set, None, span, expand_aliases_denylist)
+    }
+}
+
+pub fn parse_brace_expr(
+    working_set: &mut StateWorkingSet,
+    span: Span,
+    shape: &SyntaxShape,
+    expand_aliases_denylist: &[usize],
+) -> (Expression, Option<ParseError>) {
+    // Try to detect what kind of value we're about to parse
+    // FIXME: In the future, we should work over the token stream so we only have to do this once
+    // before parsing begins
+
+    // FIXME: we're still using the shape because we rely on it to know how to handle syntax where
+    // the parse is ambiguous. We'll need to update the parts of the grammar where this is ambiguous
+    // and then revisit the parsing.
+
+    let bytes = working_set.get_span_contents(Span::new(span.start + 1, span.end - 1));
+    let (tokens, _) = lex(bytes, span.start + 1, &[b'\r', b'\n', b'\t'], &[b':'], true);
+
+    let second_token = tokens
+        .get(0)
+        .map(|token| working_set.get_span_contents(token.span));
+
+    let second_token_contents = tokens.get(0).map(|token| token.contents);
+
+    let third_token = tokens
+        .get(1)
+        .map(|token| working_set.get_span_contents(token.span));
+
+    if matches!(second_token, None) {
+        // If we're empty, that means an empty record or closure
+        if matches!(shape, SyntaxShape::Closure(_)) {
+            parse_closure_expression(working_set, shape, span, expand_aliases_denylist)
+        } else if matches!(shape, SyntaxShape::Block) {
+            parse_block_expression(working_set, span, expand_aliases_denylist)
+        } else {
+            parse_record(working_set, span, expand_aliases_denylist)
+        }
+    } else if matches!(second_token_contents, Some(TokenContents::Pipe))
+        || matches!(second_token_contents, Some(TokenContents::PipePipe))
+    {
+        parse_closure_expression(working_set, shape, span, expand_aliases_denylist)
+    } else if matches!(third_token, Some(b":")) {
+        parse_full_cell_path(working_set, None, span, expand_aliases_denylist)
+    } else if matches!(shape, SyntaxShape::Closure(_)) || matches!(shape, SyntaxShape::Any) {
+        parse_closure_expression(working_set, shape, span, expand_aliases_denylist)
+    } else if matches!(shape, SyntaxShape::Block) {
+        parse_block_expression(working_set, span, expand_aliases_denylist)
+    } else {
+        (
+            Expression::garbage(span),
+            Some(ParseError::Expected(
+                format!("non-block value: {shape}"),
+                span,
+            )),
+        )
+    }
+}
+
 pub fn parse_string_interpolation(
     working_set: &mut StateWorkingSet,
     span: Span,
@@ -4135,7 +4204,6 @@ pub fn parse_table_expression(
 
 pub fn parse_block_expression(
     working_set: &mut StateWorkingSet,
-    shape: &SyntaxShape,
     span: Span,
     expand_aliases_denylist: &[usize],
 ) -> (Expression, Option<ParseError>) {
@@ -4186,39 +4254,6 @@ pub fn parse_block_expression(
         }
         _ => (None, 0),
     };
-
-    // TODO: Finish this
-    if let SyntaxShape::Closure(Some(v)) = shape {
-        if let Some((sig, sig_span)) = &signature {
-            if sig.num_positionals() > v.len() {
-                error = error.or_else(|| {
-                    Some(ParseError::Expected(
-                        format!(
-                            "{} block parameter{}",
-                            v.len(),
-                            if v.len() > 1 { "s" } else { "" }
-                        ),
-                        *sig_span,
-                    ))
-                });
-            }
-
-            for (expected, PositionalArg { name, shape, .. }) in
-                v.iter().zip(sig.required_positional.iter())
-            {
-                if expected != shape && *shape != SyntaxShape::Any {
-                    error = error.or_else(|| {
-                        Some(ParseError::ParameterMismatchType(
-                            name.to_owned(),
-                            expected.to_string(),
-                            shape.to_string(),
-                            *sig_span,
-                        ))
-                    });
-                }
-            }
-        }
-    }
 
     let (mut output, err) = parse_block(
         working_set,
@@ -4437,18 +4472,6 @@ pub fn parse_value(
         return (garbage(span), Some(ParseError::IncompleteParser(span)));
     }
 
-    // First, check the special-cases. These will likely represent specific values as expressions
-    // and may fit a variety of shapes.
-    //
-    // We check variable first because immediately following we check for variables with cell paths
-    // which might result in a value that fits other shapes (and require the variable to already be
-    // declared)
-    if shape == &SyntaxShape::Variable {
-        trace!("parsing: variable");
-
-        return parse_variable_expr(working_set, span);
-    }
-
     // Check for reserved keyword values
     match bytes {
         b"true" => {
@@ -4504,44 +4527,8 @@ pub fn parse_value(
 
     match bytes[0] {
         b'$' => return parse_dollar_expr(working_set, span, expand_aliases_denylist),
-        b'(' => {
-            if let (expr, None) = parse_range(working_set, span, expand_aliases_denylist) {
-                return (expr, None);
-            } else if matches!(shape, SyntaxShape::Signature) {
-                return parse_signature(working_set, span, expand_aliases_denylist);
-            } else {
-                return parse_full_cell_path(working_set, None, span, expand_aliases_denylist);
-            }
-        }
-        b'{' => {
-            if !matches!(shape, SyntaxShape::Closure(..)) && !matches!(shape, SyntaxShape::Block) {
-                let (expr, err) =
-                    parse_full_cell_path(working_set, None, span, expand_aliases_denylist);
-                match err {
-                    Some(err) => {
-                        if let ParseError::Unbalanced(_, _, _) = err {
-                            return (expr, Some(err));
-                        }
-                    }
-                    None => return (expr, None),
-                }
-            }
-            if matches!(shape, SyntaxShape::Closure(_)) || matches!(shape, SyntaxShape::Any) {
-                return parse_closure_expression(working_set, shape, span, expand_aliases_denylist);
-            } else if matches!(shape, SyntaxShape::Block) {
-                return parse_block_expression(working_set, shape, span, expand_aliases_denylist);
-            } else if matches!(shape, SyntaxShape::Record) {
-                return parse_record(working_set, span, expand_aliases_denylist);
-            } else {
-                return (
-                    Expression::garbage(span),
-                    Some(ParseError::Expected(
-                        format!("non-block value: {shape}"),
-                        span,
-                    )),
-                );
-            }
-        }
+        b'(' => return parse_paren_expr(working_set, span, expand_aliases_denylist),
+        b'{' => return parse_brace_expr(working_set, span, shape, expand_aliases_denylist),
         b'[' => match shape {
             SyntaxShape::Any
             | SyntaxShape::List(_)
