@@ -175,7 +175,6 @@ fn convert_yaml_value_to_nu_value(
             Value::from(collected)
         }
         serde_yaml::Value::Tagged(t) => {
-            println!("Tag - {:?} | Value - {:?}", &t.tag, &t.value);
             let tag = &t.tag;
             let value = match &t.value {
                 serde_yaml::Value::String(s) => {
