@@ -14,8 +14,8 @@ use nu_protocol::{
         PathMember, Pipeline, PipelineElement, RangeInclusion, RangeOperator,
     },
     engine::StateWorkingSet,
-    span, BlockId, Flag, PositionalArg, Signature, Span, Spanned, SyntaxShape, Type, Unit, VarId,
-    ENV_VARIABLE_ID, IN_VARIABLE_ID,
+    span, BlockId, Category, Flag, PositionalArg, Signature, Span, Spanned, SyntaxShape, Type,
+    Unit, VarId, ENV_VARIABLE_ID, IN_VARIABLE_ID,
 };
 
 use crate::parse_keywords::{
@@ -608,6 +608,7 @@ fn calculate_end_span(
                 spans.len()
             } else if positional_idx < signature.required_positional.len()
                 && spans.len() > (signature.required_positional.len() - positional_idx)
+                && signature.category != Category::Default
             {
                 spans.len() - (signature.required_positional.len() - positional_idx - 1)
             } else {

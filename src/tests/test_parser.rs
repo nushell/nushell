@@ -482,3 +482,48 @@ fn unbalanced_delimiter() -> TestResult {
 fn unbalanced_delimiter2() -> TestResult {
     fail_test(r#"{}#.}"#, "unbalanced { and }")
 }
+
+#[test]
+fn def_list_six_elements_empty_lists_call() -> TestResult {
+    run_test(
+        "def nuu [
+        one: list
+        two: list
+        three: list
+        four: list
+        five: list
+        six: list
+        ] { }; nuu [] [] [] [] [] [];",
+        "",
+    )
+}
+
+#[test]
+fn def_list_six_elements_four_zero_call() -> TestResult {
+    fail_test(
+        "def nuu [
+        one: list
+        two: list
+        three: list
+        four: list
+        five: list
+        six: list
+        ] { }; nuu 0 0 0 0;",
+        "parse_mismatch",
+    )
+}
+
+#[test]
+fn def_list_six_elements_five_double_zero_call() -> TestResult {
+    fail_test(
+        "def nuu [
+        one: list
+        two: list
+        three: list
+        four: list
+        five: list
+        six: list
+        ] { }; nuu 00 00 00 00 00;",
+        "parse_mismatch",
+    )
+}
