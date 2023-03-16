@@ -42,11 +42,6 @@ If multiple cell paths are given, this will produce a list of values."#
             )
             .rest("rest", SyntaxShape::CellPath, "additional cell paths")
             .switch(
-                "ignore-errors",
-                "when there are empty cells, instead of erroring out, replace them with nothing",
-                Some('i'),
-            )
-            .switch(
                 "sensitive",
                 "get path in a case sensitive manner",
                 Some('s'),
@@ -65,13 +60,12 @@ If multiple cell paths are given, this will produce a list of values."#
         let cell_path: CellPath = call.req(engine_state, stack, 0)?;
         let rest: Vec<CellPath> = call.rest(engine_state, stack, 1)?;
         let sensitive = call.has_flag("sensitive");
-        let ignore_errors = call.has_flag("ignore-errors");
         let ctrlc = engine_state.ctrlc.clone();
         let metadata = input.metadata();
 
         if rest.is_empty() {
             input
-                .follow_cell_path(&cell_path.members, call.head, !sensitive, ignore_errors)
+                .follow_cell_path(&cell_path.members, call.head, !sensitive)
                 .map(|x| x.into_pipeline_data())
         } else {
             let mut output = vec![];
@@ -81,9 +75,7 @@ If multiple cell paths are given, this will produce a list of values."#
             let input = input.into_value(span);
 
             for path in paths {
-                let val = input
-                    .clone()
-                    .follow_cell_path(&path.members, !sensitive, false);
+                let val = input.clone().follow_cell_path(&path.members, !sensitive);
 
                 output.push(val?);
             }

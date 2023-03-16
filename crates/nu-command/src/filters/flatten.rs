@@ -279,7 +279,7 @@ fn flat_value(columns: &[CellPath], item: &Value, _name_tag: Span, all: bool) ->
                         if !columns.is_empty() {
                             let cell_path =
                                 column_requested.and_then(|x| match x.members.first() {
-                                    Some(PathMember::String { val, span: _ }) => Some(val),
+                                    Some(PathMember::String { val, span: _, .. }) => Some(val),
                                     _ => None,
                                 });
 
