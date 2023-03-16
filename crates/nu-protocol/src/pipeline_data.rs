@@ -322,7 +322,6 @@ impl PipelineData {
         cell_path: &[PathMember],
         head: Span,
         insensitive: bool,
-        ignore_errors: bool,
     ) -> Result<Value, ShellError> {
         match self {
             // FIXME: there are probably better ways of doing this
@@ -330,8 +329,8 @@ impl PipelineData {
                 vals: stream.collect(),
                 span: head,
             }
-            .follow_cell_path(cell_path, insensitive, ignore_errors),
-            PipelineData::Value(v, ..) => v.follow_cell_path(cell_path, insensitive, ignore_errors),
+            .follow_cell_path(cell_path, insensitive),
+            PipelineData::Value(v, ..) => v.follow_cell_path(cell_path, insensitive),
             _ => Err(ShellError::IOError("can't follow stream paths".into())),
         }
     }

@@ -18,6 +18,21 @@ fn record_single_field_success() -> TestResult {
 }
 
 #[test]
+fn record_single_field_optional_success() -> TestResult {
+    run_test("{foo: 'bar'}.foo? == 'bar'", "true")
+}
+
+#[test]
+fn get_works_with_cell_path_success() -> TestResult {
+    run_test("{foo: 'bar'} | get foo?", "bar")
+}
+
+#[test]
+fn get_works_with_cell_path_missing_data() -> TestResult {
+    run_test("{foo: 'bar'} | get foobar? | to nuon", "null")
+}
+
+#[test]
 fn record_single_field_failure() -> TestResult {
     fail_test("{foo: 'bar'}.foobar", "")
 }
@@ -28,6 +43,21 @@ fn record_int_failure() -> TestResult {
 }
 
 #[test]
+fn record_single_field_optional() -> TestResult {
+    run_test("{foo: 'bar'}.foobar?  | to nuon", "null")
+}
+
+#[test]
+fn record_single_field_optional_does_not_short_circuit() -> TestResult {
+    fail_test("{foo: 'bar'}.foobar?.baz", "nothing")
+}
+
+#[test]
+fn record_multiple_optional_fields() -> TestResult {
+    run_test("{foo: 'bar'}.foobar?.baz? | to nuon", "null")
+}
+
+#[test]
 fn nested_record_field_success() -> TestResult {
     run_test("{foo: {bar: 'baz'} }.foo.bar == 'baz'", "true")
 }
@@ -35,6 +65,11 @@ fn nested_record_field_success() -> TestResult {
 #[test]
 fn nested_record_field_failure() -> TestResult {
     fail_test("{foo: {bar: 'baz'} }.foo.asdf", "")
+}
+
+#[test]
+fn nested_record_field_optional() -> TestResult {
+    run_test("{foo: {bar: 'baz'} }.foo.asdf?  | to nuon", "null")
 }
 
 #[test]
@@ -72,10 +107,25 @@ fn jagged_list_access_fails() -> TestResult {
     fail_test("[{}, {foo: 'bar'}].foo", "cannot find column")
 }
 
+#[test]
+fn jagged_list_optional_access_succeeds() -> TestResult {
+    run_test("[{foo: 'bar'}, {}].foo?.0", "bar")?;
+    run_test("[{foo: 'bar'}, {}].foo?.1  | to nuon", "null")?;
+
+    run_test("[{}, {foo: 'bar'}].foo?.0 | to nuon", "null")?;
+    run_test("[{}, {foo: 'bar'}].foo?.1", "bar")
+}
+
 // test that accessing a nonexistent row fails
 #[test]
 fn list_row_access_failure() -> TestResult {
     fail_test("[{foo: 'bar'}, {foo: 'baz'}].2", "")
+}
+
+#[test]
+fn list_row_optional_access_succeeds() -> TestResult {
+    run_test("[{foo: 'bar'}, {foo: 'baz'}].2? | to nuon", "null")?;
+    run_test("[{foo: 'bar'}, {foo: 'baz'}].3? | to nuon", "null")
 }
 
 // regression test for an old bug

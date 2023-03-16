@@ -2015,54 +2015,100 @@ pub fn parse_variable_expr(
 pub fn parse_cell_path(
     working_set: &mut StateWorkingSet,
     tokens: impl Iterator<Item = Token>,
-    mut expect_dot: bool,
+    expect_dot: bool,
     expand_aliases_denylist: &[usize],
-    span: Span,
 ) -> (Vec<PathMember>, Option<ParseError>) {
+    enum TokenType {
+        Dot,           // .
+        QuestionOrDot, // ? or .
+        PathMember,    // an int or string, like `1` or `foo`
+    }
+
+    // Parsing a cell path is essentially a state machine, and this is the state
+    let mut expected_token = if expect_dot {
+        TokenType::Dot
+    } else {
+        TokenType::PathMember
+    };
+
     let mut error = None;
     let mut tail = vec![];
 
     for path_element in tokens {
         let bytes = working_set.get_span_contents(path_element.span);
 
-        if expect_dot {
-            expect_dot = false;
-            if bytes.len() != 1 || bytes[0] != b'.' {
-                error = error.or_else(|| Some(ParseError::Expected('.'.into(), path_element.span)));
+        match expected_token {
+            TokenType::Dot => {
+                if bytes.len() != 1 || bytes[0] != b'.' {
+                    return (
+                        tail,
+                        Some(ParseError::Expected('.'.into(), path_element.span)),
+                    );
+                }
+                expected_token = TokenType::PathMember;
             }
-        } else {
-            expect_dot = true;
-
-            match parse_int(bytes, path_element.span) {
-                (
-                    Expression {
-                        expr: Expr::Int(val),
-                        span,
-                        ..
-                    },
-                    None,
-                ) => tail.push(PathMember::Int {
-                    val: val as usize,
-                    span,
-                }),
-                _ => {
-                    let (result, err) =
-                        parse_string(working_set, path_element.span, expand_aliases_denylist);
-                    error = error.or(err);
-                    match result {
+            TokenType::QuestionOrDot => {
+                if bytes.len() == 1 && bytes[0] == b'.' {
+                    expected_token = TokenType::PathMember;
+                } else if bytes.len() == 1 && bytes[0] == b'?' {
+                    if let Some(last) = tail.last_mut() {
+                        match last {
+                            PathMember::String {
+                                ref mut optional, ..
+                            } => *optional = true,
+                            PathMember::Int {
+                                ref mut optional, ..
+                            } => *optional = true,
+                        }
+                    }
+                    expected_token = TokenType::Dot;
+                } else {
+                    return (
+                        tail,
+                        Some(ParseError::Expected(". or ?".into(), path_element.span)),
+                    );
+                }
+            }
+            TokenType::PathMember => {
+                match parse_int(bytes, path_element.span) {
+                    (
                         Expression {
-                            expr: Expr::String(string),
+                            expr: Expr::Int(val),
                             span,
                             ..
-                        } => {
-                            tail.push(PathMember::String { val: string, span });
-                        }
-                        _ => {
-                            error =
-                                error.or_else(|| Some(ParseError::Expected("string".into(), span)));
+                        },
+                        None,
+                    ) => tail.push(PathMember::Int {
+                        val: val as usize,
+                        span,
+                        optional: false,
+                    }),
+                    _ => {
+                        let (result, err) =
+                            parse_string(working_set, path_element.span, expand_aliases_denylist);
+                        error = error.or(err);
+                        match result {
+                            Expression {
+                                expr: Expr::String(string),
+                                span,
+                                ..
+                            } => {
+                                tail.push(PathMember::String {
+                                    val: string,
+                                    span,
+                                    optional: false,
+                                });
+                            }
+                            _ => {
+                                return (
+                                    tail,
+                                    Some(ParseError::Expected("string".into(), path_element.span)),
+                                );
+                            }
                         }
                     }
                 }
+                expected_token = TokenType::QuestionOrDot;
             }
         }
     }
@@ -2081,7 +2127,7 @@ pub fn parse_full_cell_path(
     let source = working_set.get_span_contents(span);
     let mut error = None;
 
-    let (tokens, err) = lex(source, span.start, &[b'\n', b'\r'], &[b'.'], true);
+    let (tokens, err) = lex(source, span.start, &[b'\n', b'\r'], &[b'.', b'?'], true);
     error = error.or(err);
 
     let mut tokens = tokens.into_iter().peekable();
@@ -2202,13 +2248,7 @@ pub fn parse_full_cell_path(
             );
         };
 
-        let (tail, err) = parse_cell_path(
-            working_set,
-            tokens,
-            expect_dot,
-            expand_aliases_denylist,
-            span,
-        );
+        let (tail, err) = parse_cell_path(working_set, tokens, expect_dot, expand_aliases_denylist);
         error = error.or(err);
 
         (
@@ -4597,13 +4637,13 @@ pub fn parse_value(
             let source = working_set.get_span_contents(span);
             let mut error = None;
 
-            let (tokens, err) = lex(source, span.start, &[b'\n', b'\r'], &[b'.'], true);
+            let (tokens, err) = lex(source, span.start, &[b'\n', b'\r'], &[b'.', b'?'], true);
             error = error.or(err);
 
             let tokens = tokens.into_iter().peekable();
 
             let (cell_path, err) =
-                parse_cell_path(working_set, tokens, false, expand_aliases_denylist, span);
+                parse_cell_path(working_set, tokens, false, expand_aliases_denylist);
             error = error.or(err);
 
             (
