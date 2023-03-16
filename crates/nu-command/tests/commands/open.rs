@@ -10,7 +10,7 @@ fn parses_csv() {
             "nu.zion.csv",
             r#"
                     author,lang,source
-                    Jonathan Turner,Rust,New Zealand
+                    JT Turner,Rust,New Zealand
                     Andres N. Robalino,Rust,Ecuador
                     Yehuda Katz,Rust,Estados Unidos
                 "#,
@@ -179,13 +179,21 @@ fn parses_json() {
 fn parses_xml() {
     let actual = nu!(
         cwd: "tests/fixtures/formats",
-        "open jonathan.xml | get rss.children.channel.children | get 0.3.item.children | get 3.link.children.0"
+        pipeline(r#"
+            open jt.xml
+            | get content
+            | where tag == channel
+            | get content
+            | flatten
+            | where tag == item
+            | get content
+            | flatten
+            | where tag == guid
+            | get content.0.content.0
+        "#)
     );
 
-    assert_eq!(
-        actual.out,
-        "http://www.jonathanturner.org/2015/10/off-to-new-adventures.html"
-    )
+    assert_eq!(actual.out, "https://www.jntrnr.com/off-to-new-adventures/")
 }
 
 #[cfg(feature = "dataframe")]
@@ -231,7 +239,7 @@ fn open_dir_is_ls() {
     Playground::setup("open_dir", |dirs, sandbox| {
         sandbox.with_files(vec![
             EmptyFile("yehuda.txt"),
-            EmptyFile("jonathan.txt"),
+            EmptyFile("jttxt"),
             EmptyFile("andres.txt"),
         ]);
 

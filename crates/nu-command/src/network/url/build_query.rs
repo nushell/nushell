@@ -89,16 +89,16 @@ fn to_url(input: PipelineData, head: Span) -> Result<PipelineData, ShellError> {
 
                 match serde_urlencoded::to_string(row_vec) {
                     Ok(s) => Ok(s),
-                    _ => Err(ShellError::CantConvert(
-                        "URL".into(),
-                        value.get_type().to_string(),
-                        head,
-                        None,
-                    )),
+                    _ => Err(ShellError::CantConvert {
+                        to_type: "URL".into(),
+                        from_type: value.get_type().to_string(),
+                        span: head,
+                        help: None,
+                    }),
                 }
             }
             // Propagate existing errors
-            Value::Error { error } => Err(error),
+            Value::Error { error } => Err(*error),
             other => Err(ShellError::UnsupportedInput(
                 "Expected a table from pipeline".to_string(),
                 "value originates from here".into(),

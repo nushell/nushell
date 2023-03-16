@@ -128,7 +128,7 @@ fn helper(value: Value, head: Span, timezone: &Spanned<String>) -> Value {
             _to_timezone(dt.with_timezone(dt.offset()), timezone, head)
         }
         _ => Value::Error {
-            error: ShellError::DatetimeParseError(value.debug_value(), head),
+            error: Box::new(ShellError::DatetimeParseError(value.debug_value(), head)),
         },
     }
 }
@@ -137,7 +137,10 @@ fn _to_timezone(dt: DateTime<FixedOffset>, timezone: &Spanned<String>, span: Spa
     match datetime_in_timezone(&dt, timezone.item.as_str()) {
         Ok(dt) => Value::Date { val: dt, span },
         Err(_) => Value::Error {
-            error: ShellError::TypeMismatch(String::from("invalid time zone"), timezone.span),
+            error: Box::new(ShellError::TypeMismatch {
+                err_message: String::from("invalid time zone"),
+                span: timezone.span,
+            }),
         },
     }
 }

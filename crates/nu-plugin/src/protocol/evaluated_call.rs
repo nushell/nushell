@@ -97,12 +97,12 @@ impl EvaluatedCall {
         if let Some(value) = self.nth(pos) {
             FromValue::from_value(&value)
         } else if self.positional.is_empty() {
-            Err(ShellError::AccessEmptyContent(self.head))
+            Err(ShellError::AccessEmptyContent { span: self.head })
         } else {
-            Err(ShellError::AccessBeyondEnd(
-                self.positional.len() - 1,
-                self.head,
-            ))
+            Err(ShellError::AccessBeyondEnd {
+                max_idx: self.positional.len() - 1,
+                span: self.head,
+            })
         }
     }
 }

@@ -2,7 +2,7 @@ use std::path::PathBuf;
 use std::sync::mpsc::{channel, RecvTimeoutError};
 use std::time::Duration;
 
-use notify::{recommended_watcher, EventKind, RecursiveMode, Watcher};
+use notify::{DebouncedEvent, RecommendedWatcher, RecursiveMode, Watcher};
 use nu_engine::{current_dir, eval_block, CallExt};
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Closure, Command, EngineState, Stack, StateWorkingSet};
@@ -13,6 +13,7 @@ use nu_protocol::{
 
 // durations chosen mostly arbitrarily
 const CHECK_CTRL_C_FREQUENCY: Duration = Duration::from_millis(100);
+const DEFAULT_WATCH_DEBOUNCE_DURATION: Duration = Duration::from_millis(100);
 
 #[derive(Clone)]
 pub struct Watch;
@@ -37,6 +38,12 @@ impl Command for Watch {
             .required("closure",
             SyntaxShape::Closure(Some(vec![SyntaxShape::String, SyntaxShape::String, SyntaxShape::String])),
                 "Some Nu code to run whenever a file changes. The closure will be passed `operation`, `path`, and `new_path` (for renames only) arguments in that order")
+            .named(
+                "debounce-ms",
+                SyntaxShape::Int,
+                "Debounce changes for this many milliseconds (default: 100). Adjust if you find that single writes are reported as multiple events",
+                Some('d'),
+            )
             .named(
                 "glob",
                 SyntaxShape::String, // SyntaxShape::GlobPattern gets interpreted relative to cwd, so use String instead
@@ -84,6 +91,22 @@ impl Command for Watch {
             .clone();
 
         let verbose = call.has_flag("verbose");
+
+        let debounce_duration_flag: Option<Spanned<i64>> =
+            call.get_flag(engine_state, stack, "debounce-ms")?;
+        let debounce_duration = match debounce_duration_flag {
+            Some(val) => match u64::try_from(val.item) {
+                Ok(val) => Duration::from_millis(val),
+                Err(_) => {
+                    return Err(ShellError::TypeMismatch {
+                        err_message: "Debounce duration is invalid".to_string(),
+                        span: val.span,
+                    })
+                }
+            },
+            None => DEFAULT_WATCH_DEBOUNCE_DURATION,
+        };
+
         let glob_flag: Option<Spanned<String>> = call.get_flag(engine_state, stack, "glob")?;
         let glob_pattern = match glob_flag {
             Some(glob) => {
@@ -95,10 +118,10 @@ impl Command for Watch {
                 match nu_glob::Pattern::new(&absolute_path.to_string_lossy()) {
                     Ok(pattern) => Some(pattern),
                     Err(_) => {
-                        return Err(ShellError::TypeMismatch(
-                            "Glob pattern is invalid".to_string(),
-                            glob.span,
-                        ))
+                        return Err(ShellError::TypeMismatch {
+                            err_message: "Glob pattern is invalid".to_string(),
+                            span: glob.span,
+                        })
                     }
                 }
             }
@@ -121,7 +144,7 @@ impl Command for Watch {
         let ctrlc_ref = &engine_state.ctrlc.clone();
         let (tx, rx) = channel();
 
-        let mut watcher = match recommended_watcher(tx) {
+        let mut watcher: RecommendedWatcher = match Watcher::new(tx, debounce_duration) {
             Ok(w) => w,
             Err(e) => {
                 return Err(ShellError::IOError(format!(
@@ -129,83 +152,104 @@ impl Command for Watch {
                 )))
             }
         };
-        if let Err(e) = watcher.watch(&path, recursive_mode) {
+
+        if let Err(e) = watcher.watch(path.clone(), recursive_mode) {
             return Err(ShellError::IOError(format!("Failed to start watcher: {e}")));
         }
 
         eprintln!("Now watching files at {path:?}. Press ctrl+c to abort.");
 
-        let event_handler = |operation: &str, path: PathBuf| -> Result<(), ShellError> {
-            let glob_pattern = glob_pattern.clone();
-            let matches_glob = match glob_pattern.clone() {
-                Some(glob) => glob.matches_path(&path),
-                None => true,
+        let event_handler =
+            |operation: &str, path: PathBuf, new_path: Option<PathBuf>| -> Result<(), ShellError> {
+                let glob_pattern = glob_pattern.clone();
+                let matches_glob = match glob_pattern.clone() {
+                    Some(glob) => glob.matches_path(&path),
+                    None => true,
+                };
+                if verbose && glob_pattern.is_some() {
+                    eprintln!("Matches glob: {matches_glob}");
+                }
+
+                if matches_glob {
+                    let stack = &mut stack.clone();
+
+                    if let Some(position) = block.signature.get_positional(0) {
+                        if let Some(position_id) = &position.var_id {
+                            stack.add_var(*position_id, Value::string(operation, call.span()));
+                        }
+                    }
+
+                    if let Some(position) = block.signature.get_positional(1) {
+                        if let Some(position_id) = &position.var_id {
+                            stack.add_var(
+                                *position_id,
+                                Value::string(path.to_string_lossy(), call.span()),
+                            );
+                        }
+                    }
+
+                    if let Some(position) = block.signature.get_positional(2) {
+                        if let Some(position_id) = &position.var_id {
+                            stack.add_var(
+                                *position_id,
+                                Value::string(
+                                    new_path.unwrap_or_else(|| "".into()).to_string_lossy(),
+                                    call.span(),
+                                ),
+                            );
+                        }
+                    }
+
+                    let eval_result = eval_block(
+                        engine_state,
+                        stack,
+                        &block,
+                        Value::Nothing { span: call.span() }.into_pipeline_data(),
+                        call.redirect_stdout,
+                        call.redirect_stderr,
+                    );
+
+                    match eval_result {
+                        Ok(val) => {
+                            val.print(engine_state, stack, false, false)?;
+                        }
+                        Err(err) => {
+                            let working_set = StateWorkingSet::new(engine_state);
+                            eprintln!("{}", format_error(&working_set, &err));
+                        }
+                    }
+                }
+
+                Ok(())
             };
-            if verbose && glob_pattern.is_some() {
-                eprintln!("Matches glob: {matches_glob}");
-            }
-
-            if matches_glob {
-                let stack = &mut stack.clone();
-
-                if let Some(position) = block.signature.get_positional(0) {
-                    if let Some(position_id) = &position.var_id {
-                        stack.add_var(*position_id, Value::string(operation, call.span()));
-                    }
-                }
-
-                if let Some(position) = block.signature.get_positional(1) {
-                    if let Some(position_id) = &position.var_id {
-                        stack.add_var(
-                            *position_id,
-                            Value::string(path.to_string_lossy(), call.span()),
-                        );
-                    }
-                }
-
-                let eval_result = eval_block(
-                    engine_state,
-                    stack,
-                    &block,
-                    Value::Nothing { span: call.span() }.into_pipeline_data(),
-                    call.redirect_stdout,
-                    call.redirect_stderr,
-                );
-
-                match eval_result {
-                    Ok(val) => {
-                        val.print(engine_state, stack, false, false)?;
-                    }
-                    Err(err) => {
-                        let working_set = StateWorkingSet::new(engine_state);
-                        eprintln!("{}", format_error(&working_set, &err));
-                    }
-                }
-            }
-
-            Ok(())
-        };
 
         loop {
             match rx.recv_timeout(CHECK_CTRL_C_FREQUENCY) {
-                Ok(Ok(mut event)) => {
+                Ok(event) => {
                     if verbose {
                         eprintln!("{event:?}");
                     }
-                    let path = match event.paths.pop() {
-                        None => continue,
-                        Some(p) => p,
-                    };
-                    match event.kind {
-                        EventKind::Create(_) => event_handler("Create", path),
-                        EventKind::Modify(notify::event::ModifyKind::Data(_)) => {
-                            event_handler("Write", path)
+                    let handler_result = match event {
+                        DebouncedEvent::Create(path) => event_handler("Create", path, None),
+                        DebouncedEvent::Write(path) => event_handler("Write", path, None),
+                        DebouncedEvent::Remove(path) => event_handler("Remove", path, None),
+                        DebouncedEvent::Rename(path, new_path) => {
+                            event_handler("Rename", path, Some(new_path))
                         }
-                        EventKind::Remove(_) => event_handler("Remove", path),
-                        _ => Ok(()),
-                    }?
+                        DebouncedEvent::Error(err, path) => match path {
+                            Some(path) => Err(ShellError::IOError(format!(
+                                "Error detected for {path:?}: {err:?}"
+                            ))),
+                            None => Err(ShellError::IOError(format!("Error detected: {err:?}"))),
+                        },
+                        // These are less likely to be interesting events
+                        DebouncedEvent::Chmod(_)
+                        | DebouncedEvent::NoticeRemove(_)
+                        | DebouncedEvent::NoticeWrite(_)
+                        | DebouncedEvent::Rescan => Ok(()),
+                    };
+                    handler_result?;
                 }
-                Ok(Err(e)) => return Err(ShellError::IOError(format!("watch error: {e}"))),
                 Err(RecvTimeoutError::Disconnected) => {
                     return Err(ShellError::IOError(
                         "Unexpected disconnect from file watcher".into(),
@@ -230,7 +274,7 @@ impl Command for Watch {
             },
             Example {
                 description: "Watch all changes in the current directory",
-                example: r#"watch . { |op, path| $"($op) ($path)"}"#,
+                example: r#"watch . { |op, path, new_path| $"($op) ($path) ($new_path)"}"#,
                 result: None,
             },
             Example {

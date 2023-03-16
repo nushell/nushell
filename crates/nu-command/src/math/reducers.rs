@@ -112,7 +112,7 @@ pub fn sum(data: Vec<Value>, span: Span, head: Span) -> Result<Value, ShellError
             | Value::Duration { .. } => {
                 acc = acc.add(head, value, head)?;
             }
-            Value::Error { error } => return Err(error.clone()),
+            Value::Error { error } => return Err(*error.clone()),
             other => {
                 return Err(ShellError::UnsupportedInput(
                     "Attempted to compute the sum of a value that cannot be summed".to_string(),
@@ -145,7 +145,7 @@ pub fn product(data: Vec<Value>, span: Span, head: Span) -> Result<Value, ShellE
             Value::Int { .. } | Value::Float { .. } => {
                 acc = acc.mul(head, value, head)?;
             }
-            Value::Error { error } => return Err(error.clone()),
+            Value::Error { error } => return Err(*error.clone()),
             other => {
                 return Err(ShellError::UnsupportedInput(
                     "Attempted to compute the product of a value that cannot be multiplied"

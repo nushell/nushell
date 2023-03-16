@@ -77,7 +77,7 @@ fn bool(
         let probability_is_valid = (0.0..=1.0).contains(&probability);
 
         if !probability_is_valid {
-            return Err(ShellError::InvalidProbability(prob.span));
+            return Err(ShellError::InvalidProbability { span: prob.span });
         }
     }
 

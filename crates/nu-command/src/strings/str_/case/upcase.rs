@@ -68,7 +68,9 @@ fn operate(
                     let r =
                         ret.update_cell_path(&path.members, Box::new(move |old| action(old, head)));
                     if let Err(error) = r {
-                        return Value::Error { error };
+                        return Value::Error {
+                            error: Box::new(error),
+                        };
                     }
                 }
                 ret
@@ -86,12 +88,12 @@ fn action(input: &Value, head: Span) -> Value {
         },
         Value::Error { .. } => input.clone(),
         _ => Value::Error {
-            error: ShellError::OnlySupportsThisInputType {
+            error: Box::new(ShellError::OnlySupportsThisInputType {
                 exp_input_type: "string".into(),
                 wrong_type: input.get_type().to_string(),
                 dst_span: head,
                 src_span: input.expect_span(),
-            },
+            }),
         },
     }
 }

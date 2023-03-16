@@ -67,23 +67,23 @@ fn operate(value: Value, head: Span) -> Value {
                 Value::Float { val, span }
             } else {
                 Value::Error {
-                    error: ShellError::UnsupportedInput(
+                    error: Box::new(ShellError::UnsupportedInput(
                         "'ln' undefined for values outside the open interval (0, Inf).".into(),
                         "value originates from here".into(),
                         head,
                         span,
-                    ),
+                    )),
                 }
             }
         }
         Value::Error { .. } => value,
         other => Value::Error {
-            error: ShellError::OnlySupportsThisInputType {
+            error: Box::new(ShellError::OnlySupportsThisInputType {
                 exp_input_type: "numeric".into(),
                 wrong_type: other.get_type().to_string(),
                 dst_span: head,
                 src_span: other.expect_span(),
-            },
+            }),
         },
     }
 }

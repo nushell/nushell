@@ -23,7 +23,7 @@ fn copies_a_file_impl(progress: bool) {
         let progress_flag = if progress { "-p" } else { "" };
 
         // Get the hash of the file content to check integrity after copy.
-        let first_hash = get_file_hash(&test_file.display());
+        let first_hash = get_file_hash(test_file.display());
 
         nu!(
             cwd: dirs.root(),
@@ -108,7 +108,7 @@ fn copies_the_directory_inside_directory_if_path_to_copy_is_directory_and_with_r
             .within("originals")
             .with_files(vec![
                 EmptyFile("yehuda.txt"),
-                EmptyFile("jonathan.txt"),
+                EmptyFile("jttxt"),
                 EmptyFile("andres.txt"),
             ])
             .mkdir("expected");
@@ -126,7 +126,7 @@ fn copies_the_directory_inside_directory_if_path_to_copy_is_directory_and_with_r
         assert!(files_exist_at(
             vec![
                 Path::new("yehuda.txt"),
-                Path::new("jonathan.txt"),
+                Path::new("jttxt"),
                 Path::new("andres.txt")
             ],
             &expected_dir
@@ -148,10 +148,10 @@ fn deep_copies_with_recursive_flag_impl(progress: bool) {
             .within("originals/contributors")
             .with_files(vec![
                 EmptyFile("yehuda.txt"),
-                EmptyFile("jonathan.txt"),
+                EmptyFile("jttxt"),
                 EmptyFile("andres.txt"),
             ])
-            .within("originals/contributors/jonathan")
+            .within("originals/contributors/JT")
             .with_files(vec![EmptyFile("errors.txt"), EmptyFile("multishells.txt")])
             .within("originals/contributors/andres")
             .with_files(vec![EmptyFile("coverage.txt"), EmptyFile("commands.txt")])
@@ -162,7 +162,7 @@ fn deep_copies_with_recursive_flag_impl(progress: bool) {
         let expected_dir = dirs.test().join("expected").join("originals");
         let progress_flag = if progress { "-p" } else { "" };
 
-        let jonathans_expected_copied_dir = expected_dir.join("contributors").join("jonathan");
+        let jts_expected_copied_dir = expected_dir.join("contributors").join("JT");
         let andres_expected_copied_dir = expected_dir.join("contributors").join("andres");
         let yehudas_expected_copied_dir = expected_dir.join("contributors").join("yehuda");
 
@@ -175,15 +175,15 @@ fn deep_copies_with_recursive_flag_impl(progress: bool) {
         assert!(expected_dir.exists());
         assert!(files_exist_at(
             vec![Path::new("errors.txt"), Path::new("multishells.txt")],
-            &jonathans_expected_copied_dir
+            jts_expected_copied_dir
         ));
         assert!(files_exist_at(
             vec![Path::new("coverage.txt"), Path::new("commands.txt")],
-            &andres_expected_copied_dir
+            andres_expected_copied_dir
         ));
         assert!(files_exist_at(
             vec![Path::new("defer-evaluation.txt")],
-            &yehudas_expected_copied_dir
+            yehudas_expected_copied_dir
         ));
     })
 }
@@ -216,7 +216,7 @@ fn copies_using_path_with_wildcard_impl(progress: bool) {
             vec![
                 Path::new("caco3_plastics.csv"),
                 Path::new("cargo_sample.toml"),
-                Path::new("jonathan.xml"),
+                Path::new("jt.xml"),
                 Path::new("sample.ini"),
                 Path::new("sgml_description.json"),
                 Path::new("utf16.ini"),
@@ -261,7 +261,7 @@ fn copies_using_a_glob_impl(progress: bool) {
             vec![
                 Path::new("caco3_plastics.csv"),
                 Path::new("cargo_sample.toml"),
-                Path::new("jonathan.xml"),
+                Path::new("jt.xml"),
                 Path::new("sample.ini"),
                 Path::new("sgml_description.json"),
                 Path::new("utf16.ini"),
@@ -317,7 +317,7 @@ fn copy_files_using_glob_two_parents_up_using_multiple_dots() {
 fn copy_files_using_glob_two_parents_up_using_multiple_dots_imp(progress: bool) {
     Playground::setup("cp_test_9", |dirs, sandbox| {
         sandbox.within("foo").within("bar").with_files(vec![
-            EmptyFile("jonathan.json"),
+            EmptyFile("jtjson"),
             EmptyFile("andres.xml"),
             EmptyFile("yehuda.yaml"),
             EmptyFile("kevin.txt"),
@@ -335,7 +335,7 @@ fn copy_files_using_glob_two_parents_up_using_multiple_dots_imp(progress: bool) 
         assert!(files_exist_at(
             vec![
                 "yehuda.yaml",
-                "jonathan.json",
+                "jtjson",
                 "andres.xml",
                 "kevin.txt",
                 "many_more.ppl",

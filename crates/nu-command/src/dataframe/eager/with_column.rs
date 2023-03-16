@@ -109,12 +109,12 @@ impl Command for WithColumn {
             let df = NuDataFrame::try_from_value(value)?;
             command_eager(engine_state, stack, call, df)
         } else {
-            Err(ShellError::CantConvert(
-                "lazy or eager dataframe".into(),
-                value.get_type().to_string(),
-                value.span()?,
-                None,
-            ))
+            Err(ShellError::CantConvert {
+                to_type: "lazy or eager dataframe".into(),
+                from_type: value.get_type().to_string(),
+                span: value.span()?,
+                help: None,
+            })
         }
     }
 }

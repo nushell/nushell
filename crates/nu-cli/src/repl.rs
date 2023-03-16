@@ -414,7 +414,7 @@ pub fn evaluate_repl(
         );
 
         start_time = std::time::Instant::now();
-        let config = engine_state.get_config();
+        let config = &engine_state.get_config().clone();
         let prompt = prompt_update::update_prompt(config, engine_state, stack, &mut nu_prompt);
         perf(
             "update_prompt",
@@ -427,11 +427,14 @@ pub fn evaluate_repl(
 
         entry_num += 1;
 
-        if entry_num == 1 && show_banner {
-            println!(
-                "Startup Time: {}",
-                format_duration(entire_start_time.elapsed().as_nanos() as i64)
-            );
+        if entry_num == 1 {
+            engine_state.set_startup_time(entire_start_time.elapsed().as_nanos() as i64);
+            if show_banner {
+                println!(
+                    "Startup Time: {}",
+                    format_duration(engine_state.get_startup_time())
+                );
+            }
         }
 
         start_time = std::time::Instant::now();
@@ -846,10 +849,10 @@ pub fn eval_env_change_hook(
                 }
             }
             x => {
-                return Err(ShellError::TypeMismatch(
-                    "record for the 'env_change' hook".to_string(),
-                    x.span()?,
-                ));
+                return Err(ShellError::TypeMismatch {
+                    err_message: "record for the 'env_change' hook".to_string(),
+                    span: x.span()?,
+                });
             }
         }
     }
@@ -876,12 +879,14 @@ pub fn eval_hook(
     let condition_path = PathMember::String {
         val: "condition".to_string(),
         span: value_span,
+        optional: false,
     };
     let mut output = PipelineData::empty();
 
     let code_path = PathMember::String {
         val: "code".to_string(),
         span: value_span,
+        optional: false,
     };
 
     match value {
@@ -891,63 +896,60 @@ pub fn eval_hook(
             }
         }
         Value::Record { .. } => {
-            let do_run_hook = if let Ok(condition) =
-                value
-                    .clone()
-                    .follow_cell_path(&[condition_path], false, false)
-            {
-                match condition {
-                    Value::Block {
-                        val: block_id,
-                        span: block_span,
-                        ..
-                    }
-                    | Value::Closure {
-                        val: block_id,
-                        span: block_span,
-                        ..
-                    } => {
-                        match run_hook_block(
-                            engine_state,
-                            stack,
-                            block_id,
-                            None,
-                            arguments.clone(),
-                            block_span,
-                        ) {
-                            Ok(pipeline_data) => {
-                                if let PipelineData::Value(Value::Bool { val, .. }, ..) =
-                                    pipeline_data
-                                {
-                                    val
-                                } else {
-                                    return Err(ShellError::UnsupportedConfigValue(
-                                        "boolean output".to_string(),
-                                        "other PipelineData variant".to_string(),
-                                        block_span,
-                                    ));
+            let do_run_hook =
+                if let Ok(condition) = value.clone().follow_cell_path(&[condition_path], false) {
+                    match condition {
+                        Value::Block {
+                            val: block_id,
+                            span: block_span,
+                            ..
+                        }
+                        | Value::Closure {
+                            val: block_id,
+                            span: block_span,
+                            ..
+                        } => {
+                            match run_hook_block(
+                                engine_state,
+                                stack,
+                                block_id,
+                                None,
+                                arguments.clone(),
+                                block_span,
+                            ) {
+                                Ok(pipeline_data) => {
+                                    if let PipelineData::Value(Value::Bool { val, .. }, ..) =
+                                        pipeline_data
+                                    {
+                                        val
+                                    } else {
+                                        return Err(ShellError::UnsupportedConfigValue(
+                                            "boolean output".to_string(),
+                                            "other PipelineData variant".to_string(),
+                                            block_span,
+                                        ));
+                                    }
+                                }
+                                Err(err) => {
+                                    return Err(err);
                                 }
                             }
-                            Err(err) => {
-                                return Err(err);
-                            }
+                        }
+                        other => {
+                            return Err(ShellError::UnsupportedConfigValue(
+                                "block".to_string(),
+                                format!("{}", other.get_type()),
+                                other.span()?,
+                            ));
                         }
                     }
-                    other => {
-                        return Err(ShellError::UnsupportedConfigValue(
-                            "block".to_string(),
-                            format!("{}", other.get_type()),
-                            other.span()?,
-                        ));
-                    }
-                }
-            } else {
-                // always run the hook
-                true
-            };
+                } else {
+                    // always run the hook
+                    true
+                };
 
             if do_run_hook {
-                match value.clone().follow_cell_path(&[code_path], false, false)? {
+                match value.clone().follow_cell_path(&[code_path], false)? {
                     Value::String {
                         val,
                         span: source_span,
@@ -1109,10 +1111,10 @@ fn run_hook_block(
             if let Some(arg) = arguments.get(idx) {
                 callee_stack.add_var(*var_id, arg.1.clone())
             } else {
-                return Err(ShellError::IncompatibleParametersSingle(
-                    "This hook block has too many parameters".into(),
+                return Err(ShellError::IncompatibleParametersSingle {
+                    msg: "This hook block has too many parameters".into(),
                     span,
-                ));
+                });
             }
         }
     }
@@ -1121,7 +1123,7 @@ fn run_hook_block(
         eval_block_with_early_return(engine_state, &mut callee_stack, block, input, false, false)?;
 
     if let PipelineData::Value(Value::Error { error }, _) = pipeline_data {
-        return Err(error);
+        return Err(*error);
     }
 
     // If all went fine, preserve the environment of the called block

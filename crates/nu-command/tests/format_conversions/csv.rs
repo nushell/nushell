@@ -82,7 +82,7 @@ fn infers_types() {
             r#"
                 first_name,last_name,rusty_luck,d
                 Andrés,Robalino,1,d
-                Jonathan,Turner,1,d
+                JT,Turner,1,d
                 Yehuda,Katz,1,d
                 Jason,Gedge,1,d
             "#,
@@ -109,7 +109,7 @@ fn from_csv_text_to_table() {
             r#"
                 first_name,last_name,rusty_luck
                 Andrés,Robalino,1
-                Jonathan,Turner,1
+                JT,Turner,1
                 Yehuda,Katz,1
             "#,
         )]);
@@ -136,7 +136,7 @@ fn from_csv_text_with_separator_to_table() {
             r#"
                 first_name;last_name;rusty_luck
                 Andrés;Robalino;1
-                Jonathan;Turner;1
+                JT;Turner;1
                 Yehuda;Katz;1
             "#,
         )]);
@@ -163,7 +163,7 @@ fn from_csv_text_with_tab_separator_to_table() {
             r#"
                 first_name	last_name	rusty_luck
                 Andrés	Robalino	1
-                Jonathan	Turner	1
+                JT	Turner	1
                 Yehuda	Katz	1
             "#,
         )]);
@@ -189,7 +189,7 @@ fn from_csv_text_skipping_headers_to_table() {
             "los_tres_amigos.txt",
             r#"
                 Andrés,Robalino,1
-                Jonathan,Turner,1
+                JT,Turner,1
                 Yehuda,Katz,1
             "#,
         )]);

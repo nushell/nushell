@@ -108,11 +108,8 @@ fn rename(
     }) = call.get_flag(engine_state, stack, "column")?
     {
         if columns.is_empty() {
-            return Err(ShellError::TypeMismatch(
-                    "The column list cannot be empty and must contain only two values: the column's name and its replacement value"
-                        .to_string(),
-                        column_span,
-                ));
+            return Err(ShellError::TypeMismatch { err_message: "The column list cannot be empty and must contain only two values: the column's name and its replacement value"
+                        .to_string(), span: column_span });
         } else {
             (Some(columns[0].span()?), column_span)
         }
@@ -122,11 +119,8 @@ fn rename(
 
     if let Some(ref cols) = specified_column {
         if cols.len() != 2 {
-            return Err(ShellError::TypeMismatch(
-                    "The column list must contain only two values: the column's name and its replacement value"
-                        .to_string(),
-                        list_span,
-                ));
+            return Err(ShellError::TypeMismatch { err_message: "The column list must contain only two values: the column's name and its replacement value"
+                        .to_string(), span: list_span });
         }
     }
 
@@ -147,7 +141,7 @@ fn rename(
                             // check if the specified column to be renamed exists
                             if !cols.contains(&c[0]) {
                                 return Value::Error {
-                                    error: ShellError::UnsupportedInput(
+                                    error: Box::new(ShellError::UnsupportedInput(
                                         format!(
                                             "The column '{}' does not exist in the input",
                                             &c[0]
@@ -157,7 +151,7 @@ fn rename(
                                         specified_col_span.unwrap_or(head_span),
                                         // Arrow 2 points at the input value.
                                         span,
-                                    ),
+                                    )),
                                 };
                             }
                             for (idx, val) in cols.iter_mut().enumerate() {
@@ -183,12 +177,12 @@ fn rename(
                 // Propagate errors by explicitly matching them before the final case.
                 Value::Error { .. } => item.clone(),
                 other => Value::Error {
-                    error: ShellError::OnlySupportsThisInputType {
+                    error: Box::new(ShellError::OnlySupportsThisInputType {
                         exp_input_type: "record".into(),
                         wrong_type: other.get_type().to_string(),
                         dst_span: head_span,
                         src_span: other.expect_span(),
-                    },
+                    }),
                 },
             },
             engine_state.ctrlc.clone(),

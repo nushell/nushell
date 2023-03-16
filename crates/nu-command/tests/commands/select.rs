@@ -10,7 +10,7 @@ fn regular_columns() {
                 [first_name, last_name, rusty_at, type];
 
                 [Andrés Robalino 10/11/2013 A]
-                [Jonathan Turner 10/12/2013 B]
+                [JT Turner 10/12/2013 B]
                 [Yehuda Katz 10/11/2013 A]
             ]
             | select rusty_at last_name
@@ -32,7 +32,7 @@ fn complex_nested_columns() {
                     "nu": {
                         "committers": [
                             {"name": "Andrés N. Robalino"},
-                            {"name": "Jonathan Turner"},
+                            {"name": "JT Turner"},
                             {"name": "Yehuda Katz"}
                         ],
                         "releases": [
@@ -73,7 +73,7 @@ fn fails_if_given_unknown_column_name() {
                 [first_name, last_name, rusty_at, type];
 
                 [Andrés Robalino 10/11/2013 A]
-                [Jonathan Turner 10/12/2013 B]
+                [JT Turner 10/12/2013 B]
                 [Yehuda Katz 10/11/2013 A]
             ]
             | select rrusty_at first_name
@@ -165,7 +165,7 @@ fn select_ignores_errors_successfully1() {
     let actual = nu!(
         cwd: ".", pipeline(
         r#"
-        [{a: 1, b: 2} {a: 3, b: 5} {a: 3}] | select -i b | length
+        [{a: 1, b: 2} {a: 3, b: 5} {a: 3}] | select b? | length
         "#
     ));
 
@@ -178,7 +178,7 @@ fn select_ignores_errors_successfully2() {
     let actual = nu!(
         cwd: ".", pipeline(
         r#"
-        [{a: 1} {a: 2} {a: 3}] | select -i b | to nuon
+        [{a: 1} {a: 2} {a: 3}] | select b? | to nuon
             "#
     ));
 
@@ -190,7 +190,7 @@ fn select_ignores_errors_successfully2() {
 fn select_ignores_errors_successfully3() {
     let actual = nu!(
         cwd: ".", pipeline(
-        r#"sys | select -i invalid_key | to nuon"#
+        r#"sys | select invalid_key? | to nuon"#
     ));
 
     assert_eq!(actual.out, "{invalid_key: null}".to_string());
@@ -201,38 +201,10 @@ fn select_ignores_errors_successfully3() {
 fn select_ignores_errors_successfully4() {
     let actual = nu!(
         cwd: ".", pipeline(
-        r#"[a b c] | select -i invalid_key | to nuon"#
+        r#""key val\na 1\nb 2\n" | lines | split column -c " " | select foo? | to nuon"#
     ));
 
-    assert_eq!(
-        actual.out,
-        "[[invalid_key]; [null], [null], [null]]".to_string()
-    );
-    assert!(actual.err.is_empty());
-}
-
-#[test]
-fn select_ignores_errors_successfully5() {
-    let actual = nu!(
-        cwd: ".", pipeline(
-        r#"[a b c] | select -i 0.0"#
-    ));
-
-    assert!(actual.out.is_empty());
-    assert!(actual.err.is_empty());
-}
-
-#[test]
-fn select_ignores_errors_successfully6() {
-    let actual = nu!(
-        cwd: ".", pipeline(
-        r#""key val\na 1\nb 2\n" | lines | split column -c " " | select -i "100" | to nuon"#
-    ));
-
-    assert_eq!(
-        actual.out,
-        r#"[["100"]; [null], [null], [null]]"#.to_string()
-    );
+    assert_eq!(actual.out, r#"[[foo]; [null], [null], [null]]"#.to_string());
     assert!(actual.err.is_empty());
 }
 

@@ -121,7 +121,7 @@ impl Command for ParEach {
                     ) {
                         Ok(v) => v,
                         Err(error) => Value::Error {
-                            error: chain_error_with_input(error, val_span),
+                            error: Box::new(chain_error_with_input(error, val_span)),
                         }
                         .into_pipeline_data(),
                     }
@@ -155,7 +155,7 @@ impl Command for ParEach {
                     ) {
                         Ok(v) => v,
                         Err(error) => Value::Error {
-                            error: chain_error_with_input(error, val_span),
+                            error: Box::new(chain_error_with_input(error, val_span)),
                         }
                         .into_pipeline_data(),
                     }
@@ -188,7 +188,7 @@ impl Command for ParEach {
                     ) {
                         Ok(v) => v,
                         Err(error) => Value::Error {
-                            error: chain_error_with_input(error, val_span),
+                            error: Box::new(chain_error_with_input(error, val_span)),
                         }
                         .into_pipeline_data(),
                     }
@@ -206,7 +206,12 @@ impl Command for ParEach {
                 .map(move |x| {
                     let x = match x {
                         Ok(x) => x,
-                        Err(err) => return Value::Error { error: err }.into_pipeline_data(),
+                        Err(err) => {
+                            return Value::Error {
+                                error: Box::new(err),
+                            }
+                            .into_pipeline_data()
+                        }
                     };
 
                     let block = engine_state.get_block(block_id);
@@ -228,7 +233,10 @@ impl Command for ParEach {
                         redirect_stderr,
                     ) {
                         Ok(v) => v,
-                        Err(error) => Value::Error { error }.into_pipeline_data(),
+                        Err(error) => Value::Error {
+                            error: Box::new(error),
+                        }
+                        .into_pipeline_data(),
                     }
                 })
                 .collect::<Vec<_>>()

@@ -279,7 +279,9 @@ fn get_expression_as_value(
 ) -> Value {
     match eval_expression(engine_state, stack, inner_expr) {
         Ok(v) => v,
-        Err(error) => Value::Error { error },
+        Err(error) => Value::Error {
+            error: Box::new(error),
+        },
     }
 }
 

@@ -93,20 +93,20 @@ impl NuLazyGroupBy {
                         schema: group.schema.clone(),
                         from_eager: group.from_eager,
                     }),
-                    None => Err(ShellError::CantConvert(
-                        "lazy groupby".into(),
-                        "custom value".into(),
+                    None => Err(ShellError::CantConvert {
+                        to_type: "lazy groupby".into(),
+                        from_type: "custom value".into(),
                         span,
-                        None,
-                    )),
+                        help: None,
+                    }),
                 }
             }
-            x => Err(ShellError::CantConvert(
-                "lazy groupby".into(),
-                x.get_type().to_string(),
-                x.span()?,
-                None,
-            )),
+            x => Err(ShellError::CantConvert {
+                to_type: "lazy groupby".into(),
+                from_type: x.get_type().to_string(),
+                span: x.span()?,
+                help: None,
+            }),
         }
     }
 

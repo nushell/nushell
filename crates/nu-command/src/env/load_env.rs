@@ -43,11 +43,17 @@ impl Command for LoadEnv {
             Some((cols, vals)) => {
                 for (env_var, rhs) in cols.into_iter().zip(vals) {
                     if env_var == "FILE_PWD" {
-                        return Err(ShellError::AutomaticEnvVarSetManually(env_var, call.head));
+                        return Err(ShellError::AutomaticEnvVarSetManually {
+                            envvar_name: env_var,
+                            span: call.head,
+                        });
                     }
 
                     if env_var == "PWD" {
-                        return Err(ShellError::AutomaticEnvVarSetManually(env_var, call.head));
+                        return Err(ShellError::AutomaticEnvVarSetManually {
+                            envvar_name: env_var,
+                            span: call.head,
+                        });
                     } else {
                         stack.add_env_var(env_var, rhs);
                     }
@@ -58,7 +64,10 @@ impl Command for LoadEnv {
                 PipelineData::Value(Value::Record { cols, vals, .. }, ..) => {
                     for (env_var, rhs) in cols.into_iter().zip(vals) {
                         if env_var == "FILE_PWD" {
-                            return Err(ShellError::AutomaticEnvVarSetManually(env_var, call.head));
+                            return Err(ShellError::AutomaticEnvVarSetManually {
+                                envvar_name: env_var,
+                                span: call.head,
+                            });
                         }
 
                         if env_var == "PWD" {
