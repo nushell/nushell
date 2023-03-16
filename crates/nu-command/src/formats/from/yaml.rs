@@ -87,153 +87,108 @@ fn convert_yaml_value_to_nu_value(
         span,
         val_span,
     );
+    Ok(match v {
+        serde_yaml::Value::Bool(b) => Value::Bool { val: *b, span },
+        serde_yaml::Value::Number(n) if n.is_i64() => Value::Int {
+            val: n.as_i64().ok_or(err_not_compatible_number)?,
+            span,
+        },
+        serde_yaml::Value::Number(n) if n.is_f64() => Value::Float {
+            val: n.as_f64().ok_or(err_not_compatible_number)?,
+            span,
+        },
+        serde_yaml::Value::String(s) => Value::String {
+            val: s.to_string(),
+            span,
+        },
+        serde_yaml::Value::Sequence(a) => {
+            let result: Result<Vec<Value>, ShellError> = a
+                .iter()
+                .map(|x| convert_yaml_value_to_nu_value(x, span, val_span))
+                .collect();
+            Value::List {
+                vals: result?,
+                span,
+            }
+        }
+        serde_yaml::Value::Mapping(t) => {
+            let mut collected = Spanned {
+                item: HashMap::new(),
+                span,
+            };
 
-    let value = match v {
-        serde_yaml::Value::Bool(b) => match_bool_value(b, span),
-        serde_yaml::Value::Number(n) if n.is_i64() => {
-            match_int_value(n, span, err_not_compatible_number)?
+            for (k, v) in t {
+                // A ShellError that we re-use multiple times in the Mapping scenario
+                let err_unexpected_map = ShellError::UnsupportedInput(
+                    format!("Unexpected YAML:\nKey: {k:?}\nValue: {v:?}"),
+                    "value originates from here".into(),
+                    span,
+                    val_span,
+                );
+                match (k, v) {
+                    (serde_yaml::Value::Number(k), _) => {
+                        collected.item.insert(
+                            k.to_string(),
+                            convert_yaml_value_to_nu_value(v, span, val_span)?,
+                        );
+                    }
+                    (serde_yaml::Value::Bool(k), _) => {
+                        collected.item.insert(
+                            k.to_string(),
+                            convert_yaml_value_to_nu_value(v, span, val_span)?,
+                        );
+                    }
+                    (serde_yaml::Value::String(k), _) => {
+                        collected.item.insert(
+                            k.clone(),
+                            convert_yaml_value_to_nu_value(v, span, val_span)?,
+                        );
+                    }
+                    // Hard-code fix for cases where "v" is a string without quotations with double curly braces
+                    // e.g. k = value
+                    // value: {{ something }}
+                    // Strangely, serde_yaml returns
+                    // "value" -> Mapping(Mapping { map: {Mapping(Mapping { map: {String("something"): Null} }): Null} })
+                    (serde_yaml::Value::Mapping(m), serde_yaml::Value::Null) => {
+                        return m
+                            .iter()
+                            .take(1)
+                            .collect_vec()
+                            .first()
+                            .and_then(|e| match e {
+                                (serde_yaml::Value::String(s), serde_yaml::Value::Null) => {
+                                    Some(Value::String {
+                                        val: "{{ ".to_owned() + s.as_str() + " }}",
+                                        span,
+                                    })
+                                }
+                                _ => None,
+                            })
+                            .ok_or(err_unexpected_map);
+                    }
+                    (_, _) => {
+                        return Err(err_unexpected_map);
+                    }
+                }
+            }
+
+            Value::from(collected)
         }
-        serde_yaml::Value::Number(n) if n.is_f64() => {
-            match_float_value(n, span, err_not_compatible_number)?
+        serde_yaml::Value::Tagged(t) => {
+            let tag = &t.tag;
+            let value = match &t.value {
+                serde_yaml::Value::String(s) => {
+                    let val = format!("{} {}", tag, s).trim().to_string();
+                    Value::String { val, span }
+                }
+                v => convert_yaml_value_to_nu_value(v, span, val_span)?,
+            };
+
+            value
         }
-        serde_yaml::Value::String(s) => match_string_value(&s, span),
-        serde_yaml::Value::Sequence(a) => match_sequence_value(a, span, val_span)?,
-        serde_yaml::Value::Mapping(t) => match_mapping_value(t, span, val_span)?,
-        serde_yaml::Value::Tagged(t) => match_tag_value(t, span, val_span)?,
         serde_yaml::Value::Null => Value::nothing(span),
         x => unimplemented!("Unsupported YAML case: {:?}", x),
-    };
-
-    Ok(value)
-}
-
-fn match_bool_value(b: &bool, span: Span) -> Value {
-    Value::Bool { val: *b, span }
-}
-
-fn match_int_value(
-    n: &serde_yaml::value::Number,
-    span: Span,
-    shell_error: ShellError,
-) -> Result<Value, ShellError> {
-    match n.as_i64() {
-        Some(n) => Ok(nu_protocol::Value::Int { val: n, span }),
-        None => Err(shell_error),
-    }
-}
-
-fn match_float_value(
-    n: &serde_yaml::value::Number,
-    span: Span,
-    shell_error: ShellError,
-) -> Result<Value, ShellError> {
-    match n.as_f64() {
-        Some(n) => Ok(nu_protocol::Value::Float { val: n, span }),
-        None => Err(shell_error),
-    }
-}
-
-fn match_string_value(s: &str, span: Span) -> Value {
-    Value::String {
-        val: s.to_owned(),
-        span,
-    }
-}
-
-fn match_sequence_value(
-    a: &Vec<serde_yaml::Value>,
-    span: Span,
-    val_span: Span,
-) -> Result<Value, ShellError> {
-    let result: Result<Vec<Value>, ShellError> = a
-        .iter()
-        .map(|x| convert_yaml_value_to_nu_value(x, span, val_span))
-        .collect();
-
-    match result {
-        Ok(vals) => Ok(Value::List { vals, span }),
-        Err(err) => Err(err),
-    }
-}
-
-fn match_mapping_value(
-    t: &serde_yaml::value::Mapping,
-    span: Span,
-    val_span: Span,
-) -> Result<Value, ShellError> {
-    let mut collected = Spanned {
-        item: HashMap::new(),
-        span,
-    };
-
-    for (k, v) in t {
-        // A ShellError that we re-use multiple times in the Mapping scenario
-        let err_unexpected_map = ShellError::UnsupportedInput(
-            format!("Unexpected YAML:\nKey: {k:?}\nValue: {v:?}"),
-            "value originates from here".into(),
-            span,
-            val_span,
-        );
-        match (k, v) {
-            (serde_yaml::Value::Number(k), _) => {
-                let val = convert_yaml_value_to_nu_value(v, span, val_span)?;
-                collected.item.insert(k.to_string(), val);
-            }
-            (serde_yaml::Value::Bool(k), _) => {
-                let val = convert_yaml_value_to_nu_value(v, span, val_span)?;
-                collected.item.insert(k.to_string(), val);
-            }
-            (serde_yaml::Value::String(k), _) => {
-                let val = convert_yaml_value_to_nu_value(v, span, val_span)?;
-                collected.item.insert(k.clone(), val);
-            }
-            // Hard-code fix for cases where "v" is a string without quotations with double curly braces
-            // e.g. k = value
-            // value: {{ something }}
-            // Strangely, serde_yaml returns
-            // "value" -> Mapping(Mapping { map: {Mapping(Mapping { map: {String("something"): Null} }): Null} })
-            (serde_yaml::Value::Mapping(m), serde_yaml::Value::Null) => {
-                let result = m
-                    .iter()
-                    .take(1)
-                    .collect_vec()
-                    .first()
-                    .and_then(|e| match e {
-                        (serde_yaml::Value::String(s), serde_yaml::Value::Null) => {
-                            Some(Value::String {
-                                val: "{{ ".to_owned() + s.as_str() + " }}",
-                                span,
-                            })
-                        }
-                        _ => None,
-                    });
-
-                return result.ok_or(err_unexpected_map);
-            }
-            (_, _) => {
-                return Err(err_unexpected_map);
-            }
-        }
-    }
-
-    Ok(Value::from(collected))
-}
-
-fn match_tag_value(
-    t: &Box<serde_yaml::value::TaggedValue>,
-    span: Span,
-    val_span: Span,
-) -> Result<Value, ShellError> {
-    let tag = &t.tag;
-    let value = match &t.value {
-        serde_yaml::Value::String(s) => {
-            let val = format!("{} {}", tag, s).trim().to_string();
-            match_string_value(&val, span)
-        }
-        v => convert_yaml_value_to_nu_value(v, span, val_span)?,
-    };
-
-    Ok(value)
+    })
 }
 
 pub fn from_yaml_string_to_value(
