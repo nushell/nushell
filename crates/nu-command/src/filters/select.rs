@@ -22,11 +22,6 @@ impl Command for Select {
                 (Type::Record(vec![]), Type::Record(vec![])),
                 (Type::Table(vec![]), Type::Table(vec![])),
             ])
-            .switch(
-                "ignore-errors",
-                "when an error occurs, instead of erroring out, suppress the error message",
-                Some('i'),
-            )
             .rest(
                 "rest",
                 SyntaxShape::CellPath,
@@ -58,9 +53,8 @@ produce a table, a list will produce a list, and a record will produce a record.
     ) -> Result<PipelineData, ShellError> {
         let columns: Vec<CellPath> = call.rest(engine_state, stack, 0)?;
         let span = call.head;
-        let ignore_errors = call.has_flag("ignore-errors");
 
-        select(engine_state, span, columns, input, ignore_errors)
+        select(engine_state, span, columns, input)
     }
 
     fn examples(&self) -> Vec<Example> {
@@ -97,7 +91,6 @@ fn select(
     call_span: Span,
     columns: Vec<CellPath>,
     input: PipelineData,
-    ignore_errors: bool,
 ) -> Result<PipelineData, ShellError> {
     let mut unique_rows: HashSet<usize> = HashSet::new();
 
@@ -106,11 +99,8 @@ fn select(
     for column in columns {
         let CellPath { ref members } = column;
         match members.get(0) {
-            Some(PathMember::Int { val, span }) => {
+            Some(PathMember::Int { val, span, .. }) => {
                 if members.len() > 1 {
-                    if ignore_errors {
-                        return Ok(Value::nothing(call_span).into_pipeline_data());
-                    }
                     return Err(ShellError::GenericError(
                         "Select only allows row numbers for rows".into(),
                         "extra after row number".into(),
@@ -172,11 +162,7 @@ fn select(
                     let mut vals = vec![];
                     for path in &columns {
                         //FIXME: improve implementation to not clone
-                        match input_val.clone().follow_cell_path(
-                            &path.members,
-                            false,
-                            ignore_errors,
-                        ) {
+                        match input_val.clone().follow_cell_path(&path.members, false) {
                             Ok(fetcher) => {
                                 allempty = false;
                                 cols.push(path.into_string().replace('.', "_"));
@@ -214,10 +200,7 @@ fn select(
                     let mut vals = vec![];
                     for path in &columns {
                         //FIXME: improve implementation to not clone
-                        match x
-                            .clone()
-                            .follow_cell_path(&path.members, false, ignore_errors)
-                        {
+                        match x.clone().follow_cell_path(&path.members, false) {
                             Ok(value) => {
                                 cols.push(path.into_string().replace('.', "_"));
                                 vals.push(value);
@@ -246,10 +229,7 @@ fn select(
 
                 for cell_path in columns {
                     // FIXME: remove clone
-                    match v
-                        .clone()
-                        .follow_cell_path(&cell_path.members, false, ignore_errors)
-                    {
+                    match v.clone().follow_cell_path(&cell_path.members, false) {
                         Ok(result) => {
                             cols.push(cell_path.into_string().replace('.', "_"));
                             vals.push(result);
