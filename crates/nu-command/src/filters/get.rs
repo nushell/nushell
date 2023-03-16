@@ -42,6 +42,11 @@ If multiple cell paths are given, this will produce a list of values."#
             )
             .rest("rest", SyntaxShape::CellPath, "additional cell paths")
             .switch(
+                "ignore-errors",
+                "ignore missing data (make all cell path members optional)",
+                Some('i'),
+            )
+            .switch(
                 "sensitive",
                 "get path in a case sensitive manner",
                 Some('s'),
@@ -57,11 +62,16 @@ If multiple cell paths are given, this will produce a list of values."#
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
         let span = call.head;
-        let cell_path: CellPath = call.req(engine_state, stack, 0)?;
+        let mut cell_path: CellPath = call.req(engine_state, stack, 0)?;
         let rest: Vec<CellPath> = call.rest(engine_state, stack, 1)?;
+        let ignore_errors = call.has_flag("ignore-errors");
         let sensitive = call.has_flag("sensitive");
         let ctrlc = engine_state.ctrlc.clone();
         let metadata = input.metadata();
+
+        if ignore_errors {
+            cell_path.make_optional();
+        }
 
         if rest.is_empty() {
             input

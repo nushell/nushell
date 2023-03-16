@@ -22,6 +22,11 @@ impl Command for Select {
                 (Type::Record(vec![]), Type::Record(vec![])),
                 (Type::Table(vec![]), Type::Table(vec![])),
             ])
+            .switch(
+                "ignore-errors",
+                "ignore missing data (make all cell path members optional)",
+                Some('i'),
+            )
             .rest(
                 "rest",
                 SyntaxShape::CellPath,
@@ -51,8 +56,15 @@ produce a table, a list will produce a list, and a record will produce a record.
         call: &Call,
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
-        let columns: Vec<CellPath> = call.rest(engine_state, stack, 0)?;
+        let mut columns: Vec<CellPath> = call.rest(engine_state, stack, 0)?;
+        let ignore_errors = call.has_flag("ignore-errors");
         let span = call.head;
+
+        if ignore_errors {
+            for cell_path in &mut columns {
+                cell_path.make_optional();
+            }
+        }
 
         select(engine_state, span, columns, input)
     }
