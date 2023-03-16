@@ -32,9 +32,9 @@ export def test_debug [] {
 }
 
 export def example_log [] {
-    log critical "this is a critical message"
-    log error "this is an error message"
-    log warning "this is a warning message"
-    log info "this is an info message"
     log debug "this is a debug message"
+    log info "this is an info message"
+    log warning "this is a warning message"
+    log error "this is an error message"
+    log critical "this is a critical message"
 }
