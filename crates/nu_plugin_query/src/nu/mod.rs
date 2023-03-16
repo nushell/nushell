@@ -73,7 +73,7 @@ impl Plugin for Query {
 pub fn web_examples() -> Vec<PluginExample> {
     vec![PluginExample {
         example: "http get https://phoronix.com | query web -q 'header'".into(),
-        description: "Retrieve all <header> elements from phoronix.com website".into(),
+        description: "Retrieve all `<header>` elements from phoronix.com website".into(),
         result: None,
     }, PluginExample {
         example: "http get https://en.wikipedia.org/wiki/List_of_cities_in_India_by_population
