@@ -24,7 +24,7 @@ fn try_catch() {
 fn catch_can_access_error() {
     let output = nu!(
         cwd: ".",
-        "try { foobarbaz } catch { |err| $err }"
+        "try { foobarbaz } catch { |err| $err | get raw }"
     );
 
     assert!(output.err.contains("External command failed"));
@@ -34,7 +34,7 @@ fn catch_can_access_error() {
 fn catch_can_access_error_as_dollar_in() {
     let output = nu!(
         cwd: ".",
-        "try { foobarbaz } catch { $in }"
+        "try { foobarbaz } catch { $in | get raw }"
     );
 
     assert!(output.err.contains("External command failed"));
@@ -54,7 +54,7 @@ fn external_failed_should_be_caught() {
 fn loop_try_break_should_be_successful() {
     let output = nu!(
         cwd: ".",
-        "loop { try { echo 'successful'; break } catch { echo 'failed'; continue } }"
+        "loop { try { print 'successful'; break } catch { print 'failed'; continue } }"
     );
 
     assert_eq!(output.out, "successful");
@@ -66,7 +66,7 @@ fn loop_catch_break_should_show_failed() {
         cwd: ".",
         "loop {
             try { invalid 1;
-            continue; } catch { echo 'failed'; break }
+            continue; } catch { print 'failed'; break }
         }
         "
     );
@@ -100,4 +100,13 @@ fn loop_try_break_on_command_should_show_successful() {
     );
 
     assert!(!output.out.contains("failed"));
+}
+
+#[test]
+fn catch_block_can_use_error_object() {
+    let output = nu!(
+        cwd: ".",
+        "try {1 / 0} catch {|err| print ($err | get msg)}"
+    );
+    assert_eq!(output.out, "Division by zero.")
 }

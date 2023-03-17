@@ -8,7 +8,7 @@ fn regular_columns() {
                 [first_name, last_name, rusty_at, type];
 
                 [Andrés Robalino 10/11/2013 A]
-                [Jonathan Turner 10/12/2013 B]
+                [JT Turner 10/12/2013 B]
                 [Yehuda Katz 10/11/2013 A]
             ]
             | reject type first_name
@@ -23,7 +23,7 @@ fn regular_columns() {
 #[test]
 fn skip_cell_rejection() {
     let actual = nu!(cwd: ".", pipeline(
-        r#"[ {a: 1, b: 2,c:txt}, { a:val } ] | reject a | get c.0"#));
+        r#"[ {a: 1, b: 2,c:txt}, { a:val } ] | reject a | get c?.0"#));
 
     assert_eq!(actual.out, "txt");
 }
@@ -36,7 +36,7 @@ fn complex_nested_columns() {
                 "nu": {
                     "committers": [
                         {"name": "Andrés N. Robalino"},
-                        {"name": "Jonathan Turner"},
+                        {"name": "JT Turner"},
                         {"name": "Yehuda Katz"}
                     ],
                     "releases": [

@@ -155,7 +155,7 @@ pub(crate) fn parse_commandline_args(
 
                 let _ = std::panic::catch_unwind(move || stdout_write_all_and_flush(full_help));
 
-                std::process::exit(1);
+                std::process::exit(0);
             }
 
             if call.has_flag("version") {

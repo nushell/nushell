@@ -1,9 +1,9 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom" xmlns:dc="http://purl.org/dc/elements/1.1/">
 	<channel>
-		<title>Jonathan Turner</title>
-		<link>http://www.jonathanturner.org</link>
-		<atom:link href="http://www.jonathanturner.org/feed.xml" rel="self" type="application/rss+xml" />
+		<title>JT</title>
+		<link>http://www.jntrnr.com</link>
+		<atom:link href="https://www.jntrnr.com/atom.xml" rel="self" type="application/rss+xml" />
 		
 			<item>
 				<title>Creating crossplatform Rust terminal apps</title>
@@ -14,8 +14,8 @@
 &lt;p&gt;Part of the adventure is not seeing the way ahead and going anyway.&lt;/p&gt;
 </description>
 				<pubDate>Mon, 05 Oct 2015 00:00:00 +0000</pubDate>
-				<link>http://www.jonathanturner.org/2015/10/off-to-new-adventures.html</link>
-				<guid isPermaLink="true">http://www.jonathanturner.org/2015/10/off-to-new-adventures.html</guid>
+				<link>https://www.jntrnr.com/off-to-new-adventures/</link>
+				<guid isPermaLink="true">https://www.jntrnr.com/off-to-new-adventures/</guid>
 			</item>
 		
 	</channel>

@@ -21,7 +21,7 @@ fn for_break_on_external_failed() {
         cwd: ".",
         r#"
         for i in 1..2 {
-            echo 1;
+            print 1;
             nu --testbin fail
         }"#
     );

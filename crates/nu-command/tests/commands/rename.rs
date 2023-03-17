@@ -9,7 +9,7 @@ fn changes_the_column_name() {
             "los_cuatro_mosqueteros.txt",
             r#"
                 Andrés N. Robalino
-                Jonathan Turner
+                JT Turner
                 Yehuda Katz
                 Jason Gedge
             "#,
@@ -38,7 +38,7 @@ fn keeps_remaining_original_names_given_less_new_names_than_total_original_names
             "los_cuatro_mosqueteros.txt",
             r#"
                 Andrés N. Robalino
-                Jonathan Turner
+                JT Turner
                 Yehuda Katz
                 Jason Gedge
             "#,
@@ -68,7 +68,7 @@ fn errors_if_no_columns_present() {
             "los_cuatro_mosqueteros.txt",
             r#"
                 Andrés N. Robalino
-                Jonathan Turner
+                JT Turner
                 Yehuda Katz
                 Jason Gedge
             "#,
@@ -94,7 +94,7 @@ fn errors_if_columns_param_is_empty() {
             "los_cuatro_mosqueteros.txt",
             r#"
                 Andrés N. Robalino
-                Jonathan Turner
+                JT Turner
                 Yehuda Katz
                 Jason Gedge
             "#,

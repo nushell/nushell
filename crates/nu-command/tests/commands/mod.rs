@@ -41,6 +41,7 @@ mod histogram;
 mod insert;
 mod into_filesize;
 mod into_int;
+mod join;
 mod last;
 mod length;
 mod let_;
