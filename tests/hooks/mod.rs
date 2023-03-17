@@ -166,7 +166,7 @@ fn env_change_define_alias() {
 #[test]
 fn env_change_simple_block_preserve_env_var() {
     let inp = &[
-        &env_change_hook("FOO", r#"{ let-env SPAM = "spam" }"#),
+        &env_change_hook("FOO", r#"{|| let-env SPAM = "spam" }"#),
         "let-env FOO = 1",
         "$env.SPAM",
     ];
@@ -183,8 +183,8 @@ fn env_change_simple_block_list_shadow_env_var() {
         &env_change_hook(
             "FOO",
             r#"[
-                { let-env SPAM = "foo" }
-                { let-env SPAM = "spam" }
+                {|| let-env SPAM = "foo" }
+                {|| let-env SPAM = "spam" }
             ]"#,
         ),
         "let-env FOO = 1",
@@ -200,7 +200,7 @@ fn env_change_simple_block_list_shadow_env_var() {
 #[test]
 fn env_change_block_preserve_env_var() {
     let inp = &[
-        &env_change_hook_code("FOO", r#"{ let-env SPAM = "spam" }"#),
+        &env_change_hook_code("FOO", r#"{|| let-env SPAM = "spam" }"#),
         "let-env FOO = 1",
         "$env.SPAM",
     ];
@@ -227,7 +227,7 @@ fn pre_prompt_define_command() {
 #[test]
 fn pre_prompt_simple_block_preserve_env_var() {
     let inp = &[
-        &pre_prompt_hook(r#"{ let-env SPAM = "spam" }"#),
+        &pre_prompt_hook(r#"{|| let-env SPAM = "spam" }"#),
         "$env.SPAM",
     ];
 
@@ -242,8 +242,8 @@ fn pre_prompt_simple_block_list_shadow_env_var() {
     let inp = &[
         &pre_prompt_hook(
             r#"[
-                { let-env SPAM = "foo" }
-                { let-env SPAM = "spam" }
+                {|| let-env SPAM = "foo" }
+                {|| let-env SPAM = "spam" }
             ]"#,
         ),
         "$env.SPAM",
@@ -258,7 +258,7 @@ fn pre_prompt_simple_block_list_shadow_env_var() {
 #[test]
 fn pre_prompt_block_preserve_env_var() {
     let inp = &[
-        &pre_prompt_hook_code(r#"{ let-env SPAM = "spam" }"#),
+        &pre_prompt_hook_code(r#"{|| let-env SPAM = "spam" }"#),
         "$env.SPAM",
     ];
 
@@ -284,7 +284,7 @@ fn pre_execution_define_command() {
 #[test]
 fn pre_execution_simple_block_preserve_env_var() {
     let inp = &[
-        &pre_execution_hook(r#"{ let-env SPAM = "spam" }"#),
+        &pre_execution_hook(r#"{|| let-env SPAM = "spam" }"#),
         "$env.SPAM",
     ];
 
@@ -299,8 +299,8 @@ fn pre_execution_simple_block_list_shadow_env_var() {
     let inp = &[
         &pre_execution_hook(
             r#"[
-            { let-env SPAM = "foo" }
-            { let-env SPAM = "spam" }
+            {|| let-env SPAM = "foo" }
+            {|| let-env SPAM = "spam" }
         ]"#,
         ),
         "$env.SPAM",
@@ -315,7 +315,7 @@ fn pre_execution_simple_block_list_shadow_env_var() {
 #[test]
 fn pre_execution_block_preserve_env_var() {
     let inp = &[
-        &pre_execution_hook_code(r#"{ let-env SPAM = "spam" }"#),
+        &pre_execution_hook_code(r#"{|| let-env SPAM = "spam" }"#),
         "$env.SPAM",
     ];
 
@@ -328,7 +328,7 @@ fn pre_execution_block_preserve_env_var() {
 #[test]
 fn pre_execution_commandline() {
     let inp = &[
-        &pre_execution_hook_code(r#"{ let-env repl_commandline = (commandline) }"#),
+        &pre_execution_hook_code(r#"{|| let-env repl_commandline = (commandline) }"#),
         "$env.repl_commandline",
     ];
 
@@ -361,7 +361,7 @@ fn env_change_shadow_command() {
 #[test]
 fn env_change_block_dont_preserve_command() {
     let inp = &[
-        &env_change_hook_code("FOO", r#"{ def foo [] { "foo" } }"#),
+        &env_change_hook_code("FOO", r#"{|| def foo [] { "foo" } }"#),
         "let-env FOO = 1",
         "foo",
     ];
@@ -493,7 +493,7 @@ fn err_hook_non_boolean_condition_output() {
             hooks: {
                 env_change: {
                     FOO : {
-                        condition: { "foo" }
+                        condition: {|| "foo" }
                         code: "print spam"
                     }
                 }

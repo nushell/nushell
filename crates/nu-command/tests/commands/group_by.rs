@@ -61,7 +61,7 @@ fn errors_if_given_unknown_column_name() {
             cwd: dirs.test(), pipeline(
             r#"
                 open los_tres_caballeros.json
-                | group-by { get nu.releases.version }
+                | group-by {|| get nu.releases.version }
             "#
         ));
 

@@ -1779,8 +1779,10 @@ pub fn parse_brace_expr(
 
     if matches!(second_token, None) {
         // If we're empty, that means an empty record or closure
-        if matches!(shape, SyntaxShape::Closure(_)) {
-            parse_closure_expression(working_set, shape, span, expand_aliases_denylist)
+        if matches!(shape, SyntaxShape::Closure(None)) {
+            parse_closure_expression(working_set, shape, span, expand_aliases_denylist, false)
+        } else if matches!(shape, SyntaxShape::Closure(Some(_))) {
+            parse_closure_expression(working_set, shape, span, expand_aliases_denylist, true)
         } else if matches!(shape, SyntaxShape::Block) {
             parse_block_expression(working_set, span, expand_aliases_denylist)
         } else {
@@ -1789,11 +1791,13 @@ pub fn parse_brace_expr(
     } else if matches!(second_token_contents, Some(TokenContents::Pipe))
         || matches!(second_token_contents, Some(TokenContents::PipePipe))
     {
-        parse_closure_expression(working_set, shape, span, expand_aliases_denylist)
+        parse_closure_expression(working_set, shape, span, expand_aliases_denylist, true)
     } else if matches!(third_token, Some(b":")) {
         parse_full_cell_path(working_set, None, span, expand_aliases_denylist)
-    } else if matches!(shape, SyntaxShape::Closure(_)) || matches!(shape, SyntaxShape::Any) {
-        parse_closure_expression(working_set, shape, span, expand_aliases_denylist)
+    } else if matches!(shape, SyntaxShape::Closure(None)) {
+        parse_closure_expression(working_set, shape, span, expand_aliases_denylist, false)
+    } else if matches!(shape, SyntaxShape::Closure(Some(_))) || matches!(shape, SyntaxShape::Any) {
+        parse_closure_expression(working_set, shape, span, expand_aliases_denylist, true)
     } else if matches!(shape, SyntaxShape::Block) {
         parse_block_expression(working_set, span, expand_aliases_denylist)
     } else {
@@ -4414,6 +4418,7 @@ pub fn parse_closure_expression(
     shape: &SyntaxShape,
     span: Span,
     expand_aliases_denylist: &[usize],
+    require_pipe: bool,
 ) -> (Expression, Option<ParseError>) {
     trace!("parsing: closure expression");
 
@@ -4490,7 +4495,15 @@ pub fn parse_closure_expression(
             Some((Box::new(Signature::new("closure".to_string())), *span)),
             1,
         ),
-        _ => (None, 0),
+        _ => {
+            if require_pipe {
+                error = error.or(Some(ParseError::ClosureMissingPipe(span)));
+                working_set.exit_scope();
+                return (garbage(span), error);
+            } else {
+                (None, 0)
+            }
+        }
     };
 
     // TODO: Finish this

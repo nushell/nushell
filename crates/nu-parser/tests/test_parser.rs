@@ -1563,7 +1563,13 @@ mod input_types {
                 )
                 .optional(
                     "else_expression",
-                    SyntaxShape::Keyword(b"else".to_vec(), Box::new(SyntaxShape::Expression)),
+                    SyntaxShape::Keyword(
+                        b"else".to_vec(),
+                        Box::new(SyntaxShape::OneOf(vec![
+                            SyntaxShape::Block,
+                            SyntaxShape::Expression,
+                        ])),
+                    ),
                     "expression or block to run if check fails",
                 )
                 .category(Category::Core)
