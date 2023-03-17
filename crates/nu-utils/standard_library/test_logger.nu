@@ -1,7 +1,10 @@
 use std.nu *
 
 def run [system_level, message_level] {
-    do { nu -c $'use std.nu; NU_LOG_LEVEL=($system_level) std log ($message_level) "test message"' } | complete | get -i stderr
+    cd $env.FILE_PWD
+    do {
+        nu -c $'use std.nu; NU_LOG_LEVEL=($system_level) std log ($message_level) "test message"' 
+    } | complete | get -i stderr
 }
 def "assert no message" [system_level, message_level] {
     let output = (run $system_level $message_level)
