@@ -1,5 +1,4 @@
 use log::trace;
-use nu_engine::get_dirs_var_from_call;
 use nu_path::canonicalize_with;
 use nu_protocol::{
     ast::{
@@ -8,14 +7,13 @@ use nu_protocol::{
     },
     engine::{StateWorkingSet, DEFAULT_OVERLAY_NAME},
     span, Alias, BlockId, Exportable, Module, PositionalArg, Span, Spanned, SyntaxShape, Type,
-    VarId,
 };
-use std::collections::{HashMap, HashSet};
+use std::collections::HashSet;
 use std::path::{Path, PathBuf};
 
-pub const LIB_DIRS_VAR: &str = "NU_LIB_DIRS";
+static LIB_DIRS_ENV: &str = "NU_LIB_DIRS";
 #[cfg(feature = "plugin")]
-pub const PLUGIN_DIRS_VAR: &str = "NU_PLUGIN_DIRS";
+static PLUGIN_DIRS_ENV: &str = "NU_PLUGIN_DIRS";
 
 use crate::{
     eval::{eval_constant, value_as_string},
@@ -964,7 +962,7 @@ pub fn parse_old_alias(
                 decl_id,
                 redirect_stdout: true,
                 redirect_stderr: false,
-                parser_info: HashMap::new(),
+                parser_info: vec![],
             }));
             return (
                 Pipeline::from_vec(vec![Expression {
@@ -1265,7 +1263,7 @@ pub fn parse_export_in_module(
         arguments: vec![],
         redirect_stdout: true,
         redirect_stderr: false,
-        parser_info: HashMap::new(),
+        parser_info: vec![],
     });
 
     let exportables = if let Some(kw_span) = spans.get(1) {
@@ -2089,7 +2087,7 @@ pub fn parse_module(
             ],
             redirect_stdout: true,
             redirect_stderr: false,
-            parser_info: HashMap::new(),
+            parser_info: vec![],
         });
 
         (
@@ -2231,12 +2229,9 @@ pub fn parse_use(
             unescape_unquote_string(&import_pattern.head.name, import_pattern.head.span);
 
         if err.is_none() {
-            if let Some(module_path) = find_in_dirs_with_id(
-                &module_filename,
-                working_set,
-                &cwd,
-                get_dirs_var_from_call(&call),
-            ) {
+            if let Some(module_path) =
+                find_in_dirs(&module_filename, working_set, &cwd, LIB_DIRS_ENV)
+            {
                 if let Some(i) = working_set
                     .parsed_module_files
                     .iter()
@@ -2449,7 +2444,7 @@ pub fn parse_use(
     };
 
     let mut call = call;
-    call.set_parser_info("import_pattern".to_string(), import_pattern_expr);
+    call.add_parser_info(import_pattern_expr);
 
     (
         Pipeline::from_vec(vec![Expression {
@@ -2670,7 +2665,7 @@ pub fn parse_hide(
         };
 
         let mut call = call;
-        call.set_parser_info("import_pattern".to_string(), import_pattern_expr);
+        call.add_parser_info(import_pattern_expr);
 
         (
             Pipeline::from_vec(vec![Expression {
@@ -2894,12 +2889,9 @@ pub fn parse_overlay_use(
             if let Ok(module_filename) =
                 String::from_utf8(trim_quotes(overlay_name.as_bytes()).to_vec())
             {
-                if let Some(module_path) = find_in_dirs_with_id(
-                    &module_filename,
-                    working_set,
-                    &cwd,
-                    get_dirs_var_from_call(&call),
-                ) {
+                if let Some(module_path) =
+                    find_in_dirs(&module_filename, working_set, &cwd, LIB_DIRS_ENV)
+                {
                     let overlay_name = if let Some(stem) = module_path.file_stem() {
                         stem.to_string_lossy().to_string()
                     } else {
@@ -2990,19 +2982,16 @@ pub fn parse_overlay_use(
 
     // Change the call argument to include the Overlay expression with the module ID
     let mut call = call;
-    call.set_parser_info(
-        "overlay_expr".to_string(),
-        Expression {
-            expr: Expr::Overlay(if is_module_updated {
-                Some(origin_module_id)
-            } else {
-                None
-            }),
-            span: overlay_name_span,
-            ty: Type::Any,
-            custom_completion: None,
-        },
-    );
+    call.add_parser_info(Expression {
+        expr: Expr::Overlay(if is_module_updated {
+            Some(origin_module_id)
+        } else {
+            None
+        }),
+        span: overlay_name_span,
+        ty: Type::Any,
+        custom_completion: None,
+    });
 
     let pipeline = Pipeline::from_vec(vec![Expression {
         expr: Expr::Call(call),
@@ -3171,7 +3160,7 @@ pub fn parse_let_or_const(
                             ],
                             redirect_stdout: true,
                             redirect_stderr: false,
-                            parser_info: HashMap::new(),
+                            parser_info: vec![],
                         });
 
                         return (
@@ -3293,7 +3282,7 @@ pub fn parse_mut(
                             ],
                             redirect_stdout: true,
                             redirect_stderr: false,
-                            parser_info: HashMap::new(),
+                            parser_info: vec![],
                         });
 
                         return (
@@ -3422,7 +3411,7 @@ pub fn parse_source(
                     }
                 };
 
-                if let Some(path) = find_in_dirs(&filename, working_set, &cwd, LIB_DIRS_VAR) {
+                if let Some(path) = find_in_dirs(&filename, working_set, &cwd, LIB_DIRS_ENV) {
                     if let Ok(contents) = std::fs::read(&path) {
                         // Change currently parsed directory
                         let prev_currently_parsed_cwd = if let Some(parent) = path.parent() {
@@ -3468,15 +3457,12 @@ pub fn parse_source(
 
                             // FIXME: Adding this expression to the positional creates a syntax highlighting error
                             // after writing `source example.nu`
-                            call_with_block.set_parser_info(
-                                "block_id".to_string(),
-                                Expression {
-                                    expr: Expr::Int(block_id as i64),
-                                    span: spans[1],
-                                    ty: Type::Any,
-                                    custom_completion: None,
-                                },
-                            );
+                            call_with_block.add_parser_info(Expression {
+                                expr: Expr::Int(block_id as i64),
+                                span: spans[1],
+                                ty: Type::Any,
+                                custom_completion: None,
+                            });
 
                             return (
                                 Pipeline::from_vec(vec![Expression {
@@ -3686,7 +3672,7 @@ pub fn parse_register(
             if let Some(err) = err {
                 Err(err)
             } else {
-                let path = if let Some(p) = find_in_dirs(&name, working_set, &cwd, PLUGIN_DIRS_VAR)
+                let path = if let Some(p) = find_in_dirs(&name, working_set, &cwd, PLUGIN_DIRS_ENV)
                 {
                     p
                 } else {
@@ -3831,67 +3817,12 @@ pub fn parse_register(
 ///   a) the directory of a file currently being parsed
 ///   b) current working directory (PWD)
 ///
-/// Then, if the file is not found in the actual cwd, dirs_var is checked.
-/// If dirs_var is an Expr::Var, then we look for a const with that VarId,
-/// and if dirs_var is an Expr::String, then we look for an environment with that name.
-/// If there is a relative path in dirs_var, it is assumed to be relative to the actual cwd
+/// Then, if the file is not found in the actual cwd, NU_LIB_DIRS is checked.
+/// If there is a relative path in NU_LIB_DIRS, it is assumed to be relative to the actual cwd
 /// determined in the first step.
 ///
 /// Always returns an absolute path
-pub fn find_in_dirs_with_id(
-    filename: &str,
-    working_set: &StateWorkingSet,
-    cwd: &str,
-    dirs_var_id: Option<VarId>,
-) -> Option<PathBuf> {
-    // Choose whether to use file-relative or PWD-relative path
-    let actual_cwd = if let Some(currently_parsed_cwd) = &working_set.currently_parsed_cwd {
-        currently_parsed_cwd.as_path()
-    } else {
-        Path::new(cwd)
-    };
-    if let Ok(p) = canonicalize_with(filename, actual_cwd) {
-        return Some(p);
-    }
-
-    let path = Path::new(filename);
-    if !path.is_relative() {
-        return None;
-    }
-
-    working_set
-        .find_constant(dirs_var_id?)?
-        .as_list()
-        .ok()?
-        .iter()
-        .map(|lib_dir| -> Option<PathBuf> {
-            let dir = lib_dir.as_path().ok()?;
-            let dir_abs = canonicalize_with(dir, actual_cwd).ok()?;
-            canonicalize_with(filename, dir_abs).ok()
-        })
-        .find(Option::is_some)
-        .flatten()
-}
-
-pub fn find_dirs_var(working_set: &StateWorkingSet, var_name: &str) -> Option<VarId> {
-    working_set
-        .find_variable(format!("${}", var_name).as_bytes())
-        .filter(|var_id| working_set.find_constant(*var_id).is_some())
-}
-
 pub fn find_in_dirs(
-    filename: &str,
-    working_set: &StateWorkingSet,
-    cwd: &str,
-    dirs_var_name: &str,
-) -> Option<PathBuf> {
-    find_dirs_var(working_set, dirs_var_name)
-        .and_then(|var_id| find_in_dirs_with_id(filename, working_set, cwd, Some(var_id)))
-        .or_else(|| find_in_dirs_old(filename, working_set, cwd, dirs_var_name))
-}
-
-// TODO: remove (see #8310)
-pub fn find_in_dirs_old(
     filename: &str,
     working_set: &StateWorkingSet,
     cwd: &str,

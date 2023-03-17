@@ -1,4 +1,4 @@
-use nu_engine::{find_in_dirs_env, get_dirs_var_from_call, CallExt};
+use nu_engine::{find_in_dirs_env, CallExt};
 use nu_parser::{parse, parse_module_block, unescape_unquote_string};
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack, StateWorkingSet};
@@ -106,12 +106,7 @@ impl Command for NuCheck {
             _ => {
                 if let Some(path_str) = path {
                     // look up the path as relative to FILE_PWD or inside NU_LIB_DIRS (same process as source-env)
-                    let path = match find_in_dirs_env(
-                        &path_str.item,
-                        engine_state,
-                        stack,
-                        get_dirs_var_from_call(call),
-                    ) {
+                    let path = match find_in_dirs_env(&path_str.item, engine_state, stack) {
                         Ok(path) => {
                             if let Some(path) = path {
                                 path

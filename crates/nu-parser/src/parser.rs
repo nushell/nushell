@@ -7,7 +7,6 @@ use crate::{
     ParseError, Token, TokenContents,
 };
 
-use nu_engine::DIR_VAR_PARSER_INFO;
 use nu_protocol::{
     ast::{
         Argument, Assignment, Bits, Block, Boolean, Call, CellPath, Comparison, Expr, Expression,
@@ -20,10 +19,10 @@ use nu_protocol::{
 };
 
 use crate::parse_keywords::{
-    find_dirs_var, is_unaliasable_parser_keyword, parse_alias, parse_def, parse_def_predecl,
+    is_unaliasable_parser_keyword, parse_alias, parse_def, parse_def_predecl,
     parse_export_in_block, parse_extern, parse_for, parse_hide, parse_keyword, parse_let_or_const,
     parse_module, parse_old_alias, parse_overlay_hide, parse_overlay_new, parse_overlay_use,
-    parse_source, parse_use, parse_where, parse_where_expr, LIB_DIRS_VAR,
+    parse_source, parse_use, parse_where, parse_where_expr,
 };
 
 use itertools::Itertools;
@@ -803,25 +802,6 @@ pub struct ParsedInternalCall {
     pub error: Option<ParseError>,
 }
 
-fn attach_parser_info_builtin(working_set: &StateWorkingSet, name: &str, call: &mut Call) {
-    match name {
-        "use" | "overlay use" | "source-env" | "nu-check" => {
-            if let Some(var_id) = find_dirs_var(working_set, LIB_DIRS_VAR) {
-                call.set_parser_info(
-                    DIR_VAR_PARSER_INFO.to_owned(),
-                    Expression {
-                        expr: Expr::Var(var_id),
-                        span: call.head,
-                        ty: Type::Any,
-                        custom_completion: None,
-                    },
-                );
-            }
-        }
-        _ => {}
-    }
-}
-
 pub fn parse_internal_call(
     working_set: &mut StateWorkingSet,
     command_span: Span,
@@ -840,10 +820,6 @@ pub fn parse_internal_call(
     let decl = working_set.get_decl(decl_id);
     let signature = decl.signature();
     let output = signature.output_type.clone();
-
-    if decl.is_builtin() {
-        attach_parser_info_builtin(working_set, decl.name(), &mut call);
-    }
 
     // The index into the positional parameter in the definition
     let mut positional_idx = 0;
@@ -5370,7 +5346,7 @@ pub fn parse_expression(
                 arguments,
                 redirect_stdout: true,
                 redirect_stderr: false,
-                parser_info: HashMap::new(),
+                parser_info: vec![],
             }));
 
             (
@@ -6216,7 +6192,7 @@ fn wrap_expr_with_collect(working_set: &mut StateWorkingSet, expr: &Expression) 
                 decl_id,
                 redirect_stdout: true,
                 redirect_stderr: false,
-                parser_info: HashMap::new(),
+                parser_info: vec![],
             })),
             span,
             ty: Type::String,

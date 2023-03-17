@@ -39,7 +39,7 @@ pub trait CallExt {
         &self,
         engine_state: &EngineState,
         stack: &mut Stack,
-        name: &str,
+        pos: usize,
     ) -> Result<T, ShellError>;
 }
 
@@ -111,9 +111,9 @@ impl CallExt for Call {
         &self,
         engine_state: &EngineState,
         stack: &mut Stack,
-        name: &str,
+        pos: usize,
     ) -> Result<T, ShellError> {
-        if let Some(expr) = self.get_parser_info(name) {
+        if let Some(expr) = self.parser_info_nth(pos) {
             let result = eval_expression(engine_state, stack, expr)?;
             FromValue::from_value(&result)
         } else if self.parser_info.is_empty() {
