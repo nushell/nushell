@@ -235,6 +235,10 @@ def alias-not-found-error [span: record] {
     throw-error "std::help::alias_not_found" "alias not found" $span
 }
 
+def extern-not-found-error [span: record] {
+    throw-error "std::help::extern_not_found" "extern not found" $span
+}
+
 def print-help-header [
     text: string
     --no-newline (-n): bool
@@ -352,5 +356,42 @@ export def "help aliases" [
         show-alias ($found_alias | get 0)
     } else {
         $aliases
+    }
+}
+
+def show-extern [extern: record] {
+    if not ($extern.usage? | is-empty) {
+        print $extern.usage
+        print ""
+    }
+
+    print-help-header -n "Extern"
+    print $" ($extern.name)"
+}
+
+export def "help externs" [
+    extern?: string  # the name of extern to get help on
+    --find (-f): string  # string to find in extern names and usage
+] {
+    let externs = ($nu.scope.commands | where is_extern | select name module_name usage | sort-by name)
+
+    if not ($find | is-empty) {
+        let found_externs = ($externs | where name =~ $find)
+
+        if ($found_externs | length) == 1 {
+            show-extern ($found_externs | get 0)
+        } else {
+            $found_externs
+        }
+    } else if not ($extern | is-empty) {
+        let found_extern = ($externs | where name == $extern)
+
+        if ($found_extern | is-empty) {
+            extern-not-found-error (metadata $extern | get span)
+        }
+
+        show-extern ($found_extern | get 0)
+    } else {
+        $externs
     }
 }
