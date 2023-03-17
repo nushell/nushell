@@ -231,6 +231,10 @@ def module-not-found-error [span: record] {
     throw-error "std::help::module_not_found" "module not found" $span
 }
 
+def alias-not-found-error [span: record] {
+    throw-error "std::help::alias_not_found" "alias not found" $span
+}
+
 def print-help-header [
     text: string
     --no-newline (-n): bool
@@ -308,5 +312,45 @@ export def "help modules" [
         show-module ($found_module | get 0)
     } else {
         $modules
+    }
+}
+
+def show-alias [alias: record] {
+    if not ($alias.usage? | is-empty) {
+        print $alias.usage
+        print ""
+    }
+
+    print-help-header -n "Alias"
+    print $" ($alias.name)"
+    print ""
+    print-help-header "Expansion"
+    print $"  ($alias.expansion)"
+}
+
+export def "help aliases" [
+    alias?: string  # the name of alias to get help on
+    --find (-f): string  # string to find in alias names and usage
+] {
+    let aliases = ($nu.scope.aliases | sort-by name)
+
+    if not ($find | is-empty) {
+        let found_aliases = ($aliases | where name =~ $find)
+
+        if ($found_aliases | length) == 1 {
+            show-alias ($found_aliases | get 0)
+        } else {
+            $found_aliases
+        }
+    } else if not ($alias | is-empty) {
+        let found_alias = ($aliases | where name == $alias)
+
+        if ($found_alias | is-empty) {
+            alias-not-found-error (metadata $alias | get span)
+        }
+
+        show-alias ($found_alias | get 0)
+    } else {
+        $aliases
     }
 }
