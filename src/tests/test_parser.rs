@@ -482,3 +482,8 @@ fn unbalanced_delimiter() -> TestResult {
 fn unbalanced_delimiter2() -> TestResult {
     fail_test(r#"{}#.}"#, "unbalanced { and }")
 }
+
+#[test]
+fn unbalanced_delimiter3() -> TestResult {
+    fail_test(r#"{"#, "Unexpected end of code")
+}
