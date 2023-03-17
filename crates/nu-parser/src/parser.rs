@@ -1688,6 +1688,12 @@ pub(crate) fn parse_dollar_expr(
 
     if contents.starts_with(b"$\"") || contents.starts_with(b"$'") {
         parse_string_interpolation(working_set, span, expand_aliases_denylist)
+    } else if contents.starts_with(b"$.") {
+        parse_simple_cell_path(
+            working_set,
+            Span::new(span.start + 2, span.end),
+            expand_aliases_denylist,
+        )
     } else if let (expr, None) = parse_range(working_set, span, expand_aliases_denylist) {
         (expr, None)
     } else {
@@ -2127,6 +2133,33 @@ pub fn parse_cell_path(
     }
 
     (tail, error)
+}
+
+pub fn parse_simple_cell_path(
+    working_set: &mut StateWorkingSet,
+    span: Span,
+    expand_aliases_denylist: &[usize],
+) -> (Expression, Option<ParseError>) {
+    let source = working_set.get_span_contents(span);
+    let mut error = None;
+
+    let (tokens, err) = lex(source, span.start, &[b'\n', b'\r'], &[b'.', b'?'], true);
+    error = error.or(err);
+
+    let tokens = tokens.into_iter().peekable();
+
+    let (cell_path, err) = parse_cell_path(working_set, tokens, false, expand_aliases_denylist);
+    error = error.or(err);
+
+    (
+        Expression {
+            expr: Expr::CellPath(CellPath { members: cell_path }),
+            span,
+            ty: Type::CellPath,
+            custom_completion: None,
+        },
+        error,
+    )
 }
 
 pub fn parse_full_cell_path(
@@ -4646,29 +4679,7 @@ pub fn parse_value(
                 )
             }
         }
-        SyntaxShape::CellPath => {
-            let source = working_set.get_span_contents(span);
-            let mut error = None;
-
-            let (tokens, err) = lex(source, span.start, &[b'\n', b'\r'], &[b'.', b'?'], true);
-            error = error.or(err);
-
-            let tokens = tokens.into_iter().peekable();
-
-            let (cell_path, err) =
-                parse_cell_path(working_set, tokens, false, expand_aliases_denylist);
-            error = error.or(err);
-
-            (
-                Expression {
-                    expr: Expr::CellPath(CellPath { members: cell_path }),
-                    span,
-                    ty: Type::CellPath,
-                    custom_completion: None,
-                },
-                error,
-            )
-        }
+        SyntaxShape::CellPath => parse_simple_cell_path(working_set, span, expand_aliases_denylist),
         SyntaxShape::Boolean => {
             // Redundant, though we catch bad boolean parses here
             if bytes == b"true" || bytes == b"false" {
