@@ -1,8 +1,10 @@
+use std.nu *
+
 def main [] {
     for test_file in (ls ($env.FILE_PWD | path join "test_*.nu") -f | get name) {
         let $module_name = ($test_file | path parse).stem
 
-        echo $"(ansi default)INFO  Run tests in ($module_name)(ansi reset)"
+        log info $"Run tests in ($module_name) module"
         let tests = (
             nu -c $'use ($test_file) *; $nu.scope.commands | to nuon'
             | from nuon
@@ -12,7 +14,7 @@ def main [] {
         )
 
         for test_case in $tests {
-            echo $"(ansi default_dimmed)DEBUG Run test ($module_name)/($test_case)(ansi reset)"
+            log debug $"Run test ($module_name) ($test_case)"
             nu -c $'use ($test_file) ($test_case); ($test_case)'
         }
     }
