@@ -4430,8 +4430,9 @@ pub fn parse_closure_expression(
         ),
         _ => {
             if require_pipe {
+                error = error.or(Some(ParseError::ClosureMissingPipe(span)));
                 working_set.exit_scope();
-                return (garbage(span), Some(ParseError::ClosureMissingPipe(span)));
+                return (garbage(span), error);
             } else {
                 (None, 0)
             }
