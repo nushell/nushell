@@ -27,8 +27,8 @@ export def test_match [] {
     use std.nu assert
 
     let branches = {
-        1: { -1 }
-        2: { -2 }
+        1: {|| -1 }
+        2: {|| -2 }
     }
 
     assert ((std match 1 $branches) == -1)
