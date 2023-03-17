@@ -1724,6 +1724,16 @@ pub fn parse_brace_expr(
     // the parse is ambiguous. We'll need to update the parts of the grammar where this is ambiguous
     // and then revisit the parsing.
 
+    if span.end <= (span.start + 1) {
+        return (
+            Expression::garbage(span),
+            Some(ParseError::Expected(
+                format!("non-block value: {shape}"),
+                span,
+            )),
+        );
+    }
+
     let bytes = working_set.get_span_contents(Span::new(span.start + 1, span.end - 1));
     let (tokens, _) = lex(bytes, span.start + 1, &[b'\r', b'\n', b'\t'], &[b':'], true);
 
