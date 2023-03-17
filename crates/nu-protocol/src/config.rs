@@ -107,7 +107,7 @@ impl Default for Config {
         Config {
             filesize_metric: false,
             table_mode: "rounded".into(),
-            table_show_empty: false,
+            table_show_empty: true,
             external_completer: None,
             use_ls_colors: true,
             color_config: HashMap::new(),
