@@ -211,3 +211,18 @@ export def-env "path add" [
         $env.PATH
     }
 }
+
+def error-fmt [] {
+    $"(ansi red)($in)(ansi reset)"
+}
+
+def throw-error [error: string, msg: string, span: record] {
+    error make {
+        msg: ($error | error-fmt)
+        label: {
+            text: $msg
+            start: $span.start
+            end: $span.end
+        }
+    }
+}
