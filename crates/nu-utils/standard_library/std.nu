@@ -33,16 +33,6 @@ export def assert [cond: bool, message?: string] {
 }
 
 # ```nushell
-# ❯ assert eq 3 "a string"
-# Error:
-#   × Assertion failed.
-#    ╭─[entry #13:1:1]
-#  1 │ assert eq 3 "a string"
-#    ·           ──────┬─────
-#    ·                 ╰── Different types cannot be equal: int <-> string.
-#    ╰────
-#
-#
 # ❯ assert eq 3 3
 # ❯ assert eq 3 1
 # Error:
@@ -54,27 +44,11 @@ export def assert [cond: bool, message?: string] {
 #    ╰────
 #
 #
-# 👇👇👇 BE CAREFUL! 👇👇👇
-# ❯ assert ( 1 == 1.0) # passes
-# ❯ assert eq 1 1.0
-# Error:
-#   × Assertion failed.
-#    ╭─[entry #16:1:1]
-#  1 │ assert eq 1 1.0
-#    ·           ──┬──
-#    ·             ╰── Different types cannot be equal: int <-> float.
-#    ╰────
-# 
 # ```
 export def "assert eq" [left: any, right: any, message?: string] {
-    let left_type = ($left | describe)
-    let right_type = ($right | describe)
     let left_start = (metadata $left).span.start
     let right_end = (metadata $right).span.end
 
-    if ($left_type != $right_type) {
-        _assertion-error $left_start $right_end $"Different types cannot be equal: ($left_type) <-> ($right_type)." $message
-    }
     if ($left != $right) {
         _assertion-error $left_start $right_end $"They are not equal: ($left) != ($right)" $message
     }
@@ -90,28 +64,11 @@ export def "assert eq" [left: any, right: any, message?: string] {
 #    ·           ──┬──
 #    ·             ╰── They both are 42
 #    ╰────
-# 
-#
-# 👇👇👇 BE CAREFUL! 👇👇👇
-# ❯ assert ( 1 != "a string" ) # passes
-# ❯ assert ne 1 "a string"
-# Error:
-#   × Assertion failed.
-#    ╭─[entry #20:1:1]
-#  1 │ assert ne 1 "a string"
-#    ·           ──────┬─────
-#    ·                 ╰── They are not equal, although they have different types: int <-> string.
-#    ╰────
 # ```
 export def "assert ne" [left: any, right: any, message?: string] {
-    let left_type = ($left | describe)
-    let right_type = ($right | describe)
     let left_start = (metadata $left).span.start
     let right_end = (metadata $right).span.end
 
-    if (($left | describe) != ($right | describe)) {
-        _assertion-error $left_start $right_end $"They have different types: ($left_type) <-> ($right_type)." $message
-    }
     if ($left == $right) {
         _assertion-error $left_start $right_end $"They both are ($left)" $message
     }
