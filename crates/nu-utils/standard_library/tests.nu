@@ -26,6 +26,9 @@ def collect-commands [
     }
 }
 
+# Test executor
+#
+# It executes exported "test_*" commands in "test_*" modules
 def main [
     --path: path, # Path to look for tests. Default: directory of this file.
     --module: string, # Module to run tests. Default: all test modules found.
