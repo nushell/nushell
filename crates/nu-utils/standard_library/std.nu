@@ -227,6 +227,10 @@ def throw-error [error: string, msg: string, span: record] {
     }
 }
 
+def module-not-found-error [span: record] {
+    throw-error "std::help::module_not_found" "module not found" $span
+}
+
 def print-help-header [
     text: string
     --no-newline (-n): bool
@@ -237,5 +241,72 @@ def print-help-header [
         print -n $header
     } else {
         print $header
+    }
+}
+
+def show-module [module: record] {
+    if not ($module.usage? | is-empty) {
+        print $module.usage
+        print ""
+    }
+
+    print-help-header -n "Module"
+    print $" ($module.name)"
+    print ""
+
+    if not ($module.commands? | is-empty) {
+        print-help-header "Exported commands"
+        print -n "    "
+
+        let commands_string = (
+            $module.commands
+            | each {|command|
+                $"($command) " + '(' + $"(ansi cyan_bold)($module.name) ($command)(ansi reset)" + ')'
+            }
+            | str join ", "
+        )
+
+        print $commands_string
+        print ""
+    }
+
+    if not ($module.aliases? | is-empty) {
+        print-help-header -n "Exported aliases:"
+        print $module.aliases
+        print ""
+    }
+
+    if ($module.env_block? | is-empty) {
+        print $"This module (ansi cyan)does not export(ansi reset) environment."
+    } else {
+        print $"This module (ansi cyan)exports(ansi reset) environment."
+        view source $module.env_block | nu-highlight
+    }
+}
+
+export def "help modules" [
+    module?: string  # the name of module to get help on
+    --find (-f): string  # string to find in module names and usage
+] {
+    let modules = ($nu.scope.modules | sort-by name)
+
+    if not ($find | is-empty) {
+        let found_modules = ($modules | where name =~ $find)
+
+        if ($found_modules | length) == 1 {
+            show-module ($found_modules | get 0)
+        } else {
+            $found_modules
+        }
+    } else if not ($module | is-empty) {
+        let found_module = ($modules | where name == $module)
+
+        if ($found_module | is-empty) {
+            module_not_found_error (metadata $module | get span)
+        }
+
+        show-module ($found_module | get 0)
+    } else {
+        $modules
     }
 }
