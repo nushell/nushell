@@ -1764,7 +1764,7 @@ pub fn parse_brace_expr(
         (
             Expression::garbage(span),
             Some(ParseError::Expected(
-                format!("non-block value: {shape:?}"),
+                format!("non-block value: {shape}"),
                 span,
             )),
         )
@@ -4430,6 +4430,7 @@ pub fn parse_closure_expression(
         ),
         _ => {
             if require_pipe {
+                working_set.exit_scope();
                 return (garbage(span), Some(ParseError::ClosureMissingPipe(span)));
             } else {
                 (None, 0)
