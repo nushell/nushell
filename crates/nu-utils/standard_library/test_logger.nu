@@ -5,7 +5,7 @@ def run [system_level, message_level] {
 }
 def "assert no message" [system_level, message_level] {
     let output = (run $system_level $message_level)
-    assert ($output == "")
+    assert eq $output ""
 }
 
 def "assert message" [system_level, message_level, message_level_str] {
