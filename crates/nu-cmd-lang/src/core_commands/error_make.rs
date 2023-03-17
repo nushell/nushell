@@ -44,27 +44,16 @@ impl Command for ErrorMake {
         let arg: Value = call.req(engine_state, stack, 0)?;
         let unspanned = call.has_flag("unspanned");
 
-        if unspanned {
-            Err(make_error(&arg, None).unwrap_or_else(|| {
-                ShellError::GenericError(
-                    "Creating error value not supported.".into(),
-                    "unsupported error format".into(),
-                    Some(span),
-                    None,
-                    Vec::new(),
-                )
-            }))
-        } else {
-            Err(make_error(&arg, Some(span)).unwrap_or_else(|| {
-                ShellError::GenericError(
-                    "Creating error value not supported.".into(),
-                    "unsupported error format".into(),
-                    Some(span),
-                    None,
-                    Vec::new(),
-                )
-            }))
-        }
+        let throw_error = if unspanned { None } else { Some(span) };
+        Err(make_error(&arg, throw_error).unwrap_or_else(|| {
+            ShellError::GenericError(
+                "Creating error value not supported.".into(),
+                "unsupported error format".into(),
+                Some(span),
+                None,
+                Vec::new(),
+            )
+        }))
     }
 
     fn examples(&self) -> Vec<Example> {
