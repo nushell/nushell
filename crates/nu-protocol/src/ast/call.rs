@@ -1,5 +1,3 @@
-use std::collections::HashMap;
-
 use serde::{Deserialize, Serialize};
 
 use super::Expression;
@@ -21,7 +19,7 @@ pub struct Call {
     pub redirect_stdout: bool,
     pub redirect_stderr: bool,
     /// this field is used by the parser to pass additional command-specific information
-    pub parser_info: HashMap<String, Expression>,
+    pub parser_info: Vec<Expression>,
 }
 
 impl Call {
@@ -32,7 +30,7 @@ impl Call {
             arguments: vec![],
             redirect_stdout: true,
             redirect_stderr: false,
-            parser_info: HashMap::new(),
+            parser_info: vec![],
         }
     }
 
@@ -72,6 +70,10 @@ impl Call {
         self.arguments.push(Argument::Positional(positional));
     }
 
+    pub fn add_parser_info(&mut self, info: Expression) {
+        self.parser_info.push(info);
+    }
+
     pub fn add_unknown(&mut self, unknown: Expression) {
         self.arguments.push(Argument::Unknown(unknown));
     }
@@ -104,12 +106,8 @@ impl Call {
         self.positional_iter().count()
     }
 
-    pub fn get_parser_info(&self, name: &str) -> Option<&Expression> {
-        self.parser_info.get(name)
-    }
-
-    pub fn set_parser_info(&mut self, name: String, val: Expression) -> Option<Expression> {
-        self.parser_info.insert(name, val)
+    pub fn parser_info_nth(&self, i: usize) -> Option<&Expression> {
+        self.parser_info.get(i)
     }
 
     pub fn has_flag(&self, flag_name: &str) -> bool {
