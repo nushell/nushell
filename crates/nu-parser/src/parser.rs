@@ -1688,6 +1688,12 @@ pub(crate) fn parse_dollar_expr(
 
     if contents.starts_with(b"$\"") || contents.starts_with(b"$'") {
         parse_string_interpolation(working_set, span, expand_aliases_denylist)
+    } else if contents.starts_with(b"$.") {
+        parse_simple_cell_path(
+            working_set,
+            Span::new(span.start + 2, span.end),
+            expand_aliases_denylist,
+        )
     } else if let (expr, None) = parse_range(working_set, span, expand_aliases_denylist) {
         (expr, None)
     } else {
@@ -1698,10 +1704,13 @@ pub(crate) fn parse_dollar_expr(
 pub fn parse_paren_expr(
     working_set: &mut StateWorkingSet,
     span: Span,
+    shape: &SyntaxShape,
     expand_aliases_denylist: &[usize],
 ) -> (Expression, Option<ParseError>) {
     if let (expr, None) = parse_range(working_set, span, expand_aliases_denylist) {
         (expr, None)
+    } else if matches!(shape, SyntaxShape::Signature) {
+        return parse_signature(working_set, span, expand_aliases_denylist);
     } else {
         parse_full_cell_path(working_set, None, span, expand_aliases_denylist)
     }
@@ -1720,6 +1729,16 @@ pub fn parse_brace_expr(
     // FIXME: we're still using the shape because we rely on it to know how to handle syntax where
     // the parse is ambiguous. We'll need to update the parts of the grammar where this is ambiguous
     // and then revisit the parsing.
+
+    if span.end <= (span.start + 1) {
+        return (
+            Expression::garbage(span),
+            Some(ParseError::Expected(
+                format!("non-block value: {shape}"),
+                span,
+            )),
+        );
+    }
 
     let bytes = working_set.get_span_contents(Span::new(span.start + 1, span.end - 1));
     let (tokens, _) = lex(bytes, span.start + 1, &[b'\r', b'\n', b'\t'], &[b':'], true);
@@ -2114,6 +2133,33 @@ pub fn parse_cell_path(
     }
 
     (tail, error)
+}
+
+pub fn parse_simple_cell_path(
+    working_set: &mut StateWorkingSet,
+    span: Span,
+    expand_aliases_denylist: &[usize],
+) -> (Expression, Option<ParseError>) {
+    let source = working_set.get_span_contents(span);
+    let mut error = None;
+
+    let (tokens, err) = lex(source, span.start, &[b'\n', b'\r'], &[b'.', b'?'], true);
+    error = error.or(err);
+
+    let tokens = tokens.into_iter().peekable();
+
+    let (cell_path, err) = parse_cell_path(working_set, tokens, false, expand_aliases_denylist);
+    error = error.or(err);
+
+    (
+        Expression {
+            expr: Expr::CellPath(CellPath { members: cell_path }),
+            span,
+            ty: Type::CellPath,
+            custom_completion: None,
+        },
+        error,
+    )
 }
 
 pub fn parse_full_cell_path(
@@ -4567,7 +4613,7 @@ pub fn parse_value(
 
     match bytes[0] {
         b'$' => return parse_dollar_expr(working_set, span, expand_aliases_denylist),
-        b'(' => return parse_paren_expr(working_set, span, expand_aliases_denylist),
+        b'(' => return parse_paren_expr(working_set, span, shape, expand_aliases_denylist),
         b'{' => return parse_brace_expr(working_set, span, shape, expand_aliases_denylist),
         b'[' => match shape {
             SyntaxShape::Any
@@ -4633,29 +4679,7 @@ pub fn parse_value(
                 )
             }
         }
-        SyntaxShape::CellPath => {
-            let source = working_set.get_span_contents(span);
-            let mut error = None;
-
-            let (tokens, err) = lex(source, span.start, &[b'\n', b'\r'], &[b'.', b'?'], true);
-            error = error.or(err);
-
-            let tokens = tokens.into_iter().peekable();
-
-            let (cell_path, err) =
-                parse_cell_path(working_set, tokens, false, expand_aliases_denylist);
-            error = error.or(err);
-
-            (
-                Expression {
-                    expr: Expr::CellPath(CellPath { members: cell_path }),
-                    span,
-                    ty: Type::CellPath,
-                    custom_completion: None,
-                },
-                error,
-            )
-        }
+        SyntaxShape::CellPath => parse_simple_cell_path(working_set, span, expand_aliases_denylist),
         SyntaxShape::Boolean => {
             // Redundant, though we catch bad boolean parses here
             if bytes == b"true" || bytes == b"false" {
@@ -5103,7 +5127,7 @@ pub fn parse_expression(
 
         let split = name.splitn(2, |x| *x == b'=');
         let split: Vec<_> = split.collect();
-        if split.len() == 2 && !split[0].is_empty() {
+        if !name.starts_with(b"^") && split.len() == 2 && !split[0].is_empty() {
             let point = split[0].len() + 1;
 
             let lhs = parse_string_strict(

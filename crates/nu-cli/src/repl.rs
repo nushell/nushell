@@ -14,7 +14,7 @@ use nu_parser::{lex, parse, trim_quotes_str};
 use nu_protocol::{
     ast::PathMember,
     config::NuCursorShape,
-    engine::{EngineState, ReplOperation, Stack, StateWorkingSet},
+    engine::{EngineState, Stack, StateWorkingSet},
     format_duration, BlockId, HistoryFileFormat, PipelineData, PositionalArg, ShellError, Span,
     Spanned, Type, Value, VarId,
 };
@@ -459,18 +459,30 @@ pub fn evaluate_repl(
                         .into_diagnostic()?; // todo: don't stop repl if error here?
                 }
 
-                engine_state
-                    .repl_buffer_state
-                    .lock()
-                    .expect("repl buffer state mutex")
-                    .replace(line_editor.current_buffer_contents().to_string());
-
                 // Right before we start running the code the user gave us,
                 // fire the "pre_execution" hook
                 if let Some(hook) = config.hooks.pre_execution.clone() {
+                    // Set the REPL buffer to the current command for the "pre_execution" hook
+                    let mut repl_buffer = engine_state
+                        .repl_buffer_state
+                        .lock()
+                        .expect("repl buffer state mutex");
+                    let next_repl_buffer = repl_buffer.to_string();
+                    *repl_buffer = s.to_string();
+                    drop(repl_buffer);
+
                     if let Err(err) = eval_hook(engine_state, stack, None, vec![], &hook) {
                         report_error_new(engine_state, &err);
                     }
+
+                    // Restore the REPL buffer state for the next command. It could've been edited
+                    // by `commandline`.
+                    let mut repl_buffer = engine_state
+                        .repl_buffer_state
+                        .lock()
+                        .expect("repl buffer state mutex");
+                    *repl_buffer = next_repl_buffer;
+                    drop(repl_buffer);
                 }
 
                 if shell_integration {
@@ -628,23 +640,23 @@ pub fn evaluate_repl(
                     run_ansi_sequence(RESET_APPLICATION_MODE)?;
                 }
 
-                let mut ops = engine_state
-                    .repl_operation_queue
+                let mut repl_buffer = engine_state
+                    .repl_buffer_state
                     .lock()
-                    .expect("repl op queue mutex");
-                while let Some(op) = ops.pop_front() {
-                    match op {
-                        ReplOperation::Append(s) => line_editor.run_edit_commands(&[
-                            EditCommand::MoveToEnd,
-                            EditCommand::InsertString(s),
-                        ]),
-                        ReplOperation::Insert(s) => {
-                            line_editor.run_edit_commands(&[EditCommand::InsertString(s)])
-                        }
-                        ReplOperation::Replace(s) => line_editor
-                            .run_edit_commands(&[EditCommand::Clear, EditCommand::InsertString(s)]),
-                    }
-                }
+                    .expect("repl buffer state mutex");
+                let mut repl_cursor_pos = engine_state
+                    .repl_cursor_pos
+                    .lock()
+                    .expect("repl cursor pos mutex");
+                line_editor.run_edit_commands(&[
+                    EditCommand::Clear,
+                    EditCommand::InsertString(repl_buffer.to_string()),
+                    EditCommand::MoveToPosition(*repl_cursor_pos),
+                ]);
+                *repl_buffer = "".to_string();
+                drop(repl_buffer);
+                *repl_cursor_pos = 0;
+                drop(repl_cursor_pos);
             }
             Ok(Signal::CtrlC) => {
                 // `Reedline` clears the line content. New prompt is shown

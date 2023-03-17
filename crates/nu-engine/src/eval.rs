@@ -6,10 +6,9 @@ use nu_protocol::{
         Operator, PathMember, PipelineElement, Redirection,
     },
     engine::{EngineState, ProfilingConfig, Stack},
-    Config, DataSource, IntoInterruptiblePipelineData, IntoPipelineData, PipelineData,
-    PipelineMetadata, Range, ShellError, Span, Spanned, Unit, Value, VarId, ENV_VARIABLE_ID,
+    DataSource, IntoInterruptiblePipelineData, IntoPipelineData, PipelineData, PipelineMetadata,
+    Range, ShellError, Span, Spanned, Unit, Value, VarId, ENV_VARIABLE_ID,
 };
-use nu_utils::stdout_write_all_and_flush;
 use std::collections::HashMap;
 use std::time::Instant;
 
@@ -704,14 +703,7 @@ pub fn eval_expression_with_input(
         }
     };
 
-    // Note: for `table` command, it mights returns `ExternalStream with stdout`
-    // whatever `redirect_output` is true or false, so we only want to consume ExternalStream
-    // if relative stdout is None.
-    if let PipelineData::ExternalStream { stdout: None, .. } = input {
-        Ok(might_consume_external_result(input))
-    } else {
-        Ok((input, false))
-    }
+    Ok(might_consume_external_result(input))
 }
 
 // Try to catch and detect if external command runs to failed.
@@ -1119,24 +1111,7 @@ pub fn eval_block(
                 } => {
                     let exit_code = exit_code.take();
 
-                    // Drain the input to the screen via tabular output
-                    let config = engine_state.get_config();
-
-                    match engine_state.find_decl("table".as_bytes(), &[]) {
-                        Some(decl_id) => {
-                            let table = engine_state.get_decl(decl_id).run(
-                                engine_state,
-                                stack,
-                                &Call::new(Span::new(0, 0)),
-                                input,
-                            )?;
-
-                            print_or_return(table, config)?;
-                        }
-                        None => {
-                            print_or_return(input, config)?;
-                        }
-                    };
+                    input.drain()?;
 
                     if let Some(exit_code) = exit_code {
                         let mut v: Vec<_> = exit_code.collect();
@@ -1146,40 +1121,7 @@ pub fn eval_block(
                         }
                     }
                 }
-                _ => {
-                    // Drain the input to the screen via tabular output
-                    let config = engine_state.get_config();
-
-                    match engine_state.find_decl("table".as_bytes(), &[]) {
-                        Some(decl_id) => {
-                            let table = engine_state.get_decl(decl_id);
-
-                            if let Some(block_id) = table.get_block_id() {
-                                let block = engine_state.get_block(block_id);
-                                eval_block(
-                                    engine_state,
-                                    stack,
-                                    block,
-                                    input,
-                                    redirect_stdout,
-                                    redirect_stderr,
-                                )?;
-                            } else {
-                                let table = table.run(
-                                    engine_state,
-                                    stack,
-                                    &Call::new(Span::new(0, 0)),
-                                    input,
-                                )?;
-
-                                print_or_return(table, config)?;
-                            }
-                        }
-                        None => {
-                            print_or_return(input, config)?;
-                        }
-                    };
-                }
+                _ => input.drain()?,
             }
 
             input = PipelineData::empty()
@@ -1194,21 +1136,6 @@ pub fn eval_block(
     }
 }
 
-fn print_or_return(pipeline_data: PipelineData, config: &Config) -> Result<(), ShellError> {
-    for item in pipeline_data {
-        if let Value::Error { error } = item {
-            return Err(*error);
-        }
-
-        let mut out = item.into_string("\n", config);
-        out.push('\n');
-
-        stdout_write_all_and_flush(out)?;
-    }
-
-    Ok(())
-}
-
 pub fn eval_subexpression(
     engine_state: &EngineState,
     stack: &mut Stack,
@@ -1216,70 +1143,12 @@ pub fn eval_subexpression(
     mut input: PipelineData,
 ) -> Result<PipelineData, ShellError> {
     for pipeline in block.pipelines.iter() {
-        for (expr_indx, expr) in pipeline.elements.iter().enumerate() {
-            if expr_indx != pipeline.elements.len() - 1 {
-                input = eval_element_with_input(engine_state, stack, expr, input, true, false)?.0;
-            } else {
-                // In subexpression, we always need to redirect stdout because the result is substituted to a Value.
-                //
-                // But we can check if external result is failed to run when it's the last expression
-                // in pipeline.  e.g: (^false; echo aaa)
-                //
-                // If external command is failed to run, it can't be convert into value, in this case
-                // we throws out `ShellError::ExternalCommand`.  And show it's stderr message information.
-                // In the case, we need to capture stderr first during eval.
-                input = eval_element_with_input(engine_state, stack, expr, input, true, true)?.0;
-                if matches!(input, PipelineData::ExternalStream { .. }) {
-                    input = check_subexp_substitution(input)?;
-                }
-            }
+        for expr in pipeline.elements.iter() {
+            input = eval_element_with_input(engine_state, stack, expr, input, true, false)?.0
         }
     }
 
     Ok(input)
-}
-
-fn check_subexp_substitution(mut input: PipelineData) -> Result<PipelineData, ShellError> {
-    let consume_result = might_consume_external_result(input);
-    input = consume_result.0;
-    let failed_to_run = consume_result.1;
-    if let PipelineData::ExternalStream {
-        stdout,
-        stderr,
-        exit_code,
-        span,
-        metadata,
-        trim_end_newline,
-    } = input
-    {
-        let stderr_msg = match stderr {
-            None => "".to_string(),
-            Some(stderr_stream) => stderr_stream.into_string().map(|s| s.item)?,
-        };
-        if failed_to_run {
-            Err(ShellError::ExternalCommand {
-                label: "External command failed".to_string(),
-                help: stderr_msg,
-                span,
-            })
-        } else {
-            // we've captured stderr message, but it's running success.
-            // So we need to re-print stderr message out.
-            if !stderr_msg.is_empty() {
-                eprintln!("{stderr_msg}");
-            }
-            Ok(PipelineData::ExternalStream {
-                stdout,
-                stderr: None,
-                exit_code,
-                span,
-                metadata,
-                trim_end_newline,
-            })
-        }
-    } else {
-        Ok(input)
-    }
 }
 
 pub fn eval_variable(

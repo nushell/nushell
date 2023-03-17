@@ -197,3 +197,15 @@ param: list = [one]
         assert!(actual.out.contains(r#"["one"]"#));
     })
 }
+
+#[test]
+fn def_with_paren_params() {
+    let actual = nu!(
+        cwd: ".", pipeline(
+        r#"
+        def foo (x: int, y: int) { $x + $y }; foo 1 2
+        "#
+    ));
+
+    assert_eq!(actual.out, "3");
+}

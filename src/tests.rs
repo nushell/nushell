@@ -1,5 +1,6 @@
 mod test_bits;
 mod test_cell_path;
+mod test_commandline;
 mod test_conditionals;
 mod test_config_path;
 mod test_converters;
