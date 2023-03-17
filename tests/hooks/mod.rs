@@ -329,13 +329,13 @@ fn pre_execution_block_preserve_env_var() {
 fn pre_execution_commandline() {
     let inp = &[
         &pre_execution_hook_code(r#"{ let-env repl_commandline = (commandline) }"#),
-        "echo foo!; $env.repl_commandline",
+        "$env.repl_commandline",
     ];
 
     let actual_repl = nu!(cwd: "tests/hooks", nu_repl_code(inp));
 
     assert_eq!(actual_repl.err, "");
-    assert_eq!(actual_repl.out, "foo!echo foo!; $env.repl_commandline");
+    assert_eq!(actual_repl.out, "$env.repl_commandline");
 }
 
 #[test]
