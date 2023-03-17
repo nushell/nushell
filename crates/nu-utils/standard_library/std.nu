@@ -292,6 +292,92 @@ def show-module [module: record] {
     }
 }
 
+# Show help on nushell modules.
+#
+# When requesting help for a single module, its commands and aliases will be highlighted if they
+# are also available in the current scope. Commands/aliases that were imported under a different name
+# (such as with a prefix after `use some-module`) will be highlighted in parentheses.
+#
+# Examples:
+#     > let us define some example modules to play with
+#     > ```nushell
+#     > # my foo module
+#     > module foo {
+#     >     def bar [] { "foo::bar" }
+#     >     export def baz [] { "foo::baz" }
+#     >
+#     >     export-env {
+#     >         let-env FOO = "foo::FOO"
+#     >     }
+#     > }
+#     >
+#     > # my bar module
+#     > module bar {
+#     >     def bar [] { "bar::bar" }
+#     >     export def baz [] { "bar::baz" }
+#     >
+#     >     export-env {
+#     >         let-env BAR = "bar::BAR"
+#     >     }
+#     > }
+#     >
+#     > # my baz module
+#     > module baz {
+#     >     def foo [] { "baz::foo" }
+#     >     export def bar [] { "baz::bar" }
+#     >
+#     >     export-env {
+#     >         let-env BAZ = "baz::BAZ"
+#     >     }
+#     > }
+#     > ```
+#
+#     show all aliases
+#     > help modules
+#     ╭───┬──────┬──────────┬────────────────┬──────────────┬───────────────╮
+#     │ # │ name │ commands │    aliases     │  env_block   │     usage     │
+#     ├───┼──────┼──────────┼────────────────┼──────────────┼───────────────┤
+#     │ 0 │ bar  │ [baz]    │ [list 0 items] │ <Block 1331> │ my bar module │
+#     │ 1 │ baz  │ [bar]    │ [list 0 items] │ <Block 1335> │ my baz module │
+#     │ 2 │ foo  │ [baz]    │ [list 0 items] │ <Block 1327> │ my foo module │
+#     ╰───┴──────┴──────────┴────────────────┴──────────────┴───────────────╯
+#
+#     search for string in module names
+#     > help modules --find ba
+#     ╭───┬──────┬─────────────┬────────────────┬──────────────┬───────────────╮
+#     │ # │ name │  commands   │    aliases     │  env_block   │     usage     │
+#     ├───┼──────┼─────────────┼────────────────┼──────────────┼───────────────┤
+#     │ 0 │ bar  │ ╭───┬─────╮ │ [list 0 items] │ <Block 1331> │ my bar module │
+#     │   │      │ │ 0 │ baz │ │                │              │               │
+#     │   │      │ ╰───┴─────╯ │                │              │               │
+#     │ 1 │ baz  │ ╭───┬─────╮ │ [list 0 items] │ <Block 1335> │ my baz module │
+#     │   │      │ │ 0 │ bar │ │                │              │               │
+#     │   │      │ ╰───┴─────╯ │                │              │               │
+#     ╰───┴──────┴─────────────┴────────────────┴──────────────┴───────────────╯
+#
+#     search help for single moduel
+#     > help modules foo
+#     my foo module
+#
+#     Module: foo
+#
+#     Exported commands:
+#         baz [foo baz]
+#
+#     This module exports environment.
+#     {
+#             let-env FOO = "foo::FOO"
+#         }
+#
+#     search for a module that does not exist
+#     > help modules "does not exist"
+#     Error:
+#       × std::help::module_not_found
+#        ╭─[entry #21:1:1]
+#      1 │ help modules "does not exist"
+#        ·              ────────┬───────
+#        ·                      ╰── module not found
+#        ╰────
 export def "help modules" [
     module?: string  # the name of module to get help on
     --find (-f): string  # string to find in module names and usage
@@ -332,6 +418,74 @@ def show-alias [alias: record] {
     print $"  ($alias.expansion)"
 }
 
+# Show help on nushell aliases.
+#
+# Examples:
+#     > let us define a bunch of aliases
+#     > ```nushell
+#     > # my foo alias
+#     > old-alias foo = echo "this is foo"
+#     >
+#     > # my bar alias
+#     > old-alias bar = echo "this is bar"
+#     >
+#     > # my baz alias
+#     > old-alias baz = echo "this is baz"
+#     >
+#     > # a multiline alias
+#     > old-alias multi = echo "this
+#     > is
+#     > a
+#     > multiline
+#     > string"
+#     > ```
+#
+#     show all aliases
+#     > help aliases
+#     ╭───┬───────┬────────────────────┬───────────────────╮
+#     │ # │ name  │     expansion      │       usage       │
+#     ├───┼───────┼────────────────────┼───────────────────┤
+#     │ 0 │ bar   │ echo "this is bar" │ my bar alias      │
+#     │ 1 │ baz   │ echo "this is baz" │ my baz alias      │
+#     │ 2 │ foo   │ echo "this is foo" │ my foo alias      │
+#     │ 3 │ multi │ echo "this         │ a multiline alias │
+#     │   │       │ is                 │                   │
+#     │   │       │ a                  │                   │
+#     │   │       │ multiline          │                   │
+#     │   │       │ string"            │                   │
+#     ╰───┴───────┴────────────────────┴───────────────────╯
+#
+#     search for string in alias names
+#     > help aliases --find ba
+#     ╭───┬──────┬────────────────────┬──────────────╮
+#     │ # │ name │     expansion      │    usage     │
+#     ├───┼──────┼────────────────────┼──────────────┤
+#     │ 0 │ bar  │ echo "this is bar" │ my bar alias │
+#     │ 1 │ baz  │ echo "this is baz" │ my baz alias │
+#     ╰───┴──────┴────────────────────┴──────────────╯
+#
+#     search help for single alias
+#     > help aliases multi
+#     a multiline alias
+#
+#     Alias: multi
+#
+#     Expansion:
+#       echo "this
+#     is
+#     a
+#     multiline
+#     string"
+#
+#     search for an alias that does not exist
+#     > help aliases "does not exist"
+#     Error:
+#       × std::help::alias_not_found
+#        ╭─[entry #21:1:1]
+#      1 │ help aliases "does not exist"
+#        ·              ────────┬───────
+#        ·                      ╰── alias not found
+#        ╰────
 export def "help aliases" [
     alias?: string  # the name of alias to get help on
     --find (-f): string  # string to find in alias names and usage
