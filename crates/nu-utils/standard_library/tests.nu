@@ -33,7 +33,9 @@ def main [
     --path: path, # Path to look for tests. Default: directory of this file.
     --module: string, # Module to run tests. Default: all test modules found.
     --command: string, # Test command to run. Default: all test command found in the files.
+    --list, # Do not run any tests, just list them (dry run)
 ] {
+    let dry_run = ($list | default false)
     for test_file in (collect-modules $path $module) {
         let $module_name = ($test_file | path parse).stem
 
@@ -42,6 +44,10 @@ def main [
 
         for test_case in $tests {
             echo $"(ansi default_dimmed)DEBUG Run test ($module_name)/($test_case)(ansi reset)"
+            if $dry_run {
+                continue
+            }
+
             nu -c $'use ($test_file) ($test_case); ($test_case)'
         }
     }
