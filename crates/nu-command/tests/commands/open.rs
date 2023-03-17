@@ -10,7 +10,7 @@ fn parses_csv() {
             "nu.zion.csv",
             r#"
                     author,lang,source
-                    Jonathan Turner,Rust,New Zealand
+                    JT Turner,Rust,New Zealand
                     Andres N. Robalino,Rust,Ecuador
                     Yehuda Katz,Rust,Estados Unidos
                 "#,
@@ -180,7 +180,7 @@ fn parses_xml() {
     let actual = nu!(
         cwd: "tests/fixtures/formats",
         pipeline(r#"
-            open jonathan.xml
+            open jt.xml
             | get content
             | where tag == channel
             | get content
@@ -193,10 +193,7 @@ fn parses_xml() {
         "#)
     );
 
-    assert_eq!(
-        actual.out,
-        "http://www.jonathanturner.org/2015/10/off-to-new-adventures.html"
-    )
+    assert_eq!(actual.out, "https://www.jntrnr.com/off-to-new-adventures/")
 }
 
 #[cfg(feature = "dataframe")]
@@ -242,7 +239,7 @@ fn open_dir_is_ls() {
     Playground::setup("open_dir", |dirs, sandbox| {
         sandbox.with_files(vec![
             EmptyFile("yehuda.txt"),
-            EmptyFile("jonathan.txt"),
+            EmptyFile("jttxt"),
             EmptyFile("andres.txt"),
         ]);
 
@@ -265,10 +262,10 @@ fn test_open_block_command() {
         r#"
             def "from blockcommandparser" [] { lines | split column ",|," }
             let values = (open sample.blockcommandparser)
-            echo ($values | get column1 | get 0)
-            echo ($values | get column2 | get 0)
-            echo ($values | get column1 | get 1)
-            echo ($values | get column2 | get 1)
+            print ($values | get column1 | get 0)
+            print ($values | get column2 | get 0)
+            print ($values | get column1 | get 1)
+            print ($values | get column2 | get 1)
         "#
     );
 

@@ -26,7 +26,7 @@ fn from_json_text_to_table() {
                 {
                     "katz": [
                         {"name":   "Yehuda", "rusty_luck": 1},
-                        {"name": "Jonathan", "rusty_luck": 1},
+                        {"name": "JT", "rusty_luck": 1},
                         {"name":   "Andres", "rusty_luck": 1},
                         {"name":"GorbyPuff", "rusty_luck": 1}
                     ]
@@ -50,7 +50,7 @@ fn from_json_text_recognizing_objects_independently_to_table() {
             "katz.txt",
             r#"
                 {"name":   "Yehuda", "rusty_luck": 1}
-                {"name": "Jonathan", "rusty_luck": 1}
+                {"name": "JT", "rusty_luck": 1}
                 {"name":   "Andres", "rusty_luck": 1}
                 {"name":"GorbyPuff", "rusty_luck": 3}
             "#,
