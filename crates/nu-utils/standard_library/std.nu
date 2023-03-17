@@ -226,3 +226,16 @@ def throw-error [error: string, msg: string, span: record] {
         }
     }
 }
+
+def print-help-header [
+    text: string
+    --no-newline (-n): bool
+] {
+    let header = $"(ansi green)($text)(ansi reset):"
+
+    if $no_newline {
+        print -n $header
+    } else {
+        print $header
+    }
+}
