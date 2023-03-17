@@ -328,7 +328,7 @@ fn pre_execution_block_preserve_env_var() {
 #[test]
 fn pre_execution_commandline() {
     let inp = &[
-        &pre_execution_hook_code(r#"{ let-env repl_commandline = (commandline) }"#),
+        &pre_execution_hook_code(r#"{|| let-env repl_commandline = (commandline) }"#),
         "$env.repl_commandline",
     ];
 
