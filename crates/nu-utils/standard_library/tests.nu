@@ -6,7 +6,7 @@ def main [] {
 
         log info $"Run tests in ($module_name) module"
         let tests = (
-            nu -c $'use ($test_file) *; $nu.scope.commands | to nuon'
+            nu -c $'use ($test_file) *; $nu.scope.commands | select name module_name | to nuon'
             | from nuon
             | where module_name == $module_name
             | where ($it.name | str starts-with "test_")
