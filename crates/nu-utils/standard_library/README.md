@@ -60,13 +60,13 @@ use /path/to/standard_library/std.nu
 ### :test_tube: run the tests
 the following call should return no errors
 ```bash
-nu /path/to/standard_library/tests.nu
+NU_LOG_LEVEL=DEBUG nu /path/to/standard_library/tests.nu
 ```
 
 > #### :mag: a concrete example
 > with `STD_LIB` defined as in the example above
 > ```bash
-> nu ($env.STD_LIB | path join "tests.nu")
+> NU_LOG_LEVEL=DEBUG nu ($env.STD_LIB | path join "tests.nu")
 > ```
 
 [REPL]: https://en.wikipedia.org/wiki/Read%E2%80%93eval%E2%80%93print_loop
