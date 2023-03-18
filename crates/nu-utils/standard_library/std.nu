@@ -527,6 +527,7 @@ def show-extern [extern: record] {
     print $" ($extern.name)"
 }
 
+# Show help on nushell externs.
 export def "help externs" [
     extern?: string  # the name of extern to get help on
     --find (-f): string  # string to find in extern names and usage
