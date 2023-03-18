@@ -730,7 +730,7 @@ def show-command [command: record] {
     for signature in $command.signatures {
         let signatures = ($signature | transpose | get column1)
 
-        let parameters = ($signatures | get 0 | where parameter_type != input and parameter_type != output)
+        let parameters = ($signatures | get 0 | where parameter_type != input and parameter_type != output and parameter_type != rest)
 
         let positionals = ($parameters | where parameter_type == positional)
         let flags = ($parameters | where parameter_type != positional)
