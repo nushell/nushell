@@ -742,7 +742,11 @@ def show-command [command: record] {
         print $"  (ansi teal)-h(ansi reset), (ansi teal)--help(ansi reset) - Display the help message for this command"
         for param in ($signature | transpose | get column1.0) {
             if (not ($param.parameter_name | is-empty)) and ($param.parameter_type != positional) {
-                print $"  (ansi teal)-($param.short_flag)(ansi reset), (ansi teal)--($param.parameter_name)(ansi reset) - ($param.description)"
+                print -n $"  (ansi teal)-($param.short_flag)(ansi reset), (ansi teal)--($param.parameter_name)(ansi reset)"
+                if not ($param.syntax_shape | is-empty) {
+                    print -n $" <(ansi light_blue)($param.syntax_shape)(ansi reset)>"
+                }
+                print $" - ($param.description)"
             }
         }
 
