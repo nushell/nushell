@@ -41,8 +41,7 @@ export def test_dirs_command [] {
 
         assert ((dirs show) == [[active path]; [true $base_path] [false $path_b]]) "show table contains expected information"
     } catch { |error|
-        $error | debug
-        true
+        print $error
     }
 
     cd $base_path
