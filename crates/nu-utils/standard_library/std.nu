@@ -730,10 +730,11 @@ def show-command [command: record] {
     for signature in $command.signatures {
         let signatures = ($signature | transpose | get column1)
 
-        let parameters = ($signatures | get 0 | where parameter_type != input and parameter_type != output and parameter_type != rest)
+        let parameters = ($signatures | get 0 | where parameter_type != input and parameter_type != output)
 
-        let positionals = ($parameters | where parameter_type == positional)
-        let flags = ($parameters | where parameter_type != positional)
+        let positionals = ($parameters | where parameter_type == positional and parameter_type != rest)
+        let flags = ($parameters | where parameter_type != positional and parameter_type != rest)
+        let is_rest = (not ($parameters | where parameter_type == rest | is-empty))
 
         print -n "  > "
         print -n $"($command.name) "
@@ -769,7 +770,7 @@ def show-command [command: record] {
            print $" -> <($output.syntax_shape)>"
         }
 
-        if not ($positionals | is-empty) {
+        if (not ($positionals | is-empty)) or $is_rest {
             print ""
             print-help-header "Parameters"
             for positional in $positionals {
@@ -778,6 +779,11 @@ def show-command [command: record] {
                     print -n "(optional) "
                 }
                 print $"(ansi teal)($positional.parameter_name)(ansi reset) <(ansi light_blue)($positional.syntax_shape)(ansi reset)>: ($positional.description)"
+            }
+
+            if $is_rest {
+                let rest = ($parameters | where parameter_type == rest | get 0)
+                print $"  ...(ansi teal)rest(ansi reset) <(ansi light_blue)($rest.syntax_shape)(ansi reset)>: ($rest.description)"
             }
         }
     }
