@@ -891,7 +891,7 @@ def show-command [command: record] {
             print $"  ($example.description)"
             print $"  > ($example.example | nu-highlight)"
             if not ($example.result | is-empty) {
-                print $"  ($example.result)"
+                for line in ($example.result | table | lines) { print $"  ($line)" }
             }
         }
     }
