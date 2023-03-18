@@ -728,7 +728,9 @@ def show-command [command: record] {
     print ""
     print-help-header "Usage"
     for signature in $command.signatures {
-        let parameters = ($signature | transpose | get column1.0 | where parameter_type != input and parameter_type != output)
+        let signatures = ($signature | transpose | get column1)
+
+        let parameters = ($signatures | get 0 | where parameter_type != input and parameter_type != output)
 
         let positionals = ($parameters | where parameter_type == positional)
         let flags = ($parameters | where parameter_type != positional)
@@ -749,6 +751,19 @@ def show-command [command: record] {
                 print -n $" <(ansi light_blue)($flag.syntax_shape)(ansi reset)>"
             }
             print $" - ($flag.description)"
+        }
+
+        print ""
+        print-help-header "Signatures"
+        for sig in $signatures {
+           let input = ($sig | where parameter_type == input | get 0)
+           let output = ($sig | where parameter_type == output | get 0)
+
+           print -n $"  <($input.syntax_shape)> | ($command.name)"
+           for positional in $positionals {
+               print -n $" <($positional.syntax_shape)>"
+           }
+           print $" -> <($output.syntax_shape)>"
         }
 
         if not ($positionals | is-empty) {
