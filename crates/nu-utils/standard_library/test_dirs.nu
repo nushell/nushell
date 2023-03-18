@@ -47,8 +47,25 @@ export def test_dirs_command [] {
 
         assert ((dirs show) == [[active path]; [true $base_path] [false $path_b]]) "show table contains expected information"
     } catch { |error|
-        print $error
         clean $base_path
+
+        let error = (
+            $error
+            | get debug
+            | str replace "{" "("
+            | str replace "}" ")"
+            | parse 'GenericError("{msg}", "{text}", Some(Span ( start: {start}, end: {end} )), {rest})'
+            | reject rest
+            | get 0
+        )
+        error make {
+            msg: $error.msg
+            label: {
+                text: $error.text
+                start: ($error.start | into int)
+                end: ($error.end | into int)
+            }
+        }
     }
 
     try { clean $base_path }
