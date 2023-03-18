@@ -800,16 +800,18 @@ def show-command [command: record] {
 
     if not ($command.examples | is-empty) {
         print ""
-        print-help-header "Examples"
+        print-help-header -n "Examples"
         for example in $command.examples {
+            print ""
             print $"  ($example.description)"
             print $"  > ($example.example | nu-highlight)"
             if not ($example.result | is-empty) {
                 print $"  ($example.result)"
             }
-            print ""
         }
     }
+
+    print ""
 }
 
 # Show help on nushell commands.
