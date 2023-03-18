@@ -750,7 +750,11 @@ def show-command [command: record] {
         print $"(ansi green)Parameters(ansi reset):"
         for param in ($signature | transpose | get column1.0) {
             if (not ($param.parameter_name | is-empty)) and ($param.parameter_type == positional) {
-                print $"  (ansi teal)($param.parameter_name)(ansi reset) <(ansi light_blue)($param.syntax_shape)(ansi reset)>: ($param.description)"
+                print -n "  "
+                if ($param.is_optional) {
+                    print -n "(optional) "
+                }
+                print $"(ansi teal)($param.parameter_name)(ansi reset) <(ansi light_blue)($param.syntax_shape)(ansi reset)>: ($param.description)"
             }
         }
     }
