@@ -388,7 +388,7 @@ def show-module [module: record] {
 #        ╰────
 export def "help modules" [
     module?: string  # the name of module to get help on
-    --find (-f): string  # string to find in module names and usage
+    --find (-f): string  # string to find in module names
 ] {
     let modules = ($nu.scope.modules | sort-by name)
 
@@ -496,7 +496,7 @@ def show-alias [alias: record] {
 #        ╰────
 export def "help aliases" [
     alias?: string  # the name of alias to get help on
-    --find (-f): string  # string to find in alias names and usage
+    --find (-f): string  # string to find in alias names
 ] {
     let aliases = ($nu.scope.aliases | sort-by name)
 
@@ -534,7 +534,7 @@ def show-extern [extern: record] {
 # Show help on nushell externs.
 export def "help externs" [
     extern?: string  # the name of extern to get help on
-    --find (-f): string  # string to find in extern names and usage
+    --find (-f): string  # string to find in extern names
 ] {
     let externs = ($nu.scope.commands | where is_extern | select name module_name usage | sort-by name)
 
@@ -602,7 +602,7 @@ def show-operator [operator: record] {
 #        ╰────
 export def "help operators" [
     operator?: string  # the name of operator to get help on
-    --find (-f): string  # string to find in operator names and usage
+    --find (-f): string  # string to find in operator names
 ] {
     let operators = ([
         [type, operator, name, description, precedence];
