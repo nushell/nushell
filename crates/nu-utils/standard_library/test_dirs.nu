@@ -1,5 +1,11 @@
 use std.nu assert
 
+def clean [path: path] {
+    cd $path
+    cd ..
+    rm -r $path
+}
+
 export def test_dirs_command [] {
     # need some directories to play with
     let base_path = (($nu.temp-path) | path join $"test_dirs_(random uuid)" | path expand )
@@ -42,9 +48,8 @@ export def test_dirs_command [] {
         assert ((dirs show) == [[active path]; [true $base_path] [false $path_b]]) "show table contains expected information"
     } catch { |error|
         print $error
+        clean $base_path
     }
 
-    cd $base_path
-    cd ..
-    rm -r $base_path
+    try { clean $base_path }
 }
