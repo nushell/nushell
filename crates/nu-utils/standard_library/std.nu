@@ -13,6 +13,12 @@ def _assertion-error [start, end, label, message?: string] {
     }
 }
 
+# Universal assert command
+#
+# If the condition is not true, it generates an error.
+#
+# # Example
+#
 # ```nushell
 # >_ assert (3 == 3)
 # >_ assert (42 == 3)
@@ -26,51 +32,182 @@ def _assertion-error [start, end, label, message?: string] {
 #  13 │
 #     ╰────
 # ```
-export def assert [cond: bool, message?: string] {
-    if $cond { return }
-    let span = (metadata $cond).span
-    _assertion-error $span.start $span.end "It is not true." $message
-}
-
-# ```nushell
-# ❯ assert eq 3 3
-# ❯ assert eq 3 1
-# Error:
-#   × Assertion failed.
-#    ╭─[entry #14:1:1]
-#  1 │ assert eq 3 1
-#    ·           ─┬─
-#    ·            ╰── They are not equal: 3 != 1
-#    ╰────
 #
-#
+# The --error-details flag can be used if you want to create a custom assert command:
 # ```
-export def "assert eq" [left: any, right: any, message?: string] {
-    let left_start = (metadata $left).span.start
-    let right_end = (metadata $right).span.end
-
-    if ($left != $right) {
-        _assertion-error $left_start $right_end $"They are not equal: ($left) != ($right)" $message
+# def "assert even" [number: int] {
+#     assert ($number mod 2 == 0) --error-details {
+#         start: (metadata $number).span.start,
+#         end: (metadata $number).span.end,
+#         text: $"($number) is not an even number",
+#     }
+# }
+# ```
+export def assert [
+    condition: bool, # Condition, which should be true 
+    message?: string, # Optional error message
+    --error-details: record # Error details if you want to create a custom assert
+] {
+    if $condition { return }
+    let span = (metadata $condition).span
+    error make {
+        msg: ($message | default "Assertion failed."),
+        label: ($error_details | default {
+            text: "It is not true.",
+            start: (metadata $condition).span.start,
+            end: (metadata $condition).span.end
+        })
     }
 }
 
-# ```nushell
-# ❯ assert ne 1 3
-# ❯ assert ne 42 42
-# Error:
-#   × Assertion failed.
-#    ╭─[entry #23:1:1]
-#  1 │ assert ne 42 42
-#    ·           ──┬──
-#    ·             ╰── They both are 42
-#    ╰────
-# ```
-export def "assert ne" [left: any, right: any, message?: string] {
-    let left_start = (metadata $left).span.start
-    let right_end = (metadata $right).span.end
+# Assert that executing the code generates an error
+#
+# For more documentation see the assert command
+# 
+# # Examples
+#
+# > assert error {|| missing_command} # passes
+# > assert error {|| 12} # fails
+export def "assert error" [
+    code: closure,
+    message?: string
+] {
+    let error_raised = (try { do $code; false } catch { true })
+    assert ($error_raised) $message --error-details {
+        start: (metadata $code).span.start
+        end: (metadata $code).span.end
+        text: $"There were no error during code execution: (view source $code)"
+    }
+}
 
-    if ($left == $right) {
-        _assertion-error $left_start $right_end $"They both are ($left)" $message
+# Assert $left == $right
+#
+# For more documentation see the assert command
+#
+# # Examples
+# 
+# > assert equal 1 1 # passes
+# > assert equal 1 2 # fails
+export def "assert equal" [left: any, right: any, message?: string] {
+    assert ($left == $right) $message --error-details {
+        start: (metadata $left).span.start
+        end: (metadata $right).span.end
+        text: $"They are not equal. Left = ($left). Right = ($right)."
+    }
+}
+
+# Assert $left != $right
+#
+# For more documentation see the assert command
+#
+# # Examples
+#
+# > assert not equal 1 2 # passes
+# > assert not equal 1 "apple" # passes
+# > assert not equal 7 7 # fails
+export def "assert not equal" [left: any, right: any, message?: string] {
+    assert ($left != $right) $message --error-details {
+        start: (metadata $left).span.start
+        end: (metadata $right).span.end
+        text: $"They both are ($left)."
+    }
+}
+
+# Assert $left <= $right
+#
+# For more documentation see the assert command
+#
+# # Examples
+#
+# > assert less or equal 1 2 # passes
+# > assert less or equal 1 1 # passes
+# > assert less or equal 1 0 # fails
+export def "assert less or equal" [left: any, right: any, message?: string] {
+    assert ($left <= $right) $message --error-details {
+        start: (metadata $left).span.start
+        end: (metadata $right).span.end
+        text: $"Left: ($left), Right: ($right)"
+    }
+}
+
+# Assert $left < $right
+#
+# For more documentation see the assert command
+#
+# # Examples
+#
+# > assert less 1 2 # passes
+# > assert less 1 1 # fails
+export def "assert less" [left: any, right: any, message?: string] {
+    assert ($left < $right) $message --error-details {
+        start: (metadata $left).span.start
+        end: (metadata $right).span.end
+        text: $"Left: ($left), Right: ($right)"
+    }
+}
+
+# Assert $left > $right
+#
+# For more documentation see the assert command
+#
+# # Examples
+#
+# > assert greater 2 1 # passes
+# > assert greater 2 2 # fails
+export def "assert greater" [left: any, right: any, message?: string] {
+    assert ($left > $right) $message --error-details {
+        start: (metadata $left).span.start
+        end: (metadata $right).span.end
+        text: $"Left: ($left), Right: ($right)"
+    }
+}
+
+# Assert $left >= $right
+#
+# For more documentation see the assert command
+#
+# # Examples
+#
+# > assert greater or equal 2 1 # passes
+# > assert greater or equal 2 2 # passes
+# > assert greater or equal 1 2 # fails
+export def "assert greater or equal" [left: any, right: any, message?: string] {
+    assert ($left >= $right) $message --error-details {
+        start: (metadata $left).span.start
+        end: (metadata $right).span.end
+        text: $"Left: ($left), Right: ($right)"
+    }
+}
+
+# Assert length of $left is $right
+#
+# For more documentation see the assert command
+#
+# # Examples
+#
+# > assert length [0, 0] 2 # passes
+# > assert length [0] 3 # fails
+export def "assert length" [left: any, right: any, message?: string] {
+    assert (($left | length) == $right) $message --error-details {
+        start: (metadata $left).span.start
+        end: (metadata $right).span.end
+        text: $"Length of ($left) is ($left | length), not ($right)"
+    }
+}
+
+# Assert that ($left | str contains $right)
+#
+# For more documentation see the assert command
+#
+# # Examples
+#
+# > assert str contains "arst" "rs" # passes
+# > assert str contains "arst" "k" # fails
+export def "assert str contains" [left: any, right: any, message?: string] {
+    assert ($left | str contains $right) $message --error-details {
+        start: (metadata $left).span.start
+        end: (metadata $right).span.end
+        text: $"'($left)' does not contain '($right)'."
     }
 }
 
@@ -125,7 +262,7 @@ export def match [
 #     std path add "bar" "baz"
 #     std path add "fooo" --append
 #
-#     assert eq $env.PATH ["bar" "baz" "foo" "fooo"]
+#     assert equal $env.PATH ["bar" "baz" "foo" "fooo"]
 #
 #     print (std path add "returned" --ret)
 # }
