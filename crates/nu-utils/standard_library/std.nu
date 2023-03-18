@@ -277,7 +277,7 @@ def show-module [module: record] {
         let commands_string = (
             $module.commands
             | each {|command|
-                $"($command) " + '(' + $"(ansi cyan_bold)($module.name) ($command)(ansi reset)" + ')'
+                $"($command) (char lparen)(ansi cyan_bold)($module.name) ($command)(ansi reset)(char rparen)"
             }
             | str join ", "
         )
@@ -564,7 +564,7 @@ def show-operator [operator: record] {
     print $"    ($operator.description)"
     print ""
     print-help-header -n "Operator"
-    print ($" ($operator.name) " + "(" + $"(ansi cyan_bold)($operator.operator)(ansi reset)" + ")")
+    print ($" ($operator.name) (char lparen)(ansi cyan_bold)($operator.operator)(ansi reset)(char rparen)")
     print-help-header -n "Type"
     print $" ($operator.type)"
     print-help-header -n "Precedence"
