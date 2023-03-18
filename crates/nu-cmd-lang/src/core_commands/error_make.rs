@@ -91,13 +91,6 @@ fn make_error(value: &Value, throw_span: Option<Span>) -> Option<ShellError> {
                 let label_span = label.span().unwrap();
 
                 match (label_start, label_end, label_text) {
-                    (_, _, None) => Some(ShellError::GenericError(
-                        "Unable to parse error format.".into(),
-                        "missing required member `$.label.text`".into(),
-                        Some(label_span),
-                        None,
-                        Vec::new(),
-                    )),
                     (
                         Some(Value::Int { val: start, .. }),
                         Some(Value::Int { val: end, .. }),
@@ -121,6 +114,13 @@ fn make_error(value: &Value, throw_span: Option<Span>) -> Option<ShellError> {
                         message,
                         label_text,
                         throw_span,
+                        None,
+                        Vec::new(),
+                    )),
+                    (_, _, None) => Some(ShellError::GenericError(
+                        "Unable to parse error format.".into(),
+                        "missing required member `$.label.text`".into(),
+                        Some(label_span),
                         None,
                         Vec::new(),
                     )),
