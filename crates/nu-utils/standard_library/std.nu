@@ -448,7 +448,7 @@ def show-module [module: record] {
 #     │   │      │ ╰───┴─────╯ │                │              │               │
 #     ╰───┴──────┴─────────────┴────────────────┴──────────────┴───────────────╯
 #
-#     search help for single moduel
+#     search help for single module
 #     > help modules foo
 #     my foo module
 #
