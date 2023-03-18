@@ -79,12 +79,12 @@ impl Command for ToNuon {
             }
             .into_pipeline_data()),
             _ => Ok(Value::Error {
-                error: ShellError::CantConvert {
+                error: Box::new(ShellError::CantConvert {
                     to_type: "NUON".into(),
                     from_type: value.get_type().to_string(),
                     span,
                     help: None,
-                },
+                }),
             }
             .into_pipeline_data()),
         }
