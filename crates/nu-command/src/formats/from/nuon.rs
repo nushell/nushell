@@ -249,6 +249,12 @@ fn convert_to_value(
             "extra tokens in input file".into(),
             expr.span,
         )),
+        Expr::MatchPattern(..) => Err(ShellError::OutsideSpannedLabeledError(
+            original_text.to_string(),
+            "Error when loading".into(),
+            "extra tokens in input file".into(),
+            expr.span,
+        )),
         Expr::GlobPattern(val) => Ok(Value::String { val, span }),
         Expr::ImportPattern(..) => Err(ShellError::OutsideSpannedLabeledError(
             original_text.to_string(),

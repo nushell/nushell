@@ -3,6 +3,7 @@ use crate::{
     lex,
     lite_parser::{lite_parse, LiteCommand, LiteElement},
     parse_mut,
+    parse_patterns::parse_match_pattern,
     type_check::{math_result_type, type_compatible},
     ParseError, Token, TokenContents,
 };
@@ -115,7 +116,7 @@ fn is_identifier(bytes: &[u8]) -> bool {
     bytes.iter().all(|x| is_identifier_byte(*x))
 }
 
-fn is_variable(bytes: &[u8]) -> bool {
+pub fn is_variable(bytes: &[u8]) -> bool {
     if bytes.len() > 1 && bytes[0] == b'$' {
         is_identifier(&bytes[1..])
     } else {
@@ -4683,6 +4684,7 @@ pub fn parse_value(
         SyntaxShape::GlobPattern => parse_glob_pattern(working_set, span),
         SyntaxShape::String => parse_string(working_set, span, expand_aliases_denylist),
         SyntaxShape::Binary => parse_binary(working_set, span),
+        SyntaxShape::MatchPattern => parse_match_pattern(working_set, span),
         SyntaxShape::Signature => {
             if bytes.starts_with(b"[") {
                 parse_signature(working_set, span, expand_aliases_denylist)
@@ -6067,6 +6069,7 @@ pub fn discover_captures_in_expr(
                 output.extend(&result);
             }
         }
+        Expr::MatchPattern(_) => {}
         Expr::RowCondition(block_id) | Expr::Subexpression(block_id) => {
             let block = working_set.get_block(*block_id);
             let results = {

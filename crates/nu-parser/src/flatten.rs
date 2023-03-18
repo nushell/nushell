@@ -25,6 +25,7 @@ pub enum FlatShape {
     InternalCall,
     List,
     Literal,
+    MatchPattern,
     Nothing,
     Operator,
     Or,
@@ -60,6 +61,7 @@ impl Display for FlatShape {
             FlatShape::InternalCall => write!(f, "shape_internalcall"),
             FlatShape::List => write!(f, "shape_list"),
             FlatShape::Literal => write!(f, "shape_literal"),
+            FlatShape::MatchPattern => write!(f, "shape_match_pattern"),
             FlatShape::Nothing => write!(f, "shape_nothing"),
             FlatShape::Operator => write!(f, "shape_operator"),
             FlatShape::Or => write!(f, "shape_or"),
@@ -211,6 +213,10 @@ pub fn flatten_expression(
         }
         Expr::Float(_) => {
             vec![(expr.span, FlatShape::Float)]
+        }
+        Expr::MatchPattern(_) => {
+            // FIXME: do nicer flattening later
+            vec![(expr.span, FlatShape::MatchPattern)]
         }
         Expr::ValueWithUnit(x, unit) => {
             let mut output = flatten_expression(working_set, x);

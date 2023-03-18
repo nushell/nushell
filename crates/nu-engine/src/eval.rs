@@ -335,6 +335,7 @@ pub fn eval_expression(
             span: expr.span,
         }),
         Expr::Operator(_) => Ok(Value::Nothing { span: expr.span }),
+        Expr::MatchPattern(_) => Ok(Value::Nothing { span: expr.span }),
         Expr::UnaryNot(expr) => {
             let lhs = eval_expression(engine_state, stack, expr)?;
             match lhs {
