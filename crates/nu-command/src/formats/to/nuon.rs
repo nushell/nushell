@@ -22,7 +22,11 @@ impl Command for ToNuon {
     fn signature(&self) -> Signature {
         Signature::build("to nuon")
             .input_output_types(vec![(Type::Any, Type::String)])
-            .switch("raw", "remove all of the whitespace (default behaviour and overwrites -i and -t)", Some('r'))
+            .switch(
+                "raw",
+                "remove all of the whitespace (default behaviour and overwrites -i and -t)",
+                Some('r'),
+            )
             .named(
                 "indent",
                 SyntaxShape::Number,
