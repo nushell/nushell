@@ -457,14 +457,14 @@ fn does_not_quote_strings_unnecessarily() {
     let actual = nu!(
         cwd: "tests/fixtures/formats", pipeline(
             r#"
-        let test = [["a", "b", "c d"]; [1 2 3] [4 5 6]]; $test | to nuon --raw
+        let test = [["a", "b", "c d"]; [1 2 3] [4 5 6]]; $test | to nuon
     "#
     ));
     assert_eq!(actual.out, "[[a, b, \"c d\"]; [1, 2, 3], [4, 5, 6]]");
     let actual = nu!(
         cwd: "tests/fixtures/formats", pipeline(
             r#"
-         let a = {"ro name": "sam" rank: 10}; $a | to nuon --raw
+         let a = {"ro name": "sam" rank: 10}; $a | to nuon
     "#
     ));
     assert_eq!(actual.out, "{\"ro name\": sam, rank: 10}");

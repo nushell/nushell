@@ -50,7 +50,7 @@ fn sort_different_types() {
 fn sort_natural() {
     let actual = nu!(
         cwd: ".", pipeline(
-        r#"['1' '2' '3' '4' '5' '10' '100'] | sort -n | to nuon --raw"#
+        r#"['1' '2' '3' '4' '5' '10' '100'] | sort -n | to nuon"#
     ));
 
     assert_eq!(actual.out, r#"["1", "2", "3", "4", "5", "10", "100"]"#);
@@ -60,7 +60,7 @@ fn sort_natural() {
 fn sort_record_natural() {
     let actual = nu!(
         cwd: ".", pipeline(
-        r#"{10:0,99:0,1:0,9:0,100:0} | sort -n | to nuon --raw"#
+        r#"{10:0,99:0,1:0,9:0,100:0} | sort -n | to nuon"#
     ));
 
     assert_eq!(
@@ -73,7 +73,7 @@ fn sort_record_natural() {
 fn sort_record_insensitive() {
     let actual = nu!(
         cwd: ".", pipeline(
-        r#"{abe:1,zed:2,ABE:3} | sort -i | to nuon --raw"#
+        r#"{abe:1,zed:2,ABE:3} | sort -i | to nuon"#
     ));
 
     assert_eq!(actual.out, r#"{abe: 1, ABE: 3, zed: 2}"#);
@@ -83,7 +83,7 @@ fn sort_record_insensitive() {
 fn sort_record_insensitive_reverse() {
     let actual = nu!(
         cwd: ".", pipeline(
-        r#"{abe:1,zed:2,ABE:3} | sort -ir | to nuon --raw"#
+        r#"{abe:1,zed:2,ABE:3} | sort -ir | to nuon"#
     ));
 
     assert_eq!(actual.out, r#"{zed: 2, ABE: 3, abe: 1}"#);
@@ -93,7 +93,7 @@ fn sort_record_insensitive_reverse() {
 fn sort_record_values_natural() {
     let actual = nu!(
         cwd: ".", pipeline(
-        r#"{1:"1",2:"2",4:"100",3:"10"} | sort -vn | to nuon --raw"#
+        r#"{1:"1",2:"2",4:"100",3:"10"} | sort -vn | to nuon"#
     ));
 
     assert_eq!(actual.out, r#"{"1": "1", "2": "2", "3": "10", "4": "100"}"#);
@@ -103,7 +103,7 @@ fn sort_record_values_natural() {
 fn sort_record_values_insensitive() {
     let actual = nu!(
         cwd: ".", pipeline(
-        r#"{1:abe,2:zed,3:ABE} | sort -vi | to nuon --raw"#
+        r#"{1:abe,2:zed,3:ABE} | sort -vi | to nuon"#
     ));
 
     assert_eq!(actual.out, r#"{"1": abe, "3": ABE, "2": zed}"#);
@@ -113,7 +113,7 @@ fn sort_record_values_insensitive() {
 fn sort_record_values_insensitive_reverse() {
     let actual = nu!(
         cwd: ".", pipeline(
-        r#"{1:abe,2:zed,3:ABE} | sort -vir | to nuon --raw"#
+        r#"{1:abe,2:zed,3:ABE} | sort -vir | to nuon"#
     ));
 
     assert_eq!(actual.out, r#"{"2": zed, "3": ABE, "1": abe}"#);

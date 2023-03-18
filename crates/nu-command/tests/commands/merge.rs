@@ -47,7 +47,7 @@ fn single_record_no_overwrite() {
         nu!(
             cwd: ".", pipeline(
             r#"
-            {a: 1, b: 5} | merge {c: 2} | to nuon --raw
+            {a: 1, b: 5} | merge {c: 2} | to nuon
             "#
         ))
         .out,
@@ -61,7 +61,7 @@ fn single_record_overwrite() {
         nu!(
             cwd: ".", pipeline(
             r#"
-            {a: 1, b: 2} | merge {a: 2} | to nuon --raw
+            {a: 1, b: 2} | merge {a: 2} | to nuon
             "#
         ))
         .out,
@@ -75,7 +75,7 @@ fn single_row_table_overwrite() {
         nu!(
             cwd: ".", pipeline(
             r#"
-            [[a b]; [1 4]] | merge [[a b]; [2 4]] | to nuon --raw
+            [[a b]; [1 4]] | merge [[a b]; [2 4]] | to nuon
             "#
         ))
         .out,
@@ -89,7 +89,7 @@ fn single_row_table_no_overwrite() {
         nu!(
             cwd: ".", pipeline(
             r#"
-            [[a b]; [1 4]] | merge [[c d]; [2 4]] | to nuon --raw
+            [[a b]; [1 4]] | merge [[c d]; [2 4]] | to nuon
             "#
         ))
         .out,
@@ -103,7 +103,7 @@ fn multi_row_table_no_overwrite() {
         nu!(
             cwd: ".", pipeline(
             r#"
-            [[a b]; [1 4] [8 9] [9 9]] | merge [[c d]; [2 4]]  | to nuon --raw
+            [[a b]; [1 4] [8 9] [9 9]] | merge [[c d]; [2 4]]  | to nuon
             "#
         ))
         .out,
@@ -117,7 +117,7 @@ fn multi_row_table_overwrite() {
         nu!(
             cwd: ".", pipeline(
             r#"
-            [[a b]; [1 4] [8 9] [9 9]] | merge  [[a b]; [7 7]]  | to nuon --raw
+            [[a b]; [1 4] [8 9] [9 9]] | merge  [[a b]; [7 7]]  | to nuon
             "#
         ))
         .out,
