@@ -61,7 +61,15 @@ impl Command for ErrorMake {
             Example {
                 description: "Create a simple custom error",
                 example: r#"error make {msg: "my custom error message"}"#,
-                result: None,
+                result: Some(Value::Error {
+                    error: Box::new(ShellError::GenericError(
+                        "my custom error message".to_string(),
+                        "".to_string(),
+                        None,
+                        None,
+                        Vec::new(),
+                    )),
+                }),
             },
             Example {
                 description: "Create a more complex custom error",
@@ -73,6 +81,15 @@ impl Command for ErrorMake {
             end: 456  # not mandatory unless $.label.start is set
         }
     }"#,
+                result: Some(Value::Error {
+                    error: Box::new(ShellError::GenericError(
+                        "my custom error message".to_string(),
+                        "my custom label text".to_string(),
+                        Some(Span::new(123, 456)),
+                        None,
+                        Vec::new(),
+                    )),
+                }),
             },
             Example {
                 description: "Create a custom error for a custom command",
