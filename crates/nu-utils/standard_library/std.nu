@@ -666,7 +666,76 @@ export def "help operators" [
 }
 
 def show-command [command: record] {
-    $command
+    if not ($command.usage? | is-empty) {
+        print $command.usage
+    }
+    if not ($command.extra_usage? | is-empty) {
+        print ""
+        print $command.extra_usage
+    }
+
+    if not ($command.search_terms? | is-empty) {
+        print ""
+        print-help-header -n "Search terms"
+        print $" ($command.search_terms)"
+    }
+
+    if not ($command.module_name? | is-empty) {
+        print ""
+        print-help-header -n "Module"
+        print $" ($command.module_name)"
+    }
+
+    if not ($command.category? | is-empty) {
+        print ""
+        print-help-header -n "Category"
+        print $" ($command.category)"
+    }
+
+    print ""
+    print "This command:"
+    if ($command.creates_scope) {
+        print $"- (ansi cyan)does create(ansi reset) a scope."
+    } else {
+        print $"- (ansi cyan)does not create(ansi reset) a scope."
+    }
+    if ($command.is_builtin) {
+        print $"- (ansi cyan)is(ansi reset) a built-in command."
+    } else {
+        print $"- (ansi cyan)is not(ansi reset) a built-in command."
+    }
+    if ($command.is_sub) {
+        print $"- (ansi cyan)is(ansi reset) a subcommand."
+    } else {
+        print $"- (ansi cyan)is not(ansi reset) a subcommand."
+    }
+    if ($command.is_plugin) {
+        print $"- (ansi cyan)is part(ansi reset) of a plugin."
+    } else {
+        print $"- (ansi cyan)is not part(ansi reset) of a plugin."
+    }
+    if ($command.is_custom) {
+        print $"- (ansi cyan)is(ansi reset) a custom command."
+    } else {
+        print $"- (ansi cyan)is not(ansi reset) a custom command."
+    }
+    if ($command.is_keyword) {
+        print $"- (ansi cyan)is(ansi reset) a keyword."
+    } else {
+        print $"- (ansi cyan)is not(ansi reset) a keyword."
+    }
+
+    if not ($command.signatures | is-empty) {
+        print ""
+        print-help-header "Signatures"
+        print $command.signatures
+    }
+
+    if not ($command.examples | is-empty) {
+        print ""
+        print-help-header "Examples"
+        print $command.examples
+    }
 }
 
 # Show help on nushell commands.
