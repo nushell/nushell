@@ -59,18 +59,18 @@ impl Command for ErrorMake {
     fn examples(&self) -> Vec<Example> {
         vec![
             Example {
+                description: "Create a simple custom error",
+                example: r#"error make {msg: "my custom error message"}"#,
+                result: None,
+            },
+            Example {
                 description: "Create a custom error for a custom command",
                 example: r#"def foo [x] {
         let span = (metadata $x).span;
         error make {msg: "this is fishy", label: {text: "fish right here", start: $span.start, end: $span.end } }
-    }"#,
-                result: None,
-            },
-            Example {
-                description: "Create a simple custom error for a custom command",
-                example: r#"def foo [x] {
-        error make {msg: "this is fishy"}
-    }"#,
+    }
+
+    foo "i am fishy...""#,
                 result: None,
             },
         ]
