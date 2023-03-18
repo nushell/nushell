@@ -757,7 +757,7 @@ def show-command [command: record] {
         }
 
         print ""
-        print-help-header "Flag"
+        print-help-header "Flags"
         print $"  (ansi teal)-h(ansi reset), (ansi teal)--help(ansi reset) - Display the help message for this command"
         for flag in $flags {
             print -n $"  (ansi teal)-($flag.short_flag)(ansi reset), (ansi teal)--($flag.parameter_name)(ansi reset)"
