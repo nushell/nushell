@@ -677,7 +677,7 @@ export def "help commands" [
     let commands = ($nu.scope.commands | where not is_extern | reject is_extern | sort-by name)
 
     if not ($find | is-empty) {
-        let found_commands = ($commands | where name =~ $find)
+        let found_commands = ($commands | where name =~ $find or search_terms =~ $find)
 
         if ($found_commands | length) == 1 {
             show-command ($found_commands | get 0)
