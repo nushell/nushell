@@ -243,6 +243,10 @@ def operator-not-found-error [span: record] {
     throw-error "std::help::operator_not_found" "operator not found" $span
 }
 
+def command-not-found-error [span: record] {
+    throw-error "std::help::command_not_found" "command not found" $span
+}
+
 def print-help-header [
     text: string
     --no-newline (-n): bool
@@ -658,5 +662,37 @@ export def "help operators" [
         show-operator ($found_operator | get 0)
     } else {
         $operators
+    }
+}
+
+def show-command [command: record] {
+    $command
+}
+
+# Show help on nushell commands.
+export def "help commands" [
+    command?: string  # the name of command to get help on
+    --find (-f): string  # string to find in command names and usage
+] {
+    let commands = ($nu.scope.commands | where not is_extern | reject is_extern | sort-by name)
+
+    if not ($find | is-empty) {
+        let found_commands = ($commands | where name =~ $find)
+
+        if ($found_commands | length) == 1 {
+            show-command ($found_commands | get 0)
+        } else {
+            $found_commands
+        }
+    } else if not ($command | is-empty) {
+        let found_command = ($commands | where name == $command)
+
+        if ($found_command | is-empty) {
+            command-not-found-error (metadata $command | get span)
+        }
+
+        show-command ($found_command | get 0)
+    } else {
+        $commands
     }
 }
