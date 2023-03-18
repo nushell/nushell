@@ -19,16 +19,16 @@ export def test_assert [] {
     test_failing { std assert eq (1 + 2) 4) }
 
     std assert ne (1 + 2) 4
-    test_failing { std assert ne 1 "foo" }
-    test_failing { std assert ne (1 + 2) 3) }
+    std assert ne 1 "foo"
+    std assert ne (1 + 2) 3)
 }
 
 export def test_match [] {
     use std.nu assert
 
     let branches = {
-        1: { -1 }
-        2: { -2 }
+        1: {|| -1 }
+        2: {|| -2 }
     }
 
     assert ((std match 1 $branches) == -1)
