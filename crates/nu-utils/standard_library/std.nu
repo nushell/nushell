@@ -736,6 +736,8 @@ def show-command [command: record] {
         let flags = ($parameters | where parameter_type != positional and parameter_type != rest)
         let is_rest = (not ($parameters | where parameter_type == rest | is-empty))
 
+        let subcommands = ($nu.scope.commands | where name =~ $"^($command.name) " | select name usage)
+
         print -n "  > "
         print -n $"($command.name) "
         if not ($flags | is-empty) {
@@ -745,6 +747,14 @@ def show-command [command: record] {
             print -n $"<($param.parameter_name)> "
         }
         print ""
+
+        if not ($subcommands | is-empty) {
+            print ""
+            print-help-header "Subcommands"
+            for subcommand in $subcommands {
+                print $"  (ansi teal)($subcommand.name)(ansi reset) - ($subcommand.usage)"
+            }
+        }
 
         print ""
         print-help-header "Flag"
