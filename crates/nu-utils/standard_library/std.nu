@@ -728,37 +728,38 @@ def show-command [command: record] {
     print ""
     print-help-header "Usage"
     for signature in $command.signatures {
+        let parameters = ($signature | transpose | get column1.0 | where parameter_type != input and parameter_type != output)
+
+        let positionals = ($parameters | where parameter_type == positional)
+        let flags = ($parameters | where parameter_type != positional)
+
         print -n "  > "
         print -n $"($command.name) "
-        for param in ($signature | transpose | get column1.0) {
-            if (not ($param.parameter_name | is-empty)) and ($param.parameter_type == positional) {
-                print -n $"<($param.parameter_name)> "
-            }
+        for param in $positionals {
+            print -n $"<($param.parameter_name)> "
         }
         print ""
 
         print ""
         print $"(ansi green)Flags(ansi reset):"
         print $"  (ansi teal)-h(ansi reset), (ansi teal)--help(ansi reset) - Display the help message for this command"
-        for param in ($signature | transpose | get column1.0) {
-            if (not ($param.parameter_name | is-empty)) and ($param.parameter_type != positional) {
-                print -n $"  (ansi teal)-($param.short_flag)(ansi reset), (ansi teal)--($param.parameter_name)(ansi reset)"
-                if not ($param.syntax_shape | is-empty) {
-                    print -n $" <(ansi light_blue)($param.syntax_shape)(ansi reset)>"
-                }
-                print $" - ($param.description)"
+        for flag in $flags {
+            print -n $"  (ansi teal)-($flag.short_flag)(ansi reset), (ansi teal)--($flag.parameter_name)(ansi reset)"
+            if not ($flag.syntax_shape | is-empty) {
+                print -n $" <(ansi light_blue)($flag.syntax_shape)(ansi reset)>"
             }
+            print $" - ($flag.description)"
         }
 
-        print ""
-        print $"(ansi green)Parameters(ansi reset):"
-        for param in ($signature | transpose | get column1.0) {
-            if (not ($param.parameter_name | is-empty)) and ($param.parameter_type == positional) {
+        if not ($positionals | is-empty) {
+            print ""
+            print $"(ansi green)Parameters(ansi reset):"
+            for positional in $positionals {
                 print -n "  "
-                if ($param.is_optional) {
+                if ($positional.is_optional) {
                     print -n "(optional) "
                 }
-                print $"(ansi teal)($param.parameter_name)(ansi reset) <(ansi light_blue)($param.syntax_shape)(ansi reset)>: ($param.description)"
+                print $"(ansi teal)($positional.parameter_name)(ansi reset) <(ansi light_blue)($positional.syntax_shape)(ansi reset)>: ($positional.description)"
             }
         }
     }
