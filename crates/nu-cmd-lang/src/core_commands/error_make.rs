@@ -64,6 +64,17 @@ impl Command for ErrorMake {
                 result: None,
             },
             Example {
+                description: "Create a more complex custom error",
+                example: r#"error make {
+        msg: "my custom error message"
+        label: {
+            text: "my custom label text"  # not mandatory unless $.label exists
+            start: 123  # not mandatory unless $.label.end is set
+            end: 456  # not mandatory unless $.label.start is set
+        }
+    }"#,
+            },
+            Example {
                 description: "Create a custom error for a custom command",
                 example: r#"def foo [x] {
         let span = (metadata $x).span;
