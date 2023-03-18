@@ -132,7 +132,7 @@ impl Command for Find {
                 }),
             },
             Example {
-                description: "Remove ANSI sequence from result",
+                description: "Remove ANSI sequences from result",
                 example: "ls | find Car | get 0.name | ansi strip",
                 result: None,
             },
