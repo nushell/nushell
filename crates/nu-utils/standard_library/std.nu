@@ -725,16 +725,47 @@ def show-command [command: record] {
         print $"- (ansi cyan)is not(ansi reset) a keyword."
     }
 
-    if not ($command.signatures | is-empty) {
+    print ""
+    print-help-header "Usage"
+    for signature in $command.signatures {
+        print -n "  > "
+        print -n $"($command.name) "
+        for param in ($signature | transpose | get column1.0) {
+            if (not ($param.parameter_name | is-empty)) and ($param.parameter_type == positional) {
+                print -n $"<($param.parameter_name)> "
+            }
+        }
         print ""
-        print-help-header "Signatures"
-        print $command.signatures
+
+        print ""
+        print $"(ansi green)Flags(ansi reset):"
+        print $"  (ansi teal)-h(ansi reset), (ansi teal)--help(ansi reset) - Display the help message for this command"
+        for param in ($signature | transpose | get column1.0) {
+            if (not ($param.parameter_name | is-empty)) and ($param.parameter_type != positional) {
+                print $"  (ansi teal)-($param.short_flag)(ansi reset), (ansi teal)--($param.parameter_name)(ansi reset) - ($param.description)"
+            }
+        }
+
+        print ""
+        print $"(ansi green)Parameters(ansi reset):"
+        for param in ($signature | transpose | get column1.0) {
+            if (not ($param.parameter_name | is-empty)) and ($param.parameter_type == positional) {
+                print $"  (ansi teal)($param.parameter_name)(ansi reset) <(ansi light_blue)($param.syntax_shape)(ansi reset)>: ($param.description)"
+            }
+        }
     }
 
     if not ($command.examples | is-empty) {
         print ""
         print-help-header "Examples"
-        print $command.examples
+        for example in $command.examples {
+            print $"  ($example.description)"
+            print $"  > ($example.example | nu-highlight)"
+            if not ($example.result | is-empty) {
+                print $"  ($example.result)"
+            }
+            print ""
+        }
     }
 }
 
