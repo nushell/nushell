@@ -131,6 +131,11 @@ impl Command for Find {
                     span: Span::test_data(),
                 }),
             },
+            Example {
+                description: "Remove ANSI sequence from result",
+                example: "ls | find Car | get 0.name | ansi strip",
+                result: None,
+            },
         ]
     }
 
