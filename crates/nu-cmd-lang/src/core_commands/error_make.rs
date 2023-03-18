@@ -78,7 +78,7 @@ impl Command for ErrorMake {
 }
 
 fn make_error(value: &Value, throw_span: Option<Span>) -> Option<ShellError> {
-    if let Value::Record { .. } = &value {
+    if let Value::Record { span, .. } = &value {
         let msg = value.get_data_by_key("msg");
         let label = value.get_data_by_key("label");
 
@@ -88,11 +88,13 @@ fn make_error(value: &Value, throw_span: Option<Span>) -> Option<ShellError> {
                 let label_end = label.get_data_by_key("end");
                 let label_text = label.get_data_by_key("text");
 
+                let label_span = label.span().unwrap();
+
                 match (label_start, label_end, label_text) {
                     (_, _, None) => Some(ShellError::GenericError(
                         "Unable to parse error format.".into(),
                         "missing required member `$.label.text`".into(),
-                        None,
+                        Some(label_span),
                         None,
                         Vec::new(),
                     )),
@@ -125,14 +127,14 @@ fn make_error(value: &Value, throw_span: Option<Span>) -> Option<ShellError> {
                     (Some(Value::Int { .. }), None, _) => Some(ShellError::GenericError(
                         "Unable to parse error format.".into(),
                         "missing required member `$.label.end`".into(),
-                        None,
+                        Some(label_span),
                         Some("required because `$.label.start` is set".to_string()),
                         Vec::new(),
                     )),
                     (None, Some(Value::Int { .. }), _) => Some(ShellError::GenericError(
                         "Unable to parse error format.".into(),
                         "missing required member `$.label.start`".into(),
-                        None,
+                        Some(label_span),
                         Some("required because `$.label.end` is set".to_string()),
                         Vec::new(),
                     )),
@@ -149,7 +151,7 @@ fn make_error(value: &Value, throw_span: Option<Span>) -> Option<ShellError> {
             (None, _) => Some(ShellError::GenericError(
                 "Unable to parse error format.".into(),
                 "missing required member `$.msg`".into(),
-                None,
+                Some(*span),
                 None,
                 Vec::new(),
             )),
