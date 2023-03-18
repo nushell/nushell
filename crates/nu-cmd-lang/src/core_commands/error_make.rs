@@ -88,7 +88,10 @@ fn make_error(value: &Value, throw_span: Option<Span>) -> Option<ShellError> {
                 let label_end = label.get_data_by_key("end");
                 let label_text = label.get_data_by_key("text");
 
-                let label_span = label.span().unwrap();
+                let label_span = match label.span() {
+                    Ok(lspan) => Some(lspan),
+                    Err(_) => None,
+                };
 
                 match (label_start, label_end, label_text) {
                     (
@@ -120,21 +123,21 @@ fn make_error(value: &Value, throw_span: Option<Span>) -> Option<ShellError> {
                     (_, _, None) => Some(ShellError::GenericError(
                         "Unable to parse error format.".into(),
                         "missing required member `$.label.text`".into(),
-                        Some(label_span),
+                        label_span,
                         None,
                         Vec::new(),
                     )),
                     (Some(Value::Int { .. }), None, _) => Some(ShellError::GenericError(
                         "Unable to parse error format.".into(),
                         "missing required member `$.label.end`".into(),
-                        Some(label_span),
+                        label_span,
                         Some("required because `$.label.start` is set".to_string()),
                         Vec::new(),
                     )),
                     (None, Some(Value::Int { .. }), _) => Some(ShellError::GenericError(
                         "Unable to parse error format.".into(),
                         "missing required member `$.label.start`".into(),
-                        Some(label_span),
+                        label_span,
                         Some("required because `$.label.end` is set".to_string()),
                         Vec::new(),
                     )),
