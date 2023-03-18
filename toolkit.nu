@@ -35,6 +35,50 @@ export def test [
     }
 }
 
+# print the pipe input inside backticks, dimmed and italic, as a pretty command
+def pretty-print-command [] {
+    $"`(ansi default_dimmed)(ansi default_italic)($in)(ansi reset)`"
+}
+
+# return a report about the check stage
+#
+# - fmt comes first
+# - then clippy
+# - and finally the tests
+#
+# without any option, `report` will return an empty report.
+# otherwise, the truth values will be incremental, following
+# the order above.
+def report [
+    --fail-fmt: bool
+    --fail-clippy: bool
+    --fail-test: bool
+    --no-fail: bool
+] {
+    [fmt clippy test] | wrap stage
+    | merge (
+        if $no_fail          { [true     true     true] }
+        else if $fail_fmt    { [false    $nothing $nothing] }
+        else if $fail_clippy { [true     false    $nothing] }
+        else if $fail_test   { [true     true     false] }
+        else                 { [$nothing $nothing $nothing] }
+        | wrap success
+    )
+    | upsert emoji {|it|
+        if ($it.success == $nothing) {
+            ":black_circle:"
+        } else if $it.success {
+            ":green_circle:"
+        } else {
+            ":red_circle:"
+        }
+    }
+    | each {|it|
+        $"- ($it.emoji) `toolkit ($it.stage)`"
+    }
+    | to text
+}
+
 # run all the necessary checks and tests to submit a perfect PR
 #
 # # Example
@@ -60,6 +104,9 @@ export def test [
 # >                  let mut table_output = vec![];
 # >                  for val in vals {
 # > ```
+#
+# > **Note**
+# > at every stage, the `toolkit check pr` will return a report of the few stages being run.
 #
 # - we run the toolkit once and it fails...
 # ```nushell
@@ -125,17 +172,27 @@ export def test [
 export def "check pr" [
     --fast: bool  # use the "nextext" `cargo` subcommand to speed up the tests (see [`cargo-nextest`](https://nexte.st/) and [`nextest-rs/nextest`](https://github.com/nextest-rs/nextest))
 ] {
-    print "running `toolkit fmt`"
+    print $"running ('toolkit fmt' | pretty-print-command)"
     try {
         fmt --check
     } catch {
         print $"\nplease run (ansi default_dimmed)(ansi default_italic)toolkit fmt(ansi reset) to fix the formatting"
-        return
+        return (report --fail-fmt)
     }
 
-    print "running `toolkit clippy`"
-    clippy
+    print $"running ('toolkit clippy' | pretty-print-command)"
+    try {
+        clippy
+    } catch {
+        return (report --fail-clippy)
+    }
 
-    print "running `toolkit test`"
-    if $fast { test --fast } else { test }
+    print $"running ('toolkit test' | pretty-print-command)"
+    try {
+        if $fast { test --fast } else { test }
+    } catch {
+        return (report --fail-test)
+    }
+
+    report --no-fail
 }
