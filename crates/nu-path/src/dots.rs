@@ -43,7 +43,7 @@ pub fn expand_ndots(path: impl AsRef<Path>) -> PathBuf {
                     // this path component had >2 dots
                     break;
                 }
-                not_separator_before_dot = !is_separator(chr);
+                not_separator_before_dot = !(is_separator(chr) || chr.is_whitespace());
                 dots_count = 0;
             }
         }
