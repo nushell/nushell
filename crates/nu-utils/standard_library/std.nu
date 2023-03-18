@@ -741,7 +741,7 @@ def show-command [command: record] {
         print ""
 
         print ""
-        print $"(ansi green)Flags(ansi reset):"
+        print-help-header "Flag"
         print $"  (ansi teal)-h(ansi reset), (ansi teal)--help(ansi reset) - Display the help message for this command"
         for flag in $flags {
             print -n $"  (ansi teal)-($flag.short_flag)(ansi reset), (ansi teal)--($flag.parameter_name)(ansi reset)"
@@ -753,7 +753,7 @@ def show-command [command: record] {
 
         if not ($positionals | is-empty) {
             print ""
-            print $"(ansi green)Parameters(ansi reset):"
+            print-help-header "Parameters"
             for positional in $positionals {
                 print -n "  "
                 if ($positional.is_optional) {
