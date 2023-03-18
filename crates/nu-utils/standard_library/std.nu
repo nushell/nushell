@@ -737,6 +737,9 @@ def show-command [command: record] {
 
         print -n "  > "
         print -n $"($command.name) "
+        if not ($flags | is-empty) {
+            print -n $"{flags} "
+        }
         for param in $positionals {
             print -n $"<($param.parameter_name)> "
         }
