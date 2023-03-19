@@ -29,6 +29,13 @@ fn list_annotations_empty_3() -> TestResult {
 }
 
 #[test]
+fn list_annotations_empty_4() -> TestResult {
+    let input = "def run [list: list<\n>] {$list | length}; run [2 5 4]";
+    let expected = "3";
+    run_test(input, expected)
+}
+
+#[test]
 fn list_annotations_nested() -> TestResult {
     let input = "def run [list: list<list<float>>] {$list | length}; run [ [2.0] [5.0] [4.0]]";
     let expected = "3";
