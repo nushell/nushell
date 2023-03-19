@@ -31,6 +31,7 @@ pub enum BlockKind {
     Paren,
     CurlyBracket,
     SquareBracket,
+    AngleBracket,
 }
 
 impl BlockKind {
@@ -39,6 +40,7 @@ impl BlockKind {
             BlockKind::Paren => b')',
             BlockKind::SquareBracket => b']',
             BlockKind::CurlyBracket => b'}',
+            BlockKind::AngleBracket => b'>',
         }
     }
 }
@@ -77,6 +79,7 @@ pub fn lex_item(
     span_offset: usize,
     additional_whitespace: &[u8],
     special_tokens: &[u8],
+    in_signature: bool,
 ) -> (Token, Option<ParseError>) {
     // This variable tracks the starting character of a string literal, so that
     // we remain inside the string literal lexer mode until we encounter the
@@ -156,6 +159,12 @@ pub fn lex_item(
         } else if c == b'[' {
             // We encountered an opening `[` delimiter.
             block_level.push(BlockKind::SquareBracket);
+        } else if c == b'<' && in_signature {
+            block_level.push(BlockKind::AngleBracket);
+        } else if c == b'>' && in_signature {
+            if let Some(BlockKind::AngleBracket) = block_level.last() {
+                let _ = block_level.pop();
+            }
         } else if c == b']' {
             // We encountered a closing `]` delimiter. Pop off the opening `[`
             // delimiter.
@@ -299,12 +308,48 @@ pub fn lex_item(
     }
 }
 
+pub fn lex_signature(
+    input: &[u8],
+    span_offset: usize,
+    additional_whitespace: &[u8],
+    special_tokens: &[u8],
+    skip_comment: bool,
+) -> (Vec<Token>, Option<ParseError>) {
+    lex_internal(
+        input,
+        span_offset,
+        additional_whitespace,
+        special_tokens,
+        skip_comment,
+        true,
+    )
+}
+
 pub fn lex(
     input: &[u8],
     span_offset: usize,
     additional_whitespace: &[u8],
     special_tokens: &[u8],
     skip_comment: bool,
+) -> (Vec<Token>, Option<ParseError>) {
+    lex_internal(
+        input,
+        span_offset,
+        additional_whitespace,
+        special_tokens,
+        skip_comment,
+        false,
+    )
+}
+
+fn lex_internal(
+    input: &[u8],
+    span_offset: usize,
+    additional_whitespace: &[u8],
+    special_tokens: &[u8],
+    skip_comment: bool,
+    // within signatures we want to treat `<` and `>` specially
+    in_signature: bool,
 ) -> (Vec<Token>, Option<ParseError>) {
     let mut error = None;
 
@@ -427,6 +472,7 @@ pub fn lex(
                 span_offset,
                 additional_whitespace,
                 special_tokens,
+                in_signature,
             );
             if error.is_none() {
                 error = err;
