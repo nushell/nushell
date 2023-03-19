@@ -52,7 +52,7 @@ use /path/to/standard_library/std.nu
 
 ## :pencil2: contribute to the standard library
 ### :wrench: add new commands
-- add new standard commands to [`std.nu`](std.nu), or preferably create a new submodule.
+- add new standard commands by appending to [`std.nu`](std.nu)
 - add associated tests to [`test_std.nu`](tests_std.nu) or preferably to `test_<submodule>.nu`.
     - define a new exported (!) `test_<feature>` command
     - import the `assert` functions you need at the top of the functions, e.g. `use std.nu "assert eq"`
