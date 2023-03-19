@@ -104,9 +104,10 @@ The most comprehensive test suite we have is the `nu-test-support` crate. For te
 
 As nushell thrives on its broad base of volunteer contributors and maintainers with different backgrounds we have a few guidelines for how we best utilize git and GitHub for our contributions. We strive to balance three goals with those recommendations:
 
-1. The volunteer maintainers and contributors can easily follow what changes you are proposing with what impact and come to help you or make a decision if a change doesn't fit.
-2. You as a contributor can focus most of your time on improving the quality of the nushell project and contributing your expertise to the code or documentation.
-3. Making sure we can trace back *why* certain decisions were made in the past including discarded approaces or be quickly able to identify regressions and fix when something broke.
+1. The **volunteer maintainers and contributors** can easily follow the changes you propose, gauge the impact, and come to help you or make a decision.
+2. **You as a contributor** can focus most of your time on improving the quality of the nushell project and contributing your expertise to the code or documentation.
+3. Making sure we can trace back *why* decisions were made in the past.
+This includes discarded approaches. Also we want to quickly identify regressions and fix when something broke.
 
 ### How we merge PRs
 
@@ -114,7 +115,8 @@ In general the maintainers **squash** all changes of your PR into a single commi
 
 This keeps a clean enough linear history, while not forcing you to conform to a too strict style while iterating in your PR or fixing small problems. As an added benefit the commits on `main` branch are tied to any technical discussion that happened in the PR through their `#1234` issue number.
 
-**Pro advice:** In certain circumstances we can agree on rebase-merging a particularly large but connected PR as a series of atomic commits onto the `main` branch to ensure we can more easily revert or bisect particular aspects.
+> **Note**
+> **Pro advice:** In certain circumstances we can agree on rebase-merging a particularly large but connected PR as a series of atomic commits onto the `main` branch to ensure we can more easily revert or bisect particular aspects.
 
 ### A good PR makes a change!
 
@@ -124,7 +126,8 @@ Make sure your description is concise but contains all relevant information and 
 This means demonstrating what changes, ideally through nushell code or output examples.
 Furthermore technical documentation you used or instructions for folks that want to play around with your change can help make the review process much easier.
 
-**Tip:** Try to follow the suggestions in our PR message template to make sure we can quickly focus on the technical merits or impact on the users.
+> **Note**
+> Try to follow the suggestions in our PR message template to make sure we can quickly focus on the technical merits or impact on the users.
 
 #### A PR should limit itself to a single functional change or related set of same changes.
 
@@ -154,31 +157,32 @@ The PR title should be concise but contain everything for a contributor to know 
 - Mention the nushell feature or command that is affected.
   - ``Fix URL parsing in `http get` (issue #1234)``
 - You can mention the issue number if other context is there.
-  - Else tag the issue in the description text (e.g. `Fixes #1234`)
+  - In general mention all related issues in the description to crosslink (e.g. `Fixes #1234`, `Closes #6789`)
 - For internal changes mention the area or symbols affected if it helps to clarify
   - ``Factor out `quote_string()` from parser to reuse in `explore` ``
 
 ### Review process / Merge conflicts
 
-Keep in mind that the maintainers are volunteers that need to allocate their attention to several different areas and active PRs. We will try to get back to you as soon as possible.
+> **Note**
+> Keep in mind that the maintainers are volunteers that need to allocate their attention to several different areas and active PRs. We will try to get back to you as soon as possible.
 
 You can help us to make the review process a smooth experience:
 - Testing:
-  - We generally try to review in detail after all the tests pass, let us know if there is a particular issue you want to discuss to fix a test failure or commit us to a breaking change.
+  - We generally review in detail after all the tests pass, let us know if there is a particular issue you want to discuss to fix a test failure or commit us to a breaking change.
   - If you fix a bug, it is highly recommended that you add a test that reproduces the original issue/panic in a minimal form.
-  - In general added tests can help us to quickly understand which assumptions go into a particular addition/change.
-  - Try to also test corner cases where those assumptions might break, they can be more valuable than simply adding many similar tests.
+  - In general, added tests can help us to quickly understand which assumptions go into a particular addition/change.
+  - Try to also test corner cases where those assumptions might break. This can be more valuable than simply adding many similar tests.
 - Commit history inside a PR during code review:
-  - good atomic commits can help follow larger changes, but we are not pedantic 
-  - We don't shame fixup commits while you try to figure out a problem. They can help others to see what you tried and didn't work. (see our squash policy)
-  - While active review is going on constant force pushing just to amend changes might be confusing
+  - Good **atomic commits** can help follow larger changes, but we are not pedantic. 
+  - We don't shame fixup commits while you try to figure out a problem. They can help others to see what you tried and didn't work. (see our [squash policy](#how-we-merge-prs))
+  - During active review constant **force pushing** just to amend changes can be confusing!
     - GitHub's UI presents reviewers with less options to compare diffs
     - fetched branches for experimentation become invalid
-    - the notification a maintainer receives has a low signal-to-noise
+    - the notification a maintainer receives has a low signal-to-noise ratio
   - Git pros can use their judgement to rebase/squash to clean up the history *if it aids the understanding* of a larger change during review 
 - Merge conflicts:
   - In general you should take care of resolving merge conflicts if possible.
     - You can use your judgement whether to `git merge main` or to `git rebase main`
-    - Choose what simplifies having confidence in the conflict resolution and the review.
+    - Choose what simplifies having confidence in the conflict resolution and the review. **Merge commits in your branch are OK** in the squash model.
   - Feel free to notify your reviewers or affected PR authors if your change might cause larger conflicts with another change.
   - During rollup of multiple PRs we may choose to resolve merge conflicts and CI failures ourselves. (Allow maintainers to push to your branch to enable us to do this quickly.)
