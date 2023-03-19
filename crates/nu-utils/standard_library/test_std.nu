@@ -18,7 +18,7 @@ export def test_assert [] {
     test_failing { std assert eq 1 "foo" }
     test_failing { std assert eq (1 + 2) 4) }
 
-    std assert ne (1 + 2) 4
+    std assert ne (1 + 2) 3
     std assert ne 1 "foo"
     std assert ne (1 + 2) 3)
 }
@@ -58,7 +58,7 @@ export def test_path_add [] {
         std path add "bar" "baz" --append
         assert eq $env.PATH ["foo", "bar", "baz"]
 
-        assert eq (std path add "fooooo" --ret) ["fooooo", "foo", "bar", "baz"]
+        assert eq (std path add "fooooo" --ret) ["foooo", "foo", "bar", "baz"]
         assert eq $env.PATH ["fooooo", "foo", "bar", "baz"]
     }
 }

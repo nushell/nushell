@@ -19,11 +19,11 @@ def "assert message" [system_level, message_level, message_level_str] {
 
 export def test_critical [] {
     assert no message 99 critical
-    assert message CRITICAL critical CRIT
+    assert message 100 critical CRIT
 }
 export def test_error [] {
     assert no message CRITICAL error 
-    assert message ERROR error ERROR
+    assert message 100 error ERROR
 }
 export def test_warning [] {
     assert no message ERROR warning 
@@ -35,5 +35,5 @@ export def test_info [] {
 }
 export def test_debug [] {
     assert no message INFO debug 
-    assert message  DEBUG debug DEBUG
+    assert message  100 debug DEBUG
 }
