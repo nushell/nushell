@@ -134,7 +134,7 @@ fn action(
                     Err(HexDecodingError::InvalidLength(len)) => Value::Error {
                         error: ShellError::GenericError(
                             "value could not be hex decoded".to_string(),
-                            format!("invalid hex input length: {len}"),
+                            format!("invalid hex input length: {len}. The length should be even"),
                             Some(command_span),
                             None,
                             Vec::new(),
@@ -143,7 +143,7 @@ fn action(
                     Err(HexDecodingError::InvalidDigit(index, digit)) => Value::Error {
                         error: ShellError::GenericError(
                             "value could not be hex decoded".to_string(),
-                            format!("invalid hex digit: '{digit}' at index {index}",),
+                            format!("invalid hex digit: '{digit}' at index {index}. Only 0-9, A-F, a-f are allowed in hex encoding"),
                             Some(command_span),
                             None,
                             Vec::new(),
