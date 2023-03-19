@@ -51,6 +51,10 @@ use /path/to/standard_library/std.nu
 > ```
 
 ## :pencil2: contribute to the standard library
+- all the commands of the standard_library are located in [`std.nu`](std.nu)
+- the tests are located in files that have a name starting with "test_", e.g. [`test_std.nu`](test_std.nu)
+- a test runner, at [`tests.nu`](tests.nu), allows to run all the tests automatically
+
 ### :wrench: add new commands
 - add new standard commands by appending to [`std.nu`](std.nu)
 - add associated tests to [`test_std.nu`](tests_std.nu) or preferably to `test_<submodule>.nu`.
