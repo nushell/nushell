@@ -1,28 +1,59 @@
 use std.nu *
 
-def main [] {
-    for test_file in (ls ($env.FILE_PWD | path join "test_*.nu") -f | get name) {
-        let $module_name = ($test_file | path parse).stem
+# show a test record in a pretty way
+#
+# `$in` must be a `record<file: string, module: string, name: string, pass: bool>`.
+#
+# the output would be like
+# - "<indentation> x <module>::<test>" all in red if failed
+# - "<indentation>   <module>::<test>" all in green if passed
+def show-pretty-test [indent: int = 4] {
+    let test = $in
 
-        log info $"Run tests in ($module_name) module"
-        let tests = (
-            nu -c $'use ($test_file) *; $nu.scope.commands | select name module_name | to nuon'
+    [
+        (" " * $indent)
+        (if $test.pass { ansi green } else { ansi red})
+        (if $test.pass { " " } else { char failed})
+        " "
+        $"($test.module)::($test.name)"
+        ansi reset
+    ] | str join
+}
+
+def main [] {
+    let tests = (
+        ls ($env.FILE_PWD | path join "test_*.nu") | each {|row| {file: $row.name name: ($row.name | path parse | get stem)}}
+        | upsert test {|module|
+            nu -c $'use ($module.file) *; $nu.scope.commands | select name module_name | to nuon'
             | from nuon
-            | where module_name == $module_name
+            | where module_name == $module.name
             | where ($it.name | str starts-with "test_")
             | get name
-        )
-
-        for test_case in $tests {
-            log debug $"Run test ($module_name) ($test_case)"
+        }
+        | flatten
+        | rename file module name
+        | upsert pass {|test|
+            log info $"Run test ($test.module) ($test.name)"
             try {
-                nu -c $'use ($test_file) ($test_case); ($test_case)'
-            } catch { error make {
-                msg: $"(ansi red)std::tests::test_failed(ansi reset)"
-                label: {
-                    text: $"($module_name)::($test_case) failed."
-                }
-            }}
+                nu -c $'use ($test.file) ($test.name); ($test.name)'
+                true
+            } catch { false }
+        }
+    )
+
+    if not ($tests | where not pass | is-empty) {
+        let text = ([
+            $"(ansi purple)some tests did not pass (char lparen)see complete errors above(char rparen):(ansi reset)"
+            ""
+            ($tests | each {|test| ($test | show-pretty-test 8)} | str join "\n")
+            ""
+        ] | str join "\n")
+
+        error make {
+            msg: $"(ansi red)std::tests::some_tests_failed(ansi reset)"
+            label: {
+                text: $text
+            }
         }
     }
 }
