@@ -8,6 +8,13 @@ fn list_annotations() -> TestResult {
 }
 
 #[test]
+fn list_annotations_unknown_prefix() -> TestResult {
+    let input = "def run [list: listint>] {$list | length}; run [2 5 4]";
+    let expected = "unknown type";
+    fail_test(input, expected)
+}
+
+#[test]
 fn list_annotations_empty_1() -> TestResult {
     let input = "def run [list: list] {$list | length}; run [2 5 4]";
     let expected = "3";
