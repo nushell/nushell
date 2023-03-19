@@ -15,7 +15,14 @@ def main [] {
 
         for test_case in $tests {
             log debug $"Run test ($module_name) ($test_case)"
-            nu -c $'use ($test_file) ($test_case); ($test_case)'
+            try {
+                nu -c $'use ($test_file) ($test_case); ($test_case)'
+            } catch { error make {
+                msg: $"(ansi red)std::tests::test_failed(ansi reset)"
+                label: {
+                    text: $"($module_name)::($test_case) failed."
+                }
+            }}
         }
     }
 }
