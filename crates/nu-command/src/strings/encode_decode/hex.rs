@@ -4,15 +4,37 @@ use nu_protocol::ast::{Call, CellPath};
 use nu_protocol::engine::{EngineState, Stack};
 use nu_protocol::{PipelineData, ShellError, Span, Value};
 
-fn hex_decode(value: String) -> Result<Vec<u8>, ()> {
+enum HexDecodingError {
+    InvalidLength(usize),
+    InvalidDigit(usize, char),
+}
+
+fn hex_decode(value: &str) -> Result<Vec<u8>, HexDecodingError> {
+    let mut digits = value
+        .chars()
+        .enumerate()
+        .filter(|(_, c)| !c.is_whitespace());
+
     let mut res = Vec::with_capacity(value.len() / 2);
-    let mut chars = value.chars();
-    while let Some(c) = chars.next() {
-        let c = c.to_digit(16).ok_or(())?;
-        let c2 = chars.next().and_then(|c| c.to_digit(16)).ok_or(())?;
-        res.push((c * 16 + c2).try_into().map_err(|_| ())?);
+    loop {
+        let c1 = match digits.next() {
+            Some((ind, c)) => match c.to_digit(16) {
+                Some(d) => d,
+                None => return Err(HexDecodingError::InvalidDigit(ind, c)),
+            },
+            None => return Ok(res),
+        };
+        let c2 = match digits.next() {
+            Some((ind, c)) => match c.to_digit(16) {
+                Some(d) => d,
+                None => return Err(HexDecodingError::InvalidDigit(ind, c)),
+            },
+            None => {
+                return Err(HexDecodingError::InvalidLength(value.len()));
+            }
+        };
+        res.push((c1 << 4 | c2) as u8);
     }
-    Ok(res)
 }
 
 fn hex_digit(num: u8) -> char {
@@ -107,24 +129,27 @@ fn action(
                     ),
                 },
 
-                ActionType::Decode => {
-                    // for decode, input val may contains invalid new line character, which is ok to omitted them by default.
-                    let val = val.clone();
-                    let val = val.replace("\r\n", "").replace('\n', "");
-
-                    match hex_decode(val) {
-                        Ok(decoded_value) => Value::binary(decoded_value, command_span),
-                        Err(_) => Value::Error {
-                            error: ShellError::GenericError(
-                                "value could not be hex decoded".to_string(),
-                                "invalid hex input".into(),
-                                Some(command_span),
-                                None,
-                                Vec::new(),
-                            ),
-                        },
-                    }
-                }
+                ActionType::Decode => match hex_decode(val.as_ref()) {
+                    Ok(decoded_value) => Value::binary(decoded_value, command_span),
+                    Err(HexDecodingError::InvalidLength(len)) => Value::Error {
+                        error: ShellError::GenericError(
+                            "value could not be hex decoded".to_string(),
+                            format!("invalid hex input length: {len}"),
+                            Some(command_span),
+                            None,
+                            Vec::new(),
+                        ),
+                    },
+                    Err(HexDecodingError::InvalidDigit(index, digit)) => Value::Error {
+                        error: ShellError::GenericError(
+                            "value could not be hex decoded".to_string(),
+                            format!("invalid hex digit: '{digit}' at index {index}",),
+                            Some(command_span),
+                            None,
+                            Vec::new(),
+                        ),
+                    },
+                },
             }
         }
         other => Value::Error {
@@ -161,7 +186,7 @@ mod tests {
 
     #[test]
     fn hex_decode() {
-        let word = Value::test_string("4D61\r\n\n6E");
+        let word = Value::test_string("4D 61\r\n\n6E");
         let expected = Value::binary([77, 97, 110], Span::test_data());
 
         let actual = action(
