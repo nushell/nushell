@@ -30,14 +30,24 @@ impl Command for DecodeHex {
     }
 
     fn examples(&self) -> Vec<Example> {
-        vec![Example {
-            description: "Hex decode a value and output as binary",
-            example: "'0102030A0a0B' | decode hex",
-            result: Some(Value::binary(
-                [0x01, 0x02, 0x03, 0x0A, 0x0A, 0x0B],
-                Span::test_data(),
-            )),
-        }]
+        vec![
+            Example {
+                description: "Hex decode a value and output as binary",
+                example: "'0102030A0a0B' | decode hex",
+                result: Some(Value::binary(
+                    [0x01, 0x02, 0x03, 0x0A, 0x0A, 0x0B],
+                    Span::test_data(),
+                )),
+            },
+            Example {
+                description: "Whitespaces are allowed to be between hex digits",
+                example: "'01 02  03 0A 0a 0B' | decode hex",
+                result: Some(Value::binary(
+                    [0x01, 0x02, 0x03, 0x0A, 0x0A, 0x0B],
+                    Span::test_data(),
+                )),
+            },
+        ]
     }
 
     fn run(
