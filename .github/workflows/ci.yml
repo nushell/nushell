@@ -194,3 +194,40 @@ jobs:
         uses: codecov/codecov-action@v3
         with:
           files: lcov.info
+
+  std-tests:
+    env:
+      NUSHELL_CARGO_TARGET: ci
+
+    strategy:
+      fail-fast: true
+      matrix:
+        platform: [windows-latest, macos-latest, ubuntu-20.04]
+        style: [default, dataframe]
+        rust:
+          - stable
+        include:
+          - style: default
+            flags: ""
+          - style: dataframe
+            flags: "--features=dataframe"
+        exclude:
+          # only test dataframes on Ubuntu (the fastest platform)
+          - platform: windows-latest
+            style: dataframe
+          - platform: macos-latest
+            style: dataframe
+
+    runs-on: ${{ matrix.platform }}
+
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Setup Rust toolchain and cache
+        uses: actions-rust-lang/setup-rust-toolchain@v1.4.3
+
+      - name: Install nushell
+        run: cargo install --path . ${{ matrix.flags }}
+
+      - name: Standard library tests
+        run: NU_LOG_LEVEL=DEBUG nu crates/nu-utils/standard_library/tests.nu
