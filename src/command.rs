@@ -1,4 +1,4 @@
-use nu_cli::report_error;
+use nu_command::util::report_error;
 use nu_engine::{get_full_help, CallExt};
 use nu_parser::parse;
 use nu_parser::{escape_for_script_arg, escape_quote_string};

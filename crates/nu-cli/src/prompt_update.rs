@@ -1,6 +1,6 @@
-use crate::util::report_error;
 use crate::NushellPrompt;
 use log::trace;
+use nu_command::util::report_error;
 use nu_engine::eval_subexpression;
 use nu_protocol::{
     engine::{EngineState, Stack, StateWorkingSet},

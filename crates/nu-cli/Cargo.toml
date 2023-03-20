@@ -12,10 +12,10 @@ bench = false
 
 [dev-dependencies]
 nu-test-support = { path = "../nu-test-support", version = "0.77.2" }
-nu-command = { path = "../nu-command", version = "0.77.2" }
 rstest = { version = "0.16.0", default-features = false }
 
 [dependencies]
+nu-command = { path = "../nu-command", version = "0.77.2" }
 nu-engine = { path = "../nu-engine", version = "0.77.2" }
 nu-path = { path = "../nu-path", version = "0.77.2" }
 nu-parser = { path = "../nu-parser", version = "0.77.2" }
