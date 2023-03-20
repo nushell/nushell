@@ -1,3 +1,5 @@
+use std.nu *
+
 def collect-modules [
     path: path,
     module?: string
@@ -13,7 +15,7 @@ def collect-commands [
     command?: string
 ] {
     let commands = (
-        nu -c $'use ($test_file) *; $nu.scope.commands | to nuon'
+        nu -c $'use ($test_file) *; $nu.scope.commands | select name module_name | to nuon'
         | from nuon
         | where module_name == $module_name
         | where ($it.name | str starts-with "test_")
@@ -39,11 +41,11 @@ def main [
     for test_file in (collect-modules $path $module) {
         let $module_name = ($test_file | path parse).stem
 
-        echo $"(ansi default)INFO  Run tests in ($module_name)(ansi reset)"
+        log info $"Run tests in ($module_name)"
         let tests = (collect-commands $test_file $module_name $command)
 
         for test_case in $tests {
-            echo $"(ansi default_dimmed)DEBUG Run test ($module_name)/($test_case)(ansi reset)"
+            log debug $"Run test ($module_name) ($test_case)"
             if $dry_run {
                 continue
             }

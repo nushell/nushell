@@ -332,8 +332,8 @@ fn remove_ignores_ansi() {
 
         let actual = nu!(
             cwd: sandbox.cwd(),
-            "ls | find test | get name | rm $in.0; ls",
+            "ls | find test | get name | rm $in.0; ls | is-empty",
         );
-        assert!(actual.out.is_empty());
+        assert_eq!(actual.out, "true");
     });
 }

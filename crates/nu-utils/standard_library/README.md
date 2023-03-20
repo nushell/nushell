@@ -51,8 +51,12 @@ use /path/to/standard_library/std.nu
 > ```
 
 ## :pencil2: contribute to the standard library
+- all the commands of the standard_library are located in [`std.nu`](std.nu)
+- the tests are located in files that have a name starting with "test_", e.g. [`test_std.nu`](test_std.nu)
+- a test runner, at [`tests.nu`](tests.nu), allows to run all the tests automatically
+
 ### :wrench: add new commands
-- add new standard commands to [`std.nu`](std.nu), or preferably create a new submodule.
+- add new standard commands by appending to [`std.nu`](std.nu)
 - add associated tests to [`test_std.nu`](tests_std.nu) or preferably to `test_<submodule>.nu`.
     - define a new exported (!) `test_<feature>` command
     - import the `assert` functions you need at the top of the functions, e.g. `use std.nu "assert eq"`
@@ -60,13 +64,13 @@ use /path/to/standard_library/std.nu
 ### :test_tube: run the tests
 the following call should return no errors
 ```bash
-nu /path/to/standard_library/tests.nu
+NU_LOG_LEVEL=DEBUG nu /path/to/standard_library/tests.nu
 ```
 
 > #### :mag: a concrete example
 > with `STD_LIB` defined as in the example above
 > ```bash
-> nu ($env.STD_LIB | path join "tests.nu")
+> NU_LOG_LEVEL=DEBUG nu ($env.STD_LIB | path join "tests.nu")
 > ```
 
 [REPL]: https://en.wikipedia.org/wiki/Read%E2%80%93eval%E2%80%93print_loop
