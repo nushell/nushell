@@ -1,18 +1,11 @@
 # std.nu, `used` to load all standard library components
 
-# ---------------- builtin std functions --------------------
-
-def _assertion-error [start, end, label, message?: string] {
-    error make {
-        msg: ($message | default "Assertion failed."),
-        label: {
-            text: $label,
-            start: $start,
-            end: $end
-        }
-    }
-}
-
+# Universal assert command
+#
+# If the condition is not true, it generates an error.
+#
+# # Example
+#
 # ```nushell
 # >_ assert (3 == 3)
 # >_ assert (42 == 3)
@@ -26,51 +19,183 @@ def _assertion-error [start, end, label, message?: string] {
 #  13 │
 #     ╰────
 # ```
-export def assert [cond: bool, message?: string] {
-    if $cond { return }
-    let span = (metadata $cond).span
-    _assertion-error $span.start $span.end "It is not true." $message
-}
-
-# ```nushell
-# ❯ assert eq 3 3
-# ❯ assert eq 3 1
-# Error:
-#   × Assertion failed.
-#    ╭─[entry #14:1:1]
-#  1 │ assert eq 3 1
-#    ·           ─┬─
-#    ·            ╰── They are not equal: 3 != 1
-#    ╰────
 #
-#
+# The --error-label flag can be used if you want to create a custom assert command:
 # ```
-export def "assert eq" [left: any, right: any, message?: string] {
-    let left_start = (metadata $left).span.start
-    let right_end = (metadata $right).span.end
-
-    if ($left != $right) {
-        _assertion-error $left_start $right_end $"They are not equal: ($left) != ($right)" $message
+# def "assert even" [number: int] {
+#     assert ($number mod 2 == 0) --error-label {
+#         start: (metadata $number).span.start,
+#         end: (metadata $number).span.end,
+#         text: $"($number) is not an even number",
+#     }
+# }
+# ```
+export def assert [
+    condition: bool, # Condition, which should be true 
+    message?: string, # Optional error message
+    --error-label: record # Label for `error make` if you want to create a custom assert
+] {
+    if $condition { return }
+    let span = (metadata $condition).span
+    error make {
+        msg: ($message | default "Assertion failed."),
+        label: ($error_label | default {
+            text: "It is not true.",
+            start: (metadata $condition).span.start,
+            end: (metadata $condition).span.end
+        })
     }
 }
 
-# ```nushell
-# ❯ assert ne 1 3
-# ❯ assert ne 42 42
-# Error:
-#   × Assertion failed.
-#    ╭─[entry #23:1:1]
-#  1 │ assert ne 42 42
-#    ·           ──┬──
-#    ·             ╰── They both are 42
-#    ╰────
-# ```
-export def "assert ne" [left: any, right: any, message?: string] {
-    let left_start = (metadata $left).span.start
-    let right_end = (metadata $right).span.end
+# Assert that executing the code generates an error
+#
+# For more documentation see the assert command
+# 
+# # Examples
+#
+# > assert error {|| missing_command} # passes
+# > assert error {|| 12} # fails
+export def "assert error" [
+    code: closure,
+    message?: string
+] {
+    let error_raised = (try { do $code; false } catch { true })
+    assert ($error_raised) $message --error-label {
+        start: (metadata $code).span.start
+        end: (metadata $code).span.end
+        text: $"There were no error during code execution: (view source $code)"
+    }
+}
 
-    if ($left == $right) {
-        _assertion-error $left_start $right_end $"They both are ($left)" $message
+# Assert $left == $right
+#
+# For more documentation see the assert command
+#
+# # Examples
+# 
+# > assert equal 1 1 # passes
+# > assert equal (0.1 + 0.2) 0.3
+# > assert equal 1 2 # fails
+export def "assert equal" [left: any, right: any, message?: string] {
+    assert ($left == $right) $message --error-label {
+        start: (metadata $left).span.start
+        end: (metadata $right).span.end
+        text: $"They are not equal. Left = ($left). Right = ($right)."
+    }
+}
+
+# Assert $left != $right
+#
+# For more documentation see the assert command
+#
+# # Examples
+#
+# > assert not equal 1 2 # passes
+# > assert not equal 1 "apple" # passes
+# > assert not equal 7 7 # fails
+export def "assert not equal" [left: any, right: any, message?: string] {
+    assert ($left != $right) $message --error-label {
+        start: (metadata $left).span.start
+        end: (metadata $right).span.end
+        text: $"They both are ($left)."
+    }
+}
+
+# Assert $left <= $right
+#
+# For more documentation see the assert command
+#
+# # Examples
+#
+# > assert less or equal 1 2 # passes
+# > assert less or equal 1 1 # passes
+# > assert less or equal 1 0 # fails
+export def "assert less or equal" [left: any, right: any, message?: string] {
+    assert ($left <= $right) $message --error-label {
+        start: (metadata $left).span.start
+        end: (metadata $right).span.end
+        text: $"Left: ($left), Right: ($right)"
+    }
+}
+
+# Assert $left < $right
+#
+# For more documentation see the assert command
+#
+# # Examples
+#
+# > assert less 1 2 # passes
+# > assert less 1 1 # fails
+export def "assert less" [left: any, right: any, message?: string] {
+    assert ($left < $right) $message --error-label {
+        start: (metadata $left).span.start
+        end: (metadata $right).span.end
+        text: $"Left: ($left), Right: ($right)"
+    }
+}
+
+# Assert $left > $right
+#
+# For more documentation see the assert command
+#
+# # Examples
+#
+# > assert greater 2 1 # passes
+# > assert greater 2 2 # fails
+export def "assert greater" [left: any, right: any, message?: string] {
+    assert ($left > $right) $message --error-label {
+        start: (metadata $left).span.start
+        end: (metadata $right).span.end
+        text: $"Left: ($left), Right: ($right)"
+    }
+}
+
+# Assert $left >= $right
+#
+# For more documentation see the assert command
+#
+# # Examples
+#
+# > assert greater or equal 2 1 # passes
+# > assert greater or equal 2 2 # passes
+# > assert greater or equal 1 2 # fails
+export def "assert greater or equal" [left: any, right: any, message?: string] {
+    assert ($left >= $right) $message --error-label {
+        start: (metadata $left).span.start
+        end: (metadata $right).span.end
+        text: $"Left: ($left), Right: ($right)"
+    }
+}
+
+# Assert length of $left is $right
+#
+# For more documentation see the assert command
+#
+# # Examples
+#
+# > assert length [0, 0] 2 # passes
+# > assert length [0] 3 # fails
+export def "assert length" [left: list, right: int, message?: string] {
+    assert (($left | length) == $right) $message --error-label {
+        start: (metadata $left).span.start
+        end: (metadata $right).span.end
+        text: $"Length of ($left) is ($left | length), not ($right)"
+    }
+}
+
+# Assert that ($left | str contains $right)
+#
+# For more documentation see the assert command
+#
+# # Examples
+#
+# > assert str contains "arst" "rs" # passes
+# > assert str contains "arst" "k" # fails
+export def "assert str contains" [left: string, right: string, message?: string] {
+    assert ($left | str contains $right) $message --error-label {
+        start: (metadata $left).span.start
+        end: (metadata $right).span.end
+        text: $"'($left)' does not contain '($right)'."
     }
 }
 
@@ -125,7 +250,7 @@ export def match [
 #     std path add "bar" "baz"
 #     std path add "fooo" --append
 #
-#     assert eq $env.PATH ["bar" "baz" "foo" "fooo"]
+#     assert equal $env.PATH ["bar" "baz" "foo" "fooo"]
 #
 #     print (std path add "returned" --ret)
 # }
@@ -235,4 +360,64 @@ def-env  _fetch [
     let-env DIRS_POSITION = $pos
 
     cd ($env.DIRS_LIST | get $pos )
+}
+
+def CRITICAL_LEVEL [] { 50 }
+def ERROR_LEVEL    [] { 40 }
+def WARNING_LEVEL  [] { 30 }
+def INFO_LEVEL     [] { 20 }
+def DEBUG_LEVEL    [] { 10 }
+
+def parse-string-level [level: string] {
+    (
+        if $level == "CRITICAL" { (CRITICAL_LEVEL)}
+        else if $level == "CRIT" { (CRITICAL_LEVEL)}
+        else if $level == "ERROR" { (ERROR_LEVEL) }
+        else if $level == "WARNING" { (WARNING_LEVEL) }
+        else if $level == "WARN" { (WARNING_LEVEL) }
+        else if $level == "INFO" { (INFO_LEVEL) }
+        else if $level == "DEBUG" { (DEBUG_LEVEL) }
+        else { (INFO_LEVEL) }
+    )
+}
+
+def current-log-level [] {
+    let env_level = ($env | get -i NU_LOG_LEVEL | default (INFO_LEVEL))
+
+    try {
+        ($env_level | into int)
+    } catch {
+        parse-string-level $env_level
+    }
+}
+
+# Log critical message
+export def "log critical" [message: string] {
+    if (current-log-level) > (CRITICAL_LEVEL) { return }
+
+    print --stderr $"(ansi red_bold)CRIT  ($message)(ansi reset)"
+}
+# Log error message
+export def "log error" [message: string] {
+    if (current-log-level) > (ERROR_LEVEL) { return }
+
+    print --stderr $"(ansi red)ERROR ($message)(ansi reset)"
+}
+# Log warning message
+export def "log warning" [message: string] {
+    if (current-log-level) > (WARNING_LEVEL) { return }
+
+    print --stderr $"(ansi yellow)WARN  ($message)(ansi reset)"
+}
+# Log info message
+export def "log info" [message: string] {
+    if (current-log-level) > (INFO_LEVEL) { return }
+
+    print --stderr $"(ansi white)INFO  ($message)(ansi reset)"
+}
+# Log debug message
+export def "log debug" [message: string] {
+    if (current-log-level) > (DEBUG_LEVEL) { return }
+
+    print --stderr $"(ansi default_dimmed)DEBUG ($message)(ansi reset)"
 }

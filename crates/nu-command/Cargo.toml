@@ -60,6 +60,7 @@ itertools = "0.10.0"
 log = "0.4.14"
 lscolors = { version = "0.12.0", features = ["crossterm"], default-features = false }
 md5 = { package = "md-5", version = "0.10.0" }
+miette = { version = "5.5.0", features = ["fancy-no-backtrace"] }
 mime = "0.3.16"
 mime_guess = "2.0.4"
 notify = "4.0.17"
@@ -69,7 +70,7 @@ once_cell = "1.17"
 open = "4.0.0"
 pathdiff = "0.2.1"
 powierza-coefficient = "1.0.2"
-quick-xml = "0.27"
+quick-xml = "0.28"
 rand = "0.8"
 rayon = "1.7.0"
 regex = "1.7.1"
@@ -164,4 +165,4 @@ hamcrest2 = "0.3.0"
 proptest = "1.1.0"
 quickcheck = "1.0.3"
 quickcheck_macros = "1.0.0"
-rstest = { version = "0.16.0", default-features = false }
+rstest = { version = "0.17.0", default-features = false }
