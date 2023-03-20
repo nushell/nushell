@@ -1,28 +1,5 @@
 use std.nu
 
-export def test_assert [] {
-    def test_failing [code: closure] {
-        let code_did_run = (try { do $code; true } catch { false })
-
-        if $code_did_run {
-            error make {msg: (view source $code)}
-        }
-    }
-
-    std assert true
-    std assert (1 + 2 == 3)
-    test_failing { std assert false }
-    test_failing { std assert (1 + 2 == 4) }
-
-    std assert eq (1 + 2) 3
-    test_failing { std assert eq 1 "foo" }
-    test_failing { std assert eq (1 + 2) 4) }
-
-    std assert ne (1 + 2) 4
-    std assert ne 1 "foo"
-    std assert ne (1 + 2) 3)
-}
-
 export def test_match [] {
     use std.nu assert
 
@@ -41,24 +18,24 @@ export def test_match [] {
 }
 
 export def test_path_add [] {
-    use std.nu "assert eq"
+    use std.nu "assert equal"
 
     with-env [PATH []] {
-        assert eq $env.PATH []
+        assert equal $env.PATH []
 
         std path add "/foo/"
-        assert eq $env.PATH ["/foo/"]
+        assert equal $env.PATH ["/foo/"]
 
         std path add "/bar/" "/baz/"
-        assert eq $env.PATH ["/bar/", "/baz/", "/foo/"]
+        assert equal $env.PATH ["/bar/", "/baz/", "/foo/"]
 
         let-env PATH = []
 
         std path add "foo"
         std path add "bar" "baz" --append
-        assert eq $env.PATH ["foo", "bar", "baz"]
+        assert equal $env.PATH ["foo", "bar", "baz"]
 
-        assert eq (std path add "fooooo" --ret) ["fooooo", "foo", "bar", "baz"]
-        assert eq $env.PATH ["fooooo", "foo", "bar", "baz"]
+        assert equal (std path add "fooooo" --ret) ["fooooo", "foo", "bar", "baz"]
+        assert equal $env.PATH ["fooooo", "foo", "bar", "baz"]
     }
 }

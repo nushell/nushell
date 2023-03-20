@@ -8,13 +8,13 @@ def run [system_level, message_level] {
 }
 def "assert no message" [system_level, message_level] {
     let output = (run $system_level $message_level)
-    assert eq $output ""
+    assert equal "" $output
 }
 
 def "assert message" [system_level, message_level, message_level_str] {
     let output = (run $system_level $message_level)
-    assert ($output | str contains $message_level_str)
-    assert ($output | str contains "test message")
+    assert str contains $output $message_level_str
+    assert str contains $output "test message"
 }
 
 export def test_critical [] {
