@@ -74,6 +74,7 @@ export def "assert error" [
 # # Examples
 # 
 # > assert equal 1 1 # passes
+# > assert equal (0.1 + 0.2) 0.3
 # > assert equal 1 2 # fails
 export def "assert equal" [left: any, right: any, message?: string] {
     assert ($left == $right) $message --error-label {
