@@ -1,6 +1,6 @@
-use crate::util::report_error;
 use log::info;
 use miette::Result;
+use nu_command::util::report_error;
 use nu_engine::{convert_env_values, eval_block};
 use nu_parser::parse;
 use nu_protocol::engine::Stack;

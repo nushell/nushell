@@ -2798,6 +2798,7 @@ dependencies = [
  "log",
  "lscolors",
  "md-5",
+ "miette",
  "mime",
  "mime_guess",
  "mockito",
