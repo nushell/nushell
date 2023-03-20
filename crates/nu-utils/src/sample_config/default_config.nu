@@ -304,7 +304,7 @@ let-env config = {
     display_output: {||
       if (term size).columns >= 100 { table -e } else { table }
     }
-    command_not_found: {
+    command_not_found: {||
       null  # replace with source code to return an error message when a command is not found
     }
   }
