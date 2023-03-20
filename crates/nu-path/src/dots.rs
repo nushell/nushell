@@ -161,7 +161,7 @@ mod tests {
         assert_eq!(PathBuf::from("/foo/bar/baz"), expand_dots(path));
     }
 
-    // track_caller refers, in the panic-message, to the line of the funciton call and not
+    // track_caller refers, in the panic-message, to the line of the function call and not
     // inside of the function, which is nice for a test-helper-function
     #[track_caller]
     fn check_ndots_expansion(expected: &str, s: &str) {
@@ -294,7 +294,7 @@ mod tests {
 
         #[test]
         fn string_with_three_ndots_and_garbage() {
-            check_ndots_expansion(r"ls ..\../ garbage.*[", "ls .../ garbage.*[");
+            check_ndots_expansion(r"file .../ garbage.*[", "file .../ garbage.*[");
         }
     }
 
