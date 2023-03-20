@@ -15,11 +15,11 @@ def create_left_prompt [] {
         ($env.PWD | str substring ($home | str length)..)
     ] | str join)
 
-    let path_segment = if (is-admin) {
+    let path_segment = (if (is-admin) {
         $"(ansi red_bold)($dir)"
     } else {
         $"(ansi green_bold)($dir)"
-    }
+    })
 
     $path_segment
 }

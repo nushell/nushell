@@ -3239,7 +3239,10 @@ pub fn parse_mut(
                             working_set,
                             spans,
                             &mut idx,
-                            &SyntaxShape::Keyword(b"=".to_vec(), Box::new(SyntaxShape::Expression)),
+                            &SyntaxShape::Keyword(
+                                b"=".to_vec(),
+                                Box::new(SyntaxShape::MathExpression),
+                            ),
                             expand_aliases_denylist,
                         );
                         error = error.or(err);
