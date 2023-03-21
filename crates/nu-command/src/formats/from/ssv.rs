@@ -88,12 +88,12 @@ fn parse_aligned_columns<'a>(
                         let val = match headers.get(i + 1) {
                             Some((_, end)) => {
                                 if *end < l.len() {
-                                    l.get(*start_position..*end)
+                                    l.get(l.char_indices().nth(*start_position).unwrap().0 .. l.char_indices().nth(*end).unwrap().0)
                                 } else {
-                                    l.get(*start_position..)
+                                    l.get(l.char_indices().nth(*start_position).unwrap().0 ..)
                                 }
                             }
-                            None => l.get(*start_position..),
+                            None => l.get(l.char_indices().nth(*start_position).unwrap().0 ..),
                         }
                         .unwrap_or("")
                         .trim()
