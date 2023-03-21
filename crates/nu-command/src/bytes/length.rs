@@ -54,7 +54,7 @@ impl Command for BytesLen {
                 result: Some(Value::test_int(4)),
             },
             Example {
-                description: "Return the lengths of multiple binary",
+                description: "Return the lengths of multiple binaries",
                 example: "[0x[1F FF AA AB] 0x[1F]] | bytes length",
                 result: Some(Value::List {
                     vals: vec![Value::test_int(4), Value::test_int(1)],
