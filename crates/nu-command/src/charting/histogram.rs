@@ -100,8 +100,8 @@ impl Command for Histogram {
             Some(inner) => {
                 let forbidden_column_names = ["value", "count", "quantile", "percentage"];
                 if forbidden_column_names.contains(&inner.item.as_str()) {
-                    return Err(ShellError::TypeMismatch(
-                        format!(
+                    return Err(ShellError::TypeMismatch {
+                        err_message: format!(
                             "frequency-column-name can't be {}",
                             forbidden_column_names
                                 .iter()
@@ -109,8 +109,8 @@ impl Command for Histogram {
                                 .collect::<Vec<_>>()
                                 .join(", ")
                         ),
-                        inner.span,
-                    ));
+                        span: inner.span,
+                    });
                 }
                 inner.item
             }
