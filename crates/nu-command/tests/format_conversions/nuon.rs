@@ -295,7 +295,7 @@ fn to_nuon_errs_on_closure() {
         "#
     ));
 
-    assert!(actual.err.contains("not nuon-compatible"));
+    assert!(actual.err.contains("can't convert closure to NUON"));
 }
 
 #[test]
