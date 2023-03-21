@@ -2573,14 +2573,13 @@ impl Value {
             && (self.get_type() != Type::Any)
             && (rhs.get_type() != Type::Any)
         {
-            return Err(ShellError::TypeMismatch(
-                format!(
-                    "incompatible type '{}' and '{}'",
-                    self.get_type(),
-                    rhs.get_type()
-                ),
-                op,
-            ));
+            return Err(ShellError::OperatorMismatch {
+                op_span: op,
+                lhs_ty: self.get_type(),
+                lhs_span: self.span()?,
+                rhs_ty: rhs.get_type(),
+                rhs_span: rhs.span()?,
+            });
         }
 
         if let Some(ordering) = self.partial_cmp(rhs) {
@@ -2613,14 +2612,13 @@ impl Value {
             && (self.get_type() != Type::Any)
             && (rhs.get_type() != Type::Any)
         {
-            return Err(ShellError::TypeMismatch(
-                format!(
-                    "incompatible type '{}' and '{}'",
-                    self.get_type(),
-                    rhs.get_type()
-                ),
-                op,
-            ));
+            return Err(ShellError::OperatorMismatch {
+                op_span: op,
+                lhs_ty: self.get_type(),
+                lhs_span: self.span()?,
+                rhs_ty: rhs.get_type(),
+                rhs_span: rhs.span()?,
+            });
         }
 
         self.partial_cmp(rhs)
@@ -2651,14 +2649,13 @@ impl Value {
             && (self.get_type() != Type::Any)
             && (rhs.get_type() != Type::Any)
         {
-            return Err(ShellError::TypeMismatch(
-                format!(
-                    "incompatible type '{}' and '{}'",
-                    self.get_type(),
-                    rhs.get_type()
-                ),
-                op,
-            ));
+            return Err(ShellError::OperatorMismatch {
+                op_span: op,
+                lhs_ty: self.get_type(),
+                lhs_span: self.span()?,
+                rhs_ty: rhs.get_type(),
+                rhs_span: rhs.span()?,
+            });
         }
 
         self.partial_cmp(rhs)
@@ -2689,14 +2686,13 @@ impl Value {
             && (self.get_type() != Type::Any)
             && (rhs.get_type() != Type::Any)
         {
-            return Err(ShellError::TypeMismatch(
-                format!(
-                    "incompatible type '{}' and '{}'",
-                    self.get_type(),
-                    rhs.get_type()
-                ),
-                op,
-            ));
+            return Err(ShellError::OperatorMismatch {
+                op_span: op,
+                lhs_ty: self.get_type(),
+                lhs_span: self.span()?,
+                rhs_ty: rhs.get_type(),
+                rhs_span: rhs.span()?,
+            });
         }
 
         match self.partial_cmp(rhs) {
