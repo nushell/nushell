@@ -254,10 +254,10 @@ fn which(
     let ctrlc = engine_state.ctrlc.clone();
 
     if which_args.applications.is_empty() {
-        return Err(ShellError::MissingParameter(
-            "application".into(),
-            call.head,
-        ));
+        return Err(ShellError::MissingParameter {
+            param_name: "application".into(),
+            span: call.head,
+        });
     }
 
     let mut output = vec![];

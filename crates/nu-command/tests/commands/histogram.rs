@@ -10,7 +10,7 @@ fn summarizes_by_column_given() {
             r#"
                 first_name,last_name,rusty_at
                 Andrés,Robalino,Ecuador
-                Jonathan,Turner,Estados Unidos
+                JT,Turner,Estados Unidos
                 Yehuda,Katz,Estados Unidos
             "#,
         )]);
@@ -42,7 +42,7 @@ fn summarizes_by_column_given_with_normalize_percentage() {
             r#"
                 first_name,last_name,rusty_at
                 Andrés,Robalino,Ecuador
-                Jonathan,Turner,Estados Unidos
+                JT,Turner,Estados Unidos
                 Yehuda,Katz,Estados Unidos
             "#,
         )]);
@@ -71,7 +71,7 @@ fn summarizes_by_values() {
             r#"
                 first_name,last_name,rusty_at
                 Andrés,Robalino,Ecuador
-                Jonathan,Turner,Estados Unidos
+                JT,Turner,Estados Unidos
                 Yehuda,Katz,Estados Unidos
             "#,
         )]);

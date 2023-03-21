@@ -52,10 +52,10 @@ impl Command for LetEnv {
                 .into_value(call.head);
 
         if env_var.item == "FILE_PWD" || env_var.item == "PWD" {
-            return Err(ShellError::AutomaticEnvVarSetManually(
-                env_var.item,
-                env_var.span,
-            ));
+            return Err(ShellError::AutomaticEnvVarSetManually {
+                envvar_name: env_var.item,
+                span: env_var.span,
+            });
         } else {
             stack.add_env_var(env_var.item, rhs);
         }

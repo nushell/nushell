@@ -124,19 +124,20 @@ impl Command for DropNth {
                 // check for negative range inputs, e.g., (2..-5)
                 if from.is_negative() || to.is_negative() {
                     let span: Spanned<Range> = call.req(engine_state, stack, 0)?;
-                    return Err(ShellError::TypeMismatch(
-                        "drop nth accepts only positive integers".to_string(),
-                        span.span,
-                    ));
+                    return Err(ShellError::TypeMismatch {
+                        err_message: "drop nth accepts only positive integers".to_string(),
+                        span: span.span,
+                    });
                 }
                 // check if the upper bound is smaller than the lower bound, e.g., do not accept 4..2
                 if to < from {
                     let span: Spanned<Range> = call.req(engine_state, stack, 0)?;
-                    return Err(ShellError::TypeMismatch(
-                        "The upper bound needs to be equal or larger to the lower bound"
-                            .to_string(),
-                        span.span,
-                    ));
+                    return Err(ShellError::TypeMismatch {
+                        err_message:
+                            "The upper bound needs to be equal or larger to the lower bound"
+                                .to_string(),
+                        span: span.span,
+                    });
                 }
 
                 // check for equality to isize::MAX because for some reason,
@@ -191,12 +192,12 @@ fn extract_int_or_range(
 
     let range_opt = range_opt.map(Either::Right).ok();
 
-    int_opt.or(range_opt).ok_or_else(|| {
-        ShellError::TypeMismatch(
-            "int or range".into(),
-            value.span().unwrap_or_else(|_| Span::new(0, 0)),
-        )
-    })
+    int_opt
+        .or(range_opt)
+        .ok_or_else(|| ShellError::TypeMismatch {
+            err_message: "int or range".into(),
+            span: value.span().unwrap_or_else(|_| Span::new(0, 0)),
+        })
 }
 
 struct DropNthIterator {

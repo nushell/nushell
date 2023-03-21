@@ -19,6 +19,13 @@ Make sure you've run and fixed any issues with these commands:
 - `cargo clippy --workspace -- -D warnings -D clippy::unwrap_used -A clippy::needless_collect` to check that you're using the standard code style
 - `cargo test --workspace` to check that all tests pass
 
+> **Note**
+> from `nushell` you can also use the `toolkit` as follows
+> ```bash
+> use toolkit.nu  # or use an `env_change` hook to activate it automatically
+> toolkit check pr
+> ```
+
 # After Submitting
 
 If your PR had any user-facing changes, update [the documentation](https://github.com/nushell/nushell.github.io) after the PR is merged, if necessary. This will help us keep the docs up to date.

@@ -74,7 +74,7 @@ with 'transpose' first."#
                 }),
             },
             Example {
-                example: "{major:2, minor:1, patch:4} | values | each { into string }",
+                example: "{major:2, minor:1, patch:4} | values | each {|| into string }",
                 description: "Produce a list of values in the record, converted to string",
                 result: Some(Value::List {
                     vals: vec![
@@ -167,7 +167,9 @@ with 'transpose' first."#
                         Err(ShellError::Break(_)) => None,
                         Err(error) => {
                             let error = chain_error_with_input(error, input_span);
-                            Some(Value::Error { error })
+                            Some(Value::Error {
+                                error: Box::new(error),
+                            })
                         }
                     }
                 })
@@ -187,7 +189,11 @@ with 'transpose' first."#
                     let x = match x {
                         Ok(x) => x,
                         Err(ShellError::Break(_)) => return None,
-                        Err(err) => return Some(Value::Error { error: err }),
+                        Err(err) => {
+                            return Some(Value::Error {
+                                error: Box::new(err),
+                            })
+                        }
                     };
 
                     if let Some(var) = block.signature.get_positional(0) {
@@ -208,7 +214,7 @@ with 'transpose' first."#
                         Ok(v) => Some(v.into_value(span)),
                         Err(ShellError::Break(_)) => None,
                         Err(error) => {
-                            let error = chain_error_with_input(error, input_span);
+                            let error = Box::new(chain_error_with_input(error, input_span));
                             Some(Value::Error { error })
                         }
                     }

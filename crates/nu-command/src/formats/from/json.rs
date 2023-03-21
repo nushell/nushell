@@ -77,7 +77,9 @@ impl Command for FromJson {
                     } else {
                         match convert_string_to_value(x.to_string(), span) {
                             Ok(v) => Some(v),
-                            Err(error) => Some(Value::Error { error }),
+                            Err(error) => Some(Value::Error {
+                                error: Box::new(error),
+                            }),
                         }
                     }
                 })
@@ -119,12 +121,12 @@ fn convert_nujson_to_value(value: &nu_json::Value, span: Span) -> Value {
         nu_json::Value::U64(u) => {
             if *u > i64::MAX as u64 {
                 Value::Error {
-                    error: ShellError::CantConvert(
-                        "i64 sized integer".into(),
-                        "value larger than i64".into(),
+                    error: Box::new(ShellError::CantConvert {
+                        to_type: "i64 sized integer".into(),
+                        from_type: "value larger than i64".into(),
                         span,
-                        None,
-                    ),
+                        help: None,
+                    }),
                 }
             } else {
                 Value::Int {
@@ -182,12 +184,12 @@ fn convert_string_to_value(string_input: String, span: Span) -> Result<Value, Sh
                     )],
                 ))
             }
-            x => Err(ShellError::CantConvert(
-                format!("structured json data ({x})"),
-                "string".into(),
+            x => Err(ShellError::CantConvert {
+                to_type: format!("structured json data ({x})"),
+                from_type: "string".into(),
                 span,
-                None,
-            )),
+                help: None,
+            }),
         },
     }
 }

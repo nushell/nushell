@@ -157,10 +157,10 @@ fn extract_formatting_operations(
         }
 
         if column_span_end < column_span_start {
-            return Err(ShellError::DelimiterError(
-                "there are unmatched curly braces".to_string(),
-                error_span,
-            ));
+            return Err(ShellError::DelimiterError {
+                msg: "there are unmatched curly braces".to_string(),
+                span: error_span,
+            });
         }
 
         if !column_name.is_empty() {
@@ -230,7 +230,7 @@ fn format(
                             }
                         }
                     }
-                    Value::Error { error } => return Err(error.clone()),
+                    Value::Error { error } => return Err(*error.clone()),
                     _ => {
                         return Err(ShellError::OnlySupportsThisInputType {
                             exp_input_type: "record".to_string(),
@@ -249,7 +249,7 @@ fn format(
         }
         // Unwrapping this ShellError is a bit unfortunate.
         // Ideally, its Span would be preserved.
-        Value::Error { error } => Err(error),
+        Value::Error { error } => Err(*error),
         _ => Err(ShellError::OnlySupportsThisInputType {
             exp_input_type: "record".to_string(),
             wrong_type: data_as_value.get_type().to_string(),
@@ -279,12 +279,10 @@ fn format_record(
                     .map(|path| PathMember::String {
                         val: path.to_string(),
                         span: *span,
+                        optional: false,
                     })
                     .collect();
-                match data_as_value
-                    .clone()
-                    .follow_cell_path(&path_members, false, false)
-                {
+                match data_as_value.clone().follow_cell_path(&path_members, false) {
                     Ok(value_at_column) => {
                         output.push_str(value_at_column.into_string(", ", config).as_str())
                     }
@@ -301,10 +299,10 @@ fn format_record(
                         }
                     }
                     Some(err) => {
-                        return Err(ShellError::TypeMismatch(
-                            format!("expression is invalid, detail message: {err:?}"),
-                            *span,
-                        ))
+                        return Err(ShellError::TypeMismatch {
+                            err_message: format!("expression is invalid, detail message: {err:?}"),
+                            span: *span,
+                        })
                     }
                 }
             }

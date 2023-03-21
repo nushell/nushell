@@ -4,12 +4,12 @@ impl Value {
     pub fn as_f64(&self) -> Result<f64, ShellError> {
         match self {
             Value::Float { val, .. } => Ok(*val),
-            x => Err(ShellError::CantConvert(
-                "f64".into(),
-                x.get_type().to_string(),
-                self.span()?,
-                None,
-            )),
+            x => Err(ShellError::CantConvert {
+                to_type: "f64".into(),
+                from_type: x.get_type().to_string(),
+                span: self.span()?,
+                help: None,
+            }),
         }
     }
 
@@ -18,12 +18,12 @@ impl Value {
             Value::Int { val, .. } => Ok(*val),
             Value::Filesize { val, .. } => Ok(*val),
             Value::Duration { val, .. } => Ok(*val),
-            x => Err(ShellError::CantConvert(
-                "i64".into(),
-                x.get_type().to_string(),
-                self.span()?,
-                None,
-            )),
+            x => Err(ShellError::CantConvert {
+                to_type: "i64".into(),
+                from_type: x.get_type().to_string(),
+                span: self.span()?,
+                help: None,
+            }),
         }
     }
 }

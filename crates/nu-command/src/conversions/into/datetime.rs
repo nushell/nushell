@@ -1,6 +1,6 @@
 use crate::input_handler::{operate, CmdArgument};
 use crate::{generate_strftime_list, parse_date_from_string};
-use chrono::{DateTime, FixedOffset, Local, LocalResult, TimeZone, Utc};
+use chrono::{DateTime, FixedOffset, Local, TimeZone, Utc};
 use nu_engine::CallExt;
 use nu_protocol::ast::Call;
 use nu_protocol::ast::CellPath;
@@ -83,12 +83,12 @@ impl Command for SubCommand {
             .named(
                 "format",
                 SyntaxShape::String,
-                "Specify an expected format for parsing strings to datetimes. Use --list to see all possible options",
+                "Specify expected format of string input to parse to datetime. Use --list to see options",
                 Some('f'),
             )
             .switch(
                 "list",
-                "Show all possible variables for use with the --format flag",
+                "Show all possible variables for use in --format flag",
                 Some('l'),
                 )
             .rest(
@@ -125,10 +125,12 @@ impl Command for SubCommand {
                         span: zone.span,
                     }),
                 };
+
             let format_options = call
                 .get_flag::<String>(engine_state, stack, "format")?
                 .as_ref()
                 .map(|fmt| DatetimeFormat(fmt.to_string()));
+
             let args = Arguments {
                 format_options,
                 zone_options,
@@ -139,7 +141,7 @@ impl Command for SubCommand {
     }
 
     fn usage(&self) -> &str {
-        "Convert text into a datetime."
+        "Convert text or timestamp into a datetime."
     }
 
     fn search_terms(&self) -> Vec<&str> {
@@ -147,53 +149,44 @@ impl Command for SubCommand {
     }
 
     fn examples(&self) -> Vec<Example> {
-        let example_result_1 = |secs: i64, nsecs: u32| match Utc.timestamp_opt(secs, nsecs) {
-            LocalResult::Single(dt) => Some(Value::Date {
-                val: dt.into(),
+        let example_result_1 = |nanos: i64| {
+            Some(Value::Date {
+                val: Utc.timestamp_nanos(nanos).into(),
                 span: Span::test_data(),
-            }),
-            _ => panic!("datetime: help example is invalid"),
-        };
-        let example_result_2 = |millis: i64| match Utc.timestamp_millis_opt(millis) {
-            LocalResult::Single(dt) => Some(Value::Date {
-                val: dt.into(),
-                span: Span::test_data(),
-            }),
-            _ => panic!("datetime: help example is invalid"),
+            })
         };
         vec![
             Example {
-                description: "Convert to datetime",
+                description: "Convert any standard timestamp string to datetime",
                 example: "'27.02.2021 1:55 pm +0000' | into datetime",
-                result: example_result_1(1614434100,0)
+                #[allow(clippy::inconsistent_digit_grouping)]
+                result: example_result_1(1614434100_000000000),
             },
             Example {
-                description: "Convert to datetime",
-                example: "'2021-02-27T13:55:40+00:00' | into datetime",
-                result: example_result_1(1614434140, 0)
+                description: "Convert any standard timestamp string to datetime",
+                example: "'2021-02-27T13:55:40.2246+00:00' | into datetime",
+                #[allow(clippy::inconsistent_digit_grouping)]
+                result: example_result_1(1614434140_224600000),
             },
             Example {
-                description: "Convert to datetime using a custom format",
+                description:
+                    "Convert non-standard timestamp string to datetime using a custom format",
                 example: "'20210227_135540+0000' | into datetime -f '%Y%m%d_%H%M%S%z'",
-                result: example_result_1(1614434140, 0)
-
-            },
-            Example {
-                description: "Convert timestamp (no larger than 8e+12) to a UTC datetime",
-                example: "1614434140 | into datetime",
-                result: example_result_1(1614434140, 0)
+                #[allow(clippy::inconsistent_digit_grouping)]
+                result: example_result_1(1614434140_000000000),
             },
             Example {
                 description:
-                    "Convert timestamp (no larger than 8e+12) to datetime using a specified timezone offset (between -12 and 12)",
-                example: "1614434140 | into datetime -o +9",
-                result: None,
+                    "Convert nanosecond-precision unix timestamp to a datetime with offset from UTC",
+                example: "1614434140123456789 | into datetime --offset -5",
+                #[allow(clippy::inconsistent_digit_grouping)]
+                result: example_result_1(1614434140_123456789),
             },
             Example {
-                description:
-                    "Convert a millisecond-precise timestamp",
-                example: "1656165681720 | into datetime",
-                result: example_result_2(1656165681720)
+                description: "Convert standard (seconds) unix timestamp to a UTC datetime",
+                example: "1614434140 * 1_000_000_000 | into datetime",
+                #[allow(clippy::inconsistent_digit_grouping)]
+                result: example_result_1(1614434140_000000000),
             },
         ]
     }
@@ -205,6 +198,9 @@ struct DatetimeFormat(String);
 fn action(input: &Value, args: &Arguments, head: Span) -> Value {
     let timezone = &args.zone_options;
     let dateformat = &args.format_options;
+
+    const HOUR: i32 = 60 * 60;
+
     // Check to see if input looks like a Unix timestamp (i.e. can it be parsed to an int?)
     let timestamp = match input {
         Value::Int { val, .. } => Ok(*val),
@@ -213,91 +209,61 @@ fn action(input: &Value, args: &Arguments, head: Span) -> Value {
         Value::Error { .. } => return input.clone(),
         other => {
             return Value::Error {
-                error: ShellError::OnlySupportsThisInputType {
+                error: Box::new(ShellError::OnlySupportsThisInputType {
                     exp_input_type: "string and integer".into(),
                     wrong_type: other.get_type().to_string(),
                     dst_span: head,
                     src_span: other.expect_span(),
-                },
+                }),
             };
         }
     };
 
     if let Ok(ts) = timestamp {
-        const TIMESTAMP_BOUND: i64 = 8.2e+12 as i64;
-        const HOUR: i32 = 3600;
-
-        if ts.abs() > TIMESTAMP_BOUND {
-            return Value::Error {
-                error: ShellError::UnsupportedInput(
-                    "timestamp is out of range; it should between -8e+12 and 8e+12".to_string(),
-                    format!("timestamp is {ts:?}"),
-                    head,
-                    // Again, can safely unwrap this from here on
-                    input.expect_span(),
-                ),
-            };
-        }
-
         macro_rules! match_datetime {
             ($expr:expr) => {
                 match $expr {
-                    LocalResult::Single(dt) => Value::Date {
+                    dt => Value::Date {
                         val: dt.into(),
                         span: head,
                     },
-                    _ => {
-                        return Value::Error {
-                            error: ShellError::UnsupportedInput(
-                                "The given local datetime representation is invalid.".into(),
-                                format!("timestamp is {:?}", ts),
-                                head,
-                                head,
-                            ),
-                        };
-                    }
                 }
             };
         }
 
         return match timezone {
+            // note all these `.timestamp_nanos()` could overflow if we didn't check range in `<date> | into int`.
+
             // default to UTC
-            None => {
-                // be able to convert chrono::Utc::now()
-                match ts.to_string().len() {
-                    x if x > 13 => Value::Date {
-                        val: Utc.timestamp_nanos(ts).into(),
-                        span: head,
-                    },
-                    x if x > 10 => match_datetime!(Utc.timestamp_millis_opt(ts)),
-                    _ => match_datetime!(Utc.timestamp_opt(ts, 0)),
-                }
-            }
+            None => Value::Date {
+                val: Utc.timestamp_nanos(ts).into(),
+                span: head,
+            },
             Some(Spanned { item, span }) => match item {
-                Zone::Utc => match_datetime!(Utc.timestamp_opt(ts, 0)),
-                Zone::Local => match_datetime!(Local.timestamp_opt(ts, 0)),
+                Zone::Utc => match_datetime!(Utc.timestamp_nanos(ts)),
+                Zone::Local => match_datetime!(Local.timestamp_nanos(ts)),
                 Zone::East(i) => match FixedOffset::east_opt((*i as i32) * HOUR) {
-                    Some(eastoffset) => match_datetime!(eastoffset.timestamp_opt(ts, 0)),
+                    Some(eastoffset) => match_datetime!(eastoffset.timestamp_nanos(ts)),
                     None => Value::Error {
-                        error: ShellError::DatetimeParseError(input.debug_value(), *span),
+                        error: Box::new(ShellError::DatetimeParseError(input.debug_value(), *span)),
                     },
                 },
                 Zone::West(i) => match FixedOffset::west_opt((*i as i32) * HOUR) {
-                    Some(westoffset) => match_datetime!(westoffset.timestamp_opt(ts, 0)),
+                    Some(westoffset) => match_datetime!(westoffset.timestamp_nanos(ts)),
                     None => Value::Error {
-                        error: ShellError::DatetimeParseError(input.debug_value(), *span),
+                        error: Box::new(ShellError::DatetimeParseError(input.debug_value(), *span)),
                     },
                 },
                 Zone::Error => Value::Error {
                     // This is an argument error, not an input error
-                    error: ShellError::TypeMismatch(
-                        "Invalid timezone or offset".to_string(),
-                        *span,
-                    ),
+                    error: Box::new(ShellError::TypeMismatch {
+                        err_message: "Invalid timezone or offset".to_string(),
+                        span: *span,
+                    }),
                 },
             },
         };
-    }
+    };
 
     // If input is not a timestamp, try parsing it as a string
     match input {
@@ -307,12 +273,7 @@ fn action(input: &Value, args: &Arguments, head: Span) -> Value {
                     Ok(d) => Value::Date { val: d, span: head },
                     Err(reason) => {
                         Value::Error {
-                            error: ShellError::CantConvert(
-                                format!("could not parse as datetime using format '{}'", dt.0),
-                                reason.to_string(),
-                                head,
-                                Some("you can use `into datetime` without a format string to enable flexible parsing".to_string())
-                            ),
+                            error: Box::new(ShellError::CantConvert { to_type: format!("could not parse as datetime using format '{}'", dt.0), from_type: reason.to_string(), span: head, help: Some("you can use `into datetime` without a format string to enable flexible parsing".to_string()) }),
                         }
                     }
                 },
@@ -331,12 +292,12 @@ fn action(input: &Value, args: &Arguments, head: Span) -> Value {
         // Propagate errors by explicitly matching them before the final case.
         Value::Error { .. } => input.clone(),
         other => Value::Error {
-            error: ShellError::OnlySupportsThisInputType {
+            error: Box::new(ShellError::OnlySupportsThisInputType {
                 exp_input_type: "string".into(),
                 wrong_type: other.get_type().to_string(),
                 dst_span: head,
                 src_span: other.expect_span(),
-            },
+            }),
         },
     }
 }
@@ -391,7 +352,7 @@ mod tests {
 
     #[test]
     fn takes_timestamp_offset() {
-        let date_str = Value::test_string("1614434140");
+        let date_str = Value::test_string("1614434140000000000");
         let timezone_option = Some(Spanned {
             item: Zone::East(8),
             span: Span::test_data(),
@@ -413,7 +374,7 @@ mod tests {
 
     #[test]
     fn takes_timestamp_offset_as_int() {
-        let date_int = Value::test_int(1614434140);
+        let date_int = Value::test_int(1_614_434_140_000_000_000);
         let timezone_option = Some(Spanned {
             item: Zone::East(8),
             span: Span::test_data(),
@@ -435,7 +396,7 @@ mod tests {
 
     #[test]
     fn takes_timestamp() {
-        let date_str = Value::test_string("1614434140");
+        let date_str = Value::test_string("1614434140000000000");
         let timezone_option = Some(Spanned {
             item: Zone::Local,
             span: Span::test_data(),
@@ -456,7 +417,7 @@ mod tests {
 
     #[test]
     fn takes_timestamp_without_timezone() {
-        let date_str = Value::test_string("1614434140");
+        let date_str = Value::test_string("1614434140000000000");
         let args = Arguments {
             zone_options: None,
             format_options: None,
@@ -470,23 +431,6 @@ mod tests {
         };
 
         assert_eq!(actual, expected)
-    }
-
-    #[test]
-    fn takes_invalid_timestamp() {
-        let date_str = Value::test_string("10440970000000");
-        let timezone_option = Some(Spanned {
-            item: Zone::Utc,
-            span: Span::test_data(),
-        });
-        let args = Arguments {
-            zone_options: timezone_option,
-            format_options: None,
-            cell_paths: None,
-        };
-        let actual = action(&date_str, &args, Span::test_data());
-
-        assert_eq!(actual.get_type(), Error);
     }
 
     #[test]

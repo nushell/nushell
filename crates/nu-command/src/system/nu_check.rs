@@ -291,7 +291,7 @@ fn heuristic_parse_file(
             Err(ShellError::IOError("Can not read input".to_string()))
         }
     } else {
-        Err(ShellError::NotFound(call.head))
+        Err(ShellError::NotFound { span: call.head })
     }
 }
 
@@ -378,7 +378,7 @@ fn parse_file_script(
             Err(ShellError::IOError("Can not read path".to_string()))
         }
     } else {
-        Err(ShellError::NotFound(call.head))
+        Err(ShellError::NotFound { span: call.head })
     }
 }
 
@@ -396,6 +396,6 @@ fn parse_file_module(
             Err(ShellError::IOError("Can not read path".to_string()))
         }
     } else {
-        Err(ShellError::NotFound(call.head))
+        Err(ShellError::NotFound { span: call.head })
     }
 }

@@ -108,7 +108,7 @@ fn removes_directory_contents_with_recursive_flag() {
     Playground::setup("rm_test_5", |dirs, sandbox| {
         sandbox.with_files(vec![
             EmptyFile("yehuda.txt"),
-            EmptyFile("jonathan.txt"),
+            EmptyFile("jttxt"),
             EmptyFile("andres.txt"),
         ]);
 
@@ -187,13 +187,13 @@ fn removes_multiple_files() {
     Playground::setup("rm_test_10", |dirs, sandbox| {
         sandbox.with_files(vec![
             EmptyFile("yehuda.txt"),
-            EmptyFile("jonathan.txt"),
+            EmptyFile("jttxt"),
             EmptyFile("andres.txt"),
         ]);
 
         nu!(
             cwd: dirs.test(),
-            "rm yehuda.txt jonathan.txt andres.txt"
+            "rm yehuda.txt jttxt andres.txt"
         );
 
         assert_eq!(
@@ -208,7 +208,7 @@ fn removes_multiple_files_with_asterisks() {
     Playground::setup("rm_test_11", |dirs, sandbox| {
         sandbox.with_files(vec![
             EmptyFile("yehuda.txt"),
-            EmptyFile("jonathan.txt"),
+            EmptyFile("jt.txt"),
             EmptyFile("andres.toml"),
         ]);
 
@@ -227,7 +227,7 @@ fn removes_multiple_files_with_asterisks() {
 #[test]
 fn allows_doubly_specified_file() {
     Playground::setup("rm_test_12", |dirs, sandbox| {
-        sandbox.with_files(vec![EmptyFile("yehuda.txt"), EmptyFile("jonathan.toml")]);
+        sandbox.with_files(vec![EmptyFile("yehuda.txt"), EmptyFile("jt.toml")]);
 
         let actual = nu!(
             cwd: dirs.test(),
@@ -247,7 +247,7 @@ fn remove_files_from_two_parents_up_using_multiple_dots_and_glob() {
     Playground::setup("rm_test_13", |dirs, sandbox| {
         sandbox.with_files(vec![
             EmptyFile("yehuda.txt"),
-            EmptyFile("jonathan.txt"),
+            EmptyFile("jt.txt"),
             EmptyFile("kevin.txt"),
         ]);
 
@@ -259,7 +259,7 @@ fn remove_files_from_two_parents_up_using_multiple_dots_and_glob() {
         );
 
         assert!(!files_exist_at(
-            vec!["yehuda.txt", "jonathan.txt", "kevin.txt"],
+            vec!["yehuda.txt", "jttxt", "kevin.txt"],
             dirs.test()
         ));
     })
@@ -332,8 +332,8 @@ fn remove_ignores_ansi() {
 
         let actual = nu!(
             cwd: sandbox.cwd(),
-            "ls | find test | get name | rm $in.0; ls",
+            "ls | find test | get name | rm $in.0; ls | is-empty",
         );
-        assert!(actual.out.is_empty());
+        assert_eq!(actual.out, "true");
     });
 }

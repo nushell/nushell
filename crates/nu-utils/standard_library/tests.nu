@@ -1,46 +1,56 @@
-use std.nu
+use std.nu *
 
-def test_assert [] {
-    def test_failing [code: closure] {
-        let code_did_run = (try { do $code; true } catch { false })
+def collect-modules [
+    path: path,
+    module?: string
+] {
+    let tests_path = ($path | default $env.FILE_PWD)
+    let module_search = ($module | default "test_*")
+    (ls ($tests_path | path join $"**/($module_search).nu") -f | get name)    
+}
 
-        if $code_did_run {
-            error make {msg: (view source $code)}
+def collect-commands [
+    test_file: string,
+    module_name: string,
+    command?: string
+] {
+    let commands = (
+        nu -c $'use ($test_file) *; $nu.scope.commands | select name module_name | to nuon'
+        | from nuon
+        | where module_name == $module_name
+        | where ($it.name | str starts-with "test_")
+        | get name
+    )
+    if $command == null {
+        $commands
+    } else {
+        $commands | where $it == $command
+    }
+}
+
+# Test executor
+#
+# It executes exported "test_*" commands in "test_*" modules
+def main [
+    --path: path, # Path to look for tests. Default: directory of this file.
+    --module: string, # Module to run tests. Default: all test modules found.
+    --command: string, # Test command to run. Default: all test command found in the files.
+    --list, # Do not run any tests, just list them (dry run)
+] {
+    let dry_run = ($list | default false)
+    for test_file in (collect-modules $path $module) {
+        let $module_name = ($test_file | path parse).stem
+
+        log info $"Run tests in ($module_name)"
+        let tests = (collect-commands $test_file $module_name $command)
+
+        for test_case in $tests {
+            log debug $"Run test ($module_name) ($test_case)"
+            if $dry_run {
+                continue
+            }
+
+            nu -c $'use ($test_file) ($test_case); ($test_case)'
         }
     }
-
-    std assert true
-    std assert (1 + 2 == 3)
-    test_failing { std assert false }
-    test_failing { std assert (1 + 2 == 4) }
-
-    std assert eq (1 + 2) 3
-    test_failing { std assert eq 1 "foo" }
-    test_failing { std assert eq (1 + 2) 4) }
-
-    std assert ne (1 + 2) 4
-    test_failing { std assert ne 1 "foo" }
-    test_failing { std assert ne (1 + 2) 3) }
-}
-
-def tests [] {
-    use std.nu assert
-
-    let branches = {
-        1: { -1 }
-        2: { -2 }
-    }
-
-    assert ((std match 1 $branches) == -1)
-    assert ((std match 2 $branches) == -2)
-    assert ((std match 3 $branches) == $nothing)
-
-    assert ((std match 1 $branches { 0 }) == -1)
-    assert ((std match 2 $branches { 0 }) == -2)
-    assert ((std match 3 $branches { 0 }) == 0)
-}
-
-def main [] {
-    test_assert
-    tests
 }

@@ -38,6 +38,13 @@ pub enum ParseError {
     #[diagnostic(code(nu::parser::parse_mismatch))]
     Expected(String, #[label("expected {0}")] Span),
 
+    #[error("Missing || inside closure")]
+    #[diagnostic(
+        code(nu::parser::closure_missing_pipe),
+        help("Try add || to the beginning of closure")
+    )]
+    ClosureMissingPipe(#[label("Parsing as a closure, but || is missing")] Span),
+
     #[error("Type mismatch during operation.")]
     #[diagnostic(code(nu::parser::type_mismatch))]
     Mismatch(String, String, #[label("expected {0}, found {1}")] Span), // expected, found, span
@@ -94,6 +101,13 @@ pub enum ParseError {
         help("'{0}' keyword is allowed only in a module.")
     )]
     UnexpectedKeyword(String, #[label("unexpected {0}")] Span),
+
+    #[error("Can't create alias to parser keyword.")]
+    #[diagnostic(
+        code(nu::parser::cant_alias_keyword),
+        help("Only the following keywords can be aliased: {0}.")
+    )]
+    CantAliasKeyword(String, #[label("not supported in alias")] Span),
 
     #[error("Unknown operator")]
     #[diagnostic(code(nu::parser::unknown_operator), help("{1}"))]
@@ -419,6 +433,7 @@ impl ParseError {
             ParseError::UnsupportedOperation(_, _, _, s, _) => *s,
             ParseError::ExpectedKeyword(_, s) => *s,
             ParseError::UnexpectedKeyword(_, s) => *s,
+            ParseError::CantAliasKeyword(_, s) => *s,
             ParseError::BuiltinCommandInPipeline(_, s) => *s,
             ParseError::AssignInPipeline(_, _, _, s) => *s,
             ParseError::LetBuiltinVar(_, s) => *s,
@@ -479,6 +494,7 @@ impl ParseError {
             ParseError::UnknownOperator(_, _, s) => *s,
             ParseError::InvalidLiteral(_, _, s) => *s,
             ParseError::NotAConstant(s) => *s,
+            ParseError::ClosureMissingPipe(s) => *s,
         }
     }
 }

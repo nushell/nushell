@@ -68,7 +68,7 @@ impl Range {
             incr.eq(expr_span, &zero, expr_span),
             Ok(Value::Bool { val: true, .. })
         ) {
-            return Err(ShellError::CannotCreateRange(expr_span));
+            return Err(ShellError::CannotCreateRange { span: expr_span });
         }
 
         // If to > from, then incr > 0, otherwise we iterate forever
@@ -76,7 +76,7 @@ impl Range {
             to.gt(operator.span, &from, expr_span)?,
             incr.gt(operator.next_op_span, &zero, expr_span)?,
         ) {
-            return Err(ShellError::CannotCreateRange(expr_span));
+            return Err(ShellError::CannotCreateRange { span: expr_span });
         }
 
         // If to < from, then incr < 0, otherwise we iterate forever
@@ -84,7 +84,7 @@ impl Range {
             to.lt(operator.span, &from, expr_span)?,
             incr.lt(operator.next_op_span, &zero, expr_span)?,
         ) {
-            return Err(ShellError::CannotCreateRange(expr_span));
+            return Err(ShellError::CannotCreateRange { span: expr_span });
         }
 
         Ok(Range {
@@ -218,7 +218,7 @@ impl Iterator for RangeIterator {
         } else {
             self.done = true;
             return Some(Value::Error {
-                error: ShellError::CannotCreateRange(self.span),
+                error: Box::new(ShellError::CannotCreateRange { span: self.span }),
             });
         };
 
@@ -237,7 +237,9 @@ impl Iterator for RangeIterator {
 
                 Err(error) => {
                     self.done = true;
-                    return Some(Value::Error { error });
+                    return Some(Value::Error {
+                        error: Box::new(error),
+                    });
                 }
             };
             std::mem::swap(&mut self.curr, &mut next);

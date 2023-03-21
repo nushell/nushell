@@ -13,7 +13,7 @@ use std::num::NonZeroUsize;
 use std::path::Path;
 use std::path::PathBuf;
 use std::{
-    collections::{HashMap, HashSet, VecDeque},
+    collections::{HashMap, HashSet},
     sync::{
         atomic::{AtomicBool, AtomicU32},
         Arc, Mutex,
@@ -21,15 +21,6 @@ use std::{
 };
 
 static PWD_ENV: &str = "PWD";
-
-// TODO: move to different file? where?
-/// An operation to be performed with the current buffer of the interactive shell.
-#[derive(Debug, Clone)]
-pub enum ReplOperation {
-    Append(String),
-    Insert(String),
-    Replace(String),
-}
 
 /// Organizes usage messages for various primitives
 #[derive(Debug, Clone)]
@@ -134,8 +125,9 @@ pub struct EngineState {
     pub previous_env_vars: HashMap<String, Value>,
     pub config: Config,
     pub pipeline_externals_state: Arc<(AtomicU32, AtomicU32)>,
-    pub repl_buffer_state: Arc<Mutex<Option<String>>>,
-    pub repl_operation_queue: Arc<Mutex<VecDeque<ReplOperation>>>,
+    pub repl_buffer_state: Arc<Mutex<String>>,
+    // A byte position, as `EditCommand::MoveToPosition` is also a byte position
+    pub repl_cursor_pos: Arc<Mutex<usize>>,
     #[cfg(feature = "plugin")]
     pub plugin_signatures: Option<PathBuf>,
     #[cfg(not(windows))]
@@ -145,6 +137,9 @@ pub struct EngineState {
     // If Nushell was started, e.g., with `nu spam.nu`, the file's parent is stored here
     pub currently_parsed_cwd: Option<PathBuf>,
     pub regex_cache: Arc<Mutex<LruCache<String, Regex>>>,
+    pub is_interactive: bool,
+    pub is_login: bool,
+    startup_time: i64,
 }
 
 // The max number of compiled regexes to keep around in a LRU cache, arbitrarily chosen
@@ -183,8 +178,8 @@ impl EngineState {
             previous_env_vars: HashMap::new(),
             config: Config::default(),
             pipeline_externals_state: Arc::new((AtomicU32::new(0), AtomicU32::new(0))),
-            repl_buffer_state: Arc::new(Mutex::new(None)),
-            repl_operation_queue: Arc::new(Mutex::new(VecDeque::new())),
+            repl_buffer_state: Arc::new(Mutex::new("".to_string())),
+            repl_cursor_pos: Arc::new(Mutex::new(0)),
             #[cfg(feature = "plugin")]
             plugin_signatures: None,
             #[cfg(not(windows))]
@@ -195,6 +190,9 @@ impl EngineState {
             regex_cache: Arc::new(Mutex::new(LruCache::new(
                 NonZeroUsize::new(REGEX_CACHE_SIZE).expect("tried to create cache of size zero"),
             ))),
+            is_interactive: false,
+            is_login: false,
+            startup_time: -1,
         }
     }
 
@@ -1010,6 +1008,14 @@ impl EngineState {
 
     pub fn get_file_contents(&self) -> &Vec<(Vec<u8>, usize, usize)> {
         &self.file_contents
+    }
+
+    pub fn get_startup_time(&self) -> i64 {
+        self.startup_time
+    }
+
+    pub fn set_startup_time(&mut self, startup_time: i64) {
+        self.startup_time = startup_time;
     }
 }
 

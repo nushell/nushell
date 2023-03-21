@@ -36,7 +36,10 @@ fn vertical_rotate_value(
                 span,
             })
         }
-        _ => Err(ShellError::TypeMismatch("list".to_string(), value.span()?)),
+        _ => Err(ShellError::TypeMismatch {
+            err_message: "list".to_string(),
+            span: value.span()?,
+        }),
     }
 }
 
@@ -93,9 +96,9 @@ fn horizontal_rotate_value(
 
             Ok(Value::List { vals: values, span })
         }
-        _ => Err(ShellError::TypeMismatch(
-            "record".to_string(),
-            value.span()?,
-        )),
+        _ => Err(ShellError::TypeMismatch {
+            err_message: "record".to_string(),
+            span: value.span()?,
+        }),
     }
 }

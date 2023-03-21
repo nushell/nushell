@@ -17,8 +17,9 @@ use crate::{
 use command::gather_commandline_args;
 use log::Level;
 use miette::Result;
-use nu_cli::{gather_parent_env_vars, get_init_cwd, report_error_new};
-use nu_command::create_default_context;
+use nu_cli::gather_parent_env_vars;
+use nu_command::util::report_error_new;
+use nu_command::{create_default_context, get_init_cwd};
 use nu_protocol::{util::BufferedReader, PipelineData, RawStream};
 use nu_utils::utils::perf;
 use run::{run_commands, run_file, run_repl};
@@ -62,6 +63,9 @@ fn main() -> Result<()> {
     let (args_to_nushell, script_name, args_to_script) = gather_commandline_args();
     let parsed_nu_cli_args = parse_commandline_args(&args_to_nushell.join(" "), &mut engine_state)
         .unwrap_or_else(|_| std::process::exit(1));
+
+    engine_state.is_interactive = parsed_nu_cli_args.interactive_shell.is_some();
+    engine_state.is_login = parsed_nu_cli_args.login_shell.is_some();
 
     let use_color = engine_state.get_config().use_ansi_coloring;
     if let Some(level) = parsed_nu_cli_args
@@ -122,10 +126,7 @@ fn main() -> Result<()> {
 
     start_time = std::time::Instant::now();
     // keep this condition in sync with the branches below
-    acquire_terminal(
-        parsed_nu_cli_args.commands.is_none()
-            && (script_name.is_empty() || parsed_nu_cli_args.interactive_shell.is_some()),
-    );
+    acquire_terminal(parsed_nu_cli_args.commands.is_none() && script_name.is_empty());
     perf(
         "acquire_terminal",
         start_time,
@@ -234,7 +235,7 @@ fn main() -> Result<()> {
             &commands,
             input,
         )
-    } else if !script_name.is_empty() && parsed_nu_cli_args.interactive_shell.is_none() {
+    } else if !script_name.is_empty() {
         run_file(
             &mut engine_state,
             parsed_nu_cli_args,
@@ -244,6 +245,7 @@ fn main() -> Result<()> {
             input,
         )
     } else {
-        run_repl(engine_state, parsed_nu_cli_args, entire_start_time)
+        engine_state.is_interactive = true;
+        run_repl(&mut engine_state, parsed_nu_cli_args, entire_start_time)
     }
 }

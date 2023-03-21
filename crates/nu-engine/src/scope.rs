@@ -1,7 +1,8 @@
 use nu_protocol::{
-    engine::{EngineState, Stack, Visibility},
+    engine::{Command, EngineState, Stack, Visibility},
     ShellError, Signature, Span, SyntaxShape, Type, Value,
 };
+use std::borrow::Borrow;
 use std::cmp::Ordering;
 use std::collections::HashMap;
 
@@ -462,6 +463,52 @@ impl<'e, 's> ScopeData<'e, 's> {
         sig_records
     }
 
+    pub fn collect_externs(&self, span: Span) -> Vec<Value> {
+        let mut externals = vec![];
+        for ((command_name, _), decl_id) in &self.commands_map {
+            let decl = self.engine_state.get_decl(**decl_id);
+
+            if decl.is_known_external() {
+                let mut cols = vec![];
+                let mut vals = vec![];
+
+                let mut module_commands = vec![];
+                for module in &self.modules_map {
+                    let module_name = String::from_utf8_lossy(module.0).to_string();
+                    let module_id = self.engine_state.find_module(module.0, &[]);
+                    if let Some(module_id) = module_id {
+                        let module = self.engine_state.get_module(module_id);
+                        if module.has_decl(command_name) {
+                            module_commands.push(module_name);
+                        }
+                    }
+                }
+
+                cols.push("name".into());
+                vals.push(Value::String {
+                    val: String::from_utf8_lossy(command_name).to_string(),
+                    span,
+                });
+
+                cols.push("module_name".into());
+                vals.push(Value::String {
+                    val: module_commands.join(", "),
+                    span,
+                });
+
+                cols.push("usage".to_string());
+                vals.push(Value::String {
+                    val: decl.usage().into(),
+                    span,
+                });
+
+                externals.push(Value::Record { cols, vals, span })
+            }
+        }
+
+        externals
+    }
+
     pub fn collect_aliases(&self, span: Span) -> Vec<Value> {
         let mut aliases = vec![];
         for (alias_name, alias_id) in &self.aliases_map {
@@ -492,6 +539,36 @@ impl<'e, 's> ScopeData<'e, 's> {
                     ],
                     span,
                 });
+            }
+        }
+        for (name_bytes, decl_id) in self.engine_state.get_decls_sorted(false) {
+            if self.visibility.is_decl_id_visible(&decl_id) {
+                let decl = self.engine_state.get_decl(decl_id);
+                if let Some(alias) = decl.as_alias() {
+                    let name = String::from_utf8_lossy(&name_bytes).to_string();
+                    let sig = decl.signature().update_from_command(name, decl.borrow());
+                    let key = sig.name;
+
+                    aliases.push(Value::Record {
+                        cols: vec!["name".into(), "expansion".into(), "usage".into()],
+                        vals: vec![
+                            Value::String { val: key, span },
+                            Value::String {
+                                val: String::from_utf8_lossy(
+                                    self.engine_state
+                                        .get_span_contents(&alias.wrapped_call.span),
+                                )
+                                .to_string(),
+                                span,
+                            },
+                            Value::String {
+                                val: alias.signature().usage,
+                                span,
+                            },
+                        ],
+                        span,
+                    });
+                }
             }
         }
 

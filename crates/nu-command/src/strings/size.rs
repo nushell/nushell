@@ -124,18 +124,18 @@ fn size(
         move |v| {
             // First, obtain the span. If this fails, propagate the error that results.
             let value_span = match v.span() {
-                Err(v) => return Value::Error { error: v },
+                Err(v) => return Value::Error { error: Box::new(v) },
                 Ok(v) => v,
             };
             // Now, check if it's a string.
             match v.as_string() {
                 Ok(s) => counter(&s, span),
                 Err(_) => Value::Error {
-                    error: ShellError::PipelineMismatch {
+                    error: Box::new(ShellError::PipelineMismatch {
                         exp_input_type: "string".into(),
                         dst_span: span,
                         src_span: value_span,
-                    },
+                    }),
                 },
             }
         },

@@ -111,12 +111,12 @@ impl Command for If {
                     Ok(PipelineData::empty())
                 }
             }
-            x => Err(ShellError::CantConvert(
-                "bool".into(),
-                x.get_type().to_string(),
-                result.span()?,
-                None,
-            )),
+            x => Err(ShellError::CantConvert {
+                to_type: "bool".into(),
+                from_type: x.get_type().to_string(),
+                span: result.span()?,
+                help: None,
+            }),
         }
     }
 

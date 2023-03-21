@@ -61,10 +61,10 @@ impl Command for OverlayHide {
         };
 
         if !stack.is_overlay_active(&overlay_name.item) {
-            return Err(ShellError::OverlayNotFoundAtRuntime(
-                overlay_name.item,
-                overlay_name.span,
-            ));
+            return Err(ShellError::OverlayNotFoundAtRuntime {
+                overlay_name: overlay_name.item,
+                span: overlay_name.span,
+            });
         }
 
         let keep_env: Option<Vec<Spanned<String>>> =
@@ -76,7 +76,12 @@ impl Command for OverlayHide {
             for name in env_var_names_to_keep.into_iter() {
                 match stack.get_env_var(engine_state, &name.item) {
                     Some(val) => env_vars_to_keep.push((name.item, val.clone())),
-                    None => return Err(ShellError::EnvVarNotFoundAtRuntime(name.item, name.span)),
+                    None => {
+                        return Err(ShellError::EnvVarNotFoundAtRuntime {
+                            envvar_name: name.item,
+                            span: name.span,
+                        })
+                    }
                 }
             }
 

@@ -61,19 +61,19 @@ impl NuWhen {
         match value {
             Value::CustomValue { val, span } => match val.as_any().downcast_ref::<Self>() {
                 Some(expr) => Ok(expr.clone()),
-                None => Err(ShellError::CantConvert(
-                    "when expression".into(),
-                    "non when expression".into(),
+                None => Err(ShellError::CantConvert {
+                    to_type: "when expression".into(),
+                    from_type: "non when expression".into(),
                     span,
-                    None,
-                )),
+                    help: None,
+                }),
             },
-            x => Err(ShellError::CantConvert(
-                "when expression".into(),
-                x.get_type().to_string(),
-                x.span()?,
-                None,
-            )),
+            x => Err(ShellError::CantConvert {
+                to_type: "when expression".into(),
+                from_type: x.get_type().to_string(),
+                span: x.span()?,
+                help: None,
+            }),
         }
     }
 }

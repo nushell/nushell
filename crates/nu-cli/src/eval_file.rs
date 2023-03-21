@@ -1,7 +1,8 @@
-use crate::util::{eval_source, report_error};
+use crate::util::eval_source;
 use log::info;
 use log::trace;
 use miette::{IntoDiagnostic, Result};
+use nu_command::util::report_error;
 use nu_engine::{convert_env_values, current_dir};
 use nu_parser::parse;
 use nu_path::canonicalize_with;
@@ -145,7 +146,7 @@ pub(crate) fn print_table_or_error(
 
     if let PipelineData::Value(Value::Error { error }, ..) = &pipeline_data {
         let working_set = StateWorkingSet::new(engine_state);
-        report_error(&working_set, error);
+        report_error(&working_set, &**error);
         std::process::exit(1);
     }
 
@@ -193,7 +194,7 @@ fn print_or_exit(pipeline_data: PipelineData, engine_state: &mut EngineState, co
         if let Value::Error { error } = item {
             let working_set = StateWorkingSet::new(engine_state);
 
-            report_error(&working_set, &error);
+            report_error(&working_set, &*error);
 
             std::process::exit(1);
         }

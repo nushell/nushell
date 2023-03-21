@@ -1,4 +1,4 @@
-use nu_cli::report_error;
+use nu_command::util::report_error;
 use nu_engine::{get_full_help, CallExt};
 use nu_parser::parse;
 use nu_parser::{escape_for_script_arg, escape_quote_string};
@@ -101,6 +101,7 @@ pub(crate) fn parse_commandline_args(
             let testbin: Option<Expression> = call.get_flag_expr("testbin");
             #[cfg(feature = "plugin")]
             let plugin_file: Option<Expression> = call.get_flag_expr("plugin-config");
+            let no_config_file = call.get_named_arg("no-config-file");
             let config_file: Option<Expression> = call.get_flag_expr("config");
             let env_file: Option<Expression> = call.get_flag_expr("env-config");
             let log_level: Option<Expression> = call.get_flag_expr("log-level");
@@ -121,7 +122,10 @@ pub(crate) fn parse_commandline_args(
                             span: expr.span,
                         }))
                     } else {
-                        Err(ShellError::TypeMismatch("string".into(), expr.span))
+                        Err(ShellError::TypeMismatch {
+                            err_message: "string".into(),
+                            span: expr.span,
+                        })
                     }
                 } else {
                     Ok(None)
@@ -151,7 +155,7 @@ pub(crate) fn parse_commandline_args(
 
                 let _ = std::panic::catch_unwind(move || stdout_write_all_and_flush(full_help));
 
-                std::process::exit(1);
+                std::process::exit(0);
             }
 
             if call.has_flag("version") {
@@ -171,6 +175,7 @@ pub(crate) fn parse_commandline_args(
                 testbin,
                 #[cfg(feature = "plugin")]
                 plugin_file,
+                no_config_file,
                 config_file,
                 env_file,
                 log_level,
@@ -202,6 +207,7 @@ pub(crate) struct NushellCliArgs {
     pub(crate) testbin: Option<Spanned<String>>,
     #[cfg(feature = "plugin")]
     pub(crate) plugin_file: Option<Spanned<String>>,
+    pub(crate) no_config_file: Option<Spanned<String>>,
     pub(crate) config_file: Option<Spanned<String>>,
     pub(crate) env_file: Option<Spanned<String>>,
     pub(crate) log_level: Option<Spanned<String>>,
@@ -241,6 +247,11 @@ impl Command for Nu {
                 SyntaxShape::String,
                 "the table mode to use. rounded is default.",
                 Some('m'),
+            )
+            .switch(
+                "no-config-file",
+                "start with no config file and no env file",
+                Some('n'),
             )
             .named(
                 "threads",

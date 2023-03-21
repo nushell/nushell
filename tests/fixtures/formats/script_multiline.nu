@@ -1,2 +1,2 @@
-echo [1 4] | length
-echo [2 3 5] | length
+print ([1 4] | length)
+print (echo [2 3 5] | length)

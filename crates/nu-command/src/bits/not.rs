@@ -150,12 +150,12 @@ fn operate(value: Value, head: Span, signed: bool, number_size: NumberBytes) -> 
             // Propagate errors inside the value
             Value::Error { .. } => other,
             _ => Value::Error {
-                error: ShellError::OnlySupportsThisInputType {
+                error: Box::new(ShellError::OnlySupportsThisInputType {
                     exp_input_type: "integer".into(),
                     wrong_type: other.get_type().to_string(),
                     dst_span: head,
                     src_span: other.expect_span(),
-                },
+                }),
             },
         },
     }

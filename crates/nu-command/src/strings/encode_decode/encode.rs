@@ -100,7 +100,7 @@ documentation link at https://docs.rs/encoding_rs/latest/encoding_rs/#statics"#
                     super::encoding::encode(head, encoding, &s, span, ignore_errors)
                         .map(|val| val.into_pipeline_data())
                 }
-                Value::Error { error } => Err(error),
+                Value::Error { error } => Err(*error),
                 _ => Err(ShellError::OnlySupportsThisInputType {
                     exp_input_type: "string".into(),
                     wrong_type: v.get_type().to_string(),

@@ -132,18 +132,18 @@ fn update(
                         if let Err(e) =
                             input.update_data_at_cell_path(&cell_path.members, pd.into_value(span))
                         {
-                            return Value::Error { error: e };
+                            return Value::Error { error: Box::new(e) };
                         }
 
                         input
                     }
-                    Err(e) => Value::Error { error: e },
+                    Err(e) => Value::Error { error: Box::new(e) },
                 }
             },
             ctrlc,
         )
     } else {
-        if let Some(PathMember::Int { val, span }) = cell_path.members.get(0) {
+        if let Some(PathMember::Int { val, span, .. }) = cell_path.members.get(0) {
             let mut input = input.into_iter();
             let mut pre_elems = vec![];
 
@@ -151,9 +151,12 @@ fn update(
                 if let Some(v) = input.next() {
                     pre_elems.push(v);
                 } else if idx == 0 {
-                    return Err(ShellError::AccessEmptyContent(*span));
+                    return Err(ShellError::AccessEmptyContent { span: *span });
                 } else {
-                    return Err(ShellError::AccessBeyondEnd(idx - 1, *span));
+                    return Err(ShellError::AccessBeyondEnd {
+                        max_idx: idx - 1,
+                        span: *span,
+                    });
                 }
             }
 
@@ -171,7 +174,7 @@ fn update(
                 let replacement = replacement.clone();
 
                 if let Err(e) = input.update_data_at_cell_path(&cell_path.members, replacement) {
-                    return Value::Error { error: e };
+                    return Value::Error { error: Box::new(e) };
                 }
 
                 input

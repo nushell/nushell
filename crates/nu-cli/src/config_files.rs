@@ -1,4 +1,5 @@
-use crate::util::{eval_source, report_error};
+use crate::util::eval_source;
+use nu_command::util::report_error;
 #[cfg(feature = "plugin")]
 use nu_parser::ParseError;
 #[cfg(feature = "plugin")]

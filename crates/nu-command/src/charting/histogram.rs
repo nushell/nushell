@@ -125,10 +125,11 @@ impl Command for Histogram {
                 "normalize" => PercentageCalcMethod::Normalize,
                 "relative" => PercentageCalcMethod::Relative,
                 _ => {
-                    return Err(ShellError::TypeMismatch(
-                        "calc method can only be 'normalize' or 'relative'".to_string(),
-                        inner.span,
-                    ))
+                    return Err(ShellError::TypeMismatch {
+                        err_message: "calc method can only be 'normalize' or 'relative'"
+                            .to_string(),
+                        span: inner.span,
+                    })
                 }
             },
         };
@@ -165,7 +166,7 @@ fn run_histogram(
             for v in values {
                 match v {
                     // Propagate existing errors.
-                    Value::Error { error } => return Err(error),
+                    Value::Error { error } => return Err(*error),
                     _ => {
                         let t = v.get_type();
                         let span = v.expect_span();
@@ -203,17 +204,17 @@ fn run_histogram(
                         }
                     }
                     // Propagate existing errors.
-                    Value::Error { error } => return Err(error),
+                    Value::Error { error } => return Err(*error),
                     _ => continue,
                 }
             }
 
             if inputs.is_empty() {
-                return Err(ShellError::CantFindColumn(
-                    col_name.clone(),
-                    head_span,
-                    list_span,
-                ));
+                return Err(ShellError::CantFindColumn {
+                    col_name: col_name.clone(),
+                    span: head_span,
+                    src_span: list_span,
+                });
             }
         }
     }

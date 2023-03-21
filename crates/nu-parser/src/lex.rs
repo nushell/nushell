@@ -247,21 +247,21 @@ pub fn lex_item(
     }
 
     match &input[(span.start - span_offset)..(span.end - span_offset)] {
-        b"out>" => (
+        b"out>" | b"o>" => (
             Token {
                 contents: TokenContents::OutGreaterThan,
                 span,
             },
             None,
         ),
-        b"err>" => (
+        b"err>" | b"e>" => (
             Token {
                 contents: TokenContents::ErrGreaterThan,
                 span,
             },
             None,
         ),
-        b"out+err>" | b"err+out>" => (
+        b"out+err>" | b"err+out>" | b"o+e>" | b"e+o>" => (
             Token {
                 contents: TokenContents::OutErrGreaterThan,
                 span,

@@ -2,16 +2,26 @@ use csv::{ReaderBuilder, Trim};
 use nu_protocol::{IntoPipelineData, PipelineData, ShellError, Span, Value};
 
 fn from_delimited_string_to_value(
+    DelimitedReaderConfig {
+        separator,
+        comment,
+        quote,
+        escape,
+        noheaders,
+        flexible,
+        no_infer,
+        trim,
+    }: DelimitedReaderConfig,
     s: String,
-    noheaders: bool,
-    no_infer: bool,
-    separator: char,
-    trim: Trim,
     span: Span,
 ) -> Result<Value, csv::Error> {
     let mut reader = ReaderBuilder::new()
         .has_headers(!noheaders)
+        .flexible(flexible)
         .delimiter(separator as u8)
+        .comment(comment.map(|c| c as u8))
+        .quote(quote as u8)
+        .escape(escape.map(|c| c as u8))
         .trim(trim)
         .from_reader(s.as_bytes());
 
@@ -56,21 +66,30 @@ fn from_delimited_string_to_value(
     Ok(Value::List { vals: rows, span })
 }
 
-pub fn from_delimited_data(
-    noheaders: bool,
-    no_infer: bool,
-    sep: char,
-    trim: Trim,
+pub(super) struct DelimitedReaderConfig {
+    pub separator: char,
+    pub comment: Option<char>,
+    pub quote: char,
+    pub escape: Option<char>,
+    pub noheaders: bool,
+    pub flexible: bool,
+    pub no_infer: bool,
+    pub trim: Trim,
+}
+
+pub(super) fn from_delimited_data(
+    config: DelimitedReaderConfig,
     input: PipelineData,
     name: Span,
 ) -> Result<PipelineData, ShellError> {
     let (concat_string, _span, metadata) = input.collect_string_strict(name)?;
 
-    Ok(
-        from_delimited_string_to_value(concat_string, noheaders, no_infer, sep, trim, name)
-            .map_err(|x| ShellError::DelimiterError(x.to_string(), name))?
-            .into_pipeline_data_with_metadata(metadata),
-    )
+    Ok(from_delimited_string_to_value(config, concat_string, name)
+        .map_err(|x| ShellError::DelimiterError {
+            msg: x.to_string(),
+            span: name,
+        })?
+        .into_pipeline_data_with_metadata(metadata))
 }
 
 pub fn trim_from_str(trim: Option<Value>) -> Result<Trim, ShellError> {
@@ -80,11 +99,12 @@ pub fn trim_from_str(trim: Option<Value>) -> Result<Trim, ShellError> {
             "headers" => Ok(Trim::Headers),
             "fields" => Ok(Trim::Fields),
             "none" => Ok(Trim::None),
-            _ => Err(ShellError::TypeMismatch(
-                "the only possible values for trim are 'all', 'headers', 'fields' and 'none'"
-                    .into(),
+            _ => Err(ShellError::TypeMismatch {
+                err_message:
+                    "the only possible values for trim are 'all', 'headers', 'fields' and 'none'"
+                        .into(),
                 span,
-            )),
+            }),
         },
         _ => Ok(Trim::None),
     }

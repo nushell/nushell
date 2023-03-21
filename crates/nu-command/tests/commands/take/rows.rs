@@ -10,7 +10,7 @@ fn rows() {
             r#"
                 name,lucky_code
                 Andrés,1
-                Jonathan,1
+                JT,1
                 Jason,2
                 Yehuda,1
             "#,
