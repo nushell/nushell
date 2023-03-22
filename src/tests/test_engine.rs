@@ -146,7 +146,7 @@ fn date_comparison() -> TestResult {
 #[test]
 fn let_sees_input() -> TestResult {
     run_test(
-        r#"def c [] { let x = str length; $x }; "hello world" | c"#,
+        r#"def c [] { let x = (str length); $x }; "hello world" | c"#,
         "11",
     )
 }
