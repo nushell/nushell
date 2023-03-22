@@ -88,12 +88,12 @@ fn parse_aligned_columns<'a>(
                         let val = match headers.get(i + 1) {
                             Some((_, end)) => {
                                 if *end < l.len() {
-                                    l.get(l.char_indices().nth(*start_position).unwrap().0 .. l.char_indices().nth(*end).unwrap().0)
+                                    l.get(l.char_indices().nth(*start_position).expect("unable to find first character index of field").0 .. l.char_indices().nth(*end).expect("unable to find last character index of field").0)
                                 } else {
-                                    l.get(l.char_indices().nth(*start_position).unwrap().0 ..)
+                                    l.get(l.char_indices().nth(*start_position).expect("unable to find first character index of field").0 ..)
                                 }
                             }
-                            None => l.get(l.char_indices().nth(*start_position).unwrap().0 ..),
+                            None => l.get(l.char_indices().nth(*start_position).expect("unable to find first character index of field").0 ..),
                         }
                         .unwrap_or("")
                         .trim()
