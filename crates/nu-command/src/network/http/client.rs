@@ -323,6 +323,7 @@ pub fn request_handle_response(
     span: Span,
     requested_url: &String,
     raw: bool,
+    full: bool,
     response: Result<Response, ShellError>,
 ) -> Result<PipelineData, ShellError> {
     match response {
@@ -362,24 +363,48 @@ pub fn request_handle_response(
                     _ => Some(content_type.subtype().to_string()),
                 };
 
-                let output = response_to_buffer(resp, engine_state, span);
-
-                if raw {
-                    return Ok(output);
-                }
-
-                if let Some(ext) = ext {
-                    match engine_state.find_decl(format!("from {ext}").as_bytes(), &[]) {
-                        Some(converter_id) => engine_state.get_decl(converter_id).run(
-                            engine_state,
-                            stack,
-                            &Call::new(span),
-                            output,
-                        ),
-                        None => Ok(output),
-                    }
+                let response_headers: Option<PipelineData> = if full {
+                    let headers_raw = request_handle_response_headers_raw(span, &resp)?;
+                    Some(headers_raw)
                 } else {
+                    None
+                };
+
+                let output = response_to_buffer(resp, engine_state, span);
+                let formatted_output = if raw {
                     Ok(output)
+                } else {
+                    if let Some(ext) = ext {
+                        match engine_state.find_decl(format!("from {ext}").as_bytes(), &[]) {
+                            Some(converter_id) => engine_state.get_decl(converter_id).run(
+                                engine_state,
+                                stack,
+                                &Call::new(span),
+                                output,
+                            ),
+                            None => Ok(output),
+                        }
+                    } else {
+                        Ok(output)
+                    }
+                }?;
+
+                if full {
+                    let full_response = Value::Record {
+                        cols: vec!["headers".to_string(), "body".to_string()],
+                        vals: vec![
+                            match response_headers {
+                                Some(headers) => headers.into_value(span),
+                                None => Value::nothing(span),
+                            },
+                            formatted_output.into_value(span),
+                        ],
+                        span: span,
+                    }
+                    .into_pipeline_data();
+                    return Ok(full_response);
+                } else {
+                    return Ok(formatted_output);
                 }
             }
             None => Ok(response_to_buffer(resp, engine_state, span)),
@@ -388,36 +413,41 @@ pub fn request_handle_response(
     }
 }
 
+pub fn request_handle_response_headers_raw(
+    span: Span,
+    response: &Response,
+) -> Result<PipelineData, ShellError> {
+    let cols = response.headers_names();
+
+    let mut vals = Vec::with_capacity(cols.len());
+    for key in &cols {
+        match response.header(key) {
+            // match value.to_str() {
+            Some(str_value) => vals.push(Value::String {
+                val: str_value.to_string(),
+                span,
+            }),
+            None => {
+                return Err(ShellError::GenericError(
+                    "Failure when converting header value".to_string(),
+                    "".to_string(),
+                    None,
+                    Some("Failure when converting header value".to_string()),
+                    Vec::new(),
+                ))
+            }
+        }
+    }
+
+    Ok(Value::Record { cols, vals, span }.into_pipeline_data())
+}
+
 pub fn request_handle_response_headers(
     span: Span,
     response: Result<Response, ShellError>,
 ) -> Result<PipelineData, ShellError> {
     match response {
-        Ok(resp) => {
-            let cols = resp.headers_names();
-
-            let mut vals = Vec::with_capacity(cols.len());
-            for key in &cols {
-                match resp.header(key) {
-                    // match value.to_str() {
-                    Some(str_value) => vals.push(Value::String {
-                        val: str_value.to_string(),
-                        span,
-                    }),
-                    None => {
-                        return Err(ShellError::GenericError(
-                            "Failure when converting header value".to_string(),
-                            "".to_string(),
-                            None,
-                            Some("Failure when converting header value".to_string()),
-                            Vec::new(),
-                        ))
-                    }
-                }
-            }
-
-            Ok(Value::Record { cols, vals, span }.into_pipeline_data())
-        }
+        Ok(resp) => request_handle_response_headers_raw(span, &resp),
         Err(e) => Err(e),
     }
 }

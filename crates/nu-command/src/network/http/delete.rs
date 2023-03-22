@@ -68,6 +68,11 @@ impl Command for SubCommand {
                 "allow insecure server connections when using SSL",
                 Some('k'),
             )
+            .switch(
+                "full",
+                "returns the full response instead of only the body",
+                Some('f'),
+            )
             .filter()
             .category(Category::Network)
     }
@@ -136,6 +141,7 @@ struct Arguments {
     user: Option<String>,
     password: Option<String>,
     timeout: Option<Value>,
+    full: bool,
 }
 
 fn run_delete(
@@ -154,6 +160,7 @@ fn run_delete(
         user: call.get_flag(engine_state, stack, "user")?,
         password: call.get_flag(engine_state, stack, "password")?,
         timeout: call.get_flag(engine_state, stack, "max-time")?,
+        full: call.has_flag("full"),
     };
 
     helper(engine_state, stack, call, args)
@@ -185,6 +192,7 @@ fn helper(
         span,
         &requested_url,
         args.raw,
+        args.full,
         response,
     )
 }
