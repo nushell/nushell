@@ -3680,7 +3680,7 @@ pub fn parse_register(
                 };
 
                 if path.exists() & path.is_file() {
-                    Ok(path)
+                    Ok((path, expr.span))
                 } else {
                     Err(ParseError::RegisteredFileNotFound(
                         format!("{path:?}"),
@@ -3750,29 +3750,33 @@ pub fn parse_register(
     let current_envs =
         nu_engine::env::env_to_strings(working_set.permanent_state, &stack).unwrap_or_default();
     let error = match signature {
-        Some(signature) => arguments.and_then(|path| {
+        Some(signature) => arguments.and_then(|(path, path_span)| {
             // restrict plugin file name starts with `nu_plugin_`
-            let f_name = path
+            let valid_plugin_name = path
                 .file_name()
                 .map(|s| s.to_string_lossy().starts_with("nu_plugin_"));
 
-            if let Some(true) = f_name {
+            if let Some(true) = valid_plugin_name {
                 signature.map(|signature| {
                     let plugin_decl = PluginDeclaration::new(path, signature, shell);
                     working_set.add_decl(Box::new(plugin_decl));
                     working_set.mark_plugins_file_dirty();
                 })
             } else {
-                Ok(())
+                Err(ParseError::LabeledError(
+                    "Register plugin failed".into(),
+                    "plugin name must start with nu_plugin_".into(),
+                    path_span,
+                ))
             }
         }),
-        None => arguments.and_then(|path| {
+        None => arguments.and_then(|(path, path_span)| {
             // restrict plugin file name starts with `nu_plugin_`
-            let f_name = path
+            let valid_plugin_name = path
                 .file_name()
                 .map(|s| s.to_string_lossy().starts_with("nu_plugin_"));
 
-            if let Some(true) = f_name {
+            if let Some(true) = valid_plugin_name {
                 get_signature(path.as_path(), &shell, &current_envs)
                     .map_err(|err| {
                         ParseError::LabeledError(
@@ -3794,7 +3798,11 @@ pub fn parse_register(
                         working_set.mark_plugins_file_dirty();
                     })
             } else {
-                Ok(())
+                Err(ParseError::LabeledError(
+                    "Register plugin failed".into(),
+                    "plugin name must start with nu_plugin_".into(),
+                    path_span,
+                ))
             }
         }),
     }
