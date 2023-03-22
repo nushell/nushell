@@ -1,5 +1,5 @@
 use nu_command::create_default_context;
-use nu_protocol::{engine::StateWorkingSet, Category};
+use nu_protocol::Category;
 // use quickcheck_macros::quickcheck;
 
 mod commands;
