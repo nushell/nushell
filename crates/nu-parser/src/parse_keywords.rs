@@ -3765,7 +3765,7 @@ pub fn parse_register(
             } else {
                 Err(ParseError::LabeledError(
                     "Register plugin failed".into(),
-                    "plugin name must starts with nu_plugin_".into(),
+                    "plugin name must start with nu_plugin_".into(),
                     path_span,
                 ))
             }
@@ -3800,7 +3800,7 @@ pub fn parse_register(
             } else {
                 Err(ParseError::LabeledError(
                     "Register plugin failed".into(),
-                    "plugin name must starts with nu_plugin_".into(),
+                    "plugin name must start with nu_plugin_".into(),
                     path_span,
                 ))
             }
