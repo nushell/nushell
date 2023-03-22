@@ -48,8 +48,10 @@ fn record_single_field_optional() -> TestResult {
 }
 
 #[test]
-fn record_single_field_optional_does_not_short_circuit() -> TestResult {
-    fail_test("{foo: 'bar'}.foobar?.baz", "nothing")
+fn record_single_field_optional_short_circuits() -> TestResult {
+    // Check that we return null as soon as the `.foobar?` access
+    // fails instead of erroring on the `.baz` access
+    run_test("{foo: 'bar'}.foobar?.baz  | to nuon", "null")
 }
 
 #[test]
@@ -137,4 +139,13 @@ fn do_not_delve_too_deep_in_nested_lists() -> TestResult {
 #[test]
 fn cell_path_literals() -> TestResult {
     run_test("let cell_path = $.a.b; {a: {b: 3}} | get $cell_path", "3")
+}
+
+// Test whether cell path access short-circuits properly
+#[test]
+fn deeply_nested_cell_path_short_circuits() -> TestResult {
+    run_test(
+        "{foo: [{bar: 'baz'}]}.foo.3?.bar.asdfdafg.234.foobar  | to nuon",
+        "null",
+    )
 }
