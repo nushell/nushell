@@ -85,15 +85,23 @@ fn parse_aligned_columns<'a>(
                     .iter()
                     .enumerate()
                     .map(|(i, (header_name, start_position))| {
+                        let char_index_start = match l.char_indices().nth(*start_position) {
+                            Some(idx) => idx.0,
+                            None => *start_position,
+                        };
                         let val = match headers.get(i + 1) {
                             Some((_, end)) => {
                                 if *end < l.len() {
-                                    l.get(*start_position..*end)
+                                    let char_index_end = match l.char_indices().nth(*end) {
+                                        Some(idx) => idx.0,
+                                        None => *end,
+                                    };
+                                    l.get(char_index_start..char_index_end)
                                 } else {
-                                    l.get(*start_position..)
+                                    l.get(char_index_start..)
                                 }
                             }
-                            None => l.get(*start_position..),
+                            None => l.get(char_index_start..),
                         }
                         .unwrap_or("")
                         .trim()
