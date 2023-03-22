@@ -10,6 +10,8 @@ use crate::network::http::client::{
     request_handle_response, request_set_timeout, send_request,
 };
 
+use super::client::RequestFlags;
+
 #[derive(Clone)]
 pub struct SubCommand;
 
@@ -68,6 +70,11 @@ impl Command for SubCommand {
                 "full",
                 "returns the full response instead of only the body",
                 Some('f'),
+            )
+            .switch(
+                "allow-errors",
+                "do not fail if the server returns an error code",
+                Some('e'),
             )
             .filter()
             .category(Category::Network)
@@ -132,6 +139,7 @@ struct Arguments {
     password: Option<String>,
     timeout: Option<Value>,
     full: bool,
+    allow_errors: bool,
 }
 
 fn run_post(
@@ -151,6 +159,7 @@ fn run_post(
         password: call.get_flag(engine_state, stack, "password")?,
         timeout: call.get_flag(engine_state, stack, "max-time")?,
         full: call.has_flag("full"),
+        allow_errors: call.has_flag("allow-errors"),
     };
 
     helper(engine_state, stack, call, args)
@@ -174,14 +183,20 @@ fn helper(
     request = request_add_authorization_header(args.user, args.password, request);
     request = request_add_custom_headers(args.headers, request)?;
 
-    let response = send_request(request, span, Some(args.data), args.content_type);
+    let response = send_request(request, Some(args.data), args.content_type);
+
+    let request_flags = RequestFlags {
+        raw: args.raw,
+        full: args.full,
+        allow_errors: args.allow_errors,
+    };
+
     request_handle_response(
         engine_state,
         stack,
         span,
         &requested_url,
-        args.raw,
-        args.full,
+        request_flags,
         response,
     )
 }
