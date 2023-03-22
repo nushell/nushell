@@ -214,6 +214,17 @@ fn external_command_not_expand_tilde_with_quotes() {
 }
 
 #[test]
+fn external_command_expand_tilde_with_back_quotes() {
+    Playground::setup(
+        "external command not expand tilde with quotes",
+        |dirs, _| {
+            let actual = nu!(cwd: dirs.test(), pipeline(r#"nu --testbin nonu `~`"#));
+            assert!(!actual.out.contains("~"));
+        },
+    )
+}
+
+#[test]
 fn external_command_receives_raw_binary_data() {
     Playground::setup("external command receives raw binary data", |dirs, _| {
         let actual =
