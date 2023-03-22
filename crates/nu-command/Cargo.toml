@@ -33,7 +33,7 @@ nu-ansi-term = "0.47.0"
 
 # Potential dependencies for extras
 Inflector = "0.11"
-alphanumeric-sort = "1.4.4"
+alphanumeric-sort = "1.5.0"
 atty = "0.2.14"
 base64 = "0.21.0"
 byteorder = "1.4.3"
