@@ -20,5 +20,6 @@ for plugin in $plugins {
     '----------------------------'
     cd $'crates/($plugin)'
     cargo build
+    cd ../../
     ignore
 }
