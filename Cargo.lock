@@ -3039,7 +3039,6 @@ dependencies = [
  "nu-path",
  "nu-utils",
  "num-format",
- "once_cell",
  "tempfile",
  "which",
 ]
