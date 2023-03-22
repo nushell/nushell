@@ -373,20 +373,18 @@ pub fn request_handle_response(
                 let output = response_to_buffer(resp, engine_state, span);
                 let formatted_output = if raw {
                     Ok(output)
-                } else {
-                    if let Some(ext) = ext {
-                        match engine_state.find_decl(format!("from {ext}").as_bytes(), &[]) {
-                            Some(converter_id) => engine_state.get_decl(converter_id).run(
-                                engine_state,
-                                stack,
-                                &Call::new(span),
-                                output,
-                            ),
-                            None => Ok(output),
-                        }
-                    } else {
-                        Ok(output)
+                } else if let Some(ext) = ext {
+                    match engine_state.find_decl(format!("from {ext}").as_bytes(), &[]) {
+                        Some(converter_id) => engine_state.get_decl(converter_id).run(
+                            engine_state,
+                            stack,
+                            &Call::new(span),
+                            output,
+                        ),
+                        None => Ok(output),
                     }
+                } else {
+                    Ok(output)
                 }?;
 
                 if full {
@@ -399,12 +397,12 @@ pub fn request_handle_response(
                             },
                             formatted_output.into_value(span),
                         ],
-                        span: span,
+                        span,
                     }
                     .into_pipeline_data();
-                    return Ok(full_response);
+                    Ok(full_response)
                 } else {
-                    return Ok(formatted_output);
+                    Ok(formatted_output)
                 }
             }
             None => Ok(response_to_buffer(resp, engine_state, span)),
