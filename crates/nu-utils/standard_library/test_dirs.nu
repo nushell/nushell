@@ -10,12 +10,12 @@ def clean [path: path] {
 export def test_dirs_command [] {
     # need some directories to play with
     let base_path = (($nu.temp-path) | path join $"test_dirs_(random uuid)" | path expand )
-    let path_a = ($base_path | path join "a")
-    let path_b = ($base_path | path join "b")
+    let path_a = ($base_path | path expand | path join "a")
+    let path_b = ($base_path | path expand | path join "b")
 
     try {
-        mkdir $base_path $path_a $path_b
-        cd $base_path
+        mkdir ($base_path | path expand) $path_a $path_b
+        cd ($base_path | path expand)
         use std.nu "dirs next"
         use std.nu "dirs prev"
         use std.nu "dirs add"
@@ -23,13 +23,13 @@ export def test_dirs_command [] {
         use std.nu "dirs show"
 
         assert length $env.DIRS_LIST 1 "list is just pwd after initialization"
-        assert equal $base_path $env.DIRS_LIST.0 "list is just pwd after initialization"
+        assert equal ($base_path | path expand) $env.DIRS_LIST.0 "list is just pwd after initialization"
 
         dirs next
-        assert equal $base_path $env.DIRS_LIST.0 "next wraps at end of list"
+        assert equal ($base_path | path expand) $env.DIRS_LIST.0 "next wraps at end of list"
 
         dirs prev
-        assert equal $base_path $env.DIRS_LIST.0 "prev wraps at top of list"
+        assert equal ($base_path | path expand) $env.DIRS_LIST.0 "prev wraps at top of list"
 
         dirs add $path_b $path_a
         assert equal $path_b $env.PWD "add changes PWD to first added dir"
@@ -37,18 +37,18 @@ export def test_dirs_command [] {
         assert equal $path_a $env.DIRS_LIST.2 "add in fact adds to list"
 
         dirs next 2
-        assert equal $base_path $env.PWD "next wraps at end of list"
+        assert equal ($base_path | path expand) $env.PWD "next wraps at end of list"
 
         dirs prev 1
         assert equal $path_a $env.PWD "prev wraps at start of list"
 
         dirs drop
         assert length $env.DIRS_LIST 2 "drop removes from list"
-        assert equal $base_path $env.PWD "drop changes PWD to next in list (after dropped element)"
+        assert equal ($base_path | path expand) $env.PWD "drop changes PWD to next in list (after dropped element)"
 
-        assert equal (dirs show) [[active path]; [true $base_path] [false $path_b]] "show table contains expected information"
+        assert equal (dirs show) [[active path]; [true ($base_path | path expand)] [false $path_b]] "show table contains expected information"
     } catch { |error|
-        clean $base_path
+        clean ($base_path | path expand)
 
         let error = (
             $error
@@ -69,5 +69,5 @@ export def test_dirs_command [] {
         }
     }
 
-    try { clean $base_path }
+    try { clean ($base_path | path expand) }
 }
