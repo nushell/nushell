@@ -35,5 +35,7 @@ fn error_start_bigger_than_end_should_fail() {
     ));
 
     assert!(!actual.err.contains("invalid error format"));
-    assert!(!actual.err.contains("`$.label.start` is stricly bigger than `$.label.end`"));
+    assert!(!actual
+        .err
+        .contains("`$.label.start` is stricly bigger than `$.label.end`"));
 }
