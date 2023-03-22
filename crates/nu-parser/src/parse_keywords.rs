@@ -193,34 +193,6 @@ pub fn parse_def_predecl(
                 return Some(ParseError::DuplicateCommandDef(spans[1]));
             }
         }
-    } else if name == b"alias" && spans.len() >= 4 {
-        let (name_expr, ..) = parse_string(working_set, spans[1], expand_aliases_denylist);
-        let name = name_expr.as_string();
-
-        if let Some(name) = name {
-            if name.contains('#')
-                || name.contains('^')
-                || name.parse::<bytesize::ByteSize>().is_ok()
-                || name.parse::<f64>().is_ok()
-            {
-                return Some(ParseError::CommandDefNotValid(spans[1]));
-            }
-
-            // The signature will get replaced by the replacement signature
-            // let mut signature = Signature::new(name.clone());
-            // signature.name = name;
-
-            // The fields get replaced during parsing
-            let decl = Alias {
-                name,
-                command: None,
-                wrapped_call: Expression::garbage(name_expr.span),
-            };
-
-            if working_set.add_predecl(Box::new(decl)).is_some() {
-                return Some(ParseError::DuplicateCommandDef(spans[1]));
-            }
-        }
     }
 
     None
@@ -780,19 +752,31 @@ pub fn parse_alias(
                 alias_name.to_vec()
             };
 
+            let checked_name = String::from_utf8_lossy(&alias_name).to_string();
+            if checked_name.contains('#')
+                || checked_name.contains('^')
+                || checked_name.parse::<bytesize::ByteSize>().is_ok()
+                || checked_name.parse::<f64>().is_ok()
+            {
+                return (
+                    Pipeline::from_vec(vec![garbage(name_span)]),
+                    Some(ParseError::AliasNotValid(name_span)),
+                );
+            }
+
             if let Some(mod_name) = module_name {
-                if alias_name == mod_name {
+                if checked_name.as_bytes() == mod_name {
                     return (
                         alias_pipeline,
                         Some(ParseError::NamedAsModule(
                             "alias".to_string(),
-                            String::from_utf8_lossy(&alias_name).to_string(),
+                            checked_name,
                             spans[split_id],
                         )),
                     );
                 }
 
-                if &alias_name == b"main" {
+                if checked_name == "main" {
                     return (
                         alias_pipeline,
                         Some(ParseError::ExportMainAliasNotAllowed(spans[split_id])),
@@ -804,13 +788,6 @@ pub fn parse_alias(
 
             let replacement_spans = &spans[(split_id + 2)..];
 
-            // Temporarily hide the alias itself to prevent recursion
-            let predecl_id = working_set
-                .delta
-                .last_scope_frame_mut()
-                .predecls
-                .remove(&alias_name);
-
             let (expr, err) = parse_call(
                 working_set,
                 replacement_spans,
@@ -818,14 +795,6 @@ pub fn parse_alias(
                 expand_aliases_denylist,
                 false, // TODO: Should this be set properly???
             );
-
-            if let Some(id) = predecl_id {
-                working_set
-                    .delta
-                    .last_scope_frame_mut()
-                    .predecls
-                    .insert(alias_name.to_vec(), id);
-            }
 
             if let Some(e) = err {
                 if let ParseError::MissingPositional(..) = e {
@@ -875,28 +844,13 @@ pub fn parse_alias(
                 }
             };
 
-            if let Some(decl_id) = working_set.find_predecl(&alias_name) {
-                let alias_decl = working_set.get_decl_mut(decl_id);
+            let decl = Alias {
+                name: checked_name,
+                command,
+                wrapped_call,
+            };
 
-                let alias = Alias {
-                    name: String::from_utf8_lossy(&alias_name).to_string(),
-                    command,
-                    wrapped_call,
-                };
-
-                *alias_decl = Box::new(alias);
-            } else {
-                return (
-                    garbage_pipeline(spans),
-                    Some(ParseError::InternalError(
-                        "Predeclaration failed to add declaration".into(),
-                        spans[split_id],
-                    )),
-                );
-            }
-
-            // It's OK if it returns None: The decl was already merged in previous parse pass.
-            working_set.merge_predecl(&alias_name);
+            working_set.add_decl(Box::new(decl));
         }
 
         let err = if spans.len() < 4 {
