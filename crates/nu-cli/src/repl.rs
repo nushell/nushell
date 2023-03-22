@@ -460,31 +460,28 @@ pub fn evaluate_repl(
                         .into_diagnostic()?; // todo: don't stop repl if error here?
                 }
 
-                // Right before we start running the code the user gave us,
-                // fire the "pre_execution" hook
+                // Right before we start running the code the user gave us, fire the `pre_execution`
+                // hook
                 if let Some(hook) = config.hooks.pre_execution.clone() {
                     // Set the REPL buffer to the current command for the "pre_execution" hook
                     let mut repl_buffer = engine_state
                         .repl_buffer_state
                         .lock()
                         .expect("repl buffer state mutex");
-                    let next_repl_buffer = repl_buffer.to_string();
                     *repl_buffer = s.to_string();
                     drop(repl_buffer);
 
                     if let Err(err) = eval_hook(engine_state, stack, None, vec![], &hook) {
                         report_error_new(engine_state, &err);
                     }
-
-                    // Restore the REPL buffer state for the next command. It could've been edited
-                    // by `commandline`.
-                    let mut repl_buffer = engine_state
-                        .repl_buffer_state
-                        .lock()
-                        .expect("repl buffer state mutex");
-                    *repl_buffer = next_repl_buffer;
-                    drop(repl_buffer);
                 }
+
+                let mut repl_buffer = engine_state
+                    .repl_buffer_state
+                    .lock()
+                    .expect("repl buffer state mutex");
+                *repl_buffer = line_editor.current_buffer_contents().to_string();
+                drop(repl_buffer);
 
                 if shell_integration {
                     run_ansi_sequence(PRE_EXECUTE_MARKER)?;
