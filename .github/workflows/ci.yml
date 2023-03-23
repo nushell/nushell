@@ -85,6 +85,7 @@ jobs:
   std-lib-and-python-virtualenv:
     env:
       NUSHELL_CARGO_TARGET: ci
+      NU_LOG_LEVEL: DEBUG 
 
     strategy:
       fail-fast: true
@@ -107,7 +108,7 @@ jobs:
         run: cargo install --locked --path=. --profile ci --no-default-features
 
       - name: Standard library tests
-        run: NU_LOG_LEVEL=DEBUG nu crates/nu-utils/standard_library/tests.nu
+        run: nu crates/nu-utils/standard_library/tests.nu
 
       - name: Setup Python
         uses: actions/setup-python@v4
