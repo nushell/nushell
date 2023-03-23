@@ -333,6 +333,68 @@ pub struct RequestFlags {
     pub full: bool,
 }
 
+#[allow(clippy::needless_return)]
+fn transform_response_using_content_type(
+    engine_state: &EngineState,
+    stack: &mut Stack,
+    span: Span,
+    requested_url: &str,
+    flags: &RequestFlags,
+    resp: Response,
+    content_type: &str,
+) -> Result<PipelineData, ShellError> {
+    let content_type = mime::Mime::from_str(content_type).map_err(|_| {
+        ShellError::GenericError(
+            format!("MIME type unknown: {content_type}"),
+            "".to_string(),
+            None,
+            Some("given unknown MIME type".to_string()),
+            Vec::new(),
+        )
+    })?;
+    let ext = match (content_type.type_(), content_type.subtype()) {
+        (mime::TEXT, mime::PLAIN) => {
+            let path_extension = url::Url::parse(requested_url)
+                .map_err(|_| {
+                    ShellError::GenericError(
+                        format!("Cannot parse URL: {requested_url}"),
+                        "".to_string(),
+                        None,
+                        Some("cannot parse".to_string()),
+                        Vec::new(),
+                    )
+                })?
+                .path_segments()
+                .and_then(|segments| segments.last())
+                .and_then(|name| if name.is_empty() { None } else { Some(name) })
+                .and_then(|name| {
+                    PathBuf::from(name)
+                        .extension()
+                        .map(|name| name.to_string_lossy().to_string())
+                });
+            path_extension
+        }
+        _ => Some(content_type.subtype().to_string()),
+    };
+
+    let output = response_to_buffer(resp, engine_state, span);
+    if flags.raw {
+        return Ok(output);
+    } else if let Some(ext) = ext {
+        return match engine_state.find_decl(format!("from {ext}").as_bytes(), &[]) {
+            Some(converter_id) => engine_state.get_decl(converter_id).run(
+                engine_state,
+                stack,
+                &Call::new(span),
+                output,
+            ),
+            None => Ok(output),
+        };
+    } else {
+        return Ok(output);
+    };
+}
+
 fn request_handle_response_content(
     engine_state: &EngineState,
     stack: &mut Stack,
@@ -341,91 +403,48 @@ fn request_handle_response_content(
     flags: RequestFlags,
     resp: Response,
 ) -> Result<PipelineData, ShellError> {
-    match resp.header("content-type") {
-        Some(content_type) => {
-            let content_type = mime::Mime::from_str(content_type).map_err(|_| {
-                ShellError::GenericError(
-                    format!("MIME type unknown: {content_type}"),
-                    "".to_string(),
-                    None,
-                    Some("given unknown MIME type".to_string()),
-                    Vec::new(),
-                )
-            })?;
-            let ext = match (content_type.type_(), content_type.subtype()) {
-                (mime::TEXT, mime::PLAIN) => {
-                    let path_extension = url::Url::parse(requested_url)
-                        .map_err(|_| {
-                            ShellError::GenericError(
-                                format!("Cannot parse URL: {requested_url}"),
-                                "".to_string(),
-                                None,
-                                Some("cannot parse".to_string()),
-                                Vec::new(),
-                            )
-                        })?
-                        .path_segments()
-                        .and_then(|segments| segments.last())
-                        .and_then(|name| if name.is_empty() { None } else { Some(name) })
-                        .and_then(|name| {
-                            PathBuf::from(name)
-                                .extension()
-                                .map(|name| name.to_string_lossy().to_string())
-                        });
-                    path_extension
-                }
-                _ => Some(content_type.subtype().to_string()),
-            };
+    let response_headers: Option<PipelineData> = if flags.full {
+        let headers_raw = request_handle_response_headers_raw(span, &resp)?;
+        Some(headers_raw)
+    } else {
+        None
+    };
 
-            let response_headers: Option<PipelineData> = if flags.full {
-                let headers_raw = request_handle_response_headers_raw(span, &resp)?;
-                Some(headers_raw)
-            } else {
-                None
-            };
-            let response_status = resp.status();
-
-            let output = response_to_buffer(resp, engine_state, span);
-            let formatted_output = if flags.raw {
-                Ok(output)
-            } else if let Some(ext) = ext {
-                match engine_state.find_decl(format!("from {ext}").as_bytes(), &[]) {
-                    Some(converter_id) => engine_state.get_decl(converter_id).run(
-                        engine_state,
-                        stack,
-                        &Call::new(span),
-                        output,
-                    ),
-                    None => Ok(output),
-                }
-            } else {
-                Ok(output)
-            }?;
-
-            if flags.full {
-                let full_response = Value::Record {
-                    cols: vec![
-                        "headers".to_string(),
-                        "body".to_string(),
-                        "status".to_string(),
-                    ],
-                    vals: vec![
-                        match response_headers {
-                            Some(headers) => headers.into_value(span),
-                            None => Value::nothing(span),
-                        },
-                        formatted_output.into_value(span),
-                        Value::int(response_status as i64, span),
-                    ],
-                    span,
-                }
-                .into_pipeline_data();
-                Ok(full_response)
-            } else {
-                Ok(formatted_output)
-            }
-        }
+    let response_status = resp.status();
+    let content_type = resp.header("content-type").map(|s| s.to_owned());
+    let formatted_content = match content_type {
+        Some(content_type) => transform_response_using_content_type(
+            engine_state,
+            stack,
+            span,
+            requested_url,
+            &flags,
+            resp,
+            &content_type,
+        ),
         None => Ok(response_to_buffer(resp, engine_state, span)),
+    };
+    if flags.full {
+        let full_response = Value::Record {
+            cols: vec![
+                "headers".to_string(),
+                "body".to_string(),
+                "status".to_string(),
+            ],
+            vals: vec![
+                match response_headers {
+                    Some(headers) => headers.into_value(span),
+                    None => Value::nothing(span),
+                },
+                formatted_content?.into_value(span),
+                Value::int(response_status as i64, span),
+            ],
+            span,
+        }
+        .into_pipeline_data();
+        Ok(full_response)
+    } else {
+        Ok(formatted_content?)
     }
 }
 
