@@ -27,7 +27,7 @@ impl Command for Let {
             .required("var_name", SyntaxShape::VarWithOptType, "variable name")
             .required(
                 "initial_value",
-                SyntaxShape::Keyword(b"=".to_vec(), Box::new(SyntaxShape::Expression)),
+                SyntaxShape::Keyword(b"=".to_vec(), Box::new(SyntaxShape::MathExpression)),
                 "equals sign followed by value",
             )
     }
@@ -1555,7 +1555,7 @@ mod input_types {
 
         fn signature(&self) -> nu_protocol::Signature {
             Signature::build("if")
-                .required("cond", SyntaxShape::Expression, "condition to check")
+                .required("cond", SyntaxShape::MathExpression, "condition to check")
                 .required(
                     "then_block",
                     SyntaxShape::Block,

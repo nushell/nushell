@@ -15,7 +15,6 @@ bench = false
 nu-path = { path="../nu-path", version = "0.77.2"  }
 nu-glob = { path = "../nu-glob", version = "0.77.2" }
 nu-utils = { path="../nu-utils", version = "0.77.2"  }
-once_cell = "1.16.0"
 num-format = "0.4.3"
 which = "4.3.0"
 
