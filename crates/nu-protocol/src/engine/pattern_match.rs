@@ -1,5 +1,5 @@
 use crate::{
-    ast::{Expr, MatchPattern, Pattern},
+    ast::{Expr, MatchPattern, Pattern, RangeInclusion, RangeOperator},
     Value, VarId,
 };
 
@@ -72,6 +72,39 @@ impl Matcher for Pattern {
                     Expr::Int(x) => {
                         if let Value::Int { val, .. } = &value {
                             x == val
+                        } else {
+                            false
+                        }
+                    }
+                    Expr::Range(start, step, end, inclusion) => {
+                        // TODO: Add support for step
+                        // TODO: Add support for reverse ranges
+                        // TODO: Add support for floats
+
+                        let start = if let Some(start) = &start {
+                            match &start.expr {
+                                Expr::Int(start) => *start,
+                                _ => return false,
+                            }
+                        } else {
+                            0
+                        };
+
+                        let end = if let Some(end) = &end {
+                            match &end.expr {
+                                Expr::Int(end) => *end,
+                                _ => return false,
+                            }
+                        } else {
+                            i64::MAX
+                        };
+
+                        if let Value::Int { val, .. } = &value {
+                            if matches!(inclusion.inclusion, RangeInclusion::RightExclusive) {
+                                *val >= start && *val < end
+                            } else {
+                                *val >= start && *val <= end
+                            }
                         } else {
                             false
                         }
