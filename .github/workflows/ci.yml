@@ -141,6 +141,10 @@ jobs:
           tox -e ${{ matrix.py }} -- -k nushell
         shell: bash
 
+      - name: Python plugin tests
+        run: nu crates/nu-utils/standard_library/tests.nu --path crates/nu_plugin_python
+
+
   # Build+test plugins on their own, without the rest of Nu. This helps with CI parallelization and
   # also helps test that the plugins build without any feature unification shenanigans
   plugins:
