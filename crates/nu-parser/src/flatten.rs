@@ -1,5 +1,6 @@
 use nu_protocol::ast::{
-    Block, Expr, Expression, ImportPatternMember, PathMember, Pipeline, PipelineElement,
+    Block, Expr, Expression, ImportPatternMember, MatchPattern, PathMember, Pattern, Pipeline,
+    PipelineElement,
 };
 use nu_protocol::DeclId;
 use nu_protocol::{engine::StateWorkingSet, Span};
@@ -214,9 +215,9 @@ pub fn flatten_expression(
         Expr::Float(_) => {
             vec![(expr.span, FlatShape::Float)]
         }
-        Expr::MatchPattern(_) => {
+        Expr::MatchPattern(pattern) => {
             // FIXME: do nicer flattening later
-            vec![(expr.span, FlatShape::MatchPattern)]
+            flatten_pattern(pattern)
         }
         Expr::ValueWithUnit(x, unit) => {
             let mut output = flatten_expression(working_set, x);
@@ -491,6 +492,63 @@ pub fn flatten_pipeline(
     let mut output = vec![];
     for expr in &pipeline.elements {
         output.extend(flatten_pipeline_element(working_set, expr))
+    }
+    output
+}
+
+pub fn flatten_pattern(match_pattern: &MatchPattern) -> Vec<(Span, FlatShape)> {
+    let mut output = vec![];
+    match &match_pattern.pattern {
+        Pattern::Garbage => {
+            output.push((match_pattern.span, FlatShape::Garbage));
+        }
+        Pattern::IgnoreValue => {
+            output.push((match_pattern.span, FlatShape::Nothing));
+        }
+        Pattern::List(items) => {
+            if let Some(first) = items.first() {
+                if let Some(last) = items.last() {
+                    output.push((
+                        Span::new(match_pattern.span.start, first.span.start),
+                        FlatShape::MatchPattern,
+                    ));
+                    for item in items {
+                        output.extend(flatten_pattern(item));
+                    }
+                    output.push((
+                        Span::new(last.span.end, match_pattern.span.end),
+                        FlatShape::MatchPattern,
+                    ))
+                }
+            } else {
+                output.push((match_pattern.span, FlatShape::MatchPattern));
+            }
+        }
+        Pattern::Record(items) => {
+            if let Some(first) = items.first() {
+                if let Some(last) = items.last() {
+                    output.push((
+                        Span::new(match_pattern.span.start, first.1.span.start),
+                        FlatShape::MatchPattern,
+                    ));
+                    for item in items {
+                        output.extend(flatten_pattern(&item.1));
+                    }
+                    output.push((
+                        Span::new(last.1.span.end, match_pattern.span.end),
+                        FlatShape::MatchPattern,
+                    ))
+                }
+            } else {
+                output.push((match_pattern.span, FlatShape::MatchPattern));
+            }
+        }
+        Pattern::Value(_) => {
+            output.push((match_pattern.span, FlatShape::MatchPattern));
+        }
+        Pattern::Variable(_) => {
+            output.push((match_pattern.span, FlatShape::Variable));
+        }
     }
     output
 }
