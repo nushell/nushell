@@ -82,8 +82,6 @@ fn http_get_with_accept_errors_and_full_raw_response() {
         .as_str()
     ));
 
-    println!("OUT ({})", actual.out);
-
     assert!(actual.out.contains("400 => error body"))
 }
 
@@ -111,8 +109,6 @@ fn http_get_with_accept_errors_and_full_json_response() {
         )
         .as_str()
     ));
-
-    println!("OUT ({})", actual.out);
 
     assert!(actual.out.contains("400 => error body"))
 }
