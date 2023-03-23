@@ -138,7 +138,7 @@ fn make_error(value: &Value, throw_span: Option<Span>) -> Option<ShellError> {
                         if start > end {
                             Some(ShellError::GenericError(
                                 "invalid error format.".into(),
-                                "`$.label.start` is strictly bigger than `$.label.end`".into(),
+                                "`$.label.start` should be smaller than `$.label.end`".into(),
                                 label_span,
                                 Some(format!("{} > {}", start, end)),
                                 Vec::new(),
