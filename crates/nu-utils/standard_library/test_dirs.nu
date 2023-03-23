@@ -1,4 +1,5 @@
-use std.nu assert
+use std.nu "assert length"
+use std.nu "assert equal"
 
 def clean [path: path] {
     cd $path
@@ -21,31 +22,31 @@ export def test_dirs_command [] {
         use std.nu "dirs drop"
         use std.nu "dirs show"
 
-        assert (1 == ($env.DIRS_LIST | length)) "list is just pwd after initialization"
-        assert ($base_path == $env.DIRS_LIST.0) "list is just pwd after initialization"
+        assert length $env.DIRS_LIST 1 "list is just pwd after initialization"
+        assert equal $base_path $env.DIRS_LIST.0 "list is just pwd after initialization"
 
         dirs next
-        assert ($base_path == $env.DIRS_LIST.0) "next wraps at end of list"
+        assert equal $base_path $env.DIRS_LIST.0 "next wraps at end of list"
 
         dirs prev
-        assert ($base_path == $env.DIRS_LIST.0) "prev wraps at top of list"
+        assert equal $base_path $env.DIRS_LIST.0 "prev wraps at top of list"
 
         dirs add $path_b $path_a
-        assert ($path_b == $env.PWD) "add changes PWD to first added dir"
-        assert (3 == ($env.DIRS_LIST | length)) "add in fact adds to list"
-        assert ($path_a == $env.DIRS_LIST.2) "add in fact adds to list"
+        assert equal $path_b $env.PWD "add changes PWD to first added dir"
+        assert length $env.DIRS_LIST 3 "add in fact adds to list"
+        assert equal $path_a $env.DIRS_LIST.2 "add in fact adds to list"
 
         dirs next 2
-        assert ($base_path == $env.PWD) "next wraps at end of list"
+        assert equal $base_path $env.PWD "next wraps at end of list"
 
         dirs prev 1
-        assert ($path_a == $env.PWD) "prev wraps at start of list"
+        assert equal $path_a $env.PWD "prev wraps at start of list"
 
         dirs drop
-        assert (2 == ($env.DIRS_LIST | length)) "drop removes from list"
-        assert ($base_path == $env.PWD) "drop changes PWD to next in list (after dropped element)"
+        assert length $env.DIRS_LIST 2 "drop removes from list"
+        assert equal $base_path $env.PWD "drop changes PWD to next in list (after dropped element)"
 
-        assert ((dirs show) == [[active path]; [true $base_path] [false $path_b]]) "show table contains expected information"
+        assert equal (dirs show) [[active path]; [true $base_path] [false $path_b]] "show table contains expected information"
     } catch { |error|
         clean $base_path
 

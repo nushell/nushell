@@ -20,9 +20,18 @@ def show-pretty-test [indent: int = 4] {
     ] | str join
 }
 
-def main [] {
+# Test executor
+#
+# It executes exported "test_*" commands in "test_*" modules
+def main [
+    --path: path, # Path to look for tests. Default: directory of this file.
+    --module: string, # Module to run tests. Default: all test modules found.
+    --command: string, # Test command to run. Default: all test command found in the files.
+    --list, # Do not run any tests, just list them (dry run)
+] {
     let tests = (
-        ls ($env.FILE_PWD | path join "test_*.nu") | each {|row| {file: $row.name name: ($row.name | path parse | get stem)}}
+        ls ($path | default $env.FILE_PWD | path join "test_*.nu")
+        | each {|row| {file: $row.name name: ($row.name | path parse | get stem)}}
         | upsert test {|module|
             nu -c $'use ($module.file) *; $nu.scope.commands | select name module_name | to nuon'
             | from nuon
@@ -32,7 +41,22 @@ def main [] {
         }
         | flatten
         | rename file module name
-        | upsert pass {|test|
+    )
+
+    if $list {
+        return ($tests | select module name file)
+    }
+
+    let tests_to_run = (if not ($command | is-empty) {
+        $tests | where name == $command
+    } else if not ($module | is-empty) {
+        $tests | where module == $module
+    } else {
+        $tests
+    })
+
+    let tests = (
+        $tests_to_run | upsert pass {|test|
             log info $"Run test ($test.module) ($test.name)"
             try {
                 nu -c $'use ($test.file) ($test.name); ($test.name)'
