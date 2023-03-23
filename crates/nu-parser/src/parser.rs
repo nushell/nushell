@@ -4646,6 +4646,10 @@ pub fn parse_value(
         _ => {}
     }
 
+    if matches!(shape, SyntaxShape::MatchPattern) {
+        return parse_match_pattern(working_set, span);
+    }
+
     match bytes[0] {
         b'$' => return parse_dollar_expr(working_set, span, expand_aliases_denylist),
         b'(' => return parse_paren_expr(working_set, span, shape, expand_aliases_denylist),

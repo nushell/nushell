@@ -12,7 +12,8 @@ pub struct MatchPattern {
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub enum Pattern {
-    Record(Vec<(MatchPattern, MatchPattern)>),
+    Record(Vec<(String, MatchPattern)>),
+    List(Vec<MatchPattern>),
     Value(Expression),
     Variable(VarId),
     Garbage,

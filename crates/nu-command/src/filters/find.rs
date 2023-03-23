@@ -404,6 +404,7 @@ fn find_with_rest_and_highlight(
                             Err(_) => false,
                         },
                         Value::Binary { .. } => false,
+                        Value::MatchPattern { .. } => false,
                     }) != invert
                 },
                 ctrlc,
@@ -484,6 +485,7 @@ fn find_with_rest_and_highlight(
                             Err(_) => false,
                         },
                         Value::Binary { .. } => false,
+                        Value::MatchPattern { .. } => false,
                     }) != invert
                 }),
             ctrlc.clone(),
