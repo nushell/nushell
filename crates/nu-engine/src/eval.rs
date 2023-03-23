@@ -339,6 +339,7 @@ pub fn eval_expression(
             val: pattern.clone(),
             span: expr.span,
         }),
+        Expr::MatchBlock(_) => Ok(Value::Nothing { span: expr.span }), // match blocks are handled by `match`
         Expr::UnaryNot(expr) => {
             let lhs = eval_expression(engine_state, stack, expr)?;
             match lhs {

@@ -219,6 +219,16 @@ pub fn flatten_expression(
             // FIXME: do nicer flattening later
             flatten_pattern(pattern)
         }
+        Expr::MatchBlock(matches) => {
+            let mut output = vec![];
+
+            for match_ in matches {
+                output.extend(flatten_pattern(&match_.0));
+                output.extend(flatten_expression(working_set, &match_.1));
+            }
+
+            output
+        }
         Expr::ValueWithUnit(x, unit) => {
             let mut output = flatten_expression(working_set, x);
             output.push((unit.span, FlatShape::String));

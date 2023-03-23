@@ -283,6 +283,12 @@ fn convert_to_value(
 
             Ok(Value::List { vals: output, span })
         }
+        Expr::MatchBlock(..) => Err(ShellError::OutsideSpannedLabeledError(
+            original_text.to_string(),
+            "Error when loading".into(),
+            "match blocks not supported in nuon".into(),
+            expr.span,
+        )),
         Expr::Nothing => Ok(Value::Nothing { span }),
         Expr::Operator(..) => Err(ShellError::OutsideSpannedLabeledError(
             original_text.to_string(),

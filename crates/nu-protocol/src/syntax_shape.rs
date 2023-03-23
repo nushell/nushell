@@ -73,6 +73,9 @@ pub enum SyntaxShape {
     /// A general math expression, eg `1 + 2`
     MathExpression,
 
+    /// A block of matches, used by `match`
+    MatchBlock,
+
     /// A match pattern, eg `{a: $foo}`
     MatchPattern,
 
@@ -140,6 +143,7 @@ impl SyntaxShape {
                 Type::List(Box::new(contents))
             }
             SyntaxShape::Keyword(_, expr) => expr.to_type(),
+            SyntaxShape::MatchBlock => Type::Any,
             SyntaxShape::MatchPattern => Type::Any,
             SyntaxShape::MathExpression => Type::Any,
             SyntaxShape::Nothing => Type::Any,
@@ -201,6 +205,7 @@ impl Display for SyntaxShape {
             SyntaxShape::VarWithOptType => write!(f, "vardecl"),
             SyntaxShape::Signature => write!(f, "signature"),
             SyntaxShape::MatchPattern => write!(f, "matchpattern"),
+            SyntaxShape::MatchBlock => write!(f, "matchblock"),
             SyntaxShape::Expression => write!(f, "expression"),
             SyntaxShape::Boolean => write!(f, "bool"),
             SyntaxShape::Error => write!(f, "error"),

@@ -1,8 +1,9 @@
 use nu_engine::{eval_block, eval_expression, eval_expression_with_input, CallExt};
-use nu_protocol::ast::{Call, MatchPattern};
+use nu_protocol::ast::{Call, Expr, Expression, MatchPattern};
 use nu_protocol::engine::{Block, Command, EngineState, Matcher, Stack};
 use nu_protocol::{
-    Category, Example, PipelineData, ShellError, Signature, SyntaxShape, Type, Value,
+    Category, Example, IntoPipelineData, PipelineData, ShellError, Signature, SyntaxShape, Type,
+    Value,
 };
 
 #[derive(Clone)]
@@ -21,10 +22,9 @@ impl Command for Match {
         Signature::build("match")
             .input_output_types(vec![(Type::Any, Type::Any)])
             .required("value", SyntaxShape::Any, "value to check")
-            .required("cond", SyntaxShape::MatchPattern, "pattern to use")
             .required(
-                "block",
-                SyntaxShape::Block,
+                "match_block",
+                SyntaxShape::MatchBlock,
                 "block to run if check succeeds",
             )
             .category(Category::Core)
@@ -44,22 +44,42 @@ impl Command for Match {
         engine_state: &EngineState,
         stack: &mut Stack,
         call: &Call,
-        input: PipelineData,
+        _input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
         let value: Value = call.req(engine_state, stack, 0)?;
-        let pattern: MatchPattern = call.req(engine_state, stack, 1)?;
-        let block: Block = call.req(engine_state, stack, 2)?;
+        let block = call.positional_nth(1);
 
-        println!("Value: {:?}", value);
-        println!("Pattern: {:?}", pattern);
+        if let Some(Expression {
+            expr: Expr::MatchBlock(matches),
+            ..
+        }) = block
+        {
+            for match_ in matches {
+                let mut match_variables = vec![];
+                if match_.0.match_value(&value, &mut match_variables) {
+                    // This case does match, go ahead and return the evaluated expression
+                    for match_variable in match_variables {
+                        stack.add_var(match_variable.0, match_variable.1);
+                    }
+                    let output = eval_expression(engine_state, stack, &match_.1)?;
 
-        let mut variables = vec![];
-        let result = pattern.match_value(&value, &mut variables);
-
-        println!("Result: {}", result);
-        println!("Variables: {:?}", variables);
+                    return Ok(output.into_pipeline_data());
+                }
+            }
+        }
 
         Ok(PipelineData::Empty)
+
+        // println!("Value: {:?}", value);
+        // println!("Pattern: {:?}", pattern);
+
+        // let mut variables = vec![];
+        // let result = pattern.match_value(&value, &mut variables);
+
+        // println!("Result: {}", result);
+        // println!("Variables: {:?}", variables);
+
+        // Ok(PipelineData::Empty)
     }
 
     fn examples(&self) -> Vec<Example> {
