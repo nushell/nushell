@@ -51,6 +51,14 @@ pub fn parse_pattern(
     } else if bytes.starts_with(b"[") {
         // List pattern
         parse_list_pattern(working_set, span)
+    } else if bytes == b"_" {
+        (
+            MatchPattern {
+                pattern: Pattern::IgnoreValue,
+                span,
+            },
+            None,
+        )
     } else {
         // Literal value
         let (value, error) = parse_value(working_set, span, &SyntaxShape::Any, &[]);

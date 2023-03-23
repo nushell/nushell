@@ -16,5 +16,6 @@ pub enum Pattern {
     List(Vec<MatchPattern>),
     Value(Expression),
     Variable(VarId),
+    IgnoreValue, // the _ pattern
     Garbage,
 }

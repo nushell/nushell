@@ -17,6 +17,7 @@ impl Matcher for Pattern {
     fn match_value(&self, value: &Value, matches: &mut Vec<(VarId, Value)>) -> bool {
         match self {
             Pattern::Garbage => false,
+            Pattern::IgnoreValue => true,
             Pattern::Record(field_patterns) => match value {
                 Value::Record { cols, vals, .. } => {
                     'top: for field_pattern in field_patterns {
