@@ -77,6 +77,7 @@ pub fn is_math_expression_like(
         || bytes == b"null"
         || bytes == b"not"
         || bytes == b"if"
+        || bytes == b"match"
     {
         return true;
     }
@@ -4463,6 +4464,8 @@ pub fn parse_match_block_expression(
 
         // First parse the pattern
         let (pattern, err) = parse_pattern(working_set, output[position].span);
+        error = error.or(err);
+
         position += 1;
 
         if position >= output.len() {
@@ -5112,7 +5115,7 @@ pub fn parse_math_expression(
 
     let first_span = working_set.get_span_contents(spans[0]);
 
-    if first_span == b"if" {
+    if first_span == b"if" || first_span == b"match" {
         // If expression
         if spans.len() > 1 {
             return parse_call(working_set, spans, spans[0], expand_aliases_denylist, false);
