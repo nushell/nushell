@@ -77,8 +77,6 @@ impl Matcher for Pattern {
                         }
                     }
                     Expr::Range(start, step, end, inclusion) => {
-                        // TODO: Add support for step
-                        // TODO: Add support for reverse ranges
                         // TODO: Add support for floats
 
                         let start = if let Some(start) = &start {
