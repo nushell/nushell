@@ -742,7 +742,7 @@ impl Value {
                             if let Some(item) = val.get(*count) {
                                 current = item.clone();
                             } else if *optional {
-                                current = Value::nothing(*origin_span);
+                                return Ok(Value::nothing(*origin_span)); // short-circuit
                             } else if val.is_empty() {
                                 err_or_null!(
                                     ShellError::AccessEmptyContent { span: *origin_span },
@@ -762,7 +762,7 @@ impl Value {
                             if let Some(item) = val.get(*count) {
                                 current = Value::int(*item as i64, *origin_span);
                             } else if *optional {
-                                current = Value::nothing(*origin_span);
+                                return Ok(Value::nothing(*origin_span)); // short-circuit
                             } else if val.is_empty() {
                                 err_or_null!(
                                     ShellError::AccessEmptyContent { span: *origin_span },
@@ -782,7 +782,7 @@ impl Value {
                             if let Some(item) = val.clone().into_range_iter(None)?.nth(*count) {
                                 current = item.clone();
                             } else if *optional {
-                                current = Value::nothing(*origin_span);
+                                return Ok(Value::nothing(*origin_span)); // short-circuit
                             } else {
                                 err_or_null!(
                                     ShellError::AccessBeyondEndOfStream { span: *origin_span },
@@ -795,7 +795,8 @@ impl Value {
                                 Ok(val) => val,
                                 Err(err) => {
                                     if *optional {
-                                        Value::nothing(*origin_span)
+                                        return Ok(Value::nothing(*origin_span));
+                                    // short-circuit
                                     } else {
                                         return Err(err);
                                     }
@@ -803,7 +804,7 @@ impl Value {
                             };
                         }
                         Value::Nothing { .. } if *optional => {
-                            current = Value::nothing(*origin_span);
+                            return Ok(Value::nothing(*origin_span)); // short-circuit
                         }
                         // Records (and tables) are the only built-in which support column names,
                         // so only use this message for them.
@@ -843,7 +844,7 @@ impl Value {
                         }) {
                             current = found.1.clone();
                         } else if *optional {
-                            current = Value::nothing(*origin_span);
+                            return Ok(Value::nothing(*origin_span)); // short-circuit
                         } else {
                             if from_user_input {
                                 if let Some(suggestion) = did_you_mean(&cols, column_name) {
@@ -869,7 +870,7 @@ impl Value {
                         if columns.contains(&column_name.as_str()) {
                             current = val.get_column_value(column_name)?;
                         } else if *optional {
-                            current = Value::nothing(*origin_span);
+                            return Ok(Value::nothing(*origin_span)); // short-circuit
                         } else {
                             if from_user_input {
                                 if let Some(suggestion) = did_you_mean(&columns, column_name) {
@@ -934,7 +935,7 @@ impl Value {
                         current = val.follow_path_string(column_name.clone(), *origin_span)?;
                     }
                     Value::Nothing { .. } if *optional => {
-                        current = Value::nothing(*origin_span);
+                        return Ok(Value::nothing(*origin_span)); // short-circuit
                     }
                     Value::Error { error } => err_or_null!(*error.to_owned(), *origin_span),
                     x => {
@@ -2654,9 +2655,12 @@ impl Value {
             && (self.get_type() != Type::Any)
             && (rhs.get_type() != Type::Any)
         {
-            return Err(ShellError::TypeMismatch {
-                err_message: "compatible type".to_string(),
-                span: op,
+            return Err(ShellError::OperatorMismatch {
+                op_span: op,
+                lhs_ty: self.get_type(),
+                lhs_span: self.span()?,
+                rhs_ty: rhs.get_type(),
+                rhs_span: rhs.span()?,
             });
         }
 
@@ -2690,9 +2694,12 @@ impl Value {
             && (self.get_type() != Type::Any)
             && (rhs.get_type() != Type::Any)
         {
-            return Err(ShellError::TypeMismatch {
-                err_message: "compatible type".to_string(),
-                span: op,
+            return Err(ShellError::OperatorMismatch {
+                op_span: op,
+                lhs_ty: self.get_type(),
+                lhs_span: self.span()?,
+                rhs_ty: rhs.get_type(),
+                rhs_span: rhs.span()?,
             });
         }
 
@@ -2724,9 +2731,12 @@ impl Value {
             && (self.get_type() != Type::Any)
             && (rhs.get_type() != Type::Any)
         {
-            return Err(ShellError::TypeMismatch {
-                err_message: "compatible type".to_string(),
-                span: op,
+            return Err(ShellError::OperatorMismatch {
+                op_span: op,
+                lhs_ty: self.get_type(),
+                lhs_span: self.span()?,
+                rhs_ty: rhs.get_type(),
+                rhs_span: rhs.span()?,
             });
         }
 
@@ -2758,9 +2768,12 @@ impl Value {
             && (self.get_type() != Type::Any)
             && (rhs.get_type() != Type::Any)
         {
-            return Err(ShellError::TypeMismatch {
-                err_message: "compatible type".to_string(),
-                span: op,
+            return Err(ShellError::OperatorMismatch {
+                op_span: op,
+                lhs_ty: self.get_type(),
+                lhs_span: self.span()?,
+                rhs_ty: rhs.get_type(),
+                rhs_span: rhs.span()?,
             });
         }
 

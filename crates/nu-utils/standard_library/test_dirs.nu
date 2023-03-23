@@ -9,12 +9,17 @@ def clean [path: path] {
 
 export def test_dirs_command [] {
     # need some directories to play with
-    let base_path = (($nu.temp-path) | path join $"test_dirs_(random uuid)" | path expand )
+    let base_path = ($nu.temp-path | path join $"test_dirs_(random uuid)")
     let path_a = ($base_path | path join "a")
     let path_b = ($base_path | path join "b")
 
     try {
         mkdir $base_path $path_a $path_b
+        # Now that we've created the directories, we need to expand them to include symlinks
+        let base_path = ($base_path | path expand)
+        let path_a = ($path_a | path expand)
+        let path_b = ($path_b | path expand)
+
         cd $base_path
         use std.nu "dirs next"
         use std.nu "dirs prev"
@@ -44,7 +49,7 @@ export def test_dirs_command [] {
 
         dirs drop
         assert length $env.DIRS_LIST 2 "drop removes from list"
-        assert equal $base_path $env.PWD "drop changes PWD to next in list (after dropped element)"
+        assert equal ($base_path | path expand) $env.PWD "drop changes PWD to next in list (after dropped element)"
 
         assert equal (dirs show) [[active path]; [true $base_path] [false $path_b]] "show table contains expected information"
     } catch { |error|

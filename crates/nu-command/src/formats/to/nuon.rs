@@ -1,11 +1,13 @@
 use core::fmt::Write;
 use fancy_regex::Regex;
 use nu_engine::get_columns;
+use nu_engine::CallExt;
 use nu_parser::escape_quote_string;
 use nu_protocol::ast::{Call, RangeInclusion};
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
-    Category, Example, IntoPipelineData, PipelineData, ShellError, Signature, Span, Type, Value,
+    Category, Example, IntoPipelineData, PipelineData, ShellError, Signature, Span, SyntaxShape,
+    Type, Value,
 };
 use once_cell::sync::Lazy;
 
@@ -20,6 +22,23 @@ impl Command for ToNuon {
     fn signature(&self) -> Signature {
         Signature::build("to nuon")
             .input_output_types(vec![(Type::Any, Type::String)])
+            .switch(
+                "raw",
+                "remove all of the whitespace (default behaviour and overwrites -i and -t)",
+                Some('r'),
+            )
+            .named(
+                "indent",
+                SyntaxShape::Number,
+                "specify indentation width",
+                Some('i'),
+            )
+            .named(
+                "tabs",
+                SyntaxShape::Number,
+                "specify indentation tab quantity",
+                Some('t'),
+            )
             .category(Category::Experimental)
     }
 
@@ -29,28 +48,85 @@ impl Command for ToNuon {
 
     fn run(
         &self,
-        _engine_state: &EngineState,
-        _stack: &mut Stack,
+        engine_state: &EngineState,
+        stack: &mut Stack,
         call: &Call,
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
-        Ok(Value::String {
-            val: to_nuon(call, input)?,
-            span: call.head,
+        let raw = call.has_flag("raw");
+        let use_tabs = call.has_flag("tabs");
+        let use_indent = call.has_flag("indent");
+
+        let span = call.head;
+        let value = input.into_value(span);
+
+        let nuon_result = if raw {
+            value_to_string(&value, span, 0, &None)
+        } else if use_tabs {
+            let tab_count: usize = call.get_flag(engine_state, stack, "tabs")?.unwrap_or(1);
+            value_to_string(&value, span, 0, &Some("\t".repeat(tab_count)))
+        } else if use_indent {
+            let indent: usize = call.get_flag(engine_state, stack, "indent")?.unwrap_or(2);
+            value_to_string(&value, span, 0, &Some(" ".repeat(indent)))
+        } else {
+            value_to_string(&value, span, 0, &None)
+        };
+
+        match nuon_result {
+            Ok(serde_nuon_string) => Ok(Value::String {
+                val: serde_nuon_string,
+                span,
+            }
+            .into_pipeline_data()),
+            _ => Ok(Value::Error {
+                error: Box::new(ShellError::CantConvert {
+                    to_type: "NUON".into(),
+                    from_type: value.get_type().to_string(),
+                    span,
+                    help: None,
+                }),
+            }
+            .into_pipeline_data()),
         }
-        .into_pipeline_data())
     }
 
     fn examples(&self) -> Vec<Example> {
-        vec![Example {
-            description: "Outputs a nuon string representing the contents of this list",
-            example: "[1 2 3] | to nuon",
-            result: Some(Value::test_string("[1, 2, 3]")),
-        }]
+        vec![
+            Example {
+                description: "Outputs a NUON string representing the contents of this list, compact by default",
+                example: "[1 2 3] | to nuon",
+                result: Some(Value::test_string("[1, 2, 3]"))
+            },
+            Example {
+                description: "Outputs a NUON array of integers, with pretty indentation",
+                example: "[1 2 3] | to nuon --indent 2",
+                result: Some(Value::test_string("[\n  1,\n  2,\n  3\n]")),
+            },
+            Example {
+                description: "Overwrite any set option with --raw",
+                example: "[1 2 3] | to nuon --indent 2 --raw",
+                result: Some(Value::test_string("[1, 2, 3]"))
+            },
+            Example {
+                description: "A more complex record with multiple data types",
+                example: "{date: 2000-01-01, data: [1 [2 3] 4.56]} | to nuon --indent 2",
+                result: Some(Value::test_string("{\n  date: 2000-01-01T00:00:00+00:00,\n  data: [\n    1,\n    [\n      2,\n      3\n    ],\n    4.56\n  ]\n}"))
+            }
+        ]
     }
 }
 
-pub fn value_to_string(v: &Value, span: Span) -> Result<String, ShellError> {
+pub fn value_to_string(
+    v: &Value,
+    span: Span,
+    depth: usize,
+    indent: &Option<String>,
+) -> Result<String, ShellError> {
+    let (nl, sep) = get_true_separators(indent);
+    let idt = get_true_indentation(depth, indent);
+    let idt_po = get_true_indentation(depth + 1, indent);
+    let idt_pt = get_true_indentation(depth + 2, indent);
+
     match v {
         Value::Binary { val, .. } => {
             let mut s = String::with_capacity(2 * val.len());
@@ -125,13 +201,13 @@ pub fn value_to_string(v: &Value, span: Span) -> Result<String, ShellError> {
                     .iter()
                     .map(|string| {
                         if needs_quotes(string) {
-                            format!("\"{string}\"")
+                            format!("{idt}\"{string}\"")
                         } else {
-                            string.to_string()
+                            format!("{idt}{string}")
                         }
                     })
                     .collect();
-                let headers_output = headers.join(", ");
+                let headers_output = headers.join(&format!(",{sep}{nl}{idt_pt}"));
 
                 let mut table_output = vec![];
                 for val in vals {
@@ -139,55 +215,73 @@ pub fn value_to_string(v: &Value, span: Span) -> Result<String, ShellError> {
 
                     if let Value::Record { vals, .. } = val {
                         for val in vals {
-                            row.push(value_to_string_without_quotes(val, span)?);
+                            row.push(value_to_string_without_quotes(
+                                val,
+                                span,
+                                depth + 2,
+                                indent,
+                            )?);
                         }
                     }
 
-                    table_output.push(row.join(", "));
+                    table_output.push(row.join(&format!(",{sep}{nl}{idt_pt}")));
                 }
 
                 Ok(format!(
-                    "[[{}]; [{}]]",
+                    "[{nl}{idt_po}[{nl}{idt_pt}{}{nl}{idt_po}];{sep}{nl}{idt_po}[{nl}{idt_pt}{}{nl}{idt_po}]{nl}{idt}]",
                     headers_output,
-                    table_output.join("], [")
+                    table_output.join(&format!("{nl}{idt_po}],{sep}{nl}{idt_po}[{nl}{idt_pt}"))
                 ))
             } else {
                 let mut collection = vec![];
                 for val in vals {
-                    collection.push(value_to_string_without_quotes(val, span)?);
+                    collection.push(format!(
+                        "{idt_po}{}",
+                        value_to_string_without_quotes(val, span, depth + 1, indent,)?
+                    ));
                 }
-                Ok(format!("[{}]", collection.join(", ")))
+                Ok(format!(
+                    "[{nl}{}{nl}{idt}]",
+                    collection.join(&format!(",{sep}{nl}"))
+                ))
             }
         }
         Value::Nothing { .. } => Ok("null".to_string()),
         Value::Range { val, .. } => Ok(format!(
             "{}..{}{}",
-            value_to_string(&val.from, span)?,
+            value_to_string(&val.from, span, depth + 1, indent)?,
             if val.inclusion == RangeInclusion::RightExclusive {
                 "<"
             } else {
                 ""
             },
-            value_to_string(&val.to, span)?
+            value_to_string(&val.to, span, depth + 1, indent)?
         )),
         Value::Record { cols, vals, .. } => {
             let mut collection = vec![];
             for (col, val) in cols.iter().zip(vals) {
                 collection.push(if needs_quotes(col) {
                     format!(
-                        "\"{}\": {}",
+                        "{idt_po}\"{}\": {}",
                         col,
-                        value_to_string_without_quotes(val, span)?
+                        value_to_string_without_quotes(val, span, depth + 1, indent)?
                     )
                 } else {
-                    format!("{}: {}", col, value_to_string_without_quotes(val, span)?)
+                    format!(
+                        "{idt_po}{}: {}",
+                        col,
+                        value_to_string_without_quotes(val, span, depth + 1, indent)?
+                    )
                 });
             }
-            Ok(format!("{{{}}}", collection.join(", ")))
+            Ok(format!(
+                "{{{nl}{}{nl}{idt}}}",
+                collection.join(&format!(",{sep}{nl}"))
+            ))
         }
         Value::LazyRecord { val, .. } => {
             let collected = val.collect()?;
-            value_to_string(&collected, span)
+            value_to_string(&collected, span, depth + 1, indent)
         }
         // All strings outside data structures are quoted because they are in 'command position'
         // (could be mistaken for commands by the Nu parser)
@@ -195,7 +289,26 @@ pub fn value_to_string(v: &Value, span: Span) -> Result<String, ShellError> {
     }
 }
 
-fn value_to_string_without_quotes(v: &Value, span: Span) -> Result<String, ShellError> {
+fn get_true_indentation(depth: usize, indent: &Option<String>) -> String {
+    match indent {
+        Some(i) => i.repeat(depth),
+        None => "".to_string(),
+    }
+}
+
+fn get_true_separators(indent: &Option<String>) -> (String, String) {
+    match indent {
+        Some(_) => ("\n".to_string(), "".to_string()),
+        None => ("".to_string(), " ".to_string()),
+    }
+}
+
+fn value_to_string_without_quotes(
+    v: &Value,
+    span: Span,
+    depth: usize,
+    indent: &Option<String>,
+) -> Result<String, ShellError> {
     match v {
         Value::String { val, .. } => Ok({
             if needs_quotes(val) {
@@ -204,14 +317,8 @@ fn value_to_string_without_quotes(v: &Value, span: Span) -> Result<String, Shell
                 val.clone()
             }
         }),
-        _ => value_to_string(v, span),
+        _ => value_to_string(v, span, depth, indent),
     }
-}
-
-fn to_nuon(call: &Call, input: PipelineData) -> Result<String, ShellError> {
-    let v = input.into_value(call.head);
-
-    value_to_string(&v, call.head)
 }
 
 // This hits, in order:

@@ -33,7 +33,7 @@ nu-ansi-term = "0.47.0"
 
 # Potential dependencies for extras
 Inflector = "0.11"
-alphanumeric-sort = "1.4.4"
+alphanumeric-sort = "1.5.0"
 atty = "0.2.14"
 base64 = "0.21.0"
 byteorder = "1.4.3"
@@ -147,7 +147,7 @@ version = "0.27.2"
 
 [target.'cfg(windows)'.dependencies.windows]
 features = ["Win32_Foundation", "Win32_Storage_FileSystem", "Win32_System_SystemServices"]
-version = "0.44.0"
+version = "0.46.0"
 
 [features]
 dataframe = ["num", "polars", "sqlparser"]

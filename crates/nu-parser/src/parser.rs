@@ -71,7 +71,12 @@ pub fn is_math_expression_like(
         return false;
     }
 
-    if bytes == b"true" || bytes == b"false" || bytes == b"null" || bytes == b"not" {
+    if bytes == b"true"
+        || bytes == b"false"
+        || bytes == b"null"
+        || bytes == b"not"
+        || bytes == b"if"
+    {
         return true;
     }
 
@@ -1112,12 +1117,12 @@ pub fn parse_call(
     for word_span in spans[cmd_start..].iter() {
         // Find the longest group of words that could form a command
 
-        if is_math_expression_like(working_set, *word_span, expand_aliases_denylist) {
-            let bytes = working_set.get_span_contents(*word_span);
-            if bytes != b"true" && bytes != b"false" && bytes != b"null" && bytes != b"not" {
-                break;
-            }
-        }
+        // if is_math_expression_like(working_set, *word_span, expand_aliases_denylist) {
+        //     let bytes = working_set.get_span_contents(*word_span);
+        //     if bytes != b"true" && bytes != b"false" && bytes != b"null" && bytes != b"not" {
+        //         break;
+        //     }
+        // }
 
         name_spans.push(*word_span);
 
@@ -4993,7 +4998,20 @@ pub fn parse_math_expression(
 
     let first_span = working_set.get_span_contents(spans[0]);
 
-    if first_span == b"not" {
+    if first_span == b"if" {
+        // If expression
+        if spans.len() > 1 {
+            return parse_call(working_set, spans, spans[0], expand_aliases_denylist, false);
+        } else {
+            return (
+                garbage(spans[0]),
+                Some(ParseError::Expected(
+                    "expression".into(),
+                    Span::new(spans[0].end, spans[0].end),
+                )),
+            );
+        }
+    } else if first_span == b"not" {
         if spans.len() > 1 {
             let (remainder, err) = parse_math_expression(
                 working_set,
