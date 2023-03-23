@@ -16,7 +16,7 @@ def show-pretty-test [indent: int = 4] {
         (if $test.pass { " " } else { char failed})
         " "
         $"($test.module)::($test.name)"
-        ansi reset
+        (ansi reset)
     ] | str join
 }
 
