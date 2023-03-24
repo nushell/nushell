@@ -535,8 +535,6 @@ fn list_directory_contains_invalid_utf8() {
     )
 }
 
-
-
 #[test]
 fn list_ignores_ansi() {
     Playground::setup("ls_test_ansi", |dirs, sandbox| {
@@ -572,15 +570,14 @@ fn list_unknown_flag() {
         .contains("Available flags: --help(-h), --all(-a),"));
 }
 
-
 #[test]
 #[cfg(windows)]
 fn can_list_illegal_windows_filenames() {
     Playground::setup("ls_test_illegal_filenames", |dirs, sandbox| {
         let testdir = dirs.test().to_string_lossy();
         sandbox.with_files(vec![
-            EmptyFile(&format!(r"\\?\{testdir}\NUL")), // reserved name
-            EmptyFile(&format!(r"\\?\{testdir}\CON")), // reserved name
+            EmptyFile(&format!(r"\\?\{testdir}\NUL")),  // reserved name
+            EmptyFile(&format!(r"\\?\{testdir}\CON")),  // reserved name
             EmptyFile(&format!(r"\\?\{testdir}\foo.")), // files with a . at the end are 🙅‍♂️
             EmptyFile(&format!(r"\\?\{testdir}\bar ")), // files with a space at the end are 🙅‍♂️ too
             EmptyFile("some_regular_file.txt"),
