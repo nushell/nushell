@@ -3,6 +3,7 @@ use crate::{
     lex,
     lite_parser::{lite_parse, LiteCommand, LiteElement},
     parse_mut,
+    parse_patterns::{parse_match_pattern, parse_pattern},
     type_check::{math_result_type, type_compatible},
     ParseError, Token, TokenContents,
 };
@@ -76,6 +77,7 @@ pub fn is_math_expression_like(
         || bytes == b"null"
         || bytes == b"not"
         || bytes == b"if"
+        || bytes == b"match"
     {
         return true;
     }
@@ -120,7 +122,7 @@ fn is_identifier(bytes: &[u8]) -> bool {
     bytes.iter().all(|x| is_identifier_byte(*x))
 }
 
-fn is_variable(bytes: &[u8]) -> bool {
+pub fn is_variable(bytes: &[u8]) -> bool {
     if bytes.len() > 1 && bytes[0] == b'$' {
         is_identifier(&bytes[1..])
     } else {
@@ -1787,6 +1789,8 @@ pub fn parse_brace_expr(
             parse_closure_expression(working_set, shape, span, expand_aliases_denylist, true)
         } else if matches!(shape, SyntaxShape::Block) {
             parse_block_expression(working_set, span, expand_aliases_denylist)
+        } else if matches!(shape, SyntaxShape::MatchBlock) {
+            parse_match_block_expression(working_set, span, expand_aliases_denylist)
         } else {
             parse_record(working_set, span, expand_aliases_denylist)
         }
@@ -1802,6 +1806,8 @@ pub fn parse_brace_expr(
         parse_closure_expression(working_set, shape, span, expand_aliases_denylist, true)
     } else if matches!(shape, SyntaxShape::Block) {
         parse_block_expression(working_set, span, expand_aliases_denylist)
+    } else if matches!(shape, SyntaxShape::MatchBlock) {
+        parse_match_block_expression(working_set, span, expand_aliases_denylist)
     } else {
         (
             Expression::garbage(span),
@@ -4415,6 +4421,113 @@ pub fn parse_block_expression(
     )
 }
 
+pub fn parse_match_block_expression(
+    working_set: &mut StateWorkingSet,
+    span: Span,
+    expand_aliases_denylist: &[usize],
+) -> (Expression, Option<ParseError>) {
+    let bytes = working_set.get_span_contents(span);
+    let mut error = None;
+
+    let mut start = span.start;
+    let mut end = span.end;
+
+    if bytes.starts_with(b"{") {
+        start += 1;
+    } else {
+        return (
+            garbage(span),
+            Some(ParseError::Expected("closure".into(), span)),
+        );
+    }
+    if bytes.ends_with(b"}") {
+        end -= 1;
+    } else {
+        error = error.or_else(|| Some(ParseError::Unclosed("}".into(), Span::new(end, end))));
+    }
+
+    let inner_span = Span::new(start, end);
+
+    let source = working_set.get_span_contents(inner_span);
+
+    let (output, err) = lex(source, start, &[b' ', b'\r', b'\n', b','], &[], false);
+    error = error.or(err);
+
+    let mut position = 0;
+
+    let mut output_matches = vec![];
+
+    while position < output.len() {
+        // Each match gets its own scope
+
+        working_set.enter_scope();
+
+        // First parse the pattern
+        let (pattern, err) = parse_pattern(working_set, output[position].span);
+        error = error.or(err);
+
+        position += 1;
+
+        if position >= output.len() {
+            error = error.or(Some(ParseError::Mismatch(
+                "=>".into(),
+                "end of input".into(),
+                Span::new(output[position - 1].span.end, output[position - 1].span.end),
+            )));
+
+            working_set.exit_scope();
+            break;
+        }
+
+        // Then the =>
+        let thick_arrow = working_set.get_span_contents(output[position].span);
+        if thick_arrow != b"=>" {
+            error = error.or(Some(ParseError::Mismatch(
+                "=>".into(),
+                "end of input".into(),
+                Span::new(output[position - 1].span.end, output[position - 1].span.end),
+            )));
+        }
+
+        // Finally, the value/expression/block that we will run to produce the result
+        position += 1;
+
+        if position >= output.len() {
+            error = error.or(Some(ParseError::Mismatch(
+                "match result".into(),
+                "end of input".into(),
+                Span::new(output[position - 1].span.end, output[position - 1].span.end),
+            )));
+
+            working_set.exit_scope();
+            break;
+        }
+
+        let (result, err) = parse_multispan_value(
+            working_set,
+            &[output[position].span],
+            &mut 0,
+            &SyntaxShape::OneOf(vec![SyntaxShape::Block, SyntaxShape::Expression]),
+            expand_aliases_denylist,
+        );
+        error = error.or(err);
+        position += 1;
+        working_set.exit_scope();
+
+        output_matches.push((pattern, result));
+    }
+
+    (
+        Expression {
+            expr: Expr::MatchBlock(output_matches),
+            span,
+            ty: Type::Any,
+            custom_completion: None,
+        },
+        error,
+    )
+}
+
 pub fn parse_closure_expression(
     working_set: &mut StateWorkingSet,
     shape: &SyntaxShape,
@@ -4650,6 +4763,10 @@ pub fn parse_value(
         _ => {}
     }
 
+    if matches!(shape, SyntaxShape::MatchPattern) {
+        return parse_match_pattern(working_set, span);
+    }
+
     match bytes[0] {
         b'$' => return parse_dollar_expr(working_set, span, expand_aliases_denylist),
         b'(' => return parse_paren_expr(working_set, span, shape, expand_aliases_denylist),
@@ -4688,6 +4805,7 @@ pub fn parse_value(
         SyntaxShape::GlobPattern => parse_glob_pattern(working_set, span),
         SyntaxShape::String => parse_string(working_set, span, expand_aliases_denylist),
         SyntaxShape::Binary => parse_binary(working_set, span),
+        SyntaxShape::MatchPattern => parse_match_pattern(working_set, span),
         SyntaxShape::Signature => {
             if bytes.starts_with(b"[") {
                 parse_signature(working_set, span, expand_aliases_denylist)
@@ -4998,7 +5116,7 @@ pub fn parse_math_expression(
 
     let first_span = working_set.get_span_contents(spans[0]);
 
-    if first_span == b"if" {
+    if first_span == b"if" || first_span == b"match" {
         // If expression
         if spans.len() > 1 {
             return parse_call(working_set, spans, spans[0], expand_aliases_denylist, false);
@@ -6082,6 +6200,13 @@ pub fn discover_captures_in_expr(
         Expr::StringInterpolation(exprs) => {
             for expr in exprs {
                 let result = discover_captures_in_expr(working_set, expr, seen, seen_blocks)?;
+                output.extend(&result);
+            }
+        }
+        Expr::MatchPattern(_) => {}
+        Expr::MatchBlock(match_block) => {
+            for match_ in match_block {
+                let result = discover_captures_in_expr(working_set, &match_.1, seen, seen_blocks)?;
                 output.extend(&result);
             }
         }

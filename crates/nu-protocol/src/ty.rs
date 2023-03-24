@@ -22,6 +22,7 @@ pub enum Type {
     Int,
     List(Box<Type>),
     ListStream,
+    MatchPattern,
     #[default]
     Nothing,
     Number,
@@ -94,6 +95,7 @@ impl Type {
             Type::Binary => SyntaxShape::Binary,
             Type::Custom(_) => SyntaxShape::Any,
             Type::Signature => SyntaxShape::Signature,
+            Type::MatchPattern => SyntaxShape::MatchPattern,
         }
     }
 
@@ -114,6 +116,7 @@ impl Type {
             Type::Record(_) => String::from("record"),
             Type::Table(_) => String::from("table"),
             Type::List(_) => String::from("list"),
+            Type::MatchPattern => String::from("match pattern"),
             Type::Nothing => String::from("nothing"),
             Type::Number => String::from("number"),
             Type::String => String::from("string"),
@@ -180,6 +183,7 @@ impl Display for Type {
             Type::Binary => write!(f, "binary"),
             Type::Custom(custom) => write!(f, "{custom}"),
             Type::Signature => write!(f, "signature"),
+            Type::MatchPattern => write!(f, "match pattern"),
         }
     }
 }

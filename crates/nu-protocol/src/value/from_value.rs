@@ -2,7 +2,7 @@ use std::collections::HashMap;
 use std::path::PathBuf;
 use std::str::FromStr;
 
-use crate::ast::{CellPath, PathMember};
+use crate::ast::{CellPath, MatchPattern, PathMember};
 use crate::engine::{Block, Closure};
 use crate::ShellError;
 use crate::{Range, Spanned, Value};
@@ -556,6 +556,37 @@ impl FromValue for Spanned<Closure> {
             }),
             v => Err(ShellError::CantConvert {
                 to_type: "Closure".into(),
+                from_type: v.get_type().to_string(),
+                span: v.span()?,
+                help: None,
+            }),
+        }
+    }
+}
+
+impl FromValue for Spanned<MatchPattern> {
+    fn from_value(v: &Value) -> Result<Self, ShellError> {
+        match v {
+            Value::MatchPattern { val, span } => Ok(Spanned {
+                item: *val.clone(),
+                span: *span,
+            }),
+            v => Err(ShellError::CantConvert {
+                to_type: "Match pattern".into(),
+                from_type: v.get_type().to_string(),
+                span: v.span()?,
+                help: None,
+            }),
+        }
+    }
+}
+
+impl FromValue for MatchPattern {
+    fn from_value(v: &Value) -> Result<Self, ShellError> {
+        match v {
+            Value::MatchPattern { val, .. } => Ok(*val.clone()),
+            v => Err(ShellError::CantConvert {
+                to_type: "Match pattern".into(),
                 from_type: v.get_type().to_string(),
                 span: v.span()?,
                 help: None,

@@ -6,6 +6,7 @@ mod known_external;
 mod lex;
 mod lite_parser;
 mod parse_keywords;
+mod parse_patterns;
 mod parser;
 mod type_check;
 
