@@ -1,9 +1,8 @@
-use nu_engine::{eval_expression, CallExt};
+use nu_engine::{eval_block, eval_expression_with_input, CallExt};
 use nu_protocol::ast::{Call, Expr, Expression};
 use nu_protocol::engine::{Command, EngineState, Matcher, Stack};
 use nu_protocol::{
-    Category, Example, IntoPipelineData, PipelineData, ShellError, Signature, SyntaxShape, Type,
-    Value,
+    Category, Example, PipelineData, ShellError, Signature, SyntaxShape, Type, Value,
 };
 
 #[derive(Clone)]
@@ -44,7 +43,7 @@ impl Command for Match {
         engine_state: &EngineState,
         stack: &mut Stack,
         call: &Call,
-        _input: PipelineData,
+        input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
         let value: Value = call.req(engine_state, stack, 0)?;
         let block = call.positional_nth(1);
@@ -61,43 +60,56 @@ impl Command for Match {
                     for match_variable in match_variables {
                         stack.add_var(match_variable.0, match_variable.1);
                     }
-                    let output = eval_expression(engine_state, stack, &match_.1)?;
 
-                    return Ok(output.into_pipeline_data());
+                    if let Some(block_id) = match_.1.as_block() {
+                        let block = engine_state.get_block(block_id);
+                        return eval_block(
+                            engine_state,
+                            stack,
+                            block,
+                            input,
+                            call.redirect_stdout,
+                            call.redirect_stderr,
+                        );
+                    } else {
+                        return eval_expression_with_input(
+                            engine_state,
+                            stack,
+                            &match_.1,
+                            input,
+                            call.redirect_stdout,
+                            call.redirect_stderr,
+                        )
+                        .map(|x| x.0);
+                    }
                 }
             }
         }
 
         Ok(PipelineData::Empty)
-
-        // println!("Value: {:?}", value);
-        // println!("Pattern: {:?}", pattern);
-
-        // let mut variables = vec![];
-        // let result = pattern.match_value(&value, &mut variables);
-
-        // println!("Result: {}", result);
-        // println!("Variables: {:?}", variables);
-
-        // Ok(PipelineData::Empty)
     }
 
     fn examples(&self) -> Vec<Example> {
         vec![
             Example {
-                description: "Output a value if a condition matches, otherwise return nothing",
-                example: "if 2 < 3 { 'yes!' }",
+                description: "Match on a value in range",
+                example: "match 3 { 1..10 => 'yes!' }",
                 result: Some(Value::test_string("yes!")),
             },
             Example {
-                description: "Output a value if a condition matches, else return another value",
-                example: "if 5 < 3 { 'yes!' } else { 'no!' }",
+                description: "Match on a field in a record",
+                example: "match {a: 100} { {a: $my_value} => { $my_value } }",
+                result: Some(Value::test_int(100)),
+            },
+            Example {
+                description: "Match with a catch-all",
+                example: "match 3 { 1 => { 'yes!' }, _ => { 'no!' } }",
                 result: Some(Value::test_string("no!")),
             },
             Example {
-                description: "Chain multiple if's together",
-                example: "if 5 < 3 { 'yes!' } else if 4 < 5 { 'no!' } else { 'okay!' }",
-                result: Some(Value::test_string("no!")),
+                description: "Match against a list",
+                example: "match [1, 2, 3] { [$a, $b, $c] => { $a + $b + $c }, _ => 0 }",
+                result: Some(Value::test_int(6)),
             },
         ]
     }

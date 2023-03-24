@@ -4503,10 +4503,11 @@ pub fn parse_match_block_expression(
             break;
         }
 
-        let (result, err) = parse_math_expression(
+        let (result, err) = parse_multispan_value(
             working_set,
             &[output[position].span],
-            None,
+            &mut 0,
+            &SyntaxShape::OneOf(vec![SyntaxShape::Block, SyntaxShape::Expression]),
             expand_aliases_denylist,
         );
         error = error.or(err);
