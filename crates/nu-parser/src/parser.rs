@@ -4010,8 +4010,7 @@ pub fn parse_signature_helper(
                                                                         "Default value wrong type"
                                                                             .into(),
                                                                         format!(
-                                                                            "expected default value to be `{}` but found `{}`",
-                                                                            var_type, expression.ty,
+                                                                            "expected default value to be `{var_type}`",
                                                                         ),
                                                                         expression.span,
                                                                     ),
@@ -4024,8 +4023,7 @@ pub fn parse_signature_helper(
                                                         Some(ParseError::AssignmentMismatch(
                                                             "Default value wrong type".into(),
                                                             format!(
-                                                                "expected default value to be `{}` but found `{}`",
-                                                                var_type, expression.ty,
+                                                                "expected default value to be `{var_type}`",
                                                             ),
                                                             expression.span,
                                                         ))
@@ -4037,7 +4035,7 @@ pub fn parse_signature_helper(
                                                     error = error.or_else(|| {
                                                         Some(ParseError::AssignmentMismatch(
                                                             "Default value wrong type".into(),
-                                                            format!("expected default value to be `{t}` but found `{}`", expression.ty),
+                                                            format!("expected default value to be `{t}`"),
                                                             expression.span,
                                                         ))
                                                     })
