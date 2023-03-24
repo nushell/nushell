@@ -459,7 +459,7 @@ pub fn eval_expression(
                         Expr::Var(var_id) | Expr::VarDecl(var_id) => {
                             let var_info = engine_state.get_var(*var_id);
                             if var_info.mutable {
-                                stack.vars.insert(*var_id, rhs);
+                                stack.add_var(*var_id, rhs);
                                 Ok(Value::nothing(lhs.span))
                             } else {
                                 Err(ShellError::AssignmentRequiresMutableVar { lhs_span: lhs.span })
@@ -499,7 +499,7 @@ pub fn eval_expression(
                                             }
                                         }
                                     } else {
-                                        stack.vars.insert(*var_id, lhs);
+                                        stack.add_var(*var_id, lhs);
                                     }
                                     Ok(Value::nothing(cell_path.head.span))
                                 } else {
