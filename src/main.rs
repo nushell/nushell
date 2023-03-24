@@ -234,6 +234,7 @@ fn main() -> Result<()> {
             use_color,
             &commands,
             input,
+            entire_start_time,
         )
     } else if !script_name.is_empty() {
         run_file(
