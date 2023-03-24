@@ -12,13 +12,15 @@ use nu_protocol::{
     PipelineMetadata, ShellError, Signature, Span, Spanned, SyntaxShape, Type, Value,
 };
 use pathdiff::diff_paths;
-use verbatim::PathExt;
 
 #[cfg(unix)]
 use std::os::unix::fs::PermissionsExt;
 use std::path::PathBuf;
 use std::sync::Arc;
 use std::time::{SystemTime, UNIX_EPOCH};
+
+#[cfg(windows)]
+use verbatim::PathExt;
 
 #[derive(Clone)]
 pub struct Ls;
