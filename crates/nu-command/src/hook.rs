@@ -202,7 +202,7 @@ pub fn eval_hook(
                         }
 
                         for var_id in var_ids.iter() {
-                            stack.vars.remove(var_id);
+                            stack.remove_var(*var_id);
                         }
                     }
                     Value::Block {
