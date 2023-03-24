@@ -3997,7 +3997,9 @@ pub fn parse_signature_helper(
                                             }
                                             Type::List(param_ty) => {
                                                 if let Type::List(expr_ty) = &expression.ty {
-                                                    if param_ty == expr_ty {
+                                                    if param_ty == expr_ty
+                                                        || **param_ty == Type::Any
+                                                    {
                                                         working_set.set_variable_type(
                                                             var_id,
                                                             expression.ty.clone(),
