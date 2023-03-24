@@ -13,6 +13,9 @@ use std::collections::HashMap;
 use std::io::BufReader;
 use std::path::PathBuf;
 use std::str::FromStr;
+use std::sync::atomic::AtomicBool;
+use std::sync::mpsc;
+use std::sync::Arc;
 use std::time::Duration;
 use url::Url;
 
@@ -146,13 +149,11 @@ pub fn send_request(
     request: Request,
     body: Option<Value>,
     content_type: Option<String>,
+    ctrl_c: Option<Arc<AtomicBool>>,
 ) -> Result<Response, ShellErrorOrRequestError> {
     let request_url = request.url().to_string();
-    let error_handler = |err: Error| -> ShellErrorOrRequestError {
-        ShellErrorOrRequestError::RequestError(request_url, err)
-    };
     if body.is_none() {
-        return request.call().map_err(error_handler);
+        return send_cancellable_request(&request_url, Box::new(|| request.call()), ctrl_c);
     }
     let body = body.expect("Should never be none.");
 
@@ -162,11 +163,19 @@ pub fn send_request(
         _ => BodyType::Unknown,
     };
     match body {
-        Value::Binary { val, .. } => request.send_bytes(&val).map_err(error_handler),
-        Value::String { val, .. } => request.send_string(&val).map_err(error_handler),
+        Value::Binary { val, .. } => send_cancellable_request(
+            &request_url,
+            Box::new(move || request.send_bytes(&val)),
+            ctrl_c,
+        ),
+        Value::String { val, .. } => send_cancellable_request(
+            &request_url,
+            Box::new(move || request.send_string(&val)),
+            ctrl_c,
+        ),
         Value::Record { .. } if body_type == BodyType::Json => {
             let data = value_to_json_value(&body);
-            request.send_json(data).map_err(error_handler)
+            send_cancellable_request(&request_url, Box::new(|| request.send_json(data)), ctrl_c)
         }
         Value::Record { cols, vals, .. } if body_type == BodyType::Form => {
             let mut data: Vec<(String, String)> = Vec::with_capacity(cols.len());
@@ -176,12 +185,15 @@ pub fn send_request(
                 data.push((col.clone(), val_string))
             }
 
-            let data = data
-                .iter()
-                .map(|(a, b)| (a.as_str(), b.as_str()))
-                .collect::<Vec<(&str, &str)>>();
-
-            request.send_form(&data[..]).map_err(error_handler)
+            let request_fn = move || {
+                // coerce `data` into a shape that send_form() is happy with
+                let data = data
+                    .iter()
+                    .map(|(a, b)| (a.as_str(), b.as_str()))
+                    .collect::<Vec<(&str, &str)>>();
+                request.send_form(&data)
+            };
+            send_cancellable_request(&request_url, Box::new(request_fn), ctrl_c)
         }
         Value::List { vals, .. } if body_type == BodyType::Form => {
             if vals.len() % 2 != 0 {
@@ -200,16 +212,54 @@ pub fn send_request(
                 })
                 .collect::<Result<Vec<(String, String)>, ShellErrorOrRequestError>>()?;
 
-            let data = data
-                .iter()
-                .map(|(a, b)| (a.as_str(), b.as_str()))
-                .collect::<Vec<(&str, &str)>>();
-
-            request.send_form(&data).map_err(error_handler)
+            let request_fn = move || {
+                // coerce `data` into a shape that send_form() is happy with
+                let data = data
+                    .iter()
+                    .map(|(a, b)| (a.as_str(), b.as_str()))
+                    .collect::<Vec<(&str, &str)>>();
+                request.send_form(&data)
+            };
+            send_cancellable_request(&request_url, Box::new(request_fn), ctrl_c)
         }
         _ => Err(ShellErrorOrRequestError::ShellError(ShellError::IOError(
             "unsupported body input".into(),
         ))),
+    }
+}
+
+// Helper method used to make blocking HTTP request calls cancellable with ctrl+c
+// ureq functions can block for a long time (default 30s?) while attempting to make an HTTP connection
+fn send_cancellable_request(
+    request_url: &str,
+    request_fn: Box<dyn FnOnce() -> Result<Response, Error> + Sync + Send>,
+    ctrl_c: Option<Arc<AtomicBool>>,
+) -> Result<Response, ShellErrorOrRequestError> {
+    let (tx, rx) = mpsc::channel::<Result<Response, Error>>();
+
+    // Make the blocking request on a background thread...
+    std::thread::Builder::new()
+        .name("HTTP requester".to_string())
+        .spawn(move || {
+            let ret = request_fn();
+            let _ = tx.send(ret); // may fail if the user has cancelled the operation
+        })
+        .expect("Failed to create thread");
+
+    // ...and poll the channel for responses
+    loop {
+        if nu_utils::ctrl_c::was_pressed(&ctrl_c) {
+            // Return early and give up on the background thread. The connection will either time out or be disconnected
+            return Err(ShellErrorOrRequestError::ShellError(
+                ShellError::InterruptedByUser { span: None },
+            ));
+        }
+
+        if let Ok(result) = rx.try_recv() {
+            return result
+                .map_err(|e| ShellErrorOrRequestError::RequestError(request_url.to_string(), e));
+        }
+        std::thread::sleep(Duration::from_millis(100)); // arbitrarily chosen interval
     }
 }
 
