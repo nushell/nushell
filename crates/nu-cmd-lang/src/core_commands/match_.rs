@@ -111,6 +111,11 @@ impl Command for Match {
                 example: "match [1, 2, 3] { [$a, $b, $c] => { $a + $b + $c }, _ => 0 }",
                 result: Some(Value::test_int(6)),
             },
+            Example {
+                description: "Match against pipeline input",
+                example: "{a: {b: 3}} | match $in.a { { $b } => ($b + 10) }",
+                result: Some(Value::test_int(13)),
+            },
         ]
     }
 }
