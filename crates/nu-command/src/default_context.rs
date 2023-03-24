@@ -168,6 +168,8 @@ pub fn create_default_context() -> EngineState {
             Encode,
             DecodeBase64,
             EncodeBase64,
+            DecodeHex,
+            EncodeHex,
             DetectColumns,
             Format,
             FileSize,
