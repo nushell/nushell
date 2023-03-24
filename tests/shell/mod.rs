@@ -201,6 +201,7 @@ fn run_export_extern() {
 }
 
 #[test]
+#[cfg(not(windows))]
 fn run_in_login_mode() {
     let child_output = std::process::Command::new("sh")
         .arg("-c")
@@ -215,6 +216,7 @@ fn run_in_login_mode() {
 }
 
 #[test]
+#[cfg(not(windows))]
 fn run_in_not_login_mode() {
     let child_output = std::process::Command::new("sh")
         .arg("-c")
@@ -229,6 +231,7 @@ fn run_in_not_login_mode() {
 }
 
 #[test]
+#[cfg(not(windows))]
 fn run_in_interactive_mode() {
     let child_output = std::process::Command::new("sh")
         .arg("-c")
@@ -243,6 +246,7 @@ fn run_in_interactive_mode() {
 }
 
 #[test]
+#[cfg(not(windows))]
 fn run_in_noninteractive_mode() {
     let child_output = std::process::Command::new("sh")
         .arg("-c")
