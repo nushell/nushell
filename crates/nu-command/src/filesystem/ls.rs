@@ -193,7 +193,7 @@ impl Command for Ls {
                         path_for_metadata = path;
                     }
 
-                    let metadata = match std::fs::symlink_metadata(&path_for_metadata) {
+                    let metadata = match std::fs::symlink_metadata(path_for_metadata) {
                         Ok(metadata) => Some(metadata),
                         Err(_) => None,
                     };
