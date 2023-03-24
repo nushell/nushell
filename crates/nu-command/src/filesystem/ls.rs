@@ -192,7 +192,7 @@ impl Command for Ls {
                     }
                     #[cfg(not(windows))]
                     {
-                        path_for_metadata = path;
+                        path_for_metadata = path.clone();
                     }
 
                     let metadata = match std::fs::symlink_metadata(path_for_metadata) {
