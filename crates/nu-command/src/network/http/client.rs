@@ -255,11 +255,11 @@ fn send_cancellable_request(
             ));
         }
 
-        if let Ok(result) = rx.try_recv() {
+        // 100ms wait time chosen arbitrarily
+        if let Ok(result) = rx.recv_timeout(Duration::from_millis(100)) {
             return result
                 .map_err(|e| ShellErrorOrRequestError::RequestError(request_url.to_string(), e));
         }
-        std::thread::sleep(Duration::from_millis(100)); // arbitrarily chosen interval
     }
 }
 
