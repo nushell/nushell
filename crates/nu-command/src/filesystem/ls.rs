@@ -12,6 +12,7 @@ use nu_protocol::{
     PipelineMetadata, ShellError, Signature, Span, Spanned, SyntaxShape, Type, Value,
 };
 use pathdiff::diff_paths;
+use verbatim::PathExt;
 
 #[cfg(unix)]
 use std::os::unix::fs::PermissionsExt;
@@ -180,7 +181,19 @@ impl Command for Ls {
         Ok(paths_peek
             .filter_map(move |x| match x {
                 Ok(path) => {
-                    let metadata = match std::fs::symlink_metadata(&path) {
+                    let path_for_metadata;
+                    #[cfg(windows)]
+                    {
+                        // Use a 'verbatim' path (prefixed with \\?\)
+                        // Without this, calls to `symlink_metadata()` fail for file names that are "illegal" on Windows like NUL, CON, etc.
+                        path_for_metadata = path.to_verbatim();
+                    }
+                    #[cfg(not(windows))]
+                    {
+                        path_for_metadata = path;
+                    }
+
+                    let metadata = match std::fs::symlink_metadata(&path_for_metadata) {
                         Ok(metadata) => Some(metadata),
                         Err(_) => None,
                     };

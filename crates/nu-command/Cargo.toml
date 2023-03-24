@@ -103,6 +103,7 @@ which = { version = "4.4.0", optional = true }
 print-positions = "0.6.1"
 
 [target.'cfg(windows)'.dependencies]
+verbatim = "0.1.1"
 winreg = "0.11.0"
 
 [target.'cfg(unix)'.dependencies]

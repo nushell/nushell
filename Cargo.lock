@@ -2862,6 +2862,7 @@ dependencies = [
  "url",
  "users 0.11.0",
  "uuid",
+ "verbatim",
  "wax",
  "which",
  "windows 0.46.0",
@@ -5626,6 +5627,12 @@ name = "vcpkg"
 version = "0.2.15"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "accd4ea62f7bb7a82fe23066fb0957d48ef677f6eeb8215f372f52e48bb32426"
+
+[[package]]
+name = "verbatim"
+version = "0.1.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "bbad0679079b451226e954019b2efac46bafa8f7b1418b953861e864072a97c6"
 
 [[package]]
 name = "version_check"
