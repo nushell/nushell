@@ -56,13 +56,22 @@ def main [
     }
 
     let tests = (
-        $tests_to_run | upsert pass {|test|
-            log info $"Run test ($test.module) ($test.name)"
-            try {
-                nu -c $'use ($test.file) ($test.name); ($test.name)'
-                true
-            } catch { false }
+        $tests_to_run
+        | group-by module
+        | transpose name tests
+        | each {|module|
+            log info $"Running tests in ($module.name)"
+            $module.tests | each {|test|
+                log debug $"Running test ($test.name)"
+                let did_pass = (try {
+                    nu -c $'use ($test.file) ($test.name); ($test.name)'
+                    true
+                } catch { false })
+
+                $test | merge ({pass: $did_pass})
+            }
         }
+        | flatten
     )
 
     if not ($tests | where not pass | is-empty) {
