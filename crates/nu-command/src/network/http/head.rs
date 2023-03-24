@@ -143,7 +143,7 @@ fn helper(call: &Call, args: Arguments) -> Result<PipelineData, ShellError> {
     request = request_add_authorization_header(args.user, args.password, request);
     request = request_add_custom_headers(args.headers, request)?;
 
-    let response = send_request(request, span, None, None);
+    let response = send_request(request, None, None);
     request_handle_response_headers(span, response)
 }
 

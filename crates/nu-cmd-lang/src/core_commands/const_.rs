@@ -21,7 +21,7 @@ impl Command for Const {
             .required("const_name", SyntaxShape::VarWithOptType, "constant name")
             .required(
                 "initial_value",
-                SyntaxShape::Keyword(b"=".to_vec(), Box::new(SyntaxShape::Expression)),
+                SyntaxShape::Keyword(b"=".to_vec(), Box::new(SyntaxShape::MathExpression)),
                 "equals sign followed by constant value",
             )
             .category(Category::Core)

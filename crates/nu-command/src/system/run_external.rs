@@ -1,3 +1,4 @@
+use crate::hook::eval_hook;
 use fancy_regex::Regex;
 use itertools::Itertools;
 use nu_engine::env_to_strings;
@@ -324,9 +325,34 @@ impl ExternalCommand {
                             }
                         };
 
+                        let mut err_str = err.to_string();
+                        if engine_state.is_interactive {
+                            let mut engine_state = engine_state.clone();
+                            if let Some(hook) = engine_state.config.hooks.command_not_found.clone()
+                            {
+                                if let Ok(PipelineData::Value(Value::String { val, .. }, ..)) =
+                                    eval_hook(
+                                        &mut engine_state,
+                                        stack,
+                                        None,
+                                        vec![(
+                                            "cmd_name".into(),
+                                            Value::string(
+                                                self.name.item.to_string(),
+                                                self.name.span,
+                                            ),
+                                        )],
+                                        &hook,
+                                    )
+                                {
+                                    err_str = format!("{}\n{}", err_str, val);
+                                }
+                            }
+                        }
+
                         Err(ShellError::ExternalCommand {
                             label,
-                            help: err.to_string(),
+                            help: err_str,
                             span: self.name.span,
                         })
                     }

@@ -335,6 +335,11 @@ pub fn eval_expression(
             span: expr.span,
         }),
         Expr::Operator(_) => Ok(Value::Nothing { span: expr.span }),
+        Expr::MatchPattern(pattern) => Ok(Value::MatchPattern {
+            val: pattern.clone(),
+            span: expr.span,
+        }),
+        Expr::MatchBlock(_) => Ok(Value::Nothing { span: expr.span }), // match blocks are handled by `match`
         Expr::UnaryNot(expr) => {
             let lhs = eval_expression(engine_state, stack, expr)?;
             match lhs {
@@ -697,6 +702,29 @@ pub fn eval_expression_with_input(
             // FIXME: protect this collect with ctrl-c
             input = eval_subexpression(engine_state, stack, block, input)?;
         }
+
+        elem @ Expression {
+            expr: Expr::FullCellPath(full_cell_path),
+            ..
+        } => match &full_cell_path.head {
+            Expression {
+                expr: Expr::Subexpression(block_id),
+                span,
+                ..
+            } => {
+                let block = engine_state.get_block(*block_id);
+
+                // FIXME: protect this collect with ctrl-c
+                input = eval_subexpression(engine_state, stack, block, input)?;
+                let value = input.into_value(*span);
+                input = value
+                    .follow_cell_path(&full_cell_path.tail, false)?
+                    .into_pipeline_data()
+            }
+            _ => {
+                input = eval_expression(engine_state, stack, elem)?.into_pipeline_data();
+            }
+        },
 
         elem => {
             input = eval_expression(engine_state, stack, elem)?.into_pipeline_data();

@@ -17,8 +17,9 @@ use crate::{
 use command::gather_commandline_args;
 use log::Level;
 use miette::Result;
-use nu_cli::{gather_parent_env_vars, get_init_cwd, report_error_new};
-use nu_command::create_default_context;
+use nu_cli::gather_parent_env_vars;
+use nu_command::util::report_error_new;
+use nu_command::{create_default_context, get_init_cwd};
 use nu_protocol::{util::BufferedReader, PipelineData, RawStream};
 use nu_utils::utils::perf;
 use run::{run_commands, run_file, run_repl};
