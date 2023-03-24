@@ -16,6 +16,7 @@ pub(crate) fn run_commands(
     use_color: bool,
     commands: &nu_protocol::Spanned<String>,
     input: PipelineData,
+    entire_start_time: std::time::Instant,
 ) -> Result<(), miette::ErrReport> {
     let mut stack = nu_protocol::engine::Stack::new();
     let start_time = std::time::Instant::now();
@@ -69,6 +70,8 @@ pub(crate) fn run_commands(
         use_color,
     );
 
+    // Before running commands, set up the startup time
+    engine_state.set_startup_time(entire_start_time.elapsed().as_nanos() as i64);
     let start_time = std::time::Instant::now();
     let ret_val = evaluate_commands(
         commands,
