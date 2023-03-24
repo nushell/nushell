@@ -1,6 +1,6 @@
 use crate::{
     eval::{eval_constant, value_as_string},
-    lex,
+    lex::{lex, lex_signature},
     lite_parser::{lite_parse, LiteCommand, LiteElement},
     parse_mut,
     parse_patterns::{parse_match_pattern, parse_pattern},
@@ -3039,6 +3039,8 @@ pub fn parse_shape_name(
     bytes: &[u8],
     span: Span,
 ) -> (SyntaxShape, Option<ParseError>) {
+    let mut error = None;
+
     let result = match bytes {
         b"any" => SyntaxShape::Any,
         b"binary" => SyntaxShape::Binary,
@@ -3060,7 +3062,11 @@ pub fn parse_shape_name(
         b"int" => SyntaxShape::Int,
         b"import-pattern" => SyntaxShape::ImportPattern,
         b"keyword" => SyntaxShape::Keyword(vec![], Box::new(SyntaxShape::Any)),
-        b"list" => SyntaxShape::List(Box::new(SyntaxShape::Any)),
+        _ if bytes.starts_with(b"list") => {
+            let (sig, err) = parse_list_shape(working_set, bytes, span);
+            error = error.or(err);
+            sig
+        }
         b"math" => SyntaxShape::MathExpression,
         b"nothing" => SyntaxShape::Nothing,
         b"number" => SyntaxShape::Number,
@@ -3104,7 +3110,51 @@ pub fn parse_shape_name(
         }
     };
 
-    (result, None)
+    (result, error)
+}
+
+fn parse_list_shape(
+    working_set: &StateWorkingSet,
+    bytes: &[u8],
+    span: Span,
+) -> (SyntaxShape, Option<ParseError>) {
+    assert!(bytes.starts_with(b"list"));
+
+    if bytes == b"list" {
+        (SyntaxShape::List(Box::new(SyntaxShape::Any)), None)
+    } else if bytes.starts_with(b"list<") {
+        let start = span.start + 5;
+
+        // if the annotation is unterminated, we want to return early to avoid
+        // overflows with spans
+        let end = if bytes.ends_with(b">") {
+            span.end - 1
+        } else {
+            let err = ParseError::Unclosed(">".into(), span);
+            return (SyntaxShape::List(Box::new(SyntaxShape::Any)), Some(err));
+        };
+
+        let inner_span = Span::new(start, end);
+
+        let inner_text = String::from_utf8_lossy(working_set.get_span_contents(inner_span));
+
+        // remove any extra whitespace, for example `list< string >` becomes `list<string>`
+        let inner_bytes = inner_text.trim().as_bytes();
+
+        // list<>
+        if inner_bytes.is_empty() {
+            (SyntaxShape::List(Box::new(SyntaxShape::Any)), None)
+        } else {
+            let (inner_sig, err) = parse_shape_name(working_set, inner_bytes, inner_span);
+
+            (SyntaxShape::List(Box::new(inner_sig)), err)
+        }
+    } else {
+        (
+            SyntaxShape::List(Box::new(SyntaxShape::Any)),
+            Some(ParseError::UnknownType(span)),
+        )
+    }
 }
 
 pub fn parse_type(_working_set: &StateWorkingSet, bytes: &[u8]) -> Type {
@@ -3518,13 +3568,14 @@ pub fn parse_signature_helper(
     let mut error = None;
     let source = working_set.get_span_contents(span);
 
-    let (output, err) = lex(
+    let (output, err) = lex_signature(
         source,
         span.start,
         &[b'\n', b'\r'],
         &[b':', b'=', b','],
         false,
     );
+
     error = error.or(err);
 
     let mut args: Vec<Arg> = vec![];

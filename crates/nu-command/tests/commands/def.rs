@@ -151,18 +151,6 @@ fn def_fails_with_invalid_name() {
 }
 
 #[test]
-fn def_errors_with_specified_list_type() {
-    let actual = nu!(
-        cwd: ".", pipeline(
-        r#"
-        def test-command [ foo: list<any> ] {}
-        "#
-    ));
-
-    assert!(actual.err.contains("unknown type"));
-}
-
-#[test]
 fn def_with_list() {
     Playground::setup("def_with_list", |dirs, _| {
         let data = r#"
