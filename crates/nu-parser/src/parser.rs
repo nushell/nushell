@@ -3995,19 +3995,35 @@ pub fn parse_signature_helper(
                                                     expression.ty.clone(),
                                                 );
                                             }
-                                            Type::List(_) => {
-                                                if var_type.is_list() && expression.ty.is_list() {
-                                                    working_set.set_variable_type(
-                                                        var_id,
-                                                        expression.ty.clone(),
-                                                    );
+                                            Type::List(param_ty) => {
+                                                if let Type::List(expr_ty) = &expression.ty {
+                                                    if param_ty == expr_ty
+                                                        || **param_ty == Type::Any
+                                                    {
+                                                        working_set.set_variable_type(
+                                                            var_id,
+                                                            expression.ty.clone(),
+                                                        );
+                                                    } else {
+                                                        error = error.or_else(|| {
+                                                                Some(
+                                                                    ParseError::AssignmentMismatch(
+                                                                        "Default value wrong type"
+                                                                            .into(),
+                                                                        format!(
+                                                                            "expected default value to be `{var_type}`",
+                                                                        ),
+                                                                        expression.span,
+                                                                    ),
+                                                                )
+                                                            })
+                                                    }
                                                 } else {
                                                     error = error.or_else(|| {
                                                         Some(ParseError::AssignmentMismatch(
                                                             "Default value wrong type".into(),
                                                             format!(
-                                                                "default value not {0}",
-                                                                expression.ty
+                                                                "expected default value to be `{var_type}`",
                                                             ),
                                                             expression.span,
                                                         ))
@@ -4019,7 +4035,7 @@ pub fn parse_signature_helper(
                                                     error = error.or_else(|| {
                                                         Some(ParseError::AssignmentMismatch(
                                                             "Default value wrong type".into(),
-                                                            format!("default value not {t}"),
+                                                            format!("expected default value to be `{t}`"),
                                                             expression.span,
                                                         ))
                                                     })
