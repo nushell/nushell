@@ -1,7 +1,7 @@
 use nu_engine::{eval_block, CallExt};
 use nu_protocol::{
     ast::Call,
-    engine::{Closure, Command, EngineState, Stack},
+    engine::{Block, Command, EngineState, Stack},
     Category, Example, IntoPipelineData, PipelineData, ShellError, Signature, SyntaxShape, Type,
     Value,
 };
@@ -16,16 +16,12 @@ impl Command for TimeIt {
     }
 
     fn usage(&self) -> &str {
-        "Time the running time of a closure."
+        "Time the running time of a block."
     }
 
     fn signature(&self) -> nu_protocol::Signature {
         Signature::build("timeit")
-            .required(
-                "closure",
-                SyntaxShape::Closure(Some(vec![SyntaxShape::Any])),
-                "the closure to run",
-            )
+            .required("block", SyntaxShape::Block, "the block to run")
             .input_output_types(vec![
                 (Type::Any, Type::Duration),
                 (Type::Nothing, Type::Duration),
@@ -45,13 +41,13 @@ impl Command for TimeIt {
         call: &Call,
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
-        let capture_block: Closure = call.req(engine_state, stack, 0)?;
+        let capture_block: Block = call.req(engine_state, stack, 0)?;
         let block = engine_state.get_block(capture_block.block_id);
 
         let redirect_stdout = call.redirect_stdout;
         let redirect_stderr = call.redirect_stderr;
 
-        let mut stack = stack.captures_to_stack(&capture_block.captures);
+        // let mut stack = stack.captures_to_stack(&capture_block.captures);
 
         // In order to provide the pipeline as a positional, it must be converted into a value.
         // But because pipelines do not have Clone, this one has to be cloned as a value
@@ -70,7 +66,7 @@ impl Command for TimeIt {
         let start_time = Instant::now();
         eval_block(
             engine_state,
-            &mut stack,
+            stack,
             block,
             input_val.into_pipeline_data_with_metadata(input_metadata),
             redirect_stdout,
@@ -107,11 +103,11 @@ impl Command for TimeIt {
 #[test]
 // Due to difficulty in observing side-effects from time closures,
 // checks that the closures have run correctly must use the filesystem.
-fn test_time_closure() {
+fn test_time_block() {
     use nu_test_support::{nu, nu_repl_code, playground::Playground};
-    Playground::setup("test_time_closure", |dirs, _| {
+    Playground::setup("test_time_block", |dirs, _| {
         let inp = [
-            r#"[2 3 4] | timeit {|_| to nuon | save foo.txt }"#,
+            r#"[2 3 4] | timeit {to nuon | save foo.txt }"#,
             "open foo.txt",
         ];
         let actual_repl = nu!(cwd: dirs.test(), nu_repl_code(&inp));
@@ -121,11 +117,11 @@ fn test_time_closure() {
 }
 
 #[test]
-fn test_time_closure_2() {
+fn test_time_block_2() {
     use nu_test_support::{nu, nu_repl_code, playground::Playground};
-    Playground::setup("test_time_closure", |dirs, _| {
+    Playground::setup("test_time_block", |dirs, _| {
         let inp = [
-            r#"[2 3 4] | timeit {|e| {result: $e} | to nuon | save foo.txt }"#,
+            r#"[2 3 4] | timeit {{result: $in} | to nuon | save foo.txt }"#,
             "open foo.txt",
         ];
         let actual_repl = nu!(cwd: dirs.test(), nu_repl_code(&inp));

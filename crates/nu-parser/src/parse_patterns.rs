@@ -88,7 +88,7 @@ pub fn parse_variable_pattern(
                 None,
             )
         } else {
-            let var_id = working_set.add_variable(bytes.to_vec(), span, Type::Any, true);
+            let var_id = working_set.add_variable(bytes.to_vec(), span, Type::Any, false);
 
             (
                 MatchPattern {
