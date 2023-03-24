@@ -3996,15 +3996,14 @@ pub fn parse_signature_helper(
                                                 );
                                             }
                                             Type::List(param_ty) => {
-                                                if var_type.is_list() && expression.ty.is_list() {
-                                                    if let Type::List(expr_ty) = &expression.ty {
-                                                        if param_ty == expr_ty {
-                                                            working_set.set_variable_type(
-                                                                var_id,
-                                                                expression.ty.clone(),
-                                                            );
-                                                        } else {
-                                                            error = error.or_else(|| {
+                                                if let Type::List(expr_ty) = &expression.ty {
+                                                    if param_ty == expr_ty {
+                                                        working_set.set_variable_type(
+                                                            var_id,
+                                                            expression.ty.clone(),
+                                                        );
+                                                    } else {
+                                                        error = error.or_else(|| {
                                                                 Some(
                                                                     ParseError::AssignmentMismatch(
                                                                         "Default value wrong type"
@@ -4016,7 +4015,6 @@ pub fn parse_signature_helper(
                                                                     ),
                                                                 )
                                                             })
-                                                        }
                                                     }
                                                 } else {
                                                     error = error.or_else(|| {
