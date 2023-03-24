@@ -111,3 +111,17 @@ fn list_annotations_unknown_separators() -> TestResult {
     let expected = "unknown type";
     fail_test(input, expected)
 }
+
+#[test]
+fn list_annotations_with_default_val_1() -> TestResult {
+    let input = "def run [list: list<int> = [2 5 4]] {$list | length}; run";
+    let expected = "3";
+    run_test(input, expected)
+}
+
+#[test]
+fn list_annotations_with_default_val_2() -> TestResult {
+    let input = "def run [list: list<string> = [2 5 4]] {$list | length}; run";
+    let expected = "Default value wrong type";
+    fail_test(input, expected)
+}
