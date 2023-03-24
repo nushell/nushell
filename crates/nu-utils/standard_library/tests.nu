@@ -27,7 +27,7 @@ def main [
     --path: path, # Path to look for tests. Default: directory of this file.
     --module: string, # Module to run tests. Default: all test modules found.
     --command: string, # Test command to run. Default: all test command found in the files.
-    --list, # Do not run any tests, just list them (dry run)
+    --list, # list the tests selected by `--module` and `--command` without running them.
 ] {
     let tests = (
         ls ($path | default $env.FILE_PWD | path join "test_*.nu")
@@ -43,10 +43,6 @@ def main [
         | rename file module name
     )
 
-    if $list {
-        return ($tests | select module name file)
-    }
-
     let tests_to_run = (if not ($command | is-empty) {
         $tests | where name == $command
     } else if not ($module | is-empty) {
@@ -54,6 +50,10 @@ def main [
     } else {
         $tests
     })
+
+    if $list {
+        return ($tests_to_run | select module name file)
+    }
 
     let tests = (
         $tests_to_run | upsert pass {|test|
