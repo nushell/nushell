@@ -1,5 +1,6 @@
 mod alias;
 mod break_;
+mod collect;
 mod commandline;
 mod const_;
 mod continue_;
@@ -41,6 +42,7 @@ mod while_;
 
 pub use alias::Alias;
 pub use break_::Break;
+pub use collect::Collect;
 pub use commandline::Commandline;
 pub use const_::Const;
 pub use continue_::Continue;

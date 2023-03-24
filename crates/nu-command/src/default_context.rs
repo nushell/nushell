@@ -36,7 +36,6 @@ pub fn create_default_context() -> EngineState {
             All,
             Any,
             Append,
-            Collect,
             Columns,
             Compact,
             Default,

@@ -11,8 +11,8 @@ use crate::{
 use nu_protocol::{
     ast::{
         Argument, Assignment, Bits, Block, Boolean, Call, CellPath, Comparison, Expr, Expression,
-        FullCellPath, ImportPattern, ImportPatternHead, ImportPatternMember, Math, Operator,
-        PathMember, Pipeline, PipelineElement, RangeInclusion, RangeOperator,
+        FullCellPath, ImportPattern, ImportPatternHead, ImportPatternMember, MatchPattern, Math,
+        Operator, PathMember, Pattern, Pipeline, PipelineElement, RangeInclusion, RangeOperator,
     },
     engine::StateWorkingSet,
     span, BlockId, Flag, PositionalArg, Signature, Span, Spanned, SyntaxShape, Type, Unit, VarId,
@@ -6005,6 +6005,23 @@ pub fn discover_captures_in_pipeline_element(
     }
 }
 
+pub fn discover_captures_in_pattern(pattern: &MatchPattern, seen: &mut Vec<VarId>) {
+    match &pattern.pattern {
+        Pattern::Variable(var_id) => seen.push(*var_id),
+        Pattern::List(items) => {
+            for item in items {
+                discover_captures_in_pattern(item, seen)
+            }
+        }
+        Pattern::Record(items) => {
+            for item in items {
+                discover_captures_in_pattern(&item.1, seen)
+            }
+        }
+        Pattern::Value(_) | Pattern::IgnoreValue | Pattern::Garbage => {}
+    }
+}
+
 // Closes over captured variables
 pub fn discover_captures_in_expr(
     working_set: &StateWorkingSet,
@@ -6206,6 +6223,7 @@ pub fn discover_captures_in_expr(
         Expr::MatchPattern(_) => {}
         Expr::MatchBlock(match_block) => {
             for match_ in match_block {
+                discover_captures_in_pattern(&match_.0, seen);
                 let result = discover_captures_in_expr(working_set, &match_.1, seen, seen_blocks)?;
                 output.extend(&result);
             }

@@ -13,7 +13,7 @@ mod test_examples {
         check_example_evaluates_to_expected_output,
         check_example_input_and_output_types_match_command_signature,
     };
-    use crate::{Break, Describe, Mut};
+    use crate::{Break, Collect, Describe, Mut};
     use crate::{Echo, If, Let};
     use nu_protocol::{
         engine::{Command, EngineState, StateWorkingSet},
@@ -66,6 +66,7 @@ mod test_examples {
             working_set.add_decl(Box::new(If));
             working_set.add_decl(Box::new(Let));
             working_set.add_decl(Box::new(Mut));
+            working_set.add_decl(Box::new(Collect));
 
             // Adding the command that is being tested to the working set
             working_set.add_decl(cmd);
