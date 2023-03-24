@@ -14,7 +14,7 @@ use std::io::BufReader;
 use std::path::PathBuf;
 use std::str::FromStr;
 use std::sync::atomic::AtomicBool;
-use std::sync::mpsc;
+use std::sync::mpsc::{self, RecvTimeoutError};
 use std::sync::Arc;
 use std::time::Duration;
 use url::Url;
@@ -256,9 +256,14 @@ fn send_cancellable_request(
         }
 
         // 100ms wait time chosen arbitrarily
-        if let Ok(result) = rx.recv_timeout(Duration::from_millis(100)) {
-            return result
-                .map_err(|e| ShellErrorOrRequestError::RequestError(request_url.to_string(), e));
+        match rx.recv_timeout(Duration::from_millis(100)) {
+            Ok(result) => {
+                return result.map_err(|e| {
+                    ShellErrorOrRequestError::RequestError(request_url.to_string(), e)
+                });
+            }
+            Err(RecvTimeoutError::Timeout) => continue,
+            Err(RecvTimeoutError::Disconnected) => panic!("http response channel disconnected"),
         }
     }
 }
