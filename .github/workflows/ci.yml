@@ -84,7 +84,6 @@ jobs:
 
   std-lib-and-python-virtualenv:
     env:
-      NUSHELL_CARGO_TARGET: ci
       NU_LOG_LEVEL: DEBUG 
 
     strategy:
@@ -105,7 +104,7 @@ jobs:
         uses: actions-rust-lang/setup-rust-toolchain@v1.4.4
 
       - name: Install Nushell
-        run: cargo install --locked --path=. --profile ci --no-default-features
+        run: cargo install --path . --locked --no-default-features
 
       - name: Standard library tests
         run: nu crates/nu-utils/standard_library/tests.nu
