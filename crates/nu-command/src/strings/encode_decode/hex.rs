@@ -108,55 +108,55 @@ fn action(
         Value::Binary { val, .. } => match hex_config.action_type {
             ActionType::Encode => Value::string(hex_encode(val.as_ref()), command_span),
             ActionType::Decode => Value::Error {
-                error: ShellError::UnsupportedInput(
+                error: Box::new(ShellError::UnsupportedInput(
                     "Binary data can only be encoded".to_string(),
                     "value originates from here".into(),
                     command_span,
                     // This line requires the Value::Error {} match above.
                     input.expect_span(),
-                ),
+                )),
             },
         },
         Value::String { val, .. } => {
             match hex_config.action_type {
                 ActionType::Encode => Value::Error {
-                    error: ShellError::UnsupportedInput(
+                    error: Box::new(ShellError::UnsupportedInput(
                         "String value can only be decoded".to_string(),
                         "value originates from here".into(),
                         command_span,
                         // This line requires the Value::Error {} match above.
                         input.expect_span(),
-                    ),
+                    )),
                 },
 
                 ActionType::Decode => match hex_decode(val.as_ref()) {
                     Ok(decoded_value) => Value::binary(decoded_value, command_span),
                     Err(HexDecodingError::InvalidLength(len)) => Value::Error {
-                        error: ShellError::GenericError(
+                        error: Box::new(ShellError::GenericError(
                             "value could not be hex decoded".to_string(),
                             format!("invalid hex input length: {len}. The length should be even"),
                             Some(command_span),
                             None,
                             Vec::new(),
-                        ),
+                        )),
                     },
                     Err(HexDecodingError::InvalidDigit(index, digit)) => Value::Error {
-                        error: ShellError::GenericError(
+                        error: Box::new(ShellError::GenericError(
                             "value could not be hex decoded".to_string(),
                             format!("invalid hex digit: '{digit}' at index {index}. Only 0-9, A-F, a-f are allowed in hex encoding"),
                             Some(command_span),
                             None,
                             Vec::new(),
-                        ),
+                        )),
                     },
                 },
             }
         }
         other => Value::Error {
-            error: ShellError::TypeMismatch {
+            error: Box::new(ShellError::TypeMismatch {
                 err_message: format!("string or binary, not {}", other.get_type()),
                 span: other.span().unwrap_or(command_span),
-            },
+            }),
         },
     }
 }
