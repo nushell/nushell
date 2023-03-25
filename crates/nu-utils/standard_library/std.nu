@@ -907,7 +907,11 @@ def show-command [command: record] {
             print $"  ($example.description)"
             print $"  > ($example.example | nu-highlight)"
             if not ($example.result | is-empty) {
-                for line in ($example.result | table | lines) { print $"  ($line)" }
+                for line in (
+                    $example.result | table | if ($example.result | describe) == "binary" { str join } else { lines }
+                ) {
+                    print $"  ($line)"
+                }
             }
         }
     }
