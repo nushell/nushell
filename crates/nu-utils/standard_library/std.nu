@@ -657,6 +657,8 @@ def show-operator [operator: record] {
 }
 
 # Show help on nushell operators.
+#
+# Examples:
 #     search for string in operators names
 #     > help operators --find Bit
 #     ╭───┬─────────┬──────────┬────────┬───────────────────────────────────────┬────────────╮
