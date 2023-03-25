@@ -810,75 +810,77 @@ def show-command [command: record] {
         print $"- (ansi cyan)is not(ansi reset) a keyword."
     }
 
-    print ""
-    print-help-header "Usage"
-    for signature in $command.signatures {
-        let signatures = ($signature | transpose | get column1)
-
-        let parameters = ($signatures | get 0 | where parameter_type != input and parameter_type != output)
-
-        let positionals = ($parameters | where parameter_type == positional and parameter_type != rest)
-        let flags = ($parameters | where parameter_type != positional and parameter_type != rest)
-        let is_rest = (not ($parameters | where parameter_type == rest | is-empty))
-
-        let subcommands = ($nu.scope.commands | where name =~ $"^($command.name) " | select name usage)
-
-        print -n "  > "
-        print -n $"($command.name) "
-        if not ($flags | is-empty) {
-            print -n $"{flags} "
-        }
-        for param in $positionals {
-            print -n $"<($param.parameter_name)> "
-        }
+    if not ($command.signatures | is-empty) {
         print ""
+        print-help-header "Usage"
+        for signature in $command.signatures {
+            let signatures = ($signature | transpose | get column1)
 
-        if not ($subcommands | is-empty) {
-            print ""
-            print-help-header "Subcommands"
-            for subcommand in $subcommands {
-                print $"  (ansi teal)($subcommand.name)(ansi reset) - ($subcommand.usage)"
+            let parameters = ($signatures | get 0 | where parameter_type != input and parameter_type != output)
+
+            let positionals = ($parameters | where parameter_type == positional and parameter_type != rest)
+            let flags = ($parameters | where parameter_type != positional and parameter_type != rest)
+            let is_rest = (not ($parameters | where parameter_type == rest | is-empty))
+
+            let subcommands = ($nu.scope.commands | where name =~ $"^($command.name) " | select name usage)
+
+            print -n "  > "
+            print -n $"($command.name) "
+            if not ($flags | is-empty) {
+                print -n $"{flags} "
             }
-        }
-
-        print ""
-        print-help-header "Flags"
-        print $"  (ansi teal)-h(ansi reset), (ansi teal)--help(ansi reset) - Display the help message for this command"
-        for flag in $flags {
-            print -n $"  (ansi teal)-($flag.short_flag)(ansi reset), (ansi teal)--($flag.parameter_name)(ansi reset)"
-            if not ($flag.syntax_shape | is-empty) {
-                print -n $" <(ansi light_blue)($flag.syntax_shape)(ansi reset)>"
+            for param in $positionals {
+                print -n $"<($param.parameter_name)> "
             }
-            print $" - ($flag.description)"
-        }
-
-        print ""
-        print-help-header "Signatures"
-        for sig in $signatures {
-           let input = ($sig | where parameter_type == input | get 0)
-           let output = ($sig | where parameter_type == output | get 0)
-
-           print -n $"  <($input.syntax_shape)> | ($command.name)"
-           for positional in $positionals {
-               print -n $" <($positional.syntax_shape)>"
-           }
-           print $" -> <($output.syntax_shape)>"
-        }
-
-        if (not ($positionals | is-empty)) or $is_rest {
             print ""
-            print-help-header "Parameters"
-            for positional in $positionals {
-                print -n "  "
-                if ($positional.is_optional) {
-                    print -n "(optional) "
+
+            if not ($subcommands | is-empty) {
+                print ""
+                print-help-header "Subcommands"
+                for subcommand in $subcommands {
+                    print $"  (ansi teal)($subcommand.name)(ansi reset) - ($subcommand.usage)"
                 }
-                print $"(ansi teal)($positional.parameter_name)(ansi reset) <(ansi light_blue)($positional.syntax_shape)(ansi reset)>: ($positional.description)"
             }
 
-            if $is_rest {
-                let rest = ($parameters | where parameter_type == rest | get 0)
-                print $"  ...(ansi teal)rest(ansi reset) <(ansi light_blue)($rest.syntax_shape)(ansi reset)>: ($rest.description)"
+            print ""
+            print-help-header "Flags"
+            print $"  (ansi teal)-h(ansi reset), (ansi teal)--help(ansi reset) - Display the help message for this command"
+            for flag in $flags {
+                print -n $"  (ansi teal)-($flag.short_flag)(ansi reset), (ansi teal)--($flag.parameter_name)(ansi reset)"
+                if not ($flag.syntax_shape | is-empty) {
+                    print -n $" <(ansi light_blue)($flag.syntax_shape)(ansi reset)>"
+                }
+                print $" - ($flag.description)"
+            }
+
+            print ""
+            print-help-header "Signatures"
+            for sig in $signatures {
+               let input = ($sig | where parameter_type == input | get 0)
+               let output = ($sig | where parameter_type == output | get 0)
+
+               print -n $"  <($input.syntax_shape)> | ($command.name)"
+               for positional in $positionals {
+                   print -n $" <($positional.syntax_shape)>"
+               }
+               print $" -> <($output.syntax_shape)>"
+            }
+
+            if (not ($positionals | is-empty)) or $is_rest {
+                print ""
+                print-help-header "Parameters"
+                for positional in $positionals {
+                    print -n "  "
+                    if ($positional.is_optional) {
+                        print -n "(optional) "
+                    }
+                    print $"(ansi teal)($positional.parameter_name)(ansi reset) <(ansi light_blue)($positional.syntax_shape)(ansi reset)>: ($positional.description)"
+                }
+
+                if $is_rest {
+                    let rest = ($parameters | where parameter_type == rest | get 0)
+                    print $"  ...(ansi teal)rest(ansi reset) <(ansi light_blue)($rest.syntax_shape)(ansi reset)>: ($rest.description)"
+                }
             }
         }
     }
