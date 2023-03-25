@@ -928,3 +928,42 @@ export def "help commands" [
         $commands
     }
 }
+
+# TODO
+export def help [
+    item?: string  # the name of the help item to get help on
+    --find (-f): string  # string to find in help items names and usage
+] {
+    if ($item | is-empty) and ($find | is-empty) {
+        print "Welcome to Nushell.
+
+Here are some tips to help you get started.
+  * help -h or help help - show available `help` subcommands and examples
+  * help commands - list all available commands
+  * help <name> - display help about a particular command, alias, or module
+  * help --find <text to search> - search through all help commands table
+
+Nushell works on the idea of a "pipeline". Pipelines are commands connected with the '|' character.
+Each stage in the pipeline works together to load, parse, and display information to you.
+
+[Examples]
+
+List the files in the current directory, sorted by size:
+    ls | sort-by size
+
+Get information about the current system:
+    sys | get host
+
+Get the processes on your system actively using CPU:
+    ps | where cpu > 0
+
+You can also learn more at https://www.nushell.sh/book/"
+        return
+    }
+
+    try { return (help aliases $item --find $find) }
+    try { return (help commands $item --find $find) }
+    try { return (help modules $item --find $find) }
+
+    error make { msg: "nothing found" }
+}
