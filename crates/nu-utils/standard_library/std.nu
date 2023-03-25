@@ -961,11 +961,11 @@ You can also learn more at https://www.nushell.sh/book/"
         return
     }
 
-    let aliases = (try { help aliases $item --find $find })
-    if not ($aliases | is-empty) { return $aliases }
-
     let commands = (try { help commands $item --find $find })
     if not ($commands | is-empty) { return $commands }
+
+    let aliases = (try { help aliases $item --find $find })
+    if not ($aliases | is-empty) { return $aliases }
 
     let modules = (try { help modules $item --find $find })
     if not ($modules | is-empty) { return $modules }
