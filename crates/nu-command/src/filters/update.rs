@@ -2,8 +2,8 @@ use nu_engine::{eval_block, CallExt};
 use nu_protocol::ast::{Call, CellPath, PathMember};
 use nu_protocol::engine::{Closure, Command, EngineState, Stack};
 use nu_protocol::{
-    Category, Example, FromValue, IntoInterruptiblePipelineData, IntoPipelineData, PipelineData,
-    ShellError, Signature, Span, SyntaxShape, Type, Value,
+    Category, Example, FromValue, IntoInterruptiblePipelineData, PipelineData, ShellError,
+    Signature, Span, SyntaxShape, Type, Value,
 };
 
 #[derive(Clone)]
@@ -122,7 +122,10 @@ fn update(
                     &engine_state,
                     &mut stack,
                     &block,
-                    input.clone().into_pipeline_data(),
+                    input
+                        .clone()
+                        .follow_cell_path(&cell_path.members, false)
+                        .into_pipeline_data(None),
                     redirect_stdout,
                     redirect_stderr,
                 );
