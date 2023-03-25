@@ -27,7 +27,7 @@ def main [
     --path: path, # Path to look for tests. Default: directory of this file.
     --module: string, # Module to run tests. Default: all test modules found.
     --command: string, # Test command to run. Default: all test command found in the files.
-    --list, # list the tests selected by `--module` and `--command` without running them.
+    --list, # list the selected tests without running them.
 ] {
     let tests = (
         ls ($path | default $env.FILE_PWD | path join "test_*.nu")
