@@ -704,7 +704,7 @@ impl PipelineData {
             return print_if_stream(stream, stderr_stream, to_stderr, exit_code);
         }
 
-        if let Some(decl_id) = engine_state.find_decl("table".as_bytes(), &[]) {
+        if let Some(decl_id) = engine_state.table_decl_id {
             let command = engine_state.get_decl(decl_id);
             if command.get_block_id().is_some() {
                 return self.write_all_and_flush(engine_state, config, no_newline, to_stderr);
@@ -734,8 +734,6 @@ impl PipelineData {
         no_newline: bool,
         to_stderr: bool,
     ) -> Result<i64, ShellError> {
-        let config = engine_state.get_config();
-
         if let PipelineData::ExternalStream {
             stdout: stream,
             stderr: stderr_stream,
@@ -745,6 +743,7 @@ impl PipelineData {
         {
             print_if_stream(stream, stderr_stream, to_stderr, exit_code)
         } else {
+            let config = engine_state.get_config();
             self.write_all_and_flush(engine_state, config, no_newline, to_stderr)
         }
     }
@@ -835,6 +834,7 @@ pub fn print_if_stream(
 ) -> Result<i64, ShellError> {
     // NOTE: currently we don't need anything from stderr
     // so we just consume and throw away `stderr_stream` to make sure the pipe doesn't fill up
+
     thread::Builder::new()
         .name("stderr consumer".to_string())
         .spawn(move || stderr_stream.map(|x| x.into_bytes()))

@@ -162,7 +162,8 @@ impl Command for For {
                             return Err(err);
                         }
                         Ok(pipeline) => {
-                            let exit_code = pipeline.print(&engine_state, stack, false, false)?;
+                            let exit_code =
+                                pipeline.print_not_formatted(&engine_state, false, false)?;
                             if exit_code != 0 {
                                 break;
                             }

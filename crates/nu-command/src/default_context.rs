@@ -462,5 +462,9 @@ pub fn create_default_context() -> EngineState {
         eprintln!("Error creating default context: {err:?}");
     }
 
+    // Cache the table decl id so we don't have to look it up later
+    let table_decl_id = engine_state.find_decl("table".as_bytes(), &[]);
+    engine_state.table_decl_id = table_decl_id;
+
     engine_state
 }
