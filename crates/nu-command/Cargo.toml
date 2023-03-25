@@ -83,6 +83,7 @@ serde = { version = "1.0.123", features = ["derive"] }
 serde_urlencoded = "0.7.0"
 serde_yaml = "0.9.4"
 sha2 = "0.10.0"
+hmac = "0.12.1"
 # Disable default features b/c the default features build Git (very slow to compile)
 percent-encoding = "2.2.0"
 reedline = { version = "0.17.0", features = ["bashisms", "sqlite"] }

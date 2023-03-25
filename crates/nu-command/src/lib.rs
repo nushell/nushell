@@ -14,6 +14,7 @@ mod filters;
 mod formats;
 mod generators;
 mod hash;
+mod hmac;
 pub mod hook;
 mod input_handler;
 mod math;
@@ -30,6 +31,7 @@ mod system;
 pub mod util;
 mod viewers;
 
+pub use self::hmac::*;
 pub use bits::*;
 pub use bytes::*;
 pub use charting::*;

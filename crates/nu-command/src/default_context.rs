@@ -435,6 +435,12 @@ pub fn create_default_context() -> EngineState {
             HashSha256::default(),
         };
 
+        // Hmac
+        bind_command! {
+            Hmac,
+            HmacSha256::default(),
+        };
+
         // Experimental
         bind_command! {
             IsAdmin,
