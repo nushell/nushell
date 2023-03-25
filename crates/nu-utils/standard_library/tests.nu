@@ -78,7 +78,7 @@ def main [
         let text = ([
             $"(ansi purple)some tests did not pass (char lparen)see complete errors above(char rparen):(ansi reset)"
             ""
-            ($tests | each {|test| ($test | show-pretty-test 8)} | str join "\n")
+            ($tests | each {|test| ($test | show-pretty-test 4)} | str join "\n")
             ""
         ] | str join "\n")
 
