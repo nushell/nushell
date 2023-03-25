@@ -77,8 +77,7 @@ impl Command for While {
                                 return Err(err);
                             }
                             Ok(pipeline) => {
-                                let exit_code =
-                                    pipeline.print_not_formatted(engine_state, false, false)?;
+                                let exit_code = pipeline.drain_with_exit_code()?;
                                 if exit_code != 0 {
                                     break;
                                 }
