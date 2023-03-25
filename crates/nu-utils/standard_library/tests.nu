@@ -5,8 +5,8 @@ use std.nu *
 # `$in` must be a `record<file: string, module: string, name: string, pass: bool>`.
 #
 # the output would be like
-# - "<indentation> x <module>  <test>" all in red if failed
-# - "<indentation>   <module>  <test>" all in green if passed
+# - "<indentation> x <module> <test>" all in red if failed
+# - "<indentation>   <module> <test>" all in green if passed
 def show-pretty-test [indent: int = 4] {
     let test = $in
 
@@ -15,7 +15,7 @@ def show-pretty-test [indent: int = 4] {
         (if $test.pass { ansi green } else { ansi red})
         (if $test.pass { " " } else { char failed})
         " "
-        $"($test.module)  ($test.name)"
+        $"($test.module) ($test.name)"
         (ansi reset)
     ] | str join
 }
