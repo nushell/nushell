@@ -194,3 +194,10 @@ fn fail_on_non_iterator() {
 
     assert!(actual.err.contains("only_supports_this_input_type"));
 }
+
+// Test that filtering on columns that might be missing/null works
+#[test]
+fn where_gt_null() {
+    let actual = nu!("[{foo: 123} {}] | where foo? > 10 | to nuon");
+    assert_eq!(actual.out, "[[foo]; [123]]");
+}

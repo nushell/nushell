@@ -2658,6 +2658,10 @@ impl Value {
             return lhs.operation(*span, Operator::Comparison(Comparison::LessThan), op, rhs);
         }
 
+        if matches!(self, Value::Nothing { .. }) || matches!(rhs, Value::Nothing { .. }) {
+            return Ok(Value::nothing(span));
+        }
+
         if !type_compatible(self.get_type(), rhs.get_type())
             && (self.get_type() != Type::Any)
             && (rhs.get_type() != Type::Any)
@@ -2697,6 +2701,10 @@ impl Value {
             );
         }
 
+        if matches!(self, Value::Nothing { .. }) || matches!(rhs, Value::Nothing { .. }) {
+            return Ok(Value::nothing(span));
+        }
+
         if !type_compatible(self.get_type(), rhs.get_type())
             && (self.get_type() != Type::Any)
             && (rhs.get_type() != Type::Any)
@@ -2734,6 +2742,10 @@ impl Value {
             );
         }
 
+        if matches!(self, Value::Nothing { .. }) || matches!(rhs, Value::Nothing { .. }) {
+            return Ok(Value::nothing(span));
+        }
+
         if !type_compatible(self.get_type(), rhs.get_type())
             && (self.get_type() != Type::Any)
             && (rhs.get_type() != Type::Any)
@@ -2769,6 +2781,10 @@ impl Value {
                 op,
                 rhs,
             );
+        }
+
+        if matches!(self, Value::Nothing { .. }) || matches!(rhs, Value::Nothing { .. }) {
+            return Ok(Value::nothing(span));
         }
 
         if !type_compatible(self.get_type(), rhs.get_type())
