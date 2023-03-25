@@ -77,6 +77,13 @@ impl Matcher for Pattern {
                             false
                         }
                     }
+                    Expr::Float(x) => {
+                        if let Value::Float { val, .. } = &value {
+                            x == val
+                        } else {
+                            false
+                        }
+                    }
                     Expr::Binary(x) => {
                         if let Value::Binary { val, .. } = &value {
                             x == val
@@ -86,6 +93,20 @@ impl Matcher for Pattern {
                     }
                     Expr::Bool(x) => {
                         if let Value::Bool { val, .. } = &value {
+                            x == val
+                        } else {
+                            false
+                        }
+                    }
+                    Expr::String(x) => {
+                        if let Value::String { val, .. } = &value {
+                            x == val
+                        } else {
+                            false
+                        }
+                    }
+                    Expr::DateTime(x) => {
+                        if let Value::Date { val, .. } = &value {
                             x == val
                         } else {
                             false
