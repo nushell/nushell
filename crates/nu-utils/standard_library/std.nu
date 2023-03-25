@@ -932,6 +932,16 @@ export def "help commands" [
 # Display help information about different parts of Nushell.
 #
 # `help word` searches for "word" in commands, aliases and modules, in that order.
+#
+# Examples:
+#   show help for single command, alias, or module
+#   > help match
+#
+#   show help for single sub-command, alias, or module
+#   > help str lpad
+#
+#   search for string in command names, usage and search terms
+#   > help --find char
 export def help [
     item?: string  # the name of the help item to get help on
     --find (-f): string  # string to find in help items names and usage
