@@ -82,11 +82,6 @@ def main [
             ""
         ] | str join "\n")
 
-        error make {
-            msg: $"(ansi red)std::tests::some_tests_failed(ansi reset)"
-            label: {
-                text: $text
-            }
-        }
+        error make --unspanned { msg: $text }
     }
 }
