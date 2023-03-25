@@ -34,8 +34,35 @@ def main [
         extension: nu
     } | path join)
 
+    if not ($module | is-empty) {
+        if not ($path | path exists) {
+            let span = (metadata $path | get span)
+            error make {
+                msg: $"(ansi red)directory_not_found(ansi reset)"
+                label: {
+                    text: $"no such directory"
+                    start: $span.start
+                    end: $span.end
+                }
+            }
+        }
+    }
 
     let path = ($path | default $env.FILE_PWD)
+
+    if not ($module | is-empty) {
+        if not ($path | path join $module_search_pattern | path exists) {
+            let span = (metadata $module | get span)
+            error make {
+                msg: $"(ansi red)module_not_found(ansi reset)"
+                label: {
+                    text: $"no such module in ($path)"
+                    start: $span.start
+                    end: $span.end
+                }
+            }
+        }
+    }
 
     let tests = (
         ls ($path | path join $module_search_pattern)
