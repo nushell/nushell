@@ -1,5 +1,3 @@
-use nu_cmd_lang::help::highlight_search_string;
-
 use fancy_regex::Regex;
 use lscolors::{Color as LsColors_Color, LsColors, Style as LsColors_Style};
 use nu_ansi_term::{Color, Style};
@@ -583,6 +581,69 @@ fn to_nu_ansi_term_style(style: &LsColors_Style) -> Style {
         is_hidden: style.font_style.hidden,
         is_strikethrough: style.font_style.strikethrough,
     }
+}
+
+pub fn highlight_search_string(
+    haystack: &str,
+    needle: &str,
+    string_style: &Style,
+) -> Result<String, ShellError> {
+    let regex_string = format!("(?i){needle}");
+    let regex = match Regex::new(&regex_string) {
+        Ok(regex) => regex,
+        Err(err) => {
+            return Err(ShellError::GenericError(
+                "Could not compile regex".into(),
+                err.to_string(),
+                Some(Span::test_data()),
+                None,
+                Vec::new(),
+            ));
+        }
+    };
+    // strip haystack to remove existing ansi style
+    let stripped_haystack = nu_utils::strip_ansi_likely(haystack);
+    let mut last_match_end = 0;
+    let style = Style::new().fg(Color::White).on(Color::Red);
+    let mut highlighted = String::new();
+
+    for cap in regex.captures_iter(stripped_haystack.as_ref()) {
+        match cap {
+            Ok(capture) => {
+                let start = match capture.get(0) {
+                    Some(acap) => acap.start(),
+                    None => 0,
+                };
+                let end = match capture.get(0) {
+                    Some(acap) => acap.end(),
+                    None => 0,
+                };
+                highlighted.push_str(
+                    &string_style
+                        .paint(&stripped_haystack[last_match_end..start])
+                        .to_string(),
+                );
+                highlighted.push_str(&style.paint(&stripped_haystack[start..end]).to_string());
+                last_match_end = end;
+            }
+            Err(e) => {
+                return Err(ShellError::GenericError(
+                    "Error with regular expression capture".into(),
+                    e.to_string(),
+                    None,
+                    None,
+                    Vec::new(),
+                ));
+            }
+        }
+    }
+
+    highlighted.push_str(
+        &string_style
+            .paint(&stripped_haystack[last_match_end..])
+            .to_string(),
+    );
+    Ok(highlighted)
 }
 
 #[cfg(test)]
