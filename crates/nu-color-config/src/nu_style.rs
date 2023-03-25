@@ -20,22 +20,26 @@ impl From<Style> for NuStyle {
 }
 
 fn style_get_attr(s: Style) -> Option<String> {
-    macro_rules! check {
-        ($attrs:expr, $b:expr, $c:expr) => {
-            if $b {
-                $attrs.push($c);
-            }
-        };
-    }
-
     let mut attrs = String::new();
 
-    check!(attrs, s.is_blink, 'l');
-    check!(attrs, s.is_bold, 'b');
-    check!(attrs, s.is_dimmed, 'd');
-    check!(attrs, s.is_reverse, 'r');
-    check!(attrs, s.is_strikethrough, 's');
-    check!(attrs, s.is_underline, 'u');
+    if s.is_blink {
+        attrs.push('l');
+    };
+    if s.is_bold {
+        attrs.push('b');
+    };
+    if s.is_dimmed {
+        attrs.push('d');
+    };
+    if s.is_reverse {
+        attrs.push('r');
+    };
+    if s.is_strikethrough {
+        attrs.push('s');
+    };
+    if s.is_underline {
+        attrs.push('u');
+    };
 
     if attrs.is_empty() {
         None
