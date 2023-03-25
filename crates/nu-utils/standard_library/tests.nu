@@ -29,8 +29,13 @@ def main [
     --command: string, # Test command to run. Default: all test command found in the files.
     --list, # list the selected tests without running them.
 ] {
+    let module_search_pattern = ({
+        stem: ($module | default "test_*")
+        extension: nu
+    } | path join)
+
     let tests = (
-        ls ($path | default $env.FILE_PWD | path join "test_*.nu")
+        ls ($path | default $env.FILE_PWD | path join $module_search_pattern)
         | each {|row| {file: $row.name name: ($row.name | path parse | get stem)}}
         | upsert test {|module|
             nu -c $'use ($module.file) *; $nu.scope.commands | select name module_name | to nuon'
