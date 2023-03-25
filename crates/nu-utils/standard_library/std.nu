@@ -931,6 +931,11 @@ export def "help commands" [
     }
 }
 
+def pretty-cmd [] {
+    let cmd = $in
+    $"(ansi default_dimmed)(ansi default_italic)($cmd)(ansi reset)"
+}
+
 # Display help information about different parts of Nushell.
 #
 # `help word` searches for "word" in commands, aliases and modules, in that order.
@@ -949,29 +954,28 @@ export def help [
     --find (-f): string  # string to find in help items names and usage
 ] {
     if ($item | is-empty) and ($find | is-empty) {
-        print "Welcome to Nushell.
+        print $"Welcome to Nushell.
 
 Here are some tips to help you get started.
-  * help -h or help help - show available `help` subcommands and examples
-  * help commands - list all available commands
-  * help <name> - display help about a particular command, alias, or module
-  * help --find <text to search> - search through all help commands table
+  * ('help -h' | pretty-cmd) or ('help help' | pretty-cmd) - show available ('help' | pretty-cmd) subcommands and examples
+  * ('help commands' | pretty-cmd) - list all available commands
+  * ('help <name>' | pretty-cmd) - display help about a particular command, alias, or module
+  * ('help --find <text to search>' | pretty-cmd) - search through all help commands table
 
-Nushell works on the idea of a "pipeline". Pipelines are commands connected with the '|' character.
+Nushell works on the idea of a "(ansi default_italic)pipeline(ansi reset)". Pipelines are commands connected with the '|' character.
 Each stage in the pipeline works together to load, parse, and display information to you.
 
-[Examples]
+(ansi green)Examples(ansi reset):
+    List the files in the current directory, sorted by size
+    > ('ls | sort-by size' | nu-highlight)
 
-List the files in the current directory, sorted by size:
-    ls | sort-by size
+    Get information about the current system
+    > ('sys | get host' | nu-highlight)
 
-Get information about the current system:
-    sys | get host
+    Get the processes on your system actively using CPU
+    > ('ps | where cpu > 0' | nu-highlight)
 
-Get the processes on your system actively using CPU:
-    ps | where cpu > 0
-
-You can also learn more at https://www.nushell.sh/book/"
+You can also learn more at (ansi default_italic)(ansi light_cyan_underline)https://www.nushell.sh/book/(ansi reset)"
         return
     }
 
