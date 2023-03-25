@@ -929,7 +929,9 @@ export def "help commands" [
     }
 }
 
-# TODO
+# Display help information about different parts of Nushell.
+#
+# `help word` searches for "word" in commands, aliases and modules, in that order.
 export def help [
     item?: string  # the name of the help item to get help on
     --find (-f): string  # string to find in help items names and usage
