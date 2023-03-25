@@ -82,9 +82,9 @@ jobs:
       - name: Tests
         run: cargo test --workspace --profile ci --exclude nu_plugin_* ${{ matrix.flags }}
 
-  python-virtualenv:
+  std-lib-and-python-virtualenv:
     env:
-      NUSHELL_CARGO_TARGET: ci
+      NU_LOG_LEVEL: DEBUG 
 
     strategy:
       fail-fast: true
@@ -104,7 +104,19 @@ jobs:
         uses: actions-rust-lang/setup-rust-toolchain@v1.4.4
 
       - name: Install Nushell
-        run: cargo install --locked --path=. --profile ci --no-default-features
+        # prior to [*standard library: bring the tests into the main CI*](#8525)
+        # there was a `--profile ci` here in the `cargo install`, as well as
+        # `NUSHELL_CARGO_TARGET: ci` in the prelude above.
+        #
+        # this caused a "stackoverflow" error in the CI on windows,
+        # see [this failing job](https://github.com/nushell/nushell/actions/runs/4512034615/jobs/7944945590)
+        #
+        # the CI profile has been removed in 00b820de9021227d1910a9ea388297ee7aee308e
+        # as part of #8525.
+        run: cargo install --path . --locked --no-default-features
+
+      - name: Standard library tests
+        run: nu crates/nu-utils/standard_library/tests.nu
 
       - name: Setup Python
         uses: actions/setup-python@v4
