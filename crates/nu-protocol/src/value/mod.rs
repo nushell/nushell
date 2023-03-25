@@ -735,12 +735,7 @@ impl Value {
         from_user_input: bool,
     ) -> Result<Value, ShellError> {
         let mut current = self;
-        // TODO remove this
-        macro_rules! err_or_null {
-            ($e:expr, $span:expr) => {
-                return Err($e)
-            };
-        }
+
         for member in cell_path {
             // FIXME: this uses a few extra clones for simplicity, but there may be a way
             // to traverse the path without them
@@ -758,18 +753,9 @@ impl Value {
                             } else if *optional {
                                 return Ok(Value::nothing(*origin_span)); // short-circuit
                             } else if val.is_empty() {
-                                err_or_null!(
-                                    ShellError::AccessEmptyContent { span: *origin_span },
-                                    *origin_span
-                                )
+                                return Err(ShellError::AccessEmptyContent { span: *origin_span })
                             } else {
-                                err_or_null!(
-                                    ShellError::AccessBeyondEnd {
-                                        max_idx: val.len() - 1,
-                                        span: *origin_span
-                                    },
-                                    *origin_span
-                                );
+                                return Err(ShellError::AccessBeyondEnd { max_idx:val.len()-1,span: *origin_span });
                             }
                         }
                         Value::Binary { val, .. } => {
@@ -778,18 +764,9 @@ impl Value {
                             } else if *optional {
                                 return Ok(Value::nothing(*origin_span)); // short-circuit
                             } else if val.is_empty() {
-                                err_or_null!(
-                                    ShellError::AccessEmptyContent { span: *origin_span },
-                                    *origin_span
-                                )
+                                return Err(ShellError::AccessEmptyContent { span: *origin_span })
                             } else {
-                                err_or_null!(
-                                    ShellError::AccessBeyondEnd {
-                                        max_idx: val.len() - 1,
-                                        span: *origin_span
-                                    },
-                                    *origin_span
-                                );
+                                return Err(ShellError::AccessBeyondEnd { max_idx:val.len()-1,span: *origin_span });
                             }
                         }
                         Value::Range { val, .. } => {
@@ -798,10 +775,9 @@ impl Value {
                             } else if *optional {
                                 return Ok(Value::nothing(*origin_span)); // short-circuit
                             } else {
-                                err_or_null!(
-                                    ShellError::AccessBeyondEndOfStream { span: *origin_span },
-                                    *origin_span
-                                );
+                                return Err(ShellError::AccessBeyondEndOfStream {
+  span: *origin_span
+});
                             }
                         }
                         Value::CustomValue { val, .. } => {
@@ -823,19 +799,14 @@ impl Value {
                         // Records (and tables) are the only built-in which support column names,
                         // so only use this message for them.
                         Value::Record { .. } => {
-                            err_or_null!(ShellError::TypeMismatch {
-                                err_message: "Can't access record values with a row index. Try specifying a column name instead".into(),
-                                span: *origin_span, }, *origin_span)
+                            return Err(ShellError::TypeMismatch {
+                                err_message:"Can't access record values with a row index. Try specifying a column name instead".into(),
+                                span: *origin_span,
+                            })
                         }
                         Value::Error { error } => return Err(*error.to_owned()),
                         x => {
-                            err_or_null!(
-                                ShellError::IncompatiblePathAccess {
-                                    type_name: format!("{}", x.get_type()),
-                                    span: *origin_span
-                                },
-                                *origin_span
-                            )
+                            return Err(ShellError::IncompatiblePathAccess { type_name:format!("{}",x.get_type()), span: *origin_span })
                         }
                     }
                 }
@@ -862,20 +833,14 @@ impl Value {
                         } else {
                             if from_user_input {
                                 if let Some(suggestion) = did_you_mean(&cols, column_name) {
-                                    err_or_null!(
-                                        ShellError::DidYouMean(suggestion, *origin_span),
-                                        *origin_span
-                                    );
+                                    return Err(ShellError::DidYouMean(suggestion, *origin_span));
                                 }
                             }
-                            err_or_null!(
-                                ShellError::CantFindColumn {
-                                    col_name: column_name.to_string(),
-                                    span: *origin_span,
-                                    src_span: span
-                                },
-                                *origin_span
-                            );
+                            return Err(ShellError::CantFindColumn {
+                                col_name: column_name.to_string(),
+                                span: *origin_span,
+                                src_span: span,
+                            });
                         }
                     }
                     Value::LazyRecord { val, span } => {
@@ -888,20 +853,14 @@ impl Value {
                         } else {
                             if from_user_input {
                                 if let Some(suggestion) = did_you_mean(&columns, column_name) {
-                                    err_or_null!(
-                                        ShellError::DidYouMean(suggestion, *origin_span),
-                                        *origin_span
-                                    );
+                                    return Err(ShellError::DidYouMean(suggestion, *origin_span));
                                 }
                             }
-                            err_or_null!(
-                                ShellError::CantFindColumn {
-                                    col_name: column_name.to_string(),
-                                    span: *origin_span,
-                                    src_span: *span
-                                },
-                                *origin_span
-                            );
+                            return Err(ShellError::CantFindColumn {
+                                col_name: column_name.to_string(),
+                                span: *origin_span,
+                                src_span: *span,
+                            });
                         }
                     }
                     // String access of Lists always means Table access.
@@ -951,15 +910,12 @@ impl Value {
                     Value::Nothing { .. } if *optional => {
                         return Ok(Value::nothing(*origin_span)); // short-circuit
                     }
-                    Value::Error { error } => err_or_null!(*error.to_owned(), *origin_span),
+                    Value::Error { error } => return Err(*error.to_owned()),
                     x => {
-                        err_or_null!(
-                            ShellError::IncompatiblePathAccess {
-                                type_name: format!("{}", x.get_type()),
-                                span: *origin_span
-                            },
-                            *origin_span
-                        )
+                        return Err(ShellError::IncompatiblePathAccess {
+                            type_name: format!("{}", x.get_type()),
+                            span: *origin_span,
+                        })
                     }
                 },
             }
