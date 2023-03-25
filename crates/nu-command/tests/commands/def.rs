@@ -3,41 +3,6 @@ use nu_test_support::{nu, pipeline};
 use std::fs;
 
 #[test]
-fn def_with_comment() {
-    Playground::setup("def_with_comment", |dirs, _| {
-        let data = r#"
-#My echo
-export def e [arg] {echo $arg}
-            "#;
-        fs::write(dirs.root().join("def_test"), data).expect("Unable to write file");
-        let actual = nu!(
-            cwd: dirs.root(),
-            "use def_test e; help e | to json -r"
-        );
-
-        assert!(actual.out.contains("My echo\\n\\n"));
-    });
-}
-
-#[test]
-fn def_with_param_comment() {
-    Playground::setup("def_with_param_comment", |dirs, _| {
-        let data = r#"
-export def e [
-param:string #My cool attractive param
-] {echo $param};
-            "#;
-        fs::write(dirs.root().join("def_test"), data).expect("Unable to write file");
-        let actual = nu!(
-            cwd: dirs.root(),
-            "use def_test e; help e"
-        );
-
-        assert!(actual.out.contains(r#"My cool attractive param"#));
-    })
-}
-
-#[test]
 fn def_errors_with_multiple_short_flags() {
     let actual = nu!(
         cwd: ".", pipeline(

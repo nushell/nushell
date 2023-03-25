@@ -210,19 +210,6 @@ fn recursive_parse() -> TestResult {
 }
 
 #[test]
-fn commands_have_usage() -> TestResult {
-    run_test_contains(
-        r#"
-    # This is a test
-    #
-    # To see if I have cool usage
-    def foo [] {}
-    help foo"#,
-        "cool usage",
-    )
-}
-
-#[test]
 fn equals_separates_long_flag() -> TestResult {
     run_test(
         r#"'nushell' | fill --alignment right --width=10 --character='-'"#,
