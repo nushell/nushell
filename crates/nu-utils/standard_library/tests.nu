@@ -90,6 +90,10 @@ def main [
         return ($tests_to_run | select module name file)
     }
 
+    if ($tests_to_run | is-empty) {
+        error make -u {msg: "no test to run"}
+    }
+
     let tests = (
         $tests_to_run
         | group-by module
