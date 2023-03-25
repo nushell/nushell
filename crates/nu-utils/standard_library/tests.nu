@@ -34,8 +34,11 @@ def main [
         extension: nu
     } | path join)
 
+
+    let path = ($path | default $env.FILE_PWD)
+
     let tests = (
-        ls ($path | default $env.FILE_PWD | path join $module_search_pattern)
+        ls ($path | path join $module_search_pattern)
         | each {|row| {file: $row.name name: ($row.name | path parse | get stem)}}
         | upsert test {|module|
             nu -c $'use ($module.file) *; $nu.scope.commands | select name module_name | to nuon'
