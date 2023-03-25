@@ -971,6 +971,4 @@ You can also learn more at https://www.nushell.sh/book/"
 
     let modules = (try { help modules $item --find $find })
     if not ($modules | is-empty) { return $modules }
-
-    error make { msg: "nothing found" }
 }
