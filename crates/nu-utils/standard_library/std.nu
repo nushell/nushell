@@ -961,9 +961,14 @@ You can also learn more at https://www.nushell.sh/book/"
         return
     }
 
-    try { return (help aliases $item --find $find) }
-    try { return (help commands $item --find $find) }
-    try { return (help modules $item --find $find) }
+    let aliases = (try { help aliases $item --find $find })
+    if not ($aliases | is-empty) { return $aliases }
+
+    let commands = (try { help commands $item --find $find })
+    if not ($commands | is-empty) { return $commands }
+
+    let modules = (try { help modules $item --find $find })
+    if not ($modules | is-empty) { return $modules }
 
     error make { msg: "nothing found" }
 }
