@@ -472,10 +472,12 @@ def show-module [module: record] {
 #        ·                      ╰── module not found
 #        ╰────
 export def "help modules" [
-    module?: string  # the name of module to get help on
+    ...module: string  # the name of module to get help on
     --find (-f): string  # string to find in module names
 ] {
     let modules = ($nu.scope.modules | sort-by name)
+
+    let module = ($module | str join " ")
 
     if not ($find | is-empty) {
         let found_modules = ($modules | where name =~ $find)
@@ -580,10 +582,12 @@ def show-alias [alias: record] {
 #        ·                      ╰── alias not found
 #        ╰────
 export def "help aliases" [
-    alias?: string  # the name of alias to get help on
+    ...alias: string  # the name of alias to get help on
     --find (-f): string  # string to find in alias names
 ] {
     let aliases = ($nu.scope.aliases | sort-by name)
+
+    let alias = ($alias | str join " ")
 
     if not ($find | is-empty) {
         let found_aliases = ($aliases | where name =~ $find)
@@ -618,10 +622,12 @@ def show-extern [extern: record] {
 
 # Show help on nushell externs.
 export def "help externs" [
-    extern?: string  # the name of extern to get help on
+    ...extern: string  # the name of extern to get help on
     --find (-f): string  # string to find in extern names
 ] {
     let externs = ($nu.scope.commands | where is_extern | select name module_name usage | sort-by name)
+
+    let extern = ($extern | str join " ")
 
     if not ($find | is-empty) {
         let found_externs = ($externs | where name =~ $find)
@@ -688,7 +694,7 @@ def show-operator [operator: record] {
 #        ·                       ╰── operator not found
 #        ╰────
 export def "help operators" [
-    operator?: string  # the name of operator to get help on
+    ...operator: string  # the name of operator to get help on
     --find (-f): string  # string to find in operator names
 ] {
     let operators = ([
@@ -730,6 +736,8 @@ export def "help operators" [
         [Boolean, or, Or, "Checks if either value is true.", 40]
         [Boolean, xor, Xor, "Checks if one value is true and the other is false.", 45]
     ] | sort-by name)
+
+    let operator = ($operator | str join " ")
 
     if not ($find | is-empty) {
         let found_operators = ($operators | where name =~ $find)
@@ -905,10 +913,12 @@ def show-command [command: record] {
 
 # Show help on nushell commands.
 export def "help commands" [
-    command?: string  # the name of command to get help on
+    ...command: string  # the name of command to get help on
     --find (-f): string  # string to find in command names and usage
 ] {
     let commands = ($nu.scope.commands | where not is_extern | reject is_extern | sort-by name)
+
+    let command = ($command | str join " ")
 
     if not ($find | is-empty) {
         let found_commands = ($commands | where name =~ $find or search_terms =~ $find)
@@ -950,7 +960,7 @@ def pretty-cmd [] {
 #   search for string in command names, usage and search terms
 #   > help --find char
 export def help [
-    item?: string  # the name of the help item to get help on
+    ...item: string  # the name of the help item to get help on
     --find (-f): string  # string to find in help items names and usage
 ] {
     if ($item | is-empty) and ($find | is-empty) {
@@ -978,6 +988,8 @@ Each stage in the pipeline works together to load, parse, and display informatio
 You can also learn more at (ansi default_italic)(ansi light_cyan_underline)https://www.nushell.sh/book/(ansi reset)"
         return
     }
+
+    let item = ($item | str join " ")
 
     let commands = (try { help commands $item --find $find })
     if not ($commands | is-empty) { return $commands }
