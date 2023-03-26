@@ -42,7 +42,7 @@ members = [
 
 [dependencies]
 chrono = { version = "0.4.23", features = ["serde"] }
-crossterm = "0.24.0"
+crossterm = "0.26"
 ctrlc = "3.2.1"
 log = "0.4"
 miette = { version = "5.6.0", features = ["fancy-no-backtrace"] }
@@ -157,7 +157,7 @@ bench = false
 # To use a development version of a dependency please use a global override here
 # changing versions in each sub-crate of the workspace is tedious
 [patch.crates-io]
-reedline = { git = "https://github.com/nushell/reedline.git", branch = "main" }
+reedline = { git = "https://github.com/WindSoilder/reedline.git", branch = "crossterm_ver" }
 # nu-ansi-term = {git = "https://github.com/nushell/nu-ansi-term.git", branch = "main"}
 
 # Criterion benchmarking setup

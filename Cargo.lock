@@ -836,23 +836,6 @@ dependencies = [
 
 [[package]]
 name = "crossterm"
-version = "0.24.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ab9f7409c70a38a56216480fba371ee460207dd8926ccf5b4160591759559170"
-dependencies = [
- "bitflags",
- "crossterm_winapi",
- "libc",
- "mio 0.8.6",
- "parking_lot 0.12.1",
- "serde",
- "signal-hook",
- "signal-hook-mio",
- "winapi 0.3.9",
-]
-
-[[package]]
-name = "crossterm"
 version = "0.25.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e64e6c0fbe2c17357405f7c758c1ef960fce08bdfb2c03d88d2a18d7e09c4b67"
@@ -862,6 +845,23 @@ dependencies = [
  "libc",
  "mio 0.8.6",
  "parking_lot 0.12.1",
+ "signal-hook",
+ "signal-hook-mio",
+ "winapi 0.3.9",
+]
+
+[[package]]
+name = "crossterm"
+version = "0.26.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "a84cda67535339806297f1b331d6dd6320470d2a0fe65381e79ee9e156dd3d13"
+dependencies = [
+ "bitflags",
+ "crossterm_winapi",
+ "libc",
+ "mio 0.8.6",
+ "parking_lot 0.12.1",
+ "serde",
  "signal-hook",
  "signal-hook-mio",
  "winapi 0.3.9",
@@ -2293,11 +2293,10 @@ dependencies = [
 
 [[package]]
 name = "lscolors"
-version = "0.12.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "074bff749d092e2e818fe954952102f88e21f67fc69f4d350621aab15a1810f1"
+version = "0.13.0"
+source = "git+https://github.com/WindSoilder/lscolors#9721f5dde6bd25f0ffaceee7d025d0c3c9360d9c"
 dependencies = [
- "crossterm 0.24.0",
+ "crossterm 0.26.1",
 ]
 
 [[package]]
@@ -2673,7 +2672,7 @@ dependencies = [
  "atty",
  "chrono",
  "criterion",
- "crossterm 0.24.0",
+ "crossterm 0.26.1",
  "ctrlc",
  "hamcrest2",
  "is_executable",
@@ -2726,7 +2725,7 @@ version = "0.77.2"
 dependencies = [
  "atty",
  "chrono",
- "crossterm 0.24.0",
+ "crossterm 0.26.1",
  "fancy-regex",
  "fuzzy-matcher",
  "is_executable",
@@ -2795,7 +2794,7 @@ dependencies = [
  "chrono",
  "chrono-humanize",
  "chrono-tz",
- "crossterm 0.24.0",
+ "crossterm 0.26.1",
  "csv",
  "dialoguer",
  "digest",
@@ -2904,7 +2903,7 @@ name = "nu-explore"
 version = "0.77.2"
 dependencies = [
  "ansi-str 0.7.2",
- "crossterm 0.24.0",
+ "crossterm 0.26.1",
  "lscolors",
  "nu-ansi-term",
  "nu-color-config",
@@ -4297,10 +4296,10 @@ dependencies = [
 [[package]]
 name = "reedline"
 version = "0.17.0"
-source = "git+https://github.com/nushell/reedline.git?branch=main#9d6e22dd06d79b3f5ece716ef560148714c5489c"
+source = "git+https://github.com/WindSoilder/reedline.git?branch=crossterm_ver#8ddd41bd0468472e977609b146f60c03f6f1b973"
 dependencies = [
  "chrono",
- "crossterm 0.24.0",
+ "crossterm 0.26.1",
  "fd-lock",
  "itertools",
  "nu-ansi-term",
