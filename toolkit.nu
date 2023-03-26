@@ -58,15 +58,18 @@ def report [
     --fail-fmt: bool
     --fail-clippy: bool
     --fail-test: bool
+    --fail-test-stdlib: bool
     --no-fail: bool
 ] {
-    [fmt clippy test] | wrap stage
+    [fmt clippy test "test stdlib"]
+    | wrap stage
     | merge (
-        if $no_fail          { [true     true     true] }
-        else if $fail_fmt    { [false    $nothing $nothing] }
-        else if $fail_clippy { [true     false    $nothing] }
-        else if $fail_test   { [true     true     false] }
-        else                 { [$nothing $nothing $nothing] }
+        if $no_fail               { [true     true     true     true] }
+        else if $fail_fmt         { [false    $nothing $nothing $nothing] }
+        else if $fail_clippy      { [true     false    $nothing $nothing] }
+        else if $fail_test        { [true     true     false    $nothing] }
+        else if $fail_test_stdlib { [true     true     true     false] }
+        else                      { [$nothing $nothing $nothing $nothing] }
         | wrap success
     )
     | upsert emoji {|it|
@@ -197,6 +200,13 @@ export def "check pr" [
         if $fast { test --fast } else { test }
     } catch {
         return (report --fail-test)
+    }
+
+    print $"running ('toolkit test stdlib' | pretty-print-command)"
+    try {
+        test stdlib
+    } catch {
+        return (report --fail-test-stdlib)
     }
 
     report --no-fail
