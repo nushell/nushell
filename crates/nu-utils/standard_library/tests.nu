@@ -20,6 +20,17 @@ def show-pretty-test [indent: int = 4] {
     ] | str join
 }
 
+def throw-error [error: record] {
+    error make {
+        msg: $"(ansi red)($error.msg)(ansi reset)"
+        label: {
+            text: ($error.label)
+            start: $error.span.start
+            end: $error.span.end
+        }
+    }
+}
+
 # Test executor
 #
 # It executes exported "test_*" commands in "test_*" modules
@@ -29,8 +40,35 @@ def main [
     --command: string, # Test command to run. Default: all test command found in the files.
     --list, # list the selected tests without running them.
 ] {
+    let module_search_pattern = ({
+        stem: ($module | default "test_*")
+        extension: nu
+    } | path join)
+
+    if not ($path | is-empty) {
+        if not ($path | path exists) {
+            throw-error {
+                msg: "directory_not_found"
+                label: "no such directory"
+                span: (metadata $path | get span)
+            }
+        }
+    }
+
+    let path = ($path | default $env.FILE_PWD)
+
+    if not ($module | is-empty) {
+        if not ($path | path join $module_search_pattern | path exists) {
+            throw-error {
+                msg: "module_not_found"
+                label: $"no such module in ($path)"
+                span: (metadata $module | get span)
+            }
+        }
+    }
+
     let tests = (
-        ls ($path | default $env.FILE_PWD | path join "test_*.nu")
+        ls ($path | path join $module_search_pattern)
         | each {|row| {file: $row.name name: ($row.name | path parse | get stem)}}
         | upsert test {|module|
             nu -c $'use ($module.file) *; $nu.scope.commands | select name module_name | to nuon'
@@ -53,6 +91,10 @@ def main [
 
     if $list {
         return ($tests_to_run | select module name file)
+    }
+
+    if ($tests_to_run | is-empty) {
+        error make --unspanned {msg: "no test to run"}
     }
 
     let tests = (
