@@ -2914,10 +2914,18 @@ pub fn unescape_unquote_string(bytes: &[u8], span: Span) -> (String, Option<Pars
             )
         }
     } else {
-        let bytes = trim_quotes(bytes);
+        let new_bytes = trim_quotes(bytes);
 
-        if let Ok(token) = String::from_utf8(bytes.into()) {
-            (token, None)
+        if let Ok(token) = String::from_utf8(new_bytes.into()) {
+            if new_bytes == bytes && (token.parse::<i64>().is_ok() || token.parse::<f64>().is_ok())
+            {
+                (
+                    String::new(),
+                    Some(ParseError::TypeMismatch(Type::String, Type::Number, span)),
+                )
+            } else {
+                (token, None)
+            }
         } else {
             (
                 String::new(),

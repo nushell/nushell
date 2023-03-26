@@ -71,3 +71,24 @@ fn case_insensitive_sort_columns() -> TestResult {
         r#"[{"version": "four","package": "abc"},{"version": "three","package": "abc"},{"version": "two","package": "Abc"}]"#,
     )
 }
+
+#[test]
+fn float_is_not_string() -> TestResult {
+    let input = "def test [num: string] { $num }; test 3.1415";
+    let expected = "Type mismatch.";
+    fail_test(input, expected)
+}
+
+#[test]
+fn int_is_not_string() -> TestResult {
+    let input = "def test [num: string] { $num }; test 69";
+    let expected = "Type mismatch.";
+    fail_test(input, expected)
+}
+
+#[test]
+fn list_int_is_not_list_string() -> TestResult {
+    let input = "def test [num: list<string>] { $num }; test [2 5 4]";
+    let expected = "Type mismatch.";
+    fail_test(input, expected)
+}
