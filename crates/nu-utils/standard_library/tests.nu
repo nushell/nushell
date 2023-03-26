@@ -94,7 +94,7 @@ def main [
     }
 
     if ($tests_to_run | is-empty) {
-        error make -u {msg: "no test to run"}
+        error make --unspanned {msg: "no test to run"}
     }
 
     let tests = (
