@@ -5,7 +5,7 @@ use crate::{
     util::eval_source,
     NuHighlighter, NuValidator, NushellPrompt,
 };
-use crossterm::cursor::CursorShape;
+use crossterm::cursor::SetCursorStyle;
 use log::{trace, warn};
 use miette::{IntoDiagnostic, Result};
 use nu_color_config::StyleComputer;
@@ -706,11 +706,11 @@ pub fn evaluate_repl(
     Ok(())
 }
 
-fn map_nucursorshape_to_cursorshape(shape: NuCursorShape) -> CursorShape {
+fn map_nucursorshape_to_cursorshape(shape: NuCursorShape) -> SetCursorStyle {
     match shape {
-        NuCursorShape::Block => CursorShape::Block,
-        NuCursorShape::UnderScore => CursorShape::UnderScore,
-        NuCursorShape::Line => CursorShape::Line,
+        NuCursorShape::Block => SetCursorStyle::SteadyBlock,
+        NuCursorShape::UnderScore => SetCursorStyle::DefaultUserShape,
+        NuCursorShape::Line => SetCursorStyle::BlinkingBar,
     }
 }
 
