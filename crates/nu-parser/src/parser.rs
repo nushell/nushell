@@ -4517,7 +4517,7 @@ pub fn parse_match_block_expression(
 
     let source = working_set.get_span_contents(inner_span);
 
-    let (output, err) = lex(source, start, &[b' ', b'\r', b'\n', b','], &[], false);
+    let (output, err) = lex(source, start, &[b' ', b'\r', b'\n', b',', b'|'], &[], false);
     error = error.or(err);
 
     let mut position = 0;
@@ -4530,7 +4530,7 @@ pub fn parse_match_block_expression(
         working_set.enter_scope();
 
         // First parse the pattern
-        let (pattern, err) = parse_pattern(working_set, output[position].span);
+        let (mut pattern, err) = parse_pattern(working_set, output[position].span);
         error = error.or(err);
 
         position += 1;
@@ -4546,19 +4546,75 @@ pub fn parse_match_block_expression(
             break;
         }
 
-        // Then the =>
-        let thick_arrow = working_set.get_span_contents(output[position].span);
-        if thick_arrow != b"=>" {
+        // Multiple patterns connected by '|'
+        let mut connector = working_set.get_span_contents(output[position].span);
+        if connector == b"|" && position < output.len() {
+            let mut or_pattern = vec![pattern];
+
+            while connector == b"|" && position < output.len() {
+                connector = b"";
+
+                position += 1;
+
+                if position >= output.len() {
+                    error = error.or(Some(ParseError::Mismatch(
+                        "pattern".into(),
+                        "end of input".into(),
+                        Span::new(output[position - 1].span.end, output[position - 1].span.end),
+                    )));
+
+                    working_set.exit_scope();
+                    break;
+                }
+
+                let (pattern, err) = parse_pattern(working_set, output[position].span);
+                error = error.or(err);
+                or_pattern.push(pattern);
+
+                position += 1;
+                if position >= output.len() {
+                    error = error.or(Some(ParseError::Mismatch(
+                        "=>".into(),
+                        "end of input".into(),
+                        Span::new(output[position - 1].span.end, output[position - 1].span.end),
+                    )));
+
+                    working_set.exit_scope();
+                    break;
+                } else {
+                    connector = working_set.get_span_contents(output[position].span);
+                }
+            }
+
+            let start = or_pattern
+                .first()
+                .expect("internal error: unexpected state of or-pattern")
+                .span
+                .start;
+            let end = or_pattern
+                .last()
+                .expect("internal error: unexpected state of or-pattern")
+                .span
+                .end;
+
+            pattern = MatchPattern {
+                pattern: Pattern::Or(or_pattern),
+                span: Span::new(start, end),
+            }
+        }
+
+        // Then the `=>` arrow
+        if connector != b"=>" {
             error = error.or(Some(ParseError::Mismatch(
                 "=>".into(),
                 "end of input".into(),
                 Span::new(output[position - 1].span.end, output[position - 1].span.end),
             )));
+        } else {
+            position += 1;
         }
 
         // Finally, the value/expression/block that we will run to produce the result
-        position += 1;
-
         if position >= output.len() {
             error = error.or(Some(ParseError::Mismatch(
                 "match result".into(),
@@ -6083,6 +6139,11 @@ pub fn discover_captures_in_pattern(pattern: &MatchPattern, seen: &mut Vec<VarId
         Pattern::Record(items) => {
             for item in items {
                 discover_captures_in_pattern(&item.1, seen)
+            }
+        }
+        Pattern::Or(patterns) => {
+            for pattern in patterns {
+                discover_captures_in_pattern(pattern, seen)
             }
         }
         Pattern::Value(_) | Pattern::IgnoreValue | Pattern::Garbage => {}

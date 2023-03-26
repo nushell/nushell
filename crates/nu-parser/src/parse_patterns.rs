@@ -79,7 +79,7 @@ pub fn parse_variable_pattern(
     let bytes = working_set.get_span_contents(span);
 
     if is_variable(bytes) {
-        if let Some(var_id) = working_set.find_variable(bytes) {
+        if let Some(var_id) = working_set.find_variable_in_current_frame(bytes) {
             (
                 MatchPattern {
                     pattern: Pattern::Variable(var_id),

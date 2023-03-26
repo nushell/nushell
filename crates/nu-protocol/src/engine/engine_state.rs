@@ -1803,6 +1803,24 @@ impl<'a> StateWorkingSet<'a> {
         None
     }
 
+    pub fn find_variable_in_current_frame(&self, name: &[u8]) -> Option<VarId> {
+        let mut removed_overlays = vec![];
+
+        for scope_frame in self.delta.scope.iter().rev().take(1) {
+            for overlay_frame in scope_frame
+                .active_overlays(&mut removed_overlays)
+                .iter()
+                .rev()
+            {
+                if let Some(var_id) = overlay_frame.vars.get(name) {
+                    return Some(*var_id);
+                }
+            }
+        }
+
+        None
+    }
+
     pub fn add_variable(
         &mut self,
         mut name: Vec<u8>,
