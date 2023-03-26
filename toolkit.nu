@@ -35,6 +35,11 @@ export def test [
     }
 }
 
+# run the tests for the standard library
+export def "test stdlib" [] {
+    cargo run -- crates/nu-utils/standard_library/tests.nu
+}
+
 # print the pipe input inside backticks, dimmed and italic, as a pretty command
 def pretty-print-command [] {
     $"`(ansi default_dimmed)(ansi default_italic)($in)(ansi reset)`"
