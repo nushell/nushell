@@ -1,7 +1,7 @@
 use nu_test_support::nu;
 
 #[test]
-fn for_auto_print_in_each_iteration() {
+fn for_doesnt_auto_print_in_each_iteration() {
     let actual = nu!(
         cwd: ".",
         r#"
@@ -9,10 +9,9 @@ fn for_auto_print_in_each_iteration() {
             echo 1
         }"#
     );
-    // Note: nu! macro auto replace "\n" and "\r\n" with ""
-    // so our output will be `11`
-    // that's ok, our main concern is it auto print value in each iteration.
-    assert_eq!(actual.out, "11");
+    // Make sure we don't see any of these values in the output
+    // As we do not auto-print loops anymore
+    assert!(!actual.out.contains('1'));
 }
 
 #[test]

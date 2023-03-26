@@ -220,6 +220,39 @@ impl PipelineData {
         }
     }
 
+    pub fn drain_with_exit_code(self) -> Result<i64, ShellError> {
+        match self {
+            PipelineData::Value(Value::Error { error }, _) => Err(*error),
+            PipelineData::Value(_, _) => Ok(0),
+            PipelineData::ListStream(stream, _) => {
+                stream.drain()?;
+                Ok(0)
+            }
+            PipelineData::ExternalStream {
+                stdout,
+                stderr,
+                exit_code,
+                ..
+            } => {
+                if let Some(stdout) = stdout {
+                    stdout.drain()?;
+                }
+
+                if let Some(stderr) = stderr {
+                    stderr.drain()?;
+                }
+
+                if let Some(exit_code) = exit_code {
+                    let result = drain_exit_code(exit_code)?;
+                    Ok(result)
+                } else {
+                    Ok(0)
+                }
+            }
+            PipelineData::Empty => Ok(0),
+        }
+    }
+
     /// Try convert from self into iterator
     ///
     /// It returns Err if the `self` cannot be converted to an iterator.
@@ -854,16 +887,20 @@ pub fn print_if_stream(
 
     // Make sure everything has finished
     if let Some(exit_code) = exit_code {
-        let mut exit_codes: Vec<_> = exit_code.into_iter().collect();
-        return match exit_codes.pop() {
-            #[cfg(unix)]
-            Some(Value::Error { error }) => Err(*error),
-            Some(Value::Int { val, .. }) => Ok(val),
-            _ => Ok(0),
-        };
+        return drain_exit_code(exit_code);
     }
 
     Ok(0)
+}
+
+fn drain_exit_code(exit_code: ListStream) -> Result<i64, ShellError> {
+    let mut exit_codes: Vec<_> = exit_code.into_iter().collect();
+    match exit_codes.pop() {
+        #[cfg(unix)]
+        Some(Value::Error { error }) => Err(*error),
+        Some(Value::Int { val, .. }) => Ok(val),
+        _ => Ok(0),
+    }
 }
 
 impl Iterator for PipelineIterator {
