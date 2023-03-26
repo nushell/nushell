@@ -25,4 +25,4 @@ strip-ansi-escapes = "0.1.1"
 crossterm = "0.26"
 tui = "0.19.0"
 ansi-str = "0.7.2"
-lscolors = { git = "https://github.com/WindSoilder/lscolors", features = ["crossterm"], default-features = false }
+lscolors = { git = "https://github.com/WindSoilder/lscolors.git", features = ["crossterm"], default-features = false }

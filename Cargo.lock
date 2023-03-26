@@ -2294,7 +2294,7 @@ dependencies = [
 [[package]]
 name = "lscolors"
 version = "0.13.0"
-source = "git+https://github.com/WindSoilder/lscolors#9721f5dde6bd25f0ffaceee7d025d0c3c9360d9c"
+source = "git+https://github.com/WindSoilder/lscolors.git#9721f5dde6bd25f0ffaceee7d025d0c3c9360d9c"
 dependencies = [
  "crossterm 0.26.1",
 ]
