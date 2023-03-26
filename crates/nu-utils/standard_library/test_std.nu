@@ -1,22 +1,5 @@
 use std.nu
 
-export def test_match [] {
-    use std.nu assert
-
-    let branches = {
-        1: {|| -1 }
-        2: {|| -2 }
-    }
-
-    assert ((std match 1 $branches) == -1)
-    assert ((std match 2 $branches) == -2)
-    assert ((std match 3 $branches) == $nothing)
-
-    assert ((std match 1 $branches { 0 }) == -1)
-    assert ((std match 2 $branches { 0 }) == -2)
-    assert ((std match 3 $branches { 0 }) == 0)
-}
-
 export def test_path_add [] {
     use std.nu "assert equal"
 
