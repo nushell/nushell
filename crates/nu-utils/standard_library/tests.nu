@@ -20,6 +20,17 @@ def show-pretty-test [indent: int = 4] {
     ] | str join
 }
 
+def throw-error [error: record] {
+    error make {
+        msg: $"(ansi red)($error.msg)(ansi reset)"
+        label: {
+            text: ($error.label)
+            start: $error.span.start
+            end: $error.span.end
+        }
+    }
+}
+
 # Test executor
 #
 # It executes exported "test_*" commands in "test_*" modules
@@ -36,14 +47,10 @@ def main [
 
     if not ($module | is-empty) {
         if not ($path | path exists) {
-            let span = (metadata $path | get span)
-            error make {
-                msg: $"(ansi red)directory_not_found(ansi reset)"
-                label: {
-                    text: $"no such directory"
-                    start: $span.start
-                    end: $span.end
-                }
+            throw-error {
+                msg: "directory_not_found"
+                label: "no such directory"
+                span: (metadata $path | get span)
             }
         }
     }
@@ -52,14 +59,10 @@ def main [
 
     if not ($module | is-empty) {
         if not ($path | path join $module_search_pattern | path exists) {
-            let span = (metadata $module | get span)
-            error make {
-                msg: $"(ansi red)module_not_found(ansi reset)"
-                label: {
-                    text: $"no such module in ($path)"
-                    start: $span.start
-                    end: $span.end
-                }
+            throw-error {
+                msg: "module_not_found"
+                label: $"no such module in ($path)"
+                span: (metadata $module | get span)
             }
         }
     }
