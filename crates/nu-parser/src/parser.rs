@@ -3127,6 +3127,17 @@ fn parse_list_shape(
         // overflows with spans
         let end = if bytes.ends_with(b">") {
             span.end - 1
+        // extra characters after the >
+        } else if bytes.contains(&b'>') {
+            let angle_start = bytes.split(|it| it == &b'>').collect::<Vec<_>>()[0].len() + 1;
+            let span = Span::new(span.start + angle_start, span.end);
+
+            let err = ParseError::LabeledError(
+                "Extra characters in the parameter name".into(),
+                "extra characters".into(),
+                span,
+            );
+            return (SyntaxShape::Any, Some(err));
         } else {
             let err = ParseError::Unclosed(">".into(), span);
             return (SyntaxShape::List(Box::new(SyntaxShape::Any)), Some(err));

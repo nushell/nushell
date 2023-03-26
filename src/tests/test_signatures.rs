@@ -125,3 +125,10 @@ fn list_annotations_with_default_val_2() -> TestResult {
     let expected = "Default value wrong type";
     fail_test(input, expected)
 }
+
+#[test]
+fn list_annotations_with_extra_characters() -> TestResult {
+    let input = "def run [list: list<int>extra] {$list | length}; run [1 2 3]";
+    let expected = "Extra characters in the parameter name";
+    fail_test(input, expected)
+}
