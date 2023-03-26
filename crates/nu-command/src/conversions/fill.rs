@@ -105,7 +105,7 @@ impl Command for Fill {
             Example {
                 description:
                     "Fill a number on the left side to a width of 5 with the character '0'",
-                example: "1 | fill --alignment right --character 0 --width 5",
+                example: "1 | fill --alignment right --character '0' --width 5",
                 result: Some(Value::String {
                     val: "00001".into(),
                     span: Span::test_data(),

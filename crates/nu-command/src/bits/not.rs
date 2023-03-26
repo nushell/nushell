@@ -25,7 +25,7 @@ impl Command for SubCommand {
             )
             .named(
                 "number-bytes",
-                SyntaxShape::String,
+                SyntaxShape::Any,
                 "the size of unsigned number in bytes, it can be 1, 2, 4, 8, auto",
                 Some('n'),
             )
