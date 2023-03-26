@@ -45,7 +45,7 @@ def main [
         extension: nu
     } | path join)
 
-    if not ($module | is-empty) {
+    if not ($path | is-empty) {
         if not ($path | path exists) {
             throw-error {
                 msg: "directory_not_found"
