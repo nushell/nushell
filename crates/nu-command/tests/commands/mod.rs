@@ -48,6 +48,7 @@ mod let_;
 mod lines;
 mod loop_;
 mod ls;
+mod match_;
 mod math;
 mod merge;
 mod mkdir;

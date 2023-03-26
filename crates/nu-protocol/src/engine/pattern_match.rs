@@ -1,6 +1,6 @@
 use crate::{
     ast::{Expr, MatchPattern, Pattern, RangeInclusion},
-    Unit, Value, VarId,
+    Span, Unit, Value, VarId,
 };
 
 pub trait Matcher {
@@ -216,6 +216,54 @@ impl Matcher for Pattern {
                     }
                     _ => false,
                 }
+            }
+            Pattern::Or(patterns) => {
+                let mut result = false;
+
+                for pattern in patterns {
+                    let mut local_matches = vec![];
+                    if !result {
+                        if pattern.match_value(value, &mut local_matches) {
+                            // TODO: do we need to replace previous variables that defaulted to nothing?
+                            matches.append(&mut local_matches);
+                            result = true;
+                        } else {
+                            // Create variables that don't match and assign them to null
+                            let vars = pattern.variables();
+                            for var in &vars {
+                                let mut found = false;
+                                for match_ in matches.iter() {
+                                    if match_.0 == *var {
+                                        found = true;
+                                    }
+                                }
+
+                                if !found {
+                                    // FIXME: don't use Span::unknown()
+                                    matches.push((*var, Value::nothing(Span::unknown())))
+                                }
+                            }
+                        }
+                    } else {
+                        // We already have a match, so ignore the remaining match variables
+                        // And assign them to null
+                        let vars = pattern.variables();
+                        for var in &vars {
+                            let mut found = false;
+                            for match_ in matches.iter() {
+                                if match_.0 == *var {
+                                    found = true;
+                                }
+                            }
+
+                            if !found {
+                                // FIXME: don't use Span::unknown()
+                                matches.push((*var, Value::nothing(Span::unknown())))
+                            }
+                        }
+                    }
+                }
+                result
             }
         }
     }

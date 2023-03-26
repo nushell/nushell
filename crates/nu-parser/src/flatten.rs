@@ -559,6 +559,11 @@ pub fn flatten_pattern(match_pattern: &MatchPattern) -> Vec<(Span, FlatShape)> {
         Pattern::Variable(_) => {
             output.push((match_pattern.span, FlatShape::Variable));
         }
+        Pattern::Or(patterns) => {
+            for pattern in patterns {
+                output.extend(flatten_pattern(pattern));
+            }
+        }
     }
     output
 }
