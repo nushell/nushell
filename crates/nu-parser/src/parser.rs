@@ -3085,21 +3085,14 @@ pub fn parse_shape_name(
                 let split: Vec<_> = bytes.split(|b| b == &b'@').collect();
 
                 let shape_span = Span::new(span.start, span.start + split[0].len());
-                let cmd_span = Span::new(
-                            span.start + split[0].len() + 1,
-                            span.end,
-                        );
-                let (shape, err) = parse_shape_name(
-                    working_set,
-                    split[0],
-                    shape_span)
-                ;
+                let cmd_span = Span::new(span.start + split[0].len() + 1, span.end);
+                let (shape, err) = parse_shape_name(working_set, split[0], shape_span);
 
                 let command_name = trim_quotes(split[1]);
 
                 if command_name.is_empty() {
                     let err = ParseError::Expected("a command name".into(), cmd_span);
-                    return (SyntaxShape::Any, Some(err))
+                    return (SyntaxShape::Any, Some(err));
                 }
 
                 let decl_id = working_set.find_decl(command_name, &Type::Any);
@@ -3107,10 +3100,7 @@ pub fn parse_shape_name(
                 if let Some(decl_id) = decl_id {
                     return (SyntaxShape::Custom(Box::new(shape), decl_id), err);
                 } else {
-                    return (
-                        shape,
-                        Some(ParseError::UnknownCommand(cmd_span)),
-                    );
+                    return (shape, Some(ParseError::UnknownCommand(cmd_span)));
                 }
             } else {
                 return (SyntaxShape::Any, Some(ParseError::UnknownType(span)));
