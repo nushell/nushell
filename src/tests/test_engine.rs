@@ -115,7 +115,7 @@ fn proper_variable_captures() -> TestResult {
 #[test]
 fn proper_variable_captures_with_calls() -> TestResult {
     run_test(
-        r#"def foo [] { let y = 60; def bar [] { $y }; {|| bar } }; do (foo)"#,
+        r#"def foo [] { let y = 60; def bar [] { $y }; { bar } }; do (foo)"#,
         "60",
     )
 }
@@ -329,10 +329,7 @@ fn default_value_expression() -> TestResult {
 
 #[test]
 fn loose_each() -> TestResult {
-    run_test(
-        r#"[[1, 2, 3], [4, 5, 6]] | each {|| $in.1 } | math sum"#,
-        "7",
-    )
+    run_test(r#"[[1, 2, 3], [4, 5, 6]] | each { $in.1 } | math sum"#, "7")
 }
 
 #[test]
@@ -343,7 +340,7 @@ fn in_means_input() -> TestResult {
 #[test]
 fn in_iteration() -> TestResult {
     run_test(
-        r#"[3, 4, 5] | each {|| echo $"hi ($in)" } | str join"#,
+        r#"[3, 4, 5] | each { echo $"hi ($in)" } | str join"#,
         "hi 3hi 4hi 5",
     )
 }

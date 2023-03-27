@@ -44,7 +44,7 @@ fn sets_the_column_from_a_block_full_stream_output() {
         cwd: "tests/fixtures/formats", pipeline(
         r#"
             {content: null}
-            | upsert content {|| open --raw cargo_sample.toml | lines | first 5 }
+            | upsert content { open --raw cargo_sample.toml | lines | first 5 }
             | get content.1
             | str contains "nu"
         "#

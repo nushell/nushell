@@ -6,7 +6,7 @@ fn reports_emptiness() {
         cwd: ".", pipeline(
         r#"
             [[] '' {} null]
-            | all {||
+            | all {
               is-empty
             }
         "#
@@ -21,7 +21,7 @@ fn reports_nonemptiness() {
         cwd: ".", pipeline(
         r#"
             [[1] ' ' {a:1} 0]
-            | any {||
+            | any {
               is-empty
             }
         "#
@@ -36,7 +36,7 @@ fn reports_emptiness_by_columns() {
         cwd: ".", pipeline(
         r#"
             [{a:1 b:null c:null} {a:2 b:null c:null}]
-            | any {||
+            | any {
               is-empty b c
             }
         "#
@@ -51,7 +51,7 @@ fn reports_nonemptiness_by_columns() {
         cwd: ".", pipeline(
         r#"
             [{a:1 b:null c:3} {a:null b:5 c:2}]
-            | any {||
+            | any {
               is-empty a b
             }
         "#
