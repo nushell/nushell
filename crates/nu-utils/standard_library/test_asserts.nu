@@ -17,7 +17,7 @@ export def test_assert_equal [] {
 export def test_assert_not_equal [] {
     assert not equal (1 + 2) 4
     assert not equal 1 "foo"
-    assert not equal (1 + 2) 3)
+    assert not equal (1 + 2) "3)"
     assert error { assert not equal 1 1 }
 }
 
