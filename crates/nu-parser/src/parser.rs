@@ -1744,6 +1744,72 @@ pub fn parse_paren_expr(
     }
 }
 
+pub fn parse_numberlike_expr(
+    working_set: &mut StateWorkingSet,
+    span: Span,
+    shape: &SyntaxShape,
+    expand_aliases_denylist: &[usize],
+) -> (Expression, Option<ParseError>) {
+    let bytes = working_set.get_span_contents(span);
+    match shape {
+        SyntaxShape::Binary => parse_binary(working_set, span),
+        SyntaxShape::Number => parse_number(bytes, span),
+        SyntaxShape::Decimal => parse_float(bytes, span),
+        SyntaxShape::Int => parse_int(bytes, span),
+        SyntaxShape::Duration => parse_duration(working_set, span),
+        SyntaxShape::DateTime => parse_datetime(working_set, span),
+        SyntaxShape::Filesize => parse_filesize(working_set, span),
+        SyntaxShape::Range => parse_range(working_set, span, expand_aliases_denylist),
+        SyntaxShape::CellPath => parse_simple_cell_path(working_set, span, expand_aliases_denylist),
+        SyntaxShape::Any => {
+            if bytes == b"0b" {
+                // FIXME: having to work around this filesize that also looks like a binary value
+                parse_filesize(working_set, span)
+            } else if bytes.starts_with(b"0x[")
+                || bytes.starts_with(b"0b[")
+                || bytes.starts_with(b"0o[")
+            {
+                parse_binary(working_set, span)
+            } else if bytes.starts_with(b"0x")
+                || bytes.starts_with(b"0b")
+                || bytes.starts_with(b"0o")
+            {
+                parse_int(bytes, span)
+            } else {
+                for shape in &[
+                    SyntaxShape::Range,
+                    SyntaxShape::Int,
+                    SyntaxShape::Binary,
+                    SyntaxShape::Filesize,
+                    SyntaxShape::Duration,
+                    SyntaxShape::DateTime, //FIXME requires 3 failed conversion attempts before failing
+                    SyntaxShape::Number,
+                ] {
+                    let (result, err) =
+                        parse_value(working_set, span, shape, expand_aliases_denylist);
+                    if err.is_none() {
+                        return (result, err);
+                    }
+                }
+                (
+                    garbage(span),
+                    Some(ParseError::Expected(
+                        "number-like value (int, float, date, etc)".into(),
+                        span,
+                    )),
+                )
+            }
+        }
+        _ => (
+            garbage(span),
+            Some(ParseError::Expected(
+                "number-like value (int, float, date, etc)".into(),
+                span,
+            )),
+        ),
+    }
+}
+
 pub fn parse_brace_expr(
     working_set: &mut StateWorkingSet,
     span: Span,
@@ -4891,7 +4957,9 @@ pub fn parse_value(
                 None,
             );
         }
-
+        b"-inf" | b"inf" | b"NaN" => {
+            return parse_numberlike_expr(working_set, span, shape, expand_aliases_denylist);
+        }
         _ => {}
     }
 
@@ -4915,6 +4983,20 @@ pub fn parse_value(
                 );
             }
         },
+        x if x.is_ascii_digit() => {
+            // Anything that starts with a number now has to be a number-like value
+            // These include values like ints, floats, dates, durations, etc
+            // To create a string, wrap in quotes, to create a bare word, wrap in backticks
+            return parse_numberlike_expr(working_set, span, shape, expand_aliases_denylist);
+        }
+        b'-' | b'+' => {
+            if bytes.len() > 1 && bytes[1].is_ascii_digit() {
+                // Anything that starts with a negative number now has to be a number-like value
+                // These include values like ints, floats, dates, durations, etc
+                // To create a string, wrap in quotes, to create a bare word, wrap in backticks
+                return parse_numberlike_expr(working_set, span, shape, expand_aliases_denylist);
+            }
+        }
         _ => {}
     }
 
@@ -4925,12 +5007,6 @@ pub fn parse_value(
             expression.custom_completion = Some(*custom_completion);
             (expression, err)
         }
-        SyntaxShape::Number => parse_number(bytes, span),
-        SyntaxShape::Decimal => parse_float(bytes, span),
-        SyntaxShape::Int => parse_int(bytes, span),
-        SyntaxShape::Duration => parse_duration(working_set, span),
-        SyntaxShape::DateTime => parse_datetime(working_set, span),
-        SyntaxShape::Filesize => parse_filesize(working_set, span),
         SyntaxShape::Range => parse_range(working_set, span, expand_aliases_denylist),
         SyntaxShape::Filepath => parse_filepath(working_set, span),
         SyntaxShape::Directory => parse_directory(working_set, span),
@@ -5004,32 +5080,11 @@ pub fn parse_value(
                 //parse_value(working_set, span, &SyntaxShape::Table)
                 parse_full_cell_path(working_set, None, span, expand_aliases_denylist)
             } else {
-                /* Parser very sensitive to order of shapes tried.  Recording the original order for postierity
                 let shapes = [
-                SyntaxShape::Binary,
-                SyntaxShape::Int,
-                SyntaxShape::Number,
-                SyntaxShape::Range,
-                SyntaxShape::DateTime,
-                SyntaxShape::Filesize,
-                SyntaxShape::Duration,
-                SyntaxShape::Record,
-                SyntaxShape::Closure(None),
-                SyntaxShape::Block,
-                SyntaxShape::String,
-                ];
-                */
-                let shapes = [
-                    SyntaxShape::Binary,
-                    SyntaxShape::Filesize,
-                    SyntaxShape::Duration,
                     SyntaxShape::Range,
-                    SyntaxShape::DateTime, //FIXME requires 3 failed conversion attempts before failing
                     SyntaxShape::Record,
                     SyntaxShape::Closure(None),
                     SyntaxShape::Block,
-                    SyntaxShape::Int,
-                    SyntaxShape::Number,
                     SyntaxShape::String,
                 ];
                 for shape in shapes.iter() {
@@ -5054,7 +5109,10 @@ pub fn parse_value(
                 )
             }
         }
-        _ => (garbage(span), Some(ParseError::IncompleteParser(span))),
+        x => (
+            garbage(span),
+            Some(ParseError::Expected(x.to_type().to_string(), span)),
+        ),
     }
 }
 

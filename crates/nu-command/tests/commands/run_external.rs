@@ -219,7 +219,7 @@ fn external_command_expand_tilde_with_back_quotes() {
         "external command not expand tilde with quotes",
         |dirs, _| {
             let actual = nu!(cwd: dirs.test(), pipeline(r#"nu --testbin nonu `~`"#));
-            assert!(!actual.out.contains("~"));
+            assert!(!actual.out.contains('~'));
         },
     )
 }

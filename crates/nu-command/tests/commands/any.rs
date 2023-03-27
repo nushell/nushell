@@ -20,12 +20,12 @@ fn checks_any_column_of_a_table_is_true() {
         r#"
                 echo [
                         [  first_name, last_name,   rusty_at, likes  ];
-                        [      Andrés,  Robalino, 10/11/2013,   1    ]
-                        [    JT,    Turner, 10/12/2013,   1    ]
-                        [      Darren, Schroeder, 10/11/2013,   1    ]
-                        [      Yehuda,      Katz, 10/11/2013,   1    ]
+                        [      Andrés,  Robalino, '10/11/2013',   1    ]
+                        [    JT,    Turner, '10/12/2013',   1    ]
+                        [      Darren, Schroeder, '10/11/2013',   1    ]
+                        [      Yehuda,      Katz, '10/11/2013',   1    ]
                 ]
-                | any {|x| $x.rusty_at == 10/12/2013 }
+                | any {|x| $x.rusty_at == '10/12/2013' }
         "#
     ));
 

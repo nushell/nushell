@@ -7,9 +7,9 @@ fn regular_columns() {
             echo [
                 [first_name, last_name, rusty_at, type];
 
-                [Andrés Robalino 10/11/2013 A]
-                [JT Turner 10/12/2013 B]
-                [Yehuda Katz 10/11/2013 A]
+                [Andrés Robalino '10/11/2013' A]
+                [JT Turner '10/12/2013' B]
+                [Yehuda Katz '10/11/2013' A]
             ]
             | reject type first_name
             | columns

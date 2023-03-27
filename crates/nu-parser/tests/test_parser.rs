@@ -194,7 +194,7 @@ pub fn multi_test_parse_int() {
         ),
         Test(
             "semver data not confused for int",
-            b"1.0.1",
+            b"'1.0.1'",
             Expr::String("1.0.1".into()),
             None,
         ),
