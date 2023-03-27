@@ -57,6 +57,7 @@ impl Command for Items {
         let redirect_stdout = call.redirect_stdout;
         let redirect_stderr = call.redirect_stderr;
 
+        let input_span = input.span().unwrap_or(Span::unknown());
         match input {
             PipelineData::Empty => Ok(PipelineData::Empty),
             PipelineData::Value(Value::Record { cols, vals, .. }, ..) => {
@@ -89,8 +90,7 @@ impl Command for Items {
                         Ok(v) => Some(v.into_value(span)),
                         Err(ShellError::Break(_)) => None,
                         Err(error) => {
-                            let error =
-                                chain_error_with_input(error, Err(ShellError::NonUnicodeInput {}));
+                            let error = chain_error_with_input(error, Ok(input_span));
                             Some(Value::Error {
                                 error: Box::new(error),
                             })
@@ -117,9 +117,7 @@ impl Command for Items {
                     exp_input_type: "record".into(),
                     wrong_type: "raw data".into(),
                     dst_span: call.head,
-                    src_span: input
-                        .span()
-                        .expect("PipelineData::ExternalStream had no span"),
+                    src_span: input_span,
                 })
             }
         }
