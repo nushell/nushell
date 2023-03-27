@@ -77,7 +77,7 @@ If you want to provide examples, you can override the `examples` method.
 
 ## Limitations
 
-While Nushell plugin architecture allows to set multiple signatures (with different commnand name), at current implementation only one signature can be provided for a Python plugin. If you want to provide more commands, you need to split them into different Python modules
+While Nushell plugin architecture allows to set multiple signatures (with different command name), at current implementation only one signature can be provided for a Python plugin. If you want to provide more commands, you need to split them into different Python modules
 
 ## Custom encode / decode
 
