@@ -1,4 +1,6 @@
 use super::utils::chain_error_with_input;
+use crate::filters::values::get_values;
+use nu_engine::column::get_columns;
 use nu_engine::{eval_block_with_early_return, CallExt};
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Closure, Command, EngineState, Stack};
@@ -58,50 +60,60 @@ impl Command for Items {
         let redirect_stderr = call.redirect_stderr;
 
         let input_span = input.span().unwrap_or(Span::unknown());
+        let run_for_each_item = move |keyval: (String, Value)| -> Option<Value> {
+            // with_env() is used here to ensure that each iteration uses
+            // a different set of environment variables.
+            // Hence, a 'cd' in the first loop won't affect the next loop.
+            stack.with_env(&orig_env_vars, &orig_env_hidden);
+
+            if let Some(var) = block.signature.get_positional(0) {
+                if let Some(var_id) = &var.var_id {
+                    stack.add_var(*var_id, Value::string(keyval.0.clone(), span));
+                }
+            }
+
+            if let Some(var) = block.signature.get_positional(1) {
+                if let Some(var_id) = &var.var_id {
+                    stack.add_var(*var_id, keyval.1);
+                }
+            }
+
+            match eval_block_with_early_return(
+                &engine_state,
+                &mut stack,
+                &block,
+                PipelineData::empty(),
+                redirect_stdout,
+                redirect_stderr,
+            ) {
+                Ok(v) => Some(v.into_value(span)),
+                Err(ShellError::Break(_)) => None,
+                Err(error) => {
+                    let error = chain_error_with_input(error, Ok(input_span));
+                    Some(Value::Error {
+                        error: Box::new(error),
+                    })
+                }
+            }
+        };
         match input {
             PipelineData::Empty => Ok(PipelineData::Empty),
-            PipelineData::Value(Value::Record { cols, vals, .. }, ..) => {
-                let closure = move |keyval: (String, Value)| -> Option<Value> {
-                    // with_env() is used here to ensure that each iteration uses
-                    // a different set of environment variables.
-                    // Hence, a 'cd' in the first loop won't affect the next loop.
-                    stack.with_env(&orig_env_vars, &orig_env_hidden);
+            PipelineData::Value(Value::Record { cols, vals, .. }, ..) => Ok(cols
+                .into_iter()
+                .zip(vals.into_iter())
+                .into_iter()
+                .map_while(run_for_each_item)
+                .into_pipeline_data(ctrlc)),
+            PipelineData::ListStream(stream, ..) => {
+                let v: Vec<_> = stream.into_iter().collect();
+                let cols = get_columns(&v);
+                let vals = get_values(&v, call.head, input_span)?;
 
-                    if let Some(var) = block.signature.get_positional(0) {
-                        if let Some(var_id) = &var.var_id {
-                            stack.add_var(*var_id, Value::string(keyval.0.clone(), span));
-                        }
-                    }
-
-                    if let Some(var) = block.signature.get_positional(1) {
-                        if let Some(var_id) = &var.var_id {
-                            stack.add_var(*var_id, keyval.1);
-                        }
-                    }
-
-                    match eval_block_with_early_return(
-                        &engine_state,
-                        &mut stack,
-                        &block,
-                        PipelineData::empty(),
-                        redirect_stdout,
-                        redirect_stderr,
-                    ) {
-                        Ok(v) => Some(v.into_value(span)),
-                        Err(ShellError::Break(_)) => None,
-                        Err(error) => {
-                            let error = chain_error_with_input(error, Ok(input_span));
-                            Some(Value::Error {
-                                error: Box::new(error),
-                            })
-                        }
-                    }
-                };
                 Ok(cols
                     .into_iter()
                     .zip(vals.into_iter())
                     .into_iter()
-                    .map_while(closure)
+                    .map_while(run_for_each_item)
                     .into_pipeline_data(ctrlc))
             }
             // Errors
@@ -112,14 +124,12 @@ impl Command for Items {
                 dst_span: call.head,
                 src_span: other.expect_span(),
             }),
-            PipelineData::ListStream(..) | PipelineData::ExternalStream { .. } => {
-                Err(ShellError::OnlySupportsThisInputType {
-                    exp_input_type: "record".into(),
-                    wrong_type: "raw data".into(),
-                    dst_span: call.head,
-                    src_span: input_span,
-                })
-            }
+            PipelineData::ExternalStream { .. } => Err(ShellError::OnlySupportsThisInputType {
+                exp_input_type: "record".into(),
+                wrong_type: "raw data".into(),
+                dst_span: call.head,
+                src_span: input_span,
+            }),
         }
         .map(|x| x.set_metadata(metadata))
     }
