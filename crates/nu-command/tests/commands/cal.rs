@@ -33,7 +33,7 @@ fn cal_friday_the_thirteenths_in_2015() {
     let actual = nu!(
         cwd: ".", pipeline(
         r#"
-        cal --full-year 2015 | default friday '0' | where friday == 13 | length
+        cal --full-year 2015 | default 0 friday | where friday == 13 | length
         "#
     ));
 
