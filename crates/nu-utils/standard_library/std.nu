@@ -396,7 +396,7 @@ export def xaccess [
                # 2. `*` string. Get all children without any filter. Equivalent to `descendant` in xpath
                # 3. Int. Select n-th among nodes selected by previous path. Equivalent to `(...)[1]` in xpath, but is indexed from 0.
 ] {
-    let t = $in
+    let input = $in
     if ($path | is-empty) {
         let path_span = (metadata $path).span
         error make {msg: 'Empty path provided'
@@ -406,42 +406,42 @@ export def xaccess [
     # In xpath first element in path is applied to root element
     # this way it is possible to apply first step to root element
     # of nu xml without unrolling one step of loop
-    mut v = {content: [ { content: $t } ] }
-    for $s in ($path) {
-        let type = ($s | describe)
+    mut values = {content: [ { content: $input } ] }
+    for $step in ($path) {
+        let type = ($step | describe)
         if $type == 'string' {
-            if $s == '*' {
-                $v = ($v.content | flatten)
+            if $step == '*' {
+                $values = ($values.content | flatten)
             } else {
-                $v = ($v.content | flatten | where tag == $s)
+                $values = ($values.content | flatten | where tag == $step)
             }
         } else if $type == 'int' {
-            $v = [ ($v | get $s) ]
+            $values = [ ($values | get $step) ]
         } else {
-            let step_span = (metadata $s).span
+            let step_span = (metadata $step).span
             error make {msg: 'Incorrect path step type'
                     label: {text: 'Use a string or int as a step'
                             start: $step_span.start end: $step_span.end}}
         }
 
-        if ($v | is-empty) {
+        if ($values | is-empty) {
             return []
         }
     }
-    $v
+    $values
 }
 
 def xupdate-string-step [ step: string rest: list updater: closure ] {
-    let t = $in
+    let input = $in
 
     # Get a list of elements to be updated and their indices
-    let to_update = ($t.content | enumerate | filter {|it|
-        let el = $it.item
-        $step == '*' or $el.tag == $step
+    let to_update = ($input.content | enumerate | filter {|it|
+        let item = $it.item
+        $step == '*' or $item.tag == $step
     })
 
     if ($to_update | is-empty) {
-        return $t
+        return $input
     }
 
     let new_values = ($to_update.item | xupdate-internal $rest $updater)
@@ -449,8 +449,8 @@ def xupdate-string-step [ step: string rest: list updater: closure ] {
     mut reenumerated_new_values = ($to_update.index | zip $new_values | each {|x| {index: $x.0 item: $x.1}})
 
     mut new_content = []
-    for it in ($t.content | enumerate) {
-        let el = $it.item
+    for it in ($input.content | enumerate) {
+        let item = $it.item
         let idx = $it.index
 
         let next = (if (not ($reenumerated_new_values | is-empty)) and $idx == $reenumerated_new_values.0.index {
@@ -458,43 +458,43 @@ def xupdate-string-step [ step: string rest: list updater: closure ] {
             $reenumerated_new_values = ($reenumerated_new_values | skip 1)
             $tmp.item
         } else {
-            $el
+            $item
         })
 
         $new_content = ($new_content | append $next)
     }
 
-    {tag: $t.tag attributes: $t.attributes content: $new_content}
+    {tag: $input.tag attributes: $input.attributes content: $new_content}
 }
 
 def xupdate-int-step [ step: int rest: list updater: closure ] {
-    let t = $in
-    $t | enumerate | each {|it|
-        let el = $it.item
+    let input = $in
+    $input | enumerate | each {|it|
+        let item = $it.item
         let idx = $it.index
 
         if $idx == $step {
-            [ $el ] | xupdate-internal $rest $updater | get 0
+            [ $item ] | xupdate-internal $rest $updater | get 0
         } else {
-            $el
+            $item
         }
     }
 }
 
 def xupdate-internal [ path: list updater: closure ] {
-    let t = $in
+    let input = $in
 
     if ($path | is-empty) {
-        $t | each $updater
+        $input | each $updater
     } else {
         let step = $path.0
         let type = ($step | describe)
         let rest = ($path | skip 1)
 
         if $type == 'string' {
-            $t | each {|x| $x | xupdate-string-step $step $rest $updater}
+            $input | each {|x| $x | xupdate-string-step $step $rest $updater}
         } else if $type == 'int' {
-            $t | xupdate-int-step $step $rest $updater
+            $input | xupdate-int-step $step $rest $updater
         } else {
             let step_span = (metadata $step).span
             error make {msg: 'Incorrect path step type'
