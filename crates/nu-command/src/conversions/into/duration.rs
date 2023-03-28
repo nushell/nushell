@@ -363,7 +363,7 @@ fn convert_str_from_unit_to_unit(
             dst_span: span,
             src_span: value_span,
             help: Some(
-                "supported units are ns, us, µs, ms, sec, min, hr, day, wk, month, yr and dec"
+                "supported units are ns, us/µs, ms, sec, min, hr, day, wk, month, yr, and dec"
                     .to_string(),
             ),
         }),
