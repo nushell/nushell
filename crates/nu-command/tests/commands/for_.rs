@@ -28,3 +28,16 @@ fn for_break_on_external_failed() {
     // so our output will be `1`
     assert_eq!(actual.out, "1");
 }
+
+#[test]
+fn failed_for_should_break_running() {
+    let actual = nu!(
+        cwd: ".",
+        r#"
+        for i in 1..2 {
+            nu --testbin fail
+        }
+        print 3"#
+    );
+    assert!(!actual.out.contains('3'));
+}
