@@ -1761,6 +1761,10 @@ pub fn parse_numberlike_expr(
         SyntaxShape::Filesize => parse_filesize(working_set, span),
         SyntaxShape::Range => parse_range(working_set, span, expand_aliases_denylist),
         SyntaxShape::CellPath => parse_simple_cell_path(working_set, span, expand_aliases_denylist),
+        SyntaxShape::String => (
+            garbage(span),
+            Some(ParseError::Expected("string".into(), span)),
+        ),
         SyntaxShape::Any => {
             if bytes == b"0b" {
                 // FIXME: having to work around this filesize that also looks like a binary value
