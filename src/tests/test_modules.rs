@@ -91,7 +91,7 @@ fn module_def_import_uses_internal_command() -> TestResult {
 #[test]
 fn module_env_import_uses_internal_command() -> TestResult {
     run_test(
-        r#"module foo { def b [] { "2" }; export-env { let-env a = b }  }; use foo; $env.a"#,
+        r#"module foo { def b [] { "2" }; export-env { let-env a = (b) }  }; use foo; $env.a"#,
         "2",
     )
 }

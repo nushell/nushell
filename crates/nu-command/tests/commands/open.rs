@@ -10,7 +10,7 @@ fn parses_csv() {
             "nu.zion.csv",
             r#"
                     author,lang,source
-                    Jonathan Turner,Rust,New Zealand
+                    JT Turner,Rust,New Zealand
                     Andres N. Robalino,Rust,Ecuador
                     Yehuda Katz,Rust,Estados Unidos
                 "#,
@@ -180,7 +180,7 @@ fn parses_xml() {
     let actual = nu!(
         cwd: "tests/fixtures/formats",
         pipeline(r#"
-            open jonathan.xml
+            open jt.xml
             | get content
             | where tag == channel
             | get content
@@ -193,10 +193,7 @@ fn parses_xml() {
         "#)
     );
 
-    assert_eq!(
-        actual.out,
-        "http://www.jonathanturner.org/2015/10/off-to-new-adventures.html"
-    )
+    assert_eq!(actual.out, "https://www.jntrnr.com/off-to-new-adventures/")
 }
 
 #[cfg(feature = "dataframe")]
@@ -225,7 +222,7 @@ fn errors_if_file_not_found() {
     //
     // This seems to be not directly affected by localization compared to the OS
     // provided error message
-    let expected = "(os error 2)";
+    let expected = "not found";
 
     assert!(
         actual.err.contains(expected),
@@ -235,27 +232,28 @@ fn errors_if_file_not_found() {
     );
 }
 
-// FIXME: jt: I think `open` on a directory is confusing. We should make discuss this one a bit more
-#[ignore]
 #[test]
-fn open_dir_is_ls() {
-    Playground::setup("open_dir", |dirs, sandbox| {
-        sandbox.with_files(vec![
-            EmptyFile("yehuda.txt"),
-            EmptyFile("jonathan.txt"),
-            EmptyFile("andres.txt"),
-        ]);
+fn open_wildcard() {
+    let actual = nu!(
+        cwd: "tests/fixtures/formats", pipeline(
+        r#"
+            open *.nu | where $it =~ echo | length
+        "#
+    ));
 
-        let actual = nu!(
-            cwd: dirs.test(), pipeline(
-            r#"
-                open .
-                | length
-            "#
-        ));
+    assert_eq!(actual.out, "3")
+}
 
-        assert_eq!(actual.out, "3");
-    })
+#[test]
+fn open_multiple_files() {
+    let actual = nu!(
+        cwd: "tests/fixtures/formats", pipeline(
+        r#"
+        open caco3_plastics.csv caco3_plastics.tsv | get tariff_item | math sum
+        "#
+    ));
+
+    assert_eq!(actual.out, "58309279992")
 }
 
 #[test]
@@ -265,10 +263,10 @@ fn test_open_block_command() {
         r#"
             def "from blockcommandparser" [] { lines | split column ",|," }
             let values = (open sample.blockcommandparser)
-            echo ($values | get column1 | get 0)
-            echo ($values | get column2 | get 0)
-            echo ($values | get column1 | get 1)
-            echo ($values | get column2 | get 1)
+            print ($values | get column1 | get 0)
+            print ($values | get column2 | get 0)
+            print ($values | get column1 | get 1)
+            print ($values | get column2 | get 1)
         "#
     );
 

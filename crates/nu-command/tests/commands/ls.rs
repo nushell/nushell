@@ -7,7 +7,7 @@ fn lists_regular_files() {
     Playground::setup("ls_test_1", |dirs, sandbox| {
         sandbox.with_files(vec![
             EmptyFile("yehuda.txt"),
-            EmptyFile("jonathan.txt"),
+            EmptyFile("jttxt"),
             EmptyFile("andres.txt"),
         ]);
 
@@ -50,7 +50,7 @@ fn lists_regular_files_using_question_mark_wildcard() {
     Playground::setup("ls_test_3", |dirs, sandbox| {
         sandbox.with_files(vec![
             EmptyFile("yehuda.10.txt"),
-            EmptyFile("jonathan.10.txt"),
+            EmptyFile("jt.10.txt"),
             EmptyFile("andres.10.txt"),
             EmptyFile("chicken_not_to_be_picked_up.100.txt"),
         ]);
@@ -73,10 +73,7 @@ fn lists_all_files_in_directories_from_stream() {
         sandbox
             .with_files(vec![EmptyFile("root1.txt"), EmptyFile("root2.txt")])
             .within("dir_a")
-            .with_files(vec![
-                EmptyFile("yehuda.10.txt"),
-                EmptyFile("jonathan.10.txt"),
-            ])
+            .with_files(vec![EmptyFile("yehuda.10.txt"), EmptyFile("jt10.txt")])
             .within("dir_b")
             .with_files(vec![
                 EmptyFile("andres.10.txt"),
@@ -132,7 +129,7 @@ fn list_files_from_two_parents_up_using_multiple_dots() {
     Playground::setup("ls_test_6", |dirs, sandbox| {
         sandbox.with_files(vec![
             EmptyFile("yahuda.yaml"),
-            EmptyFile("jonathan.json"),
+            EmptyFile("jtjson"),
             EmptyFile("andres.xml"),
             EmptyFile("kevin.txt"),
         ]);
@@ -185,7 +182,7 @@ fn lists_all_hidden_files_when_glob_contains_dot() {
             .within("dir_a")
             .with_files(vec![
                 EmptyFile("yehuda.10.txt"),
-                EmptyFile("jonathan.10.txt"),
+                EmptyFile("jt10.txt"),
                 EmptyFile(".dotfile2"),
             ])
             .within("dir_b")
@@ -222,7 +219,7 @@ fn lists_all_hidden_files_when_glob_does_not_contain_dot() {
             .within("dir_a")
             .with_files(vec![
                 EmptyFile("yehuda.10.txt"),
-                EmptyFile("jonathan.10.txt"),
+                EmptyFile("jt10.txt"),
                 EmptyFile(".dotfile2"),
             ])
             .within(".dir_b")
@@ -284,10 +281,9 @@ fn glob_with_hidden_directory() {
 #[cfg(unix)]
 fn fails_with_ls_to_dir_without_permission() {
     Playground::setup("ls_test_1", |dirs, sandbox| {
-        sandbox.within("dir_a").with_files(vec![
-            EmptyFile("yehuda.11.txt"),
-            EmptyFile("jonathan.10.txt"),
-        ]);
+        sandbox
+            .within("dir_a")
+            .with_files(vec![EmptyFile("yehuda.11.txt"), EmptyFile("jt10.txt")]);
 
         let actual = nu!(
             cwd: dirs.test(), pipeline(
@@ -317,7 +313,7 @@ fn lists_files_including_starting_with_dot() {
     Playground::setup("ls_test_9", |dirs, sandbox| {
         sandbox.with_files(vec![
             EmptyFile("yehuda.txt"),
-            EmptyFile("jonathan.txt"),
+            EmptyFile("jttxt"),
             EmptyFile("andres.txt"),
             EmptyFile(".hidden1.txt"),
             EmptyFile(".hidden2.txt"),
@@ -552,7 +548,7 @@ fn list_ignores_ansi() {
         let actual = nu!(
             cwd: dirs.test(), pipeline(
             r#"
-                ls | find .txt | each { ls $in.name } 
+                ls | find .txt | each {|| ls $in.name } 
             "#
         ));
 

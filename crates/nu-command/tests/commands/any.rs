@@ -20,12 +20,12 @@ fn checks_any_column_of_a_table_is_true() {
         r#"
                 echo [
                         [  first_name, last_name,   rusty_at, likes  ];
-                        [      Andrés,  Robalino, 10/11/2013,   1    ]
-                        [    Jonathan,    Turner, 10/12/2013,   1    ]
-                        [      Darren, Schroeder, 10/11/2013,   1    ]
-                        [      Yehuda,      Katz, 10/11/2013,   1    ]
+                        [      Andrés,  Robalino, '10/11/2013',   1    ]
+                        [    JT,    Turner, '10/12/2013',   1    ]
+                        [      Darren, Schroeder, '10/11/2013',   1    ]
+                        [      Yehuda,      Katz, '10/11/2013',   1    ]
                 ]
-                | any {|x| $x.rusty_at == 10/12/2013 }
+                | any {|x| $x.rusty_at == '10/12/2013' }
         "#
     ));
 
@@ -61,7 +61,7 @@ fn works_with_1_param_blocks() {
 fn works_with_0_param_blocks() {
     let actual = nu!(
         cwd: ".", pipeline(
-        r#"[1 2 3] | any { print $in | false }"#
+        r#"[1 2 3] | any {|| print $in | false }"#
     ));
 
     assert_eq!(actual.out, "123false");
@@ -81,7 +81,7 @@ fn early_exits_with_1_param_blocks() {
 fn early_exits_with_0_param_blocks() {
     let actual = nu!(
         cwd: ".", pipeline(
-        r#"[1 2 3] | any { print $in | true }"#
+        r#"[1 2 3] | any {|| print $in | true }"#
     ));
 
     assert_eq!(actual.out, "1true");
@@ -101,7 +101,7 @@ fn any_uses_enumerate_index() {
 fn unique_env_each_iteration() {
     let actual = nu!(
         cwd: "tests/fixtures/formats",
-        "[1 2] | any { print ($env.PWD | str ends-with 'formats') | cd '/' | false } | to nuon"
+        "[1 2] | any {|| print ($env.PWD | str ends-with 'formats') | cd '/' | false } | to nuon"
     );
 
     assert_eq!(actual.out, "truetruefalse");

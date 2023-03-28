@@ -72,10 +72,10 @@ impl Command for Collect {
             // for when we support `data | let x = $in;`
             // remove the variables added earlier
             for var_id in capture_block.captures.keys() {
-                stack_captures.vars.remove(var_id);
+                stack_captures.remove_var(*var_id);
             }
             if let Some(u) = saved_positional {
-                stack_captures.vars.remove(&u);
+                stack_captures.remove_var(u);
             }
             // add any new variables to the stack
             stack.vars.extend(stack_captures.vars);

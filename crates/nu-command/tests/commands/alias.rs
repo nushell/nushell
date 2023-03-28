@@ -1,3 +1,5 @@
+use nu_test_support::fs::Stub::FileWithContentToBeTrimmed;
+use nu_test_support::playground::Playground;
 use nu_test_support::{nu, pipeline};
 
 #[ignore = "TODO?: Aliasing parser keywords does not work anymore"]
@@ -89,4 +91,49 @@ fn cant_alias_keyword() {
         "#
     ));
     assert!(actual.err.contains("cant_alias_keyword"));
+}
+
+#[test]
+fn alias_wont_recurse() {
+    let actual = nu!(
+        cwd: ".", pipeline(
+        r#"
+            module myspamsymbol {
+                export def myfoosymbol [prefix: string, msg: string] {
+                    $prefix + $msg
+                }
+            };
+            use myspamsymbol myfoosymbol;
+            alias myfoosymbol = myfoosymbol 'hello';
+            myfoosymbol ' world'
+        "#
+    ));
+
+    assert_eq!(actual.out, "hello world");
+    assert!(actual.err.is_empty());
+}
+
+// Issue https://github.com/nushell/nushell/issues/8246
+#[test]
+fn alias_wont_recurse2() {
+    Playground::setup("alias_wont_recurse2", |dirs, sandbox| {
+        sandbox.with_files(vec![FileWithContentToBeTrimmed(
+            "spam.nu",
+            r#"
+                def eggs [] { spam 'eggs' }
+                alias spam = spam 'spam'
+            "#,
+        )]);
+        let actual = nu!(
+            cwd: dirs.test(), pipeline(
+            r#"
+                def spam [what: string] { 'spam ' + $what };
+                source spam.nu;
+                spam
+            "#
+        ));
+
+        assert_eq!(actual.out, "spam spam");
+        assert!(actual.err.is_empty());
+    })
 }

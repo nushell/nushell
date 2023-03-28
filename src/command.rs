@@ -1,4 +1,4 @@
-use nu_cli::report_error;
+use nu_command::util::report_error;
 use nu_engine::{get_full_help, CallExt};
 use nu_parser::parse;
 use nu_parser::{escape_for_script_arg, escape_quote_string};
@@ -155,7 +155,7 @@ pub(crate) fn parse_commandline_args(
 
                 let _ = std::panic::catch_unwind(move || stdout_write_all_and_flush(full_help));
 
-                std::process::exit(1);
+                std::process::exit(0);
             }
 
             if call.has_flag("version") {

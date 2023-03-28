@@ -1,7 +1,7 @@
 use std::io::{self, BufRead, Read, Write};
 
-use nu_cli::{eval_env_change_hook, eval_hook};
 use nu_command::create_default_context;
+use nu_command::hook::{eval_env_change_hook, eval_hook};
 use nu_engine::eval_block;
 use nu_parser::parse;
 use nu_protocol::engine::{EngineState, Stack, StateWorkingSet};
@@ -209,6 +209,12 @@ pub fn nu_repl() {
 
         // Check for pre_execution hook
         let config = engine_state.get_config();
+
+        *engine_state
+            .repl_buffer_state
+            .lock()
+            .expect("repl buffer state mutex") = line.to_string();
+
         if let Some(hook) = config.hooks.pre_execution.clone() {
             if let Err(err) = eval_hook(&mut engine_state, &mut stack, None, vec![], &hook) {
                 outcome_err(&engine_state, &err);

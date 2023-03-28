@@ -1,3 +1,6 @@
+use std::sync::atomic::AtomicBool;
+use std::sync::Arc;
+
 use nu_engine::CallExt;
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
@@ -126,13 +129,18 @@ fn run_head(
         password: call.get_flag(engine_state, stack, "password")?,
         timeout: call.get_flag(engine_state, stack, "max-time")?,
     };
+    let ctrl_c = engine_state.ctrlc.clone();
 
-    helper(call, args)
+    helper(call, args, ctrl_c)
 }
 
 // Helper function that actually goes to retrieve the resource from the url given
 // The Option<String> return a possible file extension which can be used in AutoConvert commands
-fn helper(call: &Call, args: Arguments) -> Result<PipelineData, ShellError> {
+fn helper(
+    call: &Call,
+    args: Arguments,
+    ctrlc: Option<Arc<AtomicBool>>,
+) -> Result<PipelineData, ShellError> {
     let span = args.url.span()?;
     let (requested_url, _) = http_parse_url(call, span, args.url)?;
 
@@ -143,7 +151,7 @@ fn helper(call: &Call, args: Arguments) -> Result<PipelineData, ShellError> {
     request = request_add_authorization_header(args.user, args.password, request);
     request = request_add_custom_headers(args.headers, request)?;
 
-    let response = send_request(request, span, None, None);
+    let response = send_request(request, None, None, ctrlc);
     request_handle_response_headers(span, response)
 }
 

@@ -85,7 +85,7 @@ impl Command for SubCommand {
             },
             Example {
                 description: "Shift left a number with 1 byte by 7 bits",
-                example: "2 | bits shl 7 -n 1",
+                example: "2 | bits shl 7 -n '1'",
                 result: Some(Value::test_int(0)),
             },
             Example {

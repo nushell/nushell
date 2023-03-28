@@ -162,7 +162,7 @@ impl Command for For {
                             return Err(err);
                         }
                         Ok(pipeline) => {
-                            let exit_code = pipeline.print(&engine_state, stack, false, false)?;
+                            let exit_code = pipeline.drain_with_exit_code()?;
                             if exit_code != 0 {
                                 break;
                             }

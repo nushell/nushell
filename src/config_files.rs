@@ -1,7 +1,8 @@
 use log::info;
 #[cfg(feature = "plugin")]
 use nu_cli::read_plugin_file;
-use nu_cli::{eval_config_contents, eval_source, report_error};
+use nu_cli::{eval_config_contents, eval_source};
+use nu_command::util::report_error;
 use nu_parser::ParseError;
 use nu_path::canonicalize_with;
 use nu_protocol::engine::{EngineState, Stack, StateWorkingSet};

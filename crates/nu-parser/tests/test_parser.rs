@@ -1,6 +1,7 @@
 use nu_parser::ParseError;
 use nu_parser::*;
-use nu_protocol::ast::Call;
+use nu_protocol::ast::{Call, PathMember};
+use nu_protocol::Span;
 use nu_protocol::{
     ast::{Expr, Expression, PipelineElement},
     engine::{Command, EngineState, Stack, StateWorkingSet},
@@ -26,7 +27,7 @@ impl Command for Let {
             .required("var_name", SyntaxShape::VarWithOptType, "variable name")
             .required(
                 "initial_value",
-                SyntaxShape::Keyword(b"=".to_vec(), Box::new(SyntaxShape::Expression)),
+                SyntaxShape::Keyword(b"=".to_vec(), Box::new(SyntaxShape::MathExpression)),
                 "equals sign followed by value",
             )
     }
@@ -193,7 +194,7 @@ pub fn multi_test_parse_int() {
         ),
         Test(
             "semver data not confused for int",
-            b"1.0.1",
+            b"'1.0.1'",
             Expr::String("1.0.1".into()),
             None,
         ),
@@ -319,6 +320,118 @@ pub fn parse_int_with_underscores() {
             }
         )
     ))
+}
+
+#[test]
+pub fn parse_cell_path() {
+    let engine_state = EngineState::new();
+    let mut working_set = StateWorkingSet::new(&engine_state);
+
+    working_set.add_variable(
+        "foo".to_string().into_bytes(),
+        Span::test_data(),
+        nu_protocol::Type::Record(vec![]),
+        false,
+    );
+
+    let (block, err) = parse(&mut working_set, None, b"$foo.bar.baz", true, &[]);
+
+    assert!(err.is_none());
+    assert_eq!(block.len(), 1);
+    let expressions = &block[0];
+    assert_eq!(expressions.len(), 1);
+
+    // hoo boy this pattern matching is a pain
+    if let PipelineElement::Expression(_, expr) = &expressions[0] {
+        if let Expr::FullCellPath(b) = &expr.expr {
+            assert!(matches!(
+                b.head,
+                Expression {
+                    expr: Expr::Var(_),
+                    ..
+                }
+            ));
+            if let [a, b] = &b.tail[..] {
+                if let PathMember::String { val, optional, .. } = a {
+                    assert_eq!(val, "bar");
+                    assert_eq!(optional, &false);
+                } else {
+                    panic!("wrong type")
+                }
+
+                if let PathMember::String { val, optional, .. } = b {
+                    assert_eq!(val, "baz");
+                    assert_eq!(optional, &false);
+                } else {
+                    panic!("wrong type")
+                }
+            } else {
+                panic!("cell path tail is unexpected")
+            }
+        } else {
+            panic!("Not a cell path");
+        }
+    } else {
+        panic!("Not an expression")
+    }
+}
+
+#[test]
+pub fn parse_cell_path_optional() {
+    let engine_state = EngineState::new();
+    let mut working_set = StateWorkingSet::new(&engine_state);
+
+    working_set.add_variable(
+        "foo".to_string().into_bytes(),
+        Span::test_data(),
+        nu_protocol::Type::Record(vec![]),
+        false,
+    );
+
+    let (block, err) = parse(&mut working_set, None, b"$foo.bar?.baz", true, &[]);
+
+    if let Some(err) = err {
+        dbg!(err);
+        panic!();
+    }
+
+    assert_eq!(block.len(), 1);
+    let expressions = &block[0];
+    assert_eq!(expressions.len(), 1);
+
+    // hoo boy this pattern matching is a pain
+    if let PipelineElement::Expression(_, expr) = &expressions[0] {
+        if let Expr::FullCellPath(b) = &expr.expr {
+            assert!(matches!(
+                b.head,
+                Expression {
+                    expr: Expr::Var(_),
+                    ..
+                }
+            ));
+            if let [a, b] = &b.tail[..] {
+                if let PathMember::String { val, optional, .. } = a {
+                    assert_eq!(val, "bar");
+                    assert_eq!(optional, &true);
+                } else {
+                    panic!("wrong type")
+                }
+
+                if let PathMember::String { val, optional, .. } = b {
+                    assert_eq!(val, "baz");
+                    assert_eq!(optional, &false);
+                } else {
+                    panic!("wrong type")
+                }
+            } else {
+                panic!("cell path tail is unexpected")
+            }
+        } else {
+            panic!("Not a cell path");
+        }
+    } else {
+        panic!("Not an expression")
+    }
 }
 
 #[test]
@@ -1442,7 +1555,7 @@ mod input_types {
 
         fn signature(&self) -> nu_protocol::Signature {
             Signature::build("if")
-                .required("cond", SyntaxShape::Expression, "condition to check")
+                .required("cond", SyntaxShape::MathExpression, "condition to check")
                 .required(
                     "then_block",
                     SyntaxShape::Block,
@@ -1450,7 +1563,13 @@ mod input_types {
                 )
                 .optional(
                     "else_expression",
-                    SyntaxShape::Keyword(b"else".to_vec(), Box::new(SyntaxShape::Expression)),
+                    SyntaxShape::Keyword(
+                        b"else".to_vec(),
+                        Box::new(SyntaxShape::OneOf(vec![
+                            SyntaxShape::Block,
+                            SyntaxShape::Expression,
+                        ])),
+                    ),
                     "expression or block to run if check fails",
                 )
                 .category(Category::Core)
@@ -1845,6 +1964,25 @@ mod input_types {
             &mut working_set,
             None,
             b"if false { 'a' } else { $foo }",
+            true,
+            &[],
+        );
+
+        let err = err.unwrap();
+
+        assert!(matches!(err, ParseError::VariableNotFound(_)));
+    }
+
+    #[test]
+    fn else_if_errors_correctly() {
+        let mut engine_state = EngineState::new();
+        add_declarations(&mut engine_state);
+
+        let mut working_set = StateWorkingSet::new(&engine_state);
+        let (_, err) = parse(
+            &mut working_set,
+            None,
+            b"if false { 'a' } else $foo { 'b' }",
             true,
             &[],
         );

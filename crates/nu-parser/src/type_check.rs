@@ -295,6 +295,9 @@ pub fn math_result_type(
                 (Type::Custom(a), Type::Custom(b)) if a == b => (Type::Custom(a.to_string()), None),
                 (Type::Custom(a), _) => (Type::Custom(a.to_string()), None),
 
+                (Type::Nothing, _) => (Type::Nothing, None),
+                (_, Type::Nothing) => (Type::Nothing, None),
+
                 (Type::Any, _) => (Type::Bool, None),
                 (_, Type::Any) => (Type::Bool, None),
                 _ => {
@@ -321,6 +324,9 @@ pub fn math_result_type(
 
                 (Type::Custom(a), Type::Custom(b)) if a == b => (Type::Custom(a.to_string()), None),
                 (Type::Custom(a), _) => (Type::Custom(a.to_string()), None),
+
+                (Type::Nothing, _) => (Type::Nothing, None),
+                (_, Type::Nothing) => (Type::Nothing, None),
 
                 (Type::Any, _) => (Type::Bool, None),
                 (_, Type::Any) => (Type::Bool, None),
@@ -351,6 +357,9 @@ pub fn math_result_type(
 
                 (Type::Any, _) => (Type::Bool, None),
                 (_, Type::Any) => (Type::Bool, None),
+
+                (Type::Nothing, _) => (Type::Nothing, None),
+                (_, Type::Nothing) => (Type::Nothing, None),
                 _ => {
                     *op = Expression::garbage(op.span);
                     (
@@ -378,6 +387,9 @@ pub fn math_result_type(
 
                 (Type::Any, _) => (Type::Bool, None),
                 (_, Type::Any) => (Type::Bool, None),
+
+                (Type::Nothing, _) => (Type::Nothing, None),
+                (_, Type::Nothing) => (Type::Nothing, None),
                 _ => {
                     *op = Expression::garbage(op.span);
                     (

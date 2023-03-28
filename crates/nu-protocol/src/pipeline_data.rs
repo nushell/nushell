@@ -200,6 +200,59 @@ impl PipelineData {
         }
     }
 
+    pub fn drain(self) -> Result<(), ShellError> {
+        match self {
+            PipelineData::Value(Value::Error { error }, _) => Err(*error),
+            PipelineData::Value(_, _) => Ok(()),
+            PipelineData::ListStream(stream, _) => stream.drain(),
+            PipelineData::ExternalStream { stdout, stderr, .. } => {
+                if let Some(stdout) = stdout {
+                    stdout.drain()?;
+                }
+
+                if let Some(stderr) = stderr {
+                    stderr.drain()?;
+                }
+
+                Ok(())
+            }
+            PipelineData::Empty => Ok(()),
+        }
+    }
+
+    pub fn drain_with_exit_code(self) -> Result<i64, ShellError> {
+        match self {
+            PipelineData::Value(Value::Error { error }, _) => Err(*error),
+            PipelineData::Value(_, _) => Ok(0),
+            PipelineData::ListStream(stream, _) => {
+                stream.drain()?;
+                Ok(0)
+            }
+            PipelineData::ExternalStream {
+                stdout,
+                stderr,
+                exit_code,
+                ..
+            } => {
+                if let Some(stdout) = stdout {
+                    stdout.drain()?;
+                }
+
+                if let Some(stderr) = stderr {
+                    stderr.drain()?;
+                }
+
+                if let Some(exit_code) = exit_code {
+                    let result = drain_exit_code(exit_code)?;
+                    Ok(result)
+                } else {
+                    Ok(0)
+                }
+            }
+            PipelineData::Empty => Ok(0),
+        }
+    }
+
     /// Try convert from self into iterator
     ///
     /// It returns Err if the `self` cannot be converted to an iterator.
@@ -322,7 +375,6 @@ impl PipelineData {
         cell_path: &[PathMember],
         head: Span,
         insensitive: bool,
-        ignore_errors: bool,
     ) -> Result<Value, ShellError> {
         match self {
             // FIXME: there are probably better ways of doing this
@@ -330,8 +382,8 @@ impl PipelineData {
                 vals: stream.collect(),
                 span: head,
             }
-            .follow_cell_path(cell_path, insensitive, ignore_errors),
-            PipelineData::Value(v, ..) => v.follow_cell_path(cell_path, insensitive, ignore_errors),
+            .follow_cell_path(cell_path, insensitive),
+            PipelineData::Value(v, ..) => v.follow_cell_path(cell_path, insensitive),
             _ => Err(ShellError::IOError("can't follow stream paths".into())),
         }
     }
@@ -538,7 +590,7 @@ impl PipelineData {
         // Only need ExternalStream without redirecting output.
         // It indicates we have no more commands to execute currently.
         if let PipelineData::ExternalStream {
-            stdout,
+            stdout: None,
             stderr,
             mut exit_code,
             span,
@@ -549,53 +601,21 @@ impl PipelineData {
             let exit_code = exit_code.take();
 
             // Note:
-            // use a thread to receive stderr message.
-            // Or we may get a deadlock if child process sends out too much bytes to stdout.
+            // In run-external's implementation detail, the result sender thread
+            // send out stderr message first, then stdout message, then exit_code.
             //
-            // For example: in normal linux system, stdout pipe's limit is 65535 bytes.
-            // if child process sends out 65536 bytes, the process will be hanged because no consumer
-            // consumes the first 65535 bytes
-            // So we need a thread to receive stderr message, then the current thread can continue to consume
-            // stdout messages.
-            let stderr_handler = stderr.map(|stderr| {
-                let stderr_span = stderr.span;
-                let stderr_ctrlc = stderr.ctrlc.clone();
-                (
-                    thread::Builder::new()
-                        .name("stderr consumer".to_string())
-                        .spawn(move || {
-                            stderr
-                                .into_bytes()
-                                .map(|bytes| bytes.item)
-                                .unwrap_or_default()
-                        })
-                        .expect("failed to create thread"),
-                    stderr_span,
-                    stderr_ctrlc,
-                )
-            });
-            let stdout = stdout.map(|stdout_stream| {
-                let stdout_ctrlc = stdout_stream.ctrlc.clone();
-                let stdout_span = stdout_stream.span;
-                let stdout_bytes = stdout_stream
+            // In this clause, we already make sure that `stdout` is None
+            // But not the case of `stderr`, so if `stderr` is not None
+            // We need to consume stderr message before reading external commands' exit code.
+            //
+            // Or we'll never have a chance to read exit_code if stderr producer produce too much stderr message.
+            // So we consume stderr stream and rebuild it.
+            let stderr = stderr.map(|stderr_stream| {
+                let stderr_ctrlc = stderr_stream.ctrlc.clone();
+                let stderr_span = stderr_stream.span;
+                let stderr_bytes = stderr_stream
                     .into_bytes()
                     .map(|bytes| bytes.item)
-                    .unwrap_or_default();
-                RawStream::new(
-                    Box::new(vec![Ok(stdout_bytes)].into_iter()),
-                    stdout_ctrlc,
-                    stdout_span,
-                    None,
-                )
-            });
-            let stderr = stderr_handler.map(|(handler, stderr_span, stderr_ctrlc)| {
-                let stderr_bytes = handler
-                    .join()
-                    .map_err(|err| ShellError::ExternalCommand {
-                        label: "Fail to receive external commands stderr message".to_string(),
-                        help: format!("{err:?}"),
-                        span: stderr_span,
-                    })
                     .unwrap_or_default();
                 RawStream::new(
                     Box::new(vec![Ok(stderr_bytes)].into_iter()),
@@ -604,6 +624,7 @@ impl PipelineData {
                     None,
                 )
             });
+
             match exit_code {
                 Some(exit_code_stream) => {
                     let ctrlc = exit_code_stream.ctrlc.clone();
@@ -616,7 +637,7 @@ impl PipelineData {
                     }
                     (
                         PipelineData::ExternalStream {
-                            stdout,
+                            stdout: None,
                             stderr,
                             exit_code: Some(ListStream::from_stream(exit_code.into_iter(), ctrlc)),
                             span,
@@ -628,7 +649,7 @@ impl PipelineData {
                 }
                 None => (
                     PipelineData::ExternalStream {
-                        stdout,
+                        stdout: None,
                         stderr,
                         exit_code: None,
                         span,
@@ -716,7 +737,7 @@ impl PipelineData {
             return print_if_stream(stream, stderr_stream, to_stderr, exit_code);
         }
 
-        if let Some(decl_id) = engine_state.find_decl("table".as_bytes(), &[]) {
+        if let Some(decl_id) = engine_state.table_decl_id {
             let command = engine_state.get_decl(decl_id);
             if command.get_block_id().is_some() {
                 return self.write_all_and_flush(engine_state, config, no_newline, to_stderr);
@@ -746,8 +767,6 @@ impl PipelineData {
         no_newline: bool,
         to_stderr: bool,
     ) -> Result<i64, ShellError> {
-        let config = engine_state.get_config();
-
         if let PipelineData::ExternalStream {
             stdout: stream,
             stderr: stderr_stream,
@@ -757,6 +776,7 @@ impl PipelineData {
         {
             print_if_stream(stream, stderr_stream, to_stderr, exit_code)
         } else {
+            let config = engine_state.get_config();
             self.write_all_and_flush(engine_state, config, no_newline, to_stderr)
         }
     }
@@ -847,6 +867,7 @@ pub fn print_if_stream(
 ) -> Result<i64, ShellError> {
     // NOTE: currently we don't need anything from stderr
     // so we just consume and throw away `stderr_stream` to make sure the pipe doesn't fill up
+
     thread::Builder::new()
         .name("stderr consumer".to_string())
         .spawn(move || stderr_stream.map(|x| x.into_bytes()))
@@ -866,16 +887,20 @@ pub fn print_if_stream(
 
     // Make sure everything has finished
     if let Some(exit_code) = exit_code {
-        let mut exit_codes: Vec<_> = exit_code.into_iter().collect();
-        return match exit_codes.pop() {
-            #[cfg(unix)]
-            Some(Value::Error { error }) => Err(*error),
-            Some(Value::Int { val, .. }) => Ok(val),
-            _ => Ok(0),
-        };
+        return drain_exit_code(exit_code);
     }
 
     Ok(0)
+}
+
+fn drain_exit_code(exit_code: ListStream) -> Result<i64, ShellError> {
+    let mut exit_codes: Vec<_> = exit_code.into_iter().collect();
+    match exit_codes.pop() {
+        #[cfg(unix)]
+        Some(Value::Error { error }) => Err(*error),
+        Some(Value::Int { val, .. }) => Ok(val),
+        _ => Ok(0),
+    }
 }
 
 impl Iterator for PipelineIterator {

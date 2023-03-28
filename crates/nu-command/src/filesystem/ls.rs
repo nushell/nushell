@@ -129,7 +129,7 @@ impl Command for Ls {
                         ));
                     }
                     if is_empty_dir(&expanded) {
-                        return Ok(Value::nothing(call_span).into_pipeline_data());
+                        return Ok(Value::list(vec![], call_span).into_pipeline_data());
                     }
                     p.push("*");
                 }
@@ -141,7 +141,7 @@ impl Command for Ls {
                 if directory {
                     (PathBuf::from("."), call_span, false)
                 } else if is_empty_dir(current_dir(engine_state, stack)?) {
-                    return Ok(Value::nothing(call_span).into_pipeline_data());
+                    return Ok(Value::list(vec![], call_span).into_pipeline_data());
                 } else {
                     (PathBuf::from("./*"), call_span, false)
                 }

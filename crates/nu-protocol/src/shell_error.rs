@@ -1056,6 +1056,13 @@ pub enum ShellError {
         #[label("Could not access '{column_name}' on this record")]
         span: Span,
     },
+
+    /// Operation interrupted by user
+    #[error("Operation interrupted by user")]
+    InterruptedByUser {
+        #[label("This operation was interrupted")]
+        span: Option<Span>,
+    },
 }
 
 impl From<std::io::Error> for ShellError {

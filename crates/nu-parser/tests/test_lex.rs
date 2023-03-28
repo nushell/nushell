@@ -1,4 +1,4 @@
-use nu_parser::{lex, ParseError, Token, TokenContents};
+use nu_parser::{lex, lex_signature, ParseError, Token, TokenContents};
 use nu_protocol::Span;
 
 #[test]
@@ -20,6 +20,100 @@ fn lex_newline() {
         contents: TokenContents::Eol,
         span: Span::new(11, 12)
     }));
+}
+
+#[test]
+fn lex_annotations_list() {
+    let file = b"items: list<string>";
+
+    let (output, err) = lex_signature(file, 0, &[b'\n', b'\r'], &[b':', b'=', b','], false);
+
+    assert!(err.is_none());
+    assert_eq!(output.len(), 3);
+}
+
+#[test]
+fn lex_annotations_record() {
+    let file = b"config: record<name: string>";
+
+    let (output, err) = lex_signature(file, 0, &[b'\n', b'\r'], &[b':', b'=', b','], false);
+
+    assert!(err.is_none());
+    assert_eq!(output.len(), 3);
+}
+
+#[test]
+fn lex_annotations_empty() {
+    let file = b"items: list<>";
+
+    let (output, err) = lex_signature(file, 0, &[b'\n', b'\r'], &[b':', b'=', b','], false);
+
+    assert!(err.is_none());
+    assert_eq!(output.len(), 3);
+}
+
+#[test]
+fn lex_annotations_space_before_annotations() {
+    let file = b"items: list <string>";
+
+    let (output, err) = lex_signature(file, 0, &[b'\n', b'\r'], &[b':', b'=', b','], false);
+
+    assert!(err.is_none());
+    assert_eq!(output.len(), 4);
+}
+
+#[test]
+fn lex_annotations_space_within_annotations() {
+    let file = b"items: list< string>";
+
+    let (output, err) = lex_signature(file, 0, &[b'\n', b'\r'], &[b':', b'=', b','], false);
+
+    assert!(err.is_none());
+    assert_eq!(output.len(), 3);
+
+    let file = b"items: list<string >";
+
+    let (output, err) = lex_signature(file, 0, &[b'\n', b'\r'], &[b':', b'=', b','], false);
+
+    assert!(err.is_none());
+    assert_eq!(output.len(), 3);
+
+    let file = b"items: list< string >";
+
+    let (output, err) = lex_signature(file, 0, &[b'\n', b'\r'], &[b':', b'=', b','], false);
+
+    assert!(err.is_none());
+    assert_eq!(output.len(), 3);
+}
+
+#[test]
+fn lex_annotations_nested() {
+    let file = b"items: list<record<name: string>>";
+
+    let (output, err) = lex_signature(file, 0, &[b'\n', b'\r'], &[b':', b'=', b','], false);
+
+    assert!(err.is_none());
+    assert_eq!(output.len(), 3);
+}
+
+#[test]
+fn lex_annotations_nested_unterminated() {
+    let file = b"items: list<record<name: string>";
+
+    let (output, err) = lex_signature(file, 0, &[b'\n', b'\r'], &[b':', b'=', b','], false);
+
+    assert!(matches!(err.unwrap(), ParseError::UnexpectedEof(_, _)));
+    assert_eq!(output.len(), 3);
+}
+
+#[test]
+fn lex_annotations_unterminated() {
+    let file = b"items: list<string";
+
+    let (output, err) = lex_signature(file, 0, &[b'\n', b'\r'], &[b':', b'=', b','], false);
+
+    assert!(matches!(err.unwrap(), ParseError::UnexpectedEof(_, _)));
+    assert_eq!(output.len(), 3);
 }
 
 #[test]

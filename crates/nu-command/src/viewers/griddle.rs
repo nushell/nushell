@@ -160,7 +160,7 @@ prints out the list properly."#
             },
             Example {
                 description: "Render a table with 'name' column in it to a grid",
-                example: "[[name patch]; [0.1.0 false] [0.1.1 true] [0.2.0 false]] | grid",
+                example: "[[name patch]; ['0.1.0' false] ['0.1.1' true] ['0.2.0' false]] | grid",
                 result: Some(Value::test_string("0.1.0 │ 0.1.1 │ 0.2.0\n")),
             },
         ]
@@ -277,8 +277,8 @@ fn convert_to_list(
                             &[PathMember::String {
                                 val: header.into(),
                                 span: head,
+                                optional: false,
                             }],
-                            false,
                             false,
                         ),
                         _ => Ok(item.clone()),

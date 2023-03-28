@@ -193,34 +193,6 @@ pub fn parse_def_predecl(
                 return Some(ParseError::DuplicateCommandDef(spans[1]));
             }
         }
-    } else if name == b"alias" && spans.len() >= 4 {
-        let (name_expr, ..) = parse_string(working_set, spans[1], expand_aliases_denylist);
-        let name = name_expr.as_string();
-
-        if let Some(name) = name {
-            if name.contains('#')
-                || name.contains('^')
-                || name.parse::<bytesize::ByteSize>().is_ok()
-                || name.parse::<f64>().is_ok()
-            {
-                return Some(ParseError::CommandDefNotValid(spans[1]));
-            }
-
-            // The signature will get replaced by the replacement signature
-            // let mut signature = Signature::new(name.clone());
-            // signature.name = name;
-
-            // The fields get replaced during parsing
-            let decl = Alias {
-                name,
-                command: None,
-                wrapped_call: Expression::garbage(name_expr.span),
-            };
-
-            if working_set.add_predecl(Box::new(decl)).is_some() {
-                return Some(ParseError::DuplicateCommandDef(spans[1]));
-            }
-        }
     }
 
     None
@@ -780,19 +752,31 @@ pub fn parse_alias(
                 alias_name.to_vec()
             };
 
+            let checked_name = String::from_utf8_lossy(&alias_name).to_string();
+            if checked_name.contains('#')
+                || checked_name.contains('^')
+                || checked_name.parse::<bytesize::ByteSize>().is_ok()
+                || checked_name.parse::<f64>().is_ok()
+            {
+                return (
+                    Pipeline::from_vec(vec![garbage(name_span)]),
+                    Some(ParseError::AliasNotValid(name_span)),
+                );
+            }
+
             if let Some(mod_name) = module_name {
-                if alias_name == mod_name {
+                if checked_name.as_bytes() == mod_name {
                     return (
                         alias_pipeline,
                         Some(ParseError::NamedAsModule(
                             "alias".to_string(),
-                            String::from_utf8_lossy(&alias_name).to_string(),
+                            checked_name,
                             spans[split_id],
                         )),
                     );
                 }
 
-                if &alias_name == b"main" {
+                if checked_name == "main" {
                     return (
                         alias_pipeline,
                         Some(ParseError::ExportMainAliasNotAllowed(spans[split_id])),
@@ -860,28 +844,13 @@ pub fn parse_alias(
                 }
             };
 
-            if let Some(decl_id) = working_set.find_predecl(&alias_name) {
-                let alias_decl = working_set.get_decl_mut(decl_id);
+            let decl = Alias {
+                name: checked_name,
+                command,
+                wrapped_call,
+            };
 
-                let alias = Alias {
-                    name: String::from_utf8_lossy(&alias_name).to_string(),
-                    command,
-                    wrapped_call,
-                };
-
-                *alias_decl = Box::new(alias);
-            } else {
-                return (
-                    garbage_pipeline(spans),
-                    Some(ParseError::InternalError(
-                        "Predeclaration failed to add declaration".into(),
-                        spans[split_id],
-                    )),
-                );
-            }
-
-            // It's OK if it returns None: The decl was already merged in previous parse pass.
-            working_set.merge_predecl(&alias_name);
+            working_set.add_decl(Box::new(decl));
         }
 
         let err = if spans.len() < 4 {
@@ -926,10 +895,12 @@ pub fn parse_old_alias(
             PathMember::String {
                 val: "scope".to_string(),
                 span: Span::new(0, 0),
+                optional: false,
             },
             PathMember::String {
                 val: "aliases".to_string(),
                 span: Span::new(0, 0),
+                optional: false,
             },
         ];
         let expr = Expression {
@@ -3085,7 +3056,10 @@ pub fn parse_let_or_const(
                             working_set,
                             spans,
                             &mut idx,
-                            &SyntaxShape::Keyword(b"=".to_vec(), Box::new(SyntaxShape::Expression)),
+                            &SyntaxShape::Keyword(
+                                b"=".to_vec(),
+                                Box::new(SyntaxShape::MathExpression),
+                            ),
                             expand_aliases_denylist,
                         );
                         error = error.or(err);
@@ -3219,7 +3193,10 @@ pub fn parse_mut(
                             working_set,
                             spans,
                             &mut idx,
-                            &SyntaxShape::Keyword(b"=".to_vec(), Box::new(SyntaxShape::Expression)),
+                            &SyntaxShape::Keyword(
+                                b"=".to_vec(),
+                                Box::new(SyntaxShape::MathExpression),
+                            ),
                             expand_aliases_denylist,
                         );
                         error = error.or(err);
@@ -3663,7 +3640,7 @@ pub fn parse_register(
                 };
 
                 if path.exists() & path.is_file() {
-                    Ok(path)
+                    Ok((path, expr.span))
                 } else {
                     Err(ParseError::RegisteredFileNotFound(
                         format!("{path:?}"),
@@ -3733,29 +3710,33 @@ pub fn parse_register(
     let current_envs =
         nu_engine::env::env_to_strings(working_set.permanent_state, &stack).unwrap_or_default();
     let error = match signature {
-        Some(signature) => arguments.and_then(|path| {
+        Some(signature) => arguments.and_then(|(path, path_span)| {
             // restrict plugin file name starts with `nu_plugin_`
-            let f_name = path
+            let valid_plugin_name = path
                 .file_name()
                 .map(|s| s.to_string_lossy().starts_with("nu_plugin_"));
 
-            if let Some(true) = f_name {
+            if let Some(true) = valid_plugin_name {
                 signature.map(|signature| {
                     let plugin_decl = PluginDeclaration::new(path, signature, shell);
                     working_set.add_decl(Box::new(plugin_decl));
                     working_set.mark_plugins_file_dirty();
                 })
             } else {
-                Ok(())
+                Err(ParseError::LabeledError(
+                    "Register plugin failed".into(),
+                    "plugin name must start with nu_plugin_".into(),
+                    path_span,
+                ))
             }
         }),
-        None => arguments.and_then(|path| {
+        None => arguments.and_then(|(path, path_span)| {
             // restrict plugin file name starts with `nu_plugin_`
-            let f_name = path
+            let valid_plugin_name = path
                 .file_name()
                 .map(|s| s.to_string_lossy().starts_with("nu_plugin_"));
 
-            if let Some(true) = f_name {
+            if let Some(true) = valid_plugin_name {
                 get_signature(path.as_path(), &shell, &current_envs)
                     .map_err(|err| {
                         ParseError::LabeledError(
@@ -3777,7 +3758,11 @@ pub fn parse_register(
                         working_set.mark_plugins_file_dirty();
                     })
             } else {
-                Ok(())
+                Err(ParseError::LabeledError(
+                    "Register plugin failed".into(),
+                    "plugin name must start with nu_plugin_".into(),
+                    path_span,
+                ))
             }
         }),
     }

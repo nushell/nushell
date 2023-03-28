@@ -208,10 +208,11 @@ mod util {
                 let path = PathMember::String {
                     val: header.to_owned(),
                     span: Span::unknown(),
+                    optional: false,
                 };
 
                 item.clone()
-                    .follow_cell_path(&[path], false, false)
+                    .follow_cell_path(&[path], false)
                     .unwrap_or_else(|_| item.clone())
             }
             item => item.clone(),

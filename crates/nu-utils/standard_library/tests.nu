@@ -1,151 +1,128 @@
-use std.nu
+use std.nu *
 
-def test_assert [] {
-    def test_failing [code: closure] {
-        let code_did_run = (try { do $code; true } catch { false })
+# show a test record in a pretty way
+#
+# `$in` must be a `record<file: string, module: string, name: string, pass: bool>`.
+#
+# the output would be like
+# - "<indentation> x <module> <test>" all in red if failed
+# - "<indentation>   <module> <test>" all in green if passed
+def show-pretty-test [indent: int = 4] {
+    let test = $in
 
-        if $code_did_run {
-            error make {msg: (view source $code)}
+    [
+        (" " * $indent)
+        (if $test.pass { ansi green } else { ansi red})
+        (if $test.pass { " " } else { char failed})
+        " "
+        $"($test.module) ($test.name)"
+        (ansi reset)
+    ] | str join
+}
+
+def throw-error [error: record] {
+    error make {
+        msg: $"(ansi red)($error.msg)(ansi reset)"
+        label: {
+            text: ($error.label)
+            start: $error.span.start
+            end: $error.span.end
         }
     }
-
-    std assert true
-    std assert (1 + 2 == 3)
-    test_failing { std assert false }
-    test_failing { std assert (1 + 2 == 4) }
-
-    std assert eq (1 + 2) 3
-    test_failing { std assert eq 1 "foo" }
-    test_failing { std assert eq (1 + 2) 4) }
-
-    std assert ne (1 + 2) 4
-    test_failing { std assert ne 1 "foo" }
-    test_failing { std assert ne (1 + 2) 3) }
 }
 
-def tests [] {
-    use std.nu assert
+# Test executor
+#
+# It executes exported "test_*" commands in "test_*" modules
+def main [
+    --path: path, # Path to look for tests. Default: directory of this file.
+    --module: string, # Module to run tests. Default: all test modules found.
+    --command: string, # Test command to run. Default: all test command found in the files.
+    --list, # list the selected tests without running them.
+] {
+    let module_search_pattern = ({
+        stem: ($module | default "test_*")
+        extension: nu
+    } | path join)
 
-    let branches = {
-        1: { -1 }
-        2: { -2 }
-    }
-
-    assert ((std match 1 $branches) == -1)
-    assert ((std match 2 $branches) == -2)
-    assert ((std match 3 $branches) == $nothing)
-
-    assert ((std match 1 $branches { 0 }) == -1)
-    assert ((std match 2 $branches { 0 }) == -2)
-    assert ((std match 3 $branches { 0 }) == 0)
-}
-
-def test_path_add [] {
-    use std.nu "assert eq"
-
-    with-env [PATH []] {
-        assert eq $env.PATH []
-
-        std path add "/foo/"
-        assert eq $env.PATH ["/foo/"]
-
-        std path add "/bar/" "/baz/"
-        assert eq $env.PATH ["/bar/", "/baz/", "/foo/"]
-
-        let-env PATH = []
-
-        std path add "foo"
-        std path add "bar" "baz" --append
-        assert eq $env.PATH ["foo", "bar", "baz"]
-
-        assert eq (std path add "fooooo" --ret) ["fooooo", "foo", "bar", "baz"]
-        assert eq $env.PATH ["fooooo", "foo", "bar", "baz"]
-    }
-}
-
-
-def test_dirs [] {
-
-    def "myassert" [
-        predicate: bool
-        msg?:string = "..."
-        --verbose = false (-v)  # enable to see successful tests
-    ] {
-        if not $predicate {
-            let span = (metadata $predicate).span
-            error make {msg: $"Assertion failed checking ($msg)",
-                        label: {text: "Condition not true" start: $span.start end: $span.end}}
-        } else {
-            if $verbose {
-                echo $"check succeeded: ($msg)"
+    if not ($path | is-empty) {
+        if not ($path | path exists) {
+            throw-error {
+                msg: "directory_not_found"
+                label: "no such directory"
+                span: (metadata $path | get span)
             }
         }
     }
 
-    # need some directories to play with
-    let base_path = (($nu.temp-path) | path join $"test_dirs_(random uuid)" | path expand )
-    let path_a = ($base_path | path join "a")
-    let path_b = ($base_path | path join "b")
+    let path = ($path | default $env.FILE_PWD)
 
-    try {
-        mkdir $base_path $path_a $path_b
-        cd $base_path
-        use dirs.nu
-
-        myassert (1 == ($env.DIRS_LIST | length)) "list is just pwd after initialization"
-        myassert ($base_path == $env.DIRS_LIST.0) "list is just pwd after initialization"
-
-        dirs next
-        myassert ($base_path == $env.DIRS_LIST.0) "next wraps at end of list"
-
-        dirs prev
-        myassert ($base_path == $env.DIRS_LIST.0) "prev wraps at top of list"
-
-        dirs add $path_b $path_a
-        myassert ($path_b == $env.PWD) "add changes PWD to first added dir"
-        myassert (3 == ($env.DIRS_LIST | length)) "add in fact adds to list"
-        myassert ($path_a == $env.DIRS_LIST.2) "add in fact adds to list"
-
-        dirs next 2
-        myassert ($base_path == $env.PWD) "next wraps at end of list"
-
-        dirs prev 1
-        myassert ($path_a == $env.PWD) "prev wraps at start of list"
-
-        dirs drop
-        myassert (2 == ($env.DIRS_LIST | length)) "drop removes from list"
-        myassert ($base_path == $env.PWD) "drop changes PWD to next in list (after dropped element)"
-
-        myassert ((dirs show) == [[active path]; [true $base_path] [false $path_b]]) "show table contains expected information"
-    } catch { |error|
-        $error | debug
-        true
+    if not ($module | is-empty) {
+        if not ($path | path join $module_search_pattern | path exists) {
+            throw-error {
+                msg: "module_not_found"
+                label: $"no such module in ($path)"
+                span: (metadata $module | get span)
+            }
+        }
     }
 
-    cd $base_path
-    cd ..
-    rm -r $base_path
-}
+    let tests = (
+        ls ($path | path join $module_search_pattern)
+        | each {|row| {file: $row.name name: ($row.name | path parse | get stem)}}
+        | upsert test {|module|
+            nu -c $'use ($module.file) *; $nu.scope.commands | select name module_name | to nuon'
+            | from nuon
+            | where module_name == $module.name
+            | where ($it.name | str starts-with "test_")
+            | get name
+        }
+        | flatten
+        | rename file module name
+    )
+    let tests_to_run = (if not ($command | is-empty) {
+        $tests | where name == $command
+    } else if not ($module | is-empty) {
+        $tests | where module == $module
+    } else {
+        $tests
+    })
 
-def test_xml [] {
-    use xml.nu *
-    use std.nu "assert eq"
+    if $list {
+        return ($tests_to_run | select module name file)
+    }
 
-    let sample_xml = ('<a><b><c a="b"></c></b><c></c><d><e>z</e><e>x</e></d></a>' | from xml)
+    if ($tests_to_run | is-empty) {
+        error make --unspanned {msg: "no test to run"}
+    }
 
-    assert eq ($sample_xml | xaccess [a]) [$sample_xml]
-    assert eq ($sample_xml | xaccess [*]) [$sample_xml]
-    assert eq ($sample_xml | xaccess [* d e]) [[tag, attributes, content]; [e, {}, [[tag, attributes, content]; [null, null, z]]], [e, {}, [[tag, attributes, content]; [null, null, x]]]]
-    assert eq ($sample_xml | xaccess [* d e 1]) [[tag, attributes, content]; [e, {}, [[tag, attributes, content]; [null, null, x]]]]
-    assert eq ($sample_xml | xupdate [*] {|x| $x | update attributes {i: j}}) ('<a i="j"><b><c a="b"></c></b><c></c><d><e>z</e><e>x</e></d></a>' | from xml)
-    assert eq ($sample_xml | xupdate [* d e *] {|x| $x | update content 'nushell'}) ('<a><b><c a="b"></c></b><c></c><d><e>nushell</e><e>nushell</e></d></a>' | from xml)
-    
-}
+    let tests = (
+        $tests_to_run
+        | group-by module
+        | transpose name tests
+        | each {|module|
+            log info $"Running tests in ($module.name)"
+            $module.tests | each {|test|
+                log debug $"Running test ($test.name)"
+                let did_pass = (try {
+                    nu -c $'use ($test.file) ($test.name); ($test.name)'
+                    true
+                } catch { false })
 
-def main [] {
-    test_assert
-    tests
-    test_path_add
-    test_dirs
-    test_xml
+                $test | merge ({pass: $did_pass})
+            }
+        }
+        | flatten
+    )
+
+    if not ($tests | where not pass | is-empty) {
+        let text = ([
+            $"(ansi purple)some tests did not pass (char lparen)see complete errors above(char rparen):(ansi reset)"
+            ""
+            ($tests | each {|test| ($test | show-pretty-test 4)} | str join "\n")
+            ""
+        ] | str join "\n")
+
+        error make --unspanned { msg: $text }
+    }
 }

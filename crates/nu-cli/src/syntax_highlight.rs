@@ -79,29 +79,27 @@ impl Highlighter for NuHighlighter {
                 }};
             }
 
-            macro_rules! add_colored_token {
-                ($shape:expr, $text:expr) => {
-                    output.push((get_shape_color($shape.to_string(), &self.config), $text))
-                };
-            }
+            let mut add_colored_token = |shape: &FlatShape, text: String| {
+                output.push((get_shape_color(shape.to_string(), &self.config), text));
+            };
 
             match shape.1 {
-                FlatShape::Garbage => add_colored_token!(shape.1, next_token),
-                FlatShape::Nothing => add_colored_token!(shape.1, next_token),
-                FlatShape::Binary => add_colored_token!(shape.1, next_token),
-                FlatShape::Bool => add_colored_token!(shape.1, next_token),
-                FlatShape::Int => add_colored_token!(shape.1, next_token),
-                FlatShape::Float => add_colored_token!(shape.1, next_token),
-                FlatShape::Range => add_colored_token!(shape.1, next_token),
-                FlatShape::InternalCall => add_colored_token!(shape.1, next_token),
-                FlatShape::External => add_colored_token!(shape.1, next_token),
-                FlatShape::ExternalArg => add_colored_token!(shape.1, next_token),
-                FlatShape::Literal => add_colored_token!(shape.1, next_token),
-                FlatShape::Operator => add_colored_token!(shape.1, next_token),
-                FlatShape::Signature => add_colored_token!(shape.1, next_token),
-                FlatShape::String => add_colored_token!(shape.1, next_token),
-                FlatShape::StringInterpolation => add_colored_token!(shape.1, next_token),
-                FlatShape::DateTime => add_colored_token!(shape.1, next_token),
+                FlatShape::Garbage => add_colored_token(&shape.1, next_token),
+                FlatShape::Nothing => add_colored_token(&shape.1, next_token),
+                FlatShape::Binary => add_colored_token(&shape.1, next_token),
+                FlatShape::Bool => add_colored_token(&shape.1, next_token),
+                FlatShape::Int => add_colored_token(&shape.1, next_token),
+                FlatShape::Float => add_colored_token(&shape.1, next_token),
+                FlatShape::Range => add_colored_token(&shape.1, next_token),
+                FlatShape::InternalCall => add_colored_token(&shape.1, next_token),
+                FlatShape::External => add_colored_token(&shape.1, next_token),
+                FlatShape::ExternalArg => add_colored_token(&shape.1, next_token),
+                FlatShape::Literal => add_colored_token(&shape.1, next_token),
+                FlatShape::Operator => add_colored_token(&shape.1, next_token),
+                FlatShape::Signature => add_colored_token(&shape.1, next_token),
+                FlatShape::String => add_colored_token(&shape.1, next_token),
+                FlatShape::StringInterpolation => add_colored_token(&shape.1, next_token),
+                FlatShape::DateTime => add_colored_token(&shape.1, next_token),
                 FlatShape::List => {
                     add_colored_token_with_bracket_highlight!(shape.1, shape.0, next_token)
                 }
@@ -116,16 +114,17 @@ impl Highlighter for NuHighlighter {
                     add_colored_token_with_bracket_highlight!(shape.1, shape.0, next_token)
                 }
 
-                FlatShape::Filepath => add_colored_token!(shape.1, next_token),
-                FlatShape::Directory => add_colored_token!(shape.1, next_token),
-                FlatShape::GlobPattern => add_colored_token!(shape.1, next_token),
-                FlatShape::Variable => add_colored_token!(shape.1, next_token),
-                FlatShape::Flag => add_colored_token!(shape.1, next_token),
-                FlatShape::Pipe => add_colored_token!(shape.1, next_token),
-                FlatShape::And => add_colored_token!(shape.1, next_token),
-                FlatShape::Or => add_colored_token!(shape.1, next_token),
-                FlatShape::Redirection => add_colored_token!(shape.1, next_token),
-                FlatShape::Custom(..) => add_colored_token!(shape.1, next_token),
+                FlatShape::Filepath => add_colored_token(&shape.1, next_token),
+                FlatShape::Directory => add_colored_token(&shape.1, next_token),
+                FlatShape::GlobPattern => add_colored_token(&shape.1, next_token),
+                FlatShape::Variable => add_colored_token(&shape.1, next_token),
+                FlatShape::Flag => add_colored_token(&shape.1, next_token),
+                FlatShape::Pipe => add_colored_token(&shape.1, next_token),
+                FlatShape::And => add_colored_token(&shape.1, next_token),
+                FlatShape::Or => add_colored_token(&shape.1, next_token),
+                FlatShape::Redirection => add_colored_token(&shape.1, next_token),
+                FlatShape::Custom(..) => add_colored_token(&shape.1, next_token),
+                FlatShape::MatchPattern => add_colored_token(&shape.1, next_token),
             }
             last_seen_span = shape.0.end;
         }
@@ -308,6 +307,8 @@ fn find_matching_block_end_in_expr(
             Expr::ImportPattern(_) => None,
             Expr::Overlay(_) => None,
             Expr::Signature(_) => None,
+            Expr::MatchPattern(_) => None,
+            Expr::MatchBlock(_) => None,
             Expr::Nothing => None,
             Expr::Garbage => None,
 

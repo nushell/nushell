@@ -1,8 +1,9 @@
 use crate::{
     eval::{eval_constant, value_as_string},
-    lex,
+    lex::{lex, lex_signature},
     lite_parser::{lite_parse, LiteCommand, LiteElement},
     parse_mut,
+    parse_patterns::{parse_match_pattern, parse_pattern},
     type_check::{math_result_type, type_compatible},
     ParseError, Token, TokenContents,
 };
@@ -10,8 +11,8 @@ use crate::{
 use nu_protocol::{
     ast::{
         Argument, Assignment, Bits, Block, Boolean, Call, CellPath, Comparison, Expr, Expression,
-        FullCellPath, ImportPattern, ImportPatternHead, ImportPatternMember, Math, Operator,
-        PathMember, Pipeline, PipelineElement, RangeInclusion, RangeOperator,
+        FullCellPath, ImportPattern, ImportPatternHead, ImportPatternMember, MatchPattern, Math,
+        Operator, PathMember, Pattern, Pipeline, PipelineElement, RangeInclusion, RangeOperator,
     },
     engine::StateWorkingSet,
     span, BlockId, Flag, PositionalArg, Signature, Span, Spanned, SyntaxShape, Type, Unit, VarId,
@@ -71,7 +72,13 @@ pub fn is_math_expression_like(
         return false;
     }
 
-    if bytes == b"true" || bytes == b"false" || bytes == b"null" || bytes == b"not" {
+    if bytes == b"true"
+        || bytes == b"false"
+        || bytes == b"null"
+        || bytes == b"not"
+        || bytes == b"if"
+        || bytes == b"match"
+    {
         return true;
     }
 
@@ -115,7 +122,7 @@ fn is_identifier(bytes: &[u8]) -> bool {
     bytes.iter().all(|x| is_identifier_byte(*x))
 }
 
-fn is_variable(bytes: &[u8]) -> bool {
+pub fn is_variable(bytes: &[u8]) -> bool {
     if bytes.len() > 1 && bytes[0] == b'$' {
         is_identifier(&bytes[1..])
     } else {
@@ -659,6 +666,8 @@ pub fn parse_multispan_value(
             (arg, error)
         }
         SyntaxShape::OneOf(shapes) => {
+            // handle for `if` command.
+            let block_then_exp = shapes.as_slice() == [SyntaxShape::Block, SyntaxShape::Expression];
             let mut err = None;
             for shape in shapes.iter() {
                 let (s, option_err) = parse_multispan_value(
@@ -670,7 +679,26 @@ pub fn parse_multispan_value(
                 );
                 match option_err {
                     None => return (s, None),
-                    e => err = err.or(e),
+                    e => {
+                        // `if` is parsing block first and then expression.
+                        // when we're writing something like `else if $a`, parsing as a
+                        // block will result to error(because it's not a block)
+                        //
+                        // If parse as a expression also failed, user is more likely concerned
+                        // about expression failure rather than "expect block failure"".
+                        if block_then_exp {
+                            match &err {
+                                Some(ParseError::Expected(expected, _)) => {
+                                    if expected.starts_with("block") {
+                                        err = e
+                                    }
+                                }
+                                _ => err = err.or(e),
+                            }
+                        } else {
+                            err = err.or(e)
+                        }
+                    }
                 }
             }
             let span = spans[*spans_idx];
@@ -1091,12 +1119,12 @@ pub fn parse_call(
     for word_span in spans[cmd_start..].iter() {
         // Find the longest group of words that could form a command
 
-        if is_math_expression_like(working_set, *word_span, expand_aliases_denylist) {
-            let bytes = working_set.get_span_contents(*word_span);
-            if bytes != b"true" && bytes != b"false" && bytes != b"null" && bytes != b"not" {
-                break;
-            }
-        }
+        // if is_math_expression_like(working_set, *word_span, expand_aliases_denylist) {
+        //     let bytes = working_set.get_span_contents(*word_span);
+        //     if bytes != b"true" && bytes != b"false" && bytes != b"null" && bytes != b"not" {
+        //         break;
+        //     }
+        // }
 
         name_spans.push(*word_span);
 
@@ -1688,10 +1716,176 @@ pub(crate) fn parse_dollar_expr(
 
     if contents.starts_with(b"$\"") || contents.starts_with(b"$'") {
         parse_string_interpolation(working_set, span, expand_aliases_denylist)
+    } else if contents.starts_with(b"$.") {
+        parse_simple_cell_path(
+            working_set,
+            Span::new(span.start + 2, span.end),
+            expand_aliases_denylist,
+        )
     } else if let (expr, None) = parse_range(working_set, span, expand_aliases_denylist) {
         (expr, None)
     } else {
         parse_full_cell_path(working_set, None, span, expand_aliases_denylist)
+    }
+}
+
+pub fn parse_paren_expr(
+    working_set: &mut StateWorkingSet,
+    span: Span,
+    shape: &SyntaxShape,
+    expand_aliases_denylist: &[usize],
+) -> (Expression, Option<ParseError>) {
+    if let (expr, None) = parse_range(working_set, span, expand_aliases_denylist) {
+        (expr, None)
+    } else if matches!(shape, SyntaxShape::Signature) {
+        return parse_signature(working_set, span, expand_aliases_denylist);
+    } else {
+        parse_full_cell_path(working_set, None, span, expand_aliases_denylist)
+    }
+}
+
+pub fn parse_numberlike_expr(
+    working_set: &mut StateWorkingSet,
+    span: Span,
+    shape: &SyntaxShape,
+    expand_aliases_denylist: &[usize],
+) -> (Expression, Option<ParseError>) {
+    let bytes = working_set.get_span_contents(span);
+    match shape {
+        SyntaxShape::Binary => parse_binary(working_set, span),
+        SyntaxShape::Number => parse_number(bytes, span),
+        SyntaxShape::Decimal => parse_float(bytes, span),
+        SyntaxShape::Int => parse_int(bytes, span),
+        SyntaxShape::Duration => parse_duration(working_set, span),
+        SyntaxShape::DateTime => parse_datetime(working_set, span),
+        SyntaxShape::Filesize => parse_filesize(working_set, span),
+        SyntaxShape::Range => parse_range(working_set, span, expand_aliases_denylist),
+        SyntaxShape::CellPath => parse_simple_cell_path(working_set, span, expand_aliases_denylist),
+        SyntaxShape::String => (
+            garbage(span),
+            Some(ParseError::Expected("string".into(), span)),
+        ),
+        SyntaxShape::Any => {
+            if bytes == b"0b" {
+                // FIXME: having to work around this filesize that also looks like a binary value
+                parse_filesize(working_set, span)
+            } else if bytes.starts_with(b"0x[")
+                || bytes.starts_with(b"0b[")
+                || bytes.starts_with(b"0o[")
+            {
+                parse_binary(working_set, span)
+            } else if bytes.starts_with(b"0x")
+                || bytes.starts_with(b"0b")
+                || bytes.starts_with(b"0o")
+            {
+                parse_int(bytes, span)
+            } else {
+                for shape in &[
+                    SyntaxShape::Range,
+                    SyntaxShape::Int,
+                    SyntaxShape::Binary,
+                    SyntaxShape::Filesize,
+                    SyntaxShape::Duration,
+                    SyntaxShape::DateTime, //FIXME requires 3 failed conversion attempts before failing
+                    SyntaxShape::Number,
+                ] {
+                    let (result, err) =
+                        parse_value(working_set, span, shape, expand_aliases_denylist);
+                    if err.is_none() {
+                        return (result, err);
+                    }
+                }
+                (
+                    garbage(span),
+                    Some(ParseError::Expected(
+                        "number-like value (int, float, date, etc)".into(),
+                        span,
+                    )),
+                )
+            }
+        }
+        _ => (
+            garbage(span),
+            Some(ParseError::Expected(
+                "number-like value (int, float, date, etc)".into(),
+                span,
+            )),
+        ),
+    }
+}
+
+pub fn parse_brace_expr(
+    working_set: &mut StateWorkingSet,
+    span: Span,
+    shape: &SyntaxShape,
+    expand_aliases_denylist: &[usize],
+) -> (Expression, Option<ParseError>) {
+    // Try to detect what kind of value we're about to parse
+    // FIXME: In the future, we should work over the token stream so we only have to do this once
+    // before parsing begins
+
+    // FIXME: we're still using the shape because we rely on it to know how to handle syntax where
+    // the parse is ambiguous. We'll need to update the parts of the grammar where this is ambiguous
+    // and then revisit the parsing.
+
+    if span.end <= (span.start + 1) {
+        return (
+            Expression::garbage(span),
+            Some(ParseError::Expected(
+                format!("non-block value: {shape}"),
+                span,
+            )),
+        );
+    }
+
+    let bytes = working_set.get_span_contents(Span::new(span.start + 1, span.end - 1));
+    let (tokens, _) = lex(bytes, span.start + 1, &[b'\r', b'\n', b'\t'], &[b':'], true);
+
+    let second_token = tokens
+        .get(0)
+        .map(|token| working_set.get_span_contents(token.span));
+
+    let second_token_contents = tokens.get(0).map(|token| token.contents);
+
+    let third_token = tokens
+        .get(1)
+        .map(|token| working_set.get_span_contents(token.span));
+
+    if matches!(second_token, None) {
+        // If we're empty, that means an empty record or closure
+        if matches!(shape, SyntaxShape::Closure(None)) {
+            parse_closure_expression(working_set, shape, span, expand_aliases_denylist, false)
+        } else if matches!(shape, SyntaxShape::Closure(Some(_))) {
+            parse_closure_expression(working_set, shape, span, expand_aliases_denylist, true)
+        } else if matches!(shape, SyntaxShape::Block) {
+            parse_block_expression(working_set, span, expand_aliases_denylist)
+        } else if matches!(shape, SyntaxShape::MatchBlock) {
+            parse_match_block_expression(working_set, span, expand_aliases_denylist)
+        } else {
+            parse_record(working_set, span, expand_aliases_denylist)
+        }
+    } else if matches!(second_token_contents, Some(TokenContents::Pipe))
+        || matches!(second_token_contents, Some(TokenContents::PipePipe))
+    {
+        parse_closure_expression(working_set, shape, span, expand_aliases_denylist, true)
+    } else if matches!(third_token, Some(b":")) {
+        parse_full_cell_path(working_set, None, span, expand_aliases_denylist)
+    } else if matches!(shape, SyntaxShape::Closure(None)) {
+        parse_closure_expression(working_set, shape, span, expand_aliases_denylist, false)
+    } else if matches!(shape, SyntaxShape::Closure(Some(_))) || matches!(shape, SyntaxShape::Any) {
+        parse_closure_expression(working_set, shape, span, expand_aliases_denylist, true)
+    } else if matches!(shape, SyntaxShape::Block) {
+        parse_block_expression(working_set, span, expand_aliases_denylist)
+    } else if matches!(shape, SyntaxShape::MatchBlock) {
+        parse_match_block_expression(working_set, span, expand_aliases_denylist)
+    } else {
+        (
+            Expression::garbage(span),
+            Some(ParseError::Expected(
+                format!("non-block value: {shape}"),
+                span,
+            )),
+        )
     }
 }
 
@@ -1946,59 +2140,132 @@ pub fn parse_variable_expr(
 pub fn parse_cell_path(
     working_set: &mut StateWorkingSet,
     tokens: impl Iterator<Item = Token>,
-    mut expect_dot: bool,
+    expect_dot: bool,
     expand_aliases_denylist: &[usize],
-    span: Span,
 ) -> (Vec<PathMember>, Option<ParseError>) {
+    enum TokenType {
+        Dot,           // .
+        QuestionOrDot, // ? or .
+        PathMember,    // an int or string, like `1` or `foo`
+    }
+
+    // Parsing a cell path is essentially a state machine, and this is the state
+    let mut expected_token = if expect_dot {
+        TokenType::Dot
+    } else {
+        TokenType::PathMember
+    };
+
     let mut error = None;
     let mut tail = vec![];
 
     for path_element in tokens {
         let bytes = working_set.get_span_contents(path_element.span);
 
-        if expect_dot {
-            expect_dot = false;
-            if bytes.len() != 1 || bytes[0] != b'.' {
-                error = error.or_else(|| Some(ParseError::Expected('.'.into(), path_element.span)));
+        match expected_token {
+            TokenType::Dot => {
+                if bytes.len() != 1 || bytes[0] != b'.' {
+                    return (
+                        tail,
+                        Some(ParseError::Expected('.'.into(), path_element.span)),
+                    );
+                }
+                expected_token = TokenType::PathMember;
             }
-        } else {
-            expect_dot = true;
-
-            match parse_int(bytes, path_element.span) {
-                (
-                    Expression {
-                        expr: Expr::Int(val),
-                        span,
-                        ..
-                    },
-                    None,
-                ) => tail.push(PathMember::Int {
-                    val: val as usize,
-                    span,
-                }),
-                _ => {
-                    let (result, err) =
-                        parse_string(working_set, path_element.span, expand_aliases_denylist);
-                    error = error.or(err);
-                    match result {
+            TokenType::QuestionOrDot => {
+                if bytes.len() == 1 && bytes[0] == b'.' {
+                    expected_token = TokenType::PathMember;
+                } else if bytes.len() == 1 && bytes[0] == b'?' {
+                    if let Some(last) = tail.last_mut() {
+                        match last {
+                            PathMember::String {
+                                ref mut optional, ..
+                            } => *optional = true,
+                            PathMember::Int {
+                                ref mut optional, ..
+                            } => *optional = true,
+                        }
+                    }
+                    expected_token = TokenType::Dot;
+                } else {
+                    return (
+                        tail,
+                        Some(ParseError::Expected(". or ?".into(), path_element.span)),
+                    );
+                }
+            }
+            TokenType::PathMember => {
+                match parse_int(bytes, path_element.span) {
+                    (
                         Expression {
-                            expr: Expr::String(string),
+                            expr: Expr::Int(val),
                             span,
                             ..
-                        } => {
-                            tail.push(PathMember::String { val: string, span });
-                        }
-                        _ => {
-                            error =
-                                error.or_else(|| Some(ParseError::Expected("string".into(), span)));
+                        },
+                        None,
+                    ) => tail.push(PathMember::Int {
+                        val: val as usize,
+                        span,
+                        optional: false,
+                    }),
+                    _ => {
+                        let (result, err) =
+                            parse_string(working_set, path_element.span, expand_aliases_denylist);
+                        error = error.or(err);
+                        match result {
+                            Expression {
+                                expr: Expr::String(string),
+                                span,
+                                ..
+                            } => {
+                                tail.push(PathMember::String {
+                                    val: string,
+                                    span,
+                                    optional: false,
+                                });
+                            }
+                            _ => {
+                                return (
+                                    tail,
+                                    Some(ParseError::Expected("string".into(), path_element.span)),
+                                );
+                            }
                         }
                     }
                 }
+                expected_token = TokenType::QuestionOrDot;
             }
         }
     }
 
     (tail, error)
+}
+
+pub fn parse_simple_cell_path(
+    working_set: &mut StateWorkingSet,
+    span: Span,
+    expand_aliases_denylist: &[usize],
+) -> (Expression, Option<ParseError>) {
+    let source = working_set.get_span_contents(span);
+    let mut error = None;
+
+    let (tokens, err) = lex(source, span.start, &[b'\n', b'\r'], &[b'.', b'?'], true);
+    error = error.or(err);
+
+    let tokens = tokens.into_iter().peekable();
+
+    let (cell_path, err) = parse_cell_path(working_set, tokens, false, expand_aliases_denylist);
+    error = error.or(err);
+
+    (
+        Expression {
+            expr: Expr::CellPath(CellPath { members: cell_path }),
+            span,
+            ty: Type::CellPath,
+            custom_completion: None,
+        },
+        error,
+    )
 }
 
 pub fn parse_full_cell_path(
@@ -2012,7 +2279,7 @@ pub fn parse_full_cell_path(
     let source = working_set.get_span_contents(span);
     let mut error = None;
 
-    let (tokens, err) = lex(source, span.start, &[b'\n', b'\r'], &[b'.'], true);
+    let (tokens, err) = lex(source, span.start, &[b'\n', b'\r'], &[b'.', b'?'], true);
     error = error.or(err);
 
     let mut tokens = tokens.into_iter().peekable();
@@ -2133,13 +2400,7 @@ pub fn parse_full_cell_path(
             );
         };
 
-        let (tail, err) = parse_cell_path(
-            working_set,
-            tokens,
-            expect_dot,
-            expand_aliases_denylist,
-            span,
-        );
+        let (tail, err) = parse_cell_path(working_set, tokens, expect_dot, expand_aliases_denylist);
         error = error.or(err);
 
         (
@@ -2848,6 +3109,8 @@ pub fn parse_shape_name(
     bytes: &[u8],
     span: Span,
 ) -> (SyntaxShape, Option<ParseError>) {
+    let mut error = None;
+
     let result = match bytes {
         b"any" => SyntaxShape::Any,
         b"binary" => SyntaxShape::Binary,
@@ -2869,7 +3132,11 @@ pub fn parse_shape_name(
         b"int" => SyntaxShape::Int,
         b"import-pattern" => SyntaxShape::ImportPattern,
         b"keyword" => SyntaxShape::Keyword(vec![], Box::new(SyntaxShape::Any)),
-        b"list" => SyntaxShape::List(Box::new(SyntaxShape::Any)),
+        _ if bytes.starts_with(b"list") => {
+            let (sig, err) = parse_list_shape(working_set, bytes, span);
+            error = error.or(err);
+            sig
+        }
         b"math" => SyntaxShape::MathExpression,
         b"nothing" => SyntaxShape::Nothing,
         b"number" => SyntaxShape::Number,
@@ -2885,27 +3152,25 @@ pub fn parse_shape_name(
         b"var-with-opt-type" => SyntaxShape::VarWithOptType,
         _ => {
             if bytes.contains(&b'@') {
-                let str = String::from_utf8_lossy(bytes);
-                let split: Vec<_> = str.split('@').collect();
-                let (shape, err) = parse_shape_name(
-                    working_set,
-                    split[0].as_bytes(),
-                    Span::new(span.start, span.start + split[0].len()),
-                );
-                let command_name = trim_quotes(split[1].as_bytes());
+                let split: Vec<_> = bytes.split(|b| b == &b'@').collect();
+
+                let shape_span = Span::new(span.start, span.start + split[0].len());
+                let cmd_span = Span::new(span.start + split[0].len() + 1, span.end);
+                let (shape, err) = parse_shape_name(working_set, split[0], shape_span);
+
+                let command_name = trim_quotes(split[1]);
+
+                if command_name.is_empty() {
+                    let err = ParseError::Expected("a command name".into(), cmd_span);
+                    return (SyntaxShape::Any, Some(err));
+                }
 
                 let decl_id = working_set.find_decl(command_name, &Type::Any);
 
                 if let Some(decl_id) = decl_id {
                     return (SyntaxShape::Custom(Box::new(shape), decl_id), err);
                 } else {
-                    return (
-                        shape,
-                        Some(ParseError::UnknownCommand(Span::new(
-                            span.start + split[0].len() + 1,
-                            span.end,
-                        ))),
-                    );
+                    return (shape, Some(ParseError::UnknownCommand(cmd_span)));
                 }
             } else {
                 return (SyntaxShape::Any, Some(ParseError::UnknownType(span)));
@@ -2913,7 +3178,62 @@ pub fn parse_shape_name(
         }
     };
 
-    (result, None)
+    (result, error)
+}
+
+fn parse_list_shape(
+    working_set: &StateWorkingSet,
+    bytes: &[u8],
+    span: Span,
+) -> (SyntaxShape, Option<ParseError>) {
+    assert!(bytes.starts_with(b"list"));
+
+    if bytes == b"list" {
+        (SyntaxShape::List(Box::new(SyntaxShape::Any)), None)
+    } else if bytes.starts_with(b"list<") {
+        let start = span.start + 5;
+
+        // if the annotation is unterminated, we want to return early to avoid
+        // overflows with spans
+        let end = if bytes.ends_with(b">") {
+            span.end - 1
+        // extra characters after the >
+        } else if bytes.contains(&b'>') {
+            let angle_start = bytes.split(|it| it == &b'>').collect::<Vec<_>>()[0].len() + 1;
+            let span = Span::new(span.start + angle_start, span.end);
+
+            let err = ParseError::LabeledError(
+                "Extra characters in the parameter name".into(),
+                "extra characters".into(),
+                span,
+            );
+            return (SyntaxShape::Any, Some(err));
+        } else {
+            let err = ParseError::Unclosed(">".into(), span);
+            return (SyntaxShape::List(Box::new(SyntaxShape::Any)), Some(err));
+        };
+
+        let inner_span = Span::new(start, end);
+
+        let inner_text = String::from_utf8_lossy(working_set.get_span_contents(inner_span));
+
+        // remove any extra whitespace, for example `list< string >` becomes `list<string>`
+        let inner_bytes = inner_text.trim().as_bytes();
+
+        // list<>
+        if inner_bytes.is_empty() {
+            (SyntaxShape::List(Box::new(SyntaxShape::Any)), None)
+        } else {
+            let (inner_sig, err) = parse_shape_name(working_set, inner_bytes, inner_span);
+
+            (SyntaxShape::List(Box::new(inner_sig)), err)
+        }
+    } else {
+        (
+            SyntaxShape::List(Box::new(SyntaxShape::Any)),
+            Some(ParseError::UnknownType(span)),
+        )
+    }
 }
 
 pub fn parse_type(_working_set: &StateWorkingSet, bytes: &[u8]) -> Type {
@@ -3327,13 +3647,14 @@ pub fn parse_signature_helper(
     let mut error = None;
     let source = working_set.get_span_contents(span);
 
-    let (output, err) = lex(
+    let (output, err) = lex_signature(
         source,
         span.start,
         &[b'\n', b'\r'],
         &[b':', b'=', b','],
         false,
     );
+
     error = error.or(err);
 
     let mut args: Vec<Arg> = vec![];
@@ -3753,19 +4074,35 @@ pub fn parse_signature_helper(
                                                     expression.ty.clone(),
                                                 );
                                             }
-                                            Type::List(_) => {
-                                                if var_type.is_list() && expression.ty.is_list() {
-                                                    working_set.set_variable_type(
-                                                        var_id,
-                                                        expression.ty.clone(),
-                                                    );
+                                            Type::List(param_ty) => {
+                                                if let Type::List(expr_ty) = &expression.ty {
+                                                    if param_ty == expr_ty
+                                                        || **param_ty == Type::Any
+                                                    {
+                                                        working_set.set_variable_type(
+                                                            var_id,
+                                                            expression.ty.clone(),
+                                                        );
+                                                    } else {
+                                                        error = error.or_else(|| {
+                                                                Some(
+                                                                    ParseError::AssignmentMismatch(
+                                                                        "Default value wrong type"
+                                                                            .into(),
+                                                                        format!(
+                                                                            "expected default value to be `{var_type}`",
+                                                                        ),
+                                                                        expression.span,
+                                                                    ),
+                                                                )
+                                                            })
+                                                    }
                                                 } else {
                                                     error = error.or_else(|| {
                                                         Some(ParseError::AssignmentMismatch(
                                                             "Default value wrong type".into(),
                                                             format!(
-                                                                "default value not {0}",
-                                                                expression.ty
+                                                                "expected default value to be `{var_type}`",
                                                             ),
                                                             expression.span,
                                                         ))
@@ -3777,7 +4114,7 @@ pub fn parse_signature_helper(
                                                     error = error.or_else(|| {
                                                         Some(ParseError::AssignmentMismatch(
                                                             "Default value wrong type".into(),
-                                                            format!("default value not {t}"),
+                                                            format!("expected default value to be `{t}`"),
                                                             expression.span,
                                                         ))
                                                     })
@@ -4135,7 +4472,6 @@ pub fn parse_table_expression(
 
 pub fn parse_block_expression(
     working_set: &mut StateWorkingSet,
-    shape: &SyntaxShape,
     span: Span,
     expand_aliases_denylist: &[usize],
 ) -> (Expression, Option<ParseError>) {
@@ -4187,39 +4523,6 @@ pub fn parse_block_expression(
         _ => (None, 0),
     };
 
-    // TODO: Finish this
-    if let SyntaxShape::Closure(Some(v)) = shape {
-        if let Some((sig, sig_span)) = &signature {
-            if sig.num_positionals() > v.len() {
-                error = error.or_else(|| {
-                    Some(ParseError::Expected(
-                        format!(
-                            "{} block parameter{}",
-                            v.len(),
-                            if v.len() > 1 { "s" } else { "" }
-                        ),
-                        *sig_span,
-                    ))
-                });
-            }
-
-            for (expected, PositionalArg { name, shape, .. }) in
-                v.iter().zip(sig.required_positional.iter())
-            {
-                if expected != shape && *shape != SyntaxShape::Any {
-                    error = error.or_else(|| {
-                        Some(ParseError::ParameterMismatchType(
-                            name.to_owned(),
-                            expected.to_string(),
-                            shape.to_string(),
-                            *sig_span,
-                        ))
-                    });
-                }
-            }
-        }
-    }
-
     let (mut output, err) = parse_block(
         working_set,
         &output[amt_to_skip..],
@@ -4264,11 +4567,175 @@ pub fn parse_block_expression(
     )
 }
 
+pub fn parse_match_block_expression(
+    working_set: &mut StateWorkingSet,
+    span: Span,
+    expand_aliases_denylist: &[usize],
+) -> (Expression, Option<ParseError>) {
+    let bytes = working_set.get_span_contents(span);
+    let mut error = None;
+
+    let mut start = span.start;
+    let mut end = span.end;
+
+    if bytes.starts_with(b"{") {
+        start += 1;
+    } else {
+        return (
+            garbage(span),
+            Some(ParseError::Expected("closure".into(), span)),
+        );
+    }
+    if bytes.ends_with(b"}") {
+        end -= 1;
+    } else {
+        error = error.or_else(|| Some(ParseError::Unclosed("}".into(), Span::new(end, end))));
+    }
+
+    let inner_span = Span::new(start, end);
+
+    let source = working_set.get_span_contents(inner_span);
+
+    let (output, err) = lex(source, start, &[b' ', b'\r', b'\n', b',', b'|'], &[], false);
+    error = error.or(err);
+
+    let mut position = 0;
+
+    let mut output_matches = vec![];
+
+    while position < output.len() {
+        // Each match gets its own scope
+
+        working_set.enter_scope();
+
+        // First parse the pattern
+        let (mut pattern, err) = parse_pattern(working_set, output[position].span);
+        error = error.or(err);
+
+        position += 1;
+
+        if position >= output.len() {
+            error = error.or(Some(ParseError::Mismatch(
+                "=>".into(),
+                "end of input".into(),
+                Span::new(output[position - 1].span.end, output[position - 1].span.end),
+            )));
+
+            working_set.exit_scope();
+            break;
+        }
+
+        // Multiple patterns connected by '|'
+        let mut connector = working_set.get_span_contents(output[position].span);
+        if connector == b"|" && position < output.len() {
+            let mut or_pattern = vec![pattern];
+
+            while connector == b"|" && position < output.len() {
+                connector = b"";
+
+                position += 1;
+
+                if position >= output.len() {
+                    error = error.or(Some(ParseError::Mismatch(
+                        "pattern".into(),
+                        "end of input".into(),
+                        Span::new(output[position - 1].span.end, output[position - 1].span.end),
+                    )));
+
+                    working_set.exit_scope();
+                    break;
+                }
+
+                let (pattern, err) = parse_pattern(working_set, output[position].span);
+                error = error.or(err);
+                or_pattern.push(pattern);
+
+                position += 1;
+                if position >= output.len() {
+                    error = error.or(Some(ParseError::Mismatch(
+                        "=>".into(),
+                        "end of input".into(),
+                        Span::new(output[position - 1].span.end, output[position - 1].span.end),
+                    )));
+
+                    working_set.exit_scope();
+                    break;
+                } else {
+                    connector = working_set.get_span_contents(output[position].span);
+                }
+            }
+
+            let start = or_pattern
+                .first()
+                .expect("internal error: unexpected state of or-pattern")
+                .span
+                .start;
+            let end = or_pattern
+                .last()
+                .expect("internal error: unexpected state of or-pattern")
+                .span
+                .end;
+
+            pattern = MatchPattern {
+                pattern: Pattern::Or(or_pattern),
+                span: Span::new(start, end),
+            }
+        }
+
+        // Then the `=>` arrow
+        if connector != b"=>" {
+            error = error.or(Some(ParseError::Mismatch(
+                "=>".into(),
+                "end of input".into(),
+                Span::new(output[position - 1].span.end, output[position - 1].span.end),
+            )));
+        } else {
+            position += 1;
+        }
+
+        // Finally, the value/expression/block that we will run to produce the result
+        if position >= output.len() {
+            error = error.or(Some(ParseError::Mismatch(
+                "match result".into(),
+                "end of input".into(),
+                Span::new(output[position - 1].span.end, output[position - 1].span.end),
+            )));
+
+            working_set.exit_scope();
+            break;
+        }
+
+        let (result, err) = parse_multispan_value(
+            working_set,
+            &[output[position].span],
+            &mut 0,
+            &SyntaxShape::OneOf(vec![SyntaxShape::Block, SyntaxShape::Expression]),
+            expand_aliases_denylist,
+        );
+        error = error.or(err);
+        position += 1;
+        working_set.exit_scope();
+
+        output_matches.push((pattern, result));
+    }
+
+    (
+        Expression {
+            expr: Expr::MatchBlock(output_matches),
+            span,
+            ty: Type::Any,
+            custom_completion: None,
+        },
+        error,
+    )
+}
+
 pub fn parse_closure_expression(
     working_set: &mut StateWorkingSet,
     shape: &SyntaxShape,
     span: Span,
     expand_aliases_denylist: &[usize],
+    require_pipe: bool,
 ) -> (Expression, Option<ParseError>) {
     trace!("parsing: closure expression");
 
@@ -4345,7 +4812,15 @@ pub fn parse_closure_expression(
             Some((Box::new(Signature::new("closure".to_string())), *span)),
             1,
         ),
-        _ => (None, 0),
+        _ => {
+            if require_pipe {
+                error = error.or(Some(ParseError::ClosureMissingPipe(span)));
+                working_set.exit_scope();
+                return (garbage(span), error);
+            } else {
+                (None, 0)
+            }
+        }
     };
 
     // TODO: Finish this
@@ -4437,18 +4912,6 @@ pub fn parse_value(
         return (garbage(span), Some(ParseError::IncompleteParser(span)));
     }
 
-    // First, check the special-cases. These will likely represent specific values as expressions
-    // and may fit a variety of shapes.
-    //
-    // We check variable first because immediately following we check for variables with cell paths
-    // which might result in a value that fits other shapes (and require the variable to already be
-    // declared)
-    if shape == &SyntaxShape::Variable {
-        trace!("parsing: variable");
-
-        return parse_variable_expr(working_set, span);
-    }
-
     // Check for reserved keyword values
     match bytes {
         b"true" => {
@@ -4498,50 +4961,20 @@ pub fn parse_value(
                 None,
             );
         }
-
+        b"-inf" | b"inf" | b"NaN" => {
+            return parse_numberlike_expr(working_set, span, shape, expand_aliases_denylist);
+        }
         _ => {}
+    }
+
+    if matches!(shape, SyntaxShape::MatchPattern) {
+        return parse_match_pattern(working_set, span);
     }
 
     match bytes[0] {
         b'$' => return parse_dollar_expr(working_set, span, expand_aliases_denylist),
-        b'(' => {
-            if let (expr, None) = parse_range(working_set, span, expand_aliases_denylist) {
-                return (expr, None);
-            } else if matches!(shape, SyntaxShape::Signature) {
-                return parse_signature(working_set, span, expand_aliases_denylist);
-            } else {
-                return parse_full_cell_path(working_set, None, span, expand_aliases_denylist);
-            }
-        }
-        b'{' => {
-            if !matches!(shape, SyntaxShape::Closure(..)) && !matches!(shape, SyntaxShape::Block) {
-                let (expr, err) =
-                    parse_full_cell_path(working_set, None, span, expand_aliases_denylist);
-                match err {
-                    Some(err) => {
-                        if let ParseError::Unbalanced(_, _, _) = err {
-                            return (expr, Some(err));
-                        }
-                    }
-                    None => return (expr, None),
-                }
-            }
-            if matches!(shape, SyntaxShape::Closure(_)) || matches!(shape, SyntaxShape::Any) {
-                return parse_closure_expression(working_set, shape, span, expand_aliases_denylist);
-            } else if matches!(shape, SyntaxShape::Block) {
-                return parse_block_expression(working_set, shape, span, expand_aliases_denylist);
-            } else if matches!(shape, SyntaxShape::Record) {
-                return parse_record(working_set, span, expand_aliases_denylist);
-            } else {
-                return (
-                    Expression::garbage(span),
-                    Some(ParseError::Expected(
-                        format!("non-block value: {shape}"),
-                        span,
-                    )),
-                );
-            }
-        }
+        b'(' => return parse_paren_expr(working_set, span, shape, expand_aliases_denylist),
+        b'{' => return parse_brace_expr(working_set, span, shape, expand_aliases_denylist),
         b'[' => match shape {
             SyntaxShape::Any
             | SyntaxShape::List(_)
@@ -4554,6 +4987,20 @@ pub fn parse_value(
                 );
             }
         },
+        x if x.is_ascii_digit() => {
+            // Anything that starts with a number now has to be a number-like value
+            // These include values like ints, floats, dates, durations, etc
+            // To create a string, wrap in quotes, to create a bare word, wrap in backticks
+            return parse_numberlike_expr(working_set, span, shape, expand_aliases_denylist);
+        }
+        b'-' | b'+' => {
+            if bytes.len() > 1 && bytes[1].is_ascii_digit() {
+                // Anything that starts with a negative number now has to be a number-like value
+                // These include values like ints, floats, dates, durations, etc
+                // To create a string, wrap in quotes, to create a bare word, wrap in backticks
+                return parse_numberlike_expr(working_set, span, shape, expand_aliases_denylist);
+            }
+        }
         _ => {}
     }
 
@@ -4564,18 +5011,13 @@ pub fn parse_value(
             expression.custom_completion = Some(*custom_completion);
             (expression, err)
         }
-        SyntaxShape::Number => parse_number(bytes, span),
-        SyntaxShape::Decimal => parse_float(bytes, span),
-        SyntaxShape::Int => parse_int(bytes, span),
-        SyntaxShape::Duration => parse_duration(working_set, span),
-        SyntaxShape::DateTime => parse_datetime(working_set, span),
-        SyntaxShape::Filesize => parse_filesize(working_set, span),
         SyntaxShape::Range => parse_range(working_set, span, expand_aliases_denylist),
         SyntaxShape::Filepath => parse_filepath(working_set, span),
         SyntaxShape::Directory => parse_directory(working_set, span),
         SyntaxShape::GlobPattern => parse_glob_pattern(working_set, span),
         SyntaxShape::String => parse_string(working_set, span, expand_aliases_denylist),
         SyntaxShape::Binary => parse_binary(working_set, span),
+        SyntaxShape::MatchPattern => parse_match_pattern(working_set, span),
         SyntaxShape::Signature => {
             if bytes.starts_with(b"[") {
                 parse_signature(working_set, span, expand_aliases_denylist)
@@ -4606,29 +5048,7 @@ pub fn parse_value(
                 )
             }
         }
-        SyntaxShape::CellPath => {
-            let source = working_set.get_span_contents(span);
-            let mut error = None;
-
-            let (tokens, err) = lex(source, span.start, &[b'\n', b'\r'], &[b'.'], true);
-            error = error.or(err);
-
-            let tokens = tokens.into_iter().peekable();
-
-            let (cell_path, err) =
-                parse_cell_path(working_set, tokens, false, expand_aliases_denylist, span);
-            error = error.or(err);
-
-            (
-                Expression {
-                    expr: Expr::CellPath(CellPath { members: cell_path }),
-                    span,
-                    ty: Type::CellPath,
-                    custom_completion: None,
-                },
-                error,
-            )
-        }
+        SyntaxShape::CellPath => parse_simple_cell_path(working_set, span, expand_aliases_denylist),
         SyntaxShape::Boolean => {
             // Redundant, though we catch bad boolean parses here
             if bytes == b"true" || bytes == b"false" {
@@ -4664,32 +5084,11 @@ pub fn parse_value(
                 //parse_value(working_set, span, &SyntaxShape::Table)
                 parse_full_cell_path(working_set, None, span, expand_aliases_denylist)
             } else {
-                /* Parser very sensitive to order of shapes tried.  Recording the original order for postierity
                 let shapes = [
-                SyntaxShape::Binary,
-                SyntaxShape::Int,
-                SyntaxShape::Number,
-                SyntaxShape::Range,
-                SyntaxShape::DateTime,
-                SyntaxShape::Filesize,
-                SyntaxShape::Duration,
-                SyntaxShape::Record,
-                SyntaxShape::Closure(None),
-                SyntaxShape::Block,
-                SyntaxShape::String,
-                ];
-                */
-                let shapes = [
-                    SyntaxShape::Binary,
-                    SyntaxShape::Filesize,
-                    SyntaxShape::Duration,
                     SyntaxShape::Range,
-                    SyntaxShape::DateTime, //FIXME requires 3 failed conversion attempts before failing
                     SyntaxShape::Record,
                     SyntaxShape::Closure(None),
                     SyntaxShape::Block,
-                    SyntaxShape::Int,
-                    SyntaxShape::Number,
                     SyntaxShape::String,
                 ];
                 for shape in shapes.iter() {
@@ -4714,7 +5113,10 @@ pub fn parse_value(
                 )
             }
         }
-        _ => (garbage(span), Some(ParseError::IncompleteParser(span))),
+        x => (
+            garbage(span),
+            Some(ParseError::Expected(x.to_type().to_string(), span)),
+        ),
     }
 }
 
@@ -4908,7 +5310,20 @@ pub fn parse_math_expression(
 
     let first_span = working_set.get_span_contents(spans[0]);
 
-    if first_span == b"not" {
+    if first_span == b"if" || first_span == b"match" {
+        // If expression
+        if spans.len() > 1 {
+            return parse_call(working_set, spans, spans[0], expand_aliases_denylist, false);
+        } else {
+            return (
+                garbage(spans[0]),
+                Some(ParseError::Expected(
+                    "expression".into(),
+                    Span::new(spans[0].end, spans[0].end),
+                )),
+            );
+        }
+    } else if first_span == b"not" {
         if spans.len() > 1 {
             let (remainder, err) = parse_math_expression(
                 working_set,
@@ -5076,7 +5491,7 @@ pub fn parse_expression(
 
         let split = name.splitn(2, |x| *x == b'=');
         let split: Vec<_> = split.collect();
-        if split.len() == 2 && !split[0].is_empty() {
+        if !name.starts_with(b"^") && split.len() == 2 && !split[0].is_empty() {
             let point = split[0].len() + 1;
 
             let lhs = parse_string_strict(
@@ -5784,6 +6199,28 @@ pub fn discover_captures_in_pipeline_element(
     }
 }
 
+pub fn discover_captures_in_pattern(pattern: &MatchPattern, seen: &mut Vec<VarId>) {
+    match &pattern.pattern {
+        Pattern::Variable(var_id) => seen.push(*var_id),
+        Pattern::List(items) => {
+            for item in items {
+                discover_captures_in_pattern(item, seen)
+            }
+        }
+        Pattern::Record(items) => {
+            for item in items {
+                discover_captures_in_pattern(&item.1, seen)
+            }
+        }
+        Pattern::Or(patterns) => {
+            for pattern in patterns {
+                discover_captures_in_pattern(pattern, seen)
+            }
+        }
+        Pattern::Value(_) | Pattern::IgnoreValue | Pattern::Garbage => {}
+    }
+}
+
 // Closes over captured variables
 pub fn discover_captures_in_expr(
     working_set: &StateWorkingSet,
@@ -5979,6 +6416,14 @@ pub fn discover_captures_in_expr(
         Expr::StringInterpolation(exprs) => {
             for expr in exprs {
                 let result = discover_captures_in_expr(working_set, expr, seen, seen_blocks)?;
+                output.extend(&result);
+            }
+        }
+        Expr::MatchPattern(_) => {}
+        Expr::MatchBlock(match_block) => {
+            for match_ in match_block {
+                discover_captures_in_pattern(&match_.0, seen);
+                let result = discover_captures_in_expr(working_set, &match_.1, seen, seen_blocks)?;
                 output.extend(&result);
             }
         }

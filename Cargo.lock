@@ -68,9 +68,9 @@ dependencies = [
 
 [[package]]
 name = "alphanumeric-sort"
-version = "1.4.4"
+version = "1.5.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "77e9c9abb82613923ec78d7a461595d52491ba7240f3c64c0bbe0e6d98e0fce0"
+checksum = "5e972aa01d34ded9a7fd0d838a1b6f73e70daf78ff77221c82bd411afa1f3fa9"
 
 [[package]]
 name = "android_system_properties"
@@ -1740,6 +1740,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "hermit-abi"
+version = "0.3.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "fed44880c466736ef9a5c5b5facefb5ed0785676d0c02d612db14e54f0d84286"
+
+[[package]]
 name = "hex"
 version = "0.4.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1961,6 +1967,18 @@ checksum = "04a4202a60e86f1c9702706bb42270dadd333f2db7810157563c86f17af3c873"
 dependencies = [
  "users 0.10.0",
  "winapi 0.3.9",
+]
+
+[[package]]
+name = "is-terminal"
+version = "0.4.5"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "8687c819457e979cc940d09cb16e42a1bf70aa6b60a549de6d3a62a0ee90c69e"
+dependencies = [
+ "hermit-abi 0.3.1",
+ "io-lifetimes",
+ "rustix",
+ "windows-sys 0.45.0",
 ]
 
 [[package]]
@@ -2266,9 +2284,9 @@ dependencies = [
 
 [[package]]
 name = "lru"
-version = "0.9.0"
+version = "0.10.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "71e7d46de488603ffdd5f30afbc64fbba2378214a2c3a2fb83abf3d33126df17"
+checksum = "03f1160296536f10c833a82dca22267d5486734230d47bf00bf435885814ba1e"
 dependencies = [
  "hashbrown 0.13.2",
 ]
@@ -2381,11 +2399,11 @@ dependencies = [
 
 [[package]]
 name = "miette"
-version = "5.5.0"
+version = "5.6.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4afd9b301defa984bbdbe112b4763e093ed191750a0d914a78c1106b2d0fe703"
+checksum = "07749fb52853e739208049fb513287c6f448de9103dfa78b05ae01f2fc5809bb"
 dependencies = [
- "atty",
+ "is-terminal",
  "miette-derive",
  "once_cell",
  "owo-colors",
@@ -2400,9 +2418,9 @@ dependencies = [
 
 [[package]]
 name = "miette-derive"
-version = "5.5.0"
+version = "5.6.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "97c2401ab7ac5282ca5c8b518a87635b1a93762b0b90b9990c509888eeccba29"
+checksum = "2a07ad93a80d1b92bb44cb42d7c49b49c9aab1778befefad49cceb5e4c5bf460"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -2497,9 +2515,9 @@ dependencies = [
 
 [[package]]
 name = "mockito"
-version = "0.32.5"
+version = "1.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "406f43768da5a859ce19bb0978fd8dc2167a7d9a52f3935c6a187242e1a4ff9f"
+checksum = "8c1eecc3baf782e3c8d6803cc8780268da1f32df6eb88c016c1d80b0df7944cf"
 dependencies = [
  "assert-json-diff",
  "colored",
@@ -2649,7 +2667,7 @@ dependencies = [
 
 [[package]]
 name = "nu"
-version = "0.76.1"
+version = "0.77.2"
 dependencies = [
  "assert_cmd",
  "atty",
@@ -2695,15 +2713,16 @@ dependencies = [
 
 [[package]]
 name = "nu-ansi-term"
-version = "0.46.0"
-source = "git+https://github.com/nushell/nu-ansi-term.git?branch=main#9fdb618dc94a192720ac8b4bac3d6a4ef5be3e91"
+version = "0.47.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "1df031e117bca634c262e9bd3173776844b6c17a90b3741c9163663b4385af76"
 dependencies = [
  "windows-sys 0.45.0",
 ]
 
 [[package]]
 name = "nu-cli"
-version = "0.76.1"
+version = "0.77.2"
 dependencies = [
  "atty",
  "chrono",
@@ -2732,7 +2751,7 @@ dependencies = [
 
 [[package]]
 name = "nu-cmd-lang"
-version = "0.76.1"
+version = "0.77.2"
 dependencies = [
  "fancy-regex",
  "itertools",
@@ -2745,11 +2764,12 @@ dependencies = [
  "nu-test-support",
  "nu-utils",
  "shadow-rs",
+ "unicode-segmentation",
 ]
 
 [[package]]
 name = "nu-color-config"
-version = "0.76.1"
+version = "0.77.2"
 dependencies = [
  "nu-ansi-term",
  "nu-engine",
@@ -2763,7 +2783,7 @@ dependencies = [
 
 [[package]]
 name = "nu-command"
-version = "0.76.1"
+version = "0.77.2"
 dependencies = [
  "Inflector",
  "alphanumeric-sort",
@@ -2796,6 +2816,7 @@ dependencies = [
  "log",
  "lscolors",
  "md-5",
+ "miette",
  "mime",
  "mime_guess",
  "mockito",
@@ -2828,7 +2849,7 @@ dependencies = [
  "powierza-coefficient",
  "print-positions",
  "proptest",
- "quick-xml 0.27.1",
+ "quick-xml 0.28.1",
  "quickcheck",
  "quickcheck_macros",
  "rand 0.8.5",
@@ -2861,13 +2882,13 @@ dependencies = [
  "uuid",
  "wax",
  "which",
- "windows",
+ "windows 0.46.0",
  "winreg",
 ]
 
 [[package]]
 name = "nu-engine"
-version = "0.76.1"
+version = "0.77.2"
 dependencies = [
  "chrono",
  "nu-glob",
@@ -2880,7 +2901,7 @@ dependencies = [
 
 [[package]]
 name = "nu-explore"
-version = "0.76.1"
+version = "0.77.2"
 dependencies = [
  "ansi-str 0.7.2",
  "crossterm 0.24.0",
@@ -2900,14 +2921,14 @@ dependencies = [
 
 [[package]]
 name = "nu-glob"
-version = "0.76.1"
+version = "0.77.2"
 dependencies = [
  "doc-comment",
 ]
 
 [[package]]
 name = "nu-json"
-version = "0.76.1"
+version = "0.77.2"
 dependencies = [
  "linked-hash-map",
  "num-traits",
@@ -2916,7 +2937,7 @@ dependencies = [
 
 [[package]]
 name = "nu-parser"
-version = "0.76.1"
+version = "0.77.2"
 dependencies = [
  "bytesize",
  "chrono",
@@ -2933,7 +2954,7 @@ dependencies = [
 
 [[package]]
 name = "nu-path"
-version = "0.76.1"
+version = "0.77.2"
 dependencies = [
  "dirs-next",
  "omnipath",
@@ -2942,7 +2963,7 @@ dependencies = [
 
 [[package]]
 name = "nu-plugin"
-version = "0.76.1"
+version = "0.77.2"
 dependencies = [
  "bincode",
  "nu-engine",
@@ -2955,7 +2976,7 @@ dependencies = [
 
 [[package]]
 name = "nu-pretty-hex"
-version = "0.76.1"
+version = "0.77.2"
 dependencies = [
  "heapless",
  "nu-ansi-term",
@@ -2964,7 +2985,7 @@ dependencies = [
 
 [[package]]
 name = "nu-protocol"
-version = "0.76.1"
+version = "0.77.2"
 dependencies = [
  "byte-unit",
  "chrono",
@@ -2973,7 +2994,6 @@ dependencies = [
  "indexmap",
  "lru",
  "miette",
- "nu-json",
  "nu-test-support",
  "nu-utils",
  "num-format",
@@ -2988,7 +3008,7 @@ dependencies = [
 
 [[package]]
 name = "nu-system"
-version = "0.76.1"
+version = "0.77.2"
 dependencies = [
  "atty",
  "chrono",
@@ -3006,7 +3026,7 @@ dependencies = [
 
 [[package]]
 name = "nu-table"
-version = "0.76.1"
+version = "0.77.2"
 dependencies = [
  "atty",
  "json_to_table",
@@ -3021,7 +3041,7 @@ dependencies = [
 
 [[package]]
 name = "nu-term-grid"
-version = "0.76.1"
+version = "0.77.2"
 dependencies = [
  "nu-utils",
  "unicode-width",
@@ -3029,7 +3049,7 @@ dependencies = [
 
 [[package]]
 name = "nu-test-support"
-version = "0.76.1"
+version = "0.77.2"
 dependencies = [
  "getset",
  "hamcrest2",
@@ -3037,14 +3057,13 @@ dependencies = [
  "nu-path",
  "nu-utils",
  "num-format",
- "once_cell",
  "tempfile",
  "which",
 ]
 
 [[package]]
 name = "nu-utils"
-version = "0.76.1"
+version = "0.77.2"
 dependencies = [
  "crossterm_winapi",
  "log",
@@ -3066,7 +3085,7 @@ dependencies = [
 
 [[package]]
 name = "nu_plugin_example"
-version = "0.76.1"
+version = "0.77.2"
 dependencies = [
  "nu-plugin",
  "nu-protocol",
@@ -3074,7 +3093,7 @@ dependencies = [
 
 [[package]]
 name = "nu_plugin_formats"
-version = "0.76.1"
+version = "0.77.2"
 dependencies = [
  "eml-parser",
  "ical",
@@ -3087,7 +3106,7 @@ dependencies = [
 
 [[package]]
 name = "nu_plugin_gstat"
-version = "0.76.1"
+version = "0.77.2"
 dependencies = [
  "git2",
  "nu-engine",
@@ -3097,7 +3116,7 @@ dependencies = [
 
 [[package]]
 name = "nu_plugin_inc"
-version = "0.76.1"
+version = "0.77.2"
 dependencies = [
  "nu-plugin",
  "nu-protocol",
@@ -3106,7 +3125,7 @@ dependencies = [
 
 [[package]]
 name = "nu_plugin_query"
-version = "0.76.1"
+version = "0.77.2"
 dependencies = [
  "gjson",
  "nu-engine",
@@ -3305,18 +3324,18 @@ checksum = "0ab1bc2a289d34bd04a330323ac98a1b4bc82c9d9fcb1e66b63caa84da26b575"
 
 [[package]]
 name = "open"
-version = "3.4.0"
+version = "4.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "21ecf2487e799604735754d2c5896106785987b441b5aee58f242e4d4963179a"
+checksum = "bd61e3bf9d78956c72ee864bba52431f7f43994b21a17e9e72596a81bd61075b"
 dependencies = [
  "pathdiff",
 ]
 
 [[package]]
 name = "openssl"
-version = "0.10.45"
+version = "0.10.48"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b102428fd03bc5edf97f62620f7298614c45cedf287c271e7ed450bbaf83f2e1"
+checksum = "518915b97df115dd36109bfa429a48b8f737bd05508cf9588977b599648926d2"
 dependencies = [
  "bitflags",
  "cfg-if 1.0.0",
@@ -3355,9 +3374,9 @@ dependencies = [
 
 [[package]]
 name = "openssl-sys"
-version = "0.9.80"
+version = "0.9.83"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "23bbbf7854cd45b83958ebe919f0e8e516793727652e27fda10a8384cfc790b7"
+checksum = "666416d899cf077260dac8698d60a60b435a46d57e82acb1be3d0dad87284e5b"
 dependencies = [
  "autocfg",
  "cc",
@@ -4095,9 +4114,9 @@ dependencies = [
 
 [[package]]
 name = "quick-xml"
-version = "0.27.1"
+version = "0.28.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ffc053f057dd768a56f62cd7e434c42c831d296968997e9ac1f76ea7c2d14c41"
+checksum = "e5c1a97b1bc42b1d550bfb48d4262153fe400a12bab1511821736f7eac76d7e2"
 dependencies = [
  "memchr",
 ]
@@ -4277,8 +4296,8 @@ dependencies = [
 
 [[package]]
 name = "reedline"
-version = "0.16.0"
-source = "git+https://github.com/nushell/reedline.git?branch=main#ac1d9549a3df0743c96162a632e5f73d74f12abc"
+version = "0.17.0"
+source = "git+https://github.com/nushell/reedline.git?branch=main#9d6e22dd06d79b3f5ece716ef560148714c5489c"
 dependencies = [
  "chrono",
  "crossterm 0.24.0",
@@ -4352,9 +4371,9 @@ dependencies = [
 
 [[package]]
 name = "rstest"
-version = "0.16.0"
+version = "0.17.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b07f2d176c472198ec1e6551dc7da28f1c089652f66a7b722676c2238ebc0edf"
+checksum = "de1bb486a691878cd320c2f0d319ba91eeaa2e894066d8b5f8f117c000e9d962"
 dependencies = [
  "rstest_macros",
  "rustc_version",
@@ -4362,9 +4381,9 @@ dependencies = [
 
 [[package]]
 name = "rstest_macros"
-version = "0.16.0"
+version = "0.17.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7229b505ae0706e64f37ffc54a9c163e11022a6636d58fe1f3f52018257ff9f7"
+checksum = "290ca1a1c8ca7edb7c3283bd44dc35dd54fdec6253a3912e201ba1072018fca8"
 dependencies = [
  "cfg-if 1.0.0",
  "proc-macro2",
@@ -4859,9 +4878,9 @@ dependencies = [
 
 [[package]]
 name = "sqlparser"
-version = "0.30.0"
+version = "0.32.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "db67dc6ef36edb658196c3fef0464a80b53dbbc194a904e81f9bd4190f9ecc5b"
+checksum = "0366f270dbabb5cc2e4c88427dc4c08bba144f81e32fbd459a013f26a4d16aa0"
 dependencies = [
  "log",
  "serde",
@@ -4956,30 +4975,30 @@ dependencies = [
 
 [[package]]
 name = "supports-color"
-version = "1.3.1"
+version = "2.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8ba6faf2ca7ee42fdd458f4347ae0a9bd6bcc445ad7cb57ad82b383f18870d6f"
+checksum = "4950e7174bffabe99455511c39707310e7e9b440364a2fcb1cc21521be57b354"
 dependencies = [
- "atty",
+ "is-terminal",
  "is_ci",
 ]
 
 [[package]]
 name = "supports-hyperlinks"
-version = "1.2.0"
+version = "2.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "590b34f7c5f01ecc9d78dba4b3f445f31df750a67621cf31626f3b7441ce6406"
+checksum = "4b4806e0b03b9906e76b018a5d821ebf198c8e9dc0829ed3328eeeb5094aed60"
 dependencies = [
- "atty",
+ "is-terminal",
 ]
 
 [[package]]
 name = "supports-unicode"
-version = "1.0.2"
+version = "2.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a8b945e45b417b125a8ec51f1b7df2f8df7920367700d1f98aedd21e5735f8b2"
+checksum = "4b6c2cb240ab5dd21ed4906895ee23fe5a48acdbd15a3ce388e7b62a9b66baf7"
 dependencies = [
- "atty",
+ "is-terminal",
 ]
 
 [[package]]
@@ -5399,7 +5418,7 @@ dependencies = [
  "once_cell",
  "scopeguard",
  "url",
- "windows",
+ "windows 0.44.0",
 ]
 
 [[package]]
@@ -5874,6 +5893,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "windows"
+version = "0.46.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "cdacb41e6a96a052c6cb63a144f24900236121c6f63f4f8219fef5977ecb0c25"
+dependencies = [
+ "windows-targets",
+]
+
+[[package]]
 name = "windows-sys"
 version = "0.42.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -5899,9 +5927,9 @@ dependencies = [
 
 [[package]]
 name = "windows-targets"
-version = "0.42.1"
+version = "0.42.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8e2522491fbfcd58cc84d47aeb2958948c4b8982e9a2d8a2a35bbaed431390e7"
+checksum = "8e5180c00cd44c9b1c88adb3693291f1cd93605ded80c250a75d472756b4d071"
 dependencies = [
  "windows_aarch64_gnullvm",
  "windows_aarch64_msvc",
@@ -5914,45 +5942,45 @@ dependencies = [
 
 [[package]]
 name = "windows_aarch64_gnullvm"
-version = "0.42.1"
+version = "0.42.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8c9864e83243fdec7fc9c5444389dcbbfd258f745e7853198f365e3c4968a608"
+checksum = "597a5118570b68bc08d8d59125332c54f1ba9d9adeedeef5b99b02ba2b0698f8"
 
 [[package]]
 name = "windows_aarch64_msvc"
-version = "0.42.1"
+version = "0.42.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4c8b1b673ffc16c47a9ff48570a9d85e25d265735c503681332589af6253c6c7"
+checksum = "e08e8864a60f06ef0d0ff4ba04124db8b0fb3be5776a5cd47641e942e58c4d43"
 
 [[package]]
 name = "windows_i686_gnu"
-version = "0.42.1"
+version = "0.42.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "de3887528ad530ba7bdbb1faa8275ec7a1155a45ffa57c37993960277145d640"
+checksum = "c61d927d8da41da96a81f029489353e68739737d3beca43145c8afec9a31a84f"
 
 [[package]]
 name = "windows_i686_msvc"
-version = "0.42.1"
+version = "0.42.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "bf4d1122317eddd6ff351aa852118a2418ad4214e6613a50e0191f7004372605"
+checksum = "44d840b6ec649f480a41c8d80f9c65108b92d89345dd94027bfe06ac444d1060"
 
 [[package]]
 name = "windows_x86_64_gnu"
-version = "0.42.1"
+version = "0.42.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c1040f221285e17ebccbc2591ffdc2d44ee1f9186324dd3e84e99ac68d699c45"
+checksum = "8de912b8b8feb55c064867cf047dda097f92d51efad5b491dfb98f6bbb70cb36"
 
 [[package]]
 name = "windows_x86_64_gnullvm"
-version = "0.42.1"
+version = "0.42.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "628bfdf232daa22b0d64fdb62b09fcc36bb01f05a3939e20ab73aaf9470d0463"
+checksum = "26d41b46a36d453748aedef1486d5c7a85db22e56aff34643984ea85514e94a3"
 
 [[package]]
 name = "windows_x86_64_msvc"
-version = "0.42.1"
+version = "0.42.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "447660ad36a13288b1db4d4248e857b510e8c3a225c822ba4fb748c0aafecffd"
+checksum = "9aec5da331524158c6d1a4ac0ab1541149c0b9505fde06423b02f5ef0106b9f0"
 
 [[package]]
 name = "winnow"

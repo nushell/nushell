@@ -1,11 +1,10 @@
 #![cfg(debug_assertions)]
 
-use std::sync::{Arc, Mutex};
+use std::sync::Mutex;
 
 use nu_utils::locale::LOCALE_OVERRIDE_ENV_VAR;
-use once_cell::sync::Lazy;
 
-static LOCALE_OVERRIDE_MUTEX: Lazy<Arc<Mutex<()>>> = Lazy::new(Default::default);
+static LOCALE_OVERRIDE_MUTEX: Mutex<()> = Mutex::new(());
 
 /// Run a closure in a fake locale environment.
 ///

@@ -117,7 +117,7 @@ fn action(
 
             let table_columns_creation = columns
                 .iter()
-                .map(|(name, sql_type)| format!("{name} {sql_type}"))
+                .map(|(name, sql_type)| format!("\"{name}\" {sql_type}"))
                 .join(",");
 
             // get the values
@@ -270,6 +270,7 @@ fn nu_value_to_string(value: Value, separator: &str) -> String {
         Value::Binary { val, .. } => format!("{val:?}"),
         Value::CellPath { val, .. } => val.into_string(),
         Value::CustomValue { val, .. } => val.value_string(),
+        Value::MatchPattern { val, .. } => format!("{:?}", val),
     }
 }
 
