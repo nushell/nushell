@@ -1029,7 +1029,6 @@ pub fn parse_internal_call(
                 continue;
             }
 
-            let orig_idx = spans_idx;
             let (arg, err) = parse_multispan_value(
                 working_set,
                 &spans[..end],
@@ -1040,7 +1039,6 @@ pub fn parse_internal_call(
             error = error.or(err);
 
             let arg = if !type_compatible(&positional.shape.to_type(), &arg.ty) {
-                let span = span(&spans[orig_idx..spans_idx]);
                 error = error.or_else(|| {
                     Some(ParseError::TypeMismatch(
                         positional.shape.to_type(),
@@ -1048,7 +1046,7 @@ pub fn parse_internal_call(
                         arg.span,
                     ))
                 });
-                Expression::garbage(span)
+                Expression::garbage(arg.span)
             } else {
                 arg
             };
@@ -5853,6 +5851,7 @@ pub fn parse_record(
     let mut output = vec![];
     let mut idx = 0;
 
+    let mut field_types = Some(vec![]);
     while idx < tokens.len() {
         let (field, err) = parse_value(
             working_set,
@@ -5887,6 +5886,15 @@ pub fn parse_record(
         error = error.or(err);
         idx += 1;
 
+        if let Some(field) = field.as_string() {
+            if let Some(fields) = &mut field_types {
+                fields.push((field, value.ty.clone()));
+            }
+        } else {
+            // We can't properly see all the field types
+            // so fall back to the Any type later
+            field_types = None;
+        }
         output.push((field, value));
     }
 
@@ -5894,7 +5902,11 @@ pub fn parse_record(
         Expression {
             expr: Expr::Record(output),
             span,
-            ty: Type::Any, //FIXME: but we don't know the contents of the fields, do we?
+            ty: (if let Some(fields) = field_types {
+                Type::Record(fields)
+            } else {
+                Type::Any
+            }),
             custom_completion: None,
         },
         error,

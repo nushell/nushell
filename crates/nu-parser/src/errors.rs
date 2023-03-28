@@ -307,7 +307,7 @@ pub enum ParseError {
 
     #[error("Type mismatch.")]
     #[diagnostic(code(nu::parser::type_mismatch))]
-    TypeMismatch(Type, Type, #[label("expected {0:?}, found {1:?}")] Span), // expected, found, span
+    TypeMismatch(Type, Type, #[label("expected {0}, found {1}")] Span), // expected, found, span
 
     #[error("Missing required flag.")]
     #[diagnostic(code(nu::parser::missing_required_flag))]
