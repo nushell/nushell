@@ -233,3 +233,14 @@ fn ignore_errors_works() {
 
     assert_eq!(actual.out, "[[foo]; [null]]");
 }
+
+#[test]
+fn select_on_empty_list_returns_empty_list() {
+    // once with a List
+    let actual = nu!("[] | select foo | to nuon");
+    assert_eq!(actual.out, "[]");
+
+    // and again with a ListStream
+    let actual = nu!("[] | each {|i| $i} | select foo | to nuon");
+    assert_eq!(actual.out, "[]");
+}
