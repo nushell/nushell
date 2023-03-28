@@ -2606,6 +2606,7 @@ pub fn parse_duration_bytes(num_with_unit_bytes: &[u8], span: Span) -> Option<Ex
     let unit_groups = [
         (Unit::Nanosecond, "NS", None),
         (Unit::Microsecond, "US", Some((Unit::Nanosecond, 1000))),
+        (Unit::Microsecond, "\u{039C}S", Some((Unit::Nanosecond, 1000))),
         (Unit::Millisecond, "MS", Some((Unit::Microsecond, 1000))),
         (Unit::Second, "SEC", Some((Unit::Millisecond, 1000))),
         (Unit::Minute, "MIN", Some((Unit::Second, 60))),
@@ -2619,7 +2620,7 @@ pub fn parse_duration_bytes(num_with_unit_bytes: &[u8], span: Span) -> Option<Ex
         .find(|&x| uppercase_num_with_unit.ends_with(x.1))
     {
         let mut lhs = num_with_unit;
-        for _ in 0..unit.1.len() {
+        for _ in 0..unit.1.chars().count() {
             lhs.pop();
         }
 

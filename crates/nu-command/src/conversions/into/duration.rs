@@ -1,3 +1,4 @@
+use log::trace;
 use nu_engine::CallExt;
 use nu_parser::parse_duration_bytes;
 use nu_protocol::{
@@ -194,6 +195,7 @@ fn convert_str_from_unit_to_unit(
     span: Span,
     value_span: Span,
 ) -> Result<f64, ShellError> {
+    trace!("Im at the convert str section");
     match (from_unit, to_unit) {
         ("ns", "ns") => Ok(val as f64),
         ("ns", "us") => Ok(val as f64 / 1000.0),
