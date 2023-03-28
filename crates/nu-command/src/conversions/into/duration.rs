@@ -153,6 +153,14 @@ impl Command for SubCommand {
                     span,
                 }),
             },
+            Example {
+                description: "Convert duration to the µs duration as a string",
+                example: "1sec | into duration --convert µs",
+                result: Some(Value::String {
+                    val: "1000000 µs".to_string(),
+                    span,
+                }),
+            },
         ]
     }
 }
