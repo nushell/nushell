@@ -367,7 +367,7 @@ fn does_not_error_when_some_file_is_moving_into_itself() {
 
         let original_dir = dirs.test().join("11");
         let expected = dirs.test().join("12/11");
-        nu!(cwd: dirs.test(), "mv 1* 12");
+        nu!(cwd: dirs.test(), "mv `1*` `12`");
 
         assert!(!original_dir.exists());
         assert!(expected.exists());

@@ -197,7 +197,7 @@ impl Command for Char {
             },
             Example {
                 description: "Output Unicode character",
-                example: r#"char -u 1f378"#,
+                example: r#"char -u '1f378'"#,
                 result: Some(Value::test_string("\u{1f378}")),
             },
             Example {
@@ -207,7 +207,7 @@ impl Command for Char {
             },
             Example {
                 description: "Output multi-byte Unicode character",
-                example: r#"char -u 1F468 200D 1F466 200D 1F466"#,
+                example: r#"char -u '1F468' '200D' '1F466' '200D' '1F466'"#,
                 result: Some(Value::test_string(
                     "\u{1F468}\u{200D}\u{1F466}\u{200D}\u{1F466}",
                 )),
