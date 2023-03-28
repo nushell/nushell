@@ -2606,7 +2606,11 @@ pub fn parse_duration_bytes(num_with_unit_bytes: &[u8], span: Span) -> Option<Ex
     let unit_groups = [
         (Unit::Nanosecond, "NS", None),
         (Unit::Microsecond, "US", Some((Unit::Nanosecond, 1000))),
-        (Unit::Microsecond, "\u{039C}S", Some((Unit::Nanosecond, 1000))),
+        (
+            Unit::Microsecond,
+            "\u{039C}S",
+            Some((Unit::Nanosecond, 1000)),
+        ),
         (Unit::Millisecond, "MS", Some((Unit::Microsecond, 1000))),
         (Unit::Second, "SEC", Some((Unit::Millisecond, 1000))),
         (Unit::Minute, "MIN", Some((Unit::Second, 60))),

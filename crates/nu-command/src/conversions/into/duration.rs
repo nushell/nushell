@@ -396,7 +396,8 @@ fn string_to_duration(s: &str, span: Span, value_span: Span) -> Result<i64, Shel
         dst_span: span,
         src_span: value_span,
         help: Some(
-            "supported units are ns, us, µs, ms, sec, min, hr, day, wk, month, yr and dec".to_string(),
+            "supported units are ns, us, µs, ms, sec, min, hr, day, wk, month, yr and dec"
+                .to_string(),
         ),
     })
 }
@@ -432,7 +433,8 @@ fn string_to_unit_duration(
         dst_span: span,
         src_span: value_span,
         help: Some(
-            "supported units are ns, us, µs, ms, sec, min, hr, day, wk, month, yr and dec".to_string(),
+            "supported units are ns, us, µs, ms, sec, min, hr, day, wk, month, yr and dec"
+                .to_string(),
         ),
     })
 }
