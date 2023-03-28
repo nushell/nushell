@@ -4,7 +4,7 @@ use nu_test_support::{nu, pipeline};
 
 #[test]
 fn regular_columns() {
-    let actual = nu!(cwd: ".", pipeline(
+    let actual = nu!(pipeline(
         r#"
             echo [
                 [first_name, last_name, rusty_at, type];
@@ -67,7 +67,7 @@ fn complex_nested_columns() {
 
 #[test]
 fn fails_if_given_unknown_column_name() {
-    let actual = nu!(cwd: ".", pipeline(
+    let actual = nu!(pipeline(
         r#"
             echo [
                 [first_name, last_name, rusty_at, type];
@@ -86,7 +86,7 @@ fn fails_if_given_unknown_column_name() {
 
 #[test]
 fn column_names_with_spaces() {
-    let actual = nu!(cwd: ".", pipeline(
+    let actual = nu!(pipeline(
         r#"
             echo [
                 ["first name", "last name"];
@@ -105,7 +105,7 @@ fn column_names_with_spaces() {
 
 #[test]
 fn ignores_duplicate_columns_selected() {
-    let actual = nu!(cwd: ".", pipeline(
+    let actual = nu!(pipeline(
         r#"
             echo [
                 ["first name", "last name"];
@@ -162,12 +162,7 @@ fn selects_many_rows() {
 
 #[test]
 fn select_ignores_errors_successfully1() {
-    let actual = nu!(
-        cwd: ".", pipeline(
-        r#"
-        [{a: 1, b: 2} {a: 3, b: 5} {a: 3}] | select b? | length
-        "#
-    ));
+    let actual = nu!("[{a: 1, b: 2} {a: 3, b: 5} {a: 3}] | select b? | length");
 
     assert_eq!(actual.out, "3".to_string());
     assert!(actual.err.is_empty());
@@ -175,12 +170,7 @@ fn select_ignores_errors_successfully1() {
 
 #[test]
 fn select_ignores_errors_successfully2() {
-    let actual = nu!(
-        cwd: ".", pipeline(
-        r#"
-        [{a: 1} {a: 2} {a: 3}] | select b? | to nuon
-            "#
-    ));
+    let actual = nu!("[{a: 1} {a: 2} {a: 3}] | select b? | to nuon");
 
     assert_eq!(actual.out, "[[b]; [null], [null], [null]]".to_string());
     assert!(actual.err.is_empty());
@@ -188,10 +178,7 @@ fn select_ignores_errors_successfully2() {
 
 #[test]
 fn select_ignores_errors_successfully3() {
-    let actual = nu!(
-        cwd: ".", pipeline(
-        r#"sys | select invalid_key? | to nuon"#
-    ));
+    let actual = nu!("sys | select invalid_key? | to nuon");
 
     assert_eq!(actual.out, "{invalid_key: null}".to_string());
     assert!(actual.err.is_empty());
@@ -199,10 +186,8 @@ fn select_ignores_errors_successfully3() {
 
 #[test]
 fn select_ignores_errors_successfully4() {
-    let actual = nu!(
-        cwd: ".", pipeline(
-        r#""key val\na 1\nb 2\n" | lines | split column -c " " | select foo? | to nuon"#
-    ));
+    let actual =
+        nu!(r#""key val\na 1\nb 2\n" | lines | split column -c " " | select foo? | to nuon"#);
 
     assert_eq!(actual.out, r#"[[foo]; [null], [null], [null]]"#.to_string());
     assert!(actual.err.is_empty());
@@ -210,12 +195,7 @@ fn select_ignores_errors_successfully4() {
 
 #[test]
 fn select_failed1() {
-    let actual = nu!(
-        cwd: ".", pipeline(
-        r#"
-        [{a: 1, b: 2} {a: 3, b: 5} {a: 3}] | select b
-            "#
-    ));
+    let actual = nu!("[{a: 1, b: 2} {a: 3, b: 5} {a: 3}] | select b ");
 
     assert!(actual.out.is_empty());
     assert!(actual.err.contains("cannot find column"));
@@ -223,12 +203,7 @@ fn select_failed1() {
 
 #[test]
 fn select_failed2() {
-    let actual = nu!(
-        cwd: ".", pipeline(
-        r#"
-        [{a: 1} {a: 2} {a: 3}] | select b
-            "#
-    ));
+    let actual = nu!("[{a: 1} {a: 2} {a: 3}] | select b");
 
     assert!(actual.out.is_empty());
     assert!(actual.err.contains("cannot find column"));
@@ -236,10 +211,7 @@ fn select_failed2() {
 
 #[test]
 fn select_failed3() {
-    let actual = nu!(
-        cwd: ".", pipeline(
-        r#""key val\na 1\nb 2\n" | lines | split column -c " " | select "100""#
-    ));
+    let actual = nu!(r#""key val\na 1\nb 2\n" | lines | split column -c " " | select "100""#);
 
     assert!(actual.out.is_empty());
     assert!(actual.err.contains("cannot find column"));
@@ -247,25 +219,28 @@ fn select_failed3() {
 
 #[test]
 fn select_failed4() {
-    let actual = nu!(
-        cwd: ".", pipeline(
-        r#"
-        [{a: 1 b: 10}, {a:2, b:11}] | select 0 0
-        "#
-    ));
+    let actual = nu!("[{a: 1 b: 10}, {a:2, b:11}] | select 0 0");
 
     assert!(actual.err.contains("Select can't get the same row twice"));
 }
 
 #[test]
 fn ignore_errors_works() {
-    let actual = nu!(
-        cwd: ".",
-        r#"
+    let actual = nu!(r#"
         let path = "foo";
         [{}] | select -i $path | to nuon
-        "#
-    );
+        "#);
 
     assert_eq!(actual.out, "[[foo]; [null]]");
+}
+
+#[test]
+fn select_on_empty_list_returns_empty_list() {
+    // once with a List
+    let actual = nu!("[] | select foo | to nuon");
+    assert_eq!(actual.out, "[]");
+
+    // and again with a ListStream
+    let actual = nu!("[] | each {|i| $i} | select foo | to nuon");
+    assert_eq!(actual.out, "[]");
 }
