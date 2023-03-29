@@ -87,7 +87,13 @@ impl Type {
             Type::List(x) => SyntaxShape::List(Box::new(x.to_shape())),
             Type::Number => SyntaxShape::Number,
             Type::Nothing => SyntaxShape::Nothing,
-            Type::Record(_) => SyntaxShape::Record,
+            Type::Record(fields) => {
+                let mut shape_fields = vec![];
+                for field in fields {
+                    shape_fields.push((field.0.clone(), field.1.to_shape()));
+                }
+                SyntaxShape::Record(shape_fields)
+            }
             Type::Table(_) => SyntaxShape::Table,
             Type::ListStream => SyntaxShape::List(Box::new(SyntaxShape::Any)),
             Type::Any => SyntaxShape::Any,

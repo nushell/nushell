@@ -95,7 +95,7 @@ pub enum SyntaxShape {
     Range,
 
     /// A record value, eg `{x: 1, y: 2}`
-    Record,
+    Record(Vec<(String, SyntaxShape)>),
 
     /// A math expression which expands shorthand forms on the lefthand side, eg `foo > 1`
     /// The shorthand allows us to more easily reach columns inside of the row being passed in
@@ -151,7 +151,13 @@ impl SyntaxShape {
             SyntaxShape::OneOf(_) => Type::Any,
             SyntaxShape::Operator => Type::Any,
             SyntaxShape::Range => Type::Any,
-            SyntaxShape::Record => Type::Record(vec![]), // FIXME: What role should fields play in the Record type?
+            SyntaxShape::Record(fields) => {
+                let mut type_fields = vec![];
+                for field in fields {
+                    type_fields.push((field.0.clone(), field.1.to_type()))
+                }
+                Type::Record(type_fields)
+            }
             SyntaxShape::RowCondition => Type::Bool,
             SyntaxShape::Boolean => Type::Bool,
             SyntaxShape::Signature => Type::Signature,
@@ -193,8 +199,17 @@ impl Display for SyntaxShape {
             }
             SyntaxShape::Binary => write!(f, "binary"),
             SyntaxShape::Table => write!(f, "table"),
-            SyntaxShape::List(x) => write!(f, "list<{x}>"),
-            SyntaxShape::Record => write!(f, "record"),
+            SyntaxShape::List(x) => write!(f, "[{x}]"),
+            SyntaxShape::Record(items) => {
+                let mut shape_fields = String::new();
+                for item in items {
+                    if !shape_fields.is_empty() {
+                        shape_fields.push_str(", ");
+                    }
+                    shape_fields.push_str(&format!("{}: {}", item.0, item.1));
+                }
+                write!(f, "{{{}}}", shape_fields)
+            }
             SyntaxShape::Filesize => write!(f, "filesize"),
             SyntaxShape::Duration => write!(f, "duration"),
             SyntaxShape::DateTime => write!(f, "datetime"),

@@ -23,7 +23,7 @@ impl Command for LoadEnv {
             .allow_variants_without_examples(true)
             .optional(
                 "update",
-                SyntaxShape::Record,
+                SyntaxShape::Record(vec![]),
                 "the record to use for updates",
             )
             .category(Category::FileSystem)

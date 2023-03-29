@@ -3144,7 +3144,7 @@ pub fn parse_shape_name(
         b"operator" => SyntaxShape::Operator,
         b"path" => SyntaxShape::Filepath,
         b"range" => SyntaxShape::Range,
-        b"record" => SyntaxShape::Record,
+        b"record" => SyntaxShape::Record(vec![]),
         b"signature" => SyntaxShape::Signature,
         b"string" => SyntaxShape::String,
         b"table" => SyntaxShape::Table,
@@ -3236,28 +3236,70 @@ fn parse_list_shape(
     }
 }
 
-pub fn parse_type(_working_set: &StateWorkingSet, bytes: &[u8]) -> Type {
-    match bytes {
-        b"binary" => Type::Binary,
-        b"block" => Type::Block,
-        b"bool" => Type::Bool,
-        b"cellpath" => Type::CellPath,
-        b"closure" => Type::Closure,
-        b"date" => Type::Date,
-        b"duration" => Type::Duration,
-        b"error" => Type::Error,
-        b"filesize" => Type::Filesize,
-        b"float" | b"decimal" => Type::Float,
-        b"int" => Type::Int,
-        b"list" => Type::List(Box::new(Type::Any)),
-        b"number" => Type::Number,
-        b"range" => Type::Range,
-        b"record" => Type::Record(vec![]),
-        b"string" => Type::String,
-        b"table" => Type::Table(vec![]), //FIXME
+fn convert_val_ty_to_ty(val: &Expression) -> Result<Type, ParseError> {
+    match &val.expr {
+        Expr::String(name) => match name.as_str() {
+            "binary" => Ok(Type::Binary),
+            "block" => Ok(Type::Block),
+            "bool" => Ok(Type::Bool),
+            _ => Err(ParseError::UnknownType(val.span)),
+        },
+        Expr::Record(fields) => {
+            let mut output = vec![];
+            for field in fields {
+                match &field.0.expr {
+                    Expr::String(field_name) => {
+                        let field_type = convert_val_ty_to_ty(&field.1)?;
 
-        _ => Type::Any,
+                        output.push((field_name.clone(), field_type))
+                    }
+                    _ => return Err(ParseError::UnknownType(val.span)),
+                }
+            }
+
+            Ok(Type::Record(output))
+        }
+        Expr::List(items) => {
+            if items.len() != 1 {
+                return Err(ParseError::UnknownType(val.span));
+            }
+            let inner_ty = convert_val_ty_to_ty(&items[0])?;
+
+            Ok(Type::List(Box::new(inner_ty)))
+        }
+        _ => Err(ParseError::UnknownType(val.span)),
     }
+}
+pub fn parse_type(working_set: &mut StateWorkingSet, span: Span) -> Result<Type, ParseError> {
+    println!("parse type called");
+    let (type_as_value, err) = parse_value(working_set, span, &SyntaxShape::Any, &[]);
+    if let Some(err) = err {
+        return Err(err);
+    }
+
+    convert_val_ty_to_ty(&type_as_value)
+
+    // match bytes {
+    //     b"binary" => Type::Binary,
+    //     b"block" => Type::Block,
+    //     b"bool" => Type::Bool,
+    //     b"cellpath" => Type::CellPath,
+    //     b"closure" => Type::Closure,
+    //     b"date" => Type::Date,
+    //     b"duration" => Type::Duration,
+    //     b"error" => Type::Error,
+    //     b"filesize" => Type::Filesize,
+    //     b"float" | b"decimal" => Type::Float,
+    //     b"int" => Type::Int,
+    //     b"list" => Type::List(Box::new(Type::Any)),
+    //     b"number" => Type::Number,
+    //     b"range" => Type::Range,
+    //     b"record" => Type::Record(vec![]),
+    //     b"string" => Type::String,
+    //     b"table" => Type::Table(vec![]), //FIXME
+
+    //     _ => Type::Any,
+    // }
 }
 
 pub fn parse_import_pattern(
@@ -3426,9 +3468,8 @@ pub fn parse_var_with_opt_type(
         // We end with colon, so the next span should be the type
         if *spans_idx + 1 < spans.len() {
             *spans_idx += 1;
-            let type_bytes = working_set.get_span_contents(spans[*spans_idx]);
 
-            let ty = parse_type(working_set, type_bytes);
+            let ty = parse_type(working_set, spans[*spans_idx]);
 
             let var_name = bytes[0..(bytes.len() - 1)].to_vec();
 
@@ -3442,6 +3483,11 @@ pub fn parse_var_with_opt_type(
                 );
             }
 
+            let (ty, err) = match ty {
+                Ok(ty) => (ty, None),
+                Err(err) => (Type::Any, Some(err)),
+            };
+
             let id = working_set.add_variable(var_name, spans[*spans_idx - 1], ty.clone(), mutable);
 
             (
@@ -3451,7 +3497,7 @@ pub fn parse_var_with_opt_type(
                     ty,
                     custom_completion: None,
                 },
-                None,
+                err,
             )
         } else {
             let var_name = bytes[0..(bytes.len() - 1)].to_vec();
@@ -5071,7 +5117,7 @@ pub fn parse_value(
 
         // Be sure to return ParseError::Expected(..) if invoked for one of these shapes, but lex
         // stream doesn't start with '{'} -- parsing in SyntaxShape::Any arm depends on this error variant.
-        SyntaxShape::Block | SyntaxShape::Closure(..) | SyntaxShape::Record => (
+        SyntaxShape::Block | SyntaxShape::Closure(..) | SyntaxShape::Record(..) => (
             garbage(span),
             Some(ParseError::Expected(
                 "block, closure or record".into(),
@@ -5084,13 +5130,7 @@ pub fn parse_value(
                 //parse_value(working_set, span, &SyntaxShape::Table)
                 parse_full_cell_path(working_set, None, span, expand_aliases_denylist)
             } else {
-                let shapes = [
-                    SyntaxShape::Range,
-                    SyntaxShape::Record,
-                    SyntaxShape::Closure(None),
-                    SyntaxShape::Block,
-                    SyntaxShape::String,
-                ];
+                let shapes = [SyntaxShape::Range, SyntaxShape::String];
                 for shape in shapes.iter() {
                     let (s, e) = parse_value(working_set, span, shape, expand_aliases_denylist);
                     match (s, e) {
