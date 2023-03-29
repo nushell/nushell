@@ -128,13 +128,7 @@ fn table() {
 
 #[test]
 fn uniq_by_empty() {
-    let actual = nu!(
-        cwd: "tests/fixtures/formats", pipeline(
-        r#"
-            [] | uniq-by foo
-            | to json --raw
-        "#
-    ));
+    let actual = nu!("[] | uniq-by foo | to nuon");
 
     assert_eq!(actual.out, "[]");
 }

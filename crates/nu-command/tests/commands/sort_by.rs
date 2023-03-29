@@ -45,13 +45,7 @@ fn by_invalid_column() {
 
 #[test]
 fn sort_by_empty() {
-    let actual = nu!(
-        cwd: "tests/fixtures/formats", pipeline(
-        r#"
-            [] | sort-by foo
-            | to json --raw
-        "#
-    ));
+    let actual = nu!("[] | sort-by foo | to nuon");
 
     assert_eq!(actual.out, "[]");
 }

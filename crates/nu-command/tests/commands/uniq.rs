@@ -63,13 +63,7 @@ fn uniq_values() {
 
 #[test]
 fn uniq_empty() {
-    let actual = nu!(
-        cwd: "tests/fixtures/formats", pipeline(
-        r#"
-            [] | uniq
-            | to json --raw
-        "#
-    ));
+    let actual = nu!("[] | uniq | to nuon");
 
     assert_eq!(actual.out, "[]");
 }

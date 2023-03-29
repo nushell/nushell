@@ -121,13 +121,7 @@ fn sort_record_values_insensitive_reverse() {
 
 #[test]
 fn sort_empty() {
-    let actual = nu!(
-        cwd: "tests/fixtures/formats", pipeline(
-        r#"
-            [] | sort
-            | to json --raw
-        "#
-    ));
+    let actual = nu!("[] | sort | to nuon");
 
     assert_eq!(actual.out, "[]");
 }
