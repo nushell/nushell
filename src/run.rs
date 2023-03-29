@@ -249,8 +249,16 @@ pub(crate) fn run_repl(
             &[],
         );
 
+        // TODO: change this when #8505 is merged
+        // NOTE: remove the assert and uncomment the `help`s
         let prelude = vec![
             ("assert", "assert"),
+            // ("help", "help"),
+            // ("help commands", "help commands"),
+            // ("help aliases", "help aliases"),
+            // ("help modules", "help modules"),
+            // ("help externs", "help externs"),
+            // ("help operators", "help operators"),
         ];
 
         working_set.use_decls(
