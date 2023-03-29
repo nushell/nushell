@@ -196,6 +196,10 @@ pub(crate) fn run_file(
     ret_val
 }
 
+fn get_standard_library() -> &'static str {
+    include_str!("../crates/nu-utils/standard_library/std.nu")
+}
+
 pub(crate) fn run_repl(
     engine_state: &mut nu_protocol::engine::EngineState,
     parsed_nu_cli_args: command::NushellCliArgs,
