@@ -15,10 +15,6 @@ export def test_dirs_command [] {
 
     try {
         mkdir $base_path $path_a $path_b
-        # Now that we've created the directories, we need to expand them to include symlinks
-        let base_path = ($base_path | path expand)
-        let path_a = ($path_a | path expand)
-        let path_b = ($path_b | path expand)
 
         cd $base_path
         use std.nu "dirs next"
@@ -49,7 +45,7 @@ export def test_dirs_command [] {
 
         dirs drop
         assert length $env.DIRS_LIST 2 "drop removes from list"
-        assert equal ($base_path | path expand) $env.PWD "drop changes PWD to next in list (after dropped element)"
+        assert equal $base_path $env.PWD "drop changes PWD to next in list (after dropped element)"
 
         assert equal (dirs show) [[active path]; [true $base_path] [false $path_b]] "show table contains expected information"
     } catch { |error|
