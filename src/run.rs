@@ -232,45 +232,51 @@ pub(crate) fn run_repl(
         use_color,
     );
 
-    let name = "std".to_string();
-    let content = get_standard_library().as_bytes();
+    let delta = {
+        let name = "std".to_string();
+        let content = get_standard_library().as_bytes();
 
-    let mut working_set = StateWorkingSet::new(engine_state);
+        let mut working_set = StateWorkingSet::new(engine_state);
 
-    let start = working_set.next_span_start();
-    working_set.add_file(name.clone(), content);
-    let end = working_set.next_span_start();
+        let start = working_set.next_span_start();
+        working_set.add_file(name.clone(), content);
+        let end = working_set.next_span_start();
 
-    let (_, module, _, _) = parse_module_block(
-        &mut working_set,
-        Span::new(start, end),
-        name.as_bytes(),
-        &[],
-    );
+        let (_, module, _, _) = parse_module_block(
+            &mut working_set,
+            Span::new(start, end),
+            name.as_bytes(),
+            &[],
+        );
 
-    let prelude = vec![
-        ("assert", "assert"),
-    ];
+        let prelude = vec![
+            ("assert", "assert"),
+        ];
 
-    working_set.use_decls(
-        prelude
-            .iter()
-            .map(|(name, search_name)| {
-                (
-                    name.as_bytes().to_vec(),
-                    module
-                        .decls
-                        .get(&search_name.as_bytes().to_vec())
-                        .unwrap_or_else(|| {
-                            panic!("could not load `{}` from `std`.", search_name)
-                        })
-                        .to_owned(),
-                )
-            })
-            .collect(),
-    );
+        working_set.use_decls(
+            prelude
+                .iter()
+                .map(|(name, search_name)| {
+                    (
+                        name.as_bytes().to_vec(),
+                        module
+                            .decls
+                            .get(&search_name.as_bytes().to_vec())
+                            .unwrap_or_else(|| {
+                                panic!("could not load `{}` from `std`.", search_name)
+                            })
+                            .to_owned(),
+                    )
+                })
+                .collect(),
+        );
 
-    working_set.add_module(&name, module, Vec::new());
+        working_set.add_module(&name, module, Vec::new());
+
+        working_set.render()
+    };
+
+    engine_state.merge_delta(delta)?;
 
     let start_time = std::time::Instant::now();
     let ret_val = evaluate_repl(
