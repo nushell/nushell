@@ -2602,26 +2602,21 @@ pub fn parse_duration_bytes(num_with_unit_bytes: &[u8], span: Span) -> Option<Ex
     }
 
     let num_with_unit = String::from_utf8_lossy(num_with_unit_bytes).to_string();
-    let uppercase_num_with_unit = num_with_unit.to_uppercase();
     let unit_groups = [
-        (Unit::Nanosecond, "NS", None),
-        (Unit::Microsecond, "US", Some((Unit::Nanosecond, 1000))),
-        (
-            Unit::Microsecond,
-            "\u{039C}S",
-            Some((Unit::Nanosecond, 1000)),
-        ),
-        (Unit::Millisecond, "MS", Some((Unit::Microsecond, 1000))),
-        (Unit::Second, "SEC", Some((Unit::Millisecond, 1000))),
-        (Unit::Minute, "MIN", Some((Unit::Second, 60))),
-        (Unit::Hour, "HR", Some((Unit::Minute, 60))),
-        (Unit::Day, "DAY", Some((Unit::Minute, 1440))),
-        (Unit::Week, "WK", Some((Unit::Day, 7))),
+        (Unit::Nanosecond, "ns", None),
+        (Unit::Microsecond, "us", Some((Unit::Nanosecond, 1000))),
+        (Unit::Microsecond, "µs", Some((Unit::Nanosecond, 1000))),
+        (Unit::Millisecond, "ms", Some((Unit::Microsecond, 1000))),
+        (Unit::Second, "sec", Some((Unit::Millisecond, 1000))),
+        (Unit::Minute, "min", Some((Unit::Second, 60))),
+        (Unit::Hour, "hr", Some((Unit::Minute, 60))),
+        (Unit::Day, "day", Some((Unit::Minute, 1440))),
+        (Unit::Week, "wk", Some((Unit::Day, 7))),
     ];
 
     if let Some(unit) = unit_groups
         .iter()
-        .find(|&x| uppercase_num_with_unit.ends_with(x.1))
+        .find(|&x| num_with_unit.ends_with(x.1))
     {
         let mut lhs = num_with_unit;
         for _ in 0..unit.1.chars().count() {
