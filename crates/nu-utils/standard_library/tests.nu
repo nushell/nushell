@@ -2,7 +2,7 @@ use std.nu *
 
 # show a test record in a pretty way
 #
-# `$in` must be a `record<file: string, module: string, name: string, pass: bool>`.
+# `$in` must be a `{file: string, module: string, name: string, pass: bool}`.
 #
 # the output would be like
 # - "<indentation> x <module> <test>" all in red if failed

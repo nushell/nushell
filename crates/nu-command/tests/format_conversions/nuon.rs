@@ -493,7 +493,7 @@ fn quotes_some_strings_necessarily() {
         "#
     ));
 
-    assert_eq!(actual.out, "list<string>");
+    assert_eq!(actual.out, "[string]");
 }
 
 #[test]

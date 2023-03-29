@@ -9,7 +9,7 @@ fn float_in_seq_leads_to_lists_of_floats() {
         "#
     ));
 
-    assert_eq!(actual.out, "list<float> (stream)");
+    assert_eq!(actual.out, "[float] (stream)");
 }
 
 #[test]
@@ -21,5 +21,5 @@ fn ints_in_seq_leads_to_lists_of_ints() {
         "#
     ));
 
-    assert_eq!(actual.out, "list<int> (stream)");
+    assert_eq!(actual.out, "[int] (stream)");
 }

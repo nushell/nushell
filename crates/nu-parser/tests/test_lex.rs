@@ -24,7 +24,7 @@ fn lex_newline() {
 
 #[test]
 fn lex_annotations_list() {
-    let file = b"items: list<string>";
+    let file = b"items: [string]";
 
     let (output, err) = lex_signature(file, 0, &[b'\n', b'\r'], &[b':', b'=', b','], false);
 
@@ -34,7 +34,7 @@ fn lex_annotations_list() {
 
 #[test]
 fn lex_annotations_record() {
-    let file = b"config: record<name: string>";
+    let file = b"config: {name: string}";
 
     let (output, err) = lex_signature(file, 0, &[b'\n', b'\r'], &[b':', b'=', b','], false);
 
@@ -44,7 +44,7 @@ fn lex_annotations_record() {
 
 #[test]
 fn lex_annotations_empty() {
-    let file = b"items: list<>";
+    let file = b"items: []";
 
     let (output, err) = lex_signature(file, 0, &[b'\n', b'\r'], &[b':', b'=', b','], false);
 
@@ -88,7 +88,7 @@ fn lex_annotations_space_within_annotations() {
 
 #[test]
 fn lex_annotations_nested() {
-    let file = b"items: list<record<name: string>>";
+    let file = b"items: [{name: string}]";
 
     let (output, err) = lex_signature(file, 0, &[b'\n', b'\r'], &[b':', b'=', b','], false);
 
@@ -98,7 +98,7 @@ fn lex_annotations_nested() {
 
 #[test]
 fn lex_annotations_nested_unterminated() {
-    let file = b"items: list<record<name: string>";
+    let file = b"items: [{name: string}]";
 
     let (output, err) = lex_signature(file, 0, &[b'\n', b'\r'], &[b':', b'=', b','], false);
 

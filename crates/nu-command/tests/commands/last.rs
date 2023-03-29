@@ -76,7 +76,7 @@ fn gets_last_row_as_list_when_amount_given() {
             "#
     ));
 
-    assert_eq!(actual.out, "list<int> (stream)");
+    assert_eq!(actual.out, "[int] (stream)");
 }
 
 #[test]

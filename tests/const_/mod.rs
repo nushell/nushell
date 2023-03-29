@@ -51,7 +51,7 @@ fn const_list() {
 
     let actual = nu!(cwd: "tests/const_", pipeline(&inp.join("; ")));
 
-    assert_eq!(actual.out, "list<string>");
+    assert_eq!(actual.out, "[string]");
 }
 
 #[test]
@@ -60,7 +60,7 @@ fn const_record() {
 
     let actual = nu!(cwd: "tests/const_", pipeline(&inp.join("; ")));
 
-    assert_eq!(actual.out, "record<a: int, b: int, c: int>");
+    assert_eq!(actual.out, "{a: int, b: int, c: int}");
 }
 
 #[test]

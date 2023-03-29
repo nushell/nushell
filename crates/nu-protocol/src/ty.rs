@@ -155,7 +155,7 @@ impl Display for Type {
                 } else {
                     write!(
                         f,
-                        "record<{}>",
+                        "{{{}}}",
                         fields
                             .iter()
                             .map(|(x, y)| format!("{x}: {y}"))
@@ -179,7 +179,7 @@ impl Display for Type {
                     )
                 }
             }
-            Type::List(l) => write!(f, "list<{l}>"),
+            Type::List(l) => write!(f, "[{l}]"),
             Type::Nothing => write!(f, "nothing"),
             Type::Number => write!(f, "number"),
             Type::String => write!(f, "string"),
