@@ -3533,7 +3533,7 @@ pub fn parse_row_condition(
     spans: &[Span],
     expand_aliases_denylist: &[usize],
 ) -> (Expression, Option<ParseError>) {
-    let var_id = working_set.add_variable(b"$it".to_vec(), span(spans), Type::Any, false);
+    let var_id = working_set.add_variable(b"it".to_vec(), span(spans), Type::Any, false);
     let (expression, err) =
         parse_math_expression(working_set, spans, Some(var_id), expand_aliases_denylist);
     let span = span(spans);
@@ -3552,7 +3552,7 @@ pub fn parse_row_condition(
             block.pipelines.push(pipeline);
 
             block.signature.required_positional.push(PositionalArg {
-                name: "$it".into(),
+                name: "it".into(),
                 desc: "row condition".into(),
                 shape: SyntaxShape::Any,
                 var_id: Some(var_id),
@@ -4535,11 +4535,11 @@ pub fn parse_block_expression(
     } else if let Some(last) = working_set.delta.scope.last() {
         // FIXME: this only supports the top $it. Is this sufficient?
 
-        if let Some(var_id) = last.get_var(b"$it") {
+        if let Some(var_id) = last.get_var(b"it") {
             let mut signature = Signature::new("");
             signature.required_positional.push(PositionalArg {
                 var_id: Some(*var_id),
-                name: "$it".into(),
+                name: "it".into(),
                 desc: String::new(),
                 shape: SyntaxShape::Any,
                 default_value: None,
@@ -4868,11 +4868,11 @@ pub fn parse_closure_expression(
     } else if let Some(last) = working_set.delta.scope.last() {
         // FIXME: this only supports the top $it. Is this sufficient?
 
-        if let Some(var_id) = last.get_var(b"$it") {
+        if let Some(var_id) = last.get_var(b"it") {
             let mut signature = Signature::new("");
             signature.required_positional.push(PositionalArg {
                 var_id: Some(*var_id),
-                name: "$it".into(),
+                name: "it".into(),
                 desc: String::new(),
                 shape: SyntaxShape::Any,
                 default_value: None,
@@ -6521,7 +6521,7 @@ fn wrap_expr_with_collect(working_set: &mut StateWorkingSet, expr: &Expression) 
         let mut signature = Signature::new("");
         signature.required_positional.push(PositionalArg {
             var_id: Some(var_id),
-            name: "$in".into(),
+            name: "in".into(),
             desc: String::new(),
             shape: SyntaxShape::Any,
             default_value: None,

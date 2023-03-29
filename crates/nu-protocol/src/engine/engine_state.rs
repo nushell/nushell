@@ -1775,6 +1775,12 @@ impl<'a> StateWorkingSet<'a> {
     }
 
     pub fn find_variable(&self, name: &[u8]) -> Option<VarId> {
+        let name = if name.starts_with(b"$") {
+            &name[1..]
+        } else {
+            name
+        };
+
         let mut removed_overlays = vec![];
 
         for scope_frame in self.delta.scope.iter().rev() {
@@ -1804,6 +1810,12 @@ impl<'a> StateWorkingSet<'a> {
     }
 
     pub fn find_variable_in_current_frame(&self, name: &[u8]) -> Option<VarId> {
+        let name = if name.starts_with(b"$") {
+            &name[1..]
+        } else {
+            name
+        };
+
         let mut removed_overlays = vec![];
 
         for scope_frame in self.delta.scope.iter().rev().take(1) {
@@ -1830,9 +1842,9 @@ impl<'a> StateWorkingSet<'a> {
     ) -> VarId {
         let next_id = self.next_var_id();
 
-        // correct name if necessary
-        if !name.starts_with(b"$") {
-            name.insert(0, b'$');
+        // don't store variables in the engine with `$`
+        if name.starts_with(b"$") {
+            name = name[1..].to_vec();
         }
 
         self.last_overlay_mut().vars.insert(name, next_id);

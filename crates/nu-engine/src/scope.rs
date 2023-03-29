@@ -96,7 +96,10 @@ impl<'e, 's> ScopeData<'e, 's> {
     pub fn collect_vars(&self, span: Span) -> Vec<Value> {
         let mut vars = vec![];
         for var in &self.vars_map {
-            let var_name = Value::string(String::from_utf8_lossy(var.0).to_string(), span);
+            // names in the engine are not stored with `$`, but the user probably
+            // expects them to be
+            let name = "$".to_string() + &String::from_utf8_lossy(var.0);
+            let var_name = Value::string(name, span);
 
             let var_type = Value::string(self.engine_state.get_var(**var.1).ty.to_string(), span);
 

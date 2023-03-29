@@ -208,7 +208,7 @@ pub(crate) fn setup_config(
     // Give a warning if we see `$config` for a few releases
     {
         let working_set = StateWorkingSet::new(engine_state);
-        if working_set.find_variable(b"$config").is_some() {
+        if working_set.find_variable(b"config").is_some() {
             println!("warning: use `let-env config = ...` instead of `let config = ...`");
         }
     }

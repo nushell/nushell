@@ -43,7 +43,7 @@ impl Completer for VariableCompletion {
         options: &CompletionOptions,
     ) -> Vec<Suggestion> {
         let mut output = vec![];
-        let builtins = ["$nu", "$in", "$env", "$nothing"];
+        let builtins = ["nu", "in", "env", "nothing"];
         let var_str = std::str::from_utf8(&self.var_context.0)
             .unwrap_or("")
             .to_lowercase();
@@ -57,7 +57,7 @@ impl Completer for VariableCompletion {
         // Completions for the given variable
         if !var_str.is_empty() {
             // Completion for $env.<tab>
-            if var_str.as_str() == "$env" {
+            if var_str.as_str() == "env" {
                 let env_vars = self.stack.get_env_vars(&self.engine_state);
 
                 // Return nested values
@@ -109,7 +109,7 @@ impl Completer for VariableCompletion {
             }
 
             // Completions for $nu.<tab>
-            if var_str.as_str() == "$nu" {
+            if var_str.as_str() == "nu" {
                 // Eval nu var
                 if let Ok(nuval) = eval_variable(
                     &self.engine_state,
