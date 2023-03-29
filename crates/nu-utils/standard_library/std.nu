@@ -395,6 +395,7 @@ export def xaccess [
                # 1. String with tag name. Finds all children with specified name. Equivalent to `child::A` in xpath
                # 2. `*` string. Get all children without any filter. Equivalent to `descendant` in xpath
                # 3. Int. Select n-th among nodes selected by previous path. Equivalent to `(...)[1]` in xpath, but is indexed from 0.
+               # 4. Closure. Predicate accepting entry. Selects all entries among nodes selected by previous path for which predicate returns true. 
 ] {
     let input = $in
     if ($path | is-empty) {
@@ -417,6 +418,8 @@ export def xaccess [
             }
         } else if $type == 'int' {
             $values = [ ($values | get $step) ]
+        } else if $type == 'closure' {
+            $values = ($values | where {|x| do $step $x})
         } else {
             let step_span = (metadata $step).span
             error make {msg: 'Incorrect path step type'
@@ -468,8 +471,7 @@ def xupdate-string-step [ step: string rest: list updater: closure ] {
 }
 
 def xupdate-int-step [ step: int rest: list updater: closure ] {
-    let input = $in
-    $input | enumerate | each {|it|
+    $in | enumerate | each {|it|
         let item = $it.item
         let idx = $it.index
 
@@ -477,6 +479,16 @@ def xupdate-int-step [ step: int rest: list updater: closure ] {
             [ $item ] | xupdate-internal $rest $updater | get 0
         } else {
             $item
+        }
+    }
+}
+
+def xupdate-closure-step [ step: closure rest: list updater: closure ] {
+    $in | each {|it|
+        if (do $step $it) {
+            [ $it ] | xupdate-internal $rest $updater | get 0
+        } else {
+            $it
         }
     }
 }
@@ -495,6 +507,8 @@ def xupdate-internal [ path: list updater: closure ] {
             $input | each {|x| $x | xupdate-string-step $step $rest $updater}
         } else if $type == 'int' {
             $input | xupdate-int-step $step $rest $updater
+        } else if $type == 'closure' {
+            $input | xupdate-closure-step $step $rest $updater
         } else {
             let step_span = (metadata $step).span
             error make {msg: 'Incorrect path step type'
@@ -511,6 +525,7 @@ export def xupdate [
                 # 1. String with tag name. Finds all children with specified name. Equivalent to `child::A` in xpath
                 # 2. `*` string. Get all children without any filter. Equivalent to `descendant` in xpath
                 # 3. Int. Select n-th among nodes selected by previous path. Equivalent to `(...)[1]` in xpath, but is indexed from 0.
+                # 4. Closure. Predicate accepting entry. Selects all entries among nodes selected by previous path for which predicate returns true. 
     updater: closure # A closure used to transform entries matching path.
 ] {
     {tag:? attributes:? content: [$in]} | xupdate-internal $path $updater | get content.0
