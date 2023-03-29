@@ -480,7 +480,7 @@ export def "help modules" [
     let module = ($module | str join " ")
 
     if not ($find | is-empty) {
-        let found_modules = ($modules | where name =~ $find)
+        let found_modules = ($modules | where name =~ $find or usage =~ $find)
 
         if ($found_modules | length) == 1 {
             show-module ($found_modules | get 0)
@@ -590,7 +590,7 @@ export def "help aliases" [
     let alias = ($alias | str join " ")
 
     if not ($find | is-empty) {
-        let found_aliases = ($aliases | where name =~ $find)
+        let found_aliases = ($aliases | where name =~ $find or usage =~ $find)
 
         if ($found_aliases | length) == 1 {
             show-alias ($found_aliases | get 0)
@@ -630,7 +630,7 @@ export def "help externs" [
     let extern = ($extern | str join " ")
 
     if not ($find | is-empty) {
-        let found_externs = ($externs | where name =~ $find)
+        let found_externs = ($externs | where name =~ $find or usage =~ $find)
 
         if ($found_externs | length) == 1 {
             show-extern ($found_externs | get 0)
@@ -929,7 +929,7 @@ export def "help commands" [
     let command = ($command | str join " ")
 
     if not ($find | is-empty) {
-        let found_commands = ($commands | where name =~ $find or search_terms =~ $find)
+        let found_commands = ($commands | where name =~ $find or usage =~ $find or search_terms =~ $find)
 
         if ($found_commands | length) == 1 {
             show-command ($found_commands | get 0)
