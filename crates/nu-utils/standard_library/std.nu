@@ -940,7 +940,7 @@ export def "help commands" [
         if ($found_commands | length) == 1 {
             show-command ($found_commands | get 0)
         } else {
-            $found_commands
+            $found_commands | select name category usage signatures search_terms
         }
     } else if not ($command | is-empty) {
         let found_command = ($commands | where name == $command)
@@ -951,7 +951,7 @@ export def "help commands" [
 
         show-command ($found_command | get 0)
     } else {
-        $commands
+        $commands | select name category usage signatures search_terms
     }
 }
 
