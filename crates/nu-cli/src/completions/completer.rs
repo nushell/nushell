@@ -139,7 +139,7 @@ impl NuCompleter {
                                 .first()
                                 .filter(|content| *content == &String::from("sudo"))
                                 .is_some();
-                            // Read the current spam to string
+                            // Read the current span to string
                             let current_span = working_set.get_span_contents(flat.0).to_vec();
                             let current_span_str = String::from_utf8_lossy(&current_span);
 
