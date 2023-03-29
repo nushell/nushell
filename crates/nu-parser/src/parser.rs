@@ -3142,7 +3142,11 @@ pub fn parse_shape_name(
         b"operator" => SyntaxShape::Operator,
         b"path" => SyntaxShape::Filepath,
         b"range" => SyntaxShape::Range,
-        b"record" => SyntaxShape::Record(vec![]),
+        _ if bytes.starts_with(b"{") && bytes.ends_with(b"}") => {
+            let (sig, err) = parse_record_shape(working_set, span);
+            error = error.or(err);
+            sig
+        }
         b"signature" => SyntaxShape::Signature,
         b"string" => SyntaxShape::String,
         b"table" => SyntaxShape::Table,
@@ -3210,6 +3214,75 @@ fn parse_list_shape(
     let (shape, err) = parse_shape_name(working_set, &bytes[start_offset..end_offset], inner_span);
 
     (SyntaxShape::List(Box::new(shape)), err)
+}
+
+fn parse_record_shape(
+    working_set: &StateWorkingSet,
+    span: Span,
+) -> (SyntaxShape, Option<ParseError>) {
+    let bytes = working_set.get_span_contents(span);
+
+    let mut error = None;
+    let mut start = span.start;
+    let mut end = span.end;
+
+    if bytes.starts_with(b"{") {
+        start += 1;
+    } else {
+        error = error.or_else(|| {
+            Some(ParseError::Expected(
+                "{".into(),
+                Span::new(start, start + 1),
+            ))
+        });
+    }
+
+    if bytes.ends_with(b"}") {
+        end -= 1;
+    } else {
+        error = error.or_else(|| Some(ParseError::Unclosed("}".into(), Span::new(end, end))));
+    }
+
+    let inner_span = Span::new(start, end);
+    let source = working_set.get_span_contents(inner_span);
+
+    let (tokens, err) = lex(source, start, &[b'\n', b'\r', b','], &[b':'], true);
+    error = error.or(err);
+
+    let mut output = vec![];
+    let mut idx = 0;
+
+    while idx < tokens.len() {
+        let contents = working_set.get_span_contents(tokens[idx].span);
+        let mut field = String::from_utf8_lossy(contents).to_string();
+        field = field.trim().to_string();
+
+        idx += 1;
+        if idx == tokens.len() {
+            return (
+                SyntaxShape::Any,
+                Some(ParseError::Expected("record shape".into(), span)),
+            );
+        }
+        let colon = working_set.get_span_contents(tokens[idx].span);
+        idx += 1;
+        if idx == tokens.len() || colon != b":" {
+            //FIXME: need better error
+            return (
+                SyntaxShape::Any,
+                Some(ParseError::Expected("record shape".into(), span)),
+            );
+        }
+
+        let bytes = working_set.get_span_contents(tokens[idx].span);
+        let (shape, err) = parse_shape_name(working_set, bytes, tokens[idx].span);
+        error = error.or(err);
+        idx += 1;
+
+        output.push((field, shape));
+    }
+
+    (SyntaxShape::Record(output), error)
 }
 
 fn convert_val_ty_to_ty(val: &Expression) -> Result<Type, ParseError> {
