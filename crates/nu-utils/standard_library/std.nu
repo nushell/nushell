@@ -625,7 +625,13 @@ export def "help externs" [
     ...extern: string  # the name of extern to get help on
     --find (-f): string  # string to find in extern names
 ] {
-    let externs = ($nu.scope.commands | where is_extern | select name module_name usage | sort-by name)
+    let externs = (
+        $nu.scope.commands
+        | where is_extern
+        | select name module_name usage
+        | sort-by name
+        | str trim
+    )
 
     let extern = ($extern | str join " ")
 
