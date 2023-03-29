@@ -44,6 +44,19 @@ fn by_invalid_column() {
 }
 
 #[test]
+fn sort_by_empty() {
+    let actual = nu!(
+        cwd: "tests/fixtures/formats", pipeline(
+        r#"
+            [] | sort-by foo
+            | to json --raw
+        "#
+    ));
+
+    assert_eq!(actual.out, "[]");
+}
+
+#[test]
 fn ls_sort_by_name_sensitive() {
     let actual = nu!(
         cwd: "tests/fixtures/formats", pipeline(
