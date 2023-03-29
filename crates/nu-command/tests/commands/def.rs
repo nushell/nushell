@@ -155,7 +155,7 @@ fn def_with_list() {
     Playground::setup("def_with_list", |dirs, _| {
         let data = r#"
 def e [
-param: list
+param: [any]
 ] {echo $param};
             "#;
         fs::write(dirs.root().join("def_test"), data).expect("Unable to write file");
@@ -173,7 +173,7 @@ fn def_with_default_list() {
     Playground::setup("def_with_default_list", |dirs, _| {
         let data = r#"
 def f [
-param: list = [one]
+param: [string] = [one]
 ] {echo $param};
             "#;
         fs::write(dirs.root().join("def_test"), data).expect("Unable to write file");

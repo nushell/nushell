@@ -3130,7 +3130,7 @@ pub fn parse_shape_name(
         b"int" => SyntaxShape::Int,
         b"import-pattern" => SyntaxShape::ImportPattern,
         b"keyword" => SyntaxShape::Keyword(vec![], Box::new(SyntaxShape::Any)),
-        _ if bytes.starts_with(b"list") => {
+        _ if bytes.starts_with(b"[") && bytes.ends_with(b"]") => {
             let (sig, err) = parse_list_shape(working_set, bytes, span);
             error = error.or(err);
             sig
@@ -3184,54 +3184,32 @@ fn parse_list_shape(
     bytes: &[u8],
     span: Span,
 ) -> (SyntaxShape, Option<ParseError>) {
-    assert!(bytes.starts_with(b"list"));
+    assert!(bytes.starts_with(b"["));
+    assert!(bytes.ends_with(b"]"));
 
-    if bytes == b"list" {
-        (SyntaxShape::List(Box::new(SyntaxShape::Any)), None)
-    } else if bytes.starts_with(b"list<") {
-        let start = span.start + 5;
+    let mut start_offset = 1;
+    let mut end_offset = span.end - span.start - 2;
 
-        // if the annotation is unterminated, we want to return early to avoid
-        // overflows with spans
-        let end = if bytes.ends_with(b">") {
-            span.end - 1
-        // extra characters after the >
-        } else if bytes.contains(&b'>') {
-            let angle_start = bytes.split(|it| it == &b'>').collect::<Vec<_>>()[0].len() + 1;
-            let span = Span::new(span.start + angle_start, span.end);
-
-            let err = ParseError::LabeledError(
-                "Extra characters in the parameter name".into(),
-                "extra characters".into(),
-                span,
-            );
-            return (SyntaxShape::Any, Some(err));
-        } else {
-            let err = ParseError::Unclosed(">".into(), span);
-            return (SyntaxShape::List(Box::new(SyntaxShape::Any)), Some(err));
-        };
-
-        let inner_span = Span::new(start, end);
-
-        let inner_text = String::from_utf8_lossy(working_set.get_span_contents(inner_span));
-
-        // remove any extra whitespace, for example `list< string >` becomes `list<string>`
-        let inner_bytes = inner_text.trim().as_bytes();
-
-        // list<>
-        if inner_bytes.is_empty() {
-            (SyntaxShape::List(Box::new(SyntaxShape::Any)), None)
-        } else {
-            let (inner_sig, err) = parse_shape_name(working_set, inner_bytes, inner_span);
-
-            (SyntaxShape::List(Box::new(inner_sig)), err)
-        }
-    } else {
-        (
-            SyntaxShape::List(Box::new(SyntaxShape::Any)),
-            Some(ParseError::UnknownType(span)),
-        )
+    while start_offset < end_offset && bytes[start_offset].is_ascii_whitespace() {
+        start_offset += 1;
     }
+
+    while start_offset < end_offset && bytes[end_offset].is_ascii_whitespace() {
+        end_offset -= 1;
+    }
+
+    end_offset += 1;
+
+    let inner_span = Span::new(span.start + start_offset, span.start + end_offset);
+
+    if (inner_span.end - inner_span.start) < 2 {
+        // Empty list, let's just treat it as 'Any'
+        return (SyntaxShape::List(Box::new(SyntaxShape::Any)), None);
+    }
+
+    let (shape, err) = parse_shape_name(working_set, &bytes[start_offset..end_offset], inner_span);
+
+    (SyntaxShape::List(Box::new(shape)), err)
 }
 
 fn convert_val_ty_to_ty(val: &Expression) -> Result<Type, ParseError> {
