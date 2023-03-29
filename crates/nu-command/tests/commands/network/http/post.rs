@@ -76,3 +76,21 @@ fn http_post_failed_due_to_unexpected_body() {
 
     assert!(actual.err.contains("Cannot make request"))
 }
+
+#[test]
+fn http_post_json_is_success() {
+    let mut server = Server::new();
+
+    let mock = server
+        .mock("POST", "/")
+        .match_body(r#"{"foo":"bar"}"#)
+        .create();
+
+    let actual = nu!(format!(
+        r#"http post -t 'application/json' {url} {{foo: 'bar'}}"#,
+        url = server.url()
+    ));
+
+    mock.assert();
+    assert!(actual.out.is_empty())
+}
