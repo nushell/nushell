@@ -175,8 +175,8 @@ These binaries interact with nu via a simple JSON-RPC protocol where the command
 If the plugin is a filter, data streams to it one element at a time, and it can stream data back in return via stdin/stdout.
 If the plugin is a sink, it is given the full vector of final data and is given free reign over stdin/stdout to use as it pleases.
 
-The [awesome-nu repo](https://github.com/nushell/awesome-nu#plugins) lists a variety of nu-plugins and the [showcase repo](https://github.com/nushell/showcase) *shows* off excellent blog posts that have been written about Nushell along with videos that highlight technical
-topics that been presented about Nushell in the past year or two.
+The [awesome-nu repo](https://github.com/nushell/awesome-nu#plugins) lists a variety of nu-plugins while the [showcase repo](https://github.com/nushell/showcase) *shows* off informative blog posts that have been written about Nushell in the past along with videos that highlight technical
+topics that been presented.
 
 ## Goals
 
