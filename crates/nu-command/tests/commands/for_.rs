@@ -40,4 +40,15 @@ fn failed_for_should_break_running() {
         print 3"#
     );
     assert!(!actual.out.contains('3'));
+
+    let actual = nu!(
+        cwd: ".",
+        r#"
+        let x = [1 2]
+        for i in $x {
+            nu --testbin fail
+        }
+        print 3"#
+    );
+    assert!(!actual.out.contains('3'));
 }
