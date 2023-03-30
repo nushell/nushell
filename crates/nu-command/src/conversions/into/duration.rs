@@ -605,9 +605,23 @@ mod test {
     }
 
     #[test]
+    fn turns_micro_sign_s_to_duration() {
+        let span = Span::new(0, 2);
+        let word = Value::test_string("4\u{00B5}s");
+        let expected = Value::Duration {
+            val: 4 * 1000,
+            span,
+        };
+        let convert_duration = None;
+
+        let actual = action(&word, &convert_duration, 2, span);
+        assert_eq!(actual, expected);
+    }
+
+    #[test]
     fn turns_mu_s_to_duration() {
         let span = Span::new(0, 2);
-        let word = Value::test_string("4µs");
+        let word = Value::test_string("4\u{03BC}s");
         let expected = Value::Duration {
             val: 4 * 1000,
             span,
