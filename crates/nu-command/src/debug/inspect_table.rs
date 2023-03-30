@@ -23,7 +23,11 @@ pub fn build_table(value: Value, description: String, termsize: usize) -> String
     let mut desc_table = Builder::from(desc).build();
     let desc_table_width = desc_table.total_width();
 
-    let width = val_table_width.clamp(desc_table_width, termsize);
+    let width = if desc_table_width > termsize {
+        val_table_width.clamp(termsize, desc_table_width)
+    } else {
+        val_table_width.clamp(desc_table_width, termsize)
+    };
 
     desc_table
         .with(Style::rounded().off_bottom())
@@ -134,10 +138,15 @@ mod util {
             ),
             Value::List { vals, .. } => {
                 let mut columns = get_columns(&vals);
-                let data = convert_records_to_dataset(&columns, vals);
+                let mut data = convert_records_to_dataset(&columns, vals);
 
                 if columns.is_empty() && !data.is_empty() {
                     columns = vec![String::from("")];
+                }
+
+                // We need something to draw a table with
+                if data.is_empty() {
+                    data.push(vec!["<empty data>".to_string()])
                 }
 
                 (columns, data)
@@ -154,7 +163,7 @@ mod util {
 
                 (vec![String::from("")], lines)
             }
-            Value::Nothing { .. } => (vec![], vec![]),
+            Value::Nothing { .. } => (vec!["".to_string()], vec![vec!["<empty data>".to_string()]]),
             value => (
                 vec![String::from("")],
                 vec![vec![debug_string_without_formatting(&value)]],
