@@ -23,6 +23,8 @@ pub enum Pattern {
     Value(Expression),
     Variable(VarId),
     Or(Vec<MatchPattern>),
+    Rest(VarId), // the ..$foo pattern
+    IgnoreRest,  // the .. pattern
     IgnoreValue, // the _ pattern
     Garbage,
 }
@@ -41,15 +43,14 @@ impl Pattern {
                     output.append(&mut item.variables());
                 }
             }
-            Pattern::Value(_) => {}
             Pattern::Variable(var_id) => output.push(*var_id),
             Pattern::Or(patterns) => {
                 for pattern in patterns {
                     output.append(&mut pattern.variables());
                 }
             }
-            Pattern::IgnoreValue => {}
-            Pattern::Garbage => {}
+            Pattern::Rest(var_id) => output.push(*var_id),
+            Pattern::Value(_) | Pattern::IgnoreValue | Pattern::Garbage | Pattern::IgnoreRest => {}
         }
 
         output

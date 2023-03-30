@@ -56,6 +56,28 @@ fn match_list() {
 }
 
 #[test]
+fn match_list_rest_ignore() {
+    let actual = nu!(
+        cwd: ".",
+        r#"match [1, 2] { [$a, ..] => { print $"single: ($a)" }, [$b, $c] => {print $"double: ($b) ($c)"}}"#
+    );
+    // Make sure we don't see any of these values in the output
+    // As we do not auto-print loops anymore
+    assert_eq!(actual.out, "single: 1");
+}
+
+#[test]
+fn match_list_rest() {
+    let actual = nu!(
+        cwd: ".",
+        r#"match [1, 2, 3] { [$a, ..$remainder] => { print $"single: ($a) ($remainder | math sum)" }, [$b, $c] => {print $"double: ($b) ($c)"}}"#
+    );
+    // Make sure we don't see any of these values in the output
+    // As we do not auto-print loops anymore
+    assert_eq!(actual.out, "single: 1 5");
+}
+
+#[test]
 fn match_constant_1() {
     let actual = nu!(
         cwd: ".",

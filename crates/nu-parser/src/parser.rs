@@ -6237,7 +6237,8 @@ pub fn discover_captures_in_pattern(pattern: &MatchPattern, seen: &mut Vec<VarId
                 discover_captures_in_pattern(pattern, seen)
             }
         }
-        Pattern::Value(_) | Pattern::IgnoreValue | Pattern::Garbage => {}
+        Pattern::Rest(var_id) => seen.push(*var_id),
+        Pattern::Value(_) | Pattern::IgnoreValue | Pattern::IgnoreRest | Pattern::Garbage => {}
     }
 }
 
