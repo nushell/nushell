@@ -11,6 +11,85 @@ use nu_parser::parse_module_block;
 use nu_protocol::{engine::StateWorkingSet, PipelineData, ShellError, Span};
 use nu_utils::utils::perf;
 
+fn load_standard_library(
+    engine_state: &mut nu_protocol::engine::EngineState,
+) -> Result<(), miette::ErrReport> {
+    let delta = {
+        let name = "std".to_string();
+        let content = get_standard_library().as_bytes();
+
+        let mut working_set = StateWorkingSet::new(engine_state);
+
+        let start = working_set.next_span_start();
+        working_set.add_file(name.clone(), content);
+        let end = working_set.next_span_start();
+
+        let (block, module, comments, parse_error) = parse_module_block(
+            &mut working_set,
+            Span::new(start, end),
+            name.as_bytes(),
+            &[],
+        );
+
+        if let Some(err) = parse_error {
+            report_error(&working_set, &err);
+        }
+
+        // TODO: change this when #8505 is merged
+        // NOTE: remove the assert and uncomment the `help`s
+        let prelude = vec![
+            ("assert", "assert"),
+            // ("help", "help"),
+            // ("help commands", "help commands"),
+            // ("help aliases", "help aliases"),
+            // ("help modules", "help modules"),
+            // ("help externs", "help externs"),
+            // ("help operators", "help operators"),
+        ];
+
+        let mut decls = Vec::new();
+        let mut errs = Vec::new();
+        for (name, search_name) in prelude {
+            if let Some(id) = module.decls.get(&search_name.as_bytes().to_vec()) {
+                let decl = (name.as_bytes().to_vec(), id.to_owned());
+                decls.push(decl);
+            } else {
+                errs.push(ShellError::GenericError(
+                    format!("could not load `{}` from `std`.", search_name),
+                    String::new(),
+                    None,
+                    None,
+                    Vec::new(),
+                ));
+            }
+        }
+
+        if !errs.is_empty() {
+            report_error(
+                &working_set,
+                &ShellError::GenericError(
+                    "Unable to load the prelude of the standard library.".into(),
+                    String::new(),
+                    None,
+                    Some("this is a bug: please file an issue at <issue_tracker_url>".to_string()),
+                    errs,
+                ),
+            );
+        }
+
+        working_set.use_decls(decls);
+
+        working_set.add_module(&name, module, comments);
+        working_set.add_block(block);
+
+        working_set.render()
+    };
+
+    engine_state.merge_delta(delta)?;
+
+    Ok(())
+}
+
 pub(crate) fn run_commands(
     engine_state: &mut nu_protocol::engine::EngineState,
     parsed_nu_cli_args: command::NushellCliArgs,
@@ -232,78 +311,7 @@ pub(crate) fn run_repl(
         use_color,
     );
 
-    let delta = {
-        let name = "std".to_string();
-        let content = get_standard_library().as_bytes();
-
-        let mut working_set = StateWorkingSet::new(engine_state);
-
-        let start = working_set.next_span_start();
-        working_set.add_file(name.clone(), content);
-        let end = working_set.next_span_start();
-
-        let (block, module, comments, parse_error) = parse_module_block(
-            &mut working_set,
-            Span::new(start, end),
-            name.as_bytes(),
-            &[],
-        );
-
-        if let Some(err) = parse_error {
-            report_error(&working_set, &err);
-        }
-
-        // TODO: change this when #8505 is merged
-        // NOTE: remove the assert and uncomment the `help`s
-        let prelude = vec![
-            ("assert", "assert"),
-            // ("help", "help"),
-            // ("help commands", "help commands"),
-            // ("help aliases", "help aliases"),
-            // ("help modules", "help modules"),
-            // ("help externs", "help externs"),
-            // ("help operators", "help operators"),
-        ];
-
-        let mut decls = Vec::new();
-        let mut errs = Vec::new();
-        for (name, search_name) in prelude {
-            if let Some(id) = module.decls.get(&search_name.as_bytes().to_vec()) {
-                let decl = (name.as_bytes().to_vec(), id.to_owned());
-                decls.push(decl);
-            } else {
-                errs.push(ShellError::GenericError(
-                    format!("could not load `{}` from `std`.", search_name),
-                    String::new(),
-                    None,
-                    None,
-                    Vec::new(),
-                ));
-            }
-        }
-
-        if !errs.is_empty() {
-            report_error(
-                &working_set,
-                &ShellError::GenericError(
-                    "Unable to load the prelude of the standard library.".into(),
-                    String::new(),
-                    None,
-                    Some("this is a bug: please file an issue at <issue_tracker_url>".to_string()),
-                    errs,
-                ),
-            );
-        }
-
-        working_set.use_decls(decls);
-
-        working_set.add_module(&name, module, comments);
-        working_set.add_block(block);
-
-        working_set.render()
-    };
-
-    engine_state.merge_delta(delta)?;
+    load_standard_library(engine_state)?;
 
     let start_time = std::time::Instant::now();
     let ret_val = evaluate_repl(
