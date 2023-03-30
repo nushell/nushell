@@ -6,9 +6,9 @@ use crate::{
 };
 #[cfg(feature = "plugin")]
 use nu_cli::read_plugin_file;
-use nu_cli::{evaluate_commands, evaluate_file, evaluate_repl};
+use nu_cli::{evaluate_commands, evaluate_file, evaluate_repl, report_error};
 use nu_parser::parse_module_block;
-use nu_protocol::{engine::StateWorkingSet, PipelineData, Span};
+use nu_protocol::{engine::StateWorkingSet, PipelineData, ShellError, Span};
 use nu_utils::utils::perf;
 
 pub(crate) fn run_commands(
@@ -261,23 +261,37 @@ pub(crate) fn run_repl(
             // ("help operators", "help operators"),
         ];
 
-        working_set.use_decls(
-            prelude
-                .iter()
-                .map(|(name, search_name)| {
-                    (
-                        name.as_bytes().to_vec(),
-                        module
-                            .decls
-                            .get(&search_name.as_bytes().to_vec())
-                            .unwrap_or_else(|| {
-                                panic!("could not load `{}` from `std`.", search_name)
-                            })
-                            .to_owned(),
-                    )
-                })
-                .collect(),
-        );
+        let mut decls = Vec::new();
+        let mut errs = Vec::new();
+        for (name, search_name) in prelude {
+            if let Some(id) = module.decls.get(&search_name.as_bytes().to_vec()) {
+                let decl = (name.as_bytes().to_vec(), id.to_owned());
+                decls.push(decl);
+            } else {
+                errs.push(ShellError::GenericError(
+                    format!("could not load `{}` from `std`.", search_name),
+                    String::new(),
+                    None,
+                    None,
+                    Vec::new(),
+                ));
+            }
+        }
+
+        if !errs.is_empty() {
+            report_error(
+                &working_set,
+                &ShellError::GenericError(
+                    "Unable to load the prelude of the standard library.".into(),
+                    String::new(),
+                    None,
+                    Some("this is a bug: please file an issue at <issue_tracker_url>".to_string()),
+                    errs,
+                ),
+            );
+        }
+
+        working_set.use_decls(decls);
 
         working_set.add_module(&name, module, comments);
 
