@@ -145,6 +145,22 @@ impl Command for SubCommand {
                     span,
                 }),
             },
+            Example {
+                description: "Convert µs duration to the requested duration as a string",
+                example: "1000000µs | into duration --convert sec",
+                result: Some(Value::String {
+                    val: "1 sec".to_string(),
+                    span,
+                }),
+            },
+            Example {
+                description: "Convert duration to the µs duration as a string",
+                example: "1sec | into duration --convert µs",
+                result: Some(Value::String {
+                    val: "1000000 µs".to_string(),
+                    span,
+                }),
+            },
         ]
     }
 }
@@ -197,6 +213,8 @@ fn convert_str_from_unit_to_unit(
     match (from_unit, to_unit) {
         ("ns", "ns") => Ok(val as f64),
         ("ns", "us") => Ok(val as f64 / 1000.0),
+        ("ns", "µs") => Ok(val as f64 / 1000.0), // Micro sign
+        ("ns", "μs") => Ok(val as f64 / 1000.0), // Greek small letter
         ("ns", "ms") => Ok(val as f64 / 1000.0 / 1000.0),
         ("ns", "sec") => Ok(val as f64 / 1000.0 / 1000.0 / 1000.0),
         ("ns", "min") => Ok(val as f64 / 1000.0 / 1000.0 / 1000.0 / 60.0),
@@ -211,6 +229,8 @@ fn convert_str_from_unit_to_unit(
 
         ("us", "ns") => Ok(val as f64 * 1000.0),
         ("us", "us") => Ok(val as f64),
+        ("us", "µs") => Ok(val as f64), // Micro sign
+        ("us", "μs") => Ok(val as f64), // Greek small letter
         ("us", "ms") => Ok(val as f64 / 1000.0),
         ("us", "sec") => Ok(val as f64 / 1000.0 / 1000.0),
         ("us", "min") => Ok(val as f64 / 1000.0 / 1000.0 / 60.0),
@@ -221,8 +241,40 @@ fn convert_str_from_unit_to_unit(
         ("us", "yr") => Ok(val as f64 / 1000.0 / 1000.0 / 60.0 / 60.0 / 24.0 / 365.0),
         ("us", "dec") => Ok(val as f64 / 10.0 / 1000.0 / 1000.0 / 60.0 / 60.0 / 24.0 / 365.0),
 
+        // Micro sign
+        ("µs", "ns") => Ok(val as f64 * 1000.0),
+        ("µs", "us") => Ok(val as f64),
+        ("µs", "µs") => Ok(val as f64), // Micro sign
+        ("µs", "μs") => Ok(val as f64), // Greek small letter
+        ("µs", "ms") => Ok(val as f64 / 1000.0),
+        ("µs", "sec") => Ok(val as f64 / 1000.0 / 1000.0),
+        ("µs", "min") => Ok(val as f64 / 1000.0 / 1000.0 / 60.0),
+        ("µs", "hr") => Ok(val as f64 / 1000.0 / 1000.0 / 60.0 / 60.0),
+        ("µs", "day") => Ok(val as f64 / 1000.0 / 1000.0 / 60.0 / 60.0 / 24.0),
+        ("µs", "wk") => Ok(val as f64 / 1000.0 / 1000.0 / 60.0 / 60.0 / 24.0 / 7.0),
+        ("µs", "month") => Ok(val as f64 / 1000.0 / 1000.0 / 60.0 / 60.0 / 24.0 / 30.0),
+        ("µs", "yr") => Ok(val as f64 / 1000.0 / 1000.0 / 60.0 / 60.0 / 24.0 / 365.0),
+        ("µs", "dec") => Ok(val as f64 / 10.0 / 1000.0 / 1000.0 / 60.0 / 60.0 / 24.0 / 365.0),
+
+        // Greek small letter
+        ("μs", "ns") => Ok(val as f64 * 1000.0),
+        ("μs", "us") => Ok(val as f64),
+        ("μs", "µs") => Ok(val as f64), // Micro sign
+        ("μs", "μs") => Ok(val as f64), // Greek small letter
+        ("μs", "ms") => Ok(val as f64 / 1000.0),
+        ("μs", "sec") => Ok(val as f64 / 1000.0 / 1000.0),
+        ("μs", "min") => Ok(val as f64 / 1000.0 / 1000.0 / 60.0),
+        ("μs", "hr") => Ok(val as f64 / 1000.0 / 1000.0 / 60.0 / 60.0),
+        ("μs", "day") => Ok(val as f64 / 1000.0 / 1000.0 / 60.0 / 60.0 / 24.0),
+        ("μs", "wk") => Ok(val as f64 / 1000.0 / 1000.0 / 60.0 / 60.0 / 24.0 / 7.0),
+        ("μs", "month") => Ok(val as f64 / 1000.0 / 1000.0 / 60.0 / 60.0 / 24.0 / 30.0),
+        ("μs", "yr") => Ok(val as f64 / 1000.0 / 1000.0 / 60.0 / 60.0 / 24.0 / 365.0),
+        ("μs", "dec") => Ok(val as f64 / 10.0 / 1000.0 / 1000.0 / 60.0 / 60.0 / 24.0 / 365.0),
+
         ("ms", "ns") => Ok(val as f64 * 1000.0 * 1000.0),
         ("ms", "us") => Ok(val as f64 * 1000.0),
+        ("ms", "µs") => Ok(val as f64 * 1000.0), // Micro sign
+        ("ms", "μs") => Ok(val as f64 * 1000.0), // Greek small letter
         ("ms", "ms") => Ok(val as f64),
         ("ms", "sec") => Ok(val as f64 / 1000.0),
         ("ms", "min") => Ok(val as f64 / 1000.0 / 60.0),
@@ -235,6 +287,8 @@ fn convert_str_from_unit_to_unit(
 
         ("sec", "ns") => Ok(val as f64 * 1000.0 * 1000.0 * 1000.0),
         ("sec", "us") => Ok(val as f64 * 1000.0 * 1000.0),
+        ("sec", "µs") => Ok(val as f64 * 1000.0 * 1000.0), // Micro sign
+        ("sec", "μs") => Ok(val as f64 * 1000.0 * 1000.0), // Greek small letter
         ("sec", "ms") => Ok(val as f64 * 1000.0),
         ("sec", "sec") => Ok(val as f64),
         ("sec", "min") => Ok(val as f64 / 60.0),
@@ -247,6 +301,8 @@ fn convert_str_from_unit_to_unit(
 
         ("min", "ns") => Ok(val as f64 * 1000.0 * 1000.0 * 1000.0 * 60.0),
         ("min", "us") => Ok(val as f64 * 1000.0 * 1000.0 * 60.0),
+        ("min", "µs") => Ok(val as f64 * 1000.0 * 1000.0 * 60.0), // Micro sign
+        ("min", "μs") => Ok(val as f64 * 1000.0 * 1000.0 * 60.0), // Greek small letter
         ("min", "ms") => Ok(val as f64 * 1000.0 * 60.0),
         ("min", "sec") => Ok(val as f64 * 60.0),
         ("min", "min") => Ok(val as f64),
@@ -259,6 +315,8 @@ fn convert_str_from_unit_to_unit(
 
         ("hr", "ns") => Ok(val as f64 * 1000.0 * 1000.0 * 1000.0 * 60.0 * 60.0),
         ("hr", "us") => Ok(val as f64 * 1000.0 * 1000.0 * 60.0 * 60.0),
+        ("hr", "µs") => Ok(val as f64 * 1000.0 * 1000.0 * 60.0 * 60.0), // Micro sign
+        ("hr", "μs") => Ok(val as f64 * 1000.0 * 1000.0 * 60.0 * 60.0), // Greek small letter
         ("hr", "ms") => Ok(val as f64 * 1000.0 * 60.0 * 60.0),
         ("hr", "sec") => Ok(val as f64 * 60.0 * 60.0),
         ("hr", "min") => Ok(val as f64 * 60.0),
@@ -271,6 +329,8 @@ fn convert_str_from_unit_to_unit(
 
         ("day", "ns") => Ok(val as f64 * 1000.0 * 1000.0 * 1000.0 * 60.0 * 60.0 * 24.0),
         ("day", "us") => Ok(val as f64 * 1000.0 * 1000.0 * 60.0 * 60.0 * 24.0),
+        ("day", "µs") => Ok(val as f64 * 1000.0 * 1000.0 * 60.0 * 60.0 * 24.0), // Micro sign
+        ("day", "μs") => Ok(val as f64 * 1000.0 * 1000.0 * 60.0 * 60.0 * 24.0), // Greek small letter
         ("day", "ms") => Ok(val as f64 * 1000.0 * 60.0 * 60.0 * 24.0),
         ("day", "sec") => Ok(val as f64 * 60.0 * 60.0 * 24.0),
         ("day", "min") => Ok(val as f64 * 60.0 * 24.0),
@@ -283,6 +343,8 @@ fn convert_str_from_unit_to_unit(
 
         ("wk", "ns") => Ok(val as f64 * 1000.0 * 1000.0 * 1000.0 * 60.0 * 60.0 * 24.0 * 7.0),
         ("wk", "us") => Ok(val as f64 * 1000.0 * 1000.0 * 60.0 * 60.0 * 24.0 * 7.0),
+        ("wk", "µs") => Ok(val as f64 * 1000.0 * 1000.0 * 60.0 * 60.0 * 24.0 * 7.0), // Micro sign
+        ("wk", "μs") => Ok(val as f64 * 1000.0 * 1000.0 * 60.0 * 60.0 * 24.0 * 7.0), // Greek small letter
         ("wk", "ms") => Ok(val as f64 * 1000.0 * 60.0 * 60.0 * 24.0 * 7.0),
         ("wk", "sec") => Ok(val as f64 * 60.0 * 60.0 * 24.0 * 7.0),
         ("wk", "min") => Ok(val as f64 * 60.0 * 24.0 * 7.0),
@@ -295,6 +357,8 @@ fn convert_str_from_unit_to_unit(
 
         ("month", "ns") => Ok(val as f64 * 1000.0 * 1000.0 * 1000.0 * 60.0 * 60.0 * 24.0 * 30.0),
         ("month", "us") => Ok(val as f64 * 1000.0 * 1000.0 * 60.0 * 60.0 * 24.0 * 30.0),
+        ("month", "µs") => Ok(val as f64 * 1000.0 * 1000.0 * 60.0 * 60.0 * 24.0 * 30.0), // Micro sign
+        ("month", "μs") => Ok(val as f64 * 1000.0 * 1000.0 * 60.0 * 60.0 * 24.0 * 30.0), // Greek small letter
         ("month", "ms") => Ok(val as f64 * 1000.0 * 60.0 * 60.0 * 24.0 * 30.0),
         ("month", "sec") => Ok(val as f64 * 60.0 * 60.0 * 24.0 * 30.0),
         ("month", "min") => Ok(val as f64 * 60.0 * 24.0 * 30.0),
@@ -307,6 +371,8 @@ fn convert_str_from_unit_to_unit(
 
         ("yr", "ns") => Ok(val as f64 * 1000.0 * 1000.0 * 1000.0 * 60.0 * 60.0 * 24.0 * 365.0),
         ("yr", "us") => Ok(val as f64 * 1000.0 * 1000.0 * 60.0 * 60.0 * 24.0 * 365.0),
+        ("yr", "µs") => Ok(val as f64 * 1000.0 * 1000.0 * 60.0 * 60.0 * 24.0 * 365.0), // Micro sign
+        ("yr", "μs") => Ok(val as f64 * 1000.0 * 1000.0 * 60.0 * 60.0 * 24.0 * 365.0), // Greek small letter
         ("yr", "ms") => Ok(val as f64 * 1000.0 * 60.0 * 60.0 * 24.0 * 365.0),
         ("yr", "sec") => Ok(val as f64 * 60.0 * 60.0 * 24.0 * 365.0),
         ("yr", "min") => Ok(val as f64 * 60.0 * 24.0 * 365.0),
@@ -324,7 +390,7 @@ fn convert_str_from_unit_to_unit(
             dst_span: span,
             src_span: value_span,
             help: Some(
-                "supported units are ns, us, ms, sec, min, hr, day, wk, month, yr and dec"
+                "supported units are ns, us/µs, ms, sec, min, hr, day, wk, month, yr, and dec"
                     .to_string(),
             ),
         }),
@@ -357,7 +423,8 @@ fn string_to_duration(s: &str, span: Span, value_span: Span) -> Result<i64, Shel
         dst_span: span,
         src_span: value_span,
         help: Some(
-            "supported units are ns, us, ms, sec, min, hr, day, wk, month, yr and dec".to_string(),
+            "supported units are ns, us/µs, ms, sec, min, hr, day, wk, month, yr, and dec"
+                .to_string(),
         ),
     })
 }
@@ -393,7 +460,8 @@ fn string_to_unit_duration(
         dst_span: span,
         src_span: value_span,
         help: Some(
-            "supported units are ns, us, ms, sec, min, hr, day, wk, month, yr and dec".to_string(),
+            "supported units are ns, us/µs, ms, sec, min, hr, day, wk, month, yr, and dec"
+                .to_string(),
         ),
     })
 }
@@ -526,6 +594,34 @@ mod test {
     fn turns_us_to_duration() {
         let span = Span::new(0, 2);
         let word = Value::test_string("4us");
+        let expected = Value::Duration {
+            val: 4 * 1000,
+            span,
+        };
+        let convert_duration = None;
+
+        let actual = action(&word, &convert_duration, 2, span);
+        assert_eq!(actual, expected);
+    }
+
+    #[test]
+    fn turns_micro_sign_s_to_duration() {
+        let span = Span::new(0, 2);
+        let word = Value::test_string("4\u{00B5}s");
+        let expected = Value::Duration {
+            val: 4 * 1000,
+            span,
+        };
+        let convert_duration = None;
+
+        let actual = action(&word, &convert_duration, 2, span);
+        assert_eq!(actual, expected);
+    }
+
+    #[test]
+    fn turns_mu_s_to_duration() {
+        let span = Span::new(0, 2);
+        let word = Value::test_string("4\u{03BC}s");
         let expected = Value::Duration {
             val: 4 * 1000,
             span,
