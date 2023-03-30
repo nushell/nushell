@@ -1,7 +1,7 @@
 use nu_protocol::{
     ast::{Expr, Expression, MatchPattern, Pattern},
     engine::StateWorkingSet,
-    Span, SyntaxShape, Type,
+    Span, SyntaxShape, Type, VarId,
 };
 
 use crate::{
@@ -72,32 +72,34 @@ pub fn parse_pattern(
     }
 }
 
-pub fn parse_variable_pattern(
-    working_set: &mut StateWorkingSet,
-    span: Span,
-) -> (MatchPattern, Option<ParseError>) {
+fn parse_variable_pattern_helper(working_set: &mut StateWorkingSet, span: Span) -> Option<VarId> {
     let bytes = working_set.get_span_contents(span);
 
     if is_variable(bytes) {
         if let Some(var_id) = working_set.find_variable_in_current_frame(bytes) {
-            (
-                MatchPattern {
-                    pattern: Pattern::Variable(var_id),
-                    span,
-                },
-                None,
-            )
+            Some(var_id)
         } else {
             let var_id = working_set.add_variable(bytes.to_vec(), span, Type::Any, false);
 
-            (
-                MatchPattern {
-                    pattern: Pattern::Variable(var_id),
-                    span,
-                },
-                None,
-            )
+            Some(var_id)
         }
+    } else {
+        None
+    }
+}
+
+pub fn parse_variable_pattern(
+    working_set: &mut StateWorkingSet,
+    span: Span,
+) -> (MatchPattern, Option<ParseError>) {
+    if let Some(var_id) = parse_variable_pattern_helper(working_set, span) {
+        (
+            MatchPattern {
+                pattern: Pattern::Variable(var_id),
+                span,
+            },
+            None,
+        )
     } else {
         (
             garbage(span),
@@ -143,10 +145,39 @@ pub fn parse_list_pattern(
 
             if let LiteElement::Command(_, command) = arg {
                 while spans_idx < command.parts.len() {
-                    let (arg, err) = parse_pattern(working_set, command.parts[spans_idx]);
-                    error = error.or(err);
+                    let contents = working_set.get_span_contents(command.parts[spans_idx]);
+                    if contents == b".." {
+                        args.push(MatchPattern {
+                            pattern: Pattern::IgnoreRest,
+                            span: command.parts[spans_idx],
+                        });
+                        break;
+                    } else if contents.starts_with(b"..$") {
+                        if let Some(var_id) = parse_variable_pattern_helper(
+                            working_set,
+                            Span::new(
+                                command.parts[spans_idx].start + 2,
+                                command.parts[spans_idx].end,
+                            ),
+                        ) {
+                            args.push(MatchPattern {
+                                pattern: Pattern::Rest(var_id),
+                                span: command.parts[spans_idx],
+                            });
+                            break;
+                        } else {
+                            args.push(garbage(command.parts[spans_idx]));
+                            error = error.or(Some(ParseError::Expected(
+                                "valid variable name".into(),
+                                command.parts[spans_idx],
+                            )));
+                        }
+                    } else {
+                        let (arg, err) = parse_pattern(working_set, command.parts[spans_idx]);
+                        error = error.or(err);
 
-                    args.push(arg);
+                        args.push(arg);
+                    };
 
                     spans_idx += 1;
                 }

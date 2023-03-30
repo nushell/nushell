@@ -127,6 +127,13 @@ fn table() {
 }
 
 #[test]
+fn uniq_by_empty() {
+    let actual = nu!("[] | uniq-by foo | to nuon");
+
+    assert_eq!(actual.out, "[]");
+}
+
+#[test]
 fn uniq_by_multiple_columns() {
     let actual = nu!(
         cwd: "tests/fixtures/formats", pipeline(

@@ -4,7 +4,9 @@ use nu_engine::CallExt;
 use nu_protocol::ast::Call;
 use nu_protocol::ast::CellPath;
 use nu_protocol::engine::{Command, EngineState, Stack};
-use nu_protocol::{Example, PipelineData, ShellError, Signature, Span, SyntaxShape, Type, Value};
+use nu_protocol::{
+    Example, PipelineData, Range, ShellError, Signature, Span, SyntaxShape, Type, Value,
+};
 use std::cmp::Ordering;
 use unicode_segmentation::UnicodeSegmentation;
 
@@ -31,8 +33,6 @@ impl From<(isize, isize)> for Substring {
         Substring(input.0, input.1)
     }
 }
-
-struct SubstringText(String, String);
 
 impl Command for SubCommand {
     fn name(&self) -> &str {
@@ -80,7 +80,7 @@ impl Command for SubCommand {
         call: &Call,
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
-        let range = call.req(engine_state, stack, 0)?;
+        let range: Range = call.req(engine_state, stack, 0)?;
         let indexes: Substring = process_arguments(&range, call.head)?.into();
         let cell_paths: Vec<CellPath> = call.rest(engine_state, stack, 1)?;
         let cell_paths = (!cell_paths.is_empty()).then_some(cell_paths);
@@ -99,31 +99,6 @@ impl Command for SubCommand {
                     "Get a substring \"nushell\" from the text \"good nushell\" using a range",
                 example: " 'good nushell' | str substring 5..12",
                 result: Some(Value::test_string("nushell")),
-            },
-            Example {
-                description: "Alternately, you can pass in a list",
-                example: " 'good nushell' | str substring [5 12]",
-                result: Some(Value::test_string("nushell")),
-            },
-            Example {
-                description: "Or a simple comma-separated string",
-                example: " 'good nushell' | str substring '5,12'",
-                result: Some(Value::test_string("nushell")),
-            },
-            Example {
-                description: "Drop the last `n` characters from the string",
-                example: " 'good nushell' | str substring ',-5'",
-                result: Some(Value::test_string("good nu")),
-            },
-            Example {
-                description: "Get the remaining characters from a starting index",
-                example: " 'good nushell' | str substring '5,'",
-                result: Some(Value::test_string("nushell")),
-            },
-            Example {
-                description: "Get the characters from the beginning until ending index",
-                example: " 'good nushell' | str substring ',7'",
-                result: Some(Value::test_string("good nu")),
             },
             Example {
                 description: "Count indexes and split using grapheme clusters",
@@ -211,93 +186,27 @@ fn action(input: &Value, args: &Arguments, head: Span) -> Value {
     }
 }
 
-fn process_arguments(range: &Value, head: Span) -> Result<(isize, isize), ShellError> {
-    let search = match range {
-        Value::Range { val, .. } => {
-            let start = val.from()?;
-            let end = val.to()?;
-            Ok(SubstringText(start.to_string(), end.to_string()))
+fn process_arguments(range: &Range, head: Span) -> Result<(isize, isize), ShellError> {
+    let start = match &range.from {
+        Value::Int { val, .. } => *val as isize,
+        Value::Nothing { .. } => 0,
+        _ => {
+            return Err(ShellError::TypeMismatch {
+                err_message: "could not perform substring".to_string(),
+                span: head,
+            })
         }
-        Value::List { vals, .. } => {
-            if vals.len() > 2 {
-                Err(ShellError::TypeMismatch {
-                    err_message: "More than two indices given".to_string(),
-                    span: head,
-                })
-            } else {
-                let idx: Vec<String> = vals
-                    .iter()
-                    .map(|v| {
-                        match v {
-                            Value::Int { val, .. } => Ok(val.to_string()),
-                            Value::String { val, .. } => Ok(val.to_string()),
-                            _ => Err(ShellError::TypeMismatch {
-                                err_message:
-                                    "could not perform substring. Expecting a string or int"
-                                        .to_string(),
-                                span: head,
-                            }),
-                        }
-                        .unwrap_or_else(|_| String::from(""))
-                    })
-                    .collect();
-
-                let start = idx
-                    .get(0)
-                    .ok_or_else(|| ShellError::TypeMismatch {
-                        err_message: "could not perform substring".to_string(),
-                        span: head,
-                    })?
-                    .to_string();
-                let end = idx
-                    .get(1)
-                    .ok_or_else(|| ShellError::TypeMismatch {
-                        err_message: "could not perform substring".to_string(),
-                        span: head,
-                    })?
-                    .to_string();
-                Ok(SubstringText(start, end))
-            }
-        }
-        Value::String { val, .. } => {
-            let idx: Vec<&str> = val.split(',').collect();
-
-            let start = idx
-                .first()
-                .ok_or_else(|| ShellError::TypeMismatch {
-                    err_message: "could not perform substring".to_string(),
-                    span: head,
-                })?
-                .to_string();
-            let end = idx
-                .get(1)
-                .ok_or_else(|| ShellError::TypeMismatch {
-                    err_message: "could not perform substring".to_string(),
-                    span: head,
-                })?
-                .to_string();
-
-            Ok(SubstringText(start, end))
-        }
-        _ => Err(ShellError::TypeMismatch {
-            err_message: "could not perform substring".to_string(),
-            span: head,
-        }),
-    }?;
-    let start = match &search {
-        SubstringText(start, _) if start.is_empty() || start == "_" => 0,
-        SubstringText(start, _) => start.trim().parse().map_err(|_| ShellError::TypeMismatch {
-            err_message: "could not perform substring".to_string(),
-            span: head,
-        })?,
     };
 
-    let end = match &search {
-        SubstringText(_, end) if end.is_empty() || end == "_" => isize::max_value(),
-        SubstringText(_, end) => end.trim().parse().map_err(|_| ShellError::TypeMismatch {
-            err_message: "could not perform substring".to_string(),
-            span: head,
-        })?,
+    let end = match &range.to {
+        Value::Int { val, .. } => *val as isize,
+        Value::Nothing { .. } => isize::max_value(),
+        _ => {
+            return Err(ShellError::TypeMismatch {
+                err_message: "could not perform substring".to_string(),
+                span: head,
+            })
+        }
     };
 
     Ok((start, end))

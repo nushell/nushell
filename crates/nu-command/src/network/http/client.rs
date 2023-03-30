@@ -141,8 +141,10 @@ pub enum ShellErrorOrRequestError {
     RequestError(String, Error),
 }
 
-fn wrap_shell_error(err: ShellError) -> ShellErrorOrRequestError {
-    ShellErrorOrRequestError::ShellError(err)
+impl From<ShellError> for ShellErrorOrRequestError {
+    fn from(error: ShellError) -> Self {
+        ShellErrorOrRequestError::ShellError(error)
+    }
 }
 
 pub fn send_request(
@@ -174,14 +176,14 @@ pub fn send_request(
             ctrl_c,
         ),
         Value::Record { .. } if body_type == BodyType::Json => {
-            let data = value_to_json_value(&body);
+            let data = value_to_json_value(&body)?;
             send_cancellable_request(&request_url, Box::new(|| request.send_json(data)), ctrl_c)
         }
         Value::Record { cols, vals, .. } if body_type == BodyType::Form => {
             let mut data: Vec<(String, String)> = Vec::with_capacity(cols.len());
 
             for (col, val) in cols.iter().zip(vals.iter()) {
-                let val_string = val.as_string().map_err(wrap_shell_error)?;
+                let val_string = val.as_string()?;
                 data.push((col.clone(), val_string))
             }
 
@@ -204,12 +206,7 @@ pub fn send_request(
 
             let data = vals
                 .chunks(2)
-                .map(|it| {
-                    Ok((
-                        it[0].as_string().map_err(wrap_shell_error)?,
-                        it[1].as_string().map_err(wrap_shell_error)?,
-                    ))
-                })
+                .map(|it| Ok((it[0].as_string()?, it[1].as_string()?)))
                 .collect::<Result<Vec<(String, String)>, ShellErrorOrRequestError>>()?;
 
             let request_fn = move || {

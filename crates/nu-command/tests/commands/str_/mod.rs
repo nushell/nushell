@@ -234,7 +234,7 @@ fn substrings_the_input() {
             cwd: dirs.test(), pipeline(
             r#"
                  open sample.toml
-                 | str substring '6,14' fortune.teller.phone
+                 | str substring 6..14 fortune.teller.phone
                  | get fortune.teller.phone
              "#
         ));
@@ -258,7 +258,7 @@ fn substring_errors_if_start_index_is_greater_than_end_index() {
             cwd: dirs.test(), pipeline(
             r#"
                  open sample.toml
-                 | str substring '6,5' fortune.teller.phone
+                 | str substring 6..5 fortune.teller.phone
              "#
         ));
 
@@ -283,7 +283,7 @@ fn substrings_the_input_and_returns_the_string_if_end_index_exceeds_length() {
             cwd: dirs.test(), pipeline(
             r#"
                  open sample.toml
-                 | str substring '0,999' package.name
+                 | str substring 0..999 package.name
                  | get package.name
              "#
         ));
@@ -307,7 +307,7 @@ fn substrings_the_input_and_returns_blank_if_start_index_exceeds_length() {
             cwd: dirs.test(), pipeline(
             r#"
                  open sample.toml
-                 | str substring '50,999' package.name
+                 | str substring 50..999 package.name
                  | get package.name
              "#
         ));
@@ -331,7 +331,7 @@ fn substrings_the_input_and_treats_start_index_as_zero_if_blank_start_index_give
             cwd: dirs.test(), pipeline(
             r#"
                  open sample.toml
-                 | str substring ',2' package.name
+                 | str substring ..2 package.name
                  | get package.name
              "#
         ));
@@ -355,7 +355,7 @@ fn substrings_the_input_and_treats_end_index_as_length_if_blank_end_index_given(
             cwd: dirs.test(), pipeline(
             r#"
                  open sample.toml
-                 | str substring '3,' package.name
+                 | str substring 3.. package.name
                  | get package.name
              "#
         ));
