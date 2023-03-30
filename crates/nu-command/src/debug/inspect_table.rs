@@ -23,11 +23,8 @@ pub fn build_table(value: Value, description: String, termsize: usize) -> String
     let mut desc_table = Builder::from(desc).build();
     let desc_table_width = desc_table.total_width();
 
-    let width = if desc_table_width > termsize {
-        val_table_width.clamp(termsize, desc_table_width)
-    } else {
-        val_table_width.clamp(desc_table_width, termsize)
-    };
+    #[allow(clippy::manual_clamp)]
+    let width = val_table_width.max(desc_table_width).min(termsize);
 
     desc_table
         .with(Style::rounded().off_bottom())
