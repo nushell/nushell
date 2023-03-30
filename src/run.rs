@@ -242,12 +242,16 @@ pub(crate) fn run_repl(
         working_set.add_file(name.clone(), content);
         let end = working_set.next_span_start();
 
-        let (block, module, comments, _) = parse_module_block(
+        let (block, module, comments, parse_error) = parse_module_block(
             &mut working_set,
             Span::new(start, end),
             name.as_bytes(),
             &[],
         );
+
+        if let Some(err) = parse_error {
+            report_error(&working_set, &err);
+        }
 
         // TODO: change this when #8505 is merged
         // NOTE: remove the assert and uncomment the `help`s
