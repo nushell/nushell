@@ -2614,10 +2614,7 @@ pub fn parse_duration_bytes(num_with_unit_bytes: &[u8], span: Span) -> Option<Ex
         (Unit::Week, "wk", Some((Unit::Day, 7))),
     ];
 
-    if let Some(unit) = unit_groups
-        .iter()
-        .find(|&x| num_with_unit.ends_with(x.1))
-    {
+    if let Some(unit) = unit_groups.iter().find(|&x| num_with_unit.ends_with(x.1)) {
         let mut lhs = num_with_unit;
         for _ in 0..unit.1.chars().count() {
             lhs.pop();
