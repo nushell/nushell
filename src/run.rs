@@ -242,7 +242,7 @@ pub(crate) fn run_repl(
         working_set.add_file(name.clone(), content);
         let end = working_set.next_span_start();
 
-        let (_, module, _, _) = parse_module_block(
+        let (_, module, comments, _) = parse_module_block(
             &mut working_set,
             Span::new(start, end),
             name.as_bytes(),
@@ -279,7 +279,7 @@ pub(crate) fn run_repl(
                 .collect(),
         );
 
-        working_set.add_module(&name, module, Vec::new());
+        working_set.add_module(&name, module, comments);
 
         working_set.render()
     };
