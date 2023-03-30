@@ -135,15 +135,10 @@ mod util {
             ),
             Value::List { vals, .. } => {
                 let mut columns = get_columns(&vals);
-                let mut data = convert_records_to_dataset(&columns, vals);
+                let data = convert_records_to_dataset(&columns, vals);
 
-                if columns.is_empty() && !data.is_empty() {
+                if columns.is_empty() {
                     columns = vec![String::from("")];
-                }
-
-                // We need something to draw a table with
-                if data.is_empty() {
-                    data.push(vec!["<empty data>".to_string()])
                 }
 
                 (columns, data)
@@ -160,7 +155,7 @@ mod util {
 
                 (vec![String::from("")], lines)
             }
-            Value::Nothing { .. } => (vec!["".to_string()], vec![vec!["<empty data>".to_string()]]),
+            Value::Nothing { .. } => (vec![], vec![]),
             value => (
                 vec![String::from("")],
                 vec![vec![debug_string_without_formatting(&value)]],
