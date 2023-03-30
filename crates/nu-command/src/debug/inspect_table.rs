@@ -311,7 +311,7 @@ mod global_horizontal_char {
             let is_last_line = self.line == (shape.0 * 2);
             let mut row = self.line;
             if is_last_line {
-                row = self.line - 1;
+                row = self.line.saturating_sub(1);
             }
 
             let mut evaluator = WidthEstimator::default();
