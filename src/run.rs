@@ -150,6 +150,8 @@ pub(crate) fn run_commands(
         use_color,
     );
 
+    load_standard_library(engine_state)?;
+
     // Before running commands, set up the startup time
     engine_state.set_startup_time(entire_start_time.elapsed().as_nanos() as i64);
     let start_time = std::time::Instant::now();
@@ -236,6 +238,8 @@ pub(crate) fn run_file(
         column!(),
         use_color,
     );
+
+    load_standard_library(engine_state)?;
 
     let start_time = std::time::Instant::now();
     let ret_val = evaluate_file(
