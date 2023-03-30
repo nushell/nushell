@@ -61,22 +61,12 @@ pub fn sort(
     insensitive: bool,
     natural: bool,
 ) -> Result<(), ShellError> {
-    if vec.is_empty() {
-        return Err(ShellError::GenericError(
-            "no values to work with".to_string(),
-            "".to_string(),
-            None,
-            Some("no values to work with".to_string()),
-            Vec::new(),
-        ));
-    }
-
-    match &vec[0] {
-        Value::Record {
+    match vec.first() {
+        Some(Value::Record {
             cols,
             vals: _input_vals,
             span: val_span,
-        } => {
+        }) => {
             if sort_columns.is_empty() {
                 // This uses the same format as the 'requires a column name' error in split_by.rs
                 return Err(ShellError::GenericError(

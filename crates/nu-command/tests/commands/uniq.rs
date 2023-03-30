@@ -62,6 +62,13 @@ fn uniq_values() {
 }
 
 #[test]
+fn uniq_empty() {
+    let actual = nu!("[] | uniq | to nuon");
+
+    assert_eq!(actual.out, "[]");
+}
+
+#[test]
 fn nested_json_structures() {
     Playground::setup("uniq_test_3", |dirs, sandbox| {
         sandbox.with_files(vec![FileWithContentToBeTrimmed(
