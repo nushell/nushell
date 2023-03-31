@@ -415,8 +415,8 @@ def check-clipboard [
 #
 # Examples:
 #     put a simple string to the clipboard, will be stripped to remove ANSI sequences
-#     >_ "my wonderfull string" | clip
-#     my wonderfull string
+#     >_ "my wonderful string" | clip
+#     my wonderful string
 #     saved to clipboard (stripped)
 #
 #     put a whole table to the clipboard
