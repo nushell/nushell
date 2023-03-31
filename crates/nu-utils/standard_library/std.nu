@@ -433,6 +433,14 @@ def check-clipboard [
 #
 #     put huge structured data in the clipboard, but silently
 #     >_ open Cargo.toml --raw | from toml | clip --silent
+#
+#     when the clipboard system command is not installed
+#     >_ "mm this is fishy..." | clip
+#     Error:
+#       × clipboard_not_found:
+#       │     you are using xorg as a graphical server
+#       │     but
+#       │     the xclip clipboard command was not found on your system.
 export def clip [
     --silent: bool  # do not print the content of the clipboard to the standard output
     --no-notify: bool  # do not throw a notification (only on linux)
