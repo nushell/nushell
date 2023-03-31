@@ -107,7 +107,6 @@ pub(crate) fn parse_commandline_args(
             let log_level: Option<Expression> = call.get_flag_expr("log-level");
             let log_target: Option<Expression> = call.get_flag_expr("log-target");
             let execute: Option<Expression> = call.get_flag_expr("execute");
-            let threads: Option<Value> = call.get_flag(engine_state, &mut stack, "threads")?;
             let table_mode: Option<Value> =
                 call.get_flag(engine_state, &mut stack, "table-mode")?;
 
@@ -181,7 +180,6 @@ pub(crate) fn parse_commandline_args(
                 log_level,
                 log_target,
                 execute,
-                threads,
                 table_mode,
             });
         }
@@ -213,7 +211,6 @@ pub(crate) struct NushellCliArgs {
     pub(crate) log_level: Option<Spanned<String>>,
     pub(crate) log_target: Option<Spanned<String>>,
     pub(crate) execute: Option<Spanned<String>>,
-    pub(crate) threads: Option<Value>,
     pub(crate) table_mode: Option<Value>,
 }
 
