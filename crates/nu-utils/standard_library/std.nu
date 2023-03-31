@@ -794,6 +794,15 @@ def "nu-complete list-modules" [] {
     $nu.scope.modules | select name usage | rename value description
 }
 
+def "nu-complete list-operators" [] {
+    let completions = (
+        get-all-operators
+        | select name description
+        | rename value description
+    )
+    $completions
+}
+
 def "nu-complete list-commands" [] {
     $nu.scope.commands | select name usage | rename value description
 }
@@ -1170,7 +1179,7 @@ def show-operator [operator: record] {
 #        ·                       ╰── operator not found
 #        ╰────
 export def "help operators" [
-    ...operator: string  # the name of operator to get help on
+    ...operator: string@"nu-complete list-operators"  # the name of operator to get help on
     --find (-f): string  # string to find in operator names
 ] {
     let operators = (get-all-operators)
