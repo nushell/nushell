@@ -147,3 +147,24 @@ fn reject_large_vec_with_two_identical_elements() {
     assert!(actual.out.contains("100"));
     assert!(actual.out.contains('2'));
 }
+
+#[test]
+fn reject_optional_column() {
+    let actual = nu!("{} | reject foo? | to nuon");
+    assert_eq!(actual.out, "{}");
+
+    let actual = nu!("[{}] | reject foo? | to nuon");
+    assert_eq!(actual.out, "[{}]");
+
+    let actual = nu!("[{} {foo: 2}] | reject foo? | to nuon");
+    assert_eq!(actual.out, "[{}, {}]");
+
+    let actual = nu!("[{foo: 1} {foo: 2}] | reject foo? | to nuon");
+    assert_eq!(actual.out, "[{}, {}]");
+}
+
+#[test]
+fn reject_optional_row() {
+    let actual = nu!("[{foo: 'bar'}] | reject 3? | to nuon");
+    assert_eq!(actual.out, "[[foo]; [bar]]");
+}
