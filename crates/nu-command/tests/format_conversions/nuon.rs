@@ -502,4 +502,3 @@ fn read_code_should_fail_rather_than_panic() {
     ));
     assert!(actual.err.contains("error when parsing"))
 }
-
