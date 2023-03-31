@@ -384,3 +384,57 @@ export def "log debug" [message: string] {
 
     print --stderr $"(ansi default_dimmed)DBG|(now)|($message)(ansi reset)"
 }
+
+def pretty-command [] {
+    let command = $in
+    return $"(ansi default_dimmed)(ansi default_italic)($command)(ansi reset)"
+}
+
+def check-clipboard [
+    clipboard: string
+    --server: string
+] {
+    if (which $clipboard | is-empty) {
+        error make --unspanned {
+            msg: $"(ansi red)clipboard_not_found(ansi reset):
+    you are using ($server | pretty-command) as a graphical server
+    but
+    the ($clipboard | pretty-command) clipboard command was not found on your system."
+        }
+    }
+}
+
+export def clip [
+    --silent: bool
+    --no-notify: bool
+] {
+    let input = $in
+    let input = if ($input | describe) == "string" {
+        $input | ansi strip
+    } else { $input }
+
+    if not (which clip.exe | is-empty) {
+        chcp 65001
+        $input | clip.exe
+    } else if ($env.WAYLAND_DISPLAY? | is-empty) {
+        check-clipboard xclip --server "xorg"
+        $input | xclip -sel clip
+    } else {
+        check-clipboard wl-copy --server "wayland"
+        $input | wl-copy
+    }
+
+    if not $silent {
+        print $input
+
+        print --no-newline $"(ansi white_italic)(ansi white_dimmed)saved to clipboard"
+        if ($input | describe) == "string" {
+            print " (stripped)"
+        }
+        print --no-newline $"(ansi reset)"
+    }
+
+    if (not $no_notify) and ($nu.os-info.name == linux) {
+        notify-send "std clip" "saved to clipboard"
+    }
+}
