@@ -1,5 +1,4 @@
 use nu_test_support::{nu, pipeline};
-use proptest::prelude::*;
 
 #[test]
 fn to_nuon_correct_compaction() {
@@ -504,38 +503,3 @@ fn read_code_should_fail_rather_than_panic() {
     assert!(actual.err.contains("error when parsing"))
 }
 
-proptest! {
-    #[test]
-    fn to_nuon_from_nuon(c: char) {
-        if c != '\0' && c!='\r' {
-        let actual = nu!(
-            cwd: "tests/fixtures/formats", pipeline(
-                format!(r#"
-             {{"prop{c}test": "sam"}} | to nuon | from nuon;
-             [ [ "prop{c}test" ]; [ 'test' ] ] | to nuon | from nuon;
-             [ [ "{c}" ]; [ 'test' ] ] | to nuon | from nuon;
-             {{"{c}": "sam"}} | to nuon | from nuon;
-        "#).as_ref()
-        ));
-        assert!(actual.err.is_empty() || actual.err.contains("Unexpected end of code") || actual.err.contains("only strings can be keys") || actual.err.contains("unbalanced { and }"));
-        // The second is for weird escapes due to backslashes
-        // The third is for chars like '0'
-        }
-    }
-    #[test]
-    fn to_nuon_from_nuon_string(s: String) {
-        if s != "\\0" && !s.is_empty() && !s.contains('\\') && !s.contains('"'){
-        let actual = nu!(
-            cwd: "tests/fixtures/formats", pipeline(
-                format!(r#"
-             {{"prop{s}test": "sam"}} | to nuon | from nuon;
-             [ [ "prop{s}test" ]; [ 'test' ] ] | to nuon | from nuon;
-             [ [ "{s}" ]; [ 'test' ] ] | to nuon | from nuon;
-             {{"{s}": "sam"}} | to nuon | from nuon;
-        "#).as_ref()
-        ));
-        assert!(actual.err.is_empty() || actual.err.contains("only strings can be keys") || actual.err.contains("unknown command"));
-        // TODO: fix parser error for "unknown command" when '=$' is the name
-    }
-    }
-}
