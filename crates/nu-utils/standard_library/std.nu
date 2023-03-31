@@ -786,6 +786,22 @@ def get-all-operators [] { return ([
     [Boolean, xor, Xor, "Checks if one value is true and the other is false.", 45]
 ] | sort-by name)}
 
+def "nu-complete list-aliases" [] {
+    $nu.scope.aliases | select name usage | rename value description
+}
+
+def "nu-complete list-modules" [] {
+    $nu.scope.modules | select name usage | rename value description
+}
+
+def "nu-complete list-commands" [] {
+    $nu.scope.commands | select name usage | rename value description
+}
+
+def "nu-complete list-externs" [] {
+    $nu.scope.commands | where is_extern | select name usage | rename value description
+}
+
 def print-help-header [
     text: string
     --no-newline (-n): bool
@@ -926,7 +942,7 @@ def show-module [module: record] {
 #        ·                      ╰── module not found
 #        ╰────
 export def "help modules" [
-    ...module: string  # the name of module to get help on
+    ...module: string@"nu-complete list-modules"  # the name of module to get help on
     --find (-f): string  # string to find in module names
 ] {
     let modules = ($nu.scope.modules | sort-by name)
@@ -1036,7 +1052,7 @@ def show-alias [alias: record] {
 #        ·                      ╰── alias not found
 #        ╰────
 export def "help aliases" [
-    ...alias: string  # the name of alias to get help on
+    ...alias: string@"nu-complete list-aliases"  # the name of alias to get help on
     --find (-f): string  # string to find in alias names
 ] {
     let aliases = ($nu.scope.aliases | sort-by name)
@@ -1076,7 +1092,7 @@ def show-extern [extern: record] {
 
 # Show help on nushell externs.
 export def "help externs" [
-    ...extern: string  # the name of extern to get help on
+    ...extern: string@"nu-complete list-externs"  # the name of extern to get help on
     --find (-f): string  # string to find in extern names
 ] {
     let externs = (
@@ -1343,7 +1359,7 @@ def show-command [command: record] {
 
 # Show help on nushell commands.
 export def "help commands" [
-    ...command: string  # the name of command to get help on
+    ...command: string@"nu-complete list-commands"  # the name of command to get help on
     --find (-f): string  # string to find in command names and usage
 ] {
     let commands = ($nu.scope.commands | where not is_extern | reject is_extern | sort-by name)
