@@ -490,7 +490,7 @@ fn most_left_variable(
         let result = working_set.get_span_contents(item.0).to_vec();
 
         match item.1 {
-            FlatShape::Variable => {
+            FlatShape::Variable(_) => {
                 variables_found.push(result);
                 found_var = true;
 

@@ -2,8 +2,8 @@ use nu_protocol::ast::{
     Block, Expr, Expression, ImportPatternMember, MatchPattern, PathMember, Pattern, Pipeline,
     PipelineElement,
 };
-use nu_protocol::DeclId;
 use nu_protocol::{engine::StateWorkingSet, Span};
+use nu_protocol::{DeclId, VarId};
 use std::fmt::{Display, Formatter, Result};
 
 #[derive(Debug, Eq, PartialEq, Ord, Clone, PartialOrd)]
@@ -23,7 +23,8 @@ pub enum FlatShape {
     Garbage,
     GlobPattern,
     Int,
-    InternalCall,
+    InternalCall(DeclId),
+    Keyword,
     List,
     Literal,
     MatchPattern,
@@ -38,7 +39,7 @@ pub enum FlatShape {
     String,
     StringInterpolation,
     Table,
-    Variable,
+    Variable(VarId),
 }
 
 impl Display for FlatShape {
@@ -59,7 +60,8 @@ impl Display for FlatShape {
             FlatShape::Garbage => write!(f, "shape_garbage"),
             FlatShape::GlobPattern => write!(f, "shape_globpattern"),
             FlatShape::Int => write!(f, "shape_int"),
-            FlatShape::InternalCall => write!(f, "shape_internalcall"),
+            FlatShape::InternalCall(_) => write!(f, "shape_internalcall"),
+            FlatShape::Keyword => write!(f, "shape_keyword"),
             FlatShape::List => write!(f, "shape_list"),
             FlatShape::Literal => write!(f, "shape_literal"),
             FlatShape::MatchPattern => write!(f, "shape_match_pattern"),
@@ -74,7 +76,7 @@ impl Display for FlatShape {
             FlatShape::String => write!(f, "shape_string"),
             FlatShape::StringInterpolation => write!(f, "shape_string_interpolation"),
             FlatShape::Table => write!(f, "shape_table"),
-            FlatShape::Variable => write!(f, "shape_variable"),
+            FlatShape::Variable(_) => write!(f, "shape_variable"),
         }
     }
 }
@@ -145,7 +147,7 @@ pub fn flatten_expression(
             output
         }
         Expr::Call(call) => {
-            let mut output = vec![(call.head, FlatShape::InternalCall)];
+            let mut output = vec![(call.head, FlatShape::InternalCall(call.decl_id))];
 
             let mut args = vec![];
             for positional in call.positional_iter() {
@@ -392,7 +394,7 @@ pub fn flatten_expression(
             output
         }
         Expr::Keyword(_, span, expr) => {
-            let mut output = vec![(*span, FlatShape::InternalCall)];
+            let mut output = vec![(*span, FlatShape::Keyword)];
             output.extend(flatten_expression(working_set, expr));
             output
         }
@@ -447,8 +449,8 @@ pub fn flatten_expression(
 
             output
         }
-        Expr::Var(_) | Expr::VarDecl(_) => {
-            vec![(expr.span, FlatShape::Variable)]
+        Expr::Var(var_id) | Expr::VarDecl(var_id) => {
+            vec![(expr.span, FlatShape::Variable(*var_id))]
         }
     }
 }
@@ -559,11 +561,11 @@ pub fn flatten_pattern(match_pattern: &MatchPattern) -> Vec<(Span, FlatShape)> {
         Pattern::Value(_) => {
             output.push((match_pattern.span, FlatShape::MatchPattern));
         }
-        Pattern::Variable(_) => {
-            output.push((match_pattern.span, FlatShape::Variable));
+        Pattern::Variable(var_id) => {
+            output.push((match_pattern.span, FlatShape::Variable(*var_id)));
         }
-        Pattern::Rest(_) => {
-            output.push((match_pattern.span, FlatShape::Variable));
+        Pattern::Rest(var_id) => {
+            output.push((match_pattern.span, FlatShape::Variable(*var_id)));
         }
         Pattern::Or(patterns) => {
             for pattern in patterns {

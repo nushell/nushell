@@ -36,7 +36,9 @@ pub(crate) fn gather_commandline_args() -> (Vec<String>, String, Vec<String>) {
             | "--env-config" => args.next().map(|a| escape_quote_string(&a)),
             #[cfg(feature = "plugin")]
             "--plugin-config" => args.next().map(|a| escape_quote_string(&a)),
-            "--log-level" | "--log-target" | "--testbin" | "--threads" | "-t" => args.next(),
+            "--log-level" | "--log-target" | "--testbin" | "--threads" | "-t" | "--goto-def" => {
+                args.next()
+            }
             _ => None,
         };
 
@@ -95,6 +97,7 @@ pub(crate) fn parse_commandline_args(
         )) = pipeline.elements.get(0)
         {
             let redirect_stdin = call.get_named_arg("stdin");
+            let goto_def: Option<Value> = call.get_flag(engine_state, &mut stack, "goto-def")?;
             let login_shell = call.get_named_arg("login");
             let interactive_shell = call.get_named_arg("interactive");
             let commands: Option<Expression> = call.get_flag_expr("commands");
@@ -181,6 +184,7 @@ pub(crate) fn parse_commandline_args(
                 log_level,
                 log_target,
                 execute,
+                goto_def,
                 threads,
                 table_mode,
             });
@@ -213,6 +217,7 @@ pub(crate) struct NushellCliArgs {
     pub(crate) log_level: Option<Spanned<String>>,
     pub(crate) log_target: Option<Spanned<String>>,
     pub(crate) execute: Option<Spanned<String>>,
+    pub(crate) goto_def: Option<Value>,
     pub(crate) threads: Option<Value>,
     pub(crate) table_mode: Option<Value>,
 }
@@ -270,6 +275,12 @@ impl Command for Nu {
                 "env-config",
                 SyntaxShape::String,
                 "start with an alternate environment config file",
+                None,
+            )
+            .named(
+                "goto-def",
+                SyntaxShape::Int,
+                "position offset to goto-def in first file",
                 None,
             );
 

@@ -1,5 +1,6 @@
 mod command;
 mod config_files;
+mod ide;
 mod logger;
 mod run;
 mod signals;
@@ -136,8 +137,16 @@ fn main() -> Result<()> {
         use_color,
     );
 
+    if let Some(goto_def) = parsed_nu_cli_args.goto_def {
+        println!("goto to def: {:?}", goto_def);
+
+        ide::goto_def(&mut engine_state, &script_name, &goto_def);
+
+        return Ok(());
+    }
+
     start_time = std::time::Instant::now();
-    if let Some(t) = parsed_nu_cli_args.threads.clone() {
+    if let Some(t) = &parsed_nu_cli_args.threads {
         // 0 means to let rayon decide how many threads to use
         let threads = t.as_i64().unwrap_or(0);
         rayon::ThreadPoolBuilder::new()
