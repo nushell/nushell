@@ -7,8 +7,9 @@ use tabled::{
 };
 
 use self::{
-    global_horizontal_char::SetHorizontalChar, peak2::Peak2, table_column_width::GetColumnWidths,
-    truncate_table::TruncateTable, width_increase::IncWidth,
+    global_horizontal_char::SetHorizontalCharOnFirstRow, peak2::Peak2,
+    table_column_width::get_first_cell_width, truncate_table::TruncateTable,
+    width_increase::IncWidth,
 };
 
 pub fn build_table(value: Value, description: String, termsize: usize) -> String {
@@ -23,11 +24,8 @@ pub fn build_table(value: Value, description: String, termsize: usize) -> String
     let mut desc_table = Builder::from(desc).build();
     let desc_table_width = desc_table.total_width();
 
-    let width = if desc_table_width > termsize {
-        val_table_width.clamp(termsize, desc_table_width)
-    } else {
-        val_table_width.clamp(desc_table_width, termsize)
-    };
+    #[allow(clippy::manual_clamp)]
+    let width = val_table_width.max(desc_table_width).min(termsize);
 
     desc_table
         .with(Style::rounded().off_bottom())
@@ -40,10 +38,11 @@ pub fn build_table(value: Value, description: String, termsize: usize) -> String
         .with(Wrap::new(width).priority::<PriorityMax>())
         .with(IncWidth(width));
 
-    let mut desc_widths = GetColumnWidths(Vec::new());
-    desc_table.with(&mut desc_widths);
+    // we use only 1, cause left border considered 0 position
+    let count_split_lines = 1;
+    let desc_width = get_first_cell_width(&mut desc_table) + count_split_lines;
 
-    val_table.with(SetHorizontalChar::new('┼', '┴', 0, desc_widths.0[0]));
+    val_table.with(SetHorizontalCharOnFirstRow::new('┼', '┴', desc_width));
 
     format!("{desc_table}\n{val_table}")
 }
@@ -138,15 +137,10 @@ mod util {
             ),
             Value::List { vals, .. } => {
                 let mut columns = get_columns(&vals);
-                let mut data = convert_records_to_dataset(&columns, vals);
+                let data = convert_records_to_dataset(&columns, vals);
 
-                if columns.is_empty() && !data.is_empty() {
+                if columns.is_empty() {
                     columns = vec![String::from("")];
-                }
-
-                // We need something to draw a table with
-                if data.is_empty() {
-                    data.push(vec!["<empty data>".to_string()])
                 }
 
                 (columns, data)
@@ -163,7 +157,7 @@ mod util {
 
                 (vec![String::from("")], lines)
             }
-            Value::Nothing { .. } => (vec!["".to_string()], vec![vec!["<empty data>".to_string()]]),
+            Value::Nothing { .. } => (vec![], vec![]),
             value => (
                 vec![String::from("")],
                 vec![vec![debug_string_without_formatting(&value)]],
@@ -270,18 +264,30 @@ mod peak2 {
 }
 
 mod table_column_width {
-    use tabled::papergrid::{records::Records, Estimate};
+    use tabled::{
+        papergrid::{records::Records, width::CfgWidthFunction},
+        Table,
+    };
 
-    pub struct GetColumnWidths(pub Vec<usize>);
+    pub fn get_first_cell_width<R: Records>(table: &mut Table<R>) -> usize {
+        let mut opt = GetFirstCellWidth(0);
+        table.with(&mut opt);
+        opt.0
+    }
 
-    impl<R> tabled::TableOption<R> for GetColumnWidths
-    where
-        R: Records,
-    {
+    struct GetFirstCellWidth(pub usize);
+
+    impl<R: Records> tabled::TableOption<R> for GetFirstCellWidth {
         fn change(&mut self, table: &mut tabled::Table<R>) {
-            let mut evaluator = tabled::papergrid::width::WidthEstimator::default();
-            evaluator.estimate(table.get_records(), table.get_config());
-            self.0 = evaluator.into();
+            let w = table
+                .get_records()
+                .get_width((0, 0), CfgWidthFunction::default());
+            let pad = table
+                .get_config()
+                .get_padding(tabled::papergrid::Entity::Cell(0, 0));
+            let pad = pad.left.size + pad.right.size;
+
+            self.0 = w + pad;
         }
     }
 }
@@ -292,91 +298,65 @@ mod global_horizontal_char {
         Table, TableOption,
     };
 
-    pub struct SetHorizontalChar {
+    pub struct SetHorizontalCharOnFirstRow {
         c1: char,
         c2: char,
-        line: usize,
-        position: usize,
+        pos: usize,
     }
 
-    impl SetHorizontalChar {
-        pub fn new(c1: char, c2: char, line: usize, position: usize) -> Self {
-            Self {
-                c1,
-                c2,
-                line,
-                position,
-            }
+    impl SetHorizontalCharOnFirstRow {
+        pub fn new(c1: char, c2: char, pos: usize) -> Self {
+            Self { c1, c2, pos }
         }
     }
 
-    impl<R> TableOption<R> for SetHorizontalChar
+    impl<R> TableOption<R> for SetHorizontalCharOnFirstRow
     where
         R: Records,
     {
         fn change(&mut self, table: &mut Table<R>) {
-            let shape = table.shape();
-
-            let is_last_line = self.line == (shape.0 * 2);
-            let mut row = self.line;
-            if is_last_line {
-                row = self.line - 1;
+            if table.is_empty() {
+                return;
             }
+
+            let shape = table.shape();
 
             let mut evaluator = WidthEstimator::default();
             evaluator.estimate(table.get_records(), table.get_config());
             let widths: Vec<_> = evaluator.into();
 
-            let mut i = 0;
+            let has_vertical = table.get_config().has_vertical(0, shape.1);
+            if has_vertical && self.pos == 0 {
+                let mut border = table.get_config().get_border((0, 0), shape);
+                border.left_top_corner = Some(self.c1);
+                table.get_config_mut().set_border((0, 0), border);
+                return;
+            }
+
+            let mut i = 1;
             #[allow(clippy::needless_range_loop)]
-            for column in 0..shape.1 {
-                let has_vertical = table.get_config().has_vertical(column, shape.1);
+            for (col, width) in widths.into_iter().enumerate() {
+                if self.pos < i + width {
+                    let o = self.pos - i;
+                    table
+                        .get_config_mut()
+                        .override_horizontal_border((0, col), self.c2, Begin(o));
+                    return;
+                }
 
+                i += width;
+
+                let has_vertical = table.get_config().has_vertical(col, shape.1);
                 if has_vertical {
-                    if self.position == i {
-                        let mut border = table.get_config().get_border((row, column), shape);
-                        if is_last_line {
-                            border.left_bottom_corner = Some(self.c1);
-                        } else {
-                            border.left_top_corner = Some(self.c1);
-                        }
-
-                        table.get_config_mut().set_border((row, column), border);
-
+                    if self.pos == i {
+                        let mut border = table.get_config().get_border((0, col), shape);
+                        border.right_top_corner = Some(self.c1);
+                        table.get_config_mut().set_border((0, col), border);
                         return;
                     }
 
                     i += 1;
                 }
-
-                let width = widths[column];
-
-                if self.position < i + width {
-                    let offset = self.position + 1 - i;
-                    // let offset = width - offset;
-
-                    table.get_config_mut().override_horizontal_border(
-                        (self.line, column),
-                        self.c2,
-                        Begin(offset),
-                    );
-
-                    return;
-                }
-
-                i += width;
-            }
-
-            let has_vertical = table.get_config().has_vertical(shape.1, shape.1);
-            if self.position == i && has_vertical {
-                let mut border = table.get_config().get_border((row, shape.1), shape);
-                if is_last_line {
-                    border.left_bottom_corner = Some(self.c1);
-                } else {
-                    border.left_top_corner = Some(self.c1);
-                }
-
-                table.get_config_mut().set_border((row, shape.1), border);
             }
         }
     }
