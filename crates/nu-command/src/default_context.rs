@@ -388,6 +388,7 @@ pub fn create_default_context() -> EngineState {
             MathPi,
             MathTau,
             MathEuler,
+            MathExp,
             MathLn,
             MathLog,
         };
