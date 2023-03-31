@@ -44,15 +44,18 @@ impl Command for SubCommand {
     }
 
     fn examples(&self) -> Vec<Example> {
-        vec![Example {
-            description: "Get e raised to the power of zero",
-            example: "0 | math exp",
-            result: Some(Value::test_float(1.0f64)),
-        }, Example {
-            description: "Get e (same as 'math e')",
-            example: "1 | math exp",
-            result: Some(Value::test_float(1.0f64.exp())),
-        }]
+        vec![
+            Example {
+                description: "Get e raised to the power of zero",
+                example: "0 | math exp",
+                result: Some(Value::test_float(1.0f64)),
+            },
+            Example {
+                description: "Get e (same as 'math e')",
+                example: "1 | math exp",
+                result: Some(Value::test_float(1.0f64.exp())),
+            },
+        ]
     }
 }
 
@@ -65,7 +68,10 @@ fn operate(value: Value, head: Span) -> Value {
                 _ => unreachable!(),
             };
 
-            Value::Float { val: val.exp(), span }
+            Value::Float {
+                val: val.exp(),
+                span,
+            }
         }
         Value::Error { .. } => value,
         other => Value::Error {

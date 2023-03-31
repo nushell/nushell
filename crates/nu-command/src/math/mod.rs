@@ -69,5 +69,5 @@ pub use pi::SubCommand as MathPi;
 pub use tau::SubCommand as MathTau;
 
 pub use self::log::SubCommand as MathLog;
-pub use ln::SubCommand as MathLn;
 pub use exp::SubCommand as MathExp;
+pub use ln::SubCommand as MathLn;
