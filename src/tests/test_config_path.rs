@@ -5,11 +5,14 @@ fn test_default_config_path() {
     let config_dir = nu_path::config_dir().expect("Could not get config directory");
     let cwd = std::env::current_dir().expect("Could not get current working directory");
 
-    let config_path = config_dir.join("nushell").join("config.nu");
+    // We use canonicalize here in case the config or env is symlinked since $nu.config-path is returning the canonicalized path in #8653
+    let config_path = std::fs::canonicalize(config_dir.join("nushell").join("config.nu"))
+        .expect("canonicalize config-path failed");
     let actual = nu!(cwd: &cwd, "$nu.config-path");
     assert_eq!(actual.out, config_path.to_string_lossy().to_string());
 
-    let env_path = config_dir.join("nushell").join("env.nu");
+    let env_path = std::fs::canonicalize(config_dir.join("nushell").join("env.nu"))
+        .expect("canonicalize of env-path failed");
     let actual = nu!(cwd: &cwd, "$nu.env-path");
     assert_eq!(actual.out, env_path.to_string_lossy().to_string());
 }
