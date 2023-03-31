@@ -4,9 +4,9 @@ use nu_test_support::nu;
 fn test_default_config_path() {
     let config_dir = nu_path::config_dir().expect("Could not get config directory");
     let cwd = std::env::current_dir().expect("Could not get current working directory");
-
     let config_path = config_dir.join("nushell").join("config.nu");
-    // Create an empty file for canonicalization
+
+    // Create an empty file for canonicalization if it doesn't already exist
     if !config_path.exists() {
         let _ = std::fs::File::create(&config_path);
     }
@@ -17,15 +17,14 @@ fn test_default_config_path() {
 
     let actual = nu!(cwd: &cwd, "$nu.config-path");
     assert_eq!(actual.out, canon_config_path.to_string_lossy().to_string());
-
     let env_path = config_dir.join("nushell").join("env.nu");
-    // Create an empty file for canonicalization
+
+    // Create an empty file for canonicalization if it doesn't already exist
     if !env_path.exists() {
         let _ = std::fs::File::create(&env_path);
     }
 
     let canon_env_path = std::fs::canonicalize(env_path).expect("canonicalize of env-path failed");
-
     let actual = nu!(cwd: &cwd, "$nu.env-path");
     assert_eq!(actual.out, canon_env_path.to_string_lossy().to_string());
 }
