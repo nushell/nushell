@@ -1,10 +1,13 @@
+use std::sync::Arc;
+
 use miette::IntoDiagnostic;
-use nu_cli::report_error;
+use nu_cli::{report_error, NuCompleter};
 use nu_parser::{flatten_block, parse, FlatShape};
 use nu_protocol::{
-    engine::{EngineState, StateWorkingSet},
+    engine::{EngineState, Stack, StateWorkingSet},
     DeclId, ShellError, Span, Value, VarId,
 };
+use reedline::Completer;
 
 enum Id {
     VarId(VarId),
@@ -26,8 +29,6 @@ fn find_id(
         let location = location as usize + offset;
         for item in flattened {
             if location >= item.0.start && location < item.0.end {
-                println!("{:?}", item.1);
-
                 match &item.1 {
                     FlatShape::Variable(var_id) => {
                         return Some((Id::VarId(*var_id), offset));
@@ -106,10 +107,16 @@ pub fn hover(engine_state: &mut EngineState, file_path: &String, location: &Valu
         Some((Id::DeclId(decl_id), _)) => {
             let decl = working_set.get_decl(decl_id);
 
-            println!("Signature: {}", decl.signature())
+            println!("{} [{}]", decl.name(), decl.signature());
+            println!("Usage: {}", decl.usage());
+            if !decl.extra_usage().is_empty() {
+                println!("Extra usage: {}", decl.extra_usage());
+            }
+            for example in decl.examples() {
+                println!("Example: {:?}", example);
+            }
         }
         Some((Id::VarId(var_id), _)) => {
-            let working_set = StateWorkingSet::new(engine_state);
             let var = working_set.get_variable(var_id);
 
             println!(
@@ -119,6 +126,28 @@ pub fn hover(engine_state: &mut EngineState, file_path: &String, location: &Valu
             );
         }
         _ => {}
+    }
+
+    "".into()
+}
+
+pub fn complete(
+    engine_reference: Arc<EngineState>,
+    file_path: &String,
+    location: &Value,
+) -> String {
+    let stack = Stack::new();
+    let mut completer = NuCompleter::new(engine_reference, stack);
+
+    let file = std::fs::read(file_path)
+        .into_diagnostic()
+        .unwrap_or_else(|_| {
+            std::process::exit(1);
+        });
+
+    if let Ok(location) = location.as_i64() {
+        let results = completer.complete(&String::from_utf8_lossy(&file), location as usize);
+        println!("{:?}", results);
     }
 
     "".into()

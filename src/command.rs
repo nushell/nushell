@@ -36,9 +36,8 @@ pub(crate) fn gather_commandline_args() -> (Vec<String>, String, Vec<String>) {
             | "--env-config" => args.next().map(|a| escape_quote_string(&a)),
             #[cfg(feature = "plugin")]
             "--plugin-config" => args.next().map(|a| escape_quote_string(&a)),
-            "--log-level" | "--log-target" | "--testbin" | "--threads" | "-t" | "--goto-def" => {
-                args.next()
-            }
+            "--log-level" | "--log-target" | "--testbin" | "--threads" | "-t"
+            | "--ide-goto-def" | "--ide-hover" | "--ide-complete" => args.next(),
             _ => None,
         };
 
@@ -97,7 +96,11 @@ pub(crate) fn parse_commandline_args(
         )) = pipeline.elements.get(0)
         {
             let redirect_stdin = call.get_named_arg("stdin");
-            let goto_def: Option<Value> = call.get_flag(engine_state, &mut stack, "goto-def")?;
+            let ide_goto_def: Option<Value> =
+                call.get_flag(engine_state, &mut stack, "ide-goto-def")?;
+            let ide_hover: Option<Value> = call.get_flag(engine_state, &mut stack, "ide-hover")?;
+            let ide_complete: Option<Value> =
+                call.get_flag(engine_state, &mut stack, "ide-complete")?;
             let login_shell = call.get_named_arg("login");
             let interactive_shell = call.get_named_arg("interactive");
             let commands: Option<Expression> = call.get_flag_expr("commands");
@@ -184,7 +187,9 @@ pub(crate) fn parse_commandline_args(
                 log_level,
                 log_target,
                 execute,
-                goto_def,
+                ide_goto_def,
+                ide_hover,
+                ide_complete,
                 threads,
                 table_mode,
             });
@@ -217,7 +222,9 @@ pub(crate) struct NushellCliArgs {
     pub(crate) log_level: Option<Spanned<String>>,
     pub(crate) log_target: Option<Spanned<String>>,
     pub(crate) execute: Option<Spanned<String>>,
-    pub(crate) goto_def: Option<Value>,
+    pub(crate) ide_goto_def: Option<Value>,
+    pub(crate) ide_hover: Option<Value>,
+    pub(crate) ide_complete: Option<Value>,
     pub(crate) threads: Option<Value>,
     pub(crate) table_mode: Option<Value>,
 }
@@ -278,9 +285,21 @@ impl Command for Nu {
                 None,
             )
             .named(
-                "goto-def",
+                "ide-goto-def",
                 SyntaxShape::Int,
-                "position offset to goto-def in first file",
+                "go to the definition of the item at the given position",
+                None,
+            )
+            .named(
+                "ide-hover",
+                SyntaxShape::Int,
+                "give information about the item at the given position",
+                None,
+            )
+            .named(
+                "ide-complete",
+                SyntaxShape::Int,
+                "list completions for the item at the given position",
                 None,
             );
 

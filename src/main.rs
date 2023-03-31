@@ -137,10 +137,23 @@ fn main() -> Result<()> {
         use_color,
     );
 
-    if let Some(goto_def) = parsed_nu_cli_args.goto_def {
-        println!("goto to def: {:?}", goto_def);
+    // IDE commands
+    if let Some(ide_goto_def) = parsed_nu_cli_args.ide_goto_def {
+        println!("goto to def: {:?}", ide_goto_def);
 
-        ide::goto_def(&mut engine_state, &script_name, &goto_def);
+        ide::goto_def(&mut engine_state, &script_name, &ide_goto_def);
+
+        return Ok(());
+    } else if let Some(ide_hover) = parsed_nu_cli_args.ide_hover {
+        println!("hover: {:?}", ide_hover);
+
+        ide::hover(&mut engine_state, &script_name, &ide_hover);
+
+        return Ok(());
+    } else if let Some(ide_complete) = parsed_nu_cli_args.ide_complete {
+        println!("hover: {:?}", ide_complete);
+
+        ide::complete(Arc::new(engine_state), &script_name, &ide_complete);
 
         return Ok(());
     }
