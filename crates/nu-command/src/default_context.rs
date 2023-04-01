@@ -183,7 +183,6 @@ pub fn create_default_context() -> EngineState {
             Str,
             StrCamelCase,
             StrCapitalize,
-            StrCollect,
             StrContains,
             StrDistance,
             StrDowncase,
@@ -442,17 +441,18 @@ pub fn create_default_context() -> EngineState {
 
         // Deprecated
         bind_command! {
+            ExportOldAlias,
             HashBase64,
             LPadDeprecated,
-            RPadDeprecated,
-            Source,
-            StrDatetimeDeprecated,
-            StrDecimalDeprecated,
-            StrIntDeprecated,
-            StrFindReplaceDeprecated,
             MathEvalDeprecated,
             OldAlias,
-            ExportOldAlias,
+            RPadDeprecated,
+            Source,
+            StrCollectDeprecated,
+            StrDatetimeDeprecated,
+            StrDecimalDeprecated,
+            StrFindReplaceDeprecated,
+            StrIntDeprecated,
         };
 
         working_set.render()

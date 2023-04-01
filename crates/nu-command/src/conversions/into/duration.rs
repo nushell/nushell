@@ -161,6 +161,14 @@ impl Command for SubCommand {
                     span,
                 }),
             },
+            Example {
+                description: "Convert duration to µs as a string if unit asked for was us",
+                example: "1sec | into duration --convert us",
+                result: Some(Value::String {
+                    val: "1000000 µs".to_string(),
+                    span,
+                }),
+            },
         ]
     }
 }
@@ -439,7 +447,7 @@ fn string_to_unit_duration(
             if let Expr::Int(x) = value.expr {
                 match unit.item {
                     Unit::Nanosecond => return Ok(("ns", x)),
-                    Unit::Microsecond => return Ok(("us", x)),
+                    Unit::Microsecond => return Ok(("µs", x)),
                     Unit::Millisecond => return Ok(("ms", x)),
                     Unit::Second => return Ok(("sec", x)),
                     Unit::Minute => return Ok(("min", x)),
@@ -488,14 +496,19 @@ fn action(
                     *value_span,
                 ) {
                     Ok(d) => {
+                        let unit = if &to_unit.item == "us" {
+                            "µs"
+                        } else {
+                            &to_unit.item
+                        };
                         if d.fract() == 0.0 {
                             Value::String {
-                                val: format!("{} {}", d, &to_unit.item),
+                                val: format!("{} {}", d, unit),
                                 span: *value_span,
                             }
                         } else {
                             Value::String {
-                                val: format!("{:.float_precision$} {}", d, &to_unit.item),
+                                val: format!("{:.float_precision$} {}", d, unit),
                                 span: *value_span,
                             }
                         }
@@ -522,14 +535,19 @@ fn action(
                         *value_span,
                     ) {
                         Ok(d) => {
+                            let unit = if &to_unit.item == "us" {
+                                "µs"
+                            } else {
+                                &to_unit.item
+                            };
                             if d.fract() == 0.0 {
                                 Value::String {
-                                    val: format!("{} {}", d, &to_unit.item),
+                                    val: format!("{} {}", d, unit),
                                     span: *value_span,
                                 }
                             } else {
                                 Value::String {
-                                    val: format!("{:.float_precision$} {}", d, &to_unit.item),
+                                    val: format!("{:.float_precision$} {}", d, unit),
                                     span: *value_span,
                                 }
                             }

@@ -159,24 +159,6 @@ fn main() -> Result<()> {
     }
 
     start_time = std::time::Instant::now();
-    if let Some(t) = &parsed_nu_cli_args.threads {
-        // 0 means to let rayon decide how many threads to use
-        let threads = t.as_i64().unwrap_or(0);
-        rayon::ThreadPoolBuilder::new()
-            .num_threads(threads as usize)
-            .build_global()
-            .expect("error setting number of threads");
-    }
-    perf(
-        "set rayon threads",
-        start_time,
-        file!(),
-        line!(),
-        column!(),
-        use_color,
-    );
-
-    start_time = std::time::Instant::now();
     if let Some(testbin) = &parsed_nu_cli_args.testbin {
         // Call out to the correct testbin
         match testbin.item.as_str() {
