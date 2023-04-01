@@ -465,6 +465,14 @@ export def clip [
             check-clipboard clip.exe --system $"('xorg' | pretty-command) on linux"
             $input | clip.exe
         },
+        _ => {
+            error make --unspanned {
+                msg: $"(ansi red)unknown_operating_system(ansi reset):
+    '($nu.os-info.name)' is not supported by the ('clip' | pretty-command) command.
+
+    please open a feature request in the [issue tracker](char lparen)https://github.com/nushell/nushell/issues/new/choose(char rparen) to add your operating system to the standard library."
+            }
+        },
     }
 
     if not $silent {
