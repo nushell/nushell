@@ -394,12 +394,12 @@ def pretty-command [] {
 # give a hint error when the clip command is not available on the system
 def check-clipboard [
     clipboard: string  # the clipboard command name
-    --server: string  # the graphical server running, for better error
+    --system: string  # some information about the system running, for better error
 ] {
     if (which $clipboard | is-empty) {
         error make --unspanned {
             msg: $"(ansi red)clipboard_not_found(ansi reset):
-    you are using ($server | pretty-command) as a graphical server
+    you are running ($system)
     but
     the ($clipboard | pretty-command) clipboard command was not found on your system."
         }
@@ -438,7 +438,7 @@ def check-clipboard [
 #     >_ "mm this is fishy..." | clip
 #     Error:
 #       × clipboard_not_found:
-#       │     you are using xorg as a graphical server
+#       │     you are using xorg on linux
 #       │     but
 #       │     the xclip clipboard command was not found on your system.
 export def clip [
@@ -454,10 +454,10 @@ export def clip [
         chcp 65001  # see https://discord.com/channels/601130461678272522/601130461678272524/1085535756237426778
         $input | clip.exe
     } else if ($env.WAYLAND_DISPLAY? | is-empty) {
-        check-clipboard xclip --server "xorg"
+        check-clipboard xclp --system $"('xorg' | pretty-command) on linux"
         $input | xclip -sel clip
     } else {
-        check-clipboard wl-copy --server "wayland"
+        check-clipboard wl-copy --system $"('wayland' | pretty-command) on linux"
         $input | wl-copy
     }
 
