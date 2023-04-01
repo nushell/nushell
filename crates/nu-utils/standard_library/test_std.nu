@@ -22,3 +22,15 @@ export def test_path_add [] {
         assert equal $env.PATH ["fooooo", "foo", "bar", "baz"]
     }
 }
+
+export def test_clip_simple_string [] {
+    use std.nu clip
+
+    "foo" | clip
+}
+
+export def test_clip_structured_data [] {
+    use std.nu clip
+
+    open Cargo.toml | get package | clip
+}
