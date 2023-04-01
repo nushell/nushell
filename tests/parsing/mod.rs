@@ -226,3 +226,13 @@ fn parse_export_env_missing_block() {
 
     assert!(actual.err.contains("missing block"));
 }
+
+#[test]
+fn numberlike_command_name() {
+    let actual = nu!(cwd: "tests/parsing/samples",
+        r#"
+            def 7zup [] {}
+        "#);
+
+    assert!(actual.err.contains("backticks"));
+}

@@ -1761,7 +1761,11 @@ pub fn parse_numberlike_expr(
         SyntaxShape::CellPath => parse_simple_cell_path(working_set, span, expand_aliases_denylist),
         SyntaxShape::String => (
             garbage(span),
-            Some(ParseError::Expected("string".into(), span)),
+            Some(ParseError::Mismatch(
+                "string".into(),
+                "number-like value (hint: use quotes or backticks)".into(),
+                span,
+            )),
         ),
         SyntaxShape::Any => {
             if bytes == b"0b" {
