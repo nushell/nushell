@@ -450,15 +450,21 @@ export def clip [
         $input | ansi strip
     } else { $input }
 
-    if not (which clip.exe | is-empty) {
-        chcp 65001  # see https://discord.com/channels/601130461678272522/601130461678272524/1085535756237426778
-        $input | clip.exe
-    } else if ($env.WAYLAND_DISPLAY? | is-empty) {
-        check-clipboard xclp --system $"('xorg' | pretty-command) on linux"
-        $input | xclip -sel clip
-    } else {
-        check-clipboard wl-copy --system $"('wayland' | pretty-command) on linux"
-        $input | wl-copy
+    match $nu.os-info.name {
+        "linux" => {
+            if ($env.WAYLAND_DISPLAY? | is-empty) {
+                check-clipboard xclip --system $"('xorg' | pretty-command) on linux"
+                $input | xclip -sel clip
+            } else {
+                check-clipboard wl-copy --system $"('wayland' | pretty-command) on linux"
+                $input | wl-copy
+            }
+        },
+        "windows" => {
+            chcp 65001  # see https://discord.com/channels/601130461678272522/601130461678272524/1085535756237426778
+            check-clipboard clip.exe --system $"('xorg' | pretty-command) on linux"
+            $input | clip.exe
+        },
     }
 
     if not $silent {
