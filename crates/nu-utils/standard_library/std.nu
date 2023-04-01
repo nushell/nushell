@@ -465,6 +465,10 @@ export def clip [
             check-clipboard clip.exe --system $"('xorg' | pretty-command) on linux"
             $input | clip.exe
         },
+        "macos" => {
+            check-clipboard pbcopy --system macOS
+            $input | pbcopy
+        },
         _ => {
             error make --unspanned {
                 msg: $"(ansi red)unknown_operating_system(ansi reset):
