@@ -26,11 +26,11 @@ export def test_path_add [] {
 export def test_clip_simple_string [] {
     use std.nu clip
 
-    "foo" | clip
+    "foo" | clip --silent --no-notify
 }
 
 export def test_clip_structured_data [] {
     use std.nu clip
 
-    open Cargo.toml | get package | clip
+    open Cargo.toml | get package | clip --silent --no-notify
 }
