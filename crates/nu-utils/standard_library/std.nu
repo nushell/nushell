@@ -409,22 +409,26 @@ export def xaccess [
     # of nu xml without unrolling one step of loop
     mut values = {content: [ { content: $input } ] }
     for $step in ($path) {
-        let type = ($step | describe)
-        if $type == 'string' {
-            if $step == '*' {
-                $values = ($values.content | flatten)
-            } else {
-                $values = ($values.content | flatten | where tag == $step)
+        match ($step | describe) {
+            'string' => {
+                if $step == '*' {
+                    $values = ($values.content | flatten)
+                } else {
+                    $values = ($values.content | flatten | where tag == $step)
+                }
+            },
+            'int' => {
+                $values = [ ($values | get $step) ]
+            },
+            'closure' => {
+                $values = ($values | where {|x| do $step $x})
+            },
+            $type => {
+                let step_span = (metadata $step).span
+                error make {msg: $'Incorrect path step type ($type)'
+                        label: {text: 'Use a string or int as a step'
+                                start: $step_span.start end: $step_span.end}}
             }
-        } else if $type == 'int' {
-            $values = [ ($values | get $step) ]
-        } else if $type == 'closure' {
-            $values = ($values | where {|x| do $step $x})
-        } else {
-            let step_span = (metadata $step).span
-            error make {msg: 'Incorrect path step type'
-                    label: {text: 'Use a string or int as a step'
-                            start: $step_span.start end: $step_span.end}}
         }
 
         if ($values | is-empty) {
@@ -500,20 +504,24 @@ def xupdate-internal [ path: list updater: closure ] {
         $input | each $updater
     } else {
         let step = $path.0
-        let type = ($step | describe)
         let rest = ($path | skip 1)
 
-        if $type == 'string' {
-            $input | each {|x| $x | xupdate-string-step $step $rest $updater}
-        } else if $type == 'int' {
-            $input | xupdate-int-step $step $rest $updater
-        } else if $type == 'closure' {
-            $input | xupdate-closure-step $step $rest $updater
-        } else {
-            let step_span = (metadata $step).span
-            error make {msg: 'Incorrect path step type'
-                    label: {text: 'Use a string or int as a step'
-                            start: $step_span.start end: $step_span.end}}
+        match ($step | describe) {
+            'string' => {
+                $input | each {|x| $x | xupdate-string-step $step $rest $updater}
+            },
+            'int' => {
+                $input | xupdate-int-step $step $rest $updater
+            },
+            'closure' => {
+                $input | xupdate-closure-step $step $rest $updater
+            },
+            $type => {
+                let step_span = (metadata $step).span
+                error make {msg: $'Incorrect path step type ($type)'
+                        label: {text: 'Use a string or int as a step'
+                                start: $step_span.start end: $step_span.end}}
+            }
         }
     }
 
