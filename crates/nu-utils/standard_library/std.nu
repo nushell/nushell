@@ -530,3 +530,56 @@ export def xupdate [
 ] {
     {tag:? attributes:? content: [$in]} | xupdate-internal $path $updater | get content.0
 }
+
+# Get type of an xml entry
+#
+# Possible types are 'tag', 'text', 'pi' and 'comment'
+export def xtype [] {
+    let input = $in
+    if (($input | describe) == 'string' or 
+        ($input.tag? == null and $input.attributes? == null and ($input.content? | describe) == 'string')) {
+        'text'
+    } else if $input.tag? == '!' {
+        'comment'
+    } else if $input.tag? != null and ($input.tag? | str starts-with '?') {
+        'pi'
+    } else if $input.tag? != null {
+        'tag'
+    } else {
+        error make {msg: 'Not an xml emtry. Check valid types of xml entries via `help to xml`'}
+    }
+}
+
+# Insert new entry to elements matching simple xpath-inspired query
+export def xinsert [
+    path: list  # List of steps. Each step can be a
+                # 1. String with tag name. Finds all children with specified name. Equivalent to `child::A` in xpath
+                # 2. `*` string. Get all children without any filter. Equivalent to `descendant` in xpath
+                # 3. Int. Select n-th among nodes selected by previous path. Equivalent to `(...)[1]` in xpath, but is indexed from 0.
+                # 4. Closure. Predicate accepting entry. Selects all entries among nodes selected by previous path for which predicate returns true. 
+    new_entry: record # A new entry to insert into `content` field of record at specified position
+    position?: int  # Position to insert `new_entry` into. If specified inserts entry at given position (or end if
+                    # position is greater than number of elements) in content of all entries of input matched by 
+                    # path. If not specified inserts at the end.
+] {
+    $in | xupdate $path {|entry|
+        match ($entry | xtype) {
+            'tag' => {
+                let new_content = if $position == null {
+                    $entry.content | append $new_entry
+                } else {
+                    let position = if $position > ($entry.content | length) {
+                        $entry.content | length
+                    } else {
+                        $position
+                    }
+                    $entry.content | insert $position $new_entry
+                }
+
+                
+                {tag: $entry.tag attributes: $entry.attributes content: $new_content}
+            },
+            _ => (error make {msg: 'Can insert entry only into content of a tag node'})
+        }
+    }
+}
