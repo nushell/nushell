@@ -40,10 +40,10 @@ def main [
     --command: string, # Test command to run. Default: all test command found in the files.
     --list, # list the selected tests without running them.
 ] {
-    let module_search_pattern = ({
+    let module_search_pattern = ('**' | path join ({
         stem: ($module | default "test_*")
         extension: nu
-    } | path join)
+    } | path join))
 
     if not ($path | is-empty) {
         if not ($path | path exists) {
@@ -58,7 +58,7 @@ def main [
     let path = ($path | default $env.FILE_PWD)
 
     if not ($module | is-empty) {
-        if not ($path | path join $module_search_pattern | path exists) {
+        try { ls ($path | path join $module_search_pattern) | null } catch {
             throw-error {
                 msg: "module_not_found"
                 label: $"no such module in ($path)"

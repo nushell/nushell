@@ -6,7 +6,7 @@
 [![@nu_shell](https://img.shields.io/badge/twitter-@nu_shell-1DA1F3?style=flat-square)](https://twitter.com/nu_shell)
 [![GitHub commit activity](https://img.shields.io/github/commit-activity/m/nushell/nushell)](https://github.com/nushell/nushell/graphs/commit-activity)
 [![GitHub contributors](https://img.shields.io/github/contributors/nushell/nushell)](https://github.com/nushell/nushell/graphs/contributors)
-[![codecov](https://codecov.io/gh/nushell/nushell/branch/main/graph/badge.svg?token=JheS8qu2II)](https://codecov.io/gh/nushell/nushell)
+<!-- [![codecov](https://codecov.io/gh/nushell/nushell/branch/main/graph/badge.svg?token=JheS8qu2II)](https://codecov.io/gh/nushell/nushell) -->
 
 A new type of shell.
 
@@ -175,7 +175,8 @@ These binaries interact with nu via a simple JSON-RPC protocol where the command
 If the plugin is a filter, data streams to it one element at a time, and it can stream data back in return via stdin/stdout.
 If the plugin is a sink, it is given the full vector of final data and is given free reign over stdin/stdout to use as it pleases.
 
-The [awesome-nu repo](https://github.com/nushell/awesome-nu#plugins) lists a variety of nu-plugins.
+The [awesome-nu repo](https://github.com/nushell/awesome-nu#plugins) lists a variety of nu-plugins while the [showcase repo](https://github.com/nushell/showcase) *shows* off informative blog posts that have been written about Nushell along with videos that highlight technical
+topics that have been presented.
 
 ## Goals
 

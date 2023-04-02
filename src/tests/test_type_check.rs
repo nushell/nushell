@@ -21,6 +21,11 @@ fn number_int() -> TestResult {
 }
 
 #[test]
+fn int_record_mismatch() -> TestResult {
+    fail_test(r#"def foo [x:int] { $x }; foo {}"#, "expected int")
+}
+
+#[test]
 fn number_float() -> TestResult {
     run_test(r#"def foo [x:number] { $x }; foo 1.4"#, "1.4")
 }

@@ -1029,7 +1029,6 @@ pub fn parse_internal_call(
                 continue;
             }
 
-            let orig_idx = spans_idx;
             let (arg, err) = parse_multispan_value(
                 working_set,
                 &spans[..end],
@@ -1040,7 +1039,6 @@ pub fn parse_internal_call(
             error = error.or(err);
 
             let arg = if !type_compatible(&positional.shape.to_type(), &arg.ty) {
-                let span = span(&spans[orig_idx..spans_idx]);
                 error = error.or_else(|| {
                     Some(ParseError::TypeMismatch(
                         positional.shape.to_type(),
@@ -1048,7 +1046,7 @@ pub fn parse_internal_call(
                         arg.span,
                     ))
                 });
-                Expression::garbage(span)
+                Expression::garbage(arg.span)
             } else {
                 arg
             };
@@ -1763,7 +1761,11 @@ pub fn parse_numberlike_expr(
         SyntaxShape::CellPath => parse_simple_cell_path(working_set, span, expand_aliases_denylist),
         SyntaxShape::String => (
             garbage(span),
-            Some(ParseError::Expected("string".into(), span)),
+            Some(ParseError::Mismatch(
+                "string".into(),
+                "number-like value (hint: use quotes or backticks)".into(),
+                span,
+            )),
         ),
         SyntaxShape::Any => {
             if bytes == b"0b" {
@@ -2606,24 +2608,32 @@ pub fn parse_duration_bytes(num_with_unit_bytes: &[u8], span: Span) -> Option<Ex
     }
 
     let num_with_unit = String::from_utf8_lossy(num_with_unit_bytes).to_string();
-    let uppercase_num_with_unit = num_with_unit.to_uppercase();
     let unit_groups = [
-        (Unit::Nanosecond, "NS", None),
-        (Unit::Microsecond, "US", Some((Unit::Nanosecond, 1000))),
-        (Unit::Millisecond, "MS", Some((Unit::Microsecond, 1000))),
-        (Unit::Second, "SEC", Some((Unit::Millisecond, 1000))),
-        (Unit::Minute, "MIN", Some((Unit::Second, 60))),
-        (Unit::Hour, "HR", Some((Unit::Minute, 60))),
-        (Unit::Day, "DAY", Some((Unit::Minute, 1440))),
-        (Unit::Week, "WK", Some((Unit::Day, 7))),
+        (Unit::Nanosecond, "ns", None),
+        (Unit::Microsecond, "us", Some((Unit::Nanosecond, 1000))),
+        (
+            // µ Micro Sign
+            Unit::Microsecond,
+            "\u{00B5}s",
+            Some((Unit::Nanosecond, 1000)),
+        ),
+        (
+            // μ Greek small letter Mu
+            Unit::Microsecond,
+            "\u{03BC}s",
+            Some((Unit::Nanosecond, 1000)),
+        ),
+        (Unit::Millisecond, "ms", Some((Unit::Microsecond, 1000))),
+        (Unit::Second, "sec", Some((Unit::Millisecond, 1000))),
+        (Unit::Minute, "min", Some((Unit::Second, 60))),
+        (Unit::Hour, "hr", Some((Unit::Minute, 60))),
+        (Unit::Day, "day", Some((Unit::Minute, 1440))),
+        (Unit::Week, "wk", Some((Unit::Day, 7))),
     ];
 
-    if let Some(unit) = unit_groups
-        .iter()
-        .find(|&x| uppercase_num_with_unit.ends_with(x.1))
-    {
+    if let Some(unit) = unit_groups.iter().find(|&x| num_with_unit.ends_with(x.1)) {
         let mut lhs = num_with_unit;
-        for _ in 0..unit.1.len() {
+        for _ in 0..unit.1.chars().count() {
             lhs.pop();
         }
 
@@ -5853,6 +5863,7 @@ pub fn parse_record(
     let mut output = vec![];
     let mut idx = 0;
 
+    let mut field_types = Some(vec![]);
     while idx < tokens.len() {
         let (field, err) = parse_value(
             working_set,
@@ -5887,6 +5898,15 @@ pub fn parse_record(
         error = error.or(err);
         idx += 1;
 
+        if let Some(field) = field.as_string() {
+            if let Some(fields) = &mut field_types {
+                fields.push((field, value.ty.clone()));
+            }
+        } else {
+            // We can't properly see all the field types
+            // so fall back to the Any type later
+            field_types = None;
+        }
         output.push((field, value));
     }
 
@@ -5894,7 +5914,11 @@ pub fn parse_record(
         Expression {
             expr: Expr::Record(output),
             span,
-            ty: Type::Any, //FIXME: but we don't know the contents of the fields, do we?
+            ty: (if let Some(fields) = field_types {
+                Type::Record(fields)
+            } else {
+                Type::Any
+            }),
             custom_completion: None,
         },
         error,
@@ -6217,7 +6241,8 @@ pub fn discover_captures_in_pattern(pattern: &MatchPattern, seen: &mut Vec<VarId
                 discover_captures_in_pattern(pattern, seen)
             }
         }
-        Pattern::Value(_) | Pattern::IgnoreValue | Pattern::Garbage => {}
+        Pattern::Rest(var_id) => seen.push(*var_id),
+        Pattern::Value(_) | Pattern::IgnoreValue | Pattern::IgnoreRest | Pattern::Garbage => {}
     }
 }
 

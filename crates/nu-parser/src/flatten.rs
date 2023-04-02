@@ -515,6 +515,9 @@ pub fn flatten_pattern(match_pattern: &MatchPattern) -> Vec<(Span, FlatShape)> {
         Pattern::IgnoreValue => {
             output.push((match_pattern.span, FlatShape::Nothing));
         }
+        Pattern::IgnoreRest => {
+            output.push((match_pattern.span, FlatShape::Nothing));
+        }
         Pattern::List(items) => {
             if let Some(first) = items.first() {
                 if let Some(last) = items.last() {
@@ -557,6 +560,9 @@ pub fn flatten_pattern(match_pattern: &MatchPattern) -> Vec<(Span, FlatShape)> {
             output.push((match_pattern.span, FlatShape::MatchPattern));
         }
         Pattern::Variable(_) => {
+            output.push((match_pattern.span, FlatShape::Variable));
+        }
+        Pattern::Rest(_) => {
             output.push((match_pattern.span, FlatShape::Variable));
         }
         Pattern::Or(patterns) => {
