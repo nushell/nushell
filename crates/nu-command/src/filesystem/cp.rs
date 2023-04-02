@@ -275,12 +275,18 @@ impl Command for Cp {
                     Ok((PathBuf::from(&source_file), dest))
                 })?;
 
-                let mut overall_pb = progress_bar::NuProgressBar::new(
-                    progress_bar::ProgressType::ProgressItems,
-                    Some(sources.len() as u64),
-                    "".to_string(),
-                );
+                // Only create the progress bar if the `progress` flag is set
+                let mut overall_pb = if progress {
+                    Some(progress_bar::NuProgressBar::new(
+                        progress_bar::ProgressType::ProgressItems,
+                        Some(sources.len() as u64),
+                        "".to_string(),
+                    ))
+                } else {
+                    None
+                };
 
+                // Current n file. Used for the progress bar
                 let mut n_file = 0;
 
                 // these variables help us update the overall progress bar.
@@ -288,9 +294,11 @@ impl Command for Cp {
                 let mut is_pb = false;
 
                 for (s, d) in sources {
-                    n_file += 1;
-                    overall_pb.update_bar(n_file);
-
+                    if let Some(opb) = &overall_pb {
+                        n_file += 1;
+                        opb.clone().update_bar(n_file);
+                    }
+                    
                     // Check if the user has pressed ctrl+c before copying a file
                     if nu_utils::ctrl_c::was_pressed(&ctrlc) {
                         return Ok(PipelineData::empty());
@@ -346,7 +354,9 @@ impl Command for Cp {
                     }
                 }
 
-                overall_pb.finished_msg("".to_string(), false);
+                if let Some(opb) = overall_pb {
+                    opb.finished_msg("".to_string(), false);
+                }
             }
         }
 
