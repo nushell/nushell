@@ -6,7 +6,13 @@ use nu_test_support::{nu, pipeline};
 #[test]
 fn alias_simple() {
     let actual = nu!(
-        cwd: "tests/fixtures/formats", " alias bar = use sample_def.nu greet; bar; greet ");
+        cwd: "tests/fixtures/formats", pipeline(
+        r#"
+            alias bar = use sample_def.nu greet;
+            bar;
+            greet
+        "#
+    ));
 
     assert_eq!(actual.out, "hello");
 }
