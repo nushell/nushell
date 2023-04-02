@@ -73,7 +73,7 @@ fn read_in_file<'a>(
     (file, working_set)
 }
 
-pub fn goto_def(engine_state: &mut EngineState, file_path: &String, location: &Value) -> String {
+pub fn goto_def(engine_state: &mut EngineState, file_path: &String, location: &Value) {
     let (file, mut working_set) = read_in_file(engine_state, file_path);
 
     match find_id(&mut working_set, file_path, &file, location) {
@@ -82,25 +82,41 @@ pub fn goto_def(engine_state: &mut EngineState, file_path: &String, location: &V
             if let Some(block_id) = result.get_block_id() {
                 let block = working_set.get_block(block_id);
                 if let Some(span) = &block.span {
-                    println!("Declaration at: {:?}", span.start - offset);
+                    for file in working_set.files() {
+                        if span.start >= file.1 && span.start < file.2 {
+                            println!(
+                                "{{\"file\": \"{}\", \"start\": {}, \"end\": {}}}",
+                                file.0,
+                                span.start - offset,
+                                span.end - offset
+                            );
+                            return;
+                        }
+                    }
                 }
             }
         }
         Some((Id::VarId(var_id), offset)) => {
-            let working_set = StateWorkingSet::new(engine_state);
             let var = working_set.get_variable(var_id);
-            println!(
-                "Variable created at: {:?}",
-                var.declaration_span.start - offset
-            );
+            for file in working_set.files() {
+                if var.declaration_span.start >= file.1 && var.declaration_span.start < file.2 {
+                    println!(
+                        "{{\"file\": \"{}\", \"start\": {}, \"end\": {}}}",
+                        file.0,
+                        var.declaration_span.start - offset,
+                        var.declaration_span.end - offset
+                    );
+                    return;
+                }
+            }
         }
         _ => {}
     }
 
-    "".into()
+    println!("{{}}");
 }
 
-pub fn hover(engine_state: &mut EngineState, file_path: &String, location: &Value) -> String {
+pub fn hover(engine_state: &mut EngineState, file_path: &String, location: &Value) {
     let (file, mut working_set) = read_in_file(engine_state, file_path);
 
     match find_id(&mut working_set, file_path, &file, location) {
@@ -145,15 +161,9 @@ pub fn hover(engine_state: &mut EngineState, file_path: &String, location: &Valu
         }
         _ => {}
     }
-
-    "".into()
 }
 
-pub fn complete(
-    engine_reference: Arc<EngineState>,
-    file_path: &String,
-    location: &Value,
-) -> String {
+pub fn complete(engine_reference: Arc<EngineState>, file_path: &String, location: &Value) {
     let stack = Stack::new();
     let mut completer = NuCompleter::new(engine_reference, stack);
 
@@ -165,7 +175,6 @@ pub fn complete(
 
     if let Ok(location) = location.as_i64() {
         let results = completer.complete(&String::from_utf8_lossy(&file), location as usize);
-        // println!("{:?}", results);
         print!("{{\"completions\": [");
         let mut first = true;
         for result in results {
@@ -174,19 +183,8 @@ pub fn complete(
             } else {
                 first = false;
             }
-            print!(
-                //"{{\"{}\": \"{}\"}}",
-                "\"{}\"",
-                result.value,
-                // if let Some(description) = result.description {
-                //     description
-                // } else {
-                //     "".into()
-                // }
-            )
+            print!("\"{}\"", result.value,)
         }
         println!("]}}");
     }
-
-    "".into()
 }

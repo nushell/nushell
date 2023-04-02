@@ -139,8 +139,6 @@ fn main() -> Result<()> {
 
     // IDE commands
     if let Some(ide_goto_def) = parsed_nu_cli_args.ide_goto_def {
-        println!("goto to def: {:?}", ide_goto_def);
-
         ide::goto_def(&mut engine_state, &script_name, &ide_goto_def);
 
         return Ok(());
