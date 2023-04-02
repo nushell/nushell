@@ -407,7 +407,8 @@ export def xaccess [
     # In xpath first element in path is applied to root element
     # this way it is possible to apply first step to root element
     # of nu xml without unrolling one step of loop
-    mut values = {content: [ { content: $input } ] }
+    mut values = ()
+    $values = {content: [ { content: $input } ] }
     for $step in ($path) {
         match ($step | describe) {
             'string' => {
