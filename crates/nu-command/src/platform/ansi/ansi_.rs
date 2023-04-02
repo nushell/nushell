@@ -608,7 +608,12 @@ Format: #
             },
             Example {
                 description: "Use ansi to color text with a style (blue on red in bold)",
-                example: r#"$"(ansi -e { fg: '#0000ff' bg: '#ff0000' attr: b })Hello Nu World(ansi reset)""#,
+                example: r#"let format = {  # none of the following keys are mandatory, but any other key will be considered invalid
+        fg: '#0000ff'
+        bg: '#ff0000'
+        attr: b
+    }
+    $"(ansi -e $format)Hello Nu World(ansi reset)""#,
                 result: Some(Value::test_string(
                     "\u{1b}[1;48;2;255;0;0;38;2;0;0;255mHello Nu World\u{1b}[0m",
                 )),
