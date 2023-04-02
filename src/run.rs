@@ -8,11 +8,45 @@ use crate::{
 use nu_cli::read_plugin_file;
 use nu_cli::{evaluate_commands, evaluate_file, evaluate_repl, report_error};
 use nu_parser::{parse, parse_module_block};
-use nu_protocol::{engine::StateWorkingSet, PipelineData, ShellError, Span};
+use nu_protocol::{engine::StateWorkingSet, Module, PipelineData, ShellError, Span};
 use nu_utils::utils::perf;
 
 fn get_standard_library() -> &'static str {
     include_str!("../crates/nu-utils/standard_library/std.nu")
+}
+
+fn load_prelude(working_set: &mut StateWorkingSet, prelude: Vec<(&str, &str)>, module: &Module) {
+    let mut decls = Vec::new();
+    let mut errs = Vec::new();
+    for (name, search_name) in prelude {
+        if let Some(id) = module.decls.get(&search_name.as_bytes().to_vec()) {
+            let decl = (name.as_bytes().to_vec(), id.to_owned());
+            decls.push(decl);
+        } else {
+            errs.push(ShellError::GenericError(
+                format!("could not load `{}` from `std`.", search_name),
+                String::new(),
+                None,
+                None,
+                Vec::new(),
+            ));
+        }
+    }
+
+    if !errs.is_empty() {
+        report_error(
+            working_set,
+            &ShellError::GenericError(
+                "Unable to load the prelude of the standard library.".into(),
+                String::new(),
+                None,
+                Some("this is a bug: please file an issue in the [issue tracker](https://github.com/nushell/nushell/issues/new/choose)".to_string()),
+                errs,
+            ),
+        );
+    }
+
+    working_set.use_decls(decls);
 }
 
 fn load_standard_library(
@@ -57,37 +91,7 @@ fn load_standard_library(
             // ("help operators", "help operators"),
         ];
 
-        let mut decls = Vec::new();
-        let mut errs = Vec::new();
-        for (name, search_name) in prelude {
-            if let Some(id) = module.decls.get(&search_name.as_bytes().to_vec()) {
-                let decl = (name.as_bytes().to_vec(), id.to_owned());
-                decls.push(decl);
-            } else {
-                errs.push(ShellError::GenericError(
-                    format!("could not load `{}` from `std`.", search_name),
-                    String::new(),
-                    None,
-                    None,
-                    Vec::new(),
-                ));
-            }
-        }
-
-        if !errs.is_empty() {
-            report_error(
-                &working_set,
-                &ShellError::GenericError(
-                    "Unable to load the prelude of the standard library.".into(),
-                    String::new(),
-                    None,
-                    Some("this is a bug: please file an issue in the [issue tracker](https://github.com/nushell/nushell/issues/new/choose)".to_string()),
-                    errs,
-                ),
-            );
-        }
-
-        working_set.use_decls(decls);
+        load_prelude(&mut working_set, prelude, &module);
 
         working_set.add_module(&name, module, comments);
 
