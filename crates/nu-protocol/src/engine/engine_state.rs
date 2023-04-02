@@ -1775,11 +1775,7 @@ impl<'a> StateWorkingSet<'a> {
     }
 
     pub fn find_variable(&self, name: &[u8]) -> Option<VarId> {
-        let name = if name.starts_with(b"$") {
-            &name[1..]
-        } else {
-            name
-        };
+
 
         let mut removed_overlays = vec![];
 

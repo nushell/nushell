@@ -43,10 +43,16 @@ impl Completer for VariableCompletion {
         options: &CompletionOptions,
     ) -> Vec<Suggestion> {
         let mut output = vec![];
-        let builtins = ["$nu", "$in", "$env", "$nothing"];
-        let var_str = std::str::from_utf8(&self.var_context.0)
-            .unwrap_or("")
-            .to_lowercase();
+        let builtins = ["nu", "in", "env", "nothing"];
+        let var_str = {
+            let var = if self.var_context.0.starts_with(b"$") {
+                &self.var_context.0[1..]
+            } else {
+                &self.var_context.0
+            };
+
+            std::str::from_utf8(var).unwrap_or("").to_lowercase()
+        };
         let var_id = working_set.find_variable(&self.var_context.0);
         let current_span = reedline::Span {
             start: span.start - offset,
@@ -109,7 +115,7 @@ impl Completer for VariableCompletion {
             }
 
             // Completions for $nu.<tab>
-            if var_str.as_str() == "$nu" {
+            if var_str.as_str() == "nu" {
                 // Eval nu var
                 if let Ok(nuval) = eval_variable(
                     &self.engine_state,
