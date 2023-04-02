@@ -1775,8 +1775,6 @@ impl<'a> StateWorkingSet<'a> {
     }
 
     pub fn find_variable(&self, name: &[u8]) -> Option<VarId> {
-
-
         let mut removed_overlays = vec![];
 
         for scope_frame in self.delta.scope.iter().rev() {
