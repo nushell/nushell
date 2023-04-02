@@ -1,5 +1,8 @@
-use nu_protocol::engine::{EngineState, Stack, StateWorkingSet};
-use nu_protocol::{CliError, Range, ShellError, Span, Value};
+use nu_protocol::{
+    ast::RangeInclusion,
+    engine::{EngineState, Stack, StateWorkingSet},
+    CliError, Range, ShellError, Span, Value,
+};
 use std::path::PathBuf;
 
 pub fn report_error(
@@ -39,9 +42,7 @@ pub fn get_guaranteed_cwd(engine_state: &EngineState, stack: &Stack) -> PathBuf 
     })
 }
 
-pub fn process_range(
-    range: &Range,
-) -> Result<(isize, isize), fn(&str, Span) -> ShellError> {
+pub fn process_range(range: &Range) -> Result<(isize, isize), fn(&str, Span) -> ShellError> {
     let start = match &range.from {
         Value::Int { val, .. } => *val as isize,
         Value::Nothing { .. } => 0,
@@ -54,7 +55,15 @@ pub fn process_range(
     };
 
     let end = match &range.to {
-        Value::Int { val, .. } => *val as isize,
+        Value::Int { val, .. } => {
+            if matches!(range.inclusion, RangeInclusion::Inclusive) {
+*val as isize
+
+            } else {
+*val as isize - 1
+
+            }
+        },
         Value::Nothing { .. } => isize::max_value(),
         _ => {
             return Err(|msg, span| ShellError::TypeMismatch {
