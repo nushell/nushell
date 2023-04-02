@@ -531,7 +531,7 @@ impl Command for AnsiCommand {
     }
 
     fn usage(&self) -> &str {
-        "Output ANSI codes to change color."
+        "Output ANSI codes to change color and style of text."
     }
 
     fn extra_usage(&self) -> &str {
