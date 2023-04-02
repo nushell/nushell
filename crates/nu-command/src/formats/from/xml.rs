@@ -141,7 +141,6 @@ fn element_to_value(n: &roxmltree::Node, info: &ParsingInfo) -> Value {
 
     let content: Vec<Value> = n
         .children()
-        .into_iter()
         .filter_map(|node| from_node_to_value(&node, info))
         .collect();
     let content = Value::list(content, span);
