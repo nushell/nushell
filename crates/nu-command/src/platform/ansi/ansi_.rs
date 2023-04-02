@@ -608,7 +608,7 @@ Format: #
             },
             Example {
                 description: "Use ansi to color text with a style (blue on red in bold)",
-                example: r#"let format = {  # none of the following keys are mandatory, but any other key will be considered invalid
+                example: r#"let format = {  # `fg`, `bg`, `attr` are the acceptable keys, all other keys are considered invalid and will throw errors.
         fg: '#0000ff'
         bg: '#ff0000'
         attr: b
