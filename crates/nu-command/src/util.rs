@@ -1,5 +1,5 @@
 use nu_protocol::engine::{EngineState, Stack, StateWorkingSet};
-use nu_protocol::CliError;
+use nu_protocol::{CliError, Range, ShellError, Span, Value};
 use std::path::PathBuf;
 
 pub fn report_error(
@@ -37,4 +37,32 @@ pub fn get_guaranteed_cwd(engine_state: &EngineState, stack: &Stack) -> PathBuf 
         report_error(&working_set, &e);
         crate::util::get_init_cwd()
     })
+}
+
+pub fn process_range(
+    range: &Range,
+) -> Result<(isize, isize), fn(&str, Span) -> ShellError> {
+    let start = match &range.from {
+        Value::Int { val, .. } => *val as isize,
+        Value::Nothing { .. } => 0,
+        _ => {
+            return Err(|msg, span| ShellError::TypeMismatch {
+                err_message: msg.to_string(),
+                span,
+            })
+        }
+    };
+
+    let end = match &range.to {
+        Value::Int { val, .. } => *val as isize,
+        Value::Nothing { .. } => isize::max_value(),
+        _ => {
+            return Err(|msg, span| ShellError::TypeMismatch {
+                err_message: msg.to_string(),
+                span,
+            })
+        }
+    };
+
+    Ok((start, end))
 }
