@@ -107,20 +107,38 @@ pub fn hover(engine_state: &mut EngineState, file_path: &String, location: &Valu
         Some((Id::DeclId(decl_id), _)) => {
             let decl = working_set.get_decl(decl_id);
 
-            println!("{} [{}]", decl.name(), decl.signature());
-            println!("Usage: {}", decl.usage());
+            let mut description = format!("```\n### Signature\n```\n{}\n\n", decl.signature());
+
+            description.push_str(&format!("```\n### Usage\n  {}\n```\n", decl.usage()));
+
             if !decl.extra_usage().is_empty() {
-                println!("Extra usage: {}", decl.extra_usage());
+                description.push_str(&format!(
+                    "\n```\n### Extra usage:\n  {}\n```\n",
+                    decl.extra_usage()
+                ));
             }
-            for example in decl.examples() {
-                println!("Example: {:?}", example);
+
+            if !decl.examples().is_empty() {
+                description.push_str("\n```\n### Example(s)\n```\n");
+
+                for example in decl.examples() {
+                    description.push_str(&format!(
+                        "```\n  {}\n```\n  {}\n\n",
+                        example.description, example.example
+                    ));
+                }
             }
+
+            let description = description.replace('\n', "\\n");
+            let description = description.replace('\"', "\\\"");
+
+            println!("{{\"hover\": \"{}\"}}", description);
         }
         Some((Id::VarId(var_id), _)) => {
             let var = working_set.get_variable(var_id);
 
             println!(
-                "Variable type: {}{}",
+                "{{\"hover\": \"{}{}\"}}",
                 if var.mutable { "mutable" } else { "" },
                 var.ty
             );
@@ -147,7 +165,27 @@ pub fn complete(
 
     if let Ok(location) = location.as_i64() {
         let results = completer.complete(&String::from_utf8_lossy(&file), location as usize);
-        println!("{:?}", results);
+        // println!("{:?}", results);
+        print!("{{\"completions\": [");
+        let mut first = true;
+        for result in results {
+            if !first {
+                print!(", ")
+            } else {
+                first = false;
+            }
+            print!(
+                //"{{\"{}\": \"{}\"}}",
+                "\"{}\"",
+                result.value,
+                // if let Some(description) = result.description {
+                //     description
+                // } else {
+                //     "".into()
+                // }
+            )
+        }
+        println!("]}}");
     }
 
     "".into()

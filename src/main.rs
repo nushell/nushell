@@ -145,14 +145,10 @@ fn main() -> Result<()> {
 
         return Ok(());
     } else if let Some(ide_hover) = parsed_nu_cli_args.ide_hover {
-        println!("hover: {:?}", ide_hover);
-
         ide::hover(&mut engine_state, &script_name, &ide_hover);
 
         return Ok(());
     } else if let Some(ide_complete) = parsed_nu_cli_args.ide_complete {
-        println!("hover: {:?}", ide_complete);
-
         ide::complete(Arc::new(engine_state), &script_name, &ide_complete);
 
         return Ok(());
