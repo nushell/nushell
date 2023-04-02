@@ -95,9 +95,9 @@ impl Command for BytesAt {
             },
             Example {
                 description: "Get a subbytes `0x[10 01 13]` from the bytes `0x[33 44 55 10 01 13]`",
-                example: " 0x[33 44 55 10 01 13] | bytes at 3..4",
+                example: " 0x[33 44 55 10 01 13] | bytes at 3..6",
                 result: Some(Value::Binary {
-                    val: vec![0x10],
+                    val: vec![0x10, 0x01, 0x13],
                     span: Span::test_data(),
                 }),
             },
