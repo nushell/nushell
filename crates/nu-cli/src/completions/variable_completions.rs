@@ -53,7 +53,7 @@ impl Completer for VariableCompletion {
 
             std::str::from_utf8(var).unwrap_or("").to_lowercase()
         };
-        let var_id = working_set.find_variable(&self.var_context.0);
+        let var_id = working_set.find_variable(var_str.as_bytes());
         let current_span = reedline::Span {
             start: span.start - offset,
             end: span.end - offset,
@@ -63,7 +63,7 @@ impl Completer for VariableCompletion {
         // Completions for the given variable
         if !var_str.is_empty() {
             // Completion for $env.<tab>
-            if var_str.as_str() == "$env" {
+            if var_str.as_str() == "env" {
                 let env_vars = self.stack.get_env_vars(&self.engine_state);
 
                 // Return nested values
