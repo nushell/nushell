@@ -35,7 +35,7 @@ fn load_standard_library(
             report_error(&working_set, &err);
         }
 
-        let (block, parse_error) = parse(&mut working_set, Some(&name), content, false, &[]);
+        let (_, parse_error) = parse(&mut working_set, Some(&name), content, false, &[]);
 
         if let Some(err) = parse_error {
             report_error(&working_set, &err);
@@ -86,7 +86,6 @@ fn load_standard_library(
         working_set.use_decls(decls);
 
         working_set.add_module(&name, module, comments);
-        working_set.add_block(block);
 
         working_set.render()
     };
