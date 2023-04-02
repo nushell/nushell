@@ -566,7 +566,7 @@ impl Command for AnsiCommand {
             },
             Example {
                 description: "Use escape codes, without the '\\x1b['",
-                example: r#"$"(ansi -e '3;93;41m')Hello(ansi reset)  # italic bright yellow on red background"#,
+                example: r#"$"(ansi -e '3;93;41m')Hello(ansi reset)"  # italic bright yellow on red background"#,
                 result: Some(Value::test_string("\u{1b}[3;93;41mHello\u{1b}[0m")),
             },
             Example {
