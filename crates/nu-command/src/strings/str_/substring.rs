@@ -84,7 +84,9 @@ impl Command for SubCommand {
 
         let indexes = match util::process_range(&range) {
             Ok(idxs) => idxs.into(),
-            Err(processing_error) => return Err(processing_error("could not perform substring", call.head)),
+            Err(processing_error) => {
+                return Err(processing_error("could not perform substring", call.head))
+            }
         };
 
         let cell_paths: Vec<CellPath> = call.rest(engine_state, stack, 1)?;

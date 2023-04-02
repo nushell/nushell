@@ -42,7 +42,9 @@ pub fn get_guaranteed_cwd(engine_state: &EngineState, stack: &Stack) -> PathBuf 
     })
 }
 
-pub fn process_range(range: &Range) -> Result<(isize, isize), fn(&str, Span) -> ShellError> {
+type MakeRangeError = fn(&str, Span) -> ShellError;
+
+pub fn process_range(range: &Range) -> Result<(isize, isize), MakeRangeError> {
     let start = match &range.from {
         Value::Int { val, .. } => *val as isize,
         Value::Nothing { .. } => 0,
@@ -57,13 +59,11 @@ pub fn process_range(range: &Range) -> Result<(isize, isize), fn(&str, Span) -> 
     let end = match &range.to {
         Value::Int { val, .. } => {
             if matches!(range.inclusion, RangeInclusion::Inclusive) {
-*val as isize
-
+                *val as isize
             } else {
-*val as isize - 1
-
+                *val as isize - 1
             }
-        },
+        }
         Value::Nothing { .. } => isize::max_value(),
         _ => {
             return Err(|msg, span| ShellError::TypeMismatch {
