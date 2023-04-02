@@ -745,7 +745,7 @@ Format: #
                     "attr" => nu_style.attr = Some(v.as_string()?),
                     _ => {
                         return Err(ShellError::IncompatibleParametersSingle {
-                            msg: format!("problem with key: {k}"),
+                            msg: format!("unknown ANSI format key: expected one of ['fg', 'bg', 'attr'], found '{k}'"),
                             span: code.expect_span(),
                         })
                     }
