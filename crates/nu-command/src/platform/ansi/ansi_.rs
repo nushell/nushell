@@ -541,7 +541,7 @@ impl Command for AnsiCommand {
     fn examples(&self) -> Vec<Example> {
         vec![
             Example {
-                description: "Change color to green",
+                description: "Change color to green (see how the next example text will be green!)",
                 example: r#"ansi green"#,
                 result: Some(Value::test_string("\u{1b}[32m")),
             },
@@ -552,22 +552,23 @@ impl Command for AnsiCommand {
             },
             Example {
                 description:
-                    "Use ansi to color text (rb = red bold, gb = green bold, pb = purple bold)",
-                example: r#"$'(ansi rb)Hello (ansi gb)Nu (ansi pb)World(ansi reset)'"#,
+                    "Use different color and style in the same text",
+                example: r#"$'(ansi red_bold)Hello (ansi green_bold)Nu (ansi purple_bold)World(ansi reset)'"#,
                 result: Some(Value::test_string(
                     "\u{1b}[1;31mHello \u{1b}[1;32mNu \u{1b}[1;35mWorld\u{1b}[0m",
                 )),
             },
             Example {
-                description: "Use ansi to color text (italic bright yellow on red 'Hello' with green bold 'Nu' and purple bold 'World')",
-                example: r#"[(ansi -e '3;93;41m') Hello (ansi reset) " " (ansi gb) Nu " " (ansi pb) World (ansi reset)] | str join"#,
+                description: "Use escape codes, without the '\\x1b['",
+                example: r#"$"(ansi -e '3;93;41m') Hello (ansi reset)  # italic bright yellow on red background"#,
                 result: Some(Value::test_string(
-                    "\u{1b}[3;93;41mHello\u{1b}[0m \u{1b}[1;32mNu \u{1b}[1;35mWorld\u{1b}[0m",
+                    "\u{1b}[3;93;41mHello\u{1b}[0m",
                 )),
             },
             Example {
-                description: "Use ansi to color text with a style (blue on red in bold)",
-                example: r#"$"(ansi -e { fg: '#0000ff' bg: '#ff0000' attr: b })Hello Nu World(ansi reset)""#,
+                description: "Use structured escape codes",
+                example: r#"let bold_blue_on_red = { fg: '#0000ff' bg: '#ff0000' attr: b }
+    $"(ansi -e $bold_blue_on_red)Hello Nu World(ansi reset)""#,
                 result: Some(Value::test_string(
                     "\u{1b}[1;48;2;255;0;0;38;2;0;0;255mHello Nu World\u{1b}[0m",
                 )),
