@@ -5710,9 +5710,12 @@ pub fn parse_variable(
     working_set: &mut StateWorkingSet,
     span: Span,
 ) -> (Option<VarId>, Option<ParseError>) {
-    let bytes = working_set.get_span_contents(span);
+    let mut bytes = working_set.get_span_contents(span);
 
     if is_variable(bytes) {
+        if bytes.starts_with(b"$") {
+              bytes =  &bytes[1..]
+            } 
         if let Some(var_id) = working_set.find_variable(bytes) {
             let input = working_set.get_variable(var_id).ty.clone();
             working_set.type_scope.add_type(input);
