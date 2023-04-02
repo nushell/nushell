@@ -17,6 +17,11 @@ fn prelude_loaded() -> TestResult {
 }
 
 #[test]
+fn prelude_run() -> TestResult {
+    run_test("assert true; print 'it works'", "it works")
+}
+
+#[test]
 fn not_loaded() -> TestResult {
     fail_test("help log info", "")
 }
