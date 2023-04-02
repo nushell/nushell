@@ -552,10 +552,10 @@ impl Command for AnsiCommand {
             },
             Example {
                 description:
-                    "Use different color and style in the same text",
-                example: r#"$'(ansi red_bold)Hello (ansi green_bold)Nu (ansi purple_bold)World(ansi reset)'"#,
+                    "Use different colors and styles in the same text",
+                example: r#"$'(ansi red_bold)Hello(ansi reset) (ansi green_dimmed)Nu(ansi reset) (ansi purple_italic)World(ansi reset)'"#,
                 result: Some(Value::test_string(
-                    "\u{1b}[1;31mHello \u{1b}[1;32mNu \u{1b}[1;35mWorld\u{1b}[0m",
+                    "\u{1b}[1;31mHello\u{1b}[0m \u{1b}[2;32mNu\u{1b}[0m \u{1b}[3;35mWorld\u{1b}[0m",
                 )),
             },
             Example {
