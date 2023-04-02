@@ -35,7 +35,7 @@ fn load_standard_library(
             report_error(&working_set, &err);
         }
 
-        let (_, parse_error) = parse(&mut working_set, Some(&name), content, false, &[]);
+        let (_, parse_error) = parse(&mut working_set, Some(&name), content, true, &[]);
 
         if let Some(err) = parse_error {
             report_error(&working_set, &err);
