@@ -11,6 +11,10 @@ use nu_parser::{parse, parse_module_block};
 use nu_protocol::{engine::StateWorkingSet, PipelineData, ShellError, Span};
 use nu_utils::utils::perf;
 
+fn get_standard_library() -> &'static str {
+    include_str!("../crates/nu-utils/standard_library/std.nu")
+}
+
 fn load_standard_library(
     engine_state: &mut nu_protocol::engine::EngineState,
 ) -> Result<(), miette::ErrReport> {
@@ -283,10 +287,6 @@ pub(crate) fn run_file(
     );
 
     ret_val
-}
-
-fn get_standard_library() -> &'static str {
-    include_str!("../crates/nu-utils/standard_library/std.nu")
 }
 
 pub(crate) fn run_repl(
