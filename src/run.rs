@@ -7,7 +7,7 @@ use crate::{
 #[cfg(feature = "plugin")]
 use nu_cli::read_plugin_file;
 use nu_cli::{evaluate_commands, evaluate_file, evaluate_repl, report_error};
-use nu_parser::parse_module_block;
+use nu_parser::{parse, parse_module_block};
 use nu_protocol::{engine::StateWorkingSet, PipelineData, ShellError, Span};
 use nu_utils::utils::perf;
 
@@ -24,12 +24,18 @@ fn load_standard_library(
         working_set.add_file(name.clone(), content);
         let end = working_set.next_span_start();
 
-        let (block, module, comments, parse_error) = parse_module_block(
+        let (_, module, comments, parse_error) = parse_module_block(
             &mut working_set,
             Span::new(start, end),
             name.as_bytes(),
             &[],
         );
+
+        if let Some(err) = parse_error {
+            report_error(&working_set, &err);
+        }
+
+        let (block, parse_error) = parse(&mut working_set, Some(&name), content, false, &[]);
 
         if let Some(err) = parse_error {
             report_error(&working_set, &err);
