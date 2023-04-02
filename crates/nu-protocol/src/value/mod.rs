@@ -1208,7 +1208,7 @@ impl Value {
                     PathMember::String {
                         val: col_name,
                         span,
-                        ..
+                        optional,
                     } => match self {
                         Value::List { vals, .. } => {
                             for val in vals.iter_mut() {
@@ -1230,7 +1230,7 @@ impl Value {
                                                 true
                                             }
                                         });
-                                        if !found {
+                                        if !found && !optional {
                                             return Err(ShellError::CantFindColumn {
                                                 col_name: col_name.to_string(),
                                                 span: *span,
@@ -1262,7 +1262,7 @@ impl Value {
                                     found = true;
                                 }
                             }
-                            if !found {
+                            if !found && !optional {
                                 return Err(ShellError::CantFindColumn {
                                     col_name: col_name.to_string(),
                                     span: *span,
@@ -1278,11 +1278,15 @@ impl Value {
                         }),
                     },
                     PathMember::Int {
-                        val: row_num, span, ..
+                        val: row_num,
+                        span,
+                        optional,
                     } => match self {
                         Value::List { vals, .. } => {
                             if vals.get_mut(*row_num).is_some() {
                                 vals.remove(*row_num);
+                                Ok(())
+                            } else if *optional {
                                 Ok(())
                             } else if vals.is_empty() {
                                 Err(ShellError::AccessEmptyContent { span: *span })
@@ -1306,7 +1310,7 @@ impl Value {
                     PathMember::String {
                         val: col_name,
                         span,
-                        ..
+                        optional,
                     } => match self {
                         Value::List { vals, .. } => {
                             for val in vals.iter_mut() {
@@ -1323,7 +1327,7 @@ impl Value {
                                                 col.1.remove_data_at_cell_path(&cell_path[1..])?
                                             }
                                         }
-                                        if !found {
+                                        if !found && !optional {
                                             return Err(ShellError::CantFindColumn {
                                                 col_name: col_name.to_string(),
                                                 span: *span,
@@ -1356,7 +1360,7 @@ impl Value {
                                     col.1.remove_data_at_cell_path(&cell_path[1..])?
                                 }
                             }
-                            if !found {
+                            if !found && !optional {
                                 return Err(ShellError::CantFindColumn {
                                     col_name: col_name.to_string(),
                                     span: *span,
@@ -1372,11 +1376,15 @@ impl Value {
                         }),
                     },
                     PathMember::Int {
-                        val: row_num, span, ..
+                        val: row_num,
+                        span,
+                        optional,
                     } => match self {
                         Value::List { vals, .. } => {
                             if let Some(v) = vals.get_mut(*row_num) {
                                 v.remove_data_at_cell_path(&cell_path[1..])
+                            } else if *optional {
+                                Ok(())
                             } else if vals.is_empty() {
                                 Err(ShellError::AccessEmptyContent { span: *span })
                             } else {
