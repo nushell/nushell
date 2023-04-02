@@ -16,6 +16,7 @@ mod test_parser;
 mod test_ranges;
 mod test_regex;
 mod test_signatures;
+mod test_stdlib;
 mod test_strings;
 mod test_table_operations;
 mod test_type_check;
