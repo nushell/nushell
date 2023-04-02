@@ -509,7 +509,6 @@ impl Command for AnsiCommand {
         Signature::build("ansi")
             .input_output_types(vec![
                 (Type::Nothing, Type::String),
-                (Type::List(Box::new(Type::String)), Type::String),
             ])
             .optional(
                 "code",
