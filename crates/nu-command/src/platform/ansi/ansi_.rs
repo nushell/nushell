@@ -559,6 +559,13 @@ impl Command for AnsiCommand {
                 )),
             },
             Example {
+                description: "The same example as above with short names",
+                example: r#"$'(ansi rb)Hello(ansi reset) (ansi gd)Nu(ansi reset) (ansi pi)World(ansi reset)'"#,
+                result: Some(Value::test_string(
+                    "\u{1b}[1;31mHello\u{1b}[0m \u{1b}[2;32mNu\u{1b}[0m \u{1b}[3;35mWorld\u{1b}[0m",
+                )),
+            },
+            Example {
                 description: "Use escape codes, without the '\\x1b['",
                 example: r#"$"(ansi -e '3;93;41m')Hello(ansi reset)  # italic bright yellow on red background"#,
                 result: Some(Value::test_string(
