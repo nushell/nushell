@@ -1,5 +1,5 @@
-use crate::grapheme_flags;
 use crate::input_handler::{operate, CmdArgument};
+use crate::{grapheme_flags, util};
 use nu_engine::CallExt;
 use nu_protocol::ast::Call;
 use nu_protocol::ast::CellPath;
@@ -81,7 +81,14 @@ impl Command for SubCommand {
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
         let range: Range = call.req(engine_state, stack, 0)?;
-        let indexes: Substring = process_arguments(&range, call.head)?.into();
+
+        let indexes = match util::process_range(&range) {
+            Ok(idxs) => idxs.into(),
+            Err(processing_error) => {
+                return Err(processing_error("could not perform substring", call.head))
+            }
+        };
+
         let cell_paths: Vec<CellPath> = call.rest(engine_state, stack, 1)?;
         let cell_paths = (!cell_paths.is_empty()).then_some(cell_paths);
         let args = Arguments {
@@ -184,32 +191,6 @@ fn action(input: &Value, args: &Arguments, head: Span) -> Value {
             )),
         },
     }
-}
-
-fn process_arguments(range: &Range, head: Span) -> Result<(isize, isize), ShellError> {
-    let start = match &range.from {
-        Value::Int { val, .. } => *val as isize,
-        Value::Nothing { .. } => 0,
-        _ => {
-            return Err(ShellError::TypeMismatch {
-                err_message: "could not perform substring".to_string(),
-                span: head,
-            })
-        }
-    };
-
-    let end = match &range.to {
-        Value::Int { val, .. } => *val as isize,
-        Value::Nothing { .. } => isize::max_value(),
-        _ => {
-            return Err(ShellError::TypeMismatch {
-                err_message: "could not perform substring".to_string(),
-                span: head,
-            })
-        }
-    };
-
-    Ok((start, end))
 }
 
 #[cfg(test)]
