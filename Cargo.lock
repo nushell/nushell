@@ -3027,7 +3027,6 @@ dependencies = [
 name = "nu-table"
 version = "0.77.2"
 dependencies = [
- "atty",
  "json_to_table",
  "nu-ansi-term",
  "nu-color-config",
