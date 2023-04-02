@@ -276,7 +276,7 @@ impl Command for Cp {
                 })?;
 
                 // Only create the progress bar if the `progress` flag is set
-                let mut overall_pb = if progress {
+                let overall_pb = if progress {
                     Some(progress_bar::NuProgressBar::new(
                         progress_bar::ProgressType::ProgressItems,
                         Some(sources.len() as u64),
@@ -298,7 +298,7 @@ impl Command for Cp {
                         n_file += 1;
                         opb.clone().update_bar(n_file);
                     }
-                    
+
                     // Check if the user has pressed ctrl+c before copying a file
                     if nu_utils::ctrl_c::was_pressed(&ctrlc) {
                         return Ok(PipelineData::empty());
