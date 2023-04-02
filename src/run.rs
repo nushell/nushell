@@ -77,7 +77,7 @@ fn load_standard_library(
                     "Unable to load the prelude of the standard library.".into(),
                     String::new(),
                     None,
-                    Some("this is a bug: please file an issue at <issue_tracker_url>".to_string()),
+                    Some("this is a bug: please file an issue in the [issue tracker](https://github.com/nushell/nushell/issues/new/choose)".to_string()),
                     errs,
                 ),
             );
