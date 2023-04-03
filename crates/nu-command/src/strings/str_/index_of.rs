@@ -1,18 +1,18 @@
-use crate::grapheme_flags;
 use crate::input_handler::{operate, CmdArgument};
+use crate::{grapheme_flags, util};
 use nu_engine::CallExt;
-use nu_protocol::ast::Call;
-use nu_protocol::ast::CellPath;
-use nu_protocol::engine::{Command, EngineState, Stack};
-use nu_protocol::Category;
-use nu_protocol::Spanned;
-use nu_protocol::{Example, PipelineData, ShellError, Signature, Span, SyntaxShape, Type, Value};
+use nu_protocol::{
+    ast::{Call, CellPath},
+    engine::{Command, EngineState, Stack},
+    Category, Example, PipelineData, Range, ShellError, Signature, Span, Spanned, SyntaxShape,
+    Type, Value,
+};
 use unicode_segmentation::UnicodeSegmentation;
 
 struct Arguments {
     end: bool,
     substring: String,
-    range: Option<Value>,
+    range: Option<Range>,
     cell_paths: Option<Vec<CellPath>>,
     graphemes: bool,
 }
@@ -56,7 +56,7 @@ impl Command for SubCommand {
             )
             .named(
                 "range",
-                SyntaxShape::Any,
+                SyntaxShape::Range,
                 "optional start and/or end index",
                 Some('r'),
             )
@@ -105,23 +105,18 @@ impl Command for SubCommand {
                 result: Some(Value::test_int(4)),
             },
             Example {
-                description: "Returns index of string in input with start index",
-                example: " '.rb.rb' | str index-of '.rb' -r '1,'",
+                description: "Returns index of string in input with `rhs open range`",
+                example: " '.rb.rb' | str index-of '.rb' -r 1..",
                 result: Some(Value::test_int(3)),
             },
             Example {
-                description: "Returns index of string in input with end index",
-                example: " '123456' | str index-of '6' -r ',4'",
+                description: "Returns index of string in input with a lhs open range",
+                example: " '123456' | str index-of '6' -r ..4",
                 result: Some(Value::test_int(-1)),
             },
             Example {
-                description: "Returns index of string in input with start and end index",
-                example: " '123456' | str index-of '3' -r '1,4'",
-                result: Some(Value::test_int(2)),
-            },
-            Example {
-                description: "Alternatively you can use this form",
-                example: " '123456' | str index-of '3' -r [1 4]",
+                description: "Returns index of string in input with a range",
+                example: " '123456' | str index-of '3' -r 1..4",
                 result: Some(Value::test_int(2)),
             },
             Example {
@@ -144,18 +139,29 @@ fn action(
     }: &Arguments,
     head: Span,
 ) -> Value {
-    let range = match range {
-        Some(range) => range.clone(),
-        None => Value::string("", head),
-    };
-
-    let r = process_range(input, &range, head);
-
     match input {
         Value::String { val: s, .. } => {
-            let (start_index, end_index) = match r {
-                Ok(r) => (r.0 as usize, r.1 as usize),
-                Err(e) => return Value::Error { error: Box::new(e) },
+            let (start_index, end_index) = if let Some(range) = range {
+                match util::process_range(range) {
+                    Ok(r) => {
+                        // `process_range()` returns `isize::MAX` if the range is open-ended,
+                        // which is not ideal for us
+                        let end = if r.1 as usize > s.len() {
+                            s.len()
+                        } else {
+                            r.1 as usize
+                        };
+                        (r.0 as usize, end)
+                    }
+                    Err(processing_error) => {
+                        let err = processing_error("could not find `index-of`", head);
+                        return Value::Error {
+                            error: Box::new(err),
+                        };
+                    }
+                }
+            } else {
+                (0usize, s.len())
             };
 
             // When the -e flag is present, search using rfind instead of find.s
@@ -196,73 +202,10 @@ fn action(
     }
 }
 
-fn process_range(
-    input: &Value,
-    range: &Value,
-    head: Span,
-) -> Result<IndexOfOptionalBounds, ShellError> {
-    let input_len = match input {
-        Value::String { val: s, .. } => s.len(),
-        _ => 0,
-    };
-    let min_index_str = String::from("0");
-    let max_index_str = input_len.to_string();
-    let r = match range {
-        Value::String { val: s, .. } => {
-            let indexes: Vec<&str> = s.split(',').collect();
-
-            let start_index = indexes.first().unwrap_or(&&min_index_str[..]).to_string();
-
-            let end_index = indexes.get(1).unwrap_or(&&max_index_str[..]).to_string();
-
-            Ok((start_index, end_index))
-        }
-        Value::List { vals, .. } => {
-            if vals.len() > 2 {
-                Err(ShellError::TypeMismatch {
-                    err_message: String::from("there shouldn't be more than two indexes"),
-                    span: head,
-                })
-            } else {
-                let idx: Vec<String> = vals
-                    .iter()
-                    .map(|v| v.as_string().unwrap_or_else(|_| String::from("")))
-                    .collect();
-
-                let start_index = idx.get(0).unwrap_or(&min_index_str).to_string();
-                let end_index = idx.get(1).unwrap_or(&max_index_str).to_string();
-
-                Ok((start_index, end_index))
-            }
-        }
-        Value::Error { error } => Err(*error.clone()),
-        _ => Err(ShellError::OnlySupportsThisInputType {
-            exp_input_type: "string".into(),
-            wrong_type: input.get_type().to_string(),
-            dst_span: head,
-            src_span: input.expect_span(),
-        }),
-    }?;
-
-    let start_index = r.0.parse::<i32>().unwrap_or(0);
-    let end_index = r.1.parse::<i32>().unwrap_or(input_len as i32);
-
-    if start_index < 0 || start_index > end_index {
-        return Err(ShellError::TypeMismatch {
-            err_message: String::from("start index can't be negative or greater than end index"),
-            span: head,
-        });
-    }
-
-    if end_index < 0 || end_index < start_index || end_index > input_len as i32 {
-        return Err(ShellError::TypeMismatch { err_message: String::from(
-            "end index can't be negative, smaller than start index or greater than input length"), span: head });
-    }
-    Ok(IndexOfOptionalBounds(start_index, end_index))
-}
-
 #[cfg(test)]
 mod tests {
+    use nu_protocol::ast::RangeInclusion;
+
     use super::*;
     use super::{action, Arguments, SubCommand};
 
@@ -279,11 +222,7 @@ mod tests {
 
         let options = Arguments {
             substring: String::from(".tomL"),
-
-            range: Some(Value::String {
-                val: String::from(""),
-                span: Span::test_data(),
-            }),
+            range: None,
             cell_paths: None,
             end: false,
             graphemes: false,
@@ -300,10 +239,7 @@ mod tests {
         let options = Arguments {
             substring: String::from("Lm"),
 
-            range: Some(Value::String {
-                val: String::from(""),
-                span: Span::test_data(),
-            }),
+            range: None,
             cell_paths: None,
             end: false,
             graphemes: false,
@@ -317,14 +253,25 @@ mod tests {
     #[test]
     fn returns_index_of_next_substring() {
         let word = Value::test_string("Cargo.Cargo");
+        let range = Range {
+            from: Value::Int {
+                val: 1,
+                span: Span::test_data(),
+            },
+            incr: Value::Int {
+                val: 1,
+                span: Span::test_data(),
+            },
+            to: Value::Nothing {
+                span: Span::test_data(),
+            },
+            inclusion: RangeInclusion::Inclusive,
+        };
 
         let options = Arguments {
             substring: String::from("Cargo"),
 
-            range: Some(Value::String {
-                val: String::from("1"),
-                span: Span::test_data(),
-            }),
+            range: Some(range),
             cell_paths: None,
             end: false,
             graphemes: false,
@@ -337,14 +284,25 @@ mod tests {
     #[test]
     fn index_does_not_exist_due_to_end_index() {
         let word = Value::test_string("Cargo.Banana");
+        let range = Range {
+            from: Value::Nothing {
+                span: Span::test_data(),
+            },
+            inclusion: RangeInclusion::Inclusive,
+            incr: Value::Int {
+                val: 1,
+                span: Span::test_data(),
+            },
+            to: Value::Int {
+                val: 5,
+                span: Span::test_data(),
+            },
+        };
 
         let options = Arguments {
             substring: String::from("Banana"),
 
-            range: Some(Value::String {
-                val: String::from(",5"),
-                span: Span::test_data(),
-            }),
+            range: Some(range),
             cell_paths: None,
             end: false,
             graphemes: false,
@@ -357,14 +315,26 @@ mod tests {
     #[test]
     fn returns_index_of_nums_in_middle_due_to_index_limit_from_both_ends() {
         let word = Value::test_string("123123123");
+        let range = Range {
+            from: Value::Int {
+                val: 2,
+                span: Span::test_data(),
+            },
+            incr: Value::Int {
+                val: 1,
+                span: Span::test_data(),
+            },
+            to: Value::Int {
+                val: 6,
+                span: Span::test_data(),
+            },
+            inclusion: RangeInclusion::Inclusive,
+        };
 
         let options = Arguments {
             substring: String::from("123"),
 
-            range: Some(Value::String {
-                val: String::from("2,6"),
-                span: Span::test_data(),
-            }),
+            range: Some(range),
             cell_paths: None,
             end: false,
             graphemes: false,
@@ -377,14 +347,26 @@ mod tests {
     #[test]
     fn index_does_not_exists_due_to_strict_bounds() {
         let word = Value::test_string("123456");
+        let range = Range {
+            from: Value::Int {
+                val: 2,
+                span: Span::test_data(),
+            },
+            incr: Value::Int {
+                val: 1,
+                span: Span::test_data(),
+            },
+            to: Value::Int {
+                val: 5,
+                span: Span::test_data(),
+            },
+            inclusion: RangeInclusion::RightExclusive,
+        };
 
         let options = Arguments {
             substring: String::from("1"),
 
-            range: Some(Value::String {
-                val: String::from("2,4"),
-                span: Span::test_data(),
-            }),
+            range: Some(range),
             cell_paths: None,
             end: false,
             graphemes: false,
