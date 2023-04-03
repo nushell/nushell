@@ -532,7 +532,8 @@ impl Command for AnsiCommand {
     }
 
     fn extra_usage(&self) -> &str {
-        ""
+        "An introduction to what ANSI escape sequences are can be found in the
+[*ANSI escape code*](https://en.wikipedia.org/wiki/ANSI_escape_code) Wikipedia page."
     }
 
     fn examples(&self) -> Vec<Example> {
