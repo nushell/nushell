@@ -73,6 +73,26 @@ fn read_in_file<'a>(
     (file, working_set)
 }
 
+pub fn check(engine_state: &mut EngineState, file_path: &String) {
+    let mut working_set = StateWorkingSet::new(engine_state);
+    let file = std::fs::read(file_path);
+
+    if let Ok(contents) = file {
+        let offset = working_set.next_span_start();
+        let (_, err) = parse(&mut working_set, Some(file_path), &contents, false, &[]);
+
+        if let Some(err) = err {
+            let mut span = err.span();
+            span.start -= offset;
+            span.end -= offset;
+
+            let msg = err.to_string();
+
+            println!("{{\"type\": \"diagnostic\", \"severity\": \"Error\", \"message\": \"{}\", \"span\": {{\"start\": {}, \"end\": {}}}}}", msg, span.start, span.end);
+        }
+    }
+}
+
 pub fn goto_def(engine_state: &mut EngineState, file_path: &String, location: &Value) {
     let (file, mut working_set) = read_in_file(engine_state, file_path);
 

@@ -101,6 +101,7 @@ pub(crate) fn parse_commandline_args(
             let ide_hover: Option<Value> = call.get_flag(engine_state, &mut stack, "ide-hover")?;
             let ide_complete: Option<Value> =
                 call.get_flag(engine_state, &mut stack, "ide-complete")?;
+            let ide_check = call.get_named_arg("ide-check");
             let login_shell = call.get_named_arg("login");
             let interactive_shell = call.get_named_arg("interactive");
             let commands: Option<Expression> = call.get_flag_expr("commands");
@@ -189,6 +190,7 @@ pub(crate) fn parse_commandline_args(
                 ide_goto_def,
                 ide_hover,
                 ide_complete,
+                ide_check,
                 table_mode,
             });
         }
@@ -220,10 +222,11 @@ pub(crate) struct NushellCliArgs {
     pub(crate) log_level: Option<Spanned<String>>,
     pub(crate) log_target: Option<Spanned<String>>,
     pub(crate) execute: Option<Spanned<String>>,
+    pub(crate) table_mode: Option<Value>,
     pub(crate) ide_goto_def: Option<Value>,
     pub(crate) ide_hover: Option<Value>,
     pub(crate) ide_complete: Option<Value>,
-    pub(crate) table_mode: Option<Value>,
+    pub(crate) ide_check: Option<Spanned<String>>,
 }
 
 #[derive(Clone)]
@@ -297,6 +300,11 @@ impl Command for Nu {
                 "ide-complete",
                 SyntaxShape::Int,
                 "list completions for the item at the given position",
+                None,
+            )
+            .switch(
+                "ide-check",
+                "run a diagnostic check on the given source",
                 None,
             );
 

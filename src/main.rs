@@ -150,6 +150,10 @@ fn main() -> Result<()> {
         ide::complete(Arc::new(engine_state), &script_name, &ide_complete);
 
         return Ok(());
+    } else if parsed_nu_cli_args.ide_check.is_some() {
+        ide::check(&mut engine_state, &script_name);
+
+        return Ok(());
     }
 
     start_time = std::time::Instant::now();
