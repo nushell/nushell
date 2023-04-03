@@ -10,8 +10,9 @@ use nu_protocol::{
 use reedline::Completer;
 
 enum Id {
-    VarId(VarId),
-    DeclId(DeclId),
+    Variable(VarId),
+    Declaration(DeclId),
+    Value(FlatShape),
 }
 
 fn find_id(
@@ -19,7 +20,7 @@ fn find_id(
     file_path: &str,
     file: &[u8],
     location: &Value,
-) -> Option<(Id, usize)> {
+) -> Option<(Id, usize, Span)> {
     let offset = working_set.next_span_start();
     let (block, _) = parse(working_set, Some(file_path), file, false, &[]);
 
@@ -31,14 +32,12 @@ fn find_id(
             if location >= item.0.start && location < item.0.end {
                 match &item.1 {
                     FlatShape::Variable(var_id) | FlatShape::VarDecl(var_id) => {
-                        return Some((Id::VarId(*var_id), offset));
+                        return Some((Id::Variable(*var_id), offset, item.0));
                     }
                     FlatShape::InternalCall(decl_id) => {
-                        return Some((Id::DeclId(*decl_id), offset));
+                        return Some((Id::Declaration(*decl_id), offset, item.0));
                     }
-                    _ => {
-                        break;
-                    }
+                    _ => return Some((Id::Value(item.1), offset, item.0)),
                 }
             }
         }
@@ -106,7 +105,7 @@ pub fn goto_def(engine_state: &mut EngineState, file_path: &String, location: &V
     let (file, mut working_set) = read_in_file(engine_state, file_path);
 
     match find_id(&mut working_set, file_path, &file, location) {
-        Some((Id::DeclId(decl_id), offset)) => {
+        Some((Id::Declaration(decl_id), offset, _)) => {
             let result = working_set.get_decl(decl_id);
             if let Some(block_id) = result.get_block_id() {
                 let block = working_set.get_block(block_id);
@@ -125,7 +124,7 @@ pub fn goto_def(engine_state: &mut EngineState, file_path: &String, location: &V
                 }
             }
         }
-        Some((Id::VarId(var_id), offset)) => {
+        Some((Id::Variable(var_id), offset, _)) => {
             let var = working_set.get_variable(var_id);
             for file in working_set.files() {
                 if var.declaration_span.start >= file.1 && var.declaration_span.start < file.2 {
@@ -149,7 +148,7 @@ pub fn hover(engine_state: &mut EngineState, file_path: &String, location: &Valu
     let (file, mut working_set) = read_in_file(engine_state, file_path);
 
     match find_id(&mut working_set, file_path, &file, location) {
-        Some((Id::DeclId(decl_id), _)) => {
+        Some((Id::Declaration(decl_id), offset, span)) => {
             let decl = working_set.get_decl(decl_id);
 
             let mut description = format!("```\n### Signature\n```\n{}\n\n", decl.signature());
@@ -177,17 +176,132 @@ pub fn hover(engine_state: &mut EngineState, file_path: &String, location: &Valu
             let description = description.replace('\n', "\\n");
             let description = description.replace('\"', "\\\"");
 
-            println!("{{\"hover\": \"{}\"}}", description);
+            println!(
+                "{{\"hover\": \"{}\", \"span\": {{\"start\": {}, \"end\": {} }} }}",
+                description,
+                span.start - offset,
+                span.end - offset
+            );
         }
-        Some((Id::VarId(var_id), _)) => {
+        Some((Id::Variable(var_id), offset, span)) => {
             let var = working_set.get_variable(var_id);
 
             println!(
-                "{{\"hover\": \"{}{}\"}}",
+                "{{\"hover\": \"{}{}\", \"span\": {{\"start\": {}, \"end\": {} }} }}",
                 if var.mutable { "mutable" } else { "" },
-                var.ty
+                var.ty,
+                span.start - offset,
+                span.end - offset
             );
         }
+        Some((Id::Value(shape), offset, span)) => match shape {
+            FlatShape::Binary => println!(
+                "{{\"hover\": \"binary\", \"span\": {{\"start\": {}, \"end\": {} }}}}",
+                span.start - offset,
+                span.end - offset
+            ),
+            FlatShape::Bool => println!(
+                "{{\"hover\": \"bool\", \"span\": {{\"start\": {}, \"end\": {} }}}}",
+                span.start - offset,
+                span.end - offset
+            ),
+            FlatShape::DateTime => println!(
+                "{{\"hover\": \"datetime\", \"span\": {{\"start\": {}, \"end\": {} }}}}",
+                span.start - offset,
+                span.end - offset
+            ),
+            FlatShape::External => println!(
+                "{{\"hover\": \"external\", \"span\": {{\"start\": {}, \"end\": {} }}}}",
+                span.start - offset,
+                span.end - offset
+            ),
+            FlatShape::ExternalArg => println!(
+                "{{\"hover\": \"external arg\", \"span\": {{\"start\": {}, \"end\": {} }}}}",
+                span.start - offset,
+                span.end - offset
+            ),
+            FlatShape::Flag => println!(
+                "{{\"hover\": \"flag\", \"span\": {{\"start\": {}, \"end\": {} }}}}",
+                span.start - offset,
+                span.end - offset
+            ),
+            FlatShape::Block => println!(
+                "{{\"hover\": \"block\", \"span\": {{\"start\": {}, \"end\": {} }}}}",
+                span.start - offset,
+                span.end - offset
+            ),
+            FlatShape::Directory => println!(
+                "{{\"hover\": \"directory\", \"span\": {{\"start\": {}, \"end\": {} }}}}",
+                span.start - offset,
+                span.end - offset
+            ),
+            FlatShape::Filepath => println!(
+                "{{\"hover\": \"file path\", \"span\": {{\"start\": {}, \"end\": {} }}}}",
+                span.start - offset,
+                span.end - offset
+            ),
+            FlatShape::Float => println!(
+                "{{\"hover\": \"float\", \"span\": {{\"start\": {}, \"end\": {} }}}}",
+                span.start - offset,
+                span.end - offset
+            ),
+            FlatShape::GlobPattern => println!(
+                "{{\"hover\": \"glob pattern\", \"span\": {{\"start\": {}, \"end\": {} }}}}",
+                span.start - offset,
+                span.end - offset
+            ),
+            FlatShape::Int => println!(
+                "{{\"hover\": \"int\", \"span\": {{\"start\": {}, \"end\": {} }}}}",
+                span.start - offset,
+                span.end - offset
+            ),
+            FlatShape::Keyword => println!(
+                "{{\"hover\": \"keyword\", \"span\": {{\"start\": {}, \"end\": {} }}}}",
+                span.start - offset,
+                span.end - offset
+            ),
+            FlatShape::List => println!(
+                "{{\"hover\": \"list\", \"span\": {{\"start\": {}, \"end\": {} }}}}",
+                span.start - offset,
+                span.end - offset
+            ),
+            FlatShape::MatchPattern => println!(
+                "{{\"hover\": \"pattern\", \"span\": {{\"start\": {}, \"end\": {} }}}}",
+                span.start - offset,
+                span.end - offset
+            ),
+            FlatShape::Nothing => println!(
+                "{{\"hover\": \"nothing\", \"span\": {{\"start\": {}, \"end\": {} }}}}",
+                span.start - offset,
+                span.end - offset
+            ),
+            FlatShape::Range => println!(
+                "{{\"hover\": \"range\", \"span\": {{\"start\": {}, \"end\": {} }}}}",
+                span.start - offset,
+                span.end - offset
+            ),
+            FlatShape::Record => println!(
+                "{{\"hover\": \"record\", \"span\": {{\"start\": {}, \"end\": {} }}}}",
+                span.start - offset,
+                span.end - offset
+            ),
+            FlatShape::String => println!(
+                "{{\"hover\": \"string\", \"span\": {{\"start\": {}, \"end\": {} }}}}",
+                span.start - offset,
+                span.end - offset
+            ),
+            FlatShape::StringInterpolation => println!(
+                "{{\"hover\": \"string\", \"span\": {{\"start\": {}, \"end\": {} }}}}",
+                span.start - offset,
+                span.end - offset
+            ),
+            FlatShape::Table => println!(
+                "{{\"hover\": \"table\", \"span\": {{\"start\": {}, \"end\": {} }}}}",
+                span.start - offset,
+                span.end - offset
+            ),
+            _ => {}
+        },
         _ => {}
     }
 }
