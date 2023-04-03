@@ -2703,6 +2703,7 @@ dependencies = [
  "rayon",
  "reedline",
  "rstest",
+ "serde_json",
  "serial_test",
  "signal-hook",
  "simplelog",

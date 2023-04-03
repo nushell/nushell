@@ -1,5 +1,3 @@
-use std::sync::Arc;
-
 use miette::IntoDiagnostic;
 use nu_cli::{report_error, NuCompleter};
 use nu_parser::{flatten_block, parse, FlatShape};
@@ -8,6 +6,8 @@ use nu_protocol::{
     DeclId, ShellError, Span, Value, VarId,
 };
 use reedline::Completer;
+use serde_json::json;
+use std::sync::Arc;
 
 enum Id {
     Variable(VarId),
@@ -87,7 +87,18 @@ pub fn check(engine_state: &mut EngineState, file_path: &String) {
 
             let msg = err.to_string();
 
-            println!("{{\"type\": \"diagnostic\", \"severity\": \"Error\", \"message\": \"{}\", \"span\": {{\"start\": {}, \"end\": {}}}}}", msg, span.start, span.end);
+            println!(
+                "{}",
+                json!({
+                    "type": "diagnostic",
+                    "severity": "Error",
+                    "message": msg,
+                    "span": {
+                        "start": span.start,
+                        "end": span.end
+                    }
+                })
+            );
         }
 
         let flattened = flatten_block(&working_set, &block);
@@ -95,7 +106,17 @@ pub fn check(engine_state: &mut EngineState, file_path: &String) {
         for flat in flattened {
             if let FlatShape::VarDecl(var_id) = flat.1 {
                 let var = working_set.get_variable(var_id);
-                println!("{{\"type\": \"hint\", \"typename\": \"{}\", \"position\": {{\"start\": {}, \"end\": {}}}}}", var.ty, flat.0.start - offset, flat.0.end - offset);
+                println!(
+                    "{}",
+                    json!({
+                        "type": "hint",
+                        "typename": var.ty,
+                        "position": {
+                            "start": flat.0.start - offset,
+                            "end": flat.0.end - offset
+                        }
+                    })
+                );
             }
         }
     }
@@ -113,10 +134,14 @@ pub fn goto_def(engine_state: &mut EngineState, file_path: &String, location: &V
                     for file in working_set.files() {
                         if span.start >= file.1 && span.start < file.2 {
                             println!(
-                                "{{\"file\": \"{}\", \"start\": {}, \"end\": {}}}",
-                                file.0,
-                                span.start - offset,
-                                span.end - offset
+                                "{}",
+                                json!(
+                                    {
+                                        "file": file.0,
+                                        "start": span.start - offset,
+                                        "end": span.end - offset
+                                    }
+                                )
                             );
                             return;
                         }
@@ -129,10 +154,14 @@ pub fn goto_def(engine_state: &mut EngineState, file_path: &String, location: &V
             for file in working_set.files() {
                 if var.declaration_span.start >= file.1 && var.declaration_span.start < file.2 {
                     println!(
-                        "{{\"file\": \"{}\", \"start\": {}, \"end\": {}}}",
-                        file.0,
-                        var.declaration_span.start - offset,
-                        var.declaration_span.end - offset
+                        "{}",
+                        json!(
+                            {
+                                "file": file.0,
+                                "start": var.declaration_span.start - offset,
+                                "end": var.declaration_span.end - offset
+                            }
+                        )
                     );
                     return;
                 }
@@ -173,132 +202,241 @@ pub fn hover(engine_state: &mut EngineState, file_path: &String, location: &Valu
                 }
             }
 
-            let description = description.replace('\n', "\\n");
-            let description = description.replace('\"', "\\\"");
-
             println!(
-                "{{\"hover\": \"{}\", \"span\": {{\"start\": {}, \"end\": {} }} }}",
-                description,
-                span.start - offset,
-                span.end - offset
+                "{}",
+                json!({
+                    "hover": description,
+                    "span": {
+                        "start": span.start - offset,
+                        "end": span.end - offset
+                    }
+                })
             );
         }
         Some((Id::Variable(var_id), offset, span)) => {
             let var = working_set.get_variable(var_id);
 
             println!(
-                "{{\"hover\": \"{}{}\", \"span\": {{\"start\": {}, \"end\": {} }} }}",
-                if var.mutable { "mutable" } else { "" },
-                var.ty,
-                span.start - offset,
-                span.end - offset
+                "{}",
+                json!({
+                    "hover": format!("{}{}", if var.mutable { "mutable " } else { "" }, var.ty),
+                    "span": {
+                        "start": span.start - offset,
+                        "end": span.end - offset
+                    }
+                })
             );
         }
         Some((Id::Value(shape), offset, span)) => match shape {
             FlatShape::Binary => println!(
-                "{{\"hover\": \"binary\", \"span\": {{\"start\": {}, \"end\": {} }}}}",
-                span.start - offset,
-                span.end - offset
+                "{}",
+                json!({
+                    "hover": "binary",
+                    "span": {
+                        "start": span.start - offset,
+                        "end": span.end - offset
+                    }
+                })
             ),
             FlatShape::Bool => println!(
-                "{{\"hover\": \"bool\", \"span\": {{\"start\": {}, \"end\": {} }}}}",
-                span.start - offset,
-                span.end - offset
+                "{}",
+                json!({
+                    "hover": "bool",
+                    "span": {
+                        "start": span.start - offset,
+                        "end": span.end - offset
+                    }
+                })
             ),
             FlatShape::DateTime => println!(
-                "{{\"hover\": \"datetime\", \"span\": {{\"start\": {}, \"end\": {} }}}}",
-                span.start - offset,
-                span.end - offset
+                "{}",
+                json!({
+                    "hover": "datetime",
+                    "span": {
+                        "start": span.start - offset,
+                        "end": span.end - offset
+                    }
+                })
             ),
             FlatShape::External => println!(
-                "{{\"hover\": \"external\", \"span\": {{\"start\": {}, \"end\": {} }}}}",
-                span.start - offset,
-                span.end - offset
+                "{}",
+                json!({
+                    "hover": "external",
+                    "span": {
+                        "start": span.start - offset,
+                        "end": span.end - offset
+                    }
+                })
             ),
             FlatShape::ExternalArg => println!(
-                "{{\"hover\": \"external arg\", \"span\": {{\"start\": {}, \"end\": {} }}}}",
-                span.start - offset,
-                span.end - offset
+                "{}",
+                json!({
+                    "hover": "external arg",
+                    "span": {
+                        "start": span.start - offset,
+                        "end": span.end - offset
+                    }
+                })
             ),
             FlatShape::Flag => println!(
-                "{{\"hover\": \"flag\", \"span\": {{\"start\": {}, \"end\": {} }}}}",
-                span.start - offset,
-                span.end - offset
+                "{}",
+                json!({
+                    "hover": "flag",
+                    "span": {
+                        "start": span.start - offset,
+                        "end": span.end - offset
+                    }
+                })
             ),
             FlatShape::Block => println!(
-                "{{\"hover\": \"block\", \"span\": {{\"start\": {}, \"end\": {} }}}}",
-                span.start - offset,
-                span.end - offset
+                "{}",
+                json!({
+                    "hover": "block",
+                    "span": {
+                        "start": span.start - offset,
+                        "end": span.end - offset
+                    }
+                })
             ),
             FlatShape::Directory => println!(
-                "{{\"hover\": \"directory\", \"span\": {{\"start\": {}, \"end\": {} }}}}",
-                span.start - offset,
-                span.end - offset
+                "{}",
+                json!({
+                    "hover": "directory",
+                    "span": {
+                        "start": span.start - offset,
+                        "end": span.end - offset
+                    }
+                })
             ),
             FlatShape::Filepath => println!(
-                "{{\"hover\": \"file path\", \"span\": {{\"start\": {}, \"end\": {} }}}}",
-                span.start - offset,
-                span.end - offset
+                "{}",
+                json!({
+                    "hover": "file path",
+                    "span": {
+                        "start": span.start - offset,
+                        "end": span.end - offset
+                    }
+                })
             ),
             FlatShape::Float => println!(
-                "{{\"hover\": \"float\", \"span\": {{\"start\": {}, \"end\": {} }}}}",
-                span.start - offset,
-                span.end - offset
+                "{}",
+                json!({
+                    "hover": "float",
+                    "span": {
+                        "start": span.start - offset,
+                        "end": span.end - offset
+                    }
+                })
             ),
             FlatShape::GlobPattern => println!(
-                "{{\"hover\": \"glob pattern\", \"span\": {{\"start\": {}, \"end\": {} }}}}",
-                span.start - offset,
-                span.end - offset
+                "{}",
+                json!({
+                    "hover": "glob pattern",
+                    "span": {
+                        "start": span.start - offset,
+                        "end": span.end - offset
+                    }
+                })
             ),
             FlatShape::Int => println!(
-                "{{\"hover\": \"int\", \"span\": {{\"start\": {}, \"end\": {} }}}}",
-                span.start - offset,
-                span.end - offset
+                "{}",
+                json!({
+                    "hover": "int",
+                    "span": {
+                        "start": span.start - offset,
+                        "end": span.end - offset
+                    }
+                })
             ),
             FlatShape::Keyword => println!(
-                "{{\"hover\": \"keyword\", \"span\": {{\"start\": {}, \"end\": {} }}}}",
-                span.start - offset,
-                span.end - offset
+                "{}",
+                json!({
+                    "hover": "keyword",
+                    "span": {
+                        "start": span.start - offset,
+                        "end": span.end - offset
+                    }
+                })
             ),
             FlatShape::List => println!(
-                "{{\"hover\": \"list\", \"span\": {{\"start\": {}, \"end\": {} }}}}",
-                span.start - offset,
-                span.end - offset
+                "{}",
+                json!({
+                    "hover": "list",
+                    "span": {
+                        "start": span.start - offset,
+                        "end": span.end - offset
+                    }
+                })
             ),
             FlatShape::MatchPattern => println!(
-                "{{\"hover\": \"pattern\", \"span\": {{\"start\": {}, \"end\": {} }}}}",
-                span.start - offset,
-                span.end - offset
+                "{}",
+                json!({
+                    "hover": "match pattern",
+                    "span": {
+                        "start": span.start - offset,
+                        "end": span.end - offset
+                    }
+                })
             ),
             FlatShape::Nothing => println!(
-                "{{\"hover\": \"nothing\", \"span\": {{\"start\": {}, \"end\": {} }}}}",
-                span.start - offset,
-                span.end - offset
+                "{}",
+                json!({
+                    "hover": "nothing",
+                    "span": {
+                        "start": span.start - offset,
+                        "end": span.end - offset
+                    }
+                })
             ),
             FlatShape::Range => println!(
-                "{{\"hover\": \"range\", \"span\": {{\"start\": {}, \"end\": {} }}}}",
-                span.start - offset,
-                span.end - offset
+                "{}",
+                json!({
+                    "hover": "range",
+                    "span": {
+                        "start": span.start - offset,
+                        "end": span.end - offset
+                    }
+                })
             ),
             FlatShape::Record => println!(
-                "{{\"hover\": \"record\", \"span\": {{\"start\": {}, \"end\": {} }}}}",
-                span.start - offset,
-                span.end - offset
+                "{}",
+                json!({
+                    "hover": "record",
+                    "span": {
+                        "start": span.start - offset,
+                        "end": span.end - offset
+                    }
+                })
             ),
             FlatShape::String => println!(
-                "{{\"hover\": \"string\", \"span\": {{\"start\": {}, \"end\": {} }}}}",
-                span.start - offset,
-                span.end - offset
+                "{}",
+                json!({
+                    "hover": "string",
+                    "span": {
+                        "start": span.start - offset,
+                        "end": span.end - offset
+                    }
+                })
             ),
             FlatShape::StringInterpolation => println!(
-                "{{\"hover\": \"string\", \"span\": {{\"start\": {}, \"end\": {} }}}}",
-                span.start - offset,
-                span.end - offset
+                "{}",
+                json!({
+                    "hover": "string interpolation",
+                    "span": {
+                        "start": span.start - offset,
+                        "end": span.end - offset
+                    }
+                })
             ),
             FlatShape::Table => println!(
-                "{{\"hover\": \"table\", \"span\": {{\"start\": {}, \"end\": {} }}}}",
-                span.start - offset,
-                span.end - offset
+                "{}",
+                json!({
+                    "hover": "table",
+                    "span": {
+                        "start": span.start - offset,
+                        "end": span.end - offset
+                    }
+                })
             ),
             _ => {}
         },
