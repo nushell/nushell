@@ -515,12 +515,12 @@ impl Command for AnsiCommand {
             )
             .switch(
                 "escape", // \x1b[
-                "escape sequence without the escape character(s)",
+                r#"escape sequence without the escape character(s) ('\x1b[' is not required)"#,
                 Some('e'),
             )
             .switch(
                 "osc", // \x1b]
-                "operating system command (ocs) escape sequence without the escape character(s)",
+                r#"operating system command (osc) escape sequence without the escape character(s) ('\x1b]' is not required)"#,
                 Some('o'),
             )
             .switch("list", "list available ansi code names", Some('l'))
