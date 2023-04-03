@@ -118,7 +118,9 @@ impl Highlighter for NuHighlighter {
                 FlatShape::Filepath => add_colored_token(&shape.1, next_token),
                 FlatShape::Directory => add_colored_token(&shape.1, next_token),
                 FlatShape::GlobPattern => add_colored_token(&shape.1, next_token),
-                FlatShape::Variable(_) => add_colored_token(&shape.1, next_token),
+                FlatShape::Variable(_) | FlatShape::VarDecl(_) => {
+                    add_colored_token(&shape.1, next_token)
+                }
                 FlatShape::Flag => add_colored_token(&shape.1, next_token),
                 FlatShape::Pipe => add_colored_token(&shape.1, next_token),
                 FlatShape::And => add_colored_token(&shape.1, next_token),

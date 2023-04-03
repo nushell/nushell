@@ -30,7 +30,7 @@ fn find_id(
         for item in flattened {
             if location >= item.0.start && location < item.0.end {
                 match &item.1 {
-                    FlatShape::Variable(var_id) => {
+                    FlatShape::Variable(var_id) | FlatShape::VarDecl(var_id) => {
                         return Some((Id::VarId(*var_id), offset));
                     }
                     FlatShape::InternalCall(decl_id) => {
@@ -79,7 +79,7 @@ pub fn check(engine_state: &mut EngineState, file_path: &String) {
 
     if let Ok(contents) = file {
         let offset = working_set.next_span_start();
-        let (_, err) = parse(&mut working_set, Some(file_path), &contents, false, &[]);
+        let (block, err) = parse(&mut working_set, Some(file_path), &contents, false, &[]);
 
         if let Some(err) = err {
             let mut span = err.span();
@@ -89,6 +89,15 @@ pub fn check(engine_state: &mut EngineState, file_path: &String) {
             let msg = err.to_string();
 
             println!("{{\"type\": \"diagnostic\", \"severity\": \"Error\", \"message\": \"{}\", \"span\": {{\"start\": {}, \"end\": {}}}}}", msg, span.start, span.end);
+        }
+
+        let flattened = flatten_block(&working_set, &block);
+
+        for flat in flattened {
+            if let FlatShape::VarDecl(var_id) = flat.1 {
+                let var = working_set.get_variable(var_id);
+                println!("{{\"type\": \"hint\", \"typename\": \"{}\", \"position\": {{\"start\": {}, \"end\": {}}}}}", var.ty, flat.0.start - offset, flat.0.end - offset);
+            }
         }
     }
 }

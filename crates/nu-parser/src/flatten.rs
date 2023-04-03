@@ -40,6 +40,7 @@ pub enum FlatShape {
     StringInterpolation,
     Table,
     Variable(VarId),
+    VarDecl(VarId),
 }
 
 impl Display for FlatShape {
@@ -77,6 +78,7 @@ impl Display for FlatShape {
             FlatShape::StringInterpolation => write!(f, "shape_string_interpolation"),
             FlatShape::Table => write!(f, "shape_table"),
             FlatShape::Variable(_) => write!(f, "shape_variable"),
+            FlatShape::VarDecl(_) => write!(f, "shape_vardecl"),
         }
     }
 }
@@ -449,8 +451,11 @@ pub fn flatten_expression(
 
             output
         }
-        Expr::Var(var_id) | Expr::VarDecl(var_id) => {
+        Expr::Var(var_id) => {
             vec![(expr.span, FlatShape::Variable(*var_id))]
+        }
+        Expr::VarDecl(var_id) => {
+            vec![(expr.span, FlatShape::VarDecl(*var_id))]
         }
     }
 }
@@ -562,10 +567,10 @@ pub fn flatten_pattern(match_pattern: &MatchPattern) -> Vec<(Span, FlatShape)> {
             output.push((match_pattern.span, FlatShape::MatchPattern));
         }
         Pattern::Variable(var_id) => {
-            output.push((match_pattern.span, FlatShape::Variable(*var_id)));
+            output.push((match_pattern.span, FlatShape::VarDecl(*var_id)));
         }
         Pattern::Rest(var_id) => {
-            output.push((match_pattern.span, FlatShape::Variable(*var_id)));
+            output.push((match_pattern.span, FlatShape::VarDecl(*var_id)));
         }
         Pattern::Or(patterns) => {
             for pattern in patterns {
