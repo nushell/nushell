@@ -48,7 +48,6 @@ impl Command for StrJoin {
         // Hmm, not sure what we actually want. If you don't use debug_string, Date comes out as human readable
         // which feels funny
         let mut strings: Vec<String> = vec![];
-        println!("input in str join command: {:?}", input);
 
         for value in input {
             match value {
