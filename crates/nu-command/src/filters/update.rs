@@ -2,8 +2,8 @@ use nu_engine::{eval_block, CallExt};
 use nu_protocol::ast::{Call, CellPath, PathMember};
 use nu_protocol::engine::{Closure, Command, EngineState, Stack};
 use nu_protocol::{
-    Category, Example, FromValue, IntoInterruptiblePipelineData, PipelineData, ShellError,
-    Signature, Span, SyntaxShape, Type, Value,
+    Category, Example, FromValue, IntoInterruptiblePipelineData, IntoPipelineData, PipelineData,
+    ShellError, Signature, Span, SyntaxShape, Type, Value,
 };
 
 #[derive(Clone)]
@@ -75,6 +75,11 @@ impl Command for Update {
                 example: "[[project, authors]; ['nu', ['Andrés', 'JT', 'Yehuda']]] | update authors {|row| $row.authors | str join ','}",
                 result: Some(Value::List { vals: vec![Value::Record { cols: vec!["project".into(), "authors".into()], vals: vec![Value::test_string("nu"), Value::test_string("Andrés,JT,Yehuda")], span: Span::test_data()}], span: Span::test_data()}),
             },
+            Example {
+                description: "Use `$in` to update 'authors' to use a single string",
+                example: "[[project, authors]; ['nu', ['Andrés', 'JT', 'Yehuda']]] | update authors {|| $in | str join ','}",
+                result: Some(Value::List { vals: vec![Value::Record { cols: vec!["project".into(), "authors".into()], vals: vec![Value::test_string("nu"), Value::test_string("Andrés,JT,Yehuda")], span: Span::test_data()}], span: Span::test_data()}),
+            }
         ]
     }
 }
@@ -118,14 +123,16 @@ fn update(
                     }
                 }
 
+                let input_at_path = match input.clone().follow_cell_path(&cell_path.members, false)
+                {
+                    Err(e) => return Value::Error { error: Box::new(e) },
+                    Ok(v) => v,
+                };
                 let output = eval_block(
                     &engine_state,
                     &mut stack,
                     &block,
-                    input
-                        .clone()
-                        .follow_cell_path(&cell_path.members, false)
-                        .into_pipeline_data(None),
+                    input_at_path.into_pipeline_data(),
                     redirect_stdout,
                     redirect_stderr,
                 );
