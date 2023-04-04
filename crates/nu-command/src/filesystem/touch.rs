@@ -75,7 +75,7 @@ impl Command for Touch {
         let rest: Vec<String> = call.rest(engine_state, stack, 1)?;
 
         let mut date: Option<DateTime<Local>> = None;
-        let mut ref_date_atime: Option<DateTime<Local>> = None;e make_docs.nu script in the repo root. so, this change will get overwritten by whatever the command generates.
+        let mut ref_date_atime: Option<DateTime<Local>> = None;
 
         // Change both times if none is specified
         if !change_mtime && !change_atime {
