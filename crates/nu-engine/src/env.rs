@@ -272,7 +272,7 @@ pub fn find_in_dirs_env(
         current_dir_str(engine_state, stack)?
     };
 
-    Ok((|| -> Option<PathBuf> {
+    let check_dir = |lib_dirs: Option<Value>| -> Option<PathBuf> {
         if let Ok(p) = canonicalize_with(filename, &cwd) {
             return Some(p);
         }
@@ -281,12 +281,7 @@ pub fn find_in_dirs_env(
             return None;
         }
 
-        let lib_dirs = dirs_var.and_then(|dirs_var| engine_state.find_constant(dirs_var, &[]));
-        // TODO: remove (see #8310)
-        let lib_dirs_fallback = stack.get_env_var(engine_state, "NU_LIB_DIRS");
-        let lib_dirs = lib_dirs.or(lib_dirs_fallback.as_ref())?;
-
-        lib_dirs
+        lib_dirs?
             .as_list()
             .ok()?
             .iter()
@@ -297,7 +292,15 @@ pub fn find_in_dirs_env(
             })
             .find(Option::is_some)
             .flatten()
-    })())
+    };
+
+    let lib_dirs = dirs_var
+        .and_then(|dirs_var| engine_state.find_constant(dirs_var, &[]))
+        .cloned();
+    // TODO: remove (see #8310)
+    let lib_dirs_fallback = stack.get_env_var(engine_state, "NU_LIB_DIRS");
+
+    Ok(check_dir(lib_dirs).or_else(|| check_dir(lib_dirs_fallback)))
 }
 
 fn get_converted_value(

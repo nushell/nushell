@@ -3892,9 +3892,6 @@ pub fn find_in_dirs(
         }
     }
 
-    if find_dirs_var(working_set, dirs_var_name).is_some() {
-        find_in_dirs_with_id(filename, working_set, cwd, dirs_var_name)
-    } else {
-        find_in_dirs_old(filename, working_set, cwd, dirs_var_name)
-    }
+    find_in_dirs_with_id(filename, working_set, cwd, dirs_var_name)
+        .or_else(|| find_in_dirs_old(filename, working_set, cwd, dirs_var_name))
 }
