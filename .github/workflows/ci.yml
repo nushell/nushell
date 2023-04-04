@@ -116,7 +116,7 @@ jobs:
         run: cargo install --path . --locked --no-default-features
 
       - name: System dependencies
-        run: apt install -y xclip
+        run: sudo apt install -y xclip
 
       - name: Standard library tests
         run: nu crates/nu-utils/standard_library/tests.nu
