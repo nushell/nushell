@@ -75,7 +75,7 @@ impl Command for Touch {
         let rest: Vec<String> = call.rest(engine_state, stack, 1)?;
 
         let mut date: Option<DateTime<Local>> = None;
-        let mut ref_date_atime: Option<DateTime<Local>> = None;
+        let mut ref_date_atime: Option<DateTime<Local>> = None;e make_docs.nu script in the repo root. so, this change will get overwritten by whatever the command generates.
 
         // Change both times if none is specified
         if !change_mtime && !change_atime {
@@ -213,21 +213,21 @@ impl Command for Touch {
                 example: "touch -m fixture.json",
                 result: None,
             },
-            Example {
-                description: "Changes the last modified time of files a, b and c to a date",
-                example: r#"touch -m -d "yesterday" a b c"#,
-                result: None,
-            },
+            // Example {
+            //     description: "Changes the last modified time of files a, b and c to a date",
+            //     example: r#"touch -m -d "yesterday" a b c"#,
+            //     result: None,
+            // },
             Example {
                 description: r#"Changes the last modified time of file d and e to "fixture.json"'s last modified time"#,
                 example: r#"touch -m -r fixture.json d e"#,
                 result: None,
             },
-            Example {
-                description: r#"Changes the last accessed time of "fixture.json" to a date"#,
-                example: r#"touch -a -d "August 24, 2019; 12:30:30" fixture.json"#,
-                result: None,
-            },
+            // Example {
+            //     description: r#"Changes the last accessed time of "fixture.json" to a date"#,
+            //     example: r#"touch -a -d "August 24, 2019; 12:30:30" fixture.json"#,
+            //     result: None,
+            // },
         ]
     }
 }
