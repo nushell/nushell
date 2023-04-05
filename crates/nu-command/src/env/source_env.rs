@@ -1,6 +1,8 @@
 use std::path::PathBuf;
 
-use nu_engine::{eval_block_with_early_return, find_in_dirs_env, redirect_env, CallExt};
+use nu_engine::{
+    eval_block_with_early_return, find_in_dirs_env, get_dirs_var_from_call, redirect_env, CallExt,
+};
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
@@ -42,12 +44,15 @@ impl Command for SourceEnv {
 
         // Note: this hidden positional is the block_id that corresponded to the 0th position
         // it is put here by the parser
-        let block_id: i64 = call.req_parser_info(engine_state, caller_stack, 0)?;
+        let block_id: i64 = call.req_parser_info(engine_state, caller_stack, "block_id")?;
 
         // Set the currently evaluated directory (file-relative PWD)
-        let mut parent = if let Some(path) =
-            find_in_dirs_env(&source_filename.item, engine_state, caller_stack)?
-        {
+        let mut parent = if let Some(path) = find_in_dirs_env(
+            &source_filename.item,
+            engine_state,
+            caller_stack,
+            get_dirs_var_from_call(call),
+        )? {
             PathBuf::from(&path)
         } else {
             return Err(ShellError::FileNotFound(source_filename.span));
