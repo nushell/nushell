@@ -302,6 +302,11 @@ impl ProcessInfo {
         self.pid
     }
 
+    /// Parent PID of process
+    pub fn ppid(&self) -> i32 {
+        self.ppid
+    }
+
     /// Name of command
     pub fn name(&self) -> String {
         if let Some(path) = &self.curr_path {
