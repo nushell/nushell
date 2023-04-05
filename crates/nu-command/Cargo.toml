@@ -147,7 +147,7 @@ version = "0.27.2"
 
 [target.'cfg(windows)'.dependencies.windows]
 features = ["Win32_Foundation", "Win32_Storage_FileSystem", "Win32_System_SystemServices"]
-version = "0.46.0"
+version = "0.48.0"
 
 [features]
 dataframe = ["num", "polars", "sqlparser"]
