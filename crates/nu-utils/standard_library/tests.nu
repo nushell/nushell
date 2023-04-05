@@ -80,6 +80,7 @@ def main [
         | flatten
         | rename file module name
     )
+
     let tests_to_run = (if not ($command | is-empty) {
         $tests | where name == $command
     } else if not ($module | is-empty) {
