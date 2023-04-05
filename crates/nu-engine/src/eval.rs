@@ -560,7 +560,10 @@ pub fn eval_expression(
                 let pos = cols.iter().position(|c| c == &col_name);
                 match pos {
                     Some(index) => {
-                        vals[index] = eval_expression(engine_state, stack, val)?;
+                        return Err(ShellError::ColumnDefinedTwice {
+                            second_use: col.span,
+                            first_use: fields[index].0.span,
+                        })
                     }
                     None => {
                         cols.push(col_name);

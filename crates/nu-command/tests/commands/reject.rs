@@ -85,7 +85,7 @@ fn reject_record_from_raw_eval() {
     let actual = nu!(
         cwd: ".", pipeline(
             r#"
-            {"a": 3, "a": 4} | reject a | describe
+            {"a": 3} | reject a | describe
             "#
         )
     );
@@ -98,7 +98,7 @@ fn reject_table_from_raw_eval() {
     let actual = nu!(
         cwd: ".", pipeline(
             r#"
-            [{"a": 3, "a": 4}] | reject a
+            [{"a": 3}] | reject a
             "#
         )
     );
