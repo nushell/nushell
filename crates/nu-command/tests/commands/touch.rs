@@ -122,3 +122,42 @@ fn not_create_file_if_it_not_exists() {
         assert!(!path.exists());
     })
 }
+
+#[test]
+fn creates_file_three_dots() {
+    Playground::setup("create_test_1", |dirs, _sandbox| {
+        nu!(
+            cwd: dirs.test(),
+            "touch file..."
+        );
+
+        let path = dirs.test().join("file...");
+        assert!(path.exists());
+    })
+}
+
+#[test]
+fn creates_file_four_dots() {
+    Playground::setup("create_test_1", |dirs, _sandbox| {
+        nu!(
+            cwd: dirs.test(),
+            "touch file...."
+        );
+
+        let path = dirs.test().join("file....");
+        assert!(path.exists());
+    })
+}
+
+#[test]
+fn creates_file_four_dots_quotation_marks() {
+    Playground::setup("create_test_1", |dirs, _sandbox| {
+        nu!(
+            cwd: dirs.test(),
+            "touch 'file....'"
+        );
+
+        let path = dirs.test().join("file....");
+        assert!(path.exists());
+    })
+}
