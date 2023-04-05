@@ -131,6 +131,11 @@ impl Command for Find {
                     span: Span::test_data(),
                 }),
             },
+            Example {
+                description: "Remove ANSI sequences from result",
+                example: "[[foo bar]; [abc 123] [def 456]] | find 123 | get bar | ansi strip",
+                result: None,
+            },
         ]
     }
 

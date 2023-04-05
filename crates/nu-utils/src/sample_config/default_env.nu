@@ -1,4 +1,6 @@
 # Nushell Environment Config File
+#
+# version = 0.78.1
 
 def create_left_prompt [] {
     mut home = ""
@@ -26,10 +28,18 @@ def create_left_prompt [] {
 
 def create_right_prompt [] {
     let time_segment = ([
+        (ansi reset)
+        (ansi magenta)
         (date now | date format '%m/%d/%Y %r')
     ] | str join)
 
-    $time_segment
+    let last_exit_code = if ($env.LAST_EXIT_CODE != 0) {([
+        (ansi rb)
+        ($env.LAST_EXIT_CODE)
+    ] | str join)
+    } else { "" }
+
+    ([$last_exit_code, (char space), $time_segment] | str join)
 }
 
 # Use nushell functions to define your right and left prompt

@@ -1,4 +1,6 @@
 # Nushell Config File
+#
+# version = 0.78.1
 
 # For more information on defining custom themes, see
 # https://www.nushell.sh/book/coloring_and_theming.html
@@ -84,6 +86,7 @@ let dark_theme = {
     shape_string_interpolation: cyan_bold
     shape_table: blue_bold
     shape_variable: purple
+    shape_vardecl: purple
 }
 
 let light_theme = {
@@ -166,6 +169,7 @@ let light_theme = {
     shape_string_interpolation: cyan_bold
     shape_table: blue_bold
     shape_variable: purple
+    shape_vardecl: purple
 }
 
 # External completer example

@@ -21,6 +21,7 @@ pub fn default_shape_color(shape: String) -> Style {
         "shape_globpattern" => Style::new().fg(Color::Cyan).bold(),
         "shape_int" => Style::new().fg(Color::Purple).bold(),
         "shape_internalcall" => Style::new().fg(Color::Cyan).bold(),
+        "shape_keyword" => Style::new().fg(Color::Cyan).bold(),
         "shape_list" => Style::new().fg(Color::Cyan).bold(),
         "shape_literal" => Style::new().fg(Color::Blue),
         "shape_match_pattern" => Style::new().fg(Color::Green),
@@ -36,6 +37,7 @@ pub fn default_shape_color(shape: String) -> Style {
         "shape_string_interpolation" => Style::new().fg(Color::Cyan).bold(),
         "shape_table" => Style::new().fg(Color::Blue).bold(),
         "shape_variable" => Style::new().fg(Color::Purple),
+        "shape_vardecl" => Style::new().fg(Color::Purple),
         _ => Style::default(),
     }
 }

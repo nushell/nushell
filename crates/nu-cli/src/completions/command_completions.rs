@@ -169,7 +169,7 @@ impl Completer for CommandCompletion {
             .take_while(|x| {
                 matches!(
                     x.1,
-                    FlatShape::InternalCall
+                    FlatShape::InternalCall(_)
                         | FlatShape::External
                         | FlatShape::ExternalArg
                         | FlatShape::Literal
@@ -197,7 +197,7 @@ impl Completer for CommandCompletion {
 
         let config = working_set.get_config();
         let commands = if matches!(self.flat_shape, nu_parser::FlatShape::External)
-            || matches!(self.flat_shape, nu_parser::FlatShape::InternalCall)
+            || matches!(self.flat_shape, nu_parser::FlatShape::InternalCall(_))
             || ((span.end - span.start) == 0)
             || is_passthrough_command(working_set.delta.get_file_contents())
         {

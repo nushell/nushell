@@ -222,6 +222,7 @@ Please submit an issue or PR to be added to this list.
 -   [oh-my-posh](https://ohmyposh.dev)
 -   [Couchbase Shell](https://couchbase.sh)
 -   [virtualenv](https://github.com/pypa/virtualenv)
+-   [atuin](https://github.com/ellie/atuin)
 
 ## Contributing
 

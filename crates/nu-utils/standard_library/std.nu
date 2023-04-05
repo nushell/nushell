@@ -384,3 +384,319 @@ export def "log debug" [message: string] {
 
     print --stderr $"(ansi default_dimmed)DBG|(now)|($message)(ansi reset)"
 }
+
+# Utility functions to read, change and create XML data in format supported
+# by `to xml` and `from xml` commands
+
+# Get all xml entries matching simple xpath-inspired query
+export def xaccess [
+    path: list # List of steps. Each step can be a
+               # 1. String with tag name. Finds all children with specified name. Equivalent to `child::A` in xpath
+               # 2. `*` string. Get all children without any filter. Equivalent to `descendant` in xpath
+               # 3. Int. Select n-th among nodes selected by previous path. Equivalent to `(...)[1]` in xpath, but is indexed from 0.
+               # 4. Closure. Predicate accepting entry. Selects all entries among nodes selected by previous path for which predicate returns true. 
+] {
+    let input = $in
+    if ($path | is-empty) {
+        let path_span = (metadata $path).span
+        error make {msg: 'Empty path provided'
+                    label: {text: 'Use a non-empty  list of path steps'
+                            start: $path_span.start end: $path_span.end}}
+    }
+    # In xpath first element in path is applied to root element
+    # this way it is possible to apply first step to root element
+    # of nu xml without unrolling one step of loop
+    mut values = ()
+    $values = {content: [ { content: $input } ] }
+    for $step in ($path) {
+        match ($step | describe) {
+            'string' => {
+                if $step == '*' {
+                    $values = ($values.content | flatten)
+                } else {
+                    $values = ($values.content | flatten | where tag == $step)
+                }
+            },
+            'int' => {
+                $values = [ ($values | get $step) ]
+            },
+            'closure' => {
+                $values = ($values | where {|x| do $step $x})
+            },
+            $type => {
+                let step_span = (metadata $step).span
+                error make {msg: $'Incorrect path step type ($type)'
+                        label: {text: 'Use a string or int as a step'
+                                start: $step_span.start end: $step_span.end}}
+            }
+        }
+
+        if ($values | is-empty) {
+            return []
+        }
+    }
+    $values
+}
+
+def xupdate-string-step [ step: string rest: list updater: closure ] {
+    let input = $in
+
+    # Get a list of elements to be updated and their indices
+    let to_update = ($input.content | enumerate | filter {|it|
+        let item = $it.item
+        $step == '*' or $item.tag == $step
+    })
+
+    if ($to_update | is-empty) {
+        return $input
+    }
+
+    let new_values = ($to_update.item | xupdate-internal $rest $updater)
+
+    mut reenumerated_new_values = ($to_update.index | zip $new_values | each {|x| {index: $x.0 item: $x.1}})
+
+    mut new_content = []
+    for it in ($input.content | enumerate) {
+        let item = $it.item
+        let idx = $it.index
+
+        let next = (if (not ($reenumerated_new_values | is-empty)) and $idx == $reenumerated_new_values.0.index {
+            let tmp = $reenumerated_new_values.0
+            $reenumerated_new_values = ($reenumerated_new_values | skip 1)
+            $tmp.item
+        } else {
+            $item
+        })
+
+        $new_content = ($new_content | append $next)
+    }
+
+    {tag: $input.tag attributes: $input.attributes content: $new_content}
+}
+
+def xupdate-int-step [ step: int rest: list updater: closure ] {
+    $in | enumerate | each {|it|
+        let item = $it.item
+        let idx = $it.index
+
+        if $idx == $step {
+            [ $item ] | xupdate-internal $rest $updater | get 0
+        } else {
+            $item
+        }
+    }
+}
+
+def xupdate-closure-step [ step: closure rest: list updater: closure ] {
+    $in | each {|it|
+        if (do $step $it) {
+            [ $it ] | xupdate-internal $rest $updater | get 0
+        } else {
+            $it
+        }
+    }
+}
+
+def xupdate-internal [ path: list updater: closure ] {
+    let input = $in
+
+    if ($path | is-empty) {
+        $input | each $updater
+    } else {
+        let step = $path.0
+        let rest = ($path | skip 1)
+
+        match ($step | describe) {
+            'string' => {
+                $input | each {|x| $x | xupdate-string-step $step $rest $updater}
+            },
+            'int' => {
+                $input | xupdate-int-step $step $rest $updater
+            },
+            'closure' => {
+                $input | xupdate-closure-step $step $rest $updater
+            },
+            $type => {
+                let step_span = (metadata $step).span
+                error make {msg: $'Incorrect path step type ($type)'
+                        label: {text: 'Use a string or int as a step'
+                                start: $step_span.start end: $step_span.end}}
+            }
+        }
+    }
+
+}
+
+# Update xml data entries matching simple xpath-inspired query
+export def xupdate [
+    path: list  # List of steps. Each step can be a
+                # 1. String with tag name. Finds all children with specified name. Equivalent to `child::A` in xpath
+                # 2. `*` string. Get all children without any filter. Equivalent to `descendant` in xpath
+                # 3. Int. Select n-th among nodes selected by previous path. Equivalent to `(...)[1]` in xpath, but is indexed from 0.
+                # 4. Closure. Predicate accepting entry. Selects all entries among nodes selected by previous path for which predicate returns true. 
+    updater: closure # A closure used to transform entries matching path.
+] {
+    {tag:? attributes:? content: [$in]} | xupdate-internal $path $updater | get content.0
+}
+
+# Get type of an xml entry
+#
+# Possible types are 'tag', 'text', 'pi' and 'comment'
+export def xtype [] {
+    let input = $in
+    if (($input | describe) == 'string' or 
+        ($input.tag? == null and $input.attributes? == null and ($input.content? | describe) == 'string')) {
+        'text'
+    } else if $input.tag? == '!' {
+        'comment'
+    } else if $input.tag? != null and ($input.tag? | str starts-with '?') {
+        'pi'
+    } else if $input.tag? != null {
+        'tag'
+    } else {
+        error make {msg: 'Not an xml emtry. Check valid types of xml entries via `help to xml`'}
+    }
+}
+
+# Insert new entry to elements matching simple xpath-inspired query
+export def xinsert [
+    path: list  # List of steps. Each step can be a
+                # 1. String with tag name. Finds all children with specified name. Equivalent to `child::A` in xpath
+                # 2. `*` string. Get all children without any filter. Equivalent to `descendant` in xpath
+                # 3. Int. Select n-th among nodes selected by previous path. Equivalent to `(...)[1]` in xpath, but is indexed from 0.
+                # 4. Closure. Predicate accepting entry. Selects all entries among nodes selected by previous path for which predicate returns true. 
+    new_entry: record # A new entry to insert into `content` field of record at specified position
+    position?: int  # Position to insert `new_entry` into. If specified inserts entry at given position (or end if
+                    # position is greater than number of elements) in content of all entries of input matched by 
+                    # path. If not specified inserts at the end.
+] {
+    $in | xupdate $path {|entry|
+        match ($entry | xtype) {
+            'tag' => {
+                let new_content = if $position == null {
+                    $entry.content | append $new_entry
+                } else {
+                    let position = if $position > ($entry.content | length) {
+                        $entry.content | length
+                    } else {
+                        $position
+                    }
+                    $entry.content | insert $position $new_entry
+                }
+
+                
+                {tag: $entry.tag attributes: $entry.attributes content: $new_content}
+            },
+            _ => (error make {msg: 'Can insert entry only into content of a tag node'})
+        }
+    }
+}
+                            
+# print a command name as dimmed and italic
+def pretty-command [] {
+    let command = $in
+    return $"(ansi default_dimmed)(ansi default_italic)($command)(ansi reset)"
+}
+
+# give a hint error when the clip command is not available on the system
+def check-clipboard [
+    clipboard: string  # the clipboard command name
+    --system: string  # some information about the system running, for better error
+] {
+    if (which $clipboard | is-empty) {
+        error make --unspanned {
+            msg: $"(ansi red)clipboard_not_found(ansi reset):
+    you are running ($system)
+    but
+    the ($clipboard | pretty-command) clipboard command was not found on your system."
+        }
+    }
+}
+
+# put the end of a pipe into the system clipboard.
+#
+# Dependencies:
+#   - xclip on linux x11
+#   - wl-copy on linux wayland
+#   - clip.exe on windows
+#
+# Examples:
+#     put a simple string to the clipboard, will be stripped to remove ANSI sequences
+#     >_ "my wonderful string" | clip
+#     my wonderful string
+#     saved to clipboard (stripped)
+#
+#     put a whole table to the clipboard
+#     >_ ls *.toml | clip
+#     ╭───┬─────────────────────┬──────┬────────┬───────────────╮
+#     │ # │        name         │ type │  size  │   modified    │
+#     ├───┼─────────────────────┼──────┼────────┼───────────────┤
+#     │ 0 │ Cargo.toml          │ file │ 5.0 KB │ 3 minutes ago │
+#     │ 1 │ Cross.toml          │ file │  363 B │ 2 weeks ago   │
+#     │ 2 │ rust-toolchain.toml │ file │ 1.1 KB │ 2 weeks ago   │
+#     ╰───┴─────────────────────┴──────┴────────┴───────────────╯
+#
+#     saved to clipboard
+#
+#     put huge structured data in the clipboard, but silently
+#     >_ open Cargo.toml --raw | from toml | clip --silent
+#
+#     when the clipboard system command is not installed
+#     >_ "mm this is fishy..." | clip
+#     Error:
+#       × clipboard_not_found:
+#       │     you are using xorg on linux
+#       │     but
+#       │     the xclip clipboard command was not found on your system.
+export def clip [
+    --silent: bool  # do not print the content of the clipboard to the standard output
+    --no-notify: bool  # do not throw a notification (only on linux)
+] {
+    let input = $in
+    let input = if ($input | describe) == "string" {
+        $input | ansi strip
+    } else { $input }
+
+    match $nu.os-info.name {
+        "linux" => {
+            if ($env.WAYLAND_DISPLAY? | is-empty) {
+                check-clipboard xclip --system $"('xorg' | pretty-command) on linux"
+                $input | xclip -sel clip
+            } else {
+                check-clipboard wl-copy --system $"('wayland' | pretty-command) on linux"
+                $input | wl-copy
+            }
+        },
+        "windows" => {
+            chcp 65001  # see https://discord.com/channels/601130461678272522/601130461678272524/1085535756237426778
+            check-clipboard clip.exe --system $"('xorg' | pretty-command) on linux"
+            $input | clip.exe
+        },
+        "macos" => {
+            check-clipboard pbcopy --system macOS
+            $input | pbcopy
+        },
+        _ => {
+            error make --unspanned {
+                msg: $"(ansi red)unknown_operating_system(ansi reset):
+    '($nu.os-info.name)' is not supported by the ('clip' | pretty-command) command.
+
+    please open a feature request in the [issue tracker](char lparen)https://github.com/nushell/nushell/issues/new/choose(char rparen) to add your operating system to the standard library."
+            }
+        },
+    }
+
+    if not $silent {
+        print $input
+
+        print --no-newline $"(ansi white_italic)(ansi white_dimmed)saved to clipboard"
+        if ($input | describe) == "string" {
+            print " (stripped)"
+        }
+        print --no-newline $"(ansi reset)"
+    }
+
+    if (not $no_notify) and ($nu.os-info.name == linux) {
+        notify-send "std clip" "saved to clipboard"
+    }
+}

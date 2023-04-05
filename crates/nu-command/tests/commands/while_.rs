@@ -31,3 +31,12 @@ fn while_break_on_external_failed() {
     // so our output will be `1`
     assert_eq!(actual.out, "1");
 }
+
+#[test]
+fn failed_while_should_break_running() {
+    let actual = nu!(
+        cwd: ".",
+        "mut total = 0; while $total < 2 { $total = $total + 1; nu --testbin fail }; print 3"
+    );
+    assert!(!actual.out.contains('3'));
+}

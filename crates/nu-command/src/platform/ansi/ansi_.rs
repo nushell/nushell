@@ -507,10 +507,7 @@ impl Command for AnsiCommand {
 
     fn signature(&self) -> Signature {
         Signature::build("ansi")
-            .input_output_types(vec![
-                (Type::Nothing, Type::String),
-                (Type::List(Box::new(Type::String)), Type::String),
-            ])
+            .input_output_types(vec![(Type::Nothing, Type::String)])
             .optional(
                 "code",
                 SyntaxShape::Any,
@@ -518,12 +515,12 @@ impl Command for AnsiCommand {
             )
             .switch(
                 "escape", // \x1b[
-                "escape sequence without the escape character(s)",
+                r#"escape sequence without the escape character(s) ('\x1b[' is not required)"#,
                 Some('e'),
             )
             .switch(
                 "osc", // \x1b]
-                "operating system command (ocs) escape sequence without the escape character(s)",
+                r#"operating system command (osc) escape sequence without the escape character(s) ('\x1b]' is not required)"#,
                 Some('o'),
             )
             .switch("list", "list available ansi code names", Some('l'))
@@ -531,58 +528,72 @@ impl Command for AnsiCommand {
     }
 
     fn usage(&self) -> &str {
-        "Output ANSI codes to change color."
+        "Output ANSI codes to change color and style of text."
     }
 
     fn extra_usage(&self) -> &str {
-        r#"For escape sequences:
-Escape: '\x1b[' is not required for --escape parameter
-Format: #(;#)m
-Example: 1;31m for bold red or 2;37;41m for dimmed white fg with red bg
-There can be multiple text formatting sequence numbers
-separated by a ; and ending with an m where the # is of the
-following values:
-    attribute_number, abbreviation, description
-    0     reset / normal display
-    1  b  bold or increased intensity
-    2  d  faint or decreased intensity
-    3  i  italic on (non-mono font)
-    4  u  underline on
-    5  l  slow blink on
-    6     fast blink on
-    7  r  reverse video on
-    8  h  nondisplayed (invisible) on
-    9  s  strike-through on
+        "An introduction to what ANSI escape sequences are can be found in the
+[*ANSI escape code*](https://en.wikipedia.org/wiki/ANSI_escape_code) Wikipedia page.
 
-    foreground/bright colors    background/bright colors
-    30/90    black              40/100    black
-    31/91    red                41/101    red
-    32/92    green              42/102    green
-    33/93    yellow             43/103    yellow
-    34/94    blue               44/104    blue
-    35/95    magenta            45/105    magenta
-    36/96    cyan               46/106    cyan
-    37/97    white              47/107    white
-    39       default            49        default
-    https://en.wikipedia.org/wiki/ANSI_escape_code
+Escape sequences usual values:
+╭────┬────────────┬────────┬────────┬─────────╮
+│  # │    type    │ normal │ bright │  name   │
+├────┼────────────┼────────┼────────┼─────────┤
+│  0 │ foreground │     30 │     90 │ black   │
+│  1 │ foreground │     31 │     91 │ red     │
+│  2 │ foreground │     32 │     92 │ green   │
+│  3 │ foreground │     33 │     93 │ yellow  │
+│  4 │ foreground │     34 │     94 │ blue    │
+│  5 │ foreground │     35 │     95 │ magenta │
+│  6 │ foreground │     36 │     96 │ cyan    │
+│  7 │ foreground │     37 │     97 │ white   │
+│  8 │ foreground │     39 │        │ default │
+│  9 │ background │     40 │    100 │ black   │
+│ 10 │ background │     41 │    101 │ red     │
+│ 11 │ background │     42 │    102 │ green   │
+│ 12 │ background │     43 │    103 │ yellow  │
+│ 13 │ background │     44 │    104 │ blue    │
+│ 14 │ background │     45 │    105 │ magenta │
+│ 15 │ background │     46 │    106 │ cyan    │
+│ 16 │ background │     47 │    107 │ white   │
+│ 17 │ background │     49 │        │ default │
+╰────┴────────────┴────────┴────────┴─────────╯
 
-OSC: '\x1b]' is not required for --osc parameter
-Example: echo [(ansi -o '0') 'some title' (char bel)] | str join
-Format: #
-    0 Set window title and icon name
-    1 Set icon name
-    2 Set window title
-    4 Set/read color palette
-    9 iTerm2 Grown notifications
-    10 Set foreground color (x11 color spec)
-    11 Set background color (x11 color spec)
-    ... others"#
+Escape sequences attributes:
+╭───┬────┬──────────────┬──────────────────────────────╮
+│ # │ id │ abbreviation │         description          │
+├───┼────┼──────────────┼──────────────────────────────┤
+│ 0 │  0 │              │ reset / normal display       │
+│ 1 │  1 │ b            │ bold or increased intensity  │
+│ 2 │  2 │ d            │ faint or decreased intensity │
+│ 3 │  3 │ i            │ italic on (non-mono font)    │
+│ 4 │  4 │ u            │ underline on                 │
+│ 5 │  5 │ l            │ slow blink on                │
+│ 6 │  6 │              │ fast blink on                │
+│ 7 │  7 │ r            │ reverse video on             │
+│ 8 │  8 │ h            │ nondisplayed (invisible) on  │
+│ 9 │  9 │ s            │ strike-through on            │
+╰───┴────┴──────────────┴──────────────────────────────╯
+
+Operating system commands:
+╭───┬─────┬───────────────────────────────────────╮
+│ # │ id  │              description              │
+├───┼─────┼───────────────────────────────────────┤
+│ 0 │   0 │ Set window title and icon name        │
+│ 1 │   1 │ Set icon name                         │
+│ 2 │   2 │ Set window title                      │
+│ 3 │   4 │ Set/read color palette                │
+│ 4 │   9 │ iTerm2 Grown notifications            │
+│ 5 │  10 │ Set foreground color (x11 color spec) │
+│ 6 │  11 │ Set background color (x11 color spec) │
+│ 7 │ ... │ others                                │
+╰───┴─────┴───────────────────────────────────────╯"
     }
 
     fn examples(&self) -> Vec<Example> {
         vec![
             Example {
-                description: "Change color to green",
+                description: "Change color to green (see how the next example text will be green!)",
                 example: r#"ansi green"#,
                 result: Some(Value::test_string("\u{1b}[32m")),
             },
@@ -592,28 +603,32 @@ Format: #
                 result: Some(Value::test_string("\u{1b}[0m")),
             },
             Example {
-                description:
-                    "Use ansi to color text (rb = red bold, gb = green bold, pb = purple bold)",
-                example: r#"$'(ansi rb)Hello (ansi gb)Nu (ansi pb)World(ansi reset)'"#,
+                description: "Use different colors and styles in the same text",
+                example: r#"$'(ansi red_bold)Hello(ansi reset) (ansi green_dimmed)Nu(ansi reset) (ansi purple_italic)World(ansi reset)'"#,
                 result: Some(Value::test_string(
-                    "\u{1b}[1;31mHello \u{1b}[1;32mNu \u{1b}[1;35mWorld\u{1b}[0m",
+                    "\u{1b}[1;31mHello\u{1b}[0m \u{1b}[2;32mNu\u{1b}[0m \u{1b}[3;35mWorld\u{1b}[0m",
                 )),
             },
             Example {
-                description: "Use ansi to color text (italic bright yellow on red 'Hello' with green bold 'Nu' and purple bold 'World')",
-                example: r#"[(ansi -e '3;93;41m') Hello (ansi reset) " " (ansi gb) Nu " " (ansi pb) World (ansi reset)] | str join"#,
+                description: "The same example as above with short names",
+                example: r#"$'(ansi rb)Hello(ansi reset) (ansi gd)Nu(ansi reset) (ansi pi)World(ansi reset)'"#,
                 result: Some(Value::test_string(
-                    "\u{1b}[3;93;41mHello\u{1b}[0m \u{1b}[1;32mNu \u{1b}[1;35mWorld\u{1b}[0m",
+                    "\u{1b}[1;31mHello\u{1b}[0m \u{1b}[2;32mNu\u{1b}[0m \u{1b}[3;35mWorld\u{1b}[0m",
                 )),
             },
             Example {
-                description: "Use ansi to color text with a style (blue on red in bold)",
-                example: r#"let format = {  # `fg`, `bg`, `attr` are the acceptable keys, all other keys are considered invalid and will throw errors.
+                description: "Use escape codes, without the '\\x1b['",
+                example: r#"$"(ansi -e '3;93;41m')Hello(ansi reset)"  # italic bright yellow on red background"#,
+                result: Some(Value::test_string("\u{1b}[3;93;41mHello\u{1b}[0m")),
+            },
+            Example {
+                description: "Use structured escape codes",
+                example: r#"let bold_blue_on_red = {  # `fg`, `bg`, `attr` are the acceptable keys, all other keys are considered invalid and will throw errors.
         fg: '#0000ff'
         bg: '#ff0000'
         attr: b
     }
-    $"(ansi -e $format)Hello Nu World(ansi reset)""#,
+    $"(ansi -e $bold_blue_on_red)Hello Nu World(ansi reset)""#,
                 result: Some(Value::test_string(
                     "\u{1b}[1;48;2;255;0;0;38;2;0;0;255mHello Nu World\u{1b}[0m",
                 )),
