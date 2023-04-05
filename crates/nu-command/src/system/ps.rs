@@ -86,6 +86,12 @@ fn run_ps(engine_state: &EngineState, call: &Call) -> Result<PipelineData, Shell
             span,
         });
 
+        cols.push("ppid".to_string());
+        vals.push(Value::Int {
+            val: proc.ppid() as i64,
+            span,
+        });
+
         cols.push("name".to_string());
         vals.push(Value::String {
             val: proc.name(),
