@@ -166,7 +166,7 @@ impl Command for ViewSource {
         vec![
             Example {
                 description: "View the source of a code block",
-                example: r#"let abc = { echo 'hi' }; view source $abc"#,
+                example: r#"let abc = {|| echo 'hi' }; view source $abc"#,
                 result: Some(Value::test_string("{ echo 'hi' }")),
             },
             Example {
