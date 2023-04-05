@@ -81,7 +81,7 @@ impl Command for SubCommand {
         vec![
             Example {
                 description: "Get the current date in UTC+05:00",
-                example: "date now | date to-timezone +0500",
+                example: "date now | date to-timezone '+0500'",
                 result: None,
             },
             Example {
