@@ -122,7 +122,9 @@ impl Command for For {
                         Ok(pipeline) => {
                             let exit_code = pipeline.print(&engine_state, stack, false, false)?;
                             if exit_code != 0 {
-                                break;
+                                return Ok(PipelineData::new_external_stream_with_only_exit_code(
+                                    exit_code,
+                                ));
                             }
                         }
                     }
@@ -164,7 +166,9 @@ impl Command for For {
                         Ok(pipeline) => {
                             let exit_code = pipeline.drain_with_exit_code()?;
                             if exit_code != 0 {
-                                break;
+                                return Ok(PipelineData::new_external_stream_with_only_exit_code(
+                                    exit_code,
+                                ));
                             }
                         }
                     }

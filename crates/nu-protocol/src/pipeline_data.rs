@@ -72,6 +72,23 @@ impl PipelineData {
         PipelineData::Value(Value::Nothing { span }, metadata)
     }
 
+    /// create a `PipelineData::ExternalStream` with proper exit_code
+    ///
+    /// It's useful to break running without raising error at user level.
+    pub fn new_external_stream_with_only_exit_code(exit_code: i64) -> PipelineData {
+        PipelineData::ExternalStream {
+            stdout: None,
+            stderr: None,
+            exit_code: Some(ListStream::from_stream(
+                [Value::int(exit_code, Span::unknown())].into_iter(),
+                None,
+            )),
+            span: Span::unknown(),
+            metadata: None,
+            trim_end_newline: false,
+        }
+    }
+
     pub fn empty() -> PipelineData {
         PipelineData::Empty
     }

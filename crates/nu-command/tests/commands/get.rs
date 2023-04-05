@@ -24,13 +24,7 @@ fn fetches_a_row() {
             "#,
         )]);
 
-        let actual = nu!(
-            cwd: dirs.test(), pipeline(
-            r#"
-                open sample.toml
-                | get nu_party_venue
-            "#
-        ));
+        let actual = nu!( cwd: dirs.test(), "open sample.toml | get nu_party_venue");
 
         assert_eq!(actual.out, "zion");
     })
@@ -50,13 +44,7 @@ fn fetches_by_index() {
             "#,
         )]);
 
-        let actual = nu!(
-            cwd: dirs.test(), pipeline(
-            r#"
-                open sample.toml
-                | get package.authors.2
-            "#
-        ));
+        let actual = nu!( cwd: dirs.test(), "open sample.toml | get package.authors.2");
 
         assert_eq!(actual.out, "Andrés N. Robalino <andres@androbtech.com>");
     })
@@ -73,13 +61,7 @@ fn fetches_by_column_path() {
             "#,
         )]);
 
-        let actual = nu!(
-            cwd: dirs.test(), pipeline(
-            r#"
-                open sample.toml
-                | get package.name
-            "#
-        ));
+        let actual = nu!( cwd: dirs.test(), "open sample.toml | get package.name");
 
         assert_eq!(actual.out, "nu");
     })
@@ -97,14 +79,7 @@ fn column_paths_are_either_double_quoted_or_regular_unquoted_words_separated_by_
             "#,
         )]);
 
-        let actual = nu!(
-            cwd: dirs.test(), pipeline(
-            r#"
-                open sample.toml
-                | get package."9999"
-                | length
-            "#
-        ));
+        let actual = nu!( cwd: dirs.test(), r#"open sample.toml | get package."9999" | length"#);
 
         assert_eq!(actual.out, "3");
     })
@@ -132,11 +107,11 @@ fn fetches_more_than_one_column_path() {
 
         let actual = nu!(
             cwd: dirs.test(), pipeline(
-            r#"
+            "
                 open sample.toml
                 | get fortune_tellers.2.name fortune_tellers.0.name fortune_tellers.1.name
                 | get 2
-            "#
+            "
         ));
 
         assert_eq!(actual.out, "JT");
@@ -156,13 +131,7 @@ fn errors_fetching_by_column_not_present() {
             "#,
         )]);
 
-        let actual = nu!(
-            cwd: dirs.test(), pipeline(
-            r#"
-                open sample.toml
-                | get taco
-            "#
-        ));
+        let actual = nu!( cwd: dirs.test(), "open sample.toml | get taco");
 
         assert!(actual.err.contains("Name not found"),);
         assert!(actual.err.contains("did you mean 'tacos'"),);
@@ -180,13 +149,7 @@ fn errors_fetching_by_column_using_a_number() {
             "#,
         )]);
 
-        let actual = nu!(
-            cwd: dirs.test(), pipeline(
-            r#"
-                open sample.toml
-                | get spanish_lesson.0
-            "#
-        ));
+        let actual = nu!( cwd: dirs.test(), "open sample.toml | get spanish_lesson.0");
 
         assert!(actual.err.contains("Type mismatch"),);
     })
@@ -204,12 +167,7 @@ fn errors_fetching_by_index_out_of_bounds() {
         )]);
 
         let actual = nu!(
-            cwd: dirs.test(), pipeline(
-            r#"
-                open sample.toml
-                | get spanish_lesson.sentence_words.3
-            "#
-        ));
+            cwd: dirs.test(), " open sample.toml | get spanish_lesson.sentence_words.3 ");
 
         assert!(actual.err.contains("Row number too large (max: 2)"),);
         assert!(actual.err.contains("too large"),);
@@ -234,23 +192,14 @@ fn quoted_column_access() {
 
 #[test]
 fn get_does_not_delve_too_deep_in_nested_lists() {
-    let actual = nu!(
-        cwd: ".",
-        r#"[[{foo: bar}]] | get foo"#
-    );
+    let actual = nu!(r#"[[{foo: bar}]] | get foo"#);
 
     assert!(actual.err.contains("cannot find column"));
 }
 
 #[test]
 fn ignore_errors_works() {
-    let actual = nu!(
-        cwd: ".",
-        r#"
-        let path = "foo";
-        {} | get -i $path | to nuon
-        "#
-    );
+    let actual = nu!(r#" let path = "foo"; {} | get -i $path | to nuon "#);
 
     assert_eq!(actual.out, "null");
 }
