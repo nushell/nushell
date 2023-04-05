@@ -6,14 +6,23 @@ use std.nu *
 #
 # the output would be like
 # - "<indentation> x <module> <test>" all in red if failed
+# - "<indentation> s <module> <test>" all in yellow if skipped
 # - "<indentation>   <module> <test>" all in green if passed
 def show-pretty-test [indent: int = 4] {
     let test = $in
 
     [
         (" " * $indent)
-        (if $test.pass { ansi green } else { ansi red})
-        (if $test.pass { " " } else { char failed})
+        (match $test.result {
+            "pass" => { ansi green },
+            "skip" => { ansi yellow },
+            _ => { ansi red }
+        })
+        (match $test.result {
+            "pass" => " ",
+            "skip" => "s",
+            _ => { char failed }
+        })
         " "
         $"($test.module) ($test.name)"
         (ansi reset)
@@ -105,18 +114,35 @@ def main [
             log info $"Running tests in ($module.name)"
             $module.tests | each {|test|
                 log debug $"Running test ($test.name)"
-                let did_pass = (try {
-                    nu -c $'use ($test.file) ($test.name); ($test.name)'
-                    true
-                } catch { false })
-
-                $test | merge ({pass: $did_pass})
+                nu -c $'
+                    use ($test.file) ($test.name)
+                    try {
+                        ($test.name)
+                    } catch { |e|
+                        if $e.msg == "ASSERT:SKIP" {
+                            exit 2
+                        } else {
+                            # Run again to print the error message and make an error,
+                            # since in Nushell 0.78 it is not available in $e.
+                            ($test.name)
+                        }
+                    }
+                '
+                let result = match $env.LAST_EXIT_CODE {
+                    0 => "pass",
+                    2 => "skip",
+                    _ => "fail",
+                }
+                if $result == "skip" {
+                    log warning $"Test case ($test.name) is skipped"
+                }
+                $test | merge ({result: $result})
             }
         }
         | flatten
     )
 
-    if not ($tests | where not pass | is-empty) {
+    if not ($tests | where result == "fail" | is-empty) {
         let text = ([
             $"(ansi purple)some tests did not pass (char lparen)see complete errors above(char rparen):(ansi reset)"
             ""
