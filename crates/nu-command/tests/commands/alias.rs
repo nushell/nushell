@@ -119,7 +119,6 @@ fn alias_invalid_expression() {
     let actual = nu!(r#" alias spam = 'foo' "#);
     assert!(actual.err.contains("cant_alias_expression"));
 
-
     let actual = nu!(r#" alias spam = ([1 2 3] | length) "#);
     assert!(actual.err.contains("cant_alias_expression"));
 
@@ -137,6 +136,7 @@ fn alias_if() {
 fn alias_match() {
     let actual = nu!(r#" alias spam = match 3 { 1..10 => 'yes!' }; spam "#);
     assert_eq!(actual.out, "yes!");
+}
 
 // Issue https://github.com/nushell/nushell/issues/8103
 #[test]
