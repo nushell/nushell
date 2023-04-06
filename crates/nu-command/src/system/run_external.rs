@@ -83,7 +83,6 @@ impl Command for External {
             out_file,
             trim_end_newline,
         )?;
-        log::trace!("external command body: {command:?}");
 
         command.run_with_input(engine_state, stack, input, false)
     }
@@ -174,7 +173,7 @@ pub fn create_external_command(
     })
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone)]
 pub struct ExternalCommand {
     pub name: Spanned<String>,
     pub args: Vec<Spanned<String>>,
