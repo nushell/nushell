@@ -43,6 +43,10 @@ pub enum LiteElement {
         out: (Span, LiteCommand),
         err: (Span, LiteCommand),
     },
+    SameTargetRedirection {
+        cmd: (Option<Span>, LiteCommand),
+        redirection: (Span, LiteCommand),
+    },
 }
 
 #[derive(Debug)]
@@ -95,12 +99,47 @@ impl LiteBlock {
         // the block takes ownership of `pipeline`, which means that
         // our `pipeline` is complete on collecting commands.
         self.merge_redirections(&mut pipeline);
+        self.merge_to_both(&mut pipeline);
 
         self.block.push(pipeline);
     }
 
     pub fn is_empty(&self) -> bool {
         self.block.is_empty()
+    }
+
+    fn merge_to_both(&self, pipeline: &mut LitePipeline) {
+        let mut cmd_index = None;
+        let mut outerr_index = None;
+        for (index, cmd) in pipeline.commands.iter().enumerate() {
+            if let LiteElement::Command(..) = cmd {
+                cmd_index = Some(index);
+            }
+            if let LiteElement::Redirection(_span, Redirection::StdoutAndStderr, _target_cmd) = cmd
+            {
+                outerr_index = Some(index);
+                break;
+            }
+        }
+        if let (Some(cmd_index), Some(outerr_index)) = (cmd_index, outerr_index) {
+            // we can make sure that cmd_index is less than outerr_index.
+            let outerr_redirect = pipeline.commands.remove(outerr_index);
+            let cmd = pipeline.commands.remove(cmd_index);
+            // `outerr_redirect` and `cmd` should always be `LiteElement::Command` and `LiteElement::Redirection`
+            if let (
+                LiteElement::Command(cmd_span, lite_cmd),
+                LiteElement::Redirection(span, _, outerr_cmd),
+            ) = (cmd, outerr_redirect)
+            {
+                pipeline.insert(
+                    cmd_index,
+                    LiteElement::SameTargetRedirection {
+                        cmd: (cmd_span, lite_cmd),
+                        redirection: (span, outerr_cmd),
+                    },
+                )
+            }
+        }
     }
 
     fn merge_redirections(&self, pipeline: &mut LitePipeline) {

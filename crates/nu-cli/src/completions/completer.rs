@@ -129,6 +129,7 @@ impl NuCompleter {
                     | PipelineElement::Redirection(_, _, expr)
                     | PipelineElement::And(_, expr)
                     | PipelineElement::Or(_, expr)
+                    | PipelineElement::SameTargetRedirection { cmd: (_, expr), .. }
                     | PipelineElement::SeparateRedirection { out: (_, expr), .. } => {
                         let flattened: Vec<_> = flatten_expression(&working_set, &expr);
                         let span_offset: usize = alias_offset.iter().sum();

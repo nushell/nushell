@@ -4425,6 +4425,9 @@ pub fn parse_table_expression(
                 | LiteElement::Redirection(_, _, command)
                 | LiteElement::SeparateRedirection {
                     out: (_, command), ..
+                }
+                | LiteElement::SameTargetRedirection {
+                    cmd: (_, command), ..
                 } => {
                     let mut table_headers = vec![];
 
@@ -4449,6 +4452,9 @@ pub fn parse_table_expression(
                         | LiteElement::Redirection(_, _, command)
                         | LiteElement::SeparateRedirection {
                             out: (_, command), ..
+                        }
+                        | LiteElement::SameTargetRedirection {
+                            cmd: (_, command), ..
                         } => {
                             let mut rows = vec![];
                             for part in &command.parts {
@@ -5977,6 +5983,9 @@ pub fn parse_block(
                 | LiteElement::Redirection(_, _, command)
                 | LiteElement::SeparateRedirection {
                     out: (_, command), ..
+                }
+                | LiteElement::SameTargetRedirection {
+                    cmd: (_, command), ..
                 } => {
                     if let Some(err) =
                         parse_def_predecl(working_set, &command.parts, expand_aliases_denylist)
@@ -6064,6 +6073,39 @@ pub fn parse_block(
                                 err: (*err_span, err_expr),
                             }
                         }
+                        LiteElement::SameTargetRedirection {
+                            cmd: (span, command),
+                            redirection: (redirect_span, redirect_cmd),
+                        } => {
+                            trace!("parsing: pipeline element: same target redirection");
+                            let (expr, err) = parse_expression(
+                                working_set,
+                                &command.parts,
+                                expand_aliases_denylist,
+                                is_subexpression,
+                            );
+                            working_set.type_scope.add_type(expr.ty.clone());
+
+                            if error.is_none() {
+                                error = err;
+                            }
+
+                            let (redirect_expr, err) = parse_string(
+                                working_set,
+                                redirect_cmd.parts[0],
+                                expand_aliases_denylist,
+                            );
+
+                            working_set.type_scope.add_type(redirect_expr.ty.clone());
+
+                            if error.is_none() {
+                                error = err;
+                            }
+                            PipelineElement::SameTargetRedirection {
+                                cmd: (*span, expr),
+                                redirection: (*redirect_span, redirect_expr),
+                            }
+                        }
                     })
                     .collect::<Vec<PipelineElement>>();
 
@@ -6088,6 +6130,9 @@ pub fn parse_block(
                     | LiteElement::Redirection(_, _, command)
                     | LiteElement::SeparateRedirection {
                         out: (_, command), ..
+                    }
+                    | LiteElement::SameTargetRedirection {
+                        cmd: (_, command), ..
                     } => {
                         let (mut pipeline, err) = parse_builtin_commands(
                             working_set,
@@ -6239,6 +6284,19 @@ pub fn discover_captures_in_pipeline_element(
             result.append(&mut discover_captures_in_expr(
                 working_set,
                 err_expr,
+                seen,
+                seen_blocks,
+            )?);
+            Ok(result)
+        }
+        PipelineElement::SameTargetRedirection {
+            cmd: (_, cmd_exp),
+            redirection: (_, redirect_exp),
+        } => {
+            let mut result = discover_captures_in_expr(working_set, cmd_exp, seen, seen_blocks)?;
+            result.append(&mut discover_captures_in_expr(
+                working_set,
+                redirect_exp,
                 seen,
                 seen_blocks,
             )?);
@@ -6538,6 +6596,16 @@ fn wrap_element_with_collect(
         } => PipelineElement::SeparateRedirection {
             out: (*out_span, wrap_expr_with_collect(working_set, out_exp)),
             err: (*err_span, wrap_expr_with_collect(working_set, err_exp)),
+        },
+        PipelineElement::SameTargetRedirection {
+            cmd: (cmd_span, cmd_exp),
+            redirection: (redirect_span, redirect_exp),
+        } => PipelineElement::SameTargetRedirection {
+            cmd: (*cmd_span, wrap_expr_with_collect(working_set, cmd_exp)),
+            redirection: (
+                *redirect_span,
+                wrap_expr_with_collect(working_set, redirect_exp),
+            ),
         },
         PipelineElement::And(span, expression) => {
             PipelineElement::And(*span, wrap_expr_with_collect(working_set, expression))

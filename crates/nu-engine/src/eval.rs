@@ -183,6 +183,11 @@ pub fn redirect_env(engine_state: &EngineState, caller_stack: &mut Stack, callee
     }
 }
 
+enum RedirectTarget {
+    Piped(bool, bool),
+    FilePath(Expression),
+}
+
 #[allow(clippy::too_many_arguments)]
 fn eval_external(
     engine_state: &EngineState,
@@ -190,8 +195,7 @@ fn eval_external(
     head: &Expression,
     args: &[Expression],
     input: PipelineData,
-    redirect_stdout: bool,
-    redirect_stderr: bool,
+    redirect_target: RedirectTarget,
     is_subexpression: bool,
 ) -> Result<PipelineData, ShellError> {
     let decl_id = engine_state
@@ -208,26 +212,38 @@ fn eval_external(
         call.add_positional(arg.clone())
     }
 
-    if redirect_stdout {
-        call.add_named((
-            Spanned {
-                item: "redirect-stdout".into(),
-                span: head.span,
-            },
-            None,
-            None,
-        ))
-    }
+    match redirect_target {
+        RedirectTarget::Piped(redirect_stdout, redirect_stderr) => {
+            if redirect_stdout {
+                call.add_named((
+                    Spanned {
+                        item: "redirect-stdout".into(),
+                        span: head.span,
+                    },
+                    None,
+                    None,
+                ))
+            }
 
-    if redirect_stderr {
-        call.add_named((
+            if redirect_stderr {
+                call.add_named((
+                    Spanned {
+                        item: "redirect-stderr".into(),
+                        span: head.span,
+                    },
+                    None,
+                    None,
+                ))
+            }
+        }
+        RedirectTarget::FilePath(path_exp) => call.add_named((
             Spanned {
-                item: "redirect-stderr".into(),
+                item: "out-to-file".into(),
                 span: head.span,
             },
             None,
-            None,
-        ))
+            Some(path_exp),
+        )),
     }
 
     if is_subexpression {
@@ -324,8 +340,7 @@ pub fn eval_expression(
                 head,
                 args,
                 PipelineData::empty(),
-                false,
-                false,
+                RedirectTarget::Piped(false, false),
                 *is_subexpression,
             )?
             .into_value(span))
@@ -690,8 +705,7 @@ pub fn eval_expression_with_input(
                 head,
                 args,
                 input,
-                redirect_stdout,
-                redirect_stderr,
+                RedirectTarget::Piped(redirect_stdout, redirect_stderr),
                 *is_subexpression,
             )?;
         }
@@ -962,6 +976,52 @@ pub fn eval_element_with_input(
                 }
             }
         },
+        PipelineElement::SameTargetRedirection {
+            cmd: (cmd_span, cmd_exp),
+            redirection: (redirect_span, redirect_exp),
+        } => {
+            match &cmd_exp.expr {
+                Expr::ExternalCall(head, args, is_subexpression) => {
+                    // if cmd's expression is ExternalStream, then invoke run-external with
+                    // special redirect to file args.
+                    input = eval_external(
+                        engine_state,
+                        stack,
+                        head,
+                        args,
+                        input,
+                        RedirectTarget::FilePath(redirect_exp.clone()),
+                        *is_subexpression,
+                    )?;
+                    Ok(might_consume_external_result(input))
+                }
+                _ => {
+                    // if cmd's expression isn't ExternalStream
+                    // eval cmd and call save command, to redirect stdout to result.
+                    input = eval_element_with_input(
+                        engine_state,
+                        stack,
+                        &PipelineElement::Expression(*cmd_span, cmd_exp.clone()),
+                        input,
+                        redirect_stdout,
+                        redirect_stderr,
+                    )
+                    .map(|x| x.0)?;
+                    eval_element_with_input(
+                        engine_state,
+                        stack,
+                        &PipelineElement::Redirection(
+                            *redirect_span,
+                            Redirection::Stdout,
+                            redirect_exp.clone(),
+                        ),
+                        input,
+                        redirect_stdout,
+                        redirect_stderr,
+                    )
+                }
+            }
+        }
         PipelineElement::And(_, expr) => eval_expression_with_input(
             engine_state,
             stack,

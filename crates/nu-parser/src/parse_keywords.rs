@@ -1991,6 +1991,9 @@ pub fn parse_module_block(
                     LiteElement::SeparateRedirection {
                         out: (_, command), ..
                     } => garbage_pipeline(&command.parts),
+                    LiteElement::SameTargetRedirection {
+                        cmd: (_, command), ..
+                    } => garbage_pipeline(&command.parts),
                 }
             } else {
                 error = Some(ParseError::Expected("not a pipeline".into(), span));
