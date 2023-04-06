@@ -828,27 +828,6 @@ pub fn parse_alias(
                 );
             }
 
-            if is_math_expression_like(working_set, replacement_spans[0], expand_aliases_denylist) {
-                // TODO: Maybe we need to implement a Display trait for Expression?
-                let (expr, _) = parse_expression(
-                    working_set,
-                    replacement_spans,
-                    expand_aliases_denylist,
-                    false,
-                );
-
-                let msg = format!("{:?}", expr.expr);
-                let msg_parts: Vec<&str> = msg.split('(').collect();
-
-                return (
-                    alias_pipeline,
-                    Some(ParseError::CantAliasExpression(
-                        msg_parts[0].to_string(),
-                        replacement_spans[0],
-                    )),
-                );
-            }
-
             let (expr, err) = parse_call(
                 working_set,
                 replacement_spans,
