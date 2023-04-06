@@ -381,7 +381,7 @@ def show-module [module: record] {
         print $"This module (ansi cyan)does not export(ansi reset) environment."
     } else {
         print $"This module (ansi cyan)exports(ansi reset) environment."
-        view source $module.env_block | nu-highlight
+        view source $module.env_block
     }
 }
 
