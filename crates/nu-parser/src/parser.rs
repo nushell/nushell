@@ -1500,7 +1500,7 @@ pub fn parse_range(
 
     // Range follows the following syntax: [<from>][<next_operator><next>]<range_operator>[<to>]
     //   where <next_operator> is ".."
-    //   and  <range_operator> is ".." or "..<"
+    //   and  <range_operator> is "..", "..=" or "..<"
     //   and one of the <from> or <to> bounds must be present (just '..' is not allowed since it
     //     looks like parent directory)
     //bugbug range cannot be [..] because that looks like parent directory
@@ -5181,7 +5181,8 @@ pub fn parse_expression(
         if !name.starts_with(b"^")
             && split.len() == 2
             && !split[0].is_empty()
-            && !split[0].ends_with(b"..") // was range op ..=
+            && !split[0].ends_with(b"..")
+        // was range op ..=
         {
             let point = split[0].len() + 1;
 
