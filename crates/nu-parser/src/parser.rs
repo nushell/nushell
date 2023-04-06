@@ -289,7 +289,10 @@ fn parse_external_arg(
     } else {
         // Eval stage trims the quotes, so we don't have to do the same thing when parsing.
         let contents = if contents.starts_with(b"\"") {
-            let contents = unescape_string(working_set, span);
+            let (contents, err) = unescape_string(contents, span);
+            if let Some(err) = err {
+                working_set.error(err)
+            }
             String::from_utf8_lossy(&contents).to_string()
         } else {
             String::from_utf8_lossy(contents).to_string()
@@ -1889,11 +1892,14 @@ pub fn parse_string_interpolation(
                     let span = Span::new(token_start, b);
                     let str_contents = working_set.get_span_contents(span);
 
-                    let str_contents = if double_quote {
-                        unescape_string(working_set, span)
+                    let (str_contents, err) = if double_quote {
+                        unescape_string(str_contents, span)
                     } else {
-                        str_contents.to_vec()
+                        (str_contents.to_vec(), None)
                     };
+                    if let Some(err) = err {
+                        working_set.error(err);
+                    }
 
                     output.push(Expression {
                         expr: Expr::String(String::from_utf8_lossy(&str_contents).to_string()),
@@ -1957,11 +1963,14 @@ pub fn parse_string_interpolation(
                 let span = Span::new(token_start, end);
                 let str_contents = working_set.get_span_contents(span);
 
-                let str_contents = if double_quote {
-                    unescape_string(working_set, span)
+                let (str_contents, err) = if double_quote {
+                    unescape_string(str_contents, span)
                 } else {
-                    str_contents.to_vec()
+                    (str_contents.to_vec(), None)
                 };
+                if let Some(err) = err {
+                    working_set.error(err);
+                }
 
                 output.push(Expression {
                     expr: Expr::String(String::from_utf8_lossy(&str_contents).to_string()),
@@ -2632,10 +2641,9 @@ pub fn parse_glob_pattern(working_set: &mut StateWorkingSet, span: Span) -> Expr
     }
 }
 
-pub fn unescape_string(working_set: &mut StateWorkingSet, span: Span) -> Vec<u8> {
-    let bytes = working_set.get_span_contents(span);
-
+pub fn unescape_string(bytes: &[u8], span: Span) -> (Vec<u8>, Option<ParseError>) {
     let mut output = Vec::new();
+    let mut error = None;
 
     let mut idx = 0;
 
@@ -2742,11 +2750,11 @@ pub fn unescape_string(working_set: &mut StateWorkingSet, span: Span) -> Vec<u8>
                                     cur_idx += 1;
                                 }
                                 _ => {
-                                    working_set.error(ParseError::InvalidLiteral(
+                                    error = error.or(Some(ParseError::InvalidLiteral(
                                         "missing '}' for unicode escape '\\u{X...}'".into(),
                                         "string".into(),
                                         Span::new(span.start + idx, span.end),
-                                    ));
+                                    )));
                                     break 'us_loop;
                                 }
                             }
@@ -2775,20 +2783,20 @@ pub fn unescape_string(working_set: &mut StateWorkingSet, span: Span) -> Vec<u8>
                         }
                     }
                     // fall through -- escape not accepted above, must be error.
-                    working_set.error(ParseError::InvalidLiteral(
+                    error = error.or(Some(ParseError::InvalidLiteral(
                             "invalid unicode escape '\\u{X...}', must be 1-6 hex digits, max value 10FFFF".into(),
                             "string".into(),
                             Span::new(span.start + idx, span.end),
-                    ));
+                    )));
                     break 'us_loop;
                 }
 
                 _ => {
-                    working_set.error(ParseError::InvalidLiteral(
+                    error = error.or(Some(ParseError::InvalidLiteral(
                         "unrecognized escape after '\\'".into(),
                         "string".into(),
                         Span::new(span.start + idx, span.end),
-                    ));
+                    )));
                     break 'us_loop;
                 }
             }
@@ -2798,7 +2806,7 @@ pub fn unescape_string(working_set: &mut StateWorkingSet, span: Span) -> Vec<u8>
         }
     }
 
-    output
+    (output, error)
 }
 
 pub fn unescape_unquote_string(working_set: &mut StateWorkingSet, span: Span) -> String {
@@ -2807,9 +2815,11 @@ pub fn unescape_unquote_string(working_set: &mut StateWorkingSet, span: Span) ->
     if bytes.starts_with(b"\"") {
         // Needs unescaping
 
-        // FIXME: JT had to refactor this, needs testing
-        let bytes = unescape_string(working_set, span);
-        let bytes = trim_quotes(&bytes);
+        let bytes = trim_quotes(bytes);
+        let (bytes, err) = unescape_string(bytes, span);
+        if let Some(err) = err {
+            working_set.error(err);
+        }
 
         if let Ok(token) = String::from_utf8(bytes.to_vec()) {
             token
@@ -5170,6 +5180,7 @@ pub fn parse_expression(
                 shorthand.push((lhs, rhs));
                 pos += 1;
             } else {
+                working_set.parse_errors.truncate(starting_error_count);
                 break;
             }
         } else {

@@ -1077,11 +1077,11 @@ pub fn parse_export_in_module(
     let spans = &lite_command.parts[..];
 
     let export_span = if let Some(sp) = spans.get(0) {
-        working_set.error(ParseError::UnknownState(
-            "expected export statement".into(),
-            span(spans),
-        ));
         if working_set.get_span_contents(*sp) != b"export" {
+            working_set.error(ParseError::UnknownState(
+                "expected export statement".into(),
+                span(spans),
+            ));
             return (garbage_pipeline(spans), vec![]);
         }
 
