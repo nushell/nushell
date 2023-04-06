@@ -113,6 +113,9 @@ pub(crate) fn run_commands(
 ) -> Result<(), miette::ErrReport> {
     let mut stack = nu_protocol::engine::Stack::new();
     let start_time = std::time::Instant::now();
+
+    load_standard_library(engine_state)?;
+
     #[cfg(feature = "plugin")]
     read_plugin_file(
         engine_state,
@@ -162,8 +165,6 @@ pub(crate) fn run_commands(
         column!(),
         use_color,
     );
-
-    load_standard_library(engine_state)?;
 
     // Before running commands, set up the startup time
     engine_state.set_startup_time(entire_start_time.elapsed().as_nanos() as i64);
@@ -202,6 +203,8 @@ pub(crate) fn run_file(
     let mut stack = nu_protocol::engine::Stack::new();
     let start_time = std::time::Instant::now();
 
+    load_standard_library(engine_state)?;
+
     #[cfg(feature = "plugin")]
     read_plugin_file(
         engine_state,
@@ -251,8 +254,6 @@ pub(crate) fn run_file(
         column!(),
         use_color,
     );
-
-    load_standard_library(engine_state)?;
 
     let start_time = std::time::Instant::now();
     let ret_val = evaluate_file(
@@ -301,6 +302,8 @@ pub(crate) fn run_repl(
     let mut stack = nu_protocol::engine::Stack::new();
     let start_time = std::time::Instant::now();
 
+    load_standard_library(engine_state)?;
+
     if parsed_nu_cli_args.no_config_file.is_none() {
         setup_config(
             engine_state,
@@ -323,8 +326,6 @@ pub(crate) fn run_repl(
         column!(),
         use_color,
     );
-
-    load_standard_library(engine_state)?;
 
     let start_time = std::time::Instant::now();
     let ret_val = evaluate_repl(
