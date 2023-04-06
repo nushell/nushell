@@ -46,10 +46,11 @@ fn redirect_outerr() {
 #[test]
 fn redirect_outerr() {
     Playground::setup("redirect_outerr_test", |dirs, _sandbox| {
-        let output = nu!(
+        nu!(
             cwd: dirs.test(),
-            "vol missingdrive out+err> a; (open a | size).bytes >= 16"
+            "vol missingdrive out+err> a"
         );
+        let output = nu!(cwd: dirs.test(), "(open a | size).bytes >= 16");
 
         assert!(output.out.contains("true"));
     })
