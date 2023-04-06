@@ -6130,9 +6130,6 @@ pub fn parse_block(
                     | LiteElement::Redirection(_, _, command)
                     | LiteElement::SeparateRedirection {
                         out: (_, command), ..
-                    }
-                    | LiteElement::SameTargetRedirection {
-                        cmd: (_, command), ..
                     } => {
                         let (mut pipeline, err) = parse_builtin_commands(
                             working_set,
@@ -6194,6 +6191,41 @@ pub fn parse_block(
                         }
 
                         pipeline
+                    }
+                    LiteElement::SameTargetRedirection {
+                        cmd: (span, command),
+                        redirection: (redirect_span, redirect_cmd),
+                    } => {
+                        trace!("parsing: pipeline element: same target redirection");
+                        let (expr, err) = parse_expression(
+                            working_set,
+                            &command.parts,
+                            expand_aliases_denylist,
+                            is_subexpression,
+                        );
+                        working_set.type_scope.add_type(expr.ty.clone());
+
+                        if error.is_none() {
+                            error = err;
+                        }
+
+                        let (redirect_expr, err) = parse_string(
+                            working_set,
+                            redirect_cmd.parts[0],
+                            expand_aliases_denylist,
+                        );
+
+                        working_set.type_scope.add_type(redirect_expr.ty.clone());
+
+                        if error.is_none() {
+                            error = err;
+                        }
+                        Pipeline {
+                            elements: vec![PipelineElement::SameTargetRedirection {
+                                cmd: (*span, expr),
+                                redirection: (*redirect_span, redirect_expr),
+                            }],
+                        }
                     }
                 }
             }

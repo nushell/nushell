@@ -72,6 +72,7 @@ pub(crate) fn gen_command(
         redirect_stdout: false,
         redirect_stderr: false,
         env_vars: env_vars_str,
+        out_file: None,
         trim_end_newline: false,
     }
 }

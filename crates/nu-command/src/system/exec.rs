@@ -75,6 +75,7 @@ fn exec(
         call,
         redirect_stdout,
         redirect_stderr,
+        None,
         trim_end_newline,
     )?;
 

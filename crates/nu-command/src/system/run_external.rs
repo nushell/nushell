@@ -43,10 +43,11 @@ impl Command for External {
             .switch("redirect-stderr", "redirect stderr to the pipeline", None)
             .switch("trim-end-newline", "trimming end newlines", None)
             .required("command", SyntaxShape::Any, "external command to run")
-            .optional(
+            .named(
                 "out-to-file",
                 SyntaxShape::Filepath,
-                "redirect both stdout and stderr ro file",
+                "redirect both stdout and stderr to file",
+                None,
             )
             .rest("args", SyntaxShape::Any, "arguments for external command")
             .category(Category::System)
@@ -59,8 +60,15 @@ impl Command for External {
         call: &Call,
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
-        let redirect_stdout = call.has_flag("redirect-stdout");
-        let redirect_stderr = call.has_flag("redirect-stderr");
+        let mut redirect_stdout = call.has_flag("redirect-stdout");
+        let mut redirect_stderr = call.has_flag("redirect-stderr");
+        let out_file: Option<Spanned<String>> =
+            call.get_flag(engine_state, stack, "out-to-file")?;
+        if let Some(_) = out_file {
+            redirect_stdout = false;
+            redirect_stderr = false;
+        }
+
         let trim_end_newline = call.has_flag("trim-end-newline");
 
         let command = create_external_command(
@@ -69,8 +77,10 @@ impl Command for External {
             call,
             redirect_stdout,
             redirect_stderr,
+            out_file,
             trim_end_newline,
         )?;
+        log::trace!("external command body: {command:?}");
 
         command.run_with_input(engine_state, stack, input, false)
     }
@@ -98,6 +108,7 @@ pub fn create_external_command(
     call: &Call,
     redirect_stdout: bool,
     redirect_stderr: bool,
+    out_file: Option<Spanned<String>>,
     trim_end_newline: bool,
 ) -> Result<ExternalCommand, ShellError> {
     let name: Spanned<String> = call.req(engine_state, stack, 0)?;
@@ -155,11 +166,12 @@ pub fn create_external_command(
         redirect_stdout,
         redirect_stderr,
         env_vars: env_vars_str,
+        out_file,
         trim_end_newline,
     })
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct ExternalCommand {
     pub name: Spanned<String>,
     pub args: Vec<Spanned<String>>,
@@ -167,6 +179,7 @@ pub struct ExternalCommand {
     pub redirect_stdout: bool,
     pub redirect_stderr: bool,
     pub env_vars: HashMap<String, String>,
+    pub out_file: Option<Spanned<String>>,
     pub trim_end_newline: bool,
 }
 
@@ -590,6 +603,22 @@ impl ExternalCommand {
         if self.redirect_stderr {
             process.stderr(Stdio::piped());
         }
+
+        if let Some(f_path) = &self.out_file {
+            // try to create a file to write.
+            let outputs = std::fs::File::create(&f_path.item).map_err(|err| {
+                ShellError::GenericError(
+                    "Permission denied".into(),
+                    err.to_string(),
+                    Some(f_path.span),
+                    None,
+                    Vec::new(),
+                )
+            })?;
+            let errors = outputs.try_clone()?;
+            process.stdout(Stdio::from(outputs));
+            process.stderr(Stdio::from(errors));
+        };
 
         // If there is an input from the pipeline. The stdin from the process
         // is piped so it can be used to send the input information
