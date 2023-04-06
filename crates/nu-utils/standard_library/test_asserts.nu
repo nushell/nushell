@@ -57,8 +57,6 @@ export def test_assert_length [] {
     assert error { assert length [0, 0] 3 }
 }
 
-# export def test_assert_§ [] {
-#     assert §
-#     assert error { assert § }
-# }
-
+export def test_assert_skip [] {
+    assert skip # This test case is skipped on purpose
+}

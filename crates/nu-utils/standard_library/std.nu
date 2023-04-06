@@ -67,6 +67,16 @@ export def "assert error" [
     }
 }
 
+# Skip the current test case
+#
+# # Examples
+#
+# if $condition { assert skip }
+export def "assert skip" [] {
+    error make {msg: "ASSERT:SKIP"}
+}
+
+
 # Assert $left == $right
 #
 # For more documentation see the assert command
