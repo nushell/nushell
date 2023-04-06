@@ -65,6 +65,8 @@ impl Command for External {
         let out_file: Option<Spanned<String>> =
             call.get_flag(engine_state, stack, "out-to-file")?;
         if let Some(_) = out_file {
+            // user wants to redirect stdout and stderr to file
+            // reset `redirect_stdout`, `redirect_stderr` to false.
             redirect_stdout = false;
             redirect_stderr = false;
         }

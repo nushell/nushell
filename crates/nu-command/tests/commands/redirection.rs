@@ -32,10 +32,11 @@ fn redirect_err() {
 #[test]
 fn redirect_outerr() {
     Playground::setup("redirect_outerr_test", |dirs, _sandbox| {
-        let output = nu!(
+        nu!(
             cwd: dirs.test(),
-            "cat asdfasdfasdf.txt out+err> a; cat a"
+            "cat asdfasdfasdf.txt out+err> a"
         );
+        let output = nu!(cwd: dirs.test(), "cat a");
 
         assert!(output.out.contains("asdfasdfasdf.txt"));
     })
@@ -124,6 +125,32 @@ fn separate_redirection() {
             assert!(actual.contains(expect_body));
         },
     )
+}
+
+#[test]
+fn same_target_redirection_with_too_much_stderr_not_hang_nushell() {
+    use nu_test_support::fs::Stub::FileWithContent;
+    use nu_test_support::pipeline;
+    use nu_test_support::playground::Playground;
+    Playground::setup("external with many stderr message", |dirs, sandbox| {
+        let bytes: usize = 81920;
+        let mut large_file_body = String::with_capacity(bytes);
+        for _ in 0..bytes {
+            large_file_body.push('a');
+        }
+        sandbox.with_files(vec![FileWithContent("a_large_file.txt", &large_file_body)]);
+
+        nu!(
+            cwd: dirs.test(), pipeline(
+            r#"
+            sh -c "cat a_large_file.txt 1>&2" out+err> another_large_file.txt
+            "#,
+        ));
+
+        let expected_file = dirs.test().join("another_large_file.txt");
+        let actual = file_contents(expected_file);
+        assert_eq!(actual, large_file_body);
+    })
 }
 
 #[test]

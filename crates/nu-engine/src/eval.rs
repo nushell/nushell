@@ -798,50 +798,6 @@ pub fn eval_element_with_input(
                         metadata,
                         trim_end_newline,
                     },
-                    (
-                        Redirection::StdoutAndStderr,
-                        PipelineData::ExternalStream {
-                            stdout,
-                            stderr,
-                            exit_code,
-                            span,
-                            metadata,
-                            trim_end_newline,
-                        },
-                    ) => match (stdout, stderr) {
-                        (Some(stdout), Some(stderr)) => PipelineData::ExternalStream {
-                            stdout: Some(stdout.chain(stderr)),
-                            stderr: None,
-                            exit_code,
-                            span,
-                            metadata,
-                            trim_end_newline,
-                        },
-                        (None, Some(stderr)) => PipelineData::ExternalStream {
-                            stdout: Some(stderr),
-                            stderr: None,
-                            exit_code,
-                            span,
-                            metadata,
-                            trim_end_newline,
-                        },
-                        (Some(stdout), None) => PipelineData::ExternalStream {
-                            stdout: Some(stdout),
-                            stderr: None,
-                            exit_code,
-                            span,
-                            metadata,
-                            trim_end_newline,
-                        },
-                        (None, None) => PipelineData::ExternalStream {
-                            stdout: None,
-                            stderr: None,
-                            exit_code,
-                            span,
-                            metadata,
-                            trim_end_newline,
-                        },
-                    },
                     (_, input) => input,
                 };
 
