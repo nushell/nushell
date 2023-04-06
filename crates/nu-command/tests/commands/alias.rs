@@ -113,3 +113,16 @@ fn alias_wont_recurse2() {
         assert!(actual.err.is_empty());
     })
 }
+
+// Isuue https://github.com/nushell/nushell/issues/8103
+#[test]
+fn alias_multiword_name() {
+    let actual = nu!(r#"alias `foo bar` = echo 'test'; foo bar"#);
+    assert_eq!(actual.out, "test");
+
+    let actual = nu!(r#"alias 'foo bar' = echo 'test'; foo bar"#);
+    assert_eq!(actual.out, "test");
+
+    let actual = nu!(r#"alias "foo bar" = echo 'test'; foo bar"#);
+    assert_eq!(actual.out, "test");
+}
