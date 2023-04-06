@@ -639,8 +639,9 @@ pub fn parse_multispan_value(
         }
         SyntaxShape::OneOf(shapes) => {
             // handle for `if` command.
-            let block_then_exp = shapes.as_slice() == [SyntaxShape::Block, SyntaxShape::Expression];
+            //let block_then_exp = shapes.as_slice() == [SyntaxShape::Block, SyntaxShape::Expression];
             for shape in shapes.iter() {
+                let starting_error_count = working_set.parse_errors.len();
                 let s = parse_multispan_value(
                     working_set,
                     spans,
@@ -648,6 +649,13 @@ pub fn parse_multispan_value(
                     shape,
                     expand_aliases_denylist,
                 );
+
+                if starting_error_count == working_set.parse_errors.len() {
+                    return s;
+                } else if let Some(ParseError::Expected(..)) = working_set.parse_errors.last() {
+                    working_set.parse_errors.truncate(starting_error_count);
+                    continue;
+                }
                 // `if` is parsing block first and then expression.
                 // when we're writing something like `else if $a`, parsing as a
                 // block will result to error(because it's not a block)
@@ -787,8 +795,6 @@ pub fn parse_internal_call(
     expand_aliases_denylist: &[usize],
 ) -> ParsedInternalCall {
     trace!("parsing: internal call (decl id: {})", decl_id);
-
-    let mut error = None;
 
     let mut call = Call::new(command_span);
     call.decl_id = decl_id;
@@ -944,12 +950,10 @@ pub fn parse_internal_call(
                             }
                             spans_idx += 1;
                         } else {
-                            error = error.or_else(|| {
-                                Some(ParseError::MissingFlagParam(
-                                    arg_shape.to_string(),
-                                    arg_span,
-                                ))
-                            })
+                            working_set.error(ParseError::MissingFlagParam(
+                                arg_shape.to_string(),
+                                arg_span,
+                            ))
                         }
                     } else if flag.long.is_empty() {
                         if let Some(short) = flag.short {
@@ -993,13 +997,11 @@ pub fn parse_internal_call(
             };
 
             if spans[..end].is_empty() || spans_idx == end {
-                error = error.or_else(|| {
-                    Some(ParseError::MissingPositional(
-                        positional.name.clone(),
-                        Span::new(spans[spans_idx].end, spans[spans_idx].end),
-                        signature.call_signature(),
-                    ))
-                });
+                working_set.error(ParseError::MissingPositional(
+                    positional.name.clone(),
+                    Span::new(spans[spans_idx].end, spans[spans_idx].end),
+                    signature.call_signature(),
+                ));
                 positional_idx += 1;
                 continue;
             }
@@ -1013,13 +1015,11 @@ pub fn parse_internal_call(
             );
 
             let arg = if !type_compatible(&positional.shape.to_type(), &arg.ty) {
-                error = error.or_else(|| {
-                    Some(ParseError::TypeMismatch(
-                        positional.shape.to_type(),
-                        arg.ty,
-                        arg.span,
-                    ))
-                });
+                working_set.error(ParseError::TypeMismatch(
+                    positional.shape.to_type(),
+                    arg.ty,
+                    arg.span,
+                ));
                 Expression::garbage(arg.span)
             } else {
                 arg
@@ -1037,12 +1037,10 @@ pub fn parse_internal_call(
             call.add_unknown(arg);
         } else {
             call.add_positional(Expression::garbage(arg_span));
-            error = error.or_else(|| {
-                Some(ParseError::ExtraPositional(
-                    signature.call_signature(),
-                    arg_span,
-                ))
-            })
+            working_set.error(ParseError::ExtraPositional(
+                signature.call_signature(),
+                arg_span,
+            ))
         }
 
         spans_idx += 1;
@@ -4080,7 +4078,6 @@ pub fn parse_table_expression(
     expand_aliases_denylist: &[usize],
 ) -> Expression {
     let bytes = working_set.get_span_contents(original_span);
-    let mut error = None;
 
     let mut start = original_span.start;
     let mut end = original_span.end;
@@ -4169,20 +4166,15 @@ pub fn parse_table_expression(
                                 } = values
                                 {
                                     match values.len().cmp(&table_headers.len()) {
-                                        std::cmp::Ordering::Less => {
-                                            error = error.or(Some(ParseError::MissingColumns(
-                                                table_headers.len(),
-                                                span,
-                                            )))
-                                        }
+                                        std::cmp::Ordering::Less => working_set.error(
+                                            ParseError::MissingColumns(table_headers.len(), span),
+                                        ),
                                         std::cmp::Ordering::Equal => {}
                                         std::cmp::Ordering::Greater => {
-                                            error = error.or_else(|| {
-                                                Some(ParseError::ExtraColumns(
-                                                    table_headers.len(),
-                                                    values[table_headers.len()].span,
-                                                ))
-                                            })
+                                            working_set.error(ParseError::ExtraColumns(
+                                                table_headers.len(),
+                                                values[table_headers.len()].span,
+                                            ))
                                         }
                                     }
 
@@ -4973,8 +4965,6 @@ pub fn parse_math_expression(
     let mut idx = 0;
     let mut last_prec = 1000000;
 
-    let mut error = None;
-
     let first_span = working_set.get_span_contents(spans[0]);
 
     if first_span == b"if" || first_span == b"match" {
@@ -5037,7 +5027,7 @@ pub fn parse_math_expression(
 
         if idx == spans.len() {
             // Handle broken math expr `1 +` etc
-            error = error.or(Some(ParseError::IncompleteMathExpression(spans[idx - 1])));
+            working_set.error(ParseError::IncompleteMathExpression(spans[idx - 1]));
 
             expr_stack.push(Expression::garbage(spans[idx - 1]));
             expr_stack.push(Expression::garbage(spans[idx - 1]));
@@ -5079,7 +5069,9 @@ pub fn parse_math_expression(
             }
 
             let (result_ty, err) = math_result_type(working_set, &mut lhs, &mut op, &mut rhs);
-            error = error.or(err);
+            if let Some(err) = err {
+                working_set.error(err);
+            }
 
             let op_span = span(&[lhs.span, rhs.span]);
             expr_stack.push(Expression {
@@ -5113,7 +5105,9 @@ pub fn parse_math_expression(
         }
 
         let (result_ty, err) = math_result_type(working_set, &mut lhs, &mut op, &mut rhs);
-        error = error.or(err);
+        if let Some(err) = err {
+            working_set.error(err)
+        }
 
         let binary_op_span = span(&[lhs.span, rhs.span]);
         expr_stack.push(Expression {
