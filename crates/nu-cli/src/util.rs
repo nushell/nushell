@@ -126,7 +126,10 @@ fn gather_env_vars(
                     continue;
                 }
 
-                let bytes = unescape_unquote_string(&mut working_set, *span);
+                let (bytes, err) = unescape_unquote_string(bytes, *span);
+                if let Some(err) = err {
+                    working_set.error(err);
+                }
 
                 if working_set.parse_errors.first().is_some() {
                     report_capture_error(
@@ -167,7 +170,10 @@ fn gather_env_vars(
                     continue;
                 }
 
-                let bytes = unescape_unquote_string(&mut working_set, *span);
+                let (bytes, err) = unescape_unquote_string(bytes, *span);
+                if let Some(err) = err {
+                    working_set.error(err);
+                }
 
                 if working_set.parse_errors.first().is_some() {
                     report_capture_error(

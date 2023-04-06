@@ -1977,7 +1977,11 @@ pub fn parse_use(
         // TODO: Do not close over when loading module from file?
 
         let starting_error_count = working_set.parse_errors.len();
-        let module_filename = unescape_unquote_string(working_set, import_pattern.head.span);
+        let (module_filename, err) =
+            unescape_unquote_string(&import_pattern.head.name, import_pattern.head.span);
+        if let Some(err) = err {
+            working_set.error(err);
+        }
 
         if starting_error_count == working_set.parse_errors.len() {
             if let Some(module_path) =
@@ -2091,6 +2095,7 @@ pub fn parse_use(
                     );
                 }
             } else {
+                println!("MODULE NOT FOUND");
                 working_set.error(ParseError::ModuleNotFound(import_pattern.head.span));
                 return (
                     Pipeline::from_vec(vec![Expression {
@@ -3287,7 +3292,11 @@ pub fn parse_register(
     let arguments = call
         .positional_nth(0)
         .map(|expr| {
-            let name = unescape_unquote_string(working_set, expr.span);
+            let name_expr = working_set.get_span_contents(expr.span);
+            let (name, err) = unescape_unquote_string(name_expr, expr.span);
+            if let Some(err) = err {
+                working_set.error(err)
+            }
 
             let path = if let Some(p) = find_in_dirs(&name, working_set, &cwd, PLUGIN_DIRS_VAR) {
                 p

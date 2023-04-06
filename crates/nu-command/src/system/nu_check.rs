@@ -261,7 +261,11 @@ fn heuristic_parse_file(
     is_debug: bool,
 ) -> Result<PipelineData, ShellError> {
     let starting_error_count = working_set.parse_errors.len();
-    let filename = unescape_unquote_string(working_set, call.head);
+    let bytes = working_set.get_span_contents(call.head);
+    let (filename, err) = unescape_unquote_string(bytes, call.head);
+    if let Some(err) = err {
+        working_set.error(err);
+    }
     if starting_error_count == working_set.parse_errors.len() {
         if let Ok(contents) = std::fs::read(path) {
             match parse_script(
@@ -382,7 +386,11 @@ fn parse_file_script(
     is_debug: bool,
 ) -> Result<PipelineData, ShellError> {
     let starting_error_count = working_set.parse_errors.len();
-    let filename = unescape_unquote_string(working_set, call.head);
+    let bytes = working_set.get_span_contents(call.head);
+    let (filename, err) = unescape_unquote_string(bytes, call.head);
+    if let Some(err) = err {
+        working_set.error(err)
+    }
     if starting_error_count == working_set.parse_errors.len() {
         if let Ok(contents) = std::fs::read(path) {
             parse_script(
@@ -407,7 +415,11 @@ fn parse_file_module(
     is_debug: bool,
 ) -> Result<PipelineData, ShellError> {
     let starting_error_count = working_set.parse_errors.len();
-    let filename = unescape_unquote_string(working_set, call.head);
+    let bytes = working_set.get_span_contents(call.head);
+    let (filename, err) = unescape_unquote_string(bytes, call.head);
+    if let Some(err) = err {
+        working_set.error(err);
+    }
     if starting_error_count == working_set.parse_errors.len() {
         if let Ok(contents) = std::fs::read(path) {
             parse_module(working_set, Some(filename), &contents, is_debug, call.head)

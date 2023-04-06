@@ -332,7 +332,10 @@ pub fn parse_external_call(
         let arg = parse_expression(working_set, &[head_span], expand_aliases_denylist, true);
         Box::new(arg)
     } else {
-        let contents = unescape_unquote_string(working_set, head_span);
+        let (contents, err) = unescape_unquote_string(&head_contents, head_span);
+        if let Some(err) = err {
+            working_set.error(err)
+        }
 
         Box::new(Expression {
             expr: Expr::String(contents),
@@ -2320,32 +2323,46 @@ pub fn parse_full_cell_path(
 }
 
 pub fn parse_directory(working_set: &mut StateWorkingSet, span: Span) -> Expression {
-    let token = unescape_unquote_string(working_set, span);
+    let bytes = working_set.get_span_contents(span);
+    let (token, err) = unescape_unquote_string(bytes, span);
     trace!("parsing: directory");
 
-    trace!("-- found {}", token);
-    Expression {
-        expr: Expr::Directory(token),
-        span,
-        ty: Type::String,
-        custom_completion: None,
+    if err.is_none() {
+        trace!("-- found {}", token);
+
+        Expression {
+            expr: Expr::Directory(token),
+            span,
+            ty: Type::String,
+            custom_completion: None,
+        }
+    } else {
+        working_set.error(ParseError::Expected("directory".into(), span));
+
+        garbage(span)
     }
 }
 
 pub fn parse_filepath(working_set: &mut StateWorkingSet, span: Span) -> Expression {
-    let token = unescape_unquote_string(working_set, span);
+    let bytes = working_set.get_span_contents(span);
+    let (token, err) = unescape_unquote_string(bytes, span);
     trace!("parsing: filepath");
 
-    trace!("-- found {}", token);
+    if err.is_none() {
+        trace!("-- found {}", token);
 
-    Expression {
-        expr: Expr::Filepath(token),
-        span,
-        ty: Type::String,
-        custom_completion: None,
+        Expression {
+            expr: Expr::Filepath(token),
+            span,
+            ty: Type::String,
+            custom_completion: None,
+        }
+    } else {
+        working_set.error(ParseError::Expected("filepath".into(), span));
+
+        garbage(span)
     }
 }
-
 /// Parse a datetime type, eg '2022-02-02'
 pub fn parse_datetime(working_set: &mut StateWorkingSet, span: Span) -> Expression {
     trace!("parsing: datetime");
@@ -2631,16 +2648,23 @@ pub fn parse_filesize_bytes(num_with_unit_bytes: &[u8], span: Span) -> Option<Ex
 }
 
 pub fn parse_glob_pattern(working_set: &mut StateWorkingSet, span: Span) -> Expression {
-    let token = unescape_unquote_string(working_set, span);
+    let bytes = working_set.get_span_contents(span);
+    let (token, err) = unescape_unquote_string(bytes, span);
     trace!("parsing: glob pattern");
 
-    trace!("-- found {}", token);
+    if err.is_none() {
+        trace!("-- found {}", token);
 
-    Expression {
-        expr: Expr::GlobPattern(token),
-        span,
-        ty: Type::String,
-        custom_completion: None,
+        Expression {
+            expr: Expr::GlobPattern(token),
+            span,
+            ty: Type::String,
+            custom_completion: None,
+        }
+    } else {
+        working_set.error(ParseError::Expected("glob pattern string".into(), span));
+
+        garbage(span)
     }
 }
 
@@ -2812,33 +2836,31 @@ pub fn unescape_string(bytes: &[u8], span: Span) -> (Vec<u8>, Option<ParseError>
     (output, error)
 }
 
-pub fn unescape_unquote_string(working_set: &mut StateWorkingSet, span: Span) -> String {
-    let bytes = working_set.get_span_contents(span);
-
+pub fn unescape_unquote_string(bytes: &[u8], span: Span) -> (String, Option<ParseError>) {
     if bytes.starts_with(b"\"") {
         // Needs unescaping
-
         let bytes = trim_quotes(bytes);
+
         let (bytes, err) = unescape_string(bytes, span);
-        if let Some(err) = err {
-            working_set.error(err);
-        }
 
-        if let Ok(token) = String::from_utf8(bytes.to_vec()) {
-            token
+        if let Ok(token) = String::from_utf8(bytes) {
+            (token, err)
         } else {
-            working_set.error(ParseError::Expected("string".into(), span));
-
-            String::new()
+            (
+                String::new(),
+                Some(ParseError::Expected("string".into(), span)),
+            )
         }
     } else {
         let bytes = trim_quotes(bytes);
 
         if let Ok(token) = String::from_utf8(bytes.into()) {
-            token
+            (token, None)
         } else {
-            working_set.error(ParseError::Expected("string".into(), span));
-            String::new()
+            (
+                String::new(),
+                Some(ParseError::Expected("string".into(), span)),
+            )
         }
     }
 }
@@ -2862,7 +2884,10 @@ pub fn parse_string(
         return parse_string_interpolation(working_set, span, expand_aliases_denylist);
     }
 
-    let s = unescape_unquote_string(working_set, span);
+    let (s, err) = unescape_unquote_string(bytes, span);
+    if let Some(err) = err {
+        working_set.error(err);
+    }
 
     Expression {
         expr: Expr::String(s),
