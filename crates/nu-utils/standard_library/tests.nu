@@ -118,13 +118,11 @@ def main [
                     use ($test.file) ($test.name)
                     try {
                         ($test.name)
-                    } catch { |e|
-                        if $e.msg == "ASSERT:SKIP" {
+                    } catch { |err|
+                        if $err.msg == "ASSERT:SKIP" {
                             exit 2
                         } else {
-                            # Run again to print the error message and make an error,
-                            # since in Nushell 0.78 it is not available in $e.
-                            ($test.name)
+                            $err | get raw
                         }
                     }
                 '
