@@ -18,13 +18,14 @@ pub const PLUGIN_DIRS_VAR: &str = "NU_PLUGIN_DIRS";
 
 use crate::{
     eval::{eval_constant, value_as_string},
+    is_math_expression_like,
     known_external::KnownExternal,
     lex,
     lite_parser::{lite_parse, LiteCommand, LiteElement},
     parser::{
-        check_call, check_name, garbage, garbage_pipeline, parse, parse_call, parse_import_pattern,
-        parse_internal_call, parse_multispan_value, parse_signature, parse_string, parse_value,
-        parse_var_with_opt_type, trim_quotes, ParsedInternalCall,
+        check_call, check_name, garbage, garbage_pipeline, parse, parse_call, parse_expression,
+        parse_import_pattern, parse_internal_call, parse_multispan_value, parse_signature,
+        parse_string, parse_value, parse_var_with_opt_type, trim_quotes, ParsedInternalCall,
     },
     unescape_unquote_string, ParseError, Token, TokenContents,
 };
@@ -797,6 +798,27 @@ pub fn parse_alias(
             let _equals = working_set.get_span_contents(spans[split_id + 1]);
 
             let replacement_spans = &spans[(split_id + 2)..];
+
+            if is_math_expression_like(working_set, replacement_spans[0], expand_aliases_denylist) {
+                // TODO: Maybe we need to implement a Display trait for Expression?
+                let (expr, _) = parse_expression(
+                    working_set,
+                    replacement_spans,
+                    expand_aliases_denylist,
+                    false,
+                );
+
+                let msg = format!("{:?}", expr.expr);
+                let msg_parts: Vec<&str> = msg.split('(').collect();
+
+                return (
+                    alias_pipeline,
+                    Some(ParseError::CantAliasExpression(
+                        msg_parts[0].to_string(),
+                        replacement_spans[0],
+                    )),
+                );
+            }
 
             let (expr, err) = parse_call(
                 working_set,
