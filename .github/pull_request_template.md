@@ -18,7 +18,7 @@ Make sure you've run and fixed any issues with these commands:
 - `cargo fmt --all -- --check` to check standard code formatting (`cargo fmt --all` applies these changes)
 - `cargo clippy --workspace -- -D warnings -D clippy::unwrap_used -A clippy::needless_collect` to check that you're using the standard code style
 - `cargo test --workspace` to check that all tests pass
-- `cargo run -- crates/nu-utils/standard_library/tests.nu` to run the tests for the standard library
+- `cargo run -- crates/standard_library/tests.nu` to run the tests for the standard library
 
 > **Note**
 > from `nushell` you can also use the `toolkit` as follows
