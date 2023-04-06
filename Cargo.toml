@@ -91,7 +91,7 @@ atty = "0.2"
 
 [dev-dependencies]
 nu-test-support = { path = "./crates/nu-test-support", version = "0.78.1" }
-tempfile = "3.4.0"
+tempfile = "3.5.0"
 assert_cmd = "2.0.2"
 criterion = "0.4"
 pretty_assertions = "1.0.0"
