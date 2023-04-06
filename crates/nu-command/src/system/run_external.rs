@@ -64,9 +64,10 @@ impl Command for External {
         let mut redirect_stderr = call.has_flag("redirect-stderr");
         let out_file: Option<Spanned<String>> =
             call.get_flag(engine_state, stack, "out-to-file")?;
-        if let Some(_) = out_file {
+        if out_file.is_some() {
             // user wants to redirect stdout and stderr to file
-            // reset `redirect_stdout`, `redirect_stderr` to false.
+            // reset `redirect_stdout`, `redirect_stderr` to false so nushell don't
+            // need to make process's stdout, stderr to `piped()`.
             redirect_stdout = false;
             redirect_stderr = false;
         }
