@@ -362,7 +362,7 @@ def show-module [module: record] {
         let commands_string = (
             $module.commands
             | each {|command|
-                $"($command) (char lparen)(ansi cyan_bold)($module.name) ($command)(ansi reset)(char rparen)"
+                $"($command) (char lparen)($module.name) ($command)(char rparen)"
             }
             | str join ", "
         )
