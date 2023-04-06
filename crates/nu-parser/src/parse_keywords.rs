@@ -732,7 +732,7 @@ pub fn parse_alias(
         let has_help_flag = alias_call.has_flag("help");
 
         let alias_pipeline = Pipeline::from_vec(vec![Expression {
-            expr: Expr::Call(alias_call),
+            expr: Expr::Call(alias_call.clone()),
             span: span(spans),
             ty: output,
             custom_completion: None,
@@ -742,43 +742,52 @@ pub fn parse_alias(
             return (alias_pipeline, None);
         }
 
-        if spans.len() >= split_id + 3 {
-            let alias_name = working_set.get_span_contents(spans[split_id]);
+        let alias_name_expr = if let Some(expr) = alias_call.positional_nth(0) {
+            expr
+        } else {
+            return (
+                garbage_pipeline(spans),
+                Some(ParseError::UnknownState(
+                    "Missing positional after call check".to_string(),
+                    span(spans),
+                )),
+            );
+        };
 
-            let alias_name = if alias_name.starts_with(b"\"")
-                && alias_name.ends_with(b"\"")
-                && alias_name.len() > 1
-            {
-                alias_name[1..(alias_name.len() - 1)].to_vec()
-            } else {
-                alias_name.to_vec()
-            };
-
-            let checked_name = String::from_utf8_lossy(&alias_name).to_string();
-            if checked_name.contains('#')
-                || checked_name.contains('^')
-                || checked_name.parse::<bytesize::ByteSize>().is_ok()
-                || checked_name.parse::<f64>().is_ok()
+        let alias_name = if let Some(name) = alias_name_expr.as_string() {
+            if name.contains('#')
+                || name.contains('^')
+                || name.parse::<bytesize::ByteSize>().is_ok()
+                || name.parse::<f64>().is_ok()
             {
                 return (
-                    Pipeline::from_vec(vec![garbage(name_span)]),
-                    Some(ParseError::AliasNotValid(name_span)),
+                    garbage_pipeline(spans),
+                    Some(ParseError::AliasNotValid(alias_name_expr.span)),
                 );
+            } else {
+                name
             }
+        } else {
+            return (
+                garbage_pipeline(spans),
+                Some(ParseError::AliasNotValid(alias_name_expr.span)),
+            );
+        };
 
+        if spans.len() >= split_id + 3 {
             if let Some(mod_name) = module_name {
-                if checked_name.as_bytes() == mod_name {
+                if alias_name.as_bytes() == mod_name {
                     return (
                         alias_pipeline,
                         Some(ParseError::NamedAsModule(
                             "alias".to_string(),
-                            checked_name,
+                            alias_name,
                             spans[split_id],
                         )),
                     );
                 }
 
-                if checked_name == "main" {
+                if alias_name == "main" {
                     return (
                         alias_pipeline,
                         Some(ParseError::ExportMainAliasNotAllowed(spans[split_id])),
@@ -868,7 +877,7 @@ pub fn parse_alias(
             };
 
             let decl = Alias {
-                name: checked_name,
+                name: alias_name,
                 command,
                 wrapped_call,
             };
