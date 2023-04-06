@@ -80,7 +80,7 @@ pub fn check(engine_state: &mut EngineState, file_path: &String) {
         let offset = working_set.next_span_start();
         let block = parse(&mut working_set, Some(file_path), &contents, false, &[]);
 
-        if let Some(err) = working_set.parse_errors.first() {
+        for err in &working_set.parse_errors {
             let mut span = err.span();
             span.start -= offset;
             span.end -= offset;
