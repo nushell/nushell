@@ -260,9 +260,10 @@ fn heuristic_parse_file(
     call: &Call,
     is_debug: bool,
 ) -> Result<PipelineData, ShellError> {
-    let (filename, err) = unescape_unquote_string(path.as_bytes(), call.head);
-    if err.is_none() {
-        if let Ok(contents) = std::fs::read(&path) {
+    let starting_error_count = working_set.parse_errors.len();
+    let filename = unescape_unquote_string(working_set, call.head);
+    if starting_error_count == working_set.parse_errors.len() {
+        if let Ok(contents) = std::fs::read(path) {
             match parse_script(
                 working_set,
                 Some(filename.as_str()),
@@ -314,13 +315,17 @@ fn parse_module(
     let end = working_set.next_span_start();
 
     let new_span = Span::new(start, end);
-    let (_, _, _, err) = parse_module_block(working_set, new_span, filename.as_bytes(), &[]);
+    let starting_error_count = working_set.parse_errors.len();
+    parse_module_block(working_set, new_span, filename.as_bytes(), &[]);
 
-    if err.is_some() {
+    if starting_error_count != working_set.parse_errors.len() {
         if is_debug {
             let msg = format!(
                 r#"Found : {}"#,
-                err.expect("Unable to parse content as module")
+                working_set
+                    .parse_errors
+                    .last()
+                    .expect("Unable to parse content as module")
             );
             Err(ShellError::GenericError(
                 "Failed to parse content".to_string(),
@@ -344,9 +349,16 @@ fn parse_script(
     is_debug: bool,
     span: Span,
 ) -> Result<PipelineData, ShellError> {
-    let (_, err) = parse(working_set, filename, contents, false, &[]);
-    if err.is_some() {
-        let msg = format!(r#"Found : {}"#, err.expect("Unable to parse content"));
+    let starting_error_count = working_set.parse_errors.len();
+    parse(working_set, filename, contents, false, &[]);
+    if starting_error_count != working_set.parse_errors.len() {
+        let msg = format!(
+            r#"Found : {}"#,
+            working_set
+                .parse_errors
+                .last()
+                .expect("Unable to parse content")
+        );
         if is_debug {
             Err(ShellError::GenericError(
                 "Failed to parse content".to_string(),
@@ -369,9 +381,10 @@ fn parse_file_script(
     call: &Call,
     is_debug: bool,
 ) -> Result<PipelineData, ShellError> {
-    let (filename, err) = unescape_unquote_string(path.as_bytes(), call.head);
-    if err.is_none() {
-        if let Ok(contents) = std::fs::read(&path) {
+    let starting_error_count = working_set.parse_errors.len();
+    let filename = unescape_unquote_string(working_set, call.head);
+    if starting_error_count == working_set.parse_errors.len() {
+        if let Ok(contents) = std::fs::read(path) {
             parse_script(
                 working_set,
                 Some(filename.as_str()),
@@ -393,8 +406,9 @@ fn parse_file_module(
     call: &Call,
     is_debug: bool,
 ) -> Result<PipelineData, ShellError> {
-    let (filename, err) = unescape_unquote_string(path.as_bytes(), call.head);
-    if err.is_none() {
+    let starting_error_count = working_set.parse_errors.len();
+    let filename = unescape_unquote_string(working_set, call.head);
+    if starting_error_count == working_set.parse_errors.len() {
         if let Ok(contents) = std::fs::read(path) {
             parse_module(working_set, Some(filename), &contents, is_debug, call.head)
         } else {

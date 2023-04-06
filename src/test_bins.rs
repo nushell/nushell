@@ -224,7 +224,7 @@ pub fn nu_repl() {
         // Eval the REPL line
         let (block, delta) = {
             let mut working_set = StateWorkingSet::new(&engine_state);
-            let (block, err) = parse(
+            let block = parse(
                 &mut working_set,
                 Some(&format!("line{i}")),
                 line.as_bytes(),
@@ -232,8 +232,8 @@ pub fn nu_repl() {
                 &[],
             );
 
-            if let Some(err) = err {
-                outcome_err(&engine_state, &err);
+            if let Some(err) = working_set.parse_errors.first() {
+                outcome_err(&engine_state, err);
             }
             (block, working_set.render())
         };

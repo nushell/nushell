@@ -120,7 +120,7 @@ impl NuCompleter {
         let pos = offset + pos;
         let config = self.engine_state.get_config();
 
-        let (output, _err) = parse(&mut working_set, Some("completer"), &new_line, false, &[]);
+        let output = parse(&mut working_set, Some("completer"), &new_line, false, &[]);
 
         for pipeline in output.pipelines.into_iter() {
             for pipeline_element in pipeline.elements {

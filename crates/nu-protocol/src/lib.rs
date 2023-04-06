@@ -8,6 +8,7 @@ mod exportable;
 mod id;
 mod lev_distance;
 mod module;
+mod parse_error;
 mod pipeline_data;
 #[cfg(feature = "plugin")]
 mod plugin_signature;
@@ -28,6 +29,7 @@ pub use example::*;
 pub use exportable::*;
 pub use id::*;
 pub use module::*;
+pub use parse_error::ParseError;
 pub use pipeline_data::*;
 #[cfg(feature = "plugin")]
 pub use plugin_signature::*;
