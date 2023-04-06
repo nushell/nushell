@@ -3,9 +3,9 @@ use nu_command::util::report_error;
 #[cfg(feature = "plugin")]
 use nu_path::canonicalize_with;
 use nu_protocol::engine::{EngineState, Stack, StateWorkingSet};
+use nu_protocol::{HistoryFileFormat, PipelineData};
 #[cfg(feature = "plugin")]
-use nu_protocol::Spanned;
-use nu_protocol::{HistoryFileFormat, ParseError, PipelineData};
+use nu_protocol::{ParseError, Spanned};
 #[cfg(feature = "plugin")]
 use nu_utils::utils::perf;
 use std::path::PathBuf;
