@@ -798,8 +798,16 @@ pub fn parse_alias(
             let _equals = working_set.get_span_contents(spans[split_id + 1]);
 
             let replacement_spans = &spans[(split_id + 2)..];
+            let first_bytes = working_set.get_span_contents(replacement_spans[0]);
 
-            if is_math_expression_like(working_set, replacement_spans[0], expand_aliases_denylist) {
+            if first_bytes != b"if"
+                && first_bytes != b"match"
+                && is_math_expression_like(
+                    working_set,
+                    replacement_spans[0],
+                    expand_aliases_denylist,
+                )
+            {
                 // TODO: Maybe we need to implement a Display trait for Expression?
                 let (expr, _) = parse_expression(
                     working_set,

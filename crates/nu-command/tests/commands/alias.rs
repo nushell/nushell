@@ -126,6 +126,18 @@ fn alias_invalid_expression() {
     assert!(actual.err.contains("cant_alias_expression"));
 }
 
+#[test]
+fn alias_if() {
+    let actual = nu!(r#" alias spam = if true { 'spam' } else { 'eggs' }; spam "#);
+    assert_eq!(actual.out, "spam");
+}
+
+#[test]
+fn alias_match() {
+    let actual = nu!(r#" alias spam = match 3 { 1..10 => 'yes!' }; spam "#);
+    assert_eq!(actual.out, "yes!");
+}
+
 // Issue https://github.com/nushell/nushell/issues/8103
 #[test]
 fn alias_multiword_name() {
