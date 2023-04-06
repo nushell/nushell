@@ -850,6 +850,7 @@ pub fn parse_internal_call(
     while spans_idx < spans.len() {
         let arg_span = spans[spans_idx];
 
+        let starting_error_count = working_set.parse_errors.len();
         // Check if we're on a long flag, if so, parse
         let (long_name, arg) = parse_long_flag(
             working_set,
@@ -861,12 +862,12 @@ pub fn parse_internal_call(
 
         if let Some(long_name) = long_name {
             // We found a long flag, like --bar
-            if working_set
-                .parse_errors
+            if working_set.parse_errors[starting_error_count..]
                 .iter()
                 .any(|x| matches!(x, ParseError::UnknownFlag(_, _, _, _)))
                 && signature.allows_unknown_args
             {
+                working_set.parse_errors.truncate(starting_error_count);
                 let arg = parse_value(
                     working_set,
                     arg_span,
@@ -882,6 +883,8 @@ pub fn parse_internal_call(
             spans_idx += 1;
             continue;
         }
+
+        let starting_error_count = working_set.parse_errors.len();
 
         // Check if we're on a short flag or group of short flags, if so, parse
         let short_flags = parse_short_flags(
@@ -906,12 +909,12 @@ pub fn parse_internal_call(
                 })
             }
 
-            if working_set
-                .parse_errors
+            if working_set.parse_errors[starting_error_count..]
                 .iter()
                 .any(|x| matches!(x, ParseError::UnknownFlag(_, _, _, _)))
                 && signature.allows_unknown_args
             {
+                working_set.parse_errors.truncate(starting_error_count);
                 let arg = parse_value(
                     working_set,
                     arg_span,
@@ -4790,7 +4793,7 @@ pub fn parse_value(
                     if starting_error_count == working_set.parse_errors.len() {
                         return s;
                     } else {
-                        match working_set.parse_errors.last() {
+                        match working_set.parse_errors.first() {
                             Some(ParseError::Expected(_, _)) => {
                                 working_set.parse_errors.truncate(starting_error_count);
                                 continue;

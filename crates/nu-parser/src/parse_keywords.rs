@@ -261,8 +261,9 @@ pub fn parse_for(
                 }
             }
 
+            let starting_error_count = working_set.parse_errors.len();
             check_call(working_set, call_span, &sig, &call);
-            if call.has_flag("help") {
+            if starting_error_count != working_set.parse_errors.len() || call.has_flag("help") {
                 return Expression {
                     expr: Expr::Call(call),
                     span: call_span,
@@ -346,6 +347,7 @@ pub fn parse_def(
         Some(decl_id) => {
             working_set.enter_scope();
             let (command_spans, rest_spans) = spans.split_at(split_id);
+            let starting_error_count = working_set.parse_errors.len();
             let ParsedInternalCall { call, output } = parse_internal_call(
                 working_set,
                 span(command_spans),
@@ -353,6 +355,10 @@ pub fn parse_def(
                 decl_id,
                 expand_aliases_denylist,
             );
+            // This is to preserve the order of the errors so that
+            // the check errors below come first
+            let mut new_errors = working_set.parse_errors[starting_error_count..].to_vec();
+            working_set.parse_errors.truncate(starting_error_count);
 
             working_set.exit_scope();
 
@@ -379,8 +385,10 @@ pub fn parse_def(
                 }
             }
 
+            let starting_error_count = working_set.parse_errors.len();
             check_call(working_set, call_span, &sig, &call);
-            if call.has_flag("help") {
+            working_set.parse_errors.append(&mut new_errors);
+            if starting_error_count != working_set.parse_errors.len() || call.has_flag("help") {
                 return Pipeline::from_vec(vec![Expression {
                     expr: Expr::Call(call),
                     span: call_span,
@@ -660,6 +668,8 @@ pub fn parse_alias(
     if let Some(decl_id) = working_set.find_decl(b"alias", &Type::Any) {
         let (command_spans, rest_spans) = spans.split_at(split_id);
 
+        let original_starting_error_count = working_set.parse_errors.len();
+
         let ParsedInternalCall {
             call: alias_call,
             output,
@@ -671,6 +681,9 @@ pub fn parse_alias(
             decl_id,
             expand_aliases_denylist,
         );
+        working_set
+            .parse_errors
+            .truncate(original_starting_error_count);
 
         let has_help_flag = alias_call.has_flag("help");
 
@@ -727,6 +740,7 @@ pub fn parse_alias(
 
             let replacement_spans = &spans[(split_id + 2)..];
 
+            let starting_error_count = working_set.parse_errors.len();
             let expr = parse_call(
                 working_set,
                 replacement_spans,
@@ -735,14 +749,18 @@ pub fn parse_alias(
                 false, // TODO: Should this be set properly???
             );
 
-            // FIXME: what was the intent of this part of the code?
-            // if let Some(e) = err {
-            //     if let ParseError::MissingPositional(..) = e {
-            //         // ignore missing required positional
-            //     } else {
-            //         return (garbage_pipeline(replacement_spans), Some(e));
-            //     }
-            // }
+            if starting_error_count != working_set.parse_errors.len() {
+                if let Some(e) = working_set.parse_errors.get(starting_error_count) {
+                    if let ParseError::MissingPositional(..) = e {
+                        working_set
+                            .parse_errors
+                            .truncate(original_starting_error_count);
+                        // ignore missing required positional
+                    } else {
+                        return garbage_pipeline(replacement_spans);
+                    }
+                }
+            }
 
             let (command, wrapped_call) = match expr {
                 Expression {
@@ -1012,9 +1030,10 @@ pub fn parse_export_in_block(
         );
 
         let decl = working_set.get_decl(decl_id);
-        check_call(working_set, call_span, &decl.signature(), &call);
 
-        if call.has_flag("help") {
+        let starting_error_count = working_set.parse_errors.len();
+        check_call(working_set, call_span, &decl.signature(), &call);
+        if starting_error_count != working_set.parse_errors.len() || call.has_flag("help") {
             return Pipeline::from_vec(vec![Expression {
                 expr: Expr::Call(call),
                 span: call_span,
@@ -1547,8 +1566,9 @@ pub fn parse_export_env(
 
             let call_span = span(spans);
 
+            let starting_error_count = working_set.parse_errors.len();
             check_call(working_set, call_span, &decl.signature(), &call);
-            if call.has_flag("help") {
+            if starting_error_count != working_set.parse_errors.len() || call.has_flag("help") {
                 return (
                     Pipeline::from_vec(vec![Expression {
                         expr: Expr::Call(call),
@@ -1904,8 +1924,9 @@ pub fn parse_use(
 
             let call_span = span(spans);
 
+            let starting_error_count = working_set.parse_errors.len();
             check_call(working_set, call_span, &decl.signature(), &call);
-            if call.has_flag("help") {
+            if starting_error_count != working_set.parse_errors.len() || call.has_flag("help") {
                 return (
                     Pipeline::from_vec(vec![Expression {
                         expr: Expr::Call(call),
@@ -2209,8 +2230,9 @@ pub fn parse_hide(
 
             let call_span = span(spans);
 
+            let starting_error_count = working_set.parse_errors.len();
             check_call(working_set, call_span, &decl.signature(), &call);
-            if call.has_flag("help") {
+            if starting_error_count != working_set.parse_errors.len() || call.has_flag("help") {
                 return Pipeline::from_vec(vec![Expression {
                     expr: Expr::Call(call),
                     span: call_span,
@@ -3161,8 +3183,9 @@ pub fn parse_where_expr(
 
             let call_span = span(spans);
 
+            let starting_error_count = working_set.parse_errors.len();
             check_call(working_set, call_span, &decl.signature(), &call);
-            if call.has_flag("help") {
+            if starting_error_count != working_set.parse_errors.len() || call.has_flag("help") {
                 return Expression {
                     expr: Expr::Call(call),
                     span: call_span,
@@ -3243,8 +3266,9 @@ pub fn parse_register(
 
             let call_span = span(spans);
 
+            let starting_error_count = working_set.parse_errors.len();
             check_call(working_set, call_span, &decl.signature(), &call);
-            if call.has_flag("help") {
+            if starting_error_count != working_set.parse_errors.len() || call.has_flag("help") {
                 return Pipeline::from_vec(vec![Expression {
                     expr: Expr::Call(call),
                     span: call_span,
