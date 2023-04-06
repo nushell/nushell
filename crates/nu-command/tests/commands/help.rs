@@ -259,8 +259,8 @@ fn help_module_sorted_aliases() {
             "spam.nu",
             r#"
                 module SPAM {
-                    export alias z = 'z'
-                    export alias a = 'a'
+                    export alias z = echo 'z'
+                    export alias a = echo 'a'
                 }
             "#,
         )]);

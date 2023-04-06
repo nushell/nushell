@@ -18,13 +18,14 @@ pub const PLUGIN_DIRS_VAR: &str = "NU_PLUGIN_DIRS";
 
 use crate::{
     eval::{eval_constant, value_as_string},
+    is_math_expression_like,
     known_external::KnownExternal,
     lex,
     lite_parser::{lite_parse, LiteCommand, LiteElement},
     parser::{
-        check_call, check_name, garbage, garbage_pipeline, parse, parse_call, parse_import_pattern,
-        parse_internal_call, parse_multispan_value, parse_signature, parse_string, parse_value,
-        parse_var_with_opt_type, trim_quotes, ParsedInternalCall,
+        check_call, check_name, garbage, garbage_pipeline, parse, parse_call, parse_expression,
+        parse_import_pattern, parse_internal_call, parse_multispan_value, parse_signature,
+        parse_string, parse_value, parse_var_with_opt_type, trim_quotes, ParsedInternalCall,
     },
     unescape_unquote_string, Token, TokenContents,
 };
@@ -694,7 +695,7 @@ pub fn parse_alias(
         let has_help_flag = alias_call.has_flag("help");
 
         let alias_pipeline = Pipeline::from_vec(vec![Expression {
-            expr: Expr::Call(alias_call),
+            expr: Expr::Call(alias_call.clone()),
             span: span(spans),
             ty: output,
             custom_completion: None,
@@ -704,39 +705,45 @@ pub fn parse_alias(
             return alias_pipeline;
         }
 
-        if spans.len() >= split_id + 3 {
-            let alias_name = working_set.get_span_contents(spans[split_id]);
+        let alias_name_expr = if let Some(expr) = alias_call.positional_nth(0) {
+            expr
+        } else {
+            working_set.error(ParseError::UnknownState(
+                "Missing positional after call check".to_string(),
+                span(spans),
+            ));
+            return garbage_pipeline(spans);
+        };
 
-            let alias_name = if alias_name.starts_with(b"\"")
-                && alias_name.ends_with(b"\"")
-                && alias_name.len() > 1
+        let alias_name = if let Some(name) = alias_name_expr.as_string() {
+            if name.contains('#')
+                || name.contains('^')
+                || name.parse::<bytesize::ByteSize>().is_ok()
+                || name.parse::<f64>().is_ok()
             {
-                alias_name[1..(alias_name.len() - 1)].to_vec()
+                working_set.error(ParseError::AliasNotValid(alias_name_expr.span));
+                return garbage_pipeline(spans);
             } else {
-                alias_name.to_vec()
-            };
-
-            let checked_name = String::from_utf8_lossy(&alias_name).to_string();
-            if checked_name.contains('#')
-                || checked_name.contains('^')
-                || checked_name.parse::<bytesize::ByteSize>().is_ok()
-                || checked_name.parse::<f64>().is_ok()
-            {
-                working_set.error(ParseError::AliasNotValid(name_span));
-                return Pipeline::from_vec(vec![garbage(name_span)]);
+                name
             }
+        } else {
+            working_set.error(ParseError::AliasNotValid(alias_name_expr.span));
+            return garbage_pipeline(spans);
+        };
 
+        if spans.len() >= split_id + 3 {
             if let Some(mod_name) = module_name {
-                if checked_name.as_bytes() == mod_name {
+                if alias_name.as_bytes() == mod_name {
                     working_set.error(ParseError::NamedAsModule(
                         "alias".to_string(),
-                        checked_name,
+                        alias_name,
                         spans[split_id],
                     ));
+
                     return alias_pipeline;
                 }
 
-                if checked_name == "main" {
+                if alias_name == "main" {
                     working_set.error(ParseError::ExportMainAliasNotAllowed(spans[split_id]));
                     return alias_pipeline;
                 }
@@ -745,6 +752,35 @@ pub fn parse_alias(
             let _equals = working_set.get_span_contents(spans[split_id + 1]);
 
             let replacement_spans = &spans[(split_id + 2)..];
+            let first_bytes = working_set.get_span_contents(replacement_spans[0]);
+
+            if first_bytes != b"if"
+                && first_bytes != b"match"
+                && is_math_expression_like(
+                    working_set,
+                    replacement_spans[0],
+                    expand_aliases_denylist,
+                )
+            {
+                // TODO: Maybe we need to implement a Display trait for Expression?
+                let starting_error_count = working_set.parse_errors.len();
+                let expr = parse_expression(
+                    working_set,
+                    replacement_spans,
+                    expand_aliases_denylist,
+                    false,
+                );
+                working_set.parse_errors.truncate(starting_error_count);
+
+                let msg = format!("{:?}", expr.expr);
+                let msg_parts: Vec<&str> = msg.split('(').collect();
+
+                working_set.error(ParseError::CantAliasExpression(
+                    msg_parts[0].to_string(),
+                    replacement_spans[0],
+                ));
+                return alias_pipeline;
+            }
 
             let starting_error_count = working_set.parse_errors.len();
             let expr = parse_call(
@@ -805,7 +841,7 @@ pub fn parse_alias(
             };
 
             let decl = Alias {
-                name: checked_name,
+                name: alias_name,
                 command,
                 wrapped_call,
             };
