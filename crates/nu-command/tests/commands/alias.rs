@@ -113,3 +113,15 @@ fn alias_wont_recurse2() {
         assert!(actual.err.is_empty());
     })
 }
+
+#[test]
+fn alias_invalid_expression() {
+    let actual = nu!(r#" alias spam = 'foo' "#);
+    assert!(actual.err.contains("cant_alias_expression"));
+
+    let actual = nu!(r#" alias spam = (ls -l) "#);
+    assert!(actual.err.contains("cant_alias_expression"));
+
+    let actual = nu!(r#" alias spam = 0..12 "#);
+    assert!(actual.err.contains("cant_alias_expression"));
+}
