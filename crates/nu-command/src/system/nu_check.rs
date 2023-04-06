@@ -328,7 +328,7 @@ fn parse_module(
                 r#"Found : {}"#,
                 working_set
                     .parse_errors
-                    .last()
+                    .first()
                     .expect("Unable to parse content as module")
             );
             Err(ShellError::GenericError(
@@ -360,7 +360,7 @@ fn parse_script(
             r#"Found : {}"#,
             working_set
                 .parse_errors
-                .last()
+                .first()
                 .expect("Unable to parse content")
         );
         if is_debug {
