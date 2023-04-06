@@ -376,7 +376,7 @@ export def "log warning" [message: string] {
 export def "log info" [message: string] {
     if (current-log-level) > (INFO_LEVEL) { return }
 
-    print --stderr $"(ansi white)INF|(now)|($message)(ansi reset)"
+    print --stderr $"(ansi default)INF|(now)|($message)(ansi reset)"
 }
 # Log debug message
 export def "log debug" [message: string] {
