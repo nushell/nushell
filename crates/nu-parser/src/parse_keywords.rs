@@ -130,8 +130,12 @@ pub fn parse_def_predecl(
     };
 
     if (name == b"def" || name == b"def-env") && spans.len() >= 4 {
-        let name_expr = parse_string(working_set, spans[1], expand_aliases_denylist);
-        let name = name_expr.as_string();
+        let starting_error_count = working_set.parse_errors.len();
+        // let name_expr = parse_string(working_set, spans[1], expand_aliases_denylist);
+        // let name = name_expr.as_string();
+        let name = working_set.get_span_contents(spans[1]);
+        let name = trim_quotes(name);
+        let name = String::from_utf8_lossy(name).to_string();
 
         working_set.enter_scope();
         // FIXME: because parse_signature will update the scope with the variables it sees
@@ -141,18 +145,20 @@ pub fn parse_def_predecl(
         // We can't reuse the first time because the variables that are created during parse_signature
         // are lost when we exit the scope below.
         let sig = parse_signature(working_set, spans[2], expand_aliases_denylist);
+        working_set.parse_errors.truncate(starting_error_count);
+
         let signature = sig.as_signature();
         working_set.exit_scope();
-        if let (Some(name), Some(mut signature)) = (name, signature) {
-            if name.contains('#')
-                || name.contains('^')
-                || name.parse::<bytesize::ByteSize>().is_ok()
-                || name.parse::<f64>().is_ok()
-            {
-                working_set.error(ParseError::CommandDefNotValid(spans[1]));
-                return;
-            }
+        if name.contains('#')
+            || name.contains('^')
+            || name.parse::<bytesize::ByteSize>().is_ok()
+            || name.parse::<f64>().is_ok()
+        {
+            working_set.error(ParseError::CommandDefNotValid(spans[1]));
+            return;
+        }
 
+        if let Some(mut signature) = signature {
             signature.name = name;
             let decl = signature.predeclare();
 
