@@ -10,7 +10,7 @@ fn library_loaded() -> TestResult {
 
 #[test]
 fn prelude_loaded() -> TestResult {
-    run_test("std help commands | length", "377")
+    run_test("std help commands | where name == open | length", "1")
 }
 
 #[test]
