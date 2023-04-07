@@ -5681,7 +5681,7 @@ pub fn parse_block(
                             redirection: (redirect_span, redirect_cmd),
                         } => {
                             trace!("parsing: pipeline element: same target redirection");
-                            let (expr, err) = parse_expression(
+                            let expr = parse_expression(
                                 working_set,
                                 &command.parts,
                                 expand_aliases_denylist,
@@ -5689,11 +5689,7 @@ pub fn parse_block(
                             );
                             working_set.type_scope.add_type(expr.ty.clone());
 
-                            if error.is_none() {
-                                error = err;
-                            }
-
-                            let (redirect_expr, err) = parse_string(
+                            let redirect_expr = parse_string(
                                 working_set,
                                 redirect_cmd.parts[0],
                                 expand_aliases_denylist,
@@ -5701,9 +5697,6 @@ pub fn parse_block(
 
                             working_set.type_scope.add_type(redirect_expr.ty.clone());
 
-                            if error.is_none() {
-                                error = err;
-                            }
                             PipelineElement::SameTargetRedirection {
                                 cmd: (*span, expr),
                                 redirection: (*redirect_span, redirect_expr),
@@ -5796,7 +5789,7 @@ pub fn parse_block(
                         redirection: (redirect_span, redirect_cmd),
                     } => {
                         trace!("parsing: pipeline element: same target redirection");
-                        let (expr, err) = parse_expression(
+                        let expr = parse_expression(
                             working_set,
                             &command.parts,
                             expand_aliases_denylist,
@@ -5804,11 +5797,7 @@ pub fn parse_block(
                         );
                         working_set.type_scope.add_type(expr.ty.clone());
 
-                        if error.is_none() {
-                            error = err;
-                        }
-
-                        let (redirect_expr, err) = parse_string(
+                        let redirect_expr = parse_string(
                             working_set,
                             redirect_cmd.parts[0],
                             expand_aliases_denylist,
@@ -5816,9 +5805,6 @@ pub fn parse_block(
 
                         working_set.type_scope.add_type(redirect_expr.ty.clone());
 
-                        if error.is_none() {
-                            error = err;
-                        }
                         Pipeline {
                             elements: vec![PipelineElement::SameTargetRedirection {
                                 cmd: (*span, expr),
