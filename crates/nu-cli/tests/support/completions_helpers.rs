@@ -146,7 +146,7 @@ pub fn merge_input(
     let (block, delta) = {
         let mut working_set = StateWorkingSet::new(engine_state);
 
-        let block = parse(&mut working_set, None, input, false, &[]);
+        let block = parse(&mut working_set, None, input, false);
 
         assert!(working_set.parse_errors.is_empty());
 

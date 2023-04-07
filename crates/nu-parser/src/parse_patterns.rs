@@ -49,7 +49,7 @@ pub fn parse_pattern(working_set: &mut StateWorkingSet, span: Span) -> MatchPatt
         }
     } else {
         // Literal value
-        let value = parse_value(working_set, span, &SyntaxShape::Any, &[]);
+        let value = parse_value(working_set, span, &SyntaxShape::Any);
 
         MatchPattern {
             pattern: Pattern::Value(value),

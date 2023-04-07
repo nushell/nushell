@@ -222,7 +222,6 @@ pub fn eval_source(
             Some(fname), // format!("entry #{}", entry_num)
             source,
             false,
-            &[],
         );
         if let Some(err) = working_set.parse_errors.first() {
             set_last_exit_code(stack, 1);

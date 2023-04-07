@@ -3,7 +3,7 @@ use lru::LruCache;
 
 use super::{Command, EnvVars, OverlayFrame, ScopeFrame, Stack, Visibility, DEFAULT_OVERLAY_NAME};
 use crate::{
-    ast::Block, AliasId, BlockId, Config, DeclId, Example, Module, ModuleId, OverlayId, ShellError,
+    ast::Block, BlockId, Config, DeclId, Example, Module, ModuleId, OverlayId, ShellError,
     Signature, Span, Type, VarId, Variable,
 };
 use crate::{ParseError, Value};
@@ -26,28 +26,18 @@ static PWD_ENV: &str = "PWD";
 #[derive(Debug, Clone)]
 pub struct Usage {
     // TODO: Move decl usages here
-    alias_comments: HashMap<AliasId, Vec<Span>>,
     module_comments: HashMap<ModuleId, Vec<Span>>,
 }
 
 impl Usage {
     pub fn new() -> Self {
         Usage {
-            alias_comments: HashMap::new(),
             module_comments: HashMap::new(),
         }
     }
 
-    pub fn add_alias_comments(&mut self, alias_id: AliasId, comments: Vec<Span>) {
-        self.alias_comments.insert(alias_id, comments);
-    }
-
     pub fn add_module_comments(&mut self, module_id: ModuleId, comments: Vec<Span>) {
         self.module_comments.insert(module_id, comments);
-    }
-
-    pub fn get_alias_comments(&self, alias_id: AliasId) -> Option<&[Span]> {
-        self.alias_comments.get(&alias_id).map(|v| v.as_ref())
     }
 
     pub fn get_module_comments(&self, module_id: ModuleId) -> Option<&[Span]> {
@@ -56,7 +46,6 @@ impl Usage {
 
     /// Overwrite own values with the other
     pub fn merge_with(&mut self, other: Usage) {
-        self.alias_comments.extend(other.alias_comments);
         self.module_comments.extend(other.module_comments);
     }
 }
@@ -115,7 +104,6 @@ pub struct EngineState {
     file_contents: Vec<(Vec<u8>, usize, usize)>,
     vars: Vec<Variable>,
     decls: Vec<Box<dyn Command + 'static>>,
-    aliases: Vec<Vec<Span>>,
     blocks: Vec<Block>,
     modules: Vec<Module>,
     usage: Usage,
@@ -164,7 +152,6 @@ impl EngineState {
                 Variable::new(Span::new(0, 0), Type::Any, false),
             ],
             decls: vec![],
-            aliases: vec![],
             blocks: vec![],
             modules: vec![Module::new(DEFAULT_OVERLAY_NAME.as_bytes().to_vec())],
             usage: Usage::new(),
@@ -210,7 +197,6 @@ impl EngineState {
         self.files.extend(delta.files);
         self.file_contents.extend(delta.file_contents);
         self.decls.extend(delta.decls);
-        self.aliases.extend(delta.aliases);
         self.vars.extend(delta.vars);
         self.blocks.extend(delta.blocks);
         self.modules.extend(delta.modules);
@@ -234,9 +220,6 @@ impl EngineState {
                 }
                 for item in delta_overlay.constants.into_iter() {
                     existing_overlay.constants.insert(item.0, item.1);
-                }
-                for item in delta_overlay.aliases.into_iter() {
-                    existing_overlay.aliases.insert(item.0, item.1);
                 }
                 for item in delta_overlay.modules.into_iter() {
                     existing_overlay.modules.insert(item.0, item.1);
@@ -568,10 +551,6 @@ impl EngineState {
         self.decls.len()
     }
 
-    pub fn num_aliases(&self) -> usize {
-        self.aliases.len()
-    }
-
     pub fn num_blocks(&self) -> usize {
         self.blocks.len()
     }
@@ -637,26 +616,6 @@ impl EngineState {
         }
 
         None
-    }
-
-    pub fn find_alias(&self, name: &[u8], removed_overlays: &[Vec<u8>]) -> Option<AliasId> {
-        let mut visibility: Visibility = Visibility::new();
-
-        for overlay_frame in self.active_overlays(removed_overlays).iter().rev() {
-            visibility.append(&overlay_frame.visibility);
-
-            if let Some(alias_id) = overlay_frame.aliases.get(name) {
-                if visibility.is_alias_id_visible(alias_id) {
-                    return Some(*alias_id);
-                }
-            }
-        }
-
-        None
-    }
-
-    pub fn get_alias_comments(&self, alias_id: AliasId) -> Option<&[Span]> {
-        self.usage.get_alias_comments(alias_id)
     }
 
     pub fn get_module_comments(&self, module_id: ModuleId) -> Option<&[Span]> {
@@ -733,20 +692,6 @@ impl EngineState {
         output
     }
 
-    pub fn find_aliases_by_predicate(&self, predicate: impl Fn(&[u8]) -> bool) -> Vec<Vec<u8>> {
-        let mut output = vec![];
-
-        for overlay_frame in self.active_overlays(&[]).iter().rev() {
-            for alias in &overlay_frame.aliases {
-                if overlay_frame.visibility.is_alias_id_visible(alias.1) && predicate(alias.0) {
-                    output.push(alias.0.clone());
-                }
-            }
-        }
-
-        output
-    }
-
     pub fn find_constant(&self, var_id: VarId, removed_overlays: &[Vec<u8>]) -> Option<&Value> {
         for overlay_frame in self.active_overlays(removed_overlays).iter().rev() {
             if let Some(val) = overlay_frame.constants.get(&var_id) {
@@ -785,41 +730,6 @@ impl EngineState {
         self.decls
             .get(decl_id)
             .expect("internal error: missing declaration")
-    }
-
-    pub fn get_alias(&self, alias_id: AliasId) -> &[Span] {
-        self.aliases
-            .get(alias_id)
-            .expect("internal error: missing alias")
-            .as_ref()
-    }
-
-    /// Get all aliases within scope, sorted by the alias names
-    pub fn get_aliases_sorted(
-        &self,
-        include_hidden: bool,
-    ) -> impl Iterator<Item = (Vec<u8>, DeclId)> {
-        let mut aliases_map = HashMap::new();
-
-        for overlay_frame in self.active_overlays(&[]) {
-            let new_aliases = if include_hidden {
-                overlay_frame.aliases.clone()
-            } else {
-                overlay_frame
-                    .aliases
-                    .clone()
-                    .into_iter()
-                    .filter(|(_, id)| overlay_frame.visibility.is_alias_id_visible(id))
-                    .collect()
-            };
-
-            aliases_map.extend(new_aliases);
-        }
-
-        let mut aliases: Vec<(Vec<u8>, DeclId)> = aliases_map.into_iter().collect();
-
-        aliases.sort_by(|a, b| a.0.cmp(&b.0));
-        aliases.into_iter()
     }
 
     /// Get all commands within scope, sorted by the commands' names
@@ -992,11 +902,6 @@ impl EngineState {
         build_usage(&comment_lines)
     }
 
-    pub fn build_alias_usage(&self, alias_id: AliasId) -> Option<(String, String)> {
-        self.get_alias_comments(alias_id)
-            .map(|comment_spans| self.build_usage(comment_spans))
-    }
-
     pub fn build_module_usage(&self, module_id: ModuleId) -> Option<(String, String)> {
         self.get_module_comments(module_id)
             .map(|comment_spans| self.build_usage(comment_spans))
@@ -1094,7 +999,6 @@ pub struct StateDelta {
     pub(crate) file_contents: Vec<(Vec<u8>, usize, usize)>,
     vars: Vec<Variable>,          // indexed by VarId
     decls: Vec<Box<dyn Command>>, // indexed by DeclId
-    aliases: Vec<Vec<Span>>,      // indexed by AliasId
     pub blocks: Vec<Block>,       // indexed by BlockId
     modules: Vec<Module>,         // indexed by ModuleId
     usage: Usage,
@@ -1117,7 +1021,6 @@ impl StateDelta {
             file_contents: vec![],
             vars: vec![],
             decls: vec![],
-            aliases: vec![],
             blocks: vec![],
             modules: vec![],
             scope: vec![scope_frame],
@@ -1133,10 +1036,6 @@ impl StateDelta {
 
     pub fn num_decls(&self) -> usize {
         self.decls.len()
-    }
-
-    pub fn num_aliases(&self) -> usize {
-        self.aliases.len()
     }
 
     pub fn num_blocks(&self) -> usize {
@@ -1235,10 +1134,6 @@ impl<'a> StateWorkingSet<'a> {
         self.delta.num_decls() + self.permanent_state.num_decls()
     }
 
-    pub fn num_aliases(&self) -> usize {
-        self.delta.num_aliases() + self.permanent_state.num_aliases()
-    }
-
     pub fn num_blocks(&self) -> usize {
         self.delta.num_blocks() + self.permanent_state.num_blocks()
     }
@@ -1292,15 +1187,6 @@ impl<'a> StateWorkingSet<'a> {
         for (name, decl_id) in decls {
             overlay_frame.insert_decl(name, Type::Any, decl_id);
             overlay_frame.visibility.use_decl_id(&decl_id);
-        }
-    }
-
-    pub fn use_aliases(&mut self, aliases: Vec<(Vec<u8>, AliasId)>) {
-        let overlay_frame = self.last_overlay_mut();
-
-        for (name, alias_id) in aliases {
-            overlay_frame.aliases.insert(name, alias_id);
-            overlay_frame.visibility.use_alias_id(&alias_id);
         }
     }
 
@@ -1389,106 +1275,9 @@ impl<'a> StateWorkingSet<'a> {
         None
     }
 
-    pub fn use_alias(&mut self, alias_id: &AliasId) {
-        let mut removed_overlays = vec![];
-        let mut visibility: Visibility = Visibility::new();
-
-        // Since we can mutate scope frames in delta, remove the id directly
-        for scope_frame in self.delta.scope.iter_mut().rev() {
-            for overlay_id in scope_frame
-                .active_overlay_ids(&mut removed_overlays)
-                .iter()
-                .rev()
-            {
-                let overlay_frame = scope_frame.get_overlay_mut(*overlay_id);
-
-                visibility.append(&overlay_frame.visibility);
-
-                if !visibility.is_alias_id_visible(alias_id) {
-                    // Use alias only if it's already hidden
-                    overlay_frame.visibility.use_alias_id(alias_id);
-
-                    return;
-                }
-            }
-        }
-
-        // We cannot mutate the permanent state => store the information in the current scope frame
-        // for scope in self.permanent_state.scope.iter().rev() {
-        for overlay_frame in self
-            .permanent_state
-            .active_overlays(&removed_overlays)
-            .iter()
-            .rev()
-        {
-            visibility.append(&overlay_frame.visibility);
-
-            if !visibility.is_alias_id_visible(alias_id) {
-                // Hide alias only if it's not already hidden
-                self.last_overlay_mut().visibility.use_alias_id(alias_id);
-
-                return;
-            }
-        }
-    }
-
-    pub fn hide_alias(&mut self, name: &[u8]) -> Option<AliasId> {
-        let mut removed_overlays = vec![];
-        let mut visibility: Visibility = Visibility::new();
-
-        // Since we can mutate scope frames in delta, remove the id directly
-        for scope_frame in self.delta.scope.iter_mut().rev() {
-            for overlay_id in scope_frame
-                .active_overlay_ids(&mut removed_overlays)
-                .iter()
-                .rev()
-            {
-                let overlay_frame = scope_frame.get_overlay_mut(*overlay_id);
-
-                visibility.append(&overlay_frame.visibility);
-
-                if let Some(alias_id) = overlay_frame.aliases.get(name) {
-                    if visibility.is_alias_id_visible(alias_id) {
-                        // Hide alias only if it's not already hidden
-                        overlay_frame.visibility.hide_alias_id(alias_id);
-                        return Some(*alias_id);
-                    }
-                }
-            }
-        }
-
-        // We cannot mutate the permanent state => store the information in the current scope frame
-        // for scope in self.permanent_state.scope.iter().rev() {
-        for overlay_frame in self
-            .permanent_state
-            .active_overlays(&removed_overlays)
-            .iter()
-            .rev()
-        {
-            visibility.append(&overlay_frame.visibility);
-
-            if let Some(alias_id) = overlay_frame.aliases.get(name) {
-                if visibility.is_alias_id_visible(alias_id) {
-                    // Hide alias only if it's not already hidden
-                    self.last_overlay_mut().visibility.hide_alias_id(alias_id);
-
-                    return Some(*alias_id);
-                }
-            }
-        }
-
-        None
-    }
-
     pub fn hide_decls(&mut self, decls: &[Vec<u8>]) {
         for decl in decls.iter() {
             self.hide_decl(decl); // let's assume no errors
-        }
-    }
-
-    pub fn hide_aliases(&mut self, aliases: &[Vec<u8>]) {
-        for alias in aliases.iter() {
-            self.hide_alias(alias); // let's assume no errors
         }
     }
 
@@ -1675,44 +1464,6 @@ impl<'a> StateWorkingSet<'a> {
         None
     }
 
-    pub fn find_alias(&self, name: &[u8]) -> Option<AliasId> {
-        let mut removed_overlays = vec![];
-        let mut visibility: Visibility = Visibility::new();
-
-        for scope_frame in self.delta.scope.iter().rev() {
-            for overlay_frame in scope_frame
-                .active_overlays(&mut removed_overlays)
-                .iter()
-                .rev()
-            {
-                visibility.append(&overlay_frame.visibility);
-
-                if let Some(alias_id) = overlay_frame.aliases.get(name) {
-                    if visibility.is_alias_id_visible(alias_id) {
-                        return Some(*alias_id);
-                    }
-                }
-            }
-        }
-
-        for overlay_frame in self
-            .permanent_state
-            .active_overlays(&removed_overlays)
-            .iter()
-            .rev()
-        {
-            visibility.append(&overlay_frame.visibility);
-
-            if let Some(alias_id) = overlay_frame.aliases.get(name) {
-                if visibility.is_alias_id_visible(alias_id) {
-                    return Some(*alias_id);
-                }
-            }
-        }
-
-        None
-    }
-
     pub fn find_module(&self, name: &[u8]) -> Option<ModuleId> {
         let mut removed_overlays = vec![];
 
@@ -1848,20 +1599,6 @@ impl<'a> StateWorkingSet<'a> {
         next_id
     }
 
-    pub fn add_alias(&mut self, name: Vec<u8>, replacement: Vec<Span>, comments: Vec<Span>) {
-        self.delta.aliases.push(replacement);
-        let alias_id = self.num_aliases() - 1;
-
-        if !comments.is_empty() {
-            self.delta.usage.add_alias_comments(alias_id, comments);
-        }
-
-        let last = self.last_overlay_mut();
-
-        last.aliases.insert(name, alias_id);
-        last.visibility.use_alias_id(&alias_id);
-    }
-
     pub fn get_cwd(&self) -> String {
         let pwd = self
             .permanent_state
@@ -1966,19 +1703,6 @@ impl<'a> StateWorkingSet<'a> {
         }
     }
 
-    pub fn get_alias(&self, alias_id: AliasId) -> &[Span] {
-        let num_permanent_aliases = self.permanent_state.num_aliases();
-        if alias_id < num_permanent_aliases {
-            self.permanent_state.get_alias(alias_id)
-        } else {
-            self.delta
-                .aliases
-                .get(alias_id - num_permanent_aliases)
-                .expect("internal error: missing alias")
-                .as_ref()
-        }
-    }
-
     pub fn find_commands_by_predicate(
         &self,
         predicate: impl Fn(&[u8]) -> bool,
@@ -2000,31 +1724,6 @@ impl<'a> StateWorkingSet<'a> {
         }
 
         let mut permanent = self.permanent_state.find_commands_by_predicate(predicate);
-
-        output.append(&mut permanent);
-
-        output
-    }
-
-    pub fn find_aliases_by_predicate(
-        &self,
-        predicate: impl Fn(&[u8]) -> bool + Copy,
-    ) -> Vec<Vec<u8>> {
-        let mut output = vec![];
-
-        for scope_frame in self.delta.scope.iter().rev() {
-            for overlay_id in scope_frame.active_overlays.iter().rev() {
-                let overlay_frame = scope_frame.get_overlay(*overlay_id);
-
-                for alias in &overlay_frame.aliases {
-                    if overlay_frame.visibility.is_alias_id_visible(alias.1) && predicate(alias.0) {
-                        output.push(alias.0.clone());
-                    }
-                }
-            }
-        }
-
-        let mut permanent = self.permanent_state.find_aliases_by_predicate(predicate);
 
         output.append(&mut permanent);
 
@@ -2134,7 +1833,7 @@ impl<'a> StateWorkingSet<'a> {
             let name = self.last_overlay_name().to_vec();
             let origin = overlay_frame.origin;
             let prefixed = overlay_frame.prefixed;
-            self.add_overlay(name, origin, vec![], vec![], prefixed);
+            self.add_overlay(name, origin, vec![], prefixed);
         }
 
         self.delta
@@ -2167,37 +1866,11 @@ impl<'a> StateWorkingSet<'a> {
         result
     }
 
-    /// Collect all aliases that belong to an overlay
-    pub fn aliases_of_overlay(&self, name: &[u8]) -> HashMap<Vec<u8>, DeclId> {
-        let mut result = HashMap::new();
-
-        if let Some(overlay_id) = self.permanent_state.find_overlay(name) {
-            let overlay_frame = self.permanent_state.get_overlay(overlay_id);
-
-            for (alias_name, alias_id) in &overlay_frame.aliases {
-                result.insert(alias_name.to_owned(), *alias_id);
-            }
-        }
-
-        for scope_frame in self.delta.scope.iter() {
-            if let Some(overlay_id) = scope_frame.find_overlay(name) {
-                let overlay_frame = scope_frame.get_overlay(overlay_id);
-
-                for (alias_name, alias_id) in &overlay_frame.aliases {
-                    result.insert(alias_name.to_owned(), *alias_id);
-                }
-            }
-        }
-
-        result
-    }
-
     pub fn add_overlay(
         &mut self,
         name: Vec<u8>,
         origin: ModuleId,
         decls: Vec<(Vec<u8>, DeclId)>,
-        aliases: Vec<(Vec<u8>, AliasId)>,
         prefixed: bool,
     ) {
         let last_scope_frame = self.delta.last_scope_frame_mut();
@@ -2225,7 +1898,6 @@ impl<'a> StateWorkingSet<'a> {
         self.move_predecls_to_overlay();
 
         self.use_decls(decls);
-        self.use_aliases(aliases);
     }
 
     pub fn remove_overlay(&mut self, name: &[u8], keep_custom: bool) {
@@ -2255,14 +1927,7 @@ impl<'a> StateWorkingSet<'a> {
                     .filter(|(n, _)| !origin_module.has_decl(n))
                     .collect();
 
-                let aliases = self
-                    .aliases_of_overlay(name)
-                    .into_iter()
-                    .filter(|(n, _)| !origin_module.has_alias(n))
-                    .collect();
-
                 self.use_decls(decls);
-                self.use_aliases(aliases);
             }
         }
     }

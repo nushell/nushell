@@ -290,7 +290,7 @@ fn format_record(
                 }
             }
             FormatOperation::ValueNeedEval(_col_name, span) => {
-                let exp = parse_expression(working_set, &[*span], &[], false);
+                let exp = parse_expression(working_set, &[*span], false);
                 match working_set.parse_errors.first() {
                     None => {
                         let parsed_result = eval_expression(engine_state, stack, &exp);
