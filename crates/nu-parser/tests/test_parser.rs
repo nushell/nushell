@@ -1723,7 +1723,7 @@ mod input_types {
         let mut working_set = StateWorkingSet::new(&engine_state);
         let input = r#"ls | group-by name"#;
 
-        let block = parse(&mut working_set, None, input.as_bytes(), true, &[]);
+        let block = parse(&mut working_set, None, input.as_bytes(), true);
 
         assert!(working_set.parse_errors.is_empty());
         assert_eq!(block.len(), 1);
@@ -1768,7 +1768,7 @@ mod input_types {
         let (block, delta) = {
             let mut working_set = StateWorkingSet::new(&engine_state);
             let input = r#"ls | to-custom | group-by name other | agg ("b" | min)"#;
-            let block = parse(&mut working_set, None, input.as_bytes(), true, &[]);
+            let block = parse(&mut working_set, None, input.as_bytes(), true);
 
             (block, working_set.render())
         };
@@ -1829,7 +1829,7 @@ mod input_types {
         let mut working_set = StateWorkingSet::new(&engine_state);
         let input = r#"[[a b]; [1 2] [3 4]] | to-custom | with-column [ ("a" | min) ("b" | min) ] | collect"#;
 
-        let block = parse(&mut working_set, None, input.as_bytes(), true, &[]);
+        let block = parse(&mut working_set, None, input.as_bytes(), true);
 
         assert!(working_set.parse_errors.is_empty());
         assert_eq!(block.len(), 1);
@@ -1883,7 +1883,7 @@ mod input_types {
         ];
 
         for input in inputs {
-            let block = parse(&mut working_set, None, input.as_bytes(), true, &[]);
+            let block = parse(&mut working_set, None, input.as_bytes(), true);
 
             assert!(working_set.parse_errors.is_empty());
             assert_eq!(block.len(), 2, "testing: {input}");
@@ -1901,7 +1901,6 @@ mod input_types {
             None,
             b"if false { 'a' } else { $foo }",
             true,
-            &[],
         );
 
         assert!(matches!(
@@ -1921,7 +1920,6 @@ mod input_types {
             None,
             b"if false { 'a' } else $foo { 'b' }",
             true,
-            &[],
         );
 
         assert!(matches!(
