@@ -110,7 +110,7 @@ pub fn check(engine_state: &mut EngineState, file_path: &String) {
                     "{}",
                     json!({
                         "type": "hint",
-                        "typename": var.ty,
+                        "typename": var.ty.to_string(),
                         "position": {
                             "start": flat.0.start - offset,
                             "end": flat.0.end - offset
