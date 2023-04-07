@@ -40,7 +40,7 @@ fn load_prelude(working_set: &mut StateWorkingSet, prelude: Vec<(&str, &str)>, m
     working_set.use_decls(decls);
 }
 
-fn load_standard_library(
+pub fn load_standard_library(
     engine_state: &mut nu_protocol::engine::EngineState,
 ) -> Result<(), miette::ErrReport> {
     let delta = {
