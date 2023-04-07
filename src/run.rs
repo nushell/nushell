@@ -6,9 +6,8 @@ use crate::{
 };
 #[cfg(feature = "plugin")]
 use nu_cli::read_plugin_file;
-use nu_cli::{evaluate_commands, evaluate_file, evaluate_repl, report_error};
-use nu_parser::{parse, parse_module_block};
-use nu_protocol::{engine::StateWorkingSet, Module, PipelineData, ShellError, Span};
+use nu_cli::{evaluate_commands, evaluate_file, evaluate_repl};
+use nu_protocol::PipelineData;
 use nu_utils::utils::perf;
 use nu_std::load_standard_library;
 
