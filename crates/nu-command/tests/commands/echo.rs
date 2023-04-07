@@ -1,13 +1,11 @@
-use nu_test_support::{nu, pipeline};
+use nu_test_support::nu;
 
 #[test]
 fn echo_range_is_lazy() {
     let actual = nu!(
-        cwd: "tests/fixtures/formats", pipeline(
-        r#"
-        echo 1..10000000000 | first 3 | to json --raw
-        "#
-    ));
+        cwd: "tests/fixtures/formats",
+        " echo 1..10000000000 | first 3 | to json --raw "
+    );
 
     assert_eq!(actual.out, "[1,2,3]");
 }
@@ -15,11 +13,9 @@ fn echo_range_is_lazy() {
 #[test]
 fn echo_range_handles_inclusive() {
     let actual = nu!(
-        cwd: "tests/fixtures/formats", pipeline(
-        r#"
-        echo 1..3 | each { |x| $x } | to json --raw
-        "#
-    ));
+        cwd: "tests/fixtures/formats",
+        " echo 1..3 | each { |x| $x } | to json --raw "
+    );
 
     assert_eq!(actual.out, "[1,2,3]");
 }
@@ -27,11 +23,9 @@ fn echo_range_handles_inclusive() {
 #[test]
 fn echo_range_handles_exclusive() {
     let actual = nu!(
-        cwd: "tests/fixtures/formats", pipeline(
-        r#"
-        echo 1..<3 | each { |x| $x } | to json --raw
-        "#
-    ));
+        cwd: "tests/fixtures/formats",
+        " echo 1..<3 | each { |x| $x } | to json --raw "
+    );
 
     assert_eq!(actual.out, "[1,2]");
 }
@@ -39,11 +33,9 @@ fn echo_range_handles_exclusive() {
 #[test]
 fn echo_range_handles_inclusive_down() {
     let actual = nu!(
-        cwd: "tests/fixtures/formats", pipeline(
-        r#"
-        echo 3..1 | each { |it| $it } | to json --raw
-        "#
-    ));
+        cwd: "tests/fixtures/formats",
+        " echo 3..1 | each { |it| $it } | to json --raw "
+    );
 
     assert_eq!(actual.out, "[3,2,1]");
 }
@@ -51,11 +43,9 @@ fn echo_range_handles_inclusive_down() {
 #[test]
 fn echo_range_handles_exclusive_down() {
     let actual = nu!(
-        cwd: "tests/fixtures/formats", pipeline(
-        r#"
-        echo 3..<1 | each { |it| $it } | to json --raw
-        "#
-    ));
+        cwd: "tests/fixtures/formats",
+        " echo 3..<1 | each { |it| $it } | to json --raw "
+    );
 
     assert_eq!(actual.out, "[3,2]");
 }

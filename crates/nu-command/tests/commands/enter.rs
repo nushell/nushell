@@ -28,7 +28,7 @@ fn knows_the_filesystems_entered() {
 
         nu!(
             cwd: dirs.test(),
-            r#"
+            "
                 enter expected
                 mkdir recycled
                 enter ../red_pill
@@ -47,7 +47,7 @@ fn knows_the_filesystems_entered() {
                 n
                 rm blue_pill --recursive
                 exit
-            "#
+            "
         );
 
         assert!(!red_pill_dir.exists());
