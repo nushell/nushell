@@ -20,7 +20,7 @@ fn string_in_string() -> TestResult {
 
 #[test]
 fn non_string_in_string() -> TestResult {
-    fail_test(r#"42 in 'abc'"#, "mismatched for operation")
+    fail_test(r#"42 in 'abc'"#, "is not supported")
 }
 
 #[test]
