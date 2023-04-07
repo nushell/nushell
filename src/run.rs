@@ -12,7 +12,7 @@ use nu_protocol::{engine::StateWorkingSet, Module, PipelineData, ShellError, Spa
 use nu_utils::utils::perf;
 
 fn get_standard_library() -> &'static str {
-    include_str!("../crates/standard_library/std.nu")
+    include_str!("../crates/nu-std/std.nu")
 }
 
 fn load_prelude(working_set: &mut StateWorkingSet, prelude: Vec<(&str, &str)>, module: &Module) {
