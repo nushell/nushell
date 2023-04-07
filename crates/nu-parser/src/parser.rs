@@ -4646,6 +4646,8 @@ pub fn parse_value(
     shape: &SyntaxShape,
     expand_aliases_denylist: &[usize],
 ) -> Expression {
+    trace!("parsing: value: {}", shape);
+
     let bytes = working_set.get_span_contents(span);
 
     if bytes.is_empty() {
@@ -4818,7 +4820,7 @@ pub fn parse_value(
                     if starting_error_count == working_set.parse_errors.len() {
                         return s;
                     } else {
-                        match working_set.parse_errors.first() {
+                        match working_set.parse_errors.get(starting_error_count) {
                             Some(ParseError::Expected(_, _)) => {
                                 working_set.parse_errors.truncate(starting_error_count);
                                 continue;
