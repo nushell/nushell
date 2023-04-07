@@ -22,7 +22,7 @@ fn find_id(
     location: &Value,
 ) -> Option<(Id, usize, Span)> {
     let offset = working_set.next_span_start();
-    let (block, _) = parse(working_set, Some(file_path), file, false, &[]);
+    let block = parse(working_set, Some(file_path), file, false, &[]);
 
     let flattened = flatten_block(working_set, &block);
 
@@ -78,9 +78,9 @@ pub fn check(engine_state: &mut EngineState, file_path: &String) {
 
     if let Ok(contents) = file {
         let offset = working_set.next_span_start();
-        let (block, err) = parse(&mut working_set, Some(file_path), &contents, false, &[]);
+        let block = parse(&mut working_set, Some(file_path), &contents, false, &[]);
 
-        if let Some(err) = err {
+        for err in &working_set.parse_errors {
             let mut span = err.span();
             span.start -= offset;
             span.end -= offset;

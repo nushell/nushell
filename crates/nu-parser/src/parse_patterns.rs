@@ -1,13 +1,13 @@
 use nu_protocol::{
     ast::{Expr, Expression, MatchPattern, Pattern},
     engine::StateWorkingSet,
-    Span, SyntaxShape, Type, VarId,
+    ParseError, Span, SyntaxShape, Type, VarId,
 };
 
 use crate::{
     lex, lite_parse,
     parser::{is_variable, parse_value},
-    LiteElement, ParseError,
+    LiteElement,
 };
 
 pub fn garbage(span: Span) -> MatchPattern {
@@ -17,29 +17,20 @@ pub fn garbage(span: Span) -> MatchPattern {
     }
 }
 
-pub fn parse_match_pattern(
-    working_set: &mut StateWorkingSet,
-    span: Span,
-) -> (Expression, Option<ParseError>) {
+pub fn parse_match_pattern(working_set: &mut StateWorkingSet, span: Span) -> Expression {
     working_set.enter_scope();
-    let (output, err) = parse_pattern(working_set, span);
+    let output = parse_pattern(working_set, span);
     working_set.exit_scope();
 
-    (
-        Expression {
-            expr: Expr::MatchPattern(Box::new(output)),
-            span,
-            ty: Type::Any,
-            custom_completion: None,
-        },
-        err,
-    )
+    Expression {
+        expr: Expr::MatchPattern(Box::new(output)),
+        span,
+        ty: Type::Any,
+        custom_completion: None,
+    }
 }
 
-pub fn parse_pattern(
-    working_set: &mut StateWorkingSet,
-    span: Span,
-) -> (MatchPattern, Option<ParseError>) {
+pub fn parse_pattern(working_set: &mut StateWorkingSet, span: Span) -> MatchPattern {
     let bytes = working_set.get_span_contents(span);
 
     if bytes.starts_with(b"$") {
@@ -52,23 +43,18 @@ pub fn parse_pattern(
         // List pattern
         parse_list_pattern(working_set, span)
     } else if bytes == b"_" {
-        (
-            MatchPattern {
-                pattern: Pattern::IgnoreValue,
-                span,
-            },
-            None,
-        )
+        MatchPattern {
+            pattern: Pattern::IgnoreValue,
+            span,
+        }
     } else {
         // Literal value
-        let (value, error) = parse_value(working_set, span, &SyntaxShape::Any, &[]);
-        (
-            MatchPattern {
-                pattern: Pattern::Value(value),
-                span,
-            },
-            error,
-        )
+        let value = parse_value(working_set, span, &SyntaxShape::Any, &[]);
+
+        MatchPattern {
+            pattern: Pattern::Value(value),
+            span,
+        }
     }
 }
 
@@ -88,33 +74,20 @@ fn parse_variable_pattern_helper(working_set: &mut StateWorkingSet, span: Span) 
     }
 }
 
-pub fn parse_variable_pattern(
-    working_set: &mut StateWorkingSet,
-    span: Span,
-) -> (MatchPattern, Option<ParseError>) {
+pub fn parse_variable_pattern(working_set: &mut StateWorkingSet, span: Span) -> MatchPattern {
     if let Some(var_id) = parse_variable_pattern_helper(working_set, span) {
-        (
-            MatchPattern {
-                pattern: Pattern::Variable(var_id),
-                span,
-            },
-            None,
-        )
+        MatchPattern {
+            pattern: Pattern::Variable(var_id),
+            span,
+        }
     } else {
-        (
-            garbage(span),
-            Some(ParseError::Expected("valid variable name".into(), span)),
-        )
+        working_set.error(ParseError::Expected("valid variable name".into(), span));
+        garbage(span)
     }
 }
 
-pub fn parse_list_pattern(
-    working_set: &mut StateWorkingSet,
-    span: Span,
-) -> (MatchPattern, Option<ParseError>) {
+pub fn parse_list_pattern(working_set: &mut StateWorkingSet, span: Span) -> MatchPattern {
     let bytes = working_set.get_span_contents(span);
-
-    let mut error = None;
 
     let mut start = span.start;
     let mut end = span.end;
@@ -125,17 +98,21 @@ pub fn parse_list_pattern(
     if bytes.ends_with(b"]") {
         end -= 1;
     } else {
-        error = error.or_else(|| Some(ParseError::Unclosed("]".into(), Span::new(end, end))));
+        working_set.error(ParseError::Unclosed("]".into(), Span::new(end, end)));
     }
 
     let inner_span = Span::new(start, end);
     let source = working_set.get_span_contents(inner_span);
 
     let (output, err) = lex(source, inner_span.start, &[b'\n', b'\r', b','], &[], true);
-    error = error.or(err);
+    if let Some(err) = err {
+        working_set.error(err);
+    }
 
     let (output, err) = lite_parse(&output);
-    error = error.or(err);
+    if let Some(err) = err {
+        working_set.error(err);
+    }
 
     let mut args = vec![];
 
@@ -167,14 +144,13 @@ pub fn parse_list_pattern(
                             break;
                         } else {
                             args.push(garbage(command.parts[spans_idx]));
-                            error = error.or(Some(ParseError::Expected(
+                            working_set.error(ParseError::Expected(
                                 "valid variable name".into(),
                                 command.parts[spans_idx],
-                            )));
+                            ));
                         }
                     } else {
-                        let (arg, err) = parse_pattern(working_set, command.parts[spans_idx]);
-                        error = error.or(err);
+                        let arg = parse_pattern(working_set, command.parts[spans_idx]);
 
                         args.push(arg);
                     };
@@ -185,47 +161,41 @@ pub fn parse_list_pattern(
         }
     }
 
-    (
-        MatchPattern {
-            pattern: Pattern::List(args),
-            span,
-        },
-        error,
-    )
+    MatchPattern {
+        pattern: Pattern::List(args),
+        span,
+    }
 }
 
-pub fn parse_record_pattern(
-    working_set: &mut StateWorkingSet,
-    span: Span,
-) -> (MatchPattern, Option<ParseError>) {
-    let bytes = working_set.get_span_contents(span);
+pub fn parse_record_pattern(working_set: &mut StateWorkingSet, span: Span) -> MatchPattern {
+    let mut bytes = working_set.get_span_contents(span);
 
-    let mut error = None;
     let mut start = span.start;
     let mut end = span.end;
 
     if bytes.starts_with(b"{") {
         start += 1;
     } else {
-        error = error.or_else(|| {
-            Some(ParseError::Expected(
-                "{".into(),
-                Span::new(start, start + 1),
-            ))
-        });
+        working_set.error(ParseError::Expected(
+            "{".into(),
+            Span::new(start, start + 1),
+        ));
+        bytes = working_set.get_span_contents(span);
     }
 
     if bytes.ends_with(b"}") {
         end -= 1;
     } else {
-        error = error.or_else(|| Some(ParseError::Unclosed("}".into(), Span::new(end, end))));
+        working_set.error(ParseError::Unclosed("}".into(), Span::new(end, end)));
     }
 
     let inner_span = Span::new(start, end);
     let source = working_set.get_span_contents(inner_span);
 
     let (tokens, err) = lex(source, start, &[b'\n', b'\r', b','], &[b':'], true);
-    error = error.or(err);
+    if let Some(err) = err {
+        working_set.error(err);
+    }
 
     let mut output = vec![];
     let mut idx = 0;
@@ -236,8 +206,7 @@ pub fn parse_record_pattern(
             // If this is a variable, treat it as both the name of the field and the pattern
             let field = String::from_utf8_lossy(&bytes[1..]).to_string();
 
-            let (pattern, err) = parse_variable_pattern(working_set, tokens[idx].span);
-            error = error.or(err);
+            let pattern = parse_variable_pattern(working_set, tokens[idx].span);
 
             (field, pattern)
         } else {
@@ -245,22 +214,17 @@ pub fn parse_record_pattern(
 
             idx += 1;
             if idx == tokens.len() {
-                return (
-                    garbage(span),
-                    Some(ParseError::Expected("record".into(), span)),
-                );
+                working_set.error(ParseError::Expected("record".into(), span));
+                return garbage(span);
             }
             let colon = working_set.get_span_contents(tokens[idx].span);
             idx += 1;
             if idx == tokens.len() || colon != b":" {
                 //FIXME: need better error
-                return (
-                    garbage(span),
-                    Some(ParseError::Expected("record".into(), span)),
-                );
+                working_set.error(ParseError::Expected("record".into(), span));
+                return garbage(span);
             }
-            let (pattern, err) = parse_pattern(working_set, tokens[idx].span);
-            error = error.or(err);
+            let pattern = parse_pattern(working_set, tokens[idx].span);
 
             (field, pattern)
         };
@@ -269,11 +233,8 @@ pub fn parse_record_pattern(
         output.push((field, pattern));
     }
 
-    (
-        MatchPattern {
-            pattern: Pattern::Record(output),
-            span,
-        },
-        error,
-    )
+    MatchPattern {
+        pattern: Pattern::Record(output),
+        span,
+    }
 }

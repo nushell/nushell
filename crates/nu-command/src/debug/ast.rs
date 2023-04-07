@@ -41,8 +41,10 @@ impl Command for Ast {
         let pipeline: Spanned<String> = call.req(engine_state, stack, 0)?;
         let mut working_set = StateWorkingSet::new(engine_state);
 
-        let (block_output, error_output) =
-            parse(&mut working_set, None, pipeline.item.as_bytes(), false, &[]);
+        let block_output = parse(&mut working_set, None, pipeline.item.as_bytes(), false, &[]);
+
+        let error_output = working_set.parse_errors.first();
+
         let block_value = Value::String {
             val: format!("{block_output:#?}"),
             span: pipeline.span,

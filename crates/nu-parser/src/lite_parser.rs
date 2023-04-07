@@ -1,8 +1,8 @@
 /// Lite parsing converts a flat stream of tokens from the lexer to a syntax element structure that
 /// can be parsed.
-use crate::{ParseError, Token, TokenContents};
+use crate::{Token, TokenContents};
 
-use nu_protocol::{ast::Redirection, Span};
+use nu_protocol::{ast::Redirection, ParseError, Span};
 
 #[derive(Debug)]
 pub struct LiteCommand {
