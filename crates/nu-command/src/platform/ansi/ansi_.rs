@@ -533,7 +533,7 @@ impl Command for AnsiCommand {
 
     fn extra_usage(&self) -> &str {
         "An introduction to what ANSI escape sequences are can be found in the
-[*ANSI escape code*](https://en.wikipedia.org/wiki/ANSI_escape_code) Wikipedia page.
+\u{1b}]8;;https://en.wikipedia.org/wiki/ANSI_escape_code\u{1b}\\ANSI escape code\u{1b}]8;;\u{1b}\\ Wikipedia page.
 
 Escape sequences usual values:
 ╭────┬────────────┬────────┬────────┬─────────╮
