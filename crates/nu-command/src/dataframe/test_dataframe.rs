@@ -50,13 +50,7 @@ pub fn test_dataframe(cmds: Vec<Box<dyn Command + 'static>>) {
 
         let (block, delta) = {
             let mut working_set = StateWorkingSet::new(&engine_state);
-            let output = parse(
-                &mut working_set,
-                None,
-                example.example.as_bytes(),
-                false,
-                &[],
-            );
+            let output = parse(&mut working_set, None, example.example.as_bytes(), false);
 
             if let Some(err) = working_set.parse_errors.first() {
                 panic!("test parse error in `{}`: {:?}", example.example, err)
